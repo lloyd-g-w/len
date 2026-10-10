@@ -2,15 +2,18 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/blob_backend.dart';
 import 'package:len/data/blob_store.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/sync/sync_api.dart';
 
 /// Fake blob endpoints plus an accept-everything push/pull.
@@ -59,36 +62,56 @@ void main() {
   setUp(() => dir = Directory.systemTemp.createTempSync('len_blob_test_'));
   tearDown(() => dir.deleteSync(recursive: true));
 
-  test('blob store is content addressed and idempotent', () async {
-    final store = BlobStore(AppDatabase.inMemory(), dir);
-    final bytes = Uint8List.fromList(utf8.encode('%PDF-1.4 hello'));
-    final sha = await store.putBytes(bytes, mime: 'application/pdf');
+  for (final (name, backend) in <(String, BlobBackend Function())>[
+    ('files', () => FileBlobBackend(dir.path)),
+    ('memory', MemoryBlobBackend.new),
+  ]) {
+    test('blob store is content addressed and idempotent ($name)', () async {
+      final store = BlobStore(AppDatabase.inMemory(), backend());
+      final bytes = Uint8List.fromList(utf8.encode('%PDF-1.4 hello'));
+      final sha = await store.putBytes(bytes, mime: 'application/pdf');
+      expect(sha, sha256.convert(bytes).toString());
+      expect(await store.has(sha), isTrue);
+      expect(await store.read(sha), bytes);
+      expect(await collectBytes(store.openRead(sha)), bytes);
+      expect(store.sizeOf(sha), bytes.length);
+      expect(await store.putBytes(bytes, mime: 'application/pdf'), sha);
+      expect(store.pendingUploads(), [sha]);
+
+      expect(await store.putFile(XFile.fromData(bytes), mime: 'application/pdf'), sha);
+      expect(
+        await BlobStore.hashStream(Stream.fromIterable([bytes.sublist(0, 3), bytes.sublist(3)])),
+        sha,
+      );
+
+      store.markUploaded(sha);
+      expect(store.pendingUploads(), isEmpty);
+      store.markAllNotUploaded();
+      expect(store.pendingUploads(), [sha]);
+      expect(await store.has('../../etc/passwd'), isFalse);
+      expect(() => store.localPath('../../etc/passwd'), throwsArgumentError);
+    });
+  }
+
+  test('file backend: blobs are files, picked files are streamed in', () async {
+    final store = BlobStore(AppDatabase.inMemory(), FileBlobBackend(dir.path));
+    final bytes = Uint8List.fromList(List.generate(200000, (i) => i % 251));
+    final source = File('${dir.path}/in.pdf')..writeAsBytesSync(bytes);
+    final sha = await store.putFile(XFile(source.path), mime: 'application/pdf');
     expect(sha, sha256.convert(bytes).toString());
-    expect(store.has(sha), isTrue);
-    expect(await store.read(sha), bytes);
-    expect(store.fileOf(sha).path, endsWith('${sha.substring(0, 2)}/$sha'));
-    expect(await store.putBytes(bytes, mime: 'application/pdf'), sha);
-    expect(store.pendingUploads(), [sha]);
-
-    final file = File('${dir.path}/in.pdf')..writeAsBytesSync(bytes);
-    expect(await store.putFile(file, mime: 'application/pdf'), sha);
-    expect(await BlobStore.hashFile(file), sha);
-
-    store.markUploaded(sha);
-    expect(store.pendingUploads(), isEmpty);
-    store.markAllNotUploaded();
-    expect(store.pendingUploads(), [sha]);
-    expect(() => store.fileOf('../../etc/passwd'), throwsArgumentError);
+    expect(store.localPath(sha), endsWith('${sha.substring(0, 2)}/$sha'));
+    expect(File(store.localPath(sha)!).readAsBytesSync(), bytes);
+    expect(dir.listSync(recursive: true).where((f) => f.path.endsWith('.tmp')), isEmpty);
   });
 
   test('downloaded blobs are verified', () async {
-    final store = BlobStore(AppDatabase.inMemory(), dir);
+    final store = BlobStore(AppDatabase.inMemory(), MemoryBlobBackend());
     final bytes = Uint8List.fromList([1, 2, 3]);
     final sha = sha256.convert(bytes).toString();
     await expectLater(store.putDownloaded(sha, Uint8List.fromList([9])), throwsFormatException);
-    expect(store.has(sha), isFalse);
+    expect(await store.has(sha), isFalse);
     await store.putDownloaded(sha, bytes);
-    expect(store.has(sha), isTrue);
+    expect(await store.has(sha), isTrue);
     expect(store.pendingUploads(), isEmpty); // The server has it.
   });
 
@@ -96,10 +119,12 @@ void main() {
     final server = FakeBlobServer();
     SyncApi api(String url, String token) =>
         SyncApi(baseUrl: url, token: token, client: server.client);
-    final a = AppServices.create(AppDatabase.inMemory(), blobDirectory: dir, syncApiFactory: api);
-    final bDir = Directory.systemTemp.createTempSync('len_blob_b_');
-    addTearDown(() => bDir.deleteSync(recursive: true));
-    final b = AppServices.create(AppDatabase.inMemory(), blobDirectory: bDir, syncApiFactory: api);
+    final a = AppServices.create(
+      AppDatabase.inMemory(),
+      blobBackend: FileBlobBackend(dir.path),
+      syncApiFactory: api,
+    );
+    final b = AppServices.create(AppDatabase.inMemory(), syncApiFactory: api);
     for (final s in [a, b]) {
       s.sync.configure(url: 'http://sync.test', token: FakeBlobServer.token);
     }
@@ -115,6 +140,7 @@ void main() {
     await a.sync.syncNow();
     expect(a.sync.lastError, isNull);
     expect(server.log.take(3), ['HEAD $sha', 'PUT $sha', 'push']);
+    expect(server.blobs[sha], bytes);
     expect(a.blobs.pendingUploads(), isEmpty);
 
     // Already uploaded: nothing is sent again.
@@ -122,7 +148,7 @@ void main() {
     await a.sync.syncNow();
     expect(server.log.where((l) => l.contains(sha)), isEmpty);
 
-    expect(b.blobs.has(sha), isFalse);
+    expect(await b.blobs.has(sha), isFalse);
     expect(await b.sync.fetchBlob(sha), isTrue);
     expect(await b.blobs.read(sha), bytes);
     expect(await b.sync.fetchBlob('0' * 64), isFalse); // Not on the server.

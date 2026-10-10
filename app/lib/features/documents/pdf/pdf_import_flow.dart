@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 
 import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
@@ -26,7 +23,7 @@ Future<Notebook?> importPdfFlow(BuildContext context) async {
   try {
     return await runWithSteps(context, 'Importing PDF', subject: file.name, (progress) async {
       progress.stageStarted('Copying file…');
-      final sha = await _store(importer, file);
+      final sha = await importer.store(file);
       progress.stageStarted('Reading pages…');
       return importer.createNotebook(
         sha,
@@ -57,7 +54,7 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
   try {
     return await runWithSteps(context, 'Inserting pages', subject: file.name, (progress) async {
       progress.stageStarted('Copying file…');
-      final sha = await _store(importer, file);
+      final sha = await importer.store(file);
       progress.stageStarted('Reading pages…');
       return importer.insertPages(
         sha,
@@ -71,20 +68,6 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
     return null;
   } finally {
     await importer.dispose();
-  }
-}
-
-/// Copies the picked file into the blob store. Desktop pickers return real
-/// paths; Android may hand out content that is only readable as bytes.
-Future<String> _store(PdfImporter importer, XFile file) async {
-  final path = file.path;
-  if (path.isNotEmpty && File(path).existsSync()) return importer.store(File(path));
-  final temp = File(p.join(Directory.systemTemp.path, 'len_import_${file.name}'));
-  await temp.writeAsBytes(await file.readAsBytes(), flush: true);
-  try {
-    return await importer.store(temp);
-  } finally {
-    await temp.delete();
   }
 }
 

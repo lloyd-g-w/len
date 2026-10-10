@@ -1,4 +1,6 @@
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
+
+import '../platform/sqlite_connection.dart';
 
 /// Owns the SQLite connection and applies schema migrations.
 ///
@@ -10,19 +12,32 @@ import 'package:sqlite3/sqlite3.dart';
 class AppDatabase {
   AppDatabase._(this.db, {this.path});
 
-  /// Opens (creating if needed) the database file at [path].
-  factory AppDatabase.open(String path) => AppDatabase._(sqlite3.open(path), path: path)
-    .._configure()
-    .._migrate();
+  /// Wraps an open connection to the file at [path] (null: in memory or
+  /// in a browser), configuring it and applying migrations.
+  factory AppDatabase.fromConnection(CommonDatabase db, {String? path}) =>
+      AppDatabase._(db, path: path)
+        .._configure()
+        .._migrate();
+
+  /// Opens (creating if needed) the database file at [path]. Native only.
+  factory AppDatabase.open(String path) =>
+      AppDatabase.fromConnection(openSqliteFile(path), path: path);
+
+  /// Opens the app's own database `len.db` in [directory] — on the web it
+  /// lives in IndexedDB instead and [directory] is ignored.
+  static Future<AppDatabase> openDefault(String directory) async => AppDatabase.fromConnection(
+    await openSqlite(name: _defaultName, directory: directory),
+    path: sqliteFilePath(name: _defaultName, directory: directory),
+  );
+
+  static const _defaultName = 'len.db';
 
   /// An in-memory database, for tests.
-  factory AppDatabase.inMemory() => AppDatabase._(sqlite3.openInMemory())
-    .._configure()
-    .._migrate();
+  factory AppDatabase.inMemory() => AppDatabase.fromConnection(openSqliteInMemory());
 
-  final Database db;
+  final CommonDatabase db;
 
-  /// The database file, or null for an in-memory database.
+  /// The database file, or null for an in-memory (or browser) database.
   final String? path;
 
   /// Runs [action] inside a transaction, rolling back if it throws.
@@ -45,7 +60,7 @@ class AppDatabase {
   void close() => db.close();
 
   void _configure() {
-    db.execute('PRAGMA journal_mode = WAL');
+    if (sqliteSupportsWal) db.execute('PRAGMA journal_mode = WAL');
     db.execute('PRAGMA foreign_keys = OFF');
     db.execute('PRAGMA synchronous = NORMAL');
   }
@@ -66,7 +81,7 @@ class AppDatabase {
 
   /// Ordered list of schema migrations; index i migrates from version i.
   /// Never edit an existing entry — append a new one instead.
-  static final List<void Function(Database)> _migrations = [
+  static final List<void Function(CommonDatabase)> _migrations = [
     _createInitialSchema,
     _indexDirtyStrokesById,
     _addStrokeStyle,
@@ -79,7 +94,7 @@ class AppDatabase {
   /// Surface elements (text boxes; later images) and their sparse chunk
   /// index, mirroring `strokes` / `stroke_chunks`. Idempotent, so it is safe
   /// however migrations from parallel branches end up ordered.
-  static void _createElements(Database db) {
+  static void _createElements(CommonDatabase db) {
     db.execute('''
       CREATE TABLE IF NOT EXISTS elements (
         id          TEXT PRIMARY KEY NOT NULL,
@@ -115,7 +130,7 @@ class AppDatabase {
 
   /// Background colour of infinite canvases. Idempotent (parallel branches
   /// may order migrations differently).
-  static void _addNotebookPaperColor(Database db) {
+  static void _addNotebookPaperColor(CommonDatabase db) {
     final columns = db.select('PRAGMA table_info(notebooks)').map((r) => r['name']).toSet();
     if (!columns.contains('paper_color')) {
       db.execute("ALTER TABLE notebooks ADD COLUMN paper_color TEXT NOT NULL DEFAULT 'white'");
@@ -125,14 +140,14 @@ class AppDatabase {
   /// Per-stroke rendering style (JSON, see `StrokeStyle`); NULL for strokes
   /// drawn before styles existed. Idempotent, so it is safe however
   /// migrations from parallel branches end up ordered.
-  static void _addStrokeStyle(Database db) {
+  static void _addStrokeStyle(CommonDatabase db) {
     final columns = db.select('PRAGMA table_info(strokes)').map((r) => r['name']);
     if (!columns.contains('style')) db.execute('ALTER TABLE strokes ADD COLUMN style TEXT');
   }
 
   /// Library organisation: nested folders, plus per-notebook folder,
   /// favourite, trash, cover pattern and last-edit time.
-  static void _addFoldersAndLibraryFields(Database db) {
+  static void _addFoldersAndLibraryFields(CommonDatabase db) {
     db.execute('''
       CREATE TABLE folders (
         id          TEXT PRIMARY KEY NOT NULL,
@@ -160,7 +175,7 @@ class AppDatabase {
   /// [_addStrokeStyle]; it also re-applies that one, because databases
   /// created by the pre-merge documents branch recorded this migration at
   /// index 2 and so skip [_addStrokeStyle].
-  static void _addPageDetailsAndBlobs(Database db) {
+  static void _addPageDetailsAndBlobs(CommonDatabase db) {
     _addStrokeStyle(db);
     final columns = db.select('PRAGMA table_info(pages)').map((r) => r['name']).toSet();
     if (!columns.contains('paper_color')) {
@@ -187,12 +202,12 @@ class AppDatabase {
 
   /// Push pages through dirty rows in id order (keyset pagination); index
   /// exactly that, so a sync with nothing to push never scans all strokes.
-  static void _indexDirtyStrokesById(Database db) {
+  static void _indexDirtyStrokesById(CommonDatabase db) {
     db.execute('DROP INDEX IF EXISTS strokes_dirty');
     db.execute('CREATE INDEX strokes_dirty ON strokes(id) WHERE dirty = 1');
   }
 
-  static void _createInitialSchema(Database db) {
+  static void _createInitialSchema(CommonDatabase db) {
     db.execute('''
       CREATE TABLE notebooks (
         id          TEXT PRIMARY KEY NOT NULL,

@@ -4,9 +4,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Ink & pens
 - ✅ Pressure-sensitive pen, highlighter, stroke eraser, undo/redo
-- ✅ Pen types: ballpoint, fountain (direction-aware nib), brush, pencil (textured), marker
-- ✅ Pen customisation: width, opacity, pressure sensitivity, stabiliser, tip taper (stored per stroke)
-- ✅ Full colour picker (HSV + hex + opacity), saved favourite colours, 3 presets per pen
+- ✅ Focused line-up: Pen (ballpoint) + Highlighter + Eraser (older pen types still render)
+- ✅ Smooth ink at any zoom: arc-length filtering, Bézier envelope outlines, tangent round caps
+- ✅ Independent quick colours and quick widths per ink (1–6 slots each, GoodNotes-style editing)
+- ✅ Pen settings: pressure sensitivity, stabiliser, tapered ends (stored per stroke);
+  highlighter opacity
+- ✅ Full colour picker (HSV + hex), saved favourite colours
 - ✅ Highlighter renders behind ink; hold to straighten
 - ✅ Pixel (partial) eraser, eraser size, "erase highlighter only"
 
@@ -17,8 +20,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ⬜ Text: font families, rich text within a box, change width/pen type of selected ink
 - ⬜ Images (insert, move, resize, crop later) — element model ready (`type: "image"` + blob hash)
 - ✅ Laser pointer
-- 🚧 Gestures: two-finger tap undo, three-finger tap redo; S Pen button action setting
-  (settings stored + exposed via `AppPreferences`; editor wiring pending)
+- ✅ Gestures: two-finger tap undo, three-finger tap redo (with a HUD; palm-safe), S Pen side
+  button action (eraser / hold to lasso / none), finger long press or right click → canvas menu
+  (paste here, select all on page, add text here, page commands)
 
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,
@@ -29,6 +33,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   go to page
 - ✅ Bookmarks (synced) with a bookmarks filter in the overview
 - ✅ Continuous vertical scrolling of pages (default) or one page at a time (swipe / arrows)
+- ✅ Page navigation: smooth scroll-to-page, whole-page fit + slide in single-page flow, "Add page"
+  after the last page, arrow / PageUp / Home / End keys, jump to page, compact indicator on phones
 - ✅ PDF import & annotate (new notebook or insert pages); export notebook / page to PDF (vector
   ink) and page to PNG; save dialog on desktop, share sheet on Android
 - ⬜ Planner / custom (image) templates
@@ -51,11 +57,19 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
 
 ## App
+- ✅ Web target (PWA): SQLite wasm + IndexedDB, blobs in IndexedDB, PDF import/render (PDFium wasm),
+  export downloads, sync via CORS, one tab at a time; `--wasm` build works
+- ⬜ Web: request persistent storage, offline service-worker caching review, background reads in a web worker
 - ✅ Theme mode (system/light/dark), accent colour
 - ✅ App shell: sidebar (tablet/desktop), bottom navigation (phone), context menus,
   keyboard shortcuts, redesigned settings
-- ⬜ Redesigned editor chrome, focus mode, customisable toolbar
-- ⬜ Open-notebook tabs
+- ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
+  export, focus, more menu), tool-descriptor toolbar with contextual quick controls, toolbar
+  position (automatic / top / bottom / floating, draggable), focus mode (F11 / Ctrl+.) with
+  immersive system bars
+- ✅ Open-notebook tabs (up to 8, each keeps its page and zoom; tab strip on tablets/desktops,
+  switcher on phones; Ctrl+Tab, Ctrl+W)
+- ⬜ Customisable toolbar contents, favourite tools; search in the editor (handwriting recognition)
 
 ## Sync
 - ✅ Self-hosted LWW record sync

@@ -17,7 +17,7 @@ typedef ExportProgress = void Function(ExportStage stage, int done, int total);
 /// Produces PDF and PNG files from notebook pages.
 class NotebookExporter {
   NotebookExporter(this.services, {PdfRenderer? renderer})
-    : _renderer = renderer ?? PdfRenderer(),
+    : _renderer = renderer ?? PdfRenderer(services.blobs),
       _copier = SurfaceCopier(services.strokes, elements: services.elements);
 
   final AppServices services;
@@ -82,12 +82,7 @@ class NotebookExporter {
   Future<ui.Image?> _background(NotebookPage page, double pixelWidth) async {
     final bg = page.background;
     if (bg == null || !await services.sync.fetchBlob(bg.blob)) return null;
-    return _renderer.render(
-      bg.blob,
-      services.blobs.fileOf(bg.blob).path,
-      bg.pageIndex,
-      pixelWidth.round(),
-    );
+    return _renderer.render(bg.blob, bg.pageIndex, pixelWidth.round());
   }
 
   Future<void> dispose() => _renderer.dispose();

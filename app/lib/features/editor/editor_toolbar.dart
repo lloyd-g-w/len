@@ -1,190 +1,141 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/stroke.dart';
 import '../../ink/tool_settings.dart';
 import '../../ui/floating_panel.dart';
-import 'pen/eraser_options_panel.dart';
-import 'pen/eraser_strip.dart';
-import 'pen/pen_icons.dart';
-import 'pen/pen_options_panel.dart';
-import 'pen/preset_strip.dart';
-import 'tools/shape_options_panel.dart';
-import 'tools/text_options_panel.dart';
-import 'tools/tool_button.dart';
-import 'tools/tool_icons.dart';
+import 'editor_tools.dart';
+import 'toolbar_buttons.dart';
 
-/// The floating tool palette: pen / highlighter / eraser / lasso / shapes /
-/// text / laser (tap the active one again for its options), the active
-/// tool's quick presets, and palm rejection.
+/// The floating tool palette (GoodNotes style): the tools, the active
+/// tool's quick controls (for inks: independent colour and width slots),
+/// its settings and palm rejection.
+///
+/// Laid out on one row when it fits, else on two (tools above, quick
+/// controls below) — e.g. on phones.
 class EditorToolbar extends StatelessWidget {
   const EditorToolbar({super.key, required this.tools, required this.onStylusOnlyChanged});
 
   final ToolSettings tools;
   final ValueChanged<bool> onStylusOnlyChanged;
 
+  static const double _toolSize = 44;
+
+  /// Tool size on the two-row (compact) toolbar.
+  static const double _compactToolSize = 40;
+  static const double _dividerWidth = 13;
+  static const double _buttonWidth = 40;
+
+  /// The [FloatingPanel]'s horizontal padding.
+  static const double _padding = 12;
+
+  /// Width of the one-row toolbar for [descriptor] as the active tool,
+  /// including the panel's padding.
+  static double _oneRowWidth(List<ToolDescriptor> descriptors, ToolDescriptor descriptor) {
+    final hasStrip = descriptor.strip != null;
+    return descriptors.length * _toolSize +
+        (hasStrip ? _dividerWidth + (descriptor.stripWidth?.call() ?? 0) : 0) +
+        _dividerWidth +
+        (descriptor.options == null ? 1 : 2) * _buttonWidth +
+        _padding;
+  }
+
+  /// The width the toolbar needs to stay on one row whichever tool is
+  /// active (for the current quick colours and widths).
+  static double oneRowWidth(ToolSettings tools) {
+    final descriptors = editorTools(tools);
+    var widest = 0.0;
+    for (final d in descriptors) {
+      final w = _oneRowWidth(descriptors, d);
+      if (w > widest) widest = w;
+    }
+    return widest;
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: tools,
-      builder: (context, _) {
-        final erasing = tools.tool == EditorTool.eraser;
-        final inking = tools.tool.usesPresets;
-        return FloatingPanel(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ToolButton(
-                  tools: tools,
-                  tool: EditorTool.pen,
-                  icon: penIcon(tools.penType),
-                  label: 'Pen (P)',
-                  inkColor: tools.configOf(tools.penType).current.color,
-                  options: (_) => PenOptionsPanel(tools: tools, ink: null),
-                ),
-                ToolButton(
-                  tools: tools,
-                  tool: EditorTool.highlighter,
-                  icon: penIcon(InkTool.highlighter),
-                  label: 'Highlighter (H)',
-                  inkColor: tools.configOf(InkTool.highlighter).current.color,
-                  options: (_) => PenOptionsPanel(tools: tools, ink: InkTool.highlighter),
-                ),
-                ToolButton(
-                  tools: tools,
-                  tool: EditorTool.eraser,
-                  icon: Icons.auto_fix_normal_rounded,
-                  label: 'Eraser (E)',
-                  options: (_) => EraserOptionsPanel(tools: tools),
-                ),
-                ToolButton(
-                  tools: tools,
-                  tool: EditorTool.lasso,
-                  icon: lassoIcon,
-                  label: 'Lasso (L)',
-                ),
-                ToolButton(
-                  tools: tools,
-                  tool: EditorTool.shape,
-                  glyph: ShapeGlyph(tools.shape),
-                  label: 'Shapes (S)',
-                  inkColor: tools.configOf(tools.penType).current.color,
-                  options: (_) => ShapeOptionsPanel(tools: tools),
-                ),
-                ToolButton(
-                  tools: tools,
-                  tool: EditorTool.text,
-                  icon: textIcon,
-                  label: 'Text (T)',
-                  inkColor: tools.textStyle.color,
-                  options: (_) => TextOptionsPanel(tools: tools),
-                ),
-                ToolButton(
-                  tools: tools,
-                  tool: EditorTool.laser,
-                  icon: laserIcon,
-                  label: 'Laser pointer (K)',
-                  inkColor: 0xFFFF2D2D,
-                ),
-                if (erasing || inking) const _Divider(),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 150),
-                  child: erasing
-                      ? EraserStrip(key: const ValueKey('eraser'), tools: tools)
-                      : inking
-                      ? PresetStrip(key: ValueKey(tools.activeInk), tools: tools)
-                      : const SizedBox.shrink(),
-                ),
-                if (inking)
-                  Builder(
-                    builder: (context) => IconButton(
-                      tooltip: 'Colour & width',
-                      onPressed: () => openPresetEditor(
-                        context,
-                        tools,
-                        tools.activeInk,
-                        tools.activeConfig.selected,
-                      ),
-                      icon: const _RainbowIcon(),
-                    ),
-                  ),
-                const _Divider(),
-                _PalmRejectionButton(
-                  enabled: tools.stylusOnly ?? false,
-                  onChanged: onStylusOnlyChanged,
-                ),
-              ],
-            ),
+      builder: (context, _) => LayoutBuilder(builder: _build),
+    );
+  }
+
+  Widget _build(BuildContext context, BoxConstraints constraints) {
+    final descriptors = editorTools(tools);
+    final active = descriptors.firstWhere(
+      (d) => d.tool == tools.tool,
+      orElse: () => descriptors.first,
+    );
+    List<Widget> toolButtons(double size) => [
+      for (final d in descriptors)
+        ToolButton(
+          descriptor: d,
+          selected: d == active,
+          onSelect: () => tools.tool = d.tool,
+          size: size,
+        ),
+    ];
+    final strip = active.strip == null
+        ? null
+        : AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            child: KeyedSubtree(key: ValueKey(active.tool), child: active.strip!(context)),
+          );
+    final stripWidth = strip == null ? 0.0 : active.stripWidth?.call() ?? 0.0;
+    final settings = active.options == null ? null : SettingsButton(descriptor: active);
+    final palm = PalmRejectionButton(
+      enabled: tools.stylusOnly ?? false,
+      onChanged: onStylusOnlyChanged,
+    );
+    final available = constraints.maxWidth - _padding;
+    final oneRow = _oneRowWidth(descriptors, active) - _padding;
+    if (oneRow <= available) {
+      return FloatingPanel(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ...toolButtons(_toolSize),
+              if (strip != null) ...[const ToolbarDivider(), strip],
+              const ToolbarDivider(),
+              ?settings,
+              palm,
+            ],
           ),
-        );
-      },
-    );
-  }
-}
-
-/// A small colour-wheel glyph for the colour picker button.
-class _RainbowIcon extends StatelessWidget {
-  const _RainbowIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 22,
-      height: 22,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: SweepGradient(
-          colors: [
-            Color(0xFFFF5252),
-            Color(0xFFFFD740),
-            Color(0xFF69F0AE),
-            Color(0xFF40C4FF),
-            Color(0xFF7C4DFF),
-            Color(0xFFFF4081),
-            Color(0xFFFF5252),
-          ],
         ),
-      ),
-      padding: const EdgeInsets.all(5),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Theme.of(context).colorScheme.surfaceContainer,
-        ),
-      ),
+      );
+    }
+
+    // Two rows: the tools and palm rejection above, the quick controls and
+    // settings below. The settings button is left out when it doesn't fit
+    // (tapping the active tool opens its settings, too); each row scrolls on
+    // very narrow screens rather than overflowing.
+    final toolRow = descriptors.length * _compactToolSize + _dividerWidth + _buttonWidth;
+    final settingsAbove = settings != null && toolRow + _buttonWidth <= available;
+    final settingsBelow =
+        settings != null &&
+        !settingsAbove &&
+        (strip == null || stripWidth + _dividerWidth + _buttonWidth <= available);
+    Widget row(List<Widget> children) => SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(mainAxisSize: MainAxisSize.min, children: children),
     );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 1,
-    height: 24,
-    margin: const EdgeInsets.symmetric(horizontal: 6),
-    color: Theme.of(context).colorScheme.outlineVariant,
-  );
-}
-
-class _PalmRejectionButton extends StatelessWidget {
-  const _PalmRejectionButton({required this.enabled, required this.onChanged});
-
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: enabled
-          ? 'Stylus only: fingers pan & zoom (tap to let fingers draw)'
-          : 'Fingers draw (tap for stylus only)',
-      isSelected: enabled,
-      onPressed: () => onChanged(!enabled),
-      icon: const Icon(Icons.touch_app_outlined),
-      selectedIcon: const Icon(Icons.do_not_touch_outlined),
+    return FloatingPanel(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          row([
+            ...toolButtons(_compactToolSize),
+            const ToolbarDivider(),
+            if (settingsAbove) settings,
+            palm,
+          ]),
+          if (strip != null || settingsBelow)
+            row([
+              ?strip,
+              if (settingsBelow) ...[if (strip != null) const ToolbarDivider(), settings],
+            ]),
+        ],
+      ),
     );
   }
 }

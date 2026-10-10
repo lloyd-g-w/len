@@ -38,12 +38,11 @@ class SettingsRepository {
   /// When true, only a stylus draws and fingers always pan/zoom.
   /// Null means "not decided yet": it switches on when a stylus is first seen.
   bool? get stylusOnly => switch (_get(_stylusOnly)) {
-        'true' => true,
-        'false' => false,
-        _ => null,
-      };
-  set stylusOnly(bool? value) =>
-      value == null ? _remove(_stylusOnly) : _set(_stylusOnly, '$value');
+    'true' => true,
+    'false' => false,
+    _ => null,
+  };
+  set stylusOnly(bool? value) => value == null ? _remove(_stylusOnly) : _set(_stylusOnly, '$value');
 
   /// Pen, highlighter and eraser customisation as an opaque JSON document
   /// (owned by `ToolSettings`); null until first saved.
@@ -52,9 +51,9 @@ class SettingsRepository {
 
   /// The user's saved favourite colours (ARGB), most recent first.
   List<int> get favoriteColors => [
-        for (final part in (_get(_favoriteColors) ?? '').split(','))
-          if (int.tryParse(part) case final int c) c,
-      ];
+    for (final part in (_get(_favoriteColors) ?? '').split(','))
+      if (int.tryParse(part) case final int c) c,
+  ];
   set favoriteColors(List<int> colors) => _set(_favoriteColors, colors.join(','));
 
   // ---------------------------------------------------------------------------
@@ -103,16 +102,31 @@ class SettingsRepository {
   bool get canvasMinimap => _get('canvas_minimap') == 'true';
   set canvasMinimap(bool value) => _set('canvas_minimap', '$value');
 
+  /// Where the editor toolbar sits (default: automatic).
+  ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
+  set toolbarPlacement(ToolbarPlacement value) => _set('toolbar_placement', value.name);
+
+  /// Centre of the floating toolbar as a fraction of the editor size
+  /// (x, y in 0..1); null = not placed yet.
+  (double, double)? get toolbarFloat {
+    final parts = _get('toolbar_float')?.split(',');
+    if (parts == null || parts.length != 2) return null;
+    final x = double.tryParse(parts[0]), y = double.tryParse(parts[1]);
+    return x == null || y == null ? null : (x, y);
+  }
+
+  set toolbarFloat((double, double)? value) =>
+      value == null ? _remove('toolbar_float') : _set('toolbar_float', '${value.$1},${value.$2}');
+
   String? _get(String key) {
     final rows = _database.db.select('SELECT value FROM settings WHERE key = ?', [key]);
     return rows.isEmpty ? null : rows.first['value'] as String;
   }
 
   void _set(String key, String value) => _database.db.execute(
-        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-        [key, value],
-      );
+    'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+    [key, value],
+  );
 
-  void _remove(String key) =>
-      _database.db.execute('DELETE FROM settings WHERE key = ?', [key]);
+  void _remove(String key) => _database.db.execute('DELETE FROM settings WHERE key = ?', [key]);
 }

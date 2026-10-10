@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -83,19 +84,30 @@ Future<void> settle(WidgetTester tester) async {
   }
 }
 
-/// Writes the current frame to `build/screenshots/<name>.png`.
-Future<void> shoot(WidgetTester tester, String name) async {
+/// Writes the current frame to `build/screenshots/<name>.png`, optionally
+/// only the [crop] rectangle (logical pixels).
+Future<void> shoot(WidgetTester tester, String name, {Rect? crop}) async {
   if (!writeScreenshots) return;
   // Draw real elevation shadows (flutter_test replaces them with outlines),
   // restoring the default before the test ends.
   await _repaintWithShadows(tester, true);
   await tester.runAsync(() async {
-    final image = await captureImage(shotKey.currentContext! as Element);
+    final dpr = tester.view.devicePixelRatio;
+    final boundary = shotKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    var image = await boundary.toImage(pixelRatio: dpr);
+    if (crop != null) image = await _crop(image, crop, dpr);
     final png = await image.toByteData(format: ui.ImageByteFormat.png);
     final file = File('build/screenshots/$name.png')..createSync(recursive: true);
     file.writeAsBytesSync(png!.buffer.asUint8List());
   });
   await _repaintWithShadows(tester, false);
+}
+
+Future<ui.Image> _crop(ui.Image image, Rect crop, double dpr) {
+  final src = Rect.fromLTRB(crop.left * dpr, crop.top * dpr, crop.right * dpr, crop.bottom * dpr);
+  final recorder = ui.PictureRecorder();
+  Canvas(recorder).drawImageRect(image, src, Offset.zero & src.size, Paint());
+  return recorder.endRecording().toImage(src.width.round(), src.height.round());
 }
 
 Future<void> _repaintWithShadows(WidgetTester tester, bool shadows) async {

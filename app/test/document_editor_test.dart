@@ -10,6 +10,7 @@ import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/document/page_overview.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -19,6 +20,7 @@ import 'package:len/ui/app_theme.dart';
 Future<(AppServices, Notebook)> pumpEditor(
   WidgetTester tester, {
   Size size = const Size(800, 1300),
+  ToolbarPlacement? placement,
 }) async {
   tester.view
     ..physicalSize = size
@@ -26,6 +28,7 @@ Future<(AppServices, Notebook)> pumpEditor(
   addTearDown(tester.view.reset);
   final services = AppServices.create(AppDatabase.inMemory());
   addTearDown(services.dispose);
+  if (placement != null) services.preferences.toolbarPlacement = placement;
   final nb = services.notebooks.create(
     title: 'Physics',
     kind: NotebookKind.paged,
@@ -142,7 +145,7 @@ void main() {
 
   testWidgets('single-page flow turns pages', (tester) async {
     final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
-    await tester.tap(find.byTooltip('Page options'));
+    await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Page layout'));
     await tester.pumpAndSettle();
@@ -168,13 +171,16 @@ void main() {
     expect(pages()[1].paper, PaperStyle.collegeRuled); // Like the page it follows.
 
     Future<void> menu(String item) async {
-      await tester.tap(find.byTooltip('Page options'));
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Page'));
       await tester.pumpAndSettle();
       await tester.tap(find.text(item).last);
       await tester.pumpAndSettle();
     }
 
-    await menu('Bookmark page');
+    await tester.tap(find.byTooltip('Bookmark page'));
+    await tester.pumpAndSettle();
     expect(pages()[1].bookmarked, isTrue);
     await menu('Duplicate page');
     expect(pages(), hasLength(5));
@@ -188,7 +194,7 @@ void main() {
     expect(pages().every((p) => p.paper == PaperStyle.music), isTrue);
 
     final doomed = pages()[2].id;
-    await menu('Delete');
+    await menu('Delete page');
     expect(pages(), hasLength(4));
     await tester.tap(find.text('Undo'));
     await tester.pumpAndSettle();

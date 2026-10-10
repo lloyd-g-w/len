@@ -124,7 +124,7 @@ void main() {
       await tester.tap(find.byTooltip('Select notebooks'));
       await settle(tester);
       await tester.tap(find.text('Travel plans'));
-      await tester.tap(find.text('Ideas'));
+      await tester.tap(find.text('Spanish vocabulary'));
       await settle(tester);
       expect(tester.takeException(), isNull);
       await shoot(tester, 'select_$name');

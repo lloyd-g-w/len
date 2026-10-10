@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../../ink/tool_settings.dart';
 
-/// Quick eraser controls shown in place of the presets while erasing:
+/// Quick eraser controls shown in place of the colours and widths while erasing:
 /// whole-stroke / partial toggle and three sizes.
 class EraserStrip extends StatelessWidget {
   const EraserStrip({super.key, required this.tools});
 
   final ToolSettings tools;
+
+  /// Width of the strip in logical pixels.
+  static const double width = 4 * 40.0;
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +21,9 @@ class EraserStrip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
+          constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+          padding: EdgeInsets.zero,
+          style: IconButton.styleFrom(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           tooltip: pixel
               ? 'Partial eraser (tap for whole strokes)'
               : 'Whole-stroke eraser (tap for partial)',
@@ -29,10 +35,10 @@ class EraserStrip extends StatelessWidget {
           Tooltip(
             message: 'Eraser size ${(size * 2).round()} px',
             child: InkResponse(
-              radius: 18,
+              radius: 20,
               onTap: () => tools.eraser = eraser.copyWith(radius: size),
               child: SizedBox.square(
-                dimension: 34,
+                dimension: 40,
                 child: Center(
                   child: Container(
                     width: 6 + size * 0.6,
