@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
 import 'data/app_database.dart';
 import 'data/app_preferences.dart';
+import 'data/blob_backend.dart';
 import 'data/blob_store.dart';
 import 'data/element_repository.dart';
 import 'data/folder_repository.dart';
@@ -33,12 +32,12 @@ class AppServices {
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
-  /// substitute the sync transport. Blob files (PDFs) are kept in
-  /// [blobDirectory] (a temporary directory if omitted, e.g. in tests).
+  /// substitute the sync transport. Blobs (PDFs) are kept in [blobBackend]
+  /// (in memory if omitted, e.g. in tests).
   factory AppServices.create(
     AppDatabase database, {
     Clock clock = const Clock(),
-    Directory? blobDirectory,
+    BlobBackend? blobBackend,
     SyncApi Function(String url, String token)? syncApiFactory,
   }) {
     final settings = SettingsRepository(database);
@@ -55,11 +54,7 @@ class AppServices {
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
-    final blobs = BlobStore(
-      database,
-      blobDirectory ?? Directory.systemTemp.createTempSync('len_blobs_'),
-      clock: clock,
-    );
+    final blobs = BlobStore(database, blobBackend ?? MemoryBlobBackend(), clock: clock);
     final engine = SyncEngine(
       database: database,
       settings: settings,

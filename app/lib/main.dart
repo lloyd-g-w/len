@@ -1,19 +1,17 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import 'app.dart';
 import 'app_services.dart';
 import 'data/app_database.dart';
+import 'platform/app_directory.dart';
+import 'platform/blob_backend.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final dir = await getApplicationSupportDirectory();
-  await dir.create(recursive: true); // Not guaranteed to exist on desktop.
-  final database = AppDatabase.open(p.join(dir.path, 'len.db'));
-  final services = AppServices.create(database, blobDirectory: Directory(p.join(dir.path, 'blobs')))
+  // Natively: files in the app-support directory. Web: IndexedDB.
+  final dir = await appDataDirectory();
+  final database = await AppDatabase.openDefault(dir);
+  final services = AppServices.create(database, blobBackend: await openBlobBackend(dir))
     ..sync.start();
   runApp(LenApp(services: services));
 }
