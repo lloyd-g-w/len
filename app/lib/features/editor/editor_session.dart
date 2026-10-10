@@ -5,6 +5,7 @@ import '../../domain/notebook.dart';
 import '../../ink/input/canvas_gestures.dart';
 import '../../ink/input/ink_input_controller.dart';
 import '../../ink/input/live_ink.dart';
+import '../../ink/input/wet_ink.dart';
 import '../../ink/navigation/kinetic_pan.dart';
 import '../../ink/navigation/viewport_animator.dart';
 import '../../ink/surface_model.dart';
@@ -157,7 +158,10 @@ class EditorSession {
     content: content,
     gestures: gestures,
     kinetic: kinetic,
-    samples: openStylusSamples(),
+    samples: openStylusSamples(
+      lowLatency: () => services.preferences.lowLatencyInk,
+      wetInk: () => WetInkStyle.of(live, viewport.scale),
+    ),
     penButtonAction: () => services.preferences.penButtonAction,
   );
 

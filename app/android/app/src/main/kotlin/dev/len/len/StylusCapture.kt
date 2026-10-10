@@ -21,12 +21,32 @@ import java.nio.ByteOrder
 class StylusCapture(messenger: BinaryMessenger) {
     private val channel = BasicMessageChannel(messenger, CHANNEL, BinaryCodec.INSTANCE)
 
+    /** Event time of each pointer id's down event (Flutter's down `timeStamp`). */
+    private val downTimes = LongArray(MAX_POINTER_ID + 1)
+
+    /**
+     * When pointer [pointerId] of [event] touched down: its own (pointer)
+     * down event, which is what Flutter reports — not the gesture's first
+     * down, `MotionEvent.getDownTime`.
+     */
+    fun downTimeOf(event: MotionEvent, pointerId: Int): Long =
+        if (pointerId in downTimes.indices && downTimes[pointerId] != 0L) {
+            downTimes[pointerId]
+        } else {
+            event.downTime
+        }
+
     /**
      * Sends the stylus samples of [event] (window coordinates), shifted by
      * ([dx], [dy]) into the Flutter view's coordinates.
      */
     fun capture(event: MotionEvent, dx: Float, dy: Float) {
         when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                val id = event.getPointerId(event.actionIndex)
+                if (id in downTimes.indices) downTimes[id] = event.eventTime
+                return
+            }
             MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {}
             else -> return
         }
@@ -40,12 +60,11 @@ class StylusCapture(messenger: BinaryMessenger) {
         val size = HEADER_BYTES + pointers * (BATCH_BYTES + samples * SAMPLE_BYTES)
         val buffer = ByteBuffer.allocateDirect(size).order(ByteOrder.LITTLE_ENDIAN)
         buffer.putInt(VERSION).putInt(pointers)
-        val downUs = event.downTime * 1000.0
         val eventUs = event.eventTime * 1000.0 // Flutter's PointerEvent.timeStamp
         for (p in 0 until event.pointerCount) {
             if (!isStylus(event, p)) continue
-            // Must match AndroidTouchProcessor.uniquePointerIdByType.
-            val device = (event.getPointerId(p) shl 3) or (event.getToolType(p) and 7)
+            val device = deviceOf(event, p)
+            val downUs = downTimeOf(event, event.getPointerId(p)) * 1000.0
             buffer.putInt(device).putInt(samples).putDouble(downUs).putDouble(eventUs)
             for (h in 0 until history) {
                 buffer.putDouble(historicalTimeUs(event, h))
@@ -71,6 +90,11 @@ class StylusCapture(messenger: BinaryMessenger) {
         private const val HEADER_BYTES = 8
         private const val BATCH_BYTES = 24
         private const val SAMPLE_BYTES = 28
+        private const val MAX_POINTER_ID = 31
+
+        /** Flutter's `PointerEvent.device` (AndroidTouchProcessor.uniquePointerIdByType). */
+        fun deviceOf(event: MotionEvent, pointer: Int): Int =
+            (event.getPointerId(pointer) shl 3) or (event.getToolType(pointer) and 7)
 
         fun isStylus(event: MotionEvent, pointer: Int): Boolean {
             val type = event.getToolType(pointer)
