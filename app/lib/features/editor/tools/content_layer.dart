@@ -90,7 +90,9 @@ class _ContentLayerState extends State<ContentLayer> with SingleTickerProviderSt
   }
 
   void _tickLaser() {
-    _content.laser.tick();
+    // Frame time (monotonic; fake time in tests).
+    final now = SchedulerBinding.instance.currentFrameTimeStamp.inMilliseconds;
+    _content.laser.tick(now);
     if (_content.laser.isEmpty) _laserTicker.stop();
   }
 

@@ -198,20 +198,20 @@ void main() {
     expect(end.dx, closeTo(const Offset(100, 4).distance, 1e-9));
   });
 
-  test('LaserTrail fades and expires points', () {
-    var now = 0;
-    final trail = LaserTrail(nowMs: () => now)
+  test('LaserTrail stamps points on the next frame, fades and expires them', () {
+    final trail = LaserTrail()
       ..add(Offset.zero, startsSegment: true)
       ..add(const Offset(10, 0));
-    now = 500;
+    expect(LaserTrail.fade(trail.points.first.time, 0), 1);
+    trail.tick(10000); // first frame after a long idle: points are fresh
+    expect(trail.points, hasLength(2));
     trail.add(const Offset(20, 0));
-    expect(LaserTrail.fade(0, 500), closeTo(0.5, 1e-9));
-    now = 1200;
-    trail.tick();
+    trail.tick(10500);
+    expect(LaserTrail.fade(trail.points.first.time, trail.now), closeTo(0.5, 1e-9));
+    trail.tick(11200);
     expect(trail.points, hasLength(1));
     expect(trail.points.single.startsSegment, isTrue);
-    now = 1600;
-    trail.tick();
+    trail.tick(11600);
     expect(trail.isEmpty, isTrue);
     trail.dispose();
   });
