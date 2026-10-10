@@ -1,4 +1,5 @@
 import '../core/clock.dart';
+import '../domain/preferences.dart';
 import 'app_database.dart';
 
 /// Small key/value store for local, non-synced settings.
@@ -41,6 +42,44 @@ class SettingsRepository {
       };
   set stylusOnly(bool? value) =>
       value == null ? _remove(_stylusOnly) : _set(_stylusOnly, '$value');
+
+  // ---------------------------------------------------------------------------
+  // Appearance, gestures and library view (prefer [AppPreferences], which
+  // also notifies listeners).
+
+  static const _themeMode = 'theme_mode';
+  static const _accentColor = 'accent_color';
+  static const _twoFingerTapUndo = 'two_finger_tap_undo';
+  static const _threeFingerTapRedo = 'three_finger_tap_redo';
+  static const _penButtonAction = 'pen_button_action';
+  static const _libraryLayout = 'library_layout';
+  static const _librarySort = 'library_sort';
+
+  ThemePreference get themeMode => ThemePreference.parse(_get(_themeMode));
+  set themeMode(ThemePreference value) => _set(_themeMode, value.name);
+
+  /// ARGB accent (seed) colour, or null for the default.
+  int? get accentColor => int.tryParse(_get(_accentColor) ?? '');
+  set accentColor(int? value) =>
+      value == null ? _remove(_accentColor) : _set(_accentColor, '$value');
+
+  /// Two-finger tap undoes (default on).
+  bool get twoFingerTapUndo => _get(_twoFingerTapUndo) != 'false';
+  set twoFingerTapUndo(bool value) => _set(_twoFingerTapUndo, '$value');
+
+  /// Three-finger tap redoes (default on).
+  bool get threeFingerTapRedo => _get(_threeFingerTapRedo) != 'false';
+  set threeFingerTapRedo(bool value) => _set(_threeFingerTapRedo, '$value');
+
+  /// What holding the stylus side button does (default: eraser).
+  PenButtonAction get penButtonAction => PenButtonAction.parse(_get(_penButtonAction));
+  set penButtonAction(PenButtonAction value) => _set(_penButtonAction, value.name);
+
+  LibraryLayout get libraryLayout => LibraryLayout.parse(_get(_libraryLayout));
+  set libraryLayout(LibraryLayout value) => _set(_libraryLayout, value.name);
+
+  LibrarySort get librarySort => LibrarySort.parse(_get(_librarySort));
+  set librarySort(LibrarySort value) => _set(_librarySort, value.name);
 
   String? _get(String key) {
     final rows = _database.db.select('SELECT value FROM settings WHERE key = ?', [key]);

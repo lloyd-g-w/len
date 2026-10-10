@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
 import 'data/app_database.dart';
+import 'data/app_preferences.dart';
 import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
@@ -16,6 +17,7 @@ class AppServices {
   AppServices._({
     required this.database,
     required this.settings,
+    required this.preferences,
     required this.notebooks,
     required this.folders,
     required this.pages,
@@ -53,6 +55,7 @@ class AppServices {
     return AppServices._(
       database: database,
       settings: settings,
+      preferences: AppPreferences(settings),
       notebooks: notebooks,
       folders: folders,
       pages: pages,
@@ -65,6 +68,9 @@ class AppServices {
 
   final AppDatabase database;
   final SettingsRepository settings;
+
+  /// Observable user preferences (theme, accent, input gestures, library view).
+  final AppPreferences preferences;
   final NotebookRepository notebooks;
   final FolderRepository folders;
   final PageRepository pages;
@@ -73,6 +79,7 @@ class AppServices {
 
   void dispose() {
     sync.dispose();
+    preferences.dispose();
     database.close();
   }
 }
