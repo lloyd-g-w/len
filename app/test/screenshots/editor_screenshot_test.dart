@@ -179,4 +179,54 @@ void main() {
     await settle(tester);
     await shoot(tester, 'editor_phone_tabs');
   });
+
+  testWidgets('editor hints: phone page indicator, tips, empty canvas', (tester) async {
+    await pumpEditor(
+      tester,
+      size: phone,
+      dpr: 2,
+      phoneInsets: true,
+      before: (s) => s.settings.stylusOnly = true,
+    );
+    await tester.pump(const Duration(seconds: 3));
+    await settle(tester);
+    await shoot(tester, 'editor_phone_indicator_hidden');
+    // A pen stroke: the side-button tip (the indicator peeks back in only
+    // when pages move).
+    final pen = await tester.startGesture(const Offset(120, 520), kind: PointerDeviceKind.stylus);
+    for (var i = 1; i <= 10; i++) {
+      await pen.moveTo(Offset(120 + i * 10.0, 520 + (i.isEven ? 6 : -6)));
+    }
+    await pen.up();
+    await settle(tester);
+    await shoot(tester, 'editor_phone_tip');
+    await tester.tap(find.byTooltip('Dismiss tip'));
+    await settle(tester);
+    await shoot(tester, 'editor_phone_tip_gestures');
+    await tester.pump(const Duration(seconds: 11));
+    await settle(tester);
+  });
+
+  for (final (name, size, dpr) in [('phone', phone, 2.0), ('tablet', tablet, 1.0)]) {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      testWidgets('editor empty canvas $name ${mode.name}', (tester) async {
+        await pumpEditor(
+          tester,
+          size: size,
+          dpr: dpr,
+          mode: mode,
+          before: (s) => s.openNotebooks.open(
+            s.notebooks.create(
+              title: 'Ideas',
+              kind: NotebookKind.canvas,
+              paper: PaperStyle.blank,
+              coverColor: 0xFF3B5BDB,
+            ),
+          ),
+        );
+        await settle(tester);
+        await shoot(tester, 'editor_empty_canvas_${name}_${mode.name}');
+      });
+    }
+  }
 }
