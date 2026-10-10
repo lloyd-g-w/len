@@ -6,6 +6,7 @@ import 'app_services.dart';
 import 'domain/preferences.dart';
 import 'features/library/library_screen.dart';
 import 'ui/app_theme.dart';
+import 'ui/system_bars.dart';
 
 /// The root widget: provides [AppServices] and builds the themed app.
 class LenApp extends StatefulWidget {
@@ -74,6 +75,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
             darkTheme: themes.dark,
             themeMode: themeModeOf(preferences.themeMode),
             themeAnimationDuration: const Duration(milliseconds: 300),
+            builder: (context, child) => SystemBars(child: child!),
             home: const LibraryScreen(),
           );
         },

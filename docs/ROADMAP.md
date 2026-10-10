@@ -81,6 +81,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Open-notebook tabs (up to 8, each keeps its page and zoom; tab strip on tablets/desktops,
   switcher on phones; Ctrl+Tab, Ctrl+W)
 - ⬜ Customisable toolbar contents, favourite tools; search in the editor (handwriting recognition)
+- ✅ App identity: one icon design for all platforms (Android adaptive + themed icon), splash
+  screen, edge-to-edge system bars, Linux desktop entry, Windows window placement
+- ✅ CI (analyze, tests, Linux/Android/Web/Windows builds, server image) and tagged releases
+  (APK, Linux tarball, Windows zip, web zip, GHCR server image)
+- ⬜ "Open with Len" for PDFs (Android intent filter / Linux MIME / Windows file association →
+  import); store listings (Play / F-Droid / Flathub / winget)
 
 ## Sync
 - ✅ Self-hosted LWW record sync

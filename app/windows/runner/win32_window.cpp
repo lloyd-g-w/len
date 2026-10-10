@@ -213,6 +213,15 @@ Win32Window::MessageHandler(HWND hwnd,
       }
       return 0;
 
+    case WM_GETMINMAXINFO: {
+      // Smallest usable window (toolbar + a bit of canvas), in logical px.
+      const double scale = FlutterDesktopGetDpiForHWND(hwnd) / 96.0;
+      auto info = reinterpret_cast<MINMAXINFO*>(lparam);
+      info->ptMinTrackSize.x = Scale(360, scale);
+      info->ptMinTrackSize.y = Scale(400, scale);
+      return 0;
+    }
+
     case WM_DWMCOLORIZATIONCOLORCHANGED:
       UpdateTheme(hwnd);
       return 0;
