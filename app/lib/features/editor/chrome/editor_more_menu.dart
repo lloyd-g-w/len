@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../domain/preferences.dart';
 import '../document/document_layout.dart';
+import '../document/page_fit.dart';
 import '../document/page_overview.dart';
 import '../tabs/open_notebooks.dart';
 import '../tabs/tab_switcher.dart';

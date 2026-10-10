@@ -13,25 +13,6 @@ enum PageFlow {
       values.firstWhere((f) => f.name == value, orElse: () => continuous);
 }
 
-/// How a page is zoomed when a notebook opens or jumps to a page.
-enum PageFit {
-  /// Fit the width, but never so large that little of the page shows
-  /// (landscape tablets, desktops); whole pages in single-page flow.
-  auto('Automatic'),
-
-  /// The page's width fills the screen.
-  width('Fit width'),
-
-  /// The whole page is visible.
-  page('Fit page');
-
-  const PageFit(this.label);
-  final String label;
-
-  static PageFit parse(String? value) =>
-      values.firstWhere((f) => f.name == value, orElse: () => auto);
-}
-
 /// Positions of pages in "document space": the world in which the editor's
 /// viewport pans and zooms. Each page keeps its own local coordinates
 /// (strokes are stored relative to the page); its frame here only says

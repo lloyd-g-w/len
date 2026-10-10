@@ -14,6 +14,7 @@ import '../tabs/open_notebooks.dart';
 import 'document_layout.dart';
 import 'document_scroller.dart';
 import 'document_surfaces.dart';
+import 'page_fit.dart';
 import 'page_viewport.dart';
 
 /// State of an open paged notebook: its pages, their layout in document
@@ -75,16 +76,8 @@ class DocumentController extends ChangeNotifier {
   NotebookPage get activePageData => _pages[_active];
   SurfaceModel get activeModel => surfaces.surfaceOf(_pages[_active].id).model;
 
-  /// Largest zoom [PageFit.auto] uses, so pages don't become huge on wide
-  /// desktop windows.
-  static const double maxFitScale = 1.4;
-
-  /// [PageFit.auto] keeps at least this much of a page's height on screen
-  /// (landscape tablets would otherwise show only a third of a page).
-  static const double minVisibleFraction = 0.55;
-
   /// Screen padding around a fitted page.
-  static const double fitPadding = 16;
+  static const double fitPadding = PageFit.padding;
 
   /// Screen space covered by editor chrome (top bar, toolbar, page
   /// navigator). Pages can be scrolled clear of it, and a page shown by
@@ -314,21 +307,18 @@ class DocumentController extends ChangeNotifier {
   }
 
   /// The zoom and pan that [goToPage] would use to show page [index],
-  /// zoomed as [fit] says, horizontally centred, below the top chrome
-  /// (in single-page flow, vertically centred when it fits). Null before the first
-  /// layout.
+  /// zoomed as [fit] says, horizontally centred, below the top chrome (in
+  /// single-page flow, vertically centred when it fits). Null before the
+  /// first layout.
   ({double scale, Offset offset})? frameTarget(int index) {
     final size = viewport.size;
     final frame = _layout.frameOf(index);
     if (size.isEmpty || frame == null) return null;
     final widest = _layout.bounds.width;
-    final scale = fitScale(
-      fit: _flow == PageFlow.single && _fit == PageFit.auto ? PageFit.page : _fit,
-      screen: size,
-      insets: _insets,
-      width: widest,
-      height: frame.height,
-    ).clamp(viewport.minScale, viewport.maxScale);
+    final fit = _flow == PageFlow.single && _fit == PageFit.auto ? PageFit.page : _fit;
+    final scale = fit
+        .scale(screen: size, insets: _insets, width: widest, height: frame.height)
+        .clamp(viewport.minScale, viewport.maxScale);
     final free = size.height - _insets.vertical - 2 * fitPadding;
     // A whole page shown alone sits in the middle of the free space.
     final alone = _flow == PageFlow.single;
@@ -336,28 +326,6 @@ class DocumentController extends ChangeNotifier {
     final x = (size.width - widest * scale) / 2 - _layout.bounds.left * scale;
     final y = fitPadding + _insets.top + spare / 2 - frame.top * scale;
     return (scale: scale, offset: Offset(x, y));
-  }
-
-  /// The zoom that shows a page [width] × [height] (world units) on a
-  /// [screen] whose [insets] are covered by chrome, as [fit] says.
-  static double fitScale({
-    required PageFit fit,
-    required Size screen,
-    required EdgeInsets insets,
-    required double width,
-    required double height,
-  }) {
-    final byWidth = (screen.width - 2 * fitPadding) / width;
-    final free = screen.height - insets.vertical - 2 * fitPadding;
-    final byPage = free > 0 ? math.min(byWidth, free / height) : byWidth;
-    return switch (fit) {
-      PageFit.width => byWidth,
-      PageFit.page => byPage,
-      PageFit.auto => math.max(
-        byPage,
-        math.min(byWidth, math.min(maxFitScale, free / (height * minVisibleFraction))),
-      ),
-    };
   }
 
   /// Marks page [index] as current once a scroll to it has finished.

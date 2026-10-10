@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../ink/tool_settings.dart';
 import 'canvas/canvas_shortcuts.dart';
-import 'document/document_layout.dart';
+import 'document/page_fit.dart';
 import 'editor_session.dart';
 import 'tools/content_shortcuts.dart';
 

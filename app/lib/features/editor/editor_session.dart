@@ -17,6 +17,7 @@ import 'canvas/canvas_navigation.dart';
 import 'document/document_commands.dart';
 import 'document/document_controller.dart';
 import 'document/document_layout.dart';
+import 'document/page_fit.dart';
 import 'document/undo_target.dart';
 import 'tabs/open_notebooks.dart';
 

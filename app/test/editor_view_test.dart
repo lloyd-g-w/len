@@ -8,7 +8,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
 import 'package:len/features/editor/document/document_controller.dart';
-import 'package:len/features/editor/document/document_layout.dart';
+import 'package:len/features/editor/document/page_fit.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/tabs/open_notebooks.dart';
@@ -19,13 +19,7 @@ void main() {
   group('page fit', () {
     const a4 = Size(794, 1123);
     double fit(PageFit f, Size screen, {EdgeInsets insets = EdgeInsets.zero}) =>
-        DocumentController.fitScale(
-          fit: f,
-          screen: screen,
-          insets: insets,
-          width: a4.width,
-          height: a4.height,
-        );
+        f.scale(screen: screen, insets: insets, width: a4.width, height: a4.height);
 
     test('automatic fits the width on portrait screens', () {
       const portrait = Size(800, 1280);

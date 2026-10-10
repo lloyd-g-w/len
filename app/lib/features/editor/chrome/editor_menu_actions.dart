@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../domain/preferences.dart';
 import '../document/document_layout.dart';
+import '../document/page_fit.dart';
 import '../document/page_overview.dart';
 
 /// What the editor's top bar and menus can do, and the state they show.
