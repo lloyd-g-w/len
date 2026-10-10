@@ -159,7 +159,9 @@ void main() {
     final watch = Stopwatch()..start();
     final keys = StrokeChunks.along(points, 2);
     expect(watch.elapsed, lessThan(const Duration(seconds: 2)));
-    expect(keys, ChunkGrid.rangeFor(Stroke.computeBounds(points, 2)).keys.toSet());
+    final box = ChunkGrid.rangeFor(Stroke.computeBounds(points, 2));
+    expect(keys.length, box.count);
+    expect(keys.every(box.contains), isTrue);
   });
 }
 
