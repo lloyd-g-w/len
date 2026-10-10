@@ -79,6 +79,18 @@ class NotebookAudio extends ChangeNotifier {
   /// Opens [recording] in the player and plays it.
   Future<bool> play(Recording recording) => playback.open(recording);
 
+  /// Plays from when ink created at [createdAt] (epoch ms) was written:
+  /// in the open recording if it covers that time, else in the (latest)
+  /// recording of this notebook that does. False if none does.
+  Future<bool> playInk(int createdAt) async {
+    final open = playback.recording;
+    if (open != null && open.timeline.covers(createdAt)) return playback.seekToInk(createdAt);
+    final other = _recordings.reversed.where((r) => r.timeline.covers(createdAt)).firstOrNull;
+    if (other == null) return false;
+    if (!await playback.open(other, autoplay: false)) return false;
+    return playback.seekToInk(createdAt);
+  }
+
   void _onRemoteChanges(RemoteChanges changes) {
     if (changes.recordingsOfNotebooks.contains(notebookId)) reload();
   }

@@ -68,7 +68,7 @@ class RecordCapture implements AudioCapture {
 
   @override
   Future<CapturedAudio?> stop() async {
-    await _amplitude?.cancel();
+    unawaited(_amplitude?.cancel());
     _amplitude = null;
     final path = await _recorder.stop();
     if (path == null || path.isEmpty) return null;
@@ -80,7 +80,7 @@ class RecordCapture implements AudioCapture {
 
   @override
   Future<void> dispose() async {
-    await _amplitude?.cancel();
+    unawaited(_amplitude?.cancel());
     await _levels.close();
     await _recorder.dispose();
   }

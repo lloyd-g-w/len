@@ -129,7 +129,7 @@ class RecordingController extends ChangeNotifier {
     if (!_state.isActive) return null;
     _closeSegment();
     _ticker?.cancel();
-    await _levels?.cancel();
+    unawaited(_levels?.cancel());
     _levels = null;
     _level = 0;
     _set(RecorderState.saving);
@@ -190,7 +190,7 @@ class RecordingController extends ChangeNotifier {
     _disposed = true;
     _ticker?.cancel();
     if (_state.isActive) await stop();
-    await _levels?.cancel();
+    unawaited(_levels?.cancel());
     await _capture?.dispose();
     _capture = null;
   }

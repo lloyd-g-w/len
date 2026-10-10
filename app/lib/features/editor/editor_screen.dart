@@ -7,6 +7,9 @@ import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../sync/sync_engine.dart';
 import '../../ui/text_prompt.dart';
+import '../audio/audio_layer.dart';
+import '../audio/notebook_audio.dart';
+import '../audio/ui/audio_bar_button.dart';
 import '../documents/template_picker.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
@@ -51,6 +54,9 @@ class _EditorScreenState extends State<EditorScreen> {
     initialView: _services.openNotebooks.viewOf(widget.notebook.id),
   );
   final HudController _hud = HudController();
+
+  /// Audio recording and ink replay (features/audio).
+  late final NotebookAudio _audio = NotebookAudio(_services, notebookId: widget.notebook.id);
 
   /// In-notebook search, Ctrl+F (features/search).
   late final EditorSearchController _search;
@@ -103,6 +109,7 @@ class _EditorScreenState extends State<EditorScreen> {
     if (_focus) setImmersive(false);
     final edited = _session.edited;
     _search.dispose();
+    _audio.dispose(); // Saves a running recording.
     _session.dispose(); // Commits a text box still being edited.
     if (edited) {
       _services.notebooks.touch(_notebook.id);
@@ -320,6 +327,14 @@ class _EditorScreenState extends State<EditorScreen> {
                           ),
                         ),
                         Positioned.fill(child: ImageDropTarget(images: _session.images)),
+                        Positioned.fill(
+                          child: AudioLayer(
+                            audio: _audio,
+                            session: _session,
+                            chromeInsets: layout.covered,
+                            canvasPaper: _notebook.paperColor,
+                          ),
+                        ),
                         Positioned.fill(child: _buildChrome(layout, tabs)),
                         Positioned.fill(
                           child: EditorSearchLayer(
@@ -397,6 +412,8 @@ class _EditorScreenState extends State<EditorScreen> {
           ),
           undo: _session.undo,
           tabs: tabs,
+          audio: AudioBarButton(audio: _audio),
+          compactMenuItems: audioMenuItems(context, _audio),
           insert: InsertImageButton(images: _session.images),
           search: BarButton(
             tooltip: 'Search (Ctrl+F)',
