@@ -2,6 +2,9 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/stroke.dart';
+import 'centerline.dart';
+import 'outline_emitter.dart';
+import 'outline_sink.dart';
 
 /// Shape parameters for [StrokeOutline.build].
 class OutlineSpec {
@@ -42,9 +45,23 @@ class OutlineSpec {
     final t = (0.5 - thinning * (0.5 - pressure)).clamp(0.0, 1.0);
     return (width * easing(t)).clamp(math.min(0.25, width / 2), width);
   }
+
+  /// Standard deviation (world units) of the positional smoothing: enough to
+  /// remove digitiser jitter, more with a stronger stabiliser, scaled with
+  /// the width so small handwriting keeps its shape.
+  double get positionSigma => (1.0 + 1.5 * streamline) * math.max(1.0, width / 2);
+
+  /// Standard deviation of the radius smoothing (pressure noise).
+  double get radiusSigma => math.max(2 * positionSigma, width);
+
+  /// Spacing of the resampled centre line.
+  double get sampleStep => (positionSigma / 2.5).clamp(0.05, 2.0);
+
+  /// Fastest allowed change of the radius per unit of length.
+  static const double maxRadiusSlope = 0.3;
 }
 
-/// A sample along the stroke centre line: position and outline radius.
+/// A raw input sample: position and outline radius.
 class _Sample {
   _Sample(this.x, this.y, this.r);
   final double x, y;
@@ -55,12 +72,11 @@ class _Sample {
 
 /// Builds filled outline paths for variable-width ink strokes.
 ///
-/// Pipeline: drop duplicate samples → trim pen-lift hooks → smooth positions
-/// with a symmetric (lag-free) filter → map pressure to radius and smooth it
-/// → interpolate a Catmull-Rom spline → apply tapers → emit one outline per
-/// run between sharp corners, each closed with caps that exactly match the
-/// local width and direction. Runs overlap at corners, which yields round
-/// joins; all runs wind the same way, so the non-zero fill unions them.
+/// Pipeline: drop duplicate samples → trim pen-lift hooks → resample at a
+/// uniform arc-length spacing → Gaussian-smooth positions (ends pinned, so
+/// there is no lag) and radii → limit how fast the radius may change →
+/// make the ends non-swelling → apply tapers → emit smooth Bézier sides and
+/// round caps ([OutlineEmitter]).
 abstract final class StrokeOutline {
   /// Builds the outline of [points]. [pressures], when given, overrides the
   /// per-point pressure (used for direction-dependent nibs). [complete] is
@@ -72,27 +88,44 @@ abstract final class StrokeOutline {
     List<double>? pressures,
     bool complete = true,
   }) {
+    final path = Path();
+    emit(PathSink(path), points, spec, pressures: pressures, complete: complete);
+    return path;
+  }
+
+  /// Like [build], but writes the outline's segments to [sink].
+  static void emit(
+    OutlineSink sink,
+    List<StrokePoint> points,
+    OutlineSpec spec, {
+    List<double>? pressures,
+    bool complete = true,
+  }) {
     var samples = _dedupe(points, pressures, spec);
-    if (samples.isEmpty) return Path();
+    if (samples.isEmpty) return;
     if (samples.length > 3) {
       samples = _trimHook(samples, spec.width, atEnd: false);
       if (complete) samples = _trimHook(samples, spec.width, atEnd: true);
     }
-    samples = _smoothPositions(samples, (spec.streamline * 6).round().clamp(0, 5));
-    _smoothRadii(samples, 2, spec.width);
-    final curve = _interpolate(samples, _step(spec.width));
-    final length = _applyTapers(curve, spec);
-    final maxR = curve.fold<double>(0, (m, s) => math.max(m, s.r));
-    if (curve.length < 2 || length < maxR * 0.5) return _dot(curve.first, maxR, spec.flatCaps);
-    final path = Path();
-    for (final run in _runs(curve)) {
-      _addRun(path, run, spec.flatCaps);
+    final line =
+        Centerline.resample([for (final s in samples) s.x], [for (final s in samples) s.y], [
+            for (final s in samples) s.r,
+          ], spec.sampleStep)
+          ..settleEnds(spec.width)
+          ..findCorners(spec.positionSigma)
+          ..smoothPositions(spec.positionSigma)
+          ..smoothRadii(spec.radiusSigma)
+          ..limitRadiusSlope(OutlineSpec.maxRadiusSlope)
+          ..settleEnds(spec.width)
+          ..taper(spec.taperStart, spec.taperEnd);
+    final maxR = line.r.fold<double>(0, math.max);
+    if (line.length < 2 || line.arcLength < maxR * 0.5) {
+      final r = math.max(samples.fold<double>(0, (m, s) => math.max(m, s.r)), 0.25);
+      _dot(sink, line.x[0], line.y[0], r, spec.flatCaps);
+      return;
     }
-    return path;
+    OutlineEmitter(line, flatCaps: spec.flatCaps).emit(sink);
   }
-
-  // ---------------------------------------------------------------------------
-  // Pipeline stages
 
   static List<_Sample> _dedupe(
     List<StrokePoint> points,
@@ -135,170 +168,13 @@ abstract final class StrokeOutline {
     return atEnd ? kept.reversed.toList() : kept;
   }
 
-  /// Symmetric triangular moving average; the window shrinks near the ends
-  /// so the endpoints stay exactly where the pen was.
-  static List<_Sample> _smoothPositions(List<_Sample> s, int window) {
-    if (window == 0 || s.length < 3) return s;
-    return List.generate(s.length, (i) {
-      final k = math.min(window, math.min(i, s.length - 1 - i));
-      var x = 0.0, y = 0.0, total = 0.0;
-      for (var j = -k; j <= k; j++) {
-        final w = (k + 1 - j.abs()).toDouble();
-        x += s[i + j].x * w;
-        y += s[i + j].y * w;
-        total += w;
-      }
-      return _Sample(x / total, y / total, s[i].r);
-    });
-  }
-
-  /// Averages radii over neighbours, then makes both ends of the stroke
-  /// non-swelling: within about one width of either end the radius may only
-  /// stay level or shrink towards the tip. Pressure spikes at pen-down or
-  /// pen-up therefore can never become blob-shaped caps.
-  static void _smoothRadii(List<_Sample> s, int window, double width) {
-    if (s.length < 3) return;
-    final radii = [for (final p in s) p.r];
-    for (var i = 0; i < s.length; i++) {
-      final k = math.min(window, math.min(i, s.length - 1 - i));
-      var sum = 0.0;
-      for (var j = -k; j <= k; j++) {
-        sum += radii[i + j];
-      }
-      s[i].r = sum / (2 * k + 1);
-    }
-    _settleEnd(s, width);
-    final reversed = s.reversed.toList();
-    _settleEnd(reversed, width);
-  }
-
-  /// Walks from the stroke's interior towards its last sample, capping each
-  /// radius at the previous one over the final [reach] of length.
-  static void _settleEnd(List<_Sample> s, double reach) {
-    var length = 0.0;
-    var i = s.length - 1;
-    while (i > 0 && length < reach) {
-      length += (s[i].offset - s[i - 1].offset).distance;
-      i--;
-    }
-    for (var j = i + 1; j < s.length; j++) {
-      s[j].r = math.min(s[j].r, s[j - 1].r);
-    }
-  }
-
-  /// Spacing of interpolated samples: dense enough that straight outline
-  /// segments look curved at any zoom, sparse enough to stay cheap.
-  static double _step(double width) => (width * 0.3).clamp(0.4, 3.0);
-
-  /// Catmull-Rom interpolation through the samples.
-  static List<_Sample> _interpolate(List<_Sample> s, double step) {
-    if (s.length < 3) return s;
-    final out = <_Sample>[s.first];
-    for (var i = 0; i < s.length - 1; i++) {
-      final p0 = s[math.max(0, i - 1)], p1 = s[i], p2 = s[i + 1];
-      final p3 = s[math.min(s.length - 1, i + 2)];
-      final n = ((p2.offset - p1.offset).distance / step).ceil().clamp(1, 24);
-      for (var j = 1; j <= n; j++) {
-        final t = j / n;
-        out.add(
-          _Sample(
-            _catmullRom(p0.x, p1.x, p2.x, p3.x, t),
-            _catmullRom(p0.y, p1.y, p2.y, p3.y, t),
-            p1.r + (p2.r - p1.r) * t,
-          ),
-        );
-      }
-    }
-    return out;
-  }
-
-  static double _catmullRom(double a, double b, double c, double d, double t) {
-    final t2 = t * t, t3 = t2 * t;
-    return 0.5 *
-        (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (3 * b - a - 3 * c + d) * t3);
-  }
-
-  /// Narrows the radius towards tapered ends; returns the total length.
-  static double _applyTapers(List<_Sample> s, OutlineSpec spec) {
-    final along = List<double>.filled(s.length, 0);
-    for (var i = 1; i < s.length; i++) {
-      along[i] = along[i - 1] + (s[i].offset - s[i - 1].offset).distance;
-    }
-    final length = along.last;
-    final start = math.min(spec.taperStart, length / 2);
-    final end = math.min(spec.taperEnd, length / 2);
-    if (start <= 0 && end <= 0) return length;
-    double ease(double t) => t * (2 - t);
-    for (var i = 0; i < s.length; i++) {
-      var f = 1.0;
-      if (start > 0) f = math.min(f, ease((along[i] / start).clamp(0.0, 1.0)));
-      if (end > 0) f = math.min(f, ease(((length - along[i]) / end).clamp(0.0, 1.0)));
-      s[i].r = math.max(0.02, s[i].r * f);
-    }
-    return length;
-  }
-
-  /// Splits the curve at sharp corners; neighbouring runs share the corner.
-  static List<List<_Sample>> _runs(List<_Sample> s) {
-    const sharpCos = 0.3; // ≈ 72° turn
-    final runs = <List<_Sample>>[];
-    var start = 0;
-    Offset? prevDir;
-    for (var i = 1; i < s.length; i++) {
-      final d = s[i].offset - s[i - 1].offset;
-      if (d.distance == 0) continue;
-      final dir = d / d.distance;
-      if (prevDir != null && dir.dx * prevDir.dx + dir.dy * prevDir.dy < sharpCos) {
-        runs.add(s.sublist(start, i));
-        start = i - 1;
-      }
-      prevDir = dir;
-    }
-    runs.add(s.sublist(start));
-    return runs.where((r) => r.length >= 2).toList();
-  }
-
-  /// Appends one closed outline: left side forward, end cap, right side
-  /// back, start cap. Winding is the same for every run.
-  static void _addRun(Path path, List<_Sample> run, bool flatCaps) {
-    final n = run.length;
-    final normals = List<Offset>.generate(n, (i) {
-      final d = run[math.min(n - 1, i + 1)].offset - run[math.max(0, i - 1)].offset;
-      final len = d.distance;
-      return len == 0 ? const Offset(0, 1) : Offset(-d.dy / len, d.dx / len);
-    });
-    Offset left(int i) => run[i].offset + normals[i] * run[i].r;
-    Offset right(int i) => run[i].offset - normals[i] * run[i].r;
-
-    path.moveTo(left(0).dx, left(0).dy);
-    for (var i = 1; i < n; i++) {
-      path.lineTo(left(i).dx, left(i).dy);
-    }
-    _cap(path, run[n - 1], normals[n - 1], right(n - 1), flatCaps);
-    for (var i = n - 2; i >= 0; i--) {
-      path.lineTo(right(i).dx, right(i).dy);
-    }
-    _cap(path, run[0], -normals[0], left(0), flatCaps);
-    path.close();
-  }
-
-  /// Joins the current point (on the side [normal] points to) to [to] around
-  /// [at], bulging forwards (away from the stroke body).
-  static void _cap(Path path, _Sample at, Offset normal, Offset to, bool flat) {
-    if (flat) {
-      path.lineTo(to.dx, to.dy);
-      return;
-    }
-    path.arcTo(
-      Rect.fromCircle(center: at.offset, radius: at.r),
-      math.atan2(normal.dy, normal.dx),
-      -math.pi,
-      false,
-    );
-  }
-
-  static Path _dot(_Sample at, double r, bool flat) {
-    final rect = Rect.fromCircle(center: at.offset, radius: math.max(r, 0.25));
-    return flat ? (Path()..addRect(rect)) : (Path()..addOval(rect));
+  static void _dot(OutlineSink sink, double x, double y, double r, bool flat) {
+    if (!flat) return addCircle(sink, x, y, r);
+    sink
+      ..moveTo(x - r, y - r)
+      ..lineTo(x + r, y - r)
+      ..lineTo(x + r, y + r)
+      ..lineTo(x - r, y + r)
+      ..close();
   }
 }
