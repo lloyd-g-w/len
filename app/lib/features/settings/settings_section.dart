@@ -1,0 +1,130 @@
+import 'package:flutter/material.dart';
+
+import '../../ui/app_theme.dart';
+
+/// A titled group of settings rendered as one rounded card.
+class SettingsSection extends StatelessWidget {
+  const SettingsSection({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.children,
+    this.description,
+  });
+
+  final String title;
+  final IconData icon;
+  final String? description;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Gaps.xxl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: Gaps.xs, bottom: Gaps.md),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: scheme.primary),
+                const SizedBox(width: Gaps.sm),
+                Text(title, style: theme.textTheme.titleMedium),
+              ],
+            ),
+          ),
+          if (description != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gaps.xs, 0, Gaps.xs, Gaps.md),
+              child: Text(
+                description!,
+                style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: theme.brightness == Brightness.dark
+                  ? scheme.surfaceContainerLow
+                  : scheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(Radii.card),
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(Radii.card),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < children.length; i++) ...[
+                    if (i > 0) const Divider(indent: Gaps.lg, endIndent: Gaps.lg),
+                    children[i],
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A settings row with a title, optional subtitle and a trailing control,
+/// or with a control below the text when [below] is set.
+class SettingsTile extends StatelessWidget {
+  const SettingsTile({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.below,
+    this.onTap,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final Widget? below;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.1,
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: Gaps.xxs),
+          Text(subtitle!, style: theme.textTheme.bodySmall),
+        ],
+      ],
+    );
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Gaps.lg + 2, vertical: Gaps.md + 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(child: text),
+                if (trailing != null) ...[const SizedBox(width: Gaps.lg), trailing!],
+              ],
+            ),
+            if (below != null) ...[const SizedBox(height: Gaps.md), below!],
+          ],
+        ),
+      ),
+    );
+  }
+}

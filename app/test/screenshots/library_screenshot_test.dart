@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/features/library/library_screen.dart';
+import 'package:len/features/settings/settings_screen.dart';
 
 import 'screenshot_harness.dart';
 
@@ -86,4 +87,21 @@ void main() {
     await shoot(tester, 'phone_new_sheet_dark');
     expect(tester.takeException(), isNull);
   });
+
+  for (final (name, size, dpr) in [
+    ('phone', phone, 2.0),
+    ('desktop', desktop, 1.0),
+    ('tall', const Size(900, 1760), 1.0),
+  ]) {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      testWidgets('settings $name ${mode.name}', (tester) async {
+        setWindow(tester, size, dpr: dpr);
+        final services = AppServices.create(AppDatabase.inMemory());
+        addTearDown(services.dispose);
+        await pumpApp(tester, services, const SettingsScreen(), mode: mode);
+        expect(tester.takeException(), isNull);
+        await shoot(tester, 'settings_${name}_${mode.name}');
+      });
+    }
+  }
 }

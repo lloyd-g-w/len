@@ -22,7 +22,7 @@ abstract final class AppTheme {
     final base = ColorScheme.fromSeed(
       seedColor: accent,
       brightness: brightness,
-      dynamicSchemeVariant: DynamicSchemeVariant.tonalSpot,
+      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
     );
     return brightness == Brightness.light
         ? base.copyWith(
