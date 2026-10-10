@@ -131,4 +131,12 @@ class Stroke {
     final byTime = a.createdAt.compareTo(b.createdAt);
     return byTime != 0 ? byTime : a.id.compareTo(b.id);
   }
+
+  /// The order strokes are drawn in: highlighter ink underneath pen ink
+  /// (as in the editor's chunk pictures), each group in [paintOrder]. Use it
+  /// wherever strokes are rendered outside the editor (thumbnails, export).
+  static int drawOrder(Stroke a, Stroke b) {
+    final byLayer = (b.tool.isHighlighter ? 1 : 0) - (a.tool.isHighlighter ? 1 : 0);
+    return byLayer != 0 ? byLayer : paintOrder(a, b);
+  }
 }

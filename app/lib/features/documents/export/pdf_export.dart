@@ -90,7 +90,7 @@ abstract final class PdfExporter {
     }
 
     _drawPattern(pen, page);
-    for (final stroke in [...export.strokes]..sort(Stroke.paintOrder)) {
+    for (final stroke in [...export.strokes]..sort(Stroke.drawOrder)) {
       _drawStroke(pen, stroke);
     }
     for (final element in [...export.elements]..sort(SurfaceElement.paintOrder)) {

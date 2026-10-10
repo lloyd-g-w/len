@@ -27,7 +27,7 @@ class ThumbnailCache {
   static ui.Picture _record(List<Stroke> strokes, List<SurfaceElement> elements) {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    for (final s in strokes..sort(Stroke.paintOrder)) {
+    for (final s in strokes..sort(Stroke.drawOrder)) {
       StrokeRenderer.draw(canvas, s);
     }
     paintElements(canvas, elements);

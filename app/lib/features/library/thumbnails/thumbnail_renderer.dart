@@ -109,7 +109,7 @@ class ThumbnailRenderer {
     final keys = (among ?? strokes.populatedChunks(surfaceId, range))
         .where(range.contains)
         .toList();
-    return strokes.loadChunks(surfaceId, keys)..sort(Stroke.paintOrder);
+    return strokes.loadChunks(surfaceId, keys)..sort(Stroke.drawOrder);
   }
 
   List<SurfaceElement> _elementsIn(String surfaceId, ChunkRange range, {List<ChunkKey>? among}) {

@@ -40,7 +40,7 @@ void paintWholePage(
     always: miniature,
   );
   if (showBookmark && page.bookmarked) paintBookmark(canvas, page.size);
-  for (final stroke in [...strokes]..sort(Stroke.paintOrder)) {
+  for (final stroke in [...strokes]..sort(Stroke.drawOrder)) {
     StrokeRenderer.draw(canvas, stroke);
   }
   paintElements(canvas, elements);
