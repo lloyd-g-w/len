@@ -126,8 +126,8 @@ settings — at the four sizes, light and dark, and at 1.3× text.
 
 ## Routed to other areas ➡️
 
-From `test/screenshots/editor_screenshot_test.dart` (renders the editor
-next to the library; owned by the editor agents):
+From `test/screenshots/editor_screenshot_test.dart` (the editor agents'
+renders, reviewed next to the library):
 
 - ➡️ **Page overview batch delete**: `DocumentCommands` should pass
   `OverviewHandlers.deleteMany` (one undo for all pages). Without it the
