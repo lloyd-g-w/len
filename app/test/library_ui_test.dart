@@ -1,0 +1,235 @@
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:len/app.dart';
+import 'package:len/app_services.dart';
+import 'package:len/data/app_database.dart';
+import 'package:len/domain/notebook.dart';
+import 'package:len/domain/paper.dart';
+import 'package:len/domain/preferences.dart';
+import 'package:len/features/library/folder_tile.dart';
+import 'package:len/features/library/new_notebook_sheet.dart';
+import 'package:len/features/library/notebook_card.dart';
+import 'package:len/features/library/notebook_list_tile.dart';
+
+import 'ui_library_test.dart' show pumpLibrary;
+
+Notebook addNotebook(AppServices s, String title, {String? folderId}) => s.notebooks.create(
+  title: title,
+  kind: NotebookKind.paged,
+  paper: PaperStyle.lined,
+  coverColor: 0xFF3B5BDB,
+  folderId: folderId,
+);
+
+/// Pumps the library with notebooks/folders created up front.
+Future<AppServices> pumpSeeded(
+  WidgetTester tester,
+  void Function(AppServices s) seed, {
+  Size size = const Size(1280, 800),
+}) async {
+  final services = AppServices.create(AppDatabase.inMemory());
+  seed(services);
+  return pumpLibrary(tester, services: services, size: size);
+}
+
+Future<void> openMenuOf(WidgetTester tester, String title) async {
+  await tester.tap(
+    find.descendant(
+      of: find.ancestor(of: find.text(title), matching: find.byType(NotebookCard)),
+      matching: find.byTooltip('More'),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+void main() {
+  testWidgets('create a folder, drag a notebook into it, navigate with breadcrumbs', (
+    tester,
+  ) async {
+    final services = await pumpSeeded(tester, (s) => addNotebook(s, 'Algebra'));
+
+    await tester.tap(find.byTooltip('New folder').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'School');
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FolderTile), findsOneWidget);
+
+    // Drag the notebook onto the folder with a mouse.
+    final from = tester.getCenter(find.byType(NotebookCard));
+    final to = tester.getCenter(find.byType(FolderTile));
+    final gesture = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
+    for (var i = 1; i <= 10; i++) {
+      await gesture.moveTo(Offset.lerp(from, to, i / 10)!);
+      await tester.pump();
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final folder = services.folders.list().single;
+    expect(services.notebooks.list().single.folderId, folder.id);
+    expect(find.byType(NotebookCard), findsNothing);
+
+    await tester.tap(find.byType(FolderTile));
+    await tester.pumpAndSettle();
+    expect(find.text('Algebra'), findsOneWidget);
+    // Breadcrumb back to the root.
+    await tester.tap(find.widgetWithText(TextButton, 'Library'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FolderTile), findsOneWidget);
+    expect(find.text('Algebra'), findsNothing);
+  });
+
+  testWidgets('move via menu, favourite, duplicate, search across folders', (tester) async {
+    late String schoolId;
+    final services = await pumpSeeded(tester, (s) {
+      schoolId = s.folders.create(name: 'School', color: 0xFF0CA678).id;
+      addNotebook(s, 'Physics');
+      addNotebook(s, 'Chemistry', folderId: schoolId);
+    });
+
+    await openMenuOf(tester, 'Physics');
+    await tester.tap(find.text('Move to folder…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('School')));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list().every((n) => n.folderId == schoolId), isTrue);
+
+    await tester.tap(find.byType(FolderTile));
+    await tester.pumpAndSettle();
+    await openMenuOf(tester, 'Physics');
+    await tester.tap(find.text('Add to favourites'));
+    await tester.pumpAndSettle();
+    await openMenuOf(tester, 'Chemistry');
+    await tester.tap(find.text('Duplicate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Chemistry (copy)'), findsOneWidget);
+
+    await tester.tap(find.text('Favourites').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(NotebookCard), findsOneWidget);
+    expect(find.text('Physics'), findsOneWidget);
+
+    // Search from the library root finds notebooks inside folders.
+    await tester.tap(find.text('Library').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'chem');
+    await tester.pumpAndSettle();
+    expect(find.byType(NotebookCard), findsNWidgets(2));
+    expect(find.text('School'), findsWidgets); // Location subtitle.
+  });
+
+  testWidgets('list view and sort order persist as preferences', (tester) async {
+    final services = await pumpSeeded(tester, (s) {
+      addNotebook(s, 'Banana');
+      addNotebook(s, 'apple');
+      addNotebook(s, 'Cherry');
+    });
+    await tester.tap(find.byTooltip('Show as list'));
+    await tester.pumpAndSettle();
+    expect(find.byType(NotebookListTile), findsNWidgets(3));
+    expect(services.preferences.libraryLayout, LibraryLayout.list);
+
+    await tester.tap(find.byIcon(Icons.sort_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CheckedPopupMenuItem<LibrarySort>, 'Name'));
+    await tester.pumpAndSettle();
+    expect(services.preferences.librarySort, LibrarySort.name);
+    final titles = tester
+        .widgetList<NotebookListTile>(find.byType(NotebookListTile))
+        .map((t) => t.notebook.title);
+    expect(titles, ['apple', 'Banana', 'Cherry']);
+  });
+
+  testWidgets('keyboard: Ctrl+N new, Ctrl+F search, Delete trashes the focused notebook', (
+    tester,
+  ) async {
+    final services = await pumpSeeded(tester, (s) => addNotebook(s, 'Keys'));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(find.byType(NewNotebookSheet), findsOneWidget);
+    Navigator.of(tester.element(find.byType(NewNotebookSheet))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.focusNode!.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    // Focus the card (as Tab would) and press Delete.
+    final inner = find.descendant(of: find.byType(NotebookCard), matching: find.byType(Builder));
+    Focus.of(tester.element(inner.first)).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list(), isEmpty);
+    expect(services.notebooks.trashed().single.title, 'Keys');
+    expect(find.text('“Keys” moved to Trash'), findsOneWidget);
+  });
+
+  testWidgets('deleting a folder sends its notebooks to the trash', (tester) async {
+    final services = await pumpSeeded(tester, (s) {
+      final f = s.folders.create(name: 'Old', color: 0xFF495057);
+      addNotebook(s, 'Inside', folderId: f.id);
+    });
+    await tester.tap(find.byTooltip('Folder options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete folder'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(services.folders.list(), isEmpty);
+    expect(services.notebooks.trashed().single.title, 'Inside');
+    expect(find.text('1'), findsWidgets); // Trash count in the sidebar.
+  });
+
+  testWidgets('phone layout: bottom navigation between sections', (tester) async {
+    await pumpSeeded(tester, (s) => addNotebook(s, 'Pocket'), size: const Size(390, 844));
+    expect(find.byType(NavigationBar), findsOneWidget);
+    await tester.tap(find.text('Favourites'));
+    await tester.pumpAndSettle();
+    expect(find.text('No favourites yet'), findsOneWidget);
+    await tester.tap(find.text('Trash'));
+    await tester.pumpAndSettle();
+    expect(find.text('Trash is empty'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('settings change theme mode and accent colour app-wide', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1280, 1600)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    await tester.pumpWidget(LenApp(services: services));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dark'));
+    await tester.pumpAndSettle();
+    MaterialApp app() => tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app().themeMode, ThemeMode.dark);
+    expect(services.preferences.themeMode, ThemePreference.dark);
+
+    final before = app().darkTheme!.colorScheme.primary;
+    await tester.tap(find.byTooltip('Lagoon'));
+    await tester.pumpAndSettle();
+    expect(services.preferences.accentColor, 0xFF0B7285);
+    expect(app().darkTheme!.colorScheme.primary, isNot(before));
+
+    await tester.tap(find.text('Two-finger tap to undo'));
+    await tester.pumpAndSettle();
+    expect(services.preferences.twoFingerTapUndo, isFalse);
+  });
+}
