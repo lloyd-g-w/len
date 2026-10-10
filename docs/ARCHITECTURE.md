@@ -74,6 +74,44 @@ Raw `Listener` pointer events (no gesture arena → no latency, full pressure da
 Stroke outlines come from `perfect_freehand` (pressure-aware polygons), smoothed
 with quadratic curves; paths are memoised per stroke.
 
+Resting the pen for 600 ms at the end of a stroke straightens it
+(`input/hold_to_straighten.dart`); only the straight line is committed.
+
+## Pens (`ink/pen/`, `ink/render/`)
+
+A stroke's look = its `InkTool` (pen type) + its `StrokeStyle`:
+
+- **`PenProfile`** (per tool, in code): outline smoothing, pressure easing,
+  fountain nib variation, pencil texture, flat highlighter caps, taper length
+  factor, plus the defaults and width range offered in the UI. Render
+  constants here must stay stable.
+- **`StrokeStyle`** (per stroke, stored in `strokes.style` and synced as
+  `data.style`): opacity, thinning (pressure sensitivity), streamline
+  (stabiliser) and start/end taper lengths. Missing → `StrokeStyle.defaultsFor`,
+  which reproduces how v0.1 strokes looked. So a stroke renders identically on
+  every device, whatever the local tool settings.
+
+The **fountain** nib adjusts per-point pressure so the radius shrinks where the
+pen travels along a 45° nib (`render/nib.dart`). The **pencil** fills its
+outline with a procedurally generated, world-anchored grain texture
+(`render/pencil_texture.dart`, an `ImageShader` tinted by a colour filter), so
+it works inside cached chunk pictures and lines up across chunks.
+**Highlighter** strokes are drawn before other ink in each chunk picture, and
+the live highlighter stroke is painted on a layer beneath committed ink.
+
+User customisation lives in `ToolSettings` (pen type, three presets + feel
+settings per pen, eraser options, favourite colours), persisted as JSON in
+the local `settings` table.
+
+## Erasing
+
+`SurfaceModel.eraseAlong` either removes whole strokes or, in *pixel* mode,
+cuts the ink under the eraser out (`geometry/stroke_splitter.dart`): the stroke
+is removed and its surviving fragments are added as new strokes (keeping the
+original `createdAt`, so paint order is unchanged). One drag is one undoable
+`InkEdit`; fragments cut and erased again within the drag cancel out.
+Optionally only highlighter ink is erased.
+
 ## Persistence
 
 `package:sqlite3` (bundles SQLite via build hooks on every platform).
@@ -92,7 +130,8 @@ records with last-write-wins. Open screens subscribe to
 
 - SQLite runs on the UI isolate. Queries are small and indexed, but a
   background isolate (e.g. `sqlite_async`) would remove any jank risk.
-- Stroke eraser only (no partial/pixel eraser yet); no lasso/selection.
+- No lasso/selection yet. Pixel-erasing a long stroke rewrites it as new
+  fragment records (simple and sync-safe, but more rows than a delta).
 - Extreme zoom-out draws every visible stroke at full detail; a level-of-detail
   layer (e.g. rasterised chunk thumbnails) would cap that cost.
 - Android: Flutter does not expose `MotionEvent` historical samples or

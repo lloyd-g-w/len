@@ -4,11 +4,11 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Ink & pens
 - ✅ Pressure-sensitive pen, highlighter, stroke eraser, undo/redo
-- ⬜ Pen types: ballpoint, fountain, brush, pencil (textured), marker
-- ⬜ Pen customisation: pressure curve, smoothing/stabiliser, tip taper, opacity
-- ⬜ Full colour picker (HSV + hex), saved favourite colours, per-tool presets
-- ⬜ Highlighter renders behind ink; hold to straighten
-- ⬜ Pixel (partial) eraser, eraser size, "erase highlighter only"
+- ✅ Pen types: ballpoint, fountain (direction-aware nib), brush, pencil (textured), marker
+- ✅ Pen customisation: width, opacity, pressure sensitivity, stabiliser, tip taper (stored per stroke)
+- ✅ Full colour picker (HSV + hex + opacity), saved favourite colours, 3 presets per pen
+- ✅ Highlighter renders behind ink; hold to straighten
+- ✅ Pixel (partial) eraser, eraser size, "erase highlighter only"
 
 ## Editing tools
 - ⬜ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste, duplicate
