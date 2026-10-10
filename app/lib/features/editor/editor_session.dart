@@ -201,6 +201,7 @@ class EditorSession {
     canvasNav?.dispose();
     canvasViewport?.dispose();
     docAnimator?.dispose();
+    commands?.dispose();
     doc?.dispose();
     backgrounds?.dispose();
     live.dispose();
