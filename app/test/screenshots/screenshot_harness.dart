@@ -52,7 +52,10 @@ Future<void> pumpApp(
   AppServices services,
   Widget home, {
   ThemeMode mode = ThemeMode.light,
+  double textScale = 1,
 }) async {
+  tester.platformDispatcher.textScaleFactorTestValue = textScale;
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   await tester.pumpWidget(
     AppScope(
       services: services,
@@ -110,6 +113,10 @@ Future<void> _repaintWithShadows(WidgetTester tester, bool shadows) async {
 
 /// A deterministic clock for stable "last edited" labels.
 class ShotClock extends Clock {
+  ShotClock([this.prefix = 'id']);
+
+  /// Prefix of generated ids, so several clocks never collide.
+  final String prefix;
   int now = DateTime(2026, 10, 10, 9, 30).millisecondsSinceEpoch;
   int _ids = 0;
 
@@ -117,7 +124,7 @@ class ShotClock extends Clock {
   int nowMs() => now += 60000;
 
   @override
-  String newId() => 'id${_ids++}';
+  String newId() => '$prefix${_ids++}';
 }
 
 /// Services with a realistic library: folders, notebooks with handwriting,
@@ -149,7 +156,7 @@ AppServices seededServices() {
     );
     if (ink > 0) {
       final surface = kind == NotebookKind.canvas ? n.id : s.pages.pagesOf(n.id).first.id;
-      s.strokes.save(_handwriting(surface, clock, lines: ink, canvas: kind == NotebookKind.canvas));
+      s.strokes.save(handwriting(surface, clock, lines: ink, canvas: kind == NotebookKind.canvas));
     }
     return n;
   }
@@ -176,9 +183,9 @@ AppServices seededServices() {
 }
 
 /// Wavy pseudo-handwriting: words along ruled lines.
-List<Stroke> _handwriting(
+List<Stroke> handwriting(
   String surface,
-  ShotClock clock, {
+  Clock clock, {
   required int lines,
   required bool canvas,
 }) {
