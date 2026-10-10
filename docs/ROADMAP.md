@@ -19,12 +19,19 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ⬜ Gestures: two-finger tap undo, three-finger tap redo; S Pen button action setting
 
 ## Pages & documents
-- ⬜ Templates: Cornell, narrow/college ruled, music staff, planner; paper colours
-- ⬜ Page sizes (A4, A5, Letter, square) and orientation
-- ⬜ Page overview: thumbnails, reorder, duplicate, delete, insert
-- ⬜ Bookmarks
-- ⬜ Continuous vertical scrolling of pages
-- ⬜ PDF import & annotate; export notebook to PDF / PNG
+- ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,
+  music staff; template picker with live previews (new notebooks, new pages, change one/all pages)
+- ✅ Paper colours (white, cream, grey, dark)
+- ✅ Page sizes (A4, A5, Letter, square) and orientation
+- ✅ Page overview: live thumbnails, drag to reorder, duplicate, delete (undo), insert before/after,
+  go to page
+- ✅ Bookmarks (synced) with a bookmarks filter in the overview
+- ✅ Continuous vertical scrolling of pages (default) or one page at a time (swipe / arrows)
+- ✅ PDF import & annotate (new notebook or insert pages); export notebook / page to PDF (vector
+  ink) and page to PNG; save dialog on desktop, share sheet on Android
+- ⬜ Planner / custom (image) templates; paper colour for infinite canvases
+- ⬜ Tiled PDF rendering for extreme zoom; PDF text selection / links / outline
+- ⬜ Export keeps imported PDF pages as vectors (currently embedded at 150 dpi)
 
 ## Library
 - ⬜ Folders (nested), move to folder
@@ -39,4 +46,5 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Sync
 - ✅ Self-hosted LWW record sync
-- ⬜ Blob sync (images, PDFs)
+- ✅ Blob sync (content-addressed PDFs; images later)
+- ⬜ Blob garbage collection (unreferenced blobs on device and server)

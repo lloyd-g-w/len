@@ -105,8 +105,10 @@ stored, `404` (empty body) if not.
 - **Upload before push.** Before each push, the client uploads every locally stored blob it has
   not yet uploaded to the current server: `HEAD` to skip blobs the server already has, otherwise
   `PUT`. It remembers successfully uploaded blobs. Records are only pushed after the blobs they
-  reference are on the server, so a record never reaches the server before its blob. A blob that
-  fails to upload keeps the records referencing it dirty (they are retried on the next sync).
+  reference are on the server, so a record never reaches the server before its blob: a failed
+  upload aborts the sync cycle before any record is pushed (everything stays dirty and is retried
+  on the next sync). A server without blob support (no `"blobs": true` in `/v1/health`) answers
+  `404` to blob requests, which surfaces as a sync error once a device has stored a blob.
   When the server URL changes, the "uploaded" marks are reset along with `lastPulledSeq`.
 - **Lazy download.** Pulled records may reference blobs the client does not have; the client
   downloads them with `GET` only when they are needed (e.g. when a page is displayed) and verifies
@@ -142,9 +144,10 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperColor?, bookmarked?, background?}`     |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt}` |
 
-`paper` (on notebooks and pages) is one of `blank`, `lined`, `grid`, `dotted` and, in newer app
-versions, `narrowRuled`, `wideRuled`, `gridLarge`, `cornell`, `music`, `isometric`; unknown values
-are read as `blank`.
+`paper` (on notebooks and pages) is one of `blank`, `lined` (wide ruled), `grid` (large grid),
+`dotted` and, since the documents update, `collegeRuled`, `narrowRuled`, `gridSmall`, `cornell`,
+`music`, `isometric`. Unknown values are shown as `blank` but kept as-is in storage, so editing
+other fields of the page on an older device does not erase a newer device's template.
 
 Optional `pages` fields (absent on data written by older app versions):
 
