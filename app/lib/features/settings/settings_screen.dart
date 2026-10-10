@@ -4,10 +4,11 @@ import '../../app_services.dart';
 import '../../ui/app_theme.dart';
 import 'about_settings.dart';
 import 'appearance_settings.dart';
+import 'editor_settings.dart';
 import 'input_settings.dart';
 import 'sync_settings.dart';
 
-/// Settings: appearance, input, sync and about, as grouped cards in a
+/// Settings: appearance, stylus, gestures, editor, sync and about, as grouped cards in a
 /// readable column.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -43,6 +44,7 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     AppearanceSettings(preferences: preferences),
                     InputSettings(preferences: preferences),
+                    EditorSettings(preferences: preferences),
                     const SyncSettings(),
                     const AboutSettings(),
                   ],

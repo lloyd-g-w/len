@@ -26,4 +26,12 @@ class SurfaceStats {
     ).first;
     return (count: row['c'] as int, version: row['v'] as int);
   }
+
+  /// Number of live pages per notebook (paged notebooks only appear).
+  Map<String, int> pageCounts() => {
+    for (final row in _database.db.select(
+      'SELECT notebook_id, COUNT(*) AS c FROM pages WHERE deleted = 0 GROUP BY notebook_id',
+    ))
+      row['notebook_id'] as String: row['c'] as int,
+  };
 }

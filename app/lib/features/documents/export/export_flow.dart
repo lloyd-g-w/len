@@ -36,9 +36,15 @@ Future<void> exportFlow(
     ExportKind.pagePng => ('$base p$number.png', 'image/png'),
   };
   try {
-    final bytes = await runWithProgress(context, 'Exporting…', () {
+    final bytes = await runWithSteps(context, 'Exporting', subject: name, (progress) {
+      void report(ExportStage stage, int done, int total) => progress.step(
+        done,
+        total,
+        stage: stage == ExportStage.preparing ? 'Preparing pages…' : 'Writing PDF…',
+      );
+      progress.stageStarted('Rendering…');
       return switch (kind) {
-        ExportKind.notebookPdf => exporter.pdf(pages, title: notebook.title),
+        ExportKind.notebookPdf => exporter.pdf(pages, title: notebook.title, onProgress: report),
         ExportKind.pagePdf => exporter.pdf([page], title: notebook.title),
         ExportKind.pagePng => exporter.png(page),
       };

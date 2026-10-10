@@ -81,7 +81,11 @@ class SettingsTile extends StatelessWidget {
     this.trailing,
     this.below,
     this.onTap,
+    this.icon,
   });
+
+  /// Leading symbol, aligned with the title.
+  final IconData? icon;
 
   final String title;
   final String? subtitle;
@@ -117,11 +121,21 @@ class SettingsTile extends StatelessWidget {
           children: [
             Row(
               children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 22, color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: Gaps.lg),
+                ],
                 Expanded(child: text),
                 if (trailing != null) ...[const SizedBox(width: Gaps.lg), trailing!],
               ],
             ),
-            if (below != null) ...[const SizedBox(height: Gaps.md), below!],
+            if (below != null) ...[
+              const SizedBox(height: Gaps.md),
+              Padding(
+                padding: EdgeInsets.only(left: icon == null ? 0 : 22 + Gaps.lg),
+                child: below,
+              ),
+            ],
           ],
         ),
       ),

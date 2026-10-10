@@ -550,6 +550,17 @@ neutral surfaces, a tighter type scale and shared component themes
 (`theme_components.dart`). Tokens: `Gaps`, `Radii`, `Palette` (`app_theme.dart`) and
 `Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
 
+Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width),
+`menus.dart` (`MenuRow`, `showContextMenuAt`), `text_prompt.dart`. Documents UI
+(`features/documents/`): `templates/` (grouped `TemplateGallery`, paper colour and page size
+rows) used by the template picker and the new-notebook sheet; `overview/` (the page overview
+with selection mode; `editor/document/page_overview.dart` re-exports it);
+`progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n").
+Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActions`, batch
+actions, floating bar). `flows_screenshot_test.dart` and `overview_screenshot_test.dart` cover
+sheets, dialogs, empty states, selection, the page overview and 1.3× text; findings are tracked
+in `docs/UX_AUDIT.md`.
+
 Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
 canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar and its popovers in
 `toolbar_screenshot_test.dart`) at phone, tablet and

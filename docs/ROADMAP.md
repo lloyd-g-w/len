@@ -29,14 +29,17 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   music staff; template picker with live previews (new notebooks, new pages, change one/all pages)
 - ✅ Paper colours (white, cream, grey, dark)
 - ✅ Page sizes (A4, A5, Letter, square) and orientation
-- ✅ Page overview: live thumbnails, drag to reorder, duplicate, delete (undo), insert before/after,
-  go to page
+- ✅ Page overview: live thumbnails, drag to reorder (drop indicator), duplicate, delete (undo),
+  insert before/after, go to page, "Add page" tile, selection mode (bookmark / duplicate / delete
+  several pages)
 - ✅ Bookmarks (synced) with a bookmarks filter in the overview
 - ✅ Continuous vertical scrolling of pages (default) or one page at a time (swipe / arrows)
 - ✅ Page navigation: smooth scroll-to-page, whole-page fit + slide in single-page flow, "Add page"
   after the last page, arrow / PageUp / Home / End keys, jump to page, compact indicator on phones
 - ✅ PDF import & annotate (new notebook or insert pages); export notebook / page to PDF (vector
   ink) and page to PNG; save dialog on desktop, share sheet on Android
+- ✅ Progress for import / export: stage, file name, "Page x of n" bar
+- ⬜ Cancel long imports / exports; export options (page range, PNG resolution)
 - ⬜ Planner / custom (image) templates
 - ⬜ Tiled PDF rendering for extreme zoom; PDF text selection / links / outline
 - ⬜ Export keeps imported PDF pages as vectors (currently embedded at 150 dpi)
@@ -62,6 +65,11 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   on Windows, behind a recogniser interface)
 - ✅ Live cover thumbnails, more cover colours + patterns
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
+- ✅ Create sheet with a live cover + first-page preview, Paper / Cover galleries, size and paper
+  colour (dialog on wide screens, tall sheet on phones); grouped template gallery
+- ✅ Selection mode: favourite, move, trash (undo), restore, delete forever for many notebooks
+- ✅ Cards show page count and short dates; consistent dialogs; empty states with actions
+- ⬜ "New…" tile in the grid; folder icons
 
 ## App
 - ✅ Web target (PWA): SQLite wasm + IndexedDB, blobs in IndexedDB, PDF import/render (PDFium wasm),
@@ -70,6 +78,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Theme mode (system/light/dark), accent colour
 - ✅ App shell: sidebar (tablet/desktop), bottom navigation (phone), context menus,
   keyboard shortcuts, redesigned settings
+- ✅ Settings: theme previews, Stylus / Gestures / Editor (toolbar position) sections with
+  descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
+- ⬜ Two-pane settings on wide screens
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
   export, focus, more menu), tool-descriptor toolbar with contextual quick controls, toolbar
   position (automatic / top / bottom / floating, draggable), focus mode (F11 / Ctrl+.) with

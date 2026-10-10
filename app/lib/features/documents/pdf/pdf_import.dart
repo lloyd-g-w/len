@@ -40,9 +40,16 @@ class PdfImporter {
     ];
   }
 
-  /// Creates a notebook titled [title] with one page per PDF page.
-  Future<Notebook> createNotebook(String sha, {required String title, required int cover}) async {
+  /// Creates a notebook titled [title] with one page per PDF page;
+  /// [onPages] hears the page count before the pages are created.
+  Future<Notebook> createNotebook(
+    String sha, {
+    required String title,
+    required int cover,
+    void Function(int pages)? onPages,
+  }) async {
     final specs = await specsFor(sha);
+    onPages?.call(specs.length);
     final notebook = services.database.transaction(() {
       final notebook = services.notebooks.create(
         title: title,
@@ -62,13 +69,15 @@ class PdfImporter {
   }
 
   /// Inserts the PDF's pages into [notebookId] after [after] (at the end
-  /// if null); returns the new pages.
+  /// if null); returns the new pages. [onPages] hears the page count.
   Future<List<NotebookPage>> insertPages(
     String sha, {
     required String notebookId,
     NotebookPage? after,
+    void Function(int pages)? onPages,
   }) async {
     final specs = await specsFor(sha);
+    onPages?.call(specs.length);
     final pages = services.pages.insertPages(notebookId, specs, after: after);
     unawaited(services.search.indexPdfs());
     return pages;

@@ -13,15 +13,20 @@ import 'library_dialogs.dart';
 import 'library_drag.dart';
 import 'library_menus.dart';
 import 'new_notebook_sheet.dart';
+import 'selection/library_selection.dart';
 import 'thumbnails/thumbnail_cache.dart';
 
 /// User-facing flows of the library (dialogs, confirmations, navigation)
 /// on top of [LibraryController]. Widgets pass their own [BuildContext].
 class LibraryActions {
-  LibraryActions({required this.controller, required this.thumbnails});
+  LibraryActions({required this.controller, required this.thumbnails, LibrarySelection? selection})
+    : selection = selection ?? LibrarySelection();
 
   final LibraryController controller;
   final ThumbnailCache thumbnails;
+
+  /// Notebooks picked in selection mode.
+  final LibrarySelection selection;
 
   Future<void> openNotebook(BuildContext context, Notebook notebook) async {
     if (notebook.isTrashed) {

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app_services.dart';
 import '../../data/folder_repository.dart';
+import '../../data/surface_stats.dart';
 import '../../domain/cover_style.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
@@ -39,6 +40,7 @@ class LibraryController extends ChangeNotifier {
   Map<String, String?> _parentById = const {};
   Map<String?, List<Folder>> _childrenByParent = const {};
   Map<String?, int> _notebookCountByFolder = const {};
+  Map<String, int> _pageCounts = const {};
 
   /// [visibleNotebooks] for the current state and sort; several widgets
   /// read it per build. Cleared whenever listeners are notified.
@@ -69,6 +71,10 @@ class LibraryController extends ChangeNotifier {
 
   List<Folder> get allFolders => _folders;
   List<Notebook> get trash => _trash;
+
+  /// Number of pages of paged notebook [id] (0 if unknown).
+  int pageCountOf(String id) => _pageCounts[id] ?? 0;
+
   int get favoriteCount => _notebooks.where((n) => n.favorite).length;
 
   LibraryLayout get layout => services.preferences.libraryLayout;
@@ -89,6 +95,7 @@ class LibraryController extends ChangeNotifier {
     _folderById = {for (final f in _folders) f.id: f};
     _notebooks = services.notebooks.list();
     _trash = services.notebooks.trashed();
+    _pageCounts = SurfaceStats(services.database).pageCounts();
     _parentById = {
       for (final f in _folders) f.id: FolderRepository.effectiveParentOf(f, _folderById),
     };
