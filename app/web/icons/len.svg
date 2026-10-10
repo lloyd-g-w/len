@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Len app icon: an ink-blue tile with a hand-drawn "L" stroke. -->
+  <rect width="512" height="512" rx="112" fill="#3B5BDB"/>
+  <path d="M190 128 C186 210 180 300 184 372 C250 368 312 366 350 370"
+        fill="none" stroke="#FFFFFF" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
