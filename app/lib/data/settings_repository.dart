@@ -42,6 +42,10 @@ class SettingsRepository {
   set stylusOnly(bool? value) =>
       value == null ? _remove(_stylusOnly) : _set(_stylusOnly, '$value');
 
+  /// How paged notebooks are shown (`continuous` / `single`); null = default.
+  String? get pageFlow => _get('page_flow');
+  set pageFlow(String? value) => value == null ? _remove('page_flow') : _set('page_flow', value);
+
   String? _get(String key) {
     final rows = _database.db.select('SELECT value FROM settings WHERE key = ?', [key]);
     return rows.isEmpty ? null : rows.first['value'] as String;

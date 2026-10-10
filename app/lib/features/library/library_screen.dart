@@ -6,6 +6,7 @@ import '../../app_services.dart';
 import '../../domain/notebook.dart';
 import '../../ui/sync_status_button.dart';
 import '../../ui/text_prompt.dart';
+import '../documents/pdf/pdf_import_flow.dart';
 import '../editor/editor_screen.dart';
 import '../settings/settings_screen.dart';
 import 'new_notebook_sheet.dart';
@@ -52,6 +53,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Future<void> _create() async {
     final request = await NewNotebookSheet.show(context);
     if (request == null || !mounted) return;
+    if (request.importPdf) {
+      // Documents workstream: notebook from a PDF.
+      final imported = await importPdfFlow(context);
+      if (imported == null || !mounted) return;
+      _reload();
+      return _open(imported);
+    }
     final notebook = _services.notebooks.create(
       title: request.title,
       kind: request.kind,

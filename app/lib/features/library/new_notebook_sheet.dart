@@ -20,7 +20,13 @@ class NewNotebookRequest {
   /// The user chose to create the notebook from a PDF instead (see
   /// `importPdfFlow`); the other fields are then irrelevant.
   const NewNotebookRequest.importPdf()
-    : this(title: '', kind: NotebookKind.paged, paper: PaperStyle.blank, coverColor: 0, importPdf: true);
+    : this(
+        title: '',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+        importPdf: true,
+      );
 
   final String title;
   final NotebookKind kind;
