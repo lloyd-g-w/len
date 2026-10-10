@@ -738,6 +738,34 @@ void main() {
           10,
           data: {'surfaceId': 's', 'type': '', 'x': 0, 'y': 0, 'w': 1, 'h': 1, 'createdAt': 0},
         ),
+        // Absurd coordinates would make chunk indexing (and outlining) hang.
+        _record(
+          'strokes',
+          'far-stroke',
+          10,
+          data: {
+            'surfaceId': 's',
+            'tool': 'pen',
+            'color': 0,
+            'width': 2,
+            'points': _points(const [StrokePoint(0, 0, 1), StrokePoint(3e38, 3e38, 1)]),
+            'createdAt': 0,
+          },
+        ),
+        _record(
+          'elements',
+          'huge-element',
+          10,
+          data: {
+            'surfaceId': 's',
+            'type': 'text',
+            'x': 0,
+            'y': 0,
+            'w': 1e15,
+            'h': 1e15,
+            'createdAt': 0,
+          },
+        ),
         _record('notebooks', 'no-device', 10, data: goodNotebook)..remove('deviceId'),
         {..._record('notebooks', 'no-data', 10, data: goodNotebook), 'data': null},
         _record('notebooks', 'good-nb', 10, data: goodNotebook),
@@ -756,6 +784,8 @@ void main() {
         ('pages', 'bad-page'),
         ('strokes', 'bad-stroke'),
         ('elements', 'bad-element'),
+        ('strokes', 'far-stroke'),
+        ('elements', 'huge-element'),
       ]) {
         expect(b.deleted(table, id), isNull, reason: '$table/$id must not be stored');
       }
