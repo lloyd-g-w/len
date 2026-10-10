@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/element_repository.dart';
+import 'package:len/data/settings_repository.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text_data.dart';
@@ -213,5 +214,29 @@ void main() {
     trail.tick();
     expect(trail.isEmpty, isTrue);
     trail.dispose();
+  });
+
+  test('shape and text defaults persist with the tool settings', () {
+    final store = SettingsRepository(db);
+    final tools = ToolSettings(store: store)
+      ..shape = ShapeKind.star
+      ..textStyle = const TextData(text: 'ignored', fontSize: 40, bold: true);
+    expect(tools.tool, EditorTool.shape);
+    expect(tools.textStyle.text, '');
+    tools.dispose(); // flushes the debounced save
+    final restored = ToolSettings(store: store);
+    expect(restored.shape, ShapeKind.star);
+    expect(restored.textStyle, const TextData(fontSize: 40, bold: true));
+    restored.dispose();
+  });
+
+  test('tools without ink switch to the pen when a preset is picked', () {
+    final tools = ToolSettings()..tool = EditorTool.lasso;
+    tools.selectPreset(1);
+    expect(tools.tool, EditorTool.pen);
+    tools
+      ..tool = EditorTool.shape
+      ..selectPreset(0);
+    expect(tools.tool, EditorTool.shape);
   });
 }
