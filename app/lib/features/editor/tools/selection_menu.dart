@@ -21,6 +21,8 @@ class SelectionMenu extends StatelessWidget {
     required this.onEditText,
     required this.onPaste,
     this.onCrop,
+    this.onConvertToText,
+    this.convertUnavailable,
   });
 
   final SelectionController selection;
@@ -31,6 +33,11 @@ class SelectionMenu extends StatelessWidget {
 
   /// Asked to crop an image (shown for a single selected image).
   final ValueChanged<SurfaceElement>? onCrop;
+
+  /// "Convert to text" (shown when ink is selected); disabled, with
+  /// [convertUnavailable] as its tooltip, if that is set.
+  final VoidCallback? onConvertToText;
+  final String? convertUnavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +62,8 @@ class SelectionMenu extends StatelessWidget {
             onEditText: onEditText,
             onPaste: onPaste,
             onCrop: onCrop,
+            onConvertToText: onConvertToText,
+            convertUnavailable: convertUnavailable,
           ),
         );
       },
@@ -69,6 +78,8 @@ class _MenuBar extends StatelessWidget {
     required this.onEditText,
     required this.onPaste,
     this.onCrop,
+    this.onConvertToText,
+    this.convertUnavailable,
   });
 
   final SelectionController selection;
@@ -76,6 +87,8 @@ class _MenuBar extends StatelessWidget {
   final ValueChanged<SurfaceElement> onEditText;
   final VoidCallback onPaste;
   final ValueChanged<SurfaceElement>? onCrop;
+  final VoidCallback? onConvertToText;
+  final String? convertUnavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +109,17 @@ class _MenuBar extends StatelessWidget {
             action('Edit text', Icons.edit_outlined, () => onEditText(elements.single)),
           if (singleImage && onCrop != null)
             action('Crop', Icons.crop_rounded, () => onCrop!(elements.single)),
+          if (onConvertToText != null && selection.strokes.any((s) => !s.tool.isHighlighter))
+            if (convertUnavailable case final reason?)
+              Tooltip(
+                message: reason,
+                child: const IconButton(
+                  onPressed: null,
+                  icon: Icon(Icons.spellcheck_rounded, size: 20),
+                ),
+              )
+            else
+              action('Convert to text', Icons.spellcheck_rounded, onConvertToText!),
           action('Cut (Ctrl+X)', Icons.content_cut_rounded, selection.cut),
           action('Copy (Ctrl+C)', Icons.content_copy_rounded, selection.copy),
           action('Duplicate (Ctrl+D)', Icons.library_add_outlined, selection.duplicate),

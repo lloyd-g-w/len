@@ -195,6 +195,15 @@ class SelectionController extends ChangeNotifier {
     );
   }
 
+  /// Replaces the selected strokes with [added] elements ("Convert to
+  /// text") as one undoable edit and selects them (with any selected
+  /// elements).
+  void replaceStrokesWith(List<SurfaceElement> added) {
+    if (_strokes.isEmpty) return;
+    _edit(() => _model.commit(InkEdit(removed: _strokes, addedElements: added)));
+    select(const [], [..._elements, ...added]);
+  }
+
   // ---------------------------------------------------------------------------
   // Internals
 
