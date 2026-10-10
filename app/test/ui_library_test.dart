@@ -11,7 +11,7 @@ import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/ui/app_theme.dart';
 
-import 'sync_test.dart' show FakeServer;
+import 'support/fake_server.dart' show FakeServer;
 
 /// Pumps the library with fresh in-memory services. Sync stays unconfigured
 /// and is never started (that would leave a periodic timer running).

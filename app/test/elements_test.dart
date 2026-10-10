@@ -15,7 +15,7 @@ import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/undo_history.dart';
 
 import 'data_test.dart' show FakeClock, stroke;
-import 'sync_test.dart' show FakeServer, apiFor, device;
+import 'support/fake_server.dart' show FakeServer, apiFor, device;
 
 SurfaceElement textBox(
   String id,

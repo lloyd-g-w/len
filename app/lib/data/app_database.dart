@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:sqlite3/common.dart';
 
 import '../platform/sqlite_connection.dart';
@@ -75,6 +76,21 @@ class AppDatabase {
         db.execute('PRAGMA user_version = ${v + 1}');
       });
     }
+  }
+
+  /// The schema version of a fully migrated database.
+  @visibleForTesting
+  static int get latestVersion => _migrations.length;
+
+  /// Applies the first [toVersion] migrations to a fresh connection [db]
+  /// and sets its `user_version`, building a database exactly as that
+  /// schema version left it.
+  @visibleForTesting
+  static void migrateForTest(CommonDatabase db, int toVersion) {
+    for (var v = 0; v < toVersion; v++) {
+      _migrations[v](db);
+    }
+    db.execute('PRAGMA user_version = $toVersion');
   }
 
   /// Schema version from which the page/blob migration runs (its index in

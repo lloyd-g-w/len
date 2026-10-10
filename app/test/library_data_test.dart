@@ -14,7 +14,7 @@ import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 
 import 'data_test.dart' show FakeClock, stroke;
-import 'sync_test.dart' show FakeServer, apiFor, device;
+import 'support/fake_server.dart' show FakeServer, apiFor, device;
 
 void main() {
   late AppDatabase db;
