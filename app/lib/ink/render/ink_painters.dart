@@ -114,8 +114,12 @@ class LiveInkPainter extends CustomPainter {
     ..style = PaintingStyle.stroke
     ..color = const Color(0x99000000);
 
+  /// Told how long each live outline took to build (the Ink Lab's stats).
+  static void Function(int points, Duration took)? onBuild;
+
   Path _livePath() {
     if (_path == null || _pathRevision != live.revision) {
+      final watch = onBuild == null ? null : (Stopwatch()..start());
       _path = StrokeRenderer.buildPath(
         live.points,
         tool: live.tool,
@@ -124,6 +128,7 @@ class LiveInkPainter extends CustomPainter {
         complete: false,
       );
       _pathRevision = live.revision;
+      if (watch != null) onBuild?.call(live.points.length, watch.elapsed);
     }
     return _path!;
   }

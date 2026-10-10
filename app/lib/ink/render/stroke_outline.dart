@@ -112,12 +112,46 @@ abstract final class StrokeOutline {
     List<double>? pressures,
     bool complete = true,
   }) {
-    var samples = _dedupe(points, pressures, spec);
+    final samples = _prepare(points, spec, pressures, complete);
     if (samples.isEmpty) return;
+    final line = _centerline(samples, spec, complete);
+    final maxR = line.r.fold<double>(0, math.max);
+    if (line.length < 2 || line.arcLength < maxR * 0.5) {
+      final r = math.max(samples.fold<double>(0, (m, s) => math.max(m, s.r)), 0.25);
+      _dot(sink, line.x[0], line.y[0], r, spec.flatCaps);
+      return;
+    }
+    CapsuleEmitter(line, flatCaps: spec.flatCaps).emit(sink);
+  }
+
+  /// The smoothed centre line (with radii) [emit] turns into capsules, or
+  /// null for no points. For measurements (Ink Lab, tests).
+  static Centerline? centerline(
+    List<StrokePoint> points,
+    OutlineSpec spec, {
+    List<double>? pressures,
+    bool complete = true,
+  }) {
+    final samples = _prepare(points, spec, pressures, complete);
+    return samples.isEmpty ? null : _centerline(samples, spec, complete);
+  }
+
+  /// Deduplicated samples with pen-lift hooks trimmed.
+  static List<_Sample> _prepare(
+    List<StrokePoint> points,
+    OutlineSpec spec,
+    List<double>? pressures,
+    bool complete,
+  ) {
+    var samples = _dedupe(points, pressures, spec);
     if (samples.length > 3) {
       samples = _trimHook(samples, spec.width, atEnd: false);
       if (complete) samples = _trimHook(samples, spec.width, atEnd: true);
     }
+    return samples;
+  }
+
+  static Centerline _centerline(List<_Sample> samples, OutlineSpec spec, bool complete) {
     // Sparse samples from fast writing would otherwise be joined by straight
     // chords (faceted, "jittery" curves); a spline through them restores
     // the curve the pen actually travelled.
@@ -127,7 +161,7 @@ abstract final class StrokeOutline {
       [for (final s in samples) s.r],
       spec.sampleStep * 2,
     );
-    final line = Centerline.resample(dense.x, dense.y, dense.r, spec.sampleStep)
+    return Centerline.resample(dense.x, dense.y, dense.r, spec.sampleStep)
       ..settleEnds(spec.width, end: complete)
       ..findCorners(spec.positionSigma)
       ..smoothPositions(spec.positionSigma)
@@ -136,13 +170,6 @@ abstract final class StrokeOutline {
       ..settleEnds(spec.width, end: complete)
       ..levelEnds(spec.levelReach, end: complete)
       ..taper(spec.taperStart, complete ? spec.taperEnd : 0);
-    final maxR = line.r.fold<double>(0, math.max);
-    if (line.length < 2 || line.arcLength < maxR * 0.5) {
-      final r = math.max(samples.fold<double>(0, (m, s) => math.max(m, s.r)), 0.25);
-      _dot(sink, line.x[0], line.y[0], r, spec.flatCaps);
-      return;
-    }
-    CapsuleEmitter(line, flatCaps: spec.flatCaps).emit(sink);
   }
 
   static List<_Sample> _dedupe(
