@@ -5,11 +5,13 @@ import 'package:flutter/widgets.dart';
 import 'core/clock.dart';
 import 'data/app_database.dart';
 import 'data/app_preferences.dart';
+import 'data/background_stroke_reader.dart';
 import 'data/blob_store.dart';
 import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
 import 'data/settings_repository.dart';
+import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
@@ -25,6 +27,7 @@ class AppServices {
     required this.folders,
     required this.pages,
     required this.strokes,
+    required this.strokeReader,
     required this.blobs,
     required this.sync,
   });
@@ -72,6 +75,10 @@ class AppServices {
       folders: folders,
       pages: pages,
       strokes: strokes,
+      strokeReader: switch (database.path) {
+        final path? => BackgroundStrokeReader(path, fallback: strokes),
+        null => strokes, // In-memory (tests): no second connection possible.
+      },
       blobs: blobs,
       sync: syncApiFactory == null
           ? SyncController(engine: engine, settings: settings)
@@ -88,11 +95,15 @@ class AppServices {
   final FolderRepository folders;
   final PageRepository pages;
   final StrokeRepository strokes;
+
+  /// Reads strokes for lazy loading off the UI isolate when possible.
+  final StrokeReader strokeReader;
   final BlobStore blobs;
   final SyncController sync;
 
   void dispose() {
     sync.dispose();
+    if (strokeReader case final BackgroundStrokeReader reader) reader.close();
     preferences.dispose();
     database.close();
   }

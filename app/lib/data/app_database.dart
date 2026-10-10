@@ -8,10 +8,10 @@ import 'package:sqlite3/sqlite3.dart';
 ///   * `deleted` — tombstone flag, so deletions can be synced,
 ///   * `dirty` — 1 when the row has local changes not yet pushed.
 class AppDatabase {
-  AppDatabase._(this.db);
+  AppDatabase._(this.db, {this.path});
 
   /// Opens (creating if needed) the database file at [path].
-  factory AppDatabase.open(String path) => AppDatabase._(sqlite3.open(path))
+  factory AppDatabase.open(String path) => AppDatabase._(sqlite3.open(path), path: path)
     .._configure()
     .._migrate();
 
@@ -21,6 +21,9 @@ class AppDatabase {
     .._migrate();
 
   final Database db;
+
+  /// The database file, or null for an in-memory database.
+  final String? path;
 
   /// Runs [action] inside a transaction, rolling back if it throws.
   ///

@@ -1,0 +1,34 @@
+import 'dart:async';
+import 'dart:ui';
+
+import '../domain/chunk_grid.dart';
+import '../domain/stroke.dart';
+
+/// The result of reading part of a surface: the populated chunks that were
+/// read and every live stroke touching them.
+class ChunkLoad {
+  const ChunkLoad({required this.chunks, required this.strokes});
+
+  static const ChunkLoad empty = ChunkLoad(chunks: [], strokes: []);
+
+  final List<ChunkKey> chunks;
+  final List<Stroke> strokes;
+}
+
+/// Read-only access to stored strokes, used for lazy loading and for
+/// overviews of a whole surface (minimap, "fit to content").
+///
+/// Results may arrive synchronously (a reader on the UI isolate's
+/// connection, as in tests) or asynchronously (a background isolate), so
+/// callers must handle both shapes of [FutureOr].
+abstract interface class StrokeReader {
+  /// Populated chunks of [surfaceId] within [range] except those in [skip],
+  /// with every live stroke touching them.
+  FutureOr<ChunkLoad> read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip});
+
+  /// Number of strokes indexed in each populated chunk of [surfaceId].
+  FutureOr<Map<ChunkKey, int>> chunkDensity(String surfaceId);
+
+  /// Bounds of all live ink on [surfaceId], or null if it is empty.
+  FutureOr<Rect?> contentBounds(String surfaceId);
+}
