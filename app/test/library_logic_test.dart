@@ -176,5 +176,37 @@ void main() {
       expect(cache.imageFor(paged), isNotNull);
       expect(notified, greaterThanOrEqualTo(2));
     });
+
+    testWidgets('empty notebooks never notify; a new page paper re-renders', (tester) async {
+      final notebooks = [for (var i = 0; i < 5; i++) create(NotebookKind.paged)];
+      final cache = ThumbnailCache(
+        renderer: renderer,
+        stats: SurfaceStats(services.database),
+        width: 40,
+      );
+      addTearDown(cache.dispose);
+      var notified = 0;
+      cache.addListener(() => notified++);
+      for (final n in notebooks) {
+        cache.imageFor(n);
+      }
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(notified, 0, reason: 'plain covers stay plain');
+
+      final drawn = notebooks.first;
+      final page = services.pages.pagesOf(drawn.id).single;
+      services.strokes.save([stroke('a', const Offset(100, 100), surface: page.id)]);
+      cache.invalidate([drawn.id]);
+      cache.imageFor(drawn);
+      await tester.pump(const Duration(milliseconds: 1));
+      final first = cache.imageFor(drawn);
+      expect(first, isNotNull);
+
+      services.database.db.execute("UPDATE pages SET paper = 'grid' WHERE id = ?", [page.id]);
+      cache.invalidate([drawn.id]);
+      cache.imageFor(drawn);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(cache.imageFor(drawn), isNot(same(first)));
+    });
   });
 }
