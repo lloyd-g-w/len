@@ -15,7 +15,7 @@ import 'thumbnail_renderer.dart';
 /// Renders run one per event-loop turn so a large library never blocks a
 /// frame for long; listeners are notified as images arrive.
 class ThumbnailCache extends ChangeNotifier {
-  ThumbnailCache({required this.renderer, required this.stats, this.width = 360});
+  ThumbnailCache({required this.renderer, required this.stats, this.width = 320});
 
   final ThumbnailRenderer renderer;
   final SurfaceStats stats;
@@ -24,7 +24,7 @@ class ThumbnailCache extends ChangeNotifier {
   final int width;
 
   /// Most entries kept; the least recently used are dropped beyond this.
-  static const int capacity = 240;
+  static const int capacity = 96;
 
   final LinkedHashMap<String, _Entry> _entries = LinkedHashMap();
   final LinkedHashMap<String, Notebook> _queue = LinkedHashMap();

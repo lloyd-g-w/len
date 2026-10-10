@@ -3,8 +3,8 @@ import 'package:sqlite3/sqlite3.dart';
 import '../domain/cover_style.dart';
 import '../domain/notebook.dart';
 import '../domain/paper.dart';
+import 'notebook_duplicator.dart';
 import 'page_repository.dart';
-import 'row_copier.dart';
 import 'stroke_repository.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
@@ -135,51 +135,8 @@ class NotebookRepository extends SyncableTable {
 
   /// Copies a notebook with all its pages and strokes under new ids.
   /// Returns the copy, or null if [id] is unknown.
-  Notebook? duplicate(String id, {String? title}) {
-    final source = get(id);
-    if (source == null) return null;
-    final now = clock.nowMs();
-    final copy = Notebook(
-      id: clock.newId(),
-      title: title ?? '${source.title} (copy)',
-      kind: source.kind,
-      paper: source.paper,
-      coverColor: source.coverColor,
-      coverStyle: source.coverStyle,
-      folderId: source.folderId,
-      createdAt: now,
-      updatedAt: now,
-    );
-    final copier = RowCopier(db);
-    final stamp = {'updated_at': now, 'device_id': deviceId, 'deleted': 0, 'dirty': 1};
-    database.transaction(() {
-      _write(copy, deviceId: deviceId, dirty: true);
-      final surfaces = <String, String>{source.id: copy.id};
-      for (final page in pages.pagesOf(source.id)) {
-        final pageId = clock.newId();
-        copier.copy('pages', page.id, {...stamp, 'id': pageId, 'notebook_id': copy.id});
-        surfaces[page.id] = pageId;
-      }
-      surfaces.forEach((from, to) => _copyStrokes(copier, from, to, stamp));
-    });
-    return copy;
-  }
-
-  void _copyStrokes(RowCopier copier, String from, String to, Map<String, Object?> stamp) {
-    final ids = db
-        .select('SELECT id FROM strokes WHERE surface_id = ? AND deleted = 0', [from])
-        .map((r) => r['id'] as String)
-        .toList();
-    for (final strokeId in ids) {
-      final newId = clock.newId();
-      copier.copy('strokes', strokeId, {...stamp, 'id': newId, 'surface_id': to});
-      db.execute(
-        'INSERT OR IGNORE INTO stroke_chunks (surface_id, cx, cy, stroke_id) '
-        'SELECT ?, cx, cy, ? FROM stroke_chunks WHERE stroke_id = ?',
-        [to, newId, strokeId],
-      );
-    }
-  }
+  Notebook? duplicate(String id, {String? title}) =>
+      NotebookDuplicator(this).duplicate(id, title: title);
 
   /// Permanently tombstones the notebook together with its pages and strokes.
   void delete(String id) {
