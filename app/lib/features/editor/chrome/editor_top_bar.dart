@@ -26,6 +26,8 @@ class EditorTopBar extends StatelessWidget {
     this.subtitle,
     this.search,
     this.insert,
+    this.audio,
+    this.compactMenuItems = const [],
   });
 
   final String title;
@@ -41,6 +43,11 @@ class EditorTopBar extends StatelessWidget {
 
   /// The insert-image button (features/editor/images), before search.
   final Widget? insert;
+
+  /// The audio recording controls (features/audio), before insert; on
+  /// phones they hide and [compactMenuItems] go into the "⋯" menu instead.
+  final Widget? audio;
+  final List<Widget> compactMenuItems;
 
   /// Height of the bar (without the status bar) for a given [width].
   static double heightFor(double width, OpenNotebooks? tabs) =>
@@ -121,6 +128,7 @@ class EditorTopBar extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          ?audio,
           ?insert,
           ?search,
           UndoRedoButtons(target: undo),
@@ -154,6 +162,7 @@ class EditorTopBar extends StatelessWidget {
         EditorMoreMenu(
           actions: actions,
           compact: true,
+          compactItems: compactMenuItems,
           tabs: switcher || tabs == null || tabs.length < 2 ? null : tabs,
         ),
       ],

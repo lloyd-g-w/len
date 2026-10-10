@@ -1,0 +1,100 @@
+import 'package:flutter/material.dart';
+
+import '../../domain/paper.dart';
+import '../../ui/app_theme.dart';
+import '../editor/chrome/chrome_metrics.dart';
+import '../editor/editor_session.dart';
+import 'notebook_audio.dart';
+import 'replay/ink_replay_layer.dart';
+import 'replay/replay_target.dart';
+import 'ui/audio_bar_button.dart';
+import 'ui/playback_bar.dart';
+
+/// What audio adds over the editor's surface (below its chrome): ink
+/// replay and the playback bar, both only while a recording is open, and
+/// on phones (no room in the top bar) the floating recording controls.
+class AudioLayer extends StatefulWidget {
+  const AudioLayer({
+    super.key,
+    required this.audio,
+    required this.session,
+    required this.chromeInsets,
+    this.canvasPaper = PaperColor.white,
+  });
+
+  final NotebookAudio audio;
+  final EditorSession session;
+
+  /// Screen edges covered by chrome; the playback bar sits above the bottom.
+  final EdgeInsets chromeInsets;
+
+  /// Paper colour of an infinite canvas (pages carry their own).
+  final PaperColor canvasPaper;
+
+  @override
+  State<AudioLayer> createState() => _AudioLayerState();
+}
+
+class _AudioLayerState extends State<AudioLayer> {
+  late ReplayTarget _target = _targetFor();
+  PaperColor? _paper;
+
+  ReplayTarget _targetFor() {
+    final session = widget.session;
+    _paper = widget.canvasPaper;
+    final doc = session.doc;
+    return doc != null
+        ? ReplayTarget.document(doc)
+        : ReplayTarget.canvas(session.canvas!, session.canvasViewport!, widget.canvasPaper);
+  }
+
+  @override
+  void didUpdateWidget(AudioLayer old) {
+    super.didUpdateWidget(old);
+    if (old.session != widget.session || _paper != widget.canvasPaper) _target = _targetFor();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playback = widget.audio.playback;
+    final insets = widget.chromeInsets;
+    final compact = MediaQuery.sizeOf(context).width < ChromeMetrics.compactWidth;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        InkReplayLayer(audio: widget.audio, target: _target),
+        Positioned(
+          left: insets.left + Gaps.md,
+          right: insets.right + Gaps.md,
+          bottom: insets.bottom + Gaps.sm,
+          child: Align(
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: ListenableBuilder(
+                listenable: Listenable.merge([playback, widget.audio.recorder]),
+                builder: (context, _) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (compact && widget.audio.recorder.state.isActive)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: Gaps.sm),
+                        child: Material(
+                          elevation: 3,
+                          shadowColor: Colors.black26,
+                          borderRadius: BorderRadius.circular(Radii.pill),
+                          color: Colors.transparent,
+                          child: RecordingPill(recorder: widget.audio.recorder),
+                        ),
+                      ),
+                    PlaybackBar(audio: widget.audio),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

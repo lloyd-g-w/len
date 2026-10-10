@@ -116,11 +116,37 @@ class AppDatabase {
     _addNotebookPaperColor,
     _createSearchIndex,
     _createInkText,
+    _createRecordings,
   ];
 
   /// Recognised handwriting (derived, never synced) and its search
   /// documents. Idempotent (see [InkTextSchema.create]).
   static void _createInkText(CommonDatabase db) => InkTextSchema.create(db);
+
+  /// Audio recordings of notebooks (collection `recordings`; the audio is a
+  /// blob). Idempotent, so it is safe however migrations from parallel
+  /// branches end up ordered.
+  static void _createRecordings(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS recordings (
+        id          TEXT PRIMARY KEY NOT NULL,
+        notebook_id TEXT NOT NULL,
+        blob        TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL,
+        started_at  INTEGER NOT NULL,
+        title       TEXT NOT NULL,
+        mime        TEXT NOT NULL,
+        segments    TEXT NOT NULL DEFAULT '[]',
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute(
+      'CREATE INDEX IF NOT EXISTS recordings_by_notebook ON recordings(notebook_id, started_at)',
+    );
+    db.execute('CREATE INDEX IF NOT EXISTS recordings_dirty ON recordings(id) WHERE dirty = 1');
+  }
 
   /// The local full-text search index (derived, never synced) and the
   /// triggers that keep it current. Idempotent (see [SearchSchema.create]).

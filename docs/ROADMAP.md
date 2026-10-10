@@ -27,6 +27,14 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   button action (eraser / hold to lasso / none), finger long press or right click → canvas menu
   (paste here, select all on page, add text here, page commands)
 
+## Audio
+- ✅ Record audio while writing (pause / resume, level meter; top bar on tablets/desktops, menu +
+  floating controls on phones), recordings list (play, rename, delete), synced as blobs
+- ✅ Ink replay: ink written later than the playback position is faded; tap ink to play from when
+  it was written
+- ⬜ Background recording on Android (foreground service), waveform / seek by ink density,
+  trimming, audio export, upload while recording (chunked blobs)
+
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,
   music staff; template picker with live previews (new notebooks, new pages, change one/all pages)
@@ -104,5 +112,5 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Sync
 - ✅ Self-hosted LWW record sync
-- ✅ Blob sync (content-addressed PDFs and images)
+- ✅ Blob sync (content-addressed PDFs, images and audio)
 - ⬜ Blob garbage collection (unreferenced blobs on device and server)

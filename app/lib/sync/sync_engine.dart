@@ -6,6 +6,7 @@ import '../data/element_repository.dart';
 import '../data/folder_repository.dart';
 import '../data/notebook_repository.dart';
 import '../data/page_repository.dart';
+import '../data/recording_repository.dart';
 import '../data/settings_repository.dart';
 import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
@@ -27,7 +28,15 @@ class RemoteChanges {
   /// Surfaces (pages / canvases) whose content (strokes or elements) changed.
   final Set<String> strokeSurfaces = {};
 
-  bool get isEmpty => !notebooks && !folders && pagesOfNotebooks.isEmpty && strokeSurfaces.isEmpty;
+  /// Notebooks whose audio recordings changed.
+  final Set<String> recordingsOfNotebooks = {};
+
+  bool get isEmpty =>
+      !notebooks &&
+      !folders &&
+      pagesOfNotebooks.isEmpty &&
+      strokeSurfaces.isEmpty &&
+      recordingsOfNotebooks.isEmpty;
 }
 
 /// Returns true once a running sync should stop without persisting more
@@ -48,6 +57,7 @@ class SyncEngine {
     required this.folders,
     this.blobs,
     required this.elements,
+    required this.recordings,
   });
 
   final AppDatabase database;
@@ -61,12 +71,16 @@ class SyncEngine {
   final BlobStore? blobs;
   final ElementRepository elements;
 
+  /// Audio recordings of notebooks (their audio travels as blobs).
+  final RecordingRepository recordings;
+
   /// Dirty rows read from the database at a time. [SyncApi.push] further
   /// splits them by size.
   static const int _pushPageSize = 500;
 
   late final Map<String, SyncableStore> _stores = {
-    for (final s in <SyncableStore>[folders, notebooks, pages, strokes, elements]) s.collection: s,
+    for (final s in <SyncableStore>[folders, notebooks, pages, strokes, elements, recordings])
+      s.collection: s,
   };
 
   /// All syncable stores, in push order (parents before children).
@@ -144,10 +158,12 @@ class SyncEngine {
     final store = _stores[record.collection];
     if (store == null) return; // A collection from a newer app version.
     try {
-      // Look up the surface before applying: a tombstone may not carry one.
-      final previousSurface = switch (store) {
+      // Look up the owner (surface or notebook) before applying: a tombstone
+      // may not carry one.
+      final previousOwner = switch (store) {
         StrokeRepository() => strokes.surfaceOf(record.id),
         ElementRepository() => elements.surfaceOf(record.id),
+        RecordingRepository() => recordings.notebookOf(record.id),
         _ => null,
       };
       if (!store.applyRemote(record)) return;
@@ -160,10 +176,13 @@ class SyncEngine {
           _addKnown(changes.pagesOfNotebooks, pages.notebookOf(record.id));
         case StrokeRepository():
           _addKnown(changes.strokeSurfaces, strokes.surfaceOf(record.id));
-          _addKnown(changes.strokeSurfaces, previousSurface);
+          _addKnown(changes.strokeSurfaces, previousOwner);
         case ElementRepository():
           _addKnown(changes.strokeSurfaces, elements.surfaceOf(record.id));
-          _addKnown(changes.strokeSurfaces, previousSurface);
+          _addKnown(changes.strokeSurfaces, previousOwner);
+        case RecordingRepository():
+          _addKnown(changes.recordingsOfNotebooks, recordings.notebookOf(record.id));
+          _addKnown(changes.recordingsOfNotebooks, previousOwner);
       }
     } on FormatException catch (e) {
       // Skip malformed records instead of blocking sync forever.

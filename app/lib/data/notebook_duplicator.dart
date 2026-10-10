@@ -2,9 +2,9 @@ import '../domain/notebook.dart';
 import 'notebook_repository.dart';
 import 'row_copier.dart';
 
-/// Deep-copies a notebook: its row, its pages and every live stroke and
-/// element (with their chunk indexes), all under new ids and marked dirty
-/// for sync.
+/// Deep-copies a notebook: its row, its pages, every live stroke and
+/// element (with their chunk indexes) and its audio recordings, all under
+/// new ids and marked dirty for sync.
 ///
 /// Rows are copied column-by-column ([RowCopier]), so attributes added by
 /// later migrations (page templates, stroke kinds, …) are carried over.
@@ -43,8 +43,23 @@ class NotebookDuplicator {
         _copyContent(copier, 'strokes', 'stroke_chunks', 'stroke_id', from, to, stamp);
         _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp);
       });
+      _copyRecordings(copier, id, copyId, stamp);
     });
     return repo.get(copyId);
+  }
+
+  /// Copies the recordings of notebook [from] to [to]. The audio blobs are
+  /// content-addressed, so the copies share them. Strokes keep their
+  /// `createdAt`, so the copied ink replays in step with the copies.
+  void _copyRecordings(RowCopier copier, String from, String to, Map<String, Object?> stamp) {
+    final repo = _notebooks;
+    final ids = repo.db
+        .select('SELECT id FROM recordings WHERE notebook_id = ? AND deleted = 0', [from])
+        .map((r) => r['id'] as String)
+        .toList();
+    for (final id in ids) {
+      copier.copy('recordings', id, {...stamp, 'id': repo.clock.newId(), 'notebook_id': to});
+    }
   }
 
   /// Copies the live rows of [table] on surface [from] to surface [to],

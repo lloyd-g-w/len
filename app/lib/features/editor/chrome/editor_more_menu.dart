@@ -15,13 +15,22 @@ import 'editor_menu_actions.dart';
 /// position, focus mode), input and settings. On phones ([compact]) it
 /// also holds what the top bar has no room for.
 class EditorMoreMenu extends StatelessWidget {
-  const EditorMoreMenu({super.key, required this.actions, this.compact = false, this.tabs});
+  const EditorMoreMenu({
+    super.key,
+    required this.actions,
+    this.compact = false,
+    this.tabs,
+    this.compactItems = const [],
+  });
 
   final EditorMenuActions actions;
   final bool compact;
 
   /// Open notebooks to offer a switcher for (when the bar has no room).
   final OpenNotebooks? tabs;
+
+  /// Entries of features whose top bar slot has no room on phones (audio).
+  final List<Widget> compactItems;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +52,7 @@ class EditorMoreMenu extends StatelessWidget {
           _bookmarkItem(),
           if (a.onExport case final onExport?) exportSubmenu(onExport),
         ],
+        if (compact) ...compactItems,
         if (a.isPaged) ...[
           SubmenuButton(
             leadingIcon: const Icon(Icons.description_outlined),
