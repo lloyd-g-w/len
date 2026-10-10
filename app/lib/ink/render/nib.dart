@@ -5,8 +5,8 @@ import '../../domain/stroke.dart';
 /// Direction-dependent width of a broad (fountain pen) nib.
 abstract final class Nib {
   /// Per-point pressures for [points], adjusted so that the outline radius
-  /// (`∝ 0.5 - thinning * (0.5 - pressure)`, as in perfect_freehand with
-  /// linear easing) shrinks by up to [variation] (0..1) where the direction
+  /// (`∝ 0.5 - thinning * (0.5 - pressure)` with linear easing, see
+  /// [OutlineSpec.radiusFor]) shrinks by up to [variation] (0..1) where the direction
   /// of travel runs along a nib held at [angle].
   ///
   /// The effect needs pressure sensitivity: with [thinning] 0 the width

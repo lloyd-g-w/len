@@ -3,8 +3,8 @@ import '../domain/stroke.dart';
 /// One undoable change to a surface: strokes added and/or removed.
 class InkEdit {
   InkEdit({List<Stroke>? added, List<Stroke>? removed})
-      : added = added ?? const [],
-        removed = removed ?? const [];
+    : added = added ?? const [],
+      removed = removed ?? const [];
 
   final List<Stroke> added;
   final List<Stroke> removed;

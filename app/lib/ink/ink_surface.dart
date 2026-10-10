@@ -104,8 +104,7 @@ class _InkSurfaceState extends State<InkSurface> {
             onPointerHover: input.handleHover,
             onPointerSignal: (e) {
               // Claim the event so enclosing scrollables don't also react.
-              GestureBinding.instance.pointerSignalResolver
-                  .register(e, input.handleSignal);
+              GestureBinding.instance.pointerSignalResolver.register(e, input.handleSignal);
             },
             onPointerPanZoomStart: input.handlePanZoomStart,
             onPointerPanZoomUpdate: input.handlePanZoomUpdate,

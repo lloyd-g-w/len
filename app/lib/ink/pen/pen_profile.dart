@@ -14,7 +14,6 @@ class PenProfile {
   const PenProfile._({
     required this.tool,
     required this.label,
-    required this.smoothing,
     this.easing = _identity,
     this.nibVariation = 0,
     this.textured = false,
@@ -33,10 +32,6 @@ class PenProfile {
 
   /// Human-readable name.
   final String label;
-
-  /// How much the outline polygon is simplified/softened (perfect_freehand
-  /// `smoothing`).
-  final double smoothing;
 
   /// Maps the effective pressure-derived size factor (0..1) to the radius.
   final double Function(double) easing;
@@ -84,7 +79,6 @@ class PenProfile {
     PenProfile._(
       tool: InkTool.pen,
       label: 'Pen',
-      smoothing: 0.5,
       opacity: 1,
       thinning: 0.6,
       streamline: 0.35,
@@ -99,7 +93,6 @@ class PenProfile {
     PenProfile._(
       tool: InkTool.ballpoint,
       label: 'Ballpoint',
-      smoothing: 0.6,
       opacity: 1,
       thinning: 0.25,
       streamline: 0.4,
@@ -115,7 +108,6 @@ class PenProfile {
     PenProfile._(
       tool: InkTool.fountain,
       label: 'Fountain',
-      smoothing: 0.62,
       nibVariation: 0.6,
       opacity: 1,
       thinning: 0.65,
@@ -133,7 +125,6 @@ class PenProfile {
     PenProfile._(
       tool: InkTool.brush,
       label: 'Brush',
-      smoothing: 0.65,
       easing: _easeInQuad,
       opacity: 1,
       thinning: 0.85,
@@ -151,7 +142,6 @@ class PenProfile {
     PenProfile._(
       tool: InkTool.pencil,
       label: 'Pencil',
-      smoothing: 0.55,
       textured: true,
       opacity: 0.85,
       thinning: 0.4,
@@ -169,7 +159,6 @@ class PenProfile {
     PenProfile._(
       tool: InkTool.marker,
       label: 'Marker',
-      smoothing: 0.6,
       opacity: 1,
       thinning: 0,
       streamline: 0.5,
@@ -185,7 +174,6 @@ class PenProfile {
     PenProfile._(
       tool: InkTool.highlighter,
       label: 'Highlighter',
-      smoothing: 0.6,
       flatCaps: true,
       opacity: 0.35,
       thinning: 0,

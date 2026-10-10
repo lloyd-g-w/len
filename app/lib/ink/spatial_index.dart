@@ -34,14 +34,20 @@ class SpatialIndex {
   /// range or the populated set — so huge zoomed-out ranges stay cheap.
   List<ChunkKey> populatedIn(ChunkRange range) {
     if (range.count <= _chunks.length) {
-      return [for (final key in range.keys) if (_chunks.containsKey(key)) key];
+      return [
+        for (final key in range.keys)
+          if (_chunks.containsKey(key)) key,
+      ];
     }
-    return [for (final key in _chunks.keys) if (range.contains(key)) key];
+    return [
+      for (final key in _chunks.keys)
+        if (range.contains(key)) key,
+    ];
   }
 
   /// Ids of strokes whose chunks overlap [rect] (a candidate set — callers
   /// do precise tests themselves).
   Set<String> query(Rect rect) => {
-        for (final key in populatedIn(ChunkGrid.rangeFor(rect))) ..._chunks[key]!,
-      };
+    for (final key in populatedIn(ChunkGrid.rangeFor(rect))) ..._chunks[key]!,
+  };
 }

@@ -62,25 +62,22 @@ void main() {
   });
 
   group('pen options', () {
-    test('profiles map to perfect_freehand options', () {
+    test('profiles map to outline specs', () {
       const style = StrokeStyle(thinning: 0.3, streamline: 0.4, taperStart: 5);
-      final o = StrokeRenderer.optionsFor(InkTool.ballpoint, 3, style, complete: true);
-      expect(o.size, 3);
+      final o = StrokeRenderer.specFor(InkTool.ballpoint, 3, style);
+      expect(o.width, 3);
       expect(o.thinning, 0.3);
       expect(o.streamline, 0.4);
-      expect(o.simulatePressure, isFalse);
-      expect(o.start.taperEnabled, isTrue);
-      expect(o.start.customTaper, 5);
-      expect(o.end.taperEnabled, isFalse);
-      expect(o.end.cap, isTrue);
+      expect(o.taperStart, 5);
+      expect(o.taperEnd, 0);
+      expect(o.flatCaps, isFalse);
 
-      final h = StrokeRenderer.optionsFor(
+      final h = StrokeRenderer.specFor(
         InkTool.highlighter,
         18,
         StrokeStyle.defaultsFor(InkTool.highlighter),
-        complete: true,
       );
-      expect(h.end.cap, isFalse, reason: 'highlighters have flat chisel ends');
+      expect(h.flatCaps, isTrue, reason: 'highlighters have flat chisel ends');
     });
 
     test('every pen type has a profile with three presets', () {

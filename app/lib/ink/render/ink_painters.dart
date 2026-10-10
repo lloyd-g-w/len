@@ -11,12 +11,8 @@ import 'stroke_renderer.dart';
 /// Paints committed strokes: only the populated chunks that intersect the
 /// visible area, each from its cached picture.
 class CommittedInkPainter extends CustomPainter {
-  CommittedInkPainter({
-    required this.model,
-    required this.cache,
-    required this.viewport,
-    this.clip,
-  }) : super(repaint: Listenable.merge([model, viewport]));
+  CommittedInkPainter({required this.model, required this.cache, required this.viewport, this.clip})
+    : super(repaint: Listenable.merge([model, viewport]));
 
   final SurfaceModel model;
   final ChunkPictureCache cache;
@@ -54,12 +50,8 @@ class CommittedInkPainter extends CustomPainter {
 /// [belowInk] set, placed under the committed ink, so it already appears
 /// behind pen ink while it is drawn (matching how it is committed).
 class LiveInkPainter extends CustomPainter {
-  LiveInkPainter({
-    required this.live,
-    required this.viewport,
-    this.clip,
-    this.belowInk = false,
-  }) : super(repaint: Listenable.merge([live, viewport]));
+  LiveInkPainter({required this.live, required this.viewport, this.clip, this.belowInk = false})
+    : super(repaint: Listenable.merge([live, viewport]));
 
   final LiveInk live;
   final ViewportController viewport;
@@ -104,10 +96,7 @@ class LiveInkPainter extends CustomPainter {
       ..scale(viewport.scale);
     if (drawing) {
       if (clip != null) canvas.clipRect(clip!);
-      canvas.drawPath(
-        _livePath(),
-        StrokeRenderer.paintFor(live.tool, live.color, live.style),
-      );
+      canvas.drawPath(_livePath(), StrokeRenderer.paintFor(live.tool, live.color, live.style));
     }
     if (eraser != null) {
       _eraserOutline.strokeWidth = 1 / viewport.scale; // One screen pixel.
@@ -120,8 +109,5 @@ class LiveInkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(LiveInkPainter old) =>
-      old.live != live ||
-      old.viewport != viewport ||
-      old.clip != clip ||
-      old.belowInk != belowInk;
+      old.live != live || old.viewport != viewport || old.clip != clip || old.belowInk != belowInk;
 }

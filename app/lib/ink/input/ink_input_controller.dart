@@ -339,8 +339,7 @@ class InkInputController {
   static List<StrokePoint> _settleEnd(List<StrokePoint> points) {
     final settled = PressureFilter.settleEnd([for (final p in points) p.pressure]);
     return [
-      for (var i = 0; i < points.length; i++)
-        StrokePoint(points[i].x, points[i].y, settled[i]),
+      for (var i = 0; i < points.length; i++) StrokePoint(points[i].x, points[i].y, settled[i]),
     ];
   }
 

@@ -1,19 +1,17 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
-import 'package:perfect_freehand/perfect_freehand.dart'
-    show PointVector, StrokeEndOptions, StrokeOptions, getStroke;
 
 import '../../domain/stroke.dart';
 import '../pen/pen_profile.dart';
 import 'nib.dart';
 import 'pencil_texture.dart';
+import 'stroke_outline.dart';
 
 /// Turns stroke points into filled outline paths and paints them.
 ///
-/// Outlines come from `perfect_freehand`, which produces a pressure-aware
-/// polygon; the pen's [PenProfile] and the stroke's [StrokeStyle] decide its
-/// shape. Committed strokes are immutable, so their paths are memoised per
+/// Outlines come from [StrokeOutline]; the pen's [PenProfile] and the
+/// stroke's [StrokeStyle] decide their shape. Committed strokes are immutable, so their paths are memoised per
 /// [Stroke] instance (and garbage-collected with it).
 abstract final class StrokeRenderer {
   static final Expando<Path> _paths = Expando('stroke paths');
@@ -28,7 +26,7 @@ abstract final class StrokeRenderer {
   );
 
   /// Builds an outline path. [complete] is false while the stroke is still
-  /// being drawn, which keeps the tip from overshooting the pen.
+  /// being drawn (its moving end is not trimmed).
   static Path buildPath(
     List<StrokePoint> points, {
     required InkTool tool,
@@ -46,52 +44,30 @@ abstract final class StrokeRenderer {
             thinning: style.thinning,
           )
         : null;
-    if (points.length == 1) {
-      final p = points.single;
-      final radius = radiusAt(profile, width, style, pressures?.single ?? p.pressure);
-      return Path()..addOval(Rect.fromCircle(center: p.offset, radius: radius));
-    }
-    final outline = getStroke([
-      for (var i = 0; i < points.length; i++)
-        PointVector(points[i].x, points[i].y, pressures?[i] ?? points[i].pressure),
-    ], options: optionsFor(tool, width, style, complete: complete));
-    return _smoothPolygon(outline);
+    return StrokeOutline.build(
+      points,
+      specFor(tool, width, style),
+      pressures: pressures,
+      complete: complete,
+    );
   }
 
-  /// Outline radius for a given [pressure] (mirrors perfect_freehand).
-  static double radiusAt(PenProfile profile, double width, StrokeStyle style, double pressure) {
-    final t = 0.5 - style.thinning * (0.5 - pressure);
-    return (width * profile.easing(t.clamp(0.0, 1.0))).clamp(0.25, width);
-  }
+  /// Outline radius for a given [pressure].
+  static double radiusAt(PenProfile profile, double width, StrokeStyle style, double pressure) =>
+      specFor(profile.tool, width, style).radiusFor(pressure);
 
-  /// The perfect_freehand options for a stroke.
+  /// The outline shape parameters for a stroke.
   @visibleForTesting
-  static StrokeOptions optionsFor(
-    InkTool tool,
-    double width,
-    StrokeStyle style, {
-    required bool complete,
-  }) {
+  static OutlineSpec specFor(InkTool tool, double width, StrokeStyle style) {
     final profile = PenProfile.of(tool);
-    final cap = !profile.flatCaps;
-    return StrokeOptions(
-      size: width,
+    return OutlineSpec(
+      width: width,
       thinning: style.thinning,
-      smoothing: profile.smoothing,
       streamline: style.streamline,
       easing: profile.easing,
-      simulatePressure: false,
-      isComplete: complete,
-      start: StrokeEndOptions.start(
-        cap: cap,
-        taperEnabled: style.taperStart > 0,
-        customTaper: style.taperStart > 0 ? style.taperStart : null,
-      ),
-      end: StrokeEndOptions.end(
-        cap: cap,
-        taperEnabled: style.taperEnd > 0,
-        customTaper: style.taperEnd > 0 ? style.taperEnd : null,
-      ),
+      taperStart: style.taperStart,
+      taperEnd: style.taperEnd,
+      flatCaps: profile.flatCaps,
     );
   }
 
@@ -112,21 +88,4 @@ abstract final class StrokeRenderer {
 
   static void draw(Canvas canvas, Stroke stroke) =>
       canvas.drawPath(pathOf(stroke), paintFor(stroke.tool, stroke.color, stroke.style));
-
-  /// Joins outline points with quadratic curves through their midpoints,
-  /// which gives smooth edges without extra points.
-  static Path _smoothPolygon(List<Offset> pts) {
-    final path = Path();
-    if (pts.length < 3) {
-      if (pts.isNotEmpty) path.addPolygon(pts, true);
-      return path;
-    }
-    path.moveTo((pts[0].dx + pts[1].dx) / 2, (pts[0].dy + pts[1].dy) / 2);
-    for (var i = 1; i <= pts.length; i++) {
-      final p0 = pts[i % pts.length];
-      final p1 = pts[(i + 1) % pts.length];
-      path.quadraticBezierTo(p0.dx, p0.dy, (p0.dx + p1.dx) / 2, (p0.dy + p1.dy) / 2);
-    }
-    return path..close();
-  }
 }

@@ -183,7 +183,10 @@ class SurfaceModel extends ChangeNotifier {
     for (final s in added) {
       _insert(s);
     }
-    history.record(InkEdit(added: added, removed: removed), merge: continueEdit);
+    history.record(
+      InkEdit(added: added, removed: removed),
+      merge: continueEdit,
+    );
     _changed(changed);
     return true;
   }

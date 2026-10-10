@@ -13,7 +13,6 @@ dependencies:
   http: ^1.6.0
   path: ^1.9.1
   path_provider: ^2.1.6
-  perfect_freehand: ^2.5.2+1
   sqlite3: ^3.7.0
   uuid: ^4.6.0
 

@@ -149,8 +149,5 @@ class PaperPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(PaperPainter old) =>
-      old.viewport != viewport ||
-      old.style != style ||
-      old.page != page ||
-      old.colors != colors;
+      old.viewport != viewport || old.style != style || old.page != page || old.colors != colors;
 }

@@ -27,8 +27,7 @@ class ChunkPictureCache {
 
   ui.Picture _record(ChunkKey key) {
     final recorder = ui.PictureRecorder();
-    final canvas = ui.Canvas(recorder)
-      ..clipRect(ChunkGrid.rectOf(key), doAntiAlias: false);
+    final canvas = ui.Canvas(recorder)..clipRect(ChunkGrid.rectOf(key), doAntiAlias: false);
     // Highlighter ink goes underneath pen ink, like a real highlighter
     // pass over printed text; within each group paint order is kept.
     final strokes = model.strokesInChunk(key);

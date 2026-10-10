@@ -50,7 +50,6 @@ abstract final class StrokeHitTest {
     final d2 = cross(q1, q2, p2);
     final d3 = cross(p1, p2, q1);
     final d4 = cross(p1, p2, q2);
-    return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
-        ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+    return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
   }
 }

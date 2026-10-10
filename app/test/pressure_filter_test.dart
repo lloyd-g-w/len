@@ -4,7 +4,9 @@ import 'package:len/ink/input/pressure_filter.dart';
 void main() {
   test('smooths a single-sample spike', () {
     final f = PressureFilter();
-    final out = [for (final p in [0.4, 0.4, 1.0, 0.4, 0.4]) f.next(p)];
+    final out = [
+      for (final p in [0.4, 0.4, 1.0, 0.4, 0.4]) f.next(p),
+    ];
     expect(out[2], lessThan(0.8));
     expect(out.last, closeTo(0.4, 0.15));
   });
