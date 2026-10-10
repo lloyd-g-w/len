@@ -10,6 +10,35 @@ void main() {
     expect(c.dbPath, '/data/len.db');
     expect(c.host, '0.0.0.0');
     expect(c.port, 8080);
+    expect(c.blobDir, '/data/blobs');
+    expect(c.blobMaxBytes, 209715200);
+  });
+
+  test('blob dir defaults to blobs/ next to the database', () {
+    final c = Config.fromEnvironment({'LEN_SYNC_TOKEN': token, 'LEN_DB_PATH': '/srv/len/x.db'});
+    expect(c.blobDir, '/srv/len/blobs');
+    final relative = Config.fromEnvironment({'LEN_SYNC_TOKEN': token, 'LEN_DB_PATH': 'x.db'});
+    expect(relative.blobDir, './blobs');
+  });
+
+  test('reads blob overrides', () {
+    final c = Config.fromEnvironment({
+      'LEN_SYNC_TOKEN': token,
+      'LEN_BLOB_DIR': '/mnt/blobs',
+      'LEN_BLOB_MAX_BYTES': '1024',
+    });
+    expect(c.blobDir, '/mnt/blobs');
+    expect(c.blobMaxBytes, 1024);
+  });
+
+  test('rejects invalid LEN_BLOB_MAX_BYTES', () {
+    for (final value in ['abc', '0', '-5', '1.5']) {
+      expect(
+        () => Config.fromEnvironment({'LEN_SYNC_TOKEN': token, 'LEN_BLOB_MAX_BYTES': value}),
+        throwsA(isA<ConfigException>()),
+        reason: value,
+      );
+    }
   });
 
   test('reads overrides', () {
@@ -31,10 +60,7 @@ void main() {
       {'LEN_SYNC_TOKEN': '   '},
       {'LEN_SYNC_TOKEN': 'short-token-123'},
     ]) {
-      expect(
-        () => Config.fromEnvironment(env),
-        throwsA(isA<ConfigException>()),
-      );
+      expect(() => Config.fromEnvironment(env), throwsA(isA<ConfigException>()));
     }
   });
 

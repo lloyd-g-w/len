@@ -48,54 +48,36 @@ void main() {
 
     for (final bad in ['', 'Notes', 'with-dash', 'a1', 'x' * 33, 42, null]) {
       test('rejects collection ${bad.toString()}', () {
-        expect(
-          () => SyncRecord.fromJson({...validJson(), 'collection': bad}),
-          throwsValidation,
-        );
+        expect(() => SyncRecord.fromJson({...validJson(), 'collection': bad}), throwsValidation);
       });
     }
 
     test('accepts collection of 32 chars with underscores', () {
       final c = '${'a' * 30}__';
-      expect(
-        SyncRecord.fromJson({...validJson(), 'collection': c}).collection,
-        c,
-      );
+      expect(SyncRecord.fromJson({...validJson(), 'collection': c}).collection, c);
     });
 
     for (final key in ['id', 'deviceId']) {
       test('rejects empty, too long or non-string $key', () {
         for (final bad in ['', 'x' * 65, 7, null]) {
-          expect(
-            () => SyncRecord.fromJson({...validJson(), key: bad}),
-            throwsValidation,
-          );
+          expect(() => SyncRecord.fromJson({...validJson(), key: bad}), throwsValidation);
         }
       });
 
       test('accepts 64-char $key', () {
-        expect(
-          () => SyncRecord.fromJson({...validJson(), key: 'x' * 64}),
-          returnsNormally,
-        );
+        expect(() => SyncRecord.fromJson({...validJson(), key: 'x' * 64}), returnsNormally);
       });
     }
 
     test('rejects non-integer updatedAt', () {
       for (final bad in [1.5, '1', null, true]) {
-        expect(
-          () => SyncRecord.fromJson({...validJson(), 'updatedAt': bad}),
-          throwsValidation,
-        );
+        expect(() => SyncRecord.fromJson({...validJson(), 'updatedAt': bad}), throwsValidation);
       }
     });
 
     test('rejects non-boolean deleted', () {
       for (final bad in [0, 'false', null]) {
-        expect(
-          () => SyncRecord.fromJson({...validJson(), 'deleted': bad}),
-          throwsValidation,
-        );
+        expect(() => SyncRecord.fromJson({...validJson(), 'deleted': bad}), throwsValidation);
       }
     });
 
@@ -106,10 +88,7 @@ void main() {
         3,
         true,
       ]) {
-        expect(
-          () => SyncRecord.fromJson({...validJson(), 'data': bad}),
-          throwsValidation,
-        );
+        expect(() => SyncRecord.fromJson({...validJson(), 'data': bad}), throwsValidation);
       }
     });
 
@@ -122,9 +101,7 @@ void main() {
   });
 
   group('SyncRecord.beats', () {
-    final r = SyncRecord.fromJson(
-      validJson(),
-    ); // updatedAt 1760000000000, dev-1
+    final r = SyncRecord.fromJson(validJson()); // updatedAt 1760000000000, dev-1
 
     test('newer updatedAt wins regardless of deviceId', () {
       expect(r.beats(updatedAt: 1759999999999, deviceId: 'zzz'), isTrue);

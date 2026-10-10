@@ -16,14 +16,22 @@ Future<void> main() async {
   }
 
   final store = RecordStore.open(config.dbPath);
+  final blobs = BlobStore.open(config.blobDir);
   final handler = const Pipeline()
       .addMiddleware(logRequests())
-      .addHandler(buildHandler(store: store, token: config.token));
+      .addHandler(
+        buildHandler(
+          store: store,
+          blobs: blobs,
+          token: config.token,
+          maxBlobBytes: config.blobMaxBytes,
+        ),
+      );
 
   final server = await shelf_io.serve(handler, config.host, config.port);
   stdout.writeln(
     'len-sync: listening on ${config.host}:${server.port}, '
-    'db ${config.dbPath}',
+    'db ${config.dbPath}, blobs ${config.blobDir}',
   );
 
   await _waitForShutdownSignal();
