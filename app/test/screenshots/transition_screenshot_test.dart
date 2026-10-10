@@ -18,7 +18,7 @@ Finder coverOf(String title) => find.descendant(
 );
 
 /// Frames of the "open notebook" transition: the cover grows into the
-/// editor (at 40 % and 80 % of the way) and shrinks back on close.
+/// editor (at 15 %, 40 % and 80 % of the way) and shrinks back on close.
 void main() {
   setUpAll(loadRealFonts);
 
@@ -35,10 +35,15 @@ void main() {
         await pumpApp(tester, services, const LibraryScreen(), mode: mode);
         final shot = 'open_${name}_${mode.name}';
 
+        await tester.ensureVisible(coverOf('Ideas'));
+        await settle(tester);
+
         // Forward: 400 ms.
         await tester.tap(coverOf('Ideas'));
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 160));
+        await tester.pump(const Duration(milliseconds: 60));
+        await shoot(tester, '${shot}_15');
+        await tester.pump(const Duration(milliseconds: 100));
         await shoot(tester, '${shot}_40');
         await tester.pump(const Duration(milliseconds: 160));
         await shoot(tester, '${shot}_80');
