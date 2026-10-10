@@ -11,6 +11,7 @@ import '../viewport.dart';
 import 'bounce_filter.dart';
 import 'hold_to_straighten.dart';
 import 'live_ink.dart';
+import 'pressure_filter.dart';
 
 /// Turns raw pointer events into drawing, erasing and navigation.
 ///
@@ -72,6 +73,9 @@ class InkInputController {
 
   /// Drops accidental stylus re-contacts right after a lift.
   final BounceFilter _bounces = BounceFilter();
+
+  /// Smooths stylus pressure and suppresses spikes at pen-up.
+  final PressureFilter _pressure = PressureFilter();
 
   int? _drawPointer;
   PointerDeviceKind? _drawKind;
@@ -213,6 +217,7 @@ class InkInputController {
     _drawStartTime = e.timeStamp;
     _drawStartScreen = e.localPosition;
     _drawTravel = 0;
+    _pressure.reset();
     _erasing = erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
@@ -253,7 +258,7 @@ class InkInputController {
     if (_erasing) {
       _showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
-      final points = live.finish();
+      final points = _settleEnd(live.finish());
       if (points.isNotEmpty && !_isBounce(liftTime)) {
         model.addStroke(
           Stroke(
@@ -326,7 +331,17 @@ class InkInputController {
 
   StrokePoint _pointOf(PointerEvent e) {
     final world = viewport.toWorld(e.localPosition);
-    return StrokePoint(world.dx, world.dy, _pressureOf(e));
+    final pressure = _pressure.next(_pressureOf(e), synthesized: e.synthesized);
+    return StrokePoint(world.dx, world.dy, pressure);
+  }
+
+  /// Keeps the stroke's last samples from swelling into an end blob.
+  static List<StrokePoint> _settleEnd(List<StrokePoint> points) {
+    final settled = PressureFilter.settleEnd([for (final p in points) p.pressure]);
+    return [
+      for (var i = 0; i < points.length; i++)
+        StrokePoint(points[i].x, points[i].y, settled[i]),
+    ];
   }
 
   static double _pressureOf(PointerEvent e) {
