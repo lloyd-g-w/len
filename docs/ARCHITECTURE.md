@@ -41,19 +41,51 @@ The world plane is cut into fixed **512 × 512 chunks** (`domain/chunk_grid.dart
 The same grid drives three things:
 
 1. **Storage index** — table `stroke_chunks(surface_id, cx, cy, stroke_id)`.
-   Only populated chunks have rows, so empty space costs nothing.
-2. **Lazy loading** — `SurfaceModel.ensureLoaded(visibleRect)` asks the DB which
-   chunks around the viewport are populated, loads only the ones not yet in
-   memory, and evicts far-away chunks once more than `maxLoadedChunks` are held.
+   Only populated chunks have rows, so empty space costs nothing. A stroke is
+   indexed only in the chunks its ink passes through (`domain/stroke_chunks.dart`:
+   each segment, cut into short pieces, widened by the stroke's padding plus how
+   far neighbouring samples stray — the outline smooths over them), never more
+   than its bounding box; rows written before this used the whole box and stay
+   valid. The in-memory `SpatialIndex` uses the same keys.
+2. **Lazy loading** — `SurfaceModel.ensureLoaded(visibleRect)` asks a
+   `StrokeReader` for the populated chunks around the viewport that are not yet
+   in memory, and evicts far-away chunks once more than `maxLoadedChunks` are
+   held. Canvases read through `BackgroundStrokeReader`: a worker isolate with
+   its own read-only SQLite connection (WAL allows it next to the writer), so
+   panning never waits for SQLite. `SurfaceLoader` keeps one read in flight per
+   surface (the newest range wins), drops results after `reload()`, and filters
+   strokes removed while a read was running. `StrokeRepository` is the
+   synchronous reader (pages, thumbnails, tests with in-memory databases).
 3. **Render cache** — `ChunkPictureCache` records one `ui.Picture` per
    populated chunk, clipped to the chunk square (so strokes crossing chunk
    borders are never double-blended). A stroke edit invalidates only the chunks
    it touches. Painting visits only populated chunks intersecting the screen.
+4. **Level of detail** — when a chunk covers ≤ 256 device pixels,
+   `CommittedInkPainter` draws it from a `ChunkRasterCache` image (32/64/128/256
+   px, always at least screen resolution) instead of replaying its vectors.
+   Rasters are made off the critical path (time-boxed batches, newest request
+   first, `Picture.toImage`), invalidated by the same chunk stream, and kept in
+   an LRU bounded by bytes. A frame never records more than a few uncached
+   chunks; the rest fill in over the next frames. Measured (test
+   `lod_render_test.dart`, 50 000 strokes, 1 632 visible chunks at 5 %): frame
+   rasterisation 205 ms → 17 ms, cold first frame 700 ms → 2 ms.
 
 Rendering is split into three layers, each behind a `RepaintBoundary`:
 paper (repaints on pan/zoom), committed ink (repaints on pan/zoom or edits),
 and live ink (repaints on every pointer move — the stroke being drawn and the
 eraser cursor), so drawing never re-renders the committed ink.
+
+**Navigation** (`ink/navigation/`, `features/editor/canvas/`): `KineticPan`
+measures the viewport's own motion during a navigation gesture (fingers,
+trackpad, middle-button drag) and `ViewportAnimator` glides on after a fling
+(iOS-like deceleration; no glide after a pause or a pinch). The input controller
+only reports begin / track / release. `ViewportAnimator` also animates zooms
+(geometric scale, focal point fixed) and fits. Canvases add a zoom indicator
+(shown while zooming; tap for 50 / 100 / 200 % or fit), a minimap of populated
+chunks (from storage, via the reader) with the visible area (tap to glide, drag
+to move), "fit content" (exact bounds from the outermost chunks), "back to
+start", keyboard zoom (`+` `-` `0` Shift+1 Home) and a background: template and
+paper colour (`notebooks.paper_color`). Continuous paged documents glide too.
 
 World coordinates are stored as `float32`, which stays sub-unit precise to
 roughly ±8 million units from the origin — thousands of screens in every
@@ -240,12 +272,13 @@ records with last-write-wins. Open screens subscribe to
 
 ## Known limitations / next steps
 
-- SQLite runs on the UI isolate. Queries are small and indexed, but a
-  background isolate (e.g. `sqlite_async`) would remove any jank risk.
+- Canvas chunk reads run in a background isolate, but writes, page surfaces,
+  thumbnails and other queries still run on the UI isolate (small and indexed).
+- Far zoom-out of a huge canvas still loads every visible stroke into memory
+  (LOD caps rendering cost, not memory); LOD rasters are not persisted, so they
+  are rebuilt after reopening. Paged documents do not use LOD rasters yet.
 - No lasso/selection yet. Pixel-erasing a long stroke rewrites it as new
   fragment records (simple and sync-safe, but more rows than a delta).
-- Extreme zoom-out draws every visible stroke at full detail; a level-of-detail
-  layer (e.g. rasterised chunk thumbnails) would cap that cost.
 - Android: Flutter does not expose `MotionEvent` historical samples or
   front-buffered rendering; a platform-channel "low-latency ink" layer could
   shave further latency on Samsung tablets.
