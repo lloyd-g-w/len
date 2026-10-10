@@ -72,7 +72,7 @@ class DocumentCommands {
         changed = true;
         reload();
       case PageCommand.delete:
-        _delete(context, page);
+        await _delete(context, page);
     }
   }
 
@@ -88,7 +88,7 @@ class DocumentCommands {
     reload();
   }
 
-  void _delete(BuildContext context, NotebookPage page) {
+  Future<void> _delete(BuildContext context, NotebookPage page) async {
     if (doc.pages.length == 1) {
       showMessage(context, 'A notebook needs at least one page.');
       return;
@@ -110,6 +110,30 @@ class DocumentCommands {
     );
   }
 
+  /// Deletes [pages] as one step with one Undo (the overview's selection).
+  Future<void> deleteMany(BuildContext context, List<NotebookPage> pages) async {
+    if (pages.isEmpty) return;
+    if (pages.length >= doc.pages.length) {
+      showMessage(context, 'A notebook needs at least one page.');
+      return;
+    }
+    if (pages.length == 1) return _delete(context, pages.single);
+    final deleted = actions.deleteAll(pages);
+    changed = true;
+    reload();
+    showMessage(
+      context,
+      '${pages.length} pages deleted',
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () {
+          actions.restoreAll(deleted);
+          reload();
+        },
+      ),
+    );
+  }
+
   /// Opens the page overview; shows the page picked there.
   Future<void> openOverview(BuildContext context, {PageBackgrounds? backgrounds}) async {
     final index = await Navigator.of(context).push<int>(
@@ -126,6 +150,7 @@ class DocumentCommands {
               actions.move(page, to);
               changed = true;
             },
+            deleteMany: deleteMany,
           ),
         ),
       ),

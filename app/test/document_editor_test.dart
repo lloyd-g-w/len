@@ -239,4 +239,29 @@ void main() {
     expect(find.text('1 / 3'), findsOneWidget);
     await closeEditor(tester);
   });
+
+  testWidgets('overview: deleting several pages is one undo', (tester) async {
+    final (s, nb) = await pumpEditor(tester, size: const Size(1000, 800));
+    final original = s.pages.pagesOf(nb.id);
+    await tester.tap(find.byTooltip('All pages'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('page-tile-0')));
+    await tester.tap(find.byKey(const ValueKey('page-tile-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(s.pages.pagesOf(nb.id).map((p) => p.id), [original[2].id]);
+    expect(find.text('2 pages deleted'), findsOneWidget);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(s.pages.pagesOf(nb.id).map((p) => p.id), [for (final p in original) p.id]);
+    expect(inkOf(s, original[0]), hasLength(1)); // Content came back too.
+    expect(inkOf(s, original[1]), hasLength(1));
+    await closeEditor(tester);
+  });
 }
