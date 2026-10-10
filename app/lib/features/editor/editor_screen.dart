@@ -106,7 +106,11 @@ class _EditorScreenState extends State<EditorScreen> {
 
   SurfaceModel _modelFor(String surfaceId) => _models.putIfAbsent(
     surfaceId,
-    () => SurfaceModel(surfaceId: surfaceId, repository: _services.strokes),
+    () => SurfaceModel(
+      surfaceId: surfaceId,
+      repository: _services.strokes,
+      elementRepository: _services.elements,
+    ),
   );
 
   void _fitOnFirstLayout() {

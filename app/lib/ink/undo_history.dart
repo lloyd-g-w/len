@@ -1,35 +1,80 @@
 import '../domain/stroke.dart';
+import '../domain/surface_element.dart';
 
-/// One undoable change to a surface: strokes added and/or removed.
+/// One undoable change to a surface: strokes added and/or removed, and
+/// elements added, removed or replaced.
+///
+/// An element edit is a removal of its old value plus an addition of the
+/// new value under the same id; applying the edit keeps the added value.
 class InkEdit {
-  InkEdit({List<Stroke>? added, List<Stroke>? removed})
-      : added = added ?? const [],
-        removed = removed ?? const [];
+  InkEdit({
+    List<Stroke>? added,
+    List<Stroke>? removed,
+    List<SurfaceElement>? addedElements,
+    List<SurfaceElement>? removedElements,
+  }) : added = added ?? const [],
+       removed = removed ?? const [],
+       addedElements = addedElements ?? const [],
+       removedElements = removedElements ?? const [];
 
   final List<Stroke> added;
   final List<Stroke> removed;
+  final List<SurfaceElement> addedElements;
+  final List<SurfaceElement> removedElements;
 
-  InkEdit get inverse => InkEdit(added: removed, removed: added);
+  bool get isEmpty =>
+      added.isEmpty && removed.isEmpty && addedElements.isEmpty && removedElements.isEmpty;
 
-  /// This edit followed by [next], as one. A stroke added here and removed
-  /// again by [next] (e.g. a fragment the pixel eraser cut and then erased)
-  /// cancels out, so undo never resurrects it.
+  InkEdit get inverse => InkEdit(
+    added: removed,
+    removed: added,
+    addedElements: removedElements,
+    removedElements: addedElements,
+  );
+
+  /// This edit followed by [next], as one. A value added here and removed
+  /// again by [next] (e.g. a fragment the pixel eraser cut and then erased,
+  /// or an intermediate version of an element) cancels out, so undo never
+  /// resurrects it.
   InkEdit mergedWith(InkEdit next) {
-    final addedIds = {for (final s in added) s.id};
-    final cancelled = {
-      for (final s in next.removed)
-        if (addedIds.contains(s.id)) s.id,
-    };
+    final strokes = _merge(added, removed, next.added, next.removed, (s) => s.id);
+    final elements = _merge(
+      addedElements,
+      removedElements,
+      next.addedElements,
+      next.removedElements,
+      (e) => e.id,
+    );
     return InkEdit(
+      added: strokes.added,
+      removed: strokes.removed,
+      addedElements: elements.added,
+      removedElements: elements.removed,
+    );
+  }
+
+  static ({List<T> added, List<T> removed}) _merge<T>(
+    List<T> added,
+    List<T> removed,
+    List<T> nextAdded,
+    List<T> nextRemoved,
+    String Function(T) idOf,
+  ) {
+    final addedIds = {for (final v in added) idOf(v)};
+    final cancelled = {
+      for (final v in nextRemoved)
+        if (addedIds.contains(idOf(v))) idOf(v),
+    };
+    return (
       added: [
-        for (final s in added)
-          if (!cancelled.contains(s.id)) s,
-        ...next.added,
+        for (final v in added)
+          if (!cancelled.contains(idOf(v))) v,
+        ...nextAdded,
       ],
       removed: [
         ...removed,
-        for (final s in next.removed)
-          if (!cancelled.contains(s.id)) s,
+        for (final v in nextRemoved)
+          if (!cancelled.contains(idOf(v))) v,
       ],
     );
   }

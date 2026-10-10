@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
 import 'data/app_database.dart';
+import 'data/element_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
 import 'data/settings_repository.dart';
@@ -18,6 +19,7 @@ class AppServices {
     required this.notebooks,
     required this.pages,
     required this.strokes,
+    required this.elements,
     required this.sync,
   });
 
@@ -31,12 +33,14 @@ class AppServices {
     final settings = SettingsRepository(database);
     final deviceId = settings.deviceId(clock);
     final strokes = StrokeRepository(database, deviceId: deviceId, clock: clock);
+    final elements = ElementRepository(database, deviceId: deviceId, clock: clock);
     final pages = PageRepository(database, deviceId: deviceId, clock: clock);
     final notebooks = NotebookRepository(
       database,
       deviceId: deviceId,
       pages: pages,
       strokes: strokes,
+      elements: elements,
       clock: clock,
     );
     final engine = SyncEngine(
@@ -45,6 +49,7 @@ class AppServices {
       notebooks: notebooks,
       pages: pages,
       strokes: strokes,
+      elements: elements,
     );
     return AppServices._(
       database: database,
@@ -52,6 +57,7 @@ class AppServices {
       notebooks: notebooks,
       pages: pages,
       strokes: strokes,
+      elements: elements,
       sync: syncApiFactory == null
           ? SyncController(engine: engine, settings: settings)
           : SyncController(engine: engine, settings: settings, apiFactory: syncApiFactory),
@@ -63,6 +69,7 @@ class AppServices {
   final NotebookRepository notebooks;
   final PageRepository pages;
   final StrokeRepository strokes;
+  final ElementRepository elements;
   final SyncController sync;
 
   void dispose() {
