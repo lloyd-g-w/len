@@ -119,7 +119,12 @@ class _ColorPickerState extends State<ColorPicker> {
           ),
         ],
         const SizedBox(height: Gaps.md),
-        _HexRow(controller: _hex, color: _hsv.toColor(), alpha: _hsv.alpha, onChanged: _onHex),
+        _HexRow(
+          controller: _hex,
+          color: _hsv.toColor(),
+          alpha: widget.showOpacity ? _hsv.alpha : null,
+          onChanged: _onHex,
+        ),
         const SizedBox(height: Gaps.md),
         _SwatchGrid(
           colors: ColorSwatches.palette,
@@ -151,7 +156,9 @@ class _HexRow extends StatelessWidget {
 
   final TextEditingController controller;
   final Color color;
-  final double alpha;
+
+  /// Shown as a percentage; null hides it (opaque-only pickers).
+  final double? alpha;
   final ValueChanged<String> onChanged;
 
   @override
@@ -183,15 +190,17 @@ class _HexRow extends StatelessWidget {
             style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
           ),
         ),
-        const SizedBox(width: Gaps.sm),
-        SizedBox(
-          width: 52,
-          child: Text(
-            '${(alpha * 100).round()}%',
-            textAlign: TextAlign.end,
-            style: Theme.of(context).textTheme.labelLarge,
+        if (alpha case final alpha?) ...[
+          const SizedBox(width: Gaps.sm),
+          SizedBox(
+            width: 52,
+            child: Text(
+              '${(alpha * 100).round()}%',
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

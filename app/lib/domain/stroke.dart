@@ -9,18 +9,20 @@ export 'stroke_style.dart';
 ///
 /// Stored by [name]; never rename a value. Unknown names (from newer
 /// clients) parse to [pen], so they still render as ink.
+///
+/// New strokes use [ballpoint] (the pen) or [highlighter]; the other values
+/// were offered by earlier versions and are kept so their strokes render.
 enum InkTool {
-  /// The original v0.1 pen; kept so old strokes render unchanged.
+  /// The original v0.1 pen (legacy).
   pen,
   highlighter,
   ballpoint,
+
+  /// Legacy pen types.
   fountain,
   brush,
   pencil,
   marker;
-
-  /// The pen types offered in the toolbar, in display order.
-  static const List<InkTool> pens = [ballpoint, fountain, brush, pencil, marker];
 
   bool get isHighlighter => this == highlighter;
 
@@ -43,10 +45,7 @@ class StrokePoint {
 
   @override
   bool operator ==(Object other) =>
-      other is StrokePoint &&
-      other.x == x &&
-      other.y == y &&
-      other.pressure == pressure;
+      other is StrokePoint && other.x == x && other.y == y && other.pressure == pressure;
 
   @override
   int get hashCode => Object.hash(x, y, pressure);
@@ -70,10 +69,10 @@ class Stroke {
     required List<StrokePoint> points,
     required this.createdAt,
     StrokeStyle? style,
-  })  : assert(points.isNotEmpty, 'A stroke needs at least one point'),
-        style = style ?? StrokeStyle.defaultsFor(tool),
-        points = List.unmodifiable(points),
-        bounds = computeBounds(points, width);
+  }) : assert(points.isNotEmpty, 'A stroke needs at least one point'),
+       style = style ?? StrokeStyle.defaultsFor(tool),
+       points = List.unmodifiable(points),
+       bounds = computeBounds(points, width);
 
   final String id;
 
@@ -117,15 +116,15 @@ class Stroke {
   /// A stroke like this one but with other [points] (and optionally [id] /
   /// [style]); used to split strokes (pixel eraser) or straighten them.
   Stroke withPoints(List<StrokePoint> points, {String? id, StrokeStyle? style}) => Stroke(
-        id: id ?? this.id,
-        surfaceId: surfaceId,
-        tool: tool,
-        color: color,
-        width: width,
-        points: points,
-        createdAt: createdAt,
-        style: style ?? this.style,
-      );
+    id: id ?? this.id,
+    surfaceId: surfaceId,
+    tool: tool,
+    color: color,
+    width: width,
+    points: points,
+    createdAt: createdAt,
+    style: style ?? this.style,
+  );
 
   /// Total paint order: creation time, then id for determinism across devices.
   static int paintOrder(Stroke a, Stroke b) {

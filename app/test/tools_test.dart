@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/element_repository.dart';
 import 'package:len/data/settings_repository.dart';
 import 'package:len/data/stroke_repository.dart';
+import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text_data.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
@@ -230,13 +232,44 @@ void main() {
     restored.dispose();
   });
 
-  test('tools without ink switch to the pen when a preset is picked', () {
+  test('preset-era settings keep their shape and text defaults and gain slots', () {
+    final store = SettingsRepository(db)
+      ..toolPrefs = jsonEncode({
+        'penType': 'fountain',
+        'pens': {
+          'fountain': {
+            'presets': [
+              {'c': 0xFF112233, 'w': 2.0},
+              {'c': 0xFF445566, 'w': 4.0},
+            ],
+            'selected': 1,
+          },
+        },
+        'shape': 'triangle',
+        'text': const TextData(fontSize: 30, italic: true).toJson(),
+      });
+    final tools = ToolSettings(store: store);
+    expect(tools.shape, ShapeKind.triangle);
+    expect(tools.textStyle, const TextData(fontSize: 30, italic: true));
+    final pen = tools.configOf(InkTool.ballpoint);
+    expect(pen.color, 0xFF445566);
+    expect(pen.colors, containsAll([0xFF112233, 0xFF445566]));
+    tools.dispose();
+  });
+
+  test('tools without ink switch to the pen when a quick colour or width is picked', () {
     final tools = ToolSettings()..tool = EditorTool.lasso;
-    tools.selectPreset(1);
+    tools.selectColor(1);
+    expect(tools.tool, EditorTool.pen);
+    tools
+      ..tool = EditorTool.text
+      ..selectWidth(0);
     expect(tools.tool, EditorTool.pen);
     tools
       ..tool = EditorTool.shape
-      ..selectPreset(0);
+      ..selectColor(0)
+      ..stepWidth(1);
     expect(tools.tool, EditorTool.shape);
+    expect(tools.activeInk, InkTool.ballpoint);
   });
 }

@@ -3,8 +3,6 @@ import 'dart:ui';
 
 import 'package:flutter/painting.dart' show HSVColor;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:len/data/app_database.dart';
-import 'package:len/data/settings_repository.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/ink/geometry/straighten.dart';
 import 'package:len/ink/geometry/stroke_splitter.dart';
@@ -81,20 +79,20 @@ void main() {
       expect(h.flatCaps, isTrue, reason: 'highlighters have flat chisel ends');
     });
 
-    test('every pen type has a profile with three presets', () {
-      for (final tool in [...InkTool.pens, InkTool.highlighter]) {
-        final p = PenProfile.of(tool);
-        expect(p.tool, tool);
-        expect(p.presets, hasLength(3));
-        expect(p.minWidth, lessThan(p.maxWidth));
+    test('legacy pen types keep their render profiles', () {
+      for (final tool in InkTool.values) {
+        expect(PenProfile.of(tool).tool, tool);
       }
+      expect(PenProfile.of(InkTool.fountain).nibVariation, greaterThan(0));
+      expect(PenProfile.of(InkTool.pencil).textured, isTrue);
+      expect(PenProfile.of(InkTool.highlighter).flatCaps, isTrue);
     });
 
     test('taper length scales with width; off means none', () {
-      final config = PenConfig.defaultsFor(InkTool.brush);
-      final style = config.styleFor(InkTool.brush, 10);
-      expect(style.taperStart, 10 * PenProfile.of(InkTool.brush).taperFactor);
-      expect(config.copyWith(taper: false).styleFor(InkTool.brush, 10).taperEnd, 0);
+      final config = PenConfig.defaultsFor(InkTool.ballpoint).copyWith(taper: true);
+      final style = config.styleFor(InkTool.ballpoint, 10);
+      expect(style.taperStart, 10 * PenDefaults.pen.taperFactor);
+      expect(config.copyWith(taper: false).styleFor(InkTool.ballpoint, 10).taperEnd, 0);
     });
 
     test('the fountain nib thins strokes running along the nib', () {
@@ -109,89 +107,6 @@ void main() {
       final acrossNib = mid(dir(1, 1)); // down and to the right
       expect(acrossNib, closeTo(0.8, 1e-9));
       expect(radius(alongNib), closeTo(radius(0.8) / 2, 1e-9));
-    });
-  });
-
-  group('ToolSettings', () {
-    test('customisation persists through the settings store', () async {
-      final db = AppDatabase.inMemory();
-      addTearDown(db.close);
-      final store = SettingsRepository(db);
-      final a = ToolSettings(store: store)
-        ..penType = InkTool.fountain
-        ..setWidth(7)
-        ..setColor(0x80123456)
-        ..eraser = const EraserConfig(mode: EraserMode.pixel, radius: 20, highlighterOnly: true)
-        ..holdToStraighten = false
-        ..addFavorite(0xFFABCDEF);
-      a.dispose(); // flushes the debounced save
-
-      final b = ToolSettings(store: store);
-      expect(b.penType, InkTool.fountain);
-      final config = b.configOf(InkTool.fountain);
-      expect(config.current, const PenPreset(color: 0xFF123456, width: 7));
-      expect(config.opacity, closeTo(0x80 / 255, 1e-9));
-      expect(b.eraser.mode, EraserMode.pixel);
-      expect(b.eraser.highlighterOnly, isTrue);
-      expect(b.holdToStraighten, isFalse);
-      expect(b.favorites, [0xFFABCDEF]);
-      b.dispose();
-    });
-
-    test('corrupt stored prefs fall back to defaults', () {
-      final db = AppDatabase.inMemory();
-      addTearDown(db.close);
-      final store = SettingsRepository(db)..toolPrefs = '{"pens": {"ballpoint": {"presets": 3}}}';
-      final t = ToolSettings(store: store);
-      expect(
-        t.configOf(InkTool.ballpoint).presets,
-        PenConfig.defaultsFor(InkTool.ballpoint).presets,
-      );
-      store.toolPrefs = 'not json';
-      expect(ToolSettings(store: store).penType, InkTool.ballpoint);
-    });
-
-    test('out-of-range stored values are clamped; favourites deduplicated', () {
-      final db = AppDatabase.inMemory();
-      addTearDown(db.close);
-      final profile = PenProfile.of(InkTool.ballpoint);
-      final store = SettingsRepository(db)
-        ..toolPrefs = jsonEncode({
-          'pens': {
-            'ballpoint': {
-              'presets': [
-                {'c': 0x00FF0000, 'w': 1e6},
-                {'c': 0xFF00FF00, 'w': 0.001},
-              ],
-              'opacity': 0,
-              'selected': 7,
-            },
-          },
-        })
-        ..favoriteColors = [1, 2, 1, for (var i = 0; i < 40; i++) 100 + i];
-      final t = ToolSettings(store: store);
-      final config = t.configOf(InkTool.ballpoint);
-      expect(config.presets[0], PenPreset(color: 0xFFFF0000, width: profile.maxWidth));
-      expect(config.presets[1].width, profile.minWidth);
-      expect(config.opacity, PenConfig.minOpacity);
-      expect(config.selected, 0);
-      expect(t.favorites.take(3), [1, 2, 100]);
-      expect(t.favorites, hasLength(ToolSettings.maxFavorites));
-
-      t.selectPreset(5); // Ignored rather than breaking `current`.
-      expect(t.activeConfig.current, config.current);
-      t.setColor(0x00123456);
-      expect(t.activeConfig.opacity, PenConfig.minOpacity);
-      t.dispose();
-    });
-
-    test('presets: selecting leaves the eraser; colour edits the selected one', () {
-      final t = ToolSettings()..tool = EditorTool.eraser;
-      t.selectPreset(2);
-      expect(t.tool, EditorTool.pen);
-      t.setColor(0xFFFF0000);
-      expect(t.activeConfig.presets[2].color, 0xFFFF0000);
-      expect(t.activeConfig.presets[0], PenConfig.defaultsFor(InkTool.ballpoint).presets[0]);
     });
   });
 

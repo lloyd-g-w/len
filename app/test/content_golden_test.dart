@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/services.dart';
@@ -13,7 +14,19 @@ import 'package:len/ink/shapes/shape_builder.dart';
 import 'package:len/ink/shapes/shape_kind.dart';
 
 import 'content_tools_ui_test.dart' show key, mouseDrag, openCanvas;
-import 'pen_render_test.dart' show loops;
+
+/// Handwriting-like loops ("llll") with natural pressure swell, sampled
+/// like a stylus (~1.5 units apart).
+List<StrokePoint> loops(Offset origin, {double scale = 1}) {
+  final pts = <StrokePoint>[];
+  for (var t = 0.0; t <= 4 * 2 * math.pi; t += 0.06) {
+    final x = 9 * t - 14 * math.sin(t);
+    final y = -22 * math.cos(t) + 10;
+    final p = 0.35 + 0.55 * math.pow(math.sin(t / 2).abs(), 1.5);
+    pts.add(StrokePoint(origin.dx + x * scale, origin.dy + y * scale, p.toDouble()));
+  }
+  return pts;
+}
 
 /// Loads Roboto and the Material icons from the Flutter SDK, so goldens
 /// show real text and icons instead of placeholder boxes.

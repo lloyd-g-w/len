@@ -187,10 +187,9 @@ Raw `Listener` pointer events (no gesture arena → no latency, full pressure da
 - **Mouse**: left draws, middle/right drag pans, wheel scrolls, Ctrl+wheel zooms.
 - **Trackpad**: two-finger pan, pinch zoom.
 
-Stroke outlines come from the in-house engine `ink/render/stroke_outline.dart`
-(pressure-aware polygons with stabilised positions, hook trimming and exact
-caps), smoothed with quadratic curves; paths are memoised per stroke. PDF export
-flattens the same paths.
+Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
+rendering* below); paths are memoised per stroke. PDF export flattens the same
+paths.
 
 Resting the pen for 600 ms at the end of a stroke snaps it
 (`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`): open
@@ -242,29 +241,94 @@ values on both, so undo/redo and sync treat text and ink alike.
 
 ## Pens (`ink/pen/`, `ink/render/`)
 
-A stroke's look = its `InkTool` (pen type) + its `StrokeStyle`:
+The toolbar offers exactly two inks — the **pen** (`InkTool.ballpoint`) and the
+**highlighter** — plus the eraser. A stroke's look = its `InkTool` + its
+`StrokeStyle`:
 
-- **`PenProfile`** (per tool, in code): outline smoothing, pressure easing,
-  fountain nib variation, pencil texture, flat highlighter caps, taper length
-  factor, plus the defaults and width range offered in the UI. Render
-  constants here must stay stable.
+- **`PenProfile`** (per tool, in code): pressure easing, nib, texture and
+  flat highlighter caps. It also covers the tools earlier versions offered
+  (`pen` (v0.1), `fountain`, `brush`, `pencil`, `marker`), so their strokes
+  keep rendering; nothing creates them any more. Render constants must stay
+  stable.
+- **`PenDefaults`** (pen, highlighter): default colours, widths, feel settings,
+  width range and taper factor offered in the UI.
 - **`StrokeStyle`** (per stroke, stored in `strokes.style` and synced as
   `data.style`): opacity, thinning (pressure sensitivity), streamline
   (stabiliser) and start/end taper lengths. Missing → `StrokeStyle.defaultsFor`,
   which reproduces how v0.1 strokes looked. So a stroke renders identically on
   every device, whatever the local tool settings.
 
-The **fountain** nib adjusts per-point pressure so the radius shrinks where the
-pen travels along a 45° nib (`render/nib.dart`). The **pencil** fills its
-outline with a procedurally generated, world-anchored grain texture
-(`render/pencil_texture.dart`, an `ImageShader` tinted by a colour filter), so
-it works inside cached chunk pictures and lines up across chunks.
-**Highlighter** strokes are drawn before other ink in each chunk picture, and
-the live highlighter stroke is painted on a layer beneath committed ink.
+The legacy **fountain** nib adjusts per-point pressure so the radius shrinks
+where the pen travels along a 45° nib (`render/nib.dart`); the legacy
+**pencil** fills its outline with a world-anchored grain texture
+(`render/pencil_texture.dart`). **Highlighter** strokes are translucent with
+flat chisel ends, drawn before other ink in each chunk picture, and the live
+highlighter stroke is painted on a layer beneath committed ink.
 
-User customisation lives in `ToolSettings` (pen type, three presets + feel
-settings per pen, eraser options, favourite colours), persisted as JSON in
-the local `settings` table.
+User customisation lives in `ToolSettings`, persisted as JSON in the local
+`settings` table: per ink a `PenConfig` with **independent quick colours and
+quick widths** (1–6 slots each, one of each selected) and feel settings
+(pressure sensitivity, stabiliser, tapered ends; opacity for the highlighter —
+the pen is always opaque), plus eraser options, hold-to-straighten and
+favourite colours. Older settings with combined colour+width presets migrate:
+preset colours become colour slots, preset widths width slots (topped up from
+the defaults to three each); if a removed pen type was in use, its slots go to
+the pen (`PenConfigJson`).
+
+### Toolbar (`features/editor/`)
+
+`EditorToolbar` is built from `ToolDescriptor`s (`editor_tools.dart`): icon,
+label, shortcut, ink colour, a contextual *strip* and a settings popover.
+More tools slot in by adding an `EditorTool` value and a descriptor. The
+tools are Pen (P), Highlighter (H), Eraser (E), Lasso (L), Shapes (S; its
+icon is the current shape, settings = shape picker, strip = the pen's slots,
+since shapes are drawn with the pen's colour and width), Text (T; settings =
+defaults for new boxes) and Laser pointer (K). For inks the strip is a row of
+colour slots beside a row of width slots (dots at scaled real size) — one tap
+picks either; tapping the selected slot (or long-pressing / right-clicking
+any) edits it (colour picker, or slider with a live stroke preview; both can
+remove the slot); `+` adds one. It lays out on one row when it fits, else on
+two (phones: tools and palm rejection above, the strip below; the settings
+button only if it fits — tapping the active tool opens settings too).
+Picking a quick colour or width from a tool that draws no ink (lasso, text,
+laser) switches to the pen. Shortcuts: P / H / E / L / S / T / K, 1–6 colour
+slots, [ / ] thinner / thicker (plus the canvas keys `+` `-` `0` Shift+1 Home).
+
+Placement: from 960 px wide the toolbar sits in the top row between the title
+and undo pills — if it fits there on one row whichever tool is active (the
+title gives way down to 160 px); otherwise it sits at the bottom, and the
+canvas overlays (minimap, fit / overview buttons) keep clear of its measured
+height.
+
+### Ink rendering (`ink/render/`)
+
+`StrokeOutline` turns points into a filled outline whose edges are smooth at
+any zoom:
+
+1. Drop duplicate samples, trim pen-down/pen-up hooks.
+2. `Centerline`: resample at a uniform **arc-length** spacing (so filtering
+   acts over distance, not over however many samples the digitiser sent),
+   find sharp reversals (tips of `n`, `v`), and low-pass the positions per
+   stretch between them with `2G − G∘G` (`LineFilters`): flat response for
+   shapes larger than the filter, so loops keep their size, while jitter is
+   removed. Beyond the ends the line is continued by a local quadratic fit
+   through the end point, so ends neither lag (live stroke) nor bend.
+   The filter scale grows with the stabiliser and (up to 4×) with width.
+3. Radii (from pressure): non-swelling ends, Gaussian smoothing, a limit on
+   radius change per unit length (no bumps), tapers.
+4. `OutlineEmitter`: each side is the **envelope** of the circles along the
+   centre line (tangent to every circle even where the radius changes),
+   emitted as cubic Hermite pieces (decimated where nearly straight) — no
+   polyline facets. Caps are arcs of the end circles that meet the sides
+   tangentially. Where the inner side would fold (curvature × radius > 0.8)
+   or at reversals, the outline is split into runs, each closed with round
+   caps and wound alike, so the non-zero fill unions them seamlessly.
+
+`OutlineSink` lets tests record the exact segments (tangent continuity is
+asserted); specimens of synthetic 240 Hz handwriting with jitter and pressure
+noise are rendered at 1×–16× in `test/ink_specimen_test.dart`. A 1000-point
+stroke builds in well under a millisecond, so the live stroke is rebuilt on
+every pointer move.
 
 ## Erasing
 
@@ -350,7 +414,7 @@ neutral surfaces, a tighter type scale and shared component themes
 (`theme_components.dart`). Tokens: `Gaps`, `Radii`, `Palette` (`app_theme.dart`) and
 `Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
 
-Visual checks: `test/screenshots/` renders the library and settings at phone, tablet and
+Visual checks: `test/screenshots/` renders the library, settings and editor (toolbar, popovers) at phone, tablet and
 desktop sizes in light and dark with real fonts. Run
 `flutter test test/screenshots --dart-define=SCREENSHOTS=true` and look at
 `app/build/screenshots/*.png`.

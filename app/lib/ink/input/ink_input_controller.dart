@@ -258,12 +258,7 @@ class InkInputController {
     } else {
       final ink = tools.activeInk;
       final config = tools.configOf(ink);
-      live.begin(
-        tool: ink,
-        color: config.current.color,
-        width: config.current.width,
-        style: tools.styleFor(ink),
-      );
+      live.begin(tool: ink, color: config.color, width: config.width, style: tools.styleFor(ink));
       live.add(_pointOf(e));
       _straighten.begin(e.localPosition, enabled: tools.holdToStraighten, scale: viewport.scale);
     }
