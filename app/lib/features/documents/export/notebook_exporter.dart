@@ -8,6 +8,12 @@ import '../../editor/document/page_painting.dart';
 import '../pdf/pdf_renderer.dart';
 import 'pdf_export.dart';
 
+/// The phases of a PDF export.
+enum ExportStage { preparing, writing }
+
+/// Hears that [done] of [total] pages went through [stage].
+typedef ExportProgress = void Function(ExportStage stage, int done, int total);
+
 /// Produces PDF and PNG files from notebook pages.
 class NotebookExporter {
   NotebookExporter(this.services, {PdfRenderer? renderer})
@@ -21,11 +27,17 @@ class NotebookExporter {
   /// Resolution of PDF-page backgrounds embedded in exported PDFs.
   static const double backgroundDpi = 150;
 
-  /// A PDF of [pages] (vector ink and templates).
-  Future<Uint8List> pdf(List<NotebookPage> pages, {String? title}) async {
+  /// A PDF of [pages] (vector ink and templates). [onProgress] hears how
+  /// many pages are prepared, then written.
+  Future<Uint8List> pdf(
+    List<NotebookPage> pages, {
+    String? title,
+    ExportProgress? onProgress,
+  }) async {
     final export = <ExportPage>[];
     try {
       for (final page in pages) {
+        onProgress?.call(ExportStage.preparing, export.length, pages.length);
         final background = await _background(page, page.width / 96 * backgroundDpi);
         export.add(
           ExportPage(
@@ -36,7 +48,11 @@ class NotebookExporter {
           ),
         );
       }
-      return await PdfExporter.build(export, title: title);
+      return await PdfExporter.build(
+        export,
+        title: title,
+        onPage: (done) => onProgress?.call(ExportStage.writing, done, export.length),
+      );
     } finally {
       for (final e in export) {
         e.background?.dispose();

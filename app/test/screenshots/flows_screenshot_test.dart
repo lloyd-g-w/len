@@ -100,7 +100,12 @@ void main() {
       await settle(tester);
 
       final done = Completer<void>();
-      unawaited(runWithProgress(ctx(tester), 'Importing “Lecture 3.pdf”…', () => done.future));
+      unawaited(
+        runWithSteps(ctx(tester), 'Exporting', subject: 'Physics — Mechanics.pdf', (progress) {
+          progress.step(41, 120, stage: 'Writing PDF…');
+          return done.future;
+        }),
+      );
       await settle(tester);
       await shoot(tester, 'dialog_progress_${mode.name}');
       done.complete();
