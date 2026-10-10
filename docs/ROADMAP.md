@@ -4,9 +4,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Ink & pens
 - ✅ Pressure-sensitive pen, highlighter, stroke eraser, undo/redo
-- ✅ Pen types: ballpoint, fountain (direction-aware nib), brush, pencil (textured), marker
-- ✅ Pen customisation: width, opacity, pressure sensitivity, stabiliser, tip taper (stored per stroke)
-- ✅ Full colour picker (HSV + hex + opacity), saved favourite colours, 3 presets per pen
+- ✅ Focused line-up: Pen (ballpoint) + Highlighter + Eraser (older pen types still render)
+- ✅ Smooth ink at any zoom: arc-length filtering, Bézier envelope outlines, tangent round caps
+- ✅ Independent quick colours and quick widths per ink (1–6 slots each, GoodNotes-style editing)
+- ✅ Pen settings: pressure sensitivity, stabiliser, tapered ends (stored per stroke);
+  highlighter opacity
+- ✅ Full colour picker (HSV + hex), saved favourite colours
 - ✅ Highlighter renders behind ink; hold to straighten
 - ✅ Pixel (partial) eraser, eraser size, "erase highlighter only"
 
@@ -44,7 +47,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Theme mode (system/light/dark), accent colour
 - ✅ App shell: sidebar (tablet/desktop), bottom navigation (phone), context menus,
   keyboard shortcuts, redesigned settings
-- ⬜ Redesigned editor chrome, focus mode, customisable toolbar
+- 🚧 Redesigned editor chrome: tool-descriptor toolbar with contextual quick controls (✅);
+  focus mode, customisable / dockable toolbar, favourite tools (⬜)
 - ⬜ Open-notebook tabs
 
 ## Sync
