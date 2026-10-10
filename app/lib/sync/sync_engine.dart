@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/app_database.dart';
+import '../data/folder_repository.dart';
 import '../data/notebook_repository.dart';
 import '../data/page_repository.dart';
 import '../data/settings_repository.dart';
@@ -14,13 +15,17 @@ class RemoteChanges {
 
   bool notebooks = false;
 
+  /// Whether any library folder changed.
+  bool folders = false;
+
   /// Notebooks whose page list changed.
   final Set<String> pagesOfNotebooks = {};
 
   /// Surfaces (pages / canvases) whose strokes changed.
   final Set<String> strokeSurfaces = {};
 
-  bool get isEmpty => !notebooks && pagesOfNotebooks.isEmpty && strokeSurfaces.isEmpty;
+  bool get isEmpty =>
+      !notebooks && !folders && pagesOfNotebooks.isEmpty && strokeSurfaces.isEmpty;
 }
 
 /// Returns true once a running sync should stop without persisting more
@@ -38,6 +43,7 @@ class SyncEngine {
     required this.notebooks,
     required this.pages,
     required this.strokes,
+    required this.folders,
   });
 
   final AppDatabase database;
@@ -45,13 +51,14 @@ class SyncEngine {
   final NotebookRepository notebooks;
   final PageRepository pages;
   final StrokeRepository strokes;
+  final FolderRepository folders;
 
   /// Dirty rows read from the database at a time. [SyncApi.push] further
   /// splits them by size.
   static const int _pushPageSize = 500;
 
   late final Map<String, SyncableStore> _stores = {
-    for (final s in [notebooks, pages, strokes]) s.collection: s,
+    for (final s in <SyncableStore>[folders, notebooks, pages, strokes]) s.collection: s,
   };
 
   /// All syncable stores, in push order (parents before children).
@@ -128,6 +135,8 @@ class SyncEngine {
       final previousSurface = store == strokes ? strokes.surfaceOf(record.id) : null;
       if (!store.applyRemote(record)) return;
       switch (store) {
+        case FolderRepository():
+          changes.folders = true;
         case NotebookRepository():
           changes.notebooks = true;
         case PageRepository():

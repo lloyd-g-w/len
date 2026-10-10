@@ -118,6 +118,50 @@ Optionally only highlighter ink is erased.
 Schema migrations live in `AppDatabase._migrations` — append, never edit.
 All writes go straight to SQLite; in-memory state is a cache.
 
+## Library (`features/library/`)
+
+- **Data.** Folders are a synced collection (`FolderRepository`, nested via `parentId`).
+  Notebooks carry `folderId`, `favorite`, `trashedAt`, `coverStyle` and `editedAt`
+  (content/title edits only, so organising never reorders "last edited"). Readers are
+  defensive: a missing parent folder means "root", and folders caught in a parent cycle
+  (possible after concurrent moves) are shown at the top level. Deleting a folder
+  tombstones its subtree and trashes its notebooks. `NotebookDuplicator` deep-copies a
+  notebook column-by-column (`RowCopier`), so columns added later are copied too.
+- **State.** `LibraryController` (a `ChangeNotifier`) holds the section (library,
+  favourites, trash), open folder and search query, reads the repositories on `reload()`
+  and filters/sorts in memory (`LibraryQuery`). `LibraryActions` adds the dialogs and
+  confirmations. Layout and sort are preferences (`AppPreferences`).
+- **Shell.** ≥ 720 px wide: sidebar with sections, folder tree (all drop targets), sync
+  status and settings; narrower: bottom navigation. Notebooks and folders drag with a
+  mouse immediately and with touch after a long press (a long press released in place
+  opens the context menu instead). Shortcuts: Ctrl+N, Ctrl+Shift+N, Ctrl+F, Delete, Esc.
+- **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
+  the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
+  `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint
+  (`SurfaceStats`: live stroke count + latest version), renders lazily one per event-loop
+  turn, keeps an LRU of images and is invalidated when an editor closes or sync brings
+  strokes. Covers without ink show the coloured, patterned cover.
+
+## Preferences
+
+`AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
+`SettingsRepository`: theme mode and accent (the app rebuilds its `ThemeData` from them),
+stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
+(`PenButtonAction.eraser|lasso|none`), library layout and sort. Getters always read
+the store, so values written elsewhere are never stale.
+
+## UI design system (`ui/`)
+
+`AppTheme.light/dark({accent})` build a fidelity colour scheme from the accent with quiet
+neutral surfaces, a tighter type scale and shared component themes
+(`theme_components.dart`). Tokens: `Gaps`, `Radii`, `Palette` (`app_theme.dart`) and
+`Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
+
+Visual checks: `test/screenshots/` renders the library and settings at phone, tablet and
+desktop sizes in light and dark with real fonts. Run
+`flutter test test/screenshots --dart-define=SCREENSHOTS=true` and look at
+`app/build/screenshots/*.png`.
+
 ## Sync
 
 See [`SYNC_PROTOCOL.md`](SYNC_PROTOCOL.md). Every synced table has

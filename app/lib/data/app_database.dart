@@ -63,6 +63,7 @@ class AppDatabase {
     _createInitialSchema,
     _indexDirtyStrokesById,
     _addStrokeStyle,
+    _addFoldersAndLibraryFields,
   ];
 
   /// Per-stroke rendering style (JSON, see `StrokeStyle`); NULL for strokes
@@ -71,6 +72,31 @@ class AppDatabase {
   static void _addStrokeStyle(Database db) {
     final columns = db.select('PRAGMA table_info(strokes)').map((r) => r['name']);
     if (!columns.contains('style')) db.execute('ALTER TABLE strokes ADD COLUMN style TEXT');
+  }
+
+  /// Library organisation: nested folders, plus per-notebook folder,
+  /// favourite, trash, cover pattern and last-edit time.
+  static void _addFoldersAndLibraryFields(Database db) {
+    db.execute('''
+      CREATE TABLE folders (
+        id          TEXT PRIMARY KEY NOT NULL,
+        name        TEXT NOT NULL,
+        parent_id   TEXT,
+        color       INTEGER NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute('CREATE INDEX folders_by_parent ON folders(parent_id)');
+    db.execute('ALTER TABLE notebooks ADD COLUMN folder_id TEXT');
+    db.execute('ALTER TABLE notebooks ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
+    db.execute('ALTER TABLE notebooks ADD COLUMN trashed_at INTEGER');
+    db.execute("ALTER TABLE notebooks ADD COLUMN cover_style TEXT NOT NULL DEFAULT 'plain'");
+    db.execute('ALTER TABLE notebooks ADD COLUMN edited_at INTEGER NOT NULL DEFAULT 0');
+    db.execute('UPDATE notebooks SET edited_at = updated_at');
+    db.execute('CREATE INDEX notebooks_by_folder ON notebooks(folder_id)');
   }
 
   /// Push pages through dirty rows in id order (keyset pagination); index

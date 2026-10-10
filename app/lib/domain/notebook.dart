@@ -1,3 +1,4 @@
+import 'cover_style.dart';
 import 'paper.dart';
 
 /// Whether a notebook is a sequence of fixed-size pages or a single
@@ -24,7 +25,12 @@ class Notebook {
     required this.coverColor,
     required this.createdAt,
     required this.updatedAt,
-  });
+    this.coverStyle = CoverStyle.plain,
+    this.folderId,
+    this.favorite = false,
+    this.trashedAt,
+    int? editedAt,
+  }) : editedAt = editedAt ?? updatedAt;
 
   final String id;
   final String title;
@@ -36,17 +42,46 @@ class Notebook {
   /// ARGB colour of the cover in the library.
   final int coverColor;
 
+  /// Pattern printed on the cover.
+  final CoverStyle coverStyle;
+
   /// Milliseconds since epoch.
   final int createdAt;
 
-  /// Milliseconds since epoch of the last metadata or content change.
+  /// Milliseconds since epoch of the last change of any kind; also the
+  /// last-write-wins version used by sync.
   final int updatedAt;
 
+  /// Milliseconds since epoch of the last title or content edit. Unlike
+  /// [updatedAt] it ignores organisation (favourite, move, trash), so
+  /// "last edited" sorting does not jump around.
+  final int editedAt;
+
+  /// Containing folder, or null for the library root.
+  final String? folderId;
+
+  /// Starred by the user.
+  final bool favorite;
+
+  /// When the notebook was moved to the trash, or null if it is not trashed.
+  final int? trashedAt;
+
+  bool get isTrashed => trashedAt != null;
+
+  static const Object _keep = Object();
+
+  /// A copy with the given fields replaced. Pass `folderId: null` /
+  /// `trashedAt: null` explicitly to clear them.
   Notebook copyWith({
     String? title,
     PaperStyle? paper,
     int? coverColor,
+    CoverStyle? coverStyle,
     int? updatedAt,
+    int? editedAt,
+    Object? folderId = _keep,
+    bool? favorite,
+    Object? trashedAt = _keep,
   }) {
     return Notebook(
       id: id,
@@ -54,8 +89,13 @@ class Notebook {
       kind: kind,
       paper: paper ?? this.paper,
       coverColor: coverColor ?? this.coverColor,
+      coverStyle: coverStyle ?? this.coverStyle,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      editedAt: editedAt ?? this.editedAt,
+      folderId: identical(folderId, _keep) ? this.folderId : folderId as String?,
+      favorite: favorite ?? this.favorite,
+      trashedAt: identical(trashedAt, _keep) ? this.trashedAt : trashedAt as int?,
     );
   }
 }

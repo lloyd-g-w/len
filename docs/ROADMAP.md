@@ -16,7 +16,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ⬜ Text boxes (font, size, colour)
 - ⬜ Images (insert, move, resize, crop later)
 - ⬜ Laser pointer
-- ⬜ Gestures: two-finger tap undo, three-finger tap redo; S Pen button action setting
+- 🚧 Gestures: two-finger tap undo, three-finger tap redo; S Pen button action setting
+  (settings stored + exposed via `AppPreferences`; editor wiring pending)
 
 ## Pages & documents
 - ⬜ Templates: Cornell, narrow/college ruled, music staff, planner; paper colours
@@ -27,13 +28,15 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ⬜ PDF import & annotate; export notebook to PDF / PNG
 
 ## Library
-- ⬜ Folders (nested), move to folder
-- ⬜ Search, sort (date / name), favourites, grid/list views
-- ⬜ Live cover thumbnails, more covers
-- ⬜ Trash with restore, duplicate notebook
+- ✅ Folders (nested, synced), move to folder (menu + drag and drop), breadcrumbs, folder tree
+- ✅ Search (across folders), sort (edited / created / name), favourites, grid/list views
+- ✅ Live cover thumbnails, more cover colours + patterns
+- ✅ Trash with restore / delete forever / empty, duplicate notebook
 
 ## App
-- ⬜ Theme mode (system/light/dark), accent colour
+- ✅ Theme mode (system/light/dark), accent colour
+- ✅ App shell: sidebar (tablet/desktop), bottom navigation (phone), context menus,
+  keyboard shortcuts, redesigned settings
 - ⬜ Redesigned editor chrome, focus mode, customisable toolbar
 - ⬜ Open-notebook tabs
 
