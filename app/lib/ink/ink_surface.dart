@@ -22,6 +22,7 @@ class InkSurface extends StatefulWidget {
     required this.input,
     required this.live,
     required this.paper,
+    this.paperColor = PaperColor.white,
     this.page,
   });
 
@@ -30,6 +31,7 @@ class InkSurface extends StatefulWidget {
   final InkInputController input;
   final LiveInk live;
   final PaperStyle paper;
+  final PaperColor paperColor;
 
   /// The page rectangle for paged notebooks; null for an infinite canvas.
   final Rect? page;
@@ -123,6 +125,7 @@ class _InkSurfaceState extends State<InkSurface> {
                     painter: PaperPainter(
                       viewport: widget.viewport,
                       style: widget.paper,
+                      paperColor: widget.paperColor,
                       page: widget.page,
                     ),
                   ),

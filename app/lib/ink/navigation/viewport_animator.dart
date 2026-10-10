@@ -42,11 +42,13 @@ class ViewportAnimator {
     _start((elapsed) {
       final t = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
       final distance = sim.x(t);
+      final step = direction * (distance - travelled);
       final before = viewport.offset;
-      viewport.panBy(direction * (distance - travelled));
+      viewport.panBy(step);
       travelled = distance;
       // Done when slow enough, or blocked (a page edge).
-      if (sim.isDone(t) || viewport.offset == before) stop();
+      final blocked = step.distance > 0.5 && viewport.offset == before;
+      if (sim.isDone(t) || blocked) stop();
     });
   }
 
