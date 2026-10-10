@@ -45,7 +45,7 @@ void main() {
           if (a != b) differ++;
         }
       }
-      expect(differ / inked, lessThan(0.05), reason: '$tool: $differ of $inked inked samples moved');
+      expect(differ / inked, lessThan(0.02), reason: '$tool: $differ of $inked inked samples moved');
     }
   });
 }
