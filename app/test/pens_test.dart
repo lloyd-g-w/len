@@ -11,6 +11,7 @@ import 'package:len/ink/geometry/stroke_splitter.dart';
 import 'package:len/ink/pen/pen_profile.dart';
 import 'package:len/ink/render/nib.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
+import 'package:len/ink/stroke_hit_test.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/undo_history.dart';
 import 'package:len/ui/color_picker/color_hex.dart';
@@ -200,6 +201,46 @@ void main() {
         StrokeSplitter.erase(s, const Offset(5, -1), const Offset(5, 1), 20, newId: newId),
         isEmpty,
       );
+    });
+
+    test('cuts follow the pressure-dependent ink edge, not the nominal width', () {
+      // A full-pressure brush stroke is about twice its nominal half width.
+      final heavy = Stroke(
+        id: 'b',
+        surfaceId: 's',
+        tool: InkTool.brush,
+        color: 0xFF000000,
+        width: 20,
+        points: [for (var x = 0.0; x <= 200; x += 10) StrokePoint(x, 0, 1)],
+        createdAt: 1,
+        style: const StrokeStyle(thinning: 1),
+      );
+      final edge = StrokeHitTest.inkRadius(heavy, heavy.points.first);
+      expect(edge, greaterThan(heavy.width / 2));
+      // An eraser grazing the ink beyond the nominal half width still hits.
+      final graze = Offset(100, edge + 1);
+      expect(StrokeHitTest.sweepHits(heavy, graze, graze, 2), isTrue);
+      final parts = StrokeSplitter.erase(heavy, graze, graze, 2, newId: newId)!;
+      // The surviving ends stay clear of the eraser by their own ink radius.
+      expect(parts, hasLength(2));
+      expect(parts[0].points.last.x, lessThan(100));
+      expect(parts[1].points.first.x, greaterThan(100));
+      for (final end in [parts[0].points.last, parts[1].points.first]) {
+        expect((end.offset - graze).distance, greaterThan(2 + edge));
+      }
+    });
+
+    test('hairline strokes render without throwing', () {
+      final hair = Stroke(
+        id: 'h',
+        surfaceId: 's',
+        tool: InkTool.ballpoint,
+        color: 0xFF000000,
+        width: 0.1,
+        points: const [StrokePoint(0, 0, 0.5)],
+        createdAt: 1,
+      );
+      expect(StrokeRenderer.pathOf(hair).getBounds().width, greaterThan(0));
     });
 
     test('erasing an end trims the stroke', () {

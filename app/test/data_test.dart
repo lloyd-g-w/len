@@ -130,6 +130,22 @@ void main() {
       );
     });
 
+    test('remote strokes with absurd widths are rejected', () {
+      strokes.save([stroke('a', Offset.zero)]);
+      final data = {...strokes.dirtyRecords(1).single.data!, 'width': 1e7};
+      expect(
+        () => strokes.applyRemote(SyncRecord(
+          collection: 'strokes',
+          id: 'wide',
+          updatedAt: 1,
+          deviceId: 'dev-b',
+          deleted: false,
+          data: data,
+        )),
+        throwsFormatException,
+      );
+    });
+
     test('remote records follow last-write-wins', () {
       strokes.save([stroke('a', Offset.zero)]); // updatedAt 1000 by dev-a
       final record = strokes.dirtyRecords(1).single;

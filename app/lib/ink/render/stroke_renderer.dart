@@ -59,10 +59,15 @@ abstract final class StrokeRenderer {
   }
 
   /// Outline radius for a given [pressure] (mirrors perfect_freehand).
+  ///
+  /// Never below a quarter unit, so even hairline strokes stay visible.
   static double radiusAt(PenProfile profile, double width, StrokeStyle style, double pressure) {
     final t = 0.5 - style.thinning * (0.5 - pressure);
-    return (width * profile.easing(t.clamp(0.0, 1.0))).clamp(0.25, width);
+    final max = width < _minRadius ? _minRadius : width;
+    return (width * profile.easing(t.clamp(0.0, 1.0))).clamp(_minRadius, max);
   }
+
+  static const double _minRadius = 0.25;
 
   /// The perfect_freehand options for a stroke.
   @visibleForTesting
@@ -110,6 +115,7 @@ abstract final class StrokeRenderer {
     return paint..color = ink;
   }
 
+  /// Paints committed [stroke] onto [canvas] (in world coordinates).
   static void draw(Canvas canvas, Stroke stroke) =>
       canvas.drawPath(pathOf(stroke), paintFor(stroke.tool, stroke.color, stroke.style));
 

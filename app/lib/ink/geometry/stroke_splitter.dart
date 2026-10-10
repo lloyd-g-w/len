@@ -24,15 +24,25 @@ abstract final class StrokeSplitter {
     required String Function() newId,
   }) {
     if (!StrokeHitTest.sweepHits(stroke, a, b, radius)) return null;
-    // Points are cut where the eraser touches the ink's edge, so fragment
-    // end caps line up with the eraser circle.
-    final reach = radius + stroke.width / 2;
-    final reachSq = reach * reach;
-    bool erased(StrokePoint p) => StrokeHitTest.segmentDistSq(p.offset, p.offset, a, b) <= reachSq;
+    // Points are cut where the eraser touches the ink's edge (which depends
+    // on the pressure there), so fragment end caps line up with the eraser
+    // circle.
+    bool erased(StrokePoint p) {
+      final reach = radius + StrokeHitTest.inkRadius(stroke, p);
+      return StrokeHitTest.segmentDistSq(p.offset, p.offset, a, b) <= reach * reach;
+    }
 
     if (stroke.points.length == 1) return erased(stroke.points.single) ? const [] : null;
 
-    final points = _densify(stroke.points, a, b, reachSq, step: math.max(radius / 3, 0.2));
+    // The ink is never wider than the nominal width on either side.
+    final maxReach = radius + stroke.width;
+    final points = _densify(
+      stroke.points,
+      a,
+      b,
+      maxReach * maxReach,
+      step: math.max(radius / 3, 0.2),
+    );
     final keep = [for (final p in points) !erased(p)];
     if (!keep.contains(false)) return null;
 
