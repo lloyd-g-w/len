@@ -1,5 +1,7 @@
 import 'package:sqlite3/common.dart';
 
+import 'ink_text_schema.dart';
+
 /// The local, derived full-text search index (never synced).
 ///
 /// `search_docs` holds one row per searchable thing — a notebook title, a
@@ -19,6 +21,9 @@ abstract final class SearchSchema {
   static const folder = 'folder';
   static const text = 'text';
   static const pdf = 'pdf';
+
+  /// A recognised line of handwriting (`InkTextSchema`).
+  static const handwriting = 'handwriting';
 
   /// Creates (or completes) the index and fills it from the synced tables.
   /// Idempotent: safe however migrations from parallel branches end up
@@ -111,6 +116,7 @@ abstract final class SearchSchema {
                      AND t.page = ${_bgField('p.background', 'page')}
       WHERE p.deleted = 0 AND t.text <> ''
       ''');
+    InkTextSchema.indexAll(db);
     if (hasFts(db)) db.execute("INSERT INTO search_fts(search_fts) VALUES ('rebuild')");
   }
 

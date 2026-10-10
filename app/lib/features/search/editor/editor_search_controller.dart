@@ -12,12 +12,20 @@ import '../../../ink/viewport.dart';
 import '../../editor/document/document_controller.dart';
 import '../../editor/editor_session.dart';
 import 'editor_search_host.dart';
+import 'ink_match_rects.dart';
 import 'pdf_glyph_cache.dart';
 
 /// One match in the open notebook: a text box, or one occurrence in a
-/// PDF page's text.
+/// PDF page's text or a recognised line of handwriting.
 class EditorSearchMatch {
-  EditorSearchMatch({required this.hit, required this.range, this.box, this.pdf, this.pageSize});
+  EditorSearchMatch({
+    required this.hit,
+    required this.range,
+    this.box,
+    this.pdf,
+    this.pageSize,
+    this.inkRects,
+  });
 
   final SearchHit hit;
 
@@ -32,6 +40,10 @@ class EditorSearchMatch {
 
   /// Size of the page (for PDF glyph boxes, which are normalised).
   final Size? pageSize;
+
+  /// The ink to highlight for a handwriting match: the matched words, or
+  /// the whole line (page coordinates). [box] is their union.
+  final List<Rect>? inkRects;
 
   String get surfaceId => hit.surfaceId!;
   int? get pageIndex => hit.pageIndex;
@@ -183,6 +195,9 @@ class EditorSearchController extends ChangeNotifier {
   /// Rectangles (with rotation, page coordinates) to highlight for
   /// [match]; PDF text boxes load on demand, so they may come later.
   List<({Rect rect, double rotation})> rectsOf(EditorSearchMatch match) {
+    if (match.inkRects case final rects?) {
+      return [for (final r in rects) (rect: r.inflate(2), rotation: 0.0)];
+    }
     if (match.box case final box?) return [box];
     final pdf = match.pdf;
     final size = match.pageSize;
@@ -225,6 +240,20 @@ class EditorSearchController extends ChangeNotifier {
             box: box,
           ),
         );
+      } else if (hit.kind == SearchHitKind.handwriting) {
+        final boxes = search.index.inkTextBoxes(hit.refId);
+        if (boxes == null) continue;
+        for (final range in _parsed.ranges(hit.body)) {
+          final rects = InkMatchRects.of(hit.body, range, boxes.line, boxes.words);
+          matches.add(
+            EditorSearchMatch(
+              hit: hit,
+              range: range,
+              box: (rect: rects.reduce((a, b) => a.expandToInclude(b)), rotation: 0.0),
+              inkRects: rects,
+            ),
+          );
+        }
       } else {
         for (final range in _parsed.ranges(hit.body)) {
           matches.add(

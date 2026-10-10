@@ -118,6 +118,15 @@ class SettingsRepository {
   set toolbarFloat((double, double)? value) =>
       value == null ? _remove('toolbar_float') : _set('toolbar_float', '${value.$1},${value.$2}');
 
+  /// Handwriting recognition language (BCP 47); null = from the device locale.
+  String? get handwritingLanguage => _get('handwriting_language');
+  set handwritingLanguage(String? value) =>
+      value == null ? _remove('handwriting_language') : _set('handwriting_language', value);
+
+  /// Whether handwriting is recognised in the background for search.
+  bool get handwritingIndexing => _get('handwriting_indexing') != 'false';
+  set handwritingIndexing(bool value) => _set('handwriting_indexing', '$value');
+
   String? _get(String key) {
     final rows = _database.db.select('SELECT value FROM settings WHERE key = ?', [key]);
     return rows.isEmpty ? null : rows.first['value'] as String;
