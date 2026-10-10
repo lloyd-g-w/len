@@ -188,6 +188,29 @@ void main() {
     expect(reach, lessThan(1.05), reason: 'outline passes within a radius of the pen');
   });
 
+  test('random scribbles always build finite outlines', () {
+    final rng = math.Random(1);
+    for (var n = 0; n < 300; n++) {
+      final count = 1 + rng.nextInt(40);
+      var p = Offset.zero;
+      final points = <StrokePoint>[];
+      for (var i = 0; i < count; i++) {
+        if (rng.nextDouble() > 0.2) p += Offset(rng.nextDouble() - 0.5, rng.nextDouble() - 0.5) * 6;
+        points.add(StrokePoint(p.dx, p.dy, rng.nextDouble()));
+      }
+      final spec = OutlineSpec(
+        width: 0.2 + rng.nextDouble() * 30,
+        thinning: rng.nextDouble(),
+        streamline: rng.nextDouble(),
+        taperStart: rng.nextBool() ? 5 : 0,
+        flatCaps: rng.nextBool(),
+      );
+      final bounds = StrokeOutline.build(points, spec).getBounds();
+      expect(bounds.isFinite, isTrue, reason: '$n');
+      expect(bounds.isEmpty, isFalse, reason: '$n');
+    }
+  });
+
   test('building a 1000-point stroke stays fast', () {
     final long = [
       for (var i = 0; i < 1000; i++)
