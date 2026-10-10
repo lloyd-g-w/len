@@ -164,6 +164,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
   void _onRemoteChanges(RemoteChanges changes) {
     if (!mounted || _closing) return;
+    _services.images.retryMissing(); // Blobs may be on the server now.
     if (changes.notebooks) {
       final updated = _services.notebooks.get(_notebook.id);
       if (updated == null) {
