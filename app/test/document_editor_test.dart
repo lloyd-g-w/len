@@ -142,7 +142,7 @@ void main() {
 
   testWidgets('single-page flow turns pages', (tester) async {
     final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
-    await tester.tap(find.byTooltip('Page options'));
+    await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Page layout'));
     await tester.pumpAndSettle();
@@ -168,13 +168,16 @@ void main() {
     expect(pages()[1].paper, PaperStyle.collegeRuled); // Like the page it follows.
 
     Future<void> menu(String item) async {
-      await tester.tap(find.byTooltip('Page options'));
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Page'));
       await tester.pumpAndSettle();
       await tester.tap(find.text(item).last);
       await tester.pumpAndSettle();
     }
 
-    await menu('Bookmark page');
+    await tester.tap(find.byTooltip('Bookmark page'));
+    await tester.pumpAndSettle();
     expect(pages()[1].bookmarked, isTrue);
     await menu('Duplicate page');
     expect(pages(), hasLength(5));
@@ -188,7 +191,7 @@ void main() {
     expect(pages().every((p) => p.paper == PaperStyle.music), isTrue);
 
     final doomed = pages()[2].id;
-    await menu('Delete');
+    await menu('Delete page');
     expect(pages(), hasLength(4));
     await tester.tap(find.text('Undo'));
     await tester.pumpAndSettle();
