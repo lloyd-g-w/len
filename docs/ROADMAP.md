@@ -31,9 +31,18 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Continuous vertical scrolling of pages (default) or one page at a time (swipe / arrows)
 - ✅ PDF import & annotate (new notebook or insert pages); export notebook / page to PDF (vector
   ink) and page to PNG; save dialog on desktop, share sheet on Android
-- ⬜ Planner / custom (image) templates; paper colour for infinite canvases
+- ⬜ Planner / custom (image) templates
 - ⬜ Tiled PDF rendering for extreme zoom; PDF text selection / links / outline
 - ⬜ Export keeps imported PDF pages as vectors (currently embedded at 150 dpi)
+
+## Infinite canvas & navigation
+- ✅ Level-of-detail chunk rasters when zoomed out (cost bounded by visible chunks)
+- ✅ Chunk loading in a background isolate; strokes indexed only along their path
+- ✅ Kinetic (inertial) panning — canvases and continuous pages
+- ✅ Animated zoom: keyboard `+` `-` `0`, Shift+1 fit; zoom indicator with 50/100/200 %/fit
+- ✅ Minimap (populated chunks + viewport, tap/drag to move), fit content, back to start
+- ✅ Canvas background: template + paper colour
+- ⬜ Double-tap zoom gesture; persistent LOD tiles; LOD for paged documents
 
 ## Library
 - ✅ Folders (nested, synced), move to folder (menu + drag and drop), breadcrumbs, folder tree

@@ -5,6 +5,7 @@ import '../domain/paper.dart';
 import 'input/ink_input_controller.dart';
 import 'input/live_ink.dart';
 import 'render/chunk_picture_cache.dart';
+import 'render/chunk_raster_cache.dart';
 import 'render/ink_painters.dart';
 import 'render/paper_painter.dart';
 import 'surface_model.dart';
@@ -21,6 +22,7 @@ class InkSurface extends StatefulWidget {
     required this.input,
     required this.live,
     required this.paper,
+    this.paperColor = PaperColor.white,
     this.page,
   });
 
@@ -29,6 +31,7 @@ class InkSurface extends StatefulWidget {
   final InkInputController input;
   final LiveInk live;
   final PaperStyle paper;
+  final PaperColor paperColor;
 
   /// The page rectangle for paged notebooks; null for an infinite canvas.
   final Rect? page;
@@ -39,11 +42,13 @@ class InkSurface extends StatefulWidget {
 
 class _InkSurfaceState extends State<InkSurface> {
   late ChunkPictureCache _cache;
+  late ChunkRasterCache _rasters;
 
   @override
   void initState() {
     super.initState();
     _cache = ChunkPictureCache(widget.model);
+    _rasters = ChunkRasterCache(_cache);
     widget.viewport.addListener(_loadVisible);
     _loadVisibleAfterFrame();
   }
@@ -52,8 +57,10 @@ class _InkSurfaceState extends State<InkSurface> {
   void didUpdateWidget(InkSurface old) {
     super.didUpdateWidget(old);
     if (old.model != widget.model) {
+      _rasters.dispose();
       _cache.dispose();
       _cache = ChunkPictureCache(widget.model);
+      _rasters = ChunkRasterCache(_cache);
       _loadVisibleAfterFrame();
     }
     if (old.viewport != widget.viewport) {
@@ -65,6 +72,7 @@ class _InkSurfaceState extends State<InkSurface> {
   @override
   void dispose() {
     widget.viewport.removeListener(_loadVisible);
+    _rasters.dispose();
     _cache.dispose();
     super.dispose();
   }
@@ -108,6 +116,7 @@ class _InkSurfaceState extends State<InkSurface> {
             },
             onPointerPanZoomStart: input.handlePanZoomStart,
             onPointerPanZoomUpdate: input.handlePanZoomUpdate,
+            onPointerPanZoomEnd: input.handlePanZoomEnd,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -116,6 +125,7 @@ class _InkSurfaceState extends State<InkSurface> {
                     painter: PaperPainter(
                       viewport: widget.viewport,
                       style: widget.paper,
+                      paperColor: widget.paperColor,
                       page: widget.page,
                     ),
                   ),
@@ -137,6 +147,8 @@ class _InkSurfaceState extends State<InkSurface> {
                       cache: _cache,
                       viewport: widget.viewport,
                       clip: widget.page,
+                      rasters: _rasters,
+                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
                     ),
                   ),
                 ),

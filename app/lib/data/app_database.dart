@@ -8,10 +8,10 @@ import 'package:sqlite3/sqlite3.dart';
 ///   * `deleted` — tombstone flag, so deletions can be synced,
 ///   * `dirty` — 1 when the row has local changes not yet pushed.
 class AppDatabase {
-  AppDatabase._(this.db);
+  AppDatabase._(this.db, {this.path});
 
   /// Opens (creating if needed) the database file at [path].
-  factory AppDatabase.open(String path) => AppDatabase._(sqlite3.open(path))
+  factory AppDatabase.open(String path) => AppDatabase._(sqlite3.open(path), path: path)
     .._configure()
     .._migrate();
 
@@ -21,6 +21,9 @@ class AppDatabase {
     .._migrate();
 
   final Database db;
+
+  /// The database file, or null for an in-memory database.
+  final String? path;
 
   /// Runs [action] inside a transaction, rolling back if it throws.
   ///
@@ -57,6 +60,10 @@ class AppDatabase {
     }
   }
 
+  /// Schema version from which the page/blob migration runs (its index in
+  /// [_migrations]); lets tests rewind a database without hard-coding it.
+  static int get versionBeforePageDetailsAndBlobs => _migrations.indexOf(_addPageDetailsAndBlobs);
+
   /// Ordered list of schema migrations; index i migrates from version i.
   /// Never edit an existing entry — append a new one instead.
   static final List<void Function(Database)> _migrations = [
@@ -66,6 +73,7 @@ class AppDatabase {
     _addFoldersAndLibraryFields,
     _addPageDetailsAndBlobs,
     _createElements,
+    _addNotebookPaperColor,
   ];
 
   /// Surface elements (text boxes; later images) and their sparse chunk
@@ -103,6 +111,15 @@ class AppDatabase {
     db.execute(
       'CREATE INDEX IF NOT EXISTS element_chunks_by_element ON element_chunks(element_id)',
     );
+  }
+
+  /// Background colour of infinite canvases. Idempotent (parallel branches
+  /// may order migrations differently).
+  static void _addNotebookPaperColor(Database db) {
+    final columns = db.select('PRAGMA table_info(notebooks)').map((r) => r['name']).toSet();
+    if (!columns.contains('paper_color')) {
+      db.execute("ALTER TABLE notebooks ADD COLUMN paper_color TEXT NOT NULL DEFAULT 'white'");
+    }
   }
 
   /// Per-stroke rendering style (JSON, see `StrokeStyle`); NULL for strokes

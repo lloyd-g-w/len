@@ -125,6 +125,7 @@ class _PagedDocumentViewState extends State<PagedDocumentView> {
             },
             onPointerPanZoomStart: input.handlePanZoomStart,
             onPointerPanZoomUpdate: input.handlePanZoomUpdate,
+            onPointerPanZoomEnd: input.handlePanZoomEnd,
             child: ListenableBuilder(
               listenable: _doc,
               builder: (context, _) => Stack(

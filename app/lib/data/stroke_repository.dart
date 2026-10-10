@@ -1,17 +1,21 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:sqlite3/sqlite3.dart';
 
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
+import '../domain/stroke_chunks.dart';
 import 'stroke_codec.dart';
+import 'stroke_queries.dart';
+import 'stroke_reader.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
 /// Persists strokes and maintains the sparse per-surface chunk index used
 /// to load only the visible part of a surface.
-class StrokeRepository extends SyncableTable {
+class StrokeRepository extends SyncableTable implements StrokeReader {
   StrokeRepository(super.database, {required super.deviceId, super.clock});
 
   /// Widest stroke accepted from sync (far above any pen's range). Guards
@@ -24,37 +28,25 @@ class StrokeRepository extends SyncableTable {
   @override
   String get table => 'strokes';
 
+  late final StrokeQueries _queries = StrokeQueries(db);
+
   /// Chunks within [range] that contain at least one live stroke.
-  List<ChunkKey> populatedChunks(String surfaceId, ChunkRange range) => db
-      .select(
-        'SELECT DISTINCT cx, cy FROM stroke_chunks '
-        'WHERE surface_id = ? AND cx BETWEEN ? AND ? AND cy BETWEEN ? AND ?',
-        [surfaceId, range.minX, range.maxX, range.minY, range.maxY],
-      )
-      .map((r) => (x: r['cx'] as int, y: r['cy'] as int))
-      .toList();
+  List<ChunkKey> populatedChunks(String surfaceId, ChunkRange range) =>
+      _queries.populatedChunks(surfaceId, range);
 
   /// Live strokes on [surfaceId] touching any of [keys].
-  List<Stroke> loadChunks(String surfaceId, List<ChunkKey> keys) {
-    const batch = 250; // Keeps bound parameters well under SQLite's limit.
-    final byId = <String, Stroke>{};
-    for (var i = 0; i < keys.length; i += batch) {
-      final slice = keys.sublist(i, (i + batch).clamp(0, keys.length));
-      final tuples = List.filled(slice.length, '(?, ?)').join(', ');
-      final rows = db.select(
-        '''
-        SELECT * FROM strokes WHERE deleted = 0 AND id IN (
-          SELECT stroke_id FROM stroke_chunks
-          WHERE surface_id = ? AND (cx, cy) IN (VALUES $tuples)
-        )''',
-        [surfaceId, for (final k in slice) ...[k.x, k.y]],
-      );
-      for (final stroke in rows.map(_rowToStroke).nonNulls) {
-        byId[stroke.id] = stroke;
-      }
-    }
-    return byId.values.toList();
-  }
+  List<Stroke> loadChunks(String surfaceId, List<ChunkKey> keys) =>
+      _queries.loadChunks(surfaceId, keys);
+
+  @override
+  ChunkLoad read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) =>
+      _queries.read(surfaceId, range, skip: skip);
+
+  @override
+  Map<ChunkKey, int> chunkDensity(String surfaceId) => _queries.chunkDensity(surfaceId);
+
+  @override
+  Rect? contentBounds(String surfaceId) => _queries.contentBounds(surfaceId);
 
   /// Inserts new strokes, or revives previously deleted ones (redo).
   void save(Iterable<Stroke> strokes) {
@@ -82,10 +74,7 @@ class StrokeRepository extends SyncableTable {
     database.transaction(() {
       for (final surfaceId in surfaceIds) {
         final ids = db
-            .select(
-              'SELECT id FROM strokes WHERE surface_id = ? AND deleted = 0',
-              [surfaceId],
-            )
+            .select('SELECT id FROM strokes WHERE surface_id = ? AND deleted = 0', [surfaceId])
             .map((r) => r['id'] as String)
             .toList();
         for (final id in ids) {
@@ -116,7 +105,7 @@ class StrokeRepository extends SyncableTable {
               'width': row['width'],
               'points': base64Encode(row['points'] as Uint8List),
               'createdAt': row['created_at'],
-              if (row['style'] case final String style) 'style': _decodeStyle(style),
+              if (row['style'] case final String style) 'style': StrokeQueries.decodeStyle(style),
             },
     );
   }
@@ -124,21 +113,11 @@ class StrokeRepository extends SyncableTable {
   @override
   void writeRemote(SyncRecord record) {
     if (record.deleted) {
-      _tombstone(
-        record.id,
-        updatedAt: record.updatedAt,
-        deviceId: record.deviceId,
-        dirty: false,
-      );
+      _tombstone(record.id, updatedAt: record.updatedAt, deviceId: record.deviceId, dirty: false);
       return;
     }
     final stroke = _strokeFromData(record.id, record.data!);
-    _upsert(
-      stroke,
-      updatedAt: record.updatedAt,
-      deviceId: record.deviceId,
-      dirty: false,
-    );
+    _upsert(stroke, updatedAt: record.updatedAt, deviceId: record.deviceId, dirty: false);
   }
 
   /// Surface id of a stored stroke (live or tombstoned), if known.
@@ -150,12 +129,7 @@ class StrokeRepository extends SyncableTable {
   // ---------------------------------------------------------------------------
   // Internals
 
-  void _upsert(
-    Stroke s, {
-    required int updatedAt,
-    required String deviceId,
-    required bool dirty,
-  }) {
+  void _upsert(Stroke s, {required int updatedAt, required String deviceId, required bool dirty}) {
     db.execute(
       '''
       INSERT INTO strokes (id, surface_id, tool, color, width, points,
@@ -212,35 +186,11 @@ class StrokeRepository extends SyncableTable {
       'VALUES (?, ?, ?, ?)',
     );
     try {
-      for (final key in ChunkGrid.rangeFor(s.bounds).keys) {
+      for (final key in StrokeChunks.of(s)) {
         insert.execute([s.surfaceId, key.x, key.y, s.id]);
       }
     } finally {
       insert.close();
-    }
-  }
-
-  Stroke? _rowToStroke(Row row) {
-    try {
-      final points = StrokeCodec.decode(row['points'] as Uint8List);
-      if (points.isEmpty) return null;
-      final tool = InkTool.parse(row['tool'] as String);
-      final style = row['style'];
-      return Stroke(
-        id: row['id'] as String,
-        surfaceId: row['surface_id'] as String,
-        tool: tool,
-        color: row['color'] as int,
-        width: (row['width'] as num).toDouble(),
-        points: points,
-        createdAt: row['created_at'] as int,
-        style: StrokeStyle.fromJson(
-          style is String ? _decodeStyle(style) : null,
-          fallback: StrokeStyle.defaultsFor(tool),
-        ),
-      );
-    } on FormatException {
-      return null; // Corrupt row: skip rather than break the whole surface.
     }
   }
 
@@ -275,14 +225,5 @@ class StrokeRepository extends SyncableTable {
       // Older clients send no style; newer ones may add unknown fields.
       style: StrokeStyle.fromJson(data['style'], fallback: StrokeStyle.defaultsFor(inkTool)),
     );
-  }
-
-  /// Decodes a stored style column; malformed JSON yields null (defaults).
-  static Object? _decodeStyle(String json) {
-    try {
-      return jsonDecode(json);
-    } on FormatException {
-      return null;
-    }
   }
 }

@@ -27,6 +27,9 @@ class ChunkPictureCache {
 
   ui.Picture pictureFor(ChunkKey key) => _pictures[key] ??= _record(key);
 
+  /// The cached picture of [key], without recording one.
+  ui.Picture? peek(ChunkKey key) => _pictures[key];
+
   ui.Picture _record(ChunkKey key) {
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder)..clipRect(ChunkGrid.rectOf(key), doAntiAlias: false);

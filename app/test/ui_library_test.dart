@@ -118,10 +118,13 @@ void main() {
       findsOneWidget,
     );
 
-    // Canvases have no page size or paper colour: no template field.
+    // Canvases have a paper colour but no page size.
     await tester.tap(find.text('Infinite canvas'));
     await tester.pumpAndSettle();
-    expect(find.byType(TemplateField), findsNothing);
+    expect(
+      find.descendant(of: find.byType(TemplateField), matching: find.text('White · Infinite canvas')),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Notebook'));
     await tester.pumpAndSettle();
 

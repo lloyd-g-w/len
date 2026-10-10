@@ -88,7 +88,14 @@ class ThumbnailRenderer {
       for (final s in ink) s.bounds,
       for (final e in items) e.bounds,
     ].reduce((a, b) => a.expandToInclude(b)).intersect(windowRect);
-    return _paint(size, _frame(content, size.aspectRatio), notebook.paper, ink, items);
+    return _paint(
+      size,
+      _frame(content, size.aspectRatio),
+      notebook.paper,
+      ink,
+      items,
+      color: notebook.paperColor,
+    );
   }
 
   static const _everywhere = ChunkRange(-1 << 40, -1 << 40, 1 << 40, 1 << 40);

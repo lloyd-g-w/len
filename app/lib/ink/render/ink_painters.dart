@@ -6,13 +6,21 @@ import '../input/live_ink.dart';
 import '../surface_model.dart';
 import '../viewport.dart';
 import 'chunk_picture_cache.dart';
+import 'chunk_raster_cache.dart';
 import 'stroke_renderer.dart';
 
 /// Paints committed strokes: only the populated chunks that intersect the
-/// visible area, each from its cached picture.
+/// visible area, each from its cached picture — or, when zoomed out far
+/// enough and [rasters] is given, from a level-of-detail raster.
 class CommittedInkPainter extends CustomPainter {
-  CommittedInkPainter({required this.model, required this.cache, required this.viewport, this.clip})
-    : super(repaint: Listenable.merge([model, viewport]));
+  CommittedInkPainter({
+    required this.model,
+    required this.cache,
+    required this.viewport,
+    this.clip,
+    this.rasters,
+    this.devicePixelRatio = 1,
+  }) : super(repaint: Listenable.merge([model, viewport, rasters]));
 
   final SurfaceModel model;
   final ChunkPictureCache cache;
@@ -20,6 +28,22 @@ class CommittedInkPainter extends CustomPainter {
 
   /// Optional world-space clip (the page rectangle).
   final Rect? clip;
+
+  /// Level-of-detail rasters for zoomed-out views; null = always vectors.
+  final ChunkRasterCache? rasters;
+
+  /// Device pixels per logical pixel (picks the raster resolution).
+  final double devicePixelRatio;
+
+  /// Chunks without a raster or cached picture that one frame may record
+  /// as vectors (so a fresh edit shows at once while zoomed out, but a
+  /// whole screen of uncached chunks never stalls a frame).
+  static const int freshRecordingsPerFrame = 8;
+
+  static final Paint _imagePaint = Paint()
+    ..filterQuality = FilterQuality.medium
+    // Unsmoothed edges: neighbouring chunks tile without seams.
+    ..isAntiAlias = false;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -32,15 +56,33 @@ class CommittedInkPainter extends CustomPainter {
       ..translate(viewport.offset.dx, viewport.offset.dy)
       ..scale(viewport.scale);
     if (clip != null) canvas.clipRect(clip!);
+    final level = rasters == null
+        ? null
+        : ChunkRasterCache.levelFor(ChunkGrid.size * viewport.scale * devicePixelRatio);
+    var fresh = freshRecordingsPerFrame;
     for (final key in chunks) {
-      canvas.drawPicture(cache.pictureFor(key));
+      final image = level == null ? null : rasters!.imageFor(key, level);
+      if (image != null) {
+        final source = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
+        canvas.drawImageRect(image, source, ChunkGrid.rectOf(key), _imagePaint);
+        continue;
+      }
+      final picture = level == null
+          ? cache.pictureFor(key)
+          : cache.peek(key) ?? (fresh-- > 0 ? cache.pictureFor(key) : null);
+      if (picture != null) canvas.drawPicture(picture);
     }
     canvas.restore();
   }
 
   @override
   bool shouldRepaint(CommittedInkPainter old) =>
-      old.model != model || old.cache != cache || old.viewport != viewport || old.clip != clip;
+      old.model != model ||
+      old.cache != cache ||
+      old.viewport != viewport ||
+      old.clip != clip ||
+      old.rasters != rasters ||
+      old.devicePixelRatio != devicePixelRatio;
 }
 
 /// Paints the in-progress stroke and the eraser cursor. Repaints on every
