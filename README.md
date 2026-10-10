@@ -1,6 +1,6 @@
 # Len
 
-Handwriting-first notes for **Windows, Linux and Android**: paged notebooks,
+Handwriting-first notes for **Windows, Linux, Android and the Web**: paged notebooks,
 a truly infinite canvas, great stylus support (Samsung S Pen first), and
 optional sync through a tiny server you host yourself.
 
@@ -16,7 +16,7 @@ On NixOS / with Nix:
 ```sh
 nix develop            # Flutter + Linux desktop toolchain
 cd app
-flutter run -d linux   # or: flutter run -d <android-device-id>
+flutter run -d linux   # or: -d chrome, -d <android-device-id>
 flutter analyze && flutter test
 ```
 
@@ -32,6 +32,15 @@ Without Nix, install Flutter ≥ 3.47 and follow
 | Linux   | Linux           | `flutter build linux`        |
 | Android | Linux / Windows | `flutter build apk`          |
 | Windows | Windows         | `flutter build windows`      |
+| Web     | any             | `flutter build web` (or `--wasm`) |
+
+The web build (`app/build/web`) is a static site (installable as a PWA):
+serve it from any web server, e.g. `python3 -m http.server -d build/web`.
+Data stays in the browser (SQLite in IndexedDB); one tab at a time. To sync,
+the server must allow the site's origin (`LEN_CORS_ORIGINS`, default `*`).
+For `--wasm` builds, serve with `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp` to enable multi-threaded
+rendering (it works without, single-threaded).
 
 ## Using it
 

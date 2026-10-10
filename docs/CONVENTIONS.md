@@ -23,7 +23,12 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
 - Small files (aim < 300 lines), small functions, doc comments on public APIs.
 - No new state-management framework: `ChangeNotifier` + `ListenableBuilder`.
 - New packages only when they clearly earn their place and support
-  **Android, Linux and Windows**. Pin with `^` constraints.
+  **Android, Linux, Windows and Web** (or are confined to a
+  `platform/*_native.dart` file). Pin with `^` constraints.
+- No `dart:io`, `dart:isolate`, `dart:ffi` or `path_provider` outside
+  `lib/platform/*_native.dart` (and code only those import); add a
+  conditional-export abstraction instead (see ARCHITECTURE "Platforms").
+  Mind web integers: no negative or ≥ 31-bit shifts, no 64-bit `ByteData`.
 - Schema changes: **append** a migration to `AppDatabase._migrations`; never edit
   an existing one.
 - New synced data: add a collection (documented in `docs/SYNC_PROTOCOL.md`).
@@ -38,6 +43,7 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
 
 ```sh
 nix develop -c bash -c 'cd app && flutter analyze && flutter test'
+nix develop -c bash -c 'cd app && flutter build web --release'   # web must keep compiling
 nix develop .#android -c bash -c 'cd app && flutter build apk --debug'
 ```
 
