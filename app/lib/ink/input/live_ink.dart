@@ -14,6 +14,10 @@ class LiveInk extends ChangeNotifier {
   InkTool tool = InkTool.pen;
   int color = 0xFF000000;
   double width = 2;
+  StrokeStyle style = const StrokeStyle();
+
+  /// True once "hold to straighten" has snapped the live stroke to a line.
+  bool straightened = false;
 
   /// World position and radius of the eraser cursor, if visible.
   Offset? eraserCenter;
@@ -26,10 +30,17 @@ class LiveInk extends ChangeNotifier {
   /// outline they built when only the eraser cursor or viewport moved.
   int get revision => _revision;
 
-  void begin({required InkTool tool, required int color, required double width}) {
+  void begin({
+    required InkTool tool,
+    required int color,
+    required double width,
+    StrokeStyle? style,
+  }) {
     this.tool = tool;
     this.color = color;
     this.width = width;
+    this.style = style ?? StrokeStyle.defaultsFor(tool);
+    straightened = false;
     _points.clear();
     _revision++;
     notifyListeners();
@@ -41,10 +52,20 @@ class LiveInk extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Replaces every point of the live stroke (e.g. when it is straightened).
+  void replaceAll(List<StrokePoint> points) {
+    _points
+      ..clear()
+      ..addAll(points);
+    _revision++;
+    notifyListeners();
+  }
+
   /// Ends the live stroke and returns its points.
   List<StrokePoint> finish() {
     final points = List<StrokePoint>.of(_points);
     _points.clear();
+    straightened = false;
     _revision++;
     notifyListeners();
     return points;

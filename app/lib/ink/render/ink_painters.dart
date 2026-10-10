@@ -49,13 +49,25 @@ class CommittedInkPainter extends CustomPainter {
 
 /// Paints the in-progress stroke and the eraser cursor. Repaints on every
 /// pointer move, so it is kept as cheap as possible.
+///
+/// A live highlighter stroke is painted by a second instance with
+/// [belowInk] set, placed under the committed ink, so it already appears
+/// behind pen ink while it is drawn (matching how it is committed).
 class LiveInkPainter extends CustomPainter {
-  LiveInkPainter({required this.live, required this.viewport, this.clip})
-      : super(repaint: Listenable.merge([live, viewport]));
+  LiveInkPainter({
+    required this.live,
+    required this.viewport,
+    this.clip,
+    this.belowInk = false,
+  }) : super(repaint: Listenable.merge([live, viewport]));
 
   final LiveInk live;
   final ViewportController viewport;
   final Rect? clip;
+
+  /// Paint only highlighter strokes (and no eraser cursor); otherwise
+  /// paint everything except highlighter strokes.
+  final bool belowInk;
 
   /// Outline of the live stroke, rebuilt only when [LiveInk.revision]
   /// changes (not when merely the viewport or eraser cursor moves).
@@ -73,6 +85,7 @@ class LiveInkPainter extends CustomPainter {
         live.points,
         tool: live.tool,
         width: live.width,
+        style: live.style,
         complete: false,
       );
       _pathRevision = live.revision;
@@ -82,16 +95,20 @@ class LiveInkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (!live.isDrawing && live.eraserCenter == null) return;
+    final drawing = live.isDrawing && live.tool.isHighlighter == belowInk;
+    final eraser = belowInk ? null : live.eraserCenter;
+    if (!drawing && eraser == null) return;
     canvas
       ..save()
       ..translate(viewport.offset.dx, viewport.offset.dy)
       ..scale(viewport.scale);
-    if (live.isDrawing) {
+    if (drawing) {
       if (clip != null) canvas.clipRect(clip!);
-      canvas.drawPath(_livePath(), StrokeRenderer.paintFor(live.tool, live.color));
+      canvas.drawPath(
+        _livePath(),
+        StrokeRenderer.paintFor(live.tool, live.color, live.style),
+      );
     }
-    final eraser = live.eraserCenter;
     if (eraser != null) {
       _eraserOutline.strokeWidth = 1 / viewport.scale; // One screen pixel.
       canvas
@@ -103,5 +120,8 @@ class LiveInkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(LiveInkPainter old) =>
-      old.live != live || old.viewport != viewport || old.clip != clip;
+      old.live != live ||
+      old.viewport != viewport ||
+      old.clip != clip ||
+      old.belowInk != belowInk;
 }
