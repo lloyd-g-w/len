@@ -487,8 +487,9 @@ boxes and the text of imported PDF pages.
   the current one; Enter/F3 and Shift+Enter/Shift+F3 move, Esc closes.
   It reaches the editor only through `EditorSearchHost` (document: page
   frames + `goToPage` + pan; canvas: viewport pan, zooming out if needed),
-  so the editor hook is a controller, a shortcut, a button and one
-  overlay (`EditorSearchLayer`: highlights + bar). PDF matches are
+  so the editor hook is a controller, a shortcut, a button (the top bar's
+  `search` slot) and one overlay (`EditorSearchLayer`: highlights + bar,
+  placed below the chrome; phones start with the match list folded). PDF matches are
   highlighted on the exact glyph boxes, which `PdfGlyphCache` loads on
   demand per page (normalised to the page, merged per line).
 
