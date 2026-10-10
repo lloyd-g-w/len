@@ -200,12 +200,20 @@ class NotebookRepository extends SyncableTable {
       );
       return;
     }
-    _write(_notebookFromRecord(record), deviceId: record.deviceId, dirty: false);
+    final local = db.select('SELECT * FROM notebooks WHERE id = ? AND deleted = 0', [record.id]);
+    final notebook = _notebookFromRecord(
+      record,
+      local: local.isEmpty ? null : _rowToNotebook(local.first),
+    );
+    _write(notebook, deviceId: record.deviceId, dirty: false);
   }
 
   /// Parses a live record. Fields added after protocol v1 (folder, favourite,
-  /// trash, cover style, edit time) are optional for older clients.
-  static Notebook _notebookFromRecord(SyncRecord record) {
+  /// trash, cover style, edit time) are optional: a client that predates
+  /// them omits them when it edits, e.g., the title. Missing fields keep the
+  /// [local] notebook's values (so such an edit does not move, unstar or
+  /// restore it), or take their defaults when the notebook is new here.
+  static Notebook _notebookFromRecord(SyncRecord record, {Notebook? local}) {
     final d = record.data!;
     final title = d['title'];
     final kind = d['kind'];
@@ -229,13 +237,21 @@ class NotebookRepository extends SyncableTable {
       kind: NotebookKind.parse(kind),
       paper: PaperStyle.parse(paper),
       coverColor: coverColor,
-      coverStyle: CoverStyle.parse(coverStyle is String ? coverStyle : null),
+      coverStyle: d.containsKey('coverStyle') || local == null
+          ? CoverStyle.parse(coverStyle is String ? coverStyle : null)
+          : local.coverStyle,
       createdAt: createdAt,
       updatedAt: record.updatedAt,
-      editedAt: editedAt is int ? editedAt : record.updatedAt,
-      folderId: folderId is String ? folderId : null,
-      favorite: d['favorite'] == true,
-      trashedAt: trashedAt is int ? trashedAt : null,
+      editedAt: editedAt is int ? editedAt : (local?.editedAt ?? record.updatedAt),
+      folderId: d.containsKey('folderId') || local == null
+          ? (folderId is String ? folderId : null)
+          : local.folderId,
+      favorite: d.containsKey('favorite') || local == null
+          ? d['favorite'] == true
+          : local.favorite,
+      trashedAt: d.containsKey('trashedAt') || local == null
+          ? (trashedAt is int ? trashedAt : null)
+          : local.trashedAt,
     );
   }
 

@@ -211,6 +211,64 @@ void main() {
       expect(n.coverStyle, CoverStyle.plain);
       expect(n.editedAt, 5);
     });
+
+    test('an edit from an older client keeps the library fields it omits', () {
+      final folder = folders.create(name: 'School', color: 1);
+      final nb = notebook('Algebra', folderId: folder.id);
+      notebooks.setFavorite(nb.id, true);
+      notebooks.trash(nb.id);
+      notebooks.update(notebooks.get(nb.id)!.copyWith(coverStyle: CoverStyle.waves));
+      final before = notebooks.get(nb.id)!;
+      final applied = notebooks.applyRemote(
+        SyncRecord(
+          collection: 'notebooks',
+          id: nb.id,
+          updatedAt: before.updatedAt + 10,
+          deviceId: 'dev-old',
+          deleted: false,
+          data: {
+            'title': 'Renamed on an old phone',
+            'kind': 'paged',
+            'paper': 'lined',
+            'coverColor': 1,
+            'createdAt': before.createdAt,
+          },
+        ),
+      );
+      expect(applied, isTrue);
+      final after = notebooks.get(nb.id)!;
+      expect(after.title, 'Renamed on an old phone');
+      expect(after.folderId, folder.id);
+      expect(after.favorite, isTrue);
+      expect(after.trashedAt, before.trashedAt);
+      expect(after.coverStyle, CoverStyle.waves);
+      expect(after.editedAt, before.editedAt);
+    });
+
+    test('fields a newer record does send replace local values, null included', () {
+      final folder = folders.create(name: 'School', color: 1);
+      final nb = notebook('Algebra', folderId: folder.id);
+      notebooks.applyRemote(
+        SyncRecord(
+          collection: 'notebooks',
+          id: nb.id,
+          updatedAt: nb.updatedAt + 10,
+          deviceId: 'dev-b',
+          deleted: false,
+          data: {
+            'title': 'Algebra',
+            'kind': 'paged',
+            'paper': 'lined',
+            'coverColor': 1,
+            'createdAt': nb.createdAt,
+            'folderId': null,
+            'favorite': false,
+            'trashedAt': null,
+          },
+        ),
+      );
+      expect(notebooks.get(nb.id)!.folderId, isNull);
+    });
   });
 
   test('folders, favourites, moves and trash sync between devices', () async {
