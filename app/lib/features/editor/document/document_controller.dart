@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../../../data/element_repository.dart';
 import '../../../data/stroke_repository.dart';
@@ -9,7 +10,9 @@ import '../../../domain/notebook_page.dart';
 import '../../../ink/input/ink_input_controller.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ink/viewport.dart';
+import '../tabs/open_notebooks.dart';
 import 'document_layout.dart';
+import 'document_scroller.dart';
 import 'document_surfaces.dart';
 import 'page_viewport.dart';
 
@@ -23,6 +26,7 @@ class DocumentController extends ChangeNotifier {
     ElementRepository? elements,
     this._flow = PageFlow.continuous,
     int initialPage = 0,
+    this._initialView,
   }) : assert(pages.isNotEmpty, 'A document needs at least one page'),
        _pages = pages,
        _current = initialPage.clamp(0, pages.length - 1),
@@ -35,6 +39,9 @@ class DocumentController extends ChangeNotifier {
 
   /// Pans and zooms the whole document.
   final ViewportController viewport = ViewportController(minScale: 0.1, maxScale: 8);
+
+  /// Animates scrolls to a page ([scrollToPage]).
+  late final DocumentScroller scroller = DocumentScroller(viewport, apply: applyView);
 
   /// The active page's view of [viewport], used by the ink engine.
   late final PageViewport pageViewport = PageViewport(viewport);
@@ -70,9 +77,34 @@ class DocumentController extends ChangeNotifier {
   /// Screen padding around a fitted page.
   static const double fitPadding = 16;
 
-  /// Extra space at the top of the screen covered by editor chrome; a
-  /// page shown by [goToPage] starts below it.
-  double topInset = 0;
+  /// Screen space covered by editor chrome (top bar, toolbar, page
+  /// navigator). Pages can be scrolled clear of it, and a page shown by
+  /// [goToPage] starts below the top inset.
+  EdgeInsets get insets => _insets;
+  EdgeInsets _insets = EdgeInsets.zero;
+
+  /// Room (screen pixels) below the last page for the "add page" button in
+  /// continuous flow.
+  static const double footerExtent = 112;
+
+  EditorViewState? _initialView;
+
+  void setInsets(EdgeInsets insets) {
+    if (insets == _insets) return;
+    _insets = insets;
+    _updateBounds();
+  }
+
+  /// Where the document is looking (to restore it later, e.g. in a tab).
+  EditorViewState get viewState =>
+      EditorViewState(scale: viewport.scale, offset: viewport.offset, page: _current);
+
+  /// The frame of the last page on screen, for the "add page" footer.
+  Rect? get lastPageOnScreen {
+    final frame = _layout.frameOf(_pages.length - 1);
+    if (frame == null) return null;
+    return Rect.fromPoints(viewport.toScreen(frame.topLeft), viewport.toScreen(frame.bottomRight));
+  }
 
   // ---------------------------------------------------------------------------
   // Pages
@@ -123,6 +155,7 @@ class DocumentController extends ChangeNotifier {
   /// Shows page [index]: scrolls to it, or turns to it in single-page flow.
   void goToPage(int index) {
     if (index < 0 || index >= _pages.length) return;
+    scroller.stop();
     _current = index;
     if (_flow == PageFlow.single) _relayout();
     _activate(index);
@@ -130,6 +163,20 @@ class DocumentController extends ChangeNotifier {
     _refreshVisible();
     _current = index; // Not whatever the probe found mid-page.
     notifyListeners();
+  }
+
+  /// Like [goToPage], but scrolls there smoothly in continuous flow.
+  void scrollToPage(int index) {
+    if (index < 0 || index >= _pages.length) return;
+    final target = _flow == PageFlow.continuous ? frameTarget(index) : null;
+    if (target == null) {
+      goToPage(index);
+      return;
+    }
+    // Show the destination in the indicator straight away.
+    _current = index;
+    notifyListeners();
+    scroller.animateTo(target.scale, target.offset, onDone: () => settleOn(index));
   }
 
   /// Makes the page under [screen] (or nearest to it) the active page.
@@ -152,7 +199,22 @@ class DocumentController extends ChangeNotifier {
     _layout = _flow == PageFlow.continuous
         ? DocumentLayout.continuous([for (final p in _pages) p.size])
         : DocumentLayout.single(_current, _pages[_current].size);
-    viewport.contentBounds = _layout.bounds;
+    _updateBounds();
+  }
+
+  /// The layout's bounds, padded so content can scroll clear of the chrome
+  /// (and, in continuous flow, past the end to the "add page" footer).
+  /// The padding is in screen pixels, so it is recomputed when zooming.
+  void _updateBounds() {
+    final b = _layout.bounds;
+    final s = viewport.scale;
+    final footer = _flow == PageFlow.continuous ? footerExtent : 0;
+    viewport.contentBounds = Rect.fromLTRB(
+      b.left,
+      b.top - _insets.top / s,
+      b.right,
+      b.bottom + (_insets.bottom + footer) / s,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -161,26 +223,57 @@ class DocumentController extends ChangeNotifier {
   /// Fits page [index] to the screen width (capped) and scrolls its top
   /// into view.
   void _frame(int index) {
-    final size = viewport.size;
-    final frame = _layout.frameOf(index);
-    if (size.isEmpty || frame == null) return;
-    final widest = _layout.bounds.width;
-    final target = math.min((size.width - 2 * fitPadding) / widest, maxFitScale);
-    final scale = viewport.scale;
-    viewport.zoomAt(Offset.zero, target / scale);
-    final screen = viewport.toScreen(frame.topLeft);
-    final x =
-        (size.width - widest * viewport.scale) / 2 - viewport.toScreen(_layout.bounds.topLeft).dx;
-    viewport.panBy(Offset(x, fitPadding + topInset - screen.dy));
+    final target = frameTarget(index);
+    if (target != null) applyView(target.scale, target.offset);
   }
 
   void _onViewport() {
+    _updateBounds(); // A no-op unless the zoom changed.
     if (!_framed && !viewport.size.isEmpty) {
       _framed = true;
-      _frame(_current);
-      return; // _frame notified the viewport again.
+      final view = _initialView;
+      _initialView = null;
+      if (view != null) {
+        applyView(view.scale, view.offset);
+      } else {
+        _frame(_current);
+      }
+      return; // The viewport notified again.
     }
     _refreshVisible();
+  }
+
+  /// Sets the viewport's zoom and pan (within the document's bounds).
+  void applyView(double scale, Offset offset) {
+    viewport.zoomAt(Offset.zero, scale / viewport.scale);
+    viewport.panBy(offset - viewport.offset);
+  }
+
+  /// The zoom and pan that [goToPage] would use to show page [index]: fit
+  /// to the width (continuous flow) or whole (single-page flow) and below
+  /// the top chrome. Null before the first layout.
+  ({double scale, Offset offset})? frameTarget(int index) {
+    final size = viewport.size;
+    final frame = _layout.frameOf(index);
+    if (size.isEmpty || frame == null) return null;
+    final widest = _layout.bounds.width;
+    var scale = math.min((size.width - 2 * fitPadding) / widest, maxFitScale);
+    if (_flow == PageFlow.single) {
+      final free = size.height - _insets.vertical - 2 * fitPadding;
+      if (free > 0) scale = math.min(scale, free / frame.height);
+    }
+    final x = (size.width - widest * scale) / 2 - _layout.bounds.left * scale;
+    final y = fitPadding + _insets.top - frame.top * scale;
+    return (scale: scale.clamp(viewport.minScale, viewport.maxScale), offset: Offset(x, y));
+  }
+
+  /// Marks page [index] as current once a scroll to it has finished.
+  void settleOn(int index) {
+    if (index < 0 || index >= _pages.length) return;
+    _activate(index);
+    _refreshVisible();
+    _current = index;
+    notifyListeners();
   }
 
   /// Loads what is on screen and updates the current page.
@@ -203,6 +296,7 @@ class DocumentController extends ChangeNotifier {
   @override
   void dispose() {
     viewport.removeListener(_onViewport);
+    scroller.dispose();
     pageViewport.dispose();
     viewport.dispose();
     surfaces.dispose();
