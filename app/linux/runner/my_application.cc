@@ -14,6 +14,25 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+// Sets the window icon: the PNG shipped in the bundle
+// (<bundle>/share/icons/hicolor/…, see linux/CMakeLists.txt), else the themed
+// icon of an installed desktop entry. (Wayland compositors take the icon from
+// the .desktop file matching APPLICATION_ID instead.)
+static void set_window_icon(GtkWindow* window) {
+  g_autofree gchar* exe = g_file_read_link("/proc/self/exe", nullptr);
+  if (exe != nullptr) {
+    g_autofree gchar* dir = g_path_get_dirname(exe);
+    g_autofree gchar* icon =
+        g_build_filename(dir, "share", "icons", "hicolor", "256x256", "apps",
+                         APPLICATION_ID ".png", nullptr);
+    if (g_file_test(icon, G_FILE_TEST_EXISTS) &&
+        gtk_window_set_icon_from_file(window, icon, nullptr)) {
+      return;
+    }
+  }
+  gtk_window_set_icon_name(window, APPLICATION_ID);
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -53,6 +72,9 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 800);
+  // Smallest usable window (toolbar + a bit of canvas).
+  gtk_widget_set_size_request(GTK_WIDGET(window), 360, 400);
+  set_window_icon(window);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(

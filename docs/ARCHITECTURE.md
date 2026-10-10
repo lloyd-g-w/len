@@ -419,6 +419,29 @@ yield **unsigned 32-bit** values (`-1 << 22` is positive, `1 << 40` is 0) and
 `ByteData.get/setInt64` is unsupported. Write `-(1 << 22)`, keep shifts
 below 31 bits, and use `float32`/`int32` in binary formats.
 
+### Native shells and packaging
+
+- **Branding:** one design, `app/tool/generate_icons.sh` (glyph =
+  `Icons.gesture_rounded`, as in the sidebar logo) writes the web icons,
+  Android adaptive/themed/legacy icons and splash icon, Windows `.ico` and
+  Linux hicolor icons. Don't edit generated icons by hand.
+- **Android:** `LaunchTheme` = Android 12+ SplashScreen (surface colour +
+  icon tile; the same look via `launch_background` before 12), kept until
+  Flutter's first frame. Edge to edge: transparent bars in the window themes,
+  and `ui/system_bars.dart` (`MaterialApp.builder`) keeps the bar icons in step
+  with the *app's* light/dark theme. Freely resizable (split screen, DeX,
+  freeform; `<layout>` minimum 360×400 dp), orientation unlocked. Release:
+  `android/key.properties` signing (debug-key fallback), R8 + resource
+  shrinking, `versionCode` = pubspec build number.
+- **Linux:** application id `dev.len.len` (= GTK app id = `.desktop` name =
+  icon name, so Wayland docks match the window). The bundle carries `share/`
+  (desktop entry, icons) and `install-desktop-entry.sh`; the runner loads its
+  window icon from there.
+- **Windows:** PerMonitorV2 DPI awareness (manifest), initial window centred
+  and clamped to the work area, minimum size 360×400.
+- **CI / releases:** `.github/workflows/ci.yml` (analyze, tests, all builds,
+  server image) and `release.yml` (on `v*` tags; see README *Release*).
+
 ## Library (`features/library/`)
 
 - **Data.** Folders are a synced collection (`FolderRepository`, nested via `parentId`).

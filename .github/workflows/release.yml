@@ -1,0 +1,223 @@
+name: Release
+
+# Push a tag `vX.Y.Z` matching `version: X.Y.Z+N` in app/pubspec.yaml:
+#   git tag v0.2.0 && git push origin v0.2.0
+# Builds the apps, attaches them to a GitHub release and pushes the sync
+# server image to ghcr.io/<owner>/len-sync. See README "Release".
+#
+# Secrets (Settings → Secrets and variables → Actions), all optional:
+#   ANDROID_KEYSTORE_BASE64   base64 of the release keystore (.jks)
+#   ANDROID_KEYSTORE_PASSWORD store password
+#   ANDROID_KEY_ALIAS         key alias (e.g. len)
+#   ANDROID_KEY_PASSWORD      key password
+# Without them the APKs are signed with a throwaway debug key (installable,
+# but not upgradable to/from properly signed builds). GHCR needs no secret:
+# the workflow's GITHUB_TOKEN has `packages: write`.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.47.4"
+
+jobs:
+  version:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          version=$(sed -n 's/^version: *\([^+]*\).*/\1/p' app/pubspec.yaml)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match pubspec version $version"
+            exit 1
+          fi
+
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Release keystore
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: APKs are debug-signed."
+            exit 0
+          fi
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
+          cat > app/android/key.properties <<EOF
+          storeFile=$RUNNER_TEMP/release.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+      - name: Build APKs (universal + per ABI)
+        working-directory: app
+        run: |
+          flutter build apk --release
+          flutter build apk --release --split-per-abi
+          v=${{ needs.version.outputs.version }}
+          dist="$GITHUB_WORKSPACE/dist"
+          mkdir -p "$dist"
+          cd build/app/outputs/flutter-apk
+          cp app-release.apk "$dist/len-$v-android-universal.apk"
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp "app-$abi-release.apk" "$dist/len-$v-android-$abi.apk"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/*
+
+  linux:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter build linux --release
+        working-directory: app
+      - name: Tarball
+        run: |
+          v=${{ needs.version.outputs.version }}
+          mkdir -p dist
+          cp -r app/build/linux/x64/release/bundle "len-$v"
+          tar -czf "dist/len-$v-linux-x64.tar.gz" "len-$v"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter build windows --release
+        working-directory: app
+      - name: Zip
+        shell: pwsh
+        run: |
+          $v = "${{ needs.version.outputs.version }}"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item -Recurse app/build/windows/x64/runner/Release "len-$v"
+          Compress-Archive -Path "len-$v" -DestinationPath "dist/len-$v-windows-x64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+
+  web:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter build web --release
+        working-directory: app
+      - name: Zip
+        run: |
+          v=${{ needs.version.outputs.version }}
+          mkdir -p dist
+          (cd app/build/web && zip -qr "$GITHUB_WORKSPACE/dist/len-$v-web.zip" .)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: dist/*
+
+  server-image:
+    name: Server image → GHCR
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/len-sync
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+          labels: |
+            org.opencontainers.image.title=Len sync server
+            org.opencontainers.image.description=Self-hosted sync server for the Len notes app
+      - uses: docker/build-push-action@v6
+        with:
+          context: server
+          platforms: linux/amd64,linux/arm64
+          # Manual runs (workflow_dispatch) build everything but publish nothing.
+          push: ${{ github.ref_type == 'tag' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=server-release
+          cache-to: type=gha,scope=server-release,mode=max
+
+  release:
+    name: GitHub release
+    needs: [version, android, linux, windows, web]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: ls -la dist && (cd dist && sha256sum -- * > SHA256SUMS)
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Len ${{ needs.version.outputs.version }}
+          generate_release_notes: true
+          files: dist/*

@@ -45,7 +45,11 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
 nix develop -c bash -c 'cd app && flutter analyze && flutter test'
 nix develop -c bash -c 'cd app && flutter build web --release'   # web must keep compiling
 nix develop .#android -c bash -c 'cd app && flutter build apk --debug'
+app/tool/generate_icons.sh   # after changing the icon design (commit the output)
 ```
+
+CI (`.github/workflows/ci.yml`) pins the same Flutter version as `flake.nix`;
+when nixpkgs bumps Flutter, update `FLUTTER_VERSION` in both workflows.
 
 Visual checks: prefer golden-style widget tests that write PNGs
 (`matchesGoldenFile` + `flutter test --update-goldens`) and inspect them, or run

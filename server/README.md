@@ -25,6 +25,28 @@ content-addressed files in a blob directory next to it.
    Data is stored in the named volume `len-data` (mounted at `/data`): the
    database `len.db` and the blob directory `blobs/`.
 
+   **Or use the prebuilt image** instead of building: every release publishes
+   `ghcr.io/lloyd-g-w/len-sync` (tags `latest`, `X.Y`, `X.Y.Z`; amd64 and
+   arm64, e.g. a Raspberry Pi). With Compose, point `image:` at it and drop
+   `build:`:
+
+   ```yaml
+   services:
+     len-sync:
+       image: ghcr.io/lloyd-g-w/len-sync:latest   # or pin a version: :0.1
+   ```
+
+   then `docker compose pull && docker compose up -d`. Without Compose:
+
+   ```sh
+   docker run -d --name len-sync --restart unless-stopped --env-file .env \
+     -p 127.0.0.1:8080:8080 -v len-data:/data \
+     ghcr.io/lloyd-g-w/len-sync:latest
+   ```
+
+   (`.env` from step 1.) Update with `docker compose pull && docker compose
+   up -d` (data lives in the volume and survives).
+
 3. **Put it behind HTTPS.** The token travels in every request, so never
    expose the server over plain HTTP. Compose only binds to `127.0.0.1:8080`;
    use a reverse proxy such as [Caddy](https://caddyserver.com), which gets
