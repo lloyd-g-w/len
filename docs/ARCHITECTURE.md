@@ -38,10 +38,12 @@ Stroke points are stored as a compact little-endian `float32` blob
 Non-ink content are **elements** (`domain/surface_element.dart`, table
 `elements`, synced as collection `elements`): a generic box (`rect` +
 `rotation` about its centre), a stacking order `z` and a `type` with an opaque
-`data` map. Today the only type is `text` (`TextData`: text, size, colour,
-bold, italic, alignment); `image` (a blob hash in `data`) needs no schema
-change. Unknown types are kept and synced but not drawn. Unlike strokes, an
-element keeps its id when edited — the edit replaces the whole value.
+`data` map: `text` (`TextData`: text, size, colour, bold, italic, alignment)
+or `image` (`ImageData`: blob hash, natural size, normalised crop). Elements
+with `z < 0` are drawn beneath the ink (`SurfaceElement.belowInk`), the rest
+above it (`ink/elements/element_order.dart` hands out stacking orders).
+Unknown types are kept and synced but not drawn. Unlike strokes, an element
+keeps its id when edited — the edit replaces the whole value.
 
 ## The sparse infinite canvas
 
@@ -73,7 +75,9 @@ The same grid drives three things:
 3. **Render cache** — `ChunkPictureCache` records one `ui.Picture` per
    populated chunk, clipped to the chunk square (so strokes crossing chunk
    borders are never double-blended). Elements are drawn into the same
-   pictures, above the chunk's ink (`elements/element_renderer.dart`). A stroke edit invalidates only the chunks
+   pictures, layered by `render/content_painter.dart` (elements beneath the ink,
+   highlighter, other ink, elements above), the same order every renderer —
+   selections, thumbnails, exports — uses. A stroke edit invalidates only the chunks
    it touches. Painting visits only populated chunks intersecting the screen.
 4. **Level of detail** — when a chunk covers ≤ 256 device pixels,
    `CommittedInkPainter` draws it from a `ChunkRasterCache` image (32/64/128/256
@@ -207,6 +211,45 @@ images; PNG export rasterises a page with the same painters as the editor.
 Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`).
+
+## Images (`ink/images/`, `features/editor/images/`)
+
+- **Import** (`ImageImport`): PNG, JPEG and WebP files up to 4096 px and 8 MiB
+  are stored byte for byte; anything else the platform can decode (larger
+  images, GIF — first frame —, HEIC/HEIF on Android, BMP) is decoded by the
+  engine at ≤ 4096 px and re-encoded in an isolate (`package:image`): JPEG
+  when opaque, PNG with transparency. The bytes become a content-addressed
+  blob (so they sync like PDFs) and an `image` element at natural size
+  (1 px = 1 world unit), shrunk to 70 % of the view and kept on the page.
+  Entry points (`EditorImages`): the top bar button (file picker; on Android
+  also the camera via `image_picker`), Ctrl+V (`pasteboard` reads the system
+  clipboard's image, or a copied image file on desktop; a clipboard image
+  older than ink copied in the app loses to the ink) and drag and drop
+  (`desktop_drop`). Every insert is one undoable edit and selects the image.
+- **Decoding** (`ElementImages`, one per app in `AppServices`): bitmaps are
+  decoded asynchronously by the engine (`ImageDescriptor`, off the UI thread)
+  at mip levels — powers of two from 64 px up to the natural width — and kept
+  in an LRU within a memory budget. `imageFor` never blocks: it returns the
+  best bitmap cached (or null → placeholder), schedules the decode and later
+  reports the blob on `changes`. Missing blobs are fetched lazily with
+  `SyncController.fetchBlob`; unavailable ones show a crossed-out placeholder
+  until the next sync retries them.
+- **Rendering**: chunk pictures record the bitmap that suits the zoom. The
+  painters report the zoom (`ChunkPictureCache.setScale`); crossing a power of
+  two re-records only chunks containing images, and a finished decode
+  refreshes just the chunks showing that blob (`SurfaceModel.refresh`).
+  Selections, page-overview thumbnails and library covers re-record the same
+  way; PNG export decodes first, PDF export embeds JPEG blobs as they are and
+  other formats as pixels, with rotation as a PDF transform and the crop as a
+  clip (`PdfImageWriter`).
+- **Editing** uses the lasso: tap or lasso to select (ink over an image wins a
+  tap; a lasso must enclose most of an image beneath the ink, not just its
+  centre), move / resize (corners keep the aspect ratio) / rotate with the
+  selection frame (which follows a single element's rotation), bring to front
+  / send to back, duplicate, copy/paste, delete. **Crop** (`ImageCropSession`
+  + `ImageCropOverlay`) works in the image's unrotated frame: handles move the
+  crop edges, dragging inside pans it, and committing keeps the visible part
+  exactly where it was on the surface.
 
 ## Input (`ink/input/ink_input_controller.dart`)
 
@@ -595,7 +638,11 @@ records with last-write-wins. Open screens subscribe to
 - PDF backgrounds are rendered as whole-page images (no tiling), so very deep
   zoom on a PDF page is capped at ~2896 px page width; exported PDFs embed
   imported pages as images rather than copying their vector content.
-- Blobs are never garbage-collected (neither on devices nor on the server).
+- Blobs are never garbage-collected (neither on devices nor on the server) —
+  deleting or replacing images leaves their blobs behind.
+- Image bitmaps are whole-image decodes per mip level (no tiling); a 4096 px
+  image is the sharpest it gets. Crop mode shows the image on its own (ink
+  over it is hidden while cropping).
 - Search: handwriting is not searchable yet (see *Search*); PDF text is only
   extracted for PDFs present on the device (fetched when a page is viewed);
   glyph highlights skip rotated PDF pages (the page is still shown); FTS5's

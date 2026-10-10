@@ -12,6 +12,7 @@ import '../../../domain/surface_element.dart';
 import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
+import 'pdf_images.dart';
 
 /// A page to export with its ink, elements and (pre-rendered) background.
 class ExportPage {
@@ -20,7 +21,8 @@ class ExportPage {
   final NotebookPage page;
   final List<Stroke> strokes;
 
-  /// Text boxes (and other elements) on the page, drawn above the ink.
+  /// Text boxes, images and other elements on the page (each beneath or
+  /// above the ink, see [SurfaceElement.belowInk]).
   final List<SurfaceElement> elements;
 
   /// The rendered background (e.g. the imported PDF page), if any.
@@ -33,7 +35,9 @@ class ExportPage {
 /// polygons finer than the eye can see; backgrounds of imported PDF pages
 /// are embedded as images. Text boxes are embedded as transparent images
 /// rendered at [elementDpi] by the app's own text renderer, so they wrap
-/// and look exactly as on screen (but are not selectable text).
+/// and look exactly as on screen (but are not selectable text). Image
+/// elements are embedded at their stored resolution ([PdfImageWriter]),
+/// read through `readBlob`.
 abstract final class PdfExporter {
   /// PDF points (1/72 in) per world unit (1/96 in).
   static const double pointsPerUnit = 72 / 96;
@@ -48,21 +52,24 @@ abstract final class PdfExporter {
   static const int maxElementPixels = 4096;
 
   /// The PDF document of [pages]; [onPage] hears how many are written.
+  /// Image elements are read through [readBlob].
   static Future<Uint8List> build(
     List<ExportPage> pages, {
     String? title,
     void Function(int done)? onPage,
+    Future<Uint8List?> Function(String sha)? readBlob,
   }) async {
     final doc = PdfDocument();
     PdfInfo(doc, title: title, creator: 'Len'); // Registers itself.
+    final images = PdfImageWriter(doc, readBlob ?? (_) async => null);
     for (var i = 0; i < pages.length; i++) {
       onPage?.call(i);
-      await _addPage(doc, pages[i]);
+      await _addPage(doc, pages[i], images);
     }
     return doc.save();
   }
 
-  static Future<void> _addPage(PdfDocument doc, ExportPage export) async {
+  static Future<void> _addPage(PdfDocument doc, ExportPage export, PdfImageWriter images) async {
     final page = export.page;
     const k = pointsPerUnit;
     final format = PdfPageFormat(page.width * k, page.height * k);
@@ -90,12 +97,27 @@ abstract final class PdfExporter {
     }
 
     _drawPattern(pen, page);
-    for (final stroke in [...export.strokes]..sort(Stroke.paintOrder)) {
+    final elements = [...export.elements]..sort(SurfaceElement.paintOrder);
+    Future<void> drawElements(bool belowInk) async {
+      for (final element in elements.where((e) => e.belowInk == belowInk)) {
+        if (element.knownType == ElementType.image) {
+          await images.draw(g, element, toPdf: pen.map, k: k);
+        } else {
+          await _drawElement(doc, pen, element);
+        }
+      }
+    }
+
+    await drawElements(true);
+    final strokes = [...export.strokes]..sort(Stroke.paintOrder);
+    // Highlighter beneath pen ink, as on screen.
+    for (final stroke in strokes.where((s) => s.tool.isHighlighter)) {
       _drawStroke(pen, stroke);
     }
-    for (final element in [...export.elements]..sort(SurfaceElement.paintOrder)) {
-      await _drawElement(doc, pen, element);
+    for (final stroke in strokes.where((s) => !s.tool.isHighlighter)) {
+      _drawStroke(pen, stroke);
     }
+    await drawElements(false);
   }
 
   /// Embeds [element] as a transparent image over its (rotated) bounds.

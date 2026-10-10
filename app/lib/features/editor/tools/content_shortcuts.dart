@@ -6,12 +6,14 @@ import '../../../ink/tools/content_tools.dart';
 
 /// Keyboard shortcuts for the lasso, shape, text and laser tools and the
 /// selection. Each action goes through [unlessTyping], so none of them
-/// fires while a text field has focus.
+/// fires while a text field has focus. [paste] replaces the in-app paste
+/// (e.g. to paste images from the system clipboard too).
 Map<ShortcutActivator, VoidCallback> contentShortcuts(
   ContentTools content,
   ToolSettings tools,
-  VoidCallback Function(VoidCallback) unlessTyping,
-) {
+  VoidCallback Function(VoidCallback) unlessTyping, {
+  VoidCallback? paste,
+}) {
   final selection = content.selection;
   void setTool(EditorTool tool) => tools.tool = tool;
   return {
@@ -36,7 +38,7 @@ Map<ShortcutActivator, VoidCallback> contentShortcuts(
         selection.duplicate,
       ),
       SingleActivator(LogicalKeyboardKey.keyV, control: control, meta: !control): unlessTyping(
-        content.pasteAtCentre,
+        paste ?? content.pasteAtCentre,
       ),
     },
   };

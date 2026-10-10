@@ -16,7 +16,8 @@ import '../../domain/surface_element.dart';
 /// point / zero length) is selected when its point is inside.
 ///
 /// **Elements**: selected when their centre is inside, or when at least
-/// half of their outline samples (corners and edge midpoints) are.
+/// half of their outline samples (corners and edge midpoints) are; for
+/// elements beneath the ink only the outline rule applies.
 class Lasso {
   Lasso(List<Offset> points) : points = List.unmodifiable(points), bounds = _boundsOf(points);
 
@@ -70,7 +71,9 @@ class Lasso {
 
   bool selectsElement(SurfaceElement element) {
     if (!isValid || !bounds.overlaps(element.bounds)) return false;
-    if (contains(element.rect.center)) return true;
+    // Images beneath the ink are often large backdrops for handwriting:
+    // circling ink in their middle must not grab them too.
+    if (!element.belowInk && contains(element.rect.center)) return true;
     final c = element.corners;
     final samples = [...c, for (var i = 0; i < 4; i++) Offset.lerp(c[i], c[(i + 1) % 4], 0.5)!];
     return samples.where(contains).length * 2 >= samples.length;

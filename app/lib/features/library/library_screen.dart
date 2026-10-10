@@ -52,6 +52,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         pages: services.pages,
         strokes: services.strokes,
         elements: services.elements,
+        images: services.images,
       ),
       stats: SurfaceStats(services.database),
     );

@@ -18,7 +18,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Shapes: draw-and-hold to snap (line, arrow, rectangle, ellipse, triangle, polygon); Shape tool (line, arrow, rectangle, ellipse, triangle, diamond, star)
 - ✅ Text boxes (size, colour, bold/italic, alignment, width; synced `elements`)
 - ⬜ Text: font families, rich text within a box, change width/pen type of selected ink
-- ⬜ Images (insert, move, resize, crop later) — element model ready (`type: "image"` + blob hash)
+- ✅ Images: insert from files (top bar), the system clipboard (Ctrl+V), drag and drop (desktop) and
+  the camera (Android); downscaled to 4096 px on import; beneath the ink by default with bring to
+  front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
+  synced as blobs; in thumbnails and PNG/PDF export
 - ✅ Laser pointer
 - ✅ Gestures: two-finger tap undo, three-finger tap redo (with a HUD; palm-safe), S Pen side
   button action (eraser / hold to lasso / none), finger long press or right click → canvas menu
@@ -97,5 +100,5 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Sync
 - ✅ Self-hosted LWW record sync
-- ✅ Blob sync (content-addressed PDFs; images later)
+- ✅ Blob sync (content-addressed PDFs and images)
 - ⬜ Blob garbage collection (unreferenced blobs on device and server)

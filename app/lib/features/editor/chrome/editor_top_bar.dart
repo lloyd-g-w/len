@@ -25,6 +25,7 @@ class EditorTopBar extends StatelessWidget {
     this.tabs,
     this.subtitle,
     this.search,
+    this.insert,
   });
 
   final String title;
@@ -37,6 +38,9 @@ class EditorTopBar extends StatelessWidget {
 
   /// The search button (features/search), before undo/redo.
   final Widget? search;
+
+  /// The insert-image button (features/editor/images), before search.
+  final Widget? insert;
 
   /// Height of the bar (without the status bar) for a given [width].
   static double heightFor(double width, OpenNotebooks? tabs) =>
@@ -117,6 +121,7 @@ class EditorTopBar extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          ?insert,
           ?search,
           UndoRedoButtons(target: undo),
           const BarDivider(),
@@ -142,6 +147,7 @@ class EditorTopBar extends StatelessWidget {
         Expanded(
           child: Align(alignment: Alignment.centerLeft, child: _title(centered: false)),
         ),
+        ?insert,
         ?search,
         UndoRedoButtons(target: undo),
         if (switcher) TabSwitcherButton(tabs: tabs),
