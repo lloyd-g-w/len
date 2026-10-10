@@ -73,6 +73,11 @@ class _EditorScreenState extends State<EditorScreen> {
     _remoteChanges = _services.sync.remoteChanges.listen(_onRemoteChanges);
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
+    // Take the keyboard even when another editor (the previous tab) still
+    // held it while this one was built; autofocus would not.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
   }
 
   @override
@@ -102,8 +107,13 @@ class _EditorScreenState extends State<EditorScreen> {
     if (mounted) setState(() {}); // The tab strip may appear or go.
   }
 
+  /// Toolbar placement, and stylus-only changed elsewhere (e.g. in the
+  /// settings opened from the editor).
   void _onPreferences() {
-    if (mounted) setState(() {}); // Toolbar placement.
+    if (!mounted) return;
+    final stylusOnly = _services.preferences.stylusOnly;
+    if (stylusOnly != _session.tools.stylusOnly) _session.tools.stylusOnly = stylusOnly;
+    setState(() {});
   }
 
   // ---------------------------------------------------------------------------
