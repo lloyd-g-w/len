@@ -16,7 +16,9 @@ import 'thumbnail_renderer.dart';
 /// turn, so a large library never blocks a frame for long; listeners are
 /// notified once per batch in which a preview changed.
 class ThumbnailCache extends ChangeNotifier {
-  ThumbnailCache({required this.renderer, required this.stats, this.width = 320});
+  ThumbnailCache({required this.renderer, required this.stats, this.width = 320}) {
+    _imageChanges = renderer.images?.changes.listen(_onImage);
+  }
 
   final ThumbnailRenderer renderer;
   final SurfaceStats stats;
@@ -43,6 +45,11 @@ class ThumbnailCache extends ChangeNotifier {
   /// follows carry the new value in [_Entry.usedIn].
   int _generation = 0;
 
+  /// Notebooks whose preview shows a placeholder for an image (by blob)
+  /// that was still decoding.
+  final Map<String, Set<String>> _waitingFor = {};
+  StreamSubscription<String>? _imageChanges;
+
   /// The cached preview of [notebook] (null = plain cover), scheduling a
   /// refresh if its content may have changed since it was rendered.
   ///
@@ -64,6 +71,18 @@ class ThumbnailCache extends ChangeNotifier {
     final ids = notebookIds ?? _entries.keys.toList();
     for (final id in ids) {
       _entries[id]?.stale = true;
+    }
+    _notify();
+  }
+
+  /// An image finished decoding: previews drawn without it render again.
+  void _onImage(String blob) {
+    final ids = _waitingFor.remove(blob);
+    if (ids == null || _disposed) return;
+    for (final id in ids) {
+      _entries[id]
+        ?..fingerprint = null
+        ..stale = true;
     }
     _notify();
   }
@@ -115,6 +134,9 @@ class ThumbnailCache extends ChangeNotifier {
     ui.Image? image;
     try {
       image = source == null ? null : renderer.render(notebook, width: width, source: source);
+      for (final blob in renderer.pendingImages) {
+        (_waitingFor[blob] ??= {}).add(notebook.id);
+      }
     } on Object catch (e) {
       debugPrint('Thumbnail of ${notebook.id} failed: $e');
     }
@@ -144,6 +166,7 @@ class ThumbnailCache extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    unawaited(_imageChanges?.cancel());
     for (final e in _entries.values) {
       e.image?.dispose();
     }
@@ -156,7 +179,9 @@ class _Entry {
   _Entry(this.image, this.fingerprint, this.checkedAt);
 
   final ui.Image? image;
-  final Object? fingerprint;
+
+  /// What the preview was rendered from; null forces a new render.
+  Object? fingerprint;
   int checkedAt;
   bool stale = false;
 

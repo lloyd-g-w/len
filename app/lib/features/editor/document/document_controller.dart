@@ -7,6 +7,7 @@ import 'package:flutter/painting.dart' show EdgeInsets;
 import '../../../data/element_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../ink/images/element_images.dart';
 import '../../../ink/input/ink_input_controller.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ink/viewport.dart';
@@ -24,16 +25,20 @@ class DocumentController extends ChangeNotifier {
     required List<NotebookPage> pages,
     required StrokeRepository strokes,
     ElementRepository? elements,
+    ElementImages? images,
     this._flow = PageFlow.continuous,
     int initialPage = 0,
     this._initialView,
   }) : assert(pages.isNotEmpty, 'A document needs at least one page'),
        _pages = pages,
        _current = initialPage.clamp(0, pages.length - 1),
-       surfaces = DocumentSurfaces(strokes, elements: elements) {
+       surfaces = DocumentSurfaces(strokes, elements: elements, images: images) {
     _active = _current;
     surfaces.active = pages[_current].id;
     _relayout();
+    // The page viewport needs the first active page too (its bounds clip
+    // the content layer and keep inserted images on the page).
+    pageViewport.showPage(_layout.frameOf(_active) ?? _layout.frames.first);
     viewport.addListener(_onViewport);
   }
 

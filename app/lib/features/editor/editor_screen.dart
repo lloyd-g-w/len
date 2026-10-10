@@ -27,6 +27,7 @@ import 'editor_gestures.dart';
 import 'editor_session.dart';
 import 'editor_shortcuts.dart';
 import 'editor_toolbar.dart';
+import 'images/image_entry_points.dart';
 import 'tabs/open_notebooks.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
@@ -291,6 +292,7 @@ class _EditorScreenState extends State<EditorScreen> {
               nextTab: tabs?.cycle,
               previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
               closeTab: tabs == null ? null : () => tabs.close(_notebook.id),
+              paste: () => _session.images.paste(context),
             ),
             ...EditorSearchLayer.shortcuts(_search),
           },
@@ -332,6 +334,7 @@ class _EditorScreenState extends State<EditorScreen> {
                             chromeInsets: layout.covered,
                           ),
                         ),
+                        Positioned.fill(child: ImageDropTarget(images: _session.images)),
                         Positioned.fill(child: _buildChrome(layout, tabs)),
                         Positioned.fill(
                           child: EditorSearchLayer(
@@ -409,6 +412,7 @@ class _EditorScreenState extends State<EditorScreen> {
           ),
           undo: _session.undo,
           tabs: tabs,
+          insert: InsertImageButton(images: _session.images),
           search: BarButton(
             tooltip: 'Search (Ctrl+F)',
             icon: Icons.search_rounded,

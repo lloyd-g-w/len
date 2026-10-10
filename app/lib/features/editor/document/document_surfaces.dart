@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../data/element_repository.dart';
 import '../../../data/stroke_repository.dart';
+import '../../../ink/images/element_images.dart';
 import '../../../ink/render/chunk_picture_cache.dart';
 import '../../../ink/surface_model.dart';
 import 'undo_target.dart';
@@ -34,12 +35,15 @@ class PageSurface {
 /// one history for the whole notebook. Every committed edit (ink, text,
 /// selection changes) counts, whether or not it came from a pointer.
 class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
-  DocumentSurfaces(this.repository, {this.elements, this.keepIdle = 6});
+  DocumentSurfaces(this.repository, {this.elements, this.images, this.keepIdle = 6});
 
   final StrokeRepository repository;
 
   /// Element (text box) storage; without it pages hold ink only.
   final ElementRepository? elements;
+
+  /// Decoded bitmaps for image elements.
+  final ElementImages? images;
 
   /// Off-screen surfaces without history kept around for quick returns.
   final int keepIdle;
@@ -63,7 +67,12 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     final existing = _surfaces[pageId];
     if (existing != null) return existing;
     final model =
-        SurfaceModel(surfaceId: pageId, repository: repository, elementRepository: elements)
+        SurfaceModel(
+            surfaceId: pageId,
+            repository: repository,
+            elementRepository: elements,
+            images: images,
+          )
           ..addListener(notifyListeners)
           ..onCommit = () => noteEdited(pageId);
     return _surfaces[pageId] = PageSurface(model);

@@ -142,7 +142,11 @@ class LassoTool implements PointerTool {
   /// Selects what is under a tap; a second tap on a text box edits it.
   void _tap(Offset world, {bool keepSelection = false}) {
     final model = selection.model;
-    final element = ContentHitTest.elementAt(model, world);
+    var element = ContentHitTest.elementAt(model, world);
+    // Ink lies above elements beneath it: a tap on that ink selects the ink.
+    if (element != null && element.belowInk && !keepSelection) {
+      if (ContentHitTest.strokeAt(model, world, 8 / viewport.scale) != null) element = null;
+    }
     final now = _now();
     if (element != null) {
       final last = _lastTap;

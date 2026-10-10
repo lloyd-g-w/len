@@ -5,15 +5,16 @@ import 'package:flutter/rendering.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
-import '../../../ink/elements/element_renderer.dart';
+import '../../../ink/images/element_images.dart';
+import '../../../ink/render/content_painter.dart';
 import '../../../ink/render/paper_painter.dart';
-import '../../../ink/render/stroke_renderer.dart';
 import 'document_painters.dart';
 
 /// Paints a complete page — paper, background, template, bookmark, ink and
-/// elements (text boxes, above the ink) —
-/// in page units onto [canvas], which must already be scaled by [scale]
-/// device pixels per unit. Used for thumbnails and raster export.
+/// elements (images beneath the ink, text above) — in page units onto
+/// [canvas], which must already be scaled by [scale] device pixels per
+/// unit. Used for thumbnails and raster export. Images are drawn from
+/// [images] as far as they are decoded (placeholders otherwise).
 void paintWholePage(
   Canvas canvas,
   NotebookPage page, {
@@ -21,6 +22,7 @@ void paintWholePage(
   List<SurfaceElement> elements = const [],
   required double scale,
   ui.Image? background,
+  ElementImages? images,
   bool miniature = false,
   bool showBookmark = false,
 }) {
@@ -40,18 +42,8 @@ void paintWholePage(
     always: miniature,
   );
   if (showBookmark && page.bookmarked) paintBookmark(canvas, page.size);
-  for (final stroke in [...strokes]..sort(Stroke.drawOrder)) {
-    StrokeRenderer.draw(canvas, stroke);
-  }
-  paintElements(canvas, elements);
+  ContentPainter.paint(canvas, strokes, elements, images: images, pixelScale: scale);
   canvas.restore();
-}
-
-/// Paints [elements] in stacking order (world = page units).
-void paintElements(Canvas canvas, List<SurfaceElement> elements) {
-  for (final element in [...elements]..sort(SurfaceElement.paintOrder)) {
-    ElementRenderer.draw(canvas, element);
-  }
 }
 
 /// Renders a page to an image [scale] pixels per page unit.
@@ -61,6 +53,7 @@ Future<ui.Image> renderPageImage(
   List<SurfaceElement> elements = const [],
   required double scale,
   ui.Image? background,
+  ElementImages? images,
 }) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder)..scale(scale);
@@ -71,6 +64,7 @@ Future<ui.Image> renderPageImage(
     elements: elements,
     scale: scale,
     background: background,
+    images: images,
   );
   final picture = recorder.endRecording();
   try {

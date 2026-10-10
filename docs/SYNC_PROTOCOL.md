@@ -70,7 +70,7 @@ responses stay bounded when records are large.
 
 ## Blobs
 
-Binary payloads (e.g. PDFs used as page backgrounds) are stored as **content-addressed blobs**,
+Binary payloads (PDFs used as page backgrounds, images) are stored as **content-addressed blobs**,
 separately from records. A blob is identified by the SHA-256 of its bytes, written as 64
 lowercase hex characters (`<sha256>`); any other identifier is rejected with `400`. Blobs are
 immutable. All blob endpoints require the bearer token (`401` otherwise).
@@ -144,7 +144,7 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt, coverStyle?, editedAt?, folderId?, favorite?, trashedAt?, paperColor?}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperColor?, bookmarked?, background?}`     |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
-| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements (missing → `createdAt`). `type` = `text` (`data` = `{text, size, color, bold, italic, align: "left"|"center"|"right"}`); reserved: `image` (`data.blob` = content hash of a blob). Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
+| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements (missing → `createdAt`). `type` = `text` (`data` = `{text, size, color, bold, italic, align: "left"|"center"|"right"}`) or `image` (`data` = `{blob, width, height, crop?}`, see below). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
 
 **Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
 cache `pdf_text`) is derived on each device from the collections above and the PDF blobs, and is
@@ -168,6 +168,17 @@ unstar or restore it), and for a row not seen before fall back to defaults (`cov
   `white` for a notebook new to this device; unknown → `white`.
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
   (favourite, move, trash) only bump `updatedAt`.
+
+**Image elements.** `data.blob` is the `<sha256>` of the encoded image ([blob](#blobs); PNG, JPEG or
+WebP as written by current clients — readers decode whatever the platform supports and show a
+placeholder otherwise, or while the blob is not on the device yet). `width` / `height` are the
+image's natural size in pixels (0 = unknown). The optional `crop` = `{x, y, w, h}` is the visible part
+in *normalised* image coordinates (0..1, independent of the decoded resolution); missing means the
+whole image. The element's box (`x, y, w, h`, `rotation`) is where the cropped part is shown, so
+aspect ratio and crop never need to agree with the box: the image is stretched to fill it. Clients
+store images at most 4096 px on their long edge. New images get a negative `z` (beneath the ink);
+"bring to front" gives an element a `z` above every other one (and so above the ink), "send to back"
+one below every other.
 
 **Paper and pages.** `paper` (on notebooks and pages) is one of `blank`, `lined` (wide ruled), `grid` (large grid),
 `dotted` and, since the documents update, `collegeRuled`, `narrowRuled`, `gridSmall`, `cornell`,

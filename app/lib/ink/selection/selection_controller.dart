@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:ui';
 
@@ -6,9 +7,9 @@ import 'package:flutter/foundation.dart';
 import '../../core/clock.dart';
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
-import '../elements/element_renderer.dart';
+import '../elements/element_order.dart';
 import '../geometry/affine.dart';
-import '../render/stroke_renderer.dart';
+import '../render/content_painter.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
 import 'ink_clipboard.dart';
@@ -25,6 +26,7 @@ import 'transform_items.dart';
 class SelectionController extends ChangeNotifier {
   SelectionController({required this._model, required this.clipboard, this.clock = const Clock()}) {
     _model.addListener(_onModelChanged);
+    _watchImages();
   }
 
   final InkClipboard clipboard;
@@ -37,6 +39,20 @@ class SelectionController extends ChangeNotifier {
     clear();
     _model.removeListener(_onModelChanged);
     _model = value..addListener(_onModelChanged);
+    _watchImages();
+  }
+
+  StreamSubscription<String>? _imageChanges;
+
+  /// Re-records the selection when one of its images finishes decoding.
+  void _watchImages() {
+    unawaited(_imageChanges?.cancel());
+    _imageChanges = _model.images?.changes.listen((blob) {
+      if (_picture == null || !_elements.any((e) => e.data['blob'] == blob)) return;
+      _picture!.dispose();
+      _picture = _record();
+      notifyListeners();
+    });
   }
 
   List<Stroke> _strokes = const [];
@@ -50,6 +66,9 @@ class SelectionController extends ChangeNotifier {
   /// Margin (world units) between the content and a new selection's
   /// frame, so thin selections (one line) still have room to grab.
   double framePadding = 0;
+
+  /// Device pixels per world unit, for the resolution of selected images.
+  double pixelScale = 1;
 
   List<Stroke> get strokes => _strokes;
   List<SurfaceElement> get elements => _elements;
@@ -80,7 +99,7 @@ class SelectionController extends ChangeNotifier {
       _frame = null;
       _model.setHidden(const {}, owner: this);
     } else {
-      _frame = frame ?? SelectionFrame(boundsOf(_strokes, _elements).inflate(framePadding));
+      _frame = frame ?? _frameAround(_strokes, _elements);
       _picture = _record();
       _model.setHidden({
         for (final s in _strokes) s.id,
@@ -157,6 +176,18 @@ class SelectionController extends ChangeNotifier {
     _paste(clipboard.strokes, clipboard.elements, clipboard.bounds, at);
   }
 
+  /// Moves the selected elements above everything else on the surface
+  /// (and above the ink).
+  void bringToFront() => _restack(ElementOrder.toFront(_elements, _model.topZ));
+
+  /// Moves the selected elements beneath everything else (and the ink).
+  void sendToBack() => _restack(ElementOrder.toBack(_elements, _model.bottomZ));
+
+  void _restack(List<SurfaceElement> elements) {
+    if (_elements.isEmpty) return;
+    _replace(_strokes, elements, frame: _frame);
+  }
+
   /// Recolours every selected stroke and text box.
   void recolor(int argb) {
     if (isEmpty) return;
@@ -175,7 +206,11 @@ class SelectionController extends ChangeNotifier {
     final now = clock.nowMs();
     final ordered = [...strokes]..sort(Stroke.paintOrder);
     final orderedElements = [...elements]..sort(SurfaceElement.paintOrder);
-    final top = _model.topZ;
+    final z = ElementOrder.pasted(
+      orderedElements,
+      top: _model.topZ,
+      topBelowInk: _model.topBelowInkZ,
+    );
     final newStrokes = [
       for (var i = 0; i < ordered.length; i++)
         _onSurface(TransformItems.stroke(ordered[i], t, id: clock.newId()), now + i),
@@ -185,7 +220,7 @@ class SelectionController extends ChangeNotifier {
         TransformItems.element(
           orderedElements[i],
           t,
-        ).copyWith(id: clock.newId(), surfaceId: _model.surfaceId, z: top + 1 + i, createdAt: now),
+        ).copyWith(id: clock.newId(), surfaceId: _model.surfaceId, z: z[i], createdAt: now),
     ];
     _edit(() => _model.commit(InkEdit(added: newStrokes, addedElements: newElements)));
     select(newStrokes, newElements);
@@ -203,9 +238,10 @@ class SelectionController extends ChangeNotifier {
   );
 
   void _replace(List<Stroke> strokes, List<SurfaceElement> elements, {SelectionFrame? frame}) {
+    final same = identical(strokes, _strokes);
     final edit = InkEdit(
-      added: strokes,
-      removed: _strokes,
+      added: same ? const [] : strokes,
+      removed: same ? const [] : _strokes,
       addedElements: elements,
       removedElements: _elements,
     );
@@ -235,18 +271,25 @@ class SelectionController extends ChangeNotifier {
 
   ui.Picture _record() {
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final ordered = [..._strokes]..sort(Stroke.paintOrder);
-    for (final s in ordered) {
-      if (s.tool.isHighlighter) StrokeRenderer.draw(canvas, s);
-    }
-    for (final s in ordered) {
-      if (!s.tool.isHighlighter) StrokeRenderer.draw(canvas, s);
-    }
-    for (final e in [..._elements]..sort(SurfaceElement.paintOrder)) {
-      ElementRenderer.draw(canvas, e);
-    }
+    ContentPainter.paint(
+      Canvas(recorder),
+      _strokes,
+      _elements,
+      images: _model.images,
+      pixelScale: pixelScale,
+    );
     return recorder.endRecording();
+  }
+
+  /// A new selection's frame: around a single element it follows the
+  /// element's rotation (so handles sit on its edges), otherwise it is the
+  /// axis-aligned bounds.
+  SelectionFrame _frameAround(List<Stroke> strokes, List<SurfaceElement> elements) {
+    if (strokes.isEmpty && elements.length == 1) {
+      final e = elements.single;
+      return SelectionFrame(e.rect.inflate(framePadding), e.rotation);
+    }
+    return SelectionFrame(boundsOf(strokes, elements).inflate(framePadding));
   }
 
   /// Tight world bounds of strokes (their points plus half the line width)
@@ -266,6 +309,7 @@ class SelectionController extends ChangeNotifier {
   @override
   void dispose() {
     _model.removeListener(_onModelChanged);
+    unawaited(_imageChanges?.cancel());
     _picture?.dispose();
     super.dispose();
   }
