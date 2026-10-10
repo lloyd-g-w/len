@@ -75,3 +75,8 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Front-buffered rendering for the experimental low-latency ink overlay.
+    implementation("androidx.graphics:graphics-core:1.0.4")
+}

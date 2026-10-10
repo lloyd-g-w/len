@@ -18,6 +18,7 @@ void main() {
     expect(prefs.penButtonAction, PenButtonAction.eraser);
     expect(prefs.libraryLayout, LibraryLayout.grid);
     expect(prefs.librarySort, LibrarySort.edited);
+    expect(prefs.lowLatencyInk, isFalse, reason: 'experimental: off by default');
 
     var notified = 0;
     prefs.addListener(() => notified++);
@@ -27,8 +28,9 @@ void main() {
       ..twoFingerTapUndo = false
       ..penButtonAction = PenButtonAction.lasso
       ..libraryLayout = LibraryLayout.list
-      ..librarySort = LibrarySort.name;
-    expect(notified, 6);
+      ..librarySort = LibrarySort.name
+      ..lowLatencyInk = true;
+    expect(notified, 7);
 
     // A fresh view over the same database sees the stored values.
     final reread = SettingsRepository(db);
@@ -38,6 +40,7 @@ void main() {
     expect(reread.penButtonAction, PenButtonAction.lasso);
     expect(reread.libraryLayout, LibraryLayout.list);
     expect(reread.librarySort, LibrarySort.name);
+    expect(reread.lowLatencyInk, isTrue);
 
     prefs.accentColor = null;
     expect(reread.accentColor, isNull);
