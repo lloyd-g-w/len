@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
@@ -19,7 +19,7 @@ import 'stroke_reader.dart';
 class StrokeQueries implements StrokeReader {
   StrokeQueries(this._db);
 
-  final Database _db;
+  final CommonDatabase _db;
 
   /// Keeps bound parameters well under SQLite's limit.
   static const int _batch = 250;

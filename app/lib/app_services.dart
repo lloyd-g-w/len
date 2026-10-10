@@ -1,11 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
 import 'data/app_database.dart';
 import 'data/app_preferences.dart';
-import 'data/background_stroke_reader.dart';
+import 'data/blob_backend.dart';
 import 'data/blob_store.dart';
 import 'data/element_repository.dart';
 import 'data/folder_repository.dart';
@@ -16,6 +14,7 @@ import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'ink/selection/ink_clipboard.dart';
+import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
@@ -37,12 +36,12 @@ class AppServices {
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
-  /// substitute the sync transport. Blob files (PDFs) are kept in
-  /// [blobDirectory] (a temporary directory if omitted, e.g. in tests).
+  /// substitute the sync transport. Blobs (PDFs) are kept in [blobBackend]
+  /// (in memory if omitted, e.g. in tests).
   factory AppServices.create(
     AppDatabase database, {
     Clock clock = const Clock(),
-    Directory? blobDirectory,
+    BlobBackend? blobBackend,
     SyncApi Function(String url, String token)? syncApiFactory,
   }) {
     final settings = SettingsRepository(database);
@@ -59,11 +58,7 @@ class AppServices {
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
-    final blobs = BlobStore(
-      database,
-      blobDirectory ?? Directory.systemTemp.createTempSync('len_blobs_'),
-      clock: clock,
-    );
+    final blobs = BlobStore(database, blobBackend ?? MemoryBlobBackend(), clock: clock);
     final engine = SyncEngine(
       database: database,
       settings: settings,
@@ -82,10 +77,7 @@ class AppServices {
       folders: folders,
       pages: pages,
       strokes: strokes,
-      strokeReader: switch (database.path) {
-        final path? => BackgroundStrokeReader(path, fallback: strokes),
-        null => strokes, // In-memory (tests): no second connection possible.
-      },
+      strokeReader: openStrokeReader(database.path, fallback: strokes),
       blobs: blobs,
       elements: elements,
       sync: syncApiFactory == null
@@ -121,7 +113,7 @@ class AppServices {
     openNotebooks.dispose();
     clipboard.dispose();
     sync.dispose();
-    if (strokeReader case final BackgroundStrokeReader reader) reader.close();
+    closeStrokeReader(strokeReader);
     preferences.dispose();
     database.close();
   }

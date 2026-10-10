@@ -57,6 +57,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
 
 ## App
+- ✅ Web target (PWA): SQLite wasm + IndexedDB, blobs in IndexedDB, PDF import/render (PDFium wasm),
+  export downloads, sync via CORS, one tab at a time; `--wasm` build works
+- ⬜ Web: request persistent storage, offline service-worker caching review, background reads in a web worker
 - ✅ Theme mode (system/light/dark), accent colour
 - ✅ App shell: sidebar (tablet/desktop), bottom navigation (phone), context menus,
   keyboard shortcuts, redesigned settings

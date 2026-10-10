@@ -6,6 +6,8 @@ services:
     environment:
       # Read from the shell environment or from .env next to this file.
       LEN_SYNC_TOKEN: ${LEN_SYNC_TOKEN:?set LEN_SYNC_TOKEN in .env}
+      # Browser origins allowed to use the API (default "*"; "none" disables CORS).
+      # LEN_CORS_ORIGINS: https://len.example.com
     ports:
       # Bound to localhost: expose it through an HTTPS reverse proxy.
       - "127.0.0.1:8080:8080"

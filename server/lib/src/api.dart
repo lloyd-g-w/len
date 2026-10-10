@@ -10,6 +10,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'blob_api.dart';
 import 'blob_store.dart';
+import 'cors.dart';
 import 'record.dart';
 import 'record_store.dart';
 
@@ -29,8 +30,9 @@ const maxPullLimit = 1000;
 /// Paths reachable without a bearer token.
 const _publicPaths = {'v1/health'};
 
-/// Builds the complete request handler: auth middleware in front of the
-/// protocol routes. Logging is left to the caller.
+/// Builds the complete request handler: CORS middleware ([cors], outermost,
+/// so preflights and auth errors are covered), then auth, then the protocol
+/// routes. Logging is left to the caller.
 ///
 /// Blob uploads are limited to [maxBlobBytes]; the push body limit
 /// ([maxPushBytes]) does not apply to them.
@@ -39,6 +41,7 @@ Handler buildHandler({
   required BlobStore blobs,
   required String token,
   int maxBlobBytes = defaultMaxBlobBytes,
+  CorsPolicy cors = const CorsPolicy.any(),
 }) {
   final router = Router(notFoundHandler: _notFound)
     ..get('/v1/health', _health)
@@ -46,6 +49,7 @@ Handler buildHandler({
     ..get('/v1/pull', (Request request) => _pull(request, store));
   addBlobRoutes(router, blobs, maxBytes: maxBlobBytes);
   return const Pipeline()
+      .addMiddleware(corsMiddleware(cors))
       .addMiddleware(bearerAuth(token, publicPaths: _publicPaths))
       .addHandler(router.call);
 }

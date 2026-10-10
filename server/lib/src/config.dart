@@ -4,6 +4,7 @@ library;
 import 'dart:io' show File;
 
 import 'blob_api.dart' show defaultMaxBlobBytes;
+import 'cors.dart';
 
 /// Thrown when the environment does not describe a valid configuration.
 class ConfigException implements Exception {
@@ -24,6 +25,7 @@ class Config {
     required this.port,
     required this.blobDir,
     this.blobMaxBytes = defaultMaxBlobBytes,
+    this.cors = const CorsPolicy.any(),
   });
 
   /// Minimum accepted length of [token].
@@ -48,11 +50,16 @@ class Config {
   /// Maximum size of one blob upload in bytes (`LEN_BLOB_MAX_BYTES`).
   final int blobMaxBytes;
 
+  /// Origins allowed to call the API from a browser (`LEN_CORS_ORIGINS`):
+  /// unset, empty or `*` allows any origin, `none` disables CORS, otherwise
+  /// a comma-separated list of origins such as `https://len.example.com`.
+  final CorsPolicy cors;
+
   /// Builds a [Config] from [env] (typically `Platform.environment`).
   ///
   /// Throws a [ConfigException] if the token is missing or too short, or if
-  /// `PORT` is not a valid port number, or `LEN_BLOB_MAX_BYTES` is not a
-  /// positive integer.
+  /// `PORT` is not a valid port number, `LEN_BLOB_MAX_BYTES` is not a
+  /// positive integer, or `LEN_CORS_ORIGINS` is not a valid origin list.
   factory Config.fromEnvironment(Map<String, String> env) {
     final dbPath = _nonEmpty(env['LEN_DB_PATH']) ?? '/data/len.db';
     return Config(
@@ -62,7 +69,43 @@ class Config {
       port: _readPort(env['PORT']),
       blobDir: _nonEmpty(env['LEN_BLOB_DIR']) ?? '${File(dbPath).parent.path}/blobs',
       blobMaxBytes: _readBlobMaxBytes(env['LEN_BLOB_MAX_BYTES']),
+      cors: _readCorsOrigins(env['LEN_CORS_ORIGINS']),
     );
+  }
+
+  static CorsPolicy _readCorsOrigins(String? raw) {
+    final value = _nonEmpty(raw);
+    if (value == null || value == '*') return const CorsPolicy.any();
+    if (value.toLowerCase() == 'none') return const CorsPolicy.disabled();
+    final origins = <String>[];
+    for (final entry in value.split(',')) {
+      final origin = entry.trim();
+      if (origin.isEmpty) continue;
+      if (!_isOrigin(origin)) {
+        throw ConfigException(
+          'LEN_CORS_ORIGINS must be "*", "none" or a comma-separated list of origins like '
+          '"https://len.example.com" (no path or trailing slash), got "$origin".',
+        );
+      }
+      origins.add(origin);
+    }
+    if (origins.isEmpty) {
+      throw ConfigException('LEN_CORS_ORIGINS lists no origins, got "$raw".');
+    }
+    return CorsPolicy.allowList(origins);
+  }
+
+  /// Whether [value] is a serialized origin: `http(s)://host[:port]`.
+  static bool _isOrigin(String value) {
+    final uri = Uri.tryParse(value);
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty &&
+        uri.userInfo.isEmpty &&
+        uri.path.isEmpty &&
+        !uri.hasQuery &&
+        !uri.hasFragment &&
+        value.startsWith('${uri.scheme}://');
   }
 
   static int _readBlobMaxBytes(String? raw) {

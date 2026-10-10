@@ -2,7 +2,7 @@
 
 ```
 len/
-├── app/        Flutter app (Windows, Linux, Android)
+├── app/        Flutter app (Windows, Linux, Android, Web)
 ├── server/     Self-hosted sync server (Dart + SQLite, Docker)
 ├── docs/       Vision, architecture, sync protocol
 └── flake.nix   Nix dev shell (Flutter + Linux desktop toolchain)
@@ -65,7 +65,7 @@ The same grid drives three things:
    selection or text editor are kept). Canvases read through
    `BackgroundStrokeReader`: a worker isolate with its own read-only SQLite
    connection (WAL allows it next to the writer), so panning never waits for
-   SQLite. `SurfaceLoader` keeps one read in flight per surface (the newest
+   SQLite (natively; the web reads on the UI thread, see *Platforms*). `SurfaceLoader` keeps one read in flight per surface (the newest
    range wins), drops results after `reload()`, and filters strokes and
    elements removed while a read was running (erased, undone, moved by a
    selection), so a stale copy never comes back. `StrokeRepository` is the
@@ -180,8 +180,10 @@ colour and size; new pages copy the current page's paper and size.
 ## Blobs and PDFs
 
 Large binary data is **content-addressed**: a blob's id is the SHA-256 of its
-bytes. `BlobStore` keeps files under `<app support>/blobs/<sha[0..2]>/<sha>`
-and a `blobs` table (size, mime, uploaded flag). Each sync cycle first uploads
+bytes. `BlobStore` keeps a `blobs` table (size, mime, uploaded flag) and the
+bytes in a `BlobBackend`: files under `<app support>/blobs/<sha[0..2]>/<sha>`
+natively, an IndexedDB object store on the web, memory in tests. Its API is
+path-free (`read`, `openRead`, `localPath` — null on the web). Each sync cycle first uploads
 pending blobs (`BlobSync`, `HEAD` then `PUT`), then pushes records, so a
 record never reaches the server before its blob. Blobs are fetched lazily
 when a page needs them (`SyncController.fetchBlob`).
@@ -193,14 +195,18 @@ the PDF page's size. PDF pages are rendered with PDFium via `pdfrx`
 zoom quantised to √2 steps (≤ 2896 px wide), keeps an LRU of images within a
 memory budget and shows the best cached image while a sharper one renders.
 PDFium itself is a native asset downloaded at build time by `pdfium_dart`'s
-build hook (Linux, Windows, Android), so no system package is needed.
+build hook (Linux, Windows, Android), so no system package is needed; on the
+web `pdfrx` runs PDFium as WebAssembly in a worker. `PdfRenderer` opens a
+blob from its file when it has one (PDFium reads on demand) and from memory
+otherwise (web).
 
 Export (`features/documents/export/`): `PdfExporter` (package `pdf`) writes
 ink as filled polygons flattened from the exact outline paths the app
 renders, templates as vector lines, and imported PDF pages as 150 dpi
 images; PNG export rasterises a page with the same painters as the editor.
-Files are saved with a save dialog on desktop (`file_selector`) and the share
-sheet on Android (`share_plus`).
+Files are saved with a save dialog on desktop (`file_selector`), the share
+sheet on Android (`share_plus`) and downloaded in browsers
+(`platform/file_export*`).
 
 ## Input (`ink/input/ink_input_controller.dart`)
 
@@ -386,6 +392,33 @@ easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 Schema migrations live in `AppDatabase._migrations` — append, never edit.
 All writes go straight to SQLite; in-memory state is a cache.
 
+## Platforms (`platform/`)
+
+Platform differences live behind conditional exports
+(`export 'x_native.dart' if (dart.library.js_interop) 'x_web.dart'`), so no
+`dart:io`, `dart:isolate`, `dart:ffi` or `path_provider` code is compiled for
+the web:
+
+| Concern            | Android / Linux / Windows                     | Web                                              |
+|--------------------|-----------------------------------------------|--------------------------------------------------|
+| SQLite (`sqlite_connection`) | FFI, bundled SQLite, WAL, `<app support>/len.db` | `sqlite3.wasm` + IndexedDB VFS (`len`), no WAL |
+| Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs`                      |
+| App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
+| Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread (`StrokeRepository`)                   |
+| Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
+| Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
+
+`app/web/sqlite3.wasm` must match the `sqlite3` package version
+(`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
+database in memory and writes changes back asynchronously, hence the
+one-tab lock. The sync server must allow the app's origin (CORS,
+`LEN_CORS_ORIGINS`, default `*`).
+
+Web pitfall: dart2js integers are JavaScript numbers — bitwise operators
+yield **unsigned 32-bit** values (`-1 << 22` is positive, `1 << 40` is 0) and
+`ByteData.get/setInt64` is unsupported. Write `-(1 << 22)`, keep shifts
+below 31 bits, and use `float32`/`int32` in binary formats.
+
 ## Library (`features/library/`)
 
 - **Data.** Folders are a synced collection (`FolderRepository`, nested via `parentId`).
@@ -462,5 +495,11 @@ records with last-write-wins. Open screens subscribe to
   zoom on a PDF page is capped at ~2896 px page width; exported PDFs embed
   imported pages as images rather than copying their vector content.
 - Blobs are never garbage-collected (neither on devices nor on the server).
+- Web: the whole SQLite database is held in memory (IndexedDB VFS) and PDFs
+  are opened from memory, so very large libraries/PDFs cost browser memory;
+  browsers may evict IndexedDB under storage pressure (no
+  `navigator.storage.persist()` request yet) and quotas vary. Writes reach
+  IndexedDB asynchronously, so closing the tab within milliseconds of an edit
+  can lose it. Canvas chunk reads run on the UI thread.
 - Page reorders made concurrently on two devices converge (LWW per page) but
   may interleave differently than either device intended.
