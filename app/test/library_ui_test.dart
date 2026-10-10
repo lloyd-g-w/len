@@ -232,4 +232,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(services.preferences.twoFingerTapUndo, isFalse);
   });
+
+  testWidgets('long-press on touch opens the context menu; right-click too', (tester) async {
+    await pumpSeeded(tester, (s) => addNotebook(s, 'Touchy'));
+    await tester.longPress(find.byType(NotebookCard));
+    await tester.pumpAndSettle();
+    expect(find.text('Move to Trash'), findsOneWidget);
+    await tester.tapAt(const Offset(5, 795));
+    await tester.pumpAndSettle();
+    expect(find.text('Move to Trash'), findsNothing);
+
+    await tester.tap(find.byType(NotebookCard), buttons: kSecondaryMouseButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Duplicate'), findsOneWidget);
+  });
 }
