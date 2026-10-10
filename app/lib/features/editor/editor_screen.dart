@@ -23,6 +23,8 @@ import 'document/paged_document_view.dart';
 import 'document/undo_target.dart';
 import 'editor_pills.dart';
 import 'editor_toolbar.dart';
+import 'images/editor_images.dart';
+import 'images/image_entry_points.dart';
 import 'page_navigator.dart';
 import 'tools/content_layer.dart';
 import 'tools/content_shortcuts.dart';
@@ -48,6 +50,12 @@ class _EditorScreenState extends State<EditorScreen> {
   late final InkInputController _input;
   late final UndoTarget _undo;
   late final ContentTools _content;
+  late final EditorImages _images = EditorImages(
+    services: _services,
+    content: _content,
+    tools: _tools,
+    activateAt: _doc?.activateAt,
+  );
   StreamSubscription<RemoteChanges>? _remoteChanges;
 
   // Infinite canvas: one surface.
@@ -131,6 +139,7 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   void dispose() {
     unawaited(_remoteChanges?.cancel());
+    _images.dispose();
     _content.dispose(); // Commits a text box still being edited.
     final edited = _undo.canUndo || _undo.canRedo || (_commands?.changed ?? false);
     if (edited) {
@@ -254,7 +263,7 @@ class _EditorScreenState extends State<EditorScreen> {
     const SingleActivator(LogicalKeyboardKey.keyE): _unlessTyping(
       () => _tools.tool = EditorTool.eraser,
     ),
-    ...contentShortcuts(_content, _tools, _unlessTyping),
+    ...contentShortcuts(_content, _tools, _unlessTyping, paste: () => _images.paste(context)),
     if (_doc case final doc?) ...{
       const SingleActivator(LogicalKeyboardKey.pageDown): () => doc.goToPage(doc.currentPage + 1),
       const SingleActivator(LogicalKeyboardKey.pageUp): () => doc.goToPage(doc.currentPage - 1),
@@ -286,6 +295,7 @@ class _EditorScreenState extends State<EditorScreen> {
                 ),
               ),
               Positioned.fill(child: _buildContentLayer()),
+              Positioned.fill(child: ImageDropTarget(images: _images)),
               SafeArea(child: _buildChrome(context)),
             ],
           ),
@@ -333,7 +343,11 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Widget _buildChrome(BuildContext context) {
-    final toolbar = EditorToolbar(tools: _tools, onStylusOnlyChanged: _setStylusOnly);
+    final toolbar = EditorToolbar(
+      tools: _tools,
+      onStylusOnlyChanged: _setStylusOnly,
+      extraTools: [InsertImageButton(images: _images)],
+    );
     final title = TitlePill(
       title: _notebook.title,
       onBack: () => Navigator.of(context).maybePop(),

@@ -17,10 +17,18 @@ import 'tools/tool_icons.dart';
 /// text / laser (tap the active one again for its options), the active
 /// tool's quick presets, and palm rejection.
 class EditorToolbar extends StatelessWidget {
-  const EditorToolbar({super.key, required this.tools, required this.onStylusOnlyChanged});
+  const EditorToolbar({
+    super.key,
+    required this.tools,
+    required this.onStylusOnlyChanged,
+    this.extraTools = const [],
+  });
 
   final ToolSettings tools;
   final ValueChanged<bool> onStylusOnlyChanged;
+
+  /// Buttons shown after the tools (e.g. insert image).
+  final List<Widget> extraTools;
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +95,7 @@ class EditorToolbar extends StatelessWidget {
                   label: 'Laser pointer (K)',
                   inkColor: 0xFFFF2D2D,
                 ),
+                ...extraTools,
                 if (erasing || inking) const _Divider(),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 150),
