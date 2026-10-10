@@ -11,6 +11,7 @@ import 'data/element_repository.dart';
 import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
+import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
@@ -33,6 +34,7 @@ class AppServices {
     required this.blobs,
     required this.elements,
     required this.sync,
+    required this.search,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -90,6 +92,7 @@ class AppServices {
       sync: syncApiFactory == null
           ? SyncController(engine: engine, settings: settings)
           : SyncController(engine: engine, settings: settings, apiFactory: syncApiFactory),
+      search: SearchService(database, readBlob: blobs.read),
     );
   }
 
@@ -109,12 +112,16 @@ class AppServices {
   final ElementRepository elements;
   final SyncController sync;
 
+  /// Full-text search over titles, text boxes and PDF text.
+  final SearchService search;
+
   /// Copied strokes and text, shared by every editor (paste across pages
   /// and notebooks).
   final InkClipboard clipboard = InkClipboard();
 
   void dispose() {
     clipboard.dispose();
+    search.dispose();
     sync.dispose();
     if (strokeReader case final BackgroundStrokeReader reader) reader.close();
     preferences.dispose();

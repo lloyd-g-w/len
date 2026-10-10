@@ -27,13 +27,13 @@ class SyncRecord {
   }
 
   Map<String, Object?> toJson() => {
-        'collection': collection,
-        'id': id,
-        'updatedAt': updatedAt,
-        'deviceId': deviceId,
-        'deleted': deleted,
-        'data': deleted ? null : data,
-      };
+    'collection': collection,
+    'id': id,
+    'updatedAt': updatedAt,
+    'deviceId': deviceId,
+    'deleted': deleted,
+    'data': deleted ? null : data,
+  };
 
   /// Parses a server record; throws [FormatException] when malformed.
   ///
@@ -56,8 +56,10 @@ class SyncRecord {
         id.isEmpty ||
         (!deleted && data is! Map<String, Object?>)) {
       // Do not echo the record: it may hold megabytes of point data.
-      throw FormatException('Malformed record ${collection is String ? collection : '?'}/'
-          '${id is String ? id : '?'}');
+      throw FormatException(
+        'Malformed record ${collection is String ? collection : '?'}/'
+        '${id is String ? id : '?'}',
+      );
     }
     return SyncRecord(
       collection: collection,
