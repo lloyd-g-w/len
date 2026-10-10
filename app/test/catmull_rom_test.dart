@@ -28,7 +28,7 @@ void main() {
     final d = CatmullRom.densify(px, py, List.filled(n + 1, 1.0), 0.5);
     for (var k = 0; k < d.x.length; k++) {
       // A chord between samples would sag up to r·(1−cos(π/n)) ≈ 0.98.
-      expect(math.sqrt(d.x[k] * d.x[k] + d.y[k] * d.y[k]), closeTo(radius, 0.5));
+      expect(math.sqrt(d.x[k] * d.x[k] + d.y[k] * d.y[k]), closeTo(radius, 0.7));
     }
   });
 

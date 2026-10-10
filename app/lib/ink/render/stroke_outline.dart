@@ -52,14 +52,16 @@ class OutlineSpec {
   /// the width so small handwriting keeps its shape.
   double get positionSigma => (1.0 + 1.5 * streamline) * (width / 2).clamp(1.0, 4.0);
 
-  /// Standard deviation of the radius smoothing (pressure noise).
-  double get radiusSigma => math.max(2 * positionSigma, width);
+  /// Standard deviation of the radius smoothing. Wide on purpose: digitiser
+  /// pressure is noisy sample to sample, and width that follows that noise
+  /// reads as flicker; deliberate pressure changes span much longer runs.
+  double get radiusSigma => math.max(4 * positionSigma, 3 * width);
 
   /// Spacing of the resampled centre line.
   double get sampleStep => (positionSigma / 2.5).clamp(0.05, 2.0);
 
   /// Fastest allowed change of the radius per unit of length.
-  static const double maxRadiusSlope = 0.3;
+  static const double maxRadiusSlope = 0.15;
 }
 
 /// A raw input sample: position and outline radius.
@@ -119,12 +121,13 @@ abstract final class StrokeOutline {
       spec.sampleStep * 2,
     );
     final line = Centerline.resample(dense.x, dense.y, dense.r, spec.sampleStep)
-      ..settleEnds(spec.width)
+      ..settleEnds(spec.width, end: complete)
       ..findCorners(spec.positionSigma)
       ..smoothPositions(spec.positionSigma)
       ..smoothRadii(spec.radiusSigma)
       ..limitRadiusSlope(OutlineSpec.maxRadiusSlope)
-      ..settleEnds(spec.width)
+      ..settleEnds(spec.width, end: complete)
+      ..levelEnds(spec.width * 2, end: complete)
       ..taper(spec.taperStart, spec.taperEnd);
     final maxR = line.r.fold<double>(0, math.max);
     if (line.length < 2 || line.arcLength < maxR * 0.5) {
