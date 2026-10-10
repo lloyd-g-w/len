@@ -31,7 +31,10 @@ class EditorScreen extends StatefulWidget {
 class _EditorScreenState extends State<EditorScreen> {
   late final AppServices _services = AppScope.read(context);
   late Notebook _notebook = widget.notebook;
-  late final ToolSettings _tools = ToolSettings(stylusOnly: _services.settings.stylusOnly);
+  late final ToolSettings _tools = ToolSettings(
+    stylusOnly: _services.settings.stylusOnly,
+    store: _services.settings,
+  );
   final LiveInk _live = LiveInk();
   late final ViewportController _viewport = _isCanvas
       ? ViewportController()
