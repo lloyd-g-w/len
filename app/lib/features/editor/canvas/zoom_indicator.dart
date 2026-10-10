@@ -14,11 +14,16 @@ class ZoomIndicator extends StatefulWidget {
     required this.viewport,
     required this.onZoomTo,
     required this.onFit,
+    this.quiet,
   });
 
   final ViewportController viewport;
   final ValueChanged<double> onZoomTo;
   final VoidCallback onFit;
+
+  /// While this returns true, zoom changes are not announced (e.g. the
+  /// view a canvas opens with).
+  final bool Function()? quiet;
 
   /// How long the indicator stays after the zoom stops changing.
   static const Duration linger = Duration(milliseconds: 1500);
@@ -61,6 +66,10 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
   void _onViewport() {
     final scale = widget.viewport.scale;
     if (scale == _scale) return; // Panning only.
+    if (widget.quiet?.call() ?? false) {
+      _scale = scale;
+      return;
+    }
     setState(() {
       _scale = scale;
       _visible = true;

@@ -118,6 +118,12 @@ class SettingsRepository {
   set toolbarFloat((double, double)? value) =>
       value == null ? _remove('toolbar_float') : _set('toolbar_float', '${value.$1},${value.$2}');
 
+  /// Where the editor last looked in notebook [notebookId] (an opaque
+  /// string owned by the editor), or null.
+  String? editorView(String notebookId) => _get('editor_view.$notebookId');
+  void setEditorView(String notebookId, String? value) =>
+      value == null ? _remove('editor_view.$notebookId') : _set('editor_view.$notebookId', value);
+
   String? _get(String key) {
     final rows = _database.db.select('SELECT value FROM settings WHERE key = ?', [key]);
     return rows.isEmpty ? null : rows.first['value'] as String;

@@ -47,8 +47,14 @@ class _EditorScreenState extends State<EditorScreen> {
     services: _services,
     notebook: () => _notebook,
     onStylusDetected: _onStylusDetected,
-    initialView: _services.openNotebooks.viewOf(widget.notebook.id),
+    initialView:
+        _services.openNotebooks.viewOf(widget.notebook.id) ??
+        EditorViewState.decode(_services.settings.editorView(widget.notebook.id)),
   );
+
+  /// Saves where the editor looks when the app goes to the background
+  /// (it may be killed there without [dispose]).
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(onHide: _saveView);
   final HudController _hud = HudController();
 
   /// In-notebook search, Ctrl+F (features/search).
@@ -85,6 +91,7 @@ class _EditorScreenState extends State<EditorScreen> {
     _search = EditorSearchController.forSession(_services, _session, notebookId: _notebook.id);
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
+    _lifecycle; // Starts listening.
     // Take the keyboard even when another editor (the previous tab) still
     // held it while this one was built; autofocus would not.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -98,6 +105,8 @@ class _EditorScreenState extends State<EditorScreen> {
     _services.openNotebooks
       ..removeListener(_onTabs)
       ..saveView(_notebook.id, _session.viewState);
+    _saveView();
+    _lifecycle.dispose();
     _services.preferences.removeListener(_onPreferences);
     if (_focus) setImmersive(false);
     final edited = _session.edited;
@@ -115,6 +124,12 @@ class _EditorScreenState extends State<EditorScreen> {
     _guard.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Remembers this notebook's page, zoom and pan for the next launch.
+  void _saveView() {
+    if (_closing || _services.database.isClosed) return;
+    _services.settings.setEditorView(_notebook.id, _session.viewState.encode());
   }
 
   void _onTabs() {
@@ -353,13 +368,20 @@ class _EditorScreenState extends State<EditorScreen> {
     _compact = compact;
   }
 
-  /// Keeps document content scrollable clear of the chrome.
+  /// Keeps document content scrollable clear of the chrome, and fits
+  /// keep canvas content clear of it.
   void _applyInsets(EdgeInsets covered) {
     final doc = _session.doc;
-    if (doc == null || doc.insets == covered) return;
+    final nav = _session.canvasNav;
+    final same = doc != null
+        ? doc.insets == covered
+        : nav != null && !nav.waitingForInsets && nav.insets == covered;
+    if (same) return;
     // Changing the viewport notifies listeners; never during build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) doc.setInsets(covered);
+      if (!mounted) return;
+      doc?.setInsets(covered);
+      nav?.setInsets(covered);
     });
   }
 

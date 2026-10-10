@@ -10,6 +10,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text_data.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/editor/tabs/open_notebooks.dart';
 import 'package:len/ink/render/laser_painter.dart';
 import 'package:len/ink/tools/laser.dart';
 import 'package:len/ui/app_theme.dart';
@@ -35,6 +36,8 @@ Future<(AppServices, Notebook)> openCanvas(
     coverColor: 0xFF3B5BDB,
   );
   seed?.call(services, notebook);
+  // World = screen coordinates: open at the origin, 100 %.
+  pinCanvasView(services, notebook.id, size);
   await tester.pumpWidget(
     AppScope(
       services: services,
@@ -47,6 +50,11 @@ Future<(AppServices, Notebook)> openCanvas(
   await tester.pumpAndSettle();
   return (services, notebook);
 }
+
+/// Makes canvas [notebookId] open at the origin at 100 % on a [size]
+/// screen (instead of centred on its content).
+void pinCanvasView(AppServices services, String notebookId, Size size) => services.settings
+    .setEditorView(notebookId, EditorViewState(scale: 1, offset: Offset.zero, size: size).encode());
 
 /// A horizontal ink stroke from (100, 400) to (200, 400).
 Stroke seedStroke(String surface) => Stroke(

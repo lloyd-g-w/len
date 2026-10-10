@@ -47,8 +47,7 @@ class EditorSession {
         showMinimap: services.settings.canvasMinimap,
         onMinimapChanged: (show) => services.settings.canvasMinimap = show,
       );
-      _initialCanvasView = initialView;
-      if (initialView != null) viewport.addListener(_frameCanvas);
+      nav.open(initialView);
       content = _contentFor(model, viewport);
       input = _inputFor(model, viewport, onStylusDetected, kinetic: nav.kinetic);
       undo = SurfaceUndo(model);
@@ -91,7 +90,6 @@ class EditorSession {
 
   /// Inertial panning, zoom steps, fit, minimap of the canvas.
   CanvasNavigation? canvasNav;
-  EditorViewState? _initialCanvasView;
 
   // Paged notebook: pages laid out as a document.
   DocumentController? doc;
@@ -114,7 +112,7 @@ class EditorSession {
     final doc = this.doc;
     if (doc != null) return doc.viewState;
     final v = canvasViewport!;
-    return EditorViewState(scale: v.scale, offset: v.offset);
+    return EditorViewState(scale: v.scale, offset: v.offset, size: v.size);
   }
 
   DocumentController _openDocument(Notebook notebook, EditorViewState? view) {
@@ -127,6 +125,7 @@ class EditorSession {
       flow: PageFlow.parse(services.settings.pageFlow),
       initialPage: view?.page ?? 0,
       initialView: view,
+      fit: PageFit.parse(view?.fit),
     );
   }
 
@@ -174,24 +173,11 @@ class EditorSession {
     }
   }
 
-  /// Restores a canvas tab's view once the viewport has its size.
-  void _frameCanvas() {
-    final viewport = canvasViewport!;
-    final view = _initialCanvasView;
-    if (view == null || viewport.size.isEmpty) return;
-    viewport.removeListener(_frameCanvas);
-    _initialCanvasView = null;
-    viewport
-      ..zoomAt(Offset.zero, view.scale / viewport.scale)
-      ..panBy(view.offset - viewport.offset);
-  }
-
   /// Ends the session: commits a text box still being edited and releases
   /// every surface.
   void dispose() {
     content.dispose();
     gestures.dispose();
-    canvasViewport?.removeListener(_frameCanvas);
     canvas?.dispose();
     canvasNav?.dispose();
     canvasViewport?.dispose();

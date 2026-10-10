@@ -59,7 +59,14 @@ class AppDatabase {
     }
   }
 
-  void close() => db.close();
+  /// Whether [close] was called.
+  bool get isClosed => _closed;
+  bool _closed = false;
+
+  void close() {
+    _closed = true;
+    db.close();
+  }
 
   void _configure() {
     if (sqliteSupportsWal) db.execute('PRAGMA journal_mode = WAL');

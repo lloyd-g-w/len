@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../ink/tool_settings.dart';
 import 'canvas/canvas_shortcuts.dart';
+import 'document/document_layout.dart';
 import 'editor_session.dart';
 import 'tools/content_shortcuts.dart';
 
@@ -75,6 +76,16 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
       const SingleActivator(LogicalKeyboardKey.home): unlessTyping(() => doc.scrollToPage(0)),
       const SingleActivator(LogicalKeyboardKey.end): unlessTyping(
         () => doc.scrollToPage(doc.pages.length - 1),
+      ),
+      // Page zoom: 0 automatic, Shift+1 whole page, Shift+2 page width.
+      const SingleActivator(LogicalKeyboardKey.digit0): unlessTyping(
+        () => doc.setFit(PageFit.auto),
+      ),
+      const SingleActivator(LogicalKeyboardKey.digit1, shift: true): unlessTyping(
+        () => doc.setFit(PageFit.page),
+      ),
+      const SingleActivator(LogicalKeyboardKey.digit2, shift: true): unlessTyping(
+        () => doc.setFit(PageFit.width),
       ),
     },
   };

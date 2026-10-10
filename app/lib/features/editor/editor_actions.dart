@@ -48,6 +48,8 @@ EditorMenuActions editorMenuActions(
     onExport: paged ? () => commands.export(context) : null,
     flow: doc?.flow,
     onFlow: paged ? onFlow : null,
+    fit: doc?.fit,
+    onFit: paged ? doc.setFit : null,
     onBackground: nav == null ? null : onBackground,
     onFitContent: nav?.fitContent,
     onActualSize: nav == null ? null : () => nav.zoomTo(1),

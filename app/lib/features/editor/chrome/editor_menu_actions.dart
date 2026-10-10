@@ -26,6 +26,8 @@ class EditorMenuActions {
     this.onExport,
     this.flow,
     this.onFlow,
+    this.fit,
+    this.onFit,
     this.onBackground,
     this.onFitContent,
     this.onActualSize,
@@ -56,6 +58,10 @@ class EditorMenuActions {
   final VoidCallback? onExport;
   final PageFlow? flow;
   final ValueChanged<PageFlow>? onFlow;
+
+  /// How pages are zoomed (fit width / whole page / automatic).
+  final PageFit? fit;
+  final ValueChanged<PageFit>? onFit;
 
   // Infinite canvases.
   /// Opens the background picker (template and paper colour).

@@ -68,6 +68,14 @@ class EditorMoreMenu extends StatelessWidget {
             ],
             onSelected: a.onFlow,
           ),
+          _radioSubmenu<PageFit>(
+            icon: Icons.zoom_out_map_rounded,
+            label: 'Page zoom',
+            value: a.fit,
+            options: [for (final f in PageFit.values) (f, f.label)],
+            hints: const {PageFit.auto: '0', PageFit.page: 'Shift+1', PageFit.width: 'Shift+2'},
+            onSelected: a.onFit,
+          ),
         ] else ...[
           // Infinite canvas: background and navigation.
           _item(Icons.wallpaper_outlined, 'Background…', a.onBackground),
@@ -146,6 +154,7 @@ class EditorMoreMenu extends StatelessWidget {
     required T? value,
     required List<(T, String)> options,
     required ValueChanged<T>? onSelected,
+    Map<T, String> hints = const {},
   }) => SubmenuButton(
     leadingIcon: Icon(icon),
     menuChildren: [
@@ -154,6 +163,7 @@ class EditorMoreMenu extends StatelessWidget {
           leadingIcon: Icon(
             option == value ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
           ),
+          trailingIcon: hints[option] == null ? null : Text(hints[option]!),
           onPressed: onSelected == null ? null : () => onSelected(option),
           child: Text(text),
         ),
