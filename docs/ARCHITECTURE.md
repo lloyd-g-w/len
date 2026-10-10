@@ -157,6 +157,12 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
   the active tab's `EditorScreen` (keyed by notebook), which saves its view on dispose
   and restores it on creation. Closing the last tab leaves the workspace.
+  The workspace route is a `NotebookOpenRoute` (`tabs/notebook_open_route.dart`): opened from
+  a library cover (`NotebookOpenOrigin` from the library's `CoverLocator`), the cover's rect
+  grows to the screen with easing corners, fades into the paper colour and the editor (scaled
+  and clipped to the flight, never relaid out) fades in; back (and predictive back) reverses
+  into the cover's current rect, or fades if it is gone. Without a cover (search, new, import)
+  it fades and scales in; with reduced motion it only fades. The library does not move.
 - **Page navigation**: `DocumentController.scrollToPage` animates the viewport with
   `DocumentScroller` (centre point glides, zoom eases; jumps longer than two screens
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
@@ -567,8 +573,8 @@ in `docs/UX_AUDIT.md`.
 
 Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
 canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar and its popovers in
-`toolbar_screenshot_test.dart`) at phone, tablet and
-desktop sizes in light and dark with real fonts. Run
+`toolbar_screenshot_test.dart`; open-notebook motion frames in `transition_screenshot_test.dart`)
+at phone, tablet and desktop sizes in light and dark with real fonts. Run
 `flutter test test/screenshots --dart-define=SCREENSHOTS=true` and look at
 `app/build/screenshots/*.png`.
 

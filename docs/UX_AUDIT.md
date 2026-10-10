@@ -100,8 +100,10 @@ settings — at the four sizes, light and dark, and at 1.3× text.
     after selection mode.
 14. ⬜ Settings on wide screens could use a two-pane layout (category list +
     detail) like GoodNotes on iPad; the single 680 px column is fine for now.
-15. ⬜ Motion: shared-element transition from cover to editor (GoodNotes
-    "opens" the notebook). Needs the editor route (other agent).
+15. ✅ Motion: shared-element transition from cover to editor (GoodNotes
+    "opens" the notebook). → `NotebookOpenRoute`: the tapped cover grows
+    into the screen, fades into the paper and the editor fades in; back
+    shrinks it into the cover (wherever it is now), else fades.
 16. ⬜ Folder colours only; GoodNotes allows folder icons/emoji.
 17. ⬜ Long PDF imports/exports can't be cancelled (the progress dialog has
     no Cancel; needs cancellation in `PdfImporter` / `NotebookExporter`).
@@ -145,7 +147,7 @@ renders, reviewed next to the library):
 - ➡️ **Toolbar**: tools have no visible labels or selected-state text; the
   colour and width slots look alike; the phone toolbar is two rows (tools,
   then presets) — consider collapsing presets into the active tool.
-- ➡️ **Motion**: opening a notebook could animate from its cover (a Hero on
-  `NotebookCover` in the library and the first page in the editor).
+- ✅ **Motion**: opening a notebook animates from its cover (container
+  transform in `NotebookOpenRoute`, see 15); reduced motion → plain fade.
 - ➡️ **Export**: entry points should offer options (see 18); progress is
   already shown through `exportFlow`.
