@@ -110,7 +110,10 @@ class ElementImages {
 
   void _start(_Key key) {
     if (_disposed || _missing.contains(key.blob) || _pending.containsKey(key)) return;
-    _pending[key] = _decode(key).whenComplete(() => _pending.remove(key));
+    // (A block body: returning the removed future would await itself.)
+    _pending[key] = _decode(key).whenComplete(() {
+      _pending.remove(key);
+    });
   }
 
   Future<ui.Image?> _decode(_Key key) async {
