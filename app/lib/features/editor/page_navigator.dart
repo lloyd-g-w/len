@@ -18,7 +18,12 @@ class PageNavigator extends StatelessWidget {
     this.onAddWithTemplate,
     this.onInsertPdf,
     this.bookmarked = false,
+    this.compact = false,
   });
+
+  /// Phones: just the page number between "all pages" and "add page"
+  /// (pages are turned by scrolling or swiping).
+  final bool compact;
 
   final int index;
   final int count;
@@ -58,11 +63,12 @@ class PageNavigator extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (onOverview != null) button('All pages', Icons.grid_view_rounded, onOverview),
-          button(
-            'Previous page',
-            Icons.chevron_left_rounded,
-            index > 0 ? () => onSelect(index - 1) : null,
-          ),
+          if (!compact)
+            button(
+              'Previous page',
+              Icons.chevron_left_rounded,
+              index > 0 ? () => onSelect(index - 1) : null,
+            ),
           Tooltip(
             message: 'Go to page',
             child: InkWell(
@@ -89,19 +95,22 @@ class PageNavigator extends StatelessWidget {
               ),
             ),
           ),
-          button(
-            'Next page',
-            Icons.chevron_right_rounded,
-            index < count - 1 ? () => onSelect(index + 1) : null,
-          ),
-          Container(
-            width: 1,
-            height: 20,
-            margin: const EdgeInsets.symmetric(horizontal: Gaps.xs),
-            color: scheme.outlineVariant,
-          ),
+          if (!compact) ...[
+            button(
+              'Next page',
+              Icons.chevron_right_rounded,
+              index < count - 1 ? () => onSelect(index + 1) : null,
+            ),
+            Container(
+              width: 1,
+              height: 20,
+              margin: const EdgeInsets.symmetric(horizontal: Gaps.xs),
+              color: scheme.outlineVariant,
+            ),
+          ],
           button('Add page after this one', Icons.add_rounded, onAddPage),
-          if (onAddWithTemplate != null || onInsertPdf != null) _moreAdd(context, scheme),
+          if (!compact && (onAddWithTemplate != null || onInsertPdf != null))
+            _moreAdd(context, scheme),
         ],
       ),
     );

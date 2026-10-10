@@ -6,8 +6,9 @@ import '../../../ui/app_theme.dart';
 import '../editor_screen.dart';
 import 'open_notebooks.dart';
 
-/// Opens [notebook] in a tab and shows the editor: pushes the workspace if
-/// it is not already showing, otherwise just switches tabs.
+/// Opens [notebook] in a tab and shows the editor: pushes the workspace
+/// over [context]'s route (e.g. the library), or just switches tabs when
+/// called from inside the editor.
 Future<void> openNotebook(BuildContext context, Notebook notebook) async {
   final services = AppScope.read(context);
   final tabs = services.openNotebooks;
@@ -22,7 +23,7 @@ Future<void> openNotebook(BuildContext context, Notebook notebook) async {
     }
   }
   tabs.open(notebook);
-  if (EditorWorkspace.isShowing) return;
+  if (context.findAncestorWidgetOfExactType<EditorWorkspace>() != null) return;
   await Navigator.of(context).push(
     MaterialPageRoute<void>(
       settings: const RouteSettings(name: EditorWorkspace.routeName),
@@ -39,11 +40,6 @@ class EditorWorkspace extends StatefulWidget {
 
   static const String routeName = '/editor';
 
-  static int _mounted = 0;
-
-  /// Whether a workspace is on the navigation stack.
-  static bool get isShowing => _mounted > 0;
-
   @override
   State<EditorWorkspace> createState() => _EditorWorkspaceState();
 }
@@ -56,13 +52,11 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
   @override
   void initState() {
     super.initState();
-    EditorWorkspace._mounted++;
     _tabs.addListener(_onTabs);
   }
 
   @override
   void dispose() {
-    EditorWorkspace._mounted--;
     _tabs.removeListener(_onTabs);
     super.dispose();
   }

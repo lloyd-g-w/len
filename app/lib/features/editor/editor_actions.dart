@@ -59,13 +59,16 @@ Widget? editorPageNavigator(BuildContext context, EditorSession session, {requir
   final doc = session.doc;
   final commands = session.commands;
   if (doc == null || commands == null) return null;
+  final phone = width < ChromeMetrics.compactWidth;
   return PageNavigator(
+    // Phones turn pages by scrolling (or swiping, one page at a time).
+    compact: phone && doc.flow == PageFlow.continuous,
     index: doc.currentPage,
     count: doc.pages.length,
     bookmarked: doc.pages[doc.currentPage].bookmarked,
     onSelect: doc.scrollToPage,
     onAddPage: commands.addPage,
-    onOverview: width < ChromeMetrics.compactWidth
+    onOverview: phone
         ? () => commands.openOverview(context, backgrounds: session.backgrounds)
         : null,
     onGoTo: () => commands.goToPagePrompt(context),
