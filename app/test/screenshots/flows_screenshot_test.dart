@@ -84,6 +84,7 @@ void main() {
 
       await menu('Rename', 'dialog_rename');
       await menu('Move to folder…', 'dialog_move');
+      await menu('Change cover', 'dialog_cover');
 
       await tester.tap(find.byTooltip('New folder').last);
       await settle(tester);
@@ -127,6 +128,13 @@ void main() {
     await tester.enterText(find.byType(TextField), 'zzz');
     await settle(tester);
     await shoot(tester, 'empty_search_phone');
+    await tester.enterText(find.byType(TextField), '');
+    await settle(tester);
+    await tester.tap(find.byTooltip('More').first);
+    await settle(tester);
+    await tester.tap(find.text('Change cover'));
+    await settle(tester);
+    await shoot(tester, 'cover_sheet_phone');
     expect(tester.takeException(), isNull);
   });
 
