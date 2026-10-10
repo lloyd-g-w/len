@@ -62,7 +62,33 @@ class AppDatabase {
   static final List<void Function(Database)> _migrations = [
     _createInitialSchema,
     _indexDirtyStrokesById,
+    _addFoldersAndLibraryFields,
   ];
+
+  /// Library organisation: nested folders, plus per-notebook folder,
+  /// favourite, trash, cover pattern and last-edit time.
+  static void _addFoldersAndLibraryFields(Database db) {
+    db.execute('''
+      CREATE TABLE folders (
+        id          TEXT PRIMARY KEY NOT NULL,
+        name        TEXT NOT NULL,
+        parent_id   TEXT,
+        color       INTEGER NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute('CREATE INDEX folders_by_parent ON folders(parent_id)');
+    db.execute('ALTER TABLE notebooks ADD COLUMN folder_id TEXT');
+    db.execute('ALTER TABLE notebooks ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
+    db.execute('ALTER TABLE notebooks ADD COLUMN trashed_at INTEGER');
+    db.execute("ALTER TABLE notebooks ADD COLUMN cover_style TEXT NOT NULL DEFAULT 'plain'");
+    db.execute('ALTER TABLE notebooks ADD COLUMN edited_at INTEGER NOT NULL DEFAULT 0');
+    db.execute('UPDATE notebooks SET edited_at = updated_at');
+    db.execute('CREATE INDEX notebooks_by_folder ON notebooks(folder_id)');
+  }
 
   /// Push pages through dirty rows in id order (keyset pagination); index
   /// exactly that, so a sync with nothing to push never scans all strokes.

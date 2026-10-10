@@ -89,6 +89,21 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 
 | collection  | data                                                                                   |
 |-------------|----------------------------------------------------------------------------------------|
-| `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt}`                         |
+| `folders`   | `{name, parentId: string|null, color, createdAt}`                                       |
+| `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt, coverStyle?, editedAt?, folderId?, favorite?, trashedAt?}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper}`                                            |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt}` |
+
+Fields marked `?` were added after v1 and may be missing in records from older clients; readers
+fall back to defaults (`coverStyle` "plain", `editedAt` = `updatedAt`, no folder, not favourite, not
+trashed) and unknown `coverStyle` values read as "plain".
+
+**Library semantics.**
+- `folders.parentId` is null for top-level folders. A folder whose parent is missing/deleted is shown
+  at the top level; so is every folder in a parent cycle (possible after concurrent moves on two
+  devices). Deleting a folder tombstones its whole subtree and moves the notebooks inside to the trash.
+- `notebooks.folderId` pointing at a missing folder means "library root".
+- `notebooks.trashedAt` (ms) puts a notebook in the trash; it stays a live record so it can be
+  restored. "Delete forever" tombstones the notebook, its pages and strokes as before.
+- `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
+  (favourite, move, trash) only bump `updatedAt`.

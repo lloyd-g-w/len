@@ -1,14 +1,17 @@
 import 'package:sqlite3/sqlite3.dart';
 
+import '../domain/cover_style.dart';
 import '../domain/notebook.dart';
 import '../domain/paper.dart';
 import 'page_repository.dart';
+import 'row_copier.dart';
 import 'stroke_repository.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
 /// Persists notebooks and orchestrates notebook-level operations that span
-/// pages and strokes (creation with a first page, cascading deletion).
+/// pages and strokes (creation with a first page, duplication, trash and
+/// cascading deletion).
 class NotebookRepository extends SyncableTable {
   NotebookRepository(
     super.database, {
@@ -27,12 +30,25 @@ class NotebookRepository extends SyncableTable {
   @override
   String get table => 'notebooks';
 
-  /// Live notebooks, most recently updated first.
+  /// Live notebooks that are not in the trash, most recently edited first.
   List<Notebook> list() => db
-      .select('SELECT * FROM notebooks WHERE deleted = 0 ORDER BY updated_at DESC')
+      .select(
+        'SELECT * FROM notebooks WHERE deleted = 0 AND trashed_at IS NULL '
+        'ORDER BY edited_at DESC, id',
+      )
       .map(_rowToNotebook)
       .toList();
 
+  /// Notebooks in the trash, most recently trashed first.
+  List<Notebook> trashed() => db
+      .select(
+        'SELECT * FROM notebooks WHERE deleted = 0 AND trashed_at IS NOT NULL '
+        'ORDER BY trashed_at DESC, id',
+      )
+      .map(_rowToNotebook)
+      .toList();
+
+  /// A live notebook (trashed or not), or null if unknown or deleted.
   Notebook? get(String id) {
     final rows = db.select('SELECT * FROM notebooks WHERE id = ? AND deleted = 0', [id]);
     return rows.isEmpty ? null : _rowToNotebook(rows.first);
@@ -44,6 +60,8 @@ class NotebookRepository extends SyncableTable {
     required NotebookKind kind,
     required PaperStyle paper,
     required int coverColor,
+    CoverStyle coverStyle = CoverStyle.plain,
+    String? folderId,
   }) {
     final now = clock.nowMs();
     final notebook = Notebook(
@@ -52,6 +70,8 @@ class NotebookRepository extends SyncableTable {
       kind: kind,
       paper: paper,
       coverColor: coverColor,
+      coverStyle: coverStyle,
+      folderId: folderId,
       createdAt: now,
       updatedAt: now,
     );
@@ -64,7 +84,8 @@ class NotebookRepository extends SyncableTable {
     return notebook;
   }
 
-  /// Saves metadata changes (title, cover, paper) and bumps `updatedAt`.
+  /// Saves metadata changes (title, cover, paper, organisation) and bumps
+  /// `updatedAt`.
   Notebook update(Notebook notebook) {
     final updated = notebook.copyWith(updatedAt: nextVersion(notebook.id));
     _write(updated, deviceId: deviceId, dirty: true);
@@ -72,12 +93,95 @@ class NotebookRepository extends SyncableTable {
   }
 
   /// Marks the notebook as recently edited (sorts it to the top).
-  void touch(String id) {
-    final notebook = get(id);
-    if (notebook != null) update(notebook);
+  void touch(String id) => _change(id, (n) => n.copyWith(editedAt: clock.nowMs()));
+
+  /// Stars or unstars a notebook.
+  void setFavorite(String id, bool favorite) =>
+      _change(id, (n) => n.copyWith(favorite: favorite));
+
+  /// Moves a notebook into [folderId] (null = library root).
+  void moveTo(String id, String? folderId) => _change(id, (n) => n.copyWith(folderId: folderId));
+
+  /// Moves a notebook to the trash; it can be restored until deleted forever.
+  void trash(String id) => _change(id, (n) => n.copyWith(trashedAt: clock.nowMs()));
+
+  /// Takes a notebook out of the trash. If its folder no longer exists it
+  /// returns to the library root.
+  void restore(String id) => _change(id, (n) {
+        final folder = n.folderId;
+        final folderAlive = folder != null &&
+            db.select('SELECT 1 FROM folders WHERE id = ? AND deleted = 0', [folder]).isNotEmpty;
+        return n.copyWith(trashedAt: null, folderId: folderAlive ? folder : null);
+      });
+
+  /// Moves every notebook inside [folderIds] to the trash (folder deletion).
+  void trashAllIn(Set<String> folderIds) {
+    if (folderIds.isEmpty) return;
+    database.transaction(() {
+      for (final n in list()) {
+        if (folderIds.contains(n.folderId)) trash(n.id);
+      }
+    });
   }
 
-  /// Tombstones the notebook together with its pages and strokes.
+  /// Permanently deletes every notebook in the trash.
+  void emptyTrash() {
+    database.transaction(() {
+      for (final n in trashed()) {
+        delete(n.id);
+      }
+    });
+  }
+
+  /// Copies a notebook with all its pages and strokes under new ids.
+  /// Returns the copy, or null if [id] is unknown.
+  Notebook? duplicate(String id, {String? title}) {
+    final source = get(id);
+    if (source == null) return null;
+    final now = clock.nowMs();
+    final copy = Notebook(
+      id: clock.newId(),
+      title: title ?? '${source.title} (copy)',
+      kind: source.kind,
+      paper: source.paper,
+      coverColor: source.coverColor,
+      coverStyle: source.coverStyle,
+      folderId: source.folderId,
+      createdAt: now,
+      updatedAt: now,
+    );
+    final copier = RowCopier(db);
+    final stamp = {'updated_at': now, 'device_id': deviceId, 'deleted': 0, 'dirty': 1};
+    database.transaction(() {
+      _write(copy, deviceId: deviceId, dirty: true);
+      final surfaces = <String, String>{source.id: copy.id};
+      for (final page in pages.pagesOf(source.id)) {
+        final pageId = clock.newId();
+        copier.copy('pages', page.id, {...stamp, 'id': pageId, 'notebook_id': copy.id});
+        surfaces[page.id] = pageId;
+      }
+      surfaces.forEach((from, to) => _copyStrokes(copier, from, to, stamp));
+    });
+    return copy;
+  }
+
+  void _copyStrokes(RowCopier copier, String from, String to, Map<String, Object?> stamp) {
+    final ids = db
+        .select('SELECT id FROM strokes WHERE surface_id = ? AND deleted = 0', [from])
+        .map((r) => r['id'] as String)
+        .toList();
+    for (final strokeId in ids) {
+      final newId = clock.newId();
+      copier.copy('strokes', strokeId, {...stamp, 'id': newId, 'surface_id': to});
+      db.execute(
+        'INSERT OR IGNORE INTO stroke_chunks (surface_id, cx, cy, stroke_id) '
+        'SELECT ?, cx, cy, ? FROM stroke_chunks WHERE stroke_id = ?',
+        [to, newId, strokeId],
+      );
+    }
+  }
+
+  /// Permanently tombstones the notebook together with its pages and strokes.
   void delete(String id) {
     database.transaction(() {
       db.execute(
@@ -89,6 +193,11 @@ class NotebookRepository extends SyncableTable {
       // A canvas notebook is itself a surface; pages are surfaces too.
       strokes.deleteSurfaces([id, ...pageIds]);
     });
+  }
+
+  void _change(String id, Notebook Function(Notebook) change) {
+    final notebook = get(id);
+    if (notebook != null) update(change(notebook));
   }
 
   // ---------------------------------------------------------------------------
@@ -110,7 +219,12 @@ class NotebookRepository extends SyncableTable {
               'kind': row['kind'],
               'paper': row['paper'],
               'coverColor': row['cover_color'],
+              'coverStyle': row['cover_style'],
               'createdAt': row['created_at'],
+              'editedAt': row['edited_at'],
+              'folderId': row['folder_id'],
+              'favorite': row['favorite'] == 1,
+              'trashedAt': row['trashed_at'],
             },
     );
   }
@@ -129,6 +243,12 @@ class NotebookRepository extends SyncableTable {
       );
       return;
     }
+    _write(_notebookFromRecord(record), deviceId: record.deviceId, dirty: false);
+  }
+
+  /// Parses a live record. Fields added after protocol v1 (folder, favourite,
+  /// trash, cover style, edit time) are optional for older clients.
+  static Notebook _notebookFromRecord(SyncRecord record) {
     final d = record.data!;
     final title = d['title'];
     final kind = d['kind'];
@@ -142,18 +262,23 @@ class NotebookRepository extends SyncableTable {
         createdAt is! int) {
       throw FormatException('Malformed notebook ${record.id}');
     }
-    _write(
-      Notebook(
-        id: record.id,
-        title: title,
-        kind: NotebookKind.parse(kind),
-        paper: PaperStyle.parse(paper),
-        coverColor: coverColor,
-        createdAt: createdAt,
-        updatedAt: record.updatedAt,
-      ),
-      deviceId: record.deviceId,
-      dirty: false,
+    final folderId = d['folderId'];
+    final trashedAt = d['trashedAt'];
+    final editedAt = d['editedAt'];
+    final coverStyle = d['coverStyle'];
+    return Notebook(
+      id: record.id,
+      title: title,
+      kind: NotebookKind.parse(kind),
+      paper: PaperStyle.parse(paper),
+      coverColor: coverColor,
+      coverStyle: CoverStyle.parse(coverStyle is String ? coverStyle : null),
+      createdAt: createdAt,
+      updatedAt: record.updatedAt,
+      editedAt: editedAt is int ? editedAt : record.updatedAt,
+      folderId: folderId is String ? folderId : null,
+      favorite: d['favorite'] == true,
+      trashedAt: trashedAt is int ? trashedAt : null,
     );
   }
 
@@ -162,8 +287,9 @@ class NotebookRepository extends SyncableTable {
       '''
       INSERT OR REPLACE INTO notebooks (id, title, kind, paper, cover_color,
                                         created_at, updated_at, device_id,
-                                        deleted, dirty)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
+                                        deleted, dirty, folder_id, favorite,
+                                        trashed_at, cover_style, edited_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)''',
       [
         n.id,
         n.title,
@@ -174,6 +300,11 @@ class NotebookRepository extends SyncableTable {
         n.updatedAt,
         deviceId,
         dirty ? 1 : 0,
+        n.folderId,
+        n.favorite ? 1 : 0,
+        n.trashedAt,
+        n.coverStyle.name,
+        n.editedAt,
       ],
     );
   }
@@ -184,7 +315,12 @@ class NotebookRepository extends SyncableTable {
         kind: NotebookKind.parse(row['kind'] as String),
         paper: PaperStyle.parse(row['paper'] as String),
         coverColor: row['cover_color'] as int,
+        coverStyle: CoverStyle.parse(row['cover_style'] as String?),
         createdAt: row['created_at'] as int,
         updatedAt: row['updated_at'] as int,
+        editedAt: row['edited_at'] as int,
+        folderId: row['folder_id'] as String?,
+        favorite: row['favorite'] == 1,
+        trashedAt: row['trashed_at'] as int?,
       );
 }
