@@ -32,6 +32,9 @@ class DocumentController extends ChangeNotifier {
     _active = _current;
     surfaces.active = pages[_current].id;
     _relayout();
+    // The page viewport needs the first active page too (its bounds clip
+    // the content layer and keep inserted images on the page).
+    pageViewport.showPage(_layout.frameOf(_active) ?? _layout.frames.first);
     viewport.addListener(_onViewport);
   }
 
