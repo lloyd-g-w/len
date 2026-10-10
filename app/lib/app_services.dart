@@ -10,8 +10,10 @@ import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
 import 'data/settings_repository.dart';
+import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
 import 'ink/selection/ink_clipboard.dart';
+import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
@@ -26,6 +28,7 @@ class AppServices {
     required this.folders,
     required this.pages,
     required this.strokes,
+    required this.strokeReader,
     required this.blobs,
     required this.elements,
     required this.sync,
@@ -73,6 +76,7 @@ class AppServices {
       folders: folders,
       pages: pages,
       strokes: strokes,
+      strokeReader: openStrokeReader(database.path, fallback: strokes),
       blobs: blobs,
       elements: elements,
       sync: syncApiFactory == null
@@ -90,6 +94,9 @@ class AppServices {
   final FolderRepository folders;
   final PageRepository pages;
   final StrokeRepository strokes;
+
+  /// Reads strokes for lazy loading off the UI isolate when possible.
+  final StrokeReader strokeReader;
   final BlobStore blobs;
   final ElementRepository elements;
   final SyncController sync;
@@ -101,6 +108,7 @@ class AppServices {
   void dispose() {
     clipboard.dispose();
     sync.dispose();
+    closeStrokeReader(strokeReader);
     preferences.dispose();
     database.close();
   }

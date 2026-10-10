@@ -171,8 +171,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
                     padding: const EdgeInsets.only(right: Gaps.md),
                     child: PaperSwatch(
                       paper: paper,
-                      // Canvases have no paper colour (yet).
-                      color: _kind == NotebookKind.paged ? _template.color : PaperColor.white,
+                      color: _template.color,
                       selected: _paper == paper,
                       onTap: () => setState(() => _template = _template.copyWith(style: paper)),
                     ),
@@ -180,13 +179,12 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
               ],
             ),
           ),
-          if (_kind == NotebookKind.paged) ...[
-            const SizedBox(height: Gaps.md),
-            TemplateField(
-              template: _template,
-              onChanged: (t) => setState(() => _template = t),
-            ),
-          ],
+          const SizedBox(height: Gaps.md),
+          TemplateField(
+            template: _template,
+            sizeEditable: _kind == NotebookKind.paged,
+            onChanged: (t) => setState(() => _template = t),
+          ),
           const SizedBox(height: Gaps.xl),
           Text('Cover', style: label),
           const SizedBox(height: Gaps.sm),

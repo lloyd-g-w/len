@@ -32,10 +32,10 @@ class TemplateField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Infinite canvases have neither a size nor (yet) a paper colour.
+    // Infinite canvases have no page size.
     final details = sizeEditable
         ? '${template.color.label} · ${template.format.label} ${template.orientation.name}'
-        : 'Infinite canvas';
+        : '${template.color.label} · Infinite canvas';
     return Material(
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       borderRadius: BorderRadius.circular(Radii.control),
@@ -49,9 +49,7 @@ class TemplateField extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: TemplatePreview(
-                  template: sizeEditable
-                      ? template
-                      : template.copyWith(format: PageFormat.square, color: PaperColor.white),
+                  template: sizeEditable ? template : template.copyWith(format: PageFormat.square),
                   width: 44,
                 ),
               ),

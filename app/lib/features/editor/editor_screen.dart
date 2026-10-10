@@ -5,9 +5,11 @@ import 'package:flutter/services.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
-import '../../ink/ink_surface.dart';
+import '../../domain/paper.dart';
 import '../../ink/input/ink_input_controller.dart';
 import '../../ink/input/live_ink.dart';
+import '../../ink/navigation/kinetic_pan.dart';
+import '../../ink/navigation/viewport_animator.dart';
 import '../../ink/surface_model.dart';
 import '../../ink/tool_settings.dart';
 import '../../ink/tools/content_tools.dart';
@@ -15,6 +17,11 @@ import '../../ink/viewport.dart';
 import '../../sync/sync_engine.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_background_cache.dart';
+import '../documents/template_picker.dart';
+import 'canvas/canvas_menu.dart';
+import 'canvas/canvas_navigation.dart';
+import 'canvas/canvas_shortcuts.dart';
+import 'canvas/canvas_view.dart';
 import 'document/document_commands.dart';
 import 'document/document_controller.dart';
 import 'document/document_layout.dart';
@@ -53,11 +60,13 @@ class _EditorScreenState extends State<EditorScreen> {
   // Infinite canvas: one surface.
   SurfaceModel? _canvas;
   ViewportController? _canvasViewport;
+  CanvasNavigation? _canvasNav;
 
   // Paged notebook: pages laid out as a document.
   DocumentController? _doc;
   DocumentCommands? _commands;
   PdfBackgroundCache? _backgrounds;
+  ViewportAnimator? _docAnimator;
 
   /// Set once the editor is leaving because its notebook was deleted
   /// remotely, so further sync events don't pop another route.
@@ -77,15 +86,22 @@ class _EditorScreenState extends State<EditorScreen> {
         surfaceId: _notebook.id,
         repository: _services.strokes,
         elementRepository: _services.elements,
+        reader: _services.strokeReader,
       );
       final viewport = _canvasViewport = ViewportController();
-      _input = _inputFor(model, viewport);
+      final nav = _canvasNav = _canvasNavigation(viewport);
+      _input = _inputFor(model, viewport, kinetic: nav.kinetic);
       _undo = SurfaceUndo(model);
     } else {
       final doc = _doc = _openDocument();
       _commands = DocumentCommands(services: _services, notebook: () => _notebook, doc: doc);
       _backgrounds = PdfBackgroundCache(blobs: _services.blobs, fetch: _services.sync.fetchBlob);
-      _input = doc.input = _inputFor(doc.activeModel, doc.pageViewport);
+      final animator = _docAnimator = ViewportAnimator(doc.viewport);
+      _input = doc.input = _inputFor(
+        doc.activeModel,
+        doc.pageViewport,
+        kinetic: KineticPan(animator, enabled: () => doc.flow == PageFlow.continuous),
+      );
       // Paste onto the page in the middle of the screen.
       _content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));
       _undo = doc.surfaces;
@@ -108,7 +124,11 @@ class _EditorScreenState extends State<EditorScreen> {
   /// routes to) for [model] seen through [viewport]. For documents these
   /// are the active page's model and its page viewport, so tools work in
   /// page coordinates and follow the active page.
-  InkInputController _inputFor(SurfaceModel model, ViewportController viewport) {
+  InkInputController _inputFor(
+    SurfaceModel model,
+    ViewportController viewport, {
+    KineticPan? kinetic,
+  }) {
     _content = ContentTools(
       model: model,
       viewport: viewport,
@@ -123,8 +143,17 @@ class _EditorScreenState extends State<EditorScreen> {
       live: _live,
       onStylusDetected: _onStylusDetected,
       content: _content,
+      kinetic: kinetic,
     );
   }
+
+  CanvasNavigation _canvasNavigation(ViewportController viewport) => CanvasNavigation(
+    viewport: viewport,
+    reader: _services.strokeReader,
+    surfaceId: _notebook.id,
+    showMinimap: _services.settings.canvasMinimap,
+    onMinimapChanged: (show) => _services.settings.canvasMinimap = show,
+  );
 
   @override
   void dispose() {
@@ -140,7 +169,9 @@ class _EditorScreenState extends State<EditorScreen> {
     }
     _focus.dispose();
     _canvas?.dispose();
+    _canvasNav?.dispose();
     _canvasViewport?.dispose();
+    _docAnimator?.dispose();
     _doc?.dispose();
     _backgrounds?.dispose();
     _live.dispose();
@@ -253,6 +284,7 @@ class _EditorScreenState extends State<EditorScreen> {
       () => _tools.tool = EditorTool.eraser,
     ),
     ...contentShortcuts(_content, _tools, _unlessTyping),
+    if (_canvasNav case final nav?) ...canvasShortcuts(nav, _unlessTyping),
     if (_doc case final doc?) ...{
       const SingleActivator(LogicalKeyboardKey.pageDown): () => doc.goToPage(doc.currentPage + 1),
       const SingleActivator(LogicalKeyboardKey.pageUp): () => doc.goToPage(doc.currentPage - 1),
@@ -292,6 +324,10 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
+  /// From this width the toolbar sits in the top row; below it, at the
+  /// bottom (the canvas overlays keep clear of it).
+  static const double _wideLayout = 960;
+
   Widget _buildSurface() {
     final doc = _doc;
     if (doc != null) {
@@ -303,12 +339,17 @@ class _EditorScreenState extends State<EditorScreen> {
         fingersNavigate: () => _tools.stylusOnly ?? false,
       );
     }
-    return InkSurface(
-      model: _canvas!,
-      viewport: _canvasViewport!,
-      input: _input,
-      live: _live,
-      paper: _notebook.paper,
+    return LayoutBuilder(
+      builder: (context, constraints) => CanvasView(
+        model: _canvas!,
+        navigation: _canvasNav!,
+        input: _input,
+        live: _live,
+        paper: _notebook.paper,
+        paperColor: _notebook.paperColor,
+        // Narrow screens have the toolbar at the bottom (see _buildChrome).
+        bottomInset: constraints.maxWidth >= _wideLayout ? 12 : 84,
+      ),
     );
   }
 
@@ -337,14 +378,17 @@ class _EditorScreenState extends State<EditorScreen> {
       onBack: () => Navigator.of(context).maybePop(),
       onRename: _rename,
     );
-    final undo = UndoRedoPill(target: _undo, trailing: _doc == null ? null : _documentMenu());
+    final undo = UndoRedoPill(
+      target: _undo,
+      trailing: _doc == null ? _canvasMenu() : _documentMenu(),
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         // Wide screens: one top row. Narrow screens: tools move to the bottom
         // where thumbs reach them.
         // (The toolbar with the content tools needs ~600 px between the
         // title and undo pills.)
-        final wide = constraints.maxWidth >= 960;
+        final wide = constraints.maxWidth >= _wideLayout;
         return Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -373,6 +417,23 @@ class _EditorScreenState extends State<EditorScreen> {
         );
       },
     );
+  }
+
+  Widget _canvasMenu() => CanvasMenu(navigation: _canvasNav!, onBackground: _pickBackground);
+
+  /// Changes the canvas's template and paper colour.
+  Future<void> _pickBackground() async {
+    final choice = await showTemplatePicker(
+      context,
+      initial: PageTemplate(style: _notebook.paper, color: _notebook.paperColor),
+      mode: TemplatePickerMode.canvas,
+    );
+    if (choice == null || !mounted || _closing) return;
+    final current = _services.notebooks.get(_notebook.id);
+    if (current == null) return;
+    final template = choice.template;
+    final updated = current.copyWith(paper: template.style, paperColor: template.color);
+    setState(() => _notebook = _services.notebooks.update(updated));
   }
 
   Widget _documentMenu() {

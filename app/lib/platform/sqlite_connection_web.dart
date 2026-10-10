@@ -21,3 +21,6 @@ CommonDatabase openSqliteInMemory() =>
 /// Browsers have no file paths; use [openSqlite].
 CommonDatabase openSqliteFile(String path) =>
     throw UnsupportedError('Opening database files by path is not available on the web');
+
+/// Browser databases are not files.
+String? sqliteFilePath({required String name, required String directory}) => null;

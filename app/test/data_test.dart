@@ -68,10 +68,10 @@ void main() {
       final latest = fresh.db.select('PRAGMA user_version').first.columnAt(0) as int;
       // A database from before the documents/library merge recorded the
       // page/blob migration early and never got the stroke style column.
-      // (The page/blob migration is the second to last; the elements
-      // migration after it is idempotent too.)
       fresh.db.execute('ALTER TABLE strokes DROP COLUMN style');
-      fresh.db.execute('PRAGMA user_version = ${latest - 2}');
+      // Rewind to just before the page/blob migration so it and everything
+      // after it (all idempotent) re-run.
+      fresh.db.execute('PRAGMA user_version = ${AppDatabase.versionBeforePageDetailsAndBlobs}');
       fresh.close();
 
       final upgraded = AppDatabase.open(path);
@@ -81,6 +81,7 @@ void main() {
       expect(columns('strokes'), contains('style'));
       expect(columns('pages'), containsAll(['paper_color', 'bookmarked', 'background']));
       expect(columns('elements'), contains('surface_id'));
+      expect(columns('notebooks'), contains('paper_color'));
       expect(upgraded.db.select('PRAGMA user_version').first.columnAt(0), latest);
     });
   });

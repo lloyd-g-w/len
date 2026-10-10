@@ -14,3 +14,7 @@ CommonDatabase openSqliteInMemory() => sqlite3.openInMemory();
 
 /// Opens (creating if needed) the database file at [path].
 CommonDatabase openSqliteFile(String path) => sqlite3.open(path);
+
+/// The file [openSqlite] opens for [name] in [directory].
+String? sqliteFilePath({required String name, required String directory}) =>
+    p.join(directory, name);

@@ -5,14 +5,17 @@ import 'package:flutter/foundation.dart';
 
 import '../core/clock.dart';
 import '../data/element_repository.dart';
+import '../data/stroke_reader.dart';
 import '../data/stroke_repository.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
+import '../domain/stroke_chunks.dart';
 import '../domain/surface_element.dart';
 import 'content_index.dart';
 import 'geometry/stroke_splitter.dart';
 import 'pen/eraser_config.dart';
 import 'stroke_hit_test.dart';
+import 'surface_loader.dart';
 import 'undo_history.dart';
 
 /// The in-memory working set of one drawing surface (a page or a canvas):
@@ -27,9 +30,17 @@ class SurfaceModel extends ChangeNotifier {
     required this.surfaceId,
     required this._repository,
     this._elementRepository,
+    StrokeReader? reader,
     this.maxLoadedChunks = 1024,
     this.clock = const Clock(),
-  });
+  }) {
+    _loading = SurfaceLoader(
+      reader: reader ?? _repository,
+      surfaceId: surfaceId,
+      skipFor: _loadedWithin,
+      onLoad: _onLoad,
+    );
+  }
 
   /// Creates ids for strokes made by editing (pixel-eraser fragments).
   final Clock clock;
@@ -43,8 +54,9 @@ class SurfaceModel extends ChangeNotifier {
   /// Soft cap on loaded chunks before far-away ones are evicted.
   final int maxLoadedChunks;
 
-  final _strokes = ContentIndex<Stroke>(idOf: (s) => s.id, boundsOf: (s) => s.bounds);
-  final _elements = ContentIndex<SurfaceElement>(idOf: (e) => e.id, boundsOf: (e) => e.bounds);
+  // Indexed with the same chunk functions as storage (path-based for ink).
+  final _strokes = ContentIndex<Stroke>(idOf: (s) => s.id, chunksOf: StrokeChunks.of);
+  final _elements = ContentIndex<SurfaceElement>(idOf: (e) => e.id, chunksOf: ElementChunks.of);
 
   /// Chunks whose stored content is fully in memory.
   final Set<ChunkKey> _loaded = {};
@@ -60,6 +72,9 @@ class SurfaceModel extends ChangeNotifier {
   VoidCallback? onCommit;
 
   final _invalidations = StreamController<Set<ChunkKey>?>.broadcast(sync: true);
+
+  late final SurfaceLoader _loading;
+  bool _disposed = false;
 
   ChunkRange? _lastRange;
   Rect? _lastVisible;
@@ -102,7 +117,7 @@ class SurfaceModel extends ChangeNotifier {
   /// The highest element stacking order loaded (for "new on top").
   double get topZ {
     var top = 0.0;
-    for (final e in _elements.query(Rect.largest)) {
+    for (final e in _elements.all) {
       if (e.z > top) top = e.z;
     }
     return top;
@@ -118,8 +133,10 @@ class SurfaceModel extends ChangeNotifier {
     if (setEquals(ids, _hidden)) return;
     final changed = <ChunkKey>{};
     for (final id in {..._hidden, ...ids}) {
-      final bounds = _strokes[id]?.bounds ?? _elements[id]?.bounds;
-      if (bounds != null) changed.addAll(ChunkGrid.rangeFor(bounds).keys);
+      final stroke = _strokes[id];
+      final element = _elements[id];
+      if (stroke != null) changed.addAll(StrokeChunks.of(stroke));
+      if (element != null) changed.addAll(ElementChunks.of(element));
     }
     _hidden = Set.unmodifiable(ids);
     _changed(changed);
@@ -130,35 +147,51 @@ class SurfaceModel extends ChangeNotifier {
 
   /// Makes sure everything stored within (and around) [visibleWorld] is in
   /// memory, evicting far-away chunks if the working set grows too large.
+  ///
+  /// With a synchronous reader (the default) the chunks are loaded on
+  /// return; with an asynchronous one they arrive later (see [isLoading]).
   void ensureLoaded(Rect visibleWorld) {
     if (visibleWorld.isEmpty || !visibleWorld.isFinite) return;
     _lastVisible = visibleWorld;
     final range = ChunkGrid.rangeFor(visibleWorld.inflate(ChunkGrid.size));
     if (range == _lastRange) return;
     _lastRange = range;
+    _loading.request(range);
+  }
 
-    final elementRepo = _elementRepository;
-    final missing = {
-      ..._repository.populatedChunks(surfaceId, range),
-      ...?elementRepo?.populatedChunks(surfaceId, range),
-    }.where((key) => !_loaded.contains(key)).toList();
-    if (missing.isNotEmpty) {
+  /// Whether chunks are still being read in the background.
+  bool get isLoading => _loading.isLoading;
+
+  /// Completes when no background read is pending.
+  Future<void> get loaded => _loading.idle;
+
+  Set<ChunkKey> _loadedWithin(ChunkRange range) => {
+    for (final key in _loaded)
+      if (range.contains(key)) key,
+  };
+
+  void _onLoad(ChunkLoad load) {
+    if (_disposed) return;
+    if (load.chunks.isNotEmpty) {
       final changed = <ChunkKey>{};
-      for (final stroke in _repository.loadChunks(surfaceId, missing)) {
+      for (final stroke in load.strokes) {
         if (_strokes.containsId(stroke.id)) continue;
         _strokes.insert(stroke);
-        changed.addAll(ChunkGrid.rangeFor(stroke.bounds).keys);
+        changed.addAll(StrokeChunks.of(stroke));
       }
-      for (final element
-          in elementRepo?.loadChunks(surfaceId, missing) ?? const <SurfaceElement>[]) {
-        if (_elements.containsId(element.id)) continue;
-        _elements.insert(element);
-        changed.addAll(ChunkGrid.rangeFor(element.bounds).keys);
+      // Without element storage the surface holds ink only.
+      if (_elementRepository != null) {
+        for (final element in load.elements) {
+          if (_elements.containsId(element.id)) continue;
+          _elements.insert(element);
+          changed.addAll(ElementChunks.of(element));
+        }
       }
-      _loaded.addAll(missing);
+      _loaded.addAll(load.chunks);
       if (changed.isNotEmpty) _changed(changed);
     }
-    if (_loaded.length > maxLoadedChunks) _evictOutside(range);
+    final keep = _lastRange;
+    if (keep != null && _loaded.length > maxLoadedChunks) _evictOutside(keep);
   }
 
   /// Drops everything in memory and reloads from storage (e.g. after a sync
@@ -168,6 +201,7 @@ class SurfaceModel extends ChangeNotifier {
     _elements.clear();
     _loaded.clear();
     _lastRange = null;
+    _loading.reset();
     _invalidations.add(null);
     final visible = _lastVisible;
     if (visible != null) ensureLoaded(visible);
@@ -188,16 +222,17 @@ class SurfaceModel extends ChangeNotifier {
       elements.addAll(_elements.inChunk(key));
       return true;
     });
-    bool stillNeeded(Rect bounds) => ChunkGrid.rangeFor(bounds).keys.any(_loaded.contains);
     for (final s in strokes) {
-      if (stillNeeded(s.bounds) || _hidden.contains(s.id)) continue;
-      _strokes.remove(s);
-      evicted.addAll(ChunkGrid.rangeFor(s.bounds).keys);
+      final keys = StrokeChunks.of(s);
+      if (keys.any(_loaded.contains) || _hidden.contains(s.id)) continue;
+      _removeStroke(s);
+      evicted.addAll(keys);
     }
     for (final e in elements) {
-      if (stillNeeded(e.bounds) || _hidden.contains(e.id)) continue;
-      _elements.remove(e);
-      evicted.addAll(ChunkGrid.rangeFor(e.bounds).keys);
+      final keys = ElementChunks.of(e);
+      if (keys.any(_loaded.contains) || _hidden.contains(e.id)) continue;
+      _removeElement(e);
+      evicted.addAll(keys);
     }
     // Nothing visible changed, so listeners need not be notified.
     if (evicted.isNotEmpty) _invalidations.add(evicted);
@@ -268,18 +303,17 @@ class SurfaceModel extends ChangeNotifier {
 
   void _apply(InkEdit edit) {
     final changed = <ChunkKey>{};
-    void touch(Rect bounds) => changed.addAll(ChunkGrid.rangeFor(bounds).keys);
 
     if (edit.removed.isNotEmpty) _repository.delete(edit.removed.map((s) => s.id));
     if (edit.added.isNotEmpty) _repository.save(edit.added);
     for (final s in edit.removed) {
       final current = _strokes[s.id];
-      if (current != null) _strokes.remove(current);
-      touch(s.bounds);
+      if (current != null) _removeStroke(current);
+      changed.addAll(StrokeChunks.of(s));
     }
     for (final s in edit.added) {
       _strokes.insert(s);
-      touch(s.bounds);
+      changed.addAll(StrokeChunks.of(s));
     }
 
     // An element replaced by a new value keeps its id: only delete the
@@ -294,16 +328,31 @@ class SurfaceModel extends ChangeNotifier {
     for (final e in edit.removedElements) {
       final current = _elements[e.id];
       if (current != null) {
-        _elements.remove(current);
-        touch(current.bounds);
+        _removeElement(current);
+        changed.addAll(ElementChunks.of(current));
       }
-      touch(e.bounds);
+      changed.addAll(ElementChunks.of(e));
     }
     for (final e in edit.addedElements) {
       _elements.insert(e);
-      touch(e.bounds);
+      changed.addAll(ElementChunks.of(e));
     }
     _changed(changed);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internals
+
+  /// Removals go through here so a background read in flight cannot bring
+  /// back a stale copy (see [SurfaceLoader.noteRemoved]).
+  void _removeStroke(Stroke stroke) {
+    _strokes.remove(stroke);
+    _loading.noteRemoved(stroke.id);
+  }
+
+  void _removeElement(SurfaceElement element) {
+    _elements.remove(element);
+    _loading.noteRemoved(element.id);
   }
 
   void _changed(Set<ChunkKey> chunks) {
@@ -313,6 +362,8 @@ class SurfaceModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _loading.dispose();
     _invalidations.close();
     super.dispose();
   }
