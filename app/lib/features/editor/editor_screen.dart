@@ -225,10 +225,7 @@ class _EditorScreenState extends State<EditorScreen> {
     setState(() => _notebook = _services.notebooks.update(change(current)));
   }
 
-  void _back() {
-    if (_focus) _toggleFocus();
-    unawaited(Navigator.of(context).maybePop());
-  }
+  void _back() => unawaited(Navigator.of(context).maybePop());
 
   void _openSettings() => unawaited(
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
@@ -240,60 +237,67 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   Widget build(BuildContext context) {
     final tabs = _services.openNotebooks.contains(_notebook.id) ? _services.openNotebooks : null;
-    return Scaffold(
-      body: CallbackShortcuts(
-        bindings: editorShortcuts(
-          _session,
-          toggleFocus: _toggleFocus,
-          nextTab: tabs?.cycle,
-          previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
-          closeTab: tabs == null ? null : () => tabs.close(_notebook.id),
-        ),
-        child: Focus(
-          focusNode: _focusNode,
-          autofocus: true,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final media = MediaQuery.of(context);
-              final layout = ChromeLayout(
-                placement: resolvePlacement(
-                  _services.preferences.toolbarPlacement,
-                  constraints.maxWidth,
-                ),
-                barHeight: EditorTopBar.heightFor(constraints.maxWidth, tabs),
-                safe: media.padding,
-                hasNavigator: _session.doc != null,
-                width: constraints.maxWidth,
-                focus: _focus,
-              );
-              _applyInsets(layout.covered);
-              _resetGuardOnResize(constraints.maxWidth);
-              return CanvasGuardScope(
-                guard: _guard,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: EditorCanvas(
-                        session: _session,
-                        paper: _notebook.paper,
-                        focusNode: _focusNode,
-                        guard: _guard,
-                        chromeInsets: layout.covered,
-                      ),
-                    ),
-                    Positioned.fill(child: _buildChrome(layout, tabs)),
-                    if (_menu case final menu?)
+    // Back (e.g. Android's) leaves focus mode before leaving the editor.
+    return PopScope(
+      canPop: !_focus,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _focus) _toggleFocus();
+      },
+      child: Scaffold(
+        body: CallbackShortcuts(
+          bindings: editorShortcuts(
+            _session,
+            toggleFocus: _toggleFocus,
+            nextTab: tabs?.cycle,
+            previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
+            closeTab: tabs == null ? null : () => tabs.close(_notebook.id),
+          ),
+          child: Focus(
+            focusNode: _focusNode,
+            autofocus: true,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final media = MediaQuery.of(context);
+                final layout = ChromeLayout(
+                  placement: resolvePlacement(
+                    _services.preferences.toolbarPlacement,
+                    constraints.maxWidth,
+                  ),
+                  barHeight: EditorTopBar.heightFor(constraints.maxWidth, tabs),
+                  safe: media.padding,
+                  hasNavigator: _session.doc != null,
+                  width: constraints.maxWidth,
+                  focus: _focus,
+                );
+                _applyInsets(layout.covered);
+                _resetGuardOnResize(constraints.maxWidth);
+                return CanvasGuardScope(
+                  guard: _guard,
+                  child: Stack(
+                    children: [
                       Positioned.fill(
-                        child: CanvasContextMenu(
-                          at: menu.at,
-                          actions: menu.actions,
-                          onDismiss: _closeMenu,
+                        child: EditorCanvas(
+                          session: _session,
+                          paper: _notebook.paper,
+                          focusNode: _focusNode,
+                          guard: _guard,
+                          chromeInsets: layout.covered,
                         ),
                       ),
-                  ],
-                ),
-              );
-            },
+                      Positioned.fill(child: _buildChrome(layout, tabs)),
+                      if (_menu case final menu?)
+                        Positioned.fill(
+                          child: CanvasContextMenu(
+                            at: menu.at,
+                            actions: menu.actions,
+                            onDismiss: _closeMenu,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/features/editor/chrome/canvas_context_menu.dart';
+import 'package:len/features/editor/editor_screen.dart';
 
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
 
@@ -108,9 +109,11 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pumpAndSettle();
     expect(barVisible(), isFalse);
-    await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+    // The system back button leaves focus mode first, not the editor.
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(barVisible(), isTrue);
+    expect(find.byType(EditorScreen), findsOneWidget);
     await closeEditor(tester);
   });
 
