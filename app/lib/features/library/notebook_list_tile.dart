@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
+import 'cover_locator.dart';
 import 'library_actions.dart';
 import 'library_drag.dart';
 import 'library_draggable.dart';
@@ -60,7 +61,13 @@ class _NotebookListTileState extends State<NotebookListTile> {
           borderRadius: BorderRadius.circular(Radii.control),
           onTap: widget.actions.selection.active
               ? () => widget.actions.selection.toggle(_notebook.id)
-              : () => unawaited(widget.actions.openNotebook(context, _notebook)),
+              : () => unawaited(
+                  widget.actions.openNotebook(
+                    context,
+                    _notebook,
+                    from: widget.actions.covers.originOf(context, _notebook),
+                  ),
+                ),
           onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
           onHover: (h) => setState(() => _hovered = h),
           onFocusChange: (f) => widget.actions.controller.setNotebookFocused(_notebook.id, f),
@@ -73,19 +80,23 @@ class _NotebookListTileState extends State<NotebookListTile> {
                     borderRadius: BorderRadius.circular(Radii.xs),
                     boxShadow: Shadows.low(theme.brightness),
                   ),
-                  child: SizedBox(
-                    width: 40,
-                    height: 40 / 0.72,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        NotebookCover.of(_notebook),
-                        if (widget.actions.selection.active)
-                          SelectionMark(
-                            selected: widget.actions.selection.contains(_notebook.id),
-                            compact: true,
-                          ),
-                      ],
+                  child: CoverAnchor(
+                    locator: widget.actions.covers,
+                    notebookId: _notebook.id,
+                    child: SizedBox(
+                      width: 40,
+                      height: 40 / 0.72,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          NotebookCover.of(_notebook),
+                          if (widget.actions.selection.active)
+                            SelectionMark(
+                              selected: widget.actions.selection.contains(_notebook.id),
+                              compact: true,
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

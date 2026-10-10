@@ -8,6 +8,7 @@ import '../../domain/notebook.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_import_flow.dart';
 import '../editor/tabs/editor_workspace.dart' as editor;
+import 'cover_locator.dart';
 import 'library_controller.dart';
 import 'library_dialogs.dart';
 import 'library_drag.dart';
@@ -28,14 +29,24 @@ class LibraryActions {
   /// Notebooks picked in selection mode.
   final LibrarySelection selection;
 
-  Future<void> openNotebook(BuildContext context, Notebook notebook) async {
+  /// Covers on screen, which notebooks open out of.
+  final CoverLocator covers = CoverLocator();
+
+  /// Opens [notebook] in the editor (out of its cover with [from]), and
+  /// refreshes the covers of everything visited when the editor closes.
+  Future<void> openNotebook(
+    BuildContext context,
+    Notebook notebook, {
+    editor.NotebookOpenOrigin? from,
+  }) async {
     if (notebook.isTrashed) {
+      from?.dispose?.call();
       final action = await showContextMenuAt(context, items: notebookMenuItems(notebook));
       if (action != null && context.mounted) await onNotebookAction(context, notebook, action);
       return;
     }
     final tabs = AppScope.read(context).openNotebooks;
-    await editor.openNotebook(context, notebook);
+    await editor.openNotebook(context, notebook, from: from);
     thumbnails.invalidate([...tabs.takeVisited(), notebook.id]);
     controller.reload();
   }
@@ -110,7 +121,7 @@ class LibraryActions {
   ) async {
     switch (action) {
       case NotebookAction.open:
-        await openNotebook(context, notebook);
+        await openNotebook(context, notebook, from: covers.originOf(context, notebook));
       case NotebookAction.rename:
         final title = await showTextPrompt(
           context,

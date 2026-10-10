@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
+import 'cover_locator.dart';
 import 'library_actions.dart';
 import 'library_drag.dart';
 import 'library_draggable.dart';
@@ -41,7 +42,13 @@ class _NotebookCardState extends State<NotebookCard> {
   /// Opens the notebook, or toggles it in selection mode.
   void _tap() => _selecting
       ? widget.actions.selection.toggle(_notebook.id)
-      : unawaited(widget.actions.openNotebook(context, _notebook));
+      : unawaited(
+          widget.actions.openNotebook(
+            context,
+            _notebook,
+            from: widget.actions.covers.originOf(context, _notebook),
+          ),
+        );
   bool get _selected => widget.actions.selection.contains(_notebook.id);
 
   /// Opens the menu at [at] (global), else under [anchor] or the card.
@@ -80,12 +87,16 @@ class _NotebookCardState extends State<NotebookCard> {
             setState(() => _focused = f);
             widget.actions.controller.setNotebookFocused(_notebook.id, f);
           },
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              NotebookCover.of(_notebook),
-              if (_selecting) SelectionMark(selected: _selected),
-            ],
+          child: CoverAnchor(
+            locator: widget.actions.covers,
+            notebookId: _notebook.id,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                NotebookCover.of(_notebook),
+                if (_selecting) SelectionMark(selected: _selected),
+              ],
+            ),
           ),
         ),
       ),
