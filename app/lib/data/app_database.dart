@@ -85,6 +85,9 @@ class AppDatabase {
   /// Schema version from which the search index migration runs.
   static int get versionBeforeSearchIndex => _migrations.indexOf(_createSearchIndex);
 
+  /// Schema version from which the handwriting (ink text) migration runs.
+  static int get versionBeforeInkText => _migrations.indexOf(_createInkText);
+
   /// Ordered list of schema migrations; index i migrates from version i.
   /// Never edit an existing entry — append a new one instead.
   static final List<void Function(CommonDatabase)> _migrations = [
