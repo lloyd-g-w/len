@@ -11,6 +11,7 @@ import '../../ink/surface_model.dart';
 import '../../ink/tool_settings.dart';
 import '../../ink/tools/content_tools.dart';
 import '../../ink/viewport.dart';
+import '../../platform/stylus_samples.dart';
 import '../../sync/sync_engine.dart';
 import '../documents/pdf/pdf_background_cache.dart';
 import 'canvas/canvas_navigation.dart';
@@ -156,6 +157,7 @@ class EditorSession {
     content: content,
     gestures: gestures,
     kinetic: kinetic,
+    samples: openStylusSamples(),
     penButtonAction: () => services.preferences.penButtonAction,
   );
 
