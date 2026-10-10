@@ -12,6 +12,8 @@ import 'library_actions.dart';
 import 'library_content.dart';
 import 'library_controller.dart';
 import 'library_sidebar.dart';
+import 'selection/selection_actions.dart';
+import 'selection/selection_bar.dart';
 import 'thumbnails/thumbnail_cache.dart';
 import 'thumbnails/thumbnail_renderer.dart';
 import 'thumbnails/thumbnail_scope.dart';
@@ -55,14 +57,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
       stats: SurfaceStats(services.database),
     );
     _actions = LibraryActions(controller: _controller, thumbnails: _thumbnails);
+    _scope = _scopeKey;
+    // Selection belongs to one place: leaving it ends selection mode, and
+    // notebooks that disappear (trashed, moved by sync) are deselected.
+    _controller.addListener(() {
+      final scope = _scopeKey;
+      if (scope != _scope) {
+        _scope = scope;
+        _actions.selection.clear();
+      } else {
+        _actions.selection.retain(_controller.visibleNotebooks.map((n) => n.id));
+      }
+    });
     _remoteChanges = services.sync.remoteChanges.listen((c) {
       if (c.strokeSurfaces.isNotEmpty || c.pagesOfNotebooks.isNotEmpty) _thumbnails.invalidate();
       if (c.notebooks || c.folders) _controller.reload();
     });
   }
 
+  /// Where the library is: section, folder and search.
+  String get _scopeKey => '${_controller.section}/${_controller.folderId}/${_controller.query}';
+  String _scope = '';
+
   void _disposeServices() {
     unawaited(_remoteChanges?.cancel());
+    _actions.selection.dispose();
     _controller.dispose();
     _thumbnails.dispose();
   }
@@ -85,12 +104,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   void _clearSearch() {
+    if (_actions.selection.active) {
+      _actions.selection.clear();
+      return;
+    }
     _search.clear();
     _controller.query = '';
     _searchFocus.unfocus();
   }
 
   void _trashFocused() {
+    if (_actions.selection.active && _controller.section != LibrarySection.trash) {
+      _actions.trashSelected(context, _actions.selection);
+      return;
+    }
     final id = _controller.focusedNotebookId;
     final notebook = id == null ? null : _services!.notebooks.get(id);
     if (notebook == null || notebook.isTrashed) return;
@@ -113,12 +140,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return ThumbnailScope(
       cache: _thumbnails,
       child: ListenableBuilder(
-        listenable: _controller,
+        listenable: Listenable.merge([_controller, _actions.selection]),
         builder: (context, _) => PopScope(
-          // Android back walks up folders before leaving the app.
-          canPop: _controller.section == LibrarySection.library && _controller.folderId == null,
+          // Android back ends selection, then walks up folders, then leaves.
+          canPop:
+              !_actions.selection.active &&
+              _controller.section == LibrarySection.library &&
+              _controller.folderId == null,
           onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _controller.goUp();
+            if (didPop) return;
+            if (_actions.selection.active) {
+              _actions.selection.clear();
+            } else {
+              _controller.goUp();
+            }
           },
           child: CallbackShortcuts(
             bindings: _shortcuts,
@@ -154,7 +189,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   /// The "New" button; hidden in the trash and when the empty state
   /// already offers one.
   Widget? _fab(BuildContext context) =>
-      _controller.section == LibrarySection.trash ||
+      _actions.selection.active ||
+          _controller.section == LibrarySection.trash ||
           (_controller.section == LibrarySection.library &&
               !_controller.isSearching &&
               _controller.visibleFolders.isEmpty &&
@@ -177,12 +213,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
             onOpenSettings: _openSettings,
             width: width >= Breakpoints.expanded ? 272 : 232,
           ),
-          Expanded(child: _content()),
+          Expanded(
+            // The selection bar floats over the content, not the sidebar.
+            child: Stack(
+              children: [
+                Positioned.fill(child: _content()),
+                if (_selectionBar() case final bar?)
+                  Positioned(left: 0, right: 0, bottom: 0, child: bar),
+              ],
+            ),
+          ),
         ],
       ),
       floatingActionButton: _fab(context),
     );
   }
+
+  Widget? _selectionBar() => _actions.selection.active
+      ? LibrarySelectionBar(actions: _actions, selection: _actions.selection)
+      : null;
 
   Widget _phone(BuildContext context) {
     const sections = LibrarySection.values;
@@ -191,29 +240,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
         headerTrailing: [SyncStatusButton(sync: _services!.sync, onConfigure: _openSettings)],
       ),
       floatingActionButton: _fab(context),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: sections.indexOf(_controller.section),
-        onDestinationSelected: (i) =>
-            i == sections.length ? _openSettings() : _controller.showSection(sections[i]),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.auto_stories_outlined),
-            selectedIcon: Icon(Icons.auto_stories_rounded),
-            label: 'Library',
+      bottomNavigationBar:
+          _selectionBar() ??
+          NavigationBar(
+            selectedIndex: sections.indexOf(_controller.section),
+            onDestinationSelected: (i) =>
+                i == sections.length ? _openSettings() : _controller.showSection(sections[i]),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.auto_stories_outlined),
+                selectedIcon: Icon(Icons.auto_stories_rounded),
+                label: 'Library',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.star_outline_rounded),
+                selectedIcon: Icon(Icons.star_rounded),
+                label: 'Favourites',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.delete_outline_rounded),
+                selectedIcon: Icon(Icons.delete_rounded),
+                label: 'Trash',
+              ),
+              NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.star_outline_rounded),
-            selectedIcon: Icon(Icons.star_rounded),
-            label: 'Favourites',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.delete_outline_rounded),
-            selectedIcon: Icon(Icons.delete_rounded),
-            label: 'Trash',
-          ),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
-        ],
-      ),
     );
   }
 }

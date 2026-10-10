@@ -1,0 +1,156 @@
+import 'dart:ui';
+
+import 'package:flutter/foundation.dart';
+
+import '../../../domain/notebook.dart';
+
+/// Where an editor was looking, remembered per tab while it is not shown.
+@immutable
+class EditorViewState {
+  const EditorViewState({required this.scale, required this.offset, this.page = 0});
+
+  /// Viewport zoom and pan (`screen = world * scale + offset`).
+  final double scale;
+  final Offset offset;
+
+  /// The current page of a paged notebook.
+  final int page;
+}
+
+/// One open notebook in the tab strip.
+@immutable
+class OpenTab {
+  const OpenTab({required this.id, required this.title, required this.kind});
+
+  final String id;
+  final String title;
+  final NotebookKind kind;
+
+  OpenTab withTitle(String title) => OpenTab(id: id, title: title, kind: kind);
+}
+
+/// The notebooks open in the editor, GoodNotes-style tabs: one is active
+/// (shown), the others keep their place ([EditorViewState]) in memory.
+///
+/// At most [maxTabs] stay open; opening one more closes the least recently
+/// used. Lives in `AppServices`, so tabs survive going back to the library.
+class OpenNotebooks extends ChangeNotifier {
+  OpenNotebooks({this.maxTabs = 8});
+
+  final int maxTabs;
+
+  final List<OpenTab> _tabs = [];
+  final Map<String, EditorViewState> _views = {};
+
+  /// Notebooks shown since the last [takeVisited] (their previews may
+  /// need refreshing in the library).
+  final Set<String> _visited = {};
+
+  /// Returns and forgets the notebooks shown since the last call.
+  Set<String> takeVisited() {
+    final visited = {..._visited};
+    _visited.clear();
+    return visited;
+  }
+
+  /// Tab ids, most recently used last.
+  final List<String> _recent = [];
+  String? _activeId;
+
+  List<OpenTab> get tabs => List.unmodifiable(_tabs);
+  String? get activeId => _activeId;
+  OpenTab? get active => _tabs.where((t) => t.id == _activeId).firstOrNull;
+  bool get isEmpty => _tabs.isEmpty;
+  int get length => _tabs.length;
+
+  bool contains(String id) => _tabs.any((t) => t.id == id);
+
+  /// Opens [notebook] in a tab (after the active one) and activates it.
+  void open(Notebook notebook) {
+    if (!contains(notebook.id)) {
+      final at = _tabs.indexWhere((t) => t.id == _activeId);
+      final tab = OpenTab(id: notebook.id, title: notebook.title, kind: notebook.kind);
+      _tabs.insert(at == -1 ? _tabs.length : at + 1, tab);
+      while (_tabs.length > maxTabs) {
+        final victim = _recent.firstWhere((id) => id != notebook.id);
+        _remove(victim);
+      }
+    }
+    _activate(notebook.id);
+    notifyListeners();
+  }
+
+  /// Shows tab [id].
+  void activate(String id) {
+    if (id == _activeId || !contains(id)) return;
+    _activate(id);
+    notifyListeners();
+  }
+
+  /// Activates the next (or with [backwards], the previous) tab, wrapping.
+  void cycle({bool backwards = false}) {
+    if (_tabs.length < 2) return;
+    final i = _tabs.indexWhere((t) => t.id == _activeId);
+    final next = (i + (backwards ? -1 : 1)) % _tabs.length;
+    activate(_tabs[next].id);
+  }
+
+  /// Closes tab [id]; closing the active tab shows its neighbour.
+  void close(String id) {
+    final i = _tabs.indexWhere((t) => t.id == id);
+    if (i == -1) return;
+    _remove(id);
+    if (id == _activeId) {
+      _activeId = null;
+      if (_tabs.isNotEmpty) _activate(_tabs[i.clamp(0, _tabs.length - 1)].id);
+    }
+    notifyListeners();
+  }
+
+  /// Moves tab [id] to position [to].
+  void move(String id, int to) {
+    final i = _tabs.indexWhere((t) => t.id == id);
+    if (i == -1) return;
+    final tab = _tabs.removeAt(i);
+    _tabs.insert(to.clamp(0, _tabs.length), tab);
+    notifyListeners();
+  }
+
+  /// Keeps a tab's title in step with renames.
+  void rename(String id, String title) {
+    final i = _tabs.indexWhere((t) => t.id == id);
+    if (i == -1 || _tabs[i].title == title) return;
+    _tabs[i] = _tabs[i].withTitle(title);
+    notifyListeners();
+  }
+
+  /// Remembers where tab [id] was looking (when its editor closes).
+  void saveView(String id, EditorViewState view) {
+    if (contains(id)) _views[id] = view;
+  }
+
+  /// Where tab [id] was looking, if known.
+  EditorViewState? viewOf(String id) => _views[id];
+
+  void closeAll() {
+    _tabs.clear();
+    _views.clear();
+    _recent.clear();
+    _activeId = null;
+    notifyListeners();
+  }
+
+  void _activate(String id) {
+    _activeId = id;
+    _visited.add(id);
+    _recent
+      ..remove(id)
+      ..add(id);
+  }
+
+  void _remove(String id) {
+    _tabs.removeWhere((t) => t.id == id);
+    _views.remove(id);
+    _recent.remove(id);
+  }
+}

@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keep in step with the Flutter in flake.nix (`nix develop -c flutter --version`).
+  FLUTTER_VERSION: "3.47.4"
+
+jobs:
+  app-test:
+    name: App · analyze + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true # caches the SDK and ~/.pub-cache
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  server-test:
+    name: Server · analyze + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2 # same Dart SDK as the app
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: dart pub get --enforce-lockfile
+      - run: dart analyze --fatal-infos
+      - run: dart test
+
+  build-linux:
+    name: Build · Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter build linux --release
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: len-linux-x64
+          path: app/build/linux/x64/release/bundle
+          retention-days: 7
+
+  build-apk:
+    name: Build · Android APK (debug)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter build apk --debug
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: len-android-debug-apk
+          path: app/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+
+  build-web:
+    name: Build · Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter build web --release
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: len-web
+          path: app/build/web
+          retention-days: 7
+
+  build-windows:
+    name: Build · Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter build windows --release
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: len-windows-x64
+          path: app/build/windows/x64/runner/Release
+          retention-days: 7
+
+  server-docker:
+    name: Server · Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: server
+          push: false
+          load: true
+          tags: len-sync:ci
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,scope=server,mode=max
+      - name: Smoke test
+        run: |
+          docker run -d --name len-sync -p 8080:8080 \
+            -e LEN_SYNC_TOKEN=ci-token-0123456789abcdef len-sync:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/v1/health && exit 0
+            sleep 1
+          done
+          docker logs len-sync
+          exit 1

@@ -140,4 +140,28 @@ abstract final class Palette {
     0xFF5C7CFA, // periwinkle
     0xFF862E9C, // plum
   ];
+
+  /// Names of [covers], in the same order (tooltips, accessibility).
+  static const List<String> coverNames = [
+    'Ink blue',
+    'Teal',
+    'Amber',
+    'Orange',
+    'Raspberry',
+    'Violet',
+    'Graphite',
+    'Forest',
+    'Midnight',
+    'Lagoon',
+    'Sand',
+    'Rose',
+    'Periwinkle',
+    'Plum',
+  ];
+
+  /// The name of cover colour [argb], if it is one of [covers].
+  static String? coverName(int argb) {
+    final i = covers.indexOf(argb);
+    return i < 0 ? null : coverNames[i];
+  }
 }

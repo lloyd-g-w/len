@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 
 import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
@@ -24,12 +21,15 @@ Future<Notebook?> importPdfFlow(BuildContext context) async {
   if (file == null || !context.mounted) return null;
   final importer = PdfImporter(services);
   try {
-    return await runWithProgress(context, 'Importing “${file.name}”…', () async {
-      final sha = await _store(importer, file);
+    return await runWithSteps(context, 'Importing PDF', subject: file.name, (progress) async {
+      progress.stageStarted('Copying file…');
+      final sha = await importer.store(file);
+      progress.stageStarted('Reading pages…');
       return importer.createNotebook(
         sha,
         title: PdfImporter.titleFor(file.name),
         cover: Palette.covers[3],
+        onPages: (n) => progress.stageStarted('Creating pages…', note: _pages(n)),
       );
     });
   } on Exception catch (e) {
@@ -52,9 +52,16 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
   if (file == null || !context.mounted) return null;
   final importer = PdfImporter(services);
   try {
-    return await runWithProgress(context, 'Inserting “${file.name}”…', () async {
-      final sha = await _store(importer, file);
-      return importer.insertPages(sha, notebookId: notebookId, after: after);
+    return await runWithSteps(context, 'Inserting pages', subject: file.name, (progress) async {
+      progress.stageStarted('Copying file…');
+      final sha = await importer.store(file);
+      progress.stageStarted('Reading pages…');
+      return importer.insertPages(
+        sha,
+        notebookId: notebookId,
+        after: after,
+        onPages: (n) => progress.stageStarted('Inserting pages…', note: _pages(n)),
+      );
     });
   } on Exception catch (e) {
     if (context.mounted) showMessage(context, _failure(file.name, e));
@@ -64,21 +71,9 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
   }
 }
 
-/// Copies the picked file into the blob store. Desktop pickers return real
-/// paths; Android may hand out content that is only readable as bytes.
-Future<String> _store(PdfImporter importer, XFile file) async {
-  final path = file.path;
-  if (path.isNotEmpty && File(path).existsSync()) return importer.store(File(path));
-  final temp = File(p.join(Directory.systemTemp.path, 'len_import_${file.name}'));
-  await temp.writeAsBytes(await file.readAsBytes(), flush: true);
-  try {
-    return await importer.store(temp);
-  } finally {
-    await temp.delete();
-  }
-}
-
 String _failure(String name, Exception e) {
   debugPrint('PDF import of $name failed: $e');
   return 'Couldn’t open “$name”. Is it a valid, unencrypted PDF?';
 }
+
+String _pages(int n) => n == 1 ? '1 page' : '$n pages';

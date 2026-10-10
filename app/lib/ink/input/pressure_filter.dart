@@ -14,7 +14,7 @@
 ///  * never lets the final samples of a stroke swell: the end can only stay
 ///    level or taper ([settleEnd]).
 class PressureFilter {
-  PressureFilter({this.smoothing = 0.4}) : assert(smoothing >= 0 && smoothing < 1);
+  PressureFilter({this.smoothing = 0.65}) : assert(smoothing >= 0 && smoothing < 1);
 
   /// Weight kept from the previous value (0 = no smoothing).
   final double smoothing;

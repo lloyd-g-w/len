@@ -9,18 +9,20 @@ export 'stroke_style.dart';
 ///
 /// Stored by [name]; never rename a value. Unknown names (from newer
 /// clients) parse to [pen], so they still render as ink.
+///
+/// New strokes use [ballpoint] (the pen) or [highlighter]; the other values
+/// were offered by earlier versions and are kept so their strokes render.
 enum InkTool {
-  /// The original v0.1 pen; kept so old strokes render unchanged.
+  /// The original v0.1 pen (legacy).
   pen,
   highlighter,
   ballpoint,
+
+  /// Legacy pen types.
   fountain,
   brush,
   pencil,
   marker;
-
-  /// The pen types offered in the toolbar, in display order.
-  static const List<InkTool> pens = [ballpoint, fountain, brush, pencil, marker];
 
   bool get isHighlighter => this == highlighter;
 

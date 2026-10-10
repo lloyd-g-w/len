@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../ink/input/ink_input_controller.dart';
 import '../../../ink/input/live_ink.dart';
 import '../../../ink/render/ink_painters.dart';
+import '../../../ui/app_theme.dart';
 import 'document_controller.dart';
 import 'document_layout.dart';
 import 'document_painters.dart';
@@ -38,8 +39,49 @@ class PagedDocumentView extends StatefulWidget {
   State<PagedDocumentView> createState() => _PagedDocumentViewState();
 }
 
-class _PagedDocumentViewState extends State<PagedDocumentView> {
+class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTickerProviderStateMixin {
   final Set<int> _pointers = {};
+
+  /// Slides the new page in when turning pages in single-page flow.
+  late final AnimationController _turn = AnimationController(
+    vsync: this,
+    duration: Motion.medium,
+    value: 1,
+  );
+  late int _shownPage = _doc.currentPage;
+  double _turnDirection = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _doc.addListener(_onDocument);
+  }
+
+  @override
+  void didUpdateWidget(PagedDocumentView old) {
+    super.didUpdateWidget(old);
+    if (old.controller != widget.controller) {
+      old.controller.removeListener(_onDocument);
+      widget.controller.addListener(_onDocument);
+    }
+  }
+
+  @override
+  void dispose() {
+    _doc.removeListener(_onDocument);
+    _turn.dispose();
+    super.dispose();
+  }
+
+  void _onDocument() {
+    final page = _doc.currentPage;
+    if (page == _shownPage) return;
+    if (_doc.flow == PageFlow.single) {
+      _turnDirection = page > _shownPage ? 1 : -1;
+      _turn.forward(from: 0);
+    }
+    _shownPage = page;
+  }
 
   /// Start of a possible page-turning swipe (single-page flow).
   Offset? _swipeStart;
@@ -55,6 +97,7 @@ class _PagedDocumentViewState extends State<PagedDocumentView> {
   }
 
   void _down(PointerDownEvent e) {
+    _doc.scroller.stop(); // Touching the page catches a running scroll.
     // The first pointer of a gesture picks the page; a stylus always does
     // (it cancels whatever a resting palm started anyway).
     final stylus = e.kind == PointerDeviceKind.stylus || e.kind == PointerDeviceKind.invertedStylus;
@@ -125,43 +168,57 @@ class _PagedDocumentViewState extends State<PagedDocumentView> {
             },
             onPointerPanZoomStart: input.handlePanZoomStart,
             onPointerPanZoomUpdate: input.handlePanZoomUpdate,
-            child: ListenableBuilder(
-              listenable: _doc,
-              builder: (context, _) => Stack(
-                fit: StackFit.expand,
-                children: [
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: DocumentPaperPainter(
-                        layout: _doc.layout,
-                        pages: _doc.pages,
-                        viewport: _doc.viewport,
-                        desk: desk,
-                        devicePixelRatio: dpr,
-                        backgrounds: widget.backgrounds,
+            onPointerPanZoomEnd: input.handlePanZoomEnd,
+            child: AnimatedBuilder(
+              animation: _turn,
+              builder: (context, child) {
+                final t = Motion.standard.transform(_turn.value);
+                return Opacity(
+                  opacity: 0.4 + 0.6 * t,
+                  child: Transform.translate(
+                    offset: Offset(_turnDirection * (1 - t) * 48, 0),
+                    child: child,
+                  ),
+                );
+              },
+              child: ListenableBuilder(
+                listenable: _doc,
+                builder: (context, _) => Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    RepaintBoundary(
+                      child: CustomPaint(
+                        painter: DocumentPaperPainter(
+                          layout: _doc.layout,
+                          pages: _doc.pages,
+                          viewport: _doc.viewport,
+                          desk: desk,
+                          devicePixelRatio: dpr,
+                          backgrounds: widget.backgrounds,
+                        ),
                       ),
                     ),
-                  ),
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: DocumentInkPainter(
-                        layout: _doc.layout,
-                        pages: _doc.pages,
-                        surfaces: _doc.surfaces,
-                        viewport: _doc.viewport,
+                    RepaintBoundary(
+                      child: CustomPaint(
+                        painter: DocumentInkPainter(
+                          layout: _doc.layout,
+                          pages: _doc.pages,
+                          surfaces: _doc.surfaces,
+                          viewport: _doc.viewport,
+                        ),
                       ),
                     ),
-                  ),
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: LiveInkPainter(
-                        live: widget.live,
-                        viewport: _doc.pageViewport,
-                        clip: _doc.pageViewport.contentBounds,
+                    RepaintBoundary(
+                      child: CustomPaint(
+                        painter: LiveInkPainter(
+                          live: widget.live,
+                          viewport: _doc.pageViewport,
+                          clip: _doc.pageViewport.contentBounds,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

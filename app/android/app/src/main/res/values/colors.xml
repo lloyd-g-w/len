@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window / splash background = the app's surface colour (AppTheme). -->
+    <color name="len_window_background">#FFF9F9F7</color>
+</resources>

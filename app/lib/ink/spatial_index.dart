@@ -10,14 +10,22 @@ class SpatialIndex {
 
   int get chunkCount => _chunks.length;
 
-  void insert(String id, Rect bounds) {
-    for (final key in ChunkGrid.rangeFor(bounds).keys) {
+  /// Indexes [id] in every chunk overlapping [bounds].
+  void insert(String id, Rect bounds) => insertAt(id, ChunkGrid.rangeFor(bounds).keys);
+
+  /// Removes [id] from every chunk overlapping [bounds].
+  void remove(String id, Rect bounds) => removeAt(id, ChunkGrid.rangeFor(bounds).keys);
+
+  /// Indexes [id] in exactly the chunks [keys] (e.g. `StrokeChunks.of`).
+  void insertAt(String id, Iterable<ChunkKey> keys) {
+    for (final key in keys) {
       (_chunks[key] ??= <String>{}).add(id);
     }
   }
 
-  void remove(String id, Rect bounds) {
-    for (final key in ChunkGrid.rangeFor(bounds).keys) {
+  /// Removes [id] from [keys]; pass the keys it was inserted with.
+  void removeAt(String id, Iterable<ChunkKey> keys) {
+    for (final key in keys) {
       final ids = _chunks[key];
       if (ids == null) continue;
       ids.remove(id);

@@ -1,4 +1,6 @@
-import 'dart:io';
+import 'dart:async';
+
+import 'package:cross_file/cross_file.dart';
 
 import '../../../app_services.dart';
 import '../../../data/page_repository.dart';
@@ -13,17 +15,19 @@ const double worldPerPoint = 96 / 72;
 /// Turns PDF files into notebook pages whose backgrounds are the PDF's
 /// pages. The PDF itself is stored once, as a content-addressed blob.
 class PdfImporter {
-  PdfImporter(this.services, {PdfRenderer? renderer}) : _renderer = renderer ?? PdfRenderer();
+  PdfImporter(this.services, {PdfRenderer? renderer})
+    : _renderer = renderer ?? PdfRenderer(services.blobs);
 
   final AppServices services;
   final PdfRenderer _renderer;
 
-  /// Stores [file] as a blob and returns its id.
-  Future<String> store(File file) => services.blobs.putFile(file, mime: 'application/pdf');
+  /// Stores [file] as a blob and returns its id. Desktop pickers give
+  /// paths (streamed); Android and browsers give the picked bytes.
+  Future<String> store(XFile file) => services.blobs.putFile(file, mime: 'application/pdf');
 
   /// Page specs (one per PDF page) for blob [sha].
   Future<List<PageSpec>> specsFor(String sha) async {
-    final sizes = await _renderer.pageSizes(sha, services.blobs.fileOf(sha).path);
+    final sizes = await _renderer.pageSizes(sha);
     if (sizes.isEmpty) throw const FormatException('The PDF has no pages');
     return [
       for (var i = 0; i < sizes.length; i++)
@@ -36,10 +40,17 @@ class PdfImporter {
     ];
   }
 
-  /// Creates a notebook titled [title] with one page per PDF page.
-  Future<Notebook> createNotebook(String sha, {required String title, required int cover}) async {
+  /// Creates a notebook titled [title] with one page per PDF page;
+  /// [onPages] hears the page count before the pages are created.
+  Future<Notebook> createNotebook(
+    String sha, {
+    required String title,
+    required int cover,
+    void Function(int pages)? onPages,
+  }) async {
     final specs = await specsFor(sha);
-    return services.database.transaction(() {
+    onPages?.call(specs.length);
+    final notebook = services.database.transaction(() {
       final notebook = services.notebooks.create(
         title: title,
         kind: NotebookKind.paged,
@@ -53,17 +64,23 @@ class PdfImporter {
       }
       return notebook;
     });
+    unawaited(services.search.indexPdfs()); // Make its text searchable.
+    return notebook;
   }
 
   /// Inserts the PDF's pages into [notebookId] after [after] (at the end
-  /// if null); returns the new pages.
+  /// if null); returns the new pages. [onPages] hears the page count.
   Future<List<NotebookPage>> insertPages(
     String sha, {
     required String notebookId,
     NotebookPage? after,
+    void Function(int pages)? onPages,
   }) async {
     final specs = await specsFor(sha);
-    return services.pages.insertPages(notebookId, specs, after: after);
+    onPages?.call(specs.length);
+    final pages = services.pages.insertPages(notebookId, specs, after: after);
+    unawaited(services.search.indexPdfs());
+    return pages;
   }
 
   Future<void> dispose() => _renderer.dispose();

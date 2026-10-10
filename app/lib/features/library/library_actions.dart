@@ -2,25 +2,31 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app_services.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_import_flow.dart';
-import '../editor/editor_screen.dart';
+import '../editor/tabs/editor_workspace.dart' as editor;
 import 'library_controller.dart';
 import 'library_dialogs.dart';
 import 'library_drag.dart';
 import 'library_menus.dart';
 import 'new_notebook_sheet.dart';
+import 'selection/library_selection.dart';
 import 'thumbnails/thumbnail_cache.dart';
 
 /// User-facing flows of the library (dialogs, confirmations, navigation)
 /// on top of [LibraryController]. Widgets pass their own [BuildContext].
 class LibraryActions {
-  LibraryActions({required this.controller, required this.thumbnails});
+  LibraryActions({required this.controller, required this.thumbnails, LibrarySelection? selection})
+    : selection = selection ?? LibrarySelection();
 
   final LibraryController controller;
   final ThumbnailCache thumbnails;
+
+  /// Notebooks picked in selection mode.
+  final LibrarySelection selection;
 
   Future<void> openNotebook(BuildContext context, Notebook notebook) async {
     if (notebook.isTrashed) {
@@ -28,9 +34,9 @@ class LibraryActions {
       if (action != null && context.mounted) await onNotebookAction(context, notebook, action);
       return;
     }
-    await Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => EditorScreen(notebook: notebook)));
-    thumbnails.invalidate([notebook.id]);
+    final tabs = AppScope.read(context).openNotebooks;
+    await editor.openNotebook(context, notebook);
+    thumbnails.invalidate([...tabs.takeVisited(), notebook.id]);
     controller.reload();
   }
 
@@ -42,6 +48,7 @@ class LibraryActions {
       title: request.title,
       kind: request.kind,
       paper: request.paper,
+      paperColor: request.template.color,
       coverColor: request.coverColor,
       coverStyle: request.coverStyle,
       firstPage: request.template,

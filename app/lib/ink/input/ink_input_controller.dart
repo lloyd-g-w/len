@@ -4,23 +4,28 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/clock.dart';
+import '../../domain/preferences.dart';
 import '../../domain/stroke.dart';
+import '../navigation/kinetic_pan.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../tools/content_tools.dart';
 import '../tools/pointer_tool.dart';
 import '../viewport.dart';
 import 'bounce_filter.dart';
+import 'canvas_gestures.dart';
 import 'hold_to_straighten.dart';
 import 'live_ink.dart';
 import 'pressure_filter.dart';
+import 'stylus_buttons.dart';
 
 /// Turns raw pointer events into drawing, erasing and navigation.
 ///
 /// Routing rules:
-///  * **Stylus** always draws. The eraser end (inverted stylus) or a barrel
-///    button held (S Pen side button) erases. A stylus landing cancels a
-///    stroke a palm may have started and stops any finger navigation.
+///  * **Stylus** always draws. The eraser end (inverted stylus) erases; a
+///    barrel button held (S Pen side button) does [penButtonAction] (erase,
+///    lasso or nothing). A stylus landing cancels a stroke a palm may have
+///    started and stops any finger navigation.
 ///  * **Touch** is ignored while a stylus is down (it is almost certainly
 ///    the palm). Otherwise it navigates when palm rejection
 ///    ([ToolSettings.stylusOnly]) is on; if off, one finger draws and a
@@ -31,7 +36,8 @@ import 'pressure_filter.dart';
 ///
 /// Resting the pen at the end of a stroke snaps it to a line or shape (see
 /// [HoldToStraighten]). The lasso, shape, text and laser tools receive the
-/// drawing pointer through [content] instead of drawing ink.
+/// drawing pointer through [content] instead of drawing ink. Every event is
+/// also shown to [gestures] (multi-finger taps, long press, right click).
 class InkInputController {
   InkInputController({
     required this._model,
@@ -41,7 +47,11 @@ class InkInputController {
     this.clock = const Clock(),
     this.onStylusDetected,
     this.content,
-  }) : _straighten = HoldToStraighten(live);
+    this.kinetic,
+    this.gestures,
+    PenButtonAction Function()? penButtonAction,
+  }) : _straighten = HoldToStraighten(live),
+       _penButtonAction = penButtonAction ?? (() => PenButtonAction.eraser);
 
   SurfaceModel _model;
 
@@ -64,10 +74,21 @@ class InkInputController {
   /// Called the first time a stylus is used.
   final void Function()? onStylusDetected;
 
+  /// Inertial panning after navigation gestures (optional).
+  final KineticPan? kinetic;
+
   final HoldToStraighten _straighten;
 
   /// Non-inking tools (lasso, shapes, text, laser), if the editor has them.
   final ContentTools? content;
+
+  /// Canvas gestures recognised alongside input, if the editor wants them.
+  final CanvasGestures? gestures;
+
+  final PenButtonAction Function() _penButtonAction;
+
+  /// What the stylus side button currently does.
+  PenButtonAction get penButtonAction => _penButtonAction();
 
   /// The pointer tool handling the current drawing pointer, if any.
   PointerTool? _tool;
@@ -75,12 +96,6 @@ class InkInputController {
   /// Points closer than this (in screen pixels) to the previous one are
   /// dropped; it removes jitter without visible loss of detail.
   static const double _minPointDistance = 0.75;
-
-  /// Stylus buttons that turn the pen into an eraser while held. Android
-  /// reports the S Pen side button as [kPrimaryStylusButton]
-  /// (`MotionEvent.BUTTON_STYLUS_PRIMARY >> 4`); Windows reports the barrel
-  /// button as primary and the eraser flag as [kSecondaryStylusButton].
-  static const int _eraseButtons = kPrimaryStylusButton | kSecondaryStylusButton;
 
   /// Drops accidental stylus re-contacts right after a lift.
   final BounceFilter _bounces = BounceFilter();
@@ -105,6 +120,8 @@ class InkInputController {
   // Pointer lifecycle
 
   void handleDown(PointerDownEvent e) {
+    kinetic?.begin();
+    gestures?.down(e, navigates: tools.stylusOnly ?? false);
     switch (e.kind) {
       case PointerDeviceKind.stylus || PointerDeviceKind.invertedStylus:
         _stylusDown(e);
@@ -122,10 +139,12 @@ class InkInputController {
   }
 
   void handleMove(PointerMoveEvent e) {
+    gestures?.move(e);
     if (e.pointer == _drawPointer) {
       _continueDraw(e);
     } else if (_navPointers.containsKey(e.pointer)) {
       _navigate(e.pointer, e.localPosition);
+      kinetic?.track(e.timeStamp);
     }
   }
 
@@ -133,16 +152,21 @@ class InkInputController {
     if (e.pointer == _drawPointer) {
       _finishDraw(liftTime: e.timeStamp);
     }
-    _navPointers.remove(e.pointer);
+    if (_navPointers.remove(e.pointer) != null && _navPointers.isEmpty) {
+      kinetic?.release(e.timeStamp);
+    }
+    gestures?.up(e);
   }
 
   void handleCancel(PointerCancelEvent e) {
     if (e.pointer == _drawPointer) _cancelDraw();
     _navPointers.remove(e.pointer);
+    gestures?.cancel(e);
   }
 
   /// Shows the eraser outline while hovering (mouse or hovering stylus).
   void handleHover(PointerHoverEvent e) {
+    gestures?.hover(e);
     if (_drawPointer != null) return; // Don't fight the active pointer.
     _showEraser(_wantsErase(e) ? e.localPosition : null);
   }
@@ -170,7 +194,10 @@ class InkInputController {
     }
   }
 
-  void handlePanZoomStart(PointerPanZoomStartEvent e) => _lastPanZoomScale = 1;
+  void handlePanZoomStart(PointerPanZoomStartEvent e) {
+    _lastPanZoomScale = 1;
+    kinetic?.begin();
+  }
 
   void handlePanZoomUpdate(PointerPanZoomUpdateEvent e) {
     viewport.panBy(e.localPanDelta);
@@ -178,7 +205,10 @@ class InkInputController {
       viewport.zoomAt(e.localPosition, e.scale / _lastPanZoomScale);
       _lastPanZoomScale = e.scale;
     }
+    kinetic?.track(e.timeStamp);
   }
+
+  void handlePanZoomEnd(PointerPanZoomEndEvent e) => kinetic?.release(e.timeStamp);
 
   // ---------------------------------------------------------------------------
   // Drawing
@@ -195,7 +225,12 @@ class InkInputController {
     }
     // Fingers resting on the screen are the palm now; stop them panning.
     _navPointers.clear();
-    _startDraw(e, erase: _wantsErase(e));
+    final route = routeStylus(e.kind, e.buttons, penButtonAction);
+    _startDraw(
+      e,
+      erase: route == StylusRoute.eraser || (route == StylusRoute.tool && _wantsErase(e)),
+      lasso: route == StylusRoute.lasso,
+    );
   }
 
   void _touchDown(PointerDownEvent e) {
@@ -222,7 +257,7 @@ class InkInputController {
     _navPointers[e.pointer] = e.localPosition;
   }
 
-  void _startDraw(PointerDownEvent e, {required bool erase}) {
+  void _startDraw(PointerDownEvent e, {required bool erase, bool lasso = false}) {
     _drawPointer = e.pointer;
     _drawKind = e.kind;
     _drawStartTime = e.timeStamp;
@@ -232,7 +267,7 @@ class InkInputController {
     _erasing = erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
-    final tool = erase ? null : content?.toolFor(tools.tool);
+    final tool = erase ? null : content?.toolAt(tools.tool, e.localPosition, lasso: lasso);
     if (tool != null) {
       _tool = tool..down(_toolPointer(e));
       return;
@@ -243,12 +278,7 @@ class InkInputController {
     } else {
       final ink = tools.activeInk;
       final config = tools.configOf(ink);
-      live.begin(
-        tool: ink,
-        color: config.current.color,
-        width: config.current.width,
-        style: tools.styleFor(ink),
-      );
+      live.begin(tool: ink, color: config.color, width: config.width, style: tools.styleFor(ink));
       live.add(_pointOf(e));
       _straighten.begin(e.localPosition, enabled: tools.holdToStraighten, scale: viewport.scale);
     }
@@ -390,8 +420,7 @@ class InkInputController {
 
   bool _wantsErase(PointerEvent e) =>
       tools.tool == EditorTool.eraser ||
-      e.kind == PointerDeviceKind.invertedStylus ||
-      (e.kind == PointerDeviceKind.stylus && e.buttons & _eraseButtons != 0);
+      routeStylus(e.kind, e.buttons, penButtonAction) == StylusRoute.eraser;
 
   // ---------------------------------------------------------------------------
   // Navigation

@@ -236,6 +236,7 @@ void main() {
       expect(n.favorite, isFalse);
       expect(n.isTrashed, isFalse);
       expect(n.coverStyle, CoverStyle.plain);
+      expect(n.paperColor, PaperColor.white);
       expect(n.editedAt, 5);
     });
 
@@ -244,7 +245,9 @@ void main() {
       final nb = notebook('Algebra', folderId: folder.id);
       notebooks.setFavorite(nb.id, true);
       notebooks.trash(nb.id);
-      notebooks.update(notebooks.get(nb.id)!.copyWith(coverStyle: CoverStyle.waves));
+      notebooks.update(
+        notebooks.get(nb.id)!.copyWith(coverStyle: CoverStyle.waves, paperColor: PaperColor.dark),
+      );
       final before = notebooks.get(nb.id)!;
       final applied = notebooks.applyRemote(
         SyncRecord(
@@ -269,6 +272,7 @@ void main() {
       expect(after.favorite, isTrue);
       expect(after.trashedAt, before.trashedAt);
       expect(after.coverStyle, CoverStyle.waves);
+      expect(after.paperColor, PaperColor.dark);
       expect(after.editedAt, before.editedAt);
     });
 
@@ -291,10 +295,16 @@ void main() {
             'folderId': null,
             'favorite': false,
             'trashedAt': null,
+            'paperColor': 'cream',
           },
         ),
       );
       expect(notebooks.get(nb.id)!.folderId, isNull);
+      expect(notebooks.get(nb.id)!.paperColor, PaperColor.cream);
+      // And it round-trips through the wire format.
+      expect(notebooks.dirtyRecords(10), isEmpty);
+      notebooks.update(notebooks.get(nb.id)!);
+      expect(notebooks.dirtyRecords(10).single.data!['paperColor'], 'cream');
     });
   });
 

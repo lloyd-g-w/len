@@ -4,10 +4,12 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
+import '../chrome/bar_button.dart';
+import '../chrome/canvas_guard.dart';
 import 'editor_images.dart';
 import 'image_import.dart';
 
-/// The toolbar's "Insert image" button: opens the file picker, or on
+/// The top bar's "Insert image" button: opens the file picker, or on
 /// Android offers the camera too.
 class InsertImageButton extends StatelessWidget {
   const InsertImageButton({super.key, required this.images});
@@ -18,29 +20,35 @@ class InsertImageButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const icon = Icon(Icons.add_photo_alternate_outlined);
+    const icon = Icons.add_photo_alternate_outlined;
     if (!EditorImages.canUseCamera) {
-      return IconButton(
+      return BarButton(
         tooltip: tooltip,
-        onPressed: () => unawaited(images.pickFiles(context)),
         icon: icon,
+        onPressed: () => unawaited(images.pickFiles(context)),
       );
     }
-    return PopupMenuButton<bool>(
-      tooltip: tooltip,
-      icon: icon,
-      onSelected: (camera) =>
-          unawaited(camera ? images.takePhoto(context) : images.pickFiles(context)),
-      itemBuilder: (context) => const [
-        PopupMenuItem(
-          value: false,
-          child: ListTile(leading: Icon(Icons.photo_library_outlined), title: Text('Choose image')),
+    return MenuAnchor(
+      consumeOutsideTap: true,
+      onOpen: CanvasGuardScope.maybeOf(context)?.opened,
+      onClose: CanvasGuardScope.maybeOf(context)?.closed,
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.photo_library_outlined),
+          onPressed: () => unawaited(images.pickFiles(context)),
+          child: const Text('Choose image…'),
         ),
-        PopupMenuItem(
-          value: true,
-          child: ListTile(leading: Icon(Icons.photo_camera_outlined), title: Text('Take photo')),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.photo_camera_outlined),
+          onPressed: () => unawaited(images.takePhoto(context)),
+          child: const Text('Take photo'),
         ),
       ],
+      builder: (context, menu, _) => BarButton(
+        tooltip: tooltip,
+        icon: icon,
+        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+      ),
     );
   }
 }

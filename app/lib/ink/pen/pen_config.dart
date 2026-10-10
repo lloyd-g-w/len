@@ -1,82 +1,54 @@
 import 'package:flutter/foundation.dart' show listEquals;
 
 import '../../domain/stroke.dart';
-import 'pen_profile.dart';
+import 'pen_config_json.dart';
+import 'pen_defaults.dart';
 
-/// One quick-pick toolbar slot: an opaque colour and a width.
-class PenPreset {
-  const PenPreset({required this.color, required this.width});
-
-  /// Opaque ARGB colour (opacity is a per-pen setting).
-  final int color;
-
-  /// Nominal width in world units.
-  final double width;
-
-  /// A copy with the given fields replaced.
-  PenPreset copyWith({int? color, double? width}) =>
-      PenPreset(color: color ?? this.color, width: width ?? this.width);
-
-  /// Compact JSON for the local settings store.
-  Map<String, Object?> toJson() => {'c': color, 'w': width};
-
-  /// Parses [json] saved by [toJson]; null if it is not a valid preset. The
-  /// width is clamped to [profile]'s range, the colour made opaque.
-  static PenPreset? fromJson(Object? json, PenProfile profile) {
-    if (json is! Map) return null;
-    final c = json['c'], w = json['w'];
-    if (c is! int || w is! num || !w.isFinite || w <= 0) return null;
-    return PenPreset(
-      color: (c & 0xFFFFFF) | 0xFF000000,
-      width: w.toDouble().clamp(profile.minWidth, profile.maxWidth),
-    );
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      other is PenPreset && other.color == color && other.width == width;
-
-  @override
-  int get hashCode => Object.hash(color, width);
-}
-
-/// The user's customisation of one pen type: three presets (one selected)
-/// plus feel settings. Immutable; [ToolSettings] swaps whole configs.
+/// The user's customisation of one ink (pen or highlighter): its quick
+/// colours and quick widths — independent rows of slots, one of each
+/// selected — plus feel settings. Immutable; `ToolSettings` swaps configs.
 class PenConfig {
   const PenConfig({
-    required this.presets,
-    this.selected = 0,
+    required this.colors,
+    required this.widths,
+    this.colorIndex = 0,
+    this.widthIndex = 0,
     required this.opacity,
     required this.thinning,
     required this.streamline,
     required this.taper,
-  });
+  }) : assert(colors.length > 0 && widths.length > 0);
 
-  /// Defaults for [tool] from its [PenProfile].
+  /// Defaults for [tool]: three colours and three widths.
   factory PenConfig.defaultsFor(InkTool tool) {
-    final p = PenProfile.of(tool);
+    final d = PenDefaults.of(tool);
     return PenConfig(
-      presets: [for (final s in p.presets) PenPreset(color: s.color, width: s.width)],
-      opacity: p.opacity,
-      thinning: p.thinning,
-      streamline: p.streamline,
-      taper: p.taper,
+      colors: d.colors,
+      widths: d.widths,
+      widthIndex: 1,
+      opacity: d.opacity,
+      thinning: d.thinning,
+      streamline: d.streamline,
+      taper: false,
     );
   }
 
-  /// Number of quick-pick presets per pen.
-  static const int presetCount = 3;
+  /// Fewest and most slots in each row.
+  static const int minSlots = 1;
+  static const int maxSlots = 6;
 
-  /// Lowest opacity a pen can be set to, so ink never becomes invisible.
+  /// Lowest opacity the highlighter can be set to, so it never vanishes.
   static const double minOpacity = 0.1;
 
-  /// The [presetCount] toolbar presets.
-  final List<PenPreset> presets;
+  /// Quick colours (opaque ARGB) and widths (world units).
+  final List<int> colors;
+  final List<double> widths;
 
-  /// Index of the preset new strokes use.
-  final int selected;
+  /// The selected colour and width slots.
+  final int colorIndex;
+  final int widthIndex;
 
-  /// Ink opacity ([minOpacity]..1), shared by all presets.
+  /// Ink opacity ([minOpacity]..1); the pen is always opaque.
   final double opacity;
 
   /// Pressure sensitivity (0..1).
@@ -88,35 +60,75 @@ class PenConfig {
   /// Whether stroke ends taper to a point.
   final bool taper;
 
-  /// The selected preset.
-  PenPreset get current => presets[selected];
+  /// The selected colour and width.
+  int get color => colors[colorIndex];
+  double get width => widths[widthIndex];
 
   /// A copy with the given fields replaced.
   PenConfig copyWith({
-    List<PenPreset>? presets,
-    int? selected,
+    List<int>? colors,
+    List<double>? widths,
+    int? colorIndex,
+    int? widthIndex,
     double? opacity,
     double? thinning,
     double? streamline,
     bool? taper,
   }) => PenConfig(
-    presets: presets ?? this.presets,
-    selected: selected ?? this.selected,
+    colors: colors ?? this.colors,
+    widths: widths ?? this.widths,
+    colorIndex: colorIndex ?? this.colorIndex,
+    widthIndex: widthIndex ?? this.widthIndex,
     opacity: opacity ?? this.opacity,
     thinning: thinning ?? this.thinning,
     streamline: streamline ?? this.streamline,
     taper: taper ?? this.taper,
   );
 
-  /// A copy with preset [index] replaced.
-  PenConfig withPreset(int index, PenPreset preset) =>
-      copyWith(presets: [...presets]..[index] = preset);
+  /// A copy with colour slot [index] set to [argb] (made opaque).
+  PenConfig withColor(int index, int argb) =>
+      copyWith(colors: [...colors]..[index] = argb | 0xFF000000);
+
+  /// A copy with width slot [index] set to [width].
+  PenConfig withWidth(int index, double width) => copyWith(widths: [...widths]..[index] = width);
+
+  /// A copy with [argb] appended as a new, selected colour slot (unchanged
+  /// when the row is full).
+  PenConfig addColor(int argb) => colors.length >= maxSlots
+      ? this
+      : copyWith(colors: [...colors, argb | 0xFF000000], colorIndex: colors.length);
+
+  /// A copy with [width] appended as a new, selected width slot.
+  PenConfig addWidth(double width) => widths.length >= maxSlots
+      ? this
+      : copyWith(widths: [...widths, width], widthIndex: widths.length);
+
+  /// A copy without colour slot [index] (the last slot is never removed).
+  PenConfig removeColor(int index) {
+    if (colors.length <= minSlots || index < 0 || index >= colors.length) return this;
+    return copyWith(
+      colors: [...colors]..removeAt(index),
+      colorIndex: _afterRemoval(colorIndex, index),
+    );
+  }
+
+  /// A copy without width slot [index] (the last slot is never removed).
+  PenConfig removeWidth(int index) {
+    if (widths.length <= minSlots || index < 0 || index >= widths.length) return this;
+    return copyWith(
+      widths: [...widths]..removeAt(index),
+      widthIndex: _afterRemoval(widthIndex, index),
+    );
+  }
+
+  static int _afterRemoval(int selected, int removed) =>
+      selected > removed || (selected == removed && selected > 0) ? selected - 1 : selected;
 
   /// The style a new stroke drawn with this config and [width] gets.
   StrokeStyle styleFor(InkTool tool, double width) {
-    final taperLength = taper ? width * PenProfile.of(tool).taperFactor : 0.0;
+    final taperLength = taper ? width * PenDefaults.of(tool).taperFactor : 0.0;
     return StrokeStyle(
-      opacity: opacity,
+      opacity: tool.isHighlighter ? opacity : 1,
       thinning: thinning,
       streamline: streamline,
       taperStart: taperLength,
@@ -126,8 +138,10 @@ class PenConfig {
 
   /// JSON for the local settings store (see [fromJson]).
   Map<String, Object?> toJson() => {
-    'presets': [for (final p in presets) p.toJson()],
-    'selected': selected,
+    'colors': colors,
+    'widths': widths,
+    'color': colorIndex,
+    'width': widthIndex,
     'opacity': opacity,
     'thinning': thinning,
     'streamline': streamline,
@@ -136,47 +150,32 @@ class PenConfig {
 
   /// Parses the config of [tool] leniently, taking anything missing or
   /// invalid from [fallback] and clamping values to their valid ranges.
-  static PenConfig fromJson(Object? json, PenConfig fallback, {required InkTool tool}) {
-    if (json is! Map) return fallback;
-    double unit(String key, double orElse, {double min = 0}) {
-      final v = json[key];
-      return v is num && v.isFinite ? v.toDouble().clamp(min, 1.0) : orElse;
-    }
-
-    final profile = PenProfile.of(tool);
-    final rawPresets = json['presets'];
-    final presets = [
-      for (var i = 0; i < presetCount; i++)
-        (rawPresets is List && i < rawPresets.length
-                ? PenPreset.fromJson(rawPresets[i], profile)
-                : null) ??
-            fallback.presets[i],
-    ];
-    final selected = json['selected'];
-    final taper = json['taper'];
-    return PenConfig(
-      presets: presets,
-      selected: selected is int && selected >= 0 && selected < presetCount
-          ? selected
-          : fallback.selected,
-      opacity: unit('opacity', fallback.opacity, min: minOpacity),
-      thinning: unit('thinning', fallback.thinning),
-      streamline: unit('streamline', fallback.streamline),
-      taper: taper is bool ? taper : fallback.taper,
-    );
-  }
+  /// Configs saved with combined colour + width presets (before quick
+  /// colours and widths were separate) are migrated.
+  static PenConfig fromJson(Object? json, PenConfig fallback, {required InkTool tool}) =>
+      PenConfigJson.parse(json, fallback, tool: tool);
 
   @override
   bool operator ==(Object other) =>
       other is PenConfig &&
-      listEquals(other.presets, presets) &&
-      other.selected == selected &&
+      listEquals(other.colors, colors) &&
+      listEquals(other.widths, widths) &&
+      other.colorIndex == colorIndex &&
+      other.widthIndex == widthIndex &&
       other.opacity == opacity &&
       other.thinning == thinning &&
       other.streamline == streamline &&
       other.taper == taper;
 
   @override
-  int get hashCode =>
-      Object.hash(Object.hashAll(presets), selected, opacity, thinning, streamline, taper);
+  int get hashCode => Object.hash(
+    Object.hashAll(colors),
+    Object.hashAll(widths),
+    colorIndex,
+    widthIndex,
+    opacity,
+    thinning,
+    streamline,
+    taper,
+  );
 }

@@ -1,4 +1,4 @@
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import '../core/clock.dart';
 import 'app_database.dart';
@@ -20,7 +20,7 @@ abstract class SyncableTable implements SyncableStore {
   /// The SQL table name (trusted constant, never user input).
   String get table;
 
-  Database get db => database.db;
+  CommonDatabase get db => database.db;
 
   /// Converts a row into its wire record.
   SyncRecord rowToRecord(Row row);

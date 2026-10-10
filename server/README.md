@@ -25,6 +25,28 @@ content-addressed files in a blob directory next to it.
    Data is stored in the named volume `len-data` (mounted at `/data`): the
    database `len.db` and the blob directory `blobs/`.
 
+   **Or use the prebuilt image** instead of building: every release publishes
+   `ghcr.io/lloyd-g-w/len-sync` (tags `latest`, `X.Y`, `X.Y.Z`; amd64 and
+   arm64, e.g. a Raspberry Pi). With Compose, point `image:` at it and drop
+   `build:`:
+
+   ```yaml
+   services:
+     len-sync:
+       image: ghcr.io/lloyd-g-w/len-sync:latest   # or pin a version: :0.1
+   ```
+
+   then `docker compose pull && docker compose up -d`. Without Compose:
+
+   ```sh
+   docker run -d --name len-sync --restart unless-stopped --env-file .env \
+     -p 127.0.0.1:8080:8080 -v len-data:/data \
+     ghcr.io/lloyd-g-w/len-sync:latest
+   ```
+
+   (`.env` from step 1.) Update with `docker compose pull && docker compose
+   up -d` (data lives in the volume and survives).
+
 3. **Put it behind HTTPS.** The token travels in every request, so never
    expose the server over plain HTTP. Compose only binds to `127.0.0.1:8080`;
    use a reverse proxy such as [Caddy](https://caddyserver.com), which gets
@@ -55,8 +77,33 @@ content-addressed files in a blob directory next to it.
 | `LEN_DB_PATH`    | `/data/len.db` | SQLite file (WAL mode).                  |
 | `LEN_BLOB_DIR`   | `blobs/` next to `LEN_DB_PATH` (`/data/blobs`) | Blob files, `<first 2 hex>/<sha256>`; created at startup. |
 | `LEN_BLOB_MAX_BYTES` | `209715200` (200 MiB) | Maximum size of one blob upload; positive integer. |
+| `LEN_CORS_ORIGINS` | `*`          | Browser origins allowed to call the API (CORS), see below. |
 | `PORT`           | `8080`         |                                          |
 | `HOST`           | `0.0.0.0`      |                                          |
+
+**CORS** (for the Len web app, which runs in a browser): `LEN_CORS_ORIGINS`
+is either `*` (the default, also used when the variable is unset or empty),
+`none`, or a comma-separated list of origins such as
+`https://len.example.com,http://localhost:5173` (scheme, host and optional
+port; no path or trailing slash; an invalid entry stops the server from
+starting).
+
+- `*`: every response, including errors such as 401, carries
+  `Access-Control-Allow-Origin: *`. This is safe because auth is a bearer
+  token, not cookies; `Access-Control-Allow-Credentials` is never sent.
+- A list: the request's `Origin` is echoed back if it is listed
+  (case-insensitively), otherwise no CORS headers are sent, so browsers
+  block the response. Every response carries `Vary: Origin`.
+- `none`: no CORS headers at all and `OPTIONS` is not handled specially, for
+  servers only used by the native apps.
+
+Preflight `OPTIONS` requests are answered by the server itself without a
+token: `204` with `Access-Control-Allow-Methods: GET, HEAD, POST, PUT,
+OPTIONS`, `Access-Control-Allow-Headers: Authorization, Content-Type` and
+`Access-Control-Max-Age: 86400`, or `403` without CORS headers if the origin
+is not in the list. Other responses also expose `Content-Length` and
+`Content-Type` (`Access-Control-Expose-Headers`). If your reverse proxy adds
+its own CORS headers, disable one of the two.
 
 **Backups:** back up both the database and the blob directory. Copy the
 database with `sqlite3 len.db ".backup backup.db"` (safe while the server is
@@ -85,5 +132,6 @@ bundle with `dart build cli` (`build/cli/<platform>/bundle/`, executable plus
 
 Layout: `bin/server.dart` (wiring), `lib/src/config.dart` (env config),
 `lib/src/record.dart` (model, validation), `lib/src/record_store.dart`
-(SQLite/LWW), `lib/src/api.dart` (routes, auth), `lib/src/blob_store.dart`
-(content-addressed files), `lib/src/blob_api.dart` (blob routes).
+(SQLite/LWW), `lib/src/api.dart` (routes, auth), `lib/src/cors.dart`
+(CORS middleware), `lib/src/blob_store.dart` (content-addressed files),
+`lib/src/blob_api.dart` (blob routes).

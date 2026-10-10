@@ -141,10 +141,15 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | collection  | data                                                                                   |
 |-------------|----------------------------------------------------------------------------------------|
 | `folders`   | `{name, parentId: string|null, color, createdAt}`                                       |
-| `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt, coverStyle?, editedAt?, folderId?, favorite?, trashedAt?}` |
+| `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt, coverStyle?, editedAt?, folderId?, favorite?, trashedAt?, paperColor?}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperColor?, bookmarked?, background?}`     |
-| `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter`; unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
+| `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
 | `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements (missing → `createdAt`). `type` = `text` (`data` = `{text, size, color, bold, italic, align: "left"|"center"|"right"}`) or `image` (`data` = `{blob, width, height, crop?}`, see below). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
+
+**Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
+cache `pdf_text`) is derived on each device from the collections above and the PDF blobs, and is
+updated when records are applied by sync like any local write. Nothing about it travels over the
+wire, so search needs no protocol change.
 
 Fields marked `?` were added after v1 and may be missing in records from older clients; readers
 keep the local row's value for a missing field (so an old client renaming a notebook does not move,
@@ -159,6 +164,8 @@ unstar or restore it), and for a row not seen before fall back to defaults (`cov
 - `notebooks.folderId` pointing at a missing folder means "library root".
 - `notebooks.trashedAt` (ms) puts a notebook in the trash; it stays a live record so it can be
   restored. "Delete forever" tombstones the notebook, its pages, strokes and elements as before.
+- `paperColor` (canvas background; same values as on pages): missing → the local value, or
+  `white` for a notebook new to this device; unknown → `white`.
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
   (favourite, move, trash) only bump `updatedAt`.
 

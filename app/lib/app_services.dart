@@ -1,19 +1,22 @@
-import 'dart:io';
-
 import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
 import 'data/app_database.dart';
 import 'data/app_preferences.dart';
+import 'data/blob_backend.dart';
 import 'data/blob_store.dart';
 import 'data/element_repository.dart';
 import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
+import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
+import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
+import 'features/editor/tabs/open_notebooks.dart';
 import 'ink/images/element_images.dart';
 import 'ink/selection/ink_clipboard.dart';
+import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
@@ -28,18 +31,20 @@ class AppServices {
     required this.folders,
     required this.pages,
     required this.strokes,
+    required this.strokeReader,
     required this.blobs,
     required this.elements,
     required this.sync,
+    required this.search,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
-  /// substitute the sync transport. Blob files (PDFs) are kept in
-  /// [blobDirectory] (a temporary directory if omitted, e.g. in tests).
+  /// substitute the sync transport. Blobs (PDFs) are kept in [blobBackend]
+  /// (in memory if omitted, e.g. in tests).
   factory AppServices.create(
     AppDatabase database, {
     Clock clock = const Clock(),
-    Directory? blobDirectory,
+    BlobBackend? blobBackend,
     SyncApi Function(String url, String token)? syncApiFactory,
   }) {
     final settings = SettingsRepository(database);
@@ -56,11 +61,7 @@ class AppServices {
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
-    final blobs = BlobStore(
-      database,
-      blobDirectory ?? Directory.systemTemp.createTempSync('len_blobs_'),
-      clock: clock,
-    );
+    final blobs = BlobStore(database, blobBackend ?? MemoryBlobBackend(), clock: clock);
     final engine = SyncEngine(
       database: database,
       settings: settings,
@@ -79,11 +80,13 @@ class AppServices {
       folders: folders,
       pages: pages,
       strokes: strokes,
+      strokeReader: openStrokeReader(database.path, fallback: strokes),
       blobs: blobs,
       elements: elements,
       sync: syncApiFactory == null
           ? SyncController(engine: engine, settings: settings)
           : SyncController(engine: engine, settings: settings, apiFactory: syncApiFactory),
+      search: SearchService(database, readBlob: blobs.read),
     );
   }
 
@@ -96,21 +99,33 @@ class AppServices {
   final FolderRepository folders;
   final PageRepository pages;
   final StrokeRepository strokes;
+
+  /// Reads strokes for lazy loading off the UI isolate when possible.
+  final StrokeReader strokeReader;
   final BlobStore blobs;
   final ElementRepository elements;
   final SyncController sync;
 
+  /// Full-text search over titles, text boxes and PDF text.
+  final SearchService search;
+
   /// Copied strokes and text, shared by every editor (paste across pages
   /// and notebooks).
   final InkClipboard clipboard = InkClipboard();
+
+  /// Notebooks open in editor tabs (with each tab's place in memory).
+  final OpenNotebooks openNotebooks = OpenNotebooks();
 
   /// Decoded bitmaps of image elements, shared by editors and previews.
   late final ElementImages images = ElementImages(read: blobs.read, fetch: sync.fetchBlob);
 
   void dispose() {
     images.dispose();
+    openNotebooks.dispose();
     clipboard.dispose();
+    search.dispose();
     sync.dispose();
+    closeStrokeReader(strokeReader);
     preferences.dispose();
     database.close();
   }

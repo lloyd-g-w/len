@@ -51,7 +51,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Page size'), findsNothing); // Size is fixed when changing.
     await tester.tap(find.text('Dotted'));
-    await tester.tap(find.byTooltip('Dark'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Dark'));
+    await tester.tap(find.text('Dark'));
+    await tester.pump();
     await tester.pump();
     await tester.tap(find.text('Apply to all pages'));
     await tester.pumpAndSettle();

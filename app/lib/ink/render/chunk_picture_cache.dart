@@ -48,6 +48,9 @@ class ChunkPictureCache {
 
   ui.Picture pictureFor(ChunkKey key) => _pictures[key] ??= _record(key);
 
+  /// The cached picture of [key], without recording one.
+  ui.Picture? peek(ChunkKey key) => _pictures[key];
+
   /// Tells the cache the viewport scale (logical pixels per world unit)
   /// content is about to be painted at. Safe to call while painting.
   void setScale(double scale) {

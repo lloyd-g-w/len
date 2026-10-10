@@ -11,7 +11,8 @@ class ChunkRange {
 
   int get count => (maxX - minX + 1) * (maxY - minY + 1);
 
-  bool contains(ChunkKey key) => key.x >= minX && key.x <= maxX && key.y >= minY && key.y <= maxY;
+  bool contains(ChunkKey key) =>
+      key.x >= minX && key.x <= maxX && key.y >= minY && key.y <= maxY;
 
   Iterable<ChunkKey> get keys sync* {
     for (var y = minY; y <= maxY; y++) {
@@ -44,7 +45,8 @@ abstract final class ChunkGrid {
   /// Edge length of a chunk in world units.
   static const double size = 512;
 
-  static ChunkKey keyAt(double x, double y) => (x: (x / size).floor(), y: (y / size).floor());
+  static ChunkKey keyAt(double x, double y) =>
+      (x: (x / size).floor(), y: (y / size).floor());
 
   /// All chunks overlapping [rect] (edges inclusive).
   static ChunkRange rangeFor(Rect rect) {
@@ -53,5 +55,6 @@ abstract final class ChunkGrid {
     return ChunkRange(min.x, min.y, max.x, max.y);
   }
 
-  static Rect rectOf(ChunkKey key) => Rect.fromLTWH(key.x * size, key.y * size, size, size);
+  static Rect rectOf(ChunkKey key) =>
+      Rect.fromLTWH(key.x * size, key.y * size, size, size);
 }

@@ -9,6 +9,7 @@ import 'library_drag.dart';
 import 'library_draggable.dart';
 import 'library_menus.dart';
 import 'notebook_cover.dart';
+import 'selection/selection_mark.dart';
 
 /// A notebook in the library grid: its cover (live preview) with the title
 /// and a subtitle below. Lifts on hover, opens on tap, offers its menu on
@@ -35,6 +36,13 @@ class _NotebookCardState extends State<NotebookCard> {
   bool _focused = false;
 
   Notebook get _notebook => widget.notebook;
+  bool get _selecting => widget.actions.selection.active;
+
+  /// Opens the notebook, or toggles it in selection mode.
+  void _tap() => _selecting
+      ? widget.actions.selection.toggle(_notebook.id)
+      : unawaited(widget.actions.openNotebook(context, _notebook));
+  bool get _selected => widget.actions.selection.contains(_notebook.id);
 
   /// Opens the menu at [at] (global), else under [anchor] or the card.
   Future<void> _showMenu({Offset? at, BuildContext? anchor}) async {
@@ -65,19 +73,25 @@ class _NotebookCardState extends State<NotebookCard> {
         type: MaterialType.transparency,
         child: InkWell(
           borderRadius: BorderRadius.circular(Radii.cover),
-          onTap: () => unawaited(widget.actions.openNotebook(context, _notebook)),
+          onTap: _tap,
           onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
           onHover: (h) => setState(() => _hovered = h),
           onFocusChange: (f) {
             setState(() => _focused = f);
             widget.actions.controller.setNotebookFocused(_notebook.id, f);
           },
-          child: NotebookCover.of(_notebook),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              NotebookCover.of(_notebook),
+              if (_selecting) SelectionMark(selected: _selected),
+            ],
+          ),
         ),
       ),
     );
     return Semantics(
-      label: _notebook.title,
+      label: '${_notebook.title}, ${widget.subtitle}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -93,8 +107,8 @@ class _NotebookCardState extends State<NotebookCard> {
               child: AnimatedScale(
                 scale: _focused ? 1.02 : 1,
                 duration: Motion.fast,
-                // Trashed notebooks look faded.
-                child: _notebook.isTrashed ? Opacity(opacity: 0.6, child: cover) : cover,
+                // Trashed notebooks look faded but recognisable.
+                child: _notebook.isTrashed ? fadedCover(cover) : cover,
               ),
             ),
           ),
@@ -103,37 +117,41 @@ class _NotebookCardState extends State<NotebookCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: Gaps.xxs),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _notebook.title,
-                        style: theme.textTheme.titleSmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: Gaps.xxs),
-                      Text(
-                        widget.subtitle,
-                        style: theme.textTheme.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                // The title is part of the target too.
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _tap,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: Gaps.xxs),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _notebook.title,
+                          style: theme.textTheme.titleSmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: Gaps.xxs),
+                        Text(
+                          widget.subtitle,
+                          style: theme.textTheme.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               SizedBox(
-                width: 28,
-                height: 28,
+                width: 36,
+                height: 36,
                 child: Builder(
                   builder: (anchor) => IconButton(
                     tooltip: 'More',
                     padding: EdgeInsets.zero,
-                    iconSize: 18,
-                    visualDensity: VisualDensity.compact,
+                    iconSize: 20,
                     color: theme.colorScheme.onSurfaceVariant,
                     icon: const Icon(Icons.more_horiz_rounded),
                     onPressed: () => unawaited(_showMenu(anchor: anchor)),
@@ -147,3 +165,17 @@ class _NotebookCardState extends State<NotebookCard> {
     );
   }
 }
+
+/// Desaturates and fades [cover] (trashed notebooks).
+Widget fadedCover(Widget cover) => Opacity(
+  opacity: 0.8,
+  child: ColorFiltered(
+    colorFilter: const ColorFilter.matrix([
+      0.5, 0.4, 0.1, 0, 20, //
+      0.2, 0.7, 0.1, 0, 20, //
+      0.2, 0.4, 0.4, 0, 20, //
+      0, 0, 0, 1, 0, //
+    ]),
+    child: cover,
+  ),
+);

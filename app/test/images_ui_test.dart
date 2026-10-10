@@ -17,8 +17,8 @@ import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/thumbnails/thumbnail_renderer.dart';
 import 'package:len/ui/app_theme.dart';
 
-import 'content_golden_test.dart' show loadFonts;
 import 'content_documents_test.dart' show elementsOf;
+import 'content_golden_test.dart' show loadFonts;
 import 'content_tools_ui_test.dart' show key, liveElements, liveStrokes, mouseDrag, seedStroke;
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
 import 'images_test.dart' show jpegOf, pngOf;
@@ -144,8 +144,10 @@ void main() {
     expect(image.rect.size, const Size(320, 160)); // Natural size: fits the view.
     expect(image.rect.center, const Offset(640, 400)); // Centre of the screen.
     final data = ImageData.fromJson(image.data);
-    expect(services.blobs.has(data.blob), isTrue);
-    expect(services.blobs.pendingUploads(), contains(data.blob)); // Synced as a blob.
+    await tester.runAsync(() async {
+      expect(await services.blobs.has(data.blob), isTrue);
+      expect(services.blobs.pendingUploads(), contains(data.blob)); // Synced as a blob.
+    });
     // Selected with the lasso, with image actions.
     expect(find.byTooltip('Crop'), findsOneWidget);
     expect(find.byTooltip('Send to back'), findsOneWidget);

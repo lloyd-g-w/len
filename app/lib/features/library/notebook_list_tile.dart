@@ -9,6 +9,7 @@ import 'library_drag.dart';
 import 'library_draggable.dart';
 import 'library_menus.dart';
 import 'notebook_cover.dart';
+import 'selection/selection_mark.dart';
 
 /// A notebook as a row in the library's list view.
 class NotebookListTile extends StatefulWidget {
@@ -57,7 +58,9 @@ class _NotebookListTileState extends State<NotebookListTile> {
         type: MaterialType.transparency,
         child: InkWell(
           borderRadius: BorderRadius.circular(Radii.control),
-          onTap: () => unawaited(widget.actions.openNotebook(context, _notebook)),
+          onTap: widget.actions.selection.active
+              ? () => widget.actions.selection.toggle(_notebook.id)
+              : () => unawaited(widget.actions.openNotebook(context, _notebook)),
           onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
           onHover: (h) => setState(() => _hovered = h),
           onFocusChange: (f) => widget.actions.controller.setNotebookFocused(_notebook.id, f),
@@ -70,7 +73,21 @@ class _NotebookListTileState extends State<NotebookListTile> {
                     borderRadius: BorderRadius.circular(Radii.xs),
                     boxShadow: Shadows.low(theme.brightness),
                   ),
-                  child: SizedBox(width: 40, height: 40 / 0.72, child: NotebookCover.of(_notebook)),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40 / 0.72,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        NotebookCover.of(_notebook),
+                        if (widget.actions.selection.active)
+                          SelectionMark(
+                            selected: widget.actions.selection.contains(_notebook.id),
+                            compact: true,
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(width: Gaps.lg),
                 Expanded(

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart' show MaterialApp, Rect, Size, SizedBox;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -16,6 +17,7 @@ import 'package:len/features/documents/pdf/pdf_background_cache.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/features/documents/pdf/pdf_renderer.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:pdf/pdf.dart' as pw;
 import 'package:pdfrx/pdfrx.dart';
@@ -63,7 +65,7 @@ void main() {
   });
   setUp(() {
     dir = Directory.systemTemp.createTempSync('len_pdf_test_');
-    services = AppServices.create(AppDatabase.inMemory(), blobDirectory: dir);
+    services = AppServices.create(AppDatabase.inMemory(), blobBackend: FileBlobBackend(dir.path));
   });
   tearDown(() {
     services.dispose();
@@ -76,7 +78,7 @@ void main() {
     () async {
       final file = File('${dir.path}/Lecture_3.pdf')..writeAsBytesSync(await samplePdf());
       final importer = PdfImporter(services);
-      final sha = await importer.store(file);
+      final sha = await importer.store(XFile(file.path));
       final nb = await importer.createNotebook(
         sha,
         title: PdfImporter.titleFor('Lecture_3.pdf'),
@@ -93,8 +95,8 @@ void main() {
       expect(services.blobs.pendingUploads(), [sha]);
 
       // Background rendering: the red square sits at the top-left.
-      final renderer = PdfRenderer();
-      final image = (await renderer.render(sha, services.blobs.fileOf(sha).path, 0, 400))!;
+      final renderer = PdfRenderer(services.blobs);
+      final image = (await renderer.render(sha, 0, 400))!;
       expect(image.width, 400);
       final red = await pixel(image, 20, 20);
       expect(red.r, greaterThan(0.9));
@@ -251,7 +253,7 @@ void main() {
       final file = File('${dir.path}/doc.pdf')..writeAsBytesSync(await samplePdf());
       final importer = PdfImporter(services);
       final notebook = await importer.createNotebook(
-        await importer.store(file),
+        await importer.store(XFile(file.path)),
         title: 'PDF',
         cover: 0,
       );
@@ -285,4 +287,23 @@ void main() {
     expect(PdfBackgroundCache.bucketFor(100000), PdfBackgroundCache.maxWidth);
     expect(PdfBackgroundCache.bucketFor(double.nan), 256);
   });
+
+  test(
+    'without local files (web) PDFs are imported from bytes and opened from memory',
+    skip: pdfium == null,
+    () async {
+      final memory = AppServices.create(AppDatabase.inMemory());
+      addTearDown(memory.dispose);
+      final importer = PdfImporter(memory);
+      final sha = await importer.store(XFile.fromData(await samplePdf(), name: 'web.pdf'));
+      expect(memory.blobs.localPath(sha), isNull);
+      expect((await importer.specsFor(sha)).length, 2);
+      await importer.dispose();
+      final renderer = PdfRenderer(memory.blobs);
+      final image = (await renderer.render(sha, 0, 200))!;
+      expect(image.width, 200);
+      expect((await pixel(image, 10, 10)).r, greaterThan(0.9));
+      await renderer.dispose();
+    },
+  );
 }

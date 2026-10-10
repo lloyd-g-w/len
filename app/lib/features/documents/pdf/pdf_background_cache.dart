@@ -24,7 +24,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     required this.fetch,
     PdfRenderer? renderer,
     this.budgetBytes = 160 << 20,
-  }) : _renderer = renderer ?? PdfRenderer();
+  }) : _renderer = renderer ?? PdfRenderer(blobs);
 
   final BlobStore blobs;
 
@@ -87,7 +87,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   Future<void> _render(_Key key) async {
     final sha = key.background.blob;
     try {
-      if (!blobs.has(sha)) {
+      if (!await blobs.has(sha)) {
         if (_missing.contains(sha) || !_fetching.add(sha)) return;
         final ok = await fetch(sha);
         _fetching.remove(sha);
@@ -97,7 +97,6 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
       }
       final image = await _renderer.render(
         sha,
-        blobs.fileOf(sha).path,
         key.background.pageIndex,
         key.width,
         stillWanted: () => !_disposed && _wanted[key.background] == key.width,

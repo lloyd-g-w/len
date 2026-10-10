@@ -10,10 +10,16 @@ import '../../editor/document/page_painting.dart';
 import '../pdf/pdf_renderer.dart';
 import 'pdf_export.dart';
 
+/// The phases of a PDF export.
+enum ExportStage { preparing, writing }
+
+/// Hears that [done] of [total] pages went through [stage].
+typedef ExportProgress = void Function(ExportStage stage, int done, int total);
+
 /// Produces PDF and PNG files from notebook pages.
 class NotebookExporter {
   NotebookExporter(this.services, {PdfRenderer? renderer})
-    : _renderer = renderer ?? PdfRenderer(),
+    : _renderer = renderer ?? PdfRenderer(services.blobs),
       _copier = SurfaceCopier(services.strokes, elements: services.elements);
 
   final AppServices services;
@@ -23,11 +29,17 @@ class NotebookExporter {
   /// Resolution of PDF-page backgrounds embedded in exported PDFs.
   static const double backgroundDpi = 150;
 
-  /// A PDF of [pages] (vector ink and templates).
-  Future<Uint8List> pdf(List<NotebookPage> pages, {String? title}) async {
+  /// A PDF of [pages] (vector ink and templates). [onProgress] hears how
+  /// many pages are prepared, then written.
+  Future<Uint8List> pdf(
+    List<NotebookPage> pages, {
+    String? title,
+    ExportProgress? onProgress,
+  }) async {
     final export = <ExportPage>[];
     try {
       for (final page in pages) {
+        onProgress?.call(ExportStage.preparing, export.length, pages.length);
         final background = await _background(page, page.width / 96 * backgroundDpi);
         export.add(
           ExportPage(
@@ -38,7 +50,12 @@ class NotebookExporter {
           ),
         );
       }
-      return await PdfExporter.build(export, title: title, readBlob: _readBlob);
+      return await PdfExporter.build(
+        export,
+        title: title,
+        onPage: (done) => onProgress?.call(ExportStage.writing, done, export.length),
+        readBlob: _readBlob,
+      );
     } finally {
       for (final e in export) {
         e.background?.dispose();
@@ -78,12 +95,7 @@ class NotebookExporter {
   Future<ui.Image?> _background(NotebookPage page, double pixelWidth) async {
     final bg = page.background;
     if (bg == null || !await services.sync.fetchBlob(bg.blob)) return null;
-    return _renderer.render(
-      bg.blob,
-      services.blobs.fileOf(bg.blob).path,
-      bg.pageIndex,
-      pixelWidth.round(),
-    );
+    return _renderer.render(bg.blob, bg.pageIndex, pixelWidth.round());
   }
 
   Future<void> dispose() => _renderer.dispose();

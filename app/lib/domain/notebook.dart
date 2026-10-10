@@ -25,6 +25,7 @@ class Notebook {
     required this.coverColor,
     required this.createdAt,
     required this.updatedAt,
+    this.paperColor = PaperColor.white,
     this.coverStyle = CoverStyle.plain,
     this.folderId,
     this.favorite = false,
@@ -38,6 +39,10 @@ class Notebook {
 
   /// Default paper for new pages (paged) or the canvas background (canvas).
   final PaperStyle paper;
+
+  /// Colour of the canvas background (canvas notebooks; pages of paged
+  /// notebooks carry their own colour).
+  final PaperColor paperColor;
 
   /// ARGB colour of the cover in the library.
   final int coverColor;
@@ -75,6 +80,7 @@ class Notebook {
   Notebook copyWith({
     String? title,
     PaperStyle? paper,
+    PaperColor? paperColor,
     int? coverColor,
     CoverStyle? coverStyle,
     int? updatedAt,
@@ -88,6 +94,7 @@ class Notebook {
       title: title ?? this.title,
       kind: kind,
       paper: paper ?? this.paper,
+      paperColor: paperColor ?? this.paperColor,
       coverColor: coverColor ?? this.coverColor,
       coverStyle: coverStyle ?? this.coverStyle,
       createdAt: createdAt,

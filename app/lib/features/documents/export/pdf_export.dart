@@ -51,16 +51,20 @@ abstract final class PdfExporter {
   /// Largest side (pixels) of one rendered element.
   static const int maxElementPixels = 4096;
 
+  /// The PDF document of [pages]; [onPage] hears how many are written.
+  /// Image elements are read through [readBlob].
   static Future<Uint8List> build(
     List<ExportPage> pages, {
     String? title,
+    void Function(int done)? onPage,
     Future<Uint8List?> Function(String sha)? readBlob,
   }) async {
     final doc = PdfDocument();
     PdfInfo(doc, title: title, creator: 'Len'); // Registers itself.
     final images = PdfImageWriter(doc, readBlob ?? (_) async => null);
-    for (final p in pages) {
-      await _addPage(doc, p, images);
+    for (var i = 0; i < pages.length; i++) {
+      onPage?.call(i);
+      await _addPage(doc, pages[i], images);
     }
     return doc.save();
   }

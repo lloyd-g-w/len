@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:ui';
 
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import '../domain/notebook_page.dart';
 import '../domain/paper.dart';

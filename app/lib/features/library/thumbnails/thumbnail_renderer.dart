@@ -99,10 +99,20 @@ class ThumbnailRenderer {
       for (final s in ink) s.bounds,
       for (final e in items) e.bounds,
     ].reduce((a, b) => a.expandToInclude(b)).intersect(windowRect);
-    return _paint(size, _frame(content, size.aspectRatio), notebook.paper, ink, items);
+    return _paint(
+      size,
+      _frame(content, size.aspectRatio),
+      notebook.paper,
+      ink,
+      items,
+      color: notebook.paperColor,
+    );
   }
 
-  static const _everywhere = ChunkRange(-1 << 40, -1 << 40, 1 << 40, 1 << 40);
+  /// Every chunk float32 world coordinates can reach. Shifts stay within
+  /// 31 bits and are negated, not shifted: on the web, `<<` yields unsigned
+  /// 32-bit values (`-1 << 40` is not negative there, `1 << 40` is 0).
+  static const _everywhere = ChunkRange(-(1 << 22), -(1 << 22), 1 << 22, 1 << 22);
 
   static int _dist(ChunkKey k) => k.x * k.x + k.y * k.y;
 

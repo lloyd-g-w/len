@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -52,7 +53,10 @@ Future<void> pumpApp(
   AppServices services,
   Widget home, {
   ThemeMode mode = ThemeMode.light,
+  double textScale = 1,
 }) async {
+  tester.platformDispatcher.textScaleFactorTestValue = textScale;
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   await tester.pumpWidget(
     AppScope(
       services: services,
@@ -80,19 +84,30 @@ Future<void> settle(WidgetTester tester) async {
   }
 }
 
-/// Writes the current frame to `build/screenshots/<name>.png`.
-Future<void> shoot(WidgetTester tester, String name) async {
+/// Writes the current frame to `build/screenshots/<name>.png`, optionally
+/// only the [crop] rectangle (logical pixels).
+Future<void> shoot(WidgetTester tester, String name, {Rect? crop}) async {
   if (!writeScreenshots) return;
   // Draw real elevation shadows (flutter_test replaces them with outlines),
   // restoring the default before the test ends.
   await _repaintWithShadows(tester, true);
   await tester.runAsync(() async {
-    final image = await captureImage(shotKey.currentContext! as Element);
+    final dpr = tester.view.devicePixelRatio;
+    final boundary = shotKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    var image = await boundary.toImage(pixelRatio: dpr);
+    if (crop != null) image = await _crop(image, crop, dpr);
     final png = await image.toByteData(format: ui.ImageByteFormat.png);
     final file = File('build/screenshots/$name.png')..createSync(recursive: true);
     file.writeAsBytesSync(png!.buffer.asUint8List());
   });
   await _repaintWithShadows(tester, false);
+}
+
+Future<ui.Image> _crop(ui.Image image, Rect crop, double dpr) {
+  final src = Rect.fromLTRB(crop.left * dpr, crop.top * dpr, crop.right * dpr, crop.bottom * dpr);
+  final recorder = ui.PictureRecorder();
+  Canvas(recorder).drawImageRect(image, src, Offset.zero & src.size, Paint());
+  return recorder.endRecording().toImage(src.width.round(), src.height.round());
 }
 
 Future<void> _repaintWithShadows(WidgetTester tester, bool shadows) async {
@@ -110,6 +125,10 @@ Future<void> _repaintWithShadows(WidgetTester tester, bool shadows) async {
 
 /// A deterministic clock for stable "last edited" labels.
 class ShotClock extends Clock {
+  ShotClock([this.prefix = 'id']);
+
+  /// Prefix of generated ids, so several clocks never collide.
+  final String prefix;
   int now = DateTime(2026, 10, 10, 9, 30).millisecondsSinceEpoch;
   int _ids = 0;
 
@@ -117,7 +136,7 @@ class ShotClock extends Clock {
   int nowMs() => now += 60000;
 
   @override
-  String newId() => 'id${_ids++}';
+  String newId() => '$prefix${_ids++}';
 }
 
 /// Services with a realistic library: folders, notebooks with handwriting,
@@ -149,7 +168,7 @@ AppServices seededServices() {
     );
     if (ink > 0) {
       final surface = kind == NotebookKind.canvas ? n.id : s.pages.pagesOf(n.id).first.id;
-      s.strokes.save(_handwriting(surface, clock, lines: ink, canvas: kind == NotebookKind.canvas));
+      s.strokes.save(handwriting(surface, clock, lines: ink, canvas: kind == NotebookKind.canvas));
     }
     return n;
   }
@@ -176,12 +195,7 @@ AppServices seededServices() {
 }
 
 /// Wavy pseudo-handwriting: words along ruled lines.
-List<Stroke> _handwriting(
-  String surface,
-  ShotClock clock, {
-  required int lines,
-  required bool canvas,
-}) {
+List<Stroke> handwriting(String surface, Clock clock, {required int lines, required bool canvas}) {
   final rnd = math.Random(surface.hashCode);
   final strokes = <Stroke>[];
   for (var line = 0; line < lines; line++) {

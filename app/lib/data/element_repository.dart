@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:ui';
 
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import '../domain/chunk_grid.dart';
+import '../domain/stroke_chunks.dart';
 import '../domain/surface_element.dart';
+import 'stroke_queries.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
@@ -20,40 +22,15 @@ class ElementRepository extends SyncableTable {
   @override
   String get table => 'elements';
 
+  late final StrokeQueries _queries = StrokeQueries(db);
+
   /// Chunks within [range] that contain at least one live element.
-  List<ChunkKey> populatedChunks(String surfaceId, ChunkRange range) => db
-      .select(
-        'SELECT DISTINCT cx, cy FROM element_chunks '
-        'WHERE surface_id = ? AND cx BETWEEN ? AND ? AND cy BETWEEN ? AND ?',
-        [surfaceId, range.minX, range.maxX, range.minY, range.maxY],
-      )
-      .map((r) => (x: r['cx'] as int, y: r['cy'] as int))
-      .toList();
+  List<ChunkKey> populatedChunks(String surfaceId, ChunkRange range) =>
+      _queries.populatedElementChunks(surfaceId, range);
 
   /// Live elements on [surfaceId] touching any of [keys].
-  List<SurfaceElement> loadChunks(String surfaceId, List<ChunkKey> keys) {
-    const batch = 250;
-    final byId = <String, SurfaceElement>{};
-    for (var i = 0; i < keys.length; i += batch) {
-      final slice = keys.sublist(i, (i + batch).clamp(0, keys.length));
-      final tuples = List.filled(slice.length, '(?, ?)').join(', ');
-      final rows = db.select(
-        '''
-        SELECT * FROM elements WHERE deleted = 0 AND id IN (
-          SELECT element_id FROM element_chunks
-          WHERE surface_id = ? AND (cx, cy) IN (VALUES $tuples)
-        )''',
-        [
-          surfaceId,
-          for (final k in slice) ...[k.x, k.y],
-        ],
-      );
-      for (final element in rows.map(_rowToElement).nonNulls) {
-        byId[element.id] = element;
-      }
-    }
-    return byId.values.toList();
-  }
+  List<SurfaceElement> loadChunks(String surfaceId, List<ChunkKey> keys) =>
+      _queries.loadElementChunks(surfaceId, keys);
 
   /// Inserts or updates elements (also revives deleted ones on redo).
   void save(Iterable<SurfaceElement> elements) {
@@ -119,7 +96,9 @@ class ElementRepository extends SyncableTable {
               'rotation': row['rotation'],
               'z': row['z'],
               'createdAt': row['created_at'],
-              'data': _decodeData(row['data'] as String) ?? const <String, Object?>{},
+              'data':
+                  StrokeQueries.decodeElementData(row['data'] as String) ??
+                  const <String, Object?>{},
             },
     );
   }
@@ -237,40 +216,11 @@ class ElementRepository extends SyncableTable {
       'INSERT OR IGNORE INTO element_chunks (surface_id, cx, cy, element_id) VALUES (?, ?, ?, ?)',
     );
     try {
-      for (final key in ChunkGrid.rangeFor(e.bounds).keys) {
+      for (final key in ElementChunks.of(e)) {
         insert.execute([e.surfaceId, key.x, key.y, e.id]);
       }
     } finally {
       insert.close();
-    }
-  }
-
-  SurfaceElement? _rowToElement(Row row) {
-    final data = _decodeData(row['data'] as String);
-    if (data == null) return null; // Corrupt row: skip it, keep the surface.
-    return SurfaceElement(
-      id: row['id'] as String,
-      surfaceId: row['surface_id'] as String,
-      type: row['type'] as String,
-      rect: Rect.fromLTWH(
-        (row['x'] as num).toDouble(),
-        (row['y'] as num).toDouble(),
-        (row['w'] as num).toDouble(),
-        (row['h'] as num).toDouble(),
-      ),
-      rotation: (row['rotation'] as num).toDouble(),
-      z: (row['z'] as num).toDouble(),
-      createdAt: row['created_at'] as int,
-      data: data,
-    );
-  }
-
-  static Map<String, Object?>? _decodeData(String json) {
-    try {
-      final decoded = jsonDecode(json);
-      return decoded is Map<String, Object?> ? decoded : null;
-    } on FormatException {
-      return null;
     }
   }
 }
