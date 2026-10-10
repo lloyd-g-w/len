@@ -48,7 +48,6 @@ abstract final class AppTheme {
   }
 }
 
-/// Corner radii used across the app.
 /// Spacing scale used for padding and gaps.
 abstract final class Gaps {
   static const double xs = 4;
@@ -59,6 +58,7 @@ abstract final class Gaps {
   static const double xxl = 32;
 }
 
+/// Corner radii used across the app.
 abstract final class Radii {
   static const double control = 14;
   static const double card = 20;
