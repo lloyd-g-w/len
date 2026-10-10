@@ -183,12 +183,7 @@ AppServices seededServices() {
 }
 
 /// Wavy pseudo-handwriting: words along ruled lines.
-List<Stroke> handwriting(
-  String surface,
-  Clock clock, {
-  required int lines,
-  required bool canvas,
-}) {
+List<Stroke> handwriting(String surface, Clock clock, {required int lines, required bool canvas}) {
   final rnd = math.Random(surface.hashCode);
   final strokes = <Stroke>[];
   for (var line = 0; line < lines; line++) {

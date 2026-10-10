@@ -4,10 +4,10 @@ import '../../domain/cover_style.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
-import '../documents/template_field.dart';
 import 'cover_picker.dart';
-import 'notebook_cover.dart';
-import 'paper_swatch.dart';
+import 'new_notebook/kind_selector.dart';
+import 'new_notebook/notebook_preview.dart';
+import 'new_notebook/paper_tab.dart';
 
 /// What the user chose in [NewNotebookSheet].
 class NewNotebookRequest {
@@ -43,17 +43,40 @@ class NewNotebookRequest {
   final bool importPdf;
 }
 
-/// Bottom sheet for creating a notebook or an infinite canvas.
+/// Creates a notebook or an infinite canvas: a live preview (cover and
+/// first page), title and kind, then Paper and Cover galleries. A dialog
+/// with the preview beside the galleries on wide screens; a tall bottom
+/// sheet on phones.
 class NewNotebookSheet extends StatefulWidget {
-  const NewNotebookSheet({super.key});
+  const NewNotebookSheet({super.key, this.wide = false});
 
-  static Future<NewNotebookRequest?> show(BuildContext context) =>
-      showModalBottomSheet<NewNotebookRequest>(
+  /// Two-pane dialog layout.
+  final bool wide;
+
+  static Future<NewNotebookRequest?> show(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    if (size.width >= Breakpoints.medium && size.height >= 560) {
+      return showDialog<NewNotebookRequest>(
         context: context,
-        isScrollControlled: true,
-        constraints: const BoxConstraints(maxWidth: 640),
-        builder: (_) => const NewNotebookSheet(),
+        builder: (_) => Dialog(
+          clipBehavior: Clip.antiAlias,
+          insetPadding: const EdgeInsets.all(Gaps.xl),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 960, maxHeight: 680),
+            child: const NewNotebookSheet(wide: true),
+          ),
+        ),
       );
+    }
+    return showModalBottomSheet<NewNotebookRequest>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: false,
+      builder: (context) =>
+          FractionallySizedBox(heightFactor: 0.94, child: const NewNotebookSheet()),
+    );
+  }
 
   @override
   State<NewNotebookSheet> createState() => _NewNotebookSheetState();
@@ -66,6 +89,8 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   PaperStyle get _paper => _template.style;
   int _cover = Palette.covers.first;
   CoverStyle _coverStyle = CoverStyle.plain;
+
+  bool get _canvas => _kind == NotebookKind.canvas;
 
   @override
   void dispose() {
@@ -87,211 +112,233 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
     );
   }
 
-  String get _defaultTitle =>
-      _kind == NotebookKind.canvas ? 'Untitled canvas' : 'Untitled notebook';
+  String get _defaultTitle => _canvas ? 'Untitled canvas' : 'Untitled notebook';
 
   void _setKind(NotebookKind kind) => setState(() {
     _kind = kind;
-    if (_kind == NotebookKind.canvas && _paper.isRuled) {
-      _template = _template.copyWith(style: PaperStyle.dotted);
-    }
+    if (_canvas && _paper.isRuled) _template = _template.copyWith(style: PaperStyle.dotted);
   });
+
+  void _setTemplate(PageTemplate t) => setState(() => _template = t);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final label = theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant);
-    // Scrollable so the form survives a short phone screen with the keyboard
-    // up; padded by the keyboard inset so the fields stay visible.
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        Gaps.xl,
-        0,
-        Gaps.xl,
-        Gaps.xl + MediaQuery.viewInsetsOf(context).bottom + MediaQuery.paddingOf(context).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text('New', style: theme.textTheme.headlineSmall)),
-              // At the top, so it stays reachable with the keyboard up.
-              FilledButton.icon(
-                onPressed: _submit,
-                icon: const Icon(Icons.add),
-                label: const Text('Create'),
-              ),
-            ],
-          ),
-          const SizedBox(height: Gaps.lg),
-          Row(
-            children: [
-              Expanded(
-                child: _KindCard(
-                  icon: Icons.menu_book_rounded,
-                  label: 'Notebook',
-                  description: 'Pages you can flip through',
-                  selected: _kind == NotebookKind.paged,
-                  onTap: () => _setKind(NotebookKind.paged),
-                ),
-              ),
-              const SizedBox(width: Gaps.md),
-              Expanded(
-                child: _KindCard(
-                  icon: Icons.all_inclusive_rounded,
-                  label: 'Infinite canvas',
-                  description: 'One endless whiteboard',
-                  selected: _kind == NotebookKind.canvas,
-                  onTap: () => _setKind(NotebookKind.canvas),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: Gaps.lg),
-          TextField(
-            controller: _title,
-            autofocus: true,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _submit(),
-            decoration: InputDecoration(hintText: _defaultTitle),
-          ),
-          const SizedBox(height: Gaps.xl),
-          Text('Paper', style: label),
-          const SizedBox(height: Gaps.sm),
-          // Quick style choice; the field below opens the full template
-          // picker (paper colour and page size too).
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final paper in PaperStyle.ordered)
-                  Padding(
-                    padding: const EdgeInsets.only(right: Gaps.md),
-                    child: PaperSwatch(
-                      paper: paper,
-                      color: _template.color,
-                      selected: _paper == paper,
-                      onTap: () => setState(() => _template = _template.copyWith(style: paper)),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: Gaps.md),
-          TemplateField(
-            template: _template,
-            sizeEditable: _kind == NotebookKind.paged,
-            onChanged: (t) => setState(() => _template = t),
-          ),
-          const SizedBox(height: Gaps.xl),
-          Text('Cover', style: label),
-          const SizedBox(height: Gaps.sm),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 84,
-                height: 116,
-                child: NotebookCover(color: _cover, style: _coverStyle, kind: _kind),
-              ),
-              const SizedBox(width: Gaps.xl),
-              Expanded(
-                child: CoverPicker(
-                  color: _cover,
-                  style: _coverStyle,
-                  kind: _kind,
-                  onColor: (c) => setState(() => _cover = c),
-                  onStyle: (s) => setState(() => _coverStyle = s),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: Gaps.lg),
-          // Alternative to a blank notebook: one page per PDF page.
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: TextButton.icon(
-              onPressed: () => Navigator.of(context).pop(const NewNotebookRequest.importPdf()),
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              label: const Text('Import PDF…'),
-            ),
-          ),
-        ],
+    return Material(
+      color: widget.wide
+          ? theme.dialogTheme.backgroundColor
+          : theme.colorScheme.surfaceContainerLow,
+      child: DefaultTabController(
+        length: 2,
+        child: widget.wide ? _wideLayout(context) : _phoneLayout(context),
       ),
     );
   }
-}
 
-class _KindCard extends StatelessWidget {
-  const _KindCard({
-    required this.icon,
-    required this.label,
-    required this.description,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final String description;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _header(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Semantics(
-      selected: selected,
-      button: true,
-      child: AnimatedContainer(
-        duration: Motion.medium,
-        curve: Motion.standard,
-        decoration: BoxDecoration(
-          color: selected ? scheme.primary.withValues(alpha: 0.08) : scheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(Radii.control + 2),
-          border: Border.all(
-            color: selected ? scheme.primary : scheme.outlineVariant,
-            width: selected ? 1.6 : 1,
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            _canvas ? 'New canvas' : 'New notebook',
+            style: theme.textTheme.titleLarge,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(Radii.control + 2),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(Gaps.md + 2),
-              child: Row(
-                children: [
-                  Icon(icon, color: selected ? scheme.primary : scheme.onSurfaceVariant),
-                  const SizedBox(width: Gaps.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          label,
-                          style: theme.textTheme.titleSmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          description,
-                          style: theme.textTheme.bodySmall,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+        IconButton(
+          tooltip: 'Close',
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
+
+  Widget _preview(double height) => Center(
+    child: NotebookPreview(
+      kind: _kind,
+      coverColor: _cover,
+      coverStyle: _coverStyle,
+      template: _template,
+      height: height,
+    ),
+  );
+
+  Widget _titleField({required bool autofocus}) => TextField(
+    controller: _title,
+    autofocus: autofocus,
+    textCapitalization: TextCapitalization.sentences,
+    textInputAction: TextInputAction.done,
+    onSubmitted: (_) => _submit(),
+    decoration: InputDecoration(
+      hintText: _defaultTitle,
+      labelText: 'Title',
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+    ),
+  );
+
+  Widget _tabs(BuildContext context) => TabBar(
+    isScrollable: true,
+    tabAlignment: TabAlignment.start,
+    dividerColor: Theme.of(context).colorScheme.outlineVariant,
+    tabs: const [
+      Tab(text: 'Paper'),
+      Tab(text: 'Cover'),
+    ],
+  );
+
+  Widget _tabViews(EdgeInsets padding, {required double tileWidth}) => TabBarView(
+    children: [
+      SingleChildScrollView(
+        padding: padding,
+        child: PaperTab(
+          template: _template,
+          canvas: _canvas,
+          tileWidth: tileWidth,
+          onChanged: _setTemplate,
+        ),
+      ),
+      SingleChildScrollView(
+        padding: padding,
+        child: CoverPicker(
+          color: _cover,
+          style: _coverStyle,
+          kind: _kind,
+          onColor: (c) => setState(() => _cover = c),
+          onStyle: (s) => setState(() => _coverStyle = s),
+        ),
+      ),
+    ],
+  );
+
+  Widget _footer(BuildContext context, {double bottomInset = 0}) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: scheme.outlineVariant)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(Gaps.lg, Gaps.md, Gaps.xl, Gaps.md + bottomInset),
+        child: Row(
+          children: [
+            // Alternative to a blank notebook: one page per PDF page.
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: () => Navigator.of(context).pop(const NewNotebookRequest.importPdf()),
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  label: const Text('Import PDF…', maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
               ),
             ),
+            const SizedBox(width: Gaps.md),
+            FilledButton.icon(
+              onPressed: _submit,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _wideLayout(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 360,
+                color: scheme.surfaceContainer,
+                padding: const EdgeInsets.all(Gaps.xl),
+                child: LayoutBuilder(
+                  builder: (context, c) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      KindSelector(kind: _kind, onChanged: _setKind),
+                      Expanded(child: _preview((c.maxHeight - 190).clamp(120.0, 260.0))),
+                      _titleField(autofocus: true),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.md, Gaps.sm, 0),
+                      child: _header(context),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: Gaps.md),
+                      child: _tabs(context),
+                    ),
+                    Expanded(child: _tabViews(const EdgeInsets.all(Gaps.xl), tileWidth: 76)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
+        _footer(context),
+      ],
+    );
+  }
+
+  Widget _phoneLayout(BuildContext context) {
+    final media = MediaQuery.of(context);
+    // With the keyboard up, the preview yields its space to the form.
+    final keyboard = media.viewInsets.bottom > 0;
+    return Padding(
+      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.sm, Gaps.sm, 0),
+            child: _header(context),
+          ),
+          AnimatedSize(
+            duration: Motion.medium,
+            curve: Motion.standard,
+            child: keyboard
+                ? const SizedBox(width: double.infinity)
+                : Padding(
+                    padding: const EdgeInsets.symmetric(vertical: Gaps.md),
+                    child: _preview(150),
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.sm, Gaps.xl, 0),
+            child: Column(
+              children: [
+                _titleField(autofocus: false),
+                const SizedBox(height: Gaps.md),
+                KindSelector(kind: _kind, onChanged: _setKind),
+              ],
+            ),
+          ),
+          const SizedBox(height: Gaps.sm),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
+            child: _tabs(context),
+          ),
+          Expanded(
+            child: _tabViews(
+              const EdgeInsets.fromLTRB(Gaps.xl, Gaps.lg, Gaps.xl, Gaps.xl),
+              tileWidth: 64,
+            ),
+          ),
+          _footer(context, bottomInset: keyboard ? 0 : media.padding.bottom),
+        ],
       ),
     );
   }

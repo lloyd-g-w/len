@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../core/format.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
@@ -11,6 +10,7 @@ import 'folder_tile.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_empty_state.dart';
+import 'library_format.dart';
 import 'library_header.dart';
 import 'notebook_card.dart';
 import 'notebook_list_tile.dart';
@@ -80,6 +80,10 @@ class LibraryContent extends StatelessWidget {
               inFolder: _c.folderId != null,
               query: _c.query,
               onCreate: () => unawaited(actions.createNotebook(context)),
+              onClearSearch: () {
+                searchController.clear();
+                _c.query = '';
+              },
             ),
           )
         else ...[
@@ -88,9 +92,10 @@ class LibraryContent extends StatelessWidget {
             SliverPadding(
               padding: EdgeInsets.symmetric(horizontal: gutter),
               sliver: SliverGrid.builder(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 300,
-                  mainAxisExtent: 64,
+                  // Two lines of text grow with the text scale.
+                  mainAxisExtent: 28 + MediaQuery.textScalerOf(context).scale(38),
                   mainAxisSpacing: Gaps.md,
                   crossAxisSpacing: Gaps.md,
                 ),
@@ -128,12 +133,13 @@ class LibraryContent extends StatelessWidget {
   }
 
   String _subtitle(Notebook n) {
-    if (n.isTrashed) return 'Deleted ${formatEdited(n.trashedAt!)}';
+    if (n.isTrashed) return 'Deleted ${formatLibraryDate(n.trashedAt!)}';
     if (_c.isSearching) return _c.locationOf(n);
-    final kind = n.kind == NotebookKind.canvas ? ' · Canvas' : '';
-    return _c.sort == LibrarySort.created
-        ? 'Created ${formatEdited(n.createdAt)}$kind'
-        : '${formatEdited(n.editedAt)}$kind';
+    final kind = n.kind == NotebookKind.canvas ? 'Canvas' : pageCountLabel(_c.pageCountOf(n.id));
+    final date = _c.sort == LibrarySort.created
+        ? 'Created ${formatLibraryDate(n.createdAt)}'
+        : formatLibraryDate(n.editedAt);
+    return '$date · $kind';
   }
 
   Widget _grid(List<Notebook> notebooks, bool compact) {
@@ -149,7 +155,8 @@ class LibraryContent extends StatelessWidget {
             crossAxisCount: columns,
             crossAxisSpacing: spacing,
             mainAxisSpacing: spacing + Gaps.xs,
-            mainAxisExtent: tile / ThumbnailRenderer.aspect + 54,
+            mainAxisExtent:
+                tile / ThumbnailRenderer.aspect + 18 + MediaQuery.textScalerOf(context).scale(36),
           ),
           itemCount: notebooks.length,
           itemBuilder: (context, i) => NotebookCard(

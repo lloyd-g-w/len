@@ -77,7 +77,7 @@ class _NotebookCardState extends State<NotebookCard> {
       ),
     );
     return Semantics(
-      label: _notebook.title,
+      label: '${_notebook.title}, ${widget.subtitle}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -93,8 +93,8 @@ class _NotebookCardState extends State<NotebookCard> {
               child: AnimatedScale(
                 scale: _focused ? 1.02 : 1,
                 duration: Motion.fast,
-                // Trashed notebooks look faded.
-                child: _notebook.isTrashed ? Opacity(opacity: 0.6, child: cover) : cover,
+                // Trashed notebooks look faded but recognisable.
+                child: _notebook.isTrashed ? fadedCover(cover) : cover,
               ),
             ),
           ),
@@ -126,14 +126,13 @@ class _NotebookCardState extends State<NotebookCard> {
                 ),
               ),
               SizedBox(
-                width: 28,
-                height: 28,
+                width: 36,
+                height: 36,
                 child: Builder(
                   builder: (anchor) => IconButton(
                     tooltip: 'More',
                     padding: EdgeInsets.zero,
-                    iconSize: 18,
-                    visualDensity: VisualDensity.compact,
+                    iconSize: 20,
                     color: theme.colorScheme.onSurfaceVariant,
                     icon: const Icon(Icons.more_horiz_rounded),
                     onPressed: () => unawaited(_showMenu(anchor: anchor)),
@@ -147,3 +146,17 @@ class _NotebookCardState extends State<NotebookCard> {
     );
   }
 }
+
+/// Desaturates and fades [cover] (trashed notebooks).
+Widget fadedCover(Widget cover) => Opacity(
+  opacity: 0.8,
+  child: ColorFiltered(
+    colorFilter: const ColorFilter.matrix([
+      0.5, 0.4, 0.1, 0, 20, //
+      0.2, 0.7, 0.1, 0, 20, //
+      0.2, 0.4, 0.4, 0, 20, //
+      0, 0, 0, 1, 0, //
+    ]),
+    child: cover,
+  ),
+);

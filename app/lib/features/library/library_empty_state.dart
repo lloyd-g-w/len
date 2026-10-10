@@ -14,12 +14,16 @@ class LibraryEmptyState extends StatelessWidget {
     required this.inFolder,
     required this.query,
     this.onCreate,
+    this.onClearSearch,
   });
 
   final LibrarySection section;
   final bool inFolder;
   final String query;
   final VoidCallback? onCreate;
+
+  /// Offered when a search found nothing.
+  final VoidCallback? onClearSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +88,15 @@ class LibraryEmptyState extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: onCreate,
                     icon: const Icon(Icons.add),
-                    label: const Text('New notebook'),
+                    label: Text(inFolder ? 'New notebook here' : 'New notebook'),
+                  ),
+                ],
+                if (searching && onClearSearch != null) ...[
+                  const SizedBox(height: Gaps.xl),
+                  OutlinedButton.icon(
+                    onPressed: onClearSearch,
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text('Clear search'),
                   ),
                 ],
               ],
@@ -105,13 +117,14 @@ class _IconArt extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      width: 104,
-      height: 104,
+      width: 96,
+      height: 96,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: scheme.primaryContainer.withValues(alpha: 0.5),
+        color: scheme.surfaceContainerHigh,
+        border: Border.all(color: scheme.outlineVariant),
       ),
-      child: Icon(icon, size: 44, color: scheme.primary),
+      child: Icon(icon, size: 40, color: scheme.onSurfaceVariant),
     );
   }
 }
