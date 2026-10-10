@@ -70,7 +70,7 @@ class _NotebookCardState extends State<NotebookCard> {
           onHover: (h) => setState(() => _hovered = h),
           onFocusChange: (f) {
             setState(() => _focused = f);
-            widget.actions.controller.focusedNotebookId = f ? _notebook.id : null;
+            widget.actions.controller.setNotebookFocused(_notebook.id, f);
           },
           child: NotebookCover.of(_notebook),
         ),

@@ -1,22 +1,35 @@
 import 'package:flutter/material.dart';
 
-/// A round colour swatch with a selection ring.
+import 'design_tokens.dart';
+
+/// A round colour swatch with a selection ring (colour pickers, cover,
+/// folder and accent colours).
 class ColorDot extends StatelessWidget {
   const ColorDot({
     super.key,
     required this.color,
     required this.selected,
     required this.onTap,
+    this.onLongPress,
     this.size = 32,
     this.tooltip,
   });
 
+  /// ARGB colour shown.
   final int color;
+
+  /// Draws the selection ring.
   final bool selected;
+
   final VoidCallback onTap;
+
+  /// Long press (or right-click), e.g. to remove a favourite.
+  final VoidCallback? onLongPress;
+
+  /// Outer diameter, ring included.
   final double size;
 
-  /// Optional tooltip / accessibility label.
+  /// Optional tooltip; also the accessibility label (else the hex code).
   final String? tooltip;
 
   @override
@@ -25,19 +38,25 @@ class ColorDot extends StatelessWidget {
     final dot = Semantics(
       button: true,
       selected: selected,
-      label: tooltip,
+      label: tooltip ?? '#${(color & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           onTap: onTap,
+          onLongPress: onLongPress,
+          onSecondaryTap: onLongPress,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: Motion.fast,
             width: size,
             height: size,
-            padding: const EdgeInsets.all(3),
+            // Ring and gap scale with the dot (2.5 + 3 at the default size).
+            padding: EdgeInsets.all(size * 0.09),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: selected ? scheme.primary : Colors.transparent, width: 2.5),
+              border: Border.all(
+                color: selected ? scheme.primary : Colors.transparent,
+                width: size * 0.075,
+              ),
             ),
             child: DecoratedBox(
               decoration: BoxDecoration(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../color_dot.dart';
 import 'color_hex.dart';
 import 'color_swatches.dart';
 import 'gradient_slider.dart';
@@ -23,11 +24,22 @@ class ColorPicker extends StatefulWidget {
     this.showOpacity = true,
   });
 
+  /// The colour shown (ARGB).
   final int color;
+
+  /// Called with the new ARGB colour on every change.
   final ValueChanged<int> onChanged;
+
+  /// The user's favourite colours (ARGB), most recent first.
   final List<int> favorites;
+
+  /// Saves the current colour as a favourite; null hides the favourites row.
   final ValueChanged<int>? onAddFavorite;
+
+  /// Forgets a favourite; null makes favourites read-only.
   final ValueChanged<int>? onRemoveFavorite;
+
+  /// Whether the opacity slider is shown (otherwise colours are opaque).
   final bool showOpacity;
 
   @override
@@ -44,7 +56,16 @@ class _ColorPickerState extends State<ColorPicker> {
   @override
   void didUpdateWidget(ColorPicker old) {
     super.didUpdateWidget(old);
-    if (widget.color != _argb) _setHsv(HSVColor.fromColor(Color(widget.color)), notify: false);
+    final color = widget.color;
+    if (color & 0xFFFFFF != _argb & 0xFFFFFF) {
+      // A different colour from outside: start over from it.
+      _hsv = HSVColor.fromColor(Color(color));
+      _hex.text = ColorHex.rgb(color);
+    } else if (color >>> 24 != _argb >>> 24) {
+      // Only the opacity differs (e.g. the owner clamped it): keep the hue,
+      // which RGB alone loses for greys and black.
+      _hsv = _hsv.withAlpha(((color >>> 24) & 0xFF) / 255);
+    }
   }
 
   @override
@@ -197,13 +218,15 @@ class _SwatchGrid extends StatelessWidget {
           runSpacing: gap,
           children: [
             for (final c in colors)
-              Swatch(color: c, size: size, selected: c == selected, onTap: () => onTap(c)),
+              ColorDot(color: c, size: size, selected: c == selected, onTap: () => onTap(c)),
           ],
         );
       },
     );
   }
 }
+
+const double _favoriteSize = 30;
 
 class _FavoritesRow extends StatelessWidget {
   const _FavoritesRow({
@@ -233,8 +256,9 @@ class _FavoritesRow extends StatelessWidget {
           runSpacing: 6,
           children: [
             for (final c in favorites)
-              Swatch(
+              ColorDot(
                 color: c,
+                size: _favoriteSize,
                 selected: c == selected,
                 onTap: () => onTap(c),
                 onLongPress: onRemove == null ? null : () => onRemove!(c),
@@ -246,8 +270,8 @@ class _FavoritesRow extends StatelessWidget {
                 onTap: onAdd,
                 radius: 18,
                 child: Container(
-                  width: Swatch.defaultSize,
-                  height: Swatch.defaultSize,
+                  width: _favoriteSize,
+                  height: _favoriteSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: scheme.outline),

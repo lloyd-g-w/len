@@ -66,7 +66,7 @@ class _PopoverRoute<T> extends PopupRoute<T> {
   bool get barrierDismissible => true;
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 160);
+  Duration get transitionDuration => Motion.fast;
 
   @override
   Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> _) {
@@ -74,7 +74,13 @@ class _PopoverRoute<T> extends PopupRoute<T> {
     final media = MediaQuery.of(context);
     return capturedThemes.wrap(
       CustomSingleChildLayout(
-        delegate: _PopoverLayout(anchor: anchor, width: width, padding: media.padding),
+        // Keep clear of system bars and of an open on-screen keyboard (the
+        // colour picker's hex field).
+        delegate: _PopoverLayout(
+          anchor: anchor,
+          width: width,
+          padding: media.padding + EdgeInsets.only(bottom: media.viewInsets.bottom),
+        ),
         child: Material(
           color: scheme.surfaceContainerHigh,
           elevation: 6,
@@ -144,7 +150,8 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
       math.max(_margin, size.width - childSize.width - _margin),
     );
     final top = padding.top + _margin;
-    return Offset(x, y.clamp(top, math.max(top, size.height - childSize.height)).toDouble());
+    final bottom = size.height - padding.bottom - _margin - childSize.height;
+    return Offset(x, y.clamp(top, math.max(top, bottom)).toDouble());
   }
 
   @override

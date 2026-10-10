@@ -13,13 +13,25 @@ class GradientSlider extends StatelessWidget {
     this.checkerboard = false,
   });
 
+  /// Thumb position, 0..1.
   final double value;
+
+  /// Track gradient, left to right.
   final List<Color> colors;
+
+  /// Fill of the thumb (usually the colour at [value]).
   final Color thumbColor;
+
+  /// Called with the new 0..1 value while tapping or dragging.
   final ValueChanged<double> onChanged;
+
+  /// Accessibility label.
   final String label;
+
+  /// Draws a checkerboard under the track, to show transparency.
   final bool checkerboard;
 
+  /// Height of the slider (and diameter of its thumb).
   static const double height = 28;
 
   /// The hue spectrum, for a hue slider.
@@ -35,7 +47,9 @@ class GradientSlider extends StatelessWidget {
 
   void _update(double dx, double width) {
     const inset = height / 2;
-    onChanged(((dx - inset) / (width - 2 * inset)).clamp(0.0, 1.0));
+    final track = width - 2 * inset;
+    if (track <= 0) return; // Too narrow to have a track.
+    onChanged(((dx - inset) / track).clamp(0.0, 1.0));
   }
 
   @override
@@ -52,8 +66,8 @@ class GradientSlider extends StatelessWidget {
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
               onHorizontalDragDown: (d) => _update(d.localPosition.dx, width),
+              // Also fires for taps, so no separate tap handler.
               onHorizontalDragUpdate: (d) => _update(d.localPosition.dx, width),
-              onTapDown: (d) => _update(d.localPosition.dx, width),
               child: CustomPaint(
                 size: Size(width, height),
                 painter: _TrackPainter(

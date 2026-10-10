@@ -14,6 +14,10 @@ import 'syncable_table.dart';
 class StrokeRepository extends SyncableTable {
   StrokeRepository(super.database, {required super.deviceId, super.clock});
 
+  /// Widest stroke accepted from sync (far above any pen's range). Guards
+  /// against corrupt records whose bounds would index millions of chunks.
+  static const double maxWidth = 1000;
+
   @override
   String get collection => 'strokes';
 
@@ -256,7 +260,7 @@ class StrokeRepository extends SyncableTable {
       throw FormatException('Malformed stroke $id');
     }
     final decoded = StrokeCodec.decode(base64Decode(points));
-    if (decoded.isEmpty || !width.isFinite || width <= 0) {
+    if (decoded.isEmpty || !width.isFinite || width <= 0 || width > maxWidth) {
       throw FormatException('Invalid stroke geometry $id');
     }
     final inkTool = InkTool.parse(tool);

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
@@ -24,7 +25,7 @@ class ToolSettings extends ChangeNotifier {
     if (store == null) return;
     final json = store.toolPrefs;
     if (json != null) _restore(json);
-    _favorites = store.favoriteColors;
+    _favorites = _normalizedFavorites(store.favoriteColors);
   }
 
   final SettingsRepository? _store;
@@ -62,7 +63,10 @@ class ToolSettings extends ChangeNotifier {
   /// the eraser is active).
   InkTool get activeInk => _tool == EditorTool.highlighter ? InkTool.highlighter : _penType;
 
+  /// The customisation of [tool].
   PenConfig configOf(InkTool tool) => _configs[tool] ?? PenConfig.defaultsFor(tool);
+
+  /// The customisation of [activeInk].
   PenConfig get activeConfig => configOf(activeInk);
 
   /// Replaces the configuration of [tool].
@@ -79,6 +83,7 @@ class ToolSettings extends ChangeNotifier {
 
   /// Selects preset [index] of the active ink (and leaves the eraser).
   void selectPreset(int index) {
+    if (index < 0 || index >= PenConfig.presetCount) return;
     if (_tool == EditorTool.eraser) _tool = EditorTool.pen;
     updateConfig(activeInk, (c) => c.copyWith(selected: index));
   }
@@ -94,10 +99,11 @@ class ToolSettings extends ChangeNotifier {
     updateConfig(activeInk, (c) {
       return c
           .withPreset(c.selected, c.current.copyWith(color: argb | 0xFF000000))
-          .copyWith(opacity: ((argb >>> 24) & 0xFF) / 255);
+          .copyWith(opacity: math.max(((argb >>> 24) & 0xFF) / 255, PenConfig.minOpacity));
     });
   }
 
+  /// Sets the width of the active ink's selected preset.
   void setWidth(double width) =>
       updateConfig(activeInk, (c) => c.withPreset(c.selected, c.current.copyWith(width: width)));
 
@@ -120,12 +126,15 @@ class ToolSettings extends ChangeNotifier {
   /// Saved favourite colours (ARGB), most recent first.
   List<int> get favorites => _favorites;
 
+  /// Saves [argb] as the most recent favourite (moving it to the front if
+  /// already saved); keeps at most [maxFavorites].
   void addFavorite(int argb) {
-    _favorites = [argb, ..._favorites.where((c) => c != argb)].take(maxFavorites).toList();
+    _favorites = _normalizedFavorites([argb, ..._favorites]);
     _store?.favoriteColors = _favorites;
     notifyListeners();
   }
 
+  /// Forgets favourite [argb].
   void removeFavorite(int argb) {
     _favorites = _favorites.where((c) => c != argb).toList();
     _store?.favoriteColors = _favorites;
@@ -144,6 +153,7 @@ class ToolSettings extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Persistence
 
+  /// The persisted customisation (favourites are stored separately).
   Map<String, Object?> toJson() => {
     'penType': _penType.name,
     'pens': {for (final e in _configs.entries) e.key.name: e.value.toJson()},
@@ -164,12 +174,16 @@ class ToolSettings extends ChangeNotifier {
     final pens = data['pens'];
     if (pens is Map) {
       for (final tool in _configs.keys.toList()) {
-        _configs[tool] = PenConfig.fromJson(pens[tool.name], _configs[tool]!);
+        _configs[tool] = PenConfig.fromJson(pens[tool.name], _configs[tool]!, tool: tool);
       }
     }
     _eraser = EraserConfig.fromJson(data['eraser']);
     if (data['straighten'] case final bool straighten) _holdToStraighten = straighten;
   }
+
+  /// Distinct colours, first occurrence first, at most [maxFavorites].
+  static List<int> _normalizedFavorites(Iterable<int> colors) =>
+      colors.toSet().take(maxFavorites).toList(growable: false);
 
   void _changed() {
     notifyListeners();

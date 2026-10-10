@@ -34,8 +34,30 @@ class LibraryController extends ChangeNotifier {
   List<Notebook> _notebooks = const [];
   List<Notebook> _trash = const [];
 
+  // Derived from the lists above on [reload], so building the sidebar tree
+  // and folder tiles does not re-walk ancestor chains per folder.
+  Map<String, String?> _parentById = const {};
+  Map<String?, List<Folder>> _childrenByParent = const {};
+  Map<String?, int> _notebookCountByFolder = const {};
+
+  /// [visibleNotebooks] for the current state and sort; several widgets
+  /// read it per build. Cleared whenever listeners are notified.
+  ({LibrarySort sort, List<Notebook> notebooks})? _visible;
+
   /// The notebook with keyboard focus (target of the Delete shortcut).
-  String? focusedNotebookId;
+  String? get focusedNotebookId => _focusedNotebookId;
+  String? _focusedNotebookId;
+
+  /// Records that notebook [id] gained or lost keyboard focus. Losing focus
+  /// only clears it if no other notebook has gained it meanwhile (focus
+  /// gain and loss callbacks arrive in no guaranteed order).
+  void setNotebookFocused(String id, bool focused) {
+    if (focused) {
+      _focusedNotebookId = id;
+    } else if (_focusedNotebookId == id) {
+      _focusedNotebookId = null;
+    }
+  }
 
   LibrarySection get section => _section;
 
@@ -67,8 +89,26 @@ class LibraryController extends ChangeNotifier {
     _folderById = {for (final f in _folders) f.id: f};
     _notebooks = services.notebooks.list();
     _trash = services.notebooks.trashed();
+    _parentById = {
+      for (final f in _folders) f.id: FolderRepository.effectiveParentOf(f, _folderById),
+    };
+    _childrenByParent = {};
+    for (final f in _folders) {
+      (_childrenByParent[_parentById[f.id]] ??= []).add(f);
+    }
+    _notebookCountByFolder = {};
+    for (final n in _notebooks) {
+      final folder = LibraryQuery.folderOf(n, _folderById);
+      _notebookCountByFolder[folder] = (_notebookCountByFolder[folder] ?? 0) + 1;
+    }
     if (_folderId != null && !_folderById.containsKey(_folderId)) _folderId = null;
     notifyListeners();
+  }
+
+  @override
+  void notifyListeners() {
+    _visible = null;
+    super.notifyListeners();
   }
 
   // ---------------------------------------------------------------------------
@@ -120,21 +160,21 @@ class LibraryController extends ChangeNotifier {
   }
 
   /// The effective parent of [folder] (cycle- and orphan-safe).
-  String? parentOf(Folder folder) => FolderRepository.effectiveParentOf(folder, _folderById);
+  String? parentOf(Folder folder) => _parentById.containsKey(folder.id)
+      ? _parentById[folder.id]
+      : FolderRepository.effectiveParentOf(folder, _folderById);
 
   /// Subfolders of [parentId] (null = top level), by name.
-  List<Folder> childrenOf(String? parentId) => [
-    for (final f in _folders)
-      if (parentOf(f) == parentId) f,
-  ];
+  List<Folder> childrenOf(String? parentId) => _childrenByParent[parentId] ?? const [];
 
   /// Folders shown in the content area.
   List<Folder> get visibleFolders {
     if (_section != LibrarySection.library) return const [];
     if (isSearching) {
+      final matches = LibraryQuery.matcher(_query);
       return [
         for (final f in _folders)
-          if (LibraryQuery.matches(f.name, _query)) f,
+          if (matches(f.name)) f,
       ];
     }
     return childrenOf(_folderId);
@@ -143,6 +183,15 @@ class LibraryController extends ChangeNotifier {
   /// Notebooks shown in the content area, filtered and sorted. A search in
   /// the library spans every folder.
   List<Notebook> get visibleNotebooks {
+    final sort = this.sort;
+    final cached = _visible;
+    if (cached != null && cached.sort == sort) return cached.notebooks;
+    final notebooks = _computeVisibleNotebooks(sort);
+    _visible = (sort: sort, notebooks: notebooks);
+    return notebooks;
+  }
+
+  List<Notebook> _computeVisibleNotebooks(LibrarySort sort) {
     final Iterable<Notebook> scope = switch (_section) {
       LibrarySection.library when isSearching => _notebooks,
       LibrarySection.library => _notebooks.where(
@@ -151,7 +200,8 @@ class LibraryController extends ChangeNotifier {
       LibrarySection.favorites => _notebooks.where((n) => n.favorite),
       LibrarySection.trash => _trash,
     };
-    final matching = scope.where((n) => LibraryQuery.matches(n.title, _query));
+    final matches = LibraryQuery.matcher(_query);
+    final matching = scope.where((n) => matches(n.title));
     // The trash lists the most recently deleted first, whatever the sort.
     return _section == LibrarySection.trash
         ? matching.toList()
@@ -160,8 +210,7 @@ class LibraryController extends ChangeNotifier {
 
   /// Number of notebooks and subfolders directly in [folderId].
   int itemCountIn(String folderId) =>
-      childrenOf(folderId).length +
-      _notebooks.where((n) => LibraryQuery.folderOf(n, _folderById) == folderId).length;
+      childrenOf(folderId).length + (_notebookCountByFolder[folderId] ?? 0);
 
   /// "School › Maths" location of a notebook (for search results).
   String locationOf(Notebook notebook) {

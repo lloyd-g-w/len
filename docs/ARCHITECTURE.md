@@ -175,7 +175,9 @@ cuts the ink under the eraser out (`geometry/stroke_splitter.dart`): the stroke
 is removed and its surviving fragments are added as new strokes (keeping the
 original `createdAt`, so paint order is unchanged). One drag is one undoable
 `InkEdit`; fragments cut and erased again within the drag cancel out.
-Optionally only highlighter ink is erased.
+Optionally only highlighter ink is erased. Both modes test against the ink as
+rendered: its radius at each point depends on pressure, thinning and the pen's
+easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 
 ## Persistence
 
@@ -203,8 +205,9 @@ All writes go straight to SQLite; in-memory state is a cache.
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
   `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint
-  (`SurfaceStats`: live stroke count + latest version), renders lazily one per event-loop
-  turn, keeps an LRU of images and is invalidated when an editor closes or sync brings
+  (`SurfaceStats`: live stroke count + latest version, plus the page's paper and size), renders
+  lazily in short time-boxed batches (one per event-loop turn, one notification per batch that
+  changed a preview), keeps an LRU of images and is invalidated when an editor closes or sync brings
   strokes. Covers without ink show the coloured, patterned cover.
 
 ## Preferences

@@ -6,14 +6,20 @@ import '../../domain/preferences.dart';
 abstract final class LibraryQuery {
   /// Whether [text] matches a search [query]: every whitespace-separated
   /// term occurs in it, case-insensitively. An empty query matches all.
-  static bool matches(String text, String query) {
-    final haystack = text.toLowerCase();
-    return query
-        .toLowerCase()
-        .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
-        .every(haystack.contains);
+  static bool matches(String text, String query) => matcher(query)(text);
+
+  /// A predicate equivalent to [matches] for a fixed [query], parsing the
+  /// query once (for filtering many items).
+  static bool Function(String text) matcher(String query) {
+    final terms = query.toLowerCase().split(_whitespace).where((t) => t.isNotEmpty).toList();
+    if (terms.isEmpty) return (_) => true;
+    return (text) {
+      final haystack = text.toLowerCase();
+      return terms.every(haystack.contains);
+    };
   }
+
+  static final RegExp _whitespace = RegExp(r'\s+');
 
   /// [notebooks] sorted by [sort]: newest first for dates, A→Z for names.
   static List<Notebook> sorted(Iterable<Notebook> notebooks, LibrarySort sort) {

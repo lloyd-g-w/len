@@ -86,6 +86,7 @@ abstract final class StrokeRenderer {
     return paint..color = ink;
   }
 
+  /// Paints committed [stroke] onto [canvas] (in world coordinates).
   static void draw(Canvas canvas, Stroke stroke) =>
       canvas.drawPath(pathOf(stroke), paintFor(stroke.tool, stroke.color, stroke.style));
 }

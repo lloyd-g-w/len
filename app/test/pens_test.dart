@@ -11,6 +11,7 @@ import 'package:len/ink/geometry/stroke_splitter.dart';
 import 'package:len/ink/pen/pen_profile.dart';
 import 'package:len/ink/render/nib.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
+import 'package:len/ink/stroke_hit_test.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/undo_history.dart';
 import 'package:len/ui/color_picker/color_hex.dart';
@@ -150,6 +151,40 @@ void main() {
       expect(ToolSettings(store: store).penType, InkTool.ballpoint);
     });
 
+    test('out-of-range stored values are clamped; favourites deduplicated', () {
+      final db = AppDatabase.inMemory();
+      addTearDown(db.close);
+      final profile = PenProfile.of(InkTool.ballpoint);
+      final store = SettingsRepository(db)
+        ..toolPrefs = jsonEncode({
+          'pens': {
+            'ballpoint': {
+              'presets': [
+                {'c': 0x00FF0000, 'w': 1e6},
+                {'c': 0xFF00FF00, 'w': 0.001},
+              ],
+              'opacity': 0,
+              'selected': 7,
+            },
+          },
+        })
+        ..favoriteColors = [1, 2, 1, for (var i = 0; i < 40; i++) 100 + i];
+      final t = ToolSettings(store: store);
+      final config = t.configOf(InkTool.ballpoint);
+      expect(config.presets[0], PenPreset(color: 0xFFFF0000, width: profile.maxWidth));
+      expect(config.presets[1].width, profile.minWidth);
+      expect(config.opacity, PenConfig.minOpacity);
+      expect(config.selected, 0);
+      expect(t.favorites.take(3), [1, 2, 100]);
+      expect(t.favorites, hasLength(ToolSettings.maxFavorites));
+
+      t.selectPreset(5); // Ignored rather than breaking `current`.
+      expect(t.activeConfig.current, config.current);
+      t.setColor(0x00123456);
+      expect(t.activeConfig.opacity, PenConfig.minOpacity);
+      t.dispose();
+    });
+
     test('presets: selecting leaves the eraser; colour edits the selected one', () {
       final t = ToolSettings()..tool = EditorTool.eraser;
       t.selectPreset(2);
@@ -197,6 +232,46 @@ void main() {
         StrokeSplitter.erase(s, const Offset(5, -1), const Offset(5, 1), 20, newId: newId),
         isEmpty,
       );
+    });
+
+    test('cuts follow the pressure-dependent ink edge, not the nominal width', () {
+      // A full-pressure brush stroke is about twice its nominal half width.
+      final heavy = Stroke(
+        id: 'b',
+        surfaceId: 's',
+        tool: InkTool.brush,
+        color: 0xFF000000,
+        width: 20,
+        points: [for (var x = 0.0; x <= 200; x += 10) StrokePoint(x, 0, 1)],
+        createdAt: 1,
+        style: const StrokeStyle(thinning: 1),
+      );
+      final edge = StrokeHitTest.inkRadius(heavy, heavy.points.first);
+      expect(edge, greaterThan(heavy.width / 2));
+      // An eraser grazing the ink beyond the nominal half width still hits.
+      final graze = Offset(100, edge + 1);
+      expect(StrokeHitTest.sweepHits(heavy, graze, graze, 2), isTrue);
+      final parts = StrokeSplitter.erase(heavy, graze, graze, 2, newId: newId)!;
+      // The surviving ends stay clear of the eraser by their own ink radius.
+      expect(parts, hasLength(2));
+      expect(parts[0].points.last.x, lessThan(100));
+      expect(parts[1].points.first.x, greaterThan(100));
+      for (final end in [parts[0].points.last, parts[1].points.first]) {
+        expect((end.offset - graze).distance, greaterThan(2 + edge));
+      }
+    });
+
+    test('hairline strokes render without throwing', () {
+      final hair = Stroke(
+        id: 'h',
+        surfaceId: 's',
+        tool: InkTool.ballpoint,
+        color: 0xFF000000,
+        width: 0.1,
+        points: const [StrokePoint(0, 0, 0.5)],
+        createdAt: 1,
+      );
+      expect(StrokeRenderer.pathOf(hair).getBounds().width, greaterThan(0));
     });
 
     test('erasing an end trims the stroke', () {

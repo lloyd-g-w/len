@@ -2,28 +2,43 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../domain/stroke.dart';
+import 'pen/pen_profile.dart';
+import 'render/stroke_renderer.dart';
 
-/// Geometry used by the stroke eraser.
+/// Geometry used by the erasers.
 abstract final class StrokeHitTest {
   /// Whether the eraser swept along segment [a]→[b] with [radius] touches
-  /// [stroke] (treating the stroke as a polyline of its nominal width).
+  /// [stroke]'s ink (its pressure-dependent outline, see [inkRadius]).
   static bool sweepHits(Stroke stroke, Offset a, Offset b, double radius) {
     final sweep = Rect.fromPoints(a, b).inflate(radius);
     if (!sweep.overlaps(stroke.bounds)) return false;
 
-    final reach = radius + stroke.width / 2;
-    final reachSq = reach * reach;
     final pts = stroke.points;
     if (pts.length == 1) {
-      return _pointSegmentDistSq(pts.single.offset, a, b) <= reachSq;
+      final reach = radius + inkRadius(stroke, pts.single);
+      return _pointSegmentDistSq(pts.single.offset, a, b) <= reach * reach;
     }
+    var previousRadius = inkRadius(stroke, pts.first);
     for (var i = 0; i < pts.length - 1; i++) {
-      if (segmentDistSq(pts[i].offset, pts[i + 1].offset, a, b) <= reachSq) {
+      final nextRadius = inkRadius(stroke, pts[i + 1]);
+      final reach = radius + math.max(previousRadius, nextRadius);
+      if (segmentDistSq(pts[i].offset, pts[i + 1].offset, a, b) <= reach * reach) {
         return true;
       }
+      previousRadius = nextRadius;
     }
     return false;
   }
+
+  /// Half the ink's thickness at [point] of [stroke], as rendered: the
+  /// nominal width scaled by pressure, thinning and the pen's easing. A
+  /// conservative upper bound for nib-shaped (fountain) strokes.
+  static double inkRadius(Stroke stroke, StrokePoint point) => StrokeRenderer.radiusAt(
+    PenProfile.of(stroke.tool),
+    stroke.width,
+    stroke.style,
+    point.pressure,
+  );
 
   /// Squared distance between segments p1-p2 and q1-q2.
   static double segmentDistSq(Offset p1, Offset p2, Offset q1, Offset q2) {

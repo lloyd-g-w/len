@@ -12,8 +12,9 @@ import 'thumbnail_renderer.dart';
 ///
 /// [imageFor] answers immediately with whatever is cached (possibly stale)
 /// and queues a re-render when the notebook's content fingerprint changed.
-/// Renders run one per event-loop turn so a large library never blocks a
-/// frame for long; listeners are notified as images arrive.
+/// Queued previews are rendered in short batches, one batch per event-loop
+/// turn, so a large library never blocks a frame for long; listeners are
+/// notified once per batch in which a preview changed.
 class ThumbnailCache extends ChangeNotifier {
   ThumbnailCache({required this.renderer, required this.stats, this.width = 320});
 
@@ -26,6 +27,10 @@ class ThumbnailCache extends ChangeNotifier {
   /// Most entries kept; the least recently used are dropped beyond this.
   static const int capacity = 96;
 
+  /// Time a batch may take before yielding to the event loop (a render
+  /// always completes, so one dense page can still exceed it).
+  static const Duration _batchBudget = Duration(milliseconds: 8);
+
   final LinkedHashMap<String, _Entry> _entries = LinkedHashMap();
   final LinkedHashMap<String, Notebook> _queue = LinkedHashMap();
   Timer? _timer;
@@ -33,6 +38,8 @@ class ThumbnailCache extends ChangeNotifier {
 
   /// The cached preview of [notebook] (null = plain cover), scheduling a
   /// refresh if its content may have changed since it was rendered.
+  ///
+  /// Safe to call during build: it never notifies synchronously.
   ui.Image? imageFor(Notebook notebook) {
     final entry = _entries.remove(notebook.id);
     if (entry != null) _entries[notebook.id] = entry; // Mark recently used.
@@ -53,24 +60,36 @@ class ThumbnailCache extends ChangeNotifier {
   }
 
   void _enqueue(Notebook notebook) {
+    if (_disposed) return;
     _queue[notebook.id] = notebook;
-    _timer ??= Timer(Duration.zero, _processNext);
+    _timer ??= Timer(Duration.zero, _processBatch);
   }
 
-  void _processNext() {
+  void _processBatch() {
     _timer = null;
-    if (_disposed || _queue.isEmpty) return;
-    final notebook = _queue.remove(_queue.keys.first)!;
-    if (_refresh(notebook)) notifyListeners();
-    if (_queue.isNotEmpty) _timer = Timer(Duration.zero, _processNext);
+    if (_disposed) return;
+    final watch = Stopwatch()..start();
+    var changed = false;
+    while (_queue.isNotEmpty && watch.elapsed < _batchBudget) {
+      final notebook = _queue.remove(_queue.keys.first)!;
+      changed |= _refresh(notebook);
+    }
+    if (_queue.isNotEmpty) _timer = Timer(Duration.zero, _processBatch);
+    if (changed) notifyListeners();
   }
 
   /// Re-renders [notebook] if its fingerprint changed; true if the image did.
   bool _refresh(Notebook notebook) {
-    final surface = renderer.previewSurfaceOf(notebook);
-    final fingerprint = surface == null
+    final source = renderer.sourceOf(notebook);
+    final fingerprint = source == null
         ? null
-        : (paper: renderer.previewPaperOf(notebook), stats: stats.fingerprint(surface));
+        : (
+            surface: source.surfaceId,
+            paper: source.paper,
+            page: source.page?.bounds.size,
+            color: source.page?.paperColor,
+            stats: stats.fingerprint(source.surfaceId),
+          );
     final old = _entries[notebook.id];
     if (old != null && old.fingerprint == fingerprint) {
       old
@@ -80,16 +99,18 @@ class ThumbnailCache extends ChangeNotifier {
     }
     ui.Image? image;
     try {
-      image = fingerprint == null ? null : renderer.render(notebook, width: width);
+      image = source == null ? null : renderer.render(notebook, width: width, source: source);
     } on Object catch (e) {
       debugPrint('Thumbnail of ${notebook.id} failed: $e');
     }
+    final hadImage = old?.image != null;
     old?.image?.dispose();
     _entries[notebook.id] = _Entry(image, fingerprint, notebook.updatedAt);
     while (_entries.length > capacity) {
       _entries.remove(_entries.keys.first)?.image?.dispose();
     }
-    return true;
+    // Nothing drawn before or after: covers look the same, no rebuild.
+    return hadImage || image != null;
   }
 
   @override

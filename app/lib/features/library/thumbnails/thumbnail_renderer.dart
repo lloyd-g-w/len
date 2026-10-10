@@ -7,11 +7,16 @@ import '../../../data/page_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../domain/chunk_grid.dart';
 import '../../../domain/notebook.dart';
+import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/stroke.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import '../../../ink/viewport.dart';
+
+/// The surface a notebook preview shows, with its paper and, for paged
+/// notebooks, the page.
+typedef PreviewSource = ({String surfaceId, PaperStyle paper, NotebookPage? page});
 
 /// Renders small preview images of notebooks with the editor's own paper
 /// and stroke renderers, so previews look exactly like the real thing.
@@ -28,31 +33,24 @@ class ThumbnailRenderer {
   /// around the content nearest the origin.
   static const int _canvasWindowChunks = 3;
 
-  /// The surface whose content a preview shows: the first page of a paged
+  /// What a preview of [notebook] shows: the first page of a paged
   /// notebook, or the canvas itself. Null for a notebook without pages.
-  String? previewSurfaceOf(Notebook notebook) => notebook.kind == NotebookKind.canvas
-      ? notebook.id
-      : pages.pagesOf(notebook.id).firstOrNull?.id;
-
-  /// Everything besides ink that a preview depends on: the previewed
-  /// surface and its paper (template, paper colour and page size). Null for
-  /// a notebook without pages.
-  Object? previewPaperOf(Notebook notebook) {
+  PreviewSource? sourceOf(Notebook notebook) {
     if (notebook.kind == NotebookKind.canvas) {
-      return (surface: notebook.id, paper: notebook.paper);
+      return (surfaceId: notebook.id, paper: notebook.paper, page: null);
     }
     final page = pages.pagesOf(notebook.id).firstOrNull;
-    if (page == null) return null;
-    return (surface: page.id, paper: page.paper, color: page.paperColor, size: page.size);
+    return page == null ? null : (surfaceId: page.id, paper: page.paper, page: page);
   }
 
   /// Renders a preview [width] pixels wide, or returns null when there is
-  /// nothing drawn yet (the library then shows the plain cover).
-  ui.Image? render(Notebook notebook, {required int width}) {
+  /// nothing drawn yet (the library then shows the plain cover). Pass the
+  /// [source] when already known, to skip looking it up again.
+  ui.Image? render(Notebook notebook, {required int width, PreviewSource? source}) {
     final height = (width / aspect).round();
     final size = Size(width.toDouble(), height.toDouble());
     if (notebook.kind == NotebookKind.canvas) return _renderCanvas(notebook, size);
-    final page = pages.pagesOf(notebook.id).firstOrNull;
+    final page = (source ?? sourceOf(notebook))?.page;
     if (page == null) return null;
     final ink = _strokesIn(page.id, ChunkGrid.rangeFor(page.bounds));
     if (ink.isEmpty) return null;

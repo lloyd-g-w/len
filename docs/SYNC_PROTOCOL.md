@@ -146,8 +146,10 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter`; unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
 
 Fields marked `?` were added after v1 and may be missing in records from older clients; readers
-fall back to defaults (`coverStyle` "plain", `editedAt` = `updatedAt`, no folder, not favourite, not
-trashed) and unknown `coverStyle` values read as "plain".
+keep the local row's value for a missing field (so an old client renaming a notebook does not move,
+unstar or restore it), and for a row not seen before fall back to defaults (`coverStyle` "plain",
+`editedAt` = `updatedAt`, no folder, not favourite, not trashed). Unknown `coverStyle` values read as
+"plain".
 
 **Library semantics.**
 - `folders.parentId` is null for top-level folders. A folder whose parent is missing/deleted is shown
