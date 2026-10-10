@@ -25,6 +25,8 @@
     in {
       devShells = forAll (pkgs:
         let
+          # PDFium (PDF import via `pdfrx`) needs no system package: the
+          # `pdfium_dart` build hook downloads a prebuilt library at build time.
           linuxDesktop = with pkgs; [ cmake ninja pkg-config clang gtk3 sqlite ];
 
           androidSdk = (pkgs.androidenv.composeAndroidPackages {
