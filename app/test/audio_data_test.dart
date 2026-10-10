@@ -13,7 +13,7 @@ import 'package:len/features/audio/recording_controller.dart';
 
 import 'data_test.dart' show FakeClock;
 import 'support/fake_audio.dart';
-import 'sync_test.dart' show FakeServer, apiFor, device;
+import 'support/fake_server.dart' show FakeServer, apiFor, device;
 
 final _sha = 'ab' * 32;
 
