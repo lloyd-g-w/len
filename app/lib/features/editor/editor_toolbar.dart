@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../domain/stroke.dart';
 import '../../ink/tool_settings.dart';
-import '../../ui/app_theme.dart';
-import '../../ui/color_dot.dart';
+import '../../ui/adaptive_popover.dart';
 import '../../ui/floating_panel.dart';
+import 'pen/eraser_options_panel.dart';
+import 'pen/eraser_strip.dart';
+import 'pen/pen_icons.dart';
+import 'pen/pen_options_panel.dart';
+import 'pen/preset_strip.dart';
 
-/// The floating tool palette: tools, colours, width and palm rejection.
+/// The floating tool palette: pen / highlighter / eraser (tap the active
+/// one again for its options), the active tool's quick presets, and palm
+/// rejection.
 class EditorToolbar extends StatelessWidget {
   const EditorToolbar({super.key, required this.tools, required this.onStylusOnlyChanged});
 
@@ -18,7 +24,7 @@ class EditorToolbar extends StatelessWidget {
     return ListenableBuilder(
       listenable: tools,
       builder: (context, _) {
-        final palette = tools.activeInk == InkTool.highlighter ? Palette.highlighter : Palette.pen;
+        final erasing = tools.tool == EditorTool.eraser;
         return FloatingPanel(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -28,34 +34,47 @@ class EditorToolbar extends StatelessWidget {
                 _ToolButton(
                   tools: tools,
                   tool: EditorTool.pen,
-                  icon: Icons.edit_rounded,
+                  icon: penIcon(tools.penType),
                   label: 'Pen (P)',
+                  inkColor: tools.configOf(tools.penType).current.color,
+                  options: (_) => PenOptionsPanel(tools: tools, ink: null),
                 ),
                 _ToolButton(
                   tools: tools,
                   tool: EditorTool.highlighter,
-                  icon: Icons.border_color_rounded,
+                  icon: penIcon(InkTool.highlighter),
                   label: 'Highlighter (H)',
+                  inkColor: tools.configOf(InkTool.highlighter).current.color,
+                  options: (_) => PenOptionsPanel(tools: tools, ink: InkTool.highlighter),
                 ),
                 _ToolButton(
                   tools: tools,
                   tool: EditorTool.eraser,
                   icon: Icons.auto_fix_normal_rounded,
                   label: 'Eraser (E)',
+                  options: (_) => EraserOptionsPanel(tools: tools),
                 ),
                 const _Divider(),
-                for (final color in palette)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: ColorDot(
-                      color: color,
-                      size: 30,
-                      selected: tools.tool != EditorTool.eraser && tools.activeStyle.color == color,
-                      onTap: () => tools.setColor(color),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 150),
+                  child: erasing
+                      ? EraserStrip(key: const ValueKey('eraser'), tools: tools)
+                      : PresetStrip(key: ValueKey(tools.activeInk), tools: tools),
+                ),
+                if (!erasing)
+                  Builder(
+                    builder: (context) => IconButton(
+                      tooltip: 'Colour & width',
+                      onPressed: () => openPresetEditor(
+                        context,
+                        tools,
+                        tools.activeInk,
+                        tools.activeConfig.selected,
+                      ),
+                      icon: const _RainbowIcon(),
                     ),
                   ),
                 const _Divider(),
-                _WidthButton(tools: tools),
                 _PalmRejectionButton(
                   enabled: tools.stylusOnly ?? false,
                   onChanged: onStylusOnlyChanged,
@@ -71,50 +90,93 @@ class EditorToolbar extends StatelessWidget {
 
 /// A tool toggle. Inking tools show their current colour as a small bar
 /// under the icon (recolouring the icon itself would be illegible for dark
-/// inks in dark mode).
+/// inks in dark mode). Tapping the already active tool opens its options.
 class _ToolButton extends StatelessWidget {
   const _ToolButton({
     required this.tools,
     required this.tool,
     required this.icon,
     required this.label,
+    required this.options,
+    this.inkColor,
   });
 
   final ToolSettings tools;
   final EditorTool tool;
   final IconData icon;
   final String label;
+  final int? inkColor;
+  final WidgetBuilder options;
 
   @override
   Widget build(BuildContext context) {
     final selected = tools.tool == tool;
-    final inkColor = tool.inkTool == null ? null : Color(tools.styleOf(tool.inkTool!).color);
-    return IconButton(
-      tooltip: label,
-      isSelected: selected,
-      onPressed: () => tools.tool = tool,
-      style: IconButton.styleFrom(
-        backgroundColor: selected ? Theme.of(context).colorScheme.secondaryContainer : null,
-      ),
-      icon: SizedBox.square(
-        dimension: 24,
-        child: Stack(
-          alignment: Alignment.topCenter,
-          children: [
-            Icon(icon, size: 19),
-            if (inkColor != null)
-              Positioned(
-                bottom: 0,
-                child: Container(
-                  width: 14,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: inkColor,
-                    borderRadius: BorderRadius.circular(2),
+    final color = inkColor;
+    void openOptions() => showAdaptivePopover<void>(context: context, builder: options);
+    return GestureDetector(
+      onLongPress: openOptions,
+      onSecondaryTap: openOptions,
+      child: IconButton(
+        tooltip: label,
+        isSelected: selected,
+        onPressed: () => selected ? openOptions() : tools.tool = tool,
+        style: IconButton.styleFrom(
+          backgroundColor: selected ? Theme.of(context).colorScheme.secondaryContainer : null,
+        ),
+        icon: SizedBox.square(
+          dimension: 24,
+          child: Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              Icon(icon, size: 19),
+              if (color != null)
+                Positioned(
+                  bottom: 0,
+                  child: Container(
+                    width: 14,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: Color(color),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small colour-wheel glyph for the colour picker button.
+class _RainbowIcon extends StatelessWidget {
+  const _RainbowIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: SweepGradient(
+          colors: [
+            Color(0xFFFF5252),
+            Color(0xFFFFD740),
+            Color(0xFF69F0AE),
+            Color(0xFF40C4FF),
+            Color(0xFF7C4DFF),
+            Color(0xFFFF4081),
+            Color(0xFFFF5252),
           ],
+        ),
+      ),
+      padding: const EdgeInsets.all(5),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Theme.of(context).colorScheme.surfaceContainer,
         ),
       ),
     );
@@ -128,60 +190,9 @@ class _Divider extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: 1,
     height: 24,
-    margin: const EdgeInsets.symmetric(horizontal: 8),
+    margin: const EdgeInsets.symmetric(horizontal: 6),
     color: Theme.of(context).colorScheme.outlineVariant,
   );
-}
-
-/// Shows the current width as a dot; opens a slider.
-class _WidthButton extends StatelessWidget {
-  const _WidthButton({required this.tools});
-
-  final ToolSettings tools;
-
-  static const _ranges = {
-    InkTool.pen: (min: 0.5, max: 16.0),
-    InkTool.highlighter: (min: 6.0, max: 48.0),
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final style = tools.activeStyle;
-    final range = _ranges[tools.activeInk]!;
-    final t = ((style.width - range.min) / (range.max - range.min)).clamp(0.0, 1.0);
-    return MenuAnchor(
-      menuChildren: [
-        SizedBox(
-          width: 240,
-          child: ListenableBuilder(
-            listenable: tools,
-            builder: (context, _) => Slider(
-              value: tools.activeStyle.width.clamp(range.min, range.max),
-              min: range.min,
-              max: range.max,
-              label: tools.activeStyle.width.toStringAsFixed(1),
-              divisions: ((range.max - range.min) * 2).round(),
-              onChanged: tools.setWidth,
-            ),
-          ),
-        ),
-      ],
-      builder: (context, menu, _) => IconButton(
-        tooltip: 'Width',
-        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-        icon: SizedBox.square(
-          dimension: 24,
-          child: Center(
-            child: Container(
-              width: 4 + 16 * t,
-              height: 4 + 16 * t,
-              decoration: BoxDecoration(color: Color(style.color), shape: BoxShape.circle),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _PalmRejectionButton extends StatelessWidget {

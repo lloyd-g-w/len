@@ -10,7 +10,8 @@ import 'stroke_renderer.dart';
 /// Each picture contains every stroke overlapping its chunk, clipped to the
 /// chunk's square. Clipping means each pixel is painted by exactly one chunk,
 /// so strokes crossing chunk borders are not double-blended (which would
-/// show for translucent highlighter ink). Pictures are vector recordings, so
+/// show for translucent highlighter ink). Highlighter strokes are drawn
+/// beneath all other ink of the chunk. Pictures are vector recordings, so
 /// they stay sharp at any zoom; they are rebuilt only when a stroke in that
 /// chunk changes.
 class ChunkPictureCache {
@@ -28,8 +29,14 @@ class ChunkPictureCache {
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder)
       ..clipRect(ChunkGrid.rectOf(key), doAntiAlias: false);
-    for (final stroke in model.strokesInChunk(key)) {
-      StrokeRenderer.draw(canvas, stroke);
+    // Highlighter ink goes underneath pen ink, like a real highlighter
+    // pass over printed text; within each group paint order is kept.
+    final strokes = model.strokesInChunk(key);
+    for (final stroke in strokes) {
+      if (stroke.tool.isHighlighter) StrokeRenderer.draw(canvas, stroke);
+    }
+    for (final stroke in strokes) {
+      if (!stroke.tool.isHighlighter) StrokeRenderer.draw(canvas, stroke);
     }
     return recorder.endRecording();
   }

@@ -8,6 +8,7 @@ import '../../domain/stroke.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../viewport.dart';
+import 'hold_to_straighten.dart';
 import 'live_ink.dart';
 
 /// Turns raw pointer events into drawing, erasing and navigation.
@@ -23,6 +24,9 @@ import 'live_ink.dart';
 ///  * **Mouse**: left button draws, middle/right drag pans, wheel scrolls,
 ///    Ctrl/⌘+wheel zooms.
 ///  * **Trackpad**: two-finger pan and pinch zoom.
+///
+/// Resting the pen at the end of a stroke straightens it (see
+/// [HoldToStraighten]).
 class InkInputController {
   InkInputController({
     required this._model,
@@ -31,7 +35,7 @@ class InkInputController {
     required this.live,
     this.clock = const Clock(),
     this.onStylusDetected,
-  });
+  }) : _straighten = HoldToStraighten(live);
 
   SurfaceModel _model;
 
@@ -52,6 +56,8 @@ class InkInputController {
 
   /// Called the first time a stylus is used.
   final void Function()? onStylusDetected;
+
+  final HoldToStraighten _straighten;
 
   /// Points closer than this (in screen pixels) to the previous one are
   /// dropped; it removes jitter without visible loss of detail.
@@ -205,9 +211,19 @@ class InkInputController {
       _eraseTo(e.localPosition);
     } else {
       final ink = tools.activeInk;
-      final style = tools.styleOf(ink);
-      live.begin(tool: ink, color: style.color, width: style.width);
+      final config = tools.configOf(ink);
+      live.begin(
+        tool: ink,
+        color: config.current.color,
+        width: config.current.width,
+        style: tools.styleFor(ink),
+      );
       live.add(_pointOf(e));
+      _straighten.begin(
+        e.localPosition,
+        enabled: tools.holdToStraighten,
+        scale: viewport.scale,
+      );
     }
   }
 
@@ -219,7 +235,9 @@ class InkInputController {
     }
     if ((e.localPosition - _lastScreen!).distance < _minPointDistance) return;
     _lastScreen = e.localPosition;
-    live.add(_pointOf(e));
+    final point = _pointOf(e);
+    if (_straighten.move(e.localPosition, point)) return;
+    live.add(point);
   }
 
   void _finishDraw() {
@@ -234,6 +252,7 @@ class InkInputController {
           tool: live.tool,
           color: live.color,
           width: live.width,
+          style: live.style,
           points: points,
           createdAt: clock.nowMs(),
         ));
@@ -252,6 +271,7 @@ class InkInputController {
   }
 
   void _resetDraw() {
+    _straighten.end();
     _drawPointer = null;
     _drawKind = null;
     _erasing = false;
@@ -268,6 +288,8 @@ class InkInputController {
       to,
       tools.eraserRadius / viewport.scale,
       continueEdit: _eraseStarted,
+      mode: tools.eraser.mode,
+      highlighterOnly: tools.eraser.highlighterOnly,
     );
     _eraseStarted = _eraseStarted || erased;
     _lastScreen = screen;

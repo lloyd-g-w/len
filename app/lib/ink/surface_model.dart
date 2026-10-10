@@ -3,9 +3,12 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/clock.dart';
 import '../data/stroke_repository.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
+import 'geometry/stroke_splitter.dart';
+import 'pen/eraser_config.dart';
 import 'spatial_index.dart';
 import 'stroke_hit_test.dart';
 import 'undo_history.dart';
@@ -21,7 +24,11 @@ class SurfaceModel extends ChangeNotifier {
     required this.surfaceId,
     required this._repository,
     this.maxLoadedChunks = 1024,
+    this.clock = const Clock(),
   });
+
+  /// Creates ids for strokes made by editing (pixel-eraser fragments).
+  final Clock clock;
 
   final String surfaceId;
   final StrokeRepository _repository;
@@ -135,23 +142,48 @@ class SurfaceModel extends ChangeNotifier {
     _changed(ChunkGrid.rangeFor(stroke.bounds).keys.toSet());
   }
 
-  /// Removes every stroke hit by the eraser sweeping from [a] to [b].
+  /// Erases along the eraser sweep from [a] to [b]: in [EraserMode.stroke]
+  /// every touched stroke is removed; in [EraserMode.pixel] only the ink
+  /// under the eraser is, and the surviving parts are added as new strokes.
+  /// With [highlighterOnly], pen ink is left alone.
+  ///
   /// Consecutive calls with [continueEdit] merge into one undo step.
   /// Returns whether anything was erased.
-  bool eraseAlong(Offset a, Offset b, double radius, {required bool continueEdit}) {
+  bool eraseAlong(
+    Offset a,
+    Offset b,
+    double radius, {
+    required bool continueEdit,
+    EraserMode mode = EraserMode.stroke,
+    bool highlighterOnly = false,
+  }) {
     final sweep = Rect.fromPoints(a, b).inflate(radius);
-    final hits = [
-      for (final id in _index.query(sweep))
-        if (StrokeHitTest.sweepHits(_strokes[id]!, a, b, radius)) _strokes[id]!,
-    ];
-    if (hits.isEmpty) return false;
-    _repository.delete(hits.map((s) => s.id));
+    final removed = <Stroke>[];
+    final added = <Stroke>[];
+    for (final id in _index.query(sweep)) {
+      final stroke = _strokes[id]!;
+      if (highlighterOnly && !stroke.tool.isHighlighter) continue;
+      if (mode == EraserMode.stroke) {
+        if (StrokeHitTest.sweepHits(stroke, a, b, radius)) removed.add(stroke);
+        continue;
+      }
+      final fragments = StrokeSplitter.erase(stroke, a, b, radius, newId: clock.newId);
+      if (fragments == null) continue;
+      removed.add(stroke);
+      added.addAll(fragments);
+    }
+    if (removed.isEmpty) return false;
+    _repository.delete(removed.map((s) => s.id));
+    if (added.isNotEmpty) _repository.save(added);
     final changed = <ChunkKey>{};
-    for (final s in hits) {
+    for (final s in removed) {
       _remove(s);
       changed.addAll(ChunkGrid.rangeFor(s.bounds).keys);
     }
-    history.record(InkEdit(removed: hits), merge: continueEdit);
+    for (final s in added) {
+      _insert(s);
+    }
+    history.record(InkEdit(added: added, removed: removed), merge: continueEdit);
     _changed(changed);
     return true;
   }

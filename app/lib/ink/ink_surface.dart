@@ -123,6 +123,16 @@ class _InkSurfaceState extends State<InkSurface> {
                 ),
                 RepaintBoundary(
                   child: CustomPaint(
+                    painter: LiveInkPainter(
+                      live: widget.live,
+                      viewport: widget.viewport,
+                      clip: widget.page,
+                      belowInk: true,
+                    ),
+                  ),
+                ),
+                RepaintBoundary(
+                  child: CustomPaint(
                     painter: CommittedInkPainter(
                       model: widget.model,
                       cache: _cache,
