@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/stroke.dart';
+import 'catmull_rom.dart';
 import 'centerline.dart';
 import 'outline_emitter.dart';
 import 'outline_sink.dart';
@@ -72,7 +73,8 @@ class _Sample {
 
 /// Builds filled outline paths for variable-width ink strokes.
 ///
-/// Pipeline: drop duplicate samples → trim pen-lift hooks → resample at a
+/// Pipeline: drop duplicate samples → trim pen-lift hooks → densify along a
+/// centripetal Catmull-Rom spline → resample at a
 /// uniform arc-length spacing → Gaussian-smooth positions (ends pinned, so
 /// there is no lag) and radii → limit how fast the radius may change →
 /// make the ends non-swelling → apply tapers → emit smooth Bézier sides and
@@ -107,17 +109,23 @@ abstract final class StrokeOutline {
       samples = _trimHook(samples, spec.width, atEnd: false);
       if (complete) samples = _trimHook(samples, spec.width, atEnd: true);
     }
-    final line =
-        Centerline.resample([for (final s in samples) s.x], [for (final s in samples) s.y], [
-            for (final s in samples) s.r,
-          ], spec.sampleStep)
-          ..settleEnds(spec.width)
-          ..findCorners(spec.positionSigma)
-          ..smoothPositions(spec.positionSigma)
-          ..smoothRadii(spec.radiusSigma)
-          ..limitRadiusSlope(OutlineSpec.maxRadiusSlope)
-          ..settleEnds(spec.width)
-          ..taper(spec.taperStart, spec.taperEnd);
+    // Sparse samples from fast writing would otherwise be joined by straight
+    // chords (faceted, "jittery" curves); a spline through them restores
+    // the curve the pen actually travelled.
+    final dense = CatmullRom.densify(
+      [for (final s in samples) s.x],
+      [for (final s in samples) s.y],
+      [for (final s in samples) s.r],
+      spec.sampleStep * 2,
+    );
+    final line = Centerline.resample(dense.x, dense.y, dense.r, spec.sampleStep)
+      ..settleEnds(spec.width)
+      ..findCorners(spec.positionSigma)
+      ..smoothPositions(spec.positionSigma)
+      ..smoothRadii(spec.radiusSigma)
+      ..limitRadiusSlope(OutlineSpec.maxRadiusSlope)
+      ..settleEnds(spec.width)
+      ..taper(spec.taperStart, spec.taperEnd);
     final maxR = line.r.fold<double>(0, math.max);
     if (line.length < 2 || line.arcLength < maxR * 0.5) {
       final r = math.max(samples.fold<double>(0, (m, s) => math.max(m, s.r)), 0.25);
