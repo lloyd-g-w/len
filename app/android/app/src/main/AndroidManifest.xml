@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Runs without a touchscreen too (Samsung DeX, Chromebooks, mouse + pen). -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
     <!-- Needed for syncing with a Len server. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- usesCleartextTraffic: self-hosted sync servers often run over plain
@@ -8,16 +10,27 @@
         android:label="Len"
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:resizeableActivity="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:configChanges="orientation|keyboardHidden|keyboard|navigation|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode|colorMode"
             android:hardwareAccelerated="true"
+            android:resizeableActivity="true"
             android:windowSoftInputMode="adjustResize">
+            <!-- Free orientation (no screenOrientation) and free resizing:
+                 split screen, pop-up windows and Samsung DeX / desktop
+                 windows. Smallest sensible freeform window: -->
+            <layout
+                android:defaultWidth="1100dp"
+                android:defaultHeight="760dp"
+                android:minWidth="360dp"
+                android:minHeight="400dp"/>
             <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues
@@ -31,6 +44,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Samsung DeX: keep the process alive (no restart) when moving
+             between the phone screen and the DeX display / changing density. -->
+        <meta-data
+            android:name="com.samsung.android.keepalive.density"
+            android:value="true" />
+        <meta-data
+            android:name="com.samsung.android.multidisplay.keep_process_alive"
+            android:value="true" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
