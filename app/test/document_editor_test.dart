@@ -14,6 +14,7 @@ import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/document/page_overview.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/ink/render/ink_painters.dart';
 import 'package:len/ui/app_theme.dart';
 
 /// A notebook with three differently shaped pages, some with ink.
@@ -98,6 +99,16 @@ Future<void> closeEditor(WidgetTester tester) async {
 List<Stroke> inkOf(AppServices s, NotebookPage page) => SurfaceCopier(s.strokes).loadAll(page.id);
 
 void main() {
+  testWidgets('paged documents paint the live highlighter under the committed ink', (tester) async {
+    await pumpEditor(tester);
+    final live = tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((p) => p.painter)
+        .whereType<LiveInkPainter>()
+        .toList();
+    expect(live.map((p) => p.belowInk), unorderedEquals([true, false]));
+  });
+
   testWidgets('pages scroll continuously and ink lands on the page under the pen', (tester) async {
     final (s, nb) = await pumpEditor(tester);
     await expectLater(
