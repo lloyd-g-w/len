@@ -11,8 +11,7 @@ class ChunkRange {
 
   int get count => (maxX - minX + 1) * (maxY - minY + 1);
 
-  bool contains(ChunkKey key) =>
-      key.x >= minX && key.x <= maxX && key.y >= minY && key.y <= maxY;
+  bool contains(ChunkKey key) => key.x >= minX && key.x <= maxX && key.y >= minY && key.y <= maxY;
 
   Iterable<ChunkKey> get keys sync* {
     for (var y = minY; y <= maxY; y++) {
@@ -45,8 +44,7 @@ abstract final class ChunkGrid {
   /// Edge length of a chunk in world units.
   static const double size = 512;
 
-  static ChunkKey keyAt(double x, double y) =>
-      (x: (x / size).floor(), y: (y / size).floor());
+  static ChunkKey keyAt(double x, double y) => (x: (x / size).floor(), y: (y / size).floor());
 
   /// All chunks overlapping [rect] (edges inclusive).
   static ChunkRange rangeFor(Rect rect) {
@@ -55,6 +53,30 @@ abstract final class ChunkGrid {
     return ChunkRange(min.x, min.y, max.x, max.y);
   }
 
-  static Rect rectOf(ChunkKey key) =>
-      Rect.fromLTWH(key.x * size, key.y * size, size, size);
+  static Rect rectOf(ChunkKey key) => Rect.fromLTWH(key.x * size, key.y * size, size, size);
+}
+
+/// Sanity bounds for geometry received from other devices.
+///
+/// World coordinates are `float32` (sub-unit precise to about ±8 million),
+/// and the chunk index of an item grows with its extent, so a corrupt or
+/// hostile record with absurd coordinates could otherwise stall indexing.
+/// Ink drawn in the app stays far inside these limits.
+abstract final class WorldLimits {
+  /// Largest absolute world coordinate accepted.
+  static const double maxCoordinate = 1e7;
+
+  /// Largest width or height of one stroke's or element's bounds
+  /// (256 chunks).
+  static const double maxExtent = 256 * ChunkGrid.size;
+
+  /// Whether [bounds] (an item's bounds) lies within these limits.
+  static bool accepts(Rect bounds) =>
+      bounds.isFinite &&
+      bounds.left >= -maxCoordinate &&
+      bounds.top >= -maxCoordinate &&
+      bounds.right <= maxCoordinate &&
+      bounds.bottom <= maxCoordinate &&
+      bounds.width <= maxExtent &&
+      bounds.height <= maxExtent;
 }

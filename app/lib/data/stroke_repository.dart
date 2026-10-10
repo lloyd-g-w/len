@@ -213,6 +213,9 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
     if (decoded.isEmpty || !width.isFinite || width <= 0 || width > maxWidth) {
       throw FormatException('Invalid stroke geometry $id');
     }
+    if (!WorldLimits.accepts(Stroke.computeBounds(decoded, width.toDouble()))) {
+      throw FormatException('Stroke $id is out of bounds');
+    }
     final inkTool = InkTool.parse(tool);
     return Stroke(
       id: id,

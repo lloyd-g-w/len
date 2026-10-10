@@ -183,7 +183,11 @@ class EditorSession {
     final notebookId = notebook.id;
     services.images.retryMissing(); // Image blobs may be on the server now.
     if (doc != null && changes.pagesOfNotebooks.contains(notebookId)) {
-      if (services.pages.pagesOf(notebookId).isNotEmpty) commands!.reload();
+      // Every page deleted elsewhere: start a fresh one, as opening does.
+      if (services.pages.pagesOf(notebookId).isEmpty) {
+        services.pages.addPage(notebookId, paper: notebook.paper);
+      }
+      commands!.reload();
       backgrounds?.retryMissing(); // New pages may bring new PDFs.
     }
     for (final surfaceId in changes.strokeSurfaces) {
@@ -207,6 +211,7 @@ class EditorSession {
   /// Ends the session: commits a text box still being edited and releases
   /// every surface.
   void dispose() {
+    input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     images.dispose();
     content.dispose();
     gestures.dispose();
@@ -215,6 +220,7 @@ class EditorSession {
     canvasNav?.dispose();
     canvasViewport?.dispose();
     docAnimator?.dispose();
+    commands?.dispose();
     doc?.dispose();
     backgrounds?.dispose();
     live.dispose();

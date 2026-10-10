@@ -64,15 +64,32 @@ class PdfGlyphCache extends ChangeNotifier {
     if (_openBlob == blob && _openDoc != null) return _openDoc!;
     final previous = _openDoc;
     _openBlob = blob;
-    return _openDoc = () async {
+    late final Future<PdfTextDocument?> opening;
+    opening = () async {
       try {
         await (await previous)?.dispose();
       } on Object {
         // It never opened.
       }
-      final bytes = await readBlob(blob);
-      return bytes == null ? null : source.open(bytes);
+      try {
+        final bytes = await readBlob(blob);
+        final doc = bytes == null ? null : await source.open(bytes);
+        if (doc == null) _forget(opening); // Not here yet: try again later.
+        return doc;
+      } on Object {
+        _forget(opening);
+        rethrow;
+      }
     }();
+    return _openDoc = opening;
+  }
+
+  /// Drops a failed [opening] so the next request opens the blob again.
+  void _forget(Future<PdfTextDocument?> opening) {
+    if (identical(_openDoc, opening)) {
+      _openDoc = null;
+      _openBlob = null;
+    }
   }
 
   @override

@@ -198,6 +198,18 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
                         ),
                       ),
                     ),
+                    // The live highlighter stroke goes under the
+                    // committed ink, as it will once committed.
+                    RepaintBoundary(
+                      child: CustomPaint(
+                        painter: LiveInkPainter(
+                          live: widget.live,
+                          viewport: _doc.pageViewport,
+                          clip: _doc.pageViewport.contentBounds,
+                          belowInk: true,
+                        ),
+                      ),
+                    ),
                     RepaintBoundary(
                       child: CustomPaint(
                         painter: DocumentInkPainter(

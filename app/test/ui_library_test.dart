@@ -11,7 +11,7 @@ import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/ui/app_theme.dart';
 
-import 'sync_test.dart' show FakeServer;
+import 'support/fake_server.dart' show FakeServer;
 
 /// Pumps the library with fresh in-memory services. Sync stays unconfigured
 /// and is never started (that would leave a periodic timer running).
@@ -249,6 +249,38 @@ void main() {
     expect(find.byType(LibraryScreen), findsOneWidget);
     expect(find.textContaining('deleted on another device'), findsOneWidget);
     expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('remote trash closes the editor too', (tester) async {
+    final server = FakeServer();
+    AppServices device() {
+      final services = AppServices.create(
+        AppDatabase.inMemory(),
+        syncApiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
+      );
+      services.sync.configure(url: 'http://sync.test', token: FakeServer.token);
+      return services;
+    }
+
+    final local = device();
+    final other = device();
+    addTearDown(other.dispose);
+    await pumpLibrary(tester, services: local);
+    await createNotebook(tester, 'Shared');
+    await tester.runAsync(() async {
+      await local.sync.syncNow();
+      await other.sync.syncNow();
+    });
+    other.notebooks.trash(other.notebooks.list().single.id);
+    await tester.runAsync(() async {
+      await other.sync.syncNow();
+      await local.sync.syncNow();
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EditorScreen), findsNothing);
+    expect(find.textContaining('moved to the trash on another device'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

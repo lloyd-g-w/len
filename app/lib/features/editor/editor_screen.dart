@@ -75,6 +75,10 @@ class _EditorScreenState extends State<EditorScreen> {
   /// canvas is touched (e.g. after using the width slider).
   final FocusNode _focusNode = FocusNode(debugLabel: 'EditorScreen');
 
+  /// Commits a text box being typed when the app goes to the background
+  /// (it may be killed there).
+  late final AppLifecycleListener _lifecycle;
+
   @override
   void initState() {
     super.initState();
@@ -86,6 +90,7 @@ class _EditorScreenState extends State<EditorScreen> {
     _search = EditorSearchController.forSession(_services, _session, notebookId: _notebook.id);
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
+    _lifecycle = AppLifecycleListener(onHide: () => _session.content.text.end());
     // Take the keyboard even when another editor (the previous tab) still
     // held it while this one was built; autofocus would not.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -101,6 +106,8 @@ class _EditorScreenState extends State<EditorScreen> {
       ..saveView(_notebook.id, _session.viewState);
     _services.preferences.removeListener(_onPreferences);
     if (_focus) setImmersive(false);
+    _lifecycle.dispose();
+    if (!_closing) _session.content.text.end(); // Counts as an edit below.
     final edited = _session.edited;
     _search.dispose();
     _session.dispose(); // Commits a text box still being edited.
@@ -138,8 +145,8 @@ class _EditorScreenState extends State<EditorScreen> {
     if (!mounted || _closing) return;
     if (changes.notebooks) {
       final updated = _services.notebooks.get(_notebook.id);
-      if (updated == null) {
-        _closeDeleted();
+      if (updated == null || updated.isTrashed) {
+        _closeDeleted(trashed: updated != null);
         return;
       }
       setState(() => _notebook = updated);
@@ -148,17 +155,25 @@ class _EditorScreenState extends State<EditorScreen> {
     _session.applyRemoteChanges(changes);
   }
 
-  /// The notebook was deleted on another device: close the editor together
-  /// with anything open on top of it (dialogs, menus, sheets).
-  void _closeDeleted() {
+  /// The notebook was deleted (or [trashed]) on another device: close the
+  /// editor together with anything open on top of it (dialogs, menus,
+  /// sheets). Nothing in progress is written to the deleted notebook.
+  void _closeDeleted({bool trashed = false}) {
     _closing = true;
     _session.input.cancelDraw();
+    _session.content.text.discard();
+    _session.content.selection.clear();
     final route = ModalRoute.of(context);
     final navigator = Navigator.of(context);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(content: Text('“${_notebook.title}” was deleted on another device.')),
+        SnackBar(
+          content: Text(
+            '“${_notebook.title}” was ${trashed ? 'moved to the trash' : 'deleted'} '
+            'on another device.',
+          ),
+        ),
       );
     final tabs = _services.openNotebooks;
     if (tabs.contains(_notebook.id)) {

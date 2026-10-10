@@ -222,7 +222,9 @@ class RecordStore {
       _db.execute('COMMIT');
       return result;
     } catch (_) {
-      _db.execute('ROLLBACK');
+      // SQLite may already have rolled back (e.g. SQLITE_FULL, or a failed
+      // COMMIT); a second ROLLBACK would throw and mask the original error.
+      if (!_db.autocommit) _db.execute('ROLLBACK');
       rethrow;
     }
   }

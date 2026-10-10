@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -13,86 +12,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/sync/sync_controller.dart';
 
-/// Minimal in-memory implementation of docs/SYNC_PROTOCOL.md.
-class FakeServer {
-  final Map<String, Map<String, Object?>> _records = {};
-  int _seq = 0;
-  static const token = 'secret-token-123456';
-
-  /// Body sizes (bytes) and record counts of every push received.
-  final List<({int bytes, int count})> pushes = [];
-
-  /// Number of pull requests received.
-  int pulls = 0;
-
-  /// Extra raw records served by pull (for malformed-input tests).
-  final List<Object?> injected = [];
-
-  late final MockClient client = MockClient((request) async {
-    if (request.headers['Authorization'] != 'Bearer $token') {
-      return http.Response('{"error":"unauthorized"}', 401);
-    }
-    switch (request.url.path) {
-      case '/v1/push':
-        if (request.bodyBytes.length > 32 * 1024 * 1024) {
-          return http.Response('{"error":"too large"}', 413);
-        }
-        final body = jsonDecode(request.body) as Map<String, Object?>;
-        final records = body['records']! as List;
-        if (records.length > 1000) return http.Response('{"error":"too many"}', 413);
-        pushes.add((bytes: request.bodyBytes.length, count: records.length));
-        for (final r in (body['records']! as List).cast<Map<String, Object?>>()) {
-          final key = '${r['collection']}/${r['id']}';
-          final existing = _records[key];
-          final newer = existing == null ||
-              (r['updatedAt']! as int) > (existing['updatedAt']! as int) ||
-              (r['updatedAt'] == existing['updatedAt'] &&
-                  (r['deviceId']! as String).compareTo(existing['deviceId']! as String) > 0);
-          if (newer) _records[key] = {...r, 'seq': ++_seq};
-        }
-        return http.Response(jsonEncode({'applied': 0, 'ignored': 0, 'serverSeq': _seq}), 200);
-      case '/v1/pull':
-        pulls++;
-        final since = int.parse(request.url.queryParameters['since'] ?? '0');
-        final limit = int.parse(request.url.queryParameters['limit'] ?? '500');
-        final all = _records.values.where((r) => (r['seq']! as int) > since).toList()
-          ..sort((a, b) => (a['seq']! as int).compareTo(b['seq']! as int));
-        final page = all.take(limit).toList();
-        return http.Response(
-          jsonEncode({
-            'records': [...injected, ...page],
-            'nextSince': page.isEmpty ? since : page.last['seq'],
-            'hasMore': all.length > page.length,
-          }),
-          200,
-        );
-    }
-    return http.Response('', 404);
-  });
-}
-
-AppServices device(FakeServer server) {
-  final services = AppServices.create(AppDatabase.inMemory());
-  services.sync.configure(url: 'http://sync.test', token: FakeServer.token);
-  return services;
-}
-
-SyncApi apiFor(FakeServer server) =>
-    SyncApi(baseUrl: 'http://sync.test', token: FakeServer.token, client: server.client);
-
-Stroke bigStroke(String id, String surface, int points) => Stroke(
-      id: id,
-      surfaceId: surface,
-      tool: InkTool.pen,
-      color: 0xFF000000,
-      width: 2,
-      points: [for (var i = 0; i < points; i++) StrokePoint(i.toDouble(), 0, 0.5)],
-      createdAt: 1,
-    );
-
-/// A pull response with the given records and one page.
-http.Response pullResponse(List<Object?> records, {int nextSince = 1, bool hasMore = false}) =>
-    http.Response(jsonEncode({'records': records, 'nextSince': nextSince, 'hasMore': hasMore}), 200);
+import 'support/fake_server.dart';
 
 void main() {
   test('two devices converge: create, draw, erase, delete', () async {
@@ -172,7 +92,12 @@ void main() {
   test('malformed pulled records are skipped and the feed advances', () async {
     final server = FakeServer();
     final a = device(server);
-    a.notebooks.create(title: 'ok', kind: NotebookKind.canvas, paper: PaperStyle.blank, coverColor: 0);
+    a.notebooks.create(
+      title: 'ok',
+      kind: NotebookKind.canvas,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
     await a.sync.engine.sync(apiFor(server));
 
     server.injected.addAll([
@@ -184,7 +109,14 @@ void main() {
         'updatedAt': 1,
         'deviceId': 'd',
         'deleted': false,
-        'data': {'surfaceId': 's', 'tool': 'pen', 'color': 0, 'width': 1, 'points': '!!', 'createdAt': 0},
+        'data': {
+          'surfaceId': 's',
+          'tool': 'pen',
+          'color': 0,
+          'width': 1,
+          'points': '!!',
+          'createdAt': 0,
+        },
       },
       {
         'collection': 'pages',
@@ -194,7 +126,14 @@ void main() {
         'deleted': false,
         'data': {'notebookId': 'n'},
       },
-      {'collection': 'future_things', 'id': 'f', 'updatedAt': 1, 'deviceId': 'd', 'deleted': false, 'data': {}},
+      {
+        'collection': 'future_things',
+        'id': 'f',
+        'updatedAt': 1,
+        'deviceId': 'd',
+        'deleted': false,
+        'data': {},
+      },
     ]);
     final b = device(server);
     await b.sync.engine.sync(apiFor(server));
@@ -215,7 +154,11 @@ void main() {
 
   test('invalid server URLs are rejected with a readable message', () {
     for (final url in ['', 'sync.example.com', 'ftp://x', 'http://']) {
-      expect(() => SyncApi(baseUrl: url, token: 't'), throwsA(isA<SyncException>()), reason: url);
+      expect(
+        () => SyncApi(baseUrl: url, token: 't'),
+        throwsA(isA<SyncException>()),
+        reason: url,
+      );
     }
   });
 
@@ -243,7 +186,12 @@ void main() {
         apiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: target.client),
       );
       controller.configure(url: 'http://one.test', token: FakeServer.token);
-      a.notebooks.create(title: 'N', kind: NotebookKind.canvas, paper: PaperStyle.blank, coverColor: 0);
+      a.notebooks.create(
+        title: 'N',
+        kind: NotebookKind.canvas,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
       await controller.syncNow();
       expect(controller.state, SyncState.idle);
       expect(a.settings.syncLastSeq, 1);
@@ -285,7 +233,12 @@ void main() {
         apiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
       );
       controller.configure(url: 'http://sync.test', token: FakeServer.token);
-      a.notebooks.create(title: 'N', kind: NotebookKind.canvas, paper: PaperStyle.blank, coverColor: 0);
+      a.notebooks.create(
+        title: 'N',
+        kind: NotebookKind.canvas,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
       final run = controller.syncNow();
       controller.dispose();
       await run;
