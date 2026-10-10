@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
 import 'data/app_database.dart';
+import 'data/blob_store.dart';
 import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
 import 'data/settings_repository.dart';
@@ -18,14 +21,17 @@ class AppServices {
     required this.notebooks,
     required this.pages,
     required this.strokes,
+    required this.blobs,
     required this.sync,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
-  /// substitute the sync transport.
+  /// substitute the sync transport. Blob files (PDFs) are kept in
+  /// [blobDirectory] (a temporary directory if omitted, e.g. in tests).
   factory AppServices.create(
     AppDatabase database, {
     Clock clock = const Clock(),
+    Directory? blobDirectory,
     SyncApi Function(String url, String token)? syncApiFactory,
   }) {
     final settings = SettingsRepository(database);
@@ -39,12 +45,18 @@ class AppServices {
       strokes: strokes,
       clock: clock,
     );
+    final blobs = BlobStore(
+      database,
+      blobDirectory ?? Directory.systemTemp.createTempSync('len_blobs_'),
+      clock: clock,
+    );
     final engine = SyncEngine(
       database: database,
       settings: settings,
       notebooks: notebooks,
       pages: pages,
       strokes: strokes,
+      blobs: blobs,
     );
     return AppServices._(
       database: database,
@@ -52,6 +64,7 @@ class AppServices {
       notebooks: notebooks,
       pages: pages,
       strokes: strokes,
+      blobs: blobs,
       sync: syncApiFactory == null
           ? SyncController(engine: engine, settings: settings)
           : SyncController(engine: engine, settings: settings, apiFactory: syncApiFactory),
@@ -63,6 +76,7 @@ class AppServices {
   final NotebookRepository notebooks;
   final PageRepository pages;
   final StrokeRepository strokes;
+  final BlobStore blobs;
   final SyncController sync;
 
   void dispose() {

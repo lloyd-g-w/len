@@ -57,6 +57,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       kind: request.kind,
       paper: request.paper,
       coverColor: request.coverColor,
+      firstPage: request.template,
     );
     _reload();
     await _open(notebook);

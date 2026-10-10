@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/app_database.dart';
+import '../data/blob_store.dart';
 import '../data/notebook_repository.dart';
 import '../data/page_repository.dart';
 import '../data/settings_repository.dart';
 import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
+import 'blob_sync.dart';
 import 'sync_api.dart';
 
 /// What a pull changed locally, so open screens can refresh.
@@ -38,6 +40,7 @@ class SyncEngine {
     required this.notebooks,
     required this.pages,
     required this.strokes,
+    this.blobs,
   });
 
   final AppDatabase database;
@@ -45,6 +48,9 @@ class SyncEngine {
   final NotebookRepository notebooks;
   final PageRepository pages;
   final StrokeRepository strokes;
+
+  /// Local blob files; uploaded before any record is pushed.
+  final BlobStore? blobs;
 
   /// Dirty rows read from the database at a time. [SyncApi.push] further
   /// splits them by size.
@@ -65,6 +71,7 @@ class SyncEngine {
       for (final store in stores) {
         store.markAllDirty();
       }
+      blobs?.markAllNotUploaded();
     });
   }
 
@@ -73,6 +80,10 @@ class SyncEngine {
   /// request, before anything is written locally.
   Future<RemoteChanges> sync(SyncApi api, {CancelCheck? isCancelled}) async {
     final cancelled = isCancelled ?? () => false;
+    // Blobs first: a record must never reach the server before its blob.
+    final blobs = this.blobs;
+    if (blobs != null) await BlobSync(blobs).uploadPending(api, cancelled);
+    if (cancelled()) return RemoteChanges();
     await _push(api, cancelled);
     return _pull(api, cancelled);
   }

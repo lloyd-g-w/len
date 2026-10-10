@@ -4,6 +4,7 @@ import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/color_dot.dart';
+import '../documents/template_field.dart';
 
 /// What the user chose in [NewNotebookSheet].
 class NewNotebookRequest {
@@ -12,12 +13,23 @@ class NewNotebookRequest {
     required this.kind,
     required this.paper,
     required this.coverColor,
+    this.template = const PageTemplate(),
+    this.importPdf = false,
   });
+
+  /// The user chose to create the notebook from a PDF instead (see
+  /// `importPdfFlow`); the other fields are then irrelevant.
+  const NewNotebookRequest.importPdf()
+    : this(title: '', kind: NotebookKind.paged, paper: PaperStyle.blank, coverColor: 0, importPdf: true);
 
   final String title;
   final NotebookKind kind;
   final PaperStyle paper;
   final int coverColor;
+
+  /// First page of a paged notebook (its style equals [paper]).
+  final PageTemplate template;
+  final bool importPdf;
 }
 
 /// Bottom sheet for creating a notebook or an infinite canvas.
@@ -38,7 +50,8 @@ class NewNotebookSheet extends StatefulWidget {
 class _NewNotebookSheetState extends State<NewNotebookSheet> {
   final _title = TextEditingController();
   NotebookKind _kind = NotebookKind.paged;
-  PaperStyle _paper = PaperStyle.lined;
+  PageTemplate _template = const PageTemplate(style: PaperStyle.collegeRuled);
+  PaperStyle get _paper => _template.style;
   int _cover = Palette.covers.first;
 
   @override
@@ -55,6 +68,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         kind: _kind,
         paper: _paper,
         coverColor: _cover,
+        template: _template,
       ),
     );
   }
@@ -96,8 +110,8 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
             selected: {_kind},
             onSelectionChanged: (s) => setState(() {
               _kind = s.single;
-              if (_kind == NotebookKind.canvas && _paper == PaperStyle.lined) {
-                _paper = PaperStyle.dotted;
+              if (_kind == NotebookKind.canvas && _paper.isRuled) {
+                _template = _template.copyWith(style: PaperStyle.dotted);
               }
             }),
           ),
@@ -112,16 +126,10 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
           const SizedBox(height: 20),
           Text('Paper', style: theme.textTheme.labelLarge),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final paper in PaperStyle.values)
-                ChoiceChip(
-                  label: Text(_paperLabel(paper)),
-                  selected: _paper == paper,
-                  onSelected: (_) => setState(() => _paper = paper),
-                ),
-            ],
+          TemplateField(
+            template: _template,
+            sizeEditable: _kind == NotebookKind.paged,
+            onChanged: (t) => setState(() => _template = t),
           ),
           const SizedBox(height: 20),
           Text('Cover', style: theme.textTheme.labelLarge),
@@ -144,15 +152,15 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
             icon: const Icon(Icons.add),
             label: const Text('Create'),
           ),
+          // Documents workstream: create a notebook from a PDF instead.
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).pop(const NewNotebookRequest.importPdf()),
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: const Text('Import PDF…'),
+          ),
         ],
       ),
     );
   }
-
-  static String _paperLabel(PaperStyle p) => switch (p) {
-    PaperStyle.blank => 'Blank',
-    PaperStyle.lined => 'Lined',
-    PaperStyle.grid => 'Grid',
-    PaperStyle.dotted => 'Dotted',
-  };
 }

@@ -1,11 +1,27 @@
+import 'dart:convert';
+import 'dart:ui';
+
 import 'package:sqlite3/sqlite3.dart';
 
 import '../domain/notebook_page.dart';
 import '../domain/paper.dart';
+import 'page_order.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
+/// What a new page looks like.
+typedef PageSpec = ({Size size, PaperStyle paper, PaperColor color, PageBackground? background});
+
+/// A [PageSpec] for a blank page made from [template].
+PageSpec specOf(PageTemplate template) =>
+    (size: template.size, paper: template.style, color: template.color, background: null);
+
 /// Persists the pages of paged notebooks.
+///
+/// Columns written by remote records keep their raw values (e.g. a paper
+/// style or background type from a newer app version), and local edits
+/// only update the columns they change, so such values survive a round
+/// trip through this device.
 class PageRepository extends SyncableTable {
   PageRepository(super.database, {required super.deviceId, super.clock});
 
@@ -17,44 +33,129 @@ class PageRepository extends SyncableTable {
 
   /// Live pages of [notebookId] in display order.
   List<NotebookPage> pagesOf(String notebookId) => db
-      .select(
-        'SELECT * FROM pages WHERE notebook_id = ? AND deleted = 0 '
-        'ORDER BY sort_key, id',
-        [notebookId],
-      )
+      .select('SELECT * FROM pages WHERE notebook_id = ? AND deleted = 0 ORDER BY sort_key, id', [
+        notebookId,
+      ])
       .map(_rowToPage)
       .toList();
 
-  /// Appends a page after [after] (or at the end when null).
+  /// A live page by id.
+  NotebookPage? get(String id) {
+    final rows = db.select('SELECT * FROM pages WHERE id = ? AND deleted = 0', [id]);
+    return rows.isEmpty ? null : _rowToPage(rows.first);
+  }
+
+  /// Adds a blank page after [after] (or before [before]; at the end when
+  /// both are null). Uses [template], or a blank A4 page of [paper].
   NotebookPage addPage(
     String notebookId, {
-    required PaperStyle paper,
+    PaperStyle? paper,
+    PageTemplate? template,
     NotebookPage? after,
+    NotebookPage? before,
   }) {
-    final pages = pagesOf(notebookId);
-    final page = NotebookPage(
-      id: clock.newId(),
-      notebookId: notebookId,
-      sortKey: _sortKeyAfter(pages, after),
-      width: PageSize.a4Width,
-      height: PageSize.a4Height,
-      paper: paper,
-    );
-    _write(page, updatedAt: clock.nowMs(), deviceId: deviceId, dirty: true);
-    return page;
+    final t = template ?? PageTemplate(style: paper ?? PaperStyle.blank);
+    return insertPages(notebookId, [specOf(t)], after: after, before: before).single;
   }
+
+  /// Inserts pages in order after [after] / before [before] (at the end when
+  /// both are null) in one transaction.
+  List<NotebookPage> insertPages(
+    String notebookId,
+    List<PageSpec> specs, {
+    NotebookPage? after,
+    NotebookPage? before,
+  }) {
+    return database.transaction(() {
+      var keys = _keysFor(notebookId, specs.length, after: after, before: before);
+      if (keys == null) {
+        _renumber(notebookId);
+        keys = _keysFor(notebookId, specs.length, after: after, before: before)!;
+      }
+      final now = clock.nowMs();
+      final created = <NotebookPage>[];
+      for (var i = 0; i < specs.length; i++) {
+        final s = specs[i];
+        final page = NotebookPage(
+          id: clock.newId(),
+          notebookId: notebookId,
+          sortKey: keys[i],
+          width: s.size.width,
+          height: s.size.height,
+          paper: s.paper,
+          paperColor: s.color,
+          background: s.background,
+        );
+        _insert(page, updatedAt: now, deviceId: deviceId, dirty: true);
+        created.add(page);
+      }
+      return created;
+    });
+  }
+
+  List<double>? _keysFor(
+    String notebookId,
+    int count, {
+    NotebookPage? after,
+    NotebookPage? before,
+  }) {
+    final keys = pagesOf(notebookId).map((p) => p.sortKey).toList();
+    final anchor = after ?? before;
+    var index = anchor == null ? -1 : _indexOfKey(keys, anchor.sortKey);
+    if (index == -1) return PageOrder.spread(keys.isEmpty ? null : keys.last, null, count);
+    if (before != null) index--; // Insert between index and index + 1.
+    return PageOrder.spread(
+      index >= 0 ? keys[index] : null,
+      index + 1 < keys.length ? keys[index + 1] : null,
+      count,
+    );
+  }
+
+  static int _indexOfKey(List<double> keys, double key) => keys.indexOf(key);
+
+  /// Moves [page] to position [toIndex] of its notebook.
+  void move(NotebookPage page, int toIndex) {
+    database.transaction(() {
+      var pages = pagesOf(page.notebookId);
+      var from = pages.indexWhere((p) => p.id == page.id);
+      if (from == -1 || from == toIndex) return;
+      var key = PageOrder.forMove([for (final p in pages) p.sortKey], from, toIndex);
+      if (key == null) {
+        _renumber(page.notebookId);
+        pages = pagesOf(page.notebookId);
+        from = pages.indexWhere((p) => p.id == page.id);
+        key = PageOrder.forMove([for (final p in pages) p.sortKey], from, toIndex)!;
+      }
+      _update(page.id, 'sort_key = ?', [key]);
+    });
+  }
+
+  /// Sets the paper of the given pages (the template of existing pages;
+  /// their size and background stay).
+  void setPaper(Iterable<String> pageIds, {PaperStyle? style, PaperColor? color}) {
+    database.transaction(() {
+      for (final id in pageIds) {
+        if (style != null) _update(id, 'paper = ?', [style.name]);
+        if (color != null) _update(id, 'paper_color = ?', [color.name]);
+      }
+    });
+  }
+
+  void setBookmarked(String pageId, bool bookmarked) =>
+      _update(pageId, 'bookmarked = ?', [bookmarked ? 1 : 0]);
+
+  /// Tombstones one page. Its strokes are the caller's business.
+  void delete(String pageId) => _update(pageId, 'deleted = 1', const []);
+
+  /// Revives a page deleted with [delete] (undo).
+  void restore(String pageId) => _update(pageId, 'deleted = 0', const []);
 
   /// Tombstones all pages of [notebookId]; returns their ids.
   List<String> deleteAllOf(String notebookId) {
     final ids = pagesOf(notebookId).map((p) => p.id).toList();
-    final now = clock.nowMs();
     database.transaction(() {
       for (final id in ids) {
-        db.execute(
-          'UPDATE pages SET deleted = 1, dirty = 1, updated_at = ?, device_id = ? '
-          'WHERE id = ?',
-          [nextVersion(id, now), deviceId, id],
-        );
+        delete(id);
       }
     });
     return ids;
@@ -66,11 +167,28 @@ class PageRepository extends SyncableTable {
     return rows.isEmpty ? null : rows.first['notebook_id'] as String;
   }
 
-  static double _sortKeyAfter(List<NotebookPage> pages, NotebookPage? after) {
-    if (pages.isEmpty) return 1;
-    final index = after == null ? -1 : pages.indexWhere((p) => p.id == after.id);
-    if (index == -1 || index == pages.length - 1) return pages.last.sortKey + 1;
-    return (pages[index].sortKey + pages[index + 1].sortKey) / 2;
+  /// Distinct blobs referenced by live pages' backgrounds.
+  Set<String> referencedBlobs() => {
+    for (final row in db.select(
+      'SELECT background FROM pages WHERE deleted = 0 AND background IS NOT NULL',
+    ))
+      ?_decodeBackground(row['background'] as String?)?.blob,
+  };
+
+  /// Gives every page of [notebookId] an integer key (1, 2, …).
+  void _renumber(String notebookId) {
+    final pages = pagesOf(notebookId);
+    for (var i = 0; i < pages.length; i++) {
+      _update(pages[i].id, 'sort_key = ?', [i + 1.0]);
+    }
+  }
+
+  /// A local edit of some columns: bumps the version and marks it dirty.
+  void _update(String id, String assignments, List<Object?> args) {
+    db.execute(
+      'UPDATE pages SET $assignments, dirty = 1, updated_at = ?, device_id = ? WHERE id = ?',
+      [...args, nextVersion(id), deviceId, id],
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -79,6 +197,7 @@ class PageRepository extends SyncableTable {
   @override
   SyncRecord rowToRecord(Row row) {
     final deleted = row['deleted'] == 1;
+    final background = row['background'] as String?;
     return SyncRecord(
       collection: collection,
       id: row['id'] as String,
@@ -93,6 +212,9 @@ class PageRepository extends SyncableTable {
               'width': row['width'],
               'height': row['height'],
               'paper': row['paper'],
+              'paperColor': row['paper_color'],
+              'bookmarked': row['bookmarked'] == 1,
+              'background': background == null ? null : jsonDecode(background),
             },
     );
   }
@@ -126,39 +248,75 @@ class PageRepository extends SyncableTable {
         height <= 0) {
       throw FormatException('Malformed page ${record.id}');
     }
-    _write(
-      NotebookPage(
-        id: record.id,
-        notebookId: notebookId,
-        sortKey: sortKey.toDouble(),
-        width: width.toDouble(),
-        height: height.toDouble(),
-        paper: PaperStyle.parse(paper),
-      ),
+    // Optional fields (added later): tolerate absence and odd values.
+    final color = d['paperColor'];
+    final background = d['background'];
+    _writeRow(
+      id: record.id,
+      notebookId: notebookId,
+      sortKey: sortKey.toDouble(),
+      width: width.toDouble(),
+      height: height.toDouble(),
+      paper: paper,
+      paperColor: color is String ? color : PaperColor.white.name,
+      bookmarked: d['bookmarked'] == true,
+      background: background is Map ? jsonEncode(background) : null,
       updatedAt: record.updatedAt,
       deviceId: record.deviceId,
       dirty: false,
     );
   }
 
-  void _write(
+  void _insert(
     NotebookPage page, {
+    required int updatedAt,
+    required String deviceId,
+    required bool dirty,
+  }) => _writeRow(
+    id: page.id,
+    notebookId: page.notebookId,
+    sortKey: page.sortKey,
+    width: page.width,
+    height: page.height,
+    paper: page.paper.name,
+    paperColor: page.paperColor.name,
+    bookmarked: page.bookmarked,
+    background: page.background == null ? null : jsonEncode(page.background!.toJson()),
+    updatedAt: updatedAt,
+    deviceId: deviceId,
+    dirty: dirty,
+  );
+
+  void _writeRow({
+    required String id,
+    required String notebookId,
+    required double sortKey,
+    required double width,
+    required double height,
+    required String paper,
+    required String paperColor,
+    required bool bookmarked,
+    required String? background,
     required int updatedAt,
     required String deviceId,
     required bool dirty,
   }) {
     db.execute(
       '''
-      INSERT OR REPLACE INTO pages (id, notebook_id, sort_key, width, height,
-                                    paper, updated_at, device_id, deleted, dirty)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
+      INSERT OR REPLACE INTO pages (id, notebook_id, sort_key, width, height, paper,
+                                    paper_color, bookmarked, background,
+                                    updated_at, device_id, deleted, dirty)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
       [
-        page.id,
-        page.notebookId,
-        page.sortKey,
-        page.width,
-        page.height,
-        page.paper.name,
+        id,
+        notebookId,
+        sortKey,
+        width,
+        height,
+        paper,
+        paperColor,
+        bookmarked ? 1 : 0,
+        background,
         updatedAt,
         deviceId,
         dirty ? 1 : 0,
@@ -166,12 +324,24 @@ class PageRepository extends SyncableTable {
     );
   }
 
+  static PageBackground? _decodeBackground(String? json) {
+    if (json == null) return null;
+    try {
+      return PageBackground.fromJson(jsonDecode(json));
+    } on FormatException {
+      return null;
+    }
+  }
+
   static NotebookPage _rowToPage(Row row) => NotebookPage(
-        id: row['id'] as String,
-        notebookId: row['notebook_id'] as String,
-        sortKey: (row['sort_key'] as num).toDouble(),
-        width: (row['width'] as num).toDouble(),
-        height: (row['height'] as num).toDouble(),
-        paper: PaperStyle.parse(row['paper'] as String),
-      );
+    id: row['id'] as String,
+    notebookId: row['notebook_id'] as String,
+    sortKey: (row['sort_key'] as num).toDouble(),
+    width: (row['width'] as num).toDouble(),
+    height: (row['height'] as num).toDouble(),
+    paper: PaperStyle.parse(row['paper'] as String),
+    paperColor: PaperColor.parse(row['paper_color'] as String?),
+    bookmarked: row['bookmarked'] == 1,
+    background: _decodeBackground(row['background'] as String?),
+  );
 }

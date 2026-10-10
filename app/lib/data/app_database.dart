@@ -62,7 +62,27 @@ class AppDatabase {
   static final List<void Function(Database)> _migrations = [
     _createInitialSchema,
     _indexDirtyStrokesById,
+    _addPageDetailsAndBlobs,
   ];
+
+  /// Paper colour, bookmarks and backgrounds (PDF pages) for pages, plus
+  /// the local index of content-addressed blob files.
+  static void _addPageDetailsAndBlobs(Database db) {
+    db.execute("ALTER TABLE pages ADD COLUMN paper_color TEXT NOT NULL DEFAULT 'white'");
+    db.execute('ALTER TABLE pages ADD COLUMN bookmarked INTEGER NOT NULL DEFAULT 0');
+    // JSON object (see PageBackground) or NULL.
+    db.execute('ALTER TABLE pages ADD COLUMN background TEXT');
+    // Blob files live in the app support directory; this table records
+    // which ones are present and which still need uploading.
+    db.execute('''
+      CREATE TABLE blobs (
+        sha256     TEXT PRIMARY KEY NOT NULL,
+        size       INTEGER NOT NULL,
+        mime       TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        uploaded   INTEGER NOT NULL DEFAULT 0
+      )''');
+  }
 
   /// Push pages through dirty rows in id order (keyset pagination); index
   /// exactly that, so a sync with nothing to push never scans all strokes.
