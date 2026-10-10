@@ -235,6 +235,7 @@ class LibraryController extends ChangeNotifier {
     required NotebookKind kind,
     required PaperStyle paper,
     required int coverColor,
+    PaperColor paperColor = PaperColor.white,
     CoverStyle coverStyle = CoverStyle.plain,
     PageTemplate? firstPage,
   }) {
@@ -242,6 +243,7 @@ class LibraryController extends ChangeNotifier {
       title: title,
       kind: kind,
       paper: paper,
+      paperColor: paperColor,
       coverColor: coverColor,
       coverStyle: coverStyle,
       folderId: _section == LibrarySection.library ? _folderId : null,

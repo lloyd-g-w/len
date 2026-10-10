@@ -80,23 +80,21 @@ class _TemplatePickerState extends State<TemplatePicker> {
             Text(_title, style: theme.textTheme.headlineSmall),
             const SizedBox(height: Gaps.lg),
             _TemplateGrid(selected: _t, onSelect: _set),
-            if (widget.mode != TemplatePickerMode.canvas) ...[
-              const SizedBox(height: Gaps.xl),
-              _label(context, 'Paper colour'),
-              Wrap(
-                spacing: Gaps.sm,
-                children: [
-                  for (final c in PaperColor.values)
-                    ColorDot(
-                      color: c.paper.toARGB32(),
-                      size: 36,
-                      tooltip: c.label,
-                      selected: _t.color == c,
-                      onTap: () => _set(_t.copyWith(color: c)),
-                    ),
-                ],
-              ),
-            ],
+            const SizedBox(height: Gaps.xl),
+            _label(context, 'Paper colour'),
+            Wrap(
+              spacing: Gaps.sm,
+              children: [
+                for (final c in PaperColor.values)
+                  ColorDot(
+                    color: c.paper.toARGB32(),
+                    size: 36,
+                    tooltip: c.label,
+                    selected: _t.color == c,
+                    onTap: () => _set(_t.copyWith(color: c)),
+                  ),
+              ],
+            ),
             if (_sizeEditable) ...[
               const SizedBox(height: Gaps.xl),
               _label(context, 'Page size'),

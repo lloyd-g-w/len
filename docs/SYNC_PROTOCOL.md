@@ -141,7 +141,7 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | collection  | data                                                                                   |
 |-------------|----------------------------------------------------------------------------------------|
 | `folders`   | `{name, parentId: string|null, color, createdAt}`                                       |
-| `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt, coverStyle?, editedAt?, folderId?, favorite?, trashedAt?}` |
+| `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt, coverStyle?, editedAt?, folderId?, favorite?, trashedAt?, paperColor?}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperColor?, bookmarked?, background?}`     |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter`; unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
 
@@ -158,6 +158,8 @@ unstar or restore it), and for a row not seen before fall back to defaults (`cov
 - `notebooks.folderId` pointing at a missing folder means "library root".
 - `notebooks.trashedAt` (ms) puts a notebook in the trash; it stays a live record so it can be
   restored. "Delete forever" tombstones the notebook, its pages and strokes as before.
+- `paperColor` (canvas background; same values as on pages): missing → the local value, or
+  `white` for a notebook new to this device; unknown → `white`.
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
   (favourite, move, trash) only bump `updatedAt`.
 

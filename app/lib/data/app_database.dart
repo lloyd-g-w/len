@@ -68,7 +68,17 @@ class AppDatabase {
     _addStrokeStyle,
     _addFoldersAndLibraryFields,
     _addPageDetailsAndBlobs,
+    _addNotebookPaperColor,
   ];
+
+  /// Background colour of infinite canvases. Idempotent (parallel branches
+  /// may order migrations differently).
+  static void _addNotebookPaperColor(Database db) {
+    final columns = db.select('PRAGMA table_info(notebooks)').map((r) => r['name']).toSet();
+    if (!columns.contains('paper_color')) {
+      db.execute("ALTER TABLE notebooks ADD COLUMN paper_color TEXT NOT NULL DEFAULT 'white'");
+    }
+  }
 
   /// Per-stroke rendering style (JSON, see `StrokeStyle`); NULL for strokes
   /// drawn before styles existed. Idempotent, so it is safe however

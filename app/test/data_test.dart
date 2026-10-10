@@ -63,7 +63,8 @@ void main() {
       // A database from before the documents/library merge recorded the
       // page/blob migration early and never got the stroke style column.
       fresh.db.execute('ALTER TABLE strokes DROP COLUMN style');
-      fresh.db.execute('PRAGMA user_version = ${latest - 1}');
+      // Index of _addPageDetailsAndBlobs in AppDatabase._migrations.
+      fresh.db.execute('PRAGMA user_version = 4');
       fresh.close();
 
       final upgraded = AppDatabase.open(path);

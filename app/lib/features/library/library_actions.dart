@@ -42,6 +42,7 @@ class LibraryActions {
       title: request.title,
       kind: request.kind,
       paper: request.paper,
+      paperColor: request.template.color,
       coverColor: request.coverColor,
       coverStyle: request.coverStyle,
       firstPage: request.template,
