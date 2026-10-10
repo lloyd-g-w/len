@@ -43,10 +43,7 @@ class StrokePoint {
 
   @override
   bool operator ==(Object other) =>
-      other is StrokePoint &&
-      other.x == x &&
-      other.y == y &&
-      other.pressure == pressure;
+      other is StrokePoint && other.x == x && other.y == y && other.pressure == pressure;
 
   @override
   int get hashCode => Object.hash(x, y, pressure);
@@ -70,10 +67,10 @@ class Stroke {
     required List<StrokePoint> points,
     required this.createdAt,
     StrokeStyle? style,
-  })  : assert(points.isNotEmpty, 'A stroke needs at least one point'),
-        style = style ?? StrokeStyle.defaultsFor(tool),
-        points = List.unmodifiable(points),
-        bounds = computeBounds(points, width);
+  }) : assert(points.isNotEmpty, 'A stroke needs at least one point'),
+       style = style ?? StrokeStyle.defaultsFor(tool),
+       points = List.unmodifiable(points),
+       bounds = computeBounds(points, width);
 
   final String id;
 
@@ -117,15 +114,15 @@ class Stroke {
   /// A stroke like this one but with other [points] (and optionally [id] /
   /// [style]); used to split strokes (pixel eraser) or straighten them.
   Stroke withPoints(List<StrokePoint> points, {String? id, StrokeStyle? style}) => Stroke(
-        id: id ?? this.id,
-        surfaceId: surfaceId,
-        tool: tool,
-        color: color,
-        width: width,
-        points: points,
-        createdAt: createdAt,
-        style: style ?? this.style,
-      );
+    id: id ?? this.id,
+    surfaceId: surfaceId,
+    tool: tool,
+    color: color,
+    width: width,
+    points: points,
+    createdAt: createdAt,
+    style: style ?? this.style,
+  );
 
   /// Total paint order: creation time, then id for determinism across devices.
   static int paintOrder(Stroke a, Stroke b) {
