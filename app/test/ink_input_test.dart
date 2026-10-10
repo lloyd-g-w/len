@@ -32,20 +32,20 @@ class _Pointer {
   final int buttons;
 
   PointerDownEvent down(Offset at) => PointerDownEvent(
-        pointer: id,
-        kind: kind,
-        position: at,
-        buttons: buttons == 0 ? kPrimaryButton : buttons,
-        pressure: 0.5,
-      );
+    pointer: id,
+    kind: kind,
+    position: at,
+    buttons: buttons == 0 ? kPrimaryButton : buttons,
+    pressure: 0.5,
+  );
 
   PointerMoveEvent move(Offset at) => PointerMoveEvent(
-        pointer: id,
-        kind: kind,
-        position: at,
-        buttons: buttons == 0 ? kPrimaryButton : buttons,
-        pressure: 0.5,
-      );
+    pointer: id,
+    kind: kind,
+    position: at,
+    buttons: buttons == 0 ? kPrimaryButton : buttons,
+    pressure: 0.5,
+  );
 
   PointerUpEvent up(Offset at) => PointerUpEvent(pointer: id, kind: kind, position: at);
 }
@@ -103,7 +103,11 @@ void main() {
 
   test('inverted stylus erases', () {
     drawLine(_Pointer(1, PointerDeviceKind.stylus), const Offset(10, 10), const Offset(100, 10));
-    drawLine(_Pointer(2, PointerDeviceKind.invertedStylus), const Offset(50, -20), const Offset(50, 40));
+    drawLine(
+      _Pointer(2, PointerDeviceKind.invertedStylus),
+      const Offset(50, -20),
+      const Offset(50, 40),
+    );
     expect(model.loadedStrokeCount, 0);
   });
 
@@ -196,14 +200,14 @@ void main() {
 
   group('SurfaceModel eviction', () {
     Stroke at(String id, double x) => Stroke(
-          id: id,
-          surfaceId: 's',
-          tool: InkTool.pen,
-          color: 0xFF000000,
-          width: 2,
-          points: [StrokePoint(x, 10, 0.5), StrokePoint(x + 10, 10, 0.5)],
-          createdAt: 1,
-        );
+      id: id,
+      surfaceId: 's',
+      tool: InkTool.pen,
+      color: 0xFF000000,
+      width: 2,
+      points: [StrokePoint(x, 10, 0.5), StrokePoint(x + 10, 10, 0.5)],
+      createdAt: 1,
+    );
 
     test('invalidates only evicted chunks, never everything', () {
       repo.save([for (var i = 0; i < 6; i++) at('s$i', i * 5000.0)]);
@@ -232,5 +236,34 @@ void main() {
       ..showEraser(const Offset(1, 1), 5)
       ..showEraser(const Offset(1, 1), 5);
     expect(notified, 1);
+  });
+
+  group('stylus bounce', () {
+    final pen = _Pointer(1, PointerDeviceKind.stylus);
+
+    void tap(Offset at, {required int downMs, required int upMs}) => input
+      ..handleDown(pen.down(at).copyWith(timeStamp: Duration(milliseconds: downMs)))
+      ..handleUp(pen.up(at).copyWith(timeStamp: Duration(milliseconds: upMs)));
+
+    void stroke({required int downMs, required int upMs}) => input
+      ..handleDown(
+        pen.down(const Offset(10, 10)).copyWith(timeStamp: Duration(milliseconds: downMs)),
+      )
+      ..handleMove(pen.move(const Offset(60, 10)))
+      ..handleMove(pen.move(const Offset(100, 10)))
+      ..handleUp(pen.up(const Offset(100, 10)).copyWith(timeStamp: Duration(milliseconds: upMs)));
+
+    test('a tiny re-contact right after a lift is dropped', () {
+      stroke(downMs: 0, upMs: 300);
+      tap(const Offset(103, 12), downMs: 340, upMs: 360);
+      expect(model.loadedStrokeCount, 1);
+    });
+
+    test('a deliberate dot placed later or elsewhere is kept', () {
+      stroke(downMs: 0, upMs: 300);
+      tap(const Offset(103, 12), downMs: 800, upMs: 850); // later
+      tap(const Offset(300, 200), downMs: 870, upMs: 890); // elsewhere
+      expect(model.loadedStrokeCount, 3);
+    });
   });
 }

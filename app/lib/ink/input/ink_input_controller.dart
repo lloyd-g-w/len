@@ -8,6 +8,7 @@ import '../../domain/stroke.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../viewport.dart';
+import 'bounce_filter.dart';
 import 'hold_to_straighten.dart';
 import 'live_ink.dart';
 
@@ -69,8 +70,14 @@ class InkInputController {
   /// button as primary and the eraser flag as [kSecondaryStylusButton].
   static const int _eraseButtons = kPrimaryStylusButton | kSecondaryStylusButton;
 
+  /// Drops accidental stylus re-contacts right after a lift.
+  final BounceFilter _bounces = BounceFilter();
+
   int? _drawPointer;
   PointerDeviceKind? _drawKind;
+  Duration _drawStartTime = Duration.zero;
+  Offset _drawStartScreen = Offset.zero;
+  double _drawTravel = 0;
   bool _erasing = false;
   bool _eraseStarted = false;
   Offset? _lastScreen;
@@ -109,7 +116,7 @@ class InkInputController {
 
   void handleUp(PointerUpEvent e) {
     if (e.pointer == _drawPointer) {
-      _finishDraw();
+      _finishDraw(liftTime: e.timeStamp);
     }
     _navPointers.remove(e.pointer);
   }
@@ -203,6 +210,9 @@ class InkInputController {
   void _startDraw(PointerDownEvent e, {required bool erase}) {
     _drawPointer = e.pointer;
     _drawKind = e.kind;
+    _drawStartTime = e.timeStamp;
+    _drawStartScreen = e.localPosition;
+    _drawTravel = 0;
     _erasing = erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
@@ -219,11 +229,7 @@ class InkInputController {
         style: tools.styleFor(ink),
       );
       live.add(_pointOf(e));
-      _straighten.begin(
-        e.localPosition,
-        enabled: tools.holdToStraighten,
-        scale: viewport.scale,
-      );
+      _straighten.begin(e.localPosition, enabled: tools.holdToStraighten, scale: viewport.scale);
     }
   }
 
@@ -233,32 +239,55 @@ class InkInputController {
       _eraseTo(e.localPosition);
       return;
     }
-    if ((e.localPosition - _lastScreen!).distance < _minPointDistance) return;
+    final step = (e.localPosition - _lastScreen!).distance;
+    if (step < _minPointDistance) return;
+    _drawTravel += step;
     _lastScreen = e.localPosition;
     final point = _pointOf(e);
     if (_straighten.move(e.localPosition, point)) return;
     live.add(point);
   }
 
-  void _finishDraw() {
+  /// Ends the current contact. [liftTime] is the pen-up timestamp, when known.
+  void _finishDraw({Duration? liftTime}) {
     if (_erasing) {
       _showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
       final points = live.finish();
-      if (points.isNotEmpty) {
-        model.addStroke(Stroke(
-          id: clock.newId(),
-          surfaceId: model.surfaceId,
-          tool: live.tool,
-          color: live.color,
-          width: live.width,
-          style: live.style,
-          points: points,
-          createdAt: clock.nowMs(),
-        ));
+      if (points.isNotEmpty && !_isBounce(liftTime)) {
+        model.addStroke(
+          Stroke(
+            id: clock.newId(),
+            surfaceId: model.surfaceId,
+            tool: live.tool,
+            color: live.color,
+            width: live.width,
+            style: live.style,
+            points: points,
+            createdAt: clock.nowMs(),
+          ),
+        );
       }
+      _recordLift(liftTime);
     }
     _resetDraw();
+  }
+
+  /// Whether the contact that just ended was an accidental stylus bounce.
+  bool _isBounce(Duration? liftTime) =>
+      liftTime != null &&
+      _isStylus(_drawKind) &&
+      _bounces.isBounce(
+        down: _drawStartTime,
+        up: liftTime,
+        start: _drawStartScreen,
+        travel: _drawTravel,
+      );
+
+  void _recordLift(Duration? liftTime) {
+    if (liftTime != null && _isStylus(_drawKind) && _lastScreen != null) {
+      _bounces.recordLift(liftTime, _lastScreen!);
+    }
   }
 
   /// Abandons the current stroke without committing it.
