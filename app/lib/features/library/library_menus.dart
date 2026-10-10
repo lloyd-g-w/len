@@ -105,7 +105,7 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
         Flexible(
           child: Text(
             widget.label,
-            style: TextStyle(color: color),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

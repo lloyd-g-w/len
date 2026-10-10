@@ -137,7 +137,7 @@ class LibraryContent extends StatelessWidget {
   }
 
   Widget _grid(List<Notebook> notebooks, bool compact) {
-    final maxTile = compact ? 172.0 : 196.0;
+    final maxTile = compact ? 172.0 : 184.0;
     final spacing = compact ? Gaps.lg : Gaps.xl + 4;
     return SliverLayoutBuilder(
       builder: (context, constraints) {

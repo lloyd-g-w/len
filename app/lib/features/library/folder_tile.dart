@@ -52,7 +52,19 @@ class _FolderTileState extends State<FolderTile> {
     );
   }
 
-  Widget _body(BuildContext context, {required bool active, bool feedback = false}) {
+  Widget _body(BuildContext context, {required bool active, bool feedback = false}) =>
+      LayoutBuilder(
+        // Narrow tiles (phones) drop the menu button; long-press still works.
+        builder: (context, constraints) =>
+            _tile(context, active: active, feedback: feedback, narrow: constraints.maxWidth < 200),
+      );
+
+  Widget _tile(
+    BuildContext context, {
+    required bool active,
+    required bool feedback,
+    required bool narrow,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final color = Color(_folder.color);
@@ -114,7 +126,7 @@ class _FolderTileState extends State<FolderTile> {
                       ],
                     ),
                   ),
-                  if (!feedback)
+                  if (!feedback && !narrow)
                     Builder(
                       builder: (anchor) => IconButton(
                         tooltip: 'Folder options',

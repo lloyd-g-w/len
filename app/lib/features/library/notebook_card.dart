@@ -90,7 +90,12 @@ class _NotebookCardState extends State<NotebookCard> {
                 child: NotebookCover.of(_notebook),
               ),
               onLongPressMenu: () => unawaited(_showMenu()),
-              child: AnimatedScale(scale: _focused ? 1.02 : 1, duration: Motion.fast, child: cover),
+              child: AnimatedScale(
+                scale: _focused ? 1.02 : 1,
+                duration: Motion.fast,
+                // Trashed notebooks look faded.
+                child: _notebook.isTrashed ? Opacity(opacity: 0.6, child: cover) : cover,
+              ),
             ),
           ),
           const SizedBox(height: Gaps.sm + 2),

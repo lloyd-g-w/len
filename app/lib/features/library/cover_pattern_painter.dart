@@ -15,7 +15,7 @@ class CoverPatternPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final unit = size.shortestSide / 12; // Scales with the cover.
+    final unit = math.max(size.shortestSide / 12, 7.0); // Scales with the cover.
     final paint = Paint()
       ..color = Colors.white.withValues(alpha: opacity)
       ..strokeWidth = math.max(1, unit * 0.08)
@@ -42,6 +42,7 @@ class CoverPatternPainter extends CustomPainter {
           }
         }
       case CoverStyle.grid:
+        paint.color = Colors.white.withValues(alpha: opacity * 0.6);
         final step = unit * 1.1;
         for (var x = step; x < size.width; x += step) {
           canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);

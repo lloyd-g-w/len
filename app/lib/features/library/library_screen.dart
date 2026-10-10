@@ -146,7 +146,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
     ),
   );
 
-  Widget? _fab(BuildContext context) => _controller.section == LibrarySection.trash
+  /// The "New" button; hidden in the trash and when the empty state
+  /// already offers one.
+  Widget? _fab(BuildContext context) =>
+      _controller.section == LibrarySection.trash ||
+          (_controller.section == LibrarySection.library &&
+              !_controller.isSearching &&
+              _controller.visibleFolders.isEmpty &&
+              _controller.visibleNotebooks.isEmpty &&
+              _controller.folderId == null)
       ? null
       : FloatingActionButton.extended(
           onPressed: () => unawaited(_actions.createNotebook(context)),

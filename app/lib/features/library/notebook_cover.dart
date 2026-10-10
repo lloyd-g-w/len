@@ -58,6 +58,8 @@ class NotebookCover extends StatelessWidget {
         children: [
           AnimatedSwitcher(
             duration: Motion.medium,
+            layoutBuilder: (current, previous) =>
+                Stack(fit: StackFit.expand, children: [...previous, ?current]),
             child: preview == null
                 ? _PlainCover(
                     key: const ValueKey('plain'),

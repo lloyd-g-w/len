@@ -40,8 +40,8 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final c = _controller;
-    // Always reveal the open folder.
-    for (final f in c.breadcrumbs.reversed.skip(1)) {
+    // Always reveal the open folder and its subfolders.
+    for (final f in c.breadcrumbs) {
       _expanded.add(f.id);
     }
     return Container(

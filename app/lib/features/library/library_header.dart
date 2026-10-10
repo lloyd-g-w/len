@@ -62,10 +62,16 @@ class LibraryHeader extends StatelessWidget {
           ),
         ),
     ];
+    final folders = _c.visibleFolders.length;
+    String plural(int n, String one) => '$n ${n == 1 ? one : '${one}s'}';
     final subtitle = switch (_c.section) {
       LibrarySection.trash => 'Restore notebooks or delete them forever.',
-      _ when _c.isSearching => '$count ${count == 1 ? 'result' : 'results'} across all folders',
-      _ => '$count ${count == 1 ? 'notebook' : 'notebooks'}',
+      _ when _c.isSearching => '${plural(count + folders, 'result')} across all folders',
+      _ when count == 0 && folders == 0 => 'Empty',
+      _ => [
+        if (folders > 0) plural(folders, 'folder'),
+        if (count > 0 || folders == 0) plural(count, 'notebook'),
+      ].join(' · '),
     };
     final titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,40 +95,43 @@ class LibraryHeader extends StatelessWidget {
         ),
       ],
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_c.section == LibrarySection.library && _c.folderId != null) ...[
-          _Breadcrumbs(actions: actions),
-          const SizedBox(height: Gaps.xs),
+    return LayoutBuilder(
+      builder: (context, constraints) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_c.section == LibrarySection.library && _c.folderId != null) ...[
+            _Breadcrumbs(actions: actions),
+            const SizedBox(height: Gaps.xs),
+          ],
+          // Search on its own row when the title would get squeezed.
+          if (compact || constraints.maxWidth < 680) ...[
+            Row(
+              children: [
+                Expanded(child: titleBlock),
+                ...trailing,
+              ],
+            ),
+            const SizedBox(height: Gaps.lg),
+            Row(
+              children: [
+                Expanded(child: search),
+                ...tools,
+              ],
+            ),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: titleBlock),
+                const SizedBox(width: Gaps.lg),
+                SizedBox(width: 280, child: search),
+                const SizedBox(width: Gaps.sm),
+                ...tools,
+                ...trailing,
+              ],
+            ),
         ],
-        if (compact) ...[
-          Row(
-            children: [
-              Expanded(child: titleBlock),
-              ...trailing,
-            ],
-          ),
-          const SizedBox(height: Gaps.lg),
-          Row(
-            children: [
-              Expanded(child: search),
-              ...tools,
-            ],
-          ),
-        ] else
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(child: titleBlock),
-              const SizedBox(width: Gaps.lg),
-              SizedBox(width: 280, child: search),
-              const SizedBox(width: Gaps.sm),
-              ...tools,
-              ...trailing,
-            ],
-          ),
-      ],
+      ),
     );
   }
 }
