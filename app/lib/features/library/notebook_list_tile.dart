@@ -61,7 +61,7 @@ class _NotebookListTileState extends State<NotebookListTile> {
           onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
           onHover: (h) => setState(() => _hovered = h),
           onFocusChange: (f) =>
-              widget.actions.controller.focusedNotebookId = f ? _notebook.id : null,
+              widget.actions.controller.setNotebookFocused(_notebook.id, f),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.sm),
             child: Row(

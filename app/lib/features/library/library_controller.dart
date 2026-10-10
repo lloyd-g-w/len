@@ -45,7 +45,19 @@ class LibraryController extends ChangeNotifier {
   ({LibrarySort sort, List<Notebook> notebooks})? _visible;
 
   /// The notebook with keyboard focus (target of the Delete shortcut).
-  String? focusedNotebookId;
+  String? get focusedNotebookId => _focusedNotebookId;
+  String? _focusedNotebookId;
+
+  /// Records that notebook [id] gained or lost keyboard focus. Losing focus
+  /// only clears it if no other notebook has gained it meanwhile (focus
+  /// gain and loss callbacks arrive in no guaranteed order).
+  void setNotebookFocused(String id, bool focused) {
+    if (focused) {
+      _focusedNotebookId = id;
+    } else if (_focusedNotebookId == id) {
+      _focusedNotebookId = null;
+    }
+  }
 
   LibrarySection get section => _section;
 
