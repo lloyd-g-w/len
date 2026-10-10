@@ -204,9 +204,13 @@ Export (`features/documents/export/`): `PdfExporter` (package `pdf`) writes
 ink as filled polygons flattened from the exact outline paths the app
 renders, templates as vector lines, and imported PDF pages as 150 dpi
 images; PNG export rasterises a page with the same painters as the editor.
+The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
+indices from a range like "1-3, 5", templates and PDF backgrounds on or off,
+PNG resolution); without templates pages are exported as blank white paper.
 Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
-(`platform/file_export*`).
+(`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
+on mobile and written into a folder the user picks on desktop.
 
 ## Input (`ink/input/ink_input_controller.dart`)
 

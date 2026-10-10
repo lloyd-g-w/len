@@ -105,9 +105,9 @@ settings — at the four sizes, light and dark, and at 1.3× text.
 16. ⬜ Folder colours only; GoodNotes allows folder icons/emoji.
 17. ⬜ Long PDF imports/exports can't be cancelled (the progress dialog has
     no Cancel; needs cancellation in `PdfImporter` / `NotebookExporter`).
-18. ⬜ No export options sheet (page range, PNG resolution, flatten
-    template) like GoodNotes' export dialog; the entry points live in the
-    editor menu.
+18. ✅ No export options sheet (page range, PNG resolution, flatten
+    template) like GoodNotes' export dialog. → `ExportSheet` (dialog / bottom
+    sheet): format, pages or range, templates & PDF backgrounds, PNG resolution.
 19. ⬜ Paper-colour chips wrap to two rows on phones in the template picker.
 20. ⬜ Typing a search ends selection mode (selection is scoped to the
     place, search included); keep it if the selected notebooks match.

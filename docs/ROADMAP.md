@@ -39,7 +39,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ PDF import & annotate (new notebook or insert pages); export notebook / page to PDF (vector
   ink) and page to PNG; save dialog on desktop, share sheet on Android
 - ✅ Progress for import / export: stage, file name, "Page x of n" bar
-- ⬜ Cancel long imports / exports; export options (page range, PNG resolution)
+- ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
+  backgrounds on or off, PNG resolution (192 / 384 dpi); several PNGs shared or saved at once
+- ⬜ Cancel long imports / exports
 - ⬜ Planner / custom (image) templates
 - ⬜ Tiled PDF rendering for extreme zoom; PDF text selection / links / outline
 - ⬜ Export keeps imported PDF pages as vectors (currently embedded at 150 dpi)
