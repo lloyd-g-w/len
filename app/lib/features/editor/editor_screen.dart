@@ -19,6 +19,8 @@ import '../../ui/measure_size.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_background_cache.dart';
 import '../documents/template_picker.dart';
+import '../search/editor/editor_search_controller.dart';
+import '../search/editor/editor_search_layer.dart';
 import 'canvas/canvas_menu.dart';
 import 'canvas/canvas_navigation.dart';
 import 'canvas/canvas_shortcuts.dart';
@@ -57,6 +59,7 @@ class _EditorScreenState extends State<EditorScreen> {
   late final UndoTarget _undo;
   late final ContentTools _content;
   StreamSubscription<RemoteChanges>? _remoteChanges;
+  late final EditorSearchController _search; // Ctrl+F (features/search).
 
   // Infinite canvas: one surface.
   SurfaceModel? _canvas;
@@ -107,6 +110,9 @@ class _EditorScreenState extends State<EditorScreen> {
       _content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));
       _undo = doc.surfaces;
     }
+    _search = _doc != null
+        ? EditorSearchController.forDocument(_services, _doc!, notebookId: _notebook.id)
+        : EditorSearchController.forCanvas(_services, _canvasViewport!, notebookId: _notebook.id);
     _remoteChanges = _services.sync.remoteChanges.listen(_onRemoteChanges);
   }
 
@@ -168,6 +174,7 @@ class _EditorScreenState extends State<EditorScreen> {
       final sync = _services.sync;
       scheduleMicrotask(() => unawaited(sync.syncNow()));
     }
+    _search.dispose();
     _focus.dispose();
     _bottomToolbarHeight.dispose();
     _canvas?.dispose();
@@ -285,6 +292,8 @@ class _EditorScreenState extends State<EditorScreen> {
     const SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true): _undo.redo,
     const SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true): _undo.redo,
     const SingleActivator(LogicalKeyboardKey.keyY, control: true): _undo.redo,
+    const SingleActivator(LogicalKeyboardKey.keyF, control: true): _search.open,
+    const SingleActivator(LogicalKeyboardKey.keyF, meta: true): _search.open,
     const SingleActivator(LogicalKeyboardKey.keyP): _unlessTyping(
       () => _tools.tool = EditorTool.pen,
     ),
@@ -338,6 +347,9 @@ class _EditorScreenState extends State<EditorScreen> {
               ),
               Positioned.fill(child: _buildContentLayer()),
               SafeArea(child: _buildChrome(context)),
+              Positioned.fill(
+                child: EditorSearchLayer(controller: _search, onClose: _focus.requestFocus),
+              ),
             ],
           ),
         ),
@@ -353,7 +365,7 @@ class _EditorScreenState extends State<EditorScreen> {
   /// Room the top row needs besides the toolbar: the outer padding, the
   /// title pill at its narrowest, the undo pill (undo, redo, menu) and gaps.
   static const double _minTitleWidth = 160;
-  static const double _undoPillWidth = 3 * 48 + 12;
+  static const double _undoPillWidth = 4 * 48 + 12; // Search, undo, redo, menu.
   static const double _topRowReserve = 24 + _minTitleWidth + _undoPillWidth + 24;
 
   /// Whether the toolbar sits in the top row: on wide screens, when it fits
@@ -417,7 +429,13 @@ class _EditorScreenState extends State<EditorScreen> {
     );
     final undo = UndoRedoPill(
       target: _undo,
-      trailing: _doc == null ? _canvasMenu() : _documentMenu(),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          EditorSearchButton(controller: _search),
+          _doc == null ? _canvasMenu() : _documentMenu(),
+        ],
+      ),
     );
     return ListenableBuilder(
       listenable: _tools, // The toolbar's width depends on its slots.
