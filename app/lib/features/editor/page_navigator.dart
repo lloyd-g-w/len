@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/app_theme.dart';
 import '../../ui/floating_panel.dart';
+import 'chrome/canvas_guard.dart';
 
-/// "▦ ‹ 3 / 12 › + ▾" control for paged notebooks: overview, page turning,
-/// current page indicator (tap to jump) and adding pages.
+/// "‹ 3 / 12 › ＋▾" for paged notebooks: page turning, the current page
+/// (tap to jump to a page) and adding pages.
 class PageNavigator extends StatelessWidget {
   const PageNavigator({
     super.key,
@@ -24,6 +26,8 @@ class PageNavigator extends StatelessWidget {
 
   /// Adds a page like the current one after it.
   final VoidCallback onAddPage;
+
+  /// Shows all pages (on phones, where the top bar has no room for it).
   final VoidCallback? onOverview;
   final VoidCallback? onGoTo;
   final VoidCallback? onAddWithTemplate;
@@ -35,56 +39,78 @@ class PageNavigator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    Widget button(String tooltip, IconData icon, VoidCallback? onPressed) => IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      iconSize: 22,
+      style: IconButton.styleFrom(
+        foregroundColor: scheme.onSurfaceVariant,
+        fixedSize: const Size(40, 40),
+        minimumSize: const Size(40, 40),
+        padding: EdgeInsets.zero,
+      ),
+      icon: Icon(icon),
+    );
     return FloatingPanel(
+      padding: const EdgeInsets.symmetric(horizontal: Gaps.xs, vertical: Gaps.xxs),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (onOverview != null)
-            IconButton(
-              tooltip: 'All pages',
-              onPressed: onOverview,
-              icon: const Icon(Icons.grid_view_rounded),
-            ),
-          IconButton(
-            tooltip: 'Previous page',
-            onPressed: index > 0 ? () => onSelect(index - 1) : null,
-            icon: const Icon(Icons.chevron_left_rounded),
+          if (onOverview != null) button('All pages', Icons.grid_view_rounded, onOverview),
+          button(
+            'Previous page',
+            Icons.chevron_left_rounded,
+            index > 0 ? () => onSelect(index - 1) : null,
           ),
           Tooltip(
             message: 'Go to page',
             child: InkWell(
               onTap: onGoTo,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(Radii.sm),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: Gaps.xs, vertical: Gaps.sm),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (bookmarked)
-                      Icon(Icons.bookmark_rounded, size: 16, color: theme.colorScheme.tertiary),
-                    Text('${index + 1} / $count', style: theme.textTheme.labelLarge),
+                      Padding(
+                        padding: const EdgeInsets.only(right: Gaps.xxs),
+                        child: Icon(Icons.bookmark_rounded, size: 16, color: scheme.tertiary),
+                      ),
+                    Text(
+                      '${index + 1} / $count',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
           ),
-          IconButton(
-            tooltip: 'Next page',
-            onPressed: index < count - 1 ? () => onSelect(index + 1) : null,
-            icon: const Icon(Icons.chevron_right_rounded),
+          button(
+            'Next page',
+            Icons.chevron_right_rounded,
+            index < count - 1 ? () => onSelect(index + 1) : null,
           ),
-          IconButton(
-            tooltip: 'Add page after this one',
-            onPressed: onAddPage,
-            icon: const Icon(Icons.note_add_outlined),
+          Container(
+            width: 1,
+            height: 20,
+            margin: const EdgeInsets.symmetric(horizontal: Gaps.xs),
+            color: scheme.outlineVariant,
           ),
-          if (onAddWithTemplate != null || onInsertPdf != null) _moreAdd(),
+          button('Add page after this one', Icons.add_rounded, onAddPage),
+          if (onAddWithTemplate != null || onInsertPdf != null) _moreAdd(context, scheme),
         ],
       ),
     );
   }
 
-  Widget _moreAdd() => MenuAnchor(
+  Widget _moreAdd(BuildContext context, ColorScheme scheme) => MenuAnchor(
+    consumeOutsideTap: true,
+    onOpen: CanvasGuardScope.maybeOf(context)?.opened,
+    onClose: CanvasGuardScope.maybeOf(context)?.closed,
     menuChildren: [
       if (onAddWithTemplate != null)
         MenuItemButton(
@@ -101,9 +127,14 @@ class PageNavigator extends StatelessWidget {
     ],
     builder: (context, menu, _) => IconButton(
       tooltip: 'More ways to add pages',
-      visualDensity: VisualDensity.compact,
+      style: IconButton.styleFrom(
+        foregroundColor: scheme.onSurfaceVariant,
+        fixedSize: const Size(28, 40),
+        minimumSize: const Size(28, 40),
+        padding: EdgeInsets.zero,
+      ),
       onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-      icon: const Icon(Icons.arrow_drop_down_rounded),
+      icon: const Icon(Icons.expand_more_rounded, size: 20),
     ),
   );
 }

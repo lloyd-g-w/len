@@ -1,33 +1,32 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
-import '../../ink/ink_surface.dart';
-import '../../ink/input/ink_input_controller.dart';
-import '../../ink/input/live_ink.dart';
-import '../../ink/surface_model.dart';
-import '../../ink/tool_settings.dart';
-import '../../ink/tools/content_tools.dart';
-import '../../ink/viewport.dart';
+import '../../domain/paper.dart';
 import '../../sync/sync_engine.dart';
 import '../../ui/text_prompt.dart';
-import '../documents/pdf/pdf_background_cache.dart';
-import 'document/document_commands.dart';
-import 'document/document_controller.dart';
+import '../settings/settings_screen.dart';
+import 'chrome/canvas_context_menu.dart';
+import 'chrome/canvas_guard.dart';
+import 'chrome/chrome_metrics.dart';
+import 'chrome/editor_chrome.dart';
+import 'chrome/editor_top_bar.dart';
+import 'chrome/focus_handle.dart';
+import 'chrome/gesture_hud.dart';
+import 'chrome/toolbar_slot.dart';
 import 'document/document_layout.dart';
-import 'document/document_menu.dart';
-import 'document/paged_document_view.dart';
-import 'document/undo_target.dart';
-import 'editor_pills.dart';
+import 'editor_actions.dart';
+import 'editor_canvas.dart';
+import 'editor_gestures.dart';
+import 'editor_session.dart';
+import 'editor_shortcuts.dart';
 import 'editor_toolbar.dart';
-import 'page_navigator.dart';
-import 'tools/content_layer.dart';
-import 'tools/content_shortcuts.dart';
+import 'tabs/open_notebooks.dart';
 
-/// Full-screen editor for a paged notebook or an infinite canvas.
+/// Full-screen editor for a paged notebook or an infinite canvas: the
+/// surface, the content tools' layer and the chrome around them.
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key, required this.notebook});
 
@@ -40,24 +39,22 @@ class EditorScreen extends StatefulWidget {
 class _EditorScreenState extends State<EditorScreen> {
   late final AppServices _services = AppScope.read(context);
   late Notebook _notebook = widget.notebook;
-  late final ToolSettings _tools = ToolSettings(
-    stylusOnly: _services.settings.stylusOnly,
-    store: _services.settings,
+  late final EditorSession _session = EditorSession(
+    services: _services,
+    notebook: () => _notebook,
+    onStylusDetected: _onStylusDetected,
+    initialView: _services.openNotebooks.viewOf(widget.notebook.id),
   );
-  final LiveInk _live = LiveInk();
-  late final InkInputController _input;
-  late final UndoTarget _undo;
-  late final ContentTools _content;
+  final HudController _hud = HudController();
+  final CanvasGuard _guard = CanvasGuard();
+  bool? _compact;
   StreamSubscription<RemoteChanges>? _remoteChanges;
 
-  // Infinite canvas: one surface.
-  SurfaceModel? _canvas;
-  ViewportController? _canvasViewport;
+  /// Focus mode: all chrome hidden.
+  bool _focus = false;
 
-  // Paged notebook: pages laid out as a document.
-  DocumentController? _doc;
-  DocumentCommands? _commands;
-  PdfBackgroundCache? _backgrounds;
+  /// Where the canvas context menu is open, if it is.
+  ({Offset at, List<CanvasAction> actions})? _menu;
 
   /// Set once the editor is leaving because its notebook was deleted
   /// remotely, so further sync events don't pop another route.
@@ -65,72 +62,29 @@ class _EditorScreenState extends State<EditorScreen> {
 
   /// Keyboard focus for the editor's shortcuts; reclaimed whenever the
   /// canvas is touched (e.g. after using the width slider).
-  final FocusNode _focus = FocusNode(debugLabel: 'EditorScreen');
-
-  bool get _isCanvas => widget.notebook.kind == NotebookKind.canvas;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'EditorScreen');
 
   @override
   void initState() {
     super.initState();
-    if (_isCanvas) {
-      final model = _canvas = SurfaceModel(
-        surfaceId: _notebook.id,
-        repository: _services.strokes,
-        elementRepository: _services.elements,
-      );
-      final viewport = _canvasViewport = ViewportController();
-      _input = _inputFor(model, viewport);
-      _undo = SurfaceUndo(model);
-    } else {
-      final doc = _doc = _openDocument();
-      _commands = DocumentCommands(services: _services, notebook: () => _notebook, doc: doc);
-      _backgrounds = PdfBackgroundCache(blobs: _services.blobs, fetch: _services.sync.fetchBlob);
-      _input = doc.input = _inputFor(doc.activeModel, doc.pageViewport);
-      // Paste onto the page in the middle of the screen.
-      _content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));
-      _undo = doc.surfaces;
-    }
+    _session.gestures
+      ..onMultiFingerTap = _onMultiFingerTap
+      ..onContextMenu = _openMenu;
     _remoteChanges = _services.sync.remoteChanges.listen(_onRemoteChanges);
-  }
-
-  DocumentController _openDocument() {
-    var pages = _services.pages.pagesOf(_notebook.id);
-    if (pages.isEmpty) pages = [_services.pages.addPage(_notebook.id, paper: _notebook.paper)];
-    return DocumentController(
-      pages: pages,
-      strokes: _services.strokes,
-      elements: _services.elements,
-      flow: PageFlow.parse(_services.settings.pageFlow),
-    )..topInset = 64; // Below the title / undo pills.
-  }
-
-  /// The input controller (and the lasso, shape, text and laser tools it
-  /// routes to) for [model] seen through [viewport]. For documents these
-  /// are the active page's model and its page viewport, so tools work in
-  /// page coordinates and follow the active page.
-  InkInputController _inputFor(SurfaceModel model, ViewportController viewport) {
-    _content = ContentTools(
-      model: model,
-      viewport: viewport,
-      tools: _tools,
-      live: _live,
-      clipboard: _services.clipboard,
-    );
-    return InkInputController(
-      model: model,
-      viewport: viewport,
-      tools: _tools,
-      live: _live,
-      onStylusDetected: _onStylusDetected,
-      content: _content,
-    );
+    _services.openNotebooks.addListener(_onTabs);
+    _services.preferences.addListener(_onPreferences);
   }
 
   @override
   void dispose() {
     unawaited(_remoteChanges?.cancel());
-    _content.dispose(); // Commits a text box still being edited.
-    final edited = _undo.canUndo || _undo.canRedo || (_commands?.changed ?? false);
+    _services.openNotebooks
+      ..removeListener(_onTabs)
+      ..saveView(_notebook.id, _session.viewState);
+    _services.preferences.removeListener(_onPreferences);
+    if (_focus) setImmersive(false);
+    final edited = _session.edited;
+    _session.dispose(); // Commits a text box still being edited.
     if (edited) {
       _services.notebooks.touch(_notebook.id);
       // Deferred: syncing notifies listeners (e.g. the library's sync button),
@@ -138,14 +92,18 @@ class _EditorScreenState extends State<EditorScreen> {
       final sync = _services.sync;
       scheduleMicrotask(() => unawaited(sync.syncNow()));
     }
-    _focus.dispose();
-    _canvas?.dispose();
-    _canvasViewport?.dispose();
-    _doc?.dispose();
-    _backgrounds?.dispose();
-    _live.dispose();
-    _tools.dispose();
+    _hud.dispose();
+    _guard.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onTabs() {
+    if (mounted) setState(() {}); // The tab strip may appear or go.
+  }
+
+  void _onPreferences() {
+    if (mounted) setState(() {}); // Toolbar placement.
   }
 
   // ---------------------------------------------------------------------------
@@ -160,23 +118,16 @@ class _EditorScreenState extends State<EditorScreen> {
         return;
       }
       setState(() => _notebook = updated);
+      _services.openNotebooks.rename(updated.id, updated.title);
     }
-    final doc = _doc;
-    if (doc != null && changes.pagesOfNotebooks.contains(_notebook.id)) {
-      if (_services.pages.pagesOf(_notebook.id).isNotEmpty) _commands!.reload();
-      _backgrounds?.retryMissing(); // New pages may bring new PDFs.
-    }
-    for (final surfaceId in changes.strokeSurfaces) {
-      if (surfaceId == _canvas?.surfaceId) _canvas!.reload();
-      doc?.surfaces.reload(surfaceId);
-    }
+    _session.applyRemoteChanges(changes);
   }
 
   /// The notebook was deleted on another device: close the editor together
   /// with anything open on top of it (dialogs, menus, sheets).
   void _closeDeleted() {
     _closing = true;
-    _input.cancelDraw();
+    _session.input.cancelDraw();
     final route = ModalRoute.of(context);
     final navigator = Navigator.of(context);
     ScaffoldMessenger.of(context)
@@ -184,6 +135,12 @@ class _EditorScreenState extends State<EditorScreen> {
       ..showSnackBar(
         SnackBar(content: Text('“${_notebook.title}” was deleted on another device.')),
       );
+    final tabs = _services.openNotebooks;
+    if (tabs.contains(_notebook.id)) {
+      if (route != null && route.isActive) navigator.popUntil((r) => r == route);
+      tabs.close(_notebook.id); // The workspace shows another tab or leaves.
+      return;
+    }
     if (route == null || !route.isActive) return; // Already leaving.
     navigator
       ..popUntil((r) => r == route)
@@ -191,7 +148,7 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   void _onStylusDetected() {
-    if (_tools.stylusOnly != null) return;
+    if (_session.tools.stylusOnly != null) return;
     _setStylusOnly(true);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -201,14 +158,40 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
+  void _onMultiFingerTap(int fingers) => runMultiFingerTap(_session, fingers, _hud);
+
+  void _openMenu(Offset at) {
+    if (!mounted || _closing) return;
+    final doc = _session.doc;
+    final actions = canvasActions(
+      _session,
+      at,
+      bookmarked: doc?.activePageData.bookmarked ?? false,
+      onPageCommand: (c) => _session.commands!.run(context, c, doc!.activePageData),
+    );
+    setState(() => _menu = (at: at, actions: actions));
+  }
+
+  void _closeMenu() {
+    if (_menu != null) setState(() => _menu = null);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Commands
+
   void _setStylusOnly(bool value) {
-    _tools.stylusOnly = value;
-    _services.settings.stylusOnly = value;
+    _session.tools.stylusOnly = value;
+    _services.preferences.stylusOnly = value;
   }
 
   void _setFlow(PageFlow flow) {
     _services.settings.pageFlow = flow.name;
-    _doc?.setFlow(flow);
+    _session.doc?.setFlow(flow);
+  }
+
+  void _toggleFocus() {
+    setState(() => _focus = !_focus);
+    setImmersive(_focus);
   }
 
   Future<void> _rename() async {
@@ -219,195 +202,142 @@ class _EditorScreenState extends State<EditorScreen> {
       confirmLabel: 'Rename',
     );
     if (title == null || title.isEmpty || !mounted || _closing) return;
+    _update((n) => n.copyWith(title: title));
+    _services.openNotebooks.rename(_notebook.id, title);
+  }
+
+  void _setCanvasPaper(PaperStyle paper) => _update((n) => n.copyWith(paper: paper));
+
+  void _update(Notebook Function(Notebook current) change) {
     // Re-read so a concurrent remote change isn't overwritten wholesale.
     final current = _services.notebooks.get(_notebook.id);
     if (current == null) return;
-    setState(() => _notebook = _services.notebooks.update(current.copyWith(title: title)));
+    setState(() => _notebook = _services.notebooks.update(change(current)));
   }
 
-  /// Wraps a single-key shortcut so it doesn't fire while text is edited.
-  VoidCallback _unlessTyping(VoidCallback action) => () {
-    // The focus node belongs to a Focus widget inside the EditableText.
-    final focused = FocusManager.instance.primaryFocus?.context;
-    if (focused != null &&
-        (focused.widget is EditableText ||
-            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
-      return;
-    }
-    action();
-  };
+  void _back() {
+    if (_focus) _toggleFocus();
+    unawaited(Navigator.of(context).maybePop());
+  }
 
-  Map<ShortcutActivator, VoidCallback> get _shortcuts => {
-    const SingleActivator(LogicalKeyboardKey.keyZ, control: true): _undo.undo,
-    const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): _undo.undo,
-    const SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true): _undo.redo,
-    const SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true): _undo.redo,
-    const SingleActivator(LogicalKeyboardKey.keyY, control: true): _undo.redo,
-    const SingleActivator(LogicalKeyboardKey.keyP): _unlessTyping(
-      () => _tools.tool = EditorTool.pen,
-    ),
-    const SingleActivator(LogicalKeyboardKey.keyH): _unlessTyping(
-      () => _tools.tool = EditorTool.highlighter,
-    ),
-    const SingleActivator(LogicalKeyboardKey.keyE): _unlessTyping(
-      () => _tools.tool = EditorTool.eraser,
-    ),
-    ...contentShortcuts(_content, _tools, _unlessTyping),
-    if (_doc case final doc?) ...{
-      const SingleActivator(LogicalKeyboardKey.pageDown): () => doc.goToPage(doc.currentPage + 1),
-      const SingleActivator(LogicalKeyboardKey.pageUp): () => doc.goToPage(doc.currentPage - 1),
-    },
-  };
+  void _openSettings() => unawaited(
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+  );
 
   // ---------------------------------------------------------------------------
   // Layout
 
   @override
   Widget build(BuildContext context) {
+    final tabs = _services.openNotebooks.contains(_notebook.id) ? _services.openNotebooks : null;
     return Scaffold(
       body: CallbackShortcuts(
-        bindings: _shortcuts,
+        bindings: editorShortcuts(
+          _session,
+          toggleFocus: _toggleFocus,
+          nextTab: tabs?.cycle,
+          previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
+          closeTab: tabs == null ? null : () => tabs.close(_notebook.id),
+        ),
         child: Focus(
-          focusNode: _focus,
+          focusNode: _focusNode,
           autofocus: true,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Listener(
-                  // Touching the canvas takes keyboard focus back for the
-                  // shortcuts, without competing for the pointer.
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (_) {
-                    if (!_focus.hasFocus) _focus.requestFocus();
-                  },
-                  child: _buildSurface(),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final media = MediaQuery.of(context);
+              final layout = ChromeLayout(
+                placement: resolvePlacement(
+                  _services.preferences.toolbarPlacement,
+                  constraints.maxWidth,
                 ),
-              ),
-              Positioned.fill(child: _buildContentLayer()),
-              SafeArea(child: _buildChrome(context)),
-            ],
+                barHeight: EditorTopBar.heightFor(constraints.maxWidth, tabs),
+                safe: media.padding,
+                hasNavigator: _session.doc != null,
+                width: constraints.maxWidth,
+                focus: _focus,
+              );
+              _applyInsets(layout.covered);
+              _resetGuardOnResize(constraints.maxWidth);
+              return CanvasGuardScope(
+                guard: _guard,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: EditorCanvas(
+                        session: _session,
+                        paper: _notebook.paper,
+                        focusNode: _focusNode,
+                        guard: _guard,
+                        chromeInsets: layout.covered,
+                      ),
+                    ),
+                    Positioned.fill(child: _buildChrome(layout, tabs)),
+                    if (_menu case final menu?)
+                      Positioned.fill(
+                        child: CanvasContextMenu(
+                          at: menu.at,
+                          actions: menu.actions,
+                          onDismiss: _closeMenu,
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSurface() {
-    final doc = _doc;
-    if (doc != null) {
-      return PagedDocumentView(
-        controller: doc,
-        input: _input,
-        live: _live,
-        backgrounds: _backgrounds,
-        fingersNavigate: () => _tools.stylusOnly ?? false,
-      );
-    }
-    return InkSurface(
-      model: _canvas!,
-      viewport: _canvasViewport!,
-      input: _input,
-      live: _live,
-      paper: _notebook.paper,
-    );
+  /// The top bar swaps its menus when switching between phone and wide
+  /// layouts; one disposed while open never reports closing.
+  void _resetGuardOnResize(double width) {
+    final compact = width < ChromeMetrics.compactWidth;
+    if (_compact != null && _compact != compact) _guard.reset();
+    _compact = compact;
   }
 
-  /// Selection, text editor and laser over the surface. For documents it
-  /// follows the active page (its viewport and clip).
-  Widget _buildContentLayer() {
-    final doc = _doc;
-    if (doc == null) {
-      return ContentLayer(content: _content, viewport: _canvasViewport!, tools: _tools);
-    }
+  /// Keeps document content scrollable clear of the chrome.
+  void _applyInsets(EdgeInsets covered) {
+    final doc = _session.doc;
+    if (doc == null || doc.insets == covered) return;
+    // Changing the viewport notifies listeners; never during build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) doc.setInsets(covered);
+    });
+  }
+
+  Widget _buildChrome(ChromeLayout layout, OpenNotebooks? tabs) {
+    final doc = _session.doc;
+    final prefs = _services.preferences;
+    final toolbar = EditorToolbar(tools: _session.tools, onStylusOnlyChanged: _setStylusOnly);
     return ListenableBuilder(
-      listenable: doc, // Notifies when the active page changes.
-      builder: (context, _) => ContentLayer(
-        content: _content,
-        viewport: doc.pageViewport,
-        tools: _tools,
-        page: doc.pageViewport.contentBounds,
-      ),
-    );
-  }
-
-  Widget _buildChrome(BuildContext context) {
-    final toolbar = EditorToolbar(tools: _tools, onStylusOnlyChanged: _setStylusOnly);
-    final title = TitlePill(
-      title: _notebook.title,
-      onBack: () => Navigator.of(context).maybePop(),
-      onRename: _rename,
-    );
-    final undo = UndoRedoPill(target: _undo, trailing: _doc == null ? null : _documentMenu());
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Wide screens: one top row. Narrow screens: tools move to the bottom
-        // where thumbs reach them.
-        // (The toolbar with the content tools needs ~600 px between the
-        // title and undo pills.)
-        final wide = constraints.maxWidth >= 960;
-        return Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (wide) ...[
-                    ConstrainedBox(constraints: const BoxConstraints(maxWidth: 320), child: title),
-                    Expanded(child: Center(child: toolbar)),
-                  ] else ...[
-                    // A long title shrinks rather than overflowing on phones.
-                    Expanded(
-                      child: Align(alignment: Alignment.centerLeft, child: title),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  undo,
-                ],
-              ),
-              const Spacer(),
-              if (!wide) toolbar,
-              if (_doc != null) ...[const SizedBox(height: 10), _pageNavigator()],
-            ],
+      listenable: Listenable.merge([?doc, _session.tools]),
+      builder: (context, _) => EditorChrome(
+        layout: layout,
+        hud: _hud,
+        onExitFocus: _toggleFocus,
+        floatAt: prefs.toolbarFloat,
+        onFloatMoved: (at) => prefs.toolbarFloat = at,
+        toolbar: toolbar,
+        topBar: EditorTopBar(
+          title: _notebook.title,
+          actions: editorMenuActions(
+            context,
+            _session,
+            onBack: _back,
+            onRename: _rename,
+            onFocusMode: _toggleFocus,
+            onStylusOnly: _setStylusOnly,
+            onSettings: _openSettings,
+            onFlow: _setFlow,
+            onCanvasPaper: _setCanvasPaper,
           ),
-        );
-      },
-    );
-  }
-
-  Widget _documentMenu() {
-    final doc = _doc!;
-    final commands = _commands!;
-    return ListenableBuilder(
-      listenable: doc,
-      builder: (context, _) => DocumentMenu(
-        flow: doc.flow,
-        bookmarked: doc.pages[doc.currentPage].bookmarked,
-        onCommand: (c) => commands.run(context, c, doc.pages[doc.currentPage]),
-        onOverview: () => commands.openOverview(context, backgrounds: _backgrounds),
-        onGoTo: () => commands.goToPagePrompt(context),
-        onInsertPdf: () => commands.insertPdf(context),
-        onFlow: _setFlow,
-        onExport: (kind) => commands.export(context, kind),
-      ),
-    );
-  }
-
-  Widget _pageNavigator() {
-    final doc = _doc!;
-    final commands = _commands!;
-    return ListenableBuilder(
-      listenable: doc,
-      builder: (context, _) => PageNavigator(
-        index: doc.currentPage,
-        count: doc.pages.length,
-        bookmarked: doc.pages[doc.currentPage].bookmarked,
-        onSelect: doc.goToPage,
-        onAddPage: commands.addPage,
-        onOverview: () => commands.openOverview(context, backgrounds: _backgrounds),
-        onGoTo: () => commands.goToPagePrompt(context),
-        onAddWithTemplate: () => commands.addPageWithTemplate(context),
-        onInsertPdf: () => commands.insertPdf(context),
+          undo: _session.undo,
+          tabs: tabs,
+        ),
+        navigator: editorPageNavigator(context, _session, width: layout.width),
       ),
     );
   }

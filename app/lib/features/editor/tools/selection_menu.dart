@@ -44,7 +44,7 @@ class SelectionMenu extends StatelessWidget {
           box = box.expandToInclude(Rect.fromCircle(center: p, radius: 10));
         }
         return CustomSingleChildLayout(
-          delegate: _MenuLayout(box),
+          delegate: _MenuLayout(box, MediaQuery.paddingOf(context)),
           child: _MenuBar(
             selection: selection,
             tools: tools,
@@ -116,12 +116,16 @@ class _MenuBar extends StatelessWidget {
 
 /// Centres the menu above [target] (screen rect), else below it, else at
 /// the top; always kept inside the layer and clear of the editor's top
-/// bar ([topInset]).
+/// chrome ([chrome], the screen edges the editor's bars cover).
 class _MenuLayout extends SingleChildLayoutDelegate {
-  _MenuLayout(this.target);
+  _MenuLayout(this.target, this.chrome);
 
   final Rect target;
-  static const double gap = 10, margin = 8, topInset = 84;
+  final EdgeInsets chrome;
+  static const double gap = 10, margin = 8;
+
+  double get topInset => chrome.top + margin;
+  double get bottomInset => chrome.bottom + margin;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
@@ -135,10 +139,10 @@ class _MenuLayout extends SingleChildLayoutDelegate {
     );
     var y = target.top - gap - child.height;
     if (y < topInset) y = target.bottom + gap;
-    if (y + child.height > size.height - margin) y = topInset;
+    if (y + child.height > size.height - bottomInset) y = topInset;
     return Offset(x, y);
   }
 
   @override
-  bool shouldRelayout(_MenuLayout old) => old.target != target;
+  bool shouldRelayout(_MenuLayout old) => old.target != target || old.chrome != chrome;
 }
