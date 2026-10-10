@@ -9,10 +9,13 @@ import 'data/element_repository.dart';
 import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
+import 'data/recording_repository.dart';
 import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
+import 'features/audio/backends/audio_backends.dart';
+import 'features/audio/backends/platform_audio.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'ink/images/element_images.dart';
 import 'ink/selection/ink_clipboard.dart';
@@ -36,21 +39,26 @@ class AppServices {
     required this.elements,
     required this.sync,
     required this.search,
+    required this.recordings,
+    required this.audio,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
   /// substitute the sync transport. Blobs (PDFs) are kept in [blobBackend]
-  /// (in memory if omitted, e.g. in tests).
+  /// (in memory if omitted, e.g. in tests). [audio] replaces the
+  /// recorder and player (tests use fakes).
   factory AppServices.create(
     AppDatabase database, {
     Clock clock = const Clock(),
     BlobBackend? blobBackend,
+    AudioBackends? audio,
     SyncApi Function(String url, String token)? syncApiFactory,
   }) {
     final settings = SettingsRepository(database);
     final deviceId = settings.deviceId(clock);
     final strokes = StrokeRepository(database, deviceId: deviceId, clock: clock);
     final elements = ElementRepository(database, deviceId: deviceId, clock: clock);
+    final recordings = RecordingRepository(database, deviceId: deviceId, clock: clock);
     final pages = PageRepository(database, deviceId: deviceId, clock: clock);
     final notebooks = NotebookRepository(
       database,
@@ -58,6 +66,7 @@ class AppServices {
       pages: pages,
       strokes: strokes,
       elements: elements,
+      recordings: recordings,
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
@@ -71,6 +80,7 @@ class AppServices {
       folders: folders,
       blobs: blobs,
       elements: elements,
+      recordings: recordings,
     );
     return AppServices._(
       database: database,
@@ -87,6 +97,8 @@ class AppServices {
           ? SyncController(engine: engine, settings: settings)
           : SyncController(engine: engine, settings: settings, apiFactory: syncApiFactory),
       search: SearchService(database, readBlob: blobs.read),
+      recordings: recordings,
+      audio: audio ?? platformAudioBackends(),
     );
   }
 
@@ -108,6 +120,12 @@ class AppServices {
 
   /// Full-text search over titles, text boxes and PDF text.
   final SearchService search;
+
+  /// Audio recordings of notebooks (their audio is in [blobs]).
+  final RecordingRepository recordings;
+
+  /// Makes recorders and players (created only when used).
+  final AudioBackends audio;
 
   /// Copied strokes and text, shared by every editor (paste across pages
   /// and notebooks).
