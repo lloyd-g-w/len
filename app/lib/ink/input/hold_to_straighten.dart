@@ -4,12 +4,19 @@ import 'package:flutter/services.dart';
 
 import '../../domain/stroke.dart';
 import '../geometry/straighten.dart';
+import '../shapes/shape_builder.dart';
+import '../shapes/shape_kind.dart';
+import '../shapes/shape_recognizer.dart';
 import 'live_ink.dart';
 
-/// "Hold to straighten": when the pen rests for [holdDuration] at the end
-/// of a live stroke, the stroke snaps to a straight line; moving on then
-/// moves the line's end. Only the straight line is ever committed, so a
-/// single undo removes it.
+/// "Hold to snap": when the pen rests for [holdDuration] at the end of a
+/// live stroke, the stroke is recognised ([ShapeRecognizer]) and replaced:
+///  * an open stroke becomes a straight line — moving on then moves the
+///    line's end — or an arrow;
+///  * a closed stroke becomes a clean rectangle, ellipse, triangle or
+///    polygon (which then stays put until the pen lifts);
+///  * an unrecognisable closed stroke (a scribble) is left alone.
+/// Only the clean shape is ever committed, so a single undo removes it.
 class HoldToStraighten {
   HoldToStraighten(this.live);
 
@@ -27,11 +34,12 @@ class HoldToStraighten {
   Timer? _timer;
   Offset? _anchor;
   StrokePoint? _from;
+  bool _shaped = false;
   double _pressure = 0.5;
   double _scale = 1;
 
   /// Whether the live stroke has been straightened.
-  bool get active => _from != null;
+  bool get active => _from != null || _shaped;
 
   /// A stroke started at [screen]; [enabled] reflects the user setting.
   void begin(Offset screen, {required bool enabled, required double scale}) {
@@ -44,6 +52,7 @@ class HoldToStraighten {
   /// consumed (the stroke is straight and its end now follows the pen);
   /// otherwise the caller adds [point] to the live stroke as usual.
   bool move(Offset screen, StrokePoint point) {
+    if (_shaped) return true;
     final from = _from;
     if (from != null) {
       live.replaceAll(
@@ -62,6 +71,7 @@ class HoldToStraighten {
     _timer = null;
     _anchor = null;
     _from = null;
+    _shaped = false;
   }
 
   void _restart(Offset screen) {
@@ -74,11 +84,21 @@ class HoldToStraighten {
     _timer = null;
     final points = live.points;
     if (!live.isDrawing || Straighten.pathLength(points) * _scale < minLength) return;
-    _from = points.first;
+    final shape = ShapeRecognizer.recognize([for (final p in points) p.offset]);
+    if (shape == null) return;
     _pressure = Straighten.medianPressure(points);
-    live
-      ..straightened = true
-      ..replaceAll(Straighten.line(points, spacing: 2 / _scale));
+    if (shape.kind == ShapeKind.line) {
+      _from = points.first;
+      live
+        ..straightened = true
+        ..replaceAll(Straighten.line(points, spacing: 2 / _scale));
+    } else {
+      _shaped = true;
+      live
+        ..straightened = true
+        ..style = ShapeBuilder.styleFor(live.style)
+        ..replaceAll(ShapeBuilder.points(shape.outline, spacing: 2 / _scale, pressure: _pressure));
+    }
     unawaited(HapticFeedback.selectionClick());
   }
 }

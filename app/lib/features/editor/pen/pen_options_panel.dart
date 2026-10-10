@@ -82,8 +82,8 @@ class PenOptionsPanel extends StatelessWidget {
                 onChanged: (v) => update((c) => c.copyWith(taper: v)),
               ),
             OptionSwitch(
-              label: 'Hold to straighten',
-              subtitle: 'Pause at the end of a stroke to make it a straight line',
+              label: 'Hold to snap shapes',
+              subtitle: 'Pause at the end of a stroke to make it a straight line or a clean shape',
               value: tools.holdToStraighten,
               onChanged: (v) => tools.holdToStraighten = v,
             ),
