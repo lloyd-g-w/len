@@ -34,6 +34,18 @@ class ThumbnailRenderer {
       ? notebook.id
       : pages.pagesOf(notebook.id).firstOrNull?.id;
 
+  /// Everything besides ink that a preview depends on: the previewed
+  /// surface and its paper (template, paper colour and page size). Null for
+  /// a notebook without pages.
+  Object? previewPaperOf(Notebook notebook) {
+    if (notebook.kind == NotebookKind.canvas) {
+      return (surface: notebook.id, paper: notebook.paper);
+    }
+    final page = pages.pagesOf(notebook.id).firstOrNull;
+    if (page == null) return null;
+    return (surface: page.id, paper: page.paper, color: page.paperColor, size: page.size);
+  }
+
   /// Renders a preview [width] pixels wide, or returns null when there is
   /// nothing drawn yet (the library then shows the plain cover).
   ui.Image? render(Notebook notebook, {required int width}) {
@@ -46,7 +58,7 @@ class ThumbnailRenderer {
     if (ink.isEmpty) return null;
     // Top of the page, full width: what you see first when opening it.
     final world = Rect.fromLTWH(0, 0, page.width, page.width / aspect);
-    return _paint(size, world, page.paper, ink, page: page.bounds);
+    return _paint(size, world, page.paper, ink, color: page.paperColor, page: page.bounds);
   }
 
   ui.Image? _renderCanvas(Notebook notebook, Size size) {
@@ -93,14 +105,21 @@ class ThumbnailRenderer {
     return Rect.fromCenter(center: content.center, width: w, height: h);
   }
 
-  ui.Image _paint(Size size, Rect world, PaperStyle paper, List<Stroke> ink, {Rect? page}) {
+  ui.Image _paint(
+    Size size,
+    Rect world,
+    PaperStyle paper,
+    List<Stroke> ink, {
+    PaperColor color = PaperColor.white,
+    Rect? page,
+  }) {
     final viewport = ViewportController(minScale: 1e-4, maxScale: 1e4)
       ..setSize(size)
       ..contentBounds = world
       ..fitWidth(padding: 0);
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder, Offset.zero & size);
-    PaperPainter(viewport: viewport, style: paper, page: page).paint(canvas, size);
+    PaperPainter(viewport: viewport, style: paper, paperColor: color, page: page).paint(canvas, size);
     canvas
       ..save()
       ..translate(viewport.offset.dx, viewport.offset.dy)

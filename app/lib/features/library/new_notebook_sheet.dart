@@ -4,6 +4,7 @@ import '../../domain/cover_style.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
+import '../documents/template_field.dart';
 import 'cover_picker.dart';
 import 'notebook_cover.dart';
 import 'paper_swatch.dart';
@@ -16,13 +17,30 @@ class NewNotebookRequest {
     required this.paper,
     required this.coverColor,
     this.coverStyle = CoverStyle.plain,
+    this.template = const PageTemplate(),
+    this.importPdf = false,
   });
+
+  /// The user chose to create the notebook from a PDF instead (see
+  /// `importPdfFlow`); the other fields are then irrelevant.
+  const NewNotebookRequest.importPdf()
+    : this(
+        title: '',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+        importPdf: true,
+      );
 
   final String title;
   final NotebookKind kind;
   final PaperStyle paper;
   final int coverColor;
   final CoverStyle coverStyle;
+
+  /// First page of a paged notebook (its style equals [paper]).
+  final PageTemplate template;
+  final bool importPdf;
 }
 
 /// Bottom sheet for creating a notebook or an infinite canvas.
@@ -44,7 +62,8 @@ class NewNotebookSheet extends StatefulWidget {
 class _NewNotebookSheetState extends State<NewNotebookSheet> {
   final _title = TextEditingController();
   NotebookKind _kind = NotebookKind.paged;
-  PaperStyle _paper = PaperStyle.lined;
+  PageTemplate _template = const PageTemplate(style: PaperStyle.collegeRuled);
+  PaperStyle get _paper => _template.style;
   int _cover = Palette.covers.first;
   CoverStyle _coverStyle = CoverStyle.plain;
 
@@ -63,6 +82,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         paper: _paper,
         coverColor: _cover,
         coverStyle: _coverStyle,
+        template: _template,
       ),
     );
   }
@@ -72,8 +92,8 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
 
   void _setKind(NotebookKind kind) => setState(() {
     _kind = kind;
-    if (_kind == NotebookKind.canvas && _paper == PaperStyle.lined) {
-      _paper = PaperStyle.dotted;
+    if (_kind == NotebookKind.canvas && _paper.isRuled) {
+      _template = _template.copyWith(style: PaperStyle.dotted);
     }
   });
 
@@ -140,18 +160,33 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
           const SizedBox(height: Gaps.xl),
           Text('Paper', style: label),
           const SizedBox(height: Gaps.sm),
-          Wrap(
-            spacing: Gaps.md,
-            runSpacing: Gaps.md,
-            children: [
-              for (final paper in PaperStyle.values)
-                PaperSwatch(
-                  paper: paper,
-                  selected: _paper == paper,
-                  onTap: () => setState(() => _paper = paper),
-                ),
-            ],
+          // Quick style choice; the field below opens the full template
+          // picker (paper colour and page size too).
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final paper in PaperStyle.ordered)
+                  Padding(
+                    padding: const EdgeInsets.only(right: Gaps.md),
+                    child: PaperSwatch(
+                      paper: paper,
+                      // Canvases have no paper colour (yet).
+                      color: _kind == NotebookKind.paged ? _template.color : PaperColor.white,
+                      selected: _paper == paper,
+                      onTap: () => setState(() => _template = _template.copyWith(style: paper)),
+                    ),
+                  ),
+              ],
+            ),
           ),
+          if (_kind == NotebookKind.paged) ...[
+            const SizedBox(height: Gaps.md),
+            TemplateField(
+              template: _template,
+              onChanged: (t) => setState(() => _template = t),
+            ),
+          ],
           const SizedBox(height: Gaps.xl),
           Text('Cover', style: label),
           const SizedBox(height: Gaps.sm),
@@ -174,6 +209,16 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: Gaps.lg),
+          // Alternative to a blank notebook: one page per PDF page.
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: () => Navigator.of(context).pop(const NewNotebookRequest.importPdf()),
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: const Text('Import PDF…'),
+            ),
           ),
         ],
       ),

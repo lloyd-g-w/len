@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -51,6 +52,29 @@ void main() {
   });
 
   tearDown(() => db.close());
+
+  group('AppDatabase migrations', () {
+    test('re-applying the page/blob migration is harmless and restores a skipped stroke style', () {
+      final dir = Directory.systemTemp.createTempSync('len_migrate_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = '${dir.path}/len.db';
+      final fresh = AppDatabase.open(path);
+      final latest = fresh.db.select('PRAGMA user_version').first.columnAt(0) as int;
+      // A database from before the documents/library merge recorded the
+      // page/blob migration early and never got the stroke style column.
+      fresh.db.execute('ALTER TABLE strokes DROP COLUMN style');
+      fresh.db.execute('PRAGMA user_version = ${latest - 1}');
+      fresh.close();
+
+      final upgraded = AppDatabase.open(path);
+      addTearDown(upgraded.close);
+      List<Object?> columns(String table) =>
+          upgraded.db.select('PRAGMA table_info($table)').map((r) => r['name']).toList();
+      expect(columns('strokes'), contains('style'));
+      expect(columns('pages'), containsAll(['paper_color', 'bookmarked', 'background']));
+      expect(upgraded.db.select('PRAGMA user_version').first.columnAt(0), latest);
+    });
+  });
 
   group('StrokeRepository', () {
     test('loads only strokes in the requested chunks', () {

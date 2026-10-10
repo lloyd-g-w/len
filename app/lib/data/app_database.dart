@@ -64,6 +64,7 @@ class AppDatabase {
     _indexDirtyStrokesById,
     _addStrokeStyle,
     _addFoldersAndLibraryFields,
+    _addPageDetailsAndBlobs,
   ];
 
   /// Per-stroke rendering style (JSON, see `StrokeStyle`); NULL for strokes
@@ -97,6 +98,36 @@ class AppDatabase {
     db.execute('ALTER TABLE notebooks ADD COLUMN edited_at INTEGER NOT NULL DEFAULT 0');
     db.execute('UPDATE notebooks SET edited_at = updated_at');
     db.execute('CREATE INDEX notebooks_by_folder ON notebooks(folder_id)');
+  }
+
+  /// Paper colour, bookmarks and backgrounds (PDF pages) for pages, plus
+  /// the local index of content-addressed blob files. Idempotent, like
+  /// [_addStrokeStyle]; it also re-applies that one, because databases
+  /// created by the pre-merge documents branch recorded this migration at
+  /// index 2 and so skip [_addStrokeStyle].
+  static void _addPageDetailsAndBlobs(Database db) {
+    _addStrokeStyle(db);
+    final columns = db.select('PRAGMA table_info(pages)').map((r) => r['name']).toSet();
+    if (!columns.contains('paper_color')) {
+      db.execute("ALTER TABLE pages ADD COLUMN paper_color TEXT NOT NULL DEFAULT 'white'");
+    }
+    if (!columns.contains('bookmarked')) {
+      db.execute('ALTER TABLE pages ADD COLUMN bookmarked INTEGER NOT NULL DEFAULT 0');
+    }
+    // JSON object (see PageBackground) or NULL.
+    if (!columns.contains('background')) {
+      db.execute('ALTER TABLE pages ADD COLUMN background TEXT');
+    }
+    // Blob files live in the app support directory; this table records
+    // which ones are present and which still need uploading.
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS blobs (
+        sha256     TEXT PRIMARY KEY NOT NULL,
+        size       INTEGER NOT NULL,
+        mime       TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        uploaded   INTEGER NOT NULL DEFAULT 0
+      )''');
   }
 
   /// Push pages through dirty rows in id order (keyset pagination); index

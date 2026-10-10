@@ -9,11 +9,7 @@ import 'record.dart';
 
 /// Outcome of [RecordStore.push].
 class PushResult {
-  const PushResult({
-    required this.applied,
-    required this.ignored,
-    required this.serverSeq,
-  });
+  const PushResult({required this.applied, required this.ignored, required this.serverSeq});
 
   /// Number of records that were stored or replaced.
   final int applied;
@@ -27,11 +23,7 @@ class PushResult {
 
 /// One page of the change feed returned by [RecordStore.pull].
 class PullResult {
-  const PullResult({
-    required this.records,
-    required this.nextSince,
-    required this.hasMore,
-  });
+  const PullResult({required this.records, required this.nextSince, required this.hasMore});
 
   /// Records with `seq > since`, ordered by seq ascending.
   final List<SyncRecord> records;
@@ -155,11 +147,7 @@ class RecordStore {
         lookup.close();
         upsert.close();
       }
-      return PushResult(
-        applied: applied,
-        ignored: records.length - applied,
-        serverSeq: seq,
-      );
+      return PushResult(applied: applied, ignored: records.length - applied, serverSeq: seq);
     });
   }
 
@@ -187,8 +175,7 @@ class RecordStore {
       // Stream rows so a page never materializes more than it returns.
       final cursor = stmt.selectCursor([since, limit + 1]);
       while (cursor.moveNext()) {
-        if (records.length >= limit ||
-            (records.isNotEmpty && bytes >= maxDataBytes)) {
+        if (records.length >= limit || (records.isNotEmpty && bytes >= maxDataBytes)) {
           hasMore = true;
           break;
         }

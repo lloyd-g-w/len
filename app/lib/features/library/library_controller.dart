@@ -179,13 +179,15 @@ class LibraryController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Operations
 
-  /// Creates a notebook in the open folder.
+  /// Creates a notebook in the open folder; a paged notebook's first page
+  /// is made from [firstPage] (default: a blank A4 page of [paper]).
   Notebook createNotebook({
     required String title,
     required NotebookKind kind,
     required PaperStyle paper,
     required int coverColor,
     CoverStyle coverStyle = CoverStyle.plain,
+    PageTemplate? firstPage,
   }) {
     final notebook = services.notebooks.create(
       title: title,
@@ -194,10 +196,22 @@ class LibraryController extends ChangeNotifier {
       coverColor: coverColor,
       coverStyle: coverStyle,
       folderId: _section == LibrarySection.library ? _folderId : null,
+      firstPage: firstPage,
     );
     if (_section == LibrarySection.favorites) services.notebooks.setFavorite(notebook.id, true);
     _changed();
     return notebook;
+  }
+
+  /// Files a notebook created elsewhere (e.g. imported from a PDF) where
+  /// [createNotebook] would have put it: the open folder, or favourites.
+  /// Returns the up-to-date notebook.
+  Notebook adoptNotebook(Notebook notebook) {
+    final folderId = _section == LibrarySection.library ? _folderId : null;
+    if (folderId != null) services.notebooks.moveTo(notebook.id, folderId);
+    if (_section == LibrarySection.favorites) services.notebooks.setFavorite(notebook.id, true);
+    _changed();
+    return services.notebooks.get(notebook.id) ?? notebook;
   }
 
   Folder createFolder(String name, {required int color}) {

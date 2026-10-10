@@ -8,18 +8,18 @@ import '../../ui/app_theme.dart';
 /// A small selectable sample of a paper style, drawn by the editor's own
 /// [PaperPainter] so it always matches the real page.
 class PaperSwatch extends StatefulWidget {
-  const PaperSwatch({super.key, required this.paper, required this.selected, required this.onTap});
+  const PaperSwatch({
+    super.key,
+    required this.paper,
+    this.color = PaperColor.white,
+    required this.selected,
+    required this.onTap,
+  });
 
   final PaperStyle paper;
+  final PaperColor color;
   final bool selected;
   final VoidCallback onTap;
-
-  /// Human label of a paper style (falls back to its name for styles added
-  /// later).
-  static String labelOf(PaperStyle paper) {
-    final name = paper.name;
-    return name.isEmpty ? name : '${name[0].toUpperCase()}${name.substring(1)}';
-  }
 
   @override
   State<PaperSwatch> createState() => _PaperSwatchState();
@@ -43,7 +43,7 @@ class _PaperSwatchState extends State<PaperSwatch> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final label = PaperSwatch.labelOf(widget.paper);
+    final label = widget.paper.label;
     return Semantics(
       button: true,
       selected: widget.selected,
@@ -76,6 +76,7 @@ class _PaperSwatchState extends State<PaperSwatch> {
                       painter: PaperPainter(
                         viewport: _viewport,
                         style: widget.paper,
+                        paperColor: widget.color,
                         page: const Rect.fromLTWH(-40, -40, 1000, 1000),
                       ),
                     ),

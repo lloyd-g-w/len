@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/domain/paper.dart';
+import 'package:len/features/documents/template_field.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/features/library/new_notebook_sheet.dart';
@@ -96,6 +98,37 @@ void main() {
     expect(find.byType(EditorScreen), findsNothing);
     expect(find.text('Physics'), findsOneWidget);
     expect(services.notebooks.list().single.title, 'Physics');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the new sheet sets the first page template and offers PDF import', (tester) async {
+    final services = await pumpLibrary(tester);
+    await tester.tap(find.text('New notebook'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TemplateField), findsOneWidget);
+    expect(find.text('Import PDF…'), findsOneWidget);
+
+    final swatch = find.text('Small grid');
+    await tester.ensureVisible(swatch);
+    await tester.tap(swatch);
+    await tester.pumpAndSettle();
+    // The template field reflects the swatch choice.
+    expect(
+      find.descendant(of: find.byType(TemplateField), matching: find.text('Small grid')),
+      findsOneWidget,
+    );
+
+    // Canvases have no page size or paper colour: no template field.
+    await tester.tap(find.text('Infinite canvas'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TemplateField), findsNothing);
+    await tester.tap(find.text('Notebook'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+    final notebook = services.notebooks.list().single;
+    expect(services.pages.pagesOf(notebook.id).single.paper, PaperStyle.gridSmall);
     expect(tester.takeException(), isNull);
   });
 

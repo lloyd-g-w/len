@@ -8,11 +8,16 @@ environment:
   sdk: ^3.13.3
 
 dependencies:
+  crypto: ^3.0.7
+  file_selector: ^1.1.0
   flutter:
     sdk: flutter
   http: ^1.6.0
   path: ^1.9.1
   path_provider: ^2.1.6
+  pdf: ^3.13.1
+  pdfrx: ^2.6.5
+  share_plus: ^13.3.1
   sqlite3: ^3.7.0
   uuid: ^4.6.0
 

@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -143,6 +146,68 @@ class SyncApi {
       hasMore: hasMore,
       malformed: malformed,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Blobs (docs/SYNC_PROTOCOL.md, "Blobs")
+
+  /// Whether the server already stores blob [sha].
+  Future<bool> hasBlob(String sha) async {
+    final response = await _request(() => _client.head(_uri('v1/blobs/$sha'), headers: _headers));
+    if (response.statusCode == 404) return false;
+    _expectOk(response);
+    return true;
+  }
+
+  /// Uploads a blob from [file]; the server verifies its hash.
+  Future<void> putBlob(String sha, File file) async {
+    final request = http.StreamedRequest('PUT', _uri('v1/blobs/$sha'))
+      ..headers.addAll({..._headers, 'Content-Type': 'application/octet-stream'})
+      ..contentLength = await file.length();
+    unawaited(file.openRead().pipe(request.sink));
+    final response = await _request(
+      () async => http.Response.fromStream(await _client.send(request)),
+      // Large uploads may legitimately take a while.
+      timeout: const Duration(minutes: 30),
+    );
+    _expectOk(response);
+  }
+
+  /// Downloads a blob, or returns null if the server does not have it.
+  Future<Uint8List?> getBlob(String sha) async {
+    final response = await _request(
+      () => _client.get(_uri('v1/blobs/$sha'), headers: _headers),
+      timeout: const Duration(minutes: 30),
+    );
+    if (response.statusCode == 404) return null;
+    _expectOk(response);
+    return response.bodyBytes;
+  }
+
+  Future<http.Response> _request(
+    Future<http.Response> Function() request, {
+    Duration? timeout,
+  }) async {
+    try {
+      return await request().timeout(timeout ?? this.timeout);
+    } on Exception catch (e) {
+      throw SyncException('Cannot reach sync server: $e');
+    }
+  }
+
+  static void _expectOk(http.Response response) {
+    switch (response.statusCode) {
+      case 200:
+        return;
+      case 401:
+        throw const SyncException('Sync server rejected the access token');
+      case 413:
+        throw const SyncException('Sync server refused an oversized file');
+      case final status:
+        throw SyncException(
+          'Sync server error $status${_errorDetail(_decodeObject(response.body))}',
+        );
+    }
   }
 
   void close() => _client.close();

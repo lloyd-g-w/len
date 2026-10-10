@@ -70,7 +70,7 @@ class ThumbnailCache extends ChangeNotifier {
     final surface = renderer.previewSurfaceOf(notebook);
     final fingerprint = surface == null
         ? null
-        : (surface: surface, paper: notebook.paper, stats: stats.fingerprint(surface));
+        : (paper: renderer.previewPaperOf(notebook), stats: stats.fingerprint(surface));
     final old = _entries[notebook.id];
     if (old != null && old.fingerprint == fingerprint) {
       old

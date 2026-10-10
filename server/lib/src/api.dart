@@ -8,6 +8,8 @@ import 'dart:typed_data';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import 'blob_api.dart';
+import 'blob_store.dart';
 import 'record.dart';
 import 'record_store.dart';
 
@@ -29,11 +31,20 @@ const _publicPaths = {'v1/health'};
 
 /// Builds the complete request handler: auth middleware in front of the
 /// protocol routes. Logging is left to the caller.
-Handler buildHandler({required RecordStore store, required String token}) {
+///
+/// Blob uploads are limited to [maxBlobBytes]; the push body limit
+/// ([maxPushBytes]) does not apply to them.
+Handler buildHandler({
+  required RecordStore store,
+  required BlobStore blobs,
+  required String token,
+  int maxBlobBytes = defaultMaxBlobBytes,
+}) {
   final router = Router(notFoundHandler: _notFound)
     ..get('/v1/health', _health)
     ..post('/v1/push', (Request request) => _push(request, store))
     ..get('/v1/pull', (Request request) => _pull(request, store));
+  addBlobRoutes(router, blobs, maxBytes: maxBlobBytes);
   return const Pipeline()
       .addMiddleware(bearerAuth(token, publicPaths: _publicPaths))
       .addHandler(router.call);
@@ -47,8 +58,7 @@ Middleware bearerAuth(String token, {Set<String> publicPaths = const {}}) {
     return (Request request) {
       if (publicPaths.contains(request.url.path)) return inner(request);
       final presented = _bearerToken(request.headers['authorization']);
-      if (presented == null ||
-          !constantTimeEquals(utf8.encode(presented), expected)) {
+      if (presented == null || !constantTimeEquals(utf8.encode(presented), expected)) {
         return _json(HttpStatus.unauthorized, {'error': 'unauthorized'});
       }
       return inner(request);
@@ -81,10 +91,9 @@ String? _bearerToken(String? header) {
 }
 
 Response _health(Request request) =>
-    _json(HttpStatus.ok, {'status': 'ok', 'protocol': protocolVersion});
+    _json(HttpStatus.ok, {'status': 'ok', 'protocol': protocolVersion, 'blobs': true});
 
-Response _notFound(Request request) =>
-    _json(HttpStatus.notFound, {'error': 'not found'});
+Response _notFound(Request request) => _json(HttpStatus.notFound, {'error': 'not found'});
 
 /// `POST /v1/push`: validates every record, then applies all atomically.
 Future<Response> _push(Request request, RecordStore store) async {
@@ -137,10 +146,7 @@ Response _pull(Request request, RecordStore store) {
     return _badRequest('limit must be a positive integer');
   }
 
-  final page = store.pull(
-    since: since,
-    limit: limit > maxPullLimit ? maxPullLimit : limit,
-  );
+  final page = store.pull(since: since, limit: limit > maxPullLimit ? maxPullLimit : limit);
   return _json(HttpStatus.ok, {
     'records': [for (final r in page.records) r.toJson()],
     'nextSince': page.nextSince,
@@ -149,8 +155,7 @@ Response _pull(Request request, RecordStore store) {
 }
 
 /// Parses an optional integer query parameter; `null` means invalid.
-int? _intParam(String? raw, {required int fallback}) =>
-    raw == null ? fallback : int.tryParse(raw);
+int? _intParam(String? raw, {required int fallback}) => raw == null ? fallback : int.tryParse(raw);
 
 /// Signals that a request body exceeded the allowed size.
 class _TooLarge implements Exception {}
@@ -172,11 +177,9 @@ Future<Object?> _readJsonBody(Request request, int maxBytes) async {
   return jsonDecode(text);
 }
 
-Response _badRequest(String message) =>
-    _json(HttpStatus.badRequest, {'error': message});
+Response _badRequest(String message) => _json(HttpStatus.badRequest, {'error': message});
 
-Response _tooLarge(String message) =>
-    _json(HttpStatus.requestEntityTooLarge, {'error': message});
+Response _tooLarge(String message) => _json(HttpStatus.requestEntityTooLarge, {'error': message});
 
 Response _json(int status, Object body) => Response(
   status,

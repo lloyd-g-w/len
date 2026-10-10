@@ -39,7 +39,10 @@ Whenever a record is stored/replaced it gets a new `seq` (max seq + 1).
 ## Endpoints
 
 ### `GET /v1/health`
-No auth. `200 {"status":"ok","protocol":1}`
+No auth. `200 {"status":"ok","protocol":1,"blobs":true}`
+
+`blobs: true` means the server implements the [blob endpoints](#blobs). Clients must treat a
+missing `blobs` field as `false` (older servers) and then neither upload nor download blobs.
 
 ### `POST /v1/push`
 Body: `{"records": [Record, …]}` — at most 1000 records, body at most 32 MiB.
@@ -64,6 +67,54 @@ responses stay bounded when records are large.
 ### Errors
 `401` missing/bad token, `400` malformed request (body `{"error": "…"}`), `413` too large,
 `404` unknown route.
+
+## Blobs
+
+Binary payloads (e.g. PDFs used as page backgrounds) are stored as **content-addressed blobs**,
+separately from records. A blob is identified by the SHA-256 of its bytes, written as 64
+lowercase hex characters (`<sha256>`); any other identifier is rejected with `400`. Blobs are
+immutable. All blob endpoints require the bearer token (`401` otherwise).
+
+### `PUT /v1/blobs/<sha256>`
+Body: the raw blob bytes (any content type), at most `LEN_BLOB_MAX_BYTES` (default 200 MiB =
+209715200 bytes). The 32 MiB push limit does not apply.
+
+- `200 {"sha256": "<sha256>", "size": <bytes>}` — the blob is stored. Returned both for a new
+  blob and when it already existed (**idempotent**; an existing blob is not rewritten and the
+  body may not be read).
+- `400 {"error": "hash mismatch"}` — the SHA-256 of the body differs from `<sha256>`; nothing is
+  stored.
+- `400 {"error": "…"}` — `<sha256>` is not 64 lowercase hex characters.
+- `413 {"error": "…"}` — `Content-Length` exceeds the limit (rejected before reading), or the
+  streamed body exceeds it; nothing is stored.
+
+The server hashes while streaming to a temporary file and atomically renames it into place, so a
+blob is only ever visible complete and verified, and concurrent uploads of the same blob are safe.
+
+### `GET /v1/blobs/<sha256>`
+`200` with the raw bytes, `Content-Type: application/octet-stream` and `Content-Length`.
+`404 {"error": "not found"}` if the blob is not stored; `400` for an invalid identifier.
+
+### `HEAD /v1/blobs/<sha256>`
+Like `GET` without a body: `200` with `Content-Type` and `Content-Length` (the blob size) if
+stored, `404` (empty body) if not.
+
+### Client algorithm for blobs
+
+- Records reference blobs by `<sha256>` inside their `data` (e.g. a page `background.blob`).
+- **Upload before push.** Before each push, the client uploads every locally stored blob it has
+  not yet uploaded to the current server: `HEAD` to skip blobs the server already has, otherwise
+  `PUT`. It remembers successfully uploaded blobs. Records are only pushed after the blobs they
+  reference are on the server, so a record never reaches the server before its blob: a failed
+  upload aborts the sync cycle before any record is pushed (everything stays dirty and is retried
+  on the next sync). A server without blob support (no `"blobs": true` in `/v1/health`) answers
+  `404` to blob requests, which surfaces as a sync error once a device has stored a blob.
+  When the server URL changes, the "uploaded" marks are reset along with `lastPulledSeq`.
+- **Lazy download.** Pulled records may reference blobs the client does not have; the client
+  downloads them with `GET` only when they are needed (e.g. when a page is displayed) and verifies
+  the SHA-256 before storing them. A missing blob (`404`) is treated as temporarily unavailable.
+- **No deletion.** Blobs are never deleted by the protocol, even when no record references them
+  anymore. Garbage collection of unreferenced blobs is future work.
 
 ## Client algorithm
 
@@ -91,7 +142,7 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 |-------------|----------------------------------------------------------------------------------------|
 | `folders`   | `{name, parentId: string|null, color, createdAt}`                                       |
 | `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt, coverStyle?, editedAt?, folderId?, favorite?, trashedAt?}` |
-| `pages`     | `{notebookId, sortKey, width, height, paper}`                                            |
+| `pages`     | `{notebookId, sortKey, width, height, paper, paperColor?, bookmarked?, background?}`     |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter`; unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
 
 Fields marked `?` were added after v1 and may be missing in records from older clients; readers
@@ -107,3 +158,16 @@ trashed) and unknown `coverStyle` values read as "plain".
   restored. "Delete forever" tombstones the notebook, its pages and strokes as before.
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
   (favourite, move, trash) only bump `updatedAt`.
+
+**Paper and pages.** `paper` (on notebooks and pages) is one of `blank`, `lined` (wide ruled), `grid` (large grid),
+`dotted` and, since the documents update, `collegeRuled`, `narrowRuled`, `gridSmall`, `cornell`,
+`music`, `isometric`. Unknown values are shown as `blank` but kept as-is in storage, so editing
+other fields of the page on an older device does not erase a newer device's template.
+
+Optional `pages` fields (`?` above; absent on data written by older app versions):
+
+- `paperColor`: string, `white` | `cream` | `grey` | `dark`; missing or unknown → `white`.
+- `bookmarked`: bool; missing → `false`.
+- `background`: object or `null`. `{"type": "pdf", "blob": "<sha256>", "page": <int>}` renders
+  page `page` (0-based) of the PDF stored as blob `<sha256>` behind the strokes. Backgrounds with
+  an unknown `type` are ignored (the page is shown without background).

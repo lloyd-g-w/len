@@ -57,9 +57,7 @@ class SyncRecord {
     }
     final collection = _requireString(json, 'collection');
     if (!collectionPattern.hasMatch(collection)) {
-      throw RecordValidationException(
-        'collection must match ${collectionPattern.pattern}',
-      );
+      throw RecordValidationException('collection must match ${collectionPattern.pattern}');
     }
     final deleted = json['deleted'];
     if (deleted is! bool) {
@@ -108,9 +106,7 @@ class SyncRecord {
   static String _requireId(Map<String, Object?> json, String key) {
     final value = _requireString(json, key);
     if (value.isEmpty || value.length > maxIdLength) {
-      throw RecordValidationException(
-        '$key must be 1..$maxIdLength characters long',
-      );
+      throw RecordValidationException('$key must be 1..$maxIdLength characters long');
     }
     return value;
   }

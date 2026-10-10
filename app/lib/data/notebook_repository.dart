@@ -54,7 +54,8 @@ class NotebookRepository extends SyncableTable {
     return rows.isEmpty ? null : _rowToNotebook(rows.first);
   }
 
-  /// Creates a notebook; paged notebooks start with one page.
+  /// Creates a notebook; paged notebooks start with one page, made from
+  /// [firstPage] (default: a blank A4 page of [paper]).
   Notebook create({
     required String title,
     required NotebookKind kind,
@@ -62,6 +63,7 @@ class NotebookRepository extends SyncableTable {
     required int coverColor,
     CoverStyle coverStyle = CoverStyle.plain,
     String? folderId,
+    PageTemplate? firstPage,
   }) {
     final now = clock.nowMs();
     final notebook = Notebook(
@@ -78,7 +80,7 @@ class NotebookRepository extends SyncableTable {
     database.transaction(() {
       _write(notebook, deviceId: deviceId, dirty: true);
       if (kind == NotebookKind.paged) {
-        pages.addPage(notebook.id, paper: paper);
+        pages.addPage(notebook.id, template: firstPage ?? PageTemplate(style: paper));
       }
     });
     return notebook;

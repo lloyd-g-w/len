@@ -10,6 +10,7 @@ import 'package:len/data/syncable.dart';
 import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/cover_style.dart';
 import 'package:len/domain/notebook.dart';
+import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 
 import 'data_test.dart' show FakeClock, stroke;
@@ -175,6 +176,32 @@ void main() {
         strokes.dirtyRecords(100).where((r) => r.data?['surfaceId'] == copiedPage),
         hasLength(1),
       );
+    });
+
+    test('duplicate keeps paper colour, bookmarks and PDF backgrounds', () {
+      final source = notebook('Paper');
+      final sha = 'a' * 64;
+      final pdfPage = pages.insertPages(source.id, [
+        (
+          size: const Size(612, 792),
+          paper: PaperStyle.blank,
+          color: PaperColor.white,
+          background: PageBackground.pdf(blob: sha, pageIndex: 2),
+        ),
+      ]).single;
+      final first = pages.pagesOf(source.id).first;
+      pages.setPaper([first.id], style: PaperStyle.cornell, color: PaperColor.cream);
+      pages.setBookmarked(pdfPage.id, true);
+
+      final copy = notebooks.duplicate(source.id)!;
+      final copied = pages.pagesOf(copy.id);
+      expect(copied.map((p) => p.paper), [PaperStyle.cornell, PaperStyle.blank]);
+      expect(copied.map((p) => p.paperColor), [PaperColor.cream, PaperColor.white]);
+      expect(copied.map((p) => p.bookmarked), [false, true]);
+      expect(copied.last.background, PageBackground.pdf(blob: sha, pageIndex: 2));
+      expect(copied.last.size, const Size(612, 792));
+      // Blobs are content-addressed and shared, not copied.
+      expect(pages.referencedBlobs(), {sha});
     });
 
     test('duplicate of a canvas copies its strokes onto the new surface', () {

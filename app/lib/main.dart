@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -11,6 +13,7 @@ Future<void> main() async {
   final dir = await getApplicationSupportDirectory();
   await dir.create(recursive: true); // Not guaranteed to exist on desktop.
   final database = AppDatabase.open(p.join(dir.path, 'len.db'));
-  final services = AppServices.create(database)..sync.start();
+  final services = AppServices.create(database, blobDirectory: Directory(p.join(dir.path, 'blobs')))
+    ..sync.start();
   runApp(LenApp(services: services));
 }

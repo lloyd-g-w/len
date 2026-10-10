@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:len_sync_server/len_sync_server.dart';
 import 'package:shelf/shelf.dart';
@@ -8,13 +9,18 @@ const token = 'test-token-0123456789abcdef';
 
 void main() {
   late RecordStore store;
+  late Directory blobDir;
   late Handler handler;
 
   setUp(() {
     store = RecordStore.inMemory();
-    handler = buildHandler(store: store, token: token);
+    blobDir = Directory.systemTemp.createTempSync('len_api_test_');
+    handler = buildHandler(store: store, blobs: BlobStore.open(blobDir.path), token: token);
   });
-  tearDown(() => store.close());
+  tearDown(() {
+    store.close();
+    blobDir.deleteSync(recursive: true);
+  });
 
   Future<Response> send(
     String method,
@@ -49,7 +55,7 @@ void main() {
       final r = await send('GET', '/v1/health', auth: null);
       expect(r.statusCode, 200);
       expect(r.headers['content-type'], startsWith('application/json'));
-      expect(await jsonOf(r), {'status': 'ok', 'protocol': 1});
+      expect(await jsonOf(r), {'status': 'ok', 'protocol': 1, 'blobs': true});
     });
 
     test('missing token is 401', () async {
@@ -59,19 +65,8 @@ void main() {
     });
 
     test('wrong token is 401', () async {
-      for (final auth in [
-        'Bearer wrong',
-        'Bearer ${token}x',
-        'Basic $token',
-        token,
-        'Bearer ',
-      ]) {
-        final r = await send(
-          'POST',
-          '/v1/push',
-          auth: auth,
-          body: {'records': <Object>[]},
-        );
+      for (final auth in ['Bearer wrong', 'Bearer ${token}x', 'Basic $token', token, 'Bearer ']) {
+        final r = await send('POST', '/v1/push', auth: auth, body: {'records': <Object>[]});
         expect(r.statusCode, 401, reason: auth);
       }
     });

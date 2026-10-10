@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../ui/text_prompt.dart';
+import '../documents/pdf/pdf_import_flow.dart';
 import '../editor/editor_screen.dart';
 import 'library_controller.dart';
 import 'library_dialogs.dart';
@@ -36,13 +37,24 @@ class LibraryActions {
   Future<void> createNotebook(BuildContext context) async {
     final request = await NewNotebookSheet.show(context);
     if (request == null || !context.mounted) return;
+    if (request.importPdf) return importPdf(context);
     final notebook = controller.createNotebook(
       title: request.title,
       kind: request.kind,
       paper: request.paper,
       coverColor: request.coverColor,
       coverStyle: request.coverStyle,
+      firstPage: request.template,
     );
+    await openNotebook(context, notebook);
+  }
+
+  /// Creates a notebook from a PDF the user picks, files it like a new
+  /// notebook and opens it.
+  Future<void> importPdf(BuildContext context) async {
+    final imported = await importPdfFlow(context);
+    if (imported == null || !context.mounted) return;
+    final notebook = controller.adoptNotebook(imported);
     await openNotebook(context, notebook);
   }
 

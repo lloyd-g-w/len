@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
-import '../../domain/notebook_page.dart';
 import '../../ink/ink_surface.dart';
 import '../../ink/input/ink_input_controller.dart';
 import '../../ink/input/live_ink.dart';
@@ -13,8 +12,15 @@ import '../../ink/surface_model.dart';
 import '../../ink/tool_settings.dart';
 import '../../ink/viewport.dart';
 import '../../sync/sync_engine.dart';
-import '../../ui/floating_panel.dart';
 import '../../ui/text_prompt.dart';
+import '../documents/pdf/pdf_background_cache.dart';
+import 'document/document_commands.dart';
+import 'document/document_controller.dart';
+import 'document/document_layout.dart';
+import 'document/document_menu.dart';
+import 'document/paged_document_view.dart';
+import 'document/undo_target.dart';
+import 'editor_pills.dart';
 import 'editor_toolbar.dart';
 import 'page_navigator.dart';
 
@@ -36,20 +42,18 @@ class _EditorScreenState extends State<EditorScreen> {
     store: _services.settings,
   );
   final LiveInk _live = LiveInk();
-  late final ViewportController _viewport = _isCanvas
-      ? ViewportController()
-      : ViewportController(minScale: 0.25, maxScale: 8);
   late final InkInputController _input;
+  late final UndoTarget _undo;
   StreamSubscription<RemoteChanges>? _remoteChanges;
 
-  /// Pages of a paged notebook; empty for a canvas.
-  List<NotebookPage> _pages = const [];
-  int _pageIndex = 0;
+  // Infinite canvas: one surface.
+  SurfaceModel? _canvas;
+  ViewportController? _canvasViewport;
 
-  /// One model per visited surface, so undo history survives page turns.
-  final Map<String, SurfaceModel> _models = {};
-
-  bool _fitted = false;
+  // Paged notebook: pages laid out as a document.
+  DocumentController? _doc;
+  DocumentCommands? _commands;
+  PdfBackgroundCache? _backgrounds;
 
   /// Set once the editor is leaving because its notebook was deleted
   /// remotely, so further sync events don't pop another route.
@@ -60,33 +64,48 @@ class _EditorScreenState extends State<EditorScreen> {
   final FocusNode _focus = FocusNode(debugLabel: 'EditorScreen');
 
   bool get _isCanvas => widget.notebook.kind == NotebookKind.canvas;
-  NotebookPage? get _page => _isCanvas ? null : _pages[_pageIndex];
-  String get _surfaceId => _page?.id ?? _notebook.id;
-  SurfaceModel get _model => _modelFor(_surfaceId);
 
   @override
   void initState() {
     super.initState();
-    if (!_isCanvas) {
-      _pages = _services.pages.pagesOf(_notebook.id);
-      if (_pages.isEmpty) _pages = [_services.pages.addPage(_notebook.id, paper: _notebook.paper)];
-      _viewport.contentBounds = _page!.bounds;
-      _viewport.addListener(_fitOnFirstLayout);
+    if (_isCanvas) {
+      final model = _canvas = SurfaceModel(surfaceId: _notebook.id, repository: _services.strokes);
+      final viewport = _canvasViewport = ViewportController();
+      _input = _inputFor(model, viewport);
+      _undo = SurfaceUndo(model);
+    } else {
+      final doc = _doc = _openDocument();
+      _commands = DocumentCommands(services: _services, notebook: () => _notebook, doc: doc);
+      _backgrounds = PdfBackgroundCache(blobs: _services.blobs, fetch: _services.sync.fetchBlob);
+      _input = doc.input = _inputFor(doc.activeModel, doc.pageViewport);
+      _undo = doc.surfaces;
     }
-    _input = InkInputController(
-      model: _model,
-      viewport: _viewport,
-      tools: _tools,
-      live: _live,
-      onStylusDetected: _onStylusDetected,
-    );
     _remoteChanges = _services.sync.remoteChanges.listen(_onRemoteChanges);
   }
+
+  DocumentController _openDocument() {
+    var pages = _services.pages.pagesOf(_notebook.id);
+    if (pages.isEmpty) pages = [_services.pages.addPage(_notebook.id, paper: _notebook.paper)];
+    return DocumentController(
+      pages: pages,
+      strokes: _services.strokes,
+      flow: PageFlow.parse(_services.settings.pageFlow),
+    )..topInset = 64; // Below the title / undo pills.
+  }
+
+  InkInputController _inputFor(SurfaceModel model, ViewportController viewport) =>
+      InkInputController(
+        model: model,
+        viewport: viewport,
+        tools: _tools,
+        live: _live,
+        onStylusDetected: _onStylusDetected,
+      );
 
   @override
   void dispose() {
     unawaited(_remoteChanges?.cancel());
-    final edited = _models.values.any((m) => m.history.canUndo || m.history.canRedo);
+    final edited = _undo.canUndo || _undo.canRedo || (_commands?.changed ?? false);
     if (edited) {
       _services.notebooks.touch(_notebook.id);
       // Deferred: syncing notifies listeners (e.g. the library's sync button),
@@ -95,48 +114,13 @@ class _EditorScreenState extends State<EditorScreen> {
       scheduleMicrotask(() => unawaited(sync.syncNow()));
     }
     _focus.dispose();
-    for (final m in _models.values) {
-      m.dispose();
-    }
-    _viewport.dispose();
+    _canvas?.dispose();
+    _canvasViewport?.dispose();
+    _doc?.dispose();
+    _backgrounds?.dispose();
     _live.dispose();
     _tools.dispose();
     super.dispose();
-  }
-
-  SurfaceModel _modelFor(String surfaceId) => _models.putIfAbsent(
-    surfaceId,
-    () => SurfaceModel(surfaceId: surfaceId, repository: _services.strokes),
-  );
-
-  void _fitOnFirstLayout() {
-    if (_fitted || _viewport.size.isEmpty) return;
-    _fitted = true;
-    _viewport.fitWidth();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Pages
-
-  void _goToPage(int index) {
-    if (index < 0 || index >= _pages.length || index == _pageIndex) return;
-    _input.cancelDraw();
-    setState(() => _pageIndex = index);
-    _input.model = _model;
-    // Re-frame once InkSurface has switched to the new page's model, so the
-    // viewport change loads the right surface.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _viewport
-        ..contentBounds = _page!.bounds
-        ..fitWidth();
-    });
-  }
-
-  void _addPage() {
-    final page = _services.pages.addPage(_notebook.id, paper: _notebook.paper, after: _page);
-    setState(() => _pages = _services.pages.pagesOf(_notebook.id));
-    _goToPage(_pages.indexWhere((p) => p.id == page.id));
   }
 
   // ---------------------------------------------------------------------------
@@ -152,22 +136,14 @@ class _EditorScreenState extends State<EditorScreen> {
       }
       setState(() => _notebook = updated);
     }
-    if (!_isCanvas && changes.pagesOfNotebooks.contains(_notebook.id)) {
-      final currentId = _page!.id;
-      final pages = _services.pages.pagesOf(_notebook.id);
-      if (pages.isNotEmpty) {
-        final index = pages.indexWhere((p) => p.id == currentId);
-        if (index == -1) _input.cancelDraw(); // Current page went away.
-        setState(() {
-          _pages = pages;
-          _pageIndex = index == -1 ? 0 : index;
-        });
-        _input.model = _model;
-        _viewport.contentBounds = _page!.bounds;
-      }
+    final doc = _doc;
+    if (doc != null && changes.pagesOfNotebooks.contains(_notebook.id)) {
+      if (_services.pages.pagesOf(_notebook.id).isNotEmpty) _commands!.reload();
+      _backgrounds?.retryMissing(); // New pages may bring new PDFs.
     }
     for (final surfaceId in changes.strokeSurfaces) {
-      _models[surfaceId]?.reload();
+      if (surfaceId == _canvas?.surfaceId) _canvas!.reload();
+      doc?.surfaces.reload(surfaceId);
     }
   }
 
@@ -205,6 +181,11 @@ class _EditorScreenState extends State<EditorScreen> {
     _services.settings.stylusOnly = value;
   }
 
+  void _setFlow(PageFlow flow) {
+    _services.settings.pageFlow = flow.name;
+    _doc?.setFlow(flow);
+  }
+
   Future<void> _rename() async {
     final title = await showTextPrompt(
       context,
@@ -227,11 +208,11 @@ class _EditorScreenState extends State<EditorScreen> {
   };
 
   Map<ShortcutActivator, VoidCallback> get _shortcuts => {
-    const SingleActivator(LogicalKeyboardKey.keyZ, control: true): _model.undo,
-    const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): _model.undo,
-    const SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true): _model.redo,
-    const SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true): _model.redo,
-    const SingleActivator(LogicalKeyboardKey.keyY, control: true): _model.redo,
+    const SingleActivator(LogicalKeyboardKey.keyZ, control: true): _undo.undo,
+    const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): _undo.undo,
+    const SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true): _undo.redo,
+    const SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true): _undo.redo,
+    const SingleActivator(LogicalKeyboardKey.keyY, control: true): _undo.redo,
     const SingleActivator(LogicalKeyboardKey.keyP): _unlessTyping(
       () => _tools.tool = EditorTool.pen,
     ),
@@ -241,9 +222,9 @@ class _EditorScreenState extends State<EditorScreen> {
     const SingleActivator(LogicalKeyboardKey.keyE): _unlessTyping(
       () => _tools.tool = EditorTool.eraser,
     ),
-    if (!_isCanvas) ...{
-      const SingleActivator(LogicalKeyboardKey.pageDown): () => _goToPage(_pageIndex + 1),
-      const SingleActivator(LogicalKeyboardKey.pageUp): () => _goToPage(_pageIndex - 1),
+    if (_doc case final doc?) ...{
+      const SingleActivator(LogicalKeyboardKey.pageDown): () => doc.goToPage(doc.currentPage + 1),
+      const SingleActivator(LogicalKeyboardKey.pageUp): () => doc.goToPage(doc.currentPage - 1),
     },
   };
 
@@ -252,7 +233,6 @@ class _EditorScreenState extends State<EditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final page = _page;
     return Scaffold(
       body: CallbackShortcuts(
         bindings: _shortcuts,
@@ -269,14 +249,7 @@ class _EditorScreenState extends State<EditorScreen> {
                   onPointerDown: (_) {
                     if (!_focus.hasFocus) _focus.requestFocus();
                   },
-                  child: InkSurface(
-                    model: _model,
-                    viewport: _viewport,
-                    input: _input,
-                    live: _live,
-                    paper: page?.paper ?? _notebook.paper,
-                    page: page?.bounds,
-                  ),
+                  child: _buildSurface(),
                 ),
               ),
               SafeArea(child: _buildChrome(context)),
@@ -287,13 +260,34 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
+  Widget _buildSurface() {
+    final doc = _doc;
+    if (doc != null) {
+      return PagedDocumentView(
+        controller: doc,
+        input: _input,
+        live: _live,
+        backgrounds: _backgrounds,
+        fingersNavigate: () => _tools.stylusOnly ?? false,
+      );
+    }
+    return InkSurface(
+      model: _canvas!,
+      viewport: _canvasViewport!,
+      input: _input,
+      live: _live,
+      paper: _notebook.paper,
+    );
+  }
+
   Widget _buildChrome(BuildContext context) {
     final toolbar = EditorToolbar(tools: _tools, onStylusOnlyChanged: _setStylusOnly);
-    final title = _TitlePill(
+    final title = TitlePill(
       title: _notebook.title,
       onBack: () => Navigator.of(context).maybePop(),
       onRename: _rename,
     );
+    final undo = UndoRedoPill(target: _undo, trailing: _doc == null ? null : _documentMenu());
     return LayoutBuilder(
       builder: (context, constraints) {
         // Wide screens: one top row. Narrow screens: tools move to the bottom
@@ -316,89 +310,52 @@ class _EditorScreenState extends State<EditorScreen> {
                     ),
                     const SizedBox(width: 12),
                   ],
-                  _UndoRedoPill(model: _model),
+                  undo,
                 ],
               ),
               const Spacer(),
               if (!wide) toolbar,
-              if (!_isCanvas) ...[
-                const SizedBox(height: 10),
-                PageNavigator(
-                  index: _pageIndex,
-                  count: _pages.length,
-                  onSelect: _goToPage,
-                  onAddPage: _addPage,
-                ),
-              ],
+              if (_doc != null) ...[const SizedBox(height: 10), _pageNavigator()],
             ],
           ),
         );
       },
     );
   }
-}
 
-class _TitlePill extends StatelessWidget {
-  const _TitlePill({required this.title, required this.onBack, required this.onRename});
-
-  final String title;
-  final VoidCallback onBack;
-  final VoidCallback onRename;
-
-  @override
-  Widget build(BuildContext context) {
-    return FloatingPanel(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: 'Back',
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_rounded),
-          ),
-          Flexible(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 220),
-              child: Tooltip(
-                message: 'Rename',
-                child: TextButton(
-                  onPressed: onRename,
-                  child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-              ),
-            ),
-          ),
-        ],
+  Widget _documentMenu() {
+    final doc = _doc!;
+    final commands = _commands!;
+    return ListenableBuilder(
+      listenable: doc,
+      builder: (context, _) => DocumentMenu(
+        flow: doc.flow,
+        bookmarked: doc.pages[doc.currentPage].bookmarked,
+        onCommand: (c) => commands.run(context, c, doc.pages[doc.currentPage]),
+        onOverview: () => commands.openOverview(context, backgrounds: _backgrounds),
+        onGoTo: () => commands.goToPagePrompt(context),
+        onInsertPdf: () => commands.insertPdf(context),
+        onFlow: _setFlow,
+        onExport: (kind) => commands.export(context, kind),
       ),
     );
   }
-}
 
-class _UndoRedoPill extends StatelessWidget {
-  const _UndoRedoPill({required this.model});
-
-  final SurfaceModel model;
-
-  @override
-  Widget build(BuildContext context) {
-    return FloatingPanel(
-      child: ListenableBuilder(
-        listenable: model,
-        builder: (context, _) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: 'Undo (Ctrl+Z)',
-              onPressed: model.history.canUndo ? model.undo : null,
-              icon: const Icon(Icons.undo_rounded),
-            ),
-            IconButton(
-              tooltip: 'Redo (Ctrl+Shift+Z)',
-              onPressed: model.history.canRedo ? model.redo : null,
-              icon: const Icon(Icons.redo_rounded),
-            ),
-          ],
-        ),
+  Widget _pageNavigator() {
+    final doc = _doc!;
+    final commands = _commands!;
+    return ListenableBuilder(
+      listenable: doc,
+      builder: (context, _) => PageNavigator(
+        index: doc.currentPage,
+        count: doc.pages.length,
+        bookmarked: doc.pages[doc.currentPage].bookmarked,
+        onSelect: doc.goToPage,
+        onAddPage: commands.addPage,
+        onOverview: () => commands.openOverview(context, backgrounds: _backgrounds),
+        onGoTo: () => commands.goToPagePrompt(context),
+        onAddWithTemplate: () => commands.addPageWithTemplate(context),
+        onInsertPdf: () => commands.insertPdf(context),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../data/settings_repository.dart';
+import 'blob_sync.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
 
@@ -100,6 +101,27 @@ class SyncController extends ChangeNotifier {
       return syncNow();
     });
   }
+
+  /// Downloads blob [sha] from the server if it is not stored locally.
+  /// Returns whether it is available now; never throws (a missing blob is
+  /// retried the next time it is needed).
+  Future<bool> fetchBlob(String sha) async {
+    final blobs = engine.blobs;
+    if (blobs == null) return false;
+    if (blobs.has(sha)) return true;
+    if (!isConfigured || _disposed) return false;
+    SyncApi? api;
+    try {
+      api = apiFactory(settings.syncUrl, settings.syncToken);
+      return await BlobSync(blobs).download(api, sha);
+    } on SyncException catch (e) {
+      debugPrint('Cannot fetch blob $sha: ${e.message}');
+      return false;
+    } finally {
+      api?.close();
+    }
+  }
+
 
   Future<void> _run() async {
     if (!isConfigured) {
