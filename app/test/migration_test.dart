@@ -73,7 +73,7 @@ void _createV2Database(String path) {
   }
   db.execute("INSERT INTO settings VALUES ('device_id', 'old')");
   db.execute('PRAGMA user_version = 2');
-  db.dispose();
+  db.close();
 }
 
 /// Column and index definitions of every table, to compare schemas.
