@@ -12,6 +12,9 @@ Len is a handwriting-first note-taking app in the spirit of **Notewise** and **G
 ## Core requirements
 
 1. **Excellent stylus support**
+   - **Pen line-up (user decision): just a Pen (ballpoint) and a Highlighter**, plus the eraser.
+     Fewer, better tools: quality of feel and look beats variety.
+   - UI/UX — especially for pens — is reviewed and polished continuously.
    - Pressure-sensitive, low-latency ink.
    - Samsung S Pen first-class: pressure, side button (hold → temporary eraser), eraser end / inverted stylus.
    - Palm rejection: once a stylus is detected, fingers pan/zoom and only the stylus draws (toggleable).
