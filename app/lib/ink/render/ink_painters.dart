@@ -32,6 +32,7 @@ class CommittedInkPainter extends CustomPainter {
       ..translate(viewport.offset.dx, viewport.offset.dy)
       ..scale(viewport.scale);
     if (clip != null) canvas.clipRect(clip!);
+    cache.setScale(viewport.scale); // Image resolution.
     for (final key in chunks) {
       canvas.drawPicture(cache.pictureFor(key));
     }

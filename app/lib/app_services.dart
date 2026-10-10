@@ -12,6 +12,7 @@ import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_repository.dart';
+import 'ink/images/element_images.dart';
 import 'ink/selection/ink_clipboard.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
@@ -103,7 +104,11 @@ class AppServices {
   /// and notebooks).
   final InkClipboard clipboard = InkClipboard();
 
+  /// Decoded bitmaps of image elements, shared by editors and previews.
+  late final ElementImages images = ElementImages(read: blobs.read, fetch: sync.fetchBlob);
+
   void dispose() {
+    images.dispose();
     clipboard.dispose();
     sync.dispose();
     preferences.dispose();

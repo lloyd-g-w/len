@@ -47,7 +47,10 @@ class StrokeRepository extends SyncableTable {
           SELECT stroke_id FROM stroke_chunks
           WHERE surface_id = ? AND (cx, cy) IN (VALUES $tuples)
         )''',
-        [surfaceId, for (final k in slice) ...[k.x, k.y]],
+        [
+          surfaceId,
+          for (final k in slice) ...[k.x, k.y],
+        ],
       );
       for (final stroke in rows.map(_rowToStroke).nonNulls) {
         byId[stroke.id] = stroke;
@@ -82,10 +85,7 @@ class StrokeRepository extends SyncableTable {
     database.transaction(() {
       for (final surfaceId in surfaceIds) {
         final ids = db
-            .select(
-              'SELECT id FROM strokes WHERE surface_id = ? AND deleted = 0',
-              [surfaceId],
-            )
+            .select('SELECT id FROM strokes WHERE surface_id = ? AND deleted = 0', [surfaceId])
             .map((r) => r['id'] as String)
             .toList();
         for (final id in ids) {
@@ -124,21 +124,11 @@ class StrokeRepository extends SyncableTable {
   @override
   void writeRemote(SyncRecord record) {
     if (record.deleted) {
-      _tombstone(
-        record.id,
-        updatedAt: record.updatedAt,
-        deviceId: record.deviceId,
-        dirty: false,
-      );
+      _tombstone(record.id, updatedAt: record.updatedAt, deviceId: record.deviceId, dirty: false);
       return;
     }
     final stroke = _strokeFromData(record.id, record.data!);
-    _upsert(
-      stroke,
-      updatedAt: record.updatedAt,
-      deviceId: record.deviceId,
-      dirty: false,
-    );
+    _upsert(stroke, updatedAt: record.updatedAt, deviceId: record.deviceId, dirty: false);
   }
 
   /// Surface id of a stored stroke (live or tombstoned), if known.
@@ -150,12 +140,7 @@ class StrokeRepository extends SyncableTable {
   // ---------------------------------------------------------------------------
   // Internals
 
-  void _upsert(
-    Stroke s, {
-    required int updatedAt,
-    required String deviceId,
-    required bool dirty,
-  }) {
+  void _upsert(Stroke s, {required int updatedAt, required String deviceId, required bool dirty}) {
     db.execute(
       '''
       INSERT INTO strokes (id, surface_id, tool, color, width, points,

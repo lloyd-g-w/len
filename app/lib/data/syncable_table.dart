@@ -48,19 +48,17 @@ abstract class SyncableTable implements SyncableStore {
 
   @override
   List<SyncRecord> dirtyRecords(int limit, {String? after}) => db
-      .select(
-        'SELECT * FROM $table WHERE dirty = 1 AND id > ? ORDER BY id LIMIT ?',
-        [after ?? '', limit],
-      )
+      .select('SELECT * FROM $table WHERE dirty = 1 AND id > ? ORDER BY id LIMIT ?', [
+        after ?? '',
+        limit,
+      ])
       .map(rowToRecord)
       .toList();
 
   @override
   void markClean(List<RowVersion> versions) {
     if (versions.isEmpty) return;
-    final stmt = db.prepare(
-      'UPDATE $table SET dirty = 0 WHERE id = ? AND updated_at = ?',
-    );
+    final stmt = db.prepare('UPDATE $table SET dirty = 0 WHERE id = ? AND updated_at = ?');
     try {
       database.transaction(() {
         for (final v in versions) {
@@ -80,10 +78,7 @@ abstract class SyncableTable implements SyncableStore {
     if (!record.deleted && record.data == null) {
       throw FormatException('Live ${record.collection}/${record.id} has no data');
     }
-    final local = db.select(
-      'SELECT updated_at, device_id FROM $table WHERE id = ?',
-      [record.id],
-    );
+    final local = db.select('SELECT updated_at, device_id FROM $table WHERE id = ?', [record.id]);
     if (local.isNotEmpty &&
         !record.supersedes(
           updatedAt: local.first['updated_at'] as int,

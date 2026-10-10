@@ -77,6 +77,7 @@ class _EditorScreenState extends State<EditorScreen> {
         surfaceId: _notebook.id,
         repository: _services.strokes,
         elementRepository: _services.elements,
+        images: _services.images,
       );
       final viewport = _canvasViewport = ViewportController();
       _input = _inputFor(model, viewport);
@@ -100,6 +101,7 @@ class _EditorScreenState extends State<EditorScreen> {
       pages: pages,
       strokes: _services.strokes,
       elements: _services.elements,
+      images: _services.images,
       flow: PageFlow.parse(_services.settings.pageFlow),
     )..topInset = 64; // Below the title / undo pills.
   }

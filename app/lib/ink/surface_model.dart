@@ -11,6 +11,7 @@ import '../domain/stroke.dart';
 import '../domain/surface_element.dart';
 import 'content_index.dart';
 import 'geometry/stroke_splitter.dart';
+import 'images/element_images.dart';
 import 'pen/eraser_config.dart';
 import 'stroke_hit_test.dart';
 import 'undo_history.dart';
@@ -27,6 +28,7 @@ class SurfaceModel extends ChangeNotifier {
     required this.surfaceId,
     required this._repository,
     this._elementRepository,
+    this.images,
     this.maxLoadedChunks = 1024,
     this.clock = const Clock(),
   });
@@ -39,6 +41,9 @@ class SurfaceModel extends ChangeNotifier {
 
   /// Element storage; without it the surface holds ink only.
   final ElementRepository? _elementRepository;
+
+  /// Decoded bitmaps for image elements (null: images show placeholders).
+  final ElementImages? images;
 
   /// Soft cap on loaded chunks before far-away ones are evicted.
   final int maxLoadedChunks;
@@ -104,6 +109,24 @@ class SurfaceModel extends ChangeNotifier {
     var top = 0.0;
     for (final e in _elements.query(Rect.largest)) {
       if (e.z > top) top = e.z;
+    }
+    return top;
+  }
+
+  /// The lowest element stacking order loaded, at most 0.
+  double get bottomZ {
+    var bottom = 0.0;
+    for (final e in _elements.query(Rect.largest)) {
+      if (e.z < bottom) bottom = e.z;
+    }
+    return bottom;
+  }
+
+  /// The highest stacking order among loaded elements beneath the ink.
+  double? get topBelowInkZ {
+    double? top;
+    for (final e in _elements.query(Rect.largest)) {
+      if (e.belowInk && (top == null || e.z > top)) top = e.z;
     }
     return top;
   }
@@ -304,6 +327,12 @@ class SurfaceModel extends ChangeNotifier {
       touch(e.bounds);
     }
     _changed(changed);
+  }
+
+  /// Marks [chunks] for re-rendering although no content changed (e.g. an
+  /// image in them finished decoding).
+  void refresh(Set<ChunkKey> chunks) {
+    if (chunks.isNotEmpty) _changed(chunks);
   }
 
   void _changed(Set<ChunkKey> chunks) {

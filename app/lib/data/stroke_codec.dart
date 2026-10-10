@@ -23,9 +23,7 @@ abstract final class StrokeCodec {
   /// whole number of points or a value is not finite.
   static List<StrokePoint> decode(Uint8List bytes) {
     if (bytes.length % _stride != 0) {
-      throw FormatException(
-        'Point data length ${bytes.length} is not a multiple of $_stride',
-      );
+      throw FormatException('Point data length ${bytes.length} is not a multiple of $_stride');
     }
     final data = ByteData.sublistView(bytes);
     final count = bytes.length ~/ _stride;

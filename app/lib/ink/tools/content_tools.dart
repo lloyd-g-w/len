@@ -41,7 +41,12 @@ class ContentTools {
   /// Selection frames keep a constant margin on screen.
   static const double framePadding = 10;
 
-  void _onViewport() => selection.framePadding = framePadding / viewport.scale;
+  void _onViewport() => selection
+    ..framePadding = framePadding / viewport.scale
+    ..pixelScale = viewport.scale * _devicePixelRatio;
+
+  static double get _devicePixelRatio =>
+      PlatformDispatcher.instance.implicitView?.devicePixelRatio ?? 1;
 
   final ViewportController viewport;
   final ToolSettings tools;

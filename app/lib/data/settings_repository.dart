@@ -38,12 +38,11 @@ class SettingsRepository {
   /// When true, only a stylus draws and fingers always pan/zoom.
   /// Null means "not decided yet": it switches on when a stylus is first seen.
   bool? get stylusOnly => switch (_get(_stylusOnly)) {
-        'true' => true,
-        'false' => false,
-        _ => null,
-      };
-  set stylusOnly(bool? value) =>
-      value == null ? _remove(_stylusOnly) : _set(_stylusOnly, '$value');
+    'true' => true,
+    'false' => false,
+    _ => null,
+  };
+  set stylusOnly(bool? value) => value == null ? _remove(_stylusOnly) : _set(_stylusOnly, '$value');
 
   /// Pen, highlighter and eraser customisation as an opaque JSON document
   /// (owned by `ToolSettings`); null until first saved.
@@ -52,9 +51,9 @@ class SettingsRepository {
 
   /// The user's saved favourite colours (ARGB), most recent first.
   List<int> get favoriteColors => [
-        for (final part in (_get(_favoriteColors) ?? '').split(','))
-          if (int.tryParse(part) case final int c) c,
-      ];
+    for (final part in (_get(_favoriteColors) ?? '').split(','))
+      if (int.tryParse(part) case final int c) c,
+  ];
   set favoriteColors(List<int> colors) => _set(_favoriteColors, colors.join(','));
 
   // ---------------------------------------------------------------------------
@@ -105,10 +104,9 @@ class SettingsRepository {
   }
 
   void _set(String key, String value) => _database.db.execute(
-        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-        [key, value],
-      );
+    'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+    [key, value],
+  );
 
-  void _remove(String key) =>
-      _database.db.execute('DELETE FROM settings WHERE key = ?', [key]);
+  void _remove(String key) => _database.db.execute('DELETE FROM settings WHERE key = ?', [key]);
 }
