@@ -64,6 +64,44 @@ void main() {
     }
   });
 
+  group('LEN_CORS_ORIGINS', () {
+    CorsPolicy corsOf(String? value) =>
+        Config.fromEnvironment({'LEN_SYNC_TOKEN': token, 'LEN_CORS_ORIGINS': ?value}).cors;
+
+    test('unset, empty or * allows any origin', () {
+      for (final value in [null, '', '  ', '*', ' * ']) {
+        final cors = corsOf(value);
+        expect(cors.enabled, isTrue, reason: value);
+        expect(cors.origins, isNull, reason: value);
+      }
+    });
+
+    test('none disables CORS', () {
+      expect(corsOf('none').enabled, isFalse);
+      expect(corsOf('NONE').enabled, isFalse);
+    });
+
+    test('reads a comma-separated allow-list', () {
+      final cors = corsOf(' https://len.example.com, http://localhost:5173 ,');
+      expect(cors.enabled, isTrue);
+      expect(cors.origins, {'https://len.example.com', 'http://localhost:5173'});
+    });
+
+    test('rejects invalid origins', () {
+      for (final value in [
+        'len.example.com',
+        'https://len.example.com/',
+        'https://len.example.com/app',
+        'ftp://len.example.com',
+        'https://a.example, *',
+        'https://a.example, none',
+        ',',
+      ]) {
+        expect(() => corsOf(value), throwsA(isA<ConfigException>()), reason: value);
+      }
+    });
+  });
+
   test('rejects invalid port', () {
     for (final port in ['abc', '0', '70000']) {
       expect(
