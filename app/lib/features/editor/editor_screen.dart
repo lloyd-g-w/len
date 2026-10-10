@@ -10,6 +10,7 @@ import '../../ink/input/ink_input_controller.dart';
 import '../../ink/input/live_ink.dart';
 import '../../ink/surface_model.dart';
 import '../../ink/tool_settings.dart';
+import '../../ink/tools/content_tools.dart';
 import '../../ink/viewport.dart';
 import '../../sync/sync_engine.dart';
 import '../../ui/text_prompt.dart';
@@ -23,6 +24,8 @@ import 'document/undo_target.dart';
 import 'editor_pills.dart';
 import 'editor_toolbar.dart';
 import 'page_navigator.dart';
+import 'tools/content_layer.dart';
+import 'tools/content_shortcuts.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas.
 class EditorScreen extends StatefulWidget {
@@ -44,6 +47,7 @@ class _EditorScreenState extends State<EditorScreen> {
   final LiveInk _live = LiveInk();
   late final InkInputController _input;
   late final UndoTarget _undo;
+  late final ContentTools _content;
   StreamSubscription<RemoteChanges>? _remoteChanges;
 
   // Infinite canvas: one surface.
@@ -69,7 +73,11 @@ class _EditorScreenState extends State<EditorScreen> {
   void initState() {
     super.initState();
     if (_isCanvas) {
-      final model = _canvas = SurfaceModel(surfaceId: _notebook.id, repository: _services.strokes);
+      final model = _canvas = SurfaceModel(
+        surfaceId: _notebook.id,
+        repository: _services.strokes,
+        elementRepository: _services.elements,
+      );
       final viewport = _canvasViewport = ViewportController();
       _input = _inputFor(model, viewport);
       _undo = SurfaceUndo(model);
@@ -78,6 +86,8 @@ class _EditorScreenState extends State<EditorScreen> {
       _commands = DocumentCommands(services: _services, notebook: () => _notebook, doc: doc);
       _backgrounds = PdfBackgroundCache(blobs: _services.blobs, fetch: _services.sync.fetchBlob);
       _input = doc.input = _inputFor(doc.activeModel, doc.pageViewport);
+      // Paste onto the page in the middle of the screen.
+      _content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));
       _undo = doc.surfaces;
     }
     _remoteChanges = _services.sync.remoteChanges.listen(_onRemoteChanges);
@@ -89,22 +99,37 @@ class _EditorScreenState extends State<EditorScreen> {
     return DocumentController(
       pages: pages,
       strokes: _services.strokes,
+      elements: _services.elements,
       flow: PageFlow.parse(_services.settings.pageFlow),
     )..topInset = 64; // Below the title / undo pills.
   }
 
-  InkInputController _inputFor(SurfaceModel model, ViewportController viewport) =>
-      InkInputController(
-        model: model,
-        viewport: viewport,
-        tools: _tools,
-        live: _live,
-        onStylusDetected: _onStylusDetected,
-      );
+  /// The input controller (and the lasso, shape, text and laser tools it
+  /// routes to) for [model] seen through [viewport]. For documents these
+  /// are the active page's model and its page viewport, so tools work in
+  /// page coordinates and follow the active page.
+  InkInputController _inputFor(SurfaceModel model, ViewportController viewport) {
+    _content = ContentTools(
+      model: model,
+      viewport: viewport,
+      tools: _tools,
+      live: _live,
+      clipboard: _services.clipboard,
+    );
+    return InkInputController(
+      model: model,
+      viewport: viewport,
+      tools: _tools,
+      live: _live,
+      onStylusDetected: _onStylusDetected,
+      content: _content,
+    );
+  }
 
   @override
   void dispose() {
     unawaited(_remoteChanges?.cancel());
+    _content.dispose(); // Commits a text box still being edited.
     final edited = _undo.canUndo || _undo.canRedo || (_commands?.changed ?? false);
     if (edited) {
       _services.notebooks.touch(_notebook.id);
@@ -202,8 +227,13 @@ class _EditorScreenState extends State<EditorScreen> {
 
   /// Wraps a single-key shortcut so it doesn't fire while text is edited.
   VoidCallback _unlessTyping(VoidCallback action) => () {
-    final focused = FocusManager.instance.primaryFocus?.context?.widget;
-    if (focused is EditableText) return;
+    // The focus node belongs to a Focus widget inside the EditableText.
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return;
+    }
     action();
   };
 
@@ -222,6 +252,7 @@ class _EditorScreenState extends State<EditorScreen> {
     const SingleActivator(LogicalKeyboardKey.keyE): _unlessTyping(
       () => _tools.tool = EditorTool.eraser,
     ),
+    ...contentShortcuts(_content, _tools, _unlessTyping),
     if (_doc case final doc?) ...{
       const SingleActivator(LogicalKeyboardKey.pageDown): () => doc.goToPage(doc.currentPage + 1),
       const SingleActivator(LogicalKeyboardKey.pageUp): () => doc.goToPage(doc.currentPage - 1),
@@ -252,6 +283,7 @@ class _EditorScreenState extends State<EditorScreen> {
                   child: _buildSurface(),
                 ),
               ),
+              Positioned.fill(child: _buildContentLayer()),
               SafeArea(child: _buildChrome(context)),
             ],
           ),
@@ -280,6 +312,24 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
+  /// Selection, text editor and laser over the surface. For documents it
+  /// follows the active page (its viewport and clip).
+  Widget _buildContentLayer() {
+    final doc = _doc;
+    if (doc == null) {
+      return ContentLayer(content: _content, viewport: _canvasViewport!, tools: _tools);
+    }
+    return ListenableBuilder(
+      listenable: doc, // Notifies when the active page changes.
+      builder: (context, _) => ContentLayer(
+        content: _content,
+        viewport: doc.pageViewport,
+        tools: _tools,
+        page: doc.pageViewport.contentBounds,
+      ),
+    );
+  }
+
   Widget _buildChrome(BuildContext context) {
     final toolbar = EditorToolbar(tools: _tools, onStylusOnlyChanged: _setStylusOnly);
     final title = TitlePill(
@@ -292,7 +342,9 @@ class _EditorScreenState extends State<EditorScreen> {
       builder: (context, constraints) {
         // Wide screens: one top row. Narrow screens: tools move to the bottom
         // where thumbs reach them.
-        final wide = constraints.maxWidth >= 860;
+        // (The toolbar with the content tools needs ~600 px between the
+        // title and undo pills.)
+        final wide = constraints.maxWidth >= 960;
         return Padding(
           padding: const EdgeInsets.all(12),
           child: Column(

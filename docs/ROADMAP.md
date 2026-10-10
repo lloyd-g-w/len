@@ -11,11 +11,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Pixel (partial) eraser, eraser size, "erase highlighter only"
 
 ## Editing tools
-- ⬜ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste, duplicate
-- ⬜ Shapes: draw-and-hold to snap (line, arrow, rectangle, ellipse, triangle, polygon)
-- ⬜ Text boxes (font, size, colour)
-- ⬜ Images (insert, move, resize, crop later)
-- ⬜ Laser pointer
+- ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
+- ✅ Shapes: draw-and-hold to snap (line, arrow, rectangle, ellipse, triangle, polygon); Shape tool (line, arrow, rectangle, ellipse, triangle, diamond, star)
+- ✅ Text boxes (size, colour, bold/italic, alignment, width; synced `elements`)
+- ⬜ Text: font families, rich text within a box, change width/pen type of selected ink
+- ⬜ Images (insert, move, resize, crop later) — element model ready (`type: "image"` + blob hash)
+- ✅ Laser pointer
 - 🚧 Gestures: two-finger tap undo, three-finger tap redo; S Pen button action setting
   (settings stored + exposed via `AppPreferences`; editor wiring pending)
 

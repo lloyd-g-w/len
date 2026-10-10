@@ -2,8 +2,9 @@ import '../domain/notebook.dart';
 import 'notebook_repository.dart';
 import 'row_copier.dart';
 
-/// Deep-copies a notebook: its row, its pages and every live stroke (with
-/// their chunk index), all under new ids and marked dirty for sync.
+/// Deep-copies a notebook: its row, its pages and every live stroke and
+/// element (with their chunk indexes), all under new ids and marked dirty
+/// for sync.
 ///
 /// Rows are copied column-by-column ([RowCopier]), so attributes added by
 /// later migrations (page templates, stroke kinds, …) are carried over.
@@ -38,24 +39,38 @@ class NotebookDuplicator {
         copier.copy('pages', page.id, {...stamp, 'id': pageId, 'notebook_id': copyId});
         surfaces[page.id] = pageId;
       }
-      surfaces.forEach((from, to) => _copyStrokes(copier, from, to, stamp));
+      surfaces.forEach((from, to) {
+        _copyContent(copier, 'strokes', 'stroke_chunks', 'stroke_id', from, to, stamp);
+        _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp);
+      });
     });
     return repo.get(copyId);
   }
 
-  void _copyStrokes(RowCopier copier, String from, String to, Map<String, Object?> stamp) {
+  /// Copies the live rows of [table] on surface [from] to surface [to],
+  /// with their [chunks] index entries (keyed by [idColumn]). All names are
+  /// trusted constants.
+  void _copyContent(
+    RowCopier copier,
+    String table,
+    String chunks,
+    String idColumn,
+    String from,
+    String to,
+    Map<String, Object?> stamp,
+  ) {
     final repo = _notebooks;
     final ids = repo.db
-        .select('SELECT id FROM strokes WHERE surface_id = ? AND deleted = 0', [from])
+        .select('SELECT id FROM $table WHERE surface_id = ? AND deleted = 0', [from])
         .map((r) => r['id'] as String)
         .toList();
-    for (final strokeId in ids) {
+    for (final id in ids) {
       final newId = repo.clock.newId();
-      copier.copy('strokes', strokeId, {...stamp, 'id': newId, 'surface_id': to});
+      copier.copy(table, id, {...stamp, 'id': newId, 'surface_id': to});
       repo.db.execute(
-        'INSERT OR IGNORE INTO stroke_chunks (surface_id, cx, cy, stroke_id) '
-        'SELECT ?, cx, cy, ? FROM stroke_chunks WHERE stroke_id = ?',
-        [to, newId, strokeId],
+        'INSERT OR IGNORE INTO $chunks (surface_id, cx, cy, $idColumn) '
+        'SELECT ?, cx, cy, ? FROM $chunks WHERE $idColumn = ?',
+        [to, newId, id],
       );
     }
   }

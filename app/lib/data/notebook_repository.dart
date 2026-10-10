@@ -3,6 +3,7 @@ import 'package:sqlite3/sqlite3.dart';
 import '../domain/cover_style.dart';
 import '../domain/notebook.dart';
 import '../domain/paper.dart';
+import 'element_repository.dart';
 import 'notebook_duplicator.dart';
 import 'page_repository.dart';
 import 'stroke_repository.dart';
@@ -18,11 +19,15 @@ class NotebookRepository extends SyncableTable {
     required super.deviceId,
     required this.pages,
     required this.strokes,
+    this.elements,
     super.clock,
   });
 
   final PageRepository pages;
   final StrokeRepository strokes;
+
+  /// Elements are tombstoned with their surfaces when set.
+  final ElementRepository? elements;
 
   @override
   String get collection => 'notebooks';
@@ -151,6 +156,7 @@ class NotebookRepository extends SyncableTable {
       final pageIds = pages.deleteAllOf(id);
       // A canvas notebook is itself a surface; pages are surfaces too.
       strokes.deleteSurfaces([id, ...pageIds]);
+      elements?.deleteSurfaces([id, ...pageIds]);
     });
   }
 
@@ -248,9 +254,7 @@ class NotebookRepository extends SyncableTable {
       folderId: d.containsKey('folderId') || local == null
           ? (folderId is String ? folderId : null)
           : local.folderId,
-      favorite: d.containsKey('favorite') || local == null
-          ? d['favorite'] == true
-          : local.favorite,
+      favorite: d.containsKey('favorite') || local == null ? d['favorite'] == true : local.favorite,
       trashedAt: d.containsKey('trashedAt') || local == null
           ? (trashedAt is int ? trashedAt : null)
           : local.trashedAt,

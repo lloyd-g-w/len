@@ -58,7 +58,10 @@ class _PagedDocumentViewState extends State<PagedDocumentView> {
     // The first pointer of a gesture picks the page; a stylus always does
     // (it cancels whatever a resting palm started anyway).
     final stylus = e.kind == PointerDeviceKind.stylus || e.kind == PointerDeviceKind.invertedStylus;
-    if (_pointers.isEmpty || stylus) _doc.activateAt(e.localPosition);
+    // A press on the active page's selection (which may reach beyond the
+    // page) keeps that page.
+    final held = widget.input.content?.holds(e.localPosition) ?? false;
+    if ((_pointers.isEmpty || stylus) && !held) _doc.activateAt(e.localPosition);
     _pointers.add(e.pointer);
     _trackSwipeStart(e);
     widget.input.handleDown(e);
@@ -68,7 +71,6 @@ class _PagedDocumentViewState extends State<PagedDocumentView> {
     widget.input.handleUp(e);
     _pointers.remove(e.pointer);
     _maybeSwipe(e);
-    if (_pointers.isEmpty) _doc.surfaces.noteEdited(_doc.activePageData.id);
   }
 
   void _cancel(PointerCancelEvent e) {

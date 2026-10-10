@@ -12,7 +12,7 @@ import 'pdf_export.dart';
 class NotebookExporter {
   NotebookExporter(this.services, {PdfRenderer? renderer})
     : _renderer = renderer ?? PdfRenderer(),
-      _copier = SurfaceCopier(services.strokes);
+      _copier = SurfaceCopier(services.strokes, elements: services.elements);
 
   final AppServices services;
   final PdfRenderer _renderer;
@@ -27,7 +27,14 @@ class NotebookExporter {
     try {
       for (final page in pages) {
         final background = await _background(page, page.width / 96 * backgroundDpi);
-        export.add(ExportPage(page, _copier.loadAll(page.id), background: background));
+        export.add(
+          ExportPage(
+            page,
+            _copier.loadAll(page.id),
+            elements: _copier.loadAllElements(page.id),
+            background: background,
+          ),
+        );
       }
       return await PdfExporter.build(export, title: title);
     } finally {
@@ -43,6 +50,7 @@ class NotebookExporter {
     final image = await renderPageImage(
       page,
       strokes: _copier.loadAll(page.id),
+      elements: _copier.loadAllElements(page.id),
       scale: scale,
       background: background,
     );

@@ -27,14 +27,14 @@ class FakeClock extends Clock {
 }
 
 Stroke stroke(String id, Offset at, {String surface = 's'}) => Stroke(
-      id: id,
-      surfaceId: surface,
-      tool: InkTool.pen,
-      color: 0xFF000000,
-      width: 2,
-      points: [StrokePoint(at.dx, at.dy, 0.5), StrokePoint(at.dx + 10, at.dy, 0.5)],
-      createdAt: 1,
-    );
+  id: id,
+  surfaceId: surface,
+  tool: InkTool.pen,
+  color: 0xFF000000,
+  width: 2,
+  points: [StrokePoint(at.dx, at.dy, 0.5), StrokePoint(at.dx + 10, at.dy, 0.5)],
+  createdAt: 1,
+);
 
 void main() {
   late AppDatabase db;
@@ -48,7 +48,13 @@ void main() {
     clock = FakeClock();
     strokes = StrokeRepository(db, deviceId: 'dev-a', clock: clock);
     pages = PageRepository(db, deviceId: 'dev-a', clock: clock);
-    notebooks = NotebookRepository(db, deviceId: 'dev-a', pages: pages, strokes: strokes, clock: clock);
+    notebooks = NotebookRepository(
+      db,
+      deviceId: 'dev-a',
+      pages: pages,
+      strokes: strokes,
+      clock: clock,
+    );
   });
 
   tearDown(() => db.close());
@@ -62,8 +68,10 @@ void main() {
       final latest = fresh.db.select('PRAGMA user_version').first.columnAt(0) as int;
       // A database from before the documents/library merge recorded the
       // page/blob migration early and never got the stroke style column.
+      // (The page/blob migration is the second to last; the elements
+      // migration after it is idempotent too.)
       fresh.db.execute('ALTER TABLE strokes DROP COLUMN style');
-      fresh.db.execute('PRAGMA user_version = ${latest - 1}');
+      fresh.db.execute('PRAGMA user_version = ${latest - 2}');
       fresh.close();
 
       final upgraded = AppDatabase.open(path);
@@ -72,6 +80,7 @@ void main() {
           upgraded.db.select('PRAGMA table_info($table)').map((r) => r['name']).toList();
       expect(columns('strokes'), contains('style'));
       expect(columns('pages'), containsAll(['paper_color', 'bookmarked', 'background']));
+      expect(columns('elements'), contains('surface_id'));
       expect(upgraded.db.select('PRAGMA user_version').first.columnAt(0), latest);
     });
   });
@@ -117,39 +126,42 @@ void main() {
       strokes.save([stroke('a', Offset.zero)]);
       final data = strokes.dirtyRecords(1).single.data;
       // Another device with a clock far ahead wrote the stroke.
-      strokes.applyRemote(SyncRecord(
-        collection: 'strokes',
-        id: 'a',
-        updatedAt: 9000,
-        deviceId: 'dev-z',
-        deleted: false,
-        data: data,
-      ));
+      strokes.applyRemote(
+        SyncRecord(
+          collection: 'strokes',
+          id: 'a',
+          updatedAt: 9000,
+          deviceId: 'dev-z',
+          deleted: false,
+          data: data,
+        ),
+      );
       strokes.delete(['a']);
       final tombstone = strokes.dirtyRecords(10).single;
       expect(tombstone.updatedAt, 9001);
-      expect(
-        tombstone.supersedes(updatedAt: 9000, deviceId: 'dev-z'),
-        isTrue,
-      );
+      expect(tombstone.supersedes(updatedAt: 9000, deviceId: 'dev-z'), isTrue);
     });
 
     test('dirty records page by id', () {
-      strokes.save([for (final id in ['c', 'a', 'b']) stroke(id, Offset.zero)]);
+      strokes.save([
+        for (final id in ['c', 'a', 'b']) stroke(id, Offset.zero),
+      ]);
       expect(strokes.dirtyRecords(2).map((r) => r.id), ['a', 'b']);
       expect(strokes.dirtyRecords(2, after: 'b').map((r) => r.id), ['c']);
     });
 
     test('live remote records without data are rejected', () {
       expect(
-        () => strokes.applyRemote(const SyncRecord(
-          collection: 'strokes',
-          id: 'a',
-          updatedAt: 1,
-          deviceId: 'dev-b',
-          deleted: false,
-          data: null,
-        )),
+        () => strokes.applyRemote(
+          const SyncRecord(
+            collection: 'strokes',
+            id: 'a',
+            updatedAt: 1,
+            deviceId: 'dev-b',
+            deleted: false,
+            data: null,
+          ),
+        ),
         throwsFormatException,
       );
     });
@@ -158,14 +170,16 @@ void main() {
       strokes.save([stroke('a', Offset.zero)]);
       final data = {...strokes.dirtyRecords(1).single.data!, 'width': 1e7};
       expect(
-        () => strokes.applyRemote(SyncRecord(
-          collection: 'strokes',
-          id: 'wide',
-          updatedAt: 1,
-          deviceId: 'dev-b',
-          deleted: false,
-          data: data,
-        )),
+        () => strokes.applyRemote(
+          SyncRecord(
+            collection: 'strokes',
+            id: 'wide',
+            updatedAt: 1,
+            deviceId: 'dev-b',
+            deleted: false,
+            data: data,
+          ),
+        ),
         throwsFormatException,
       );
     });
@@ -175,13 +189,13 @@ void main() {
       final record = strokes.dirtyRecords(1).single;
 
       SyncRecord remote(int at, String device, {bool deleted = false}) => SyncRecord(
-            collection: 'strokes',
-            id: 'a',
-            updatedAt: at,
-            deviceId: device,
-            deleted: deleted,
-            data: deleted ? null : record.data,
-          );
+        collection: 'strokes',
+        id: 'a',
+        updatedAt: at,
+        deviceId: device,
+        deleted: deleted,
+        data: deleted ? null : record.data,
+      );
 
       expect(strokes.applyRemote(remote(999, 'dev-z', deleted: true)), isFalse);
       expect(strokes.applyRemote(remote(1000, 'dev-0', deleted: true)), isFalse);
@@ -194,34 +208,40 @@ void main() {
     });
 
     test('a tombstone for an unknown stroke blocks older live versions', () {
-      final data = (StrokeRepository(AppDatabase.inMemory(), deviceId: 'x')
-            ..save([stroke('a', Offset.zero)]))
-          .dirtyRecords(1)
-          .single
-          .data;
-      strokes.applyRemote(const SyncRecord(
-        collection: 'strokes',
-        id: 'a',
-        updatedAt: 5000,
-        deviceId: 'dev-b',
-        deleted: true,
-        data: null,
-      ));
-      final applied = strokes.applyRemote(SyncRecord(
-        collection: 'strokes',
-        id: 'a',
-        updatedAt: 4000,
-        deviceId: 'dev-b',
-        deleted: false,
-        data: data,
-      ));
+      final data = (StrokeRepository(
+        AppDatabase.inMemory(),
+        deviceId: 'x',
+      )..save([stroke('a', Offset.zero)])).dirtyRecords(1).single.data;
+      strokes.applyRemote(
+        const SyncRecord(
+          collection: 'strokes',
+          id: 'a',
+          updatedAt: 5000,
+          deviceId: 'dev-b',
+          deleted: true,
+          data: null,
+        ),
+      );
+      final applied = strokes.applyRemote(
+        SyncRecord(
+          collection: 'strokes',
+          id: 'a',
+          updatedAt: 4000,
+          deviceId: 'dev-b',
+          deleted: false,
+          data: data,
+        ),
+      );
       expect(applied, isFalse);
     });
   });
 
   test('migrations index dirty strokes for keyset pagination', () {
     final plan = db.db
-        .select('EXPLAIN QUERY PLAN SELECT * FROM strokes WHERE dirty = 1 AND id > ? ORDER BY id LIMIT ?', ['', 10])
+        .select(
+          'EXPLAIN QUERY PLAN SELECT * FROM strokes WHERE dirty = 1 AND id > ? ORDER BY id LIMIT ?',
+          ['', 10],
+        )
         .map((r) => r['detail'] as String)
         .join('\n');
     expect(plan, contains('strokes_dirty'));
@@ -263,7 +283,10 @@ void main() {
     test('erase + undo + redo round-trips through storage', () {
       final model = SurfaceModel(surfaceId: 's', repository: strokes);
       model.addStroke(stroke('a', const Offset(0, 0)));
-      expect(model.eraseAlong(const Offset(5, -20), const Offset(5, 20), 2, continueEdit: false), isTrue);
+      expect(
+        model.eraseAlong(const Offset(5, -20), const Offset(5, 20), 2, continueEdit: false),
+        isTrue,
+      );
       expect(strokes.loadChunks('s', [(x: 0, y: 0)]), isEmpty);
 
       model.undo(); // restores 'a'
@@ -276,9 +299,7 @@ void main() {
     });
 
     test('loads lazily around the viewport and evicts far chunks', () {
-      strokes.save([
-        for (var i = 0; i < 50; i++) stroke('s$i', Offset(i * 5000.0, 0)),
-      ]);
+      strokes.save([for (var i = 0; i < 50; i++) stroke('s$i', Offset(i * 5000.0, 0))]);
       final model = SurfaceModel(surfaceId: 's', repository: strokes, maxLoadedChunks: 4);
       model.ensureLoaded(const Rect.fromLTWH(0, 0, 100, 100));
       expect(model.strokeById('s0'), isNotNull);

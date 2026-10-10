@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../data/element_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../ink/input/ink_input_controller.dart';
@@ -19,13 +20,15 @@ class DocumentController extends ChangeNotifier {
   DocumentController({
     required List<NotebookPage> pages,
     required StrokeRepository strokes,
+    ElementRepository? elements,
     this._flow = PageFlow.continuous,
     int initialPage = 0,
   }) : assert(pages.isNotEmpty, 'A document needs at least one page'),
        _pages = pages,
        _current = initialPage.clamp(0, pages.length - 1),
-       surfaces = DocumentSurfaces(strokes) {
+       surfaces = DocumentSurfaces(strokes, elements: elements) {
     _active = _current;
+    surfaces.active = pages[_current].id;
     _relayout();
     viewport.addListener(_onViewport);
   }
@@ -82,6 +85,14 @@ class DocumentController extends ChangeNotifier {
     final activeId = _pages[_active].id;
     final oldFrame = _layout.frameOf(_current);
     final screenTop = oldFrame == null ? null : viewport.toScreen(oldFrame.topLeft).dy;
+    if (!pages.any((p) => p.id == activeId)) {
+      // The active page is going away: drop what the tools hold on it
+      // before its surface is released.
+      input
+        ?..cancelDraw()
+        ..content?.selection.clear()
+        ..content?.text.discard();
+    }
     _pages = pages;
     surfaces.retain({for (final p in pages) p.id});
     final index = pages.indexWhere((p) => p.id == keep);
@@ -132,6 +143,7 @@ class DocumentController extends ChangeNotifier {
 
   void _activate(int index) {
     _active = index;
+    surfaces.active = _pages[index].id;
     pageViewport.showPage(_layout.frameOf(index) ?? _layout.frames.first);
     input?.model = activeModel;
   }

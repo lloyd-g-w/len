@@ -2,13 +2,15 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart' show MaterialApp, Size, SizedBox;
+import 'package:flutter/material.dart' show MaterialApp, Rect, Size, SizedBox;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/domain/surface_element.dart';
+import 'package:len/domain/text_data.dart';
 import 'package:len/features/documents/export/notebook_exporter.dart';
 import 'package:len/features/documents/pdf/pdf_background_cache.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
@@ -177,6 +179,64 @@ void main() {
       expect(highlight.r, greaterThan(0.85));
       expect(highlight.b, lessThan(0.8)); // Translucent yellow over cream.
       expect(highlight.b, greaterThan(0.4));
+    },
+  );
+
+  test(
+    'text boxes are exported to PDF and PNG',
+    skip: pdfium == null ? 'PDFium not built yet (run `flutter build linux` once)' : false,
+    () async {
+      final nb = services.notebooks.create(
+        title: 'Notes',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      final page = services.pages.pagesOf(nb.id).single;
+      services.elements.save([
+        SurfaceElement(
+          id: 'title',
+          surfaceId: page.id,
+          type: ElementType.text.name,
+          rect: const Rect.fromLTWH(100, 100, 400, 80),
+          z: 1,
+          createdAt: 1,
+          data: const TextData(text: '████████', fontSize: 48, color: 0xFFD00000).toJson(),
+        ),
+      ]);
+      final exporter = NotebookExporter(services);
+      final bytes = await exporter.pdf([page]);
+      final png = await exporter.png(page, scale: 1);
+      await exporter.dispose();
+      final decoded = await ui.instantiateImageCodec(png);
+      final pngImage = (await decoded.getNextFrame()).image;
+      final doc = await PdfDocument.openData(bytes);
+      final rendered = (await doc.pages.single.render(fullWidth: 794, fullHeight: 1123))!;
+      final img = await rendered.createImage();
+      rendered.dispose();
+      await doc.dispose();
+      for (final image in [img, pngImage]) {
+        if (Platform.environment['LEN_DEBUG_EXPORT'] != null) {
+          final out = await image.toByteData(format: ui.ImageByteFormat.png);
+          File('/tmp/len_text_${image.width}_${identical(image, img)}.png')
+              .writeAsBytesSync(out!.buffer.asUint8List());
+        }
+        final data = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+        int redIn(int x0, int y0, int x1, int y1) {
+          var n = 0;
+          for (var y = y0; y < y1; y++) {
+            for (var x = x0; x < x1; x++) {
+              final i = (y * image.width + x) * 4;
+              if (data.getUint8(i) > 150 && data.getUint8(i + 1) < 80) n++;
+            }
+          }
+          return n;
+        }
+
+        // Red glyphs where the box is, nothing elsewhere.
+        expect(redIn(100, 100, 500, 180), greaterThan(1000));
+        expect(redIn(0, 200, 794, 1123), 0);
+      }
     },
   );
 

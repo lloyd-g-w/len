@@ -144,6 +144,7 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt, coverStyle?, editedAt?, folderId?, favorite?, trashedAt?}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperColor?, bookmarked?, background?}`     |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter`; unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
+| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements (missing → `createdAt`). `type` = `text` (`data` = `{text, size, color, bold, italic, align: "left"|"center"|"right"}`); reserved: `image` (`data.blob` = content hash of a blob). Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
 
 Fields marked `?` were added after v1 and may be missing in records from older clients; readers
 keep the local row's value for a missing field (so an old client renaming a notebook does not move,
@@ -157,7 +158,7 @@ unstar or restore it), and for a row not seen before fall back to defaults (`cov
   devices). Deleting a folder tombstones its whole subtree and moves the notebooks inside to the trash.
 - `notebooks.folderId` pointing at a missing folder means "library root".
 - `notebooks.trashedAt` (ms) puts a notebook in the trash; it stays a live record so it can be
-  restored. "Delete forever" tombstones the notebook, its pages and strokes as before.
+  restored. "Delete forever" tombstones the notebook, its pages, strokes and elements as before.
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
   (favourite, move, trash) only bump `updatedAt`.
 

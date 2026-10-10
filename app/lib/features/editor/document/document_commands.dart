@@ -116,7 +116,7 @@ class DocumentCommands {
       MaterialPageRoute(
         builder: (_) => PageOverview(
           currentPage: doc.currentPage,
-          copier: SurfaceCopier(services.strokes),
+          copier: SurfaceCopier(services.strokes, elements: services.elements),
           backgrounds: backgrounds,
           changes: doc,
           handlers: OverviewHandlers(

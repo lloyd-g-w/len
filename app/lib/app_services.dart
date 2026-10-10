@@ -6,11 +6,13 @@ import 'core/clock.dart';
 import 'data/app_database.dart';
 import 'data/app_preferences.dart';
 import 'data/blob_store.dart';
+import 'data/element_repository.dart';
 import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_repository.dart';
+import 'ink/selection/ink_clipboard.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
@@ -26,6 +28,7 @@ class AppServices {
     required this.pages,
     required this.strokes,
     required this.blobs,
+    required this.elements,
     required this.sync,
   });
 
@@ -41,12 +44,14 @@ class AppServices {
     final settings = SettingsRepository(database);
     final deviceId = settings.deviceId(clock);
     final strokes = StrokeRepository(database, deviceId: deviceId, clock: clock);
+    final elements = ElementRepository(database, deviceId: deviceId, clock: clock);
     final pages = PageRepository(database, deviceId: deviceId, clock: clock);
     final notebooks = NotebookRepository(
       database,
       deviceId: deviceId,
       pages: pages,
       strokes: strokes,
+      elements: elements,
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
@@ -63,6 +68,7 @@ class AppServices {
       strokes: strokes,
       folders: folders,
       blobs: blobs,
+      elements: elements,
     );
     return AppServices._(
       database: database,
@@ -73,6 +79,7 @@ class AppServices {
       pages: pages,
       strokes: strokes,
       blobs: blobs,
+      elements: elements,
       sync: syncApiFactory == null
           ? SyncController(engine: engine, settings: settings)
           : SyncController(engine: engine, settings: settings, apiFactory: syncApiFactory),
@@ -89,9 +96,15 @@ class AppServices {
   final PageRepository pages;
   final StrokeRepository strokes;
   final BlobStore blobs;
+  final ElementRepository elements;
   final SyncController sync;
 
+  /// Copied strokes and text, shared by every editor (paste across pages
+  /// and notebooks).
+  final InkClipboard clipboard = InkClipboard();
+
   void dispose() {
+    clipboard.dispose();
     sync.dispose();
     preferences.dispose();
     database.close();

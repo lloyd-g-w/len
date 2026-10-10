@@ -8,15 +8,20 @@ import 'package:pdf/pdf.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper_pattern.dart';
 import '../../../domain/stroke.dart';
+import '../../../domain/surface_element.dart';
+import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
 
-/// A page to export with its ink and (pre-rendered) background.
+/// A page to export with its ink, elements and (pre-rendered) background.
 class ExportPage {
-  const ExportPage(this.page, this.strokes, {this.background});
+  const ExportPage(this.page, this.strokes, {this.elements = const [], this.background});
 
   final NotebookPage page;
   final List<Stroke> strokes;
+
+  /// Text boxes (and other elements) on the page, drawn above the ink.
+  final List<SurfaceElement> elements;
 
   /// The rendered background (e.g. the imported PDF page), if any.
   final ui.Image? background;
@@ -26,13 +31,21 @@ class ExportPage {
 ///
 /// Ink outlines are the exact paths the app renders, flattened into
 /// polygons finer than the eye can see; backgrounds of imported PDF pages
-/// are embedded as images.
+/// are embedded as images. Text boxes are embedded as transparent images
+/// rendered at [elementDpi] by the app's own text renderer, so they wrap
+/// and look exactly as on screen (but are not selectable text).
 abstract final class PdfExporter {
   /// PDF points (1/72 in) per world unit (1/96 in).
   static const double pointsPerUnit = 72 / 96;
 
   /// Maximum distance between polygon points along a curve, in world units.
   static const double flattenStep = 0.75;
+
+  /// Resolution of rendered elements (text boxes).
+  static const double elementDpi = 300;
+
+  /// Largest side (pixels) of one rendered element.
+  static const int maxElementPixels = 4096;
 
   static Future<Uint8List> build(List<ExportPage> pages, {String? title}) async {
     final doc = PdfDocument();
@@ -73,6 +86,50 @@ abstract final class PdfExporter {
     _drawPattern(pen, page);
     for (final stroke in [...export.strokes]..sort(Stroke.paintOrder)) {
       _drawStroke(pen, stroke);
+    }
+    for (final element in [...export.elements]..sort(SurfaceElement.paintOrder)) {
+      await _drawElement(doc, pen, element);
+    }
+  }
+
+  /// Embeds [element] as a transparent image over its (rotated) bounds.
+  static Future<void> _drawElement(PdfDocument doc, _Pen pen, SurfaceElement element) async {
+    if (element.knownType == null) return; // Not drawn by this version.
+    final bounds = element.bounds;
+    if (bounds.isEmpty || !bounds.isFinite) return;
+    final scale = math.min(
+      elementDpi / 96,
+      maxElementPixels / math.max(bounds.width, bounds.height),
+    );
+    final width = (bounds.width * scale).ceil(), height = (bounds.height * scale).ceil();
+    if (width <= 0 || height <= 0) return;
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder)
+      ..scale(scale)
+      ..translate(-bounds.left, -bounds.top);
+    ElementRenderer.draw(canvas, element);
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(width, height);
+    picture.dispose();
+    try {
+      final rgba = await image.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
+      if (rgba == null) return;
+      final pdfImage = PdfImage(
+        doc,
+        image: rgba.buffer.asUint8List(rgba.offsetInBytes, rgba.lengthInBytes),
+        width: width,
+        height: height,
+      );
+      final bottomLeft = pen.map(bounds.bottomLeft);
+      pen.g.drawImage(
+        pdfImage,
+        bottomLeft.dx,
+        bottomLeft.dy,
+        width / scale * pointsPerUnit,
+        height / scale * pointsPerUnit,
+      );
+    } finally {
+      image.dispose();
     }
   }
 

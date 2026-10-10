@@ -5,11 +5,12 @@ import 'package:flutter/material.dart';
 import '../../../data/surface_copier.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/stroke.dart';
+import '../../../domain/surface_element.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import 'page_backgrounds.dart';
 import 'page_painting.dart';
 
-/// Recorded ink of pages for thumbnails, loaded on first use.
+/// Recorded ink and text of pages for thumbnails, loaded on first use.
 class ThumbnailCache {
   ThumbnailCache(this.copier);
 
@@ -17,17 +18,19 @@ class ThumbnailCache {
   final Map<String, ui.Picture> _ink = {};
 
   /// The page's ink as a picture in page units.
-  ui.Picture inkOf(String pageId) => _ink[pageId] ??= _record(copier.loadAll(pageId));
+  ui.Picture inkOf(String pageId) =>
+      _ink[pageId] ??= _record(copier.loadAll(pageId), copier.loadAllElements(pageId));
 
   /// Drops a page's picture after it changed.
   void invalidate(String pageId) => _ink.remove(pageId)?.dispose();
 
-  static ui.Picture _record(List<Stroke> strokes) {
+  static ui.Picture _record(List<Stroke> strokes, List<SurfaceElement> elements) {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     for (final s in strokes..sort(Stroke.paintOrder)) {
       StrokeRenderer.draw(canvas, s);
     }
+    paintElements(canvas, elements);
     return recorder.endRecording();
   }
 

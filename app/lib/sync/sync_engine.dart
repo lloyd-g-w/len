@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/app_database.dart';
 import '../data/blob_store.dart';
+import '../data/element_repository.dart';
 import '../data/folder_repository.dart';
 import '../data/notebook_repository.dart';
 import '../data/page_repository.dart';
@@ -23,11 +24,10 @@ class RemoteChanges {
   /// Notebooks whose page list changed.
   final Set<String> pagesOfNotebooks = {};
 
-  /// Surfaces (pages / canvases) whose strokes changed.
+  /// Surfaces (pages / canvases) whose content (strokes or elements) changed.
   final Set<String> strokeSurfaces = {};
 
-  bool get isEmpty =>
-      !notebooks && !folders && pagesOfNotebooks.isEmpty && strokeSurfaces.isEmpty;
+  bool get isEmpty => !notebooks && !folders && pagesOfNotebooks.isEmpty && strokeSurfaces.isEmpty;
 }
 
 /// Returns true once a running sync should stop without persisting more
@@ -47,6 +47,7 @@ class SyncEngine {
     required this.strokes,
     required this.folders,
     this.blobs,
+    required this.elements,
   });
 
   final AppDatabase database;
@@ -58,13 +59,14 @@ class SyncEngine {
 
   /// Local blob files; uploaded before any record is pushed.
   final BlobStore? blobs;
+  final ElementRepository elements;
 
   /// Dirty rows read from the database at a time. [SyncApi.push] further
   /// splits them by size.
   static const int _pushPageSize = 500;
 
   late final Map<String, SyncableStore> _stores = {
-    for (final s in <SyncableStore>[folders, notebooks, pages, strokes]) s.collection: s,
+    for (final s in <SyncableStore>[folders, notebooks, pages, strokes, elements]) s.collection: s,
   };
 
   /// All syncable stores, in push order (parents before children).
@@ -143,7 +145,11 @@ class SyncEngine {
     if (store == null) return; // A collection from a newer app version.
     try {
       // Look up the surface before applying: a tombstone may not carry one.
-      final previousSurface = store == strokes ? strokes.surfaceOf(record.id) : null;
+      final previousSurface = switch (store) {
+        StrokeRepository() => strokes.surfaceOf(record.id),
+        ElementRepository() => elements.surfaceOf(record.id),
+        _ => null,
+      };
       if (!store.applyRemote(record)) return;
       switch (store) {
         case FolderRepository():
@@ -154,6 +160,9 @@ class SyncEngine {
           _addKnown(changes.pagesOfNotebooks, pages.notebookOf(record.id));
         case StrokeRepository():
           _addKnown(changes.strokeSurfaces, strokes.surfaceOf(record.id));
+          _addKnown(changes.strokeSurfaces, previousSurface);
+        case ElementRepository():
+          _addKnown(changes.strokeSurfaces, elements.surfaceOf(record.id));
           _addKnown(changes.strokeSurfaces, previousSurface);
       }
     } on FormatException catch (e) {

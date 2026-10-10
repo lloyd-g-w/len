@@ -46,7 +46,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _services = services;
     _controller = LibraryController(services);
     _thumbnails = ThumbnailCache(
-      renderer: ThumbnailRenderer(pages: services.pages, strokes: services.strokes),
+      renderer: ThumbnailRenderer(
+        pages: services.pages,
+        strokes: services.strokes,
+        elements: services.elements,
+      ),
       stats: SurfaceStats(services.database),
     );
     _actions = LibraryActions(controller: _controller, thumbnails: _thumbnails);

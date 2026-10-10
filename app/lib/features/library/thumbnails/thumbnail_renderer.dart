@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
 
+import '../../../data/element_repository.dart';
 import '../../../data/page_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../domain/chunk_grid.dart';
@@ -10,6 +11,8 @@ import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/stroke.dart';
+import '../../../domain/surface_element.dart';
+import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import '../../../ink/viewport.dart';
@@ -19,12 +22,16 @@ import '../../../ink/viewport.dart';
 typedef PreviewSource = ({String surfaceId, PaperStyle paper, NotebookPage? page});
 
 /// Renders small preview images of notebooks with the editor's own paper
-/// and stroke renderers, so previews look exactly like the real thing.
+/// stroke and element renderers, so previews look exactly like the real
+/// thing.
 class ThumbnailRenderer {
-  ThumbnailRenderer({required this.pages, required this.strokes});
+  ThumbnailRenderer({required this.pages, required this.strokes, this.elements});
 
   final PageRepository pages;
   final StrokeRepository strokes;
+
+  /// Text boxes are drawn too when given.
+  final ElementRepository? elements;
 
   /// Width / height of every preview (close to A4 portrait).
   static const double aspect = 0.72;
@@ -52,15 +59,20 @@ class ThumbnailRenderer {
     if (notebook.kind == NotebookKind.canvas) return _renderCanvas(notebook, size);
     final page = (source ?? sourceOf(notebook))?.page;
     if (page == null) return null;
-    final ink = _strokesIn(page.id, ChunkGrid.rangeFor(page.bounds));
-    if (ink.isEmpty) return null;
+    final range = ChunkGrid.rangeFor(page.bounds);
+    final ink = _strokesIn(page.id, range);
+    final items = _elementsIn(page.id, range);
+    if (ink.isEmpty && items.isEmpty) return null;
     // Top of the page, full width: what you see first when opening it.
     final world = Rect.fromLTWH(0, 0, page.width, page.width / aspect);
-    return _paint(size, world, page.paper, ink, color: page.paperColor, page: page.bounds);
+    return _paint(size, world, page.paper, ink, items, color: page.paperColor, page: page.bounds);
   }
 
   ui.Image? _renderCanvas(Notebook notebook, Size size) {
-    final all = strokes.populatedChunks(notebook.id, _everywhere);
+    final all = {
+      ...strokes.populatedChunks(notebook.id, _everywhere),
+      ...?elements?.populatedChunks(notebook.id, _everywhere),
+    }.toList();
     if (all.isEmpty) return null;
     // Frame the content nearest the origin, limited to a small window so
     // a sprawling canvas still shows legible ink.
@@ -68,14 +80,15 @@ class ThumbnailRenderer {
     const r = _canvasWindowChunks ~/ 2;
     final window = ChunkRange(anchor.x - r, anchor.y - r, anchor.x + r, anchor.y + r);
     final ink = _strokesIn(notebook.id, window, among: all);
-    if (ink.isEmpty) return null;
+    final items = _elementsIn(notebook.id, window, among: all);
+    if (ink.isEmpty && items.isEmpty) return null;
     final windowRect = ChunkGrid.rectOf((x: window.minX, y: window.minY))
         .expandToInclude(ChunkGrid.rectOf((x: window.maxX, y: window.maxY)));
-    final content = ink
-        .map((s) => s.bounds)
-        .reduce((a, b) => a.expandToInclude(b))
-        .intersect(windowRect);
-    return _paint(size, _frame(content, size.aspectRatio), notebook.paper, ink);
+    final content = [
+      for (final s in ink) s.bounds,
+      for (final e in items) e.bounds,
+    ].reduce((a, b) => a.expandToInclude(b)).intersect(windowRect);
+    return _paint(size, _frame(content, size.aspectRatio), notebook.paper, ink, items);
   }
 
   static const _everywhere = ChunkRange(-1 << 40, -1 << 40, 1 << 40, 1 << 40);
@@ -87,6 +100,13 @@ class ThumbnailRenderer {
         .where(range.contains)
         .toList();
     return strokes.loadChunks(surfaceId, keys)..sort(Stroke.paintOrder);
+  }
+
+  List<SurfaceElement> _elementsIn(String surfaceId, ChunkRange range, {List<ChunkKey>? among}) {
+    final repo = elements;
+    if (repo == null) return const [];
+    final keys = (among ?? repo.populatedChunks(surfaceId, range)).where(range.contains).toList();
+    return repo.loadChunks(surfaceId, keys)..sort(SurfaceElement.paintOrder);
   }
 
   /// [content] padded and widened/heightened to [aspect], never smaller
@@ -107,7 +127,8 @@ class ThumbnailRenderer {
     Size size,
     Rect world,
     PaperStyle paper,
-    List<Stroke> ink, {
+    List<Stroke> ink,
+    List<SurfaceElement> items, {
     PaperColor color = PaperColor.white,
     Rect? page,
   }) {
@@ -117,7 +138,12 @@ class ThumbnailRenderer {
       ..fitWidth(padding: 0);
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder, Offset.zero & size);
-    PaperPainter(viewport: viewport, style: paper, paperColor: color, page: page).paint(canvas, size);
+    PaperPainter(
+      viewport: viewport,
+      style: paper,
+      paperColor: color,
+      page: page,
+    ).paint(canvas, size);
     canvas
       ..save()
       ..translate(viewport.offset.dx, viewport.offset.dy)
@@ -125,6 +151,9 @@ class ThumbnailRenderer {
     if (page != null) canvas.clipRect(page);
     for (final stroke in ink) {
       StrokeRenderer.draw(canvas, stroke);
+    }
+    for (final element in items) {
+      ElementRenderer.draw(canvas, element);
     }
     canvas.restore();
     viewport.dispose();

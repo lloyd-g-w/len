@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import '../../domain/chunk_grid.dart';
+import '../elements/element_renderer.dart';
 import '../surface_model.dart';
 import 'stroke_renderer.dart';
 
@@ -11,7 +12,8 @@ import 'stroke_renderer.dart';
 /// chunk's square. Clipping means each pixel is painted by exactly one chunk,
 /// so strokes crossing chunk borders are not double-blended (which would
 /// show for translucent highlighter ink). Highlighter strokes are drawn
-/// beneath all other ink of the chunk. Pictures are vector recordings, so
+/// beneath all other ink of the chunk, and elements (text) above it. Items
+/// the model marks hidden (being edited or selected) are left out. Pictures are vector recordings, so
 /// they stay sharp at any zoom; they are rebuilt only when a stroke in that
 /// chunk changes.
 class ChunkPictureCache {
@@ -30,12 +32,19 @@ class ChunkPictureCache {
     final canvas = ui.Canvas(recorder)..clipRect(ChunkGrid.rectOf(key), doAntiAlias: false);
     // Highlighter ink goes underneath pen ink, like a real highlighter
     // pass over printed text; within each group paint order is kept.
-    final strokes = model.strokesInChunk(key);
+    final strokes = [
+      for (final s in model.strokesInChunk(key))
+        if (!model.isHidden(s.id)) s,
+    ];
     for (final stroke in strokes) {
       if (stroke.tool.isHighlighter) StrokeRenderer.draw(canvas, stroke);
     }
     for (final stroke in strokes) {
       if (!stroke.tool.isHighlighter) StrokeRenderer.draw(canvas, stroke);
+    }
+    // Elements (text boxes) sit above all ink.
+    for (final element in model.elementsInChunk(key)) {
+      if (!model.isHidden(element.id)) ElementRenderer.draw(canvas, element);
     }
     return recorder.endRecording();
   }

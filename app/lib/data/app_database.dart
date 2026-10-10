@@ -65,7 +65,45 @@ class AppDatabase {
     _addStrokeStyle,
     _addFoldersAndLibraryFields,
     _addPageDetailsAndBlobs,
+    _createElements,
   ];
+
+  /// Surface elements (text boxes; later images) and their sparse chunk
+  /// index, mirroring `strokes` / `stroke_chunks`. Idempotent, so it is safe
+  /// however migrations from parallel branches end up ordered.
+  static void _createElements(Database db) {
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS elements (
+        id          TEXT PRIMARY KEY NOT NULL,
+        surface_id  TEXT NOT NULL,
+        type        TEXT NOT NULL,
+        x           REAL NOT NULL,
+        y           REAL NOT NULL,
+        w           REAL NOT NULL,
+        h           REAL NOT NULL,
+        rotation    REAL NOT NULL DEFAULT 0,
+        z           REAL NOT NULL DEFAULT 0,
+        data        TEXT NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute('CREATE INDEX IF NOT EXISTS elements_by_surface ON elements(surface_id)');
+    db.execute('CREATE INDEX IF NOT EXISTS elements_dirty ON elements(id) WHERE dirty = 1');
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS element_chunks (
+        surface_id TEXT NOT NULL,
+        cx         INTEGER NOT NULL,
+        cy         INTEGER NOT NULL,
+        element_id TEXT NOT NULL,
+        PRIMARY KEY (surface_id, cx, cy, element_id)
+      ) WITHOUT ROWID''');
+    db.execute(
+      'CREATE INDEX IF NOT EXISTS element_chunks_by_element ON element_chunks(element_id)',
+    );
+  }
 
   /// Per-stroke rendering style (JSON, see `StrokeStyle`); NULL for strokes
   /// drawn before styles existed. Idempotent, so it is safe however

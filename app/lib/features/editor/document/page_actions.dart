@@ -4,19 +4,22 @@ import '../../../data/surface_copier.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/stroke.dart';
+import '../../../domain/surface_element.dart';
 
-/// A deleted page and its ink, kept so the deletion can be undone.
+/// A deleted page and its content, kept so the deletion can be undone.
 class DeletedPage {
-  const DeletedPage(this.page, this.strokes);
+  const DeletedPage(this.page, this.strokes, [this.elements = const []]);
 
   final NotebookPage page;
   final List<Stroke> strokes;
+  final List<SurfaceElement> elements;
 }
 
 /// Page management for one notebook: insert, duplicate, delete (with
 /// undo), reorder, templates and bookmarks. All changes are synced edits.
 class PageActions {
-  PageActions(this.services, this.notebookId) : _copier = SurfaceCopier(services.strokes);
+  PageActions(this.services, this.notebookId)
+    : _copier = SurfaceCopier(services.strokes, elements: services.elements);
 
   final AppServices services;
   final String notebookId;
@@ -34,7 +37,7 @@ class PageActions {
   static PageSpec blankLike(NotebookPage page) =>
       (size: page.size, paper: page.paper, color: page.paperColor, background: null);
 
-  /// Inserts a copy of [page] (paper, background and ink) right after it.
+  /// Inserts a copy of [page] (paper, background, ink and text) right after it.
   NotebookPage duplicate(NotebookPage page) {
     return services.database.transaction(() {
       final copy = services.pages.insertPages(notebookId, [
@@ -45,13 +48,15 @@ class PageActions {
     });
   }
 
-  /// Deletes [page] and its ink. Keep the result to [restore] it.
+  /// Deletes [page] and its content. Keep the result to [restore] it.
   DeletedPage delete(NotebookPage page) {
     return services.database.transaction(() {
       final strokes = _copier.loadAll(page.id);
+      final elements = _copier.loadAllElements(page.id);
       services.strokes.deleteSurfaces([page.id]);
+      services.elements.deleteSurfaces([page.id]);
       services.pages.delete(page.id);
-      return DeletedPage(page, strokes);
+      return DeletedPage(page, strokes, elements);
     });
   }
 
@@ -60,6 +65,7 @@ class PageActions {
     services.database.transaction(() {
       services.pages.restore(deleted.page.id);
       services.strokes.save(deleted.strokes);
+      if (deleted.elements.isNotEmpty) services.elements.save(deleted.elements);
     });
   }
 

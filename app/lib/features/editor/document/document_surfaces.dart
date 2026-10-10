@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../data/element_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../ink/render/chunk_picture_cache.dart';
 import '../../../ink/surface_model.dart';
@@ -30,11 +31,15 @@ class PageSurface {
 /// survive scrolling. Notifies whenever any held surface changes.
 ///
 /// Undo spans pages: the most recently edited page is undone first, like
-/// one history for the whole notebook.
+/// one history for the whole notebook. Every committed edit (ink, text,
+/// selection changes) counts, whether or not it came from a pointer.
 class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
-  DocumentSurfaces(this.repository, {this.keepIdle = 6});
+  DocumentSurfaces(this.repository, {this.elements, this.keepIdle = 6});
 
   final StrokeRepository repository;
+
+  /// Element (text box) storage; without it pages hold ink only.
+  final ElementRepository? elements;
 
   /// Off-screen surfaces without history kept around for quick returns.
   final int keepIdle;
@@ -52,10 +57,16 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
   PageSurface surfaceOf(String pageId) {
     final existing = _surfaces[pageId];
     if (existing != null) return existing;
-    final model = SurfaceModel(surfaceId: pageId, repository: repository)
-      ..addListener(notifyListeners);
+    final model =
+        SurfaceModel(surfaceId: pageId, repository: repository, elementRepository: elements)
+          ..addListener(notifyListeners)
+          ..onCommit = () => noteEdited(pageId);
     return _surfaces[pageId] = PageSurface(model);
   }
+
+  /// The page receiving input; its surface is never released while idle
+  /// (the input controller and editing tools hold on to it).
+  String? active;
 
   /// Already-created surface of [pageId], if any.
   PageSurface? peek(String pageId) => _surfaces[pageId];
@@ -73,7 +84,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     }
     final idle = [
       for (final id in _recency)
-        if (!visible.containsKey(id) && !(_surfaces[id]?.hasHistory ?? false)) id,
+        if (!visible.containsKey(id) && id != active && !(_surfaces[id]?.hasHistory ?? false)) id,
     ];
     for (final id in idle.take(math.max(0, idle.length - keepIdle))) {
       _release(id);
@@ -96,7 +107,9 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     _recency.remove(id);
     final s = _surfaces.remove(id);
     if (s == null) return;
-    s.model.removeListener(notifyListeners);
+    s.model
+      ..removeListener(notifyListeners)
+      ..onCommit = null;
     s.dispose();
   }
 
