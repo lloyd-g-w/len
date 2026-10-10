@@ -35,7 +35,7 @@ class PresetEditor extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
               decoration: BoxDecoration(
-                color: const Color(0xFFFCFCFA),
+                color: Palette.paper,
                 borderRadius: BorderRadius.circular(Radii.control),
                 border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
               ),
@@ -73,8 +73,9 @@ class PresetEditor extends StatelessWidget {
   void _update(PenPreset preset, {double? opacity}) {
     tools.updateConfig(
       ink,
-      (c) =>
-          c.withPreset(index, preset).copyWith(selected: index, opacity: opacity?.clamp(0.05, 1.0)),
+      (c) => c
+          .withPreset(index, preset)
+          .copyWith(selected: index, opacity: opacity?.clamp(PenConfig.minOpacity, 1.0)),
     );
   }
 }

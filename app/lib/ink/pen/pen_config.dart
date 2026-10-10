@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show listEquals;
+
 import '../../domain/stroke.dart';
 import 'pen_profile.dart';
 
@@ -11,16 +13,23 @@ class PenPreset {
   /// Nominal width in world units.
   final double width;
 
+  /// A copy with the given fields replaced.
   PenPreset copyWith({int? color, double? width}) =>
       PenPreset(color: color ?? this.color, width: width ?? this.width);
 
+  /// Compact JSON for the local settings store.
   Map<String, Object?> toJson() => {'c': color, 'w': width};
 
-  static PenPreset? fromJson(Object? json) {
+  /// Parses [json] saved by [toJson]; null if it is not a valid preset. The
+  /// width is clamped to [profile]'s range, the colour made opaque.
+  static PenPreset? fromJson(Object? json, PenProfile profile) {
     if (json is! Map) return null;
     final c = json['c'], w = json['w'];
     if (c is! int || w is! num || !w.isFinite || w <= 0) return null;
-    return PenPreset(color: c | 0xFF000000, width: w.toDouble());
+    return PenPreset(
+      color: (c & 0xFFFFFF) | 0xFF000000,
+      width: w.toDouble().clamp(profile.minWidth, profile.maxWidth),
+    );
   }
 
   @override
@@ -55,10 +64,19 @@ class PenConfig {
     );
   }
 
+  /// Number of quick-pick presets per pen.
   static const int presetCount = 3;
 
+  /// Lowest opacity a pen can be set to, so ink never becomes invisible.
+  static const double minOpacity = 0.1;
+
+  /// The [presetCount] toolbar presets.
   final List<PenPreset> presets;
+
+  /// Index of the preset new strokes use.
   final int selected;
+
+  /// Ink opacity ([minOpacity]..1), shared by all presets.
   final double opacity;
 
   /// Pressure sensitivity (0..1).
@@ -70,8 +88,10 @@ class PenConfig {
   /// Whether stroke ends taper to a point.
   final bool taper;
 
+  /// The selected preset.
   PenPreset get current => presets[selected];
 
+  /// A copy with the given fields replaced.
   PenConfig copyWith({
     List<PenPreset>? presets,
     int? selected,
@@ -104,6 +124,7 @@ class PenConfig {
     );
   }
 
+  /// JSON for the local settings store (see [fromJson]).
   Map<String, Object?> toJson() => {
     'presets': [for (final p in presets) p.toJson()],
     'selected': selected,
@@ -113,18 +134,22 @@ class PenConfig {
     'taper': taper,
   };
 
-  /// Parses leniently, taking anything missing or invalid from [fallback].
-  static PenConfig fromJson(Object? json, PenConfig fallback) {
+  /// Parses the config of [tool] leniently, taking anything missing or
+  /// invalid from [fallback] and clamping values to their valid ranges.
+  static PenConfig fromJson(Object? json, PenConfig fallback, {required InkTool tool}) {
     if (json is! Map) return fallback;
-    double unit(String key, double orElse) {
+    double unit(String key, double orElse, {double min = 0}) {
       final v = json[key];
-      return v is num && v.isFinite ? v.toDouble().clamp(0.0, 1.0) : orElse;
+      return v is num && v.isFinite ? v.toDouble().clamp(min, 1.0) : orElse;
     }
 
+    final profile = PenProfile.of(tool);
     final rawPresets = json['presets'];
     final presets = [
       for (var i = 0; i < presetCount; i++)
-        (rawPresets is List && i < rawPresets.length ? PenPreset.fromJson(rawPresets[i]) : null) ??
+        (rawPresets is List && i < rawPresets.length
+                ? PenPreset.fromJson(rawPresets[i], profile)
+                : null) ??
             fallback.presets[i],
     ];
     final selected = json['selected'];
@@ -134,10 +159,24 @@ class PenConfig {
       selected: selected is int && selected >= 0 && selected < presetCount
           ? selected
           : fallback.selected,
-      opacity: unit('opacity', fallback.opacity),
+      opacity: unit('opacity', fallback.opacity, min: minOpacity),
       thinning: unit('thinning', fallback.thinning),
       streamline: unit('streamline', fallback.streamline),
       taper: taper is bool ? taper : fallback.taper,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is PenConfig &&
+      listEquals(other.presets, presets) &&
+      other.selected == selected &&
+      other.opacity == opacity &&
+      other.thinning == thinning &&
+      other.streamline == streamline &&
+      other.taper == taper;
+
+  @override
+  int get hashCode =>
+      Object.hash(Object.hashAll(presets), selected, opacity, thinning, streamline, taper);
 }
