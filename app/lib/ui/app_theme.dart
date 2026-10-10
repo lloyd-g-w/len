@@ -56,20 +56,22 @@ abstract final class AppTheme {
   static ThemeData _build(Brightness brightness, Color accent) {
     final scheme = AppTheme.scheme(brightness, accent: accent);
     final base = ThemeData(colorScheme: scheme, useMaterial3: true);
-    return base.copyWith(
-      scaffoldBackgroundColor: scheme.surface,
-      textTheme: _textTheme(base.textTheme, scheme),
-      splashFactory: InkSparkle.splashFactory,
-      visualDensity: VisualDensity.standard,
-      pageTransitionsTheme: const PageTransitionsTheme(
-        builders: {
-          TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
-        },
-      ),
-    ).applyComponentThemes(scheme);
+    return base
+        .copyWith(
+          scaffoldBackgroundColor: scheme.surface,
+          textTheme: _textTheme(base.textTheme, scheme),
+          splashFactory: InkSparkle.splashFactory,
+          visualDensity: VisualDensity.standard,
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+              TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+              TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+              TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
+            },
+          ),
+        )
+        .applyComponentThemes(scheme);
   }
 
   /// A tighter, more editorial type scale: heavier headlines with negative

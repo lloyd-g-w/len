@@ -64,7 +64,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
 
 /// Maps the stored preference to Flutter's [ThemeMode].
 ThemeMode themeModeOf(ThemePreference preference) => switch (preference) {
-      ThemePreference.system => ThemeMode.system,
-      ThemePreference.light => ThemeMode.light,
-      ThemePreference.dark => ThemeMode.dark,
-    };
+  ThemePreference.system => ThemeMode.system,
+  ThemePreference.light => ThemeMode.light,
+  ThemePreference.dark => ThemeMode.dark,
+};

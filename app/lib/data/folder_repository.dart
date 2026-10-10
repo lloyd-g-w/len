@@ -206,11 +206,11 @@ class FolderRepository extends SyncableTable {
   }
 
   static Folder _rowToFolder(Row row) => Folder(
-        id: row['id'] as String,
-        name: row['name'] as String,
-        parentId: row['parent_id'] as String?,
-        color: row['color'] as int,
-        createdAt: row['created_at'] as int,
-        updatedAt: row['updated_at'] as int,
-      );
+    id: row['id'] as String,
+    name: row['name'] as String,
+    parentId: row['parent_id'] as String?,
+    color: row['color'] as int,
+    createdAt: row['created_at'] as int,
+    updatedAt: row['updated_at'] as int,
+  );
 }

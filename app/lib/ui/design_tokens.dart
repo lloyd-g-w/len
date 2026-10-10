@@ -22,31 +22,31 @@ abstract final class Breakpoints {
 abstract final class Shadows {
   /// Resting cards and covers.
   static List<BoxShadow> low(Brightness b) => [
-        BoxShadow(
-          color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.35 : 0.06),
-          blurRadius: 2,
-          offset: const Offset(0, 1),
-        ),
-        BoxShadow(
-          color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.30 : 0.07),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ];
+    BoxShadow(
+      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.35 : 0.06),
+      blurRadius: 2,
+      offset: const Offset(0, 1),
+    ),
+    BoxShadow(
+      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.30 : 0.07),
+      blurRadius: 10,
+      offset: const Offset(0, 4),
+    ),
+  ];
 
   /// Hovered / lifted cards.
   static List<BoxShadow> high(Brightness b) => [
-        BoxShadow(
-          color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.40 : 0.08),
-          blurRadius: 4,
-          offset: const Offset(0, 2),
-        ),
-        BoxShadow(
-          color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.45 : 0.14),
-          blurRadius: 24,
-          offset: const Offset(0, 12),
-        ),
-      ];
+    BoxShadow(
+      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.40 : 0.08),
+      blurRadius: 4,
+      offset: const Offset(0, 2),
+    ),
+    BoxShadow(
+      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.45 : 0.14),
+      blurRadius: 24,
+      offset: const Offset(0, 12),
+    ),
+  ];
 }
 
 /// Accent (seed) colours offered in Settings → Appearance.

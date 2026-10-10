@@ -28,8 +28,13 @@ void main() {
     clock = FakeClock();
     strokes = StrokeRepository(db, deviceId: 'dev-a', clock: clock);
     pages = PageRepository(db, deviceId: 'dev-a', clock: clock);
-    notebooks =
-        NotebookRepository(db, deviceId: 'dev-a', pages: pages, strokes: strokes, clock: clock);
+    notebooks = NotebookRepository(
+      db,
+      deviceId: 'dev-a',
+      pages: pages,
+      strokes: strokes,
+      clock: clock,
+    );
     folders = FolderRepository(db, deviceId: 'dev-a', clock: clock);
   });
 
@@ -166,8 +171,10 @@ void main() {
       expect(copied.single.points, strokes.loadChunks(page.id, [(x: 0, y: 0)]).single.points);
       // The source is untouched.
       expect(pages.pagesOf(source.id), hasLength(2));
-      expect(strokes.dirtyRecords(100).where((r) => r.data?['surfaceId'] == copiedPage),
-          hasLength(1));
+      expect(
+        strokes.dirtyRecords(100).where((r) => r.data?['surfaceId'] == copiedPage),
+        hasLength(1),
+      );
     });
 
     test('duplicate of a canvas copies its strokes onto the new surface', () {

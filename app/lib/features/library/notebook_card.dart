@@ -1,171 +1,144 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../../core/format.dart';
 import '../../domain/notebook.dart';
+import '../../ui/app_theme.dart';
+import 'library_actions.dart';
+import 'library_drag.dart';
+import 'library_draggable.dart';
+import 'library_menus.dart';
+import 'notebook_cover.dart';
 
-enum NotebookAction { rename, delete }
-
-/// A notebook in the library grid: a coloured cover with its title below.
-class NotebookCard extends StatelessWidget {
+/// A notebook in the library grid: its cover (live preview) with the title
+/// and a subtitle below. Lifts on hover, opens on tap, offers its menu on
+/// right-click, long-press or the "More" button, and can be dragged onto
+/// folders.
+class NotebookCard extends StatefulWidget {
   const NotebookCard({
     super.key,
     required this.notebook,
-    required this.onOpen,
-    required this.onAction,
+    required this.subtitle,
+    required this.actions,
   });
 
   final Notebook notebook;
-  final VoidCallback onOpen;
-  final ValueChanged<NotebookAction> onAction;
+  final String subtitle;
+  final LibraryActions actions;
+
+  @override
+  State<NotebookCard> createState() => _NotebookCardState();
+}
+
+class _NotebookCardState extends State<NotebookCard> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  Notebook get _notebook => widget.notebook;
+
+  /// Opens the menu at [at] (global), else under [anchor] or the card.
+  Future<void> _showMenu({Offset? at, BuildContext? anchor}) async {
+    final action = await showContextMenuAt(
+      anchor ?? context,
+      items: notebookMenuItems(_notebook),
+      at: at,
+    );
+    if (action != null && mounted) {
+      await widget.actions.onNotebookAction(context, _notebook, action);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Tooltip(
-            message: 'Open “${notebook.title}”',
-            waitDuration: const Duration(seconds: 1),
-            child: Card(
-              elevation: 1,
-              shadowColor: Colors.black38,
-              child: InkWell(
-                onTap: onOpen,
-                onLongPress: () => _showMenu(context),
-                onSecondaryTapUp: (d) => _showMenu(context, at: d.globalPosition),
-                child: _Cover(notebook: notebook),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    notebook.title,
-                    style: theme.textTheme.titleSmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    formatEdited(notebook.updatedAt),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuButton<NotebookAction>(
-              tooltip: 'More',
-              icon: const Icon(Icons.more_vert, size: 20),
-              onSelected: onAction,
-              itemBuilder: (_) => _menuItems,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  static const _menuItems = [
-    PopupMenuItem(
-      value: NotebookAction.rename,
-      child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Rename')),
-    ),
-    PopupMenuItem(
-      value: NotebookAction.delete,
-      child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Delete')),
-    ),
-  ];
-
-  /// Opens the action menu at [at] (global), or at the card's centre.
-  Future<void> _showMenu(BuildContext context, {Offset? at}) async {
-    final box = context.findRenderObject()! as RenderBox;
-    final origin = at ?? box.localToGlobal(box.size.center(Offset.zero));
-    final action = await showMenu<NotebookAction>(
-      context: context,
-      position: RelativeRect.fromLTRB(origin.dx, origin.dy, origin.dx, origin.dy),
-      items: _menuItems,
-    );
-    if (action != null) onAction(action);
-  }
-}
-
-class _Cover extends StatelessWidget {
-  const _Cover({required this.notebook});
-
-  final Notebook notebook;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Color(notebook.coverColor);
-    final isCanvas = notebook.kind == NotebookKind.canvas;
-    return DecoratedBox(
+    final brightness = theme.brightness;
+    final lifted = _hovered || _focused;
+    final cover = AnimatedContainer(
+      duration: Motion.medium,
+      curve: Motion.standard,
+      transform: Matrix4.translationValues(0, lifted ? -4 : 0, 0),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color.lerp(color, Colors.white, 0.12)!, Color.lerp(color, Colors.black, 0.18)!],
+        borderRadius: BorderRadius.circular(Radii.cover),
+        boxShadow: lifted ? Shadows.high(brightness) : Shadows.low(brightness),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(Radii.cover),
+          onTap: () => unawaited(widget.actions.openNotebook(context, _notebook)),
+          onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
+          onHover: (h) => setState(() => _hovered = h),
+          onFocusChange: (f) {
+            setState(() => _focused = f);
+            widget.actions.controller.focusedNotebookId = f ? _notebook.id : null;
+          },
+          child: NotebookCover.of(_notebook),
         ),
       ),
-      child: Stack(
-        fit: StackFit.expand,
+    );
+    return Semantics(
+      label: _notebook.title,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // A bound spine for paged notebooks, a dot grid for canvases.
-          if (isCanvas)
-            const CustomPaint(painter: _DotGridPainter())
-          else ...[
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: Container(width: 14, color: Colors.black.withValues(alpha: 0.12)),
+          Expanded(
+            child: LibraryDraggable(
+              item: LibraryDragItem.notebook(_notebook.id),
+              feedback: DragFeedback(
+                width: 110,
+                height: 110 / 0.72,
+                child: NotebookCover.of(_notebook),
+              ),
+              onLongPressMenu: () => unawaited(_showMenu()),
+              child: AnimatedScale(scale: _focused ? 1.02 : 1, duration: Motion.fast, child: cover),
             ),
-            Positioned(
-              left: 14,
-              top: 0,
-              bottom: 0,
-              child: Container(width: 2, color: Colors.white.withValues(alpha: 0.22)),
-            ),
-          ],
-          Positioned(
-            right: 14,
-            bottom: 14,
-            child: Icon(
-              isCanvas ? Icons.all_inclusive_rounded : Icons.menu_book_rounded,
-              color: Colors.white.withValues(alpha: 0.85),
-              size: 22,
-            ),
+          ),
+          const SizedBox(height: Gaps.sm + 2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: Gaps.xxs),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _notebook.title,
+                        style: theme.textTheme.titleSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: Gaps.xxs),
+                      Text(
+                        widget.subtitle,
+                        style: theme.textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: Builder(
+                  builder: (anchor) => IconButton(
+                    tooltip: 'More',
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    visualDensity: VisualDensity.compact,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    icon: const Icon(Icons.more_horiz_rounded),
+                    onPressed: () => unawaited(_showMenu(anchor: anchor)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
-}
-
-/// Faint dots suggesting an endless whiteboard.
-class _DotGridPainter extends CustomPainter {
-  const _DotGridPainter();
-
-  static const double _spacing = 14;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.white.withValues(alpha: 0.22);
-    for (var y = _spacing; y < size.height; y += _spacing) {
-      for (var x = _spacing; x < size.width; x += _spacing) {
-        canvas.drawCircle(Offset(x, y), 1.1, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DotGridPainter oldDelegate) => false;
 }

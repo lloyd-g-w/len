@@ -6,6 +6,7 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/library_screen.dart';
+import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -49,7 +50,10 @@ Future<void> createNotebook(WidgetTester tester, String title, {bool canvas = fa
     await tester.tap(find.text('Infinite canvas'));
     await tester.pumpAndSettle();
   }
-  await tester.enterText(find.byType(TextField), title);
+  await tester.enterText(
+    find.descendant(of: find.byType(NewNotebookSheet), matching: find.byType(TextField)),
+    title,
+  );
   await tester.tap(find.text('Create'));
   await tester.pumpAndSettle();
 }
@@ -127,7 +131,7 @@ void main() {
     expect(isToolSelected(tester, 'Eraser (E)'), isTrue);
   });
 
-  testWidgets('rename and delete from the library card menu', (tester) async {
+  testWidgets('rename, trash, restore and delete forever from the card menu', (tester) async {
     final services = await pumpLibrary(tester);
     await createNotebook(tester, 'Draft');
     await tester.tap(find.byTooltip('Back'));
@@ -137,19 +141,46 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Rename'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Final');
+    await tester.enterText(find.byType(TextField).last, 'Final');
     await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
     await tester.pumpAndSettle();
     expect(find.text('Final'), findsOneWidget);
 
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.tap(find.text('Move to Trash'));
     await tester.pumpAndSettle();
     expect(services.notebooks.list(), isEmpty);
     expect(find.text('Nothing here yet'), findsOneWidget);
+
+    // Restore from the trash.
+    await tester.tap(find.text('Trash').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Final'), findsOneWidget);
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restore'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list().single.title, 'Final');
+    expect(find.text('Trash is empty'), findsOneWidget);
+
+    // Trash again, then delete forever.
+    await tester.tap(find.text('Library').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Move to Trash'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Trash').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete forever'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete forever'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.trashed(), isEmpty);
+    expect(find.text('Trash is empty'), findsOneWidget);
   });
 
   testWidgets('remote delete closes the editor and any dialog on top of it', (tester) async {

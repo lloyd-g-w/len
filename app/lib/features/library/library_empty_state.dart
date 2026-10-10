@@ -1,0 +1,154 @@
+import 'package:flutter/material.dart';
+
+import '../../domain/cover_style.dart';
+import '../../domain/notebook.dart';
+import '../../ui/app_theme.dart';
+import 'library_controller.dart';
+import 'notebook_cover.dart';
+
+/// Friendly placeholder for an empty library view, tailored to [section].
+class LibraryEmptyState extends StatelessWidget {
+  const LibraryEmptyState({
+    super.key,
+    required this.section,
+    required this.inFolder,
+    required this.query,
+    this.onCreate,
+  });
+
+  final LibrarySection section;
+  final bool inFolder;
+  final String query;
+  final VoidCallback? onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final searching = query.trim().isNotEmpty;
+    final (Widget art, String title, String message) = switch (section) {
+      _ when searching => (
+        const _IconArt(Icons.search_off_rounded),
+        'No results',
+        'Nothing matches “${query.trim()}”.',
+      ),
+      LibrarySection.library when inFolder => (
+        const _IconArt(Icons.folder_open_rounded),
+        'This folder is empty',
+        'Create a notebook here, or drag notebooks onto this folder.',
+      ),
+      LibrarySection.library => (
+        const _CoverFan(),
+        'Nothing here yet',
+        'Create a notebook or an infinite canvas to start writing.',
+      ),
+      LibrarySection.favorites => (
+        const _IconArt(Icons.star_outline_rounded),
+        'No favourites yet',
+        'Star notebooks you use often to find them here.',
+      ),
+      LibrarySection.trash => (
+        const _IconArt(Icons.delete_outline_rounded),
+        'Trash is empty',
+        'Deleted notebooks stay here until you delete them forever.',
+      ),
+    };
+    final showCreate = onCreate != null && !searching && section == LibrarySection.library;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(Gaps.xxl),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: Motion.slow,
+            curve: Motion.emphasized,
+            builder: (context, t, child) => Opacity(
+              opacity: t,
+              child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                art,
+                const SizedBox(height: Gaps.xl),
+                Text(title, style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
+                const SizedBox(height: Gaps.sm),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+                if (showCreate) ...[
+                  const SizedBox(height: Gaps.xl),
+                  FilledButton.icon(
+                    onPressed: onCreate,
+                    icon: const Icon(Icons.add),
+                    label: const Text('New notebook'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IconArt extends StatelessWidget {
+  const _IconArt(this.icon);
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 104,
+      height: 104,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: scheme.primaryContainer.withValues(alpha: 0.5),
+      ),
+      child: Icon(icon, size: 44, color: scheme.primary),
+    );
+  }
+}
+
+/// Three fanned-out notebook covers.
+class _CoverFan extends StatelessWidget {
+  const _CoverFan();
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    Widget cover(int color, CoverStyle style, double angle, Offset offset) => Transform.translate(
+      offset: offset,
+      child: Transform.rotate(
+        angle: angle,
+        child: Container(
+          width: 72,
+          height: 100,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(Radii.cover),
+            boxShadow: Shadows.low(brightness),
+          ),
+          child: NotebookCover(color: color, style: style, kind: NotebookKind.paged),
+        ),
+      ),
+    );
+    return SizedBox(
+      width: 200,
+      height: 128,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          cover(Palette.covers[1], CoverStyle.dots, -0.22, const Offset(-48, 8)),
+          cover(Palette.covers[2], CoverStyle.waves, 0.22, const Offset(48, 8)),
+          cover(Palette.covers[0], CoverStyle.linen, 0, Offset.zero),
+        ],
+      ),
+    );
+  }
+}

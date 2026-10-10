@@ -96,8 +96,7 @@ class NotebookRepository extends SyncableTable {
   void touch(String id) => _change(id, (n) => n.copyWith(editedAt: clock.nowMs()));
 
   /// Stars or unstars a notebook.
-  void setFavorite(String id, bool favorite) =>
-      _change(id, (n) => n.copyWith(favorite: favorite));
+  void setFavorite(String id, bool favorite) => _change(id, (n) => n.copyWith(favorite: favorite));
 
   /// Moves a notebook into [folderId] (null = library root).
   void moveTo(String id, String? folderId) => _change(id, (n) => n.copyWith(folderId: folderId));
@@ -108,11 +107,12 @@ class NotebookRepository extends SyncableTable {
   /// Takes a notebook out of the trash. If its folder no longer exists it
   /// returns to the library root.
   void restore(String id) => _change(id, (n) {
-        final folder = n.folderId;
-        final folderAlive = folder != null &&
-            db.select('SELECT 1 FROM folders WHERE id = ? AND deleted = 0', [folder]).isNotEmpty;
-        return n.copyWith(trashedAt: null, folderId: folderAlive ? folder : null);
-      });
+    final folder = n.folderId;
+    final folderAlive =
+        folder != null &&
+        db.select('SELECT 1 FROM folders WHERE id = ? AND deleted = 0', [folder]).isNotEmpty;
+    return n.copyWith(trashedAt: null, folderId: folderAlive ? folder : null);
+  });
 
   /// Moves every notebook inside [folderIds] to the trash (folder deletion).
   void trashAllIn(Set<String> folderIds) {
@@ -310,17 +310,17 @@ class NotebookRepository extends SyncableTable {
   }
 
   static Notebook _rowToNotebook(Row row) => Notebook(
-        id: row['id'] as String,
-        title: row['title'] as String,
-        kind: NotebookKind.parse(row['kind'] as String),
-        paper: PaperStyle.parse(row['paper'] as String),
-        coverColor: row['cover_color'] as int,
-        coverStyle: CoverStyle.parse(row['cover_style'] as String?),
-        createdAt: row['created_at'] as int,
-        updatedAt: row['updated_at'] as int,
-        editedAt: row['edited_at'] as int,
-        folderId: row['folder_id'] as String?,
-        favorite: row['favorite'] == 1,
-        trashedAt: row['trashed_at'] as int?,
-      );
+    id: row['id'] as String,
+    title: row['title'] as String,
+    kind: NotebookKind.parse(row['kind'] as String),
+    paper: PaperStyle.parse(row['paper'] as String),
+    coverColor: row['cover_color'] as int,
+    coverStyle: CoverStyle.parse(row['cover_style'] as String?),
+    createdAt: row['created_at'] as int,
+    updatedAt: row['updated_at'] as int,
+    editedAt: row['edited_at'] as int,
+    folderId: row['folder_id'] as String?,
+    favorite: row['favorite'] == 1,
+    trashedAt: row['trashed_at'] as int?,
+  );
 }
