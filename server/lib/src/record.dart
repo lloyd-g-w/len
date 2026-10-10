@@ -29,6 +29,11 @@ class SyncRecord {
   /// Maximum length of [id] and [deviceId].
   static const maxIdLength = 64;
 
+  /// Maximum nesting depth of [data] (the object itself is depth 1).
+  /// Bounds the recursion of `jsonEncode`, which would otherwise overflow
+  /// the stack on deeply nested payloads (on push, or worse, on every pull).
+  static const maxDataDepth = 64;
+
   final String collection;
   final String id;
 
@@ -66,6 +71,9 @@ class SyncRecord {
     final data = json['data'];
     if (data != null && data is! Map<String, Object?>) {
       throw RecordValidationException('data must be an object or null');
+    }
+    if (!deleted && data != null && _exceedsDepth(data, maxDataDepth)) {
+      throw RecordValidationException('data must not be nested deeper than $maxDataDepth levels');
     }
     return SyncRecord(
       collection: collection,
@@ -109,6 +117,28 @@ class SyncRecord {
       throw RecordValidationException('$key must be 1..$maxIdLength characters long');
     }
     return value;
+  }
+
+  /// Whether [value] nests maps/lists deeper than [maxDepth]. Iterative, so
+  /// arbitrarily deep input cannot overflow the stack.
+  static bool _exceedsDepth(Object value, int maxDepth) {
+    final stack = <(Object?, int)>[(value, 1)];
+    while (stack.isNotEmpty) {
+      final (node, depth) = stack.removeLast();
+      final Iterable<Object?> children;
+      if (node is Map) {
+        children = node.values;
+      } else if (node is List) {
+        children = node;
+      } else {
+        continue;
+      }
+      if (depth > maxDepth) return true;
+      for (final child in children) {
+        if (child is Map || child is List) stack.add((child, depth + 1));
+      }
+    }
+    return false;
   }
 
   static int _requireInt(Map<String, Object?> json, String key) {

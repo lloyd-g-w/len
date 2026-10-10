@@ -10,16 +10,35 @@ import 'package:len/ink/undo_history.dart';
 import 'package:len/ink/viewport.dart';
 
 Stroke stroke(String id, List<Offset> pts, {double width = 2, int createdAt = 0}) => Stroke(
-      id: id,
-      surfaceId: 's',
-      tool: InkTool.pen,
-      color: 0xFF000000,
-      width: width,
-      points: [for (final p in pts) StrokePoint(p.dx, p.dy, 0.5)],
-      createdAt: createdAt,
-    );
+  id: id,
+  surfaceId: 's',
+  tool: InkTool.pen,
+  color: 0xFF000000,
+  width: width,
+  points: [for (final p in pts) StrokePoint(p.dx, p.dy, 0.5)],
+  createdAt: createdAt,
+);
 
 void main() {
+  test('drawOrder puts highlighter ink under pen ink, else paint order', () {
+    Stroke s(String id, InkTool tool, int at) => Stroke(
+      id: id,
+      surfaceId: 's',
+      tool: tool,
+      color: 0,
+      width: 2,
+      points: const [StrokePoint(0, 0, 0.5)],
+      createdAt: at,
+    );
+    final strokes = [
+      s('pen1', InkTool.ballpoint, 1),
+      s('hl2', InkTool.highlighter, 2),
+      s('pen3', InkTool.ballpoint, 3),
+      s('hl0', InkTool.highlighter, 0),
+    ]..sort(Stroke.drawOrder);
+    expect(strokes.map((s) => s.id), ['hl0', 'hl2', 'pen1', 'pen3']);
+  });
+
   group('ChunkGrid', () {
     test('keys floor towards negative infinity', () {
       expect(ChunkGrid.keyAt(0, 0), (x: 0, y: 0));
@@ -45,7 +64,9 @@ void main() {
         ..insert(far.id, far.bounds)
         ..insert(near.id, near.bounds);
       expect(index.query(const Rect.fromLTWH(0, 0, 100, 100)), {'near'});
-      expect(index.query(Rect.fromCenter(center: const Offset(1e6, -1e6), width: 10, height: 10)), {'far'});
+      expect(index.query(Rect.fromCenter(center: const Offset(1e6, -1e6), width: 10, height: 10)), {
+        'far',
+      });
 
       index.remove(near.id, near.bounds);
       expect(index.query(const Rect.fromLTWH(0, 0, 1000, 100)), isEmpty);

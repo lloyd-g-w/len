@@ -17,6 +17,7 @@ import 'canvas_gestures.dart';
 import 'hold_to_straighten.dart';
 import 'live_ink.dart';
 import 'pressure_filter.dart';
+import 'sample_source.dart';
 import 'stylus_buttons.dart';
 
 /// Turns raw pointer events into drawing, erasing and navigation.
@@ -49,6 +50,7 @@ class InkInputController {
     this.content,
     this.kinetic,
     this.gestures,
+    this.samples,
     PenButtonAction Function()? penButtonAction,
   }) : _straighten = HoldToStraighten(live),
        _penButtonAction = penButtonAction ?? (() => PenButtonAction.eraser);
@@ -84,6 +86,10 @@ class InkInputController {
 
   /// Canvas gestures recognised alongside input, if the editor wants them.
   final CanvasGestures? gestures;
+
+  /// Stylus samples the platform reported between pointer events (Android
+  /// batches several per frame; Flutter forwards only the newest), if any.
+  final SampleSource? samples;
 
   final PenButtonAction Function() _penButtonAction;
 
@@ -150,6 +156,7 @@ class InkInputController {
 
   void handleUp(PointerUpEvent e) {
     if (e.pointer == _drawPointer) {
+      if (_inking) _addSamplesBefore(e);
       _finishDraw(liftTime: e.timeStamp);
     }
     if (_navPointers.remove(e.pointer) != null && _navPointers.isEmpty) {
@@ -267,6 +274,7 @@ class InkInputController {
     _erasing = erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
+    samples?.begin(e);
     final tool = erase ? null : content?.toolAt(tools.tool, e.localPosition, lasso: lasso);
     if (tool != null) {
       _tool = tool..down(_toolPointer(e));
@@ -296,12 +304,37 @@ class InkInputController {
       _eraseTo(e.localPosition);
       return;
     }
-    final step = (e.localPosition - _lastScreen!).distance;
+    _addSamplesBefore(e);
+    _inkTo(e.localPosition, _pressureOf(e), synthesized: e.synthesized);
+  }
+
+  /// Whether the drawing pointer is making ink (not erasing or a tool).
+  bool get _inking => _drawPointer != null && _tool == null && !_erasing;
+
+  /// Adds the samples the platform saw since the previous event of [e]'s
+  /// contact (dense stylus input), in order, before [e] itself.
+  void _addSamplesBefore(PointerEvent e) {
+    final extra = samples?.between(e);
+    if (extra == null) return;
+    for (final s in extra) {
+      _inkTo(s.localPosition, _normalisedPressure(e, s.pressure));
+    }
+  }
+
+  /// Extends the live stroke to [screen] (unless it is too close to the
+  /// previous point, or "hold to straighten" has taken over).
+  void _inkTo(Offset screen, double pressure, {bool synthesized = false}) {
+    final step = (screen - _lastScreen!).distance;
     if (step < _minPointDistance) return;
     _drawTravel += step;
-    _lastScreen = e.localPosition;
-    final point = _pointOf(e);
-    if (_straighten.move(e.localPosition, point)) return;
+    _lastScreen = screen;
+    final world = viewport.toWorld(screen);
+    final point = StrokePoint(
+      world.dx,
+      world.dy,
+      _pressure.next(pressure, synthesized: synthesized),
+    );
+    if (_straighten.move(screen, point)) return;
     live.add(point);
   }
 
@@ -368,6 +401,7 @@ class InkInputController {
 
   void _resetDraw() {
     _straighten.end();
+    samples?.end();
     _drawPointer = null;
     _drawKind = null;
     _erasing = false;
@@ -411,11 +445,14 @@ class InkInputController {
     ];
   }
 
-  static double _pressureOf(PointerEvent e) {
+  static double _pressureOf(PointerEvent e) => _normalisedPressure(e, e.pressure);
+
+  /// [raw] pressure (in [e]'s device range) as 0.05..1; 0.5 without a stylus.
+  static double _normalisedPressure(PointerEvent e, double raw) {
     if (!_isStylus(e.kind)) return 0.5;
     final range = e.pressureMax - e.pressureMin;
     if (range <= 0) return 0.5;
-    return ((e.pressure - e.pressureMin) / range).clamp(0.05, 1.0);
+    return ((raw - e.pressureMin) / range).clamp(0.05, 1.0);
   }
 
   bool _wantsErase(PointerEvent e) =>

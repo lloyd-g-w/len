@@ -147,7 +147,7 @@ void main() {
       );
       final local = pages.get(page.id)!;
       expect(local.paper, PaperStyle.blank); // Unknown → blank …
-      expect(local.paperColor, PaperColor.white); // … missing → defaults.
+      expect(local.paperColor, page.paperColor); // … missing → local value kept.
       expect(local.background, isNull);
       pages.setBookmarked(page.id, true);
       final data = pages.dirtyRecords(10).single.data!;

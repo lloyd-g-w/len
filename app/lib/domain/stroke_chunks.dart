@@ -27,6 +27,9 @@ abstract final class StrokeChunks {
   /// Longest piece a segment is cut into before taking its bounding box.
   static const double _piece = ChunkGrid.size / 4;
 
+  /// Most pieces examined before falling back to the bounding box.
+  static const double _maxPieces = 200000;
+
   /// The chunks of a committed stroke (memoised per instance; read-only).
   static Set<ChunkKey> of(Stroke stroke) =>
       _memo[stroke] ??= Set.unmodifiable(along(stroke.points, stroke.width));
@@ -42,6 +45,13 @@ abstract final class StrokeChunks {
       keys.addAll(ChunkGrid.rangeFor(Rect.fromCircle(center: p, radius: pad)).keys);
       return keys;
     }
+    // A pathological stroke (very long zigzags) would take too many
+    // pieces; its bounding box is always a valid (if coarser) answer.
+    var pieces = 0.0;
+    for (var i = 0; i + 1 < points.length && pieces <= _maxPieces; i++) {
+      pieces += (points[i + 1].offset - points[i].offset).distance / _piece + 1;
+    }
+    if (pieces > _maxPieces) return ChunkGrid.rangeFor(bounds).keys.toSet();
     for (var i = 0; i + 1 < points.length; i++) {
       final a = points[i].offset;
       final b = points[i + 1].offset;

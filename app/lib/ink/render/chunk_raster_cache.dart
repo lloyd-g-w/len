@@ -67,6 +67,10 @@ class ChunkRasterCache extends ChangeNotifier {
   late final StreamSubscription<Set<ChunkKey>?> _subscription;
   int _bytes = 0;
   int _inFlight = 0;
+
+  /// Rasters being made, with the content version they are made from, so
+  /// a chunk requested again on every frame is not rasterised twice.
+  final Map<_Key, int> _pending = {};
   Timer? _timer;
   bool _notifyScheduled = false;
   bool _disposed = false;
@@ -126,6 +130,7 @@ class ChunkRasterCache extends ChangeNotifier {
       final key = _queue.keys.last; // Newest request first: what is on screen now.
       final version = _queue.remove(key)!;
       if (version != _versionOf(key.chunk) || _images.containsKey(key)) continue;
+      if (_pending[key] == version) continue;
       _rasterise(key, version);
     }
     if (_queue.isNotEmpty && _inFlight < maxInFlight) {
@@ -143,6 +148,7 @@ class ChunkRasterCache extends ChangeNotifier {
       ..drawPicture(pictures.pictureFor(key.chunk));
     final picture = recorder.endRecording();
     _inFlight++;
+    _pending[key] = version;
     unawaited(
       picture
           .toImage(level, level)
@@ -155,6 +161,7 @@ class ChunkRasterCache extends ChangeNotifier {
           .whenComplete(() {
             picture.dispose();
             _inFlight--;
+            if (_pending[key] == version) _pending.remove(key);
             if (!_disposed && _queue.isNotEmpty) _timer ??= Timer(Duration.zero, _processBatch);
           }),
     );
@@ -165,7 +172,11 @@ class ChunkRasterCache extends ChangeNotifier {
       image.dispose(); // The chunk changed while it was being rasterised.
       return;
     }
-    _images.remove(key)?.dispose();
+    final previous = _images.remove(key);
+    if (previous != null) {
+      _bytes -= _sizeOf(key);
+      previous.dispose();
+    }
     _images[key] = image;
     _bytes += _sizeOf(key);
     while (_bytes > maxBytes && _images.length > 1) {

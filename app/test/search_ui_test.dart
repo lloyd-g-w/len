@@ -15,7 +15,7 @@ import 'package:len/sync/sync_api.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'content_golden_test.dart' show loadFonts;
-import 'sync_test.dart' show FakeServer, apiFor;
+import 'support/fake_server.dart' show FakeServer, apiFor;
 import 'ui_library_test.dart' show pumpLibrary;
 
 SurfaceElement textBox(String id, String surface, String text, Offset at, {double width = 360}) =>

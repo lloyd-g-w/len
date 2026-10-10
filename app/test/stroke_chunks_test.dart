@@ -151,6 +151,18 @@ void main() {
     expect(index.chunkCount, 1);
     expect(index.idsIn((x: 3, y: 3)), {'b'});
   });
+
+  test('pathological zigzags fall back to the bounding box', () {
+    final points = [
+      for (var i = 0; i < 2000; i++) StrokePoint(i.isEven ? 0 : 100000, i * 10.0, 0.5),
+    ];
+    final watch = Stopwatch()..start();
+    final keys = StrokeChunks.along(points, 2);
+    expect(watch.elapsed, lessThan(const Duration(seconds: 2)));
+    final box = ChunkGrid.rangeFor(Stroke.computeBounds(points, 2));
+    expect(keys.length, box.count);
+    expect(keys.every(box.contains), isTrue);
+  });
 }
 
 /// Every pen type strokes may carry (current and legacy).

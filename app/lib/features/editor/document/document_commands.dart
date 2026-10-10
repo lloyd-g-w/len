@@ -34,10 +34,21 @@ class DocumentCommands {
   NotebookPage get _current => doc.pages[doc.currentPage];
 
   /// Reloads the page list, keeping [keep] (or the current page) in view.
-  void reload({String? keep}) => doc.setPages(actions.pages, keepPageId: keep);
+  /// A no-op once the editor closed (e.g. a page-delete snack bar's Undo
+  /// pressed later still restores the page, but there is nothing to show).
+  void reload({String? keep}) {
+    if (!_disposed) doc.setPages(actions.pages, keepPageId: keep);
+  }
+
+  bool _disposed = false;
+
+  /// The editor closed: later callbacks (snack bars, dialogs still
+  /// resolving) only change data, not the disposed document.
+  void dispose() => _disposed = true;
 
   void _changedAndShow(NotebookPage page) {
     changed = true;
+    if (_disposed) return;
     reload(keep: page.id);
     doc.goToPage(doc.pages.indexWhere((p) => p.id == page.id));
   }
@@ -132,7 +143,7 @@ class DocumentCommands {
       ),
     );
     reload();
-    if (index != null) doc.goToPage(index);
+    if (index != null && !_disposed) doc.goToPage(index);
   }
 
   /// Asks for a page number and shows that page.
@@ -144,7 +155,7 @@ class DocumentCommands {
       confirmLabel: 'Go',
     );
     final number = int.tryParse(text ?? '');
-    if (number != null) doc.goToPage(number.clamp(1, doc.pages.length) - 1);
+    if (number != null && !_disposed) doc.goToPage(number.clamp(1, doc.pages.length) - 1);
   }
 
   /// Inserts the pages of a PDF after the current page.

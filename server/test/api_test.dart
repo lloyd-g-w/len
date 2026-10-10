@@ -161,7 +161,27 @@ void main() {
       expect(store.currentSeq(), 0);
     });
 
-    for (final query in ['since=-1', 'since=x', 'limit=0', 'limit=abc']) {
+    test('deeply nested data is 400, not a stack overflow', () async {
+      const depth = 200000;
+      final data = '${'{"a":' * depth}1${'}' * depth}';
+      final rec = jsonEncode(record('deep')..remove('data'));
+      final body = '{"records":[${rec.substring(0, rec.length - 1)},"data":$data}]}';
+      final r = await send('POST', '/v1/push', body: body);
+      expect(r.statusCode, 400);
+      expect(store.currentSeq(), 0);
+    });
+
+    for (final query in [
+      'since=-1',
+      'since=x',
+      'since=0x10',
+      'since=+1',
+      'since=%201',
+      'since=99999999999999999999',
+      'limit=0',
+      'limit=-5',
+      'limit=abc',
+    ]) {
       test('pull with $query', () async {
         final r = await send('GET', '/v1/pull?$query');
         expect(r.statusCode, 400);
@@ -217,6 +237,22 @@ void main() {
       final r = await handler(request);
       expect(r.statusCode, 413);
     });
+  });
+
+  test('unexpected errors are a JSON 500 with CORS headers and no details', () async {
+    store.close();
+    store = RecordStore.inMemory(); // for tearDown
+    final r = await send(
+      'POST',
+      '/v1/push',
+      body: {
+        'records': [record('a')],
+      },
+    );
+    // The handler still holds the closed store.
+    expect(r.statusCode, 500);
+    expect(r.headers['access-control-allow-origin'], '*');
+    expect(await jsonOf(r), {'error': 'internal server error'});
   });
 
   test('constantTimeEquals', () {

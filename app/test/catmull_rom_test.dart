@@ -37,4 +37,15 @@ void main() {
     expect(d.x.reduce(math.max), lessThanOrEqualTo(40));
     expect(d.y.reduce(math.min), greaterThan(-1.5));
   });
+
+  test('dense input (already closer than the gap) passes through unchanged', () {
+    // 240 Hz stylus samples: every point is kept and nothing is inserted,
+    // so the spline only ever fills real gaps.
+    final px = [for (var i = 0; i < 50; i++) i * 0.4];
+    final py = [for (var i = 0; i < 50; i++) math.sin(i / 8) * 3];
+    final pr = List.filled(50, 1.0);
+    final d = CatmullRom.densify(px, py, pr, 1);
+    expect(d.x, px);
+    expect(d.y, py);
+  });
 }

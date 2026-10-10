@@ -91,6 +91,11 @@ class UndoHistory {
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
 
+  /// How many separate (unmerged) edits were ever [record]ed; tells a
+  /// caller whether the last commit added an undo step or joined one.
+  int get recorded => _recorded;
+  int _recorded = 0;
+
   /// Records a new edit and clears the redo stack. With [merge], the edit
   /// is folded into the previous one (e.g. one continuous eraser drag).
   void record(InkEdit edit, {bool merge = false}) {
@@ -100,6 +105,7 @@ class UndoHistory {
       return;
     }
     _undo.add(edit);
+    _recorded++;
     if (_undo.length > limit) _undo.removeAt(0);
   }
 

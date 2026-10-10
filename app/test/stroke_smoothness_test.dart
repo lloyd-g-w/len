@@ -102,6 +102,7 @@ RecordingSink outline(List<StrokePoint> points, OutlineSpec spec) {
 }
 
 const ballpoint = OutlineSpec(width: 2, thinning: 0.25, streamline: 0.4);
+const stabilised = OutlineSpec(width: 2, thinning: 0.25, streamline: 1);
 
 double degrees(double radians) => radians * 180 / math.pi;
 
@@ -125,12 +126,12 @@ void main() {
     }
   });
 
-  test('a jittery straight line has smooth, straight edges (no wobble)', () {
+  test('with the stabiliser up, a jittery straight line gets smooth, straight edges', () {
     // 240 Hz samples of a steady 180 units/s line with 0.2 units of jitter.
     final rng = math.Random(11);
     double noise() => (rng.nextDouble() + rng.nextDouble() + rng.nextDouble() - 1.5) * 0.4;
     final points = [for (var x = 0.0; x <= 80; x += 0.75) StrokePoint(x + noise(), noise(), 0.5)];
-    final path = StrokeOutline.build(points, ballpoint);
+    final path = StrokeOutline.build(points, stabilised);
     for (final upper in [true, false]) {
       // The visible edge: where the filled area ends, found by bisection.
       final side = [for (var x = 6.0; x <= 74; x += 0.5) Offset(x, _edgeY(path, x, upper: upper))];
@@ -139,6 +140,19 @@ void main() {
       // zoom. (Smoothing harder would round off small handwriting.)
       expect(_maxCurvature(side, 2), lessThan(0.16));
       expect(_maxResidual(side), lessThan(0.35));
+    }
+  });
+
+  test('at stabiliser 0 the ink follows the raw pen path', () {
+    // A zigzag with 1-unit teeth: any smoothing would flatten them.
+    final points = [for (var i = 0; i <= 40; i++) StrokePoint(i * 1.0, i.isEven ? 0 : 1, 0.5)];
+    const raw = OutlineSpec(width: 1, thinning: 0.25, streamline: 0);
+    final path = StrokeOutline.build(points, raw);
+    for (var i = 2; i < 38; i++) {
+      // The pen's own sample is inside the ink; the far side of the zigzag
+      // isn't covered (the teeth survive).
+      expect(path.contains(Offset(i.toDouble(), i.isEven ? 0 : 1)), isTrue);
+      expect(path.contains(Offset(i.toDouble(), i.isEven ? 1.2 : -0.2)), isFalse);
     }
   });
 
