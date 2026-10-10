@@ -1,0 +1,16 @@
+import 'package:path/path.dart' as p;
+import 'package:sqlite3/common.dart';
+import 'package:sqlite3/sqlite3.dart';
+
+/// Whether this platform's SQLite supports write-ahead logging.
+const bool sqliteSupportsWal = true;
+
+/// Opens (creating if needed) database [name] inside [directory].
+Future<CommonDatabase> openSqlite({required String name, required String directory}) async =>
+    sqlite3.open(p.join(directory, name));
+
+/// A private in-memory database (tests).
+CommonDatabase openSqliteInMemory() => sqlite3.openInMemory();
+
+/// Opens (creating if needed) the database file at [path].
+CommonDatabase openSqliteFile(String path) => sqlite3.open(path);
