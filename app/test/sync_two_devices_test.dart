@@ -828,45 +828,37 @@ void main() {
       ]);
     });
 
-    test(
-      'unknown notebook paper values survive a round trip through an editing device',
-      () async {
-        final (time, server, _, b) = _twoDevices();
-        server.injected.add(
-          _record(
-            'notebooks',
-            'nn',
-            time.now,
-            data: {
-              'title': 'From a newer client',
-              'kind': 'canvas',
-              'paper': 'hexagon',
-              'coverColor': 0,
-              'createdAt': 1,
-            },
-          ),
-        );
-        await b.sync();
-        expect(b.s.notebooks.get('nn')!.paper, PaperStyle.blank, reason: 'shown as blank');
-        expect(
-          b.db.select("SELECT paper FROM notebooks WHERE id = 'nn'").first['paper'],
-          'hexagon',
-          reason: 'kept as-is in storage',
-        );
+    test('unknown notebook paper values survive a round trip through an editing device', () async {
+      final (time, server, _, b) = _twoDevices();
+      server.injected.add(
+        _record(
+          'notebooks',
+          'nn',
+          time.now,
+          data: {
+            'title': 'From a newer client',
+            'kind': 'canvas',
+            'paper': 'hexagon',
+            'coverColor': 0,
+            'createdAt': 1,
+          },
+        ),
+      );
+      await b.sync();
+      expect(b.s.notebooks.get('nn')!.paper, PaperStyle.blank, reason: 'shown as blank');
+      expect(
+        b.db.select("SELECT paper FROM notebooks WHERE id = 'nn'").first['paper'],
+        'hexagon',
+        reason: 'kept as-is in storage',
+      );
 
-        time.tick();
-        b.s.notebooks.setFavorite('nn', true);
-        await b.sync();
-        final data = server.stored('notebooks', 'nn')!['data']! as Map;
-        expect(data['favorite'], isTrue);
-        expect(data['paper'], 'hexagon');
-      },
-      skip:
-          'BUG: NotebookRepository._notebookFromRecord parses `paper` with PaperStyle.parse '
-          'and _write stores `paper.name`, so an unknown notebook paper becomes "blank" in '
-          'storage and is pushed back as "blank" on the next local edit (SYNC_PROTOCOL.md: '
-          'unknown paper values on notebooks and pages are kept as-is).',
-    );
+      time.tick();
+      b.s.notebooks.setFavorite('nn', true);
+      await b.sync();
+      final data = server.stored('notebooks', 'nn')!['data']! as Map;
+      expect(data['favorite'], isTrue);
+      expect(data['paper'], 'hexagon');
+    });
 
     test('a record from an older client keeps the local notebook-only fields', () async {
       final (time, server, a, b) = _twoDevices();
@@ -911,58 +903,49 @@ void main() {
       expect(after.editedAt, before.editedAt);
     });
 
-    test(
-      'a page record from an older client keeps the local page-only fields',
-      () async {
-        final (time, server, a, b) = _twoDevices();
-        final nb = a.s.notebooks.create(
-          title: 'PDF',
-          kind: NotebookKind.paged,
+    test('a page record from an older client keeps the local page-only fields', () async {
+      final (time, server, a, b) = _twoDevices();
+      final nb = a.s.notebooks.create(
+        title: 'PDF',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      final page = a.s.pages.insertPages(nb.id, [
+        (
+          size: const Size(600, 800),
           paper: PaperStyle.blank,
-          coverColor: 0,
-        );
-        final page = a.s.pages.insertPages(nb.id, [
-          (
-            size: const Size(600, 800),
-            paper: PaperStyle.blank,
-            color: PaperColor.cream,
-            background: const PageBackground.pdf(blob: _sha, pageIndex: 1),
-          ),
-        ]).single;
-        a.s.pages.setBookmarked(page.id, true);
-        await _send(a, b);
+          color: PaperColor.cream,
+          background: const PageBackground.pdf(blob: _sha, pageIndex: 1),
+        ),
+      ]).single;
+      a.s.pages.setBookmarked(page.id, true);
+      await _send(a, b);
 
-        // A v1 client reorders the page: its record has no paperColor,
-        // bookmarked or background.
-        time.tick();
-        server.injected.add(
-          _record(
-            'pages',
-            page.id,
-            time.now,
-            data: {
-              'notebookId': nb.id,
-              'sortKey': 0.5,
-              'width': 600,
-              'height': 800,
-              'paper': 'blank',
-            },
-          ),
-        );
-        await b.sync();
-        final after = b.s.pages.get(page.id)!;
-        expect(after.sortKey, 0.5);
-        expect(after.paperColor, PaperColor.cream);
-        expect(after.bookmarked, isTrue);
-        expect(after.background, const PageBackground.pdf(blob: _sha, pageIndex: 1));
-      },
-      skip:
-          'BUG: PageRepository.writeRemote replaces missing optional fields (paperColor, '
-          'bookmarked, background) with defaults instead of keeping the local row\'s values, '
-          'so a page edited by an older client loses its PDF background, bookmark and colour '
-          '(SYNC_PROTOCOL.md: "readers keep the local row\'s value for a missing field"; the '
-          'pages section\'s "missing → white/false" contradicts this).',
-    );
+      // A v1 client reorders the page: its record has no paperColor,
+      // bookmarked or background.
+      time.tick();
+      server.injected.add(
+        _record(
+          'pages',
+          page.id,
+          time.now,
+          data: {
+            'notebookId': nb.id,
+            'sortKey': 0.5,
+            'width': 600,
+            'height': 800,
+            'paper': 'blank',
+          },
+        ),
+      );
+      await b.sync();
+      final after = b.s.pages.get(page.id)!;
+      expect(after.sortKey, 0.5);
+      expect(after.paperColor, PaperColor.cream);
+      expect(after.bookmarked, isTrue);
+      expect(after.background, const PageBackground.pdf(blob: _sha, pageIndex: 1));
+    });
 
     test('search on the receiving device reflects synced titles and text boxes', () async {
       final (time, _, a, b) = _twoDevices();
