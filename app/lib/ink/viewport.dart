@@ -51,8 +51,10 @@ class ViewportController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Moves the view by [screenDelta] pixels (ignored unless finite, so a
+  /// bad wheel or trackpad event cannot break the viewport).
   void panBy(Offset screenDelta) {
-    if (screenDelta == Offset.zero) return;
+    if (screenDelta == Offset.zero || !screenDelta.isFinite) return;
     _offset += screenDelta;
     _constrain();
     notifyListeners();

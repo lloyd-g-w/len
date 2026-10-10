@@ -89,8 +89,12 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     try {
       if (!await blobs.has(sha)) {
         if (_missing.contains(sha) || !_fetching.add(sha)) return;
-        final ok = await fetch(sha);
-        _fetching.remove(sha);
+        final bool ok;
+        try {
+          ok = await fetch(sha);
+        } finally {
+          _fetching.remove(sha); // Also when it threw: [retryMissing] retries.
+        }
         if (!ok) _missing.add(sha);
         if (!_disposed) notifyListeners(); // Repaint re-requests the image.
         return;
