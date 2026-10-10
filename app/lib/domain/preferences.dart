@@ -21,6 +21,21 @@ enum PenButtonAction {
       values.firstWhere((v) => v.name == value, orElse: () => eraser);
 }
 
+/// Where the editor's tool palette sits.
+enum ToolbarPlacement {
+  /// Top on wide screens (≥ 960 px) when the toolbar fits there on one row;
+  /// otherwise at the bottom, within thumb reach.
+  auto,
+  top,
+  bottom,
+
+  /// Free-floating; dragged anywhere by its grip.
+  floating;
+
+  static ToolbarPlacement parse(String? value) =>
+      values.firstWhere((v) => v.name == value, orElse: () => auto);
+}
+
 /// How the library lays out notebooks.
 enum LibraryLayout {
   grid,

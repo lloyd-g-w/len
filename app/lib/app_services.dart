@@ -14,6 +14,7 @@ import 'data/page_repository.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
+import 'features/editor/tabs/open_notebooks.dart';
 import 'ink/selection/ink_clipboard.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
@@ -113,7 +114,11 @@ class AppServices {
   /// and notebooks).
   final InkClipboard clipboard = InkClipboard();
 
+  /// Notebooks open in editor tabs (with each tab's place in memory).
+  final OpenNotebooks openNotebooks = OpenNotebooks();
+
   void dispose() {
+    openNotebooks.dispose();
     clipboard.dispose();
     sync.dispose();
     if (strokeReader case final BackgroundStrokeReader reader) reader.close();

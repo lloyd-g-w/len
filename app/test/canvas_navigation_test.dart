@@ -237,6 +237,12 @@ void main() {
       expect(shown.contains(p), isTrue, reason: '$p in $shown');
     }
     expect(viewport.scale, lessThan(0.25));
+
+    // Home: back to the start (on a canvas; paged notebooks go to page 1).
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pumpAndSettle();
+    expect(viewport.scale, closeTo(1, 1e-9));
+    expect(viewport.offset.distance, lessThan(0.5));
     await _close(tester);
   });
 
@@ -275,7 +281,7 @@ void main() {
 
   testWidgets('canvas background: template and paper colour', (tester) async {
     final (services, nb) = await _pumpCanvas(tester);
-    await tester.tap(find.byTooltip('Canvas options'));
+    await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Background…'));
     await tester.pumpAndSettle();

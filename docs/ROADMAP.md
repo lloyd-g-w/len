@@ -20,8 +20,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ⬜ Text: font families, rich text within a box, change width/pen type of selected ink
 - ⬜ Images (insert, move, resize, crop later) — element model ready (`type: "image"` + blob hash)
 - ✅ Laser pointer
-- 🚧 Gestures: two-finger tap undo, three-finger tap redo; S Pen button action setting
-  (settings stored + exposed via `AppPreferences`; editor wiring pending)
+- ✅ Gestures: two-finger tap undo, three-finger tap redo (with a HUD; palm-safe), S Pen side
+  button action (eraser / hold to lasso / none), finger long press or right click → canvas menu
+  (paste here, select all on page, add text here, page commands)
 
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,
@@ -32,6 +33,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   go to page
 - ✅ Bookmarks (synced) with a bookmarks filter in the overview
 - ✅ Continuous vertical scrolling of pages (default) or one page at a time (swipe / arrows)
+- ✅ Page navigation: smooth scroll-to-page, whole-page fit + slide in single-page flow, "Add page"
+  after the last page, arrow / PageUp / Home / End keys, jump to page, compact indicator on phones
 - ✅ PDF import & annotate (new notebook or insert pages); export notebook / page to PDF (vector
   ink) and page to PNG; save dialog on desktop, share sheet on Android
 - ⬜ Planner / custom (image) templates
@@ -57,9 +60,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Theme mode (system/light/dark), accent colour
 - ✅ App shell: sidebar (tablet/desktop), bottom navigation (phone), context menus,
   keyboard shortcuts, redesigned settings
-- 🚧 Redesigned editor chrome: tool-descriptor toolbar with contextual quick controls (✅);
-  focus mode, customisable / dockable toolbar, favourite tools (⬜)
-- ⬜ Open-notebook tabs
+- ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
+  export, focus, more menu), tool-descriptor toolbar with contextual quick controls, toolbar
+  position (automatic / top / bottom / floating, draggable), focus mode (F11 / Ctrl+.) with
+  immersive system bars
+- ✅ Open-notebook tabs (up to 8, each keeps its page and zoom; tab strip on tablets/desktops,
+  switcher on phones; Ctrl+Tab, Ctrl+W)
+- ⬜ Customisable toolbar contents, favourite tools; search in the editor (handwriting recognition)
 
 ## Sync
 - ✅ Self-hosted LWW record sync

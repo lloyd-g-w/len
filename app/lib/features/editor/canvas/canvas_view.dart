@@ -23,8 +23,7 @@ class CanvasView extends StatelessWidget {
     required this.live,
     required this.paper,
     required this.paperColor,
-    this.topInset = 72,
-    this.bottomInset = 12,
+    this.insets = EdgeInsets.zero,
   });
 
   final SurfaceModel model;
@@ -34,11 +33,9 @@ class CanvasView extends StatelessWidget {
   final PaperStyle paper;
   final PaperColor paperColor;
 
-  /// Space kept free for the editor's top bar.
-  final double topInset;
-
-  /// Space kept free below the overlays (e.g. a bottom toolbar).
-  final double bottomInset;
+  /// Screen edges covered by the editor's chrome (top bar, toolbar, safe
+  /// areas); the overlays keep clear of them.
+  final EdgeInsets insets;
 
   @override
   Widget build(BuildContext context) {
@@ -56,8 +53,10 @@ class CanvasView extends StatelessWidget {
           ),
         ),
         SafeArea(
+          top: false,
+          bottom: false,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(Gaps.md, topInset, Gaps.md, bottomInset),
+            padding: insets + const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.md, Gaps.md),
             child: Stack(
               children: [
                 Align(
