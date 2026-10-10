@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../app_services.dart';
 import '../../../domain/surface_element.dart';
 import '../../../ink/images/image_crop_session.dart';
 import '../../../ink/render/laser_painter.dart';
@@ -10,6 +11,7 @@ import '../../../ink/tools/content_tools.dart';
 import '../../../ink/viewport.dart';
 import '../../../ui/floating_panel.dart';
 import '../images/image_crop_overlay.dart';
+import '../recognition/convert_to_text_dialog.dart';
 import 'selection_menu.dart';
 import 'text_box_editor.dart';
 
@@ -140,6 +142,7 @@ class _ContentLayerState extends State<ContentLayer> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final recognition = AppScope.of(context).recognition;
     final pasteAt = _pasteAt;
     return Stack(
       fit: StackFit.expand,
@@ -172,6 +175,12 @@ class _ContentLayerState extends State<ContentLayer> with SingleTickerProviderSt
           onEditText: _editText,
           onPaste: _content.pasteAtCentre,
           onCrop: _startCrop,
+          onConvertToText: () => convertSelectionToText(
+            context,
+            recognition: recognition,
+            selection: _content.selection,
+          ),
+          convertUnavailable: recognition.isSupported ? null : recognition.unsupportedReason,
         ),
         TextBoxEditor(session: _content.text, viewport: widget.viewport, tools: widget.tools),
         if (_crop case final crop?)

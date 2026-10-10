@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
@@ -15,7 +17,10 @@ import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'ink/images/element_images.dart';
+import 'ink/recognition/handwriting_recognizer.dart';
+import 'ink/recognition/recognition_service.dart';
 import 'ink/selection/ink_clipboard.dart';
+import 'platform/handwriting_recognizer.dart';
 import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
@@ -36,6 +41,7 @@ class AppServices {
     required this.elements,
     required this.sync,
     required this.search,
+    required this.recognition,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -46,6 +52,7 @@ class AppServices {
     Clock clock = const Clock(),
     BlobBackend? blobBackend,
     SyncApi Function(String url, String token)? syncApiFactory,
+    HandwritingRecognizer? recognizer,
   }) {
     final settings = SettingsRepository(database);
     final deviceId = settings.deviceId(clock);
@@ -72,6 +79,14 @@ class AppServices {
       blobs: blobs,
       elements: elements,
     );
+    final search = SearchService(database, readBlob: blobs.read);
+    final recognition = RecognitionService(
+      recognizer: recognizer ?? createHandwritingRecognizer(),
+      settings: settings,
+      database: database,
+    );
+    recognition.indexer.onIndexed = search.contentChanged;
+    unawaited(recognition.start());
     return AppServices._(
       database: database,
       settings: settings,
@@ -86,7 +101,8 @@ class AppServices {
       sync: syncApiFactory == null
           ? SyncController(engine: engine, settings: settings)
           : SyncController(engine: engine, settings: settings, apiFactory: syncApiFactory),
-      search: SearchService(database, readBlob: blobs.read),
+      search: search,
+      recognition: recognition,
     );
   }
 
@@ -109,6 +125,10 @@ class AppServices {
   /// Full-text search over titles, text boxes and PDF text.
   final SearchService search;
 
+  /// Handwriting recognition: language, model, background indexing for
+  /// search, "Convert to text".
+  final RecognitionService recognition;
+
   /// Copied strokes and text, shared by every editor (paste across pages
   /// and notebooks).
   final InkClipboard clipboard = InkClipboard();
@@ -123,6 +143,7 @@ class AppServices {
     images.dispose();
     openNotebooks.dispose();
     clipboard.dispose();
+    recognition.dispose();
     search.dispose();
     sync.dispose();
     closeStrokeReader(strokeReader);

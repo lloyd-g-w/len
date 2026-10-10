@@ -14,6 +14,7 @@ dependencies:
     # Vendored: Built-in Kotlin detector fix (see third_party/README.md).
     path: third_party/desktop_drop
   file_selector: ^1.1.0
+  google_mlkit_digital_ink_recognition: ^0.16.1
   flutter:
     sdk: flutter
   http: ^1.6.0

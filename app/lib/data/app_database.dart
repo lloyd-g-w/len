@@ -3,6 +3,7 @@ import 'package:sqlite3/common.dart';
 
 import '../platform/sqlite_connection.dart';
 
+import 'search/ink_text_schema.dart';
 import 'search/search_schema.dart';
 
 /// Owns the SQLite connection and applies schema migrations.
@@ -100,6 +101,9 @@ class AppDatabase {
   /// Schema version from which the search index migration runs.
   static int get versionBeforeSearchIndex => _migrations.indexOf(_createSearchIndex);
 
+  /// Schema version from which the handwriting (ink text) migration runs.
+  static int get versionBeforeInkText => _migrations.indexOf(_createInkText);
+
   /// Ordered list of schema migrations; index i migrates from version i.
   /// Never edit an existing entry — append a new one instead.
   static final List<void Function(CommonDatabase)> _migrations = [
@@ -111,7 +115,12 @@ class AppDatabase {
     _createElements,
     _addNotebookPaperColor,
     _createSearchIndex,
+    _createInkText,
   ];
+
+  /// Recognised handwriting (derived, never synced) and its search
+  /// documents. Idempotent (see [InkTextSchema.create]).
+  static void _createInkText(CommonDatabase db) => InkTextSchema.create(db);
 
   /// The local full-text search index (derived, never synced) and the
   /// triggers that keep it current. Idempotent (see [SearchSchema.create]).

@@ -51,6 +51,10 @@ class SearchService extends ChangeNotifier {
   /// Extracts text from any PDF pages not indexed yet, in the background.
   Future<void> indexPdfs({bool retryFailed = false}) => pdfText.schedule(retryFailed: retryFailed);
 
+  /// Tells listeners that indexed content changed in the background
+  /// (e.g. handwriting was recognised), so open results refresh.
+  void contentChanged() => notifyListeners();
+
   /// Asks the editor of [SearchJump.notebookId] to show [jump] (it may not
   /// be open yet).
   void requestJump(SearchJump jump) {

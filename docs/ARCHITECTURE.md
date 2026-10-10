@@ -513,6 +513,7 @@ the web:
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread (`StrokeRepository`)                   |
 | Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
 | Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
+| Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
@@ -577,7 +578,8 @@ below 31 bits, and use `float32`/`int32` in binary formats.
 ## Search (`data/search/`, `features/search/`)
 
 GoodNotes-style full-text search over notebook titles, folder names, text
-boxes and the text of imported PDF pages.
+boxes, the text of imported PDF pages and recognised handwriting (see
+*Handwriting recognition*).
 
 - **Index.** A local, derived table `search_docs(kind, ref_id, surface_id,
   body)` — one row per title, folder, text box or PDF page — with an FTS5
@@ -623,21 +625,66 @@ boxes and the text of imported PDF pages.
   highlighted on the exact glyph boxes, which `PdfGlyphCache` loads on
   demand per page (normalised to the page, merged per line).
 
-**Handwriting (plan, not implemented).** There is no clean offline
-recogniser for all of Android, Linux and Windows. Plan: a
-`HandwritingRecognizer` interface (`ink/recognition/`) taking stroke groups
-(clustered into lines by the existing chunk index) and returning text with
-bounding boxes; implementations: **Android** — Google ML Kit Digital Ink
-(on-device, per-language model download, `google_mlkit_digital_ink_recognition`);
-**Windows** — the WinRT ink analyser (`Windows.UI.Input.Inking.Analysis`)
-behind a small plugin; **Linux/web** — none at first (optionally the sync
-server could run a recogniser later). Results would go to a local derived
-table `ink_text(surface_id, text, rect, stroke_ids)`, recognised lazily in
-idle time for surfaces whose strokes changed (debounced, batched like PDF
-text) and indexed as another `search_docs` kind, highlighted by rect like
-text boxes. Devices without a recogniser would simply not find
-handwriting; syncing `ink_text` as a derived collection could share results
-with them later.
+## Handwriting recognition (`ink/recognition/`, `platform/handwriting_recognizer*`)
+
+GoodNotes-style handwriting search and lasso "Convert to text", on-device.
+
+- **Recogniser.** `HandwritingRecognizer` (strokes in writing order →
+  candidates, best first; per-language model download / delete) behind a
+  conditional export: **Android** uses Google ML Kit Digital Ink
+  (`google_mlkit_digital_ink_recognition`, already on AGP 9 / built-in Kotlin;
+  `MlKitRecognizer` synthesises point timestamps from the stroke's start time
+  and passes a writing area and pre-context); **Linux, Windows and web** get
+  `UnavailableRecognizer` (WinRT ink analysis on Windows is a possible later
+  implementation). Models are BCP 47 tags (`RecognitionLanguages`); the
+  language follows the device locale unless chosen in the settings.
+- **`RecognitionService`** (in `AppServices`) holds the language, the
+  model's state (checks it at start; with indexing on, a missing model is
+  downloaded over Wi-Fi; the settings and "Convert to text" download on
+  demand with a progress bar — ML Kit reports no byte progress) and the
+  `HandwritingIndexer`. Settings: language, "Search handwriting" (off
+  forgets recognised text, on re-recognises everything), model download /
+  delete.
+- **Clustering** (`InkClustering`): a surface's strokes (highlighter
+  excluded) become lines and words. The unit is the median stroke height;
+  a stroke joins a line whose letter band it overlaps vertically (small
+  strokes — dots, accents, commas — only need their centre near it) within
+  3 units horizontally, preferring the previous stroke's line when written
+  within 1.5 s; lines on the same band are merged; words split at gaps wider
+  than 0.6 × the line's letter height. A line's key is a hash of its stroke
+  ids.
+- **Index.** Local, derived and **not synced** (results depend on the
+  device's model; strokes already sync, so every device can derive them —
+  syncing `ink_text` would let devices without a recogniser search, see
+  limitations): `ink_text(surface_id, stroke_key, language, text, rect,
+  words)` — one row per line, `words` = per-word boxes when the recognised
+  words match the word clusters — and `ink_text_queue(surface_id, version)`,
+  filled by **triggers on `strokes`** (insert, delete, and updates of
+  `deleted` / `points` / `surface_id`), so local edits, undo, duplicates and
+  sync all queue their surface without any call. Triggers mirror `ink_text`
+  into `search_docs` as kind `handwriting` (ref = row id), searched and
+  ranked like text boxes, with page numbers.
+- **Background work.** `HandwritingIndexer` listens to the database's commit
+  stream (only on platforms with a recogniser and the model present), waits
+  until no commit came for 3 s (the user stopped writing), then drains the
+  queue oldest first, one surface and one line at a time (pausing again if
+  edits arrive). Lines whose key is already stored keep their text, so
+  writing a word re-recognises one line; a surface changed while it was
+  being recognised stays queued (the queue row is only removed at the
+  version that was read). Failures (model missing) leave the queue for the
+  next change. The migration queues every surface with ink.
+- **Highlights.** The editor search (`EditorSearchController`) turns a
+  handwriting hit into one match per occurrence, highlighted on the matched
+  words' boxes (`InkMatchRects`) or the whole line; the library lists them
+  with a pen icon.
+- **Convert to text** (`features/editor/recognition/`): the lasso menu's
+  "Convert to text" (disabled with the reason as tooltip where unsupported)
+  makes sure the model is present, recognises the selected ink line by line
+  (`ConvertToText.recognize`), and shows the reading — editable, with
+  alternatives for a single line — to **replace** the strokes with a text
+  box (top-left of the ink, its most common colour, font size 1.25 × the
+  letter height, at least as wide as the ink; one `InkEdit` via
+  `SelectionController.replaceStrokesWith`) or **copy** it.
 
 ## Preferences
 
@@ -705,7 +752,13 @@ records with last-write-wins. Open screens subscribe to
 - Image bitmaps are whole-image decodes per mip level (no tiling); a 4096 px
   image is the sharpest it gets. Crop mode shows the image on its own (ink
   over it is hidden while cropping).
-- Search: handwriting is not searchable yet (see *Search*); PDF text is only
+- Handwriting: recognised only on Android (Linux, Windows and web find no
+  handwriting; recognised text is not synced, so they cannot borrow it
+  either); a changed surface is re-clustered from all its strokes (cheap per
+  page, heavier on huge canvases); a phrase is found only within one line;
+  shapes drawn with the pen are recognised like writing (usually as
+  nonsense); no pause while on battery.
+- Search: PDF text is only
   extracted for PDFs present on the device (fetched when a page is viewed);
   glyph highlights skip rotated PDF pages (the page is still shown); FTS5's
   `unicode61` tokenizer does not segment CJK text (prefix matches only from

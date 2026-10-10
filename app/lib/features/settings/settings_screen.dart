@@ -5,10 +5,11 @@ import '../../ui/app_theme.dart';
 import 'about_settings.dart';
 import 'appearance_settings.dart';
 import 'editor_settings.dart';
+import 'handwriting_settings.dart';
 import 'input_settings.dart';
 import 'sync_settings.dart';
 
-/// Settings: appearance, stylus, gestures, editor, sync and about, as grouped cards in a
+/// Settings: appearance, stylus, gestures, editor, handwriting, sync and about, as grouped cards in a
 /// readable column.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -45,6 +46,7 @@ class SettingsScreen extends StatelessWidget {
                     AppearanceSettings(preferences: preferences),
                     InputSettings(preferences: preferences),
                     EditorSettings(preferences: preferences),
+                    HandwritingSettings(recognition: AppScope.of(context).recognition),
                     const SyncSettings(),
                     const AboutSettings(),
                   ],
