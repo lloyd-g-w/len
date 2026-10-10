@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/stroke.dart';
 import '../../../ink/pen/pen_config.dart';
 import '../../../ink/render/stroke_renderer.dart';
+import '../../../ui/app_theme.dart';
 
 /// Draws a sample S-curve with real ink, to preview a pen's look and feel.
 class StrokePreview extends StatelessWidget {
@@ -20,7 +21,7 @@ class StrokePreview extends StatelessWidget {
   final InkTool tool;
   final PenConfig config;
 
-  /// Overrides the config's current colour / width.
+  /// Overrides the config's selected colour / width.
   final int? color;
   final double? width;
   final double height;
@@ -34,8 +35,8 @@ class StrokePreview extends StatelessWidget {
         painter: _PreviewPainter(
           tool: tool,
           config: config,
-          color: color ?? config.current.color,
-          width: width ?? config.current.width,
+          color: color ?? config.color,
+          width: width ?? config.width,
         ),
       ),
     );
@@ -88,4 +89,33 @@ class _PreviewPainter extends CustomPainter {
   @override
   bool shouldRepaint(_PreviewPainter old) =>
       old.tool != tool || old.config != config || old.color != color || old.width != width;
+}
+
+/// A [StrokePreview] on a paper-white card, as the ink will look on a page.
+class PreviewCard extends StatelessWidget {
+  const PreviewCard({
+    super.key,
+    required this.tool,
+    required this.config,
+    this.width,
+    this.height = 56,
+  });
+
+  final InkTool tool;
+  final PenConfig config;
+  final double? width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
+      decoration: BoxDecoration(
+        color: Palette.paper,
+        borderRadius: BorderRadius.circular(Radii.control),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: StrokePreview(tool: tool, config: config, width: width, height: height),
+    );
+  }
 }

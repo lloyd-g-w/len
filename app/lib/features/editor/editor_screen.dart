@@ -15,6 +15,7 @@ import '../../ink/tool_settings.dart';
 import '../../ink/tools/content_tools.dart';
 import '../../ink/viewport.dart';
 import '../../sync/sync_engine.dart';
+import '../../ui/measure_size.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_background_cache.dart';
 import '../documents/template_picker.dart';
@@ -168,6 +169,7 @@ class _EditorScreenState extends State<EditorScreen> {
       scheduleMicrotask(() => unawaited(sync.syncNow()));
     }
     _focus.dispose();
+    _bottomToolbarHeight.dispose();
     _canvas?.dispose();
     _canvasNav?.dispose();
     _canvasViewport?.dispose();
@@ -256,6 +258,15 @@ class _EditorScreenState extends State<EditorScreen> {
     setState(() => _notebook = _services.notebooks.update(current.copyWith(title: title)));
   }
 
+  static const _digitKeys = [
+    LogicalKeyboardKey.digit1,
+    LogicalKeyboardKey.digit2,
+    LogicalKeyboardKey.digit3,
+    LogicalKeyboardKey.digit4,
+    LogicalKeyboardKey.digit5,
+    LogicalKeyboardKey.digit6,
+  ];
+
   /// Wraps a single-key shortcut so it doesn't fire while text is edited.
   VoidCallback _unlessTyping(VoidCallback action) => () {
     // The focus node belongs to a Focus widget inside the EditableText.
@@ -282,6 +293,16 @@ class _EditorScreenState extends State<EditorScreen> {
     ),
     const SingleActivator(LogicalKeyboardKey.keyE): _unlessTyping(
       () => _tools.tool = EditorTool.eraser,
+    ),
+    // 1–6: quick colours of the pen / highlighter; [ and ]: thinner / thicker.
+    // (Shift+1 and 0 belong to the canvas shortcuts.)
+    for (final (i, key) in _digitKeys.indexed)
+      SingleActivator(key): _unlessTyping(() => _tools.selectColor(i)),
+    const SingleActivator(LogicalKeyboardKey.bracketLeft): _unlessTyping(
+      () => _tools.stepWidth(-1),
+    ),
+    const SingleActivator(LogicalKeyboardKey.bracketRight): _unlessTyping(
+      () => _tools.stepWidth(1),
     ),
     ...contentShortcuts(_content, _tools, _unlessTyping),
     if (_canvasNav case final nav?) ...canvasShortcuts(nav, _unlessTyping),
@@ -324,9 +345,24 @@ class _EditorScreenState extends State<EditorScreen> {
     );
   }
 
-  /// From this width the toolbar sits in the top row; below it, at the
-  /// bottom (the canvas overlays keep clear of it).
+  /// From this width the toolbar may sit in the top row (if it fits there on
+  /// one row, see [_toolbarOnTop]); below it, at the bottom, where the canvas
+  /// overlays keep clear of it.
   static const double _wideLayout = 960;
+
+  /// Room the top row needs besides the toolbar: the outer padding, the
+  /// title pill at its narrowest, the undo pill (undo, redo, menu) and gaps.
+  static const double _minTitleWidth = 160;
+  static const double _undoPillWidth = 3 * 48 + 12;
+  static const double _topRowReserve = 24 + _minTitleWidth + _undoPillWidth + 24;
+
+  /// Whether the toolbar sits in the top row: on wide screens, when it fits
+  /// there on one row (whichever tool is active).
+  bool _toolbarOnTop(double width) =>
+      width >= _wideLayout && EditorToolbar.oneRowWidth(_tools) + _topRowReserve <= width;
+
+  /// Height of the toolbar while it sits at the bottom (0 while on top).
+  final ValueNotifier<double> _bottomToolbarHeight = ValueNotifier(0);
 
   Widget _buildSurface() {
     final doc = _doc;
@@ -339,16 +375,17 @@ class _EditorScreenState extends State<EditorScreen> {
         fingersNavigate: () => _tools.stylusOnly ?? false,
       );
     }
-    return LayoutBuilder(
-      builder: (context, constraints) => CanvasView(
+    return ValueListenableBuilder(
+      valueListenable: _bottomToolbarHeight,
+      builder: (context, toolbarHeight, _) => CanvasView(
         model: _canvas!,
         navigation: _canvasNav!,
         input: _input,
         live: _live,
         paper: _notebook.paper,
         paperColor: _notebook.paperColor,
-        // Narrow screens have the toolbar at the bottom (see _buildChrome).
-        bottomInset: constraints.maxWidth >= _wideLayout ? 12 : 84,
+        // Keep clear of a toolbar at the bottom (see _buildChrome).
+        bottomInset: toolbarHeight > 0 ? toolbarHeight + 24 : 12,
       ),
     );
   }
@@ -382,40 +419,64 @@ class _EditorScreenState extends State<EditorScreen> {
       target: _undo,
       trailing: _doc == null ? _canvasMenu() : _documentMenu(),
     );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Wide screens: one top row. Narrow screens: tools move to the bottom
-        // where thumbs reach them.
-        // (The toolbar with the content tools needs ~600 px between the
-        // title and undo pills.)
-        final wide = constraints.maxWidth >= _wideLayout;
-        return Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
+    return ListenableBuilder(
+      listenable: _tools, // The toolbar's width depends on its slots.
+      builder: (context, _) => LayoutBuilder(
+        builder: (context, constraints) => _layoutChrome(constraints, title, toolbar, undo),
+      ),
+    );
+  }
+
+  Widget _layoutChrome(BoxConstraints constraints, Widget title, Widget toolbar, Widget undo) {
+    // Wide screens: one top row, the title giving way to the toolbar.
+    // Narrower ones: tools move to the bottom where thumbs reach them.
+    final width = constraints.maxWidth;
+    final wide = _toolbarOnTop(width);
+    final titleWidth = wide
+        ? (width - _topRowReserve + _minTitleWidth - EditorToolbar.oneRowWidth(_tools)).clamp(
+            _minTitleWidth,
+            320.0,
+          )
+        : 0.0;
+    if (wide && _bottomToolbarHeight.value != 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _bottomToolbarHeight.value = 0;
+      });
+    }
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (wide) ...[
-                    ConstrainedBox(constraints: const BoxConstraints(maxWidth: 320), child: title),
-                    Expanded(child: Center(child: toolbar)),
-                  ] else ...[
-                    // A long title shrinks rather than overflowing on phones.
-                    Expanded(
-                      child: Align(alignment: Alignment.centerLeft, child: title),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  undo,
-                ],
-              ),
-              const Spacer(),
-              if (!wide) toolbar,
-              if (_doc != null) ...[const SizedBox(height: 10), _pageNavigator()],
+              if (wide) ...[
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: titleWidth),
+                  child: title,
+                ),
+                Expanded(child: Center(child: toolbar)),
+              ] else ...[
+                // A long title shrinks rather than overflowing on phones.
+                Expanded(
+                  child: Align(alignment: Alignment.centerLeft, child: title),
+                ),
+                const SizedBox(width: 12),
+              ],
+              undo,
             ],
           ),
-        );
-      },
+          const Spacer(),
+          if (!wide)
+            MeasureSize(
+              onChange: (size) {
+                if (mounted) _bottomToolbarHeight.value = size.height;
+              },
+              child: toolbar,
+            ),
+          if (_doc != null) ...[const SizedBox(height: 10), _pageNavigator()],
+        ],
+      ),
     );
   }
 

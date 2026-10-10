@@ -42,12 +42,12 @@ class ShapeTool implements PointerTool {
     _start = p.world;
     _startScreen = p.screen;
     _dragged = false;
-    final ink = tools.penType;
+    const ink = InkTool.ballpoint;
     final config = tools.configOf(ink);
     live.begin(
       tool: ink,
-      color: config.current.color,
-      width: config.current.width,
+      color: config.color,
+      width: config.width,
       style: ShapeBuilder.styleFor(tools.styleFor(ink)),
     );
   }
