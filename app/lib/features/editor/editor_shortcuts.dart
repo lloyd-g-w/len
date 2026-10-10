@@ -37,6 +37,7 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
   VoidCallback? nextTab,
   VoidCallback? previousTab,
   VoidCallback? closeTab,
+  VoidCallback? paste,
 }) {
   final undo = session.undo;
   final tools = session.tools;
@@ -65,7 +66,7 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
       SingleActivator(key): unlessTyping(() => tools.selectColor(i)),
     const SingleActivator(LogicalKeyboardKey.bracketLeft): unlessTyping(() => tools.stepWidth(-1)),
     const SingleActivator(LogicalKeyboardKey.bracketRight): unlessTyping(() => tools.stepWidth(1)),
-    ...contentShortcuts(session.content, tools, unlessTyping),
+    ...contentShortcuts(session.content, tools, unlessTyping, paste: paste),
     if (session.canvasNav case final nav?) ...canvasShortcuts(nav, unlessTyping),
     if (session.doc case final doc?) ...{
       for (final key in [LogicalKeyboardKey.pageDown, LogicalKeyboardKey.arrowRight])

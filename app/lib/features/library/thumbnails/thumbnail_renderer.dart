@@ -7,14 +7,15 @@ import '../../../data/element_repository.dart';
 import '../../../data/page_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../domain/chunk_grid.dart';
+import '../../../domain/image_data.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
-import '../../../ink/elements/element_renderer.dart';
+import '../../../ink/images/element_images.dart';
+import '../../../ink/render/content_painter.dart';
 import '../../../ink/render/paper_painter.dart';
-import '../../../ink/render/stroke_renderer.dart';
 import '../../../ink/viewport.dart';
 
 /// The surface a notebook preview shows, with its paper and, for paged
@@ -25,13 +26,22 @@ typedef PreviewSource = ({String surfaceId, PaperStyle paper, NotebookPage? page
 /// stroke and element renderers, so previews look exactly like the real
 /// thing.
 class ThumbnailRenderer {
-  ThumbnailRenderer({required this.pages, required this.strokes, this.elements});
+  ThumbnailRenderer({required this.pages, required this.strokes, this.elements, this.images});
 
   final PageRepository pages;
   final StrokeRepository strokes;
 
-  /// Text boxes are drawn too when given.
+  /// Text boxes and images are drawn too when given.
   final ElementRepository? elements;
+
+  /// Decoded bitmaps for image elements (placeholders without).
+  final ElementImages? images;
+
+  /// Image blobs the last [render] drew a placeholder for because they
+  /// were still decoding; the preview should be rendered again once they
+  /// are ready ([ElementImages.changes]).
+  Set<String> get pendingImages => _pending;
+  Set<String> _pending = const {};
 
   /// Width / height of every preview (close to A4 portrait).
   static const double aspect = 0.72;
@@ -54,6 +64,7 @@ class ThumbnailRenderer {
   /// nothing drawn yet (the library then shows the plain cover). Pass the
   /// [source] when already known, to skip looking it up again.
   ui.Image? render(Notebook notebook, {required int width, PreviewSource? source}) {
+    _pending = const {};
     final height = (width / aspect).round();
     final size = Size(width.toDouble(), height.toDouble());
     if (notebook.kind == NotebookKind.canvas) return _renderCanvas(notebook, size);
@@ -119,6 +130,20 @@ class ThumbnailRenderer {
     return repo.loadChunks(surfaceId, keys)..sort(SurfaceElement.paintOrder);
   }
 
+  Set<String> _stillDecoding(List<SurfaceElement> items, double pixelScale) {
+    final images = this.images;
+    if (images == null) return const {};
+    return {
+      for (final e in items)
+        if (e.knownType == ElementType.image)
+          if (ImageData.fromJson(e.data) case final data
+              when data.blob.isNotEmpty &&
+                  !images.isMissing(data.blob) &&
+                  images.imageFor(data, e.rect.width * pixelScale / data.crop.width) == null)
+            data.blob,
+    };
+  }
+
   /// [content] padded and widened/heightened to [aspect], never smaller
   /// than a readable minimum (a lone dot should not fill the preview).
   static Rect _frame(Rect content, double aspect) {
@@ -159,13 +184,10 @@ class ThumbnailRenderer {
       ..translate(viewport.offset.dx, viewport.offset.dy)
       ..scale(viewport.scale);
     if (page != null) canvas.clipRect(page);
-    for (final stroke in ink) {
-      StrokeRenderer.draw(canvas, stroke);
-    }
-    for (final element in items) {
-      ElementRenderer.draw(canvas, element);
-    }
+    final pixelScale = viewport.scale;
+    ContentPainter.paint(canvas, ink, items, images: images, pixelScale: pixelScale);
     canvas.restore();
+    _pending = _stillDecoding(items, pixelScale);
     viewport.dispose();
     final picture = recorder.endRecording();
     try {

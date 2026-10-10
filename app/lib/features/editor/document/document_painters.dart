@@ -131,6 +131,7 @@ class DocumentInkPainter extends CustomPainter {
         ..scale(viewport.scale)
         ..translate(frame.left, frame.top)
         ..clipRect(Offset.zero & frame.size);
+      surface.cache.setScale(viewport.scale); // Image resolution.
       for (final key in chunks) {
         canvas.drawPicture(surface.cache.pictureFor(key));
       }

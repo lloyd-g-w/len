@@ -56,6 +56,7 @@ class CommittedInkPainter extends CustomPainter {
       ..translate(viewport.offset.dx, viewport.offset.dy)
       ..scale(viewport.scale);
     if (clip != null) canvas.clipRect(clip!);
+    cache.setScale(viewport.scale); // Image resolution.
     final level = rasters == null
         ? null
         : ChunkRasterCache.levelFor(ChunkGrid.size * viewport.scale * devicePixelRatio);

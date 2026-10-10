@@ -20,6 +20,7 @@ import 'document/document_commands.dart';
 import 'document/document_controller.dart';
 import 'document/document_layout.dart';
 import 'document/undo_target.dart';
+import 'images/editor_images.dart';
 import 'tabs/open_notebooks.dart';
 
 /// The engine side of one open editor: tool settings, input routing, the
@@ -39,6 +40,7 @@ class EditorSession {
         surfaceId: current.id,
         repository: services.strokes,
         elementRepository: services.elements,
+        images: services.images,
         reader: services.strokeReader,
       );
       final viewport = canvasViewport = ViewportController();
@@ -87,6 +89,14 @@ class EditorSession {
   late final ContentTools content;
   late final UndoTarget undo;
 
+  /// Inserting images (picker, clipboard, drag and drop, camera).
+  late final EditorImages images = EditorImages(
+    services: services,
+    content: content,
+    tools: tools,
+    activateAt: doc?.activateAt,
+  );
+
   // Infinite canvas: one surface.
   SurfaceModel? canvas;
   ViewportController? canvasViewport;
@@ -126,6 +136,7 @@ class EditorSession {
       pages: pages,
       strokes: services.strokes,
       elements: services.elements,
+      images: services.images,
       flow: PageFlow.parse(services.settings.pageFlow),
       initialPage: view?.page ?? 0,
       initialView: view,
@@ -170,6 +181,7 @@ class EditorSession {
   void applyRemoteChanges(RemoteChanges changes) {
     final doc = this.doc;
     final notebookId = notebook.id;
+    services.images.retryMissing(); // Image blobs may be on the server now.
     if (doc != null && changes.pagesOfNotebooks.contains(notebookId)) {
       if (services.pages.pagesOf(notebookId).isNotEmpty) commands!.reload();
       backgrounds?.retryMissing(); // New pages may bring new PDFs.
@@ -195,6 +207,7 @@ class EditorSession {
   /// Ends the session: commits a text box still being edited and releases
   /// every surface.
   void dispose() {
+    images.dispose();
     content.dispose();
     gestures.dispose();
     canvasViewport?.removeListener(_frameCanvas);
