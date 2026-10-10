@@ -112,6 +112,7 @@ class StrokeRepository extends SyncableTable {
               'width': row['width'],
               'points': base64Encode(row['points'] as Uint8List),
               'createdAt': row['created_at'],
+              if (row['style'] case final String style) 'style': _decodeStyle(style),
             },
     );
   }
@@ -154,11 +155,11 @@ class StrokeRepository extends SyncableTable {
     db.execute(
       '''
       INSERT INTO strokes (id, surface_id, tool, color, width, points,
-                           created_at, updated_at, device_id, deleted, dirty)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                           created_at, updated_at, device_id, deleted, dirty, style)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         surface_id = excluded.surface_id, tool = excluded.tool,
-        color = excluded.color, width = excluded.width,
+        color = excluded.color, width = excluded.width, style = excluded.style,
         points = excluded.points, created_at = excluded.created_at,
         updated_at = excluded.updated_at, device_id = excluded.device_id,
         deleted = 0, dirty = excluded.dirty''',
@@ -173,6 +174,7 @@ class StrokeRepository extends SyncableTable {
         updatedAt,
         deviceId,
         dirty ? 1 : 0,
+        jsonEncode(s.style.toJson()),
       ],
     );
     _reindex(s);
@@ -218,14 +220,20 @@ class StrokeRepository extends SyncableTable {
     try {
       final points = StrokeCodec.decode(row['points'] as Uint8List);
       if (points.isEmpty) return null;
+      final tool = InkTool.parse(row['tool'] as String);
+      final style = row['style'];
       return Stroke(
         id: row['id'] as String,
         surfaceId: row['surface_id'] as String,
-        tool: InkTool.parse(row['tool'] as String),
+        tool: tool,
         color: row['color'] as int,
         width: (row['width'] as num).toDouble(),
         points: points,
         createdAt: row['created_at'] as int,
+        style: StrokeStyle.fromJson(
+          style is String ? _decodeStyle(style) : null,
+          fallback: StrokeStyle.defaultsFor(tool),
+        ),
       );
     } on FormatException {
       return null; // Corrupt row: skip rather than break the whole surface.
@@ -251,14 +259,26 @@ class StrokeRepository extends SyncableTable {
     if (decoded.isEmpty || !width.isFinite || width <= 0) {
       throw FormatException('Invalid stroke geometry $id');
     }
+    final inkTool = InkTool.parse(tool);
     return Stroke(
       id: id,
       surfaceId: surfaceId,
-      tool: InkTool.parse(tool),
+      tool: inkTool,
       color: color,
       width: width.toDouble(),
       points: decoded,
       createdAt: createdAt,
+      // Older clients send no style; newer ones may add unknown fields.
+      style: StrokeStyle.fromJson(data['style'], fallback: StrokeStyle.defaultsFor(inkTool)),
     );
+  }
+
+  /// Decodes a stored style column; malformed JSON yields null (defaults).
+  static Object? _decodeStyle(String json) {
+    try {
+      return jsonDecode(json);
+    } on FormatException {
+      return null;
+    }
   }
 }

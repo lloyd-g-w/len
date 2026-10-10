@@ -62,7 +62,16 @@ class AppDatabase {
   static final List<void Function(Database)> _migrations = [
     _createInitialSchema,
     _indexDirtyStrokesById,
+    _addStrokeStyle,
   ];
+
+  /// Per-stroke rendering style (JSON, see `StrokeStyle`); NULL for strokes
+  /// drawn before styles existed. Idempotent, so it is safe however
+  /// migrations from parallel branches end up ordered.
+  static void _addStrokeStyle(Database db) {
+    final columns = db.select('PRAGMA table_info(strokes)').map((r) => r['name']);
+    if (!columns.contains('style')) db.execute('ALTER TABLE strokes ADD COLUMN style TEXT');
+  }
 
   /// Push pages through dirty rows in id order (keyset pagination); index
   /// exactly that, so a sync with nothing to push never scans all strokes.

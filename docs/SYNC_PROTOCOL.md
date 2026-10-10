@@ -91,4 +91,4 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 |-------------|----------------------------------------------------------------------------------------|
 | `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt}`                         |
 | `pages`     | `{notebookId, sortKey, width, height, paper}`                                            |
-| `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt}` |
+| `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter`; unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
