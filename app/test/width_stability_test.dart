@@ -9,6 +9,12 @@ import 'package:len/ink/render/stroke_outline.dart';
 /// A pen with high pressure sensitivity (where flicker is most visible).
 const spec = OutlineSpec(width: 3, thinning: 0.8, streamline: 0.4);
 
+/// The same pen with the stabiliser at maximum (heavy noise is its job).
+const stabilised = OutlineSpec(width: 3, thinning: 0.8, streamline: 1);
+
+/// The same pen with no stabiliser: raw pressure response.
+const raw = OutlineSpec(width: 3, thinning: 0.8, streamline: 0);
+
 /// Outline thickness at x (vertical extent of the filled path around
 /// y = 50), found precisely by bisection.
 double thicknessAt(Path path, double x) {
@@ -40,8 +46,8 @@ List<StrokePoint> noisyLine({int seed = 3, double length = 200}) {
 }
 
 void main() {
-  test('noisy pressure does not make the width flicker along a stroke', () {
-    final path = StrokeOutline.build(noisyLine(), spec);
+  test('with the stabiliser up, noisy pressure does not make the width flicker', () {
+    final path = StrokeOutline.build(noisyLine(), stabilised);
     // Flicker is width changing over short distances; slow swells that
     // follow the hand's pressure are fine.
     final widths = [for (var x = 20.0; x <= 180; x += 3) thicknessAt(path, x)];
@@ -137,5 +143,15 @@ void main() {
       }
       expect(worst, lessThan(0.2), reason: 'centre line within 0.2 units of the pen');
     });
+  });
+
+  test('at stabiliser 0 a pressure change shows within about one width', () {
+    final points = [for (var x = 0.0; x <= 120; x += 1) StrokePoint(x, 50, x < 60 ? 0.2 : 0.9)];
+    final path = StrokeOutline.build(points, raw);
+    final light = thicknessAt(path, 40), heavy = thicknessAt(path, 100);
+    expect(heavy / light, greaterThan(2), reason: 'pressure clearly changes the width');
+    // Most of the change has happened 1.5 widths after the step.
+    final after = thicknessAt(path, 60 + 4.5);
+    expect((after - light) / (heavy - light), greaterThan(0.6));
   });
 }
