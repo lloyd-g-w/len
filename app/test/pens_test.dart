@@ -154,6 +154,40 @@ void main() {
       expect(ToolSettings(store: store).penType, InkTool.ballpoint);
     });
 
+    test('out-of-range stored values are clamped; favourites deduplicated', () {
+      final db = AppDatabase.inMemory();
+      addTearDown(db.close);
+      final profile = PenProfile.of(InkTool.ballpoint);
+      final store = SettingsRepository(db)
+        ..toolPrefs = jsonEncode({
+          'pens': {
+            'ballpoint': {
+              'presets': [
+                {'c': 0x00FF0000, 'w': 1e6},
+                {'c': 0xFF00FF00, 'w': 0.001},
+              ],
+              'opacity': 0,
+              'selected': 7,
+            },
+          },
+        })
+        ..favoriteColors = [1, 2, 1, for (var i = 0; i < 40; i++) 100 + i];
+      final t = ToolSettings(store: store);
+      final config = t.configOf(InkTool.ballpoint);
+      expect(config.presets[0], PenPreset(color: 0xFFFF0000, width: profile.maxWidth));
+      expect(config.presets[1].width, profile.minWidth);
+      expect(config.opacity, PenConfig.minOpacity);
+      expect(config.selected, 0);
+      expect(t.favorites.take(3), [1, 2, 100]);
+      expect(t.favorites, hasLength(ToolSettings.maxFavorites));
+
+      t.selectPreset(5); // Ignored rather than breaking `current`.
+      expect(t.activeConfig.current, config.current);
+      t.setColor(0x00123456);
+      expect(t.activeConfig.opacity, PenConfig.minOpacity);
+      t.dispose();
+    });
+
     test('presets: selecting leaves the eraser; colour edits the selected one', () {
       final t = ToolSettings()..tool = EditorTool.eraser;
       t.selectPreset(2);
