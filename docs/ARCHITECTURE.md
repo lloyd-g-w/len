@@ -366,6 +366,70 @@ All writes go straight to SQLite; in-memory state is a cache.
   changed a preview), keeps an LRU of images and is invalidated when an editor closes or sync brings
   strokes. Covers without ink show the coloured, patterned cover.
 
+## Search (`data/search/`, `features/search/`)
+
+GoodNotes-style full-text search over notebook titles, folder names, text
+boxes and the text of imported PDF pages.
+
+- **Index.** A local, derived table `search_docs(kind, ref_id, surface_id,
+  body)` — one row per title, folder, text box or PDF page — with an FTS5
+  index `search_fts` over it (external content, `unicode61
+  remove_diacritics 2`, prefix indexes). It is never synced: it is created
+  and filled from the synced tables by an (idempotent) migration and kept
+  current by **SQLite triggers** on `notebooks`, `folders`, `elements` and
+  `pages`, so local edits, duplicates and records applied by sync are
+  indexed by the very write that changes them, whatever code path made it.
+  The triggers fire only when an indexed column changes (moving a text box
+  costs nothing). `SearchIndex.rebuild()` recreates it from scratch. Builds
+  without FTS5 (checked at open; the bundled native and web sqlite3 builds
+  have it) keep `search_docs` and fall back to `LIKE`.
+- **PDF text.** `PdfTextIndexer` extracts page text with PDFium (`pdfrx`
+  `loadText`, via the `PdfTextSource` interface so tests fake it) into
+  `pdf_text(blob, page, text)`, keyed by the content-addressed blob, so a
+  PDF shown in several notebooks is read once. It runs in the background —
+  one PDF at a time, 8 pages per transaction, PDFium on its worker — after
+  an import, before a search (lazily covering PDFs imported before search
+  existed or brought by sync), and only for blobs on this device; an
+  interrupted run resumes. Page rows pick the text up through their trigger.
+- **Queries.** `SearchQuery` splits the input into words; each must occur
+  as a word prefix (`"term"*`), ignoring case and accents. The same rules
+  in Dart (`SearchText.fold` keeps offsets) find highlight ranges and build
+  snippets. Hits carry the notebook, surface and page number (counted in
+  SQL from the page order); trashed/deleted notebooks and deleted pages are
+  left out. Library results rank by bm25 (title matches first); in-notebook
+  results are in reading order.
+- **Library.** While searching the library section, `LibrarySearchResults`
+  (a sliver below the title matches) lists content matches grouped by
+  notebook, with page chips and highlighted snippets. Tapping one files a
+  `SearchJump` with `SearchService` and opens the notebook the usual way;
+  the editor's search takes the jump, fills in the query and reveals and
+  highlights the match.
+- **Editor (Ctrl+F or the search button).** `EditorSearchController` holds
+  the query, matches (one per text box, one per occurrence in PDF text) and
+  the current one; Enter/F3 and Shift+Enter/Shift+F3 move, Esc closes.
+  It reaches the editor only through `EditorSearchHost` (document: page
+  frames + `goToPage` + pan; canvas: viewport pan, zooming out if needed),
+  so the editor hook is a controller, a shortcut, a button and one
+  overlay (`EditorSearchLayer`: highlights + bar). PDF matches are
+  highlighted on the exact glyph boxes, which `PdfGlyphCache` loads on
+  demand per page (normalised to the page, merged per line).
+
+**Handwriting (plan, not implemented).** There is no clean offline
+recogniser for all of Android, Linux and Windows. Plan: a
+`HandwritingRecognizer` interface (`ink/recognition/`) taking stroke groups
+(clustered into lines by the existing chunk index) and returning text with
+bounding boxes; implementations: **Android** — Google ML Kit Digital Ink
+(on-device, per-language model download, `google_mlkit_digital_ink_recognition`);
+**Windows** — the WinRT ink analyser (`Windows.UI.Input.Inking.Analysis`)
+behind a small plugin; **Linux/web** — none at first (optionally the sync
+server could run a recogniser later). Results would go to a local derived
+table `ink_text(surface_id, text, rect, stroke_ids)`, recognised lazily in
+idle time for surfaces whose strokes changed (debounced, batched like PDF
+text) and indexed as another `search_docs` kind, highlighted by rect like
+text boxes. Devices without a recogniser would simply not find
+handwriting; syncing `ink_text` as a derived collection could share results
+with them later.
+
 ## Preferences
 
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
@@ -414,5 +478,11 @@ records with last-write-wins. Open screens subscribe to
   zoom on a PDF page is capped at ~2896 px page width; exported PDFs embed
   imported pages as images rather than copying their vector content.
 - Blobs are never garbage-collected (neither on devices nor on the server).
+- Search: handwriting is not searchable yet (see *Search*); PDF text is only
+  extracted for PDFs present on the device (fetched when a page is viewed);
+  glyph highlights skip rotated PDF pages (the page is still shown); FTS5's
+  `unicode61` tokenizer does not segment CJK text (prefix matches only from
+  the start of a run); the editor's matches refresh on query changes and
+  when the bar reopens, not live while typing into a text box.
 - Page reorders made concurrently on two devices converge (LWW per page) but
   may interleave differently than either device intended.

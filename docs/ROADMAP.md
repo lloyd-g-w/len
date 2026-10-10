@@ -50,6 +50,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 ## Library
 - ✅ Folders (nested, synced), move to folder (menu + drag and drop), breadcrumbs, folder tree
 - ✅ Search (across folders), sort (edited / created / name), favourites, grid/list views
+- ✅ Full-text search (local FTS5 index, kept current by triggers incl. sync): titles, folders,
+  text boxes and imported PDF text; library results grouped by notebook with page numbers and
+  highlighted snippets (tap opens the page and highlights the match)
+- ✅ In-notebook search (Ctrl+F): match list, next/previous, highlights on text boxes and exact
+  PDF glyphs
+- ⬜ Handwriting search (plan in ARCHITECTURE: ML Kit Digital Ink on Android, WinRT ink analysis
+  on Windows, behind a recogniser interface)
 - ✅ Live cover thumbnails, more cover colours + patterns
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
 
