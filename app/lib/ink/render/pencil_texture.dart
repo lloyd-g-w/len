@@ -23,8 +23,9 @@ abstract final class PencilTexture {
   /// The shared grain image.
   static ui.Image get image => _image ??= _generate();
 
-  /// A shader painting the grain in world coordinates.
-  static ui.Shader shader() => ui.ImageShader(
+  /// A shader painting the grain in world coordinates (shared; shaders
+  /// are immutable and can be used by any number of paints).
+  static ui.Shader shader() => _shader ??= ui.ImageShader(
     image,
     ui.TileMode.repeated,
     ui.TileMode.repeated,
@@ -36,6 +37,8 @@ abstract final class PencilTexture {
     ]),
     filterQuality: ui.FilterQuality.low,
   );
+
+  static ui.Shader? _shader;
 
   /// Builds the mask: a mostly solid base with paper-tooth "valleys" where
   /// the graphite skips, plus fine speckle. Grouping texels by alpha level

@@ -30,6 +30,17 @@ List<StrokePoint> flick(Offset origin, double length) => [
     ),
 ];
 
+/// A clockwise circle at constant pressure: shows direction-dependent
+/// width (the fountain nib) on its own.
+List<StrokePoint> circle(Offset c, double r) => [
+  for (var i = 0; i <= 72; i++)
+    StrokePoint(
+      c.dx + r * math.cos(i / 72 * 2 * math.pi),
+      c.dy + r * math.sin(i / 72 * 2 * math.pi),
+      0.6,
+    ),
+];
+
 Stroke make(InkTool tool, List<StrokePoint> points, {int? color, double? width}) {
   final config = PenConfig.defaultsFor(tool);
   final w = width ?? config.current.width;
@@ -55,7 +66,8 @@ List<Stroke> specimen() {
     final y = 40.0 + r * 64;
     strokes
       ..add(make(tools[r], loops(Offset(16, y))))
-      ..add(make(tools[r], flick(Offset(250, y), 130)));
+      ..add(make(tools[r], flick(Offset(250, y), 130)))
+      ..add(make(tools[r], circle(Offset(430, y), 22)));
   }
   strokes.add(
     make(InkTool.highlighter, [
@@ -108,11 +120,11 @@ Future<void> _golden(WidgetTester tester, String name, Size size, _SpecimenPaint
 
 void main() {
   testWidgets('pen specimen sheet', (tester) async {
-    await _golden(tester, 'pens', const Size(800, 700), _SpecimenPainter(scale: 2));
+    await _golden(tester, 'pens', const Size(960, 700), _SpecimenPainter(scale: 2));
   });
 
   testWidgets('pen specimen sheet at 1:1', (tester) async {
-    await _golden(tester, 'pens_1x', const Size(400, 350), _SpecimenPainter(scale: 1));
+    await _golden(tester, 'pens_1x', const Size(480, 350), _SpecimenPainter(scale: 1));
   });
 
   testWidgets('pen specimen sheet, zoomed in', (tester) async {

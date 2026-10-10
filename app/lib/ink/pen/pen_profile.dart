@@ -41,8 +41,9 @@ class PenProfile {
   /// Maps the effective pressure-derived size factor (0..1) to the radius.
   final double Function(double) easing;
 
-  /// Fountain pens: how strongly the stroke direction against the nib
-  /// angle narrows the line (0 = no effect).
+  /// Fountain pens: how much narrower (fraction of the width) a line drawn
+  /// along the nib is than one drawn across it (0 = no effect). Requires
+  /// linear [easing].
   final double nibVariation;
 
   /// Pencil: graphite grain texture.
@@ -73,7 +74,6 @@ class PenProfile {
   static const double nibAngle = -math.pi / 4;
 
   static double _identity(double t) => t;
-  static double _easeOutSine(double t) => math.sin(t * math.pi / 2);
   static double _easeInQuad(double t) => t * t;
 
   static PenProfile of(InkTool tool) => _profiles[tool] ?? _profiles[InkTool.pen]!;
@@ -116,8 +116,7 @@ class PenProfile {
       tool: InkTool.fountain,
       label: 'Fountain',
       smoothing: 0.62,
-      easing: _easeOutSine,
-      nibVariation: 0.55,
+      nibVariation: 0.6,
       opacity: 1,
       thinning: 0.65,
       streamline: 0.45,
@@ -126,9 +125,9 @@ class PenProfile {
       minWidth: 1,
       maxWidth: 20,
       presets: [
-        (color: 0xFF111827, width: 3.5),
-        (color: 0xFF1E3A8A, width: 3.5),
-        (color: 0xFF7F1D1D, width: 3.5),
+        (color: 0xFF111827, width: 4.5),
+        (color: 0xFF1E3A8A, width: 4.5),
+        (color: 0xFF7F1D1D, width: 4.5),
       ],
     ),
     PenProfile._(

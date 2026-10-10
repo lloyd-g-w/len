@@ -103,12 +103,14 @@ void main() {
       List<StrokePoint> dir(double dx, double dy) => [
         for (var i = 0; i < 10; i++) StrokePoint(i * dx, i * dy, 0.8),
       ];
+      const thinning = 0.6;
+      double radius(double p) => 0.5 - thinning * (0.5 - p);
       double mid(List<StrokePoint> pts) =>
-          Nib.pressures(pts, variation: 0.5, angle: PenProfile.nibAngle)[5];
+          Nib.pressures(pts, variation: 0.5, angle: PenProfile.nibAngle, thinning: thinning)[5];
       final alongNib = mid(dir(1, -1)); // up and to the right
       final acrossNib = mid(dir(1, 1)); // down and to the right
-      expect(alongNib, closeTo(0.4, 1e-9));
       expect(acrossNib, closeTo(0.8, 1e-9));
+      expect(radius(alongNib), closeTo(radius(0.8) / 2, 1e-9));
     });
   });
 

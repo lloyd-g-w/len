@@ -39,7 +39,12 @@ abstract final class StrokeRenderer {
     if (points.isEmpty) return Path();
     final profile = PenProfile.of(tool);
     final pressures = profile.nibVariation > 0
-        ? Nib.pressures(points, variation: profile.nibVariation, angle: PenProfile.nibAngle)
+        ? Nib.pressures(
+            points,
+            variation: profile.nibVariation,
+            angle: PenProfile.nibAngle,
+            thinning: style.thinning,
+          )
         : null;
     if (points.length == 1) {
       final p = points.single;
