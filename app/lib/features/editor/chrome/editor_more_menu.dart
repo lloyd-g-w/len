@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../domain/preferences.dart';
-import '../../documents/export/export_flow.dart';
 import '../document/document_layout.dart';
 import '../document/page_overview.dart';
 import '../tabs/open_notebooks.dart';
@@ -41,7 +40,7 @@ class EditorMoreMenu extends StatelessWidget {
         if (compact && a.isPaged) ...[
           _item(Icons.grid_view_rounded, 'All pages', a.onOverview),
           _bookmarkItem(),
-          if (a.onExport case final onExport?) exportSubmenu(onExport),
+          if (a.onExport case final onExport?) exportMenuItem(onExport),
         ],
         if (a.isPaged) ...[
           SubmenuButton(
@@ -163,45 +162,21 @@ class EditorMoreMenu extends StatelessWidget {
   );
 }
 
-/// "Export" submenu items (also used by the share button's menu).
-Widget exportSubmenu(ValueChanged<ExportKind> onExport) => SubmenuButton(
+/// The "Export…" menu entry: opens the export sheet.
+Widget exportMenuItem(VoidCallback onExport) => MenuItemButton(
   leadingIcon: const Icon(Icons.ios_share_rounded),
-  menuChildren: [
-    for (final kind in ExportKind.values)
-      MenuItemButton(onPressed: () => onExport(kind), child: Text(kind.label)),
-  ],
-  child: const Text('Export'),
+  onPressed: onExport,
+  child: const Text('Export…'),
 );
 
-/// The top bar's share button: export the notebook or the page.
+/// The top bar's share button: opens the export sheet (format, pages and
+/// options), so exporting takes one tap to the sheet and one to export.
 class ShareMenuButton extends StatelessWidget {
   const ShareMenuButton({super.key, required this.onExport});
 
-  final ValueChanged<ExportKind> onExport;
+  final VoidCallback onExport;
 
   @override
-  Widget build(BuildContext context) {
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      onOpen: CanvasGuardScope.maybeOf(context)?.opened,
-      onClose: CanvasGuardScope.maybeOf(context)?.closed,
-      menuChildren: [
-        for (final (kind, icon) in const [
-          (ExportKind.notebookPdf, Icons.menu_book_outlined),
-          (ExportKind.pagePdf, Icons.picture_as_pdf_outlined),
-          (ExportKind.pagePng, Icons.image_outlined),
-        ])
-          MenuItemButton(
-            leadingIcon: Icon(icon),
-            onPressed: () => onExport(kind),
-            child: Text(kind.label),
-          ),
-      ],
-      builder: (context, menu, _) => BarButton(
-        tooltip: 'Export & share',
-        icon: Icons.ios_share_rounded,
-        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      BarButton(tooltip: 'Export & share', icon: Icons.ios_share_rounded, onPressed: onExport);
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../domain/preferences.dart';
-import '../../documents/export/export_flow.dart';
 import '../document/document_layout.dart';
 import '../document/page_overview.dart';
 
@@ -52,7 +51,9 @@ class EditorMenuActions {
   final VoidCallback? onGoTo;
   final VoidCallback? onAddWithTemplate;
   final VoidCallback? onInsertPdf;
-  final ValueChanged<ExportKind>? onExport;
+
+  /// Opens the export sheet.
+  final VoidCallback? onExport;
   final PageFlow? flow;
   final ValueChanged<PageFlow>? onFlow;
 

@@ -153,6 +153,13 @@ class DocumentCommands {
     _changedAndShow(inserted.first);
   }
 
-  Future<void> export(BuildContext context, ExportKind kind) =>
-      exportFlow(context, kind: kind, notebook: notebook(), pages: doc.pages, page: _current);
+  /// Opens the export sheet with [range] (all pages or the current one)
+  /// preselected, then exports.
+  Future<void> export(BuildContext context, {ExportRange range = ExportRange.all}) => exportFlow(
+    context,
+    notebook: notebook(),
+    pages: doc.pages,
+    currentPage: doc.currentPage,
+    initialRange: range,
+  );
 }

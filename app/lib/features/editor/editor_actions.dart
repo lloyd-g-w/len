@@ -45,7 +45,7 @@ EditorMenuActions editorMenuActions(
     onGoTo: paged ? () => commands.goToPagePrompt(context) : null,
     onAddWithTemplate: paged ? () => commands.addPageWithTemplate(context) : null,
     onInsertPdf: paged ? () => commands.insertPdf(context) : null,
-    onExport: paged ? (kind) => commands.export(context, kind) : null,
+    onExport: paged ? () => commands.export(context) : null,
     flow: doc?.flow,
     onFlow: paged ? onFlow : null,
     onBackground: nav == null ? null : onBackground,

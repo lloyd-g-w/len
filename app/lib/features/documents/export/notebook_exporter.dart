@@ -28,17 +28,21 @@ class NotebookExporter {
   static const double backgroundDpi = 150;
 
   /// A PDF of [pages] (vector ink and templates). [onProgress] hears how
-  /// many pages are prepared, then written.
+  /// many pages are prepared, then written. Without [backgrounds],
+  /// imported PDF pages are left out.
   Future<Uint8List> pdf(
     List<NotebookPage> pages, {
     String? title,
     ExportProgress? onProgress,
+    bool backgrounds = true,
   }) async {
     final export = <ExportPage>[];
     try {
       for (final page in pages) {
         onProgress?.call(ExportStage.preparing, export.length, pages.length);
-        final background = await _background(page, page.width / 96 * backgroundDpi);
+        final background = backgrounds
+            ? await _background(page, page.width / 96 * backgroundDpi)
+            : null;
         export.add(
           ExportPage(
             page,
@@ -60,9 +64,10 @@ class NotebookExporter {
     }
   }
 
-  /// A PNG of [page] at [scale] pixels per page unit (2 ≈ 192 dpi).
-  Future<Uint8List> png(NotebookPage page, {double scale = 2}) async {
-    final background = await _background(page, page.width * scale);
+  /// A PNG of [page] at [scale] pixels per page unit (2 ≈ 192 dpi);
+  /// without [backgrounds], an imported PDF page is left out.
+  Future<Uint8List> png(NotebookPage page, {double scale = 2, bool backgrounds = true}) async {
+    final background = backgrounds ? await _background(page, page.width * scale) : null;
     final image = await renderPageImage(
       page,
       strokes: _copier.loadAll(page.id),
