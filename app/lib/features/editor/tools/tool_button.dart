@@ -12,7 +12,8 @@ class ToolButton extends StatelessWidget {
     super.key,
     required this.tools,
     required this.tool,
-    required this.icon,
+    this.icon,
+    this.glyph,
     required this.label,
     this.options,
     this.inkColor,
@@ -20,7 +21,9 @@ class ToolButton extends StatelessWidget {
 
   final ToolSettings tools;
   final EditorTool tool;
-  final IconData icon;
+  /// The tool's icon, or a custom [glyph] widget instead.
+  final IconData? icon;
+  final Widget? glyph;
   final String label;
   final int? inkColor;
   final WidgetBuilder? options;
@@ -49,7 +52,7 @@ class ToolButton extends StatelessWidget {
           child: Stack(
             alignment: Alignment.topCenter,
             children: [
-              Icon(icon, size: 19),
+              glyph ?? Icon(icon, size: 19),
               if (color != null)
                 Positioned(
                   bottom: 0,

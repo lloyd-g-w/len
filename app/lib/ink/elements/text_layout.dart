@@ -9,9 +9,19 @@ abstract final class TextLayout {
   /// Minimum width of a text box, in world units.
   static const double minWidth = 24;
 
+  /// A complete style ([TextStyle.inherit] off), so the text field used
+  /// for editing cannot pick up theme properties (e.g. letter spacing)
+  /// that the renderer would not apply.
   static TextStyle styleOf(TextData data) => TextStyle(
+    inherit: false,
+    fontFamily: 'Roboto',
+    fontFamilyFallback: const ['Segoe UI', 'Cantarell', 'Ubuntu', 'DejaVu Sans', 'Arial'],
     fontSize: data.fontSize,
     height: 1.25,
+    leadingDistribution: TextLeadingDistribution.even,
+    letterSpacing: 0,
+    wordSpacing: 0,
+    textBaseline: TextBaseline.alphabetic,
     color: Color(data.color),
     fontWeight: data.bold ? FontWeight.w700 : FontWeight.w400,
     fontStyle: data.italic ? FontStyle.italic : FontStyle.normal,

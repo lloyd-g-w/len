@@ -40,7 +40,7 @@ class ShapeOptionsPanel extends StatelessWidget {
                       fixedSize: const Size.square(44),
                     ),
                     onPressed: () => tools.shape = kind,
-                    icon: Icon(shapeIcon(kind)),
+                    icon: ShapeGlyph(kind, size: 22),
                   ),
                 ),
             ],

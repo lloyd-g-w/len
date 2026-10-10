@@ -115,12 +115,13 @@ class _MenuBar extends StatelessWidget {
 }
 
 /// Centres the menu above [target] (screen rect), else below it, else at
-/// the top; always kept inside the layer.
+/// the top; always kept inside the layer and clear of the editor's top
+/// bar ([topInset]).
 class _MenuLayout extends SingleChildLayoutDelegate {
   _MenuLayout(this.target);
 
   final Rect target;
-  static const double gap = 10, margin = 8;
+  static const double gap = 10, margin = 8, topInset = 84;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
@@ -133,8 +134,8 @@ class _MenuLayout extends SingleChildLayoutDelegate {
       math.max(margin, size.width - child.width - margin),
     );
     var y = target.top - gap - child.height;
-    if (y < margin) y = target.bottom + gap;
-    if (y + child.height > size.height - margin) y = margin;
+    if (y < topInset) y = target.bottom + gap;
+    if (y + child.height > size.height - margin) y = topInset;
     return Offset(x, y);
   }
 

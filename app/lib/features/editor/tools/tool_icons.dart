@@ -1,19 +1,55 @@
 import 'package:flutter/material.dart';
 
+import '../../../ink/shapes/shape_builder.dart';
 import '../../../ink/tool_settings.dart';
-
-/// Toolbar / picker icon for each shape.
-IconData shapeIcon(ShapeKind kind) => switch (kind) {
-  ShapeKind.line => Icons.horizontal_rule_rounded,
-  ShapeKind.arrow => Icons.arrow_right_alt_rounded,
-  ShapeKind.rectangle => Icons.crop_square_rounded,
-  ShapeKind.ellipse => Icons.circle_outlined,
-  ShapeKind.triangle => Icons.change_history_rounded,
-  ShapeKind.diamond => Icons.diamond_outlined,
-  ShapeKind.star => Icons.star_outline_rounded,
-  ShapeKind.polygon => Icons.pentagon_outlined,
-};
 
 const IconData lassoIcon = Icons.highlight_alt_rounded;
 const IconData textIcon = Icons.text_fields_rounded;
 const IconData laserIcon = Icons.ads_click_rounded;
+
+/// A shape drawn with the same outline the Shape tool produces, in the
+/// ambient icon colour.
+class ShapeGlyph extends StatelessWidget {
+  const ShapeGlyph(this.kind, {super.key, this.size = 19});
+
+  final ShapeKind kind;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = IconTheme.of(context).color ?? Theme.of(context).colorScheme.onSurface;
+    return SizedBox.square(
+      dimension: size,
+      child: CustomPaint(painter: _ShapeGlyphPainter(kind, color)),
+    );
+  }
+}
+
+class _ShapeGlyphPainter extends CustomPainter {
+  _ShapeGlyphPainter(this.kind, this.color);
+
+  final ShapeKind kind;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inset = size.width * 0.12;
+    final open = !kind.isClosed;
+    // Lines and arrows run corner to corner; closed shapes fill the box.
+    final a = Offset(inset, open ? size.height - inset : inset);
+    final b = Offset(size.width - inset, open ? inset : size.height - inset);
+    final pts = ShapeBuilder.outline(kind, a, b);
+    canvas.drawPath(
+      Path()..addPolygon(pts, false),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width / 11
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ShapeGlyphPainter old) => old.kind != kind || old.color != color;
+}

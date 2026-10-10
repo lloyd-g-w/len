@@ -137,7 +137,7 @@ class _BarLayout extends SingleChildLayoutDelegate {
   _BarLayout(this.anchor);
 
   final Rect anchor;
-  static const double gap = 16, margin = 8;
+  static const double gap = 16, margin = 8, topInset = 84;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
@@ -150,8 +150,8 @@ class _BarLayout extends SingleChildLayoutDelegate {
       math.max(margin, size.width - child.width - margin),
     );
     var y = anchor.top - gap - child.height;
-    if (y < margin) y = anchor.bottom + gap;
-    if (y + child.height > size.height - margin) y = margin;
+    if (y < topInset) y = anchor.bottom + gap;
+    if (y + child.height > size.height - margin) y = topInset;
     return Offset(x, y);
   }
 

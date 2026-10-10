@@ -83,29 +83,46 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
         final scale = widget.viewport.scale;
         final data = _session.data;
         final accent = Theme.of(context).colorScheme.primary;
+        // The outline sits a few pixels outside the text, which is laid out
+        // exactly as it renders.
+        final pad = 6 / scale;
         final box = SizedBox(
           width: element.rect.width,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(color: accent.withValues(alpha: 0.7), width: 1.5 / scale),
-            ),
-            child: DefaultTextEditingShortcuts(
-              child: CallbackShortcuts(
-                bindings: {const SingleActivator(LogicalKeyboardKey.escape): _session.end},
-                child: TextField(
-                  key: const ValueKey('text-box-field'),
-                  controller: _text,
-                  focusNode: _focus,
-                  maxLines: null,
-                  style: TextLayout.styleOf(data),
-                  textAlign: TextLayout.alignOf(data),
-                  cursorColor: accent,
-                  cursorWidth: 2 / scale,
-                  decoration: const InputDecoration.collapsed(hintText: null),
-                  onChanged: (text) => _session.setData(_session.data.copyWith(text: text)),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: -pad,
+                top: -pad,
+                right: -pad,
+                bottom: -pad,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: accent.withValues(alpha: 0.7), width: 1.5 / scale),
+                      borderRadius: BorderRadius.circular(4 / scale),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              DefaultTextEditingShortcuts(
+                child: CallbackShortcuts(
+                  bindings: {const SingleActivator(LogicalKeyboardKey.escape): _session.end},
+                  child: TextField(
+                    key: const ValueKey('text-box-field'),
+                    controller: _text,
+                    focusNode: _focus,
+                    maxLines: null,
+                    style: TextLayout.styleOf(data),
+                    textAlign: TextLayout.alignOf(data),
+                    cursorColor: accent,
+                    cursorWidth: 2 / scale,
+                    decoration: const InputDecoration.collapsed(hintText: null),
+                    onChanged: (text) => _session.setData(_session.data.copyWith(text: text)),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
         return Stack(
@@ -123,6 +140,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                     _grip(
                       scale,
                       accent,
+                      pad: pad,
                       alignment: Alignment.topLeft,
                       icon: Icons.open_with_rounded,
                       tooltip: 'Move',
@@ -131,6 +149,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                     _grip(
                       scale,
                       accent,
+                      pad: pad,
                       alignment: Alignment.centerRight,
                       icon: Icons.width_normal_outlined,
                       tooltip: 'Width',
@@ -169,6 +188,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   Widget _grip(
     double scale,
     Color accent, {
+    required double pad,
     required Alignment alignment,
     required IconData icon,
     required String tooltip,
@@ -179,8 +199,9 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     return Positioned.fill(
       child: Align(
         alignment: alignment,
-        child: FractionalTranslation(
-          translation: Offset(alignment.x / 2, alignment.y / 2),
+        child: Transform.translate(
+          // Centred on the outline, which is [pad] outside the text.
+          offset: Offset(alignment.x * (size / 2 + pad), alignment.y * (size / 2 + pad)),
           child: Tooltip(
             message: tooltip,
             child: GestureDetector(

@@ -67,7 +67,7 @@ class EditorToolbar extends StatelessWidget {
                 ToolButton(
                   tools: tools,
                   tool: EditorTool.shape,
-                  icon: shapeIcon(tools.shape),
+                  glyph: ShapeGlyph(tools.shape),
                   label: 'Shapes (S)',
                   inkColor: tools.configOf(tools.penType).current.color,
                   options: (_) => ShapeOptionsPanel(tools: tools),
