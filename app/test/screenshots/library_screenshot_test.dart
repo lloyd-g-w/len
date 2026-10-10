@@ -62,7 +62,17 @@ void main() {
     await tester.tap(find.byTooltip('More').first);
     await settle(tester);
     await shoot(tester, 'desktop_menu');
-    await tester.tapAt(const Offset(5, 5));
+
+    await tester.tap(find.text('Change cover'));
+    await settle(tester);
+    await shoot(tester, 'desktop_cover_sheet');
+    await tester.tap(find.text('Apply'));
+    await settle(tester);
+
+    await tester.enterText(find.byType(TextField), 'o');
+    await settle(tester);
+    await shoot(tester, 'desktop_search');
+    await tester.enterText(find.byType(TextField), '');
     await settle(tester);
 
     await tester.tap(find.text('Trash').first);

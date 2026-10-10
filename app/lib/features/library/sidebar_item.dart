@@ -17,6 +17,7 @@ class SidebarItem extends StatefulWidget {
     this.indent = 0,
     this.leading,
     this.onSecondaryTapUp,
+    this.onLongPress,
   });
 
   final IconData icon;
@@ -33,6 +34,9 @@ class SidebarItem extends StatefulWidget {
   /// Optional widget before the icon (e.g. an expand chevron).
   final Widget? leading;
   final GestureTapUpCallback? onSecondaryTapUp;
+
+  /// Touch alternative to the secondary tap (context menu).
+  final VoidCallback? onLongPress;
 
   @override
   State<SidebarItem> createState() => _SidebarItemState();
@@ -71,6 +75,7 @@ class _SidebarItemState extends State<SidebarItem> {
             onTap: widget.onTap,
             onHover: (h) => setState(() => _hovered = h),
             onSecondaryTapUp: widget.onSecondaryTapUp,
+            onLongPress: widget.onLongPress,
             child: Padding(
               padding: EdgeInsets.only(left: Gaps.md - 2 + widget.indent, right: Gaps.md),
               child: Row(

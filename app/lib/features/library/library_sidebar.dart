@@ -215,11 +215,12 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
         dropActive: active,
         onTap: () => c.openFolder(folder.id),
         onSecondaryTapUp: (d) => unawaited(_folderMenu(context, folder, d.globalPosition)),
+        onLongPress: () => unawaited(_folderMenu(context, folder, null)),
       ),
     );
   }
 
-  Future<void> _folderMenu(BuildContext context, Folder folder, Offset at) async {
+  Future<void> _folderMenu(BuildContext context, Folder folder, Offset? at) async {
     final action = await showContextMenuAt(context, items: folderMenuItems, at: at);
     if (action != null && context.mounted) {
       await widget.actions.onFolderAction(context, folder, action);
