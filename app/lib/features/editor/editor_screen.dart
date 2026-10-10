@@ -8,7 +8,10 @@ import '../../domain/paper.dart';
 import '../../sync/sync_engine.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/template_picker.dart';
+import '../search/editor/editor_search_controller.dart';
+import '../search/editor/editor_search_layer.dart';
 import '../settings/settings_screen.dart';
+import 'chrome/bar_button.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/chrome_metrics.dart';
@@ -47,6 +50,9 @@ class _EditorScreenState extends State<EditorScreen> {
     initialView: _services.openNotebooks.viewOf(widget.notebook.id),
   );
   final HudController _hud = HudController();
+
+  /// In-notebook search, Ctrl+F (features/search).
+  late final EditorSearchController _search;
   final CanvasGuard _guard = CanvasGuard();
   bool? _compact;
 
@@ -75,6 +81,8 @@ class _EditorScreenState extends State<EditorScreen> {
       ..onMultiFingerTap = _onMultiFingerTap
       ..onContextMenu = _openMenu;
     _remoteChanges = _services.sync.remoteChanges.listen(_onRemoteChanges);
+    // Created now: it takes a result the library asked to show.
+    _search = EditorSearchController.forSession(_services, _session, notebookId: _notebook.id);
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
     // Take the keyboard even when another editor (the previous tab) still
@@ -93,6 +101,7 @@ class _EditorScreenState extends State<EditorScreen> {
     _services.preferences.removeListener(_onPreferences);
     if (_focus) setImmersive(false);
     final edited = _session.edited;
+    _search.dispose();
     _session.dispose(); // Commits a text box still being edited.
     if (edited) {
       _services.notebooks.touch(_notebook.id);
@@ -260,13 +269,16 @@ class _EditorScreenState extends State<EditorScreen> {
       },
       child: Scaffold(
         body: CallbackShortcuts(
-          bindings: editorShortcuts(
-            _session,
-            toggleFocus: _toggleFocus,
-            nextTab: tabs?.cycle,
-            previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
-            closeTab: tabs == null ? null : () => tabs.close(_notebook.id),
-          ),
+          bindings: {
+            ...editorShortcuts(
+              _session,
+              toggleFocus: _toggleFocus,
+              nextTab: tabs?.cycle,
+              previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
+              closeTab: tabs == null ? null : () => tabs.close(_notebook.id),
+            ),
+            ...EditorSearchLayer.shortcuts(_search),
+          },
           child: Focus(
             focusNode: _focusNode,
             autofocus: true,
@@ -306,6 +318,13 @@ class _EditorScreenState extends State<EditorScreen> {
                           ),
                         ),
                         Positioned.fill(child: _buildChrome(layout, tabs)),
+                        Positioned.fill(
+                          child: EditorSearchLayer(
+                            controller: _search,
+                            top: layout.covered.top,
+                            onClose: _focusNode.requestFocus,
+                          ),
+                        ),
                         if (_menu case final menu?)
                           Positioned.fill(
                             child: CanvasContextMenu(
@@ -375,6 +394,11 @@ class _EditorScreenState extends State<EditorScreen> {
           ),
           undo: _session.undo,
           tabs: tabs,
+          search: BarButton(
+            tooltip: 'Search (Ctrl+F)',
+            icon: Icons.search_rounded,
+            onPressed: _search.open,
+          ),
         ),
         navigator: editorPageNavigator(context, _session, width: layout.width),
       ),

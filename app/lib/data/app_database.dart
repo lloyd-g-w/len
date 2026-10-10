@@ -2,6 +2,8 @@ import 'package:sqlite3/common.dart';
 
 import '../platform/sqlite_connection.dart';
 
+import 'search/search_schema.dart';
+
 /// Owns the SQLite connection and applies schema migrations.
 ///
 /// Every syncable table carries the same bookkeeping columns:
@@ -79,6 +81,9 @@ class AppDatabase {
   /// [_migrations]); lets tests rewind a database without hard-coding it.
   static int get versionBeforePageDetailsAndBlobs => _migrations.indexOf(_addPageDetailsAndBlobs);
 
+  /// Schema version from which the search index migration runs.
+  static int get versionBeforeSearchIndex => _migrations.indexOf(_createSearchIndex);
+
   /// Ordered list of schema migrations; index i migrates from version i.
   /// Never edit an existing entry — append a new one instead.
   static final List<void Function(CommonDatabase)> _migrations = [
@@ -89,7 +94,12 @@ class AppDatabase {
     _addPageDetailsAndBlobs,
     _createElements,
     _addNotebookPaperColor,
+    _createSearchIndex,
   ];
+
+  /// The local full-text search index (derived, never synced) and the
+  /// triggers that keep it current. Idempotent (see [SearchSchema.create]).
+  static void _createSearchIndex(CommonDatabase db) => SearchSchema.create(db);
 
   /// Surface elements (text boxes; later images) and their sparse chunk
   /// index, mirroring `strokes` / `stroke_chunks`. Idempotent, so it is safe

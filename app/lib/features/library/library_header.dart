@@ -66,6 +66,8 @@ class LibraryHeader extends StatelessWidget {
     String plural(int n, String one) => '$n ${n == 1 ? one : '${one}s'}';
     final subtitle = switch (_c.section) {
       LibrarySection.trash => 'Restore notebooks or delete them forever.',
+      // The library also lists matches inside notebooks (features/search).
+      LibrarySection.library when _c.isSearching => 'Titles and contents, across all folders',
       _ when _c.isSearching => '${plural(count + folders, 'result')} across all folders',
       _ when count == 0 && folders == 0 => 'Empty',
       _ => [

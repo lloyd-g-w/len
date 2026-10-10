@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cross_file/cross_file.dart';
 
 import '../../../app_services.dart';
@@ -41,7 +43,7 @@ class PdfImporter {
   /// Creates a notebook titled [title] with one page per PDF page.
   Future<Notebook> createNotebook(String sha, {required String title, required int cover}) async {
     final specs = await specsFor(sha);
-    return services.database.transaction(() {
+    final notebook = services.database.transaction(() {
       final notebook = services.notebooks.create(
         title: title,
         kind: NotebookKind.paged,
@@ -55,6 +57,8 @@ class PdfImporter {
       }
       return notebook;
     });
+    unawaited(services.search.indexPdfs()); // Make its text searchable.
+    return notebook;
   }
 
   /// Inserts the PDF's pages into [notebookId] after [after] (at the end
@@ -65,7 +69,9 @@ class PdfImporter {
     NotebookPage? after,
   }) async {
     final specs = await specsFor(sha);
-    return services.pages.insertPages(notebookId, specs, after: after);
+    final pages = services.pages.insertPages(notebookId, specs, after: after);
+    unawaited(services.search.indexPdfs());
+    return pages;
   }
 
   Future<void> dispose() => _renderer.dispose();

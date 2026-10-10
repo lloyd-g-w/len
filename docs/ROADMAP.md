@@ -53,6 +53,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 ## Library
 - ✅ Folders (nested, synced), move to folder (menu + drag and drop), breadcrumbs, folder tree
 - ✅ Search (across folders), sort (edited / created / name), favourites, grid/list views
+- ✅ Full-text search (local FTS5 index, kept current by triggers incl. sync): titles, folders,
+  text boxes and imported PDF text; library results grouped by notebook with page numbers and
+  highlighted snippets (tap opens the page and highlights the match)
+- ✅ In-notebook search (Ctrl+F): match list, next/previous, highlights on text boxes and exact
+  PDF glyphs
+- ⬜ Handwriting search (plan in ARCHITECTURE: ML Kit Digital Ink on Android, WinRT ink analysis
+  on Windows, behind a recogniser interface)
 - ✅ Live cover thumbnails, more cover colours + patterns
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
 
@@ -69,7 +76,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   immersive system bars
 - ✅ Open-notebook tabs (up to 8, each keeps its page and zoom; tab strip on tablets/desktops,
   switcher on phones; Ctrl+Tab, Ctrl+W)
-- ⬜ Customisable toolbar contents, favourite tools; search in the editor (handwriting recognition)
+- ⬜ Customisable toolbar contents, favourite tools (in-editor search: ✅ text and PDF, see Library)
 - ✅ App identity: one icon design for all platforms (Android adaptive + themed icon), splash
   screen, edge-to-edge system bars, Linux desktop entry, Windows window placement
 - ✅ CI (analyze, tests, Linux/Android/Web/Windows builds, server image) and tagged releases

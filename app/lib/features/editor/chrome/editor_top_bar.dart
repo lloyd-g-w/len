@@ -24,6 +24,7 @@ class EditorTopBar extends StatelessWidget {
     required this.undo,
     this.tabs,
     this.subtitle,
+    this.search,
   });
 
   final String title;
@@ -33,6 +34,9 @@ class EditorTopBar extends StatelessWidget {
   final EditorMenuActions actions;
   final UndoTarget undo;
   final OpenNotebooks? tabs;
+
+  /// The search button (features/search), before undo/redo.
+  final Widget? search;
 
   /// Height of the bar (without the status bar) for a given [width].
   static double heightFor(double width, OpenNotebooks? tabs) =>
@@ -113,6 +117,7 @@ class EditorTopBar extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          ?search,
           UndoRedoButtons(target: undo),
           const BarDivider(),
           if (a.onExport case final onExport?) ShareMenuButton(onExport: onExport),
@@ -137,6 +142,7 @@ class EditorTopBar extends StatelessWidget {
         Expanded(
           child: Align(alignment: Alignment.centerLeft, child: _title(centered: false)),
         ),
+        ?search,
         UndoRedoButtons(target: undo),
         if (switcher) TabSwitcherButton(tabs: tabs),
         EditorMoreMenu(
