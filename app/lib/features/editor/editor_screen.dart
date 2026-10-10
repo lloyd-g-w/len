@@ -307,7 +307,10 @@ class _EditorScreenState extends State<EditorScreen> {
                     placement: resolvePlacement(
                       _services.preferences.toolbarPlacement,
                       constraints.maxWidth,
-                      toolbarWidth: EditorToolbar.oneRowWidth(_session.tools),
+                      toolbarWidth: EditorToolbar.oneRowWidth(
+                        _session.tools,
+                        labels: _services.preferences.toolbarLabels,
+                      ),
                     ),
                     toolbarHeight: _toolbarHeight.value,
                     barHeight: EditorTopBar.heightFor(constraints.maxWidth, tabs),
@@ -388,7 +391,11 @@ class _EditorScreenState extends State<EditorScreen> {
   Widget _buildChrome(ChromeLayout layout, OpenNotebooks? tabs) {
     final doc = _session.doc;
     final prefs = _services.preferences;
-    final toolbar = EditorToolbar(tools: _session.tools, onStylusOnlyChanged: _setStylusOnly);
+    final toolbar = EditorToolbar(
+      tools: _session.tools,
+      onStylusOnlyChanged: _setStylusOnly,
+      showLabels: prefs.toolbarLabels,
+    );
     return ListenableBuilder(
       listenable: Listenable.merge([?doc, ?_session.canvasNav, _session.tools]),
       builder: (context, _) => EditorChrome(

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/app_theme.dart';
 import 'editor_tools.dart';
 
 /// A tool toggle. Inking tools show their current colour as a small bar
 /// under the icon (recolouring the icon itself would be illegible for dark
 /// inks in dark mode). Tapping the already active tool, long-pressing or
-/// right-clicking it opens its settings.
+/// right-clicking it opens its settings. With [showLabel] the tool's name
+/// sits under the glyph (wide screens, "Show tool names").
 class ToolButton extends StatelessWidget {
   const ToolButton({
     super.key,
@@ -13,6 +15,7 @@ class ToolButton extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     this.size = 44,
+    this.showLabel = false,
   });
 
   final ToolDescriptor descriptor;
@@ -21,48 +24,92 @@ class ToolButton extends StatelessWidget {
 
   /// Width and height of the button (smaller on the compact toolbar).
   final double size;
+  final bool showLabel;
+
+  /// Height of a labelled button.
+  static const double labelledHeight = 56;
+
+  /// Width of a labelled button.
+  static const double labelledWidth = 68;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = descriptor.inkColor?.call();
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     void openOptions() => descriptor.openOptions(context);
+    final fg = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
+    final glyph = showLabel
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ToolGlyph(descriptor: descriptor),
+              const SizedBox(height: 2),
+              Text(
+                descriptor.shortLabel,
+                maxLines: 1,
+                overflow: TextOverflow.fade,
+                softWrap: false,
+                style: theme.textTheme.labelSmall?.copyWith(color: fg, fontSize: 11, height: 1),
+              ),
+            ],
+          )
+        : ToolGlyph(descriptor: descriptor);
     return GestureDetector(
       onLongPress: openOptions,
       onSecondaryTap: openOptions,
       child: IconButton(
         tooltip: descriptor.tooltip,
         isSelected: selected,
-        constraints: BoxConstraints.tightFor(width: size, height: size),
+        constraints: BoxConstraints.tightFor(
+          width: showLabel ? labelledWidth : size,
+          height: showLabel ? labelledHeight : size,
+        ),
         padding: EdgeInsets.zero,
         onPressed: () => selected ? openOptions() : onSelect(),
         style: IconButton.styleFrom(
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           backgroundColor: selected ? scheme.secondaryContainer : null,
-          foregroundColor: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
+          foregroundColor: fg,
+          shape: showLabel
+              ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.control))
+              : null,
         ),
-        icon: SizedBox.square(
-          dimension: 26,
-          child: Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              IconTheme.merge(data: const IconThemeData(size: 20), child: descriptor.icon),
-              if (color != null)
-                Positioned(
-                  bottom: 0,
-                  child: Container(
-                    width: 16,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Color(color),
-                      borderRadius: BorderRadius.circular(2),
-                      border: Border.all(color: scheme.outline.withValues(alpha: 0.8), width: 0.5),
-                    ),
-                  ),
+        icon: glyph,
+      ),
+    );
+  }
+}
+
+/// A tool's icon with its ink colour as a small bar underneath.
+class ToolGlyph extends StatelessWidget {
+  const ToolGlyph({super.key, required this.descriptor});
+
+  final ToolDescriptor descriptor;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = descriptor.inkColor?.call();
+    return SizedBox.square(
+      dimension: 26,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          IconTheme.merge(data: const IconThemeData(size: 20), child: descriptor.icon),
+          if (color != null)
+            Positioned(
+              bottom: 0,
+              child: Container(
+                width: 16,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Color(color),
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(color: scheme.outline.withValues(alpha: 0.8), width: 0.5),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }

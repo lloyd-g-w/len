@@ -16,6 +16,8 @@ class EditorMenuActions {
     required this.onStylusOnly,
     required this.placement,
     required this.onPlacement,
+    this.toolLabels = false,
+    this.onToolLabels,
     required this.onSettings,
     this.bookmarked = false,
     this.onToggleBookmark,
@@ -44,6 +46,10 @@ class EditorMenuActions {
   final ValueChanged<bool> onStylusOnly;
   final ToolbarPlacement placement;
   final ValueChanged<ToolbarPlacement> onPlacement;
+
+  /// Tool names under the toolbar's icons.
+  final bool toolLabels;
+  final ValueChanged<bool>? onToolLabels;
   final VoidCallback onSettings;
 
   // Paged notebooks.

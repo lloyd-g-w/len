@@ -35,6 +35,8 @@ EditorMenuActions editorMenuActions(
     onStylusOnly: onStylusOnly,
     placement: prefs.toolbarPlacement,
     onPlacement: (p) => prefs.toolbarPlacement = p,
+    toolLabels: prefs.toolbarLabels,
+    onToolLabels: (show) => prefs.toolbarLabels = show,
     onSettings: onSettings,
     bookmarked: page?.bookmarked ?? false,
     onToggleBookmark: paged ? () => commands.run(context, PageCommand.bookmark, page) : null,

@@ -22,12 +22,15 @@ class ToolDescriptor {
     required this.tool,
     required this.icon,
     required this.label,
+    String? shortLabel,
     this.shortcut,
     this.inkColor,
     this.strip,
     this.stripWidth,
+    this.compactStrip,
+    this.compactStripWidth,
     this.options,
-  });
+  }) : shortLabel = shortLabel ?? label;
 
   final EditorTool tool;
 
@@ -36,6 +39,9 @@ class ToolDescriptor {
 
   /// Name shown in the tooltip (with the [shortcut], if any).
   final String label;
+
+  /// A short name for labels under the icon (e.g. "Laser").
+  final String shortLabel;
 
   /// Single-key keyboard shortcut, e.g. `P`.
   final String? shortcut;
@@ -49,6 +55,11 @@ class ToolDescriptor {
   /// The [strip]'s width in logical pixels, used to decide whether the
   /// toolbar fits on one row (it wraps to two otherwise).
   final double Function()? stripWidth;
+
+  /// A narrower [strip] for the compact (phone) toolbar, if it has one
+  /// (e.g. without the "+" buttons), and its width.
+  final WidgetBuilder? compactStrip;
+  final double Function()? compactStripWidth;
 
   /// Content of the settings popover (tap the active tool, long-press it,
   /// or use the settings button).
@@ -73,6 +84,8 @@ List<ToolDescriptor> editorTools(ToolSettings tools) => [
     inkColor: () => tools.configOf(InkTool.ballpoint).color,
     strip: (_) => InkStrip(tools: tools, ink: InkTool.ballpoint),
     stripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.ballpoint)),
+    compactStrip: (_) => InkStrip(tools: tools, ink: InkTool.ballpoint, showAdd: false),
+    compactStripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.ballpoint), showAdd: false),
     options: (_) => PenOptionsPanel(tools: tools, ink: InkTool.ballpoint),
   ),
   ToolDescriptor(
@@ -83,6 +96,8 @@ List<ToolDescriptor> editorTools(ToolSettings tools) => [
     inkColor: () => tools.configOf(InkTool.highlighter).color,
     strip: (_) => InkStrip(tools: tools, ink: InkTool.highlighter),
     stripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.highlighter)),
+    compactStrip: (_) => InkStrip(tools: tools, ink: InkTool.highlighter, showAdd: false),
+    compactStripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.highlighter), showAdd: false),
     options: (_) => PenOptionsPanel(tools: tools, ink: InkTool.highlighter),
   ),
   ToolDescriptor(
@@ -109,6 +124,8 @@ List<ToolDescriptor> editorTools(ToolSettings tools) => [
     inkColor: () => tools.configOf(InkTool.ballpoint).color,
     strip: (_) => InkStrip(tools: tools, ink: InkTool.ballpoint),
     stripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.ballpoint)),
+    compactStrip: (_) => InkStrip(tools: tools, ink: InkTool.ballpoint, showAdd: false),
+    compactStripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.ballpoint), showAdd: false),
     options: (_) => ShapeOptionsPanel(tools: tools),
   ),
   ToolDescriptor(
@@ -123,6 +140,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) => [
     tool: EditorTool.laser,
     icon: const Icon(laserIcon),
     label: 'Laser pointer',
+    shortLabel: 'Laser',
     shortcut: 'K',
     inkColor: () => 0xFFFF2D2D,
   ),

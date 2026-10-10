@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text_data.dart';
+import 'package:len/features/editor/tool_switcher.dart';
 import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ink/pen/pen_config.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
@@ -242,9 +243,14 @@ void main() {
   testWidgets('content: toolbar and shape picker on a phone', (tester) async {
     await loadFonts();
     await openCanvas(tester, size: const Size(390, 844));
-    await tester.tap(find.byTooltip('Shapes (S)'));
-    await tester.pump();
-    await tester.tap(find.byTooltip('Shapes (S)'));
+    // Phones: the compact toolbar's switcher picks the tool and its settings.
+    await tester.tap(find.byType(ToolSwitcherButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Shapes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(ToolSwitcherButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Shapes settings'));
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(Directionality).first,

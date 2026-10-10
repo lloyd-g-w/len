@@ -106,6 +106,10 @@ class SettingsRepository {
   ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
   set toolbarPlacement(ToolbarPlacement value) => _set('toolbar_placement', value.name);
 
+  /// Whether the editor toolbar shows tool names under the icons.
+  bool get toolbarLabels => _get('toolbar_labels') == 'true';
+  set toolbarLabels(bool value) => _set('toolbar_labels', '$value');
+
   /// Centre of the floating toolbar as a fraction of the editor size
   /// (x, y in 0..1); null = not placed yet.
   (double, double)? get toolbarFloat {

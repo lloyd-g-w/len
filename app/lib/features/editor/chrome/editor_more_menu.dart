@@ -93,15 +93,25 @@ class EditorMoreMenu extends StatelessWidget {
         ],
         _radioSubmenu<ToolbarPlacement>(
           icon: Icons.space_dashboard_outlined,
-          label: 'Toolbar position',
+          label: 'Toolbar',
           value: a.placement,
           options: const [
-            (ToolbarPlacement.auto, 'Automatic'),
+            (ToolbarPlacement.auto, 'Automatic position'),
             (ToolbarPlacement.top, 'Top'),
             (ToolbarPlacement.bottom, 'Bottom'),
             (ToolbarPlacement.floating, 'Floating'),
           ],
           onSelected: a.onPlacement,
+          extra: [
+            const Divider(),
+            MenuItemButton(
+              leadingIcon: Icon(
+                a.toolLabels ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+              ),
+              onPressed: a.onToolLabels == null ? null : () => a.onToolLabels!(!a.toolLabels),
+              child: const Text('Show tool names'),
+            ),
+          ],
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.fullscreen_rounded),
@@ -156,6 +166,7 @@ class EditorMoreMenu extends StatelessWidget {
     required List<(T, String)> options,
     required ValueChanged<T>? onSelected,
     Map<T, String> hints = const {},
+    List<Widget> extra = const [],
   }) => SubmenuButton(
     leadingIcon: Icon(icon),
     menuChildren: [
@@ -168,6 +179,7 @@ class EditorMoreMenu extends StatelessWidget {
           onPressed: onSelected == null ? null : () => onSelected(option),
           child: Text(text),
         ),
+      ...extra,
     ],
     child: Text(label),
   );
