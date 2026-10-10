@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/material.dart' show MaterialApp, Size, SizedBox;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
@@ -12,6 +13,8 @@ import 'package:len/features/documents/export/notebook_exporter.dart';
 import 'package:len/features/documents/pdf/pdf_background_cache.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/features/documents/pdf/pdf_renderer.dart';
+import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/ui/app_theme.dart';
 import 'package:pdf/pdf.dart' as pw;
 import 'package:pdfrx/pdfrx.dart';
 
@@ -176,6 +179,43 @@ void main() {
       expect(highlight.b, greaterThan(0.4));
     },
   );
+
+  testWidgets('the editor shows imported PDF pages under the ink', skip: pdfium == null, (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(900, 1200)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final nb = await tester.runAsync(() async {
+      final file = File('${dir.path}/doc.pdf')..writeAsBytesSync(await samplePdf());
+      final importer = PdfImporter(services);
+      final notebook = await importer.createNotebook(
+        await importer.store(file),
+        title: 'PDF',
+        cover: 0,
+      );
+      await importer.dispose();
+      return notebook;
+    });
+    await tester.pumpWidget(
+      AppScope(
+        services: services,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: EditorScreen(notebook: nb!),
+        ),
+      ),
+    );
+    await tester.pump();
+    // Rendering happens on PDFium's worker; give it real time.
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+    }
+    await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/editor_pdf.png'));
+    await tester.pumpWidget(const SizedBox());
+  });
 
   test('background cache quantises resolutions', () {
     expect(PdfBackgroundCache.bucketFor(10), 256);

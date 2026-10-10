@@ -44,12 +44,17 @@ class PageOverview extends StatefulWidget {
     required this.copier,
     required this.currentPage,
     this.backgrounds,
+    this.changes,
   });
 
   final OverviewHandlers handlers;
   final SurfaceCopier copier;
   final int currentPage;
   final PageBackgrounds? backgrounds;
+
+  /// Notifies when pages change elsewhere (e.g. "Undo" in a snack bar, or
+  /// a sync); the overview then reloads.
+  final Listenable? changes;
 
   @override
   State<PageOverview> createState() => _PageOverviewState();
@@ -61,12 +66,21 @@ class _PageOverviewState extends State<PageOverview> {
   bool _bookmarksOnly = false;
 
   @override
+  void initState() {
+    super.initState();
+    widget.changes?.addListener(_reload);
+  }
+
+  @override
   void dispose() {
+    widget.changes?.removeListener(_reload);
     _cache.dispose();
     super.dispose();
   }
 
-  void _reload() => setState(() => _pages = widget.handlers.load());
+  void _reload() {
+    if (mounted) setState(() => _pages = widget.handlers.load());
+  }
 
   Future<void> _run(PageCommand command, NotebookPage page) async {
     await widget.handlers.command(context, command, page);
