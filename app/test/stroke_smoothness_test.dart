@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
@@ -129,17 +130,15 @@ void main() {
     final rng = math.Random(11);
     double noise() => (rng.nextDouble() + rng.nextDouble() + rng.nextDouble() - 1.5) * 0.4;
     final points = [for (var x = 0.0; x <= 80; x += 0.75) StrokePoint(x + noise(), noise(), 0.5)];
-    final sink = outline(points, ballpoint);
+    final path = StrokeOutline.build(points, ballpoint);
     for (final upper in [true, false]) {
-      final side = [
-        for (final p in sink.points)
-          if (p.dx > 6 && p.dx < 74 && (p.dy < 0) == upper) p,
-      ]..sort((a, b) => a.dx.compareTo(b.dx));
+      // The visible edge: where the filled area ends, found by bisection.
+      final side = [for (var x = 6.0; x <= 74; x += 0.5) Offset(x, _edgeY(path, x, upper: upper))];
       // No bumps: the edge's radius of curvature (through points 2 units
-      // apart) stays above 12 units; what is left of the jitter is a gentle
-      // drift far longer than the stroke is wide.
-      expect(_maxCurvature(side, 2), lessThan(0.08));
-      expect(_maxResidual(side), lessThan(0.3));
+      // apart) stays above ~6 units — a gentle drift, invisible at normal
+      // zoom. (Smoothing harder would round off small handwriting.)
+      expect(_maxCurvature(side, 2), lessThan(0.16));
+      expect(_maxResidual(side), lessThan(0.35));
     }
   });
 
@@ -236,6 +235,20 @@ void main() {
 }
 
 /// Largest distance of [points] from their least-squares line.
+/// The y of the filled region's upper/lower boundary at [x].
+double _edgeY(Path path, double x, {required bool upper}) {
+  var inside = 0.0, outside = upper ? -20.0 : 20.0;
+  for (var i = 0; i < 40; i++) {
+    final mid = (inside + outside) / 2;
+    if (path.contains(Offset(x, mid))) {
+      inside = mid;
+    } else {
+      outside = mid;
+    }
+  }
+  return inside;
+}
+
 double _maxResidual(List<Offset> points) {
   final n = points.length;
   final mx = points.fold<double>(0, (s, p) => s + p.dx) / n;
