@@ -372,7 +372,7 @@ any zoom:
    (the non-zero fill unions them); neighbouring capsules share a circle, so
    edges are tangent-continuous on the outside of bends at any zoom.
 
-`OutlineSink` lets tests record the exact segments ; specimens of synthetic 240 Hz handwriting with jitter and pressure
+`OutlineSink` lets tests record the exact segments; specimens of synthetic 240 Hz handwriting with jitter and pressure
 noise are rendered at 1×–16× in `test/ink_specimen_test.dart`. A 1000-point
 stroke builds in well under a millisecond, so the live stroke is rebuilt on
 every pointer move.
