@@ -36,6 +36,7 @@ class PdfTextIndexer extends ChangeNotifier {
   Database get _db => database.db;
 
   Future<void>? _running;
+  bool _busy = false;
   bool _again = false;
   bool _disposed = false;
 
@@ -43,22 +44,21 @@ class PdfTextIndexer extends ChangeNotifier {
   /// retried after [schedule] is called with `retryFailed`.
   final Set<String> _skipped = {};
 
-  /// Whether extraction is in progress.
-  bool get isIndexing => _running != null;
+  String? _extracting;
+
+  /// Whether a PDF's text is being extracted right now.
+  bool get isIndexing => _extracting != null;
 
   /// Starts extracting any PDFs not yet indexed (no-op if running; a run
   /// in progress looks again when it finishes). Completes when idle.
   Future<void> schedule({bool retryFailed = false}) {
     if (_disposed) return Future.value();
     if (retryFailed) _skipped.clear();
-    final running = _running;
-    if (running != null) {
+    if (_busy) {
       _again = true;
-      return running;
+      return _running ?? Future.value();
     }
-    final run = _running = _run();
-    notifyListeners();
-    return run;
+    return _running = _run();
   }
 
   /// PDF blobs shown by live pages whose text has not been extracted.
@@ -74,18 +74,23 @@ class PdfTextIndexer extends ChangeNotifier {
   ];
 
   Future<void> _run() async {
+    _busy = true; // Set synchronously; _run may finish before returning.
     try {
       do {
         _again = false;
         for (final blob in pendingBlobs()) {
           if (_disposed) return;
           if (_skipped.contains(blob)) continue;
-          if (!await _extract(blob)) _skipped.add(blob);
+          _extracting = blob;
+          notifyListeners();
+          final ok = await _extract(blob);
+          _extracting = null;
+          if (!ok) _skipped.add(blob);
+          if (!_disposed) notifyListeners();
         }
       } while (_again && !_disposed);
     } finally {
-      _running = null;
-      if (!_disposed) notifyListeners();
+      _busy = false;
     }
   }
 
@@ -102,6 +107,7 @@ class PdfTextIndexer extends ChangeNotifier {
     PdfTextDocument? doc;
     try {
       doc = await source.open(bytes);
+      if (_disposed) return true;
       final done = {
         for (final r in _db.select('SELECT page FROM pdf_text WHERE blob = ?', [blob]))
           r['page'] as int,
@@ -114,6 +120,7 @@ class PdfTextIndexer extends ChangeNotifier {
         if (batch.length >= batchSize) _write(blob, batch);
       }
       _write(blob, batch);
+      if (_disposed) return true;
       _db.execute('INSERT OR REPLACE INTO pdf_text_blobs (blob, pages, ok) VALUES (?, ?, 1)', [
         blob,
         doc.pageCount,

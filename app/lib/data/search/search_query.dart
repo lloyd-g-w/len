@@ -79,9 +79,9 @@ class SearchSnippet {
   final String text;
   final List<({int start, int end})> highlights;
 
-  /// The excerpt of [body] around the first match of [query]: about
-  /// [context] characters before it, up to [length] in all, whitespace
-  /// collapsed, with `…` where text was cut.
+  /// The excerpt of [body] around the first match of [query] (or around
+  /// offset [around] of [body]): about [context] characters before it, up
+  /// to [length] in all, whitespace collapsed, with `…` where text was cut.
   factory SearchSnippet.of(
     String body,
     SearchQuery query, {
@@ -89,9 +89,11 @@ class SearchSnippet {
     int length = 120,
     int? around,
   }) {
-    final text = body.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final (text, offsets) = _collapse(body);
     final ranges = query.ranges(text);
-    final anchor = around ?? (ranges.isEmpty ? 0 : ranges.first.start);
+    final anchor = around != null
+        ? offsets[around.clamp(0, body.length)]
+        : (ranges.isEmpty ? 0 : ranges.first.start);
     var start = (anchor - context).clamp(0, text.length);
     // Start at a word boundary.
     if (start > 0) {
@@ -110,6 +112,28 @@ class SearchSnippet {
       for (final r in ranges)
         if (r.start >= start && r.end <= end) (start: r.start + shift, end: r.end + shift),
     ]);
+  }
+
+  /// [body] with whitespace runs collapsed to one space and trimmed, and
+  /// for each offset of [body] (and its end) the matching offset in it.
+  static (String, List<int>) _collapse(String body) {
+    final out = StringBuffer();
+    final offsets = List<int>.filled(body.length + 1, 0);
+    var pendingSpace = false;
+    for (var i = 0; i < body.length; i++) {
+      final c = body.codeUnitAt(i);
+      if (c == 32 || (c >= 9 && c <= 13) || c == 0xA0) {
+        pendingSpace = out.isNotEmpty;
+        offsets[i] = out.length;
+      } else {
+        if (pendingSpace) out.write(' ');
+        pendingSpace = false;
+        offsets[i] = out.length;
+        out.writeCharCode(c);
+      }
+    }
+    offsets[body.length] = out.length;
+    return (out.toString(), offsets);
   }
 }
 
