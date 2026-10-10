@@ -36,7 +36,9 @@ class FocusHandle extends StatelessWidget {
 }
 
 /// Hides the system bars too (Android) in focus mode, for a truly
-/// distraction-free page; [on] false brings them back.
+/// distraction-free page; [on] false shows them again.
 void setImmersive(bool on) => unawaited(
-  SystemChrome.setEnabledSystemUIMode(on ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge),
+  on
+      ? SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky)
+      : SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values),
 );
