@@ -118,8 +118,12 @@ abstract final class Radii {
   static const double pill = 999;
 }
 
-/// Preset colours offered in pickers.
+/// Preset colours offered in pickers, and shared fixed colours.
 abstract final class Palette {
+  /// Default paper colour (matches `PaperPainter`), for previews of ink on
+  /// paper outside the editor (pen previews, notebook covers).
+  static const Color paper = Color(0xFFFFFDF8);
+
   static const List<int> covers = [
     0xFF3B5BDB, // ink blue
     0xFF0CA678, // teal
@@ -135,22 +139,5 @@ abstract final class Palette {
     0xFFD6336C, // rose
     0xFF5C7CFA, // periwinkle
     0xFF862E9C, // plum
-  ];
-
-  static const List<int> pen = [
-    0xFF1F2937, // near-black
-    0xFF1C7ED6, // blue
-    0xFFE03131, // red
-    0xFF2F9E44, // green
-    0xFF7048E8, // violet
-    0xFFF76707, // orange
-  ];
-
-  static const List<int> highlighter = [
-    0xFFFACC15, // yellow
-    0xFF69DB7C, // green
-    0xFF74C0FC, // blue
-    0xFFF783AC, // pink
-    0xFFFFA94D, // orange
   ];
 }

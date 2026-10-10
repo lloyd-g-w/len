@@ -69,7 +69,7 @@ class NotebookCover extends StatelessWidget {
                   )
                 : ColoredBox(
                     key: const ValueKey('preview'),
-                    color: const Color(0xFFFFFDF8),
+                    color: Palette.paper,
                     child: PreviewImage(image: preview),
                   ),
           ),

@@ -53,7 +53,7 @@ class PenOptionsPanel extends StatelessWidget {
             OptionSlider(
               label: 'Opacity',
               value: config.opacity,
-              min: 0.1,
+              min: PenConfig.minOpacity,
               max: 1,
               display: percent,
               onChanged: (v) => update((c) => c.copyWith(opacity: v)),
@@ -106,7 +106,7 @@ class _PreviewCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.sm),
       decoration: BoxDecoration(
         // Ink is previewed on paper-white, as it will appear on the page.
-        color: const Color(0xFFFCFCFA),
+        color: Palette.paper,
         borderRadius: BorderRadius.circular(Radii.control),
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
@@ -178,7 +178,7 @@ class _PenTypeTile extends StatelessWidget {
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFCFCFA),
+                    color: Palette.paper,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: StrokePreview(

@@ -207,9 +207,7 @@ class _KindCard extends StatelessWidget {
         duration: Motion.medium,
         curve: Motion.standard,
         decoration: BoxDecoration(
-          color: selected
-              ? scheme.primary.withValues(alpha: 0.08)
-              : scheme.surfaceContainer,
+          color: selected ? scheme.primary.withValues(alpha: 0.08) : scheme.surfaceContainer,
           borderRadius: BorderRadius.circular(Radii.control + 2),
           border: Border.all(
             color: selected ? scheme.primary : scheme.outlineVariant,
