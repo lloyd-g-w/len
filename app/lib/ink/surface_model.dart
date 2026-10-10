@@ -128,19 +128,31 @@ class SurfaceModel extends ChangeNotifier {
 
   bool isHidden(String id) => _hidden.contains(id);
 
-  /// Replaces the set of hidden stroke / element ids.
-  void setHidden(Set<String> ids) {
-    if (setEquals(ids, _hidden)) return;
+  /// Replaces the stroke / element ids hidden by [owner] (e.g. a selection
+  /// or a text editor). An item is hidden while any owner hides it, so two
+  /// owners never un-hide each other's items.
+  void setHidden(Set<String> ids, {Object? owner}) {
+    if (ids.isEmpty) {
+      _hiddenBy.remove(owner);
+    } else {
+      _hiddenBy[owner] = ids;
+    }
+    final hidden = {for (final set in _hiddenBy.values) ...set};
+    if (setEquals(hidden, _hidden)) return;
     final changed = <ChunkKey>{};
-    for (final id in {..._hidden, ...ids}) {
+    for (final id in {..._hidden, ...hidden}) {
+      if (_hidden.contains(id) && hidden.contains(id)) continue;
       final stroke = _strokes[id];
       final element = _elements[id];
       if (stroke != null) changed.addAll(StrokeChunks.of(stroke));
       if (element != null) changed.addAll(ElementChunks.of(element));
     }
-    _hidden = Set.unmodifiable(ids);
+    _hidden = Set.unmodifiable(hidden);
     _changed(changed);
   }
+
+  /// The ids each owner hides (see [setHidden]).
+  final Map<Object?, Set<String>> _hiddenBy = {};
 
   // ---------------------------------------------------------------------------
   // Loading

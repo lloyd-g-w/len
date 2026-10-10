@@ -49,6 +49,7 @@ class TextEditSession extends ChangeNotifier {
   /// middle), [width] world units wide, formatted like [style].
   void create(Offset at, {required double width, required TextData style}) {
     end();
+    _edited = false;
     final data = style.copyWith(text: '');
     final height = TextLayout.heightOf(data, width);
     _current = SurfaceElement(
@@ -69,7 +70,8 @@ class TextEditSession extends ChangeNotifier {
     end();
     _original = element;
     _current = element;
-    _model.setHidden({element.id});
+    _edited = false;
+    _model.setHidden({element.id}, owner: this);
     notifyListeners();
   }
 
@@ -87,7 +89,11 @@ class TextEditSession extends ChangeNotifier {
     _update(current.copyWith(rect: rect));
   }
 
+  /// Whether the user changed the box in this session.
+  bool _edited = false;
+
   void _update(SurfaceElement element) {
+    _edited = true;
     final r = element.rect;
     final width = math.max(r.width, TextLayout.minWidth);
     final height = TextLayout.heightOf(TextData.fromJson(element.data), width);
@@ -111,7 +117,7 @@ class TextEditSession extends ChangeNotifier {
     } else if (!_same(original, current)) {
       _model.commit(InkEdit(removedElements: [original], addedElements: [current]));
     }
-    _model.setHidden(const {});
+    _model.setHidden(const {}, owner: this);
     notifyListeners();
   }
 
@@ -120,7 +126,7 @@ class TextEditSession extends ChangeNotifier {
     if (_current == null) return;
     _original = null;
     _current = null;
-    _model.setHidden(const {});
+    _model.setHidden(const {}, owner: this);
     notifyListeners();
   }
 
@@ -129,10 +135,24 @@ class TextEditSession extends ChangeNotifier {
       a.rotation == b.rotation &&
       TextData.fromJson(a.data) == TextData.fromJson(b.data);
 
-  /// The edited element changed underneath (undo, sync): stop editing.
+  /// The surface changed underneath. If the edited box was removed (undo,
+  /// sync), stop editing; if it was reloaded or changed by sync, keep
+  /// editing it — the user's pending changes win, an untouched box follows.
   void _onModelChanged() {
     final original = _original;
-    if (original != null && !identical(_model.elementById(original.id), original)) discard();
+    if (original == null) return;
+    final stored = _model.elementById(original.id);
+    if (identical(stored, original)) return;
+    if (stored == null) {
+      // While a reload is reading, the box is merely not back yet.
+      if (!_model.isLoading) discard();
+      return;
+    }
+    _original = stored;
+    if (!_edited) {
+      _current = stored;
+      notifyListeners();
+    }
   }
 
   @override

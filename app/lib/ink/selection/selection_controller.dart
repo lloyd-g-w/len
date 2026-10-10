@@ -78,11 +78,14 @@ class SelectionController extends ChangeNotifier {
     _picture = null;
     if (isEmpty) {
       _frame = null;
-      _model.setHidden(const {});
+      _model.setHidden(const {}, owner: this);
     } else {
       _frame = frame ?? SelectionFrame(boundsOf(_strokes, _elements).inflate(framePadding));
       _picture = _record();
-      _model.setHidden({for (final s in _strokes) s.id, for (final e in _elements) e.id});
+      _model.setHidden({
+        for (final s in _strokes) s.id,
+        for (final e in _elements) e.id,
+      }, owner: this);
     }
     notifyListeners();
   }
