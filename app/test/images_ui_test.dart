@@ -18,7 +18,9 @@ import 'package:len/features/library/thumbnails/thumbnail_renderer.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'content_golden_test.dart' show loadFonts;
+import 'content_documents_test.dart' show elementsOf;
 import 'content_tools_ui_test.dart' show key, liveElements, liveStrokes, mouseDrag, seedStroke;
+import 'document_editor_test.dart' show closeEditor, pumpEditor;
 import 'images_test.dart' show jpegOf, pngOf;
 
 /// Opens a canvas in the editor; [seed] runs with real async (blobs are
@@ -173,11 +175,12 @@ void main() {
     late SurfaceElement seeded;
     final (services, nb) = await openImageCanvas(
       tester,
+      fonts: true,
       seed: (s, nb) async {
         seeded = await seedImage(
           s,
           nb.id,
-          pngOf(400, 200),
+          jpegOf(400, 200),
           id: 'img',
           rect: const Rect.fromLTWH(100, 300, 400, 200),
         );
@@ -196,6 +199,11 @@ void main() {
     expect(find.text('Done'), findsOneWidget);
     // Drag the left edge's handle a quarter in.
     await mouseDrag(tester, const [Offset(100, 400), Offset(150, 400), Offset(200, 400)]);
+    await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/images_crop.png'));
+    final reset = tester.widget<IconButton>(
+      find.ancestor(of: find.byIcon(Icons.crop_free_rounded), matching: find.byType(IconButton)),
+    );
+    expect(reset.onPressed, isNotNull);
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     final cropped = liveElements(services, nb.id).single;
@@ -264,6 +272,24 @@ void main() {
     await mouseDrag(tester, const [Offset(900, 250)]); // Select the rotated image.
     await tester.pumpAndSettle();
     await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/images_canvas.png'));
+  });
+
+  testWidgets('pages: a pasted image lands on the page in the middle of the screen, inside it', (
+    tester,
+  ) async {
+    final (services, nb) = await pumpEditor(tester);
+    final pages = services.pages.pagesOf(nb.id);
+    mockClipboardImage(pngOf(2000, 1000));
+    await ctrl(tester, LogicalKeyboardKey.keyV);
+    List<SurfaceElement> all() => [for (final p in pages) ...elementsOf(services, p.id)];
+    await settleReal(tester, () => all().isNotEmpty);
+    final image = all().single;
+    final page = pages.firstWhere((p) => p.id == image.surfaceId);
+    expect(page.bounds.contains(image.rect.topLeft), isTrue);
+    expect(page.bounds.contains(image.rect.bottomRight - const Offset(1e-6, 1e-6)), isTrue);
+    expect(image.rect.width / image.rect.height, closeTo(2, 1e-6));
+    expect(image.rect.width, lessThanOrEqualTo(page.width * 0.7 + 1e-6));
+    await closeEditor(tester);
   });
 
   test('PNG export and covers draw images beneath the ink', () async {
