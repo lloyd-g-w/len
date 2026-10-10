@@ -264,6 +264,12 @@ class _EditorScreenState extends State<EditorScreen> {
     setState(() => _notebook = _services.notebooks.update(change(current)));
   }
 
+  /// The folder the notebook is filed in, shown under its title.
+  String? _folderName() {
+    final id = _notebook.folderId;
+    return id == null ? null : _services.folders.get(id)?.name;
+  }
+
   void _back() => unawaited(Navigator.of(context).maybePop());
 
   void _openSettings() => unawaited(
@@ -410,6 +416,7 @@ class _EditorScreenState extends State<EditorScreen> {
         toolbar: toolbar,
         topBar: EditorTopBar(
           title: _notebook.title,
+          subtitle: _folderName(),
           actions: editorMenuActions(
             context,
             _session,
@@ -420,6 +427,7 @@ class _EditorScreenState extends State<EditorScreen> {
             onSettings: _openSettings,
             onFlow: _setFlow,
             onBackground: _pickBackground,
+            onSearch: _search.open,
           ),
           undo: _session.undo,
           tabs: tabs,

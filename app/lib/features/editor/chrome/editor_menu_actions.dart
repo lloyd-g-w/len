@@ -19,6 +19,7 @@ class EditorMenuActions {
     this.toolLabels = false,
     this.onToolLabels,
     required this.onSettings,
+    this.onSearch,
     this.bookmarked = false,
     this.onToggleBookmark,
     this.onOverview,
@@ -51,6 +52,10 @@ class EditorMenuActions {
   final bool toolLabels;
   final ValueChanged<bool>? onToolLabels;
   final VoidCallback onSettings;
+
+  /// Opens in-notebook search (a menu item on phones, where the bar has
+  /// no room for its button).
+  final VoidCallback? onSearch;
 
   // Paged notebooks.
   final bool bookmarked;

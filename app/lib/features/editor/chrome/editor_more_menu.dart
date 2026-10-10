@@ -38,6 +38,13 @@ class EditorMoreMenu extends StatelessWidget {
             'Open notebooks (${tabs.length})',
             () => showTabSwitcher(context, tabs),
           ),
+        if (compact && a.onSearch != null)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.search_rounded),
+            shortcut: const SingleActivator(LogicalKeyboardKey.keyF, control: true),
+            onPressed: a.onSearch,
+            child: const Text('Search in notebook'),
+          ),
         if (compact && a.isPaged) ...[
           _item(Icons.grid_view_rounded, 'All pages', a.onOverview),
           _bookmarkItem(),
