@@ -22,3 +22,6 @@ linter:
     - sort_child_properties_last
     - unawaited_futures
     - unnecessary_lambdas
+
+formatter:
+  page_width: 100
