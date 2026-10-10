@@ -200,6 +200,15 @@ class _EditorScreenState extends State<EditorScreen> {
     setState(() => _notebook = _services.notebooks.update(current.copyWith(title: title)));
   }
 
+  static const _digitKeys = [
+    LogicalKeyboardKey.digit1,
+    LogicalKeyboardKey.digit2,
+    LogicalKeyboardKey.digit3,
+    LogicalKeyboardKey.digit4,
+    LogicalKeyboardKey.digit5,
+    LogicalKeyboardKey.digit6,
+  ];
+
   /// Wraps a single-key shortcut so it doesn't fire while text is edited.
   VoidCallback _unlessTyping(VoidCallback action) => () {
     final focused = FocusManager.instance.primaryFocus?.context?.widget;
@@ -221,6 +230,15 @@ class _EditorScreenState extends State<EditorScreen> {
     ),
     const SingleActivator(LogicalKeyboardKey.keyE): _unlessTyping(
       () => _tools.tool = EditorTool.eraser,
+    ),
+    // 1–6: quick colours of the pen / highlighter; [ and ]: thinner / thicker.
+    for (final (i, key) in _digitKeys.indexed)
+      SingleActivator(key): _unlessTyping(() => _tools.selectColor(i)),
+    const SingleActivator(LogicalKeyboardKey.bracketLeft): _unlessTyping(
+      () => _tools.stepWidth(-1),
+    ),
+    const SingleActivator(LogicalKeyboardKey.bracketRight): _unlessTyping(
+      () => _tools.stepWidth(1),
     ),
     if (_doc case final doc?) ...{
       const SingleActivator(LogicalKeyboardKey.pageDown): () => doc.goToPage(doc.currentPage + 1),
