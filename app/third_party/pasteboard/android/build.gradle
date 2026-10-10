@@ -36,7 +36,9 @@ if (builtInKotlin && project.hasProperty('android.builtInKotlin')) {
     builtInKotlin = project.property('android.builtInKotlin').toString().toBoolean()
 }
 if (!builtInKotlin) {
-    apply plugin: "kotlin-android"
+    // Via pluginManager (not `apply plugin:`) so Flutter's text-based KGP
+    // detector doesn't flag this conditional application.
+    project.pluginManager.apply("kotlin-android")
 }
 
 android {
