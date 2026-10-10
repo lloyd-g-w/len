@@ -24,7 +24,10 @@ class ThumbnailCache extends ChangeNotifier {
   /// Pixel width of rendered previews.
   final int width;
 
-  /// Most entries kept; the least recently used are dropped beyond this.
+  /// Most entries kept; the least recently used are dropped beyond this —
+  /// but never one requested since the last notification (it is on screen:
+  /// evicting it would dispose an image being shown and make it re-render
+  /// on every rebuild).
   static const int capacity = 96;
 
   /// Time a batch may take before yielding to the event loop (a render
@@ -36,13 +39,19 @@ class ThumbnailCache extends ChangeNotifier {
   Timer? _timer;
   bool _disposed = false;
 
+  /// Bumped on every notification; entries requested by the rebuild that
+  /// follows carry the new value in [_Entry.usedIn].
+  int _generation = 0;
+
   /// The cached preview of [notebook] (null = plain cover), scheduling a
   /// refresh if its content may have changed since it was rendered.
   ///
   /// Safe to call during build: it never notifies synchronously.
   ui.Image? imageFor(Notebook notebook) {
     final entry = _entries.remove(notebook.id);
-    if (entry != null) _entries[notebook.id] = entry; // Mark recently used.
+    if (entry != null) {
+      _entries[notebook.id] = entry..usedIn = _generation; // Mark recently used.
+    }
     if (entry == null || entry.checkedAt != notebook.updatedAt || entry.stale) {
       _enqueue(notebook);
     }
@@ -56,7 +65,7 @@ class ThumbnailCache extends ChangeNotifier {
     for (final id in ids) {
       _entries[id]?.stale = true;
     }
-    if (!_disposed) notifyListeners();
+    _notify();
   }
 
   void _enqueue(Notebook notebook) {
@@ -75,7 +84,13 @@ class ThumbnailCache extends ChangeNotifier {
       changed |= _refresh(notebook);
     }
     if (_queue.isNotEmpty) _timer = Timer(Duration.zero, _processBatch);
-    if (changed) notifyListeners();
+    if (changed) _notify();
+  }
+
+  void _notify() {
+    if (_disposed) return;
+    _generation++;
+    notifyListeners();
   }
 
   /// Re-renders [notebook] if its fingerprint changed; true if the image did.
@@ -105,12 +120,24 @@ class ThumbnailCache extends ChangeNotifier {
     }
     final hadImage = old?.image != null;
     old?.image?.dispose();
-    _entries[notebook.id] = _Entry(image, fingerprint, notebook.updatedAt);
-    while (_entries.length > capacity) {
-      _entries.remove(_entries.keys.first)?.image?.dispose();
-    }
+    _entries[notebook.id] = _Entry(image, fingerprint, notebook.updatedAt)..usedIn = _generation;
+    _evict();
     // Nothing drawn before or after: covers look the same, no rebuild.
     return hadImage || image != null;
+  }
+
+  /// Drops least recently used entries beyond [capacity] that are not on
+  /// screen.
+  void _evict() {
+    var excess = _entries.length - capacity;
+    if (excess <= 0) return;
+    for (final id in _entries.keys.toList()) {
+      final entry = _entries[id]!;
+      if (entry.usedIn == _generation) continue;
+      _entries.remove(id);
+      entry.image?.dispose();
+      if (--excess == 0) return;
+    }
   }
 
   @override
@@ -132,4 +159,7 @@ class _Entry {
   final Object? fingerprint;
   int checkedAt;
   bool stale = false;
+
+  /// [ThumbnailCache._generation] when last requested.
+  int usedIn = 0;
 }
