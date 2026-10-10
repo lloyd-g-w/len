@@ -234,6 +234,61 @@ Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
 rendering* below); paths are memoised per stroke. PDF export flattens the same
 paths.
 
+### Dense stylus input on Android (`input/sample_source.dart`, `platform/stylus_samples*`)
+
+Android batches input: each `ACTION_MOVE` carries every digitiser sample since
+the previous frame (240+ Hz with an S Pen) as *historical* samples, but
+Flutter's embedding (`AndroidTouchProcessor`) forwards only the newest one —
+about one point per frame. `MainActivity.dispatchTouchEvent` therefore hands
+each stylus `MotionEvent` to `StylusCapture.kt` first, which sends all of its
+samples (position in Flutter-view pixels, pressure, `AXIS_TILT`,
+`AXIS_ORIENTATION`, time) as one binary message on `len/stylus_samples`
+(`StylusBatchCodec`: packed float32/float64, one message per event, no
+per-sample calls), then lets Flutter have the event untouched.
+
+The input controller asks a `SampleSource` for the samples between two pointer
+events of the drawing contact (`begin` on pen-down, `between(event)` before each
+move and before the up, `end`). `StylusSampleMerger` matches batches by Flutter
+device id (`pointerId << 3 | toolType`), the contact's down time and the event
+time (a `PointerEvent.timeStamp` *is* its `MotionEvent`'s event time): for the
+event's own batch it inserts the historical samples, for a batch whose event
+never reached Flutter all of them. Positions go physical px → logical px
+(`devicePixelRatio`) → the event's local space (its `transform`) → world
+(viewport), and pressure is normalised with the event's range, so a merged
+sample is indistinguishable from a pointer event. Batches that arrive after
+their event was handled are dropped (never out of order), duplicates and
+anything after `end` are ignored, so a late or silent channel just means
+today's one-sample-per-frame input. Other platforms get no source (web
+browsers and desktop embedders already deliver every sample). Tilt and
+orientation are carried but not used yet.
+
+### Low-latency ink (Android, experimental; `WetInkOverlay.kt`)
+
+Setting *Low-latency ink (experimental)*, default off. A translucent
+`SurfaceView` (media-overlay z-order) sits above the Flutter view, rendered
+with androidx.graphics' `CanvasFrontBufferedRenderer` (API 29+): the newest
+samples of the contact are drawn into the **front buffer** as each
+`MotionEvent` arrives — round-capped segments in the stroke's colour with the
+outline's radius per pressure (a table sent by Dart) — so the tip appears about
+a frame or two before Flutter's frame shows it. Dart (`_LowLatencySource`, a
+`SampleSource` decorator) sends `begin` (contact, colour, radii) once the
+contact is ink, `progress` (the newest event a built frame contains) after
+each frame, and `end` after the frame showing the committed stroke. On each
+`progress` the overlay *commits*: the front buffer is cleared and only the
+tail Flutter may not have presented yet (samples newer than progress − 2
+frames, never older than 5 frames) is redrawn in the multi-buffered layer, in
+one SurfaceControl transaction, so nothing tears or flickers and the overlay
+never shows more than the last few millimetres of ink, on top of identical
+Flutter ink. Only opaque, round, untextured pens qualify (`WetInkStyle`):
+highlighter, legacy pencil/fountain, translucent colours, erasing, tools and
+straightened strokes are left to Flutter alone.
+Known gaps: the overlay is not clipped to the canvas (a stroke dragged under a
+toolbar shows its tip above it for a few frames), the first stroke after
+switching it on is not accelerated (the surface is created then), start
+tapers appear on the overlay only after the tail expires, and the radius uses
+plain (not causal-smoothed) pressure, so the tip may differ from the final
+outline by a fraction of a pixel.
+
 Resting the pen for 600 ms at the end of a stroke snaps it
 (`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`): open
 strokes become a line (whose end then follows the pen) or an arrow, closed
@@ -351,8 +406,14 @@ canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
 any zoom:
 
 1. Drop duplicate samples, trim pen-down/pen-up hooks, and densify sparse
-   input along a centripetal Catmull-Rom spline (Flutter delivers roughly one
-   sample per frame on Android, so fast curves arrive as chords).
+   input along a centripetal Catmull-Rom spline (mouse, touch and, without
+   the merged historical samples, Android stylus input arrive at about one
+   sample per frame, so fast curves arrive as chords). Only gaps wider than
+   two resampling steps are filled: dense 240 Hz stylus input passes through
+   point for point. Smoothing (positions, radii) is by arc length, not by
+   sample count, so denser input neither flickers nor gets smoother; the
+   per-sample pressure EMA (`PressureFilter`) is correspondingly lighter in
+   time (≈ 10 ms at 240 Hz instead of ≈ 40 ms at 60 Hz).
 2. `Centerline`: resample at a **fixed** arc-length spacing from the stroke's
    start (samples of a stroke being drawn never move as it grows), find sharp
    reversals (tips of `n`, `v`), and low-pass the positions per stretch
@@ -409,6 +470,7 @@ the web:
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread (`StrokeRepository`)                   |
 | Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
 | Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
+| Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
 (`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
@@ -539,7 +601,7 @@ with them later.
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
 `SettingsRepository`: theme mode and accent (the app rebuilds its `ThemeData` from them),
 stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
-(`PenButtonAction.eraser|lasso|none`), editor toolbar placement (and floating position),
+(`PenButtonAction.eraser|lasso|none`), low-latency ink (Android, experimental), editor toolbar placement (and floating position),
 library layout and sort. Getters always read
 the store, so values written elsewhere are never stale.
 
@@ -587,9 +649,9 @@ records with last-write-wins. Open screens subscribe to
   new records (simple and sync-safe, but more rows than a delta).
 - Text uses Roboto (with system fallbacks); a bundled font would make text
   boxes wrap identically on every device.
-- Android: Flutter does not expose `MotionEvent` historical samples or
-  front-buffered rendering; a platform-channel "low-latency ink" layer could
-  shave further latency on Samsung tablets.
+- Android: historical stylus samples are merged from a platform channel and
+  the low-latency overlay is experimental (see *Input*); it has not been
+  tuned on every device. Stylus tilt/orientation are received but unused.
 - The sync token is stored in the app's SQLite database; move it to secure
   storage before shipping.
 - PDF backgrounds are rendered as whole-page images (no tiling), so very deep
