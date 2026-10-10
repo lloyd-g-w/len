@@ -109,6 +109,8 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
     /** Releases the overlay (activity going away). */
     fun dispose() {
         handler.removeCallbacksAndMessages(null)
+        commitPending = false
+        drawing = false
         layer?.release()
         layer = null
     }
