@@ -18,7 +18,7 @@ Download the latest build from
 |----------|------|-----|
 | Android 7+ | `len-X.Y.Z-android-arm64-v8a.apk` (most phones/tablets; `-universal` if unsure) | Open the APK and allow installing from your browser/file manager. |
 | Windows 10/11 (x64) | `len-X.Y.Z-windows-x64.zip` | Unzip anywhere, run `len.exe`. |
-| Linux (x64) | `len-X.Y.Z-linux-x64.tar.gz` | Unpack, run `./len`; `./install-desktop-entry.sh` adds it to your application menu (`--uninstall` removes it). Needs GTK 3. |
+| Linux (x64) | `len-X.Y.Z-linux-x64.tar.gz` | Unpack, run `./len`; `./install-desktop-entry.sh` adds it to your application menu (`--uninstall` removes it). Needs GTK 3 and GStreamer (with the -good and an AAC plugin, for audio playback); recording uses `parecord` and `ffmpeg`. |
 | Web | `len-X.Y.Z-web.zip` | Static site: unzip and serve it with any web server (headers: see *Develop*). |
 
 For sync, run the server: [server/README.md](server/README.md) (Docker image
