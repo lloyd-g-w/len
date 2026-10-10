@@ -1,44 +1,85 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
 import '../../../data/surface_copier.dart';
 import '../../../domain/notebook_page.dart';
-import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
-import '../../../ink/render/stroke_renderer.dart';
+import '../../../ink/images/element_images.dart';
+import '../../../ink/render/content_painter.dart';
 import 'page_backgrounds.dart';
 import 'page_painting.dart';
 
-/// Recorded ink and text of pages for thumbnails, loaded on first use.
-class ThumbnailCache {
-  ThumbnailCache(this.copier);
+/// Recorded ink, text and images of pages for thumbnails, loaded on first
+/// use. Notifies when a page's picture was dropped because one of its
+/// images finished decoding (it is then recorded again, sharper).
+class ThumbnailCache extends ChangeNotifier {
+  ThumbnailCache(this.copier, {this.images}) {
+    _imageChanges = images?.changes.listen(_onImage);
+  }
 
   final SurfaceCopier copier;
+
+  /// Decoded bitmaps for image elements.
+  final ElementImages? images;
+
+  /// Device pixels per page unit images are decoded for (thumbnails are a
+  /// few hundred pixels wide).
+  static const double imageScale = 0.75;
+
   final Map<String, ui.Picture> _ink = {};
 
-  /// The page's ink as a picture in page units.
-  ui.Picture inkOf(String pageId) =>
-      _ink[pageId] ??= _record(copier.loadAll(pageId), copier.loadAllElements(pageId));
+  /// Image blobs drawn into each page's picture.
+  final Map<String, Set<String>> _blobs = {};
+  StreamSubscription<String>? _imageChanges;
+
+  /// The page's content as a picture in page units.
+  ui.Picture inkOf(String pageId) => _ink[pageId] ??= _record(pageId);
 
   /// Drops a page's picture after it changed.
-  void invalidate(String pageId) => _ink.remove(pageId)?.dispose();
+  void invalidate(String pageId) {
+    _ink.remove(pageId)?.dispose();
+    _blobs.remove(pageId);
+  }
 
-  static ui.Picture _record(List<Stroke> strokes, List<SurfaceElement> elements) {
+  ui.Picture _record(String pageId) {
+    final strokes = copier.loadAll(pageId);
+    final elements = copier.loadAllElements(pageId);
+    final blobs = {
+      for (final e in elements)
+        if (e.knownType == ElementType.image && e.data['blob'] is String) e.data['blob']! as String,
+    };
+    if (blobs.isNotEmpty) _blobs[pageId] = blobs;
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    for (final s in strokes..sort(Stroke.paintOrder)) {
-      StrokeRenderer.draw(canvas, s);
-    }
-    paintElements(canvas, elements);
+    ContentPainter.paint(
+      Canvas(recorder),
+      strokes,
+      elements,
+      images: images,
+      pixelScale: imageScale,
+    );
     return recorder.endRecording();
   }
 
+  void _onImage(String blob) {
+    final pages = [
+      for (final entry in _blobs.entries)
+        if (entry.value.contains(blob)) entry.key,
+    ];
+    if (pages.isEmpty) return;
+    pages.forEach(invalidate);
+    notifyListeners();
+  }
+
+  @override
   void dispose() {
+    unawaited(_imageChanges?.cancel());
     for (final p in _ink.values) {
       p.dispose();
     }
     _ink.clear();
+    super.dispose();
   }
 }
 
@@ -54,12 +95,15 @@ class PageThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: page.width / page.height,
-      child: CustomPaint(
-        painter: _ThumbnailPainter(
-          page,
-          cache.inkOf(page.id),
-          backgrounds,
-          MediaQuery.devicePixelRatioOf(context),
+      child: ListenableBuilder(
+        listenable: cache,
+        builder: (context, _) => CustomPaint(
+          painter: _ThumbnailPainter(
+            page,
+            cache.inkOf(page.id),
+            backgrounds,
+            MediaQuery.devicePixelRatioOf(context),
+          ),
         ),
       ),
     );

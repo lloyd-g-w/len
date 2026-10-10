@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../data/surface_copier.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../ink/images/element_images.dart';
 import '../../../ui/app_theme.dart';
 import 'page_backgrounds.dart';
 import 'page_thumbnail.dart';
@@ -44,6 +45,7 @@ class PageOverview extends StatefulWidget {
     required this.copier,
     required this.currentPage,
     this.backgrounds,
+    this.images,
     this.changes,
   });
 
@@ -51,6 +53,9 @@ class PageOverview extends StatefulWidget {
   final SurfaceCopier copier;
   final int currentPage;
   final PageBackgrounds? backgrounds;
+
+  /// Decoded bitmaps for image elements.
+  final ElementImages? images;
 
   /// Notifies when pages change elsewhere (e.g. "Undo" in a snack bar, or
   /// a sync); the overview then reloads.
@@ -61,7 +66,7 @@ class PageOverview extends StatefulWidget {
 }
 
 class _PageOverviewState extends State<PageOverview> {
-  late final ThumbnailCache _cache = ThumbnailCache(widget.copier);
+  late final ThumbnailCache _cache = ThumbnailCache(widget.copier, images: widget.images);
   late List<NotebookPage> _pages = widget.handlers.load();
   bool _bookmarksOnly = false;
 

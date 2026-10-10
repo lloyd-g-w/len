@@ -72,11 +72,16 @@ class ImageData {
     double? n(Object? x) => x is num && x.isFinite ? x.toDouble() : null;
     final x = n(v['x']), y = n(v['y']), w = n(v['w']), h = n(v['h']);
     if (x == null || y == null || w == null || h == null || w <= 0 || h <= 0) return full;
-    final r = clampCrop(Rect.fromLTWH(x, y, w, h));
-    // Float noise must not turn an uncropped image into a "cropped" one.
-    return (r.left.abs() < 1e-9 && r.top.abs() < 1e-9 && r.right > 1 - 1e-9 && r.bottom > 1 - 1e-9)
-        ? full
-        : r;
+    return normaliseCrop(Rect.fromLTWH(x, y, w, h));
+  }
+
+  /// [crop] clamped ([clampCrop]); float noise around the whole image
+  /// snaps to [full], so an uncropped image never counts as cropped.
+  static Rect normaliseCrop(Rect crop) {
+    final r = clampCrop(crop);
+    const e = 1e-6;
+    final whole = r.left < e && r.top < e && r.right > 1 - e && r.bottom > 1 - e;
+    return whole ? full : r;
   }
 
   @override
