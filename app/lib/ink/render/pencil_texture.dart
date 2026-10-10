@@ -16,7 +16,7 @@ abstract final class PencilTexture {
   static const int size = 128;
 
   /// World units covered by one texel.
-  static const double texel = 0.32;
+  static const double texel = 0.28;
 
   static ui.Image? _image;
 
@@ -51,7 +51,7 @@ abstract final class PencilTexture {
         final speck = random.nextDouble();
         // Valleys of the paper tooth hold less graphite; speckle breaks up
         // the edges so the stroke reads as grainy rather than blotchy.
-        var a = 0.92 - 0.55 * math.pow(tooth, 2.2) - 0.35 * speck * speck;
+        var a = 0.98 - 0.5 * math.pow(tooth, 2) - 0.5 * math.pow(speck, 3);
         a = a.clamp(0.08, 1.0);
         final level = (a * (levels - 1)).round();
         buckets[level].addAll([x + 0.5, y + 0.5]);
