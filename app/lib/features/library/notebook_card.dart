@@ -9,6 +9,7 @@ import 'library_drag.dart';
 import 'library_draggable.dart';
 import 'library_menus.dart';
 import 'notebook_cover.dart';
+import 'selection/selection_mark.dart';
 
 /// A notebook in the library grid: its cover (live preview) with the title
 /// and a subtitle below. Lifts on hover, opens on tap, offers its menu on
@@ -35,6 +36,13 @@ class _NotebookCardState extends State<NotebookCard> {
   bool _focused = false;
 
   Notebook get _notebook => widget.notebook;
+  bool get _selecting => widget.actions.selection.active;
+
+  /// Opens the notebook, or toggles it in selection mode.
+  void _tap() => _selecting
+      ? widget.actions.selection.toggle(_notebook.id)
+      : unawaited(widget.actions.openNotebook(context, _notebook));
+  bool get _selected => widget.actions.selection.contains(_notebook.id);
 
   /// Opens the menu at [at] (global), else under [anchor] or the card.
   Future<void> _showMenu({Offset? at, BuildContext? anchor}) async {
@@ -65,14 +73,20 @@ class _NotebookCardState extends State<NotebookCard> {
         type: MaterialType.transparency,
         child: InkWell(
           borderRadius: BorderRadius.circular(Radii.cover),
-          onTap: () => unawaited(widget.actions.openNotebook(context, _notebook)),
+          onTap: _tap,
           onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
           onHover: (h) => setState(() => _hovered = h),
           onFocusChange: (f) {
             setState(() => _focused = f);
             widget.actions.controller.setNotebookFocused(_notebook.id, f);
           },
-          child: NotebookCover.of(_notebook),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              NotebookCover.of(_notebook),
+              if (_selecting) SelectionMark(selected: _selected),
+            ],
+          ),
         ),
       ),
     );
@@ -103,25 +117,30 @@ class _NotebookCardState extends State<NotebookCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: Gaps.xxs),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _notebook.title,
-                        style: theme.textTheme.titleSmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: Gaps.xxs),
-                      Text(
-                        widget.subtitle,
-                        style: theme.textTheme.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                // The title is part of the target too.
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _tap,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: Gaps.xxs),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _notebook.title,
+                          style: theme.textTheme.titleSmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: Gaps.xxs),
+                        Text(
+                          widget.subtitle,
+                          style: theme.textTheme.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

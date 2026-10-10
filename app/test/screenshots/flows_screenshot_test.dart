@@ -115,6 +115,22 @@ void main() {
     });
   }
 
+  for (final (name, size, dpr) in [sizes[0], sizes[2]]) {
+    testWidgets('library selection $name', (tester) async {
+      setWindow(tester, size, dpr: dpr);
+      final services = seededServices();
+      addTearDown(services.dispose);
+      await pumpApp(tester, services, const LibraryScreen());
+      await tester.tap(find.byTooltip('Select notebooks'));
+      await settle(tester);
+      await tester.tap(find.text('Travel plans'));
+      await tester.tap(find.text('Ideas'));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      await shoot(tester, 'select_$name');
+    });
+  }
+
   testWidgets('empty states phone', (tester) async {
     setWindow(tester, const Size(390, 844), dpr: 2);
     final services = seededServices();

@@ -51,6 +51,15 @@ class LibraryHeader extends StatelessWidget {
           onPressed: () => unawaited(actions.createFolder(context)),
         ),
       if (_c.section != LibrarySection.trash) _SortButton(controller: _c),
+      if (_c.visibleNotebooks.isNotEmpty)
+        IconButton(
+          tooltip: 'Select notebooks',
+          isSelected: actions.selection.active,
+          icon: const Icon(Icons.check_circle_outline_rounded),
+          selectedIcon: const Icon(Icons.check_circle_rounded),
+          onPressed: () =>
+              actions.selection.active ? actions.selection.clear() : actions.selection.start(),
+        ),
       _LayoutToggle(controller: _c),
       if (_c.section == LibrarySection.trash && _c.trash.isNotEmpty)
         Padding(
