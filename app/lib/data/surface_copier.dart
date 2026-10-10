@@ -14,7 +14,8 @@ class SurfaceCopier {
   final ElementRepository? elements;
 
   /// Every chunk any surface could plausibly use.
-  static const _everywhere = ChunkRange(-1 << 22, -1 << 22, 1 << 22, 1 << 22);
+  /// (Not `-1 << 22`: on the web, shifts produce unsigned 32-bit values.)
+  static const _everywhere = ChunkRange(-(1 << 22), -(1 << 22), 1 << 22, 1 << 22);
 
   /// All live strokes of [surfaceId].
   List<Stroke> loadAll(String surfaceId) =>

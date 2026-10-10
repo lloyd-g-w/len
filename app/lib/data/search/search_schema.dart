@@ -1,4 +1,4 @@
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 /// The local, derived full-text search index (never synced).
 ///
@@ -23,7 +23,7 @@ abstract final class SearchSchema {
   /// Creates (or completes) the index and fills it from the synced tables.
   /// Idempotent: safe however migrations from parallel branches end up
   /// ordered, and on databases where an earlier run lacked FTS5.
-  static void create(Database db) {
+  static void create(CommonDatabase db) {
     db.execute('''
       CREATE TABLE IF NOT EXISTS search_docs (
         id         INTEGER PRIMARY KEY,
@@ -54,13 +54,13 @@ abstract final class SearchSchema {
   }
 
   /// Whether the FTS5 index exists on [db].
-  static bool hasFts(Database db) => db
+  static bool hasFts(CommonDatabase db) => db
       .select("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'search_fts'")
       .isNotEmpty;
 
   /// Creates the FTS5 index and its sync triggers if FTS5 is available.
   /// Returns whether the index exists afterwards.
-  static bool ensureFts(Database db) {
+  static bool ensureFts(CommonDatabase db) {
     if (hasFts(db)) return true;
     try {
       // unicode61 folds case and (with remove_diacritics 2) accents;
@@ -91,7 +91,7 @@ abstract final class SearchSchema {
 
   /// Empties the index and refills it from the synced tables (and the
   /// extracted PDF text).
-  static void rebuild(Database db) {
+  static void rebuild(CommonDatabase db) {
     db.execute('DELETE FROM search_docs');
     db.execute('''
       INSERT INTO search_docs (kind, ref_id, surface_id, body)
@@ -117,7 +117,7 @@ abstract final class SearchSchema {
   /// Re-indexes the notebook pages showing PDF [blob] — only those showing
   /// one of [pdfPages] if given — after its text was extracted. One scan
   /// of `pages` per call.
-  static void indexPdfPages(Database db, String blob, {List<int>? pdfPages}) {
+  static void indexPdfPages(CommonDatabase db, String blob, {List<int>? pdfPages}) {
     final only = pdfPages == null
         ? ''
         : 'AND ${_bgField('background', 'page')} IN (${pdfPages.join(', ')})';
@@ -149,7 +149,7 @@ abstract final class SearchSchema {
   /// Triggers that mirror notebooks, folders, text elements and PDF pages
   /// into `search_docs`. Each only fires when an indexed column changes,
   /// so moves, recolours and sync bookkeeping (`dirty`) cost nothing.
-  static void _createSourceTriggers(Database db) {
+  static void _createSourceTriggers(CommonDatabase db) {
     void mirror({
       required String name,
       required String table,

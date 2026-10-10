@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import '../app_database.dart';
 import 'search_query.dart';
@@ -83,7 +83,7 @@ class SearchIndex {
   final AppDatabase database;
   late final bool _fts;
 
-  Database get db => database.db;
+  CommonDatabase get db => database.db;
 
   /// Whether queries use FTS5 (else `LIKE`, slower and accent-sensitive).
   bool get usesFts => _fts;

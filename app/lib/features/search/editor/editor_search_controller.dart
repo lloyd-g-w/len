@@ -10,6 +10,7 @@ import '../../../data/search/search_service.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../ink/viewport.dart';
 import '../../editor/document/document_controller.dart';
+import '../../editor/editor_session.dart';
 import 'editor_search_host.dart';
 import 'pdf_glyph_cache.dart';
 
@@ -55,6 +56,20 @@ class EditorSearchController extends ChangeNotifier {
     _takeJump();
   }
 
+  /// The search for an editor [session] (paged or canvas).
+  factory EditorSearchController.forSession(
+    AppServices services,
+    EditorSession session, {
+    required String notebookId,
+  }) => switch (session.doc) {
+    final doc? => EditorSearchController.forDocument(services, doc, notebookId: notebookId),
+    null => EditorSearchController.forCanvas(
+      services,
+      session.canvasViewport!,
+      notebookId: notebookId,
+    ),
+  };
+
   /// The search for a paged notebook shown by [doc].
   factory EditorSearchController.forDocument(
     AppServices services,
@@ -92,7 +107,7 @@ class EditorSearchController extends ChangeNotifier {
 
   /// Screen space at the top covered by the editor's chrome and the search
   /// bar; revealed matches are kept below it.
-  final double topInset;
+  double topInset;
 
   /// Most matches listed (a very common word in a long PDF).
   static const int maxMatches = 1000;

@@ -17,14 +17,15 @@ class BlobSync {
   Future<void> uploadPending(SyncApi api, CancelCheck cancelled) async {
     for (final sha in store.pendingUploads()) {
       if (cancelled()) return;
-      if (!store.has(sha)) {
+      final size = store.sizeOf(sha);
+      if (size == null || !await store.has(sha)) {
         // Recorded but the file is gone (e.g. wiped by the OS): nothing to
         // send; another device that has it will upload it.
         debugPrint('Blob $sha is missing locally; not uploading');
         store.markUploaded(sha);
         continue;
       }
-      if (!await api.hasBlob(sha)) await api.putBlob(sha, store.fileOf(sha));
+      if (!await api.hasBlob(sha)) await api.putBlob(sha, store.openRead(sha), length: size);
       if (cancelled()) return;
       store.markUploaded(sha);
     }
@@ -33,7 +34,7 @@ class BlobSync {
   /// Fetches blob [sha] into the store. Returns false if the server does
   /// not have it (yet).
   Future<bool> download(SyncApi api, String sha) async {
-    if (store.has(sha)) return true;
+    if (await store.has(sha)) return true;
     final bytes = await api.getBlob(sha);
     if (bytes == null) return false;
     try {

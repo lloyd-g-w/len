@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import '../app_database.dart';
 import 'pdf_text_source.dart';
@@ -33,7 +33,7 @@ class PdfTextIndexer extends ChangeNotifier {
   /// Pages written per transaction (and per notification).
   final int batchSize;
 
-  Database get _db => database.db;
+  CommonDatabase get _db => database.db;
 
   Future<void>? _running;
   bool _busy = false;

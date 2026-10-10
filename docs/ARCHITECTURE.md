@@ -2,7 +2,7 @@
 
 ```
 len/
-├── app/        Flutter app (Windows, Linux, Android)
+├── app/        Flutter app (Windows, Linux, Android, Web)
 ├── server/     Self-hosted sync server (Dart + SQLite, Docker)
 ├── docs/       Vision, architecture, sync protocol
 └── flake.nix   Nix dev shell (Flutter + Linux desktop toolchain)
@@ -65,7 +65,7 @@ The same grid drives three things:
    selection or text editor are kept). Canvases read through
    `BackgroundStrokeReader`: a worker isolate with its own read-only SQLite
    connection (WAL allows it next to the writer), so panning never waits for
-   SQLite. `SurfaceLoader` keeps one read in flight per surface (the newest
+   SQLite (natively; the web reads on the UI thread, see *Platforms*). `SurfaceLoader` keeps one read in flight per surface (the newest
    range wins), drops results after `reload()`, and filters strokes and
    elements removed while a read was running (erased, undone, moved by a
    selection), so a stale copy never comes back. `StrokeRepository` is the
@@ -135,6 +135,39 @@ columns added later are copied too), delete (with an Undo snack bar that
 re-saves the page's strokes), reorder (fractional sort keys, `PageOrder`;
 the list is renumbered only when a gap is exhausted), bookmarks, templates.
 
+## Editor screen (`features/editor/`)
+
+- **`EditorSession`** owns the engine side of one open notebook: `ToolSettings`, live ink,
+  `InkInputController` + `CanvasGestures`, `ContentTools`, undo, and either the canvas
+  `SurfaceModel` + viewport or the `DocumentController` + `DocumentCommands`.
+- **`EditorScreen`** composes `EditorCanvas` (surface, "Add page" footer, content layer)
+  with `EditorChrome` (`chrome/`): `EditorTopBar` (back, pages, bookmark, title — tap to
+  rename — undo/redo, export, focus, "⋯" `EditorMoreMenu`; a phone variant keeps the
+  essentials and moves the rest into the menu), `ToolbarSlot` (hosts the pen toolbar at
+  the top, bottom or floating by a grip; animated), `PageNavigator`, `GestureHud` and,
+  in focus mode, only a `FocusHandle`. `ChromeLayout` says how much of each screen edge
+  the chrome covers; the document pads its scroll bounds by it (in screen pixels, so it
+  is re-applied on zoom), and the selection / text menus and the canvas's zoom pill and
+  minimap (`CanvasView`) avoid it (passed down as `MediaQuery.padding` / insets).
+  On canvases the "⋯" menu also holds the canvas entries: background (template and paper
+  colour), fit content, actual size, back to start, show / hide overview. Menus report to a `CanvasGuard`, which blocks the surface while
+  one is open, so the tap that closes a menu never draws.
+- **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
+  the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
+  notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
+  the active tab's `EditorScreen` (keyed by notebook), which saves its view on dispose
+  and restores it on creation. Closing the last tab leaves the workspace.
+- **Page navigation**: `DocumentController.scrollToPage` animates the viewport with
+  `DocumentScroller` (centre point glides, zoom eases; jumps longer than two screens
+  start near the target); it stops an inertial glide first (`beforeJump`). Single-page
+  flow fits the whole page and slides it in.
+- **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
+  P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode;
+  Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
+  `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
+  Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
+  while text is edited.
+
 ## Templates (`domain/paper.dart`, `domain/paper_pattern.dart`)
 
 `PaperStyle` names are stored and synced and never renamed (`lined` is wide
@@ -147,8 +180,10 @@ colour and size; new pages copy the current page's paper and size.
 ## Blobs and PDFs
 
 Large binary data is **content-addressed**: a blob's id is the SHA-256 of its
-bytes. `BlobStore` keeps files under `<app support>/blobs/<sha[0..2]>/<sha>`
-and a `blobs` table (size, mime, uploaded flag). Each sync cycle first uploads
+bytes. `BlobStore` keeps a `blobs` table (size, mime, uploaded flag) and the
+bytes in a `BlobBackend`: files under `<app support>/blobs/<sha[0..2]>/<sha>`
+natively, an IndexedDB object store on the web, memory in tests. Its API is
+path-free (`read`, `openRead`, `localPath` — null on the web). Each sync cycle first uploads
 pending blobs (`BlobSync`, `HEAD` then `PUT`), then pushes records, so a
 record never reaches the server before its blob. Blobs are fetched lazily
 when a page needs them (`SyncController.fetchBlob`).
@@ -160,26 +195,40 @@ the PDF page's size. PDF pages are rendered with PDFium via `pdfrx`
 zoom quantised to √2 steps (≤ 2896 px wide), keeps an LRU of images within a
 memory budget and shows the best cached image while a sharper one renders.
 PDFium itself is a native asset downloaded at build time by `pdfium_dart`'s
-build hook (Linux, Windows, Android), so no system package is needed.
+build hook (Linux, Windows, Android), so no system package is needed; on the
+web `pdfrx` runs PDFium as WebAssembly in a worker. `PdfRenderer` opens a
+blob from its file when it has one (PDFium reads on demand) and from memory
+otherwise (web).
 
 Export (`features/documents/export/`): `PdfExporter` (package `pdf`) writes
 ink as filled polygons flattened from the exact outline paths the app
 renders, templates as vector lines, and imported PDF pages as 150 dpi
 images; PNG export rasterises a page with the same painters as the editor.
-Files are saved with a save dialog on desktop (`file_selector`) and the share
-sheet on Android (`share_plus`).
+Files are saved with a save dialog on desktop (`file_selector`), the share
+sheet on Android (`share_plus`) and downloaded in browsers
+(`platform/file_export*`).
 
 ## Input (`ink/input/ink_input_controller.dart`)
 
 Raw `Listener` pointer events (no gesture arena → no latency, full pressure data):
 
-- **Stylus** draws; **eraser end** or **side button held** (S Pen) erases.
+- **Stylus** draws; the **eraser end** erases; the **side button held** (S Pen) does
+  the user's `PenButtonAction` (`input/stylus_buttons.dart`): erase, lasso (a selection
+  made that way stays live — pressing on it moves it, pressing elsewhere drops it and
+  draws again) or nothing.
   A stylus touching down cancels a stroke a resting palm may have started.
 - **Touch**: with *stylus only* (palm rejection) on, fingers pan/zoom; off,
   one finger draws and a second finger turns it into a pinch.
   Stylus-only switches on automatically the first time a stylus is used.
-- **Mouse**: left draws, middle/right drag pans, wheel scrolls, Ctrl+wheel zooms.
+- **Mouse**: left draws, middle/right drag pans (a right click without dragging opens the
+  context menu), wheel scrolls, Ctrl+wheel zooms.
 - **Trackpad**: two-finger pan, pinch zoom.
+- **Canvas gestures** (`input/canvas_gestures.dart`) watch the same events without
+  claiming them: a quick, still two-/three-finger tap (`MultiFingerTapDetector`:
+  ≤ 300 ms, ≤ 24 px travel) → undo / redo; a still one-finger long press with a
+  navigating finger, or a right click (`LongPressDetector`, `SecondaryClickDetector`)
+  → the canvas context menu. Palm safety: taps and long presses are ignored while a
+  stylus touches, or was seen touching or hovering within 600 ms.
 
 Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
 rendering* below); paths are memoised per stroke. PDF export flattens the same
@@ -288,11 +337,13 @@ Picking a quick colour or width from a tool that draws no ink (lasso, text,
 laser) switches to the pen. Shortcuts: P / H / E / L / S / T / K, 1–6 colour
 slots, [ / ] thinner / thicker (plus the canvas keys `+` `-` `0` Shift+1 Home).
 
-Placement: from 960 px wide the toolbar sits in the top row between the title
-and undo pills — if it fits there on one row whichever tool is active (the
-title gives way down to 160 px); otherwise it sits at the bottom, and the
-canvas overlays (minimap, fit / overview buttons) keep clear of its measured
-height.
+Placement is a preference (`ToolbarPlacement`: automatic / top / bottom /
+floating, in the "⋯" menu and the settings); `ToolbarSlot` hosts it. *Automatic*
+(`resolvePlacement`) puts it under the top bar from 960 px wide if it fits
+there on one row whichever tool is active, otherwise at the bottom. The slot
+measures the toolbar (one or two rows) and `ChromeLayout` uses that height for
+the screen edge it covers, so document scrolling, the page navigator and the
+canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
 
 ### Ink rendering (`ink/render/`)
 
@@ -340,6 +391,33 @@ easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 `package:sqlite3` (bundles SQLite via build hooks on every platform).
 Schema migrations live in `AppDatabase._migrations` — append, never edit.
 All writes go straight to SQLite; in-memory state is a cache.
+
+## Platforms (`platform/`)
+
+Platform differences live behind conditional exports
+(`export 'x_native.dart' if (dart.library.js_interop) 'x_web.dart'`), so no
+`dart:io`, `dart:isolate`, `dart:ffi` or `path_provider` code is compiled for
+the web:
+
+| Concern            | Android / Linux / Windows                     | Web                                              |
+|--------------------|-----------------------------------------------|--------------------------------------------------|
+| SQLite (`sqlite_connection`) | FFI, bundled SQLite, WAL, `<app support>/len.db` | `sqlite3.wasm` + IndexedDB VFS (`len`), no WAL |
+| Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs`                      |
+| App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
+| Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread (`StrokeRepository`)                   |
+| Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
+| Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
+
+`app/web/sqlite3.wasm` must match the `sqlite3` package version
+(`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
+database in memory and writes changes back asynchronously, hence the
+one-tab lock. The sync server must allow the app's origin (CORS,
+`LEN_CORS_ORIGINS`, default `*`).
+
+Web pitfall: dart2js integers are JavaScript numbers — bitwise operators
+yield **unsigned 32-bit** values (`-1 << 22` is positive, `1 << 40` is 0) and
+`ByteData.get/setInt64` is unsupported. Write `-(1 << 22)`, keep shifts
+below 31 bits, and use `float32`/`int32` in binary formats.
 
 ## Library (`features/library/`)
 
@@ -435,7 +513,8 @@ with them later.
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
 `SettingsRepository`: theme mode and accent (the app rebuilds its `ThemeData` from them),
 stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
-(`PenButtonAction.eraser|lasso|none`), library layout and sort. Getters always read
+(`PenButtonAction.eraser|lasso|none`), editor toolbar placement (and floating position),
+library layout and sort. Getters always read
 the store, so values written elsewhere are never stale.
 
 ## UI design system (`ui/`)
@@ -445,7 +524,9 @@ neutral surfaces, a tighter type scale and shared component themes
 (`theme_components.dart`). Tokens: `Gaps`, `Radii`, `Palette` (`app_theme.dart`) and
 `Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
 
-Visual checks: `test/screenshots/` renders the library, settings and editor (toolbar, popovers) at phone, tablet and
+Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
+canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar and its popovers in
+`toolbar_screenshot_test.dart`) at phone, tablet and
 desktop sizes in light and dark with real fonts. Run
 `flutter test test/screenshots --dart-define=SCREENSHOTS=true` and look at
 `app/build/screenshots/*.png`.
@@ -484,5 +565,11 @@ records with last-write-wins. Open screens subscribe to
   `unicode61` tokenizer does not segment CJK text (prefix matches only from
   the start of a run); the editor's matches refresh on query changes and
   when the bar reopens, not live while typing into a text box.
+- Web: the whole SQLite database is held in memory (IndexedDB VFS) and PDFs
+  are opened from memory, so very large libraries/PDFs cost browser memory;
+  browsers may evict IndexedDB under storage pressure (no
+  `navigator.storage.persist()` request yet) and quotas vary. Writes reach
+  IndexedDB asynchronously, so closing the tab within milliseconds of an edit
+  can lose it. Canvas chunk reads run on the UI thread.
 - Page reorders made concurrently on two devices converge (LWW per page) but
   may interleave differently than either device intended.

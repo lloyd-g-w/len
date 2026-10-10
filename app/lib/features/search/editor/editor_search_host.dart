@@ -82,6 +82,8 @@ class DocumentSearchHost implements EditorSearchHost {
   void reveal(String surfaceId, Rect local, {double topInset = 0}) {
     final i = _indexOf(surfaceId);
     if (i == -1) return;
+    doc.beforeJump?.call(); // Stop any glide or page scroll.
+    doc.scroller.stop();
     var frame = doc.layout.frameOf(i);
     final viewport = doc.viewport;
     if (frame == null || !frame.overlaps(viewport.visibleWorld)) {

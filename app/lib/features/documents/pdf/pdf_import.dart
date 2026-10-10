@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:io';
+
+import 'package:cross_file/cross_file.dart';
 
 import '../../../app_services.dart';
 import '../../../data/page_repository.dart';
@@ -14,17 +15,19 @@ const double worldPerPoint = 96 / 72;
 /// Turns PDF files into notebook pages whose backgrounds are the PDF's
 /// pages. The PDF itself is stored once, as a content-addressed blob.
 class PdfImporter {
-  PdfImporter(this.services, {PdfRenderer? renderer}) : _renderer = renderer ?? PdfRenderer();
+  PdfImporter(this.services, {PdfRenderer? renderer})
+    : _renderer = renderer ?? PdfRenderer(services.blobs);
 
   final AppServices services;
   final PdfRenderer _renderer;
 
-  /// Stores [file] as a blob and returns its id.
-  Future<String> store(File file) => services.blobs.putFile(file, mime: 'application/pdf');
+  /// Stores [file] as a blob and returns its id. Desktop pickers give
+  /// paths (streamed); Android and browsers give the picked bytes.
+  Future<String> store(XFile file) => services.blobs.putFile(file, mime: 'application/pdf');
 
   /// Page specs (one per PDF page) for blob [sha].
   Future<List<PageSpec>> specsFor(String sha) async {
-    final sizes = await _renderer.pageSizes(sha, services.blobs.fileOf(sha).path);
+    final sizes = await _renderer.pageSizes(sha);
     if (sizes.isEmpty) throw const FormatException('The PDF has no pages');
     return [
       for (var i = 0; i < sizes.length; i++)

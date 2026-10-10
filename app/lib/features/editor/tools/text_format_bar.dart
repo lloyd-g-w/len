@@ -129,15 +129,24 @@ class TextFormatBar extends StatelessWidget {
         ],
       ),
     );
-    return CustomSingleChildLayout(delegate: _BarLayout(anchor), child: bar);
+    return CustomSingleChildLayout(
+      delegate: _BarLayout(anchor, MediaQuery.paddingOf(context)),
+      child: bar,
+    );
   }
 }
 
 class _BarLayout extends SingleChildLayoutDelegate {
-  _BarLayout(this.anchor);
+  _BarLayout(this.anchor, this.chrome);
 
   final Rect anchor;
-  static const double gap = 16, margin = 8, topInset = 84;
+
+  /// Screen edges covered by the editor's chrome.
+  final EdgeInsets chrome;
+  static const double gap = 16, margin = 8;
+
+  double get topInset => chrome.top + margin;
+  double get bottomInset => chrome.bottom + margin;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
@@ -151,10 +160,10 @@ class _BarLayout extends SingleChildLayoutDelegate {
     );
     var y = anchor.top - gap - child.height;
     if (y < topInset) y = anchor.bottom + gap;
-    if (y + child.height > size.height - margin) y = topInset;
+    if (y + child.height > size.height - bottomInset) y = topInset;
     return Offset(x, y);
   }
 
   @override
-  bool shouldRelayout(_BarLayout old) => old.anchor != anchor;
+  bool shouldRelayout(_BarLayout old) => old.anchor != anchor || old.chrome != chrome;
 }

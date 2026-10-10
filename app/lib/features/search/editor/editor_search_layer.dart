@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../highlighted_text.dart';
 import 'editor_search_bar.dart';
@@ -16,13 +17,22 @@ class EditorSearchLayer extends StatelessWidget {
     this.top = 72,
   });
 
+  /// Ctrl+F (Cmd+F) opens the search.
+  static Map<ShortcutActivator, VoidCallback> shortcuts(EditorSearchController controller) => {
+    const SingleActivator(LogicalKeyboardKey.keyF, control: true): controller.open,
+    const SingleActivator(LogicalKeyboardKey.keyF, meta: true): controller.open,
+  };
+
   final EditorSearchController controller;
 
   /// Called after the bar closed (e.g. to give focus back to the canvas).
   final VoidCallback onClose;
 
-  /// Distance of the bar from the top (below the editor's top chrome).
+  /// Screen space covered by the editor's top chrome; the bar goes below.
   final double top;
+
+  /// Room the bar's field row takes, kept clear when revealing matches.
+  static const double _barRow = 64;
 
   /// Widest the bar gets.
   static const double maxWidth = 440;
@@ -30,6 +40,7 @@ class EditorSearchLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    controller.topInset = top + _barRow;
     return Stack(
       children: [
         Positioned.fill(
@@ -53,7 +64,7 @@ class EditorSearchLayer extends StatelessWidget {
             final width = MediaQuery.sizeOf(context).width;
             final narrow = width < maxWidth + 24;
             return Positioned(
-              top: top + MediaQuery.paddingOf(context).top,
+              top: top + 8,
               right: 12,
               left: narrow ? 12 : null,
               width: narrow ? null : maxWidth,
@@ -64,18 +75,4 @@ class EditorSearchLayer extends StatelessWidget {
       ],
     );
   }
-}
-
-/// The editor's search button (opens the bar; Ctrl+F does too).
-class EditorSearchButton extends StatelessWidget {
-  const EditorSearchButton({super.key, required this.controller});
-
-  final EditorSearchController controller;
-
-  @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: 'Search (Ctrl+F)',
-    onPressed: controller.open,
-    icon: const Icon(Icons.search_rounded),
-  );
 }

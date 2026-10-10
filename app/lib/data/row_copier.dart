@@ -1,11 +1,11 @@
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 /// Copies rows column-by-column, so copies stay complete even when later
 /// migrations add columns (e.g. new page or stroke attributes).
 class RowCopier {
   RowCopier(this._db);
 
-  final Database _db;
+  final CommonDatabase _db;
   final Map<String, List<String>> _columns = {};
 
   List<String> _columnsOf(String table) => _columns[table] ??= _db

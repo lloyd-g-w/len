@@ -7,6 +7,7 @@ Len is a handwriting-first note-taking app in the spirit of **Notewise** and **G
 - **Windows** (desktop)
 - **Linux** (desktop)
 - **Android** (phones + tablets; Samsung Galaxy Tab / S Pen is the primary stylus target)
+- **Web** (any modern browser; installable PWA, data in the browser, same sync server)
 - iOS / iPadOS are *not* required, but nothing should be done that rules them out (Flutter keeps the door open).
 
 ## Core requirements

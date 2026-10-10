@@ -86,12 +86,33 @@ class ContentTools {
     EditorTool.pen || EditorTool.highlighter || EditorTool.eraser => null,
   };
 
+  /// The pointer tool for a press at [screen] with [tool] selected. [lasso]
+  /// (the stylus side button set to lasso) forces the lasso. A selection
+  /// made that way stays live: pressing on it moves or resizes it with the
+  /// lasso, pressing elsewhere drops it and uses [tool] again.
+  PointerTool? toolAt(EditorTool tool, Offset screen, {bool lasso = false}) {
+    if (lasso) return this.lasso;
+    if (tool != EditorTool.lasso && !selection.isEmpty) {
+      if (holds(screen)) return this.lasso;
+      selection.clear();
+    }
+    return toolFor(tool);
+  }
+
+  /// Selects everything in [area] (world) on the current surface with the
+  /// lasso tool, e.g. "select all on this page".
+  void selectAllIn(Rect area) {
+    tools.tool = EditorTool.lasso;
+    model.ensureLoaded(area);
+    selection.select(model.strokesNear(area), model.elementsNear(area));
+  }
+
   /// Whether a press at [screen] belongs to what the tools are working on
   /// (the selection or its handles), so a multi-page view should keep the
   /// current page active rather than switch to the page under the pointer.
   bool holds(Offset screen) {
     final frame = selection.frame;
-    if (tools.tool != EditorTool.lasso || frame == null || selection.isEmpty) return false;
+    if (frame == null || selection.isEmpty) return false;
     return SelectionChrome.hit(frame, viewport, screen) != null ||
         frame.contains(viewport.toWorld(screen));
   }

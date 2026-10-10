@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -10,6 +11,7 @@ import 'package:len/data/search/search_index.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/search/editor/editor_search_bar.dart';
+import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:pdf/pdf.dart' as pw;
 import 'package:pdf/widgets.dart' as pw;
@@ -56,7 +58,7 @@ void main() {
   });
   setUp(() {
     dir = Directory.systemTemp.createTempSync('len_search_pdf_');
-    services = AppServices.create(AppDatabase.inMemory(), blobDirectory: dir);
+    services = AppServices.create(AppDatabase.inMemory(), blobBackend: FileBlobBackend(dir.path));
   });
   tearDown(() {
     services.dispose();
@@ -94,7 +96,7 @@ void main() {
       final file = File('${dir.path}/Thermo.pdf')..writeAsBytesSync(await textPdf());
       final importer = PdfImporter(services);
       final notebook = await importer.createNotebook(
-        await importer.store(file),
+        await importer.store(XFile(file.path)),
         title: 'Thermo',
         cover: 0,
       );

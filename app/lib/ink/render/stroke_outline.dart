@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/stroke.dart';
+import 'catmull_rom.dart';
 import 'centerline.dart';
 import 'outline_emitter.dart';
 import 'outline_sink.dart';
@@ -51,14 +52,16 @@ class OutlineSpec {
   /// the width so small handwriting keeps its shape.
   double get positionSigma => (1.0 + 1.5 * streamline) * (width / 2).clamp(1.0, 4.0);
 
-  /// Standard deviation of the radius smoothing (pressure noise).
-  double get radiusSigma => math.max(2 * positionSigma, width);
+  /// Standard deviation of the radius smoothing. Wide on purpose: digitiser
+  /// pressure is noisy sample to sample, and width that follows that noise
+  /// reads as flicker; deliberate pressure changes span much longer runs.
+  double get radiusSigma => math.max(4 * positionSigma, 3 * width);
 
   /// Spacing of the resampled centre line.
   double get sampleStep => (positionSigma / 2.5).clamp(0.05, 2.0);
 
   /// Fastest allowed change of the radius per unit of length.
-  static const double maxRadiusSlope = 0.3;
+  static const double maxRadiusSlope = 0.15;
 }
 
 /// A raw input sample: position and outline radius.
@@ -72,7 +75,8 @@ class _Sample {
 
 /// Builds filled outline paths for variable-width ink strokes.
 ///
-/// Pipeline: drop duplicate samples → trim pen-lift hooks → resample at a
+/// Pipeline: drop duplicate samples → trim pen-lift hooks → densify along a
+/// centripetal Catmull-Rom spline → resample at a
 /// uniform arc-length spacing → Gaussian-smooth positions (ends pinned, so
 /// there is no lag) and radii → limit how fast the radius may change →
 /// make the ends non-swelling → apply tapers → emit smooth Bézier sides and
@@ -107,17 +111,24 @@ abstract final class StrokeOutline {
       samples = _trimHook(samples, spec.width, atEnd: false);
       if (complete) samples = _trimHook(samples, spec.width, atEnd: true);
     }
-    final line =
-        Centerline.resample([for (final s in samples) s.x], [for (final s in samples) s.y], [
-            for (final s in samples) s.r,
-          ], spec.sampleStep)
-          ..settleEnds(spec.width)
-          ..findCorners(spec.positionSigma)
-          ..smoothPositions(spec.positionSigma)
-          ..smoothRadii(spec.radiusSigma)
-          ..limitRadiusSlope(OutlineSpec.maxRadiusSlope)
-          ..settleEnds(spec.width)
-          ..taper(spec.taperStart, spec.taperEnd);
+    // Sparse samples from fast writing would otherwise be joined by straight
+    // chords (faceted, "jittery" curves); a spline through them restores
+    // the curve the pen actually travelled.
+    final dense = CatmullRom.densify(
+      [for (final s in samples) s.x],
+      [for (final s in samples) s.y],
+      [for (final s in samples) s.r],
+      spec.sampleStep * 2,
+    );
+    final line = Centerline.resample(dense.x, dense.y, dense.r, spec.sampleStep)
+      ..settleEnds(spec.width, end: complete)
+      ..findCorners(spec.positionSigma)
+      ..smoothPositions(spec.positionSigma)
+      ..smoothRadii(spec.radiusSigma)
+      ..limitRadiusSlope(OutlineSpec.maxRadiusSlope)
+      ..settleEnds(spec.width, end: complete)
+      ..levelEnds(spec.width * 2, end: complete)
+      ..taper(spec.taperStart, spec.taperEnd);
     final maxR = line.r.fold<double>(0, math.max);
     if (line.length < 2 || line.arcLength < maxR * 0.5) {
       final r = math.max(samples.fold<double>(0, (m, s) => math.max(m, s.r)), 0.25);

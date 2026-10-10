@@ -28,7 +28,9 @@ class EditorSearchBar extends StatefulWidget {
 class _EditorSearchBarState extends State<EditorSearchBar> {
   late final TextEditingController _text = TextEditingController(text: _c.query);
   final FocusNode _focus = FocusNode(debugLabel: 'Notebook search');
-  bool _showList = true;
+
+  /// Whether the match list shows; null: only on wider screens.
+  bool? _showList;
   late int _focusRequests = _c.focusRequests;
 
   EditorSearchController get _c => widget.controller;
@@ -80,6 +82,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 600;
+    final showList = _showList ?? !compact;
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.f3): _c.next,
@@ -97,8 +100,8 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _fieldRow(context),
-              if (_showList && _c.query.trim().isNotEmpty) ...[
+              _fieldRow(context, showList: showList),
+              if (showList && _c.query.trim().isNotEmpty) ...[
                 const Divider(height: Gaps.sm),
                 _results(context, compact: compact),
               ],
@@ -109,7 +112,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
     );
   }
 
-  Widget _fieldRow(BuildContext context) {
+  Widget _fieldRow(BuildContext context, {required bool showList}) {
     final theme = Theme.of(context);
     final count = _c.matches.length;
     final hasMatches = count > 0;
@@ -155,9 +158,9 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
           icon: const Icon(Icons.keyboard_arrow_down_rounded),
         ),
         IconButton(
-          tooltip: _showList ? 'Hide results' : 'Show results',
-          isSelected: _showList,
-          onPressed: () => setState(() => _showList = !_showList),
+          tooltip: showList ? 'Hide results' : 'Show results',
+          isSelected: showList,
+          onPressed: () => setState(() => _showList = !showList),
           icon: const Icon(Icons.list_rounded),
         ),
         IconButton(

@@ -129,16 +129,47 @@ class Centerline {
     }
   }
 
-  /// Makes both ends non-swelling: over the last [reach] of length at either
-  /// end the radius may only stay level or shrink towards the tip, so
-  /// pressure spikes at pen-down or pen-up can never become blobs.
-  void settleEnds(double reach) {
+  /// Makes the ends non-swelling: over the last [reach] of length at an end
+  /// the radius may only stay level or shrink towards the tip, so pressure
+  /// spikes at pen-down or pen-up can never become blobs.
+  ///
+  /// Pass `end: false` while a stroke is still being drawn: its moving end
+  /// is not a real end yet, and settling it on every frame would make the
+  /// width just behind the pen tip pulse as the stroke grows.
+  void settleEnds(double reach, {bool start = true, bool end = true}) {
     final k = step == 0 ? 0 : math.min(length - 1, (reach / step).ceil());
-    for (var i = length - k; i < length; i++) {
-      if (i > 0) r[i] = math.min(r[i], r[i - 1]);
+    if (end) {
+      for (var i = length - k; i < length; i++) {
+        if (i > 0) r[i] = math.min(r[i], r[i - 1]);
+      }
     }
-    for (var i = k - 1; i >= 0; i--) {
-      if (i < length - 1) r[i] = math.min(r[i], r[i + 1]);
+    if (start) {
+      for (var i = k - 1; i >= 0; i--) {
+        if (i < length - 1) r[i] = math.min(r[i], r[i + 1]);
+      }
+    }
+  }
+
+  /// Removes the pressure ramp at the ends: real pen-down/pen-up pressure
+  /// rises/falls over the first/last few samples, which would start and end
+  /// every stroke thin — on handwriting, made of many short strokes, that
+  /// reads as width flicker. Within [reach] of a levelled end the radius is
+  /// raised to the radius found at [reach] (never above it, so this cannot
+  /// create blobs). Tapers, when enabled, are applied afterwards.
+  void levelEnds(double reach, {bool start = true, bool end = true}) {
+    final k = step == 0 ? 0 : (reach / step).ceil();
+    if (k == 0 || length < 2 * k + 1) return;
+    if (start) {
+      final level = r[k];
+      for (var i = 0; i < k; i++) {
+        r[i] = math.max(r[i], level);
+      }
+    }
+    if (end) {
+      final level = r[length - 1 - k];
+      for (var i = length - k; i < length; i++) {
+        r[i] = math.max(r[i], level);
+      }
     }
   }
 

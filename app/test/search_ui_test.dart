@@ -248,5 +248,10 @@ void main() {
       find.byType(EditorScreen),
       matchesGoldenFile('goldens/search_editor_phone_dark.png'),
     );
+    // Phones start with the list folded away, so the page shows.
+    expect(find.textContaining('structure', findRichText: true), findsNothing);
+    await tester.tap(find.byTooltip('Show results'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('structure', findRichText: true), findsOneWidget);
   });
 }

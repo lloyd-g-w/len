@@ -108,7 +108,7 @@ class SyncController extends ChangeNotifier {
   Future<bool> fetchBlob(String sha) async {
     final blobs = engine.blobs;
     if (blobs == null) return false;
-    if (blobs.has(sha)) return true;
+    if (await blobs.has(sha)) return true;
     if (!isConfigured || _disposed) return false;
     SyncApi? api;
     try {

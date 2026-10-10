@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -159,12 +158,13 @@ class SyncApi {
     return true;
   }
 
-  /// Uploads a blob from [file]; the server verifies its hash.
-  Future<void> putBlob(String sha, File file) async {
+  /// Uploads blob [sha], [length] bytes streamed from [data]; the server
+  /// verifies its hash.
+  Future<void> putBlob(String sha, Stream<List<int>> data, {required int length}) async {
     final request = http.StreamedRequest('PUT', _uri('v1/blobs/$sha'))
       ..headers.addAll({..._headers, 'Content-Type': 'application/octet-stream'})
-      ..contentLength = await file.length();
-    unawaited(file.openRead().pipe(request.sink));
+      ..contentLength = length;
+    unawaited(data.pipe(request.sink));
     final response = await _request(
       () async => http.Response.fromStream(await _client.send(request)),
       // Large uploads may legitimately take a while.
