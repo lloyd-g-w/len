@@ -1,0 +1,26 @@
+name: len
+description: "Len — handwriting-first notes with infinite canvas and self-hosted sync."
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.6.0
+  path: ^1.9.1
+  path_provider: ^2.1.6
+  perfect_freehand: ^2.5.2+1
+  sqlite3: ^3.7.0
+  uuid: ^4.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

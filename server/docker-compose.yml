@@ -1,0 +1,16 @@
+services:
+  len-sync:
+    build: .
+    image: len-sync:latest
+    restart: unless-stopped
+    environment:
+      # Read from the shell environment or from .env next to this file.
+      LEN_SYNC_TOKEN: ${LEN_SYNC_TOKEN:?set LEN_SYNC_TOKEN in .env}
+    ports:
+      # Bound to localhost: expose it through an HTTPS reverse proxy.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - len-data:/data
+
+volumes:
+  len-data:
