@@ -2,9 +2,9 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/stroke.dart';
+import 'capsule_emitter.dart';
 import 'catmull_rom.dart';
 import 'centerline.dart';
-import 'outline_emitter.dart';
 import 'outline_sink.dart';
 
 /// Shape parameters for [StrokeOutline.build].
@@ -50,12 +50,12 @@ class OutlineSpec {
   /// Standard deviation (world units) of the positional smoothing: enough to
   /// remove digitiser jitter, more with a stronger stabiliser, scaled with
   /// the width so small handwriting keeps its shape.
-  double get positionSigma => (1.0 + 1.5 * streamline) * (width / 2).clamp(1.0, 4.0);
+  /// At 0 the stabiliser only removes sub-pixel digitiser noise.
+  double get positionSigma => (0.2 + 1.8 * streamline) * (width / 2).clamp(1.0, 3.0);
 
-  /// Standard deviation of the radius smoothing. Wide on purpose: digitiser
-  /// pressure is noisy sample to sample, and width that follows that noise
-  /// reads as flicker; deliberate pressure changes span much longer runs.
-  double get radiusSigma => math.max(4 * positionSigma, 3 * width);
+  /// Length scale of the (causal) radius smoothing: digitiser pressure is
+  /// noisy sample to sample; deliberate pressure changes span longer runs.
+  double get radiusSigma => 5 * width;
 
   /// Spacing of the resampled centre line.
   double get sampleStep => (positionSigma / 2.5).clamp(0.05, 2.0);
@@ -79,8 +79,8 @@ class _Sample {
 /// centripetal Catmull-Rom spline → resample at a
 /// uniform arc-length spacing → Gaussian-smooth positions (ends pinned, so
 /// there is no lag) and radii → limit how fast the radius may change →
-/// make the ends non-swelling → apply tapers → emit smooth Bézier sides and
-/// round caps ([OutlineEmitter]).
+/// make the ends non-swelling → apply tapers → emit the union of capsules
+/// between consecutive samples ([CapsuleEmitter]).
 abstract final class StrokeOutline {
   /// Builds the outline of [points]. [pressures], when given, overrides the
   /// per-point pressure (used for direction-dependent nibs). [complete] is
@@ -128,14 +128,14 @@ abstract final class StrokeOutline {
       ..limitRadiusSlope(OutlineSpec.maxRadiusSlope)
       ..settleEnds(spec.width, end: complete)
       ..levelEnds(spec.width * 2, end: complete)
-      ..taper(spec.taperStart, spec.taperEnd);
+      ..taper(spec.taperStart, complete ? spec.taperEnd : 0);
     final maxR = line.r.fold<double>(0, math.max);
     if (line.length < 2 || line.arcLength < maxR * 0.5) {
       final r = math.max(samples.fold<double>(0, (m, s) => math.max(m, s.r)), 0.25);
       _dot(sink, line.x[0], line.y[0], r, spec.flatCaps);
       return;
     }
-    OutlineEmitter(line, flatCaps: spec.flatCaps).emit(sink);
+    CapsuleEmitter(line, flatCaps: spec.flatCaps).emit(sink);
   }
 
   static List<_Sample> _dedupe(

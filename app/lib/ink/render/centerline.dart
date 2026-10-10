@@ -26,33 +26,31 @@ class Centerline {
   /// Total length of the centre line.
   double get arcLength => step * (length - 1);
 
-  /// Resamples the polyline ([px], [py]) with radii [pr] at the largest
-  /// uniform spacing not exceeding [maxStep], interpolating linearly.
-  factory Centerline.resample(List<double> px, List<double> py, List<double> pr, double maxStep) {
+  /// Resamples the polyline ([px], [py]) with radii [pr] every [step]
+  /// units of length, interpolating linearly; the final sample is the
+  /// polyline's end (closer than [step] to its predecessor).
+  ///
+  /// The spacing is fixed rather than fitted to the total length, so the
+  /// samples of a stroke being drawn stay where they are as it grows —
+  /// otherwise every new input point would shift every sample and make the
+  /// whole stroke shimmer.
+  factory Centerline.resample(List<double> px, List<double> py, List<double> pr, double step) {
     final m = px.length;
-    final along = Float64List(m);
-    for (var i = 1; i < m; i++) {
-      along[i] = along[i - 1] + _dist(px[i] - px[i - 1], py[i] - py[i - 1]);
-    }
-    final total = along[m - 1];
-    final n = total == 0 ? 1 : math.max(1, (total / maxStep).ceil());
-    final step = total == 0 ? 0.0 : total / n;
-    final x = Float64List(n + 1), y = Float64List(n + 1), r = Float64List(n + 1);
-    var j = 0;
-    for (var k = 0; k <= n; k++) {
-      final s = k == n ? total : k * step;
-      while (j < m - 2 && along[j + 1] < s) {
-        j++;
+    final x = <double>[px[0]], y = <double>[py[0]], r = <double>[pr[0]];
+    var next = step; // arc length of the next sample
+    var along = 0.0;
+    for (var j = 0; j < m - 1 && step > 0; j++) {
+      final seg = _dist(px[j + 1] - px[j], py[j + 1] - py[j]);
+      while (next <= along + seg) {
+        final t = seg == 0 ? 0.0 : (next - along) / seg;
+        x.add(px[j] + (px[j + 1] - px[j]) * t);
+        y.add(py[j] + (py[j + 1] - py[j]) * t);
+        r.add(pr[j] + (pr[j + 1] - pr[j]) * t);
+        next += step;
       }
-      final j1 = math.min(j + 1, m - 1);
-      final seg = along[j1] - along[j];
-      final t = seg <= 0 ? 0.0 : ((s - along[j]) / seg).clamp(0.0, 1.0);
-      x[k] = px[j] + (px[j1] - px[j]) * t;
-      y[k] = py[j] + (py[j1] - py[j]) * t;
-      r[k] = pr[j] + (pr[j1] - pr[j]) * t;
+      along += seg;
     }
-    if (total == 0) {
-      // A single point: keep one sample.
+    if (along == 0 || step <= 0) {
       return Centerline(
         Float64List.fromList([px[0]]),
         Float64List.fromList([py[0]]),
@@ -60,7 +58,17 @@ class Centerline {
         0,
       );
     }
-    return Centerline(x, y, r, step);
+    if (along - (next - step) > step * 1e-3) {
+      x.add(px[m - 1]);
+      y.add(py[m - 1]);
+      r.add(pr[m - 1]);
+    }
+    return Centerline(
+      Float64List.fromList(x),
+      Float64List.fromList(y),
+      Float64List.fromList(r),
+      step,
+    );
   }
 
   /// Low-pass filters the positions at scale [sigma] (world units) with
@@ -111,21 +119,29 @@ class Centerline {
     corners = found;
   }
 
-  /// Gaussian-smooths the radii with standard deviation [sigma].
-  void smoothRadii(double sigma) {
-    if (step > 0) LineFilters.gaussianMirrored(r, LineFilters.halfWidth(sigma / step));
+  /// Smooths the radii with a one-sided (causal) exponential filter of
+  /// length scale [scale]: each radius depends only on input *behind* it,
+  /// so the width of ink already drawn never changes as the stroke grows
+  /// (a symmetric filter would make the width behind the pen tip flicker).
+  void smoothRadii(double scale) {
+    if (step <= 0 || scale <= 0) return;
+    // Two cascaded passes at half the scale: same overall reach, much
+    // stronger suppression of sample-to-sample noise than a single pass.
+    final keep = math.exp(-2 * step / scale);
+    for (var pass = 0; pass < 2; pass++) {
+      for (var i = 1; i < length; i++) {
+        r[i] = r[i - 1] * keep + r[i] * (1 - keep);
+      }
+    }
   }
 
   /// Limits how fast the radius may change along the line to [slope]
-  /// (radius units per unit of length), only ever shrinking radii, so a
-  /// pressure jump becomes a smooth swell instead of a bump.
+  /// (radius units per unit of length), looking only backwards, so a
+  /// pressure jump becomes a smooth swell and drawn ink stays put.
   void limitRadiusSlope(double slope) {
     final d = slope * step;
     for (var i = 1; i < length; i++) {
-      r[i] = math.min(r[i], r[i - 1] + d);
-    }
-    for (var i = length - 2; i >= 0; i--) {
-      r[i] = math.min(r[i], r[i + 1] + d);
+      r[i] = r[i].clamp(r[i - 1] - d, r[i - 1] + d);
     }
   }
 

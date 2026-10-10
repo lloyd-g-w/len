@@ -350,27 +350,29 @@ canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
 `StrokeOutline` turns points into a filled outline whose edges are smooth at
 any zoom:
 
-1. Drop duplicate samples, trim pen-down/pen-up hooks.
-2. `Centerline`: resample at a uniform **arc-length** spacing (so filtering
-   acts over distance, not over however many samples the digitiser sent),
-   find sharp reversals (tips of `n`, `v`), and low-pass the positions per
-   stretch between them with `2G − G∘G` (`LineFilters`): flat response for
-   shapes larger than the filter, so loops keep their size, while jitter is
-   removed. Beyond the ends the line is continued by a local quadratic fit
-   through the end point, so ends neither lag (live stroke) nor bend.
-   The filter scale grows with the stabiliser and (up to 4×) with width.
-3. Radii (from pressure): non-swelling ends, Gaussian smoothing, a limit on
-   radius change per unit length (no bumps), tapers.
-4. `OutlineEmitter`: each side is the **envelope** of the circles along the
-   centre line (tangent to every circle even where the radius changes),
-   emitted as cubic Hermite pieces (decimated where nearly straight) — no
-   polyline facets. Caps are arcs of the end circles that meet the sides
-   tangentially. Where the inner side would fold (curvature × radius > 0.8)
-   or at reversals, the outline is split into runs, each closed with round
-   caps and wound alike, so the non-zero fill unions them seamlessly.
+1. Drop duplicate samples, trim pen-down/pen-up hooks, and densify sparse
+   input along a centripetal Catmull-Rom spline (Flutter delivers roughly one
+   sample per frame on Android, so fast curves arrive as chords).
+2. `Centerline`: resample at a **fixed** arc-length spacing from the stroke's
+   start (samples of a stroke being drawn never move as it grows), find sharp
+   reversals (tips of `n`, `v`), and low-pass the positions per stretch
+   between them with `2G − G∘G` (`LineFilters`): loops keep their size while
+   digitiser jitter is removed; ends are continued by a local quadratic fit so
+   they neither lag nor bend. At stabiliser 0 the filter only removes
+   sub-pixel noise; it grows with the stabiliser and (up to 3×) with width.
+3. Radii (from pressure): **causal** smoothing (two cascaded exponential
+   passes) and a slope limit, both looking only backwards — the width of ink
+   already drawn never changes as the stroke grows, so nothing flickers behind
+   the pen tip; non-swelling and levelled ends once the stroke is complete;
+   tapers.
+4. `CapsuleEmitter`: the outline is the union of *capsules* — the convex hull
+   of the circles at consecutive samples (nearly collinear, level runs are
+   merged). Each capsule depends only on its two samples, so new input only
+   adds geometry; cusps, hairpins and self-overlaps need no special cases
+   (the non-zero fill unions them); neighbouring capsules share a circle, so
+   edges are tangent-continuous on the outside of bends at any zoom.
 
-`OutlineSink` lets tests record the exact segments (tangent continuity is
-asserted); specimens of synthetic 240 Hz handwriting with jitter and pressure
+`OutlineSink` lets tests record the exact segments ; specimens of synthetic 240 Hz handwriting with jitter and pressure
 noise are rendered at 1×–16× in `test/ink_specimen_test.dart`. A 1000-point
 stroke builds in well under a millisecond, so the live stroke is rebuilt on
 every pointer move.
