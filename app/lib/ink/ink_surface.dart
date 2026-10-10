@@ -114,6 +114,7 @@ class _InkSurfaceState extends State<InkSurface> {
             },
             onPointerPanZoomStart: input.handlePanZoomStart,
             onPointerPanZoomUpdate: input.handlePanZoomUpdate,
+            onPointerPanZoomEnd: input.handlePanZoomEnd,
             child: Stack(
               fit: StackFit.expand,
               children: [

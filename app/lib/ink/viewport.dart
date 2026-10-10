@@ -70,6 +70,32 @@ class ViewportController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Jumps to [scale] (clamped) and [offset] in one notification.
+  void setView({required double scale, required Offset offset}) {
+    if (!scale.isFinite || scale <= 0 || !offset.isFinite) return;
+    final clamped = scale.clamp(minScale, maxScale);
+    if (clamped == _scale && offset == _offset) return;
+    _scale = clamped;
+    _offset = offset;
+    _constrain();
+    notifyListeners();
+  }
+
+  /// The view that shows [world] as large as fits (but no larger than
+  /// [maxScale] allows, capped at [scaleCap]), centred, with [padding]
+  /// screen pixels around it.
+  ({double scale, Offset offset}) viewFitting(
+    Rect world, {
+    double padding = 48,
+    double scaleCap = double.infinity,
+  }) {
+    final w = math.max(1.0, _size.width - 2 * padding);
+    final h = math.max(1.0, _size.height - 2 * padding);
+    final fit = math.min(w / math.max(world.width, 1), h / math.max(world.height, 1));
+    final scale = math.min(fit, scaleCap).clamp(minScale, maxScale);
+    return (scale: scale, offset: _size.center(Offset.zero) - world.center * scale);
+  }
+
   /// Fits the content's width to the viewport, aligned to the top.
   void fitWidth({double padding = 24}) {
     final content = contentBounds;

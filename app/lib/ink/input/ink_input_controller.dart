@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/clock.dart';
 import '../../domain/stroke.dart';
+import '../navigation/kinetic_pan.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../viewport.dart';
@@ -37,6 +38,7 @@ class InkInputController {
     required this.live,
     this.clock = const Clock(),
     this.onStylusDetected,
+    this.kinetic,
   }) : _straighten = HoldToStraighten(live);
 
   SurfaceModel _model;
@@ -58,6 +60,9 @@ class InkInputController {
 
   /// Called the first time a stylus is used.
   final void Function()? onStylusDetected;
+
+  /// Inertial panning after navigation gestures (optional).
+  final KineticPan? kinetic;
 
   final HoldToStraighten _straighten;
 
@@ -94,6 +99,7 @@ class InkInputController {
   // Pointer lifecycle
 
   void handleDown(PointerDownEvent e) {
+    kinetic?.begin();
     switch (e.kind) {
       case PointerDeviceKind.stylus || PointerDeviceKind.invertedStylus:
         _stylusDown(e);
@@ -115,6 +121,7 @@ class InkInputController {
       _continueDraw(e);
     } else if (_navPointers.containsKey(e.pointer)) {
       _navigate(e.pointer, e.localPosition);
+      kinetic?.track(e.timeStamp);
     }
   }
 
@@ -122,7 +129,9 @@ class InkInputController {
     if (e.pointer == _drawPointer) {
       _finishDraw(liftTime: e.timeStamp);
     }
-    _navPointers.remove(e.pointer);
+    if (_navPointers.remove(e.pointer) != null && _navPointers.isEmpty) {
+      kinetic?.release(e.timeStamp);
+    }
   }
 
   void handleCancel(PointerCancelEvent e) {
@@ -159,7 +168,10 @@ class InkInputController {
     }
   }
 
-  void handlePanZoomStart(PointerPanZoomStartEvent e) => _lastPanZoomScale = 1;
+  void handlePanZoomStart(PointerPanZoomStartEvent e) {
+    _lastPanZoomScale = 1;
+    kinetic?.begin();
+  }
 
   void handlePanZoomUpdate(PointerPanZoomUpdateEvent e) {
     viewport.panBy(e.localPanDelta);
@@ -167,7 +179,10 @@ class InkInputController {
       viewport.zoomAt(e.localPosition, e.scale / _lastPanZoomScale);
       _lastPanZoomScale = e.scale;
     }
+    kinetic?.track(e.timeStamp);
   }
+
+  void handlePanZoomEnd(PointerPanZoomEndEvent e) => kinetic?.release(e.timeStamp);
 
   // ---------------------------------------------------------------------------
   // Drawing
