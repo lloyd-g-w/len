@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:len/ink/lab/input_recording.dart';
 
+import '../metrics/truth.dart';
 import 'digitiser.dart';
 import 'pen_motion.dart';
 
@@ -15,7 +16,7 @@ class SimCase {
   final DigitiserModel model;
 
   /// The recording of this case drawn with [pen], and its truth.
-  ({InputRecording recording, List<TruthStroke> truth}) record(PenSettings pen) =>
+  ({InputRecording recording, List<Truth> truth}) record(PenSettings pen) =>
       Digitiser(model).record(contacts, pen: pen, note: '$name: $description');
 }
 

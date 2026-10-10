@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:len/ink/input/stylus_batch.dart';
 import 'package:len/ink/lab/input_recording.dart';
 
+import '../metrics/truth.dart';
 import 'pen_motion.dart';
 
 /// How the simulated S Pen and Android deliver input.
@@ -73,19 +74,13 @@ class SimContact {
   final bool bounce;
 }
 
-/// Ground truth of one intended stroke, in surface-local logical px.
-class TruthStroke {
-  TruthStroke(PenMotion motion)
-    : path = motion.path(),
-      pressure = motion.pressures(),
-      cusps = [for (final t in motion.cusps) motion.at(t)],
-      isTap = motion.duration < 0.08;
-
-  final List<Offset> path;
-  final List<double> pressure;
-  final List<Offset> cusps;
-  final bool isTap;
-}
+/// The ground truth of [motion].
+Truth truthOf(PenMotion motion) => Truth(
+  path: motion.path(),
+  pressure: motion.pressures(),
+  cusps: [for (final t in motion.cusps) motion.at(t)],
+  isTap: motion.duration < 0.08,
+);
 
 class _Sample {
   _Sample(this.timeUs, this.pos, this.pressure);
@@ -104,16 +99,16 @@ class Digitiser {
   static const int _baseUs = 5000000000;
   static const int _device = 2; // pointer 0, TOOL_TYPE_STYLUS
 
-  ({InputRecording recording, List<TruthStroke> truth}) record(
+  ({InputRecording recording, List<Truth> truth}) record(
     List<SimContact> contacts, {
     required PenSettings pen,
     String note = '',
   }) {
     final strokes = <List<_Sample>>[];
-    final truth = <TruthStroke>[];
+    final truth = <Truth>[];
     for (final c in contacts) {
       strokes.add(_samples(c));
-      truth.add(TruthStroke(c.motion));
+      truth.add(truthOf(c.motion));
       if (c.bounce) strokes.add(_bounce(c, strokes.last.last));
     }
     final events = _EventWriter(model, _device);

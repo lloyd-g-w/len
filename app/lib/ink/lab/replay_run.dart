@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import '../../data/app_database.dart';
 import '../../data/stroke_repository.dart';
 import '../../domain/stroke.dart';
@@ -51,6 +53,7 @@ class ReplayResult {
     required this.pen,
     required this.frames,
     required this.viewScale,
+    required this.viewOffset,
     required this.style,
   });
 
@@ -60,6 +63,10 @@ class ReplayResult {
 
   /// Viewport scale during the replay (world → logical screen px).
   final double viewScale;
+  final Offset viewOffset;
+
+  /// World → logical screen px, as the replay's viewport ended up.
+  Offset toScreen(double x, double y) => Offset(x, y) * viewScale + viewOffset;
 
   /// The style the replayed strokes get from [pen].
   final StrokeStyle style;
@@ -106,6 +113,7 @@ class ReplayResult {
       pen: driver.pen,
       frames: frames,
       viewScale: viewport.scale,
+      viewOffset: viewport.offset,
       style: driver.tools.styleFor(driver.pen.tool),
     );
   }
