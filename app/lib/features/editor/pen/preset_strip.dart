@@ -18,7 +18,7 @@ class PresetStrip extends StatelessWidget {
     final ink = tools.activeInk;
     final config = tools.configOf(ink);
     final profile = PenProfile.of(ink);
-    final active = tools.tool != EditorTool.eraser;
+    final active = tools.tool.usesPresets;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

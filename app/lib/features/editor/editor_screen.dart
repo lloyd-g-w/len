@@ -11,12 +11,15 @@ import '../../ink/input/ink_input_controller.dart';
 import '../../ink/input/live_ink.dart';
 import '../../ink/surface_model.dart';
 import '../../ink/tool_settings.dart';
+import '../../ink/tools/content_tools.dart';
 import '../../ink/viewport.dart';
 import '../../sync/sync_engine.dart';
 import '../../ui/floating_panel.dart';
 import '../../ui/text_prompt.dart';
 import 'editor_toolbar.dart';
 import 'page_navigator.dart';
+import 'tools/content_layer.dart';
+import 'tools/content_shortcuts.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas.
 class EditorScreen extends StatefulWidget {
@@ -40,6 +43,13 @@ class _EditorScreenState extends State<EditorScreen> {
       ? ViewportController()
       : ViewportController(minScale: 0.25, maxScale: 8);
   late final InkInputController _input;
+  late final ContentTools _content = ContentTools(
+    model: _model,
+    viewport: _viewport,
+    tools: _tools,
+    live: _live,
+    clipboard: _services.clipboard,
+  );
   StreamSubscription<RemoteChanges>? _remoteChanges;
 
   /// Pages of a paged notebook; empty for a canvas.
@@ -79,6 +89,7 @@ class _EditorScreenState extends State<EditorScreen> {
       tools: _tools,
       live: _live,
       onStylusDetected: _onStylusDetected,
+      content: _content,
     );
     _remoteChanges = _services.sync.remoteChanges.listen(_onRemoteChanges);
   }
@@ -86,6 +97,7 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   void dispose() {
     unawaited(_remoteChanges?.cancel());
+    _content.dispose(); // Commits a text box still being edited.
     final edited = _models.values.any((m) => m.history.canUndo || m.history.canRedo);
     if (edited) {
       _services.notebooks.touch(_notebook.id);
@@ -225,8 +237,13 @@ class _EditorScreenState extends State<EditorScreen> {
 
   /// Wraps a single-key shortcut so it doesn't fire while text is edited.
   VoidCallback _unlessTyping(VoidCallback action) => () {
-    final focused = FocusManager.instance.primaryFocus?.context?.widget;
-    if (focused is EditableText) return;
+    // The focus node belongs to a Focus widget inside the EditableText.
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return;
+    }
     action();
   };
 
@@ -245,6 +262,7 @@ class _EditorScreenState extends State<EditorScreen> {
     const SingleActivator(LogicalKeyboardKey.keyE): _unlessTyping(
       () => _tools.tool = EditorTool.eraser,
     ),
+    ...contentShortcuts(_content, _tools, _unlessTyping),
     if (!_isCanvas) ...{
       const SingleActivator(LogicalKeyboardKey.pageDown): () => _goToPage(_pageIndex + 1),
       const SingleActivator(LogicalKeyboardKey.pageUp): () => _goToPage(_pageIndex - 1),
@@ -281,6 +299,14 @@ class _EditorScreenState extends State<EditorScreen> {
                     paper: page?.paper ?? _notebook.paper,
                     page: page?.bounds,
                   ),
+                ),
+              ),
+              Positioned.fill(
+                child: ContentLayer(
+                  content: _content,
+                  viewport: _viewport,
+                  tools: _tools,
+                  page: page?.bounds,
                 ),
               ),
               SafeArea(child: _buildChrome(context)),
