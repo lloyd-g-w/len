@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_preferences.dart';
-import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/color_dot.dart';
 import 'settings_section.dart';
+import 'theme_choice.dart';
 
 /// Theme mode and accent colour.
 class AppearanceSettings extends StatelessWidget {
@@ -34,27 +34,9 @@ class AppearanceSettings extends StatelessWidget {
           children: [
             SettingsTile(
               title: 'Theme',
-              below: SegmentedButton<ThemePreference>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: ThemePreference.system,
-                    icon: Icon(Icons.brightness_auto_outlined),
-                    label: Text('System'),
-                  ),
-                  ButtonSegment(
-                    value: ThemePreference.light,
-                    icon: Icon(Icons.light_mode_outlined),
-                    label: Text('Light'),
-                  ),
-                  ButtonSegment(
-                    value: ThemePreference.dark,
-                    icon: Icon(Icons.dark_mode_outlined),
-                    label: Text('Dark'),
-                  ),
-                ],
-                selected: {preferences.themeMode},
-                onSelectionChanged: (s) => preferences.themeMode = s.single,
+              below: ThemeChoice(
+                value: preferences.themeMode,
+                onChanged: (m) => preferences.themeMode = m,
               ),
             ),
             SettingsTile(
