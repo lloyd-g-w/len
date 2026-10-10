@@ -49,6 +49,13 @@ void main() {
         await pumpApp(tester, s, overview(s, nb.id), mode: mode);
         expect(tester.takeException(), isNull);
         await shoot(tester, 'overview_${name}_${mode.name}');
+        await tester.tap(find.text('Select'));
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('page-tile-2')));
+        await tester.tap(find.byKey(const ValueKey('page-tile-3')));
+        await settle(tester);
+        expect(find.text('2 selected'), findsOneWidget);
+        await shoot(tester, 'overview_select_${name}_${mode.name}');
         expect(nb.kind, NotebookKind.paged);
       });
     }

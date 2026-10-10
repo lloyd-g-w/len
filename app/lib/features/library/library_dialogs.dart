@@ -9,39 +9,7 @@ import 'cover_picker.dart';
 import 'library_controller.dart';
 import 'notebook_cover.dart';
 
-/// Asks to confirm an action; true if confirmed.
-Future<bool> confirmAction(
-  BuildContext context, {
-  required String title,
-  required String message,
-  required String confirmLabel,
-  bool destructive = false,
-}) async {
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (context) {
-      final scheme = Theme.of(context).colorScheme;
-      return AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(
-            style: destructive
-                ? FilledButton.styleFrom(
-                    backgroundColor: scheme.error,
-                    foregroundColor: scheme.onError,
-                  )
-                : null,
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(confirmLabel),
-          ),
-        ],
-      );
-    },
-  );
-  return result ?? false;
-}
+export '../../ui/app_dialogs.dart' show confirmAction;
 
 /// Name and colour of a folder, as entered in [showFolderDialog].
 typedef FolderDetails = ({String name, int color});
