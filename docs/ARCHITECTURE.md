@@ -106,13 +106,13 @@ the local `settings` table.
 ## Erasing
 
 `SurfaceModel.eraseAlong` either removes whole strokes or, in *pixel* mode,
-cuts the ink under the eraser out. Both test against the ink as rendered:
-the radius at each point depends on pressure, thinning and the pen's easing
-(`StrokeHitTest.inkRadius`), not just the nominal width (`geometry/stroke_splitter.dart`): the stroke
+cuts the ink under the eraser out (`geometry/stroke_splitter.dart`): the stroke
 is removed and its surviving fragments are added as new strokes (keeping the
 original `createdAt`, so paint order is unchanged). One drag is one undoable
 `InkEdit`; fragments cut and erased again within the drag cancel out.
-Optionally only highlighter ink is erased.
+Optionally only highlighter ink is erased. Both modes test against the ink as
+rendered: its radius at each point depends on pressure, thinning and the pen's
+easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 
 ## Persistence
 
