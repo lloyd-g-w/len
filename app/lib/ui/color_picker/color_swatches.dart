@@ -20,9 +20,12 @@ class Swatch extends StatelessWidget {
     required this.onTap,
     this.onLongPress,
     this.tooltip,
+    this.size = defaultSize,
   });
 
-  static const double size = 30;
+  static const double defaultSize = 30;
+
+  final double size;
 
   final int color;
   final bool selected;

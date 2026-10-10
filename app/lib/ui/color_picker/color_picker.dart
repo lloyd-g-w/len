@@ -176,6 +176,7 @@ class _HexRow extends StatelessWidget {
   }
 }
 
+/// The palette as an even grid of [columns] swatches per row.
 class _SwatchGrid extends StatelessWidget {
   const _SwatchGrid({required this.colors, required this.selected, required this.onTap});
 
@@ -183,14 +184,23 @@ class _SwatchGrid extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onTap;
 
+  static const int columns = 10;
+  static const double gap = 4;
+
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        for (final c in colors) Swatch(color: c, selected: c == selected, onTap: () => onTap(c)),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = ((constraints.maxWidth - gap * (columns - 1)) / columns).clamp(20.0, 36.0);
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final c in colors)
+              Swatch(color: c, size: size, selected: c == selected, onTap: () => onTap(c)),
+          ],
+        );
+      },
     );
   }
 }
@@ -236,8 +246,8 @@ class _FavoritesRow extends StatelessWidget {
                 onTap: onAdd,
                 radius: 18,
                 child: Container(
-                  width: Swatch.size,
-                  height: Swatch.size,
+                  width: Swatch.defaultSize,
+                  height: Swatch.defaultSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: scheme.outline),
