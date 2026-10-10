@@ -20,6 +20,7 @@ class SelectionMenu extends StatelessWidget {
     required this.tools,
     required this.onEditText,
     required this.onPaste,
+    this.onCrop,
   });
 
   final SelectionController selection;
@@ -27,6 +28,9 @@ class SelectionMenu extends StatelessWidget {
   final ToolSettings tools;
   final ValueChanged<SurfaceElement> onEditText;
   final VoidCallback onPaste;
+
+  /// Asked to crop an image (shown for a single selected image).
+  final ValueChanged<SurfaceElement>? onCrop;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +54,7 @@ class SelectionMenu extends StatelessWidget {
             tools: tools,
             onEditText: onEditText,
             onPaste: onPaste,
+            onCrop: onCrop,
           ),
         );
       },
@@ -63,20 +68,24 @@ class _MenuBar extends StatelessWidget {
     required this.tools,
     required this.onEditText,
     required this.onPaste,
+    this.onCrop,
   });
 
   final SelectionController selection;
   final ToolSettings tools;
   final ValueChanged<SurfaceElement> onEditText;
   final VoidCallback onPaste;
+  final ValueChanged<SurfaceElement>? onCrop;
 
   @override
   Widget build(BuildContext context) {
     final elements = selection.elements;
-    final singleText =
-        selection.strokes.isEmpty &&
-        elements.length == 1 &&
-        elements.single.knownType == ElementType.text;
+    final single = selection.strokes.isEmpty && elements.length == 1 ? elements.single : null;
+    final singleText = single?.knownType == ElementType.text;
+    final singleImage = single?.knownType == ElementType.image;
+    // Only ink and text have a colour.
+    final colourable =
+        selection.strokes.isNotEmpty || elements.any((e) => e.knownType == ElementType.text);
     Widget action(String label, IconData icon, VoidCallback onPressed) =>
         IconButton(tooltip: label, onPressed: onPressed, icon: Icon(icon, size: 20));
     return FloatingPanel(
@@ -85,22 +94,29 @@ class _MenuBar extends StatelessWidget {
         children: [
           if (singleText)
             action('Edit text', Icons.edit_outlined, () => onEditText(elements.single)),
+          if (singleImage && onCrop != null)
+            action('Crop', Icons.crop_rounded, () => onCrop!(elements.single)),
           action('Cut (Ctrl+X)', Icons.content_cut_rounded, selection.cut),
           action('Copy (Ctrl+C)', Icons.content_copy_rounded, selection.copy),
           action('Duplicate (Ctrl+D)', Icons.library_add_outlined, selection.duplicate),
           if (!selection.clipboard.isEmpty)
             action('Paste (Ctrl+V)', Icons.content_paste_rounded, onPaste),
-          Builder(
-            builder: (context) => action('Colour', Icons.palette_outlined, () async {
-              final colour = await pickColour(
-                context,
-                title: 'Recolour selection',
-                initial: _currentColour(),
-                tools: tools,
-              );
-              if (colour != null) selection.recolor(colour);
-            }),
-          ),
+          if (elements.isNotEmpty) ...[
+            action('Bring to front', Icons.flip_to_front_rounded, selection.bringToFront),
+            action('Send to back', Icons.flip_to_back_rounded, selection.sendToBack),
+          ],
+          if (colourable)
+            Builder(
+              builder: (context) => action('Colour', Icons.palette_outlined, () async {
+                final colour = await pickColour(
+                  context,
+                  title: 'Recolour selection',
+                  initial: _currentColour(),
+                  tools: tools,
+                );
+                if (colour != null) selection.recolor(colour);
+              }),
+            ),
           action('Delete (Del)', Icons.delete_outline_rounded, selection.delete),
         ],
       ),
