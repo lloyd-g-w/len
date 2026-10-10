@@ -27,10 +27,7 @@ class EditorMoreMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = actions;
     final tabs = this.tabs;
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      onOpen: CanvasGuardScope.maybeOf(context)?.opened,
-      onClose: CanvasGuardScope.maybeOf(context)?.closed,
+    return ChromeMenuAnchor(
       menuChildren: [
         if (tabs != null)
           _item(

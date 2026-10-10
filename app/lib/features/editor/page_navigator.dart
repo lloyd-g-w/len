@@ -116,10 +116,7 @@ class PageNavigator extends StatelessWidget {
     );
   }
 
-  Widget _moreAdd(BuildContext context, ColorScheme scheme) => MenuAnchor(
-    consumeOutsideTap: true,
-    onOpen: CanvasGuardScope.maybeOf(context)?.opened,
-    onClose: CanvasGuardScope.maybeOf(context)?.closed,
+  Widget _moreAdd(BuildContext context, ColorScheme scheme) => ChromeMenuAnchor(
     menuChildren: [
       if (onAddWithTemplate != null)
         MenuItemButton(

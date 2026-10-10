@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
@@ -11,11 +13,13 @@ import '../documents/template_picker.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
 import '../settings/settings_screen.dart';
+import 'canvas/canvas_empty_hint.dart';
 import 'chrome/bar_button.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/chrome_metrics.dart';
 import 'chrome/editor_chrome.dart';
+import 'chrome/editor_tips.dart';
 import 'chrome/editor_top_bar.dart';
 import 'chrome/focus_handle.dart';
 import 'chrome/gesture_hud.dart';
@@ -58,6 +62,18 @@ class _EditorScreenState extends State<EditorScreen> {
   late final AppLifecycleListener _lifecycle = AppLifecycleListener(onHide: _saveView);
   final HudController _hud = HudController();
 
+  /// One-time tips (stylus side button, multi-finger taps).
+  late final TipsController _tips = TipsController(
+    seen: (id) => _services.settings.seenTips.contains(id),
+    markSeen: _services.settings.markTipSeen,
+  );
+
+  /// Whether the last pointer down in the editor was a finger or a pen.
+  bool _touchInput = false;
+
+  /// Pages scrolling, zooming or turning (shows the phone page indicator).
+  late final Listenable? _navigatorActivity = _session.doc?.viewport;
+
   /// In-notebook search, Ctrl+F (features/search).
   late final EditorSearchController _search;
   final CanvasGuard _guard = CanvasGuard();
@@ -92,6 +108,7 @@ class _EditorScreenState extends State<EditorScreen> {
     _search = EditorSearchController.forSession(_services, _session, notebookId: _notebook.id);
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
+    _session.undo.addListener(_onEdit);
     _lifecycle; // Starts listening.
     // Take the keyboard even when another editor (the previous tab) still
     // held it while this one was built; autofocus would not.
@@ -109,6 +126,7 @@ class _EditorScreenState extends State<EditorScreen> {
     _saveView();
     _lifecycle.dispose();
     _services.preferences.removeListener(_onPreferences);
+    _session.undo.removeListener(_onEdit);
     if (_focus) setImmersive(false);
     final edited = _session.edited;
     _search.dispose();
@@ -121,6 +139,7 @@ class _EditorScreenState extends State<EditorScreen> {
       scheduleMicrotask(() => unawaited(sync.syncNow()));
     }
     _hud.dispose();
+    _tips.dispose();
     _toolbarHeight.dispose();
     _guard.dispose();
     _focusNode.dispose();
@@ -187,7 +206,24 @@ class _EditorScreenState extends State<EditorScreen> {
       ..pop();
   }
 
+  void _offerTip(EditorTip tip) {
+    final prefs = _services.preferences;
+    _tips.offer(
+      tip,
+      penButton: prefs.penButtonAction,
+      twoFingerUndo: prefs.twoFingerTapUndo,
+      threeFingerRedo: prefs.threeFingerTapRedo,
+    );
+  }
+
+  /// After the first edit by finger or pen: how to undo without reaching
+  /// for the top bar.
+  void _onEdit() {
+    if (_touchInput && _session.undo.canUndo) _offerTip(EditorTip.gestures);
+  }
+
   void _onStylusDetected() {
+    _offerTip(EditorTip.penButton);
     if (_session.tools.stylusOnly != null) return;
     _setStylusOnly(true);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -305,6 +341,14 @@ class _EditorScreenState extends State<EditorScreen> {
           child: Focus(
             focusNode: _focusNode,
             autofocus: true,
+            // Escape first closes a chrome menu opened with a tap (focus
+            // stayed here, out of the menu's reach).
+            onKeyEvent: (_, event) =>
+                event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.escape &&
+                    _guard.closeMenus()
+                ? KeyEventResult.handled
+                : KeyEventResult.ignored,
             // Automatic placement depends on the toolbar's width (its slots).
             child: ListenableBuilder(
               listenable: Listenable.merge([_session.tools, _toolbarHeight]),
@@ -331,36 +375,50 @@ class _EditorScreenState extends State<EditorScreen> {
                   _resetGuardOnResize(constraints.maxWidth);
                   return CanvasGuardScope(
                     guard: _guard,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: EditorCanvas(
-                            session: _session,
-                            paper: _notebook.paper,
-                            paperColor: _notebook.paperColor,
-                            focusNode: _focusNode,
-                            guard: _guard,
-                            chromeInsets: layout.covered,
-                          ),
-                        ),
-                        Positioned.fill(child: ImageDropTarget(images: _session.images)),
-                        Positioned.fill(child: _buildChrome(layout, tabs)),
-                        Positioned.fill(
-                          child: EditorSearchLayer(
-                            controller: _search,
-                            top: layout.covered.top,
-                            onClose: _focusNode.requestFocus,
-                          ),
-                        ),
-                        if (_menu case final menu?)
+                    child: Listener(
+                      onPointerDown: (e) => _touchInput = e.kind != PointerDeviceKind.mouse,
+                      child: Stack(
+                        children: [
                           Positioned.fill(
-                            child: CanvasContextMenu(
-                              at: menu.at,
-                              actions: menu.actions,
-                              onDismiss: _closeMenu,
+                            child: EditorCanvas(
+                              session: _session,
+                              paper: _notebook.paper,
+                              paperColor: _notebook.paperColor,
+                              focusNode: _focusNode,
+                              guard: _guard,
+                              chromeInsets: layout.covered,
                             ),
                           ),
-                      ],
+                          if (_session.canvas != null)
+                            Positioned.fill(
+                              child: Padding(
+                                padding: layout.covered,
+                                child: CanvasEmptyHint(
+                                  reader: _services.strokeReader,
+                                  surfaceId: _notebook.id,
+                                  edits: _session.undo,
+                                ),
+                              ),
+                            ),
+                          Positioned.fill(child: ImageDropTarget(images: _session.images)),
+                          Positioned.fill(child: _buildChrome(layout, tabs)),
+                          Positioned.fill(
+                            child: EditorSearchLayer(
+                              controller: _search,
+                              top: layout.covered.top,
+                              onClose: _focusNode.requestFocus,
+                            ),
+                          ),
+                          if (_menu case final menu?)
+                            Positioned.fill(
+                              child: CanvasContextMenu(
+                                at: menu.at,
+                                actions: menu.actions,
+                                onDismiss: _closeMenu,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -410,6 +468,7 @@ class _EditorScreenState extends State<EditorScreen> {
       builder: (context, _) => EditorChrome(
         layout: layout,
         hud: _hud,
+        tips: _tips,
         onExitFocus: _toggleFocus,
         floatAt: prefs.toolbarFloat,
         onFloatMoved: (at) => prefs.toolbarFloat = at,
@@ -442,6 +501,7 @@ class _EditorScreenState extends State<EditorScreen> {
           ),
         ),
         navigator: editorPageNavigator(context, _session, width: layout.width),
+        navigatorActivity: _navigatorActivity,
       ),
     );
   }

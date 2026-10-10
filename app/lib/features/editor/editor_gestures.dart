@@ -72,10 +72,10 @@ void runMultiFingerTap(EditorSession session, int fingers, HudController hud) {
   if (fingers == 2 && prefs.twoFingerTapUndo) {
     final could = undo.canUndo;
     if (could) undo.undo();
-    hud.show(Icons.undo_rounded, could ? 'Undo' : 'Nothing to undo');
+    hud.show(Icons.undo_rounded, could ? 'Undo' : 'Nothing to undo', counts: could);
   } else if (fingers == 3 && prefs.threeFingerTapRedo) {
     final could = undo.canRedo;
     if (could) undo.redo();
-    hud.show(Icons.redo_rounded, could ? 'Redo' : 'Nothing to redo');
+    hud.show(Icons.redo_rounded, could ? 'Redo' : 'Nothing to redo', counts: could);
   }
 }

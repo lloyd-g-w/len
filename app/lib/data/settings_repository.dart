@@ -111,6 +111,10 @@ class SettingsRepository {
   ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
   set toolbarPlacement(ToolbarPlacement value) => _set('toolbar_placement', value.name);
 
+  /// Ids of the editor's one-time tips already shown on this device.
+  Set<String> get seenTips => {...?_get('tips_seen')?.split(',').where((id) => id.isNotEmpty)};
+  void markTipSeen(String id) => _set('tips_seen', {...seenTips, id}.join(','));
+
   /// Whether the editor toolbar shows tool names under the icons.
   bool get toolbarLabels => _get('toolbar_labels') == 'true';
   set toolbarLabels(bool value) => _set('toolbar_labels', '$value');

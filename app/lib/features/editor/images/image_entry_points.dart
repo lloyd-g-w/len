@@ -28,10 +28,7 @@ class InsertImageButton extends StatelessWidget {
         onPressed: () => unawaited(images.pickFiles(context)),
       );
     }
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      onOpen: CanvasGuardScope.maybeOf(context)?.opened,
-      onClose: CanvasGuardScope.maybeOf(context)?.closed,
+    return ChromeMenuAnchor(
       menuChildren: [
         MenuItemButton(
           leadingIcon: const Icon(Icons.photo_library_outlined),
