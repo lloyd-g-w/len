@@ -19,7 +19,7 @@ import 'package:len/ink/undo_history.dart';
 
 import 'handwriting_clustering_test.dart' show twoLines;
 import 'support/fake_recognizer.dart';
-import 'sync_test.dart' show FakeServer, apiFor, device;
+import 'support/fake_server.dart' show FakeServer, apiFor, device;
 
 const words = {'alpha': 'alpha', 'beta': 'beta', 'gamma': 'gamma', 'delta': 'delta', 'eps': 'eps'};
 
