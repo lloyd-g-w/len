@@ -98,6 +98,30 @@ columns added later are copied too), delete (with an Undo snack bar that
 re-saves the page's strokes), reorder (fractional sort keys, `PageOrder`;
 the list is renumbered only when a gap is exhausted), bookmarks, templates.
 
+## Editor screen (`features/editor/`)
+
+- **`EditorSession`** owns the engine side of one open notebook: `ToolSettings`, live ink,
+  `InkInputController` + `CanvasGestures`, `ContentTools`, undo, and either the canvas
+  `SurfaceModel` + viewport or the `DocumentController` + `DocumentCommands`.
+- **`EditorScreen`** composes `EditorCanvas` (surface, "Add page" footer, content layer)
+  with `EditorChrome` (`chrome/`): `EditorTopBar` (back, pages, bookmark, title — tap to
+  rename — undo/redo, export, focus, "⋯" `EditorMoreMenu`; a phone variant keeps the
+  essentials and moves the rest into the menu), `ToolbarSlot` (hosts the pen toolbar at
+  the top, bottom or floating by a grip; animated), `PageNavigator`, `GestureHud` and,
+  in focus mode, only a `FocusHandle`. `ChromeLayout` says how much of each screen edge
+  the chrome covers; the document pads its scroll bounds by it (in screen pixels, so it
+  is re-applied on zoom) and the selection / text menus avoid it (passed down as
+  `MediaQuery.padding`). Menus report to a `CanvasGuard`, which blocks the surface while
+  one is open, so the tap that closes a menu never draws.
+- **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
+  the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
+  notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
+  the active tab's `EditorScreen` (keyed by notebook), which saves its view on dispose
+  and restores it on creation. Closing the last tab leaves the workspace.
+- **Page navigation**: `DocumentController.scrollToPage` animates the viewport with
+  `DocumentScroller` (centre point glides, zoom eases; jumps longer than two screens
+  start near the target). Single-page flow fits the whole page and slides it in.
+
 ## Templates (`domain/paper.dart`, `domain/paper_pattern.dart`)
 
 `PaperStyle` names are stored and synced and never renamed (`lined` is wide
@@ -136,13 +160,22 @@ sheet on Android (`share_plus`).
 
 Raw `Listener` pointer events (no gesture arena → no latency, full pressure data):
 
-- **Stylus** draws; **eraser end** or **side button held** (S Pen) erases.
+- **Stylus** draws; the **eraser end** erases; the **side button held** (S Pen) does
+  the user's `PenButtonAction` (`input/stylus_buttons.dart`): erase, lasso (a selection
+  made that way stays live — pressing on it moves it, pressing elsewhere drops it and
+  draws again) or nothing.
   A stylus touching down cancels a stroke a resting palm may have started.
 - **Touch**: with *stylus only* (palm rejection) on, fingers pan/zoom; off,
   one finger draws and a second finger turns it into a pinch.
   Stylus-only switches on automatically the first time a stylus is used.
 - **Mouse**: left draws, middle/right drag pans, wheel scrolls, Ctrl+wheel zooms.
 - **Trackpad**: two-finger pan, pinch zoom.
+- **Canvas gestures** (`input/canvas_gestures.dart`) watch the same events without
+  claiming them: a quick, still two-/three-finger tap (`MultiFingerTapDetector`:
+  ≤ 300 ms, ≤ 24 px travel) → undo / redo; a still one-finger long press with a
+  navigating finger, or a right click (`LongPressDetector`, `SecondaryClickDetector`)
+  → the canvas context menu. Palm safety: taps and long presses are ignored while a
+  stylus touches, or was seen touching or hovering within 600 ms.
 
 Stroke outlines come from the in-house engine `ink/render/stroke_outline.dart`
 (pressure-aware polygons with stabilised positions, hook trimming and exact
@@ -270,7 +303,8 @@ All writes go straight to SQLite; in-memory state is a cache.
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
 `SettingsRepository`: theme mode and accent (the app rebuilds its `ThemeData` from them),
 stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
-(`PenButtonAction.eraser|lasso|none`), library layout and sort. Getters always read
+(`PenButtonAction.eraser|lasso|none`), editor toolbar placement (and floating position),
+library layout and sort. Getters always read
 the store, so values written elsewhere are never stale.
 
 ## UI design system (`ui/`)
@@ -280,7 +314,8 @@ neutral surfaces, a tighter type scale and shared component themes
 (`theme_components.dart`). Tokens: `Gaps`, `Radii`, `Palette` (`app_theme.dart`) and
 `Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
 
-Visual checks: `test/screenshots/` renders the library and settings at phone, tablet and
+Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
+canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone) at phone, tablet and
 desktop sizes in light and dark with real fonts. Run
 `flutter test test/screenshots --dart-define=SCREENSHOTS=true` and look at
 `app/build/screenshots/*.png`.
