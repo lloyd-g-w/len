@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../ink/tool_settings.dart';
 
-/// Quick eraser controls shown in place of the presets while erasing:
+/// Quick eraser controls shown in place of the colours and widths while erasing:
 /// whole-stroke / partial toggle and three sizes.
 class EraserStrip extends StatelessWidget {
   const EraserStrip({super.key, required this.tools});

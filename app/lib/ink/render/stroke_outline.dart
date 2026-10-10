@@ -49,7 +49,7 @@ class OutlineSpec {
   /// Standard deviation (world units) of the positional smoothing: enough to
   /// remove digitiser jitter, more with a stronger stabiliser, scaled with
   /// the width so small handwriting keeps its shape.
-  double get positionSigma => (1.0 + 1.5 * streamline) * math.max(1.0, width / 2);
+  double get positionSigma => (1.0 + 1.5 * streamline) * (width / 2).clamp(1.0, 4.0);
 
   /// Standard deviation of the radius smoothing (pressure noise).
   double get radiusSigma => math.max(2 * positionSigma, width);

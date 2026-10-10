@@ -179,6 +179,15 @@ void main() {
     }
   });
 
+  test('the stroke being drawn reaches the pen (no lag)', () {
+    final points = [for (var i = 0; i <= 60; i++) StrokePoint(i * 1.5, 10 * math.sin(i / 8), 0.5)];
+    final sink = RecordingSink();
+    StrokeOutline.emit(sink, points, ballpoint, complete: false);
+    final tip = points.last.offset;
+    final reach = sink.points.map((p) => (p - tip).distance).reduce(math.min);
+    expect(reach, lessThan(1.05), reason: 'outline passes within a radius of the pen');
+  });
+
   test('building a 1000-point stroke stays fast', () {
     final long = [
       for (var i = 0; i < 1000; i++)
