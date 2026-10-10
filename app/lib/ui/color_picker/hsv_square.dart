@@ -1,11 +1,19 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
+import '../app_theme.dart';
 
 /// A saturation (x) / value (y) pad for one hue, with a draggable thumb.
 class HsvSquare extends StatelessWidget {
   const HsvSquare({super.key, required this.hsv, required this.onChanged, this.height = 168});
 
+  /// The colour shown; the pad displays its hue, the thumb its s/v.
   final HSVColor hsv;
+
+  /// Called with [hsv] at the touched saturation/value.
   final ValueChanged<HSVColor> onChanged;
+
+  /// Height of the pad.
   final double height;
 
   void _update(Offset local, Size size) {
@@ -21,10 +29,21 @@ class HsvSquare extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final size = constraints.biggest;
-          return GestureDetector(
+          // Claims the pointer at once, so a vertical drag adjusts the value
+          // instead of scrolling or dismissing an enclosing sheet.
+          return RawGestureDetector(
             behavior: HitTestBehavior.opaque,
-            onPanDown: (d) => _update(d.localPosition, size),
-            onPanUpdate: (d) => _update(d.localPosition, size),
+            gestures: {
+              _EagerPanGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<_EagerPanGestureRecognizer>(
+                    _EagerPanGestureRecognizer.new,
+                    (r) {
+                      r
+                        ..onDown = ((d) => _update(d.localPosition, size))
+                        ..onUpdate = ((d) => _update(d.localPosition, size));
+                    },
+                  ),
+            },
             child: Semantics(
               label: 'Saturation and brightness',
               child: CustomPaint(size: size, painter: _SquarePainter(hsv)),
@@ -36,6 +55,15 @@ class HsvSquare extends StatelessWidget {
   }
 }
 
+/// A pan recognizer that wins the gesture arena as soon as it sees a pointer.
+class _EagerPanGestureRecognizer extends PanGestureRecognizer {
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
+  }
+}
+
 class _SquarePainter extends CustomPainter {
   _SquarePainter(this.hsv);
 
@@ -44,7 +72,7 @@ class _SquarePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(Radii.cover));
     final pure = HSVColor.fromAHSV(1, hsv.hue, 1, 1).toColor();
     canvas
       ..save()
