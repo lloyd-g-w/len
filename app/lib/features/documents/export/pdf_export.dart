@@ -61,7 +61,7 @@ abstract final class PdfExporter {
       if (rgba != null) {
         final image = PdfImage(
           doc,
-          image: rgba.buffer.asUint8List(),
+          image: _rgb(rgba.buffer.asUint8List()),
           width: background.width,
           height: background.height,
           alpha: false,
@@ -74,6 +74,17 @@ abstract final class PdfExporter {
     for (final stroke in [...export.strokes]..sort(Stroke.paintOrder)) {
       _drawStroke(pen, stroke);
     }
+  }
+
+  /// Drops the alpha channel (backgrounds are opaque).
+  static Uint8List _rgb(Uint8List rgba) {
+    final rgb = Uint8List(rgba.length ~/ 4 * 3);
+    for (var i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
+      rgb[j] = rgba[i];
+      rgb[j + 1] = rgba[i + 1];
+      rgb[j + 2] = rgba[i + 2];
+    }
+    return rgb;
   }
 
   static void _drawPattern(_Pen pen, NotebookPage page) {
