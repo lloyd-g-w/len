@@ -122,15 +122,14 @@ class EditorSearchController extends ChangeNotifier {
   /// Increases whenever the search field should take focus.
   int get focusRequests => _focusRequests;
 
-  /// Opens the search bar (focusing its field), optionally searching
-  /// [query] right away.
+  /// Opens the search bar (focusing its field) and searches [query] (or
+  /// the previous query) right away.
   void open({String? query}) {
     _open = true;
     _focusRequests++;
-    if (query != null && query != _query) {
-      _query = query;
-      _run();
-    }
+    _query = query ?? _query;
+    // Refresh: text may have been edited since the last search.
+    if (_query.trim().isNotEmpty) _run();
     notifyListeners();
   }
 

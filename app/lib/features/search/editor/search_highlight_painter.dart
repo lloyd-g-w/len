@@ -4,8 +4,7 @@ import 'editor_search_controller.dart';
 import 'editor_search_host.dart';
 
 /// Paints search matches over the editor's surface: every match on
-/// screen in marker yellow, the current one in the accent colour with an
-/// outline.
+/// screen in marker yellow, the current one in orange with an outline.
 class SearchHighlightPainter extends CustomPainter {
   SearchHighlightPainter({
     required this.controller,
@@ -27,7 +26,7 @@ class SearchHighlightPainter extends CustomPainter {
     if (!controller.isOpen) return;
     final screen = Offset.zero & size;
     final fill = Paint()..color = matchColor.withValues(alpha: 0.35);
-    final currentFill = Paint()..color = currentColor.withValues(alpha: 0.22);
+    final currentFill = Paint()..color = currentColor.withValues(alpha: 0.28);
     final outline = Paint()
       ..color = currentColor
       ..style = PaintingStyle.stroke

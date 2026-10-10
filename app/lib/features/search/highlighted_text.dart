@@ -57,6 +57,7 @@ abstract final class SearchColors {
   static Color match(ColorScheme scheme) =>
       scheme.brightness == Brightness.light ? const Color(0xFFFFD43B) : const Color(0xFFFFB020);
 
-  /// The current match: the accent colour.
-  static Color current(ColorScheme scheme) => scheme.primary;
+  /// The current match on the page: orange (pages are light even in
+  /// dark mode, so this does not follow the theme).
+  static Color current(ColorScheme scheme) => const Color(0xFFF76707);
 }

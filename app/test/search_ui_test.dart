@@ -219,4 +219,34 @@ void main() {
     expect(find.text('In notebooks · 1 match'), findsOneWidget);
     expect(find.textContaining('tunnelling', findRichText: true), findsOneWidget);
   });
+
+  testWidgets('phone, dark: results and the search bar fit', (tester) async {
+    await loadFonts();
+    final services = AppServices.create(AppDatabase.inMemory());
+    final nbs = seed(services);
+    await pumpLibrary(
+      tester,
+      services: services,
+      size: const Size(390, 844),
+      themeMode: ThemeMode.dark,
+    );
+    await tester.enterText(find.widgetWithText(TextField, 'Search'), 'cell');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(LibraryScreen),
+      matchesGoldenFile('goldens/search_library_phone_dark.png'),
+    );
+
+    await tester.tap(find.textContaining('mitosis', findRichText: true));
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 2'), findsNothing);
+    expect(find.text('2 of 2'), findsOneWidget, reason: 'opened at the tapped match');
+    expect(currentPage(tester), 2);
+    expect(nbs.biology.title, 'Biology');
+    await expectLater(
+      find.byType(EditorScreen),
+      matchesGoldenFile('goldens/search_editor_phone_dark.png'),
+    );
+  });
 }
