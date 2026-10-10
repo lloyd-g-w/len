@@ -36,6 +36,9 @@ abstract final class InkTextSchema {
         surface_id TEXT PRIMARY KEY NOT NULL,
         version    INTEGER NOT NULL
       )''');
+    // Keeps max(version) — computed by every stroke write — a lookup, even
+    // where nothing drains the queue (no recogniser on the platform).
+    db.execute('CREATE INDEX IF NOT EXISTS ink_text_queue_by_version ON ink_text_queue(version)');
     _createTriggers(db);
     queueAll(db);
   }

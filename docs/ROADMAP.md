@@ -64,8 +64,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   highlighted snippets (tap opens the page and highlights the match)
 - ✅ In-notebook search (Ctrl+F): match list, next/previous, highlights on text boxes and exact
   PDF glyphs
-- ⬜ Handwriting search (plan in ARCHITECTURE: ML Kit Digital Ink on Android, WinRT ink analysis
-  on Windows, behind a recogniser interface)
+- ✅ Handwriting search on Android (ML Kit Digital Ink, on-device, per-language models from the
+  device locale or settings): background indexing in quiet moments, incremental per line, kept
+  current through undo and sync; results in the library and the editor with word highlights
+- ✅ Lasso "Convert to text": recognised text with alternatives, editable; replace the ink with a
+  text box (same place, colour, size; one undo) or copy
+- ⬜ Handwriting recognition on Windows (WinRT ink analysis) / Linux / web; sync recognised text
 - ✅ Live cover thumbnails, more cover colours + patterns
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
 - ✅ Create sheet with a live cover + first-page preview, Paper / Cover galleries, size and paper
