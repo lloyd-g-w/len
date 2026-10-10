@@ -109,12 +109,8 @@ abstract final class PdfExporter {
     }
 
     await drawElements(true);
-    final strokes = [...export.strokes]..sort(Stroke.paintOrder);
-    // Highlighter beneath pen ink, as on screen.
-    for (final stroke in strokes.where((s) => s.tool.isHighlighter)) {
-      _drawStroke(pen, stroke);
-    }
-    for (final stroke in strokes.where((s) => !s.tool.isHighlighter)) {
+    // Highlighter beneath pen ink, as on screen (see ContentPainter).
+    for (final stroke in [...export.strokes]..sort(Stroke.drawOrder)) {
       _drawStroke(pen, stroke);
     }
     await drawElements(false);

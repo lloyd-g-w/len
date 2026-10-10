@@ -185,9 +185,11 @@ one below every other.
 `music`, `isometric`. Unknown values are shown as `blank` but kept as-is in storage, so editing
 other fields of the page on an older device does not erase a newer device's template.
 
-Optional `pages` fields (`?` above; absent on data written by older app versions):
+Optional `pages` fields (`?` above; absent on data written by older app versions). As for
+notebooks, a missing field keeps the local page's value; the defaults below apply to a page new to
+this device:
 
-- `paperColor`: string, `white` | `cream` | `grey` | `dark`; missing or unknown → `white`.
+- `paperColor`: string, `white` | `cream` | `grey` | `dark`; missing → `white` (see above), unknown → shown as `white`.
 - `bookmarked`: bool; missing → `false`.
 - `background`: object or `null`. `{"type": "pdf", "blob": "<sha256>", "page": <int>}` renders
   page `page` (0-based) of the PDF stored as blob `<sha256>` behind the strokes. Backgrounds with

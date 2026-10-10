@@ -92,6 +92,24 @@ void main() {
       }
     });
 
+    test('limits data nesting depth', () {
+      Object nest(int depth) {
+        Object v = 1;
+        for (var i = 1; i < depth; i++) {
+          v = i.isEven ? [v] : {'a': v};
+        }
+        return {'a': v};
+      }
+
+      final max = SyncRecord.maxDataDepth;
+      expect(SyncRecord.fromJson({...validJson(), 'data': nest(max)}).data, isNotNull);
+      expect(() => SyncRecord.fromJson({...validJson(), 'data': nest(max + 1)}), throwsValidation);
+      expect(() => SyncRecord.fromJson({...validJson(), 'data': nest(100000)}), throwsValidation);
+      // Tombstones drop their data, so its depth does not matter.
+      final tomb = SyncRecord.fromJson({...validJson(), 'deleted': true, 'data': nest(max + 1)});
+      expect(tomb.data, isNull);
+    });
+
     test('rejects missing fields', () {
       for (final key in validJson().keys.where((k) => k != 'data')) {
         final json = validJson()..remove(key);

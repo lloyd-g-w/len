@@ -102,8 +102,17 @@ class NotebookRepository extends SyncableTable {
   /// `updatedAt`.
   Notebook update(Notebook notebook) {
     final updated = notebook.copyWith(updatedAt: nextVersion(notebook.id));
-    _write(updated, deviceId: deviceId, dirty: true);
+    _write(updated, deviceId: deviceId, dirty: true, paper: _keptPaper(updated));
     return updated;
+  }
+
+  /// The stored paper name of [n] if it is one this version does not know
+  /// and [n] still shows it (as blank); otherwise null (write `paper.name`).
+  String? _keptPaper(Notebook n) {
+    final rows = db.select('SELECT paper FROM notebooks WHERE id = ?', [n.id]);
+    if (rows.isEmpty) return null;
+    final raw = rows.first['paper'] as String;
+    return PaperStyle.parse(raw) == n.paper && raw != n.paper.name ? raw : null;
   }
 
   /// Marks the notebook as recently edited (sorts it to the top).
@@ -223,7 +232,14 @@ class NotebookRepository extends SyncableTable {
       record,
       local: local.isEmpty ? null : _rowToNotebook(local.first),
     );
-    _write(notebook, deviceId: record.deviceId, dirty: false);
+    // Keep the raw paper name: values from newer clients show as blank
+    // but survive (SYNC_PROTOCOL.md "Paper and pages").
+    _write(
+      notebook,
+      deviceId: record.deviceId,
+      dirty: false,
+      paper: record.data!['paper'] as String,
+    );
   }
 
   /// Parses a live record. Fields added after protocol v1 (folder, favourite,
@@ -275,7 +291,8 @@ class NotebookRepository extends SyncableTable {
     );
   }
 
-  void _write(Notebook n, {required String deviceId, required bool dirty}) {
+  /// Writes [n]; [paper] overrides the stored paper name (raw values).
+  void _write(Notebook n, {required String deviceId, required bool dirty, String? paper}) {
     db.execute(
       '''
       INSERT OR REPLACE INTO notebooks (id, title, kind, paper, cover_color,
@@ -288,7 +305,7 @@ class NotebookRepository extends SyncableTable {
         n.id,
         n.title,
         n.kind.name,
-        n.paper.name,
+        paper ?? n.paper.name,
         n.coverColor,
         n.createdAt,
         n.updatedAt,

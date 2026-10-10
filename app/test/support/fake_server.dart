@@ -1,0 +1,123 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:crypto/crypto.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:len/app_services.dart';
+import 'package:len/data/app_database.dart';
+import 'package:len/domain/stroke.dart';
+import 'package:len/sync/sync_api.dart';
+
+/// Minimal in-memory implementation of docs/SYNC_PROTOCOL.md.
+class FakeServer {
+  final Map<String, Map<String, Object?>> _records = {};
+  int _seq = 0;
+  static const token = 'secret-token-123456';
+
+  /// Body sizes (bytes) and record counts of every push received.
+  final List<({int bytes, int count})> pushes = [];
+
+  /// Number of pull requests received.
+  int pulls = 0;
+
+  /// Extra raw records served by pull (for malformed-input tests).
+  final List<Object?> injected = [];
+
+  /// Stored blobs by SHA-256, and the order of blob and push requests.
+  final Map<String, Uint8List> blobs = {};
+  final List<String> log = [];
+
+  /// The stored record `collection/id`, or null.
+  Map<String, Object?>? stored(String collection, String id) => _records['$collection/$id'];
+
+  late final MockClient client = MockClient((request) async {
+    if (request.headers['Authorization'] != 'Bearer $token') {
+      return http.Response('{"error":"unauthorized"}', 401);
+    }
+    final path = request.url.path;
+    if (path.startsWith('/v1/blobs/')) {
+      final sha = path.substring('/v1/blobs/'.length);
+      log.add('${request.method} blob');
+      switch (request.method) {
+        case 'HEAD':
+          return http.Response('', blobs.containsKey(sha) ? 200 : 404);
+        case 'GET':
+          final b = blobs[sha];
+          return b == null
+              ? http.Response('{"error":"not found"}', 404)
+              : http.Response.bytes(b, 200);
+        case 'PUT':
+          if (sha256.convert(request.bodyBytes).toString() != sha) {
+            return http.Response('{"error":"hash mismatch"}', 400);
+          }
+          blobs[sha] = request.bodyBytes;
+          return http.Response(jsonEncode({'sha256': sha, 'size': request.bodyBytes.length}), 200);
+      }
+    }
+    if (path == '/v1/push') log.add('push');
+    switch (path) {
+      case '/v1/push':
+        if (request.bodyBytes.length > 32 * 1024 * 1024) {
+          return http.Response('{"error":"too large"}', 413);
+        }
+        final body = jsonDecode(request.body) as Map<String, Object?>;
+        final records = body['records']! as List;
+        if (records.length > 1000) return http.Response('{"error":"too many"}', 413);
+        pushes.add((bytes: request.bodyBytes.length, count: records.length));
+        for (final r in (body['records']! as List).cast<Map<String, Object?>>()) {
+          final key = '${r['collection']}/${r['id']}';
+          final existing = _records[key];
+          final newer =
+              existing == null ||
+              (r['updatedAt']! as int) > (existing['updatedAt']! as int) ||
+              (r['updatedAt'] == existing['updatedAt'] &&
+                  (r['deviceId']! as String).compareTo(existing['deviceId']! as String) > 0);
+          if (newer) _records[key] = {...r, 'seq': ++_seq};
+        }
+        return http.Response(jsonEncode({'applied': 0, 'ignored': 0, 'serverSeq': _seq}), 200);
+      case '/v1/pull':
+        pulls++;
+        final since = int.parse(request.url.queryParameters['since'] ?? '0');
+        final limit = int.parse(request.url.queryParameters['limit'] ?? '500');
+        final all = _records.values.where((r) => (r['seq']! as int) > since).toList()
+          ..sort((a, b) => (a['seq']! as int).compareTo(b['seq']! as int));
+        final page = all.take(limit).toList();
+        return http.Response(
+          jsonEncode({
+            'records': [...injected, ...page],
+            'nextSince': page.isEmpty ? since : page.last['seq'],
+            'hasMore': all.length > page.length,
+          }),
+          200,
+        );
+    }
+    return http.Response('', 404);
+  });
+}
+
+AppServices device(FakeServer server) {
+  final services = AppServices.create(AppDatabase.inMemory());
+  services.sync.configure(url: 'http://sync.test', token: FakeServer.token);
+  return services;
+}
+
+SyncApi apiFor(FakeServer server) =>
+    SyncApi(baseUrl: 'http://sync.test', token: FakeServer.token, client: server.client);
+
+Stroke bigStroke(String id, String surface, int points) => Stroke(
+  id: id,
+  surfaceId: surface,
+  tool: InkTool.pen,
+  color: 0xFF000000,
+  width: 2,
+  points: [for (var i = 0; i < points; i++) StrokePoint(i.toDouble(), 0, 0.5)],
+  createdAt: 1,
+);
+
+/// A pull response with the given records and one page.
+http.Response pullResponse(List<Object?> records, {int nextSince = 1, bool hasMore = false}) =>
+    http.Response(
+      jsonEncode({'records': records, 'nextSince': nextSince, 'hasMore': hasMore}),
+      200,
+    );

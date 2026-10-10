@@ -24,7 +24,7 @@ abstract final class ContentPainter {
     ElementImages? images,
     double pixelScale = 1,
   }) {
-    final ink = strokes.toList()..sort(Stroke.paintOrder);
+    final ink = strokes.toList()..sort(Stroke.drawOrder);
     final items = elements.toList()..sort(SurfaceElement.paintOrder);
     void drawElements(bool belowInk) {
       for (final e in items) {
@@ -36,10 +36,7 @@ abstract final class ContentPainter {
 
     drawElements(true);
     for (final s in ink) {
-      if (s.tool.isHighlighter) StrokeRenderer.draw(canvas, s);
-    }
-    for (final s in ink) {
-      if (!s.tool.isHighlighter) StrokeRenderer.draw(canvas, s);
+      StrokeRenderer.draw(canvas, s);
     }
     drawElements(false);
   }

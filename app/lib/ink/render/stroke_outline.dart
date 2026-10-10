@@ -47,21 +47,28 @@ class OutlineSpec {
     return (width * easing(t)).clamp(math.min(0.25, width / 2), width);
   }
 
-  /// Standard deviation (world units) of the positional smoothing: enough to
-  /// remove digitiser jitter, more with a stronger stabiliser, scaled with
-  /// the width so small handwriting keeps its shape.
-  /// At 0 the stabiliser only removes sub-pixel digitiser noise.
-  double get positionSigma => (0.2 + 1.8 * streamline) * (width / 2).clamp(1.0, 3.0);
+  // The stabiliser ([streamline], 0..1) is the single control for all
+  // smoothing. At 0 the ink is the pen's raw path and pressure: nothing is
+  // filtered beyond interpolating between samples.
 
-  /// Length scale of the (causal) radius smoothing: digitiser pressure is
-  /// noisy sample to sample; deliberate pressure changes span longer runs.
-  double get radiusSigma => 5 * width;
+  /// Standard deviation (world units) of the positional smoothing; 0 at
+  /// stabiliser 0, scaled with the width so small handwriting keeps its
+  /// shape.
+  double get positionSigma => 2.0 * streamline * (width / 2).clamp(1.0, 3.0);
+
+  /// Length scale of the (causal) radius smoothing: from half a width at
+  /// stabiliser 0 (just digitiser noise) to several widths.
+  double get radiusSigma => width * (0.5 + 6 * streamline);
 
   /// Spacing of the resampled centre line.
-  double get sampleStep => (positionSigma / 2.5).clamp(0.05, 2.0);
+  double get sampleStep => (positionSigma / 2.5).clamp(0.25, 2.0);
 
   /// Fastest allowed change of the radius per unit of length.
-  static const double maxRadiusSlope = 0.15;
+  double get maxRadiusSlope => 0.6 - 0.45 * streamline;
+
+  /// How far from a finished stroke's ends the pen-down/pen-up pressure ramp
+  /// is levelled out (0 at stabiliser 0: the natural ramp is kept).
+  double get levelReach => 2 * width * streamline;
 }
 
 /// A raw input sample: position and outline radius.
@@ -125,9 +132,9 @@ abstract final class StrokeOutline {
       ..findCorners(spec.positionSigma)
       ..smoothPositions(spec.positionSigma)
       ..smoothRadii(spec.radiusSigma)
-      ..limitRadiusSlope(OutlineSpec.maxRadiusSlope)
+      ..limitRadiusSlope(spec.maxRadiusSlope)
       ..settleEnds(spec.width, end: complete)
-      ..levelEnds(spec.width * 2, end: complete)
+      ..levelEnds(spec.levelReach, end: complete)
       ..taper(spec.taperStart, complete ? spec.taperEnd : 0);
     final maxR = line.r.fold<double>(0, math.max);
     if (line.length < 2 || line.arcLength < maxR * 0.5) {

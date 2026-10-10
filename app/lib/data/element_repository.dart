@@ -138,7 +138,7 @@ class ElementRepository extends SyncableTable {
     final rotation = data['rotation'];
     final z = data['z'];
     final payload = data['data'];
-    return SurfaceElement(
+    final element = SurfaceElement(
       id: id,
       surfaceId: surfaceId,
       type: type,
@@ -148,6 +148,10 @@ class ElementRepository extends SyncableTable {
       createdAt: createdAt,
       data: payload is Map<String, Object?> ? payload : const {},
     );
+    if (!WorldLimits.accepts(element.bounds)) {
+      throw FormatException('Element $id is out of bounds');
+    }
+    return element;
   }
 
   // ---------------------------------------------------------------------------

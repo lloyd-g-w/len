@@ -17,7 +17,7 @@
 
       # Versions required by Flutter 3.47 / AGP 9.1 (see android/ Gradle files).
       androidVersions = {
-        platforms = [ "35" "36" ]; # 35: required by the `jni` plugin
+        platforms = [ "34" "35" "36" ]; # 34: `pasteboard`; 35: the `jni` plugin
         buildTools = "36.0.0";
         ndk = "28.2.13676358";
         cmake = "3.22.1"; # required by the `jni` plugin

@@ -248,7 +248,14 @@ class PageRepository extends SyncableTable {
         height <= 0) {
       throw FormatException('Malformed page ${record.id}');
     }
-    // Optional fields (added later): tolerate absence and odd values.
+    // Optional fields (added later): tolerate odd values, and keep the
+    // local row's value when a field is missing (an older client's record),
+    // so e.g. a reorder from such a client does not drop a PDF background.
+    final local = db.select(
+      'SELECT paper_color, bookmarked, background FROM pages WHERE id = ? AND deleted = 0',
+      [record.id],
+    );
+    final old = local.isEmpty ? null : local.first;
     final color = d['paperColor'];
     final background = d['background'];
     _writeRow(
@@ -258,9 +265,15 @@ class PageRepository extends SyncableTable {
       width: width.toDouble(),
       height: height.toDouble(),
       paper: paper,
-      paperColor: color is String ? color : PaperColor.white.name,
-      bookmarked: d['bookmarked'] == true,
-      background: background is Map ? jsonEncode(background) : null,
+      paperColor: d.containsKey('paperColor') || old == null
+          ? (color is String ? color : PaperColor.white.name)
+          : old['paper_color'] as String,
+      bookmarked: d.containsKey('bookmarked') || old == null
+          ? d['bookmarked'] == true
+          : old['bookmarked'] == 1,
+      background: d.containsKey('background') || old == null
+          ? (background is Map ? jsonEncode(background) : null)
+          : old['background'] as String?,
       updatedAt: record.updatedAt,
       deviceId: record.deviceId,
       dirty: false,

@@ -131,4 +131,13 @@ class Stroke {
     final byTime = a.createdAt.compareTo(b.createdAt);
     return byTime != 0 ? byTime : a.id.compareTo(b.id);
   }
+
+  /// The order strokes are drawn in: highlighter ink underneath pen ink
+  /// (like a real highlighter under printed text), each group in
+  /// [paintOrder]. The single definition of ink layering: `ContentPainter`
+  /// (chunk pictures, selections, thumbnails, PNG export) and PDF export use it.
+  static int drawOrder(Stroke a, Stroke b) {
+    final byLayer = (b.tool.isHighlighter ? 1 : 0) - (a.tool.isHighlighter ? 1 : 0);
+    return byLayer != 0 ? byLayer : paintOrder(a, b);
+  }
 }
