@@ -101,6 +101,26 @@ void main() {
     expect(ChunkRasterCache.levelFor(25.6), 32);
   });
 
+  testWidgets('a chunk requested on every frame is rasterised once; bytes stay exact', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final strokes = scribbles(200, const Rect.fromLTWH(0, 0, 512, 512));
+      final scene = _Scene(strokes, scale: 0.1, size: const Size(400, 400));
+      const chunk = (x: 0, y: 0);
+      // Request the same raster repeatedly while it is being made.
+      for (var i = 0; i < 20; i++) {
+        scene.rasters.imageFor(chunk, 64);
+        await Future<void>.delayed(Duration.zero);
+      }
+      await settle(() => !scene.rasters.isBusy);
+      expect(scene.rasters.imageFor(chunk, 64), isNotNull);
+      expect(scene.rasters.length, 1);
+      expect(scene.rasters.bytes, 64 * 64 * 4);
+      scene.dispose();
+    });
+  });
+
   testWidgets('far zoom: paint work is bounded by visible chunks, not by strokes', (tester) async {
     await tester.runAsync(() async {
       // 50 000 scribbles over 25 600 × 16 000 world units: 1 600 chunks,
