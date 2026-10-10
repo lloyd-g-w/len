@@ -133,6 +133,7 @@ void main() {
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump(); // Checks the system clipboard for an image first.
     await tester.pump();
     final pasted = liveStrokes(services, nb.id).single;
     expect(pasted.id, isNot('ink'));

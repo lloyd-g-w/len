@@ -13,7 +13,7 @@ import 'title_button.dart';
 import 'undo_redo_buttons.dart';
 
 /// The editor's top bar: back and the notebook title on the left (on
-/// every screen size), then pages and bookmark, search, undo/redo, export,
+/// every screen size), then pages and bookmark, insert image, search, undo/redo, export,
 /// focus mode and more on the right. Several open notebooks add a tab strip above it
 /// (tablets, desktops) or a tab switcher button (phones).
 class EditorTopBar extends StatelessWidget {
@@ -25,6 +25,7 @@ class EditorTopBar extends StatelessWidget {
     this.tabs,
     this.subtitle,
     this.search,
+    this.insert,
   });
 
   final String title;
@@ -37,6 +38,9 @@ class EditorTopBar extends StatelessWidget {
 
   /// The search button (features/search), before undo/redo.
   final Widget? search;
+
+  /// The insert-image button (features/editor/images), before search.
+  final Widget? insert;
 
   /// Height of the bar (without the status bar) for a given [width].
   static double heightFor(double width, OpenNotebooks? tabs) =>
@@ -115,6 +119,7 @@ class EditorTopBar extends StatelessWidget {
             selected: a.bookmarked,
             onPressed: a.onToggleBookmark,
           ),
+        ?insert,
         ?search,
         const BarDivider(),
         UndoRedoButtons(target: undo),
@@ -140,6 +145,7 @@ class EditorTopBar extends StatelessWidget {
         Expanded(
           child: Align(alignment: Alignment.centerLeft, child: _title()),
         ),
+        ?insert,
         // Phones: search lives in the "⋯" menu, so the title has room.
         if (actions.onSearch == null) ?search,
         UndoRedoButtons(target: undo),

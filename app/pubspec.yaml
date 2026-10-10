@@ -10,10 +10,18 @@ environment:
 dependencies:
   cross_file: ^0.3.5+5
   crypto: ^3.0.7
+  desktop_drop:
+    # Vendored: Built-in Kotlin detector fix (see third_party/README.md).
+    path: third_party/desktop_drop
   file_selector: ^1.1.0
   flutter:
     sdk: flutter
   http: ^1.6.0
+  image: ^4.10.2
+  image_picker: ^1.2.4
+  pasteboard:
+    # Vendored: Built-in Kotlin fix (see third_party/README.md).
+    path: third_party/pasteboard
   path: ^1.9.1
   path_provider: ^2.1.6
   pdf: ^3.13.1

@@ -65,6 +65,7 @@ class SettingsRepository {
   static const _twoFingerTapUndo = 'two_finger_tap_undo';
   static const _threeFingerTapRedo = 'three_finger_tap_redo';
   static const _penButtonAction = 'pen_button_action';
+  static const _lowLatencyInk = 'low_latency_ink';
   static const _libraryLayout = 'library_layout';
   static const _librarySort = 'library_sort';
 
@@ -83,6 +84,10 @@ class SettingsRepository {
   /// Three-finger tap redoes (default on).
   bool get threeFingerTapRedo => _get(_threeFingerTapRedo) != 'false';
   set threeFingerTapRedo(bool value) => _set(_threeFingerTapRedo, '$value');
+
+  /// Android: draw the stroke tip in a front-buffered overlay (default off).
+  bool get lowLatencyInk => _get(_lowLatencyInk) == 'true';
+  set lowLatencyInk(bool value) => _set(_lowLatencyInk, '$value');
 
   /// What holding the stylus side button does (default: eraser).
   PenButtonAction get penButtonAction => PenButtonAction.parse(_get(_penButtonAction));

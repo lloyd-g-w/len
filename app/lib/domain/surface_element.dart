@@ -8,7 +8,7 @@ import 'dart:ui';
 enum ElementType {
   text,
 
-  /// Reserved: `data.blob` will hold the content hash of the image blob.
+  /// A bitmap stored as a blob (`ImageData`: blob hash, natural size, crop).
   image;
 
   static ElementType? parse(String value) {
@@ -19,7 +19,7 @@ enum ElementType {
   }
 }
 
-/// A non-ink object placed on a surface (a text box; later images).
+/// A non-ink object placed on a surface (a text box or an image).
 ///
 /// Geometry is generic — a [rect] in world units, rotated by [rotation]
 /// radians about its centre — and everything type-specific lives in the
@@ -55,6 +55,7 @@ class SurfaceElement {
   final double rotation;
 
   /// Stacking order among the surface's elements (higher is on top).
+  /// Elements with a negative [z] are drawn beneath the ink ([belowInk]).
   final double z;
 
   /// Milliseconds since epoch.
@@ -67,6 +68,11 @@ class SurfaceElement {
   final Rect bounds;
 
   ElementType? get knownType => ElementType.parse(type);
+
+  /// Whether the element is drawn beneath the ink (like a photo pasted
+  /// into a notebook) rather than above it. Images start below the ink,
+  /// text above; "bring to front" / "send to back" move between the two.
+  bool get belowInk => z < 0;
 
   /// The rotated box's corners: top-left, top-right, bottom-right, bottom-left.
   List<Offset> get corners => rotatedCorners(rect, rotation);

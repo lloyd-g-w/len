@@ -3,7 +3,9 @@ import 'dart:ui' as ui;
 
 import '../../../app_services.dart';
 import '../../../data/surface_copier.dart';
+import '../../../domain/image_data.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../domain/surface_element.dart';
 import '../../editor/document/page_painting.dart';
 import '../pdf/pdf_renderer.dart';
 import 'pdf_export.dart';
@@ -56,6 +58,7 @@ class NotebookExporter {
         export,
         title: title,
         onPage: (done) => onProgress?.call(ExportStage.writing, done, export.length),
+        readBlob: _readBlob,
       );
     } finally {
       for (final e in export) {
@@ -68,12 +71,19 @@ class NotebookExporter {
   /// without [backgrounds], an imported PDF page is left out.
   Future<Uint8List> png(NotebookPage page, {double scale = 2, bool backgrounds = true}) async {
     final background = backgrounds ? await _background(page, page.width * scale) : null;
+    final elements = _copier.loadAllElements(page.id);
+    // Decode images first: painting only uses what is ready.
+    for (final e in elements.where((e) => e.knownType == ElementType.image)) {
+      final data = ImageData.fromJson(e.data);
+      await services.images.load(data, e.rect.width * scale / data.crop.width);
+    }
     final image = await renderPageImage(
       page,
       strokes: _copier.loadAll(page.id),
-      elements: _copier.loadAllElements(page.id),
+      elements: elements,
       scale: scale,
       background: background,
+      images: services.images,
     );
     background?.dispose();
     try {
@@ -83,6 +93,9 @@ class NotebookExporter {
       image.dispose();
     }
   }
+
+  Future<Uint8List?> _readBlob(String sha) async =>
+      await services.sync.fetchBlob(sha) ? services.blobs.read(sha) : null;
 
   Future<ui.Image?> _background(NotebookPage page, double pixelWidth) async {
     final bg = page.background;

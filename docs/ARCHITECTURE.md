@@ -38,10 +38,12 @@ Stroke points are stored as a compact little-endian `float32` blob
 Non-ink content are **elements** (`domain/surface_element.dart`, table
 `elements`, synced as collection `elements`): a generic box (`rect` +
 `rotation` about its centre), a stacking order `z` and a `type` with an opaque
-`data` map. Today the only type is `text` (`TextData`: text, size, colour,
-bold, italic, alignment); `image` (a blob hash in `data`) needs no schema
-change. Unknown types are kept and synced but not drawn. Unlike strokes, an
-element keeps its id when edited — the edit replaces the whole value.
+`data` map: `text` (`TextData`: text, size, colour, bold, italic, alignment)
+or `image` (`ImageData`: blob hash, natural size, normalised crop). Elements
+with `z < 0` are drawn beneath the ink (`SurfaceElement.belowInk`), the rest
+above it (`ink/elements/element_order.dart` hands out stacking orders).
+Unknown types are kept and synced but not drawn. Unlike strokes, an element
+keeps its id when edited — the edit replaces the whole value.
 
 ## The sparse infinite canvas
 
@@ -73,7 +75,9 @@ The same grid drives three things:
 3. **Render cache** — `ChunkPictureCache` records one `ui.Picture` per
    populated chunk, clipped to the chunk square (so strokes crossing chunk
    borders are never double-blended). Elements are drawn into the same
-   pictures, above the chunk's ink (`elements/element_renderer.dart`). A stroke edit invalidates only the chunks
+   pictures, layered by `render/content_painter.dart` (elements beneath the ink,
+   highlighter, other ink, elements above), the same order every renderer —
+   selections, thumbnails, exports — uses. A stroke edit invalidates only the chunks
    it touches. Painting visits only populated chunks intersecting the screen.
 4. **Level of detail** — when a chunk covers ≤ 256 device pixels,
    `CommittedInkPainter` draws it from a `ChunkRasterCache` image (32/64/128/256
@@ -218,6 +222,45 @@ sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
 on mobile and written into a folder the user picks on desktop.
 
+## Images (`ink/images/`, `features/editor/images/`)
+
+- **Import** (`ImageImport`): PNG, JPEG and WebP files up to 4096 px and 8 MiB
+  are stored byte for byte; anything else the platform can decode (larger
+  images, GIF — first frame —, HEIC/HEIF on Android, BMP) is decoded by the
+  engine at ≤ 4096 px and re-encoded in an isolate (`package:image`): JPEG
+  when opaque, PNG with transparency. The bytes become a content-addressed
+  blob (so they sync like PDFs) and an `image` element at natural size
+  (1 px = 1 world unit), shrunk to 70 % of the view and kept on the page.
+  Entry points (`EditorImages`): the top bar button (file picker; on Android
+  also the camera via `image_picker`), Ctrl+V (`pasteboard` reads the system
+  clipboard's image, or a copied image file on desktop; a clipboard image
+  older than ink copied in the app loses to the ink) and drag and drop
+  (`desktop_drop`). Every insert is one undoable edit and selects the image.
+- **Decoding** (`ElementImages`, one per app in `AppServices`): bitmaps are
+  decoded asynchronously by the engine (`ImageDescriptor`, off the UI thread)
+  at mip levels — powers of two from 64 px up to the natural width — and kept
+  in an LRU within a memory budget. `imageFor` never blocks: it returns the
+  best bitmap cached (or null → placeholder), schedules the decode and later
+  reports the blob on `changes`. Missing blobs are fetched lazily with
+  `SyncController.fetchBlob`; unavailable ones show a crossed-out placeholder
+  until the next sync retries them.
+- **Rendering**: chunk pictures record the bitmap that suits the zoom. The
+  painters report the zoom (`ChunkPictureCache.setScale`); crossing a power of
+  two re-records only chunks containing images, and a finished decode
+  refreshes just the chunks showing that blob (`SurfaceModel.refresh`).
+  Selections, page-overview thumbnails and library covers re-record the same
+  way; PNG export decodes first, PDF export embeds JPEG blobs as they are and
+  other formats as pixels, with rotation as a PDF transform and the crop as a
+  clip (`PdfImageWriter`).
+- **Editing** uses the lasso: tap or lasso to select (ink over an image wins a
+  tap; a lasso must enclose most of an image beneath the ink, not just its
+  centre), move / resize (corners keep the aspect ratio) / rotate with the
+  selection frame (which follows a single element's rotation), bring to front
+  / send to back, duplicate, copy/paste, delete. **Crop** (`ImageCropSession`
+  + `ImageCropOverlay`) works in the image's unrotated frame: handles move the
+  crop edges, dragging inside pans it, and committing keeps the visible part
+  exactly where it was on the surface.
+
 ## Input (`ink/input/ink_input_controller.dart`)
 
 Raw `Listener` pointer events (no gesture arena → no latency, full pressure data):
@@ -243,6 +286,61 @@ Raw `Listener` pointer events (no gesture arena → no latency, full pressure da
 Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
 rendering* below); paths are memoised per stroke. PDF export flattens the same
 paths.
+
+### Dense stylus input on Android (`input/sample_source.dart`, `platform/stylus_samples*`)
+
+Android batches input: each `ACTION_MOVE` carries every digitiser sample since
+the previous frame (240+ Hz with an S Pen) as *historical* samples, but
+Flutter's embedding (`AndroidTouchProcessor`) forwards only the newest one —
+about one point per frame. `MainActivity.dispatchTouchEvent` therefore hands
+each stylus `MotionEvent` to `StylusCapture.kt` first, which sends all of its
+samples (position in Flutter-view pixels, pressure, `AXIS_TILT`,
+`AXIS_ORIENTATION`, time) as one binary message on `len/stylus_samples`
+(`StylusBatchCodec`: packed float32/float64, one message per event, no
+per-sample calls), then lets Flutter have the event untouched.
+
+The input controller asks a `SampleSource` for the samples between two pointer
+events of the drawing contact (`begin` on pen-down, `between(event)` before each
+move and before the up, `end`). `StylusSampleMerger` matches batches by Flutter
+device id (`pointerId << 3 | toolType`), the contact's down time and the event
+time (a `PointerEvent.timeStamp` *is* its `MotionEvent`'s event time): for the
+event's own batch it inserts the historical samples, for a batch whose event
+never reached Flutter all of them. Positions go physical px → logical px
+(`devicePixelRatio`) → the event's local space (its `transform`) → world
+(viewport), and pressure is normalised with the event's range, so a merged
+sample is indistinguishable from a pointer event. Batches that arrive after
+their event was handled are dropped (never out of order), duplicates and
+anything after `end` are ignored, so a late or silent channel just means
+today's one-sample-per-frame input. Other platforms get no source (web
+browsers and desktop embedders already deliver every sample). Tilt and
+orientation are carried but not used yet.
+
+### Low-latency ink (Android, experimental; `WetInkOverlay.kt`)
+
+Setting *Low-latency ink (experimental)*, default off. A translucent
+`SurfaceView` (media-overlay z-order) sits above the Flutter view, rendered
+with androidx.graphics' `CanvasFrontBufferedRenderer` (API 29+): the newest
+samples of the contact are drawn into the **front buffer** as each
+`MotionEvent` arrives — round-capped segments in the stroke's colour with the
+outline's radius per pressure (a table sent by Dart) — so the tip appears about
+a frame or two before Flutter's frame shows it. Dart (`_LowLatencySource`, a
+`SampleSource` decorator) sends `begin` (contact, colour, radii) once the
+contact is ink, `progress` (the newest event a built frame contains) after
+each frame, and `end` after the frame showing the committed stroke. On each
+`progress` the overlay *commits*: the front buffer is cleared and only the
+tail Flutter may not have presented yet (samples newer than progress − 2
+frames, never older than 5 frames) is redrawn in the multi-buffered layer, in
+one SurfaceControl transaction, so nothing tears or flickers and the overlay
+never shows more than the last few millimetres of ink, on top of identical
+Flutter ink. Only opaque, round, untextured pens qualify (`WetInkStyle`):
+highlighter, legacy pencil/fountain, translucent colours, erasing, tools and
+straightened strokes are left to Flutter alone.
+Known gaps: the overlay is not clipped to the canvas (a stroke dragged under a
+toolbar shows its tip above it for a few frames), the first stroke after
+switching it on is not accelerated (the surface is created then), start
+tapers appear on the overlay only after the tail expires, and the radius uses
+plain (not causal-smoothed) pressure, so the tip may differ from the final
+outline by a fraction of a pixel.
 
 Resting the pen for 600 ms at the end of a stroke snaps it
 (`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`): open
@@ -361,8 +459,14 @@ canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
 any zoom:
 
 1. Drop duplicate samples, trim pen-down/pen-up hooks, and densify sparse
-   input along a centripetal Catmull-Rom spline (Flutter delivers roughly one
-   sample per frame on Android, so fast curves arrive as chords).
+   input along a centripetal Catmull-Rom spline (mouse, touch and, without
+   the merged historical samples, Android stylus input arrive at about one
+   sample per frame, so fast curves arrive as chords). Only gaps wider than
+   two resampling steps are filled: dense 240 Hz stylus input passes through
+   point for point. Smoothing (positions, radii) is by arc length, not by
+   sample count, so denser input neither flickers nor gets smoother; the
+   per-sample pressure EMA (`PressureFilter`) is correspondingly lighter in
+   time (≈ 10 ms at 240 Hz instead of ≈ 40 ms at 60 Hz).
 2. `Centerline`: resample at a **fixed** arc-length spacing from the stroke's
    start (samples of a stroke being drawn never move as it grows), find sharp
    reversals (tips of `n`, `v`), and low-pass the positions per stretch
@@ -419,6 +523,7 @@ the web:
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread (`StrokeRepository`)                   |
 | Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
 | Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
+| Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
 (`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
@@ -549,7 +654,7 @@ with them later.
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
 `SettingsRepository`: theme mode and accent (the app rebuilds its `ThemeData` from them),
 stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
-(`PenButtonAction.eraser|lasso|none`), editor toolbar placement (and floating position),
+(`PenButtonAction.eraser|lasso|none`), low-latency ink (Android, experimental), editor toolbar placement (and floating position),
 library layout and sort. Getters always read
 the store, so values written elsewhere are never stale.
 
@@ -597,15 +702,19 @@ records with last-write-wins. Open screens subscribe to
   new records (simple and sync-safe, but more rows than a delta).
 - Text uses Roboto (with system fallbacks); a bundled font would make text
   boxes wrap identically on every device.
-- Android: Flutter does not expose `MotionEvent` historical samples or
-  front-buffered rendering; a platform-channel "low-latency ink" layer could
-  shave further latency on Samsung tablets.
+- Android: historical stylus samples are merged from a platform channel and
+  the low-latency overlay is experimental (see *Input*); it has not been
+  tuned on every device. Stylus tilt/orientation are received but unused.
 - The sync token is stored in the app's SQLite database; move it to secure
   storage before shipping.
 - PDF backgrounds are rendered as whole-page images (no tiling), so very deep
   zoom on a PDF page is capped at ~2896 px page width; exported PDFs embed
   imported pages as images rather than copying their vector content.
-- Blobs are never garbage-collected (neither on devices nor on the server).
+- Blobs are never garbage-collected (neither on devices nor on the server) —
+  deleting or replacing images leaves their blobs behind.
+- Image bitmaps are whole-image decodes per mip level (no tiling); a 4096 px
+  image is the sharpest it gets. Crop mode shows the image on its own (ink
+  over it is hidden while cropping).
 - Search: handwriting is not searchable yet (see *Search*); PDF text is only
   extracted for PDFs present on the device (fetched when a page is viewed);
   glyph highlights skip rotated PDF pages (the page is still shown); FTS5's

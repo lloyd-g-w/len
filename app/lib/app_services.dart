@@ -14,6 +14,7 @@ import 'data/settings_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
 import 'features/editor/tabs/open_notebooks.dart';
+import 'ink/images/element_images.dart';
 import 'ink/selection/ink_clipboard.dart';
 import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
@@ -115,7 +116,11 @@ class AppServices {
   /// Notebooks open in editor tabs (with each tab's place in memory).
   final OpenNotebooks openNotebooks = OpenNotebooks();
 
+  /// Decoded bitmaps of image elements, shared by editors and previews.
+  late final ElementImages images = ElementImages(read: blobs.read, fetch: sync.fetchBlob);
+
   void dispose() {
+    images.dispose();
     openNotebooks.dispose();
     clipboard.dispose();
     search.dispose();

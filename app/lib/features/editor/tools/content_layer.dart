@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../../domain/surface_element.dart';
+import '../../../ink/images/image_crop_session.dart';
 import '../../../ink/render/laser_painter.dart';
 import '../../../ink/selection/selection_painter.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/tools/content_tools.dart';
 import '../../../ink/viewport.dart';
 import '../../../ui/floating_panel.dart';
+import '../images/image_crop_overlay.dart';
 import 'selection_menu.dart';
 import 'text_box_editor.dart';
 
@@ -44,6 +46,9 @@ class _ContentLayerState extends State<ContentLayer> with SingleTickerProviderSt
   /// Where a long press asked to paste (screen, world).
   ({Offset screen, Offset world})? _pasteAt;
 
+  /// The image being cropped, if any.
+  ImageCropSession? _crop;
+
   ContentTools get _content => widget.content;
 
   @override
@@ -63,6 +68,7 @@ class _ContentLayerState extends State<ContentLayer> with SingleTickerProviderSt
 
   @override
   void dispose() {
+    _endCrop(commit: true);
     _detach(_content);
     _laserTicker.dispose();
     super.dispose();
@@ -76,6 +82,31 @@ class _ContentLayerState extends State<ContentLayer> with SingleTickerProviderSt
       if (content.selection.clipboard.isEmpty) return;
       setState(() => _pasteAt = (screen: screen, world: world));
     };
+  }
+
+  void _startCrop(SurfaceElement element) {
+    _endCrop(commit: true);
+    _content.selection.clear();
+    setState(() {
+      _crop = ImageCropSession(model: _content.model, element: element)
+        ..onAbandoned = () => _endCrop(commit: false);
+    });
+  }
+
+  /// Leaves crop mode, storing the crop when [commit] is set, and selects
+  /// the image again.
+  void _endCrop({required bool commit}) {
+    final session = _crop;
+    if (session == null) return;
+    _crop = null;
+    final element = commit ? session.commit() : session.element;
+    session.dispose();
+    if (!mounted) return;
+    setState(() {});
+    if (identical(_content.model, session.model) &&
+        _content.model.elementById(element.id) != null) {
+      _content.selection.select(const [], [_content.model.elementById(element.id)!]);
+    }
   }
 
   void _detach(ContentTools content) {
@@ -140,8 +171,16 @@ class _ContentLayerState extends State<ContentLayer> with SingleTickerProviderSt
           tools: widget.tools,
           onEditText: _editText,
           onPaste: _content.pasteAtCentre,
+          onCrop: _startCrop,
         ),
         TextBoxEditor(session: _content.text, viewport: widget.viewport, tools: widget.tools),
+        if (_crop case final crop?)
+          ImageCropOverlay(
+            session: crop,
+            viewport: widget.viewport,
+            onDone: () => _endCrop(commit: true),
+            onCancel: () => _endCrop(commit: false),
+          ),
         if (pasteAt != null)
           Positioned(
             left: pasteAt.screen.dx - 48,

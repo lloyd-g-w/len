@@ -142,6 +142,7 @@ class DocumentCommands {
           currentPage: doc.currentPage,
           copier: SurfaceCopier(services.strokes, elements: services.elements),
           backgrounds: backgrounds,
+          images: services.images,
           changes: doc,
           handlers: OverviewHandlers(
             load: () => actions.pages,
