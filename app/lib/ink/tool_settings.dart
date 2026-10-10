@@ -5,14 +5,28 @@ import 'package:flutter/foundation.dart';
 
 import '../data/settings_repository.dart';
 import '../domain/stroke.dart';
+import '../domain/text_data.dart';
 import 'pen/eraser_config.dart';
 import 'pen/pen_config.dart';
+import 'shapes/shape_kind.dart';
 
 export 'pen/eraser_config.dart';
 export 'pen/pen_config.dart';
+export 'shapes/shape_kind.dart';
 
 /// The tools selectable in the editor toolbar.
-enum EditorTool { pen, highlighter, eraser }
+enum EditorTool {
+  pen,
+  highlighter,
+  eraser,
+  lasso,
+  shape,
+  text,
+  laser;
+
+  /// Whether the tool draws ink with the pen presets (colour and width).
+  bool get usesPresets => this == pen || this == highlighter || this == shape;
+}
 
 /// Current tool selection, per-pen customisation and input preferences.
 ///
@@ -36,6 +50,8 @@ class ToolSettings extends ChangeNotifier {
     for (final t in [...InkTool.pens, InkTool.highlighter]) t: PenConfig.defaultsFor(t),
   };
   EraserConfig _eraser = const EraserConfig();
+  ShapeKind _shape = ShapeKind.rectangle;
+  TextData _text = const TextData();
   bool _holdToStraighten = true;
   List<int> _favorites = const [];
   bool? _stylusOnly;
@@ -77,9 +93,10 @@ class ToolSettings extends ChangeNotifier {
     return config.styleFor(tool, config.current.width);
   }
 
-  /// Selects preset [index] of the active ink (and leaves the eraser).
+  /// Selects preset [index] of the active ink (and switches to the pen
+  /// from tools that draw no ink).
   void selectPreset(int index) {
-    if (_tool == EditorTool.eraser) _tool = EditorTool.pen;
+    if (!_tool.usesPresets) _tool = EditorTool.pen;
     updateConfig(activeInk, (c) => c.copyWith(selected: index));
   }
 
@@ -90,7 +107,7 @@ class ToolSettings extends ChangeNotifier {
   /// Sets the colour of the active ink's selected preset; the alpha channel
   /// becomes the pen's opacity.
   void setColor(int argb) {
-    if (_tool == EditorTool.eraser) _tool = EditorTool.pen;
+    if (!_tool.usesPresets) _tool = EditorTool.pen;
     updateConfig(activeInk, (c) {
       return c
           .withPreset(c.selected, c.current.copyWith(color: argb | 0xFF000000))
@@ -104,6 +121,21 @@ class ToolSettings extends ChangeNotifier {
   EraserConfig get eraser => _eraser;
   set eraser(EraserConfig value) {
     _eraser = value;
+    _changed();
+  }
+
+  /// The shape the Shape tool draws.
+  ShapeKind get shape => _shape;
+  set shape(ShapeKind value) {
+    _shape = value;
+    _tool = EditorTool.shape;
+    _changed();
+  }
+
+  /// Formatting of new text boxes (its text is ignored).
+  TextData get textStyle => _text;
+  set textStyle(TextData value) {
+    _text = value.copyWith(text: '');
     _changed();
   }
 
@@ -149,6 +181,8 @@ class ToolSettings extends ChangeNotifier {
     'pens': {for (final e in _configs.entries) e.key.name: e.value.toJson()},
     'eraser': _eraser.toJson(),
     'straighten': _holdToStraighten,
+    'shape': _shape.name,
+    'text': _text.toJson(),
   };
 
   void _restore(String json) {
@@ -169,6 +203,8 @@ class ToolSettings extends ChangeNotifier {
     }
     _eraser = EraserConfig.fromJson(data['eraser']);
     if (data['straighten'] case final bool straighten) _holdToStraighten = straighten;
+    _shape = ShapeKind.parse(data['shape']);
+    if (data['text'] case final Map<String, Object?> text) _text = TextData.fromJson(text);
   }
 
   void _changed() {

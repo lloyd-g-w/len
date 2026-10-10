@@ -47,6 +47,10 @@ class SelectionController extends ChangeNotifier {
   ui.Picture? _picture;
   bool _editing = false;
 
+  /// Margin (world units) between the content and a new selection's
+  /// frame, so thin selections (one line) still have room to grab.
+  double framePadding = 0;
+
   List<Stroke> get strokes => _strokes;
   List<SurfaceElement> get elements => _elements;
   bool get isEmpty => _strokes.isEmpty && _elements.isEmpty;
@@ -76,7 +80,7 @@ class SelectionController extends ChangeNotifier {
       _frame = null;
       _model.setHidden(const {});
     } else {
-      _frame = frame ?? SelectionFrame(boundsOf(_strokes, _elements));
+      _frame = frame ?? SelectionFrame(boundsOf(_strokes, _elements).inflate(framePadding));
       _picture = _record();
       _model.setHidden({for (final s in _strokes) s.id, for (final e in _elements) e.id});
     }

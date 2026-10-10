@@ -145,7 +145,8 @@ class SurfaceModel extends ChangeNotifier {
         _strokes.insert(stroke);
         changed.addAll(ChunkGrid.rangeFor(stroke.bounds).keys);
       }
-      for (final element in elementRepo?.loadChunks(surfaceId, missing) ?? const <SurfaceElement>[]) {
+      for (final element
+          in elementRepo?.loadChunks(surfaceId, missing) ?? const <SurfaceElement>[]) {
         if (_elements.containsId(element.id)) continue;
         _elements.insert(element);
         changed.addAll(ChunkGrid.rangeFor(element.bounds).keys);

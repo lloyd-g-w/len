@@ -7,6 +7,7 @@ import 'data/notebook_repository.dart';
 import 'data/page_repository.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_repository.dart';
+import 'ink/selection/ink_clipboard.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
@@ -72,7 +73,12 @@ class AppServices {
   final ElementRepository elements;
   final SyncController sync;
 
+  /// Copied strokes and text, shared by every editor (paste across pages
+  /// and notebooks).
+  final InkClipboard clipboard = InkClipboard();
+
   void dispose() {
+    clipboard.dispose();
     sync.dispose();
     database.close();
   }

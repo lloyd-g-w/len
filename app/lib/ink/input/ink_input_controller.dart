@@ -7,6 +7,8 @@ import '../../core/clock.dart';
 import '../../domain/stroke.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
+import '../tools/content_tools.dart';
+import '../tools/pointer_tool.dart';
 import '../viewport.dart';
 import 'hold_to_straighten.dart';
 import 'live_ink.dart';
@@ -25,8 +27,9 @@ import 'live_ink.dart';
 ///    Ctrl/⌘+wheel zooms.
 ///  * **Trackpad**: two-finger pan and pinch zoom.
 ///
-/// Resting the pen at the end of a stroke straightens it (see
-/// [HoldToStraighten]).
+/// Resting the pen at the end of a stroke snaps it to a line or shape (see
+/// [HoldToStraighten]). The lasso, shape, text and laser tools receive the
+/// drawing pointer through [content] instead of drawing ink.
 class InkInputController {
   InkInputController({
     required this._model,
@@ -35,6 +38,7 @@ class InkInputController {
     required this.live,
     this.clock = const Clock(),
     this.onStylusDetected,
+    this.content,
   }) : _straighten = HoldToStraighten(live);
 
   SurfaceModel _model;
@@ -47,6 +51,7 @@ class InkInputController {
     if (identical(value, _model)) return;
     _cancelDraw();
     _model = value;
+    content?.model = value;
   }
 
   final ViewportController viewport;
@@ -58,6 +63,12 @@ class InkInputController {
   final void Function()? onStylusDetected;
 
   final HoldToStraighten _straighten;
+
+  /// Non-inking tools (lasso, shapes, text, laser), if the editor has them.
+  final ContentTools? content;
+
+  /// The pointer tool handling the current drawing pointer, if any.
+  PointerTool? _tool;
 
   /// Points closer than this (in screen pixels) to the previous one are
   /// dropped; it removes jitter without visible loss of detail.
@@ -206,6 +217,11 @@ class InkInputController {
     _erasing = erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
+    final tool = erase ? null : content?.toolFor(tools.tool);
+    if (tool != null) {
+      _tool = tool..down(_toolPointer(e));
+      return;
+    }
     if (erase) {
       _showEraser(e.localPosition);
       _eraseTo(e.localPosition);
@@ -219,15 +235,17 @@ class InkInputController {
         style: tools.styleFor(ink),
       );
       live.add(_pointOf(e));
-      _straighten.begin(
-        e.localPosition,
-        enabled: tools.holdToStraighten,
-        scale: viewport.scale,
-      );
+      _straighten.begin(e.localPosition, enabled: tools.holdToStraighten, scale: viewport.scale);
     }
   }
 
   void _continueDraw(PointerMoveEvent e) {
+    final tool = _tool;
+    if (tool != null) {
+      _lastScreen = e.localPosition;
+      tool.move(_toolPointer(e));
+      return;
+    }
     if (_erasing) {
       _showEraser(e.localPosition);
       _eraseTo(e.localPosition);
@@ -241,21 +259,27 @@ class InkInputController {
   }
 
   void _finishDraw() {
-    if (_erasing) {
+    final tool = _tool;
+    if (tool != null) {
+      _tool = null;
+      tool.up();
+    } else if (_erasing) {
       _showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
       final points = live.finish();
       if (points.isNotEmpty) {
-        model.addStroke(Stroke(
-          id: clock.newId(),
-          surfaceId: model.surfaceId,
-          tool: live.tool,
-          color: live.color,
-          width: live.width,
-          style: live.style,
-          points: points,
-          createdAt: clock.nowMs(),
-        ));
+        model.addStroke(
+          Stroke(
+            id: clock.newId(),
+            surfaceId: model.surfaceId,
+            tool: live.tool,
+            color: live.color,
+            width: live.width,
+            style: live.style,
+            points: points,
+            createdAt: clock.nowMs(),
+          ),
+        );
       }
     }
     _resetDraw();
@@ -265,7 +289,13 @@ class InkInputController {
   void cancelDraw() => _cancelDraw();
 
   void _cancelDraw() {
-    if (_drawPointer != null && !_erasing) live.finish();
+    final tool = _tool;
+    _tool = null;
+    if (tool != null) {
+      tool.cancel();
+    } else if (_drawPointer != null && !_erasing) {
+      live.finish();
+    }
     _showEraser(null);
     _resetDraw();
   }
@@ -294,6 +324,12 @@ class InkInputController {
     _eraseStarted = _eraseStarted || erased;
     _lastScreen = screen;
   }
+
+  ToolPointer _toolPointer(PointerEvent e) => ToolPointer(
+    screen: e.localPosition,
+    world: viewport.toWorld(e.localPosition),
+    pressure: _pressureOf(e),
+  );
 
   StrokePoint _pointOf(PointerEvent e) {
     final world = viewport.toWorld(e.localPosition);
