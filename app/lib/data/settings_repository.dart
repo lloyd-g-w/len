@@ -12,6 +12,8 @@ class SettingsRepository {
   static const _syncToken = 'sync_token';
   static const _syncLastSeq = 'sync_last_seq';
   static const _stylusOnly = 'stylus_only';
+  static const _toolPrefs = 'tool_prefs';
+  static const _favoriteColors = 'favorite_colors';
 
   /// Stable per-installation id, created on first use.
   String deviceId([Clock clock = const Clock()]) {
@@ -41,6 +43,18 @@ class SettingsRepository {
       };
   set stylusOnly(bool? value) =>
       value == null ? _remove(_stylusOnly) : _set(_stylusOnly, '$value');
+
+  /// Pen, highlighter and eraser customisation as an opaque JSON document
+  /// (owned by `ToolSettings`); null until first saved.
+  String? get toolPrefs => _get(_toolPrefs);
+  set toolPrefs(String? value) => value == null ? _remove(_toolPrefs) : _set(_toolPrefs, value);
+
+  /// The user's saved favourite colours (ARGB), most recent first.
+  List<int> get favoriteColors => [
+        for (final part in (_get(_favoriteColors) ?? '').split(','))
+          if (int.tryParse(part) case final int c) c,
+      ];
+  set favoriteColors(List<int> colors) => _set(_favoriteColors, colors.join(','));
 
   String? _get(String key) {
     final rows = _database.db.select('SELECT value FROM settings WHERE key = ?', [key]);

@@ -11,10 +11,28 @@ class InkEdit {
 
   InkEdit get inverse => InkEdit(added: removed, removed: added);
 
-  InkEdit mergedWith(InkEdit next) => InkEdit(
-        added: [...added, ...next.added],
-        removed: [...removed, ...next.removed],
-      );
+  /// This edit followed by [next], as one. A stroke added here and removed
+  /// again by [next] (e.g. a fragment the pixel eraser cut and then erased)
+  /// cancels out, so undo never resurrects it.
+  InkEdit mergedWith(InkEdit next) {
+    final addedIds = {for (final s in added) s.id};
+    final cancelled = {
+      for (final s in next.removed)
+        if (addedIds.contains(s.id)) s.id,
+    };
+    return InkEdit(
+      added: [
+        for (final s in added)
+          if (!cancelled.contains(s.id)) s,
+        ...next.added,
+      ],
+      removed: [
+        ...removed,
+        for (final s in next.removed)
+          if (!cancelled.contains(s.id)) s,
+      ],
+    );
+  }
 }
 
 /// Bounded linear undo/redo stack.
