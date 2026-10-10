@@ -110,7 +110,7 @@ void main() {
       // A second model on the same surface reads asynchronously.
       final lagging = SurfaceModel(surfaceId: 's', repository: repo, reader: reader)
         ..ensureLoaded(const Rect.fromLTWH(0, 0, 100, 100));
-      final stale = await repo.read('s', reader.calls.single.range);
+      final stale = repo.read('s', reader.calls.single.range);
       lagging.addStroke(_stroke('b', const Offset(20, 40)));
       expect(
         lagging.eraseAlong(const Offset(25, 30), const Offset(25, 50), 4, continueEdit: false),
