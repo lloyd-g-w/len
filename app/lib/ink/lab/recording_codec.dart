@@ -50,7 +50,10 @@ abstract final class RecordingCodec {
       final entry = _entryFromJson(e as List<Object?>);
       if (entry != null) entries.add(entry);
     }
-    return InputRecording(meta: _metaFromJson(json['meta'] as Map<Object?, Object?>), entries: entries);
+    return InputRecording(
+      meta: _metaFromJson(json['meta'] as Map<Object?, Object?>),
+      entries: entries,
+    );
   }
 
   // ---------------------------------------------------------------------------
