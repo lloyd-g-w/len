@@ -73,7 +73,17 @@ tool/heavy.sh nix develop ..# -c bash -c \
 ```
 
 `inklab_test.dart` has one test per metric per entry. Entries are the ten
-simulated cases at stabiliser 0, 0.4 and 1, plus every recording. Timing
+simulated cases at stabiliser 0, 0.4 and 1, plus every recording. Real
+device recordings (`recordings/real_*.leninput`, a minute or more of writing
+each) take many minutes to replay through the pixel metrics, so they only run
+with `--dart-define=INKLAB_REAL=true`:
+
+```sh
+tool/heavy.sh nix develop ..# -c bash -c \
+  'flutter test --concurrency=4 test/inklab --dart-define=INKLAB_REAL=true'
+```
+
+Pen-engine work must pass that run too. Timing
 metrics only run on `long_stroke` and recordings. Metrics listed in
 `known_failures.dart` are **skipped with their finding as the reason**, so the
 suite is green on the current engine. Fixing a finding means deleting its
