@@ -103,12 +103,16 @@ class _TemplateChooserState extends State<TemplateChooser> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sections = templateSections(
-      canvas: widget.canvas,
-      query: _query.text,
-      only: _category,
-      mine: _mine,
-    );
+    final sections = [
+      for (final section in templateSections(
+        canvas: widget.canvas,
+        query: _query.text,
+        only: _category,
+        mine: _mine,
+      ))
+        // Without the app's services (standalone use) there is no My templates.
+        if (_services != null || section.$1 != TemplateCategory.mine) section,
+    ];
     final custom = _s.template.customSize != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -225,7 +229,8 @@ class _TemplateChooserState extends State<TemplateChooser> {
   }
 
   bool _offered(TemplateCategory c) => switch (c) {
-    TemplateCategory.mine || TemplateCategory.planners => !widget.canvas,
+    TemplateCategory.mine => !widget.canvas && _services != null,
+    TemplateCategory.planners => !widget.canvas,
     _ => true,
   };
 }
