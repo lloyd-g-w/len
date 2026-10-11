@@ -49,6 +49,10 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
 
   final PdfRenderer _renderer;
 
+  /// The renderer, whose open documents the editor also reads text and
+  /// links from.
+  PdfRenderer get renderer => _renderer;
+
   /// Page images and tiles, least recently used first.
   final LinkedHashMap<Object, ui.Image> _images = LinkedHashMap();
 

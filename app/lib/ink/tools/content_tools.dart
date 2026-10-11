@@ -69,6 +69,9 @@ class ContentTools {
   late final TextTool textTool = TextTool(session: text, tools: tools, viewport: viewport);
   late final LaserTool laserTool = LaserTool(laser);
 
+  /// Selects text on imported PDF pages, set by editors that have them.
+  PointerTool? selectText;
+
   EditorTool _lastTool = EditorTool.pen;
 
   SurfaceModel get model => selection.model;
@@ -82,12 +85,14 @@ class ContentTools {
     laser.clear();
   }
 
-  /// The pointer tool for [tool], or null for inking tools.
+  /// The pointer tool for [tool], or null for inking tools (and for
+  /// [EditorTool.selectText] without [selectText]).
   PointerTool? toolFor(EditorTool tool) => switch (tool) {
     EditorTool.lasso => lasso,
     EditorTool.shape => shape,
     EditorTool.text => textTool,
     EditorTool.laser => laserTool,
+    EditorTool.selectText => selectText,
     EditorTool.pen || EditorTool.highlighter || EditorTool.eraser => null,
   };
 
