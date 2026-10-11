@@ -21,9 +21,19 @@ class ReplayFrame {
     required this.build,
     required this.committed,
     required this.commitTime,
+    this.viewScale = 1,
+    this.viewOffset = Offset.zero,
   });
 
   final int index;
+
+  /// The viewport (world → logical screen px) at this frame: recordings may
+  /// pan and zoom between strokes.
+  final double viewScale;
+  final Offset viewOffset;
+
+  /// World → logical screen px at this frame.
+  Offset toScreen(double x, double y) => Offset(x, y) * viewScale + viewOffset;
 
   /// Recording time of the frame boundary (µs) and the engine's vsync.
   final int t, vsyncUs;
@@ -49,7 +59,7 @@ class ReplayFrame {
 /// A recording replayed frame by frame: the live stroke per frame, the
 /// committed strokes and timings.
 class ReplayResult {
-  const ReplayResult({
+  ReplayResult({
     required this.recording,
     required this.pen,
     required this.frames,
@@ -68,6 +78,19 @@ class ReplayResult {
 
   /// World → logical screen px, as the replay's viewport ended up.
   Offset toScreen(double x, double y) => Offset(x, y) * viewScale + viewOffset;
+
+  /// The frame that committed [stroke] (the screen as it was drawn).
+  ReplayFrame frameOf(Stroke stroke) =>
+      (_commitFrames ??= Map.identity()
+        ..addAll({
+          for (final f in frames)
+            for (final s in f.committed) s: f,
+        }))[stroke] ??
+      frames.last;
+  Map<Stroke, ReplayFrame>? _commitFrames;
+
+  /// World → logical screen px as the screen was when [stroke] was drawn.
+  Offset Function(double, double) screenOf(Stroke stroke) => frameOf(stroke).toScreen;
 
   /// The style the replayed strokes get from [pen].
   final StrokeStyle style;
@@ -117,6 +140,8 @@ class ReplayResult {
             build: points.isEmpty ? Duration.zero : timeBuild(points),
             committed: step.committed,
             commitTime: step.commitTime,
+            viewScale: viewport.scale,
+            viewOffset: viewport.offset,
           ),
         );
       }

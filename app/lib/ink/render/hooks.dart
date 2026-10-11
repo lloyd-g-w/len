@@ -16,11 +16,21 @@ import 'growable.dart';
 /// never changes as the stroke grows (the live stroke is shown only from
 /// then on, see `StrokeShaper.startSettled`).
 class HookFinder {
-  HookFinder(double width)
-    : maxStart = math.max(2.0, 1.2 * width),
-      maxEnd = math.max(2.5, 1.6 * width),
-      body = (0.3 * width).clamp(0.75, 2.0),
-      local = (0.3 * width).clamp(0.5, 1.5);
+  /// The hook rules for a pen [width] (world units), in units of [unit]
+  /// per world unit (e.g. screen pixels for the low-latency overlay).
+  HookFinder(double width, {double unit = 1})
+    : maxStart = math.max(2.0, 1.2 * width) * unit,
+      maxEnd = math.max(2.5, 1.6 * width) * unit,
+      body = (0.3 * width).clamp(0.75, 2.0) * unit,
+      local = (0.3 * width).clamp(0.5, 1.5) * unit;
+
+  /// Rules with explicit lengths (as sent to the overlay).
+  HookFinder.lengths({
+    required this.maxStart,
+    required this.maxEnd,
+    required this.body,
+    required this.local,
+  });
 
   /// Longest hook at the start / end.
   final double maxStart, maxEnd;

@@ -33,7 +33,7 @@ import 'shape_params.dart';
 /// [line] writes the whole line (final values plus the not-yet-final tail)
 /// into the output buffers; only the tail is recomputed per call.
 class StrokeShaper implements RibbonLine {
-  StrokeShaper(this.p) : _hooks = HookFinder(p.width);
+  StrokeShaper(this.p) : _hooks = p.hooks;
 
   final ShapeParams p;
   final HookFinder _hooks;
@@ -84,6 +84,10 @@ class StrokeShaper implements RibbonLine {
   /// Whether the pen-down decision has been made (otherwise there is no
   /// line yet).
   bool get started => _start != null;
+
+  /// The first input sample kept (after the pen-down hook); 0 until
+  /// [started].
+  int get startSample => _start ?? 0;
 
   @override
   DoubleBuffer get x => _cx;

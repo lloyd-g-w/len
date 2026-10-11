@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
@@ -50,7 +49,7 @@ List<List<StrokePoint>> strokes(int seed) {
 }
 
 int holes(List<StrokePoint> points, OutlineSpec spec, {required double zoom}) {
-  final s = StrokeShaper(spec.params);
+  final s = StrokeShaper(StrokeOutline.paramsOf(points, spec));
   StrokeOutline.feed(s, points, spec, null);
   s.update(ended: true);
   Offset map(Offset o) => o * zoom;

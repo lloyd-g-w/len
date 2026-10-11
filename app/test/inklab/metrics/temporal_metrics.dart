@@ -49,21 +49,27 @@ List<ContactRun> contactRuns(ReplayResult replay) {
 /// "Metric fixes"); 16 resolves coverage to 1/16.
 const int _subRows = 16;
 
-/// Maps world points to physical pixels of the replayed screen.
-Offset Function(Offset) physical(ReplayResult r) {
+/// Maps world points to physical pixels of the replayed screen (as it was
+/// at [frame], default: as it ended up).
+Offset Function(Offset) physical(ReplayResult r, [ReplayFrame? frame]) {
   final dpr = r.recording.meta.devicePixelRatio;
-  return (o) => r.toScreen(o.dx, o.dy) * dpr;
+  final toScreen = frame?.toScreen ?? r.toScreen;
+  return (o) => toScreen(o.dx, o.dy) * dpr;
 }
 
-List<Contour> _outline(ReplayResult r, List<StrokePoint> points, {required bool complete}) =>
-    outlineOf(
-      points,
-      tool: r.pen.tool,
-      width: r.pen.width,
-      style: r.style,
-      complete: complete,
-      map: physical(r),
-    ).contours;
+List<Contour> _outline(
+  ReplayResult r,
+  List<StrokePoint> points,
+  Offset Function(Offset) map, {
+  required bool complete,
+}) => outlineOf(
+  points,
+  tool: r.pen.tool,
+  width: r.pen.width,
+  style: r.style,
+  complete: complete,
+  map: map,
+).contours;
 
 /// Pixels (physical) whose coverage changes by more than [threshold]
 /// between [a] and [b], outside [allowed].
@@ -112,19 +118,22 @@ double _segDist(Offset p, Offset a, Offset b) {
 /// samples that arrived after that frame.
 List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
   final dpr = r.recording.meta.devicePixelRatio;
-  final toPx = physical(r);
-  final zone = (r.pen.width * r.viewScale + 1) * dpr;
-  final reach = r.pen.width * r.viewScale * dpr + 1.5 * dpr; // around new samples
   final behind = Worst(), settle = Worst(), pop = Worst(), popMax = Worst();
   var vanished = 0;
+  var zone = (r.pen.width * r.viewScale + 1) * dpr;
   for (final run in contactRuns(r)) {
     final frames = run.frames;
+    // The screen as it was during this contact.
+    final view = frames.first;
+    final toPx = physical(r, view);
+    zone = (r.pen.width * view.viewScale + 1) * dpr;
+    final reach = r.pen.width * view.viewScale * dpr + 1.5 * dpr; // around new samples
     final step = math.max(1, (frames.length / maxFramesPerRun).ceil());
     Coverage? prev;
     List<StrokePoint>? prevPoints;
     for (var i = 0; i < frames.length; i += step) {
       final points = frames[i].points;
-      final contours = _outline(r, points, complete: false);
+      final contours = _outline(r, points, toPx, complete: false);
       final cov = rasterize(contours, boundsOf(contours), subRows: _subRows);
       if (prev != null && prevPoints != null) {
         final tip = toPx(Offset(prevPoints.last.x, prevPoints.last.y));
@@ -146,8 +155,8 @@ List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
       continue;
     }
     final last = frames.last.points;
-    final done = _outline(r, stroke.points, complete: true);
-    final liveOutline = _outline(r, last, complete: false);
+    final done = _outline(r, stroke.points, toPx, complete: true);
+    final liveOutline = _outline(r, last, toPx, complete: false);
     final a = rasterize(liveOutline, boundsOf(liveOutline), subRows: _subRows);
     final b = rasterize(done, boundsOf(done), subRows: _subRows);
     final tail = [

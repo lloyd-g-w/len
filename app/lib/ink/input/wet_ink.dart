@@ -1,6 +1,12 @@
+import 'dart:typed_data';
+
+import '../../domain/stroke.dart';
 import '../pen/pen_profile.dart';
+import '../render/stroke_outline.dart';
 import '../render/stroke_renderer.dart';
 import 'live_ink.dart';
+import 'point_spacing.dart';
+import 'pressure_filter.dart';
 
 /// How a platform overlay should draw the tip of the stroke being written
 /// ("low-latency ink"): it paints the newest samples itself, before Flutter
@@ -10,7 +16,12 @@ import 'live_ink.dart';
 /// Flutter's ink overlap must look the same, which translucent or textured
 /// ink would not.
 class WetInkStyle {
-  const WetInkStyle({required this.color, required this.radii});
+  const WetInkStyle({
+    required this.color,
+    required this.radii,
+    required this.shape,
+    this.startUs = 0,
+  });
 
   /// Opaque ARGB colour.
   final int color;
@@ -19,21 +30,140 @@ class WetInkStyle {
   /// ([steps] + 1 values); the overlay interpolates between them.
   final List<double> radii;
 
+  /// The geometry rules the overlay applies (logical screen pixels), the
+  /// same as Flutter's outline so both draw the same ink.
+  final WetInkShape shape;
+
+  /// Time (µs, event clock) of the first sample that is ink: samples
+  /// before it are the pen-down hook, which Flutter trims.
+  final int startUs;
+
   static const int steps = 10;
 
   /// The style of [live]'s stroke seen at viewport [scale], or null when it
   /// cannot be drawn faithfully by an overlay (or is not a free-hand stroke).
   static WetInkStyle? of(LiveInk live, double scale) {
     if (!live.isDrawing || live.straightened) return null;
-    final profile = PenProfile.of(live.tool);
-    final opaque = live.style.opacity >= 1 && (live.color >>> 24) == 0xFF;
-    if (!opaque || profile.flatCaps || profile.textured || profile.nibVariation > 0) return null;
-    return WetInkStyle(
+    return forPen(
+      live.tool,
+      live.width,
+      live.style,
       color: live.color,
-      radii: [
-        for (var i = 0; i <= steps; i++)
-          StrokeRenderer.radiusAt(profile, live.width, live.style, i / steps) * scale,
-      ],
+      scale: scale,
+      startUs: live.inkStartUs,
+      unit: live.inkUnit,
     );
   }
+
+  /// The style of ink drawn with [tool], [width] and [style] at viewport
+  /// [scale], or null when an overlay cannot draw it faithfully.
+  static WetInkStyle? forPen(
+    InkTool tool,
+    double width,
+    StrokeStyle style, {
+    required int color,
+    required double scale,
+    int startUs = 0,
+    double unit = 1,
+  }) {
+    final profile = PenProfile.of(tool);
+    final opaque = style.opacity >= 1 && (color >>> 24) == 0xFF;
+    if (!opaque || profile.flatCaps || profile.textured || profile.nibVariation > 0) return null;
+    final spec = StrokeRenderer.specFor(tool, width, style);
+    return WetInkStyle(
+      color: color,
+      radii: [for (var i = 0; i <= steps; i++) spec.radiusFor(i / steps) * scale],
+      shape: WetInkShape.of(spec, scale, unit),
+      startUs: startUs,
+    );
+  }
+}
+
+/// The rules (beyond the radius table) that shape Flutter's ink near the pen
+/// tip, for an overlay to follow: which samples become points, how the
+/// pressure and radius are smoothed, the end rules and the pen-up hook. In
+/// screen pixels (logical, or physical after [scaled]).
+class WetInkShape {
+  const WetInkShape({
+    required this.minSpacing,
+    required this.keepExtreme,
+    required this.pressureKeep,
+    required this.radiusSigma,
+    required this.slope,
+    required this.settleStart,
+    required this.levelStart,
+    required this.settleEnd,
+    required this.levelEnd,
+    required this.hookEnd,
+    required this.hookBody,
+    required this.hookLocal,
+  });
+
+  /// The rules of [spec] for a stroke of [unit] (`StrokeOutline.unitOf`)
+  /// at viewport [scale] (world → logical px).
+  factory WetInkShape.of(OutlineSpec spec, double scale, double unit) {
+    final hooks = spec.paramsFor(unit).hooks;
+    return WetInkShape(
+      minSpacing: PointSpacing.minDistance,
+      keepExtreme: PointSpacing.keepExtreme,
+      pressureKeep: PressureFilter.defaultSmoothing,
+      radiusSigma: spec.radiusSigma * scale,
+      slope: spec.maxRadiusSlope,
+      settleStart: spec.settleReach * scale,
+      levelStart: spec.levelReach * scale,
+      settleEnd: (spec.settleReach < spec.tipReach ? spec.settleReach : spec.tipReach) * scale,
+      levelEnd: (spec.levelReach < spec.tipReach ? spec.levelReach : spec.tipReach) * scale,
+      hookEnd: hooks.maxEnd * scale,
+      hookBody: hooks.body * scale,
+      hookLocal: hooks.local * scale,
+    );
+  }
+
+  /// Point thinning (see `PointSpacing`).
+  final double minSpacing, keepExtreme;
+
+  /// Weight the pressure filter keeps from the previous value.
+  final double pressureKeep;
+
+  /// Causal radius smoothing: length scale and steepest slope.
+  final double radiusSigma, slope;
+
+  /// Non-swelling / levelled reach at the start and at the tip.
+  final double settleStart, levelStart, settleEnd, levelEnd;
+
+  /// Pen-up hook rules (see `HookFinder`).
+  final double hookEnd, hookBody, hookLocal;
+
+  /// The same rules with every length multiplied by [f] (e.g. the device
+  /// pixel ratio).
+  WetInkShape scaled(double f) => WetInkShape(
+    minSpacing: minSpacing * f,
+    keepExtreme: keepExtreme * f,
+    pressureKeep: pressureKeep,
+    radiusSigma: radiusSigma * f,
+    slope: slope,
+    settleStart: settleStart * f,
+    levelStart: levelStart * f,
+    settleEnd: settleEnd * f,
+    levelEnd: levelEnd * f,
+    hookEnd: hookEnd * f,
+    hookBody: hookBody * f,
+    hookLocal: hookLocal * f,
+  );
+
+  /// The values in the order the overlay's `begin` message carries them.
+  Float64List toList() => Float64List.fromList([
+    minSpacing,
+    keepExtreme,
+    pressureKeep,
+    radiusSigma,
+    slope,
+    settleStart,
+    levelStart,
+    settleEnd,
+    levelEnd,
+    hookEnd,
+    hookBody,
+    hookLocal,
+  ]);
 }

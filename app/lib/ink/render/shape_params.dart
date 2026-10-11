@@ -1,23 +1,43 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'hooks.dart';
 import 'line_filters.dart';
 
-/// The numbers that drive `StrokeShaper` for one pen, derived from its
-/// width and stabiliser (`OutlineSpec.params`). Everything is in world
-/// units or samples of [step].
+/// The numbers that drive `StrokeShaper` for one pen and stroke, derived
+/// from the pen's width and stabiliser and the stroke's [unit]
+/// (`OutlineSpec.paramsFor`). Everything is in world units or samples of
+/// [step].
+///
+/// Two kinds of scale meet here. The *pen's motion* (digitiser jitter,
+/// hooks, what counts as a cusp) happens on the screen, so position
+/// smoothing, corners and hooks scale with [unit], the world size of a
+/// screen pixel when the stroke was written. The *ink's shape* (radius
+/// smoothing, end rules) scales with the width.
 class ShapeParams {
   ShapeParams({
     required this.width,
-    required double sigma,
+    required this.unit,
+    required double streamline,
     required double radiusSigma,
     required double maxRadiusSlope,
     required double settleReach,
     required double levelReach,
+    required double tipReach,
     required this.taperStart,
     required this.taperEnd,
-  }) : step = (sigma / 3).clamp(0.15, 0.6),
-       dedupe = math.max(0.01, width * 0.02) {
+  }) : dedupe = math.max(0.01 * unit, math.min(0.01, width * 0.02)) {
+    // The pen's width on screen, and smoothing that grows a little with it
+    // (detail finer than a wide pen is invisible anyway).
+    final screenWidth = width / unit;
+    final boost = (screenWidth / 2.5).clamp(0.85, 1.6);
+    // Never 0: at stabiliser 0 it removes the digitiser's sub-pixel jitter
+    // and keeps every visible detail (cusps are corners, which smoothing
+    // never crosses); it grows with the stabiliser.
+    sigma = (0.7 + 0.8 * streamline) * boost * unit;
+    step = (sigma / 3).clamp(0.15 * unit, 0.6 * unit);
+    cornerBaseline = (0.4 * screenWidth).clamp(0.5, 2.0) * unit;
+    hooks = HookFinder(screenWidth, unit: unit);
     kernel = LineFilters.lowPassKernel(sigma / step);
     kernelK = (kernel.length - 1) ~/ 2;
     fit = math.min(kernelK, math.max(2, (2 * sigma / step).ceil()));
@@ -26,19 +46,26 @@ class ShapeParams {
     slope = maxRadiusSlope * step;
     settleK = (settleReach / step).ceil();
     levelK = (levelReach / step).ceil();
-    // At the moving end the rules must stay within the tip region (they
-    // change ink there as the pen moves on): half a width at most.
-    final tip = 0.5 * width;
-    settleEndK = (math.min(settleReach, tip) / step).ceil();
-    levelEndK = (math.min(levelReach, tip) / step).ceil();
+    settleEndK = (math.min(settleReach, tipReach) / step).ceil();
+    levelEndK = (math.min(levelReach, tipReach) / step).ceil();
     startReach = math.max(settleK, levelK) + (taperStart / step).ceil() + 1;
     endReach = math.max(settleEndK, levelEndK) + 1;
   }
 
   final double width;
 
+  /// World units per screen pixel when the stroke was written (estimated
+  /// from its points, `StrokeOutline.unitOf`).
+  final double unit;
+
+  /// Standard deviation of the position smoothing.
+  late final double sigma;
+
   /// Spacing of the resampled centre line.
-  final double step;
+  late final double step;
+
+  /// Pen-down/up hook rules.
+  late final HookFinder hooks;
 
   /// Input points closer than this to the previous one are merged.
   final double dedupe;
@@ -53,7 +80,7 @@ class ShapeParams {
   /// Corners: the line turns by more than [minTurn] between the directions
   /// [cornerK] samples (about [cornerBaseline]) before and after a sample.
   late final int cornerK;
-  double get cornerBaseline => (0.4 * width).clamp(0.5, 2.0);
+  late final double cornerBaseline;
   static const double minTurn = 100 * math.pi / 180;
 
   /// Radius smoothing: weight kept per step, and the largest change.

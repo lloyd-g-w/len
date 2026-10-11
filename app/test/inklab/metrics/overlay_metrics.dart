@@ -2,10 +2,12 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:len/domain/stroke.dart';
+import 'package:len/ink/input/wet_ink.dart';
 import 'package:len/ink/lab/raw_samples.dart';
 import 'package:len/ink/lab/replay_run.dart';
 import 'package:len/ink/lab/wet_ink_model.dart';
 import 'package:len/ink/pen/pen_profile.dart';
+import 'package:len/ink/render/stroke_outline.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
 
 import 'metric.dart';
@@ -14,12 +16,24 @@ import 'raster.dart';
 import 'temporal_metrics.dart';
 
 /// A round-capped line from [a] to [b] with half width [r], as a polygon.
-Contour capsulePolygon(Offset a, Offset b, double r, {int n = 16}) {
+Contour capsulePolygon(Offset a, Offset b, double r, {int n = 16}) => hullPolygon(a, b, r, r, n: n);
+
+/// The hull of the circles ([a], [ra]) and ([b], [rb]) as a polygon (a
+/// tapered capsule), as the overlay draws each piece.
+Contour hullPolygon(Offset a, Offset b, double ra, double rb, {int n = 16}) {
   final d = b - a;
-  final angle = d.distance == 0 ? 0.0 : math.atan2(d.dy, d.dx);
+  final len = d.distance;
+  if (len <= (ra - rb).abs()) {
+    final (c, r) = ra >= rb ? (a, ra) : (b, rb);
+    return [for (var i = 0; i < 4 * n; i++) c + Offset.fromDirection(math.pi * i / (2 * n), r)];
+  }
+  final angle = math.atan2(d.dy, d.dx);
+  // The tangents touch at ±(π/2 + asin((rb − ra) / len)) from the direction.
+  final t = math.pi / 2 + math.asin((rb - ra) / len);
   return [
-    for (var i = 0; i <= n; i++) b + Offset.fromDirection(angle - math.pi / 2 + math.pi * i / n, r),
-    for (var i = 0; i <= n; i++) a + Offset.fromDirection(angle + math.pi / 2 + math.pi * i / n, r),
+    for (var i = 0; i <= n; i++) b + Offset.fromDirection(angle - t + 2 * t * i / n, rb),
+    for (var i = 0; i <= n; i++)
+      a + Offset.fromDirection(angle + t + (2 * math.pi - 2 * t) * i / n, ra),
   ];
 }
 
@@ -58,15 +72,11 @@ List<OverlayMoment> overlayMoments(
     return const [];
   }
   final dpr = r.recording.meta.devicePixelRatio;
-  final toPx = physical(r);
   final frameUs = frameIntervalUs(r);
-  final radii = [
-    for (var i = 0; i <= 10; i++)
-      StrokeRenderer.radiusAt(profile, r.pen.width, r.style, i / 10) * r.viewScale * dpr,
-  ];
+  final spec = StrokeRenderer.specFor(r.pen.tool, r.pen.width, r.style);
   final contacts = rawContacts(r.recording);
   final moments = <OverlayMoment>[];
-  List<(Rect, Contour)> ink(List<StrokePoint> p, bool complete) => [
+  List<(Rect, Contour)> ink(List<StrokePoint> p, bool complete, Offset Function(Offset) toPx) => [
     for (final c in outlineOf(
       p,
       tool: r.pen.tool,
@@ -81,17 +91,42 @@ List<OverlayMoment> overlayMoments(
   for (final run in contactRuns(r)) {
     final stroke = run.committed;
     if (stroke == null) continue;
-    final first = r.toScreen(run.frames.first.points.first.x, run.frames.first.points.first.y);
+    // The screen as it was during this contact.
+    final view = run.frames.first;
+    final toPx = physical(r, view);
+    final wet = WetInkStyle.forPen(
+      r.pen.tool,
+      r.pen.width,
+      r.style,
+      color: 0xFF000000,
+      scale: view.viewScale,
+      unit: StrokeOutline.unitOf(stroke.points, spec),
+    )!;
+    final radii = [for (final x in wet.radii) x * dpr];
+    final shape = wet.shape.scaled(dpr);
+    final first = view.toScreen(run.frames.first.points.first.x, run.frames.first.points.first.y);
     final contact = contacts
         .where((c) => (c.samples.first.position - first).distance < 1)
         .firstOrNull;
     if (contact == null) continue;
-    final model = WetInkModel(radii: radii, frameMs: frameUs / 1000);
+    // Where the ink starts (after the pen-down hook): Dart sends the time
+    // of that sample with `begin`.
+    final startPoint = stroke.points[StrokeOutline.startIndex(stroke.points, spec)];
+    final startAt = view.toScreen(startPoint.x, startPoint.y);
+    final startSample = contact.samples.reduce(
+      (a, b) => (a.position - startAt).distance <= (b.position - startAt).distance ? a : b,
+    );
+    final model = WetInkModel(
+      radii: radii,
+      shape: shape,
+      frameMs: frameUs / 1000,
+      startMs: startSample.timeUs ~/ 1000,
+    );
     var delivered = 0;
     final start = run.frames.first.index, end = run.frames.last.index;
     List<(Rect, Contour)> shownAt(int k) => outlines[(start, k)] ??= k <= end
-        ? ink(r.frames[k].points, false)
-        : ink(stroke.points, true);
+        ? ink(r.frames[k].points, false, toPx)
+        : ink(stroke.points, true, toPx);
     List<Contour> clip(List<(Rect, Contour)> ink, Rect window) => [
       for (final (b, c) in ink)
         if (b.overlaps(window)) c,
@@ -102,9 +137,10 @@ List<OverlayMoment> overlayMoments(
       final upTo = r.frames[k + depth].newestEventUs;
       while (delivered < contact.samples.length && contact.samples[delivered].timeUs <= upTo) {
         final s = contact.samples[delivered++];
-        model.add(s.position * dpr, s.pressure, s.timeUs ~/ 1000);
+        final lift = delivered == contact.samples.length;
+        model.add(s.position * dpr, s.pressure, s.timeUs ~/ 1000, lift: lift);
       }
-      if (delivered == 0) continue;
+      if (model.samples.isEmpty) continue;
       final from = model.tailStart(
         nowMs: r.frames[k + depth - 1].vsyncUs / 1000 + 1,
         flutterUpToMs: progress / 1000,
@@ -113,8 +149,8 @@ List<OverlayMoment> overlayMoments(
       final overlay = from >= model.samples.length
           ? <Contour>[]
           : [
-              for (final (a, b, w) in model.segments(from, model.samples.length))
-                capsulePolygon(a, b, w),
+              for (final g in model.segments(from, model.samples.length))
+                hullPolygon(g.a, g.b, g.ra, g.rb),
             ];
       final tip = model.samples.last.position;
       final reach = radii.last * 2 + 2;

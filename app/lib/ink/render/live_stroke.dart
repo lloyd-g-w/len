@@ -17,18 +17,14 @@ import 'stroke_shaper.dart';
 /// rebuilt. The result covers exactly what
 /// `StrokeOutline.build(points, spec, complete: false)` covers.
 class LiveStrokeBuilder {
-  LiveStrokeBuilder(this.spec) : _shaper = StrokeShaper(spec.params) {
-    _emitter = RibbonEmitter(
-      _shaper,
-      flatCaps: spec.flatCaps,
-      width: spec.width,
-      step: _shaper.p.step,
-    );
-  }
+  LiveStrokeBuilder(this.spec);
 
   final OutlineSpec spec;
-  final StrokeShaper _shaper;
-  late final RibbonEmitter _emitter;
+
+  // Created once the stroke's unit is known ([StrokeOutline.unitPoints]).
+  StrokeShaper? _shaperOrNull;
+  late StrokeShaper _shaper;
+  late RibbonEmitter _emitter;
 
   int _fed = 0;
   StrokePoint? _first;
@@ -47,6 +43,19 @@ class LiveStrokeBuilder {
   Path update(List<StrokePoint> points) {
     assert(continues(points));
     if (points.isEmpty) return Path();
+    if (_shaperOrNull == null) {
+      // Too few points to tell the stroke's unit: build from scratch.
+      if (points.length < StrokeOutline.unitPoints) {
+        return StrokeOutline.build(points, spec, complete: false);
+      }
+      _shaper = _shaperOrNull = StrokeShaper(StrokeOutline.paramsOf(points, spec));
+      _emitter = RibbonEmitter(
+        _shaper,
+        flatCaps: spec.flatCaps,
+        width: spec.width,
+        step: _shaper.p.step,
+      );
+    }
     _first ??= points.first;
     StrokeOutline.feed(_shaper, points, spec, null, from: _fed);
     _fed = points.length;

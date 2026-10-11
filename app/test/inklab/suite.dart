@@ -50,13 +50,18 @@ List<SuiteEntry> recordingEntries(File file) {
   final recording = RecordingCodec.decode(file.readAsBytesSync());
   final pen = recording.meta.pen;
   return [
-    SuiteEntry('$name@${pen.streamline}', name, pen.streamline, () => Subject.of(name, recording)),
+    SuiteEntry(
+      '$name@${pen.streamline}',
+      name,
+      pen.streamline,
+      () => Subject.of(name, recording, timed: true),
+    ),
     if (pen.streamline != 0)
       SuiteEntry(
         '$name@0.0',
         name,
         0,
-        () => Subject.of(name, recording, pen: pen.copyWith(streamline: 0)),
+        () => Subject.of(name, recording, pen: pen.copyWith(streamline: 0), timed: true),
       ),
   ];
 }

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/stroke.dart';
+import '../input/point_spacing.dart';
 import 'centerline.dart';
 import 'outline_sink.dart';
 import 'ribbon_emitter.dart';
@@ -59,17 +60,7 @@ class OutlineSpec {
   }
 
   // The stabiliser ([streamline], 0..1) is the single control for all
-  // smoothing.
-
-  /// Width-relative scale of the smoothing: small handwriting keeps its
-  /// shape, wide pens get proportionally more.
-  double get _scale => (width / 2.5).clamp(0.6, 1.6);
-
-  /// Standard deviation (world units) of the positional smoothing. Never 0:
-  /// at stabiliser 0 it removes the digitiser's sub-pixel jitter and keeps
-  /// every visible detail (cusps are corners, which smoothing never
-  /// crosses); it grows with the stabiliser.
-  double get positionSigma => (0.7 + 1.05 * streamline) * _scale;
+  // smoothing (position smoothing: see [ShapeParams]).
 
   /// Length scale of the (causal) radius smoothing: from half a width at
   /// stabiliser 0 (just digitiser noise) to several widths.
@@ -78,22 +69,32 @@ class OutlineSpec {
   /// Fastest allowed change of the radius per unit of length.
   double get maxRadiusSlope => 0.6 - 0.45 * streamline;
 
-  /// The pipeline's numbers for this pen.
-  ShapeParams get params => _params[this] ??= ShapeParams(
+  /// Reach of the non-swelling start and end (world units).
+  double get settleReach => math.min(width, 3.0);
+
+  /// Reach of the levelled start and end (world units).
+  double get levelReach => math.min(2 * width * streamline, width);
+
+  /// The most the end rules may reach back from a moving pen tip: they
+  /// change ink there as the pen moves on, so they stay within the tip.
+  double get tipReach => 0.5 * width;
+
+  /// The pipeline's numbers for this pen and a stroke written at [unit]
+  /// world units per screen pixel ([StrokeOutline.unitOf]).
+  ShapeParams paramsFor(double unit) => (_params[this] ??= {})[unit] ??= ShapeParams(
     width: width,
-    sigma: positionSigma,
+    unit: unit,
+    streamline: streamline,
     radiusSigma: radiusSigma,
     maxRadiusSlope: maxRadiusSlope,
-    settleReach: math.min(width, 3.0),
-    levelReach: math.min(2 * width * streamline, width),
+    settleReach: settleReach,
+    levelReach: levelReach,
+    tipReach: tipReach,
     taperStart: taperStart,
     taperEnd: taperEnd,
   );
 
-  static final Expando<ShapeParams> _params = Expando('outline params');
-
-  /// Spacing of the resampled centre line.
-  double get sampleStep => params.step;
+  static final Expando<Map<double, ShapeParams>> _params = Expando('outline params');
 }
 
 /// Builds filled outline paths for variable-width ink strokes.
@@ -185,10 +186,59 @@ abstract final class StrokeOutline {
 
   /// Whether a live stroke of [points] may be shown: its start (pen-down
   /// hook, start rules) is decided and will not change any more.
-  static bool startSettled(List<StrokePoint> points, OutlineSpec spec, {List<double>? pressures}) {
-    final shaper = feed(StrokeShaper(spec.params), points, spec, pressures)..update();
-    return shaper.startFinal;
+  static bool startSettled(List<StrokePoint> points, OutlineSpec spec) =>
+      settledStart(points, spec) != null;
+
+  /// The index of the first point that is ink (after the pen-down hook)
+  /// once the start of [points] is decided and final, else null.
+  static int? settledStart(List<StrokePoint> points, OutlineSpec spec) {
+    if (points.length < unitPoints) return null;
+    final shaper = feed(StrokeShaper(paramsOf(points, spec)), points, spec, null)..update();
+    if (!shaper.startFinal) return null;
+    return _pointIndex(points, shaper);
   }
+
+  /// The index of the first point that is ink in a stroke of [points]
+  /// (after the pen-down hook), deciding with whatever there is.
+  static int startIndex(List<StrokePoint> points, OutlineSpec spec) {
+    final shaper = _shape(points, spec, null, false);
+    return shaper.started ? _pointIndex(points, shaper) : 0;
+  }
+
+  static int _pointIndex(List<StrokePoint> points, StrokeShaper shaper) {
+    final x = shaper.inputX(shaper.startSample), y = shaper.inputY(shaper.startSample);
+    for (var i = 0; i < points.length; i++) {
+      if (points[i].x == x && points[i].y == y) return i;
+    }
+    return 0;
+  }
+
+  /// How many points [unitOf] looks at.
+  static const int unitPoints = 9;
+
+  /// The world size of a screen pixel when [points] were written, estimated
+  /// from their spacing: the input controller keeps points at least
+  /// [PointSpacing.minDistance] screen px apart, and a pen lands slowly, so
+  /// the closest spacings among the first [unitPoints] are that distance
+  /// (the second closest is used: a kept cusp tip may be closer). Clamped to
+  /// a pen 1.5–40 screen px wide; strokes too short to tell use 1.
+  ///
+  /// Stroke data carry no zoom, but how smooth ink should be depends on it:
+  /// the digitiser's jitter is a fraction of a *screen* pixel, so written
+  /// zoomed in 7×, a pen's jitter is 7× smaller in world units.
+  static double unitOf(List<StrokePoint> points, OutlineSpec spec) {
+    final n = math.min(points.length, unitPoints);
+    final gaps = <double>[
+      for (var i = 1; i < n; i++)
+        if ((points[i].offset - points[i - 1].offset).distance case final d when d > 0) d,
+    ]..sort();
+    final u = gaps.length < 2 ? 1.0 : gaps[1] / PointSpacing.minDistance;
+    return u.clamp(spec.width / 40, spec.width / 1.5);
+  }
+
+  /// The pipeline's numbers for [points] drawn with [spec].
+  static ShapeParams paramsOf(List<StrokePoint> points, OutlineSpec spec) =>
+      spec.paramsFor(unitOf(points, spec));
 
   static StrokeShaper _shape(
     List<StrokePoint> points,
@@ -196,7 +246,7 @@ abstract final class StrokeOutline {
     List<double>? pressures,
     bool complete,
   ) {
-    final shaper = feed(StrokeShaper(spec.params), points, spec, pressures);
+    final shaper = feed(StrokeShaper(paramsOf(points, spec)), points, spec, pressures);
     if (complete) {
       shaper.update(ended: true, keep: shaper.endKeep());
     } else {

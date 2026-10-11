@@ -19,6 +19,14 @@ class LiveInk extends ChangeNotifier {
   /// True once "hold to straighten" has snapped the live stroke to a line.
   bool straightened = false;
 
+  /// Time (µs, event clock) of the first input sample that is ink (after
+  /// the pen-down hook), for the low-latency overlay; 0 when unknown.
+  int inkStartUs = 0;
+
+  /// World units per screen pixel the stroke is written at, as the outline
+  /// estimates it (`StrokeOutline.unitOf`); for the low-latency overlay.
+  double inkUnit = 1;
+
   /// World position and radius of the eraser cursor, if visible.
   Offset? eraserCenter;
   double eraserRadius = 0;
@@ -41,6 +49,8 @@ class LiveInk extends ChangeNotifier {
     this.width = width;
     this.style = style ?? StrokeStyle.defaultsFor(tool);
     straightened = false;
+    inkStartUs = 0;
+    inkUnit = 1;
     _points.clear();
     _revision++;
     notifyListeners();
