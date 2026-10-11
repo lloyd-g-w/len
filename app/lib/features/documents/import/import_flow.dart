@@ -99,7 +99,8 @@ class ImportFlow {
   ) {
     final kinds = files.map(ImportRouter.kindOf).toSet();
     final onlyImages = !kinds.contains(IncomingKind.pdf);
-    final subject = files.length == 1 ? '“${files.single.name}”' : '${files.length} files';
+    final name = files.length == 1 ? ImportRouter.nameOf(files.single) : null;
+    final subject = name != null ? '“$name”' : '${files.length} files';
     final pdfsStayApart = kinds.contains(IncomingKind.pdf) && !open.acceptsPdf;
     final target = open.acceptsPdf ? 'notebook' : 'canvas';
     final message = [
@@ -110,7 +111,7 @@ class ImportFlow {
     return showDialog<ImportChoice>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(files.length == 1 ? 'Open ${files.single.name}' : 'Open ${files.length} files'),
+        title: Text(name != null ? 'Open $name' : 'Open ${files.length} files'),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
           child: Text(message),

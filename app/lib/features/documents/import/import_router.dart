@@ -73,11 +73,19 @@ abstract final class ImportRouter {
   /// Image types the engine can't decode however they are named.
   static const Set<String> _undecodableImages = {'image/svg+xml', 'image/x-icon', 'image/tiff'};
 
+  /// [file]'s name, or the last segment of its path (native `XFile`s
+  /// ignore the name they are given).
+  static String nameOf(XFile file) {
+    if (file.name.isNotEmpty) return file.name;
+    final path = file.path.replaceAll(r'\', '/');
+    return path.substring(path.lastIndexOf('/') + 1);
+  }
+
   /// Classifies [file] by its MIME type (content URIs may have no
   /// extension) or else its extension.
   static IncomingKind kindOf(XFile file) {
     final mime = file.mimeType?.toLowerCase();
-    final name = file.name.isNotEmpty ? file.name : file.path;
+    final name = nameOf(file);
     final dot = name.lastIndexOf('.');
     final ext = dot == -1 ? '' : name.substring(dot + 1).toLowerCase();
     if (mime == 'application/pdf' || ext == 'pdf') return IncomingKind.pdf;
@@ -110,7 +118,7 @@ abstract final class ImportRouter {
         case IncomingKind.image:
           images.add(file);
         case IncomingKind.unsupported:
-          unsupported.add(file.name.isNotEmpty ? file.name : file.path);
+          unsupported.add(nameOf(file));
       }
     }
     final insertPdfs = into != null && into.acceptsPdf;
@@ -129,7 +137,7 @@ abstract final class ImportRouter {
   /// (`IMG_2041.jpg` → `IMG 2041`), else "Images".
   static String canvasTitleFor(List<XFile> images) {
     if (images.length != 1) return 'Images';
-    final name = images.single.name;
+    final name = nameOf(images.single);
     final dot = name.lastIndexOf('.');
     final title = (dot > 0 ? name.substring(0, dot) : name).replaceAll('_', ' ').trim();
     return title.isEmpty ? 'Image' : title;
