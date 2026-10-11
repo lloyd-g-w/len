@@ -30,8 +30,6 @@ class DocumentScroller {
   Offset _fromCentre = Offset.zero, _toCentre = Offset.zero;
   VoidCallback? _onDone;
 
-  bool get isScrolling => _ticker?.isActive ?? false;
-
   /// Animates to [scale] and [offset], then calls [onDone].
   void animateTo(double scale, Offset offset, {VoidCallback? onDone}) {
     stop();
