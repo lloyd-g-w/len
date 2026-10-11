@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../../domain/chunk_grid.dart';
+import '../../../domain/surface_element.dart';
+import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import '../../../ink/surface_model.dart';
 import 'replay_target.dart';
@@ -11,7 +13,8 @@ import 'replay_target.dart';
 /// How strongly ink not yet written at the playback time is faded.
 const double replayVeilOpacity = 0.82;
 
-/// Fades ink written after the moment being heard, GoodNotes-style.
+/// Fades ink, text boxes and images created after the moment being heard,
+/// GoodNotes-style.
 ///
 /// Drawn as a separate layer over the committed ink, only while a
 /// recording is open, so normal rendering pays nothing. Each visible chunk
@@ -63,6 +66,11 @@ class InkReplayPainter extends CustomPainter {
 }
 
 /// Cached veil pictures per (surface, chunk); see [InkReplayPainter].
+///
+/// A veil covers the strokes *and* elements (text boxes, images) of a
+/// chunk created after the moment being heard. Future elements beneath the
+/// ink are veiled first and the past ink above them is cut back out, so
+/// what was already written stays crisp over a picture inserted later.
 class ReplayVeils {
   final Map<SurfaceModel, Map<ChunkKey, _Veil>> _veils = {};
   int _count = 0;
@@ -72,14 +80,20 @@ class ReplayVeils {
   static const int maxPictures = 600;
 
   /// The veil of chunk [key] of [model] at wall time [now], or null when
-  /// nothing in it was written after [now].
+  /// nothing in it was created after [now].
   ui.Picture? pictureFor(SurfaceModel model, ChunkKey key, int now, Color paper) {
-    final strokes = model.strokesInChunk(key);
     var signature = paper.toARGB32();
     var future = 0;
-    for (final s in strokes) {
+    for (final s in model.strokesInChunk(key)) {
       if (s.createdAt > now && !model.isHidden(s.id)) {
         signature = Object.hash(signature, s.id);
+        future++;
+      }
+    }
+    for (final e in model.elementsInChunk(key)) {
+      if (e.createdAt > now && !model.isHidden(e.id)) {
+        // Elements keep their id when edited: the value tells edits apart.
+        signature = Object.hash(signature, identityHashCode(e));
         future++;
       }
     }
@@ -105,16 +119,55 @@ class ReplayVeils {
     final rect = ChunkGrid.rectOf(key);
     final canvas = Canvas(recorder)
       ..clipRect(rect, doAntiAlias: false)
-      // One layer, so overlapping strokes fade evenly.
+      // One layer, so overlapping content fades evenly.
       ..saveLayer(rect, Paint()..color = Color.fromRGBO(0, 0, 0, replayVeilOpacity));
     final fill = Paint()..color = paper;
-    for (final s in model.strokesInChunk(key)) {
-      if (s.createdAt > now && !model.isHidden(s.id)) {
-        canvas.drawPath(StrokeRenderer.pathOf(s), fill);
+    final strokes = [
+      for (final s in model.strokesInChunk(key))
+        if (!model.isHidden(s.id)) s,
+    ];
+    final elements = [
+      for (final e in model.elementsInChunk(key))
+        if (e.createdAt > now && !model.isHidden(e.id)) e,
+    ]..sort(SurfaceElement.paintOrder);
+    final below = elements.where((e) => e.belowInk).toList();
+    if (below.isNotEmpty) {
+      for (final e in below) {
+        _silhouette(canvas, e, rect, paper);
       }
+      // Ink already written over a later picture stays visible.
+      final cut = Paint()..blendMode = BlendMode.dstOut;
+      for (final s in strokes) {
+        if (s.createdAt <= now) canvas.drawPath(StrokeRenderer.pathOf(s), cut);
+      }
+    }
+    for (final s in strokes) {
+      if (s.createdAt > now) canvas.drawPath(StrokeRenderer.pathOf(s), fill);
+    }
+    for (final e in elements) {
+      if (!e.belowInk) _silhouette(canvas, e, rect, paper);
     }
     canvas.restore();
     return recorder.endRecording();
+  }
+
+  /// Paints [e]'s shape in [paper]: the (rotated) box of an image, the
+  /// glyphs (and highlights) of a text box.
+  static void _silhouette(Canvas canvas, SurfaceElement e, Rect chunk, Color paper) {
+    if (e.knownType != ElementType.text) {
+      canvas.drawPath(Path()..addPolygon(e.corners, true), Paint()..color = paper);
+      return;
+    }
+    canvas.saveLayer(chunk, Paint());
+    ElementRenderer.draw(canvas, e);
+    canvas
+      ..drawRect(
+        chunk,
+        Paint()
+          ..color = paper
+          ..blendMode = BlendMode.srcIn,
+      )
+      ..restore();
   }
 
   /// Drops every cached picture.

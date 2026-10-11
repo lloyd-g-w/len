@@ -92,7 +92,8 @@ class Stroke {
 
   final List<StrokePoint> points;
 
-  /// Milliseconds since epoch; strokes are painted in creation order.
+  /// When drawing the stroke began (pen down), in milliseconds since epoch;
+  /// strokes are painted in this order and audio replay shows them from it.
   final int createdAt;
 
   /// Conservative world-space bounds including the stroke's thickness.

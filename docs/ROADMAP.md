@@ -38,10 +38,19 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 ## Audio
 - ✅ Record audio while writing (pause / resume, level meter; top bar on tablets/desktops, menu +
   floating controls on phones), recordings list (play, rename, delete), synced as blobs
-- ✅ Ink replay: ink written later than the playback position is faded; tap ink to play from when
-  it was written
-- ⬜ Background recording on Android (foreground service), waveform / seek by ink density,
-  trimming, audio export, upload while recording (chunked blobs)
+- ✅ Ink replay: ink, text boxes and images made later than the playback position are faded; ink
+  appears from when it was begun (strokes are stamped at pen-down); tap ink, a text box or an
+  image to play from when it was made
+- ✅ Background recording on Android: foreground service (type microphone) with a notification
+  (time, pause / resume, stop), keeps recording with the screen off or another app in front;
+  notification permission asked once (Android 13+)
+- ✅ Player: waveform scrubber (captured while recording, synced as a small blob) with ink density
+  and a marker per burst of writing (tap to play from it), skip ±10 s, speed 0.75–2×, keys (Space,
+  ← / →, Shift+← / → between bursts of writing)
+- ✅ Recordings list: date, duration and size of each, total; select several to export or delete;
+  export / share a recording's audio (m4a) through the save / share path
+- ⬜ Trimming, upload while recording (chunked blobs), recovering a recording cut off by a killed
+  process, playback in the background (media notification)
 
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,

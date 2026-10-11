@@ -7,6 +7,14 @@
          recording. The microphone is optional hardware. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-feature android:name="android.hardware.microphone" android:required="false"/>
+    <!-- Recording continues in the background (screen off, another app in
+         front) in a foreground service of type "microphone"
+         (RecordingService.kt) with a notification (asked for at the first
+         recording on Android 13+) and a partial wake lock. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <!-- usesCleartextTraffic: self-hosted sync servers often run over plain
          http on a home LAN (e.g. http://192.168.1.10:8080). Use https for
          anything reachable from the internet. -->
@@ -66,6 +74,10 @@
                 <data android:mimeType="image/*"/>
             </intent-filter>
         </activity>
+        <service
+            android:name=".RecordingService"
+            android:exported="false"
+            android:foregroundServiceType="microphone"/>
         <!-- Samsung DeX: keep the process alive (no restart) when moving
              between the phone screen and the DeX display / changing density. -->
         <meta-data

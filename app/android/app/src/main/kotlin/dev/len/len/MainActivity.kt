@@ -20,6 +20,8 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         stylus = StylusCapture(messenger)
         wetInk = WetInkOverlay(this, messenger)
         incoming = IncomingFiles(applicationContext, messenger)
+        // Background audio recording (RecordingService.kt).
+        flutterEngine.plugins.add(RecordingServicePlugin())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

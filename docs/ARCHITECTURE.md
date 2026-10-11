@@ -486,36 +486,80 @@ replayed in step with the ink.
   of a notebook whose audio is a content-addressed blob, like PDFs and images.
   Its `segments` (`[startedAt, durationMs]` per stretch between pauses) map
   audio positions to wall time and back (`RecordingTimeline`; ink written
-  during a pause belongs to the moment recording resumed). Strokes already
-  carry `createdAt`, so ink needs no change to be replayed. Deleting a
-  notebook tombstones its recordings; duplicating copies them (same blobs).
+  during a pause belongs to the moment recording resumed). Strokes carry
+  `createdAt` = the moment the pen touched down (`InkInputController`,
+  `ShapeTool`), elements their creation time, so content needs nothing else
+  to be replayed. Its `waveform` is a second, small blob (`domain/waveform.dart`,
+  one loudness byte per 100 ms ≈ 36 KB per hour, format in SYNC_PROTOCOL)
+  built while recording from the recorder's input level (`WaveformBuilder`),
+  so no platform ever has to decode audio. Deleting a notebook tombstones its
+  recordings; duplicating copies them (same blobs).
 - **Recording** (`RecordingController`): start / pause / resume / stop with
   elapsed time and an input level meter. `package:record` writes AAC in MP4
   (`audio/mp4`, mono, 64 kbit/s ≈ 29 MB per hour) where the platform has an
   AAC encoder, Opus in WebM in browsers without one (Chrome, Firefox), WAV as
   a last resort. On stop the file becomes a blob (`BlobStore.putFile`,
-  streamed, never loaded whole) plus the row; captures under 0.5 s are
-  discarded. Closing the editor stops and saves a running recording; so does
-  backgrounding the app on Android (the system hands backgrounded apps
-  silence).
+  streamed, never loaded whole), the waveform another, plus the row; captures
+  under 0.5 s are discarded. Closing the editor stops and saves a running
+  recording.
+- **Background recording** (`RecordingKeepAlive`, `AudioBackends.keepAlive`):
+  Android hands backgrounded apps silence, so while recording a foreground
+  service of type `microphone` runs (`RecordingService.kt`, driven by
+  `RecordingServicePlugin.kt` on `len/recording_service`, Dart side
+  `backends/android_keep_alive.dart`). It holds a partial wake lock and shows
+  an ongoing notification (title, live time, Pause / Resume, Stop; tap opens
+  Len); its buttons reach the `RecordingController` that showed it, and it
+  ends once the recording is saved. The notification permission is asked
+  once, before the first capture (Android 13+); refusing it does not stop
+  background recording (the service is then only listed in the system's task
+  manager). With the service up, pausing the app (screen off, another app in
+  front) keeps recording (`NotebookAudio`); if it could not start (or reports
+  `failed`), the old behaviour applies: the recording is stopped and saved
+  when the app is paused. Swiping Len away from the recent apps asks Dart to
+  stop and save, and the service quits after a grace period (or as soon as
+  the engine detaches). Other platforms have no keep-alive (desktop apps keep
+  the microphone; browsers keep recording in a background tab).
 - **Playback** (`PlaybackController`, `package:audioplayers`): plays one
   recording at a time from its blob file (natively streamed; browsers get a
-  blob URL), fetching a missing blob from the server first. The backends are
-  created only when the user records or plays, so platforms and tests that
-  never do never touch the audio plugins (`AudioBackends`; tests use fakes).
+  blob URL), fetching a missing blob from the server first; speed 0.75–2×
+  (kept across recordings while the editor is open), skip ±10 s. The backends
+  are created only when the user records or plays, so platforms and tests
+  that never do never touch the audio plugins (`AudioBackends`; tests use
+  fakes).
+- **Overview** (`recording_overview.dart`): per recording the waveform (loaded
+  once, fetched when missing) and the `InkActivity` — the audio positions at
+  which the notebook's strokes and elements were made
+  (`RecordingRepository.contentTimes`, indexed by `strokes(surface_id,
+  created_at)`), re-read whenever a recording is opened. Bursts of writing
+  (separated by ≥ 4 s without any) become markers.
 - **Ink replay** (`replay/`): while a recording is open, `InkReplayLayer`
-  draws a veil over ink written after the moment being heard
-  (`InkReplayPainter`: one cached picture of the "future" strokes per visible
-  chunk, filled in the paper colour at 82 % opacity, re-recorded only when that
-  set changes). With "tap ink to play" on, a tap on a stroke seeks to 1.5 s
-  before it was written (in the open recording, else the latest recording of
-  the notebook covering that time); drags and pinches still pan and zoom.
+  draws a veil over strokes, text boxes and images created after the moment
+  being heard (`InkReplayPainter`: one cached picture of the "future" content
+  per visible chunk, filled in the paper colour at 82 % opacity — text boxes
+  as their glyph silhouettes, images as their box, with past ink cut back out
+  of a later image beneath it — re-recorded only when that set changes).
+  Ink appears from when it was *begun*. With "tap ink to play" on, a tap on a
+  stroke, text box or image seeks to 1.5 s before it was made (in the open
+  recording, else the latest recording of the notebook covering that time);
+  drags and pinches still pan and zoom.
 - **UI.** Tablets and desktops get a top bar slot (microphone, recordings
   list, and while recording a pill with time, level, pause and stop); phones
   get "⋯" menu entries and floating recording controls (`AudioLayer`). The
-  recordings sheet plays, renames and deletes recordings; the playback bar
-  floats above the bottom chrome. `NotebookAudio` owns all of it per open
-  notebook and reloads when sync reports `recordingsOfNotebooks`.
+  player (`PlaybackBar`) floats above the bottom chrome: title and time, a
+  `WaveformScrubber` (played part in the accent colour, ink density strip with
+  a dot per burst; tap or drag to seek, a tap near a dot plays from just
+  before that writing), skip ±10 s, play / pause, speed menu, "tap ink to
+  play", recordings, close. Keys while the player is open
+  (`playback_keys.dart`, ahead of the editor's shortcuts, never while typing):
+  Space play / pause, ← / → ±10 s (instead of turning pages), Shift+← / → the
+  previous / next burst of writing. The recordings sheet shows each
+  recording's date, duration and size and the total; tap plays, ⋯ renames,
+  exports or deletes; long press or "Select" picks several to export or
+  delete at once. Export hands the audio file (`.m4a`, `.webm`, `.wav`)
+  to the existing save / share path (`platform/file_export`: save dialog on
+  desktop, share sheet on Android, download on the web). `NotebookAudio`
+  owns all of it per open notebook and reloads when sync reports
+  `recordingsOfNotebooks`.
 
 ## Input (`ink/input/ink_input_controller.dart`)
 
@@ -861,7 +905,7 @@ the web:
 | Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux: command line + forwarding from a second instance; Windows: command line | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
-| Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
+| Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
 (`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
@@ -1114,11 +1158,17 @@ malformed record is skipped. Open screens subscribe to
   recording above the server's blob limit (200 MiB by default, ≈ 7 h at
   64 kbit/s) cannot be uploaded (it stays on the device, reported as too
   large to sync); downloads hold the
-  whole blob in memory. Recording stops when an Android app is backgrounded
-  (no foreground service yet). Linux recording needs `parecord` and `ffmpeg`
+  whole blob in memory. Android background recording needs the foreground
+  service to start while Len is in front (it does, at the start of a
+  recording); a recording in progress when Len is swiped away from the
+  recent apps is saved only if that finishes within the service's grace
+  period, and one in progress when the process is killed is lost. Linux recording needs `parecord` and `ffmpeg`
   installed, playback needs GStreamer with the `-good` (MP4) and an AAC
   decoder plugin; Opus/WebM recordings from Chrome/Firefox may not play on
-  platforms without a WebM decoder. No waveform, trimming or audio export.
+  platforms without a WebM decoder. Waveforms come from the recorder's level
+  meter (≈ the loudness of the last buffer every 100 ms), not from decoding
+  the audio; recordings without one show a flat scrubber. No trimming yet;
+  exporting reads the whole audio blob into memory.
 - Planners: weeks start on Monday, month and day names are English, and there
   is no yearly overview yet. User templates are images (PDF pages are
   rasterised at 2000 px when imported), so they are not vector-crisp at deep

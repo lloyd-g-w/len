@@ -7,11 +7,11 @@ import '../notebook_audio.dart';
 import 'ink_replay_painter.dart';
 import 'replay_target.dart';
 
-/// Ink replay over the editor while a recording is open: fades ink not yet
-/// written at the playback time and, with "tap ink to play" on, turns taps
-/// on ink into jumps to when it was written (the surface below then gets no
-/// input; drags and pinches still pan and zoom). Nothing at all without an
-/// open recording.
+/// Ink replay over the editor while a recording is open: fades ink, text
+/// boxes and images not yet created at the playback time and, with "tap
+/// ink to play" on, turns taps on them into jumps to when they were made
+/// (the surface below then gets no input; drags and pinches still pan and
+/// zoom). Nothing at all without an open recording.
 class InkReplayLayer extends StatefulWidget {
   const InkReplayLayer({super.key, required this.audio, required this.target});
 
@@ -62,9 +62,9 @@ class _InkReplayLayerState extends State<InkReplayLayer> {
   }
 
   Future<void> _tap(TapUpDetails details) async {
-    final stroke = widget.target.strokeAt(details.localPosition);
-    if (stroke == null) return;
-    final found = await widget.audio.playInk(stroke.createdAt);
+    final createdAt = widget.target.createdAtUnder(details.localPosition);
+    if (createdAt == null) return;
+    final found = await widget.audio.playInk(createdAt);
     if (found || !mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()

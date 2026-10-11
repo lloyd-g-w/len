@@ -170,7 +170,7 @@ its "uploaded" marks, so the next upload phase re-checks (`HEAD`) the blobs its 
 reference and uploads any the server lost.
 
 **Client** (local, never visible to the server): a locally stored blob is deleted from the device
-once no live local row references it (page backgrounds, image templates of pages, image elements, recordings and the user's
+once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio and waveform) and the user's
 templates; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. The app
 checks this at startup at most once a day. A blob collected locally is fetched again lazily if a
 record referencing it arrives later.
@@ -203,9 +203,9 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | `notebooks` | `{title, kind: "paged"|"canvas", paper, paperColor, coverColor, coverStyle, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperData: object, paperColor, bookmarked: bool, background: object|null}` — see [Paper and pages](#paper-and-pages) |
 | `templates` | `{name, blob, width, height, createdAt}` — one of the user's own templates ("My templates"): `blob` is the `<sha256>` of a PNG or JPEG image ([blob](#blobs)), `width` / `height` (> 0) the size in world units (96 per inch) of pages made from it. Pages made from a template copy its blob into their `paperData`, so renaming or deleting (tombstoning) a template never changes existing pages. |
-| `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
+| `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). `createdAt` is the wall time (epoch ms) the stroke was *begun* (pen down), not finished: strokes are painted in this order, and audio replay shows a stroke from the moment writing it started. |
 | `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth}`, see [Text boxes](#text-boxes)) or `image` (`data` = `{blob, width, height, crop?}`, see below). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
-| `recordings` | `{notebookId, blob, durationMs, startedAt, title, mime, segments}` — an audio recording of a notebook. `blob` is the `<sha256>` of the audio ([blob](#blobs); `audio/mp4` AAC, or `audio/webm` Opus in browsers without AAC, as given by `mime`). `startedAt` is the wall time (epoch ms) recording began, `durationMs` the audio length; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (empty → one segment `[startedAt, durationMs]`). Deleting a notebook tombstones its recordings. |
+| `recordings` | `{notebookId, blob, durationMs, startedAt, title, mime, segments, waveform}` — an audio recording of a notebook. `blob` is the `<sha256>` of the audio ([blob](#blobs); `audio/mp4` AAC, or `audio/webm` Opus in browsers without AAC, as given by `mime`). `startedAt` is the wall time (epoch ms) recording began, `durationMs` the audio length; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (empty → one segment `[startedAt, durationMs]`); ink and elements are replayed from their `createdAt`. `waveform` is `""` (none) or the `<sha256>` of the recording's [waveform](#waveforms) blob. Deleting a notebook tombstones its recordings. |
 
 **Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
 cache `pdf_text`) is derived on each device from the collections above and the PDF blobs, and is
@@ -262,6 +262,14 @@ aspect ratio and crop never need to agree with the box: the image is stretched t
 store images at most 4096 px on their long edge. New images get a negative `z` (beneath the ink);
 "bring to front" gives an element a `z` above every other one (and so above the ink), "send to back"
 one below every other.
+
+**Waveforms.** A recording's loudness outline for the player's scrubber, captured from the
+recorder's input level while recording (no decoding needed), stored as a blob of type
+`application/x-len-waveform`: the bytes `0x4C 0x57` ("LW"), a version byte (`1`), the bucket
+length in units of 10 ms (`10` = 100 ms), then one byte per bucket — the loudest level heard in
+it, 0 (silence) … 255, on a decibel scale (−50 dBFS … 0). Buckets cover the audio from its start
+(pauses are not part of the audio); a shorter waveform than the audio means silence at the end.
+Readers ignore waveforms with another version or magic.
 
 **Paper and pages.** `paper` names a template: `blank`, `dotted`, `narrowRuled`,
 `collegeRuled`, `wideRuled`, `cornell`, `todo`, `meeting`, `dailyPlanner`, `weeklyPlanner`,

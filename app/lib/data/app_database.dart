@@ -123,7 +123,20 @@ class AppDatabase {
   /// i + 1 (`PRAGMA user_version`). Version 1 creates the whole schema.
   /// Future schema changes **append** a migration; never edit one that has
   /// shipped.
-  static final List<void Function(CommonDatabase)> _migrations = [_createSchema, _templates];
+  static final List<void Function(CommonDatabase)> _migrations = [
+    _createSchema,
+    _templates,
+    _recordingWaveforms,
+  ];
+
+  /// Version 3: a recording's waveform blob (`''` = none), and stroke
+  /// times indexed per surface (ink density of a recording, see
+  /// `RecordingRepository.contentTimes`).
+  static void _recordingWaveforms(CommonDatabase db) {
+    db.execute("ALTER TABLE recordings ADD COLUMN waveform TEXT NOT NULL DEFAULT ''");
+    db.execute('DROP INDEX strokes_by_surface');
+    db.execute('CREATE INDEX strokes_by_surface ON strokes(surface_id, created_at)');
+  }
 
   /// Version 2: template parameters on pages (`paper_data`, JSON, see
   /// `Paper.toData`), the user's own templates, and folder icons.

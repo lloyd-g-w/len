@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'waveform.dart';
+
 /// One stretch of continuous capture in a [Recording]: it began at wall
 /// time [startedAt] (epoch ms) and lasted [durationMs] of audio. Pausing a
 /// recording ends a segment; resuming starts the next one.
@@ -47,6 +49,7 @@ class Recording {
     required this.title,
     required this.mime,
     required this.updatedAt,
+    this.waveform = '',
     List<RecordingSegment>? segments,
   }) : segments = List.unmodifiable(
          segments == null || segments.isEmpty
@@ -69,6 +72,9 @@ class Recording {
   final String mime;
   final int updatedAt;
 
+  /// SHA-256 of the recording's [Waveform] blob, or `''` when it has none.
+  final String waveform;
+
   /// Capture segments in order (pauses between them). Never empty: a
   /// recording without pauses is one segment from [startedAt].
   final List<RecordingSegment> segments;
@@ -85,6 +91,7 @@ class Recording {
     title: title ?? this.title,
     mime: mime,
     updatedAt: updatedAt ?? this.updatedAt,
+    waveform: waveform,
     segments: segments,
   );
 }
