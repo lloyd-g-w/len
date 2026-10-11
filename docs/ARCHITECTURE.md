@@ -248,7 +248,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
   flow fits the whole page and slides it in.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
-  P / H / E / L / S / T / K (X: Select PDF text, with PDF pages); 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode;
+  P / H / E / L / S / T / K (X: Select PDF text, with PDF pages); 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 present;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
   Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
