@@ -17,12 +17,12 @@ void main() {
     await tester.pumpWidget(
       _host(
         const TemplatePicker(
-          initial: PageTemplate(style: PaperStyle.cornell, color: PaperColor.cream),
+          initial: PageTemplate(paper: Paper(PaperStyle.cornell), color: PaperColor.cream),
           mode: TemplatePickerMode.create,
         ),
       ),
     );
-    for (final style in PaperStyle.values) {
+    for (final style in PaperStyle.builtIn) {
       expect(find.text(style.label), findsOneWidget);
     }
     await expectLater(

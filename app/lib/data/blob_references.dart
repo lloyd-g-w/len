@@ -8,7 +8,7 @@ import 'blob_store.dart';
 /// collection").
 ///
 /// A blob is referenced by every live (not tombstoned) page background,
-/// element and recording. Pages, elements and recordings of notebooks in
+/// image template of a page, element, recording and user template. Pages, elements and recordings of notebooks in
 /// the trash are live rows, so the trash keeps its blobs; "delete forever"
 /// tombstones them and releases the blobs.
 class BlobReferences {
@@ -22,11 +22,17 @@ class BlobReferences {
       'SELECT background FROM pages WHERE deleted = 0 AND background IS NOT NULL',
     ))
       ...inJson(row['background'] as String),
+    for (final row in database.db.select(
+      "SELECT paper_data FROM pages WHERE deleted = 0 AND paper_data <> '{}'",
+    ))
+      ...inJson(row['paper_data'] as String),
     // Any element type: image elements today, but unknown types from newer
     // app versions are kept with their data, references included.
     for (final row in database.db.select('SELECT data FROM elements WHERE deleted = 0'))
       ...inJson(row['data'] as String),
     for (final row in database.db.select('SELECT DISTINCT blob FROM recordings WHERE deleted = 0'))
+      row['blob'] as String,
+    for (final row in database.db.select('SELECT DISTINCT blob FROM templates WHERE deleted = 0'))
       row['blob'] as String,
   };
 

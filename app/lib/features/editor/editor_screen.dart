@@ -319,7 +319,7 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _pickBackground() async {
     final choice = await showTemplatePicker(
       context,
-      initial: PageTemplate(style: _notebook.paper, color: _notebook.paperColor),
+      initial: PageTemplate.of(_notebook.paper, color: _notebook.paperColor),
       mode: TemplatePickerMode.canvas,
     );
     if (choice == null || !mounted || _closing) return;

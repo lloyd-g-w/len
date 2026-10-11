@@ -149,7 +149,7 @@ void main() {
         kind: NotebookKind.paged,
         paper: PaperStyle.cornell,
         coverColor: 0,
-        firstPage: const PageTemplate(style: PaperStyle.cornell, color: PaperColor.cream),
+        firstPage: const PageTemplate(paper: Paper(PaperStyle.cornell), color: PaperColor.cream),
       );
       final page = services.pages.pagesOf(nb.id).single;
       services.strokes.save([

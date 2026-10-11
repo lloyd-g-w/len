@@ -52,7 +52,7 @@ Future<void> createNotebook(WidgetTester tester, String title, {bool canvas = fa
     await tester.pumpAndSettle();
   }
   await tester.enterText(
-    find.descendant(of: find.byType(NewNotebookSheet), matching: find.byType(TextField)),
+    find.descendant(of: find.byType(NewNotebookSheet), matching: find.byType(TextField)).first,
     title,
   );
   await tester.tap(find.text('Create'));
@@ -124,7 +124,7 @@ void main() {
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
     final notebook = services.notebooks.list().single;
-    expect(services.pages.pagesOf(notebook.id).single.paper, PaperStyle.gridSmall);
+    expect(services.pages.pagesOf(notebook.id).single.paper.style, PaperStyle.gridSmall);
     expect(tester.takeException(), isNull);
   });
 

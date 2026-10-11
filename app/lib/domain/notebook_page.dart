@@ -58,7 +58,9 @@ class NotebookPage {
 
   final double width;
   final double height;
-  final PaperStyle paper;
+
+  /// The template (style and its parameters).
+  final Paper paper;
   final PaperColor paperColor;
   final bool bookmarked;
   final PageBackground? background;
@@ -72,18 +74,19 @@ class NotebookPage {
   PageTemplate get template {
     final match = PageFormat.match(size);
     return PageTemplate(
-      style: paper,
+      paper: paper,
       color: paperColor,
       format: match?.format ?? PageFormat.a4,
       orientation:
           match?.orientation ??
           (width > height ? PageOrientation.landscape : PageOrientation.portrait),
+      customSize: paper.style == PaperStyle.image ? size : null,
     );
   }
 
   NotebookPage copyWith({
     double? sortKey,
-    PaperStyle? paper,
+    Paper? paper,
     PaperColor? paperColor,
     bool? bookmarked,
   }) => NotebookPage(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -9,6 +11,7 @@ import 'document_controller.dart';
 import 'document_layout.dart';
 import 'document_painters.dart';
 import 'page_backgrounds.dart';
+import 'page_painting.dart';
 
 /// Shows a paged notebook as a scrollable stack of pages (or one page at a
 /// time) and routes input to the page under the pointer.
@@ -51,10 +54,19 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
   late int _shownPage = _doc.currentPage;
   double _turnDirection = 1;
 
+  /// Repaints the paper once an image template of a page is decoded.
+  final _paperImagesChanged = ValueNotifier(0);
+  StreamSubscription<String>? _imageChanges;
+
   @override
   void initState() {
     super.initState();
     _doc.addListener(_onDocument);
+    _imageChanges = _doc.surfaces.images?.changes.listen((blob) {
+      if (_doc.pages.any((p) => p.paper.image == blob)) {
+        _paperImagesChanged.value++;
+      }
+    });
   }
 
   @override
@@ -69,9 +81,16 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
   @override
   void dispose() {
     _doc.removeListener(_onDocument);
+    unawaited(_imageChanges?.cancel());
+    _paperImagesChanged.dispose();
     _turn.dispose();
     super.dispose();
   }
+
+  late final _paperImages = switch (_doc.surfaces.images) {
+    final images? => paperImagesOf(images),
+    null => null,
+  };
 
   void _onDocument() {
     final page = _doc.currentPage;
@@ -195,6 +214,8 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
                           desk: desk,
                           devicePixelRatio: dpr,
                           backgrounds: widget.backgrounds,
+                          paperImages: _paperImages,
+                          paperImagesChanged: _paperImagesChanged,
                         ),
                       ),
                     ),

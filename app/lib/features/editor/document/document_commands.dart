@@ -54,8 +54,10 @@ class DocumentCommands {
     doc.goToPage(doc.pages.indexWhere((p) => p.id == page.id));
   }
 
-  /// Adds a page like the current one (same paper and size) after it.
-  void addPage() => _changedAndShow(actions.add(PageActions.blankLike(_current), after: _current));
+  /// Adds a page like the current one (same paper and size; a planner's
+  /// next day, week or month) after it.
+  void addPage() =>
+      _changedAndShow(actions.add(PageActions.blankLike(_current, next: true), after: _current));
 
   /// Lets the user choose a template, then adds a page after the current.
   Future<void> addPageWithTemplate(BuildContext context) async {
@@ -65,7 +67,10 @@ class DocumentCommands {
       mode: TemplatePickerMode.addPage,
     );
     if (choice == null) return;
-    _changedAndShow(actions.add(specOf(choice.template), after: _current));
+    final added = actions.addAll([
+      for (final paper in choice.papers) specOf(choice.template.copyWith(paper: paper)),
+    ], after: _current);
+    _changedAndShow(added.first);
   }
 
   /// Runs [command] on [page] (from the menu or the overview).
@@ -74,7 +79,7 @@ class DocumentCommands {
       case PageCommand.insertBefore:
         _changedAndShow(actions.add(PageActions.blankLike(page), before: page));
       case PageCommand.insertAfter:
-        _changedAndShow(actions.add(PageActions.blankLike(page), after: page));
+        _changedAndShow(actions.add(PageActions.blankLike(page, next: true), after: page));
       case PageCommand.duplicate:
         _changedAndShow(actions.duplicate(page));
       case PageCommand.template:
@@ -95,7 +100,8 @@ class DocumentCommands {
       mode: TemplatePickerMode.change,
     );
     if (choice == null) return;
-    actions.setTemplate(choice.allPages ? doc.pages : [page], choice.template);
+    final targets = choice.allPages ? doc.pages : [page];
+    actions.setTemplate(targets, choice.template, papers: choice.papersForPages(targets.length));
     changed = true;
     reload();
   }

@@ -305,7 +305,7 @@ void main() {
         for (var i = 0; i < pages; i++)
           (
             size: const Size(600, 800),
-            paper: PaperStyle.blank,
+            paper: Paper(PaperStyle.blank),
             color: PaperColor.white,
             background: PageBackground.pdf(blob: blob, pageIndex: i),
           ),

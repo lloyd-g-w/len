@@ -46,7 +46,7 @@ void main() {
       unawaited(
         showTemplatePicker(
           ctx(tester),
-          initial: const PageTemplate(style: PaperStyle.collegeRuled),
+          initial: const PageTemplate(paper: Paper(PaperStyle.collegeRuled)),
           mode: TemplatePickerMode.change,
         ),
       );

@@ -139,6 +139,7 @@ Map<String, Object?> _pageData(String notebookId, {Object? background}) => {
   'width': 600,
   'height': 800,
   'paper': 'blank',
+  'paperData': <String, Object?>{},
   'paperColor': 'white',
   'bookmarked': false,
   'background': background,
@@ -408,14 +409,14 @@ void main() {
       final pdf = a.s.pages.insertPages(nb.id, [
         (
           size: const Size(612, 792),
-          paper: PaperStyle.blank,
+          paper: Paper(PaperStyle.blank),
           color: PaperColor.white,
           background: const PageBackground.pdf(blob: _sha, pageIndex: 2),
         ),
       ]).single;
       time.tick();
       a.s.pages.move(p3, 0);
-      a.s.pages.setPaper([p2.id], style: PaperStyle.gridSmall, color: PaperColor.cream);
+      a.s.pages.setPaper([p2.id], paper: Paper(PaperStyle.gridSmall), color: PaperColor.cream);
       a.s.pages.setBookmarked(p1.id, true);
       final changes = await (() async {
         await a.sync();
@@ -431,7 +432,7 @@ void main() {
         a.s.pages.pagesOf(nb.id).map((p) => p.sortKey),
       );
       final b2 = b.s.pages.get(p2.id)!;
-      expect(b2.paper, PaperStyle.gridSmall);
+      expect(b2.paper.style, PaperStyle.gridSmall);
       expect(b2.paperColor, PaperColor.cream);
       expect(b.s.pages.get(p1.id)!.bookmarked, isTrue);
       expect(b.s.pages.get(p3.id)!.bookmarked, isFalse);
@@ -863,7 +864,7 @@ void main() {
       final page = a.s.pages.insertPages(nb.id, [
         (
           size: const Size(612, 792),
-          paper: PaperStyle.blank,
+          paper: Paper(PaperStyle.blank),
           color: PaperColor.white,
           background: PageBackground.pdf(blob: sha, pageIndex: 0),
         ),

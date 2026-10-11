@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 
-import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
 import '../../documents/templates/page_setup.dart';
-import '../../documents/templates/template_gallery.dart';
+import '../../documents/templates/template_catalog.dart';
+import '../../documents/templates/template_chooser.dart';
 
-/// Template gallery, paper colour and (for notebooks) page size.
+/// Template gallery, planner dates, paper colour and (for notebooks) page
+/// size.
 class PaperTab extends StatelessWidget {
   const PaperTab({
     super.key,
-    required this.template,
+    required this.selection,
     required this.canvas,
     required this.tileWidth,
     required this.onChanged,
   });
 
-  final PageTemplate template;
+  final TemplateSelection selection;
   final bool canvas;
   final double tileWidth;
-  final ValueChanged<PageTemplate> onChanged;
+  final ValueChanged<TemplateSelection> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -27,24 +28,17 @@ class PaperTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          describeTemplate(template, canvas: canvas),
+          describeSelection(selection, canvas: canvas),
           key: const ValueKey('template-summary'),
           style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: Gaps.lg),
-        TemplateGallery(
-          selected: canvas ? template.copyWith(orientation: PageOrientation.portrait) : template,
+        TemplateChooser(
+          selection: selection,
+          canvas: canvas,
           tileWidth: tileWidth,
-          onSelect: (t) => onChanged(template.copyWith(style: t.style)),
+          onChanged: onChanged,
         ),
-        const SizedBox(height: Gaps.sm),
-        PickerLabel(canvas ? 'Background colour' : 'Paper colour'),
-        PaperColorRow(template: template, onChanged: onChanged),
-        if (!canvas) ...[
-          const SizedBox(height: Gaps.xl),
-          const PickerLabel('Page size'),
-          PageSizeRow(template: template, onChanged: onChanged),
-        ],
       ],
     );
   }

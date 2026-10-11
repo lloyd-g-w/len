@@ -1,11 +1,18 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
+import '../../app_services.dart';
+import '../../domain/image_data.dart';
 import '../../domain/paper.dart';
+import '../../ink/images/element_images.dart';
 import '../../ink/render/paper_painter.dart';
 
 /// A miniature page showing a template, drawn with the same renderer as
-/// real pages so the preview is exactly what the user gets.
-class TemplatePreview extends StatelessWidget {
+/// real pages so the preview is exactly what the user gets. Image
+/// templates appear once decoded (from the app's shared image cache).
+class TemplatePreview extends StatefulWidget {
   const TemplatePreview({super.key, required this.template, this.width = 84});
 
   final PageTemplate template;
@@ -14,12 +21,49 @@ class TemplatePreview extends StatelessWidget {
   final double width;
 
   @override
+  State<TemplatePreview> createState() => _TemplatePreviewState();
+}
+
+class _TemplatePreviewState extends State<TemplatePreview> {
+  ElementImages? _images;
+  StreamSubscription<String>? _changes;
+
+  String? get _blob => widget.template.paper.image;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final images = AppScope.maybeRead(context)?.images;
+    if (images == _images) return;
+    _images = images;
+    unawaited(_changes?.cancel());
+    _changes = images?.changes.listen((blob) {
+      if (blob == _blob && mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_changes?.cancel());
+    super.dispose();
+  }
+
+  ui.Image? _lookup(String blob, double pixelWidth) =>
+      _images?.imageFor(ImageData(blob: blob, width: 0, height: 0), pixelWidth);
+
+  @override
   Widget build(BuildContext context) {
-    final size = template.size;
+    final size = widget.template.size;
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1;
     return SizedBox(
-      width: width,
-      height: width * size.height / size.width,
-      child: CustomPaint(painter: TemplatePreviewPainter(template)),
+      width: widget.width,
+      height: widget.width * size.height / size.width,
+      child: CustomPaint(
+        painter: TemplatePreviewPainter(
+          widget.template,
+          images: _blob == null ? null : (blob, _) => _lookup(blob, widget.width * dpr),
+        ),
+      ),
     );
   }
 }
@@ -30,16 +74,21 @@ class TemplatePreview extends StatelessWidget {
 /// so the preview shows a smaller sheet of the same shape: proportions and
 /// sections stay true while lines stay distinguishable.
 class TemplatePreviewPainter extends CustomPainter {
-  const TemplatePreviewPainter(this.template);
+  const TemplatePreviewPainter(this.template, {this.images});
 
   final PageTemplate template;
 
-  /// Size of the previewed sheet relative to the real page.
-  static const double _sheet = 0.5;
+  /// Decoded image templates.
+  final PaperImageLookup? images;
+
+  /// Size of the previewed sheet relative to the real page: half for
+  /// repeating patterns, the real size for page layouts (their text and
+  /// sections are laid out for it).
+  static double sheetFor(PaperStyle style) => style.canvas || style.isRuled ? 0.5 : 1;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final page = Offset.zero & (template.size * _sheet);
+    final page = Offset.zero & (template.size * sheetFor(template.style));
     final scale = size.width / page.width;
     canvas
       ..save()
@@ -48,16 +97,18 @@ class TemplatePreviewPainter extends CustomPainter {
     PaperRenderer.paintSheet(canvas, page, template.color, scale: scale, shadow: false);
     PaperRenderer.paintPattern(
       canvas,
-      template.style,
+      template.paper,
       template.color,
       page,
       page: page,
       scale: scale,
       always: true,
+      images: images,
     );
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(TemplatePreviewPainter old) => old.template != template;
+  bool shouldRepaint(TemplatePreviewPainter old) =>
+      old.template != template || (images != null) != (old.images != null) || images != null;
 }

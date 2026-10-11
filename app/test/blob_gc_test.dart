@@ -58,7 +58,7 @@ void main() {
   NotebookPage pdfPage(Notebook n, String sha) => s.pages.insertPages(n.id, [
     (
       size: const Size(100, 140),
-      paper: PaperStyle.blank,
+      paper: Paper(PaperStyle.blank),
       color: PaperColor.white,
       background: PageBackground.pdf(blob: sha, pageIndex: 0),
     ),

@@ -161,7 +161,7 @@ void main() {
 
       final copiedPages = pages.pagesOf(copy.id);
       expect(copiedPages, hasLength(2));
-      expect(copiedPages.map((p) => p.paper), [PaperStyle.wideRuled, PaperStyle.gridLarge]);
+      expect(copiedPages.map((p) => p.paper.style), [PaperStyle.wideRuled, PaperStyle.gridLarge]);
       expect(copiedPages.map((p) => p.id).toSet().intersection({page.id}), isEmpty);
 
       final range = ChunkGrid.rangeFor(const Rect.fromLTWH(0, 0, 2000, 2000));
@@ -184,18 +184,18 @@ void main() {
       final pdfPage = pages.insertPages(source.id, [
         (
           size: const Size(612, 792),
-          paper: PaperStyle.blank,
+          paper: Paper(PaperStyle.blank),
           color: PaperColor.white,
           background: PageBackground.pdf(blob: sha, pageIndex: 2),
         ),
       ]).single;
       final first = pages.pagesOf(source.id).first;
-      pages.setPaper([first.id], style: PaperStyle.cornell, color: PaperColor.cream);
+      pages.setPaper([first.id], paper: Paper(PaperStyle.cornell), color: PaperColor.cream);
       pages.setBookmarked(pdfPage.id, true);
 
       final copy = notebooks.duplicate(source.id)!;
       final copied = pages.pagesOf(copy.id);
-      expect(copied.map((p) => p.paper), [PaperStyle.cornell, PaperStyle.blank]);
+      expect(copied.map((p) => p.paper.style), [PaperStyle.cornell, PaperStyle.blank]);
       expect(copied.map((p) => p.paperColor), [PaperColor.cream, PaperColor.white]);
       expect(copied.map((p) => p.bookmarked), [false, true]);
       expect(copied.last.background, PageBackground.pdf(blob: sha, pageIndex: 2));

@@ -63,7 +63,7 @@ void main() {
         paper: PaperStyle.dotted,
         coverColor: 0,
         firstPage: const PageTemplate(
-          style: PaperStyle.cornell,
+          paper: Paper(PaperStyle.cornell),
           color: PaperColor.cream,
           format: PageFormat.letter,
           orientation: PageOrientation.landscape,
@@ -76,7 +76,7 @@ void main() {
 
     test('the first page follows the chosen template', () {
       final page = pages.pagesOf(nb.id).single;
-      expect(page.paper, PaperStyle.cornell);
+      expect(page.paper.style, PaperStyle.cornell);
       expect(page.paperColor, PaperColor.cream);
       expect(page.size, const Size(1056, 816));
       expect(page.template.orientation, PageOrientation.landscape);
@@ -110,10 +110,10 @@ void main() {
       for (final st in s.sync.engine.stores) {
         st.markClean([for (final r in st.dirtyRecords(1000)) (id: r.id, updatedAt: r.updatedAt)]);
       }
-      pages.setPaper([page.id], style: PaperStyle.music, color: PaperColor.dark);
+      pages.setPaper([page.id], paper: Paper(PaperStyle.music), color: PaperColor.dark);
       pages.setBookmarked(page.id, true);
       final updated = pages.get(page.id)!;
-      expect(updated.paper, PaperStyle.music);
+      expect(updated.paper.style, PaperStyle.music);
       expect(updated.paperColor, PaperColor.dark);
       expect(updated.bookmarked, isTrue);
       final record = pages.dirtyRecords(10).single;
@@ -142,6 +142,7 @@ void main() {
         'width': 500,
         'height': 600,
         'paper': 'dotted',
+        'paperData': <String, Object?>{},
         'paperColor': 'cream',
         'bookmarked': true,
         'background': null,
@@ -152,6 +153,8 @@ void main() {
       }
       for (final (key, value) in [
         ('paper', 'hexagons'),
+        ('paper', 'dailyPlanner'), // A planner needs a date.
+        ('paperData', 'none'),
         ('paperColor', 'sepia'),
         ('background', {'type': 'video', 'url': 'x'}),
         ('height', 0),
@@ -163,7 +166,7 @@ void main() {
 
       expect(pages.applyRemote(record(complete)), isTrue);
       final local = pages.get(page.id)!;
-      expect(local.paper, PaperStyle.dotted);
+      expect(local.paper.style, PaperStyle.dotted);
       expect(local.paperColor, PaperColor.cream);
       expect(local.bookmarked, isTrue);
       expect(local.size, const Size(500, 600));
@@ -175,7 +178,7 @@ void main() {
         for (var i = 0; i < 3; i++)
           (
             size: const Size(612, 792),
-            paper: PaperStyle.blank,
+            paper: Paper(PaperStyle.blank),
             color: PaperColor.white,
             background: PageBackground.pdf(blob: sha, pageIndex: i),
           ),

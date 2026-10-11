@@ -11,11 +11,11 @@ import 'syncable.dart';
 import 'syncable_table.dart';
 
 /// What a new page looks like.
-typedef PageSpec = ({Size size, PaperStyle paper, PaperColor color, PageBackground? background});
+typedef PageSpec = ({Size size, Paper paper, PaperColor color, PageBackground? background});
 
 /// A [PageSpec] for a blank page made from [template].
 PageSpec specOf(PageTemplate template) =>
-    (size: template.size, paper: template.style, color: template.color, background: null);
+    (size: template.size, paper: template.paper, color: template.color, background: null);
 
 /// Persists the pages of paged notebooks. Local edits only update the
 /// columns they change.
@@ -43,7 +43,8 @@ class PageRepository extends SyncableTable {
   }
 
   /// Adds a blank page after [after] (or before [before]; at the end when
-  /// both are null). Uses [template], or a blank A4 page of [paper].
+  /// both are null). Uses [template], or an A4 page of [paper] (blank for
+  /// styles that need parameters).
   NotebookPage addPage(
     String notebookId, {
     PaperStyle? paper,
@@ -51,7 +52,8 @@ class PageRepository extends SyncableTable {
     NotebookPage? after,
     NotebookPage? before,
   }) {
-    final t = template ?? PageTemplate(style: paper ?? PaperStyle.blank);
+    final style = paper == null || paper.needsParams ? PaperStyle.blank : paper;
+    final t = template ?? PageTemplate.of(style);
     return insertPages(notebookId, [specOf(t)], after: after, before: before).single;
   }
 
@@ -129,10 +131,12 @@ class PageRepository extends SyncableTable {
 
   /// Sets the paper of the given pages (the template of existing pages;
   /// their size and background stay).
-  void setPaper(Iterable<String> pageIds, {PaperStyle? style, PaperColor? color}) {
+  void setPaper(Iterable<String> pageIds, {Paper? paper, PaperColor? color}) {
     database.transaction(() {
       for (final id in pageIds) {
-        if (style != null) _update(id, 'paper = ?', [style.name]);
+        if (paper != null) {
+          _update(id, 'paper = ?, paper_data = ?', [paper.style.name, jsonEncode(paper.toData())]);
+        }
         if (color != null) _update(id, 'paper_color = ?', [color.name]);
       }
     });
@@ -172,6 +176,17 @@ class PageRepository extends SyncableTable {
       ?_decodeBackground(row['background'] as String?)?.blob,
   };
 
+  /// Live pages of [notebookId] with planner template [paper] (same style
+  /// and date), in page order: where a planner link leads.
+  List<NotebookPage> pagesWithPaper(String notebookId, Paper paper) => db
+      .select(
+        'SELECT * FROM pages WHERE notebook_id = ? AND deleted = 0 AND paper = ? '
+        'AND paper_data = ? ORDER BY sort_key, id',
+        [notebookId, paper.style.name, jsonEncode(paper.toData())],
+      )
+      .map(_rowToPage)
+      .toList();
+
   /// Gives every page of [notebookId] an integer key (1, 2, …).
   void _renumber(String notebookId) {
     final pages = pagesOf(notebookId);
@@ -209,6 +224,7 @@ class PageRepository extends SyncableTable {
               'width': row['width'],
               'height': row['height'],
               'paper': row['paper'],
+              'paperData': jsonDecode(row['paper_data'] as String),
               'paperColor': row['paper_color'],
               'bookmarked': row['bookmarked'] == 1,
               'background': background == null ? null : jsonDecode(background),
@@ -238,6 +254,9 @@ class PageRepository extends SyncableTable {
     final rawBackground = f.objectOrNull('background');
     final background = rawBackground == null ? null : PageBackground.fromJson(rawBackground);
     if (rawBackground != null && background == null) f.invalid('background');
+    final paper =
+        Paper.fromData(f.choice('paper', PaperStyle.values), f.object('paperData')) ??
+        f.invalid('paperData');
     _insert(
       NotebookPage(
         id: record.id,
@@ -245,7 +264,7 @@ class PageRepository extends SyncableTable {
         sortKey: f.number('sortKey'),
         width: width,
         height: height,
-        paper: f.choice('paper', PaperStyle.values),
+        paper: paper,
         paperColor: f.choice('paperColor', PaperColor.values),
         bookmarked: f.boolean('bookmarked'),
         background: background,
@@ -266,16 +285,17 @@ class PageRepository extends SyncableTable {
     db.execute(
       '''
       INSERT OR REPLACE INTO pages (id, notebook_id, sort_key, width, height, paper,
-                                    paper_color, bookmarked, background,
+                                    paper_data, paper_color, bookmarked, background,
                                     updated_at, device_id, deleted, dirty)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
       [
         page.id,
         page.notebookId,
         page.sortKey,
         page.width,
         page.height,
-        page.paper.name,
+        page.paper.style.name,
+        jsonEncode(page.paper.toData()),
         page.paperColor.name,
         page.bookmarked ? 1 : 0,
         background == null ? null : jsonEncode(background.toJson()),
@@ -295,13 +315,25 @@ class PageRepository extends SyncableTable {
     }
   }
 
+  static Paper _decodePaper(String style, String data) {
+    try {
+      final json = jsonDecode(data);
+      if (json is Map<String, Object?>) {
+        return Paper.fromData(PaperStyle.parse(style), json) ?? Paper.blank;
+      }
+    } on FormatException {
+      // Corrupt local data reads as blank paper.
+    }
+    return Paper.blank;
+  }
+
   static NotebookPage _rowToPage(Row row) => NotebookPage(
     id: row['id'] as String,
     notebookId: row['notebook_id'] as String,
     sortKey: (row['sort_key'] as num).toDouble(),
     width: (row['width'] as num).toDouble(),
     height: (row['height'] as num).toDouble(),
-    paper: PaperStyle.parse(row['paper'] as String),
+    paper: _decodePaper(row['paper'] as String, row['paper_data'] as String),
     paperColor: PaperColor.parse(row['paper_color'] as String?),
     bookmarked: row['bookmarked'] == 1,
     background: _decodeBackground(row['background'] as String?),

@@ -70,7 +70,7 @@ class ExportOptions {
 
 /// [page] as exported: without a template it is plain white paper.
 NotebookPage exportedPage(NotebookPage page, {required bool includeTemplate}) =>
-    includeTemplate ? page : page.copyWith(paper: PaperStyle.blank, paperColor: PaperColor.white);
+    includeTemplate ? page : page.copyWith(paper: Paper.blank, paperColor: PaperColor.white);
 
 /// Parses a page range such as "1-3, 5" for a notebook of [count] pages
 /// into ascending zero-based indices, or explains what is wrong.

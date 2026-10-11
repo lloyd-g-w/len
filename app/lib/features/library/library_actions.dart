@@ -63,6 +63,7 @@ class LibraryActions {
       coverColor: request.coverColor,
       coverStyle: request.coverStyle,
       firstPage: request.template,
+      papers: request.papers,
     );
     await openNotebook(context, notebook);
   }

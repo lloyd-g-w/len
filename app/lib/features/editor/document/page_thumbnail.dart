@@ -4,10 +4,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../../data/surface_copier.dart';
+import '../../../domain/image_data.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/surface_element.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/content_painter.dart';
+import '../../../ink/render/paper_painter.dart';
 import 'page_backgrounds.dart';
 import 'page_painting.dart';
 
@@ -62,7 +64,20 @@ class ThumbnailCache extends ChangeNotifier {
     return recorder.endRecording();
   }
 
+  /// Image templates drawn by thumbnails (redrawn once decoded).
+  final Set<String> _paperBlobs = {};
+
+  /// An image template's bitmap for a thumbnail [pixelWidth] wide.
+  ui.Image? paperImage(String blob, double pixelWidth) {
+    _paperBlobs.add(blob);
+    return images?.imageFor(ImageData(blob: blob, width: 0, height: 0), pixelWidth);
+  }
+
   void _onImage(String blob) {
+    if (_paperBlobs.contains(blob)) {
+      notifyListeners();
+      return;
+    }
     final pages = [
       for (final entry in _blobs.entries)
         if (entry.value.contains(blob)) entry.key,
@@ -103,6 +118,7 @@ class PageThumbnail extends StatelessWidget {
             cache.inkOf(page.id),
             backgrounds,
             MediaQuery.devicePixelRatioOf(context),
+            cache.paperImage,
           ),
         ),
       ),
@@ -111,12 +127,14 @@ class PageThumbnail extends StatelessWidget {
 }
 
 class _ThumbnailPainter extends CustomPainter {
-  _ThumbnailPainter(this.page, this.ink, this.backgrounds, this.dpr) : super(repaint: backgrounds);
+  _ThumbnailPainter(this.page, this.ink, this.backgrounds, this.dpr, this.paperImage)
+    : super(repaint: backgrounds);
 
   final NotebookPage page;
   final ui.Picture ink;
   final PageBackgrounds? backgrounds;
   final double dpr;
+  final PaperImageLookup paperImage;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -133,6 +151,7 @@ class _ThumbnailPainter extends CustomPainter {
       scale: scale,
       background: image,
       miniature: true,
+      paperImages: (blob, _) => paperImage(blob, size.width * dpr),
     );
     canvas
       ..clipRect(Offset.zero & page.size)

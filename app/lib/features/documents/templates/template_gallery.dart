@@ -1,40 +1,42 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/paper.dart';
+import '../../../domain/templates/user_template.dart';
 import '../../../ui/app_theme.dart';
 import '../template_preview.dart';
+import 'template_catalog.dart';
 
-/// Templates grouped the way people look for them.
-const List<(String, List<PaperStyle>)> templateGroups = [
-  ('Basic', [PaperStyle.blank, PaperStyle.dotted]),
-  (
-    'Lined',
-    [PaperStyle.narrowRuled, PaperStyle.collegeRuled, PaperStyle.wideRuled, PaperStyle.cornell],
-  ),
-  ('Grid', [PaperStyle.gridSmall, PaperStyle.gridLarge, PaperStyle.isometric]),
-  ('Music', [PaperStyle.music]),
-];
-
-/// Every template as a live miniature (in the chosen colour, size and
-/// orientation), grouped under small headings.
+/// Template sections (see [templateSections]) as live miniatures in the
+/// selected colour and size, under small headings. "My templates" ends
+/// with an import tile; its templates have a menu (rename, delete).
 class TemplateGallery extends StatelessWidget {
   const TemplateGallery({
     super.key,
-    required this.selected,
+    required this.sections,
+    required this.selection,
     required this.onSelect,
     this.tileWidth = 84,
+    this.onImport,
+    this.onTemplateMenu,
   });
 
-  final PageTemplate selected;
-  final ValueChanged<PageTemplate> onSelect;
+  final List<(TemplateCategory, List<TemplateEntry>)> sections;
+  final TemplateSelection selection;
+  final ValueChanged<TemplateEntry> onSelect;
 
   /// Width of a portrait miniature; landscape tiles are wider.
   final double tileWidth;
 
+  /// Imports a template (the tile is hidden when null).
+  final VoidCallback? onImport;
+
+  /// Opens the menu of one of the user's templates at a global position.
+  final void Function(UserTemplate template, Offset position)? onTemplateMenu;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final landscape = selected.orientation == PageOrientation.landscape;
+    final landscape = selection.template.orientation == PageOrientation.landscape;
     final width = landscape ? tileWidth * 1.3 : tileWidth;
     // Groups flow side by side when there is room, one under the other
     // on narrow screens.
@@ -43,7 +45,7 @@ class TemplateGallery extends StatelessWidget {
         spacing: Gaps.xl,
         runSpacing: Gaps.md,
         children: [
-          for (final (group, styles) in templateGroups)
+          for (final (category, entries) in sections)
             ConstrainedBox(
               constraints: BoxConstraints(maxWidth: constraints.maxWidth),
               child: Column(
@@ -53,7 +55,7 @@ class TemplateGallery extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: Gaps.xs, left: Gaps.xs),
                     child: Text(
-                      group.toUpperCase(),
+                      category.label.toUpperCase(),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         letterSpacing: 0.8,
@@ -64,20 +66,87 @@ class TemplateGallery extends StatelessWidget {
                     spacing: Gaps.xxs,
                     runSpacing: Gaps.xs,
                     children: [
-                      for (final style in styles)
-                        TemplateTile(
-                          key: ValueKey('template-${style.name}'),
-                          template: selected.copyWith(style: style),
-                          width: width,
-                          selected: selected.style == style,
-                          onTap: () => onSelect(selected.copyWith(style: style)),
-                        ),
+                      for (final entry in entries) _tile(entry, width),
+                      if (category == TemplateCategory.mine && onImport != null)
+                        _ImportTile(width: width, height: width * 1.414, onTap: onImport!),
                     ],
                   ),
                 ],
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _tile(TemplateEntry entry, double width) {
+    final template = selection.templateFor(entry);
+    final user = entry is MyTemplate ? entry.template : null;
+    final tileWidth = user == null ? width : width * (user.width / user.height) / (1 / 1.414);
+    return TemplateTile(
+      key: ValueKey(switch (entry) {
+        BuiltInTemplate(:final style) => 'template-${style.name}',
+        MyTemplate(:final template) => 'my-template-${template.id}',
+      }),
+      template: template,
+      label: entry.name,
+      width: user == null ? width : tileWidth.clamp(width * 0.7, width * 1.6),
+      selected: selection.isSelected(entry),
+      onTap: () => onSelect(entry),
+      onMenu: user == null || onTemplateMenu == null
+          ? null
+          : (position) => onTemplateMenu!(user, position),
+    );
+  }
+}
+
+/// "Import…": adds an image or PDF page to My templates.
+class _ImportTile extends StatelessWidget {
+  const _ImportTile({required this.width, required this.height, required this.onTap});
+
+  final double width;
+  final double height;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Semantics(
+      button: true,
+      label: 'Import template',
+      child: InkWell(
+        key: const ValueKey('import-template'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Radii.control),
+        child: Padding(
+          padding: const EdgeInsets.all(Gaps.xs),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: width + 6,
+                height: height + 6,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(Radii.sm),
+                  border: Border.all(color: scheme.outline.withValues(alpha: 0.6)),
+                  color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+                ),
+                child: Icon(Icons.add_photo_alternate_outlined, color: scheme.primary),
+              ),
+              const SizedBox(height: Gaps.xs),
+              SizedBox(
+                width: width + 10,
+                child: Text(
+                  'Import…',
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -89,15 +158,21 @@ class TemplateTile extends StatelessWidget {
   const TemplateTile({
     super.key,
     required this.template,
+    required this.label,
     required this.width,
     required this.selected,
     required this.onTap,
+    this.onMenu,
   });
 
   final PageTemplate template;
+  final String label;
   final double width;
   final bool selected;
   final VoidCallback onTap;
+
+  /// Opens the tile's menu at a global position (long press, right click).
+  final ValueChanged<Offset>? onMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -106,9 +181,11 @@ class TemplateTile extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: template.style.label,
+      label: label,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onMenu == null ? null : () => onMenu!(_center(context)),
+        onSecondaryTapUp: onMenu == null ? null : (d) => onMenu!(d.globalPosition),
         borderRadius: BorderRadius.circular(Radii.control),
         child: Padding(
           padding: const EdgeInsets.all(Gaps.xs),
@@ -148,7 +225,7 @@ class TemplateTile extends StatelessWidget {
               SizedBox(
                 width: width + 10,
                 child: Text(
-                  template.style.label,
+                  label,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -163,6 +240,11 @@ class TemplateTile extends StatelessWidget {
       ),
     );
   }
+}
+
+Offset _center(BuildContext context) {
+  final box = context.findRenderObject() as RenderBox?;
+  return box == null ? Offset.zero : box.localToGlobal(box.size.center(Offset.zero));
 }
 
 class _CheckBadge extends StatelessWidget {
