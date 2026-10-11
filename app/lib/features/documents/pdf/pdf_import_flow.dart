@@ -20,18 +20,24 @@ Future<Notebook?> importPdfFlow(BuildContext context, {XFile? file}) async {
   final picked = file ?? await openFile(acceptedTypeGroups: _pdfTypes);
   if (picked == null || !context.mounted) return null;
   final importer = PdfImporter(services);
+  String? sha;
   try {
-    return await runWithSteps(context, 'Importing PDF', subject: picked.name, (progress) async {
+    return await runWithSteps(context, 'Importing PDF', subject: picked.name, cancellable: true, (
+      progress,
+    ) async {
       progress.stageStarted('Copying file…');
-      final sha = await importer.store(picked);
+      sha = await importer.store(picked, cancel: progress.token);
       progress.stageStarted('Reading pages…');
       return importer.createNotebook(
-        sha,
+        sha!,
         title: PdfImporter.titleFor(picked.name),
         cover: Palette.covers[3],
         onPages: (n) => progress.stageStarted('Creating pages…', note: _pages(n)),
       );
     });
+  } on Cancelled {
+    if (sha != null) await importer.discard(sha!);
+    return null;
   } on Exception catch (e) {
     if (context.mounted) showMessage(context, _failure(picked.name, e));
     return null;
@@ -52,18 +58,24 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
   final picked = file ?? await openFile(acceptedTypeGroups: _pdfTypes);
   if (picked == null || !context.mounted) return null;
   final importer = PdfImporter(services);
+  String? sha;
   try {
-    return await runWithSteps(context, 'Inserting pages', subject: picked.name, (progress) async {
+    return await runWithSteps(context, 'Inserting pages', subject: picked.name, cancellable: true, (
+      progress,
+    ) async {
       progress.stageStarted('Copying file…');
-      final sha = await importer.store(picked);
+      sha = await importer.store(picked, cancel: progress.token);
       progress.stageStarted('Reading pages…');
       return importer.insertPages(
-        sha,
+        sha!,
         notebookId: notebookId,
         after: after,
         onPages: (n) => progress.stageStarted('Inserting pages…', note: _pages(n)),
       );
     });
+  } on Cancelled {
+    if (sha != null) await importer.discard(sha!);
+    return null;
   } on Exception catch (e) {
     if (context.mounted) showMessage(context, _failure(picked.name, e));
     return null;

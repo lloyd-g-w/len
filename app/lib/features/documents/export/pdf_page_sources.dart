@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 
 import 'vector/pdf_source_reader.dart';

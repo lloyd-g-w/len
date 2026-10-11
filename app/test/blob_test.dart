@@ -12,6 +12,7 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/blob_backend.dart';
 import 'package:len/data/blob_store.dart';
+import 'package:len/domain/cancellation.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
@@ -104,6 +105,24 @@ void main() {
     expect(store.localPath(sha), endsWith('${sha.substring(0, 2)}/$sha'));
     expect(File(store.localPath(sha)!).readAsBytesSync(), bytes);
     expect(dir.listSync(recursive: true).where((f) => f.path.endsWith('.tmp')), isEmpty);
+  });
+
+  test('a cancelled putFile stores nothing; cancelled imports discard their blob', () async {
+    final store = BlobStore(AppDatabase.inMemory(), MemoryBlobBackend());
+    final bytes = Uint8List.fromList(utf8.encode('%PDF-1.4 cancel me'));
+    final token = CancellationToken()..cancel();
+    await expectLater(
+      store.putFile(XFile.fromData(bytes), mime: 'application/pdf', cancel: token),
+      throwsA(isA<Cancelled>()),
+    );
+    expect(store.pendingUploads(), isEmpty);
+
+    final sha = await store.putFile(XFile.fromData(bytes), mime: 'application/pdf');
+    await store.discardIfUnreferenced(sha, () => {sha}); // Still used: kept.
+    expect(await store.has(sha), isTrue);
+    await store.discardIfUnreferenced(sha, () => {});
+    expect(await store.has(sha), isFalse);
+    expect(store.pendingUploads(), isEmpty);
   });
 
   test('downloaded blobs are verified', () async {
