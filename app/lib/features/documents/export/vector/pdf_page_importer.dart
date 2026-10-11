@@ -5,8 +5,6 @@ import 'dart:typed_data';
 
 import 'package:pdf/pdf.dart' as pw;
 // ignore: implementation_imports
-import 'package:pdf/src/pdf/obj/formxobject.dart' as pw;
-// ignore: implementation_imports
 import 'package:pdf/src/priv.dart' as pw;
 
 import 'cos.dart';
@@ -26,7 +24,7 @@ class PdfPageImporter {
   final pw.PdfDocument target;
 
   final _copied = <PdfSourceReader, Map<int, pw.PdfDataType>>{};
-  final _forms = <PdfSourceReader, Map<int, pw.PdfFormXObject>>{};
+  final _forms = <PdfSourceReader, Map<int, pw.PdfImage>>{};
 
   static const _skippedTypes = {'Page', 'Pages', 'Catalog'};
   static const _skippedKeys = {'Parent', 'P'};
@@ -75,7 +73,7 @@ class PdfPageImporter {
       throw PdfReadException('Bad /Contents');
     }
     return ImportedPdfPage(
-      content: RawFormXObject(target, values, data),
+      content: rawFormXObject(target, values, data),
       annotations: _annotations(source, page),
       cropBox: crop,
       rotate: page.rotate,
@@ -145,11 +143,11 @@ class PdfPageImporter {
   static double _min(double a, double b) => a < b ? a : b;
   static double _max(double a, double b) => a > b ? a : b;
 
-  pw.PdfFormXObject _form(PdfSourceReader source, CosObject? ref, CosStream stream) {
+  pw.PdfImage _form(PdfSourceReader source, CosObject? ref, CosStream stream) {
     final memo = _forms.putIfAbsent(source, () => {});
     final key = ref is CosRef ? ref.number : null;
     if (key != null && memo[key] != null) return memo[key]!;
-    final form = RawFormXObject(
+    final form = rawFormXObject(
       target,
       _convertDict(source, stream.dict, stream: true).values,
       stream.raw,

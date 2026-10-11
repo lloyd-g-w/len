@@ -3,37 +3,48 @@ library;
 
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart' show ZLibEncoder;
 import 'package:flutter/rendering.dart' show Matrix4, Size;
 import 'package:pdf/pdf.dart' as pw;
 // ignore: implementation_imports
-import 'package:pdf/src/pdf/obj/formxobject.dart' as pw;
-// ignore: implementation_imports
 import 'package:pdf/src/priv.dart' as pw;
 
-/// A Form XObject written with a caller-supplied dictionary and raw stream
-/// bytes (already encoded when the dictionary has a `/Filter`).
-class RawFormXObject extends pw.PdfFormXObject {
-  /// Creates the form in [document]; `/Type`, `/Subtype` and `/Length` are set
-  /// on output.
-  RawFormXObject(super.document, this.values, this.data);
-
-  /// The form dictionary entries (keys with a leading slash).
-  final Map<String, pw.PdfDataType> values;
-
-  /// The stream bytes.
-  final Uint8List data;
-
-  @override
-  void writeContent(pw.PdfStream s) {
-    final v = {
-      ...values,
-      '/Type': const pw.PdfName('/XObject'),
-      '/Subtype': const pw.PdfName('/Form'),
-    }..remove('/Length');
-    if (!v.containsKey('/Filter')) v.remove('/DecodeParms');
-    pw.PdfDictStream(values: v, data: data).output(this, s, settings.verbose ? 0 : null);
-    s.putByte(0x0a);
+/// Creates a Form XObject in [document] from the dictionary entries [values]
+/// (keys with a leading slash) and the raw stream bytes [data] (already encoded
+/// when [values] has a `/Filter`; deflated here otherwise).
+///
+/// `package:pdf` 3.13.1's `PdfGraphics.drawXObject` registers forms under a
+/// resource key without the leading slash (an invalid name), so the form is
+/// built on a [pw.PdfImage] (whose name is correct) drawn with `drawImage` on a
+/// unit square. Its dictionary and stream are replaced entirely, so the written
+/// object is a plain Form XObject. Encrypted target documents are not
+/// supported (`PdfImage.jpegStream` throws for them).
+pw.PdfImage rawFormXObject(
+  pw.PdfDocument document,
+  Map<String, pw.PdfDataType> values,
+  Uint8List data,
+) {
+  final v = {...values}..remove('/Length');
+  if (!v.containsKey('/Filter')) {
+    v.remove('/DecodeParms');
+    if (data.isNotEmpty) {
+      data = ZLibEncoder().encodeBytes(data);
+      v['/Filter'] = const pw.PdfName('/FlateDecode');
+    }
   }
+  final form = pw.PdfImage.jpegStream(
+    document,
+    width: 1,
+    height: 1,
+    length: data.length,
+    write: (s) => s.putBytes(data),
+  );
+  form.params.values
+    ..clear()
+    ..addAll(v)
+    ..['/Type'] = const pw.PdfName('/XObject')
+    ..['/Subtype'] = const pw.PdfName('/Form');
+  return form;
 }
 
 /// A flattened annotation appearance: a form drawn with [matrix] in the
@@ -43,7 +54,7 @@ class AnnotationAppearance {
   AnnotationAppearance(this.form, this.matrix);
 
   /// The copied appearance stream.
-  final pw.PdfFormXObject form;
+  final pw.PdfImage form;
 
   /// The matrix `[a b c d e f]` mapping form space (after its `/Matrix`) to
   /// page space (PDF 32000-1 §12.5.5 matrix A).
@@ -61,7 +72,7 @@ class ImportedPdfPage {
   });
 
   /// The page content as a form whose `/BBox` is [cropBox].
-  final pw.PdfFormXObject content;
+  final pw.PdfImage content;
 
   /// Flattened annotation appearances, drawn above [content] in order.
   final List<AnnotationAppearance> annotations;
@@ -88,12 +99,12 @@ class ImportedPdfPage {
       ..setTransform(_matrix4(m))
       ..drawRect(cropBox[0], cropBox[1], cropBox[2] - cropBox[0], cropBox[3] - cropBox[1])
       ..clipPath()
-      ..drawXObject(content, 0, 0);
+      ..drawImage(content, 0, 0, 1, 1);
     for (final a in annotations) {
       g
         ..saveContext()
         ..setTransform(_matrix4(a.matrix))
-        ..drawXObject(a.form, 0, 0)
+        ..drawImage(a.form, 0, 0, 1, 1)
         ..restoreContext();
     }
     g.restoreContext();
