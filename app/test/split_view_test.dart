@@ -82,6 +82,32 @@ void main() {
     });
   });
 
+  test('closing the active tab next to the split tab moves it to the first pane', () {
+    final tabs = OpenNotebooks();
+    addTearDown(tabs.dispose);
+    tabs
+      ..open(notebook('a'))
+      ..open(notebook('b'))
+      ..openSplit('a');
+    tabs.splitView = const EditorViewState(scale: 2, offset: Offset(5, 6));
+    tabs.close('b');
+    expect((tabs.activeId, tabs.splitId), ('a', null));
+    expect(tabs.viewOf('a')?.scale, 2, reason: 'where the second pane was looking');
+  });
+
+  test('the tab limit never closes the tab shown in the second pane', () {
+    final tabs = OpenNotebooks(maxTabs: 3);
+    addTearDown(tabs.dispose);
+    tabs
+      ..open(notebook('a'))
+      ..open(notebook('b'))
+      ..openSplit('a')
+      ..open(notebook('c'))
+      ..open(notebook('d'));
+    expect(tabs.splitId, 'a');
+    expect(tabs.tabs.map((t) => t.id), unorderedEquals(['a', 'c', 'd']));
+  });
+
   test('split view fits tablets in landscape and desktops only', () {
     expect(SplitView.fits(const Size(1440, 900)), isTrue);
     expect(SplitView.fits(const Size(1280, 800)), isTrue);
@@ -216,6 +242,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(s.openNotebooks.splitId, chemistry.id);
     expect(find.byType(EditorScreen), findsNWidgets(2));
+    await closeEditor(tester);
+  });
+
+  testWidgets('swapping panes keeps where each notebook was looking', (tester) async {
+    final (s, physics, chemistry) = await pumpWorkspace(tester);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    PagedDocumentView view(int pane) => tester.widget<PagedDocumentView>(paneOf(pane));
+    final second = view(1).controller.viewport;
+    second.zoomAt(tester.getCenter(paneOf(1)), 1.5);
+    await tester.pump();
+    final (left, right) = (view(0).controller.viewport.scale, second.scale);
+    expect(right, isNot(closeTo(left, 1e-3)));
+    s.openNotebooks.swapSplit();
+    await tester.pumpAndSettle();
+    expect((s.openNotebooks.activeId, s.openNotebooks.splitId), (chemistry.id, physics.id));
+    expect(view(0).controller.viewport.scale, closeTo(right, 1e-6));
+    expect(view(1).controller.viewport.scale, closeTo(left, 1e-6));
+    await closeEditor(tester);
+  });
+
+  testWidgets('the second pane presenting, then closed: the first pane shows again', (
+    tester,
+  ) async {
+    final (s, _, chemistry) = await pumpWorkspace(tester);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('More options').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Present'));
+    await tester.pumpAndSettle();
+    expect(paneOf(0), findsOneWidget, reason: 'only the presenting pane is shown');
+    s.openNotebooks.closeSplit();
+    await tester.pumpAndSettle();
+    expect(paneOf(0), findsOneWidget);
+    expect(find.byTooltip('Undo (Ctrl+Z)'), findsOneWidget, reason: 'with its chrome');
+    expect(tester.takeException(), isNull);
     await closeEditor(tester);
   });
 

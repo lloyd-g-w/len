@@ -140,7 +140,8 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
           : null,
       fraction: _tabs.splitFraction,
       onFraction: (f) => setState(() => _tabs.splitFraction = f),
-      solo: presenting?.secondary,
+      // Only a pane that is shown presents alone (the second may be gone).
+      solo: split || presenting?.secondary == false ? presenting?.secondary : null,
     );
   }
 }
