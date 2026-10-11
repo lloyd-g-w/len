@@ -63,9 +63,6 @@ class OutlineRepository extends SyncableTable {
     _tombstone(id);
   });
 
-  /// Undoes [delete] of [entry] (its children stay where they moved).
-  void restore(OutlineEntry entry) => update(entry);
-
   /// Tombstones every entry of notebook [notebookId] (deleted forever).
   void deleteAllOf(String notebookId) => database.transaction(() {
     for (final r in db.select('SELECT id FROM outline WHERE notebook_id = ? AND deleted = 0', [

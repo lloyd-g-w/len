@@ -5,8 +5,9 @@ import 'chrome/editor_menu_actions.dart';
 import 'document/document_layout.dart';
 import 'document/page_overview.dart';
 import 'editor_session.dart';
+import 'outline/outline_panel.dart';
 import 'page_navigator.dart';
-import 'pdf/pdf_outline_sheet.dart';
+import 'tags/editor_tags.dart';
 
 /// Builds what the top bar and menus offer for [session]; page commands
 /// act on the current page. The editor screen supplies the actions that
@@ -51,9 +52,10 @@ EditorMenuActions editorMenuActions(
     onAddWithTemplate: paged ? () => commands.addPageWithTemplate(context) : null,
     onInsertPdf: paged ? () => commands.insertPdf(context) : null,
     onExport: paged ? () => commands.export(context) : null,
-    onOutline: paged && (session.pdf?.hasPdf ?? false)
-        ? () => showPdfOutline(context, session.pdf!)
-        : null,
+    onOutline: paged ? () => showOutline(context, session) : null,
+    onAddToOutline: paged ? () => addPageToOutline(context, session) : null,
+    onPageTags: paged ? () => editPageTags(context, session, page) : null,
+    onTags: () => editNotebookTags(context, session),
     flow: doc?.flow,
     onFlow: paged ? onFlow : null,
     fit: doc?.fit,

@@ -76,7 +76,7 @@ void main() {
         await settle(tester);
         await tester.tap(find.byTooltip('More options'));
         await settle(tester);
-        await tester.tap(find.text('PDF outline'));
+        await tester.tap(find.text('Outline'));
         await wait(tester, 10);
         await settle(tester);
         await shoot(tester, 'pdf_outline_${name}_${mode.name}');
