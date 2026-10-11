@@ -123,7 +123,7 @@ class LibraryActions {
       case NotebookAction.rename:
         final title = await showTextPrompt(
           context,
-          title: 'Rename',
+          title: 'Rename notebook',
           initialValue: notebook.title,
           confirmLabel: 'Rename',
         );

@@ -14,6 +14,7 @@ import 'package:len/features/library/new_notebook_tile.dart';
 import 'package:len/features/library/notebook_card.dart';
 import 'package:len/features/library/notebook_list_tile.dart';
 import 'package:len/ui/sidebar_item.dart';
+import 'package:len/ui/menus.dart';
 
 import 'ui_library_test.dart' show pumpLibrary;
 
@@ -103,7 +104,7 @@ void main() {
     // Edit: back to the plain folder icon.
     await tester.tap(find.byTooltip('Folder options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit folder'));
+    await tester.tap(find.text('Edit folder…'));
     await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('Folder icon'));
     await tester.pumpAndSettle();
@@ -223,7 +224,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.sort_rounded));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(CheckedPopupMenuItem<LibrarySort>, 'Name'));
+    await tester.tap(find.widgetWithText(MenuRow<LibrarySort>, 'Name'));
     await tester.pumpAndSettle();
     expect(services.preferences.librarySort, LibrarySort.name);
     final titles = tester
@@ -272,7 +273,7 @@ void main() {
     });
     await tester.tap(find.byTooltip('Folder options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete folder'));
+    await tester.tap(find.text('Delete folder…'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();

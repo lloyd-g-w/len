@@ -243,7 +243,7 @@ void main() {
 
     await tester.longPress(find.text('Lab sheet'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Rename'));
+    await tester.tap(find.text('Rename…'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Lab');
     await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
@@ -262,7 +262,7 @@ void main() {
     await _tapKey(tester, 'category-mine');
     await tester.longPress(find.text('Lab'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete template'));
+    await tester.tap(find.text('Delete…'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();

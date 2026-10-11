@@ -173,12 +173,12 @@ void main() {
 
         await tap(tester, find.text('Trash').first);
         await tap(tester, moreOf('Old drafts'));
-        expect(find.text('Delete forever'), findsOneWidget);
+        expect(find.text('Delete forever…'), findsOneWidget);
         await shoot(tester, 's_library_trash_menu_${name}_$m');
-        await tap(tester, find.text('Delete forever'));
+        await tap(tester, find.text('Delete forever…'));
         await shoot(tester, 's_dialog_delete_forever_${name}_$m');
         await tap(tester, find.text('Cancel'));
-        await tap(tester, find.text('Empty trash'));
+        await tap(tester, emptyTrashButton());
         await tap(tester, find.text('Empty trash').last);
         expect(find.text('Old drafts'), findsNothing);
         await shoot(tester, 's_library_trash_empty_${name}_$m');

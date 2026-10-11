@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/folder.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/section_label.dart';
 import '../../ui/sidebar_item.dart';
 import '../../ui/sync_status_button.dart';
 import 'folder_icons.dart';
@@ -79,16 +80,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                     padding: const EdgeInsets.only(left: Gaps.md, bottom: Gaps.xs),
                     child: Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            'FOLDERS',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              letterSpacing: 1.1,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
+                        Expanded(child: SectionLabel('Folders')),
                         IconButton(
                           tooltip: 'New folder',
                           iconSize: 18,

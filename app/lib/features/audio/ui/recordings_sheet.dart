@@ -107,11 +107,11 @@ class _RecordingTile extends StatelessWidget {
         icon: const Icon(Icons.more_vert_rounded),
         onSelected: (action) => unawaited(_run(context, action)),
         itemBuilder: (_) => const [
-          MenuRow(value: 'rename', icon: Icons.edit_outlined, label: 'Rename'),
+          MenuRow(value: 'rename', icon: Icons.edit_outlined, label: 'Rename…'),
           MenuRow(
             value: 'delete',
             icon: Icons.delete_outline_rounded,
-            label: 'Delete',
+            label: 'Delete…',
             destructive: true,
           ),
         ],

@@ -75,8 +75,8 @@ void main() {
       }
 
       await capture('new_folder', () => tap(tester, find.byTooltip('New folder')));
-      await capture('edit_folder', () => folderMenu('Edit folder'));
-      await capture('delete_folder', () => folderMenu('Delete folder'));
+      await capture('edit_folder', () => folderMenu('Edit folder…'));
+      await capture('delete_folder', () => folderMenu('Delete folder…'));
       await capture('new_notebook', () => tap(tester, find.text('New').last));
       await capture('template_picker', () async {
         unawaited(
@@ -90,17 +90,17 @@ void main() {
       });
 
       // Last: these scroll the library.
-      await capture('rename', () => notebookMenu('Rename'));
+      await capture('rename', () => notebookMenu('Rename…'));
       await capture('move', () => notebookMenu('Move to folder…'));
-      await capture('cover', () => notebookMenu('Change cover'));
+      await capture('cover', () => notebookMenu('Change cover…'));
       await tap(tester, find.text('Trash').first);
       await capture('delete_forever', () async {
         await tester.ensureVisible(moreOf('Old drafts'));
         await settle(tester);
         await tap(tester, moreOf('Old drafts'));
-        await tap(tester, find.text('Delete forever'));
+        await tap(tester, find.text('Delete forever…'));
       });
-      await capture('empty_trash', () => tap(tester, find.text('Empty trash')));
+      await capture('empty_trash', () => tap(tester, emptyTrashButton()));
 
       if (errors.isNotEmpty) {
         // ignore: avoid_print

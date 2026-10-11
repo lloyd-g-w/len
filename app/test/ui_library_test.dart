@@ -193,7 +193,7 @@ void main() {
 
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Rename'));
+    await tester.tap(find.text('Rename…'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Final');
     await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
@@ -229,7 +229,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete forever'));
+    await tester.tap(find.text('Delete forever…'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete forever'));
     await tester.pumpAndSettle();

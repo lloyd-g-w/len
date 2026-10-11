@@ -137,11 +137,11 @@ abstract final class UserTemplates {
       context,
       at: at,
       items: const [
-        MenuRow(value: 'rename', icon: Icons.drive_file_rename_outline, label: 'Rename'),
+        MenuRow(value: 'rename', icon: Icons.edit_outlined, label: 'Rename…'),
         MenuRow(
           value: 'delete',
           icon: Icons.delete_outline_rounded,
-          label: 'Delete template',
+          label: 'Delete…',
           destructive: true,
         ),
       ],

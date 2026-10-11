@@ -30,20 +30,24 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
       MenuRow(
         value: NotebookAction.deleteForever,
         icon: Icons.delete_forever_outlined,
-        label: 'Delete forever',
+        label: 'Delete forever…',
         destructive: true,
       ),
     ];
   }
   return [
     const MenuRow(value: NotebookAction.open, icon: Icons.open_in_new_rounded, label: 'Open'),
-    const MenuRow(value: NotebookAction.rename, icon: Icons.edit_outlined, label: 'Rename'),
+    const MenuRow(value: NotebookAction.rename, icon: Icons.edit_outlined, label: 'Rename…'),
     MenuRow(
       value: NotebookAction.favorite,
       icon: notebook.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
       label: notebook.favorite ? 'Remove from favourites' : 'Add to favourites',
     ),
-    const MenuRow(value: NotebookAction.cover, icon: Icons.palette_outlined, label: 'Change cover'),
+    const MenuRow(
+      value: NotebookAction.cover,
+      icon: Icons.palette_outlined,
+      label: 'Change cover…',
+    ),
     const MenuRow(
       value: NotebookAction.duplicate,
       icon: Icons.copy_all_outlined,
@@ -66,13 +70,13 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
 
 const List<PopupMenuEntry<FolderAction>> folderMenuItems = [
   MenuRow(value: FolderAction.open, icon: Icons.folder_open_outlined, label: 'Open'),
-  MenuRow(value: FolderAction.edit, icon: Icons.edit_outlined, label: 'Edit folder'),
+  MenuRow(value: FolderAction.edit, icon: Icons.edit_outlined, label: 'Edit folder…'),
   MenuRow(value: FolderAction.move, icon: Icons.drive_file_move_outline, label: 'Move to folder…'),
   PopupMenuDivider(),
   MenuRow(
     value: FolderAction.delete,
     icon: Icons.delete_outline_rounded,
-    label: 'Delete folder',
+    label: 'Delete folder…',
     destructive: true,
   ),
 ];

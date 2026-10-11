@@ -82,9 +82,9 @@ void main() {
         await settle(tester);
       }
 
-      await menu('Rename', 'dialog_rename');
+      await menu('Rename…', 'dialog_rename');
       await menu('Move to folder…', 'dialog_move');
-      await menu('Change cover', 'dialog_cover');
+      await menu('Change cover…', 'dialog_cover');
 
       await tester.tap(find.byTooltip('New folder').last);
       await settle(tester);
@@ -94,7 +94,7 @@ void main() {
 
       await tester.tap(find.text('Trash').first);
       await settle(tester);
-      await tester.tap(find.text('Empty trash'));
+      await tester.tap(emptyTrashButton());
       await settle(tester);
       await shoot(tester, 'dialog_empty_trash_${mode.name}');
       await tester.tap(find.text('Cancel').last);
@@ -148,7 +148,7 @@ void main() {
     await settle(tester);
     await tester.tap(find.byTooltip('More').first);
     await settle(tester);
-    await tester.tap(find.text('Change cover'));
+    await tester.tap(find.text('Change cover…'));
     await settle(tester);
     await shoot(tester, 'cover_sheet_phone');
     expect(tester.takeException(), isNull);

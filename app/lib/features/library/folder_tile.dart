@@ -127,11 +127,17 @@ class _FolderTileState extends State<FolderTile> {
                       ],
                     ),
                   ),
-                  if (!feedback && !narrow)
+                  // Narrow (phone) tiles: a slimmer button, still a 48 dp target
+                  // in height.
+                  if (!feedback)
                     Builder(
                       builder: (anchor) => IconButton(
                         tooltip: 'Folder options',
                         iconSize: 18,
+                        constraints: narrow
+                            ? const BoxConstraints(minWidth: 32, minHeight: 48)
+                            : null,
+                        padding: narrow ? EdgeInsets.zero : null,
                         color: scheme.onSurfaceVariant,
                         icon: const Icon(Icons.more_horiz_rounded),
                         onPressed: () => unawaited(_showMenu(anchor: anchor)),
