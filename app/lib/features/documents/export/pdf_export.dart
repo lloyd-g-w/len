@@ -124,6 +124,11 @@ abstract final class PdfExporter {
       vector = await _drawBackground(writer, g, background, format);
     }
 
+    // An image template (My templates) is the page's paper, embedded at
+    // its stored resolution.
+    if (page.paper.image case final blob?) {
+      await images.drawPage(g, blob, format.width, format.height);
+    }
     _drawPattern(pen, page, templates);
     final elements = [...export.elements]..sort(SurfaceElement.paintOrder);
     Future<void> drawElements(bool belowInk) async {
