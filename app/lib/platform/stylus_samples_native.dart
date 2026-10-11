@@ -61,7 +61,8 @@ bool? _overlayEnabled;
 
 /// Tells the overlay which contact to draw and how far Flutter has got.
 ///
-/// Messages: `[enable, bool]`, `[begin, device, downTimeUs, argb, radii px]`,
+/// Messages: `[enable, bool]`, `[begin, device, downTimeUs, argb, radii px,
+/// shape (`WetInkShape.toList`, px), inkStartUs]`,
 /// `[progress, eventTimeUs]` (after a frame showing input up to that event
 /// was built), `[end, device, downTimeUs]` (after the frame that shows the
 /// finished stroke).
@@ -105,6 +106,8 @@ class _LowLatencySource implements SampleSource {
         contact.timeStamp.inMicroseconds.toDouble(),
         style.color,
         Float64List.fromList([for (final r in style.radii) r * dpr]),
+        style.shape.scaled(dpr).toList(),
+        style.startUs.toDouble(),
       ]);
     } else if (_drawing && style == null) {
       _finish(); // Straightened (or no longer ink): Flutter draws it.
