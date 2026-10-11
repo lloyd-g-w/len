@@ -182,6 +182,8 @@ void main() {
             await shoot(tester, 'e_shape_picker_$shot');
             await tester.tap(find.byKey(const ValueKey('shape-ellipse')));
             await settle(tester);
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape); // Closes the picker.
+            await settle(tester);
             final c = canvasToScreen(tester, const Offset(220, 0));
             await mouseDrag(tester, [c, c + const Offset(60, 40), c + const Offset(120, 90)]);
             await settle(tester);
