@@ -98,26 +98,33 @@ Future<T> runWithSteps<T>(
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
   final progress = TaskProgress('Working…');
-  unawaited(
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      useRootNavigator: true,
-      builder: (context) => PopScope(
-        canPop: false,
-        child: ProgressDialog(
-          title: title,
-          subject: subject,
-          progress: progress,
-          cancellable: cancellable,
-        ),
+  final route = DialogRoute<void>(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: DialogTheme.of(context).barrierColor ?? Colors.black54,
+    themes: InheritedTheme.capture(from: context, to: navigator.context),
+    builder: (context) => PopScope(
+      canPop: false,
+      child: ProgressDialog(
+        title: title,
+        subject: subject,
+        progress: progress,
+        cancellable: cancellable,
       ),
     ),
   );
+  unawaited(navigator.push(route));
   try {
     return await task(progress);
   } finally {
-    navigator.pop();
+    // Only this dialog: it may be gone already (e.g. closed with the
+    // editor when its notebook was deleted on another device), and then
+    // popping would close whatever is on top instead.
+    if (route.isCurrent) {
+      navigator.pop();
+    } else if (route.isActive) {
+      navigator.removeRoute(route);
+    }
     progress.dispose();
   }
 }
