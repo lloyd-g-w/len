@@ -78,6 +78,7 @@ class EditorMoreMenu extends StatelessWidget {
             ],
             child: const Text('Page'),
           ),
+          if (a.onOutline case final onOutline?) _item(Icons.toc_rounded, 'PDF outline', onOutline),
           const Divider(),
           _radioSubmenu<PageFlow>(
             icon: Icons.view_agenda_outlined,
