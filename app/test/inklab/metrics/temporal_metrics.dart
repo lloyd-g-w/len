@@ -43,6 +43,12 @@ List<ContactRun> contactRuns(ReplayResult replay) {
   return runs;
 }
 
+/// Sub-scanlines per pixel for the frame diffs. With 5, a near-horizontal
+/// edge moving by a hundredth of a pixel across a sub-scanline flips a
+/// whole 0.2 of coverage, exactly the 20 % threshold (see INK_LAB.md,
+/// "Metric fixes"); 16 resolves coverage to 1/16.
+const int _subRows = 16;
+
 /// Maps world points to physical pixels of the replayed screen.
 Offset Function(Offset) physical(ReplayResult r) {
   final dpr = r.recording.meta.devicePixelRatio;
@@ -119,7 +125,7 @@ List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
     for (var i = 0; i < frames.length; i += step) {
       final points = frames[i].points;
       final contours = _outline(r, points, complete: false);
-      final cov = rasterize(contours, boundsOf(contours));
+      final cov = rasterize(contours, boundsOf(contours), subRows: _subRows);
       if (prev != null && prevPoints != null) {
         final tip = toPx(Offset(prevPoints.last.x, prevPoints.last.y));
         final fresh = [for (final p in points.skip(prevPoints.length - 1)) toPx(Offset(p.x, p.y))];
@@ -142,8 +148,8 @@ List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
     final last = frames.last.points;
     final done = _outline(r, stroke.points, complete: true);
     final liveOutline = _outline(r, last, complete: false);
-    final a = rasterize(liveOutline, boundsOf(liveOutline));
-    final b = rasterize(done, boundsOf(done));
+    final a = rasterize(liveOutline, boundsOf(liveOutline), subRows: _subRows);
+    final b = rasterize(done, boundsOf(done), subRows: _subRows);
     final tail = [
       for (final p in stroke.points.skip(math.max(0, last.length - 1))) toPx(Offset(p.x, p.y)),
     ];

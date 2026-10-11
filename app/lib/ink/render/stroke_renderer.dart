@@ -1,7 +1,5 @@
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
-
 import '../../domain/stroke.dart';
 import '../pen/pen_profile.dart';
 import 'nib.dart';
@@ -76,7 +74,6 @@ abstract final class StrokeRenderer {
       specFor(profile.tool, width, style).radiusFor(pressure);
 
   /// The outline shape parameters for a stroke.
-  @visibleForTesting
   static OutlineSpec specFor(InkTool tool, double width, StrokeStyle style) {
     final profile = PenProfile.of(tool);
     return OutlineSpec(

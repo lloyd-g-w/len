@@ -7,6 +7,8 @@ import '../../core/clock.dart';
 import '../../domain/preferences.dart';
 import '../../domain/stroke.dart';
 import '../navigation/kinetic_pan.dart';
+import '../render/stroke_outline.dart';
+import '../render/stroke_renderer.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../tools/content_tools.dart';
@@ -102,6 +104,20 @@ class InkInputController {
   /// Points closer than this (in screen pixels) to the previous one are
   /// dropped; it removes jitter without visible loss of detail.
   static const double _minPointDistance = 0.75;
+
+  /// A dropped point further than this (screen px) from the line between
+  /// the points kept around it is kept after all: the tip of a cusp or a
+  /// tight loop, where the pen slows down and turns.
+  static const double _keepExtreme = 0.3;
+
+  /// Points dropped since the last kept one (screen position, point).
+  final List<(Offset, StrokePoint)> _dropped = [];
+
+  /// Points of a contact not shown yet: until it cannot be a bounce and
+  /// its start (pen-down hook) is decided, the stroke is held back, so
+  /// nothing appears that would vanish or change a moment later.
+  final List<StrokePoint> _pending = [];
+  bool _visible = false;
 
   /// Drops accidental stylus re-contacts right after a lift.
   final BounceFilter _bounces = BounceFilter();
@@ -287,7 +303,12 @@ class InkInputController {
       final ink = tools.activeInk;
       final config = tools.configOf(ink);
       live.begin(tool: ink, color: config.color, width: config.width, style: tools.styleFor(ink));
-      live.add(_pointOf(e));
+      _pending
+        ..clear()
+        ..add(_pointOf(e));
+      _dropped.clear();
+      _visible = false;
+      _reveal(e.timeStamp);
       _straighten.begin(e.localPosition, enabled: tools.holdToStraighten, scale: viewport.scale);
     }
   }
@@ -305,7 +326,7 @@ class InkInputController {
       return;
     }
     _addSamplesBefore(e);
-    _inkTo(e.localPosition, _pressureOf(e), synthesized: e.synthesized);
+    _inkTo(e.localPosition, _pressureOf(e), synthesized: e.synthesized, time: e.timeStamp);
   }
 
   /// Whether the drawing pointer is making ink (not erasing or a tool).
@@ -317,25 +338,91 @@ class InkInputController {
     final extra = samples?.between(e);
     if (extra == null) return;
     for (final s in extra) {
-      _inkTo(s.localPosition, _normalisedPressure(e, s.pressure));
+      _inkTo(s.localPosition, _normalisedPressure(e, s.pressure), time: s.timeStamp);
     }
   }
 
   /// Extends the live stroke to [screen] (unless it is too close to the
   /// previous point, or "hold to straighten" has taken over).
-  void _inkTo(Offset screen, double pressure, {bool synthesized = false}) {
-    final step = (screen - _lastScreen!).distance;
-    if (step < _minPointDistance) return;
-    _drawTravel += step;
-    _lastScreen = screen;
+  void _inkTo(Offset screen, double pressure, {bool synthesized = false, required Duration time}) {
+    final from = _lastScreen!;
+    final step = (screen - from).distance;
     final world = viewport.toWorld(screen);
     final point = StrokePoint(
       world.dx,
       world.dy,
       _pressure.next(pressure, synthesized: synthesized),
     );
+    if (step < _minPointDistance) {
+      _dropped.add((screen, point));
+      return;
+    }
+    _keepExtremeDropped(from, screen, time);
+    _drawTravel += step;
+    _lastScreen = screen;
     if (_straighten.move(screen, point)) return;
-    live.add(point);
+    _addInk(point, time);
+  }
+
+  /// Keeps the dropped point furthest from the line [from] → [to], if it
+  /// is far enough off it to be a detail (a cusp tip).
+  void _keepExtremeDropped(Offset from, Offset to, Duration time) {
+    if (_dropped.isEmpty) return;
+    var best = _keepExtreme;
+    StrokePoint? keep;
+    Offset? at;
+    for (final (screen, point) in _dropped) {
+      final d = _distanceToSegment(screen, from, to);
+      if (d > best) {
+        best = d;
+        keep = point;
+        at = screen;
+      }
+    }
+    _dropped.clear();
+    if (keep == null || at == null) return;
+    _drawTravel += (at - from).distance;
+    if (_straighten.move(at, keep)) return;
+    _addInk(keep, time);
+  }
+
+  static double _distanceToSegment(Offset p, Offset a, Offset b) {
+    final ab = b - a;
+    final l2 = ab.dx * ab.dx + ab.dy * ab.dy;
+    if (l2 == 0) return (p - a).distance;
+    final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / l2).clamp(0.0, 1.0);
+    return (p - (a + ab * t)).distance;
+  }
+
+  /// Adds [point] to the live stroke, or holds it back while the contact
+  /// is not to be shown yet.
+  void _addInk(StrokePoint point, Duration time) {
+    if (_visible) {
+      live.add(point);
+      return;
+    }
+    _pending.add(point);
+    _reveal(time);
+  }
+
+  /// Shows the held-back points once the contact cannot be a bounce any
+  /// more and its start is decided.
+  void _reveal(Duration now) {
+    if (_visible) return;
+    if (_isStylus(_drawKind) &&
+        _bounces.mightBounce(
+          down: _drawStartTime,
+          now: now,
+          start: _drawStartScreen,
+          travel: _drawTravel,
+        )) {
+      return;
+    }
+    final spec = StrokeRenderer.specFor(live.tool, live.width, live.style);
+    if (!StrokeOutline.startSettled(_pending, spec)) return;
+    _visible = true;
+    live.addAll(_pending);
+    _pending.clear();
   }
 
   /// Ends the current contact. [liftTime] is the pen-up timestamp, when known.
@@ -347,7 +434,8 @@ class InkInputController {
     } else if (_erasing) {
       _showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
-      final points = _settleEnd(live.finish());
+      final points = _settleEnd([...live.finish(), ..._pending]);
+      _pending.clear();
       if (points.isNotEmpty && !_isBounce(liftTime)) {
         model.addStroke(
           Stroke(
@@ -394,6 +482,7 @@ class InkInputController {
       tool.cancel();
     } else if (_drawPointer != null && !_erasing) {
       live.finish();
+      _pending.clear();
     }
     _showEraser(null);
     _resetDraw();

@@ -7,6 +7,7 @@ import '../surface_model.dart';
 import '../viewport.dart';
 import 'chunk_picture_cache.dart';
 import 'chunk_raster_cache.dart';
+import 'live_stroke.dart';
 import 'stroke_renderer.dart';
 
 /// Paints committed strokes: only the populated chunks that intersect the
@@ -117,16 +118,22 @@ class LiveInkPainter extends CustomPainter {
   /// Told how long each live outline took to build (the Ink Lab's stats).
   static void Function(int points, Duration took)? onBuild;
 
+  /// Incremental outline builders, one per live stroke (kept with the
+  /// [LiveInk], since painters are recreated on rebuilds).
+  static final Expando<LiveStrokeBuilder> _builders = Expando('live stroke builders');
+
   Path _livePath() {
     if (_path == null || _pathRevision != live.revision) {
       final watch = onBuild == null ? null : (Stopwatch()..start());
-      _path = StrokeRenderer.buildPath(
+      final built = LiveStrokeBuilder.build(
+        _builders[live],
         live.points,
         tool: live.tool,
         width: live.width,
         style: live.style,
-        complete: false,
       );
+      _builders[live] = built.builder;
+      _path = built.path;
       _pathRevision = live.revision;
       if (watch != null) onBuild?.call(live.points.length, watch.elapsed);
     }

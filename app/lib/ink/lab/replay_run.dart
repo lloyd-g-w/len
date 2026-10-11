@@ -4,7 +4,7 @@ import '../../data/app_database.dart';
 import '../../data/stroke_repository.dart';
 import '../../domain/stroke.dart';
 import '../input/live_ink.dart';
-import '../render/stroke_renderer.dart';
+import '../render/live_stroke.dart';
 import '../surface_model.dart';
 import '../viewport.dart';
 import 'input_recording.dart';
@@ -34,7 +34,8 @@ class ReplayFrame {
   /// Newest pointer event handled before the frame (µs, event clock).
   final int newestEventUs;
 
-  /// Time to build the live outline, as `LiveInkPainter` does each frame.
+  /// Time to build the live outline, as `LiveInkPainter` does each frame
+  /// (incrementally, see `LiveStrokeBuilder`).
   final Duration build;
 
   /// Strokes committed since the previous frame, and the pen-up handling
@@ -74,8 +75,10 @@ class ReplayResult {
   List<Stroke> get strokes => [for (final f in frames) ...f.committed];
 
   /// Runs [recording] through the real pipeline with [pen] (default: the
-  /// recorded pen) into an in-memory surface. With [timingRepeats] > 1 each
-  /// live outline is built that many times and the fastest time kept.
+  /// recorded pen) into an in-memory surface. Each frame's live outline is
+  /// built (and timed) as `LiveInkPainter` builds it: incrementally.
+  /// [timingRepeats] is accepted for compatibility (the incremental build
+  /// cannot be repeated).
   static ReplayResult run(InputRecording recording, {PenSettings? pen, int timingRepeats = 1}) {
     final db = AppDatabase.inMemory();
     final model = SurfaceModel(
@@ -86,6 +89,21 @@ class ReplayResult {
     final viewport = ViewportController(minScale: 0.01, maxScale: 64);
     final driver = ReplayDriver(recording, model: model, live: live, viewport: viewport, pen: pen);
     final frames = <ReplayFrame>[];
+    LiveStrokeBuilder? builder;
+    Duration timeBuild(List<StrokePoint> points) {
+      final watch = Stopwatch()..start();
+      final built = LiveStrokeBuilder.build(
+        builder,
+        points,
+        tool: live.tool,
+        width: live.width,
+        style: live.style,
+      );
+      final took = watch.elapsed;
+      builder = built.builder;
+      return took;
+    }
+
     try {
       for (var step = driver.step(); step != null; step = driver.step()) {
         final points = live.isDrawing ? List<StrokePoint>.of(live.points) : const <StrokePoint>[];
@@ -96,7 +114,7 @@ class ReplayResult {
             vsyncUs: step.frame?.vsyncUs ?? 0,
             points: points,
             newestEventUs: step.newestEventUs,
-            build: points.isEmpty ? Duration.zero : _timeBuild(live, points, timingRepeats),
+            build: points.isEmpty ? Duration.zero : timeBuild(points),
             committed: step.committed,
             commitTime: step.commitTime,
           ),
@@ -116,21 +134,5 @@ class ReplayResult {
       viewOffset: viewport.offset,
       style: driver.tools.styleFor(driver.pen.tool),
     );
-  }
-
-  static Duration _timeBuild(LiveInk live, List<StrokePoint> points, int repeats) {
-    var best = const Duration(days: 1);
-    for (var i = 0; i < repeats; i++) {
-      final watch = Stopwatch()..start();
-      StrokeRenderer.buildPath(
-        points,
-        tool: live.tool,
-        width: live.width,
-        style: live.style,
-        complete: false,
-      );
-      if (watch.elapsed < best) best = watch.elapsed;
-    }
-    return best;
   }
 }

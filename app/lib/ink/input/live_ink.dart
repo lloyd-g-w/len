@@ -52,6 +52,14 @@ class LiveInk extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Adds several points at once (one notification).
+  void addAll(List<StrokePoint> points) {
+    if (points.isEmpty) return;
+    _points.addAll(points);
+    _revision++;
+    notifyListeners();
+  }
+
   /// Replaces every point of the live stroke (e.g. when it is straightened).
   void replaceAll(List<StrokePoint> points) {
     _points
