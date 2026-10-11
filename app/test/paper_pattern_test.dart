@@ -1,7 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/paper_pattern.dart';
+import 'package:len/features/documents/templates/user_templates.dart';
 import 'package:len/ink/render/paper_painter.dart';
 
 void main() {
@@ -79,6 +82,40 @@ void main() {
       expect(PaperPattern.of(Paper(PaperStyle.isometric), area).lines, isNotEmpty);
       expect(PaperPattern.of(Paper(PaperStyle.dotted), area).dots, isNotEmpty);
     });
+  });
+
+  test('image templates are stretched over the page once decoded', () async {
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder)
+        .drawRect(const Rect.fromLTWH(0, 0, 4, 4), Paint()..color = const Color(0xFF2B8A3E));
+    final image = await recorder.endRecording().toImage(4, 4);
+    const page = Rect.fromLTWH(0, 0, 20, 10);
+    Future<Color> centre(ui.Image? decoded) async {
+      final r = ui.PictureRecorder();
+      final canvas = Canvas(r);
+      PaperRenderer.paintSheet(canvas, page, PaperColor.white, scale: 1, shadow: false);
+      PaperRenderer.paintPattern(
+        canvas,
+        Paper.image('a' * 64),
+        PaperColor.white,
+        page,
+        page: page,
+        scale: 1,
+        images: (blob, width) => blob == 'a' * 64 ? decoded : null,
+      );
+      final out = await r.endRecording().toImage(20, 10);
+      final bytes = (await out.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+      final i = (5 * 20 + 15) * 4;
+      return Color.fromARGB(255, bytes.getUint8(i), bytes.getUint8(i + 1), bytes.getUint8(i + 2));
+    }
+
+    expect(await centre(image), const Color(0xFF2B8A3E));
+    expect(await centre(null), PaperColor.white.paper, reason: 'plain paper while decoding');
+  });
+
+  test('imported templates get a page size from their aspect', () {
+    expect(UserTemplates.pageSizeFor(1000, 1414), Size(794, 794 * 1.414));
+    expect(UserTemplates.pageSizeFor(1600, 900), Size(794 * 16 / 9, 794));
   });
 
   testWidgets('templates at real scale (golden)', (tester) async {
