@@ -69,13 +69,11 @@ class DocumentPaperPainter extends CustomPainter {
         ..translate(frame.left, frame.top);
       PaperRenderer.paintSheet(canvas, local, page.paperColor, scale: scale);
       canvas.clipRect(local);
-      final background = page.background;
-      if (background != null) {
-        final pixelWidth = frame.width * scale * devicePixelRatio;
-        final image = backgrounds?.imageFor(background, pixelWidth);
-        if (image != null) paintBackgroundImage(canvas, image, local);
-      }
       final area = visible.shift(-frame.topLeft).intersect(local);
+      final background = page.background;
+      if (background != null && !area.isEmpty) {
+        backgrounds?.paint(canvas, background, frame.size, area, scale * devicePixelRatio);
+      }
       if (!area.isEmpty) {
         PaperRenderer.paintPattern(
           canvas,
