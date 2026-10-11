@@ -27,8 +27,9 @@ import io.flutter.plugin.common.StandardMessageCodec
  * each `MotionEvent` arrives, instead of waiting for Flutter's next frame.
  *
  * Dart decides what is ink (`lib/platform/stylus_samples_native.dart`):
- * `begin` names the stylus contact, its colour, radius per pressure, the
- * outline's rules (`WetInkShape`) and where the ink starts; `progress`
+ * `begin` (sent at pen-down) names the stylus contact, its colour, radius
+ * per pressure and the outline's rules (`WetInkShape`, including the
+ * pen-down hook's, which the model decides itself); `progress`
  * reports which input Flutter has drawn; `end` that the finished stroke is
  * on screen. [WetInkModel] (a port of the Dart model the Ink Lab measures)
  * applies the outline's rules, so the overlay draws the same ink Flutter
@@ -132,8 +133,7 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 val radii = message[4] as DoubleArray
                 val shape = WetInkShape.of(message[5] as DoubleArray) ?: return
                 if (radii.isEmpty()) return
-                val startMs = Math.floorDiv((message[6] as Number).toLong(), 1000L)
-                val m = WetInkModel(radii, shape, frameMs(), startMs)
+                val m = WetInkModel(radii, shape, frameMs())
                 for (i in 0 until samples.size) {
                     m.add(samples.x(i), samples.y(i), samples.pressure(i), samples.time(i), lift = false)
                 }

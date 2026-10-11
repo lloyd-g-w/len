@@ -33,7 +33,7 @@ class _Frames {
       points,
       tool: r.pen.tool,
       width: r.pen.width,
-      style: r.style,
+      style: run.frames.first.style,
       complete: complete,
       map: (o) => view(run.frames.first.toScreen(o.dx, o.dy)),
       tolerance: 0.1,

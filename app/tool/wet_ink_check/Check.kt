@@ -22,7 +22,7 @@ fun main(args: Array<String>) {
             when (f[0]) {
                 "S" -> radii = f.drop(1).map { it.toDouble() }.toDoubleArray()
                 "H" -> shape = WetInkShape.of(f.drop(1).map { it.toDouble() }.toDoubleArray())
-                "B" -> model = WetInkModel(radii, shape!!, 8.3, f[1].toLong())
+                "B" -> model = WetInkModel(radii, shape!!, 8.3)
                 "A" -> model!!.add(f[1].toDouble(), f[2].toDouble(), f[3].toDouble(), f[4].toLong(), f[5] == "1")
                 "Q" -> {
                     val m = model!!

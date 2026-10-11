@@ -16,13 +16,17 @@ import 'shape_params.dart';
 /// Stages (each one only looks a fixed number of samples ahead):
 ///  1. dedupe: points closer than a hair are merged (positions never move
 ///     afterwards; only the last radius may still grow);
-///  2. pen-down hook: decided once from the first [ShapeParams.gate] of
-///     length ([HookFinder]);
+///  2. pen-down hook: decided once from the first few screen px
+///     ([HookFinder.decisionLength]); until then the line is *provisional*:
+///     it starts at the first sample and nothing of it is final, so the
+///     stroke shows from pen-down and its start changes at most once, when
+///     a hook is trimmed;
 ///  3. resampling every [ShapeParams.step] along a centripetal Catmull-Rom
 ///     spline through the samples, from the stroke's start (a segment is
 ///     final once the sample after its end is);
 ///  4. corners: where the line doubles back within a short baseline; the
-///     sharpest sample of each such spot (final once the spot has passed);
+///     tip of each such spot, the sample furthest along the direction the
+///     line came in from (final once the spot has passed);
 ///  5. positions: the finite low-pass kernel of [LineFilters.lowPassKernel]
 ///     per stretch between corners, each stretch continued beyond its ends
 ///     by a local quadratic fit (no lag, tips stay put);
@@ -50,8 +54,11 @@ class StrokeShaper implements RibbonLine {
   // 1. Deduplicated input samples (position, radius).
   final DoubleBuffer _sx = DoubleBuffer(), _sy = DoubleBuffer(), _sr = DoubleBuffer();
 
-  // 2. First sample kept (pen-down hook), once decided.
+  // 2. First sample kept (pen-down hook), once decided. While undecided,
+  //    the line is computed from sample 0 and thrown away by the next
+  //    [update] ([_provisional]).
   int? _start;
+  bool _provisional = false;
   final bool _leadIn;
   final double? _phase;
 
@@ -70,8 +77,11 @@ class StrokeShaper implements RibbonLine {
   // 4. Corners: final ones, and the scan state after [_scan] (next index).
   final List<int> _corners = [];
   int _scan = 0;
+  // The current run of sharp turns: its first sample, and its tip so far
+  // (the sample furthest along the direction the line came in from).
+  int _runFirst = -1;
   int _runBest = -1;
-  double _runTurn = 0;
+  double _runScore = 0;
 
   // 5. Smoothed positions; [_posFinal] of them final.
   final DoubleBuffer _cx = DoubleBuffer(), _cy = DoubleBuffer();
@@ -92,8 +102,8 @@ class StrokeShaper implements RibbonLine {
   /// Samples of the last [update] that are final (position and radius).
   int finalCount = 0;
 
-  /// Whether the pen-down decision has been made (otherwise there is no
-  /// line yet).
+  /// Whether the pen-down decision has been made (otherwise the line is
+  /// provisional: from the first sample, nothing final).
   bool get started => _start != null;
 
   /// The first input sample kept (after the pen-down hook); 0 until
@@ -123,9 +133,6 @@ class StrokeShaper implements RibbonLine {
     }
     return m;
   }
-
-  /// Whether the start (pen-down hook, start rules) is decided and final.
-  bool get startFinal => _start != null && _roDone > 0;
 
   /// Number of input points [add]ed so far.
   int pointCount = 0;
@@ -183,8 +190,9 @@ class StrokeShaper implements RibbonLine {
         radDone: _radDone,
         corners: _corners.length,
         scan: _scan,
+        runFirst: _runFirst,
         runBest: _runBest,
-        runTurn: _runTurn,
+        runScore: _runScore,
         posFinal: _posFinal,
         roDone: _roDone,
       ),
@@ -211,8 +219,9 @@ class StrokeShaper implements RibbonLine {
       _radDone = c.radDone;
       _corners.removeRange(c.corners, _corners.length);
       _scan = c.scan;
+      _runFirst = c.runFirst;
       _runBest = c.runBest;
-      _runTurn = c.runTurn;
+      _runScore = c.runScore;
       _posFinal = c.posFinal;
       _roDone = c.roDone;
       _sx.length = sample;
@@ -229,14 +238,16 @@ class StrokeShaper implements RibbonLine {
   /// complete: the start is decided with whatever there is, and the last
   /// [keep] input samples (the pen-up hook removed, see [endKeep]) are used.
   void update({bool ended = false, int? keep}) {
+    if (_provisional) _restart();
     final n = keep ?? _sx.length;
     _start ??= _hooks.startCut(_sx, _sy, n, ended: ended);
-    final start = _start;
-    if (start == null || n == 0) {
+    if (n == 0) {
       length = finalCount = 0;
       corners = const [];
       return;
     }
+    final start = _start ?? 0;
+    _provisional = _start == null;
     _resample(start, n, ended: ended);
     final count = _rx.length;
     _radii(count);
@@ -244,7 +255,20 @@ class StrokeShaper implements RibbonLine {
     _smooth(count);
     _endRules(count, ended: ended);
     length = count;
-    finalCount = math.min(_posFinal, _roDone);
+    finalCount = _provisional ? 0 : math.min(_posFinal, _roDone);
+  }
+
+  /// Forgets the line computed while the start was undecided.
+  void _restart() {
+    _provisional = false;
+    for (final b in [_rx, _ry, _rr, _r1, _r2, _rs, _cx, _cy, _ro]) {
+      b.length = 0;
+    }
+    _resFinal = _seg = _radDone = _scan = _posFinal = _roDone = 0;
+    _next = 0;
+    _corners.clear();
+    _runFirst = _runBest = -1;
+    _runScore = 0;
   }
 
   /// The number of input samples to keep once the stroke has ended.
@@ -381,39 +405,53 @@ class StrokeShaper implements RibbonLine {
     return math.atan2(ax * by - ay * bx, ax * bx + ay * by).abs();
   }
 
+  /// How far sample [i] lies along the direction the line came in from
+  /// before the run of sharp turns starting at [first]: the tip of a cusp
+  /// is where the pen stops going that way (every corner turns > 90°). The
+  /// sharpest turn over the baseline can be a sample or two past the tip.
+  double _tipScore(int first, int i) {
+    final k = p.cornerK;
+    final ux = _rx[first] - _rx[first - k], uy = _ry[first] - _ry[first - k];
+    return (_rx[i] - _rx[first]) * ux + (_ry[i] - _ry[first]) * uy;
+  }
+
   void _findCorners(int count) {
     final k = p.cornerK;
     if (_scan < k) _scan = k;
     // Final part: samples whose baseline reaches only final samples.
     while (_scan + k < _resFinal) {
-      final turn = _turnAt(_scan);
-      if (turn > ShapeParams.minTurn) {
-        if (turn > _runTurn) {
+      if (_turnAt(_scan) > ShapeParams.minTurn) {
+        if (_runFirst < 0) {
+          _runFirst = _runBest = _scan;
+          _runScore = 0;
+        } else if (_tipScore(_runFirst, _scan) > _runScore) {
           _runBest = _scan;
-          _runTurn = turn;
+          _runScore = _tipScore(_runFirst, _scan);
         }
-      } else if (_runBest >= 0) {
+      } else if (_runFirst >= 0) {
         _corners.add(_runBest);
-        _runBest = -1;
-        _runTurn = 0;
+        _runFirst = _runBest = -1;
+        _runScore = 0;
       }
       _scan++;
     }
     // Provisional part, from a copy of the scan state.
     final found = List<int>.of(_corners);
-    var best = _runBest;
-    var bestTurn = _runTurn;
+    var first = _runFirst, best = _runBest;
+    var score = _runScore;
     for (var i = _scan; i + k < count; i++) {
-      final turn = _turnAt(i);
-      if (turn > ShapeParams.minTurn) {
-        if (turn > bestTurn) {
+      if (_turnAt(i) > ShapeParams.minTurn) {
+        if (first < 0) {
+          first = best = i;
+          score = 0;
+        } else if (_tipScore(first, i) > score) {
           best = i;
-          bestTurn = turn;
+          score = _tipScore(first, i);
         }
-      } else if (best >= 0) {
+      } else if (first >= 0) {
         found.add(best);
-        best = -1;
-        bestTurn = 0;
+        first = best = -1;
+        score = 0;
       }
     }
     if (best >= 0) found.add(best);
@@ -542,8 +580,9 @@ class _Checkpoint {
     required this.radDone,
     required this.corners,
     required this.scan,
+    required this.runFirst,
     required this.runBest,
-    required this.runTurn,
+    required this.runScore,
     required this.posFinal,
     required this.roDone,
   });
@@ -551,8 +590,8 @@ class _Checkpoint {
   final int id;
   final int seg;
   final double next;
-  final int resFinal, radDone, corners, scan, runBest;
-  final double runTurn;
+  final int resFinal, radDone, corners, scan, runFirst, runBest;
+  final double runScore;
   final int posFinal, roDone;
 }
 

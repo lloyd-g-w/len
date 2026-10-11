@@ -45,7 +45,7 @@ void main() {
   }, skip: _out.isEmpty ? 'opt-in: --dart-define=INKLAB_WET_VECTORS=<dir>' : false);
 }
 
-/// Events (`S` radii, `H` shape, `B` startMs per contact, `A` sample, `Q`
+/// Events (`S` radii, `H` shape, `B` a new contact, `A` sample, `Q`
 /// query) and the model's answer to each query (tail start, then the
 /// (x, y, r) triples drawn).
 (String, String) _vectors(InputRecording recording) {
@@ -55,10 +55,9 @@ void main() {
   final wet = WetInkStyle.forPen(
     r.pen.tool,
     r.pen.width,
-    r.style,
+    r.style.copyWith(unit: 0.9),
     color: 0xFF000000,
     scale: 1.3,
-    unit: 0.9,
   )!;
   final radii = [for (final x in wet.radii) x * dpr];
   final shape = wet.shape.scaled(dpr);
@@ -69,10 +68,8 @@ void main() {
   var contact = 0;
   for (final c in rawContacts(recording)) {
     if (c.samples.isEmpty) continue;
-    // Ink starting a little after the first sample (a pen-down hook).
-    final startMs = c.samples[c.samples.length > 3 ? 2 : 0].timeUs ~/ 1000;
-    ev.writeln('B $startMs');
-    final m = WetInkModel(radii: radii, shape: shape, frameMs: 8.3, startMs: startMs);
+    ev.writeln('B');
+    final m = WetInkModel(radii: radii, shape: shape, frameMs: 8.3);
     for (var i = 0; i < c.samples.length; i++) {
       final s = c.samples[i];
       final lift = i == c.samples.length - 1;

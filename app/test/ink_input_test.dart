@@ -238,6 +238,19 @@ void main() {
     expect(notified, 1);
   });
 
+  test('a stroke shows from pen-down and records the zoom it is written at', () {
+    final pen = _Pointer(1, PointerDeviceKind.stylus);
+    viewport.setView(scale: 4, offset: Offset.zero);
+    input.handleDown(pen.down(const Offset(10, 10)));
+    expect(live.points, hasLength(1));
+    expect(live.points.first.offset, const Offset(2.5, 2.5));
+    expect(live.style.unit, 0.25);
+    input
+      ..handleMove(pen.move(const Offset(20, 10)))
+      ..handleUp(pen.up(const Offset(20, 10)));
+    expect(model.loadedStrokeCount, 1);
+  });
+
   group('stylus bounce', () {
     final pen = _Pointer(1, PointerDeviceKind.stylus);
 
@@ -257,6 +270,19 @@ void main() {
       stroke(downMs: 0, upMs: 300);
       tap(const Offset(103, 12), downMs: 340, upMs: 360);
       expect(model.loadedStrokeCount, 1);
+    });
+
+    test('ink shows at pen-down, also for a contact that turns out a bounce', () {
+      stroke(downMs: 0, upMs: 300);
+      input.handleDown(
+        pen.down(const Offset(103, 12)).copyWith(timeStamp: const Duration(milliseconds: 340)),
+      );
+      expect(live.points, hasLength(1), reason: 'shown under the nib at once');
+      input.handleUp(
+        pen.up(const Offset(103, 12)).copyWith(timeStamp: const Duration(milliseconds: 360)),
+      );
+      expect(live.isDrawing, isFalse);
+      expect(model.loadedStrokeCount, 1, reason: 'the bounce is not committed');
     });
 
     test('a deliberate dot placed later or elsewhere is kept', () {

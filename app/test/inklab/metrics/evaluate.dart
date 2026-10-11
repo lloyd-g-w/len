@@ -1,15 +1,13 @@
-import 'package:flutter/gestures.dart';
-import 'package:len/domain/preferences.dart';
-import 'package:len/ink/input/stylus_buttons.dart';
 import 'package:len/ink/lab/input_recording.dart';
-import 'package:len/ink/lab/raw_samples.dart';
 import 'package:len/ink/lab/replay_run.dart';
 
+import 'contacts.dart';
 import 'edge_metrics.dart';
 import 'metric.dart';
 import 'overlay_metrics.dart';
 import 'performance_metrics.dart';
 import 'shape_metrics.dart';
+import 'start_metrics.dart';
 import 'temporal_metrics.dart';
 import 'truth.dart';
 
@@ -41,30 +39,11 @@ class Subject {
   double get streamline => replay.pen.streamline;
 }
 
-/// Raw-sample truths for the contacts of [recording] that make ink — the
-/// stylus, and fingers or the mouse only without "stylus only" (with it,
-/// fingers pan and zoom) — and are not bounces (shorter than 80 ms,
-/// starting within 120 ms and 16 px of the last lift).
-List<Truth> rawTruths(InputRecording recording) {
-  final out = <Truth>[];
-  final fingersNavigate = recording.meta.stylusOnly;
-  RawContact? previous;
-  for (final c in rawContacts(recording)) {
-    if (c.cancelled || c.samples.isEmpty) continue;
-    // Erasing: the eraser end, or the side button (the replay's default
-    // action).
-    if (routeStylus(c.kind, c.buttons, PenButtonAction.eraser) != StylusRoute.tool) continue;
-    if (c.kind != PointerDeviceKind.stylus && fingersNavigate) continue;
-    final bounce =
-        previous != null &&
-        c.downUs - previous.upUs < 120000 &&
-        c.upUs - c.downUs < 80000 &&
-        (c.samples.first.position - previous.samples.last.position).distance < 16;
-    if (!bounce) out.add(Truth.ofContact(c));
-    previous = c; // the last ink contact (a bounce follows a pen lift)
-  }
-  return out;
-}
+/// Raw-sample truths for the contacts of [recording] that make ink and are
+/// not bounces ([intendedContacts]).
+List<Truth> rawTruths(InputRecording recording) => [
+  for (final c in intendedContacts(recording)) Truth.ofContact(c),
+];
 
 /// Every quality metric of [s] (performance and overlay are separate).
 List<Metric> qualityMetrics(Subject s) {
@@ -75,6 +54,7 @@ List<Metric> qualityMetrics(Subject s) {
     ...smoothness(committedLines(s.replay)),
     ...ends(s.replay, pairs, s.truths, s.streamline),
     ...temporal(s.replay),
+    ...start(s.replay, intendedContacts(s.replay.recording)),
   ];
 }
 

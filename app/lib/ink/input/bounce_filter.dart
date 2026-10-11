@@ -9,6 +9,11 @@ import 'dart:ui';
 /// close to where that lift happened, and is itself tiny and brief.
 /// Deliberate dots (dotting an "i", full stops) are placed further away or
 /// later and are therefore kept.
+///
+/// Whether a contact was a bounce is only known at its lift: ink shows from
+/// pen-down whatever the contact turns out to be (latency beats purity), so
+/// a bounce shows as a dot under the nib, where the pen just lifted, for
+/// less than [maxContact], and is not committed.
 class BounceFilter {
   BounceFilter({
     this.maxGap = const Duration(milliseconds: 120),
@@ -42,27 +47,6 @@ class BounceFilter {
   void reset() {
     _liftTime = null;
     _liftPosition = null;
-  }
-
-  /// Whether a contact that started at [down] and is still touching at
-  /// [now] could still turn out to be a bounce. Such a contact is not shown
-  /// yet, so a bounce never flashes; once this is false it never will be a
-  /// bounce ([isBounce] needs the same, or tighter, conditions).
-  bool mightBounce({
-    required Duration down,
-    required Duration now,
-    required Offset start,
-    required double travel,
-  }) {
-    final liftTime = _liftTime;
-    final liftPosition = _liftPosition;
-    if (liftTime == null || liftPosition == null) return false;
-    final gap = down - liftTime;
-    return !gap.isNegative &&
-        gap <= maxGap &&
-        now - down <= maxContact &&
-        (start - liftPosition).distance <= maxDistance &&
-        travel <= maxTravel;
   }
 
   /// Whether a contact from [down] to [up] (screen positions [start]..[end],

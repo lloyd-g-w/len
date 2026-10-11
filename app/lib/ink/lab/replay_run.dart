@@ -23,6 +23,7 @@ class ReplayFrame {
     required this.commitTime,
     this.viewScale = 1,
     this.viewOffset = Offset.zero,
+    this.style = const StrokeStyle(),
   });
 
   final int index;
@@ -40,6 +41,9 @@ class ReplayFrame {
 
   /// Points of the live stroke at this frame (empty: not drawing).
   final List<StrokePoint> points;
+
+  /// The live stroke's style (with the zoom it is written at).
+  final StrokeStyle style;
 
   /// Newest pointer event handled before the frame (µs, event clock).
   final int newestEventUs;
@@ -133,6 +137,7 @@ class ReplayResult {
             commitTime: step.commitTime,
             viewScale: viewport.scale,
             viewOffset: viewport.offset,
+            style: live.style,
           ),
         );
       }

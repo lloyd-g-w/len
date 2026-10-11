@@ -20,9 +20,12 @@ import '../render/stroke_shaper.dart';
 ///  * **Points**: thinned like the input controller does (`PointSpacing`):
 ///    closer than [WetInkShape.minSpacing] to the last point is dropped,
 ///    unless it is the furthest dropped sample and more than
-///    [WetInkShape.keepExtreme] off the line to the next point. Points
-///    before `startMs` (the pen-down hook Flutter trims, sent with `begin`)
-///    are not drawn.
+///    [WetInkShape.keepExtreme] off the line to the next point.
+///  * **Pen-down hook**: decided with the outline's rules ([HookFinder]
+///    with [WetInkShape.hookStart]) as soon as the points reach far enough,
+///    exactly when Flutter's outline decides it; until then every point is
+///    drawn (as Flutter shows the stroke from pen-down), then the hook's
+///    points are dropped.
 ///  * **Radius**: the `begin` radius table (pressure 0, 0.1 … 1), then the
 ///    outline's causal smoothing by length (two exponential passes and a
 ///    slope limit, in steps of [WetInkShape.step] along each segment, like
@@ -35,21 +38,31 @@ import '../render/stroke_shaper.dart';
 ///    before the tail (enough for the kernel), so the overlay's ink lies
 ///    where Flutter's will, also with the stabiliser up.
 ///  * **Lift**: the last three pressures may not rise, and the pen-up hook
-///    is trimmed with the outline's rules ([HookFinder]).
+///    is trimmed with the outline's rules ([HookFinder]; the pen-down hook
+///    is decided now if it was not yet).
 ///  * **Shape**: the hull of the circles of consecutive smoothed points (a
 ///    tapered capsule: two circles and the quad between their tangents);
-///    one point is a dot.
+///    one point is a dot, and so is a whole line shorter than half its
+///    width, with the contact's largest radius (as Flutter draws it).
 ///  * **Tail**: on every commit (after each Flutter frame's `progress`,
 ///    and every frame while a tail remains) the front buffer is cleared
 ///    and only points newer than the `progress` reported two messages
 ///    before the latest are drawn (Flutter presents a frame about two
 ///    frames after building it; counting messages rather than time keeps
 ///    this right when frames are late), plus the point before them (the
-///    segment leading in); after the lift at least the last point. New
+///    segment leading in); after the lift at least the last point; and
+///    every point while Flutter's frame still shows a pen-down hook the
+///    model has trimmed (so the start Flutter will show is drawn). New
 ///    points are drawn into the front buffer as they arrive. After `end`,
 ///    the tail stays until [endFrames] frames have passed.
 class WetInkModel {
-  WetInkModel({required this.radii, required this.shape, required this.frameMs, this.startMs = 0});
+  WetInkModel({required this.radii, required this.shape, required this.frameMs})
+    : _hooks = HookFinder.lengths(
+        maxStart: shape.hookStart,
+        maxEnd: shape.hookEnd,
+        body: shape.hookBody,
+        local: shape.hookLocal,
+      );
 
   /// Radius (same units as positions) at pressures 0, 0.1, … 1.
   final List<double> radii;
@@ -71,11 +84,22 @@ class WetInkModel {
   /// longer costs nothing).
   static const int endFrames = 3;
 
-  /// Points before this time are not ink (the pen-down hook).
-  final int startMs;
-
-  /// The points drawn (from `startMs` on).
+  /// The points drawn: from the end of the pen-down hook, or from pen-down
+  /// while that is undecided.
   final List<WetSample> samples = [];
+
+  final HookFinder _hooks;
+
+  // Every point of the contact (the hooks are decided on them), and how
+  // many of them the pen-down hook drops, once decided.
+  final DoubleBuffer _x = DoubleBuffer(), _y = DoubleBuffer();
+  int? _start;
+
+  // When the pen-down hook was trimmed (the time of the point that decided
+  // it), and the largest radius among its points (a dot is as large as the
+  // largest radius of the whole contact, as Flutter draws it).
+  int? _trimmedAtMs;
+  double _trimmedRadius = 0;
 
   double _pressure = -1;
   Offset? _last;
@@ -112,12 +136,33 @@ class WetInkModel {
       if (extreme != null) _keep(extreme);
       _keep(sample);
     }
-    if (lift) _lift();
+    if (lift) _lift(timeMs);
   }
 
   void _keep(WetSample s) {
     _last = s.position;
-    if (s.timeMs >= startMs) samples.add(s);
+    _x.add(s.position.dx);
+    _y.add(s.position.dy);
+    samples.add(s);
+    if (_start == null) _decideStart(_x.length, ended: false, atMs: s.timeMs);
+  }
+
+  /// Decides the pen-down hook from the first [n] points, if they reach far
+  /// enough (or the stroke [ended]), and drops its points.
+  void _decideStart(int n, {required bool ended, required int atMs}) {
+    final cut = _hooks.startCut(_x, _y, n, ended: ended);
+    if (cut == null) return;
+    _start = cut;
+    if (cut == 0) return;
+    _trimmedAtMs = atMs;
+    for (var i = 0; i < math.min(cut, samples.length); i++) {
+      _trimmedRadius = math.max(_trimmedRadius, radiusAt(samples[i].pressure));
+    }
+    samples.removeRange(0, math.min(cut, samples.length));
+    _forget(0);
+    _arcs
+      ..clear()
+      ..add(0);
   }
 
   // Causal radii per point (two passes, slope-limited) and arc lengths.
@@ -130,7 +175,7 @@ class WetInkModel {
   }
 
   /// Pen-up: the last pressures may not rise; the pen-up hook is trimmed.
-  void _lift() {
+  void _lift(int timeMs) {
     _lifted = true;
     final n = samples.length;
     _forget(n - 3);
@@ -142,18 +187,11 @@ class WetInkModel {
         samples[i] = WetSample(s.position, ceiling, s.timeMs);
       }
     }
-    final x = DoubleBuffer(), y = DoubleBuffer();
-    for (final s in samples) {
-      x.add(s.position.dx);
-      y.add(s.position.dy);
-    }
-    final hooks = HookFinder.lengths(
-      maxStart: 0,
-      maxEnd: shape.hookEnd,
-      body: shape.hookBody,
-      local: shape.hookLocal,
-    );
-    final keep = samples.length < 2 ? samples.length : hooks.endKeep(x, y, samples.length);
+    // The pen-up hook, on every point (as the outline finds it).
+    final all = _x.length;
+    final keepAll = all < 2 ? all : _hooks.endKeep(_x, _y, all);
+    if (_start == null) _decideStart(keepAll, ended: true, atMs: timeMs);
+    final keep = math.max(math.min(1, samples.length), keepAll - _start!);
     samples.removeRange(keep, samples.length);
     _forget(keep);
     // Spline lengths that used a removed point.
@@ -249,6 +287,10 @@ class WetInkModel {
     // the committed end (pen-up hook trimmed, end settled) differs from it:
     // keep the last point until the committed stroke is shown.
     if (_lifted && samples.isNotEmpty) from = math.min(from, samples.length - 1);
+    // Flutter's frame still shows the start from pen-down (the hook it has
+    // not trimmed yet): draw the start as it is now, from its first point.
+    final trimmed = _trimmedAtMs;
+    if (trimmed != null && trimmed > cutoff && samples.isNotEmpty) return 0;
     if (from == samples.length) return from;
     return math.max(0, from - 1);
   }
@@ -260,7 +302,9 @@ class WetInkModel {
     final r = pointRadii();
     if (to - from == 1) {
       final s = samples[from];
-      return [WetSegment(s.position, s.position, r[from], r[from])];
+      final whole = from == 0 && to == samples.length;
+      final radius = whole ? math.max(r[from], _trimmedRadius) : r[from];
+      return [WetSegment(s.position, s.position, radius, radius)];
     }
     // Smooth from a little before [from]: the kernel, its end fit and the
     // corner test reach that far back.
@@ -287,6 +331,16 @@ class WetInkModel {
       shaper.add(s.dx, s.dy, r[i]);
     }
     shaper.update(ended: _lifted && to == samples.length);
+    // A line shorter than half its width is a dot, as Flutter draws it
+    // (`StrokeOutline.isDot`): the largest radius, at the first point.
+    if (start == 0 && to == samples.length && _isDot(shaper)) {
+      var r = _trimmedRadius;
+      for (final s in samples) {
+        r = math.max(r, radiusAt(s.pressure));
+      }
+      final c = samples[0].position;
+      return [WetSegment(c, c, r, r)];
+    }
     // The smoothed points from about where point [from] is.
     var skip = 0.0;
     for (var i = start + 1; i <= from; i++) {
@@ -303,6 +357,16 @@ class WetInkModel {
       for (var i = first + 1; i < n; i++)
         WetSegment(Offset(x[i - 1], y[i - 1]), Offset(x[i], y[i]), rr[i - 1], rr[i]),
     ];
+  }
+
+  /// `StrokeOutline.isDot` for the whole line in [s].
+  static bool _isDot(StrokeShaper s) {
+    if (s.length < 2) return true;
+    var maxR = 0.0;
+    for (var i = 0; i < s.length; i++) {
+      maxR = math.max(maxR, s.r[i]);
+    }
+    return s.p.step * (s.length - 1) < maxR * 0.5;
   }
 
   // Spline length from the first point to point i (as the outline's
