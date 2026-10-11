@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/clock.dart';
+import '../domain/cancellation.dart';
 import 'app_database.dart';
 import 'blob_backend.dart';
 
@@ -58,9 +59,18 @@ class BlobStore {
   }
 
   /// Stores a copy of [source] (e.g. a picked file; streamed where the
-  /// platform allows) and returns its id.
-  Future<String> putFile(XFile source, {required String mime}) async {
-    final sha = await hashStream(source.openRead());
+  /// platform allows) and returns its id. A [cancel]led token stops it
+  /// (with [Cancelled]) before anything is stored.
+  Future<String> putFile(XFile source, {required String mime, CancellationToken? cancel}) async {
+    final sha = await hashStream(
+      cancel == null
+          ? source.openRead()
+          : source.openRead().map((chunk) {
+              cancel.check();
+              return chunk;
+            }),
+    );
+    cancel?.check();
     return _exclusive(() async {
       if (!await has(sha)) await backend.write(sha, source.openRead());
       _record(sha, await source.length(), mime, uploaded: false);
@@ -139,6 +149,15 @@ class BlobStore {
     }
     return due;
   });
+
+  /// Deletes blob [sha] right away unless [referenced] (the ids live rows
+  /// reference) contains it, e.g. after a cancelled import stored it.
+  Future<void> discardIfUnreferenced(String sha, Set<String> Function() referenced) =>
+      _exclusive(() async {
+        if (referenced().contains(sha) || !_isRecorded(sha)) return;
+        await backend.delete(sha);
+        database.db.execute('DELETE FROM blobs WHERE sha256 = ?', [sha]);
+      });
 
   void _setUnreferencedSince(String sha, int? ms) =>
       database.db.execute('UPDATE blobs SET unreferenced_since = ? WHERE sha256 = ?', [ms, sha]);

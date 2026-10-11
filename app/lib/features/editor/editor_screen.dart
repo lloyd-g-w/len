@@ -36,6 +36,7 @@ import 'editor_session.dart';
 import 'editor_shortcuts.dart';
 import 'editor_toolbar.dart';
 import 'images/image_entry_points.dart';
+import 'pdf/pdf_layer.dart';
 import 'tabs/open_notebooks.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
@@ -271,6 +272,8 @@ class _EditorScreenState extends State<EditorScreen> {
 
   void _openMenu(Offset at) {
     if (!mounted || _closing) return;
+    // A long press on PDF text selects the word there instead.
+    if (_session.pdf?.selectWordAt(at) ?? false) return;
     final doc = _session.doc;
     final actions = canvasActions(
       _session,
@@ -375,6 +378,7 @@ class _EditorScreenState extends State<EditorScreen> {
               paste: () => _session.images.paste(context),
             ),
             ...EditorSearchLayer.shortcuts(_search),
+            ...?_session.pdf == null ? null : pdfShortcuts(_session.pdf!),
           },
           child: Focus(
             focusNode: _focusNode,
@@ -428,6 +432,8 @@ class _EditorScreenState extends State<EditorScreen> {
                               onFollowLink: _followLink,
                             ),
                           ),
+                          if (_session.pdf case final pdf?)
+                            Positioned.fill(child: PdfLayer(interaction: pdf)),
                           if (_session.canvas != null)
                             Positioned.fill(
                               child: Padding(
