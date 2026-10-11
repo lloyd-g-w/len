@@ -41,7 +41,7 @@ Future<(AppServices, Notebook)> pumpEditor(
   final second = services.pages.addPage(
     nb.id,
     template: const PageTemplate(
-      style: PaperStyle.grid,
+      style: PaperStyle.gridLarge,
       color: PaperColor.cream,
       format: PageFormat.letter,
       orientation: PageOrientation.landscape,

@@ -337,7 +337,7 @@ void main() {
       final paged = a.s.notebooks.create(
         title: 'Doomed paged',
         kind: NotebookKind.paged,
-        paper: PaperStyle.lined,
+        paper: PaperStyle.wideRuled,
         coverColor: 0,
       );
       final p1 = a.s.pages.pagesOf(paged.id).single;

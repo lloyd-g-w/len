@@ -2,16 +2,15 @@ import 'dart:ui';
 
 /// Background pattern ("template") drawn behind ink.
 ///
-/// Stored and synced by [name]; names are never renamed. Values unknown to
-/// this app version (written by a newer one) parse as [blank].
+/// Stored and synced by [name].
 enum PaperStyle {
   blank('Blank', 0),
 
-  /// Wide ruled (8.5 mm). Named `lined` for compatibility with old data.
-  lined('Wide ruled', 32),
+  /// Wide ruled (8.5 mm).
+  wideRuled('Wide ruled', 32),
 
-  /// Large grid (8.5 mm). Named `grid` for compatibility with old data.
-  grid('Large grid', 32),
+  /// Large grid (8.5 mm).
+  gridLarge('Large grid', 32),
   dotted('Dotted', 32),
   collegeRuled('College ruled', 27),
   narrowRuled('Narrow ruled', 24),
@@ -34,9 +33,9 @@ enum PaperStyle {
     blank,
     narrowRuled,
     collegeRuled,
-    lined,
+    wideRuled,
     gridSmall,
-    grid,
+    gridLarge,
     dotted,
     isometric,
     cornell,
@@ -44,8 +43,9 @@ enum PaperStyle {
   ];
 
   /// Whether the pattern consists of horizontal writing lines.
-  bool get isRuled => this == lined || this == collegeRuled || this == narrowRuled;
+  bool get isRuled => this == wideRuled || this == collegeRuled || this == narrowRuled;
 
+  /// Parses a stored name; an unknown one (corrupt data) reads as [blank].
   static PaperStyle parse(String value) =>
       values.firstWhere((p) => p.name == value, orElse: () => blank);
 }

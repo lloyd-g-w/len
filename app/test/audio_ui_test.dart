@@ -54,7 +54,7 @@ Future<_Editor> _pump(
   final nb = services.notebooks.create(
     title: 'Biology lecture',
     kind: kind,
-    paper: PaperStyle.lined,
+    paper: PaperStyle.wideRuled,
     coverColor: 0xFF3B5BDB,
   );
   seed?.call(services, nb);

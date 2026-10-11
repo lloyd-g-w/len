@@ -226,7 +226,7 @@ void main() {
       final nb = notebooks.create(
         title: 'Physics',
         kind: NotebookKind.paged,
-        paper: PaperStyle.lined,
+        paper: PaperStyle.wideRuled,
         coverColor: 0xFF0000FF,
       );
       final page = pages.pagesOf(nb.id).single;

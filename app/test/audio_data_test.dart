@@ -18,7 +18,7 @@ import 'support/fake_server.dart' show FakeServer, apiFor, device;
 final _sha = 'ab' * 32;
 
 Notebook _notebook(AppServices s, {NotebookKind kind = NotebookKind.paged}) =>
-    s.notebooks.create(title: 'Lecture', kind: kind, paper: PaperStyle.lined, coverColor: 1);
+    s.notebooks.create(title: 'Lecture', kind: kind, paper: PaperStyle.wideRuled, coverColor: 1);
 
 Recording _record(AppServices s, String notebookId, {String title = 'Talk'}) => s.recordings.create(
   notebookId: notebookId,

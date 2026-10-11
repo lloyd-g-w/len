@@ -153,7 +153,7 @@ void main() {
     final nb = first.notebooks.create(
       title: 'Plans',
       kind: NotebookKind.paged,
-      paper: PaperStyle.grid,
+      paper: PaperStyle.gridLarge,
       coverColor: 1,
       folderId: folder.id,
     );

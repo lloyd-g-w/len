@@ -154,7 +154,7 @@ AppServices seededServices() {
     int color,
     CoverStyle style, {
     NotebookKind kind = NotebookKind.paged,
-    PaperStyle paper = PaperStyle.lined,
+    PaperStyle paper = PaperStyle.wideRuled,
     String? folder,
     int ink = 0,
   }) {
@@ -183,7 +183,7 @@ AppServices seededServices() {
     paper: PaperStyle.dotted,
     ink: 5,
   );
-  nb('Meeting notes', 1, CoverStyle.plain, paper: PaperStyle.grid, folder: work.id, ink: 6);
+  nb('Meeting notes', 1, CoverStyle.plain, paper: PaperStyle.gridLarge, folder: work.id, ink: 6);
   nb('Recipes', 2, CoverStyle.waves);
   nb('Ideas', 5, CoverStyle.dots, ink: 4, paper: PaperStyle.dotted);
   nb('Spanish vocabulary', 8, CoverStyle.stripes);

@@ -45,7 +45,7 @@ void main() {
       notebooks.create(
         title: title,
         kind: kind,
-        paper: PaperStyle.lined,
+        paper: PaperStyle.wideRuled,
         coverColor: 1,
         folderId: folderId,
       );
@@ -148,7 +148,7 @@ void main() {
     test('duplicate copies pages and strokes under new ids', () {
       final source = notebook('Physics');
       final page = pages.pagesOf(source.id).single;
-      pages.addPage(source.id, paper: PaperStyle.grid, after: page);
+      pages.addPage(source.id, paper: PaperStyle.gridLarge, after: page);
       strokes.save([
         stroke('s1', const Offset(10, 10), surface: page.id),
         stroke('s2', const Offset(600, 600), surface: page.id),
@@ -161,7 +161,7 @@ void main() {
 
       final copiedPages = pages.pagesOf(copy.id);
       expect(copiedPages, hasLength(2));
-      expect(copiedPages.map((p) => p.paper), [PaperStyle.lined, PaperStyle.grid]);
+      expect(copiedPages.map((p) => p.paper), [PaperStyle.wideRuled, PaperStyle.gridLarge]);
       expect(copiedPages.map((p) => p.id).toSet().intersection({page.id}), isEmpty);
 
       final range = ChunkGrid.rangeFor(const Rect.fromLTWH(0, 0, 2000, 2000));
@@ -306,7 +306,7 @@ void main() {
     final nb = a.notebooks.create(
       title: 'Algebra',
       kind: NotebookKind.paged,
-      paper: PaperStyle.grid,
+      paper: PaperStyle.gridLarge,
       coverColor: 1,
       coverStyle: CoverStyle.waves,
       folderId: maths.id,

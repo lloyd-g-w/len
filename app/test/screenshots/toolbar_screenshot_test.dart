@@ -23,7 +23,7 @@ Notebook writtenNotebook(AppServices s) {
   final n = s.notebooks.create(
     title: 'Lecture notes',
     kind: NotebookKind.paged,
-    paper: PaperStyle.lined,
+    paper: PaperStyle.wideRuled,
     coverColor: 0xFF3B5BDB,
   );
   final page = s.pages.pagesOf(n.id).first.id;

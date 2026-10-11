@@ -6,10 +6,10 @@ import 'package:len/ink/render/paper_painter.dart';
 
 void main() {
   group('PaperStyle', () {
-    test('unknown names parse as blank, old names keep working', () {
+    test('stored names parse; unknown ones as blank', () {
       expect(PaperStyle.parse('hexagons-from-the-future'), PaperStyle.blank);
-      expect(PaperStyle.parse('lined'), PaperStyle.lined);
-      expect(PaperStyle.parse('grid'), PaperStyle.grid);
+      expect(PaperStyle.parse('wideRuled'), PaperStyle.wideRuled);
+      expect(PaperStyle.parse('gridLarge'), PaperStyle.gridLarge);
       expect(PaperColor.parse(null), PaperColor.white);
       expect(PaperColor.parse('ultraviolet'), PaperColor.white);
     });

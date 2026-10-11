@@ -39,9 +39,9 @@ class PaperPattern {
     switch (style) {
       case PaperStyle.blank:
         break;
-      case PaperStyle.lined || PaperStyle.collegeRuled || PaperStyle.narrowRuled:
+      case PaperStyle.wideRuled || PaperStyle.collegeRuled || PaperStyle.narrowRuled:
         b.ruled();
-      case PaperStyle.grid || PaperStyle.gridSmall:
+      case PaperStyle.gridLarge || PaperStyle.gridSmall:
         b.grid();
       case PaperStyle.dotted:
         b.dotted();

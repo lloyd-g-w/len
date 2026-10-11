@@ -49,12 +49,15 @@ void main() {
     notebook = services.notebooks.create(
       title: 'Lab',
       kind: NotebookKind.paged,
-      paper: PaperStyle.grid,
+      paper: PaperStyle.gridLarge,
       coverColor: 0xFF3B5BDB,
       paperColor: PaperColor.values.last,
     );
     for (var i = 0; i < 4; i++) {
-      services.pages.addPage(notebook.id, template: const PageTemplate(style: PaperStyle.lined));
+      services.pages.addPage(
+        notebook.id,
+        template: const PageTemplate(style: PaperStyle.wideRuled),
+      );
     }
     pages = services.pages.pagesOf(notebook.id);
     exporter = _FakeExporter(services);
@@ -113,7 +116,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(exporter.pdfCalls.single.map((p) => p.id), [pages[0].id, pages[1].id, pages[3].id]);
-    expect(exporter.pdfCalls.single.first.paper, PaperStyle.grid);
+    expect(exporter.pdfCalls.single.first.paper, PaperStyle.gridLarge);
     expect(saved.single.$1, ['Lab p1-2,4.pdf']);
     expect(saved.single.$2, 'application/pdf');
     expect(find.text('Saved somewhere'), findsOneWidget);

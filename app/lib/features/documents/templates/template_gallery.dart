@@ -9,9 +9,9 @@ const List<(String, List<PaperStyle>)> templateGroups = [
   ('Basic', [PaperStyle.blank, PaperStyle.dotted]),
   (
     'Lined',
-    [PaperStyle.narrowRuled, PaperStyle.collegeRuled, PaperStyle.lined, PaperStyle.cornell],
+    [PaperStyle.narrowRuled, PaperStyle.collegeRuled, PaperStyle.wideRuled, PaperStyle.cornell],
   ),
-  ('Grid', [PaperStyle.gridSmall, PaperStyle.grid, PaperStyle.isometric]),
+  ('Grid', [PaperStyle.gridSmall, PaperStyle.gridLarge, PaperStyle.isometric]),
   ('Music', [PaperStyle.music]),
 ];
 
