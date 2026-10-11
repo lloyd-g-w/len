@@ -116,14 +116,29 @@ stored, `404` (empty body) if not.
 ### Client algorithm for blobs
 
 - Records reference blobs by `<sha256>` inside their `data` (e.g. a page `background.blob`).
-- **Upload before push.** Before each push, the client uploads every locally stored blob it has
-  not yet uploaded to the current server: `HEAD` to skip blobs the server already has, otherwise
-  `PUT`. It remembers successfully uploaded blobs. Records are only pushed after the blobs they
-  reference are on the server, so a record never reaches the server before its blob: a failed
-  upload aborts the sync cycle before any record is pushed (everything stays dirty and is retried
-  on the next sync). A server without blob support (no `"blobs": true` in `/v1/health`) answers
-  `404` to blob requests, which surfaces as a sync error once a device has stored a blob.
-  When the server URL changes, the "uploaded" marks are reset along with `lastPulledSeq`.
+- **Upload before push.** Each sync cycle starts with `GET /v1/health`. Before pushing, the client
+  uploads every locally stored blob that a live local row references and that it has not yet
+  uploaded to the current server: `HEAD` to skip blobs the server already has, otherwise `PUT`. It
+  remembers successfully uploaded blobs (and forgets those marks when the server's
+  `blobsCollectedAt` changes, see [garbage collection](#blob-garbage-collection)). Blobs no live
+  row references are not uploaded.
+- **Too large.** A blob larger than the advertised `maxBlobBytes`, or answered with `413`, is
+  marked "too large" for this server and skipped from then on, without blocking anything else:
+  records referencing it are pushed normally, and other devices show their usual placeholder for a
+  missing blob. The mark records the advertised limit at that time; it is dropped when the server
+  advertises a larger limit that fits the blob, when the user retries (Settings → Sync), or when
+  the server changes. The app reports such blobs ("1 file too large to sync").
+- **Other failures.** If `/v1/health` or a `HEAD` cannot reach the server, or the token is
+  rejected, the cycle aborts (nothing else would get through). Any other failure of one blob (an
+  error status, or a connection breaking during a long upload) does not stop the other blobs; the
+  blob stays pending and is retried on the next sync, and the cycle is reported as failed after
+  pushing and pulling everything else. Records referencing a blob that is still pending are held
+  back (stay dirty), so a record does not reach the server before its blob — but only for three
+  consecutive failed attempts, after which they are pushed anyway, so one blob that can never be
+  uploaded cannot keep its records from syncing.
+- A server without blob support (no `"blobs": true` in `/v1/health`) answers `404` to blob
+  requests, which surfaces as a failed upload once a device references a stored blob. When the
+  server URL changes, the "uploaded" and "too large" marks are reset along with `lastPulledSeq`.
 - **Lazy download.** Pulled records may reference blobs the client does not have; the client
   downloads them with `GET` only when they are needed (e.g. when a page is displayed) and verifies
   the SHA-256 before storing them. A missing blob (`404`) is treated as temporarily unavailable.

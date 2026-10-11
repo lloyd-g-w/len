@@ -18,6 +18,7 @@ class SyncController extends ChangeNotifier {
     this.apiFactory = _defaultApi,
   }) {
     _state = isConfigured ? SyncState.idle : SyncState.disabled;
+    _refreshTooLarge();
   }
 
   final SyncEngine engine;
@@ -28,8 +29,7 @@ class SyncController extends ChangeNotifier {
   /// for an invalid URL.
   final SyncApi Function(String url, String token) apiFactory;
 
-  static SyncApi _defaultApi(String url, String token) =>
-      SyncApi(baseUrl: url, token: token);
+  static SyncApi _defaultApi(String url, String token) => SyncApi(baseUrl: url, token: token);
 
   final _remoteChanges = StreamController<RemoteChanges>.broadcast();
   Timer? _timer;
@@ -48,6 +48,30 @@ class SyncController extends ChangeNotifier {
   SyncState get state => _state;
   String? get lastError => _lastError;
   DateTime? get lastSuccess => _lastSuccess;
+
+  List<({String sha, int size})> _tooLarge = const [];
+
+  /// Local files (blobs) the server refuses as too large: they stay on this
+  /// device, records referencing them sync without them.
+  List<({String sha, int size})> get tooLargeFiles => _tooLarge;
+
+  /// "1 file too large to sync", or null if there is none.
+  String? get tooLargeSummary =>
+      _tooLarge.isEmpty ? null : '${_files(_tooLarge.length)} too large to sync';
+
+  /// The server's blob size limit as last reported, if known.
+  int? get serverMaxBlobBytes => engine.serverInfo?.maxBlobBytes;
+
+  /// Tries uploading the [tooLargeFiles] again (e.g. after the server's
+  /// limit was raised) and syncs.
+  Future<void> retryTooLargeFiles() {
+    engine.blobs?.retryTooLarge();
+    _refreshTooLarge();
+    notifyListeners();
+    return syncNow();
+  }
+
+  void _refreshTooLarge() => _tooLarge = engine.blobs?.tooLarge() ?? const [];
 
   bool get isConfigured => settings.syncUrl.isNotEmpty && settings.syncToken.isNotEmpty;
 
@@ -73,6 +97,7 @@ class SyncController extends ChangeNotifier {
       ..syncUrl = normalizedUrl
       ..syncToken = token.trim();
     if (changedServer) engine.resetForNewServer();
+    _refreshTooLarge();
     _configGeneration++;
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
   }
@@ -122,7 +147,6 @@ class SyncController extends ChangeNotifier {
     }
   }
 
-
   Future<void> _run() async {
     if (!isConfigured) {
       _setState(SyncState.disabled);
@@ -137,9 +161,20 @@ class SyncController extends ChangeNotifier {
       api = apiFactory(settings.syncUrl, settings.syncToken);
       final changes = await engine.sync(api, isCancelled: cancelled);
       if (cancelled()) return;
-      _lastError = null;
+      _refreshTooLarge();
       _lastSuccess = DateTime.now();
-      _setState(SyncState.idle);
+      final failed = engine.failedBlobUploads;
+      if (failed == 0) {
+        _lastError = null;
+        _setState(SyncState.idle);
+      } else {
+        // Everything else synced; the files are retried next time.
+        _fail(
+          '${_files(failed)} could not be uploaded and will be retried'
+          '${engine.blobUploadError == null ? '' : ' (${engine.blobUploadError})'}',
+          false,
+        );
+      }
       if (!changes.isEmpty) _remoteChanges.add(changes);
     } on SyncException catch (e) {
       _fail(e.message, cancelled());
@@ -153,8 +188,11 @@ class SyncController extends ChangeNotifier {
     }
   }
 
+  static String _files(int n) => n == 1 ? '1 file' : '$n files';
+
   void _fail(String message, bool cancelled) {
     if (cancelled) return;
+    _refreshTooLarge();
     _lastError = message;
     _setState(SyncState.error);
   }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' show Size;
 
 import 'package:cross_file/cross_file.dart';
 import 'package:crypto/crypto.dart';
@@ -12,6 +13,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/blob_backend.dart';
 import 'package:len/data/blob_store.dart';
 import 'package:len/domain/notebook.dart';
+import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/sync/sync_api.dart';
@@ -131,12 +133,20 @@ void main() {
 
     final bytes = Uint8List.fromList(utf8.encode('%PDF-1.7 big document'));
     final sha = await a.blobs.putBytes(bytes, mime: 'application/pdf');
-    a.notebooks.create(
+    final notebook = a.notebooks.create(
       title: 'PDF',
       kind: NotebookKind.paged,
       paper: PaperStyle.blank,
       coverColor: 0,
     );
+    a.pages.insertPages(notebook.id, [
+      (
+        size: const Size(100, 140),
+        paper: PaperStyle.blank,
+        color: PaperColor.white,
+        background: PageBackground.pdf(blob: sha, pageIndex: 0),
+      ),
+    ]);
     await a.sync.syncNow();
     expect(a.sync.lastError, isNull);
     expect(server.log.take(3), ['HEAD $sha', 'PUT $sha', 'push']);
