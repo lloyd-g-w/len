@@ -10,6 +10,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/features/library/folder_tile.dart';
 import 'package:len/features/library/new_notebook_sheet.dart';
+import 'package:len/features/library/new_notebook_tile.dart';
 import 'package:len/features/library/notebook_card.dart';
 import 'package:len/features/library/notebook_list_tile.dart';
 
@@ -148,6 +149,64 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(NotebookCard), findsNWidgets(2));
     expect(find.text('School'), findsWidgets); // Location subtitle.
+  });
+
+  testWidgets('the New… tile starts the grid and opens the create flow', (tester) async {
+    final semantics = tester.ensureSemantics();
+    late String folderId;
+    await pumpSeeded(tester, (s) {
+      folderId = s.folders.create(name: 'School', color: 0xFF0CA678).id;
+      s.notebooks.setFavorite(addNotebook(s, 'Fav').id, true);
+      addNotebook(s, 'Inside', folderId: folderId);
+    });
+    final tile = find.byType(NewNotebookTile);
+    expect(tile, findsOneWidget);
+    // First in the grid: left of (and level with) the first notebook.
+    expect(
+      tester.getTopLeft(tile).dx,
+      lessThan(tester.getTopLeft(find.byType(NotebookCard).first).dx),
+    );
+    expect(
+      tester.getSemantics(tile),
+      matchesSemantics(isButton: true, label: 'New notebook', hasTapAction: true),
+    );
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(find.byType(NewNotebookSheet), findsOneWidget);
+    Navigator.of(tester.element(find.byType(NewNotebookSheet))).pop();
+    await tester.pumpAndSettle();
+
+    // Inside folders too.
+    await tester.tap(find.byType(FolderTile));
+    await tester.pumpAndSettle();
+    expect(tile, findsOneWidget);
+
+    // Not in Favourites, the Trash, search results or the list layout.
+    await tester.tap(find.text('Favourites').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(NotebookCard), findsOneWidget);
+    expect(tile, findsNothing);
+    await tester.tap(find.text('Trash').first);
+    await tester.pumpAndSettle();
+    expect(tile, findsNothing);
+    await tester.tap(find.text('Library').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Fav');
+    await tester.pumpAndSettle();
+    expect(tile, findsNothing);
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
+    expect(tile, findsOneWidget);
+    await tester.tap(find.byTooltip('Select notebooks'));
+    await tester.pumpAndSettle();
+    expect(tile, findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(tile, findsOneWidget);
+    await tester.tap(find.byTooltip('Show as list'));
+    await tester.pumpAndSettle();
+    expect(tile, findsNothing);
+    semantics.dispose();
   });
 
   testWidgets('list view and sort order persist as preferences', (tester) async {
