@@ -7,24 +7,29 @@ import 'package:flutter/services.dart';
 
 import 'incoming_args.dart';
 
-/// Channel to `IncomingFiles.kt` (Android).
+/// Channel to `IncomingFiles.kt` (Android) and the Linux runner
+/// (`my_application.cc`: files a second `len <file>` forwarded).
 const String incomingFilesChannel = 'len/incoming_files';
 
-/// Batches of files handed to the app: on Android from intents, on
-/// desktops once, from the command-line [args] (existing files only).
+/// Batches of files handed to the app: on Android from intents; on
+/// desktops from the command-line [args] (existing files only) and, on
+/// Linux, files opened while Len runs.
 Stream<List<XFile>> openIncomingFiles(List<String> args) {
-  if (Platform.isAndroid) return _android();
-  final files = [
-    for (final path in incomingPathsFromArgs(args, windows: Platform.isWindows))
-      if (File(path).existsSync()) XFile(File(path).absolute.path),
-  ];
-  return files.isEmpty ? const Stream.empty() : Stream.value(files);
+  final controller = StreamController<List<XFile>>();
+  if (!Platform.isAndroid) {
+    final files = [
+      for (final path in incomingPathsFromArgs(args, windows: Platform.isWindows))
+        if (File(path).existsSync()) XFile(File(path).absolute.path),
+    ];
+    if (files.isNotEmpty) controller.add(files);
+  }
+  if (Platform.isAndroid || Platform.isLinux) _listen(controller);
+  return controller.stream;
 }
 
 /// Receives `files` calls (lists of `{path, name, mime}`) once Dart says
-/// it is `ready`; files of the launch intent arrive first.
-Stream<List<XFile>> _android() {
-  final controller = StreamController<List<XFile>>();
+/// it is `ready`; on Android, files of the launch intent arrive first.
+void _listen(StreamController<List<XFile>> controller) {
   const channel = MethodChannel(incomingFilesChannel);
   channel.setMethodCallHandler((call) async {
     if (call.method != 'files') return;
@@ -41,5 +46,4 @@ Stream<List<XFile>> _android() {
   channel.invokeMethod<void>('ready').catchError((Object e) {
     debugPrint('Incoming files unavailable: $e');
   });
-  return controller.stream;
 }
