@@ -77,7 +77,7 @@ class SurfaceModel extends ChangeNotifier {
   /// undo knows which page changed last.
   VoidCallback? onCommit;
 
-  final _invalidations = StreamController<Set<ChunkKey>?>.broadcast(sync: true);
+  final _changes = StreamController<SurfaceChange>.broadcast(sync: true);
 
   late final SurfaceLoader _loading;
   bool _disposed = false;
@@ -86,7 +86,12 @@ class SurfaceModel extends ChangeNotifier {
   Rect? _lastVisible;
 
   /// Emits chunks whose rendering is stale; `null` means "everything".
-  Stream<Set<ChunkKey>?> get invalidations => _invalidations.stream;
+  Stream<Set<ChunkKey>?> get invalidations => _changes.stream.map((c) => c.chunks);
+
+  /// Like [invalidations], but tells appended strokes apart (see
+  /// [SurfaceChange.appended]), so raster caches can add them to what they
+  /// already rendered instead of rendering again.
+  Stream<SurfaceChange> get changes => _changes.stream;
 
   int get loadedStrokeCount => _strokes.length;
   int get loadedElementCount => _elements.length;
@@ -238,7 +243,7 @@ class SurfaceModel extends ChangeNotifier {
     _loaded.clear();
     _lastRange = null;
     _loading.reset();
-    _invalidations.add(null);
+    _changes.add(const SurfaceChange(null));
     final visible = _lastVisible;
     if (visible != null) ensureLoaded(visible);
     notifyListeners();
@@ -271,7 +276,7 @@ class SurfaceModel extends ChangeNotifier {
       evicted.addAll(keys);
     }
     // Nothing visible changed, so listeners need not be notified.
-    if (evicted.isNotEmpty) _invalidations.add(evicted);
+    if (evicted.isNotEmpty) _changes.add(SurfaceChange(evicted));
   }
 
   // ---------------------------------------------------------------------------
@@ -349,6 +354,7 @@ class SurfaceModel extends ChangeNotifier {
       if (current != null) _removeStroke(current);
       changed.addAll(StrokeChunks.of(s));
     }
+    final appended = _isAppend(edit);
     for (final s in edit.added) {
       _strokes.insert(s);
       changed.addAll(StrokeChunks.of(s));
@@ -375,7 +381,28 @@ class SurfaceModel extends ChangeNotifier {
       _elements.insert(e);
       changed.addAll(ElementChunks.of(e));
     }
-    _changed(changed);
+    _changed(changed, appended: appended ? edit.added : null);
+  }
+
+  /// Whether [edit] only adds pen strokes painted over everything already
+  /// in their chunks (nothing above the ink there, nothing hidden), so
+  /// drawing them over a rendering of the chunks before the edit gives the
+  /// rendering after it. Checked before the strokes are inserted.
+  bool _isAppend(InkEdit edit) {
+    if (edit.added.isEmpty || edit.removed.isNotEmpty) return false;
+    if (edit.addedElements.isNotEmpty || edit.removedElements.isNotEmpty) return false;
+    for (final s in edit.added) {
+      if (s.tool.isHighlighter || _strokes.containsId(s.id) || _hidden.contains(s.id)) {
+        return false;
+      }
+      for (final key in StrokeChunks.of(s)) {
+        for (final other in _strokes.inChunk(key)) {
+          if (Stroke.paintOrder(other, s) > 0) return false;
+        }
+        if (_elements.inChunk(key).any((e) => !e.belowInk)) return false;
+      }
+    }
+    return true;
   }
 
   /// Marks [chunks] for re-rendering although no content changed (e.g. an
@@ -399,8 +426,8 @@ class SurfaceModel extends ChangeNotifier {
     _loading.noteRemoved(element.id);
   }
 
-  void _changed(Set<ChunkKey> chunks) {
-    _invalidations.add(chunks);
+  void _changed(Set<ChunkKey> chunks, {List<Stroke>? appended}) {
+    _changes.add(SurfaceChange(chunks, appended: appended));
     notifyListeners();
   }
 
@@ -408,7 +435,20 @@ class SurfaceModel extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _loading.dispose();
-    _invalidations.close();
+    _changes.close();
     super.dispose();
   }
+}
+
+/// A change of what a surface renders: the [chunks] whose rendering is
+/// stale (null: everything).
+class SurfaceChange {
+  const SurfaceChange(this.chunks, {this.appended});
+
+  final Set<ChunkKey>? chunks;
+
+  /// Set when the change only appends these strokes on top of everything
+  /// in [chunks] (pen ink, nothing above it there): a rendering of the
+  /// chunks from before plus these strokes, in order, is up to date.
+  final List<Stroke>? appended;
 }

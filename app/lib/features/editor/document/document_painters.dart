@@ -5,8 +5,9 @@ import 'package:flutter/rendering.dart';
 
 import '../../../domain/chunk_grid.dart';
 import '../../../domain/notebook_page.dart';
-import '../../../ink/lab/perf_probe.dart';
+import '../../../ink/render/ink_painters.dart';
 import '../../../ink/render/paper_painter.dart';
+import '../../../ink/render/tiles/tile_space.dart';
 import '../../../ink/viewport.dart';
 import 'document_layout.dart';
 import 'document_surfaces.dart';
@@ -109,42 +110,45 @@ class DocumentPaperPainter extends CustomPainter {
       old.paperImages != paperImages;
 }
 
-/// Paints the committed ink of the visible pages from their chunk caches.
+/// Paints the committed ink of the visible pages from their tile caches
+/// (chunk pictures where no tile is rendered yet).
 class DocumentInkPainter extends CustomPainter {
   DocumentInkPainter({
     required this.layout,
     required this.pages,
     required this.surfaces,
     required this.viewport,
-  }) : super(repaint: Listenable.merge([viewport, surfaces]));
+    this.devicePixelRatio = 1,
+  }) : super(repaint: Listenable.merge([viewport, surfaces, surfaces.rendered]));
 
   final DocumentLayout layout;
   final List<NotebookPage> pages;
   final DocumentSurfaces surfaces;
   final ViewportController viewport;
+  final double devicePixelRatio;
 
   @override
   void paint(Canvas canvas, Size size) {
     final visible = viewport.visibleWorldFor(size);
+    final scale = viewport.scale;
     for (final index in layout.visiblePages(visible)) {
       final surface = surfaces.peek(pages[index].id);
       if (surface == null) continue;
       final frame = layout.frameOf(index)!;
       final local = visible.shift(-frame.topLeft);
-      final chunks = surface.model.chunksIn(ChunkGrid.rangeFor(local));
-      if (chunks.isEmpty) continue;
-      canvas
-        ..save()
-        ..translate(viewport.offset.dx, viewport.offset.dy)
-        ..scale(viewport.scale)
-        ..translate(frame.left, frame.top)
-        ..clipRect(Offset.zero & frame.size);
-      surface.cache.setScale(viewport.scale); // Image resolution.
-      for (final key in chunks) {
-        canvas.drawPicture(surface.cache.pictureFor(key));
-      }
-      PerfProbe.count('chunkDraws', chunks.length);
-      canvas.restore();
+      if (surface.model.chunksIn(ChunkGrid.rangeFor(local)).isEmpty) continue;
+      surface.cache.setScale(scale); // Image resolution.
+      paintTiled(
+        canvas,
+        surface.tiles,
+        TileView(
+          k: scale * devicePixelRatio,
+          origin: (viewport.offset + frame.topLeft * scale) * devicePixelRatio,
+          visible: local,
+          clip: Offset.zero & frame.size,
+        ),
+        devicePixelRatio,
+      );
     }
   }
 
@@ -153,5 +157,6 @@ class DocumentInkPainter extends CustomPainter {
       old.layout != layout ||
       old.pages != pages ||
       old.surfaces != surfaces ||
-      old.viewport != viewport;
+      old.viewport != viewport ||
+      old.devicePixelRatio != devicePixelRatio;
 }

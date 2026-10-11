@@ -7,19 +7,26 @@ import '../../../data/element_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/chunk_picture_cache.dart';
+import '../../../ink/render/tiles/ink_tile_cache.dart';
 import '../../../ink/surface_model.dart';
 import 'undo_target.dart';
 
 /// One page's in-memory surface and its render cache.
 class PageSurface {
-  PageSurface(this.model) : cache = ChunkPictureCache(model);
+  PageSurface(this.model) : cache = ChunkPictureCache(model) {
+    tiles = InkTileCache(cache);
+  }
 
   final SurfaceModel model;
   final ChunkPictureCache cache;
 
+  /// Rendered tiles of the page's ink.
+  late final InkTileCache tiles;
+
   bool get hasHistory => model.history.canUndo || model.history.canRedo;
 
   void dispose() {
+    tiles.dispose();
     cache.dispose();
     model.dispose();
   }
@@ -50,6 +57,10 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
 
   final Map<String, PageSurface> _surfaces = {};
 
+  /// Notifies when a page's ink tiles were rendered (repaint only).
+  Listenable get rendered => _rendered;
+  final _rendered = ChangeNotifier();
+
   /// Least recently visible first.
   final List<String> _recency = [];
 
@@ -75,7 +86,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
           )
           ..addListener(notifyListeners)
           ..onCommit = () => noteEdited(pageId);
-    return _surfaces[pageId] = PageSurface(model);
+    return _surfaces[pageId] = PageSurface(model)..tiles.addListener(_rendered.notifyListeners);
   }
 
   /// The page receiving input; its surface is never released while idle
@@ -125,6 +136,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     s.model
       ..removeListener(notifyListeners)
       ..onCommit = null;
+    s.tiles.removeListener(_rendered.notifyListeners);
     s.dispose();
   }
 
@@ -179,6 +191,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
       s.dispose();
     }
     _surfaces.clear();
+    _rendered.dispose();
     super.dispose();
   }
 }
