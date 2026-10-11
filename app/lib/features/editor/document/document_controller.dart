@@ -108,9 +108,11 @@ class DocumentController extends ChangeNotifier {
 
   void setInsets(EdgeInsets insets) {
     if (insets == _insets) return;
+    // Asked before the new bounds may nudge the view.
+    final untouched = _untouched;
     _insets = insets;
     _updateBounds();
-    if (_untouched) _frame(_current);
+    if (untouched) _frame(_current);
   }
 
   /// Whether the view is still the one the last fit set (the user has not

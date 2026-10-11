@@ -131,9 +131,14 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
   // ---------------------------------------------------------------------------
   // Notebook-wide undo
 
+  /// Called with the page of every edit made here (commits, undo, redo),
+  /// e.g. to refresh another view of the same notebook.
+  void Function(String pageId)? onEdited;
+
   /// Records that [pageId] just committed an edit (a new undo step, or
   /// one merged into its previous step).
   void noteEdited(String pageId) {
+    onEdited?.call(pageId);
     final model = _surfaces[pageId]?.model;
     if (model == null || !model.history.canUndo) return;
     final recorded = model.history.recorded;
@@ -168,6 +173,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
       if (undo ? !model.history.canUndo : !model.history.canRedo) continue;
       undo ? model.undo() : model.redo();
       to.add(id);
+      onEdited?.call(id);
       return;
     }
   }

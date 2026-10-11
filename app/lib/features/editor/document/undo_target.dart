@@ -17,6 +17,9 @@ class SurfaceUndo implements UndoTarget {
 
   final SurfaceModel model;
 
+  /// Called after every undo and redo.
+  VoidCallback? onStep;
+
   @override
   bool get canUndo => model.history.canUndo;
 
@@ -24,10 +27,16 @@ class SurfaceUndo implements UndoTarget {
   bool get canRedo => model.history.canRedo;
 
   @override
-  void undo() => model.undo();
+  void undo() {
+    model.undo();
+    onStep?.call();
+  }
 
   @override
-  void redo() => model.redo();
+  void redo() {
+    model.redo();
+    onStep?.call();
+  }
 
   @override
   void addListener(VoidCallback listener) => model.addListener(listener);

@@ -18,6 +18,8 @@ class EditorMenuActions {
     required this.onPlacement,
     this.toolLabels = false,
     this.onToolLabels,
+    this.onCustomiseToolbar,
+    this.onPresent,
     required this.onSettings,
     this.onSearch,
     this.bookmarked = false,
@@ -57,6 +59,12 @@ class EditorMenuActions {
   /// Tool names under the toolbar's icons.
   final bool toolLabels;
   final ValueChanged<bool>? onToolLabels;
+
+  /// Puts the toolbar into edit mode (order, hidden tools, favourites).
+  final VoidCallback? onCustomiseToolbar;
+
+  /// Starts presentation mode (no chrome, laser pointer, page navigation).
+  final VoidCallback? onPresent;
   final VoidCallback onSettings;
 
   /// Opens in-notebook search (a menu item on phones, where the bar has

@@ -1,18 +1,30 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/menus.dart';
 import 'open_notebooks.dart';
 
 /// GoodNotes-style strip of open notebooks (tablets and desktops): tap a
-/// tab to switch, × (or a middle click) to close it.
+/// tab to switch, × (or a middle click) to close it; right click or long
+/// press for its menu (open in split view, close).
 class NotebookTabStrip extends StatelessWidget {
-  const NotebookTabStrip({super.key, required this.tabs, this.onRename});
+  const NotebookTabStrip({
+    super.key,
+    required this.tabs,
+    this.onRename,
+    this.splitAvailable = false,
+  });
 
   final OpenNotebooks tabs;
 
   /// Double-tapping the active tab renames its notebook.
   final VoidCallback? onRename;
+
+  /// Whether tabs offer "Open in split view" (large screens).
+  final bool splitAvailable;
 
   @override
   Widget build(BuildContext context) {
@@ -33,13 +45,41 @@ class NotebookTabStrip extends StatelessWidget {
                 onTap: () => tabs.activate(tab.id),
                 onClose: () => tabs.close(tab.id),
                 onRename: tab.id == tabs.activeId ? onRename : null,
+                onMenu: (context, at) => _menu(context, tab, at),
               ),
             ),
         ],
       ),
     );
   }
+
+  Future<void> _menu(BuildContext context, OpenTab tab, Offset? at) async {
+    final split = splitAvailable && tab.id != tabs.splitId;
+    final choice = await showContextMenuAt<_TabAction>(
+      context,
+      at: at,
+      items: [
+        if (split)
+          const MenuRow(
+            value: _TabAction.split,
+            icon: Icons.vertical_split_outlined,
+            label: 'Open in split view',
+          ),
+        const MenuRow(value: _TabAction.close, icon: Icons.close_rounded, label: 'Close tab'),
+      ],
+    );
+    switch (choice) {
+      case _TabAction.split:
+        tabs.openSplit(tab.id);
+      case _TabAction.close:
+        tabs.close(tab.id);
+      case null:
+        break;
+    }
+  }
 }
+
+enum _TabAction { split, close }
 
 class _Tab extends StatelessWidget {
   const _Tab({
@@ -48,6 +88,7 @@ class _Tab extends StatelessWidget {
     required this.active,
     required this.onTap,
     required this.onClose,
+    required this.onMenu,
     this.onRename,
   });
 
@@ -56,6 +97,9 @@ class _Tab extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onClose;
   final VoidCallback? onRename;
+
+  /// Opens the tab's menu at a global position (or under the tab).
+  final void Function(BuildContext context, Offset? at) onMenu;
 
   static const BorderRadius _shape = BorderRadius.vertical(top: Radius.circular(Radii.sm));
 
@@ -79,6 +123,8 @@ class _Tab extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             onDoubleTap: onRename,
+            onLongPress: () => onMenu(context, null),
+            onSecondaryTapUp: (d) => onMenu(context, d.globalPosition),
             borderRadius: _shape,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 112, maxWidth: 220),

@@ -11,6 +11,23 @@ import '../viewport.dart';
 import 'content_hit_test.dart';
 import 'pointer_tool.dart';
 
+/// Where a selection dragged by the lasso may be dropped besides its own
+/// surface: another editor of a split view. Positions are in the lasso's
+/// screen coordinates.
+abstract interface class SelectionDragOut {
+  /// The selection is being moved with the pointer at [pointer] and its
+  /// centre at [centre].
+  void dragging(Offset pointer, Offset centre);
+
+  /// The pointer lifted at [pointer] with the selection's centre at
+  /// [centre]. Returns true when another editor took a copy there; the
+  /// selection then stays where it was.
+  bool drop(Offset pointer, Offset centre);
+
+  /// The drag ended (dropped or cancelled).
+  void end();
+}
+
 /// The lasso: draw a loop to select, tap to select one item, drag the
 /// selection to move it, drag its handles to resize or rotate it. A long
 /// press on empty space asks to paste ([onLongPress]); a double tap on a
@@ -36,6 +53,9 @@ class LassoTool implements PointerTool {
   /// A long press on empty space at ([screen], [world]).
   void Function(Offset screen, Offset world)? onLongPress;
 
+  /// Lets a moved selection be dropped into another editor (split view).
+  SelectionDragOut? dragOut;
+
   /// Movement (pixels) that turns a press into a drag.
   static const double slop = 6;
   static const Duration longPress = Duration(milliseconds: 500);
@@ -47,13 +67,14 @@ class LassoTool implements PointerTool {
   Offset _startScreen = Offset.zero;
   Offset _startWorld = Offset.zero;
   Offset _lastWorld = Offset.zero;
+  Offset _lastScreen = Offset.zero;
   bool _dragged = false;
   Timer? _longPressTimer;
   ({String id, int time})? _lastTap;
 
   @override
   void down(ToolPointer p) {
-    _startScreen = p.screen;
+    _startScreen = _lastScreen = p.screen;
     _startWorld = _lastWorld = p.world;
     _dragged = false;
     final frame = selection.frame;
@@ -79,6 +100,7 @@ class LassoTool implements PointerTool {
   @override
   void move(ToolPointer p) {
     _lastWorld = p.world;
+    _lastScreen = p.screen;
     if (!_dragged && (p.screen - _startScreen).distance < slop) return;
     _dragged = true;
     _longPressTimer?.cancel();
@@ -93,6 +115,7 @@ class LassoTool implements PointerTool {
           final handle => frame.resized(handle, p.world),
         };
         selection.setPreview(result.transform, result.frame);
+        if (_handle == null) dragOut?.dragging(p.screen, _centreOnScreen);
       case _Mode.idle:
         break;
     }
@@ -106,7 +129,9 @@ class LassoTool implements PointerTool {
         _dragged ? _selectLasso() : _tap(_startWorld);
         path.clear();
       case _Mode.transform:
-        if (_dragged) {
+        if (_dragged && _droppedElsewhere()) {
+          selection.cancelPreview();
+        } else if (_dragged) {
           selection.commitPreview();
         } else {
           selection.cancelPreview();
@@ -118,8 +143,21 @@ class LassoTool implements PointerTool {
     _mode = _Mode.idle;
   }
 
+  /// Where the centre of the selection being moved is on screen.
+  Offset get _centreOnScreen => viewport.toScreen(_startFrame!.center + (_lastWorld - _startWorld));
+
+  /// Offers a moved selection to [dragOut] (another editor).
+  bool _droppedElsewhere() {
+    final out = dragOut;
+    if (out == null || _handle != null) return false;
+    final dropped = out.drop(_lastScreen, _centreOnScreen);
+    out.end();
+    return dropped;
+  }
+
   @override
   void cancel() {
+    if (_mode == _Mode.transform) dragOut?.end();
     _longPressTimer?.cancel();
     path.clear();
     selection.cancelPreview();
