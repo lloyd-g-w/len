@@ -120,7 +120,7 @@ class PageNavigator extends StatelessWidget {
     menuChildren: [
       if (onAddWithTemplate != null)
         MenuItemButton(
-          leadingIcon: const Icon(Icons.grid_on_rounded),
+          leadingIcon: const Icon(Icons.note_add_outlined),
           onPressed: onAddWithTemplate,
           child: const Text('Add page with template…'),
         ),
@@ -128,7 +128,7 @@ class PageNavigator extends StatelessWidget {
         MenuItemButton(
           leadingIcon: const Icon(Icons.picture_as_pdf_outlined),
           onPressed: onInsertPdf,
-          child: const Text('Insert PDF pages…'),
+          child: const Text('Add pages from PDF…'),
         ),
     ],
     builder: (context, menu, _) => IconButton(

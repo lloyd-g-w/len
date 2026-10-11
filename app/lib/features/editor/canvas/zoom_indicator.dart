@@ -101,8 +101,17 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
           controller: _menu,
           onClose: _scheduleHide,
           menuChildren: [
+            // A leading slot on every row keeps the labels aligned; the
+            // current zoom is checked.
             for (final preset in ZoomIndicator.presets)
-              MenuItemButton(onPressed: () => widget.onZoomTo(preset), child: Text(_label(preset))),
+              MenuItemButton(
+                leadingIcon: (_scale - preset).abs() < 0.005
+                    ? const Icon(Icons.check_rounded)
+                    : const SizedBox(width: 24),
+                onPressed: () => widget.onZoomTo(preset),
+                child: Text(_label(preset)),
+              ),
+            const Divider(),
             MenuItemButton(
               leadingIcon: const Icon(Icons.fit_screen_outlined),
               onPressed: widget.onFit,
