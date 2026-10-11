@@ -70,8 +70,10 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 2);
-    expect(AppDatabase.latestVersion, 2);
+    expect(schema['version'], 3);
+    expect(AppDatabase.latestVersion, 3);
+    // Version 3: recording waveforms, stroke times per surface.
+    expect(schema['recordings'], contains("waveform TEXT 1 '' 0"));
     expect(
       schema.keys,
       containsAll([
@@ -112,6 +114,10 @@ void main() {
     ]) {
       expect(indexes, contains('.$name:'));
     }
+    expect(
+      [for (final c in fresh.db.select('PRAGMA index_info(strokes_by_surface)')) c['name']],
+      ['surface_id', 'created_at'],
+    );
     expect(SearchSchema.hasFts(fresh.db), isTrue, reason: 'FTS5 is bundled, so search_fts exists');
     expect(
       (schema['triggers']! as List).length,
