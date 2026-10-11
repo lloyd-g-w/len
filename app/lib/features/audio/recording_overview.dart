@@ -45,11 +45,11 @@ class InkActivity {
     return [for (final c in counts) most == 0 ? 0.0 : c / most];
   }
 
-  /// The first marker after [positionMs] (a marker just being played
+  /// The first marker after [positionMs] (one at it, just jumped to,
   /// counts as passed), or null.
   int? nextMarker(int positionMs) {
     for (final m in markers) {
-      if (m > positionMs + 500) return m;
+      if (m > positionMs + 250) return m;
     }
     return null;
   }
