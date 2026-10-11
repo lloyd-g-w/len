@@ -277,8 +277,13 @@ class _EditorScreenState extends State<EditorScreen> {
       at,
       bookmarked: doc?.activePageData.bookmarked ?? false,
       onPageCommand: (c) => _session.commands!.run(context, c, doc!.activePageData),
+      onFollowLink: _followLink,
     );
     setState(() => _menu = (at: at, actions: actions));
+  }
+
+  void _followLink(Paper target) {
+    if (mounted && !_closing) _session.commands?.followLink(context, target);
   }
 
   void _closeMenu() {
@@ -420,6 +425,7 @@ class _EditorScreenState extends State<EditorScreen> {
                               focusNode: _focusNode,
                               guard: _guard,
                               chromeInsets: layout.covered,
+                              onFollowLink: _followLink,
                             ),
                           ),
                           if (_session.canvas != null)

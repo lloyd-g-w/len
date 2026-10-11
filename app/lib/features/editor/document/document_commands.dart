@@ -6,11 +6,14 @@ import '../../../data/page_repository.dart';
 import '../../../data/surface_copier.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../domain/paper.dart';
 import '../../../ui/text_prompt.dart';
 import '../../documents/export/export_flow.dart';
+import '../../documents/export/notebook_exporter.dart';
 import '../../documents/pdf/pdf_import_flow.dart';
 import '../../documents/progress_dialog.dart';
 import '../../documents/template_picker.dart';
+import '../../documents/templates/user_templates.dart';
 import 'document_controller.dart';
 import 'page_actions.dart';
 import 'page_backgrounds.dart';
@@ -73,6 +76,35 @@ class DocumentCommands {
     _changedAndShow(added.first);
   }
 
+  /// Follows a planner link: shows the page with template [target], or
+  /// offers to add one after the current page when the notebook has none.
+  void followLink(BuildContext context, Paper target) {
+    final index = doc.indexOfPaper(target);
+    if (index != -1) {
+      doc.goToPage(index);
+      return;
+    }
+    final period = target.style.period!;
+    final name = PlannerDates.describe(period, target.date!);
+    showMessage(
+      context,
+      'This notebook has no page for $name',
+      action: SnackBarAction(
+        label: 'Add page',
+        onPressed: () {
+          final current = _current;
+          final spec = (
+            size: current.size,
+            paper: target,
+            color: current.paperColor,
+            background: null,
+          );
+          _changedAndShow(actions.add(spec, after: current));
+        },
+      ),
+    );
+  }
+
   /// Runs [command] on [page] (from the menu or the overview).
   Future<void> run(BuildContext context, PageCommand command, NotebookPage page) async {
     switch (command) {
@@ -84,12 +116,37 @@ class DocumentCommands {
         _changedAndShow(actions.duplicate(page));
       case PageCommand.template:
         await _changeTemplate(context, page);
+      case PageCommand.saveAsTemplate:
+        await _saveAsTemplate(context, page);
       case PageCommand.bookmark:
         actions.toggleBookmark(page);
         changed = true;
         reload();
       case PageCommand.delete:
         await _delete(context, page);
+    }
+  }
+
+  /// Adds [page] as it looks now (paper, background, ink and content) to
+  /// My templates.
+  Future<void> _saveAsTemplate(BuildContext context, NotebookPage page) async {
+    final exporter = NotebookExporter(services);
+    try {
+      final png = await runWithProgress(
+        context,
+        'Rendering page',
+        () => exporter.png(page, scale: UserTemplates.renderScaleFor(page.size)),
+      );
+      if (!context.mounted) return;
+      final number = doc.pages.indexWhere((p) => p.id == page.id) + 1;
+      await UserTemplates.savePng(
+        context,
+        png,
+        size: page.size,
+        name: '${notebook().title}, page $number',
+      );
+    } finally {
+      await exporter.dispose();
     }
   }
 

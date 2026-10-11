@@ -5,6 +5,7 @@ import 'canvas/canvas_view.dart';
 import 'chrome/canvas_guard.dart';
 import 'document/add_page_footer.dart';
 import 'document/paged_document_view.dart';
+import 'document/planner_link_taps.dart';
 import 'editor_session.dart';
 import 'tools/content_layer.dart';
 
@@ -20,6 +21,7 @@ class EditorCanvas extends StatelessWidget {
     required this.focusNode,
     required this.guard,
     required this.chromeInsets,
+    required this.onFollowLink,
   });
 
   final EditorSession session;
@@ -37,6 +39,9 @@ class EditorCanvas extends StatelessWidget {
   /// Screen edges covered by chrome; menus over the content and the
   /// canvas's zoom pill and minimap avoid them.
   final EdgeInsets chromeInsets;
+
+  /// Follows a planner link to its page.
+  final ValueChanged<Paper> onFollowLink;
 
   @override
   Widget build(BuildContext context) {
@@ -56,13 +61,19 @@ class EditorCanvas extends StatelessWidget {
 
   Widget _surface() {
     final doc = session.doc;
+    bool fingersNavigate() => session.tools.stylusOnly ?? false;
     final surface = doc != null
-        ? PagedDocumentView(
-            controller: doc,
-            input: session.input,
-            live: session.live,
-            backgrounds: session.backgrounds,
-            fingersNavigate: () => session.tools.stylusOnly ?? false,
+        ? PlannerLinkTaps(
+            doc: doc,
+            fingersNavigate: fingersNavigate,
+            onFollow: onFollowLink,
+            child: PagedDocumentView(
+              controller: doc,
+              input: session.input,
+              live: session.live,
+              backgrounds: session.backgrounds,
+              fingersNavigate: fingersNavigate,
+            ),
           )
         : CanvasView(
             model: session.canvas!,

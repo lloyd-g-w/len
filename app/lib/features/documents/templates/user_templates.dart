@@ -106,11 +106,11 @@ abstract final class UserTemplates {
     }
   }
 
-  /// Adds [image] (e.g. a rendered page) to My templates, asking for a
-  /// name. [size] is the page size of pages made from it.
-  static Future<UserTemplate?> saveImage(
+  /// Adds the PNG [png] (e.g. a rendered page) to My templates, asking for
+  /// a name. [size] is the page size of pages made from it.
+  static Future<UserTemplate?> savePng(
     BuildContext context,
-    ui.Image image, {
+    Uint8List png, {
     required ui.Size size,
     String name = 'My template',
   }) async {
@@ -124,7 +124,6 @@ abstract final class UserTemplates {
       icon: Icons.dashboard_customize_outlined,
     );
     if (chosen == null || chosen.isEmpty || !context.mounted) return null;
-    final png = await _png(image);
     final blob = await services.blobs.putBytes(png, mime: 'image/png');
     final template = services.templates.create(name: chosen, blob: blob, size: size);
     if (context.mounted) showMessage(context, 'Saved “$chosen” to My templates');

@@ -176,17 +176,6 @@ class PageRepository extends SyncableTable {
       ?_decodeBackground(row['background'] as String?)?.blob,
   };
 
-  /// Live pages of [notebookId] with planner template [paper] (same style
-  /// and date), in page order: where a planner link leads.
-  List<NotebookPage> pagesWithPaper(String notebookId, Paper paper) => db
-      .select(
-        'SELECT * FROM pages WHERE notebook_id = ? AND deleted = 0 AND paper = ? '
-        'AND paper_data = ? ORDER BY sort_key, id',
-        [notebookId, paper.style.name, jsonEncode(paper.toData())],
-      )
-      .map(_rowToPage)
-      .toList();
-
   /// Gives every page of [notebookId] an integer key (1, 2, …).
   void _renumber(String notebookId) {
     final pages = pagesOf(notebookId);
