@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
+import '../../../ui/even_grid.dart';
 import '../folder_icons.dart';
 import 'folder_icon_picker.dart';
 
@@ -110,10 +111,9 @@ class _FolderDialogState extends State<_FolderDialog> {
             const SizedBox(height: Gaps.xl),
             Text('Colour', style: theme.textTheme.titleSmall),
             const SizedBox(height: Gaps.sm),
-            // Two even rows of seven at the standard dialog width.
-            Wrap(
-              spacing: Gaps.lg,
-              runSpacing: Gaps.sm,
+            EvenGrid(
+              itemExtent: 40,
+              minItemExtent: 32,
               children: [
                 for (var i = 0; i < Palette.covers.length; i++)
                   ColorDot(

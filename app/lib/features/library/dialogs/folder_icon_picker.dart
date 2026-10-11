@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/folder.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/even_grid.dart';
 import '../folder_icons.dart';
 
 /// A grid of folder icons (the default folder first), tinted with the
@@ -27,9 +28,10 @@ class FolderIconPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: Gaps.xs,
-      runSpacing: Gaps.xs,
+    return EvenGrid(
+      itemExtent: 44,
+      minItemExtent: tileSize,
+      maxSpacing: Gaps.sm,
       children: [
         for (final key in <String?>[null, ...Folder.iconKeys])
           _IconTile(

@@ -4,6 +4,7 @@ import '../../domain/cover_style.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/color_dot.dart';
+import '../../ui/even_grid.dart';
 import 'notebook_cover.dart';
 
 /// Colour swatches plus a gallery of covers (every pattern in the chosen
@@ -53,9 +54,9 @@ class CoverPicker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         label('Colour', Palette.coverName(color)),
-        Wrap(
-          spacing: Gaps.xs,
-          runSpacing: Gaps.xs,
+        EvenGrid(
+          itemExtent: 40,
+          minItemExtent: 32,
           children: [
             for (var i = 0; i < Palette.covers.length; i++)
               ColorDot(
