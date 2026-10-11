@@ -8,6 +8,7 @@ import 'package:len/features/audio/ui/audio_bar_button.dart';
 import 'package:len/features/editor/chrome/editor_top_bar.dart';
 import 'package:len/features/editor/chrome/title_button.dart';
 import 'package:len/features/editor/editor_canvas.dart';
+import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_session.dart';
 import 'package:len/ink/surface_model.dart';
 
@@ -192,6 +193,50 @@ void main() {
       expect(await chemistryAudio.recorder.start(), isTrue);
       await chemistryAudio.recorder.stop();
     });
+    await closeEditor(tester);
+  });
+
+  testWidgets('turned to portrait, the second pane is parked: editor, undo, recording live on', (
+    tester,
+  ) async {
+    final audio = FakeAudio();
+    final (s, physics, chemistry) = await pumpWorkspace(tester, audio: audio.backends);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    final secondEditor = tester.state(find.byType(EditorScreen).last);
+    await drawIn(tester, 1);
+    final right = sessionsOf(tester)[1];
+    final recording = tester.widgetList<AudioBarButton>(find.byType(AudioBarButton)).last.audio;
+    await tester.runAsync(() async {
+      expect(await recording.recorder.start(), isTrue);
+    });
+
+    tester.view.physicalSize = const Size(800, 1280);
+    await tester.pumpAndSettle();
+    expect(find.byType(EditorScreen), findsOneWidget);
+    expect(find.byType(EditorScreen, skipOffstage: false), findsNWidgets(2));
+    expect(recording.recorder.state, RecorderState.recording);
+    expect(right.undo.canUndo, isTrue);
+    expect(
+      s.incomingFiles.targets.active?.notebookId,
+      physics.id,
+      reason: 'files go to the shown pane',
+    );
+    expect(find.byTooltip('Close this pane'), findsNothing);
+
+    tester.view.physicalSize = const Size(1280, 800);
+    await tester.pumpAndSettle();
+    expect(find.byType(EditorScreen), findsNWidgets(2));
+    expect(tester.state(find.byType(EditorScreen).last), same(secondEditor));
+    expect(sessionsOf(tester)[1], same(right));
+    expect(right.undo.canUndo, isTrue);
+    expect(recording.recorder.state, RecorderState.recording);
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      await recording.recorder.stop();
+    });
+    expect(recording.recordings, hasLength(1));
+    expect(tester.takeException(), isNull);
     await closeEditor(tester);
   });
 }

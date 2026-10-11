@@ -127,9 +127,11 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
     );
     final available = _split.available = SplitView.fits(MediaQuery.sizeOf(context));
     final second = _tabs.splitId == null ? null : _services.notebooks.get(_tabs.splitId!);
-    final split = available && second != null && !second.isTrashed;
+    final hasSecond = second != null && !second.isTrashed;
     final presenting = _split.presenting;
-    final secondary = split
+    // Too small for two panes (e.g. a tablet turned to portrait): the
+    // second pane is parked, alive, until there is room again.
+    final secondary = hasSecond
         ? ScaffoldMessenger(
             child: EditorScreen(
               key: ValueKey('split-${second.id}'),
@@ -151,8 +153,11 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
           _tabs.splitFraction = f;
           _resized.value++;
         },
-        // Only a pane that is shown presents alone (the second may be gone).
-        solo: split || presenting?.secondary == false ? presenting?.secondary : null,
+        solo: !hasSecond
+            ? null
+            : available
+            ? presenting?.secondary
+            : presenting?.secondary ?? false,
       ),
     );
   }

@@ -85,6 +85,14 @@ class SplitController extends ChangeNotifier {
 
   bool get isSplit => available && tabs.splitId != null;
 
+  /// Whether [pane] is on screen: the presenting pane alone, else the
+  /// first pane, and the second while there is room for it.
+  bool isShown(SplitPane pane) {
+    final presenting = _presenting;
+    if (presenting != null) return pane == presenting;
+    return available || !pane.secondary;
+  }
+
   /// Starts tracking [pane] (an editor shown in the workspace).
   void attach(SplitPane pane) {
     _panes.add(pane);
@@ -164,8 +172,7 @@ class SplitController extends ChangeNotifier {
   // Dragging selections between panes
 
   void _dragging(SplitPane from, Offset pointer, Offset centre) {
-    final global = from.toGlobal(pointer);
-    final target = _panes.where((p) => p != from && p.contains(global)).firstOrNull;
+    final target = _targetAt(from, pointer);
     if (target == null && _dropTarget == null) return;
     _dropTarget = target;
     _dragSource = from;
@@ -174,11 +181,16 @@ class SplitController extends ChangeNotifier {
   }
 
   bool _drop(SplitPane from, Offset pointer, Offset centre) {
-    final global = from.toGlobal(pointer);
-    final target = _panes.where((p) => p != from && p.contains(global)).firstOrNull;
+    final target = _targetAt(from, pointer);
     if (target == null) return false;
     target.receive(from.session.content.selection, target.toLocal(from.toGlobal(centre)));
     return true;
+  }
+
+  /// The other pane, if shown and under [pointer] (in [from]).
+  SplitPane? _targetAt(SplitPane from, Offset pointer) {
+    final global = from.toGlobal(pointer);
+    return _panes.where((p) => p != from && isShown(p) && p.contains(global)).firstOrNull;
   }
 
   void _endDrag() {

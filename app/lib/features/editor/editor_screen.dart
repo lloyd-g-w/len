@@ -37,6 +37,7 @@ import 'pdf/pdf_layer.dart';
 import 'present/presentation.dart';
 import 'shared/shared_notebooks.dart';
 import 'split/split_controller.dart';
+import 'split/split_view.dart';
 import 'split/split_view_button.dart';
 import 'tabs/open_notebooks.dart';
 import 'toolbar/toolbar_config.dart';
@@ -277,6 +278,19 @@ class _EditorScreenState extends State<_EditorView> {
     _guard.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Whether the split view parked this editor (alive, not shown).
+  bool _parked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final parked = SplitView.parkedOf(context);
+    if (parked == _parked) return;
+    _parked = parked;
+    // A parked pane takes no files; shown again, it takes them when used.
+    if (parked) _services.incomingFiles.targets.remove(_importTarget);
   }
 
   void _onTabs() {
