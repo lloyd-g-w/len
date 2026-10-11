@@ -69,15 +69,51 @@ abstract interface class AudioPlayback {
   Future<void> dispose();
 }
 
+/// What the user did in a [RecordingKeepAlive]'s notification, or
+/// [failed] when it stopped being able to keep the recording alive.
+enum KeepAliveAction { pause, resume, stop, failed }
+
+/// Keeps a recording running while the app is in the background. On
+/// Android a foreground service of type "microphone" with a notification
+/// (time, pause / resume, stop): without one the system hands
+/// backgrounded apps silence. Other platforms need none.
+abstract interface class RecordingKeepAlive {
+  /// Asks once for what it needs (Android 13+: permission to show the
+  /// notification; recording works without it, the notification is then
+  /// only listed in the system's task manager).
+  Future<void> prepare();
+
+  /// Starts it for a recording of [title], or updates it. [elapsedMs] is
+  /// the audio recorded so far. False if it could not start.
+  Future<bool> show({required String title, required bool paused, required int elapsedMs});
+
+  /// Ends it (the recording stopped).
+  Future<void> hide();
+
+  /// Taps on the notification's buttons, and failures.
+  Stream<KeepAliveAction> get actions;
+
+  Future<void> dispose();
+}
+
 /// Creates the audio backends of an editor. They are made only when the
 /// user records or plays something, so platforms (and tests) that never
 /// do never touch the audio plugins.
 class AudioBackends {
-  const AudioBackends({required this.capture, required this.playback, this.unavailable});
+  const AudioBackends({
+    required this.capture,
+    required this.playback,
+    this.unavailable,
+    this.keepAlive,
+  });
 
   final AudioCapture Function() capture;
   final AudioPlayback Function() playback;
 
   /// Why recording cannot work here (e.g. missing tools on Linux), or null.
   final Future<String?> Function()? unavailable;
+
+  /// Keeps recordings alive in the background, where a platform needs it
+  /// (Android); null elsewhere.
+  final RecordingKeepAlive Function()? keepAlive;
 }

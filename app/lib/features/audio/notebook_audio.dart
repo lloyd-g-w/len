@@ -18,8 +18,9 @@ import 'recording_overview.dart';
 /// the notebook's recordings (kept current with local edits and sync).
 ///
 /// Lives as long as the editor: a recording continues across page changes
-/// and is stopped and saved when the editor closes, and — on Android, where
-/// a backgrounded app loses the microphone — when the app is paused.
+/// and is stopped and saved when the editor closes, and — on mobile, where
+/// a backgrounded app loses the microphone — when the app is paused unless
+/// a foreground service keeps it going (Android).
 class NotebookAudio extends ChangeNotifier {
   NotebookAudio(this.services, {required this.notebookId, TargetPlatform? platform})
     : _platform = platform ?? defaultTargetPlatform {
@@ -30,6 +31,7 @@ class NotebookAudio extends ChangeNotifier {
       blobs: services.blobs,
       repository: services.recordings,
       onSaved: (_) => reload(),
+      describe: () => services.notebooks.get(notebookId)?.title ?? '',
     );
     playback = PlaybackController(
       backends: backends,
@@ -142,10 +144,13 @@ class NotebookAudio extends ChangeNotifier {
   }
 
   /// Mobile systems take the microphone from backgrounded apps (Android 9+
-  /// records silence), so a recording is stopped and saved instead.
+  /// records silence). With its foreground service running (see
+  /// `RecordingKeepAlive`) an Android recording continues — screen off,
+  /// another app in front — controlled from its notification; otherwise it
+  /// is stopped and saved.
   void _onAppPaused() {
     if (_platform == TargetPlatform.android || _platform == TargetPlatform.iOS) {
-      if (recorder.state.isActive) unawaited(recorder.stop());
+      if (recorder.state.isActive && !recorder.recordsInBackground) unawaited(recorder.stop());
       if (playback.playing) unawaited(playback.pause());
     }
   }
