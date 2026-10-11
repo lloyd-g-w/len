@@ -13,6 +13,7 @@ enum NotebookAction {
   duplicate,
   move,
   cover,
+  tags,
   trash,
   restore,
   deleteForever,
@@ -48,6 +49,7 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
       icon: Icons.palette_outlined,
       label: 'Change cover…',
     ),
+    const MenuRow(value: NotebookAction.tags, icon: Icons.sell_outlined, label: 'Tags…'),
     const MenuRow(
       value: NotebookAction.duplicate,
       icon: Icons.library_add_outlined,

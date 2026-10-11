@@ -14,7 +14,7 @@ class TestTime {
   void tick([int ms = 10]) => now += ms;
 }
 
-/// A deterministic clock: ids are '<prefix>0', '<prefix>1', …
+/// A deterministic clock: ids are the prefix followed by 0, 1, …
 class DeviceClock extends Clock {
   DeviceClock(this.time, this.prefix);
 

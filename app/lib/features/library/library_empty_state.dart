@@ -13,6 +13,7 @@ class LibraryEmptyState extends StatelessWidget {
     required this.section,
     required this.inFolder,
     required this.query,
+    this.tags = const [],
     this.onCreate,
     this.onClearSearch,
   });
@@ -20,6 +21,9 @@ class LibraryEmptyState extends StatelessWidget {
   final LibrarySection section;
   final bool inFolder;
   final String query;
+
+  /// Names of the tags filtered by (sidebar or chips).
+  final List<String> tags;
   final VoidCallback? onCreate;
 
   /// Offered when a search found nothing.
@@ -31,6 +35,12 @@ class LibraryEmptyState extends StatelessWidget {
     final scheme = theme.colorScheme;
     final searching = query.trim().isNotEmpty;
     final (Widget art, String title, String message) = switch (section) {
+      _ when tags.isNotEmpty && !searching => (
+        const _IconArt(Icons.sell_outlined),
+        'No tagged notebooks',
+        'No notebook here is tagged ${tags.map((t) => '“$t”').join(' and ')}. Tag notebooks '
+            'from their menu.',
+      ),
       _ when searching => (
         const _IconArt(Icons.search_off_rounded),
         'No results',
@@ -57,7 +67,8 @@ class LibraryEmptyState extends StatelessWidget {
         'Deleted notebooks stay here until you delete them forever.',
       ),
     };
-    final showCreate = onCreate != null && !searching && section == LibrarySection.library;
+    final showCreate =
+        onCreate != null && !searching && tags.isEmpty && section == LibrarySection.library;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(Gaps.xxl),
