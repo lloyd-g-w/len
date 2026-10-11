@@ -205,7 +205,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
   flow fits the whole page and slides it in.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
-  P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode;
+  P / H / E / L / S / T / K (X: Select PDF text, with PDF pages); 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
   Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
@@ -248,19 +248,50 @@ own admin-run collector (server/README.md).
 PDF import (`features/documents/pdf/`) stores the file once as a blob and
 creates one page per PDF page with background `{type: pdf, blob, page}` and
 the PDF page's size. PDF pages are rendered with PDFium via `pdfrx`
-(`PdfRenderer`, serialised); `PdfBackgroundCache` renders at the current
-zoom quantised to √2 steps (≤ 2896 px wide), keeps an LRU of images within a
-memory budget and shows the best cached image while a sharper one renders.
+(`PdfRenderer`, serialised; PDFium runs on pdfrx's worker isolate natively
+and in a web worker, never on the UI thread). `PdfBackgroundCache`
+(`PageBackgrounds.paint`) renders a whole page up to 2048 px wide at the
+zoom quantised to √2 steps; deeper zoom renders only the **tiles** in view
+(`PdfTiling`: 512 px squares of levels whose page widths are powers of two,
+4096 … 65536 px). Until a tile arrives the whole-page image and any cached
+tiles of neighbouring levels are drawn beneath, so pinching stays smooth;
+tiles are drawn without anti-aliasing so neighbours meet without seams.
+Images and tiles share one LRU within a memory budget (160 MiB); requests
+are served newest first (whole pages before tiles, the middle of the view
+before its edges) and dropped when no paint repeated them for 2 s.
 PDFium itself is a native asset downloaded at build time by `pdfium_dart`'s
 build hook (Linux, Windows, Android), so no system package is needed; on the
 web `pdfrx` runs PDFium as WebAssembly in a worker. `PdfRenderer` opens a
 blob from its file when it has one (PDFium reads on demand) and from memory
 otherwise (web).
 
+Long imports and exports run behind `runWithSteps(…, cancellable: true)`:
+the progress dialog's Cancel sets `TaskProgress.token` (a
+`CancellationToken`, `domain/cancellation.dart`); the task throws
+`Cancelled` at its next `step` / `stageStarted` / `check` and cleans up
+after itself. An import checks while hashing the picked file
+(`BlobStore.putFile(cancel:)`) and before creating pages (one transaction,
+so nothing half-made remains) and deletes a blob it stored that nothing
+references (`BlobStore.discardIfUnreferenced`); an export saves nothing and
+disposes what it rendered.
+
 Export (`features/documents/export/`): `PdfExporter` (package `pdf`) writes
 ink as filled polygons flattened from the exact outline paths the app
-renders, templates as vector lines, and imported PDF pages as 150 dpi
-images; PNG export rasterises a page with the same painters as the editor.
+renders, templates as vector lines, and **imported PDF pages as vectors**:
+`PdfPageSources` parses each source PDF once with Len's own pure-Dart
+reader (`export/vector/`: lexer, classic and stream cross-references,
+object streams, `/Prev` chains, a recovery scan for broken files) and
+`PdfPageImporter` copies a page into the export as a Form XObject — its
+content stream(s) and a deep copy of its resources (fonts, images, shadings,
+… written once per source however many pages share them), clipped to the
+crop box, rotated by `/Rotate` — with annotation appearances (`/AP /N`)
+flattened above it, so text stays selectable text and vectors stay sharp.
+Encrypted (empty user password) or otherwise unreadable files are first
+rewritten by PDFium (`PdfRenderer.normalized`: `encodePdf(removeSecurity:
+true)`) and parsed again; a page that still cannot be copied (e.g. an
+unsupported filter in a split content stream) is embedded as a 150 dpi
+image, so export never fails because of one page. PNG export rasterises a
+page with the same painters as the editor.
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
 indices from a range like "1-3, 5", templates and PDF backgrounds on or off,
 PNG resolution); without templates pages are exported as blank white paper.
@@ -268,6 +299,51 @@ Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
 on mobile and written into a folder the user picks on desktop.
+
+**Why a Dart copier** (not PDFium page import): PDFium's
+`FPDF_ImportPages` / `FPDF_NewXObjectFromPage` are reachable only through
+FFI (`pdfium_dart`), i.e. not on the web, and would mean writing the ink
+through PDFium's page-object API instead of package `pdf`. pdfrx's page
+assembly (`PdfDocument.pages = …` + `encodePdf`) moves whole pages between
+documents but cannot draw on top of them. Copying page objects in Dart
+works identically on Android, Linux, Windows and the web, keeps one export
+writer, and PDFium remains the fallback for files the reader declines.
+Trade-offs: link and form-field annotations are not carried over (their
+appearances are drawn), optional-content groups hidden by default in the
+source may show, and the copied XObjects are drawn via `drawImage` on a unit
+square because package `pdf` 3.13's `drawXObject` writes an invalid resource
+name.
+
+### PDF pages in the editor (`features/editor/pdf/`)
+
+`PdfInteraction` (per paged editor, in `EditorSession.pdf`) reads text with
+character boxes, links and outlines through `PdfInfoSource`
+(`PdfrxInfoSource`: the documents `PdfBackgroundCache`'s renderer already
+opened, so no second copy of the PDF) into `PdfPageInfoCache` (LRU per page;
+`PdfLayer` preloads the pages in view).
+
+- **Select text** — `EditorTool.selectText` (X), offered only when the
+  notebook has PDF pages (`ToolSettings.selectTextAvailable`), is a
+  `PointerTool` (`PdfTextTool`, plugged into `ContentTools.selectText`):
+  drag across text (or a handle of the selection) to select, tap a word to
+  select it, tap a link to follow it. A finger long press or right click on
+  PDF text with any tool selects the word instead of opening the canvas
+  menu. `PdfLayer` paints the selection (one box per line, handles with the
+  tool) and a menu: **Copy** (also Ctrl/⌘+C), **Highlight**, select all on
+  the page.
+- **Highlight** turns each selected line (`PdfGlyphs.rectsFor`) into one
+  highlighter stroke along its middle, 1.1 × the line's height, with the
+  highlighter's colour and opacity (no pressure thinning, stabiliser or
+  tapers), committed to the page's `SurfaceModel` as one `InkEdit` — so it
+  is ordinary ink: undoable, erasable, selectable, synced and exported.
+- **Links** (`loadLinks`, incl. URLs detected in the text): tapped with the
+  tool, or with a finger while fingers navigate (stylus only). Internal
+  links scroll to the notebook page showing the target PDF page (the next
+  one after the link's page if the PDF appears twice); web links ask first
+  ("Open link?") and open in the browser (`url_launcher`).
+- **Outline** — "⋯" → *PDF outline* (`PdfOutlinePanel`, a draggable bottom
+  sheet): the bookmarks of every PDF in the notebook as a collapsible tree
+  with notebook page numbers; entries whose page was deleted are disabled.
 
 ## Images (`ink/images/`, `features/editor/images/`)
 
@@ -567,7 +643,7 @@ More tools slot in by adding an `EditorTool` value and a descriptor. The
 tools are Pen (P), Highlighter (H), Eraser (E), Lasso (L), Shapes (S; its
 icon is the current shape, settings = shape picker, strip = the pen's slots,
 since shapes are drawn with the pen's colour and width), Text (T; settings =
-defaults for new boxes) and Laser pointer (K). For inks the strip is a row of
+defaults for new boxes) and Laser pointer (K), plus Select PDF text (X) in notebooks with PDF pages. For inks the strip is a row of
 colour slots beside a row of width slots (dots at scaled real size, in a recessed track) — one tap
 picks either; the selected slot sits on a tonal disc; every target is ≥ 40 px.
 Tapping the selected slot (or long-pressing / right-clicking any) edits it
@@ -873,7 +949,7 @@ Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width
 (`features/documents/`): `templates/` (grouped `TemplateGallery`, paper colour and page size
 rows) used by the template picker and the new-notebook sheet; `overview/` (the page overview
 with selection mode; `editor/document/page_overview.dart` re-exports it);
-`progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n").
+`progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n", optional Cancel).
 Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActions`, batch
 actions, floating bar). `flows_screenshot_test.dart` and `overview_screenshot_test.dart` cover
 sheets, dialogs, empty states, selection, the page overview and 1.3× text; findings are tracked
@@ -912,9 +988,11 @@ malformed record is skipped. Open screens subscribe to
   tuned on every device. Stylus tilt/orientation are received but unused.
 - The sync token is stored in the app's SQLite database; move it to secure
   storage before shipping.
-- PDF backgrounds are rendered as whole-page images (no tiling), so very deep
-  zoom on a PDF page is capped at ~2896 px page width; exported PDFs embed
-  imported pages as images rather than copying their vector content.
+- PDF: tiles are not persisted (re-rendered after reopening) and stop at
+  65536 px page width; text selection, links and search highlights skip
+  rotated PDF pages; selection is per page (not across pages); exported
+  PDFs drop the source's link annotations and form fields (their looks are
+  kept) — see *Blobs and PDFs*.
 - Audio: a recording is one blob, so it syncs only once finished and a
   recording above the server's blob limit (200 MiB by default, ≈ 7 h at
   64 kbit/s) cannot be uploaded (it stays on the device, reported as too

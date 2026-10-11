@@ -56,10 +56,15 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Progress for import / export: stage, file name, "Page x of n" bar
 - ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
   backgrounds on or off, PNG resolution (192 / 384 dpi); several PNGs shared or saved at once
-- ⬜ Cancel long imports / exports
+- ✅ Cancel long imports / exports (partial imports clean up after themselves)
 - ⬜ Planner / custom (image) templates
-- ⬜ Tiled PDF rendering for extreme zoom; PDF text selection / links / outline
-- ⬜ Export keeps imported PDF pages as vectors (currently embedded at 150 dpi)
+- ✅ Tiled PDF rendering for deep zoom (visible tiles, LRU, smooth while zooming)
+- ✅ PDF text selection (Select text tool, long press / right click): copy, highlight the selection
+  with highlighter strokes snapped to the lines; links (jump to page, web links after a prompt);
+  outline (bookmarks) panel
+- ✅ Export keeps imported PDF pages as vectors (pure-Dart page copier; PDFium rewrite for
+  encrypted files; image fallback per page)
+- ⬜ Selection across pages, PDF text on rotated pages, carry links into exported PDFs
 
 ## Infinite canvas & navigation
 - ✅ Level-of-detail chunk rasters when zoomed out (cost bounded by visible chunks)
