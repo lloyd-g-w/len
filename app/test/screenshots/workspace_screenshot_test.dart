@@ -86,6 +86,27 @@ void main() {
     }
   }
 
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    testWidgets('split view: one notebook twice, parked in portrait ${mode.name}', (tester) async {
+      final s = await openTabs(tester, tablet, mode);
+      s.openNotebooks.openSplit(s.openNotebooks.activeId!);
+      await settle(tester);
+      expect(find.byType(EditorScreen), findsNWidgets(2));
+      await shoot(tester, 'split_same_tablet_${mode.name}');
+      // Turned to portrait: the second pane is parked, alive.
+      setWindow(tester, const Size(800, 1280));
+      await settle(tester);
+      expect(find.byType(EditorScreen), findsOneWidget);
+      await shoot(tester, 'split_parked_portrait_${mode.name}');
+      setWindow(tester, tablet);
+      await settle(tester);
+      expect(find.byType(EditorScreen), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+      await shoot(tester, 'split_restored_tablet_${mode.name}');
+      await close(tester);
+    });
+  }
+
   for (final (name, size, dpr) in [('tablet', tablet, 1.0), ('phone', phone, 2.0)]) {
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
       testWidgets('toolbar edit mode $name ${mode.name}', (tester) async {
