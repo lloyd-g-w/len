@@ -677,24 +677,27 @@ The overlay draws **the same ink Flutter will**: `WetInkModel.kt` is a
 line-for-line port of the Dart model the Ink Lab measures
 (`ink/lab/wet_ink_model.dart`), which applies the outline's own rules —
 point thinning (`PointSpacing`), the pressure filter, the causal radius
-smoothing in steps along the line, the start and tip end rules, the pen-up
-hook (`HookFinder`), and the shaper's position smoothing (resampling,
-corners, low-pass with end fit) over the points from a little before the
-tail, in step with the whole line's samples. Each piece is the hull of two
+smoothing in steps along the line, the start and tip end rules, the
+pen-down and pen-up hooks (`HookFinder`; the model decides the pen-down hook
+itself, at the same sample as Flutter's outline), the dot rule (a line
+shorter than half its width is a dot), and the shaper's position smoothing
+(resampling, corners, low-pass with end fit) over the points from a little
+before the tail, in step with the whole line's samples. Each piece is the hull of two
 circles (a tapered capsule). `tool/wet_ink_check/check.sh` runs both models
 on vectors from every Ink Lab case and recording and compares them (equal to
 1e-15).
 
 Dart (`_LowLatencySource`, a `SampleSource` decorator) sends `begin`
-(contact, colour, radius table, the rules as `WetInkShape.toList`, where the
-ink starts after the pen-down hook) once the contact is shown, `progress`
+(contact, colour, radius table, the rules as `WetInkShape.toList`) at
+pen-down, when Flutter's live stroke begins too, `progress`
 (the newest event a built frame contains) after each frame, and `end` after
 the frame showing the committed stroke. On each `progress` the overlay
 *commits*: the front buffer is cleared and only the points newer than the
 progress reported **two messages before the latest** (Flutter presents a
 frame about two frames after building it) are redrawn in the multi-buffered
-layer, in one SurfaceControl transaction; after `end` the tail stays 3
-frames. So the overlay never shows more than the last few millimetres of
+layer, in one SurfaceControl transaction (and the whole start while
+Flutter's frame still shows a pen-down hook the model has trimmed); after
+`end` the tail stays 3 frames. So the overlay never shows more than the last few millimetres of
 ink, on top of identical Flutter ink. Only opaque, round, untextured pens
 qualify (`WetInkStyle`): highlighter, legacy pencil/fountain, translucent
 colours, erasing, tools and straightened strokes are left to Flutter alone.
@@ -906,25 +909,37 @@ does not grow with the stroke's length.
 1. **Points** (`input/ink_input_controller.dart`): samples closer than
    0.75 screen px to the last point are dropped, except the extreme of a
    dropped run (a cusp tip, `PointSpacing`); pressure is filtered
-   (`PressureFilter`). A contact is shown only once it cannot be a bounce
-   (`BounceFilter.mightBounce`) and its start is decided (below), so a
-   bounce never flashes and the start never changes once shown.
-2. **Unit** (`StrokeOutline.unitOf`): stroke data carry no zoom, but
-   digitiser jitter and hooks are screen-sized. The world size of a screen
-   pixel is estimated from the point spacing of the first points (the
-   controller keeps points ≥ 0.75 screen px apart and a pen lands slowly),
-   so a stroke written zoomed in 7× is smoothed 7× finer in world units.
+   (`PressureFilter`). **Ink shows from the first sample**, under the nib
+   (latency beats purity): every contact is drawn from pen-down, even one
+   that turns out to be a bounce (`BounceFilter.isBounce`, decided at its
+   lift: it showed as a dot where the pen just lifted for < 80 ms and is
+   not committed), and the pen-down hook is trimmed retroactively (below).
+2. **Unit** (`StrokeStyle.unit`, `StrokeOutline.unitOf`): digitiser jitter
+   and hooks are screen-sized, so the outline smooths in screen units. The
+   controller records the world size of a screen pixel (1 / zoom) in the
+   stroke's style at pen-down, so a stroke written zoomed in 7× is smoothed
+   7× finer in world units, from its first frame on (and a stroke scaled
+   by the lasso is smoothed as if written at that zoom). Strokes without it
+   (shapes, older data) estimate it from the spacing of their first points
+   (the controller keeps points ≥ 0.75 screen px apart); that estimate is
+   often 20–60 % off, so pen strokes do not use it.
 3. **`StrokeShaper`** (incremental; each stage looks a fixed number of
    samples ahead and keeps what is final):
    - dedupe; the **pen-down hook** is decided once from the first few
      screen px (`HookFinder`: a short end piece meeting the body at a
      *local* kink, ≤ 3 px for the start, ≤ 4 px for the end, whatever the
-     pen; curves that merely start or end the stroke are kept);
+     pen; curves that merely start or end the stroke are kept). Until then
+     the line is *provisional*: computed from the first sample, nothing of
+     it final, rebuilt each frame (a few px, so cheap). If a hook is found,
+     its ≤ 3 px of ink disappear once, under the nib, 1–6 frames after
+     landing (about 20 % of real strokes); otherwise nothing changes;
    - **resampling** every `step` (≈ σ/3, 0.15–0.6 screen px) along a
      centripetal Catmull-Rom spline through the points, from the stroke's
      start, so samples never move as the stroke grows;
    - **corners**: where the line turns by > 100° within a short baseline
-     (cusps of `n`, `v`); smoothing never crosses them;
+     (cusps of `n`, `v`); the corner is the run's tip (the sample furthest
+     along the direction the line came in from, not the sharpest turn,
+     which can lie a sample past it); smoothing never crosses them;
    - **positions**: the finite low-pass `2G − G∘G` (`LineFilters`) per
      stretch between corners, each stretch continued beyond its ends by a
      local quadratic fit (no lag, tips stay put). σ = (0.7 + 0.8 ×
