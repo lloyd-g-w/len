@@ -8,8 +8,8 @@ import '../../domain/recording.dart';
 import '../../sync/sync_engine.dart';
 import 'backends/audio_backends.dart';
 import 'playback_controller.dart';
-import 'recording_overview.dart';
 import 'recording_controller.dart';
+import 'recording_overview.dart';
 
 /// Everything audio for one open notebook: the recorder, the player and
 /// the notebook's recordings (kept current with local edits and sync).
