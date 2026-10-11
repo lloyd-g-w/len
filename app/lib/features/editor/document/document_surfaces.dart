@@ -83,6 +83,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
             repository: repository,
             elementRepository: elements,
             images: images,
+            writeBehind: true,
           )
           ..addListener(notifyListeners)
           ..onCommit = () => noteEdited(pageId);

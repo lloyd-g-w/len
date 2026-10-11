@@ -5,6 +5,7 @@ import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
+import '../../../ink/surface_model.dart';
 
 /// A deleted page and its content, kept so the deletion can be undone.
 class DeletedPage {
@@ -49,6 +50,7 @@ class PageActions {
 
   /// Inserts a copy of [page] (paper, background, ink and text) right after it.
   NotebookPage duplicate(NotebookPage page) {
+    SurfaceModel.flushAll();
     return services.database.transaction(() {
       final copy = services.pages.insertPages(notebookId, [
         (size: page.size, paper: page.paper, color: page.paperColor, background: page.background),
@@ -60,6 +62,7 @@ class PageActions {
 
   /// Deletes [page] and its content. Keep the result to [restore] it.
   DeletedPage delete(NotebookPage page) {
+    SurfaceModel.flushAll();
     return services.database.transaction(() {
       final strokes = _copier.loadAll(page.id);
       final elements = _copier.loadAllElements(page.id);

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/domain/stroke_chunks.dart';
 import 'package:len/ink/render/chunk_picture_cache.dart';
 import 'package:len/ink/render/ink_painters.dart';
 import 'package:len/ink/render/tiles/ink_tile_cache.dart';
@@ -277,5 +278,25 @@ void main() {
       }
       scene.dispose();
     });
+  });
+
+  testWidgets('write-behind: a stroke is stored right after the frame that shows it', (
+    tester,
+  ) async {
+    final db = AppDatabase.inMemory();
+    final repository = StrokeRepository(db, deviceId: 'd');
+    final model = SurfaceModel(surfaceId: 's', repository: repository, writeBehind: true);
+    final stroke = _line('w', const Offset(0, 0), const Offset(100, 0));
+    bool stored() => repository.loadChunks('s', StrokeChunks.of(stroke).toList()).isNotEmpty;
+    model.addStroke(stroke);
+    expect(model.strokeById('w'), isNotNull);
+    expect(stored(), isFalse, reason: 'not written during the edit');
+    await tester.pump();
+    expect(stored(), isTrue);
+    model.commit(InkEdit(removed: [stroke]));
+    SurfaceModel.flushAll(); // E.g. before an export.
+    expect(stored(), isFalse);
+    model.dispose();
+    db.close();
   });
 }

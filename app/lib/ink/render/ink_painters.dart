@@ -117,7 +117,19 @@ class CommittedInkPainter extends CustomPainter {
       final image = level == null ? null : rasters!.imageFor(key, level);
       if (image != null) {
         final source = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
-        canvas.drawImageRect(image, source, ChunkGrid.rectOf(key), _imagePaint);
+        final rect = ChunkGrid.rectOf(key);
+        canvas.drawImageRect(image, source, rect, _imagePaint);
+        final overlay = rasters!.overlayOf(key, image);
+        if (overlay.isNotEmpty) {
+          // Strokes committed since the raster was made, until it is redone.
+          canvas
+            ..save()
+            ..clipRect(rect);
+          for (final stroke in overlay) {
+            StrokeRenderer.draw(canvas, stroke);
+          }
+          canvas.restore();
+        }
         continue;
       }
       final picture = level == null

@@ -77,7 +77,7 @@ class InkTileCache extends ChangeNotifier {
   /// Requested renders of [_space] tiles: index → priority (lower first).
   final Map<TileIndex, int> _requests = {};
   int _inFlight = 0;
-  bool _pumpScheduled = false;
+  Timer? _pumpTimer;
   bool _notifyScheduled = false;
   bool _disposed = false;
 
@@ -314,14 +314,13 @@ class InkTileCache extends ChangeNotifier {
   }
 
   void _schedulePump() {
-    if (_pumpScheduled || _disposed) return;
-    _pumpScheduled = true;
+    if (_pumpTimer != null || _disposed) return;
     // After the frame being built (painting requests renders).
-    Timer.run(_pump);
+    _pumpTimer = Timer(Duration.zero, _pump);
   }
 
   void _pump() {
-    _pumpScheduled = false;
+    _pumpTimer = null;
     if (_disposed || _space == null) return;
     // While zooming, renders wait for the new space.
     if (_settle != null && _pendingSpace?.k != _space!.k) return;
@@ -433,6 +432,7 @@ class InkTileCache extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _settle?.cancel();
+    _pumpTimer?.cancel();
     unawaited(_subscription.cancel());
     _releaseAll(_tiles);
     _releaseAll(_old);

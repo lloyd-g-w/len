@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../core/clock.dart';
 import '../data/element_repository.dart';
@@ -36,6 +37,7 @@ class SurfaceModel extends ChangeNotifier {
     StrokeReader? reader,
     this.maxLoadedChunks = 1024,
     this.clock = const Clock(),
+    this.writeBehind = false,
   }) {
     _loading = SurfaceLoader(
       reader: reader ?? _repository,
@@ -59,6 +61,13 @@ class SurfaceModel extends ChangeNotifier {
 
   /// Soft cap on loaded chunks before far-away ones are evicted.
   final int maxLoadedChunks;
+
+  /// Whether stroke edits are written to storage right after the frame
+  /// that shows them instead of during the edit, so committing a stroke
+  /// stays cheap. Reads, [reload] and [dispose] [flush] first.
+  final bool writeBehind;
+
+  final List<InkEdit> _unsaved = [];
 
   // Indexed with the same chunk functions as storage (path-based for ink).
   final _strokes = ContentIndex<Stroke>(idOf: (s) => s.id, chunksOf: StrokeChunks.of);
@@ -197,6 +206,7 @@ class SurfaceModel extends ChangeNotifier {
     final range = ChunkGrid.rangeFor(visibleWorld.inflate(ChunkGrid.size));
     if (range == _lastRange) return;
     _lastRange = range;
+    flush(); // Reads must see every edit.
     _loading.request(range);
   }
 
@@ -238,6 +248,7 @@ class SurfaceModel extends ChangeNotifier {
   /// Drops everything in memory and reloads from storage (e.g. after a sync
   /// brought in remote changes).
   void reload() {
+    flush();
     _strokes.clear();
     _elements.clear();
     _loaded.clear();
@@ -345,10 +356,20 @@ class SurfaceModel extends ChangeNotifier {
   void _apply(InkEdit edit) {
     final changed = <ChunkKey>{};
 
-    developer.Timeline.startSync('len.persistStrokes');
-    if (edit.removed.isNotEmpty) _repository.delete(edit.removed.map((s) => s.id));
-    if (edit.added.isNotEmpty) _repository.save(edit.added);
-    developer.Timeline.finishSync();
+    if (edit.removed.isNotEmpty || edit.added.isNotEmpty) {
+      if (writeBehind) {
+        _unsaved.add(edit);
+        if (_withUnsaved.add(this)) {
+          // After the frame that shows the edit is handed to the raster
+          // thread, so the write runs alongside its rasterisation.
+          SchedulerBinding.instance
+            ..addPostFrameCallback((_) => flush())
+            ..ensureVisualUpdate();
+        }
+      } else {
+        _write(edit);
+      }
+    }
     for (final s in edit.removed) {
       final current = _strokes[s.id];
       if (current != null) _removeStroke(current);
@@ -405,6 +426,33 @@ class SurfaceModel extends ChangeNotifier {
     return true;
   }
 
+  /// Models with edits waiting for [writeBehind].
+  static final Set<SurfaceModel> _withUnsaved = {};
+
+  /// [flush]es every surface, before code that reads or rewrites stored
+  /// strokes directly (page copies and deletions, exports).
+  static void flushAll() {
+    for (final model in List.of(_withUnsaved)) {
+      model.flush();
+    }
+  }
+
+  /// Writes stroke edits still waiting for [writeBehind] to storage.
+  void flush() {
+    _withUnsaved.remove(this);
+    if (_unsaved.isEmpty) return;
+    final edits = List.of(_unsaved);
+    _unsaved.clear();
+    edits.forEach(_write);
+  }
+
+  void _write(InkEdit edit) {
+    developer.Timeline.startSync('len.persistStrokes');
+    if (edit.removed.isNotEmpty) _repository.delete(edit.removed.map((s) => s.id));
+    if (edit.added.isNotEmpty) _repository.save(edit.added);
+    developer.Timeline.finishSync();
+  }
+
   /// Marks [chunks] for re-rendering although no content changed (e.g. an
   /// image in them finished decoding).
   void refresh(Set<ChunkKey> chunks) {
@@ -433,6 +481,7 @@ class SurfaceModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    flush();
     _disposed = true;
     _loading.dispose();
     _changes.close();

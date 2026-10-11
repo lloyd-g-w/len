@@ -45,6 +45,7 @@ class EditorSession {
         elementRepository: services.elements,
         images: services.images,
         reader: services.strokeReader,
+        writeBehind: true,
       );
       final viewport = canvasViewport = ViewportController();
       final nav = canvasNav = CanvasNavigation(
