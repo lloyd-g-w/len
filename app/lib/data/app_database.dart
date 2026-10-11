@@ -77,13 +77,42 @@ class AppDatabase {
   }
 
   void _migrate() {
-    final version = db.select('PRAGMA user_version').first.columnAt(0) as int;
+    var version = db.select('PRAGMA user_version').first.columnAt(0) as int;
+    if (version > _migrations.length) {
+      _resetUnknownSchema(version);
+      version = 0;
+    }
     for (var v = version; v < _migrations.length; v++) {
       transaction(() {
         _migrations[v](db);
         db.execute('PRAGMA user_version = ${v + 1}');
       });
     }
+  }
+
+  /// A database from a newer build or from before the pre-release schema
+  /// squash has a schema this build cannot interpret. Pre-release, there is
+  /// no upgrade path (see CONVENTIONS.md): the old file is copied aside
+  /// (`<path>.schema-<version>-<time>.bak`, native only) and the database is
+  /// reset to empty, instead of crashing on missing columns later.
+  void _resetUnknownSchema(int version) {
+    final file = path;
+    if (file != null) {
+      final backup = '$file.schema-$version-${DateTime.now().millisecondsSinceEpoch}.bak';
+      db.execute("VACUUM INTO '${backup.replaceAll("'", "''")}'");
+    }
+    final objects = db.select(
+      "SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' "
+      "AND type IN ('table', 'view') ORDER BY type DESC",
+    );
+    db.execute('PRAGMA foreign_keys = OFF');
+    for (final o in objects) {
+      final name = (o['name'] as String).replaceAll('"', '""');
+      // Dropping a table drops its indexes and triggers; FTS shadow tables
+      // go with their virtual table (IF EXISTS covers both orders).
+      db.execute('DROP ${o['type'] == 'view' ? 'VIEW' : 'TABLE'} IF EXISTS "$name"');
+    }
+    db.execute('PRAGMA user_version = 0');
   }
 
   /// The schema version of a fully migrated database.

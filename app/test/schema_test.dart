@@ -189,4 +189,32 @@ void main() {
     expect(_contentsOf(third.database.db), contents);
     expect(third.notebooks.get(nb.id)!.folderId, folder.id);
   });
+
+  test('a database with an unknown (pre-squash or newer) schema is backed up and reset', () {
+    final dir = Directory.systemTemp.createTempSync('len_schema_reset');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final path = '${dir.path}/len.db';
+    // A pre-squash development database: user_version 11, an old table.
+    AppDatabase.open(path).close();
+    final raw = AppDatabase.open(path);
+    raw.db
+      ..execute('CREATE TABLE legacy_only (x INTEGER)')
+      ..execute('DROP TABLE IF EXISTS blobs')
+      ..execute('PRAGMA user_version = 11');
+    raw.close();
+
+    final reopened = AppDatabase.open(path);
+    final version = reopened.db.select('PRAGMA user_version').first.columnAt(0);
+    expect(version, AppDatabase.latestVersion);
+    final tables = reopened.db
+        .select("SELECT name FROM sqlite_master WHERE type = 'table'")
+        .map((r) => r['name'])
+        .toList();
+    expect(tables, contains('blobs'));
+    expect(tables, isNot(contains('legacy_only')));
+    reopened.close();
+
+    final backups = dir.listSync().where((f) => f.path.contains('.schema-11-')).toList();
+    expect(backups, hasLength(1), reason: 'the old file is kept aside');
+  });
 }
