@@ -11,6 +11,7 @@ import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/editor_chrome.dart';
 import 'editor_canvas.dart';
+import 'editor_gestures.dart';
 import 'editor_session.dart';
 import 'images/image_entry_points.dart';
 import 'links/link_actions.dart';
@@ -20,9 +21,6 @@ import 'present/presentation_controls.dart';
 import 'split/split_controller.dart';
 import 'split/split_drop_highlight.dart';
 import 'stickers/sticker_layer.dart';
-
-/// The canvas context menu: where it is open and what it offers.
-typedef EditorMenu = ({Offset at, List<CanvasAction> actions});
 
 /// The editor's layers, bottom to top: the surface, PDF text, the empty
 /// canvas hint, image drops, audio, then either the presentation controls

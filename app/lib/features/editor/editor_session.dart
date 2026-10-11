@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'package:flutter/widgets.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
@@ -215,9 +215,29 @@ class EditorSession {
     penButtonAction: () => services.preferences.penButtonAction,
   );
 
+  /// Keeps document content scrollable clear of the chrome covering
+  /// [covered] of the screen, and fits keep canvas content clear of it.
+  /// Applied after the frame (it moves the viewport, which notifies).
+  void setChromeInsets(EdgeInsets covered) {
+    final doc = this.doc;
+    final nav = canvasNav;
+    final same = doc != null
+        ? doc.insets == covered
+        : nav != null && !nav.waitingForInsets && nav.insets == covered;
+    if (same) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed) return;
+      doc?.setInsets(covered);
+      nav?.setInsets(covered);
+    });
+  }
+
+  bool _disposed = false;
+
   /// Ends the session: commits a text box still being edited and releases
   /// every surface (shared ones stay with the [shared] notebook).
   void dispose() {
+    _disposed = true;
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     images.dispose();
     stickers.dispose();

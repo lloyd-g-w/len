@@ -8,39 +8,31 @@ import '../../app_services.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/messages.dart';
-import '../../ui/text_prompt.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/playback_keys.dart';
-import '../documents/template_picker.dart';
 import '../search/editor/editor_search_controller.dart';
-import '../search/editor/editor_search_layer.dart';
 import '../settings/settings_screen.dart';
 import 'chrome/canvas_guard.dart';
-import 'chrome/chrome_metrics.dart';
 import 'chrome/editor_chrome.dart';
 import 'chrome/editor_tips.dart';
-import 'chrome/editor_top_bar.dart';
 import 'chrome/focus_handle.dart';
 import 'chrome/gesture_hud.dart';
-import 'chrome/toolbar_slot.dart';
 import 'document/document_layout.dart';
 import 'editor_chrome_host.dart';
+import 'editor_commands.dart';
 import 'editor_gestures.dart';
 import 'editor_import_target.dart';
 import 'editor_layers.dart';
 import 'editor_lifecycle.dart';
 import 'editor_session.dart';
 import 'editor_shortcuts.dart';
-import 'editor_toolbar.dart';
 import 'links/link_actions.dart';
-import 'pdf/pdf_layer.dart';
 import 'present/presentation.dart';
 import 'shared/shared_notebooks.dart';
 import 'split/split_controller.dart';
 import 'split/split_view.dart';
 import 'split/split_view_button.dart';
 import 'tabs/open_notebooks.dart';
-import 'toolbar/toolbar_config.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
 /// surface, the content tools' layer and the chrome around them.
@@ -167,21 +159,9 @@ class _EditorScreenState extends State<_EditorView> {
   /// In-notebook search, Ctrl+F (features/search).
   late final EditorSearchController _search;
   final CanvasGuard _guard = CanvasGuard();
-  bool? _compact;
 
-  /// Measured height of the toolbar panel (it wraps on narrow screens).
-  final ValueNotifier<double?> _toolbarHeight = ValueNotifier(null);
-
-  /// The toolbar's width on one row, kept current as the tools change.
-  late final ValueNotifier<double> _toolbarWidth = ValueNotifier(_oneRowWidth());
-
-  double _oneRowWidth() => EditorToolbar.oneRowWidth(
-    _session.tools,
-    labels: _services.preferences.toolbarLabels,
-    config: _services.preferences.toolbarConfig,
-  );
-
-  void _onTools() => _toolbarWidth.value = _oneRowWidth();
+  /// The toolbar's size, which the chrome's layout depends on.
+  late final ToolbarMeasure _toolbar = ToolbarMeasure(_session);
 
   /// Focus mode: all chrome hidden.
   bool _focus = false;
@@ -208,12 +188,12 @@ class _EditorScreenState extends State<_EditorView> {
 
   late final EditorScreenCommands _commands = EditorScreenCommands(
     back: _back,
-    rename: _rename,
+    rename: () => unawaited(renameNotebook(context, _shared)),
     toggleFocus: _toggleFocus,
     setStylusOnly: _setStylusOnly,
     openSettings: _openSettings,
     setFlow: _setFlow,
-    pickBackground: _pickBackground,
+    pickBackground: () => unawaited(pickCanvasBackground(context, _shared)),
     openSearch: _search.open,
     customiseToolbar: (on) => setState(() => _customising = on),
     present: _presentation.start,
@@ -231,7 +211,6 @@ class _EditorScreenState extends State<_EditorView> {
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
     _session.undo.addListener(_onEdit);
-    _session.tools.addListener(_onTools);
     _audio.onNotice = _onAudioNotice;
     _services.incomingFiles.targets.add(_importTarget);
     // Of two editors (split view), files go to the one used last.
@@ -265,7 +244,6 @@ class _EditorScreenState extends State<_EditorView> {
     _lifecycle.dispose();
     _services.preferences.removeListener(_onPreferences);
     _session.undo.removeListener(_onEdit);
-    _session.tools.removeListener(_onTools);
     if (_focus) setImmersive(false);
     final edited = _session.edited;
     _search.dispose();
@@ -278,8 +256,7 @@ class _EditorScreenState extends State<_EditorView> {
     _lifecycle.finish(edited: edited);
     _hud.dispose();
     _tips.dispose();
-    _toolbarHeight.dispose();
-    _toolbarWidth.dispose();
+    _toolbar.dispose();
     _guard.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -344,15 +321,7 @@ class _EditorScreenState extends State<_EditorView> {
   // ---------------------------------------------------------------------------
   // Events
 
-  void _offerTip(EditorTip tip) {
-    final prefs = _services.preferences;
-    _tips.offer(
-      tip,
-      penButton: prefs.penButtonAction,
-      twoFingerUndo: prefs.twoFingerTapUndo,
-      threeFingerRedo: prefs.threeFingerTapRedo,
-    );
-  }
+  void _offerTip(EditorTip tip) => _tips.offerFor(tip, _services.preferences);
 
   /// After the first edit by finger or pen: how to undo without reaching
   /// for the top bar.
@@ -375,18 +344,8 @@ class _EditorScreenState extends State<_EditorView> {
 
   void _openMenu(Offset at) {
     if (!mounted || _closing) return;
-    // A long press on PDF text selects the word there instead.
-    if (_session.pdf?.selectWordAt(at) ?? false) return;
-    final doc = _session.doc;
-    final actions = canvasActions(
-      _session,
-      at,
-      bookmarked: doc?.activePageData.bookmarked ?? false,
-      onPageCommand: (c) => _session.commands!.run(context, c, doc!.activePageData),
-      onFollowLink: _followLink,
-    );
-    if (openLinkAction(context, _session, at) case final link?) actions.insert(0, link);
-    setState(() => _menu = (at: at, actions: actions));
+    final menu = canvasMenuAt(context, _session, at, onFollowLink: _followLink);
+    if (menu != null) setState(() => _menu = menu);
   }
 
   void _followLink(Paper target) {
@@ -427,36 +386,6 @@ class _EditorScreenState extends State<_EditorView> {
   /// Leaves this pane of the split view.
   void _closePane() => _services.openNotebooks.closeSplit();
 
-  Future<void> _rename() async {
-    final title = await showTextPrompt(
-      context,
-      title: 'Rename notebook',
-      label: 'Name',
-      initialValue: _notebook.title,
-      confirmLabel: 'Rename',
-    );
-    if (title == null || title.isEmpty || !mounted || _closing) return;
-    _shared.update((n) => n.copyWith(title: title));
-  }
-
-  /// Changes the canvas's template and paper colour.
-  Future<void> _pickBackground() async {
-    final choice = await showTemplatePicker(
-      context,
-      initial: PageTemplate.of(_notebook.paper, color: _notebook.paperColor),
-      mode: TemplatePickerMode.canvas,
-    );
-    if (choice == null || !mounted || _closing) return;
-    final template = choice.template;
-    _shared.update((n) => n.copyWith(paper: template.style, paperColor: template.color));
-  }
-
-  /// The folder the notebook is filed in, shown under its title.
-  String? _folderName() {
-    final id = _notebook.folderId;
-    return id == null ? null : _services.folders.get(id)?.name;
-  }
-
   void _back() => widget.secondPane ? _closePane() : unawaited(Navigator.of(context).maybePop());
 
   void _openSettings() => unawaited(
@@ -481,7 +410,19 @@ class _EditorScreenState extends State<_EditorView> {
       },
       child: Scaffold(
         body: CallbackShortcuts(
-          bindings: _shortcuts(tabs),
+          bindings: editorScreenShortcuts(
+            _session,
+            presentation: _presentation,
+            search: _search,
+            toggleFocus: _toggleFocus,
+            tabs: tabs,
+            closeTab: widget.secondPane
+                ? _closePane
+                : tabs == null
+                ? null
+                : () => tabs.close(_notebook.id),
+            paste: () => _session.images.paste(context),
+          ),
           child: Focus(
             focusNode: _focusNode,
             autofocus: true,
@@ -490,7 +431,7 @@ class _EditorScreenState extends State<_EditorView> {
             // other tool changes don't rebuild the whole editor (the toolbar
             // and chrome listen to the tools themselves).
             child: ListenableBuilder(
-              listenable: Listenable.merge([_toolbarWidth, _toolbarHeight]),
+              listenable: _toolbar,
               builder: (context, _) => LayoutBuilder(
                 builder: (context, constraints) => _buildArea(context, constraints, tabs),
               ),
@@ -500,28 +441,6 @@ class _EditorScreenState extends State<_EditorView> {
       ),
     );
   }
-
-  Map<ShortcutActivator, VoidCallback> _shortcuts(OpenNotebooks? tabs) => {
-    ...editorShortcuts(
-      _session,
-      toggleFocus: _toggleFocus,
-      nextTab: tabs?.cycle,
-      previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
-      closeTab: widget.secondPane
-          ? _closePane
-          : tabs == null
-          ? null
-          : () => tabs.close(_notebook.id),
-      paste: () => _session.images.paste(context),
-    ),
-    const SingleActivator(LogicalKeyboardKey.f5): _presentation.toggle,
-    if (_presentation.active) ...{
-      const SingleActivator(LogicalKeyboardKey.space): () => _presentation.turn(1),
-      const SingleActivator(LogicalKeyboardKey.space, shift: true): () => _presentation.turn(-1),
-    },
-    ...EditorSearchLayer.shortcuts(_search),
-    ...?_session.pdf == null ? null : pdfShortcuts(_session.pdf!),
-  };
 
   /// Escape first leaves presentation, then closes a chrome menu opened
   /// with a tap (focus stayed here, out of the menu's reach). The audio
@@ -538,24 +457,16 @@ class _EditorScreenState extends State<_EditorView> {
   }
 
   Widget _buildArea(BuildContext context, BoxConstraints constraints, OpenNotebooks? tabs) {
-    final media = MediaQuery.of(context);
     final presenting = _presentation.active;
-    final layout = ChromeLayout(
-      placement: resolvePlacement(
-        _services.preferences.toolbarPlacement,
-        constraints.maxWidth,
-        toolbarWidth: _oneRowWidth(),
-      ),
-      toolbarHeight: _toolbarHeight.value,
-      barHeight: EditorTopBar.heightFor(constraints.maxWidth, tabs),
-      safe: media.padding,
-      hasNavigator: _session.doc != null,
+    final layout = _toolbar.layout(
       width: constraints.maxWidth,
+      safe: MediaQuery.paddingOf(context),
+      tabs: tabs,
       focus: _focus || presenting,
     );
-    _applyInsets(layout.covered);
+    _session.setChromeInsets(layout.covered);
     widget.messageInset.value = layout.covered.bottom;
-    _resetGuardOnResize(constraints.maxWidth);
+    _guard.laidOut(constraints.maxWidth);
     return CanvasGuardScope(
       guard: _guard,
       child: Listener(
@@ -597,13 +508,13 @@ class _EditorScreenState extends State<_EditorView> {
     layout: layout,
     commands: _commands,
     title: _notebook.title,
-    subtitle: _folderName(),
+    subtitle: folderNameOf(_services, _notebook),
     audio: _audio,
     hud: _hud,
     tips: _tips,
     customising: _customising,
     onToolbarHeight: (height) {
-      if (mounted) _toolbarHeight.value = height;
+      if (mounted) _toolbar.height = height;
     },
     tabs: tabs,
     secondPane: widget.secondPane,
@@ -612,29 +523,4 @@ class _EditorScreenState extends State<_EditorView> {
         : null,
     navigatorActivity: _session.doc?.viewport,
   );
-
-  /// The top bar swaps its menus when switching between phone and wide
-  /// layouts; one disposed while open never reports closing.
-  void _resetGuardOnResize(double width) {
-    final compact = width < ChromeMetrics.compactWidth;
-    if (_compact != null && _compact != compact) _guard.reset();
-    _compact = compact;
-  }
-
-  /// Keeps document content scrollable clear of the chrome, and fits
-  /// keep canvas content clear of it.
-  void _applyInsets(EdgeInsets covered) {
-    final doc = _session.doc;
-    final nav = _session.canvasNav;
-    final same = doc != null
-        ? doc.insets == covered
-        : nav != null && !nav.waitingForInsets && nav.insets == covered;
-    if (same) return;
-    // Changing the viewport notifies listeners; never during build.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      doc?.setInsets(covered);
-      nav?.setInsets(covered);
-    });
-  }
 }

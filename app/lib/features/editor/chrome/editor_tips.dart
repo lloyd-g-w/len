@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../data/app_preferences.dart';
 import '../../../domain/preferences.dart';
 import '../../../ui/app_theme.dart';
 
@@ -43,6 +44,15 @@ class TipsController extends ValueNotifier<TipMessage?> {
 
   /// Offers [tip], phrased for the current settings ([penButton],
   /// [twoFingerUndo], [threeFingerRedo]).
+  /// Offers [tip] as [preferences] have it (the pen button's action,
+  /// which multi-finger taps are on).
+  void offerFor(EditorTip tip, AppPreferences preferences) => offer(
+    tip,
+    penButton: preferences.penButtonAction,
+    twoFingerUndo: preferences.twoFingerTapUndo,
+    threeFingerRedo: preferences.threeFingerTapRedo,
+  );
+
   void offer(
     EditorTip tip, {
     PenButtonAction penButton = PenButtonAction.eraser,

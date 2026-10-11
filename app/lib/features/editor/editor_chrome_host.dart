@@ -7,6 +7,7 @@ import 'chrome/editor_chrome.dart';
 import 'chrome/editor_tips.dart';
 import 'chrome/editor_top_bar.dart';
 import 'chrome/gesture_hud.dart';
+import 'chrome/toolbar_slot.dart';
 import 'document/document_layout.dart';
 import 'editor_actions.dart';
 import 'editor_session.dart';
@@ -15,6 +16,70 @@ import 'images/image_entry_points.dart';
 import 'tabs/open_notebooks.dart';
 import 'toolbar/toolbar_config.dart';
 import 'toolbar/toolbar_editor.dart';
+
+/// The toolbar's size, which the chrome's layout depends on: its height as
+/// laid out (it wraps on narrow screens) and its width on one row (for
+/// automatic placement; kept current as the tools change). Notifies when
+/// either changes.
+class ToolbarMeasure extends ChangeNotifier {
+  ToolbarMeasure(this.session) {
+    _width = oneRowWidth;
+    session.tools.addListener(_onTools);
+  }
+
+  final EditorSession session;
+  late double _width;
+
+  /// The toolbar's measured height (null until laid out).
+  double? get height => _height;
+  double? _height;
+  set height(double? value) {
+    if (value == _height) return;
+    _height = value;
+    notifyListeners();
+  }
+
+  /// The toolbar's width on one row.
+  double get oneRowWidth => EditorToolbar.oneRowWidth(
+    session.tools,
+    labels: session.services.preferences.toolbarLabels,
+    config: session.services.preferences.toolbarConfig,
+  );
+
+  void _onTools() {
+    final width = oneRowWidth;
+    if (width == _width) return;
+    _width = width;
+    notifyListeners();
+  }
+
+  /// How the chrome lays out in an editor [width] wide, with [tabs] in
+  /// the top bar; [focus] hides it.
+  ChromeLayout layout({
+    required double width,
+    required EdgeInsets safe,
+    required OpenNotebooks? tabs,
+    required bool focus,
+  }) => ChromeLayout(
+    placement: resolvePlacement(
+      session.services.preferences.toolbarPlacement,
+      width,
+      toolbarWidth: oneRowWidth,
+    ),
+    toolbarHeight: _height,
+    barHeight: EditorTopBar.heightFor(width, tabs),
+    safe: safe,
+    hasNavigator: session.doc != null,
+    width: width,
+    focus: focus,
+  );
+
+  @override
+  void dispose() {
+    session.tools.removeListener(_onTools);
+    super.dispose();
+  }
+}
 
 /// What the chrome's buttons and menus ask of the editor screen (the
 /// commands that change the screen's own state).
