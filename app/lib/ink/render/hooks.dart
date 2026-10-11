@@ -8,8 +8,16 @@ import 'growable.dart';
 /// A hook is a short end piece (at most [maxStart] / [maxEnd] long) that
 /// meets the rest of the stroke at a *kink*: the direction of the piece
 /// and of the body just after it differ by more than 40°, and the turn is
-/// local (more than 30° within [local] of the kink), so a stroke that
-/// merely starts on a curve (radius above ~1.5 px) is left alone.
+/// local: more than 30°, and most of the whole turn (85 %), happen within
+/// [local] of the kink. A stroke that merely starts or ends on a curve (the
+/// top of an "o", the curl of an "s") turns as much, but spread along the
+/// curve, and is left alone.
+///
+/// A hook is the hand's motion, not the ink's: its length is a few screen
+/// pixels whatever the pen. It grows a little with thin pens' widths, but
+/// not beyond what a 2.5 px pen allows (a thick pen's round cap hides most
+/// of a hook anyway, while a long reach would eat the curled ends of small
+/// letters).
 ///
 /// The start decision only looks at the first [decisionLength] of the
 /// stroke, so it is made once, as soon as that much has been drawn, and
@@ -19,8 +27,8 @@ class HookFinder {
   /// The hook rules for a pen [width] (world units), in units of [unit]
   /// per world unit (e.g. screen pixels for the low-latency overlay).
   HookFinder(double width, {double unit = 1})
-    : maxStart = math.max(2.0, 1.2 * width) * unit,
-      maxEnd = math.max(2.5, 1.6 * width) * unit,
+    : maxStart = (1.2 * width).clamp(2.0, 3.0) * unit,
+      maxEnd = (1.6 * width).clamp(2.5, 4.0) * unit,
       body = (0.3 * width).clamp(0.75, 2.0) * unit,
       local = (0.3 * width).clamp(0.5, 1.5) * unit;
 
@@ -43,6 +51,7 @@ class HookFinder {
 
   static final double _minTurn = 40 * math.pi / 180;
   static final double _minLocalTurn = 30 * math.pi / 180;
+  static const double _localShare = 0.85;
 
   /// Stroke length after which the start decision is final.
   double get decisionLength => maxStart + body;
@@ -97,7 +106,8 @@ class HookFinder {
       final hx = jx - x[at(0)], hy = jy - y[at(0)];
       final bx = x[at(b)] - jx, by = y[at(b)] - jy;
       final lx = jx - x[at(l)], ly = jy - y[at(l)];
-      if (_angle(hx, hy, bx, by) > _minTurn && _angle(lx, ly, bx, by) > _minLocalTurn) cut = j;
+      final turn = _angle(hx, hy, bx, by), localTurn = _angle(lx, ly, bx, by);
+      if (turn > _minTurn && localTurn > _minLocalTurn && localTurn >= _localShare * turn) cut = j;
     }
     return cut;
   }

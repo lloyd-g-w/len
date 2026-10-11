@@ -335,15 +335,19 @@ class WetInkModel(
             val by = at(b).y - jy
             val lx = jx - at(l).x
             val ly = jy - at(l).y
-            if (angle(hx, hy, bx, by) > HOOK_TURN && angle(lx, ly, bx, by) > HOOK_LOCAL_TURN) cut = j
+            val turn = angle(hx, hy, bx, by)
+            val localTurn = angle(lx, ly, bx, by)
+            if (turn > HOOK_TURN && localTurn > HOOK_LOCAL_TURN && localTurn >= HOOK_LOCAL_SHARE * turn) cut = j
             j++
         }
         return cut
     }
 
     companion object {
+        // `HookFinder`'s turns.
         private val HOOK_TURN = Math.toRadians(40.0)
         private val HOOK_LOCAL_TURN = Math.toRadians(30.0)
+        private const val HOOK_LOCAL_SHARE = 0.85
 
         fun angle(ax: Double, ay: Double, bx: Double, by: Double) = abs(atan2(ax * by - ay * bx, ax * bx + ay * by))
 
