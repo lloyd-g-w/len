@@ -95,6 +95,71 @@ paper (repaints on pan/zoom), committed ink (repaints on pan/zoom or edits),
 and live ink (repaints on every pointer move — the stroke being drawn and the
 eraser cursor), so drawing never re-renders the committed ink.
 
+### Committed ink: tiles (`ink/render/tiles/`)
+
+Impeller has no raster cache: a `RepaintBoundary` only saves rebuilding the
+layer, every frame that composites it still re-tessellates and fills every
+outline in it. On the tablet a page dense with handwriting cost 45–60 ms of
+raster time per frame — every frame of writing on it, pen-up included —
+and a full screen of canvas ink 55–125 ms. So committed ink is drawn from
+**tiles**: `InkTileCache` (one per surface per view) splits the screen into
+512 × 512 *device-pixel* tiles of a `TileSpace` (zoom `k` = device px per
+world unit, plus the sub-pixel phase of the view's origin, so every tile
+sits on whole device pixels and shows exactly what the vectors would) and
+renders each with `Picture.toImage` from the chunk pictures. A settled frame
+draws a few dozen images, however much ink is on screen.
+
+- **Pipeline**: `CommittedInkPainter` (canvas) and `DocumentInkPainter`
+  (pages, clipped to the page) call `paintTiled`: tile images where they
+  exist; for the rest (`VectorFallback`) the chunk pictures as before,
+  clipped to the missing tiles. Renders are queued (on screen first, then a
+  ring one tile around it), at most two in flight, recordings time-boxed to
+  4 ms per batch, and run after the frame that asked for them; the painter
+  repaints when they land (`InkTileCache` / `DocumentSurfaces.rendered`).
+- **Pen-up** (`SurfaceChange.appended`): `SurfaceModel.addStroke` reports a
+  new stroke that lies over everything in its chunks (no highlighter, no
+  element above) as an *append*. Tiles keep their images; the stroke is
+  drawn as a vector over the tiles it touches (*overlay*) in the very next
+  frame, and each such tile is re-rendered as *old image + stroke* off the
+  frame. So committed ink never vanishes or flickers at pen-up, and a
+  pen-up never re-records a chunk picture or replays a page of ink.
+- **Other edits** (erase, undo, lasso, loads) invalidate only the tiles over
+  the changed chunks; those are drawn from vectors for a frame or two.
+- **Zoom and pan**: panning by whole device pixels keeps the space and its
+  tiles. Zooming, or a sub-pixel shift, draws the current tiles transformed
+  (`FilterQuality.medium`) while the gesture lasts; after 150 ms still the
+  new space is adopted and rendered, the old tiles standing in for each
+  area until all its new ones exist, so nothing goes blank.
+- **Memory**: tile images live in one `TilePool` (LRU by bytes, 160 MB =
+  160 tiles of 1 MB) shared by every surface and view; evicted tiles are
+  re-rendered when needed.
+- **Split view**: page models are shared between the panes of a notebook
+  (`PageModels`), tile caches are not — each view has its own zoom and its
+  own `PageSurface` (chunk pictures + tiles), all listening to the shared
+  model's `changes`.
+- **Level of detail**: zoomed out far (canvas), `ChunkRasterCache` images
+  are drawn instead; on an append they too keep their (stale) images with
+  the new strokes drawn over them until re-rasterised.
+
+Two more things keep pen-up and first show off the frame:
+
+- **Write-behind** (`SurfaceModel(writeBehind: true)`, editors only): stroke
+  inserts and deletes reach SQLite in a post-frame callback after the frame
+  that shows them (`len.persistStrokes`), not inside the pointer-up
+  handler. Reads, `reload`, `dispose` and `SurfaceModel.flushAll()`
+  (exports, page copies and deletions) flush first.
+- **Outlines off the UI thread** (`OutlinePreparer`, `platform/
+  outline_preparer*`): strokes read from storage get their outlines built on
+  worker isolates (`BackgroundOutlines`, as plain command lists turned into
+  `Path`s on the UI isolate) before the model adds them; a page of 2 000
+  strokes no longer stalls the frame that first shows it for 1–3 s. Tests
+  and the web build them inline (`InlineOutlinePreparer`).
+
+Measuring: profile builds with `--dart-define=LEN_PERF=true` log frame and
+pen-up latency summaries (`PerfProbe`, see docs/INK_LAB.md, *Rendering
+performance*); timeline markers `len.renderTile`, `len.commitStroke`,
+`len.persistStrokes`, `len.recordChunk`, `len.handwritingCluster` show up in Perfetto / DevTools.
+
 **Navigation** (`ink/navigation/`, `features/editor/canvas/`): `KineticPan`
 measures the viewport's own motion during a navigation gesture (fingers,
 trackpad, middle-button drag) and `ViewportAnimator` glides on after a fling
