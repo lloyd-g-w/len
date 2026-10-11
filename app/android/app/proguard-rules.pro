@@ -14,3 +14,9 @@
 -keep class androidx.work.** { *; }
 -keep class androidx.room.** { *; }
 -dontwarn androidx.room.paging.**
+
+# ML Kit digital ink plugin: keep its Flutter plugin + method handlers intact
+# (a release build reported MissingPluginException for vision#manageInkModels).
+-keep class com.google_mlkit_commons.** { *; }
+-keep class com.google_mlkit_digital_ink_recognition.** { *; }
+-keep class com.google.mlkit.vision.digitalink.** { *; }
