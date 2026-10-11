@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
-import '../../domain/text_data.dart';
+import '../../domain/text/text_data.dart';
 import '../elements/text_layout.dart';
 import '../geometry/affine.dart';
 

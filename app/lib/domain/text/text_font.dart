@@ -38,9 +38,7 @@ enum TextFont {
       caveat => 'Caveat',
     };
     final i = italic && hasItalic;
-    final face = bold
-        ? (i ? 'BoldItalic' : 'Bold')
-        : (i ? 'Italic' : 'Regular');
+    final face = bold ? (i ? 'BoldItalic' : 'Bold') : (i ? 'Italic' : 'Regular');
     return 'assets/fonts/$file-$face.ttf';
   }
 

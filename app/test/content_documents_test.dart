@@ -11,7 +11,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
-import 'package:len/domain/text_data.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/document/page_actions.dart';
 import 'package:len/features/library/thumbnails/thumbnail_renderer.dart';
 

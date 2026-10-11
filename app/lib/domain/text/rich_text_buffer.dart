@@ -12,7 +12,7 @@ class RichTextBuffer {
 
   String _text;
   List<SpanStyle> _chars;
-  List<ParaStyle> _paras;
+  final List<ParaStyle> _paras;
 
   String get text => _text;
   List<ParaStyle> get paras => List.unmodifiable(_paras);

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/settings_repository.dart';
 import '../domain/stroke.dart';
-import '../domain/text_data.dart';
+import '../domain/text/text_data.dart';
 import 'pen/eraser_config.dart';
 import 'pen/pen_config.dart';
 import 'shapes/shape_kind.dart';

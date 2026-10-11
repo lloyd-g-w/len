@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/clock.dart';
 import '../../domain/surface_element.dart';
-import '../../domain/text_data.dart';
+import '../../domain/text/text_data.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
 import 'text_layout.dart';
@@ -46,23 +46,29 @@ class TextEditSession extends ChangeNotifier {
   TextData get data => TextData.fromJson(_current?.data ?? const {});
 
   /// Starts a new, empty text box at world point [at] (its first line's
-  /// middle), [width] world units wide, formatted like [style].
-  void create(Offset at, {required double width, required TextData style}) {
+  /// middle), formatted like [style]. Without a [width] the box is as wide
+  /// as its text (growing up to [autoWidthLimit], then wrapping).
+  void create(Offset at, {required TextData style, double? width}) {
     end();
     _edited = false;
-    final data = style.copyWith(text: '');
-    final height = TextLayout.heightOf(data, width);
+    final data = style.copyWith(text: '', autoWidth: width == null);
+    final w = width ?? TextLayout.naturalWidth(data);
+    final height = TextLayout.heightOf(data, w);
     _current = SurfaceElement(
       id: clock.newId(),
       surfaceId: _model.surfaceId,
       type: ElementType.text.name,
-      rect: Rect.fromLTWH(at.dx, at.dy - height / 2, width, height),
+      rect: Rect.fromLTWH(at.dx, at.dy - height / 2, w, height),
       z: _model.topZ + 1,
       createdAt: clock.nowMs(),
       data: data.toJson(),
     );
     notifyListeners();
   }
+
+  /// Widest an auto-width box grows (world units) before it starts to
+  /// wrap at that width, e.g. up to the edge of the screen or page.
+  double autoWidthLimit = double.infinity;
 
   /// Starts editing an existing text box.
   void edit(SurfaceElement element) {
@@ -82,11 +88,26 @@ class TextEditSession extends ChangeNotifier {
     _update(current.copyWith(data: data.toJson(current.data)));
   }
 
-  /// Moves or resizes the box (its height always follows the text).
+  /// Moves the box.
   void setRect(Rect rect) {
     final current = _current;
     if (current == null) return;
     _update(current.copyWith(rect: rect));
+  }
+
+  /// Sets the box's left edge and width: from now on it wraps at that
+  /// width (auto width ends).
+  void setWidth(double left, double width) {
+    final current = _current;
+    if (current == null) return;
+    final r = current.rect;
+    final data = TextData.fromJson(current.data).copyWith(autoWidth: false);
+    _update(
+      current.copyWith(
+        rect: Rect.fromLTWH(left, r.top, math.max(width, TextLayout.minWidth), r.height),
+        data: data.toJson(current.data),
+      ),
+    );
   }
 
   /// Whether the user changed the box in this session.
@@ -95,8 +116,18 @@ class TextEditSession extends ChangeNotifier {
   void _update(SurfaceElement element) {
     _edited = true;
     final r = element.rect;
-    final width = math.max(r.width, TextLayout.minWidth);
-    final height = TextLayout.heightOf(TextData.fromJson(element.data), width);
+    var data = TextData.fromJson(element.data);
+    var width = math.max(r.width, TextLayout.minWidth);
+    if (data.autoWidth) {
+      width = TextLayout.naturalWidth(data);
+      if (width > autoWidthLimit) {
+        // Grown to the limit: wrap there from now on.
+        width = math.max(autoWidthLimit, TextLayout.minWidth);
+        data = data.copyWith(autoWidth: false);
+        element = element.copyWith(data: data.toJson(element.data));
+      }
+    }
+    final height = TextLayout.heightOf(data, width);
     _current = element.copyWith(rect: Rect.fromLTWH(r.left, r.top, width, height));
     notifyListeners();
   }

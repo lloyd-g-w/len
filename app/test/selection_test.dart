@@ -6,7 +6,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/element_repository.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/stroke.dart';
-import 'package:len/domain/text_data.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/ink/geometry/affine.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
 import 'package:len/ink/selection/lasso.dart';

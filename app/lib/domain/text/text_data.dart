@@ -98,9 +98,7 @@ class TextData {
   List<ParaStyle> get paras {
     final lines = lineCount;
     if (_paras.length == lines) return _paras;
-    return [
-      for (var i = 0; i < lines; i++) i < _paras.length ? _paras[i] : ParaStyle.body,
-    ];
+    return [for (var i = 0; i < lines; i++) i < _paras.length ? _paras[i] : ParaStyle.body];
   }
 
   int get lineCount => '\n'.allMatches(text).length + 1;
@@ -141,7 +139,7 @@ class TextData {
     ...base,
     'text': text,
     'spans': [for (final s in spans) s.toJson()],
-    'paras': [for (final p in paras) p.toJson()],
+    'paras': [for (final p in _paras) p.toJson()],
     'font': font.name,
     'size': fontSize,
     'color': color,
@@ -207,8 +205,7 @@ class TextData {
   }
 
   /// The box set to [size]: other sizes in it scale along.
-  TextData withFontSize(double size) =>
-      scaled(size.clamp(minFontSize, maxFontSize) / fontSize);
+  TextData withFontSize(double size) => scaled(size.clamp(minFontSize, maxFontSize) / fontSize);
 
   /// All text in [argb]: span colours are dropped.
   TextData withColor(int argb) => TextData.rich(

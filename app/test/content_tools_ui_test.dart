@@ -8,7 +8,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
-import 'package:len/domain/text_data.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/tabs/open_notebooks.dart';
 import 'package:len/ink/render/laser_painter.dart';
@@ -148,7 +148,7 @@ void main() {
     final field = find.byKey(const ValueKey('text-box-field'));
     expect(field, findsOneWidget);
     await tester.enterText(field, 'Hello\nworld');
-    await tester.tap(find.byTooltip('Bold'));
+    await tester.tap(find.byTooltip('Bulleted list (Ctrl+Shift+8)'));
     await tester.pump();
     await tester.tap(find.byTooltip('Done (Esc)'));
     await tester.pumpAndSettle();
@@ -156,7 +156,7 @@ void main() {
     final element = liveElements(services, nb.id).single;
     final data = TextData.fromJson(element.data);
     expect(data.text, 'Hello\nworld');
-    expect(data.bold, isTrue);
+    expect(data.paras.last.list, ListKind.bullet);
     expect(element.rect.left, 300);
     expect(find.byKey(const ValueKey('text-box-field')), findsNothing);
 

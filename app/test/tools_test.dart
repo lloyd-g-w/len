@@ -8,7 +8,7 @@ import 'package:len/data/settings_repository.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
-import 'package:len/domain/text_data.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
 import 'package:len/ink/selection/lasso_path.dart';
@@ -143,7 +143,7 @@ void main() {
 
     test('an empty new box is discarded without an undo step', () {
       session
-        ..create(const Offset(10, 10), width: 200, style: const TextData())
+        ..create(const Offset(10, 10), style: const TextData())
         ..end();
       expect(model.loadedElementCount, 0);
       expect(model.history.canUndo, isFalse);
@@ -184,9 +184,34 @@ void main() {
 
     test('the width can be changed but never below the minimum', () {
       session.create(Offset.zero, width: 200, style: const TextData(text: 'x'));
-      session.setRect(const Rect.fromLTWH(5, 5, 2, 10));
+      session.setWidth(5, 2);
       expect(session.current!.rect.left, 5);
       expect(session.current!.rect.width, greaterThanOrEqualTo(24));
+    });
+
+    test('a new box grows with its text, then wraps at its limit', () {
+      session
+        ..autoWidthLimit = 300
+        ..create(Offset.zero, style: const TextData(fontSize: 20));
+      expect(session.data.autoWidth, isTrue);
+      session.setData(session.data.copyWith(text: 'Hi'));
+      final narrow = session.current!.rect.width;
+      session.setData(session.data.copyWith(text: 'Hello there'));
+      expect(session.current!.rect.width, greaterThan(narrow));
+      expect(session.current!.rect.height, lessThan(30)); // one line
+      session.setData(session.data.copyWith(text: 'Hello there, a much longer line ' * 3));
+      expect(session.current!.rect.width, 300);
+      expect(session.data.autoWidth, isFalse);
+      expect(session.current!.rect.height, greaterThan(40)); // wraps
+    });
+
+    test('resizing a box ends auto width', () {
+      session.create(Offset.zero, style: const TextData(text: 'x'));
+      session.setData(session.data.copyWith(text: 'abc'));
+      session.setWidth(0, 120);
+      expect(session.data.autoWidth, isFalse);
+      session.setData(session.data.copyWith(text: 'abcd'));
+      expect(session.current!.rect.width, 120);
     });
   });
 
@@ -222,13 +247,13 @@ void main() {
     final store = SettingsRepository(db);
     final tools = ToolSettings(store: store)
       ..shape = ShapeKind.star
-      ..textStyle = const TextData(text: 'ignored', fontSize: 40, bold: true);
+      ..textStyle = const TextData(text: 'ignored', fontSize: 40, font: TextFont.lora);
     expect(tools.tool, EditorTool.shape);
     expect(tools.textStyle.text, '');
     tools.dispose(); // flushes the debounced save
     final restored = ToolSettings(store: store);
     expect(restored.shape, ShapeKind.star);
-    expect(restored.textStyle, const TextData(fontSize: 40, bold: true));
+    expect(restored.textStyle, const TextData(fontSize: 40, font: TextFont.lora));
     restored.dispose();
   });
 
@@ -246,11 +271,11 @@ void main() {
           },
         },
         'shape': 'triangle',
-        'text': const TextData(fontSize: 30, italic: true).toJson(),
+        'text': const TextData(fontSize: 30, font: TextFont.mono).toJson(),
       });
     final tools = ToolSettings(store: store);
     expect(tools.shape, ShapeKind.triangle);
-    expect(tools.textStyle, const TextData(fontSize: 30, italic: true));
+    expect(tools.textStyle, const TextData(fontSize: 30, font: TextFont.mono));
     final pen = tools.configOf(InkTool.ballpoint);
     expect(pen.color, 0xFF445566);
     expect(pen.colors, containsAll([0xFF112233, 0xFF445566]));

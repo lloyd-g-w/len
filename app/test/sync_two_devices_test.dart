@@ -19,7 +19,7 @@ import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
-import 'package:len/domain/text_data.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/sync/blob_sync.dart';
 import 'package:len/sync/sync_engine.dart';
 import 'package:sqlite3/common.dart';
@@ -178,7 +178,13 @@ SurfaceElement _textBox(
   z: 3,
   createdAt: 7,
   data: {
-    ...TextData(text: text, bold: true, align: TextAlignment.center).toJson(),
+    ...TextData.rich(
+      text: text,
+      spans: [StyledRange(0, text.length, const SpanStyle(bold: true, color: 0xFFC2255C))],
+      paras: const [ParaStyle(list: ListKind.check, checked: true)],
+      font: TextFont.caveat,
+      align: TextAlignment.center,
+    ).toJson(),
     ...extra,
   },
 );

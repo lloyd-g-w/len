@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../domain/paper.dart';
 import '../../ink/tool_settings.dart';
-import '../../ink/tools/text_tool.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/gesture_hud.dart';
 import 'document/page_overview.dart';
@@ -46,11 +45,7 @@ List<CanvasAction> canvasActions(
     CanvasAction(Icons.text_fields_rounded, 'Add text here', () {
       final tools = session.tools;
       tools.tool = EditorTool.text;
-      content.text.create(
-        world,
-        width: TextTool.newBoxWidth / viewport.scale,
-        style: tools.textStyle,
-      );
+      content.textTool.startBox(world);
     }),
     if (doc != null) ...[
       CanvasAction(
