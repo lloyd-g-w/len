@@ -11,7 +11,12 @@ import '../tabs/open_notebooks.dart';
 
 /// One editor of the split view, as the [SplitController] sees it.
 class SplitPane {
-  SplitPane({required this.session, required this.secondary, required this.area});
+  SplitPane({
+    required this.session,
+    required this.secondary,
+    required this.area,
+    required this.showMessage,
+  });
 
   final EditorSession session;
 
@@ -20,6 +25,9 @@ class SplitPane {
 
   /// The editor's area (its surface's coordinate space).
   final RenderBox? Function() area;
+
+  /// Shows a message (snack bar) in this pane.
+  final ValueChanged<String> showMessage;
 
   String get notebookId => session.notebook.id;
 
@@ -135,6 +143,15 @@ class SplitController extends ChangeNotifier {
   }
 
   SplitPane? _other(SplitPane pane) => _panes.where((p) => p != pane).firstOrNull;
+
+  /// Shows [message] in the pane other than [from] (e.g. why [from] is
+  /// closing: its own messages would go with it). False if there is none.
+  bool messageOther(SplitPane from, String message) {
+    final other = _other(from);
+    if (other == null) return false;
+    other.showMessage(message);
+    return true;
+  }
 
   /// Shows [pane] alone (presentation), or both again with null.
   void present(SplitPane? pane) {

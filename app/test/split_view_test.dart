@@ -45,7 +45,11 @@ Future<(AppServices, Notebook, Notebook)> pumpWorkspace(
   await tester.pumpWidget(
     AppScope(
       services: s,
-      child: MaterialApp(theme: AppTheme.light(), home: const EditorWorkspace()),
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        navigatorObservers: [s.routeOwners],
+        home: const EditorWorkspace(),
+      ),
     ),
   );
   await tester.pumpAndSettle();

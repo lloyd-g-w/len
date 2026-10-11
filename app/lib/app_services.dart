@@ -37,6 +37,7 @@ import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
+import 'ui/route_owners.dart';
 
 /// Composition root: constructs and owns the app's long-lived services.
 class AppServices {
@@ -199,6 +200,10 @@ class AppServices {
 
   /// Notebooks open in editor tabs (with each tab's place in memory).
   final OpenNotebooks openNotebooks = OpenNotebooks();
+
+  /// Which part of the screen opened each route (register with the app's
+  /// navigator).
+  final RouteOwners routeOwners = RouteOwners();
 
   /// What the editors of one notebook share (the notebook, its audio,
   /// surfaces, undo and PDF caches), per open notebook.

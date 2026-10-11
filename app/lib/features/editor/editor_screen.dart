@@ -128,6 +128,7 @@ class _EditorScreenState extends State<_EditorView> {
     services: _services,
     session: _session,
     secondPane: widget.secondPane,
+    inWorkspace: widget.split != null,
   );
 
   /// This editor as the split view sees it.
@@ -137,6 +138,9 @@ class _EditorScreenState extends State<_EditorView> {
           session: _session,
           secondary: widget.secondPane,
           area: () => _areaKey.currentContext?.findRenderObject() as RenderBox?,
+          showMessage: (message) {
+            if (mounted) showMessage(context, message);
+          },
         );
   final GlobalKey _areaKey = GlobalKey(debugLabel: 'editor area');
 
@@ -256,6 +260,7 @@ class _EditorScreenState extends State<_EditorView> {
     _presentActivity.dispose();
     _focusNode.removeListener(_onFocus);
     _services.incomingFiles.targets.remove(_importTarget);
+    _services.routeOwners.forget(this);
     _services.openNotebooks.removeListener(_onTabs);
     _lifecycle.dispose();
     _services.preferences.removeListener(_onPreferences);
@@ -306,14 +311,25 @@ class _EditorScreenState extends State<_EditorView> {
   void _onShared() {
     if (!mounted || _closing) return;
     if (_shared.gone case final gone?) {
-      _lifecycle.closeDeleted(context, trashed: gone == NotebookGone.trashed);
+      final pane = _pane;
+      _lifecycle.closeDeleted(
+        context,
+        trashed: gone == NotebookGone.trashed,
+        owner: this,
+        // The second pane goes: say why in the first.
+        announce: pane != null && pane.secondary
+            ? (message) => widget.split!.messageOther(pane, message)
+            : null,
+      );
     } else {
       setState(() {});
     }
   }
 
   void _onFocus() {
-    if (_focusNode.hasFocus) _services.incomingFiles.targets.add(_importTarget);
+    if (!_focusNode.hasFocus) return;
+    _services.incomingFiles.targets.add(_importTarget);
+    _services.routeOwners.current = this; // Dialogs opened by keyboard.
   }
 
   /// Toolbar placement, and stylus-only changed elsewhere (e.g. in the
@@ -544,6 +560,8 @@ class _EditorScreenState extends State<_EditorView> {
       guard: _guard,
       child: Listener(
         onPointerDown: (e) {
+          // What opens from here (dialogs, sheets) belongs to this editor.
+          _services.routeOwners.current = this;
           _touchInput = e.kind != PointerDeviceKind.mouse;
           if (presenting && _touchInput) _presentActivity.value++;
         },

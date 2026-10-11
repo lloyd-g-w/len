@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/app_services.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
@@ -11,6 +14,8 @@ import 'package:len/features/editor/editor_canvas.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_session.dart';
 import 'package:len/ink/surface_model.dart';
+import 'package:len/sync/sync_engine.dart';
+import 'package:len/ui/text_prompt.dart';
 
 import 'document_editor_test.dart' show closeEditor;
 import 'split_view_test.dart';
@@ -238,5 +243,58 @@ void main() {
     expect(recording.recordings, hasLength(1));
     expect(tester.takeException(), isNull);
     await closeEditor(tester);
+  });
+
+  group('the second pane\'s notebook deleted on another device', () {
+    Future<void> deleteRemotely(WidgetTester tester, AppServices s, Notebook notebook) async {
+      s.notebooks.delete(notebook.id);
+      s.sync.debugAnnounce(RemoteChanges()..notebooks = true);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('closes the pane, says so in the first, keeps the first pane\'s dialog', (
+      tester,
+    ) async {
+      final (s, physics, chemistry) = await pumpWorkspace(tester);
+      s.openNotebooks.openSplit(chemistry.id);
+      await tester.pumpAndSettle();
+      // A dialog opened from the first pane (its title shows in the tabs).
+      await tester.tap(find.byTooltip('Undo (Ctrl+Z)').first);
+      unawaited(
+        showTextPrompt(tester.element(find.byType(EditorScreen).first), title: 'Rename notebook'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+
+      await deleteRemotely(tester, s, chemistry);
+      expect(find.byType(EditorScreen), findsOneWidget);
+      expect(s.openNotebooks.splitId, isNull);
+      expect(find.byType(TextField), findsOneWidget, reason: 'opened from the other pane');
+      expect(find.text('“Chemistry” was deleted on another device'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(s.openNotebooks.activeId, physics.id);
+      expect(tester.takeException(), isNull);
+      await closeEditor(tester);
+    });
+
+    testWidgets('closes the dialogs it opened, also while parked', (tester) async {
+      final (s, physics, chemistry) = await pumpWorkspace(tester);
+      s.openNotebooks.openSplit(chemistry.id);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(TitleButton)); // Rename Chemistry…
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+      tester.view.physicalSize = const Size(800, 1280); // Parks the pane.
+      await tester.pumpAndSettle();
+
+      await deleteRemotely(tester, s, chemistry);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byType(EditorScreen, skipOffstage: false), findsOneWidget);
+      expect(find.text('“Chemistry” was deleted on another device'), findsOneWidget);
+      expect(s.openNotebooks.activeId, physics.id);
+      expect(tester.takeException(), isNull);
+      await closeEditor(tester);
+    });
   });
 }
