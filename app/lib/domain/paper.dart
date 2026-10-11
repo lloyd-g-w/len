@@ -1,70 +1,31 @@
 import 'dart:ui';
 
-/// Background pattern ("template") drawn behind ink.
-///
-/// Stored and synced by [name].
-enum PaperStyle {
-  blank('Blank', 0),
+import 'templates/paper.dart';
+import 'templates/paper_style.dart';
 
-  /// Wide ruled (8.5 mm).
-  wideRuled('Wide ruled', 32),
-
-  /// Large grid (8.5 mm).
-  gridLarge('Large grid', 32),
-  dotted('Dotted', 32),
-  collegeRuled('College ruled', 27),
-  narrowRuled('Narrow ruled', 24),
-  gridSmall('Small grid', 19),
-  cornell('Cornell notes', 27),
-  music('Music staff', 9),
-  isometric('Isometric', 32);
-
-  const PaperStyle(this.label, this.spacing);
-
-  /// Human-readable name for pickers.
-  final String label;
-
-  /// Pattern pitch in world units (line distance, grid cell, dot spacing,
-  /// or staff line distance for [music]). Zero for [blank].
-  final double spacing;
-
-  /// The order in which templates are offered to the user.
-  static const List<PaperStyle> ordered = [
-    blank,
-    narrowRuled,
-    collegeRuled,
-    wideRuled,
-    gridSmall,
-    gridLarge,
-    dotted,
-    isometric,
-    cornell,
-    music,
-  ];
-
-  /// Whether the pattern consists of horizontal writing lines.
-  bool get isRuled => this == wideRuled || this == collegeRuled || this == narrowRuled;
-
-  /// Parses a stored name; an unknown one (corrupt data) reads as [blank].
-  static PaperStyle parse(String value) =>
-      values.firstWhere((p) => p.name == value, orElse: () => blank);
-}
+export 'templates/paper.dart';
+export 'templates/paper_style.dart';
+export 'templates/planner_dates.dart';
+export 'templates/planner_plan.dart';
 
 /// The colour of the paper. Ink colours are unaffected, so dark paper is a
 /// deliberate choice for light inks rather than a theme.
 enum PaperColor {
-  white(Color(0xFFFFFDF8), Color(0xFFD9DEE7)),
-  cream(Color(0xFFF9F2E1), Color(0xFFE0D3B8)),
-  grey(Color(0xFFE8E9EC), Color(0xFFC7CBD3)),
-  dark(Color(0xFF202226), Color(0xFF3D4149));
+  white(Color(0xFFFFFDF8), Color(0xFFD9DEE7), Color(0xFF5F6675)),
+  cream(Color(0xFFF9F2E1), Color(0xFFE0D3B8), Color(0xFF6E5F45)),
+  grey(Color(0xFFE8E9EC), Color(0xFFC7CBD3), Color(0xFF555B66)),
+  dark(Color(0xFF202226), Color(0xFF3D4149), Color(0xFFA3A9B4));
 
-  const PaperColor(this.paper, this.pattern);
+  const PaperColor(this.paper, this.pattern, this.text);
 
   /// The sheet itself.
   final Color paper;
 
   /// Lines, dots and grids on this paper.
   final Color pattern;
+
+  /// Printed text of templates (planner dates, headings).
+  final Color text;
 
   bool get isDark => this == dark;
 
@@ -115,39 +76,59 @@ enum PageOrientation { portrait, landscape }
 /// Everything needed to create a new blank page.
 class PageTemplate {
   const PageTemplate({
-    this.style = PaperStyle.blank,
+    this.paper = Paper.blank,
     this.color = PaperColor.white,
     this.format = PageFormat.a4,
     this.orientation = PageOrientation.portrait,
+    this.customSize,
   });
 
-  final PaperStyle style;
+  /// A template of [style] without parameters (not planners or images).
+  PageTemplate.of(PaperStyle style, {PaperColor color = PaperColor.white})
+    : this(paper: Paper(style), color: color);
+
+  final Paper paper;
   final PaperColor color;
   final PageFormat format;
   final PageOrientation orientation;
 
-  Size get size => format.sizeFor(orientation);
+  /// A size of its own (a user's image template), overriding [format] and
+  /// [orientation].
+  final Size? customSize;
 
+  PaperStyle get style => paper.style;
+
+  Size get size => customSize ?? format.sizeFor(orientation);
+
+  /// A copy with the given fields replaced. Choosing a [format] or
+  /// [orientation] drops a [customSize]; pass [clearCustomSize] to drop it
+  /// otherwise.
   PageTemplate copyWith({
-    PaperStyle? style,
+    Paper? paper,
     PaperColor? color,
     PageFormat? format,
     PageOrientation? orientation,
+    Size? customSize,
+    bool clearCustomSize = false,
   }) => PageTemplate(
-    style: style ?? this.style,
+    paper: paper ?? this.paper,
     color: color ?? this.color,
     format: format ?? this.format,
     orientation: orientation ?? this.orientation,
+    customSize: clearCustomSize || format != null || orientation != null
+        ? customSize
+        : customSize ?? this.customSize,
   );
 
   @override
   bool operator ==(Object other) =>
       other is PageTemplate &&
-      other.style == style &&
+      other.paper == paper &&
       other.color == color &&
       other.format == format &&
-      other.orientation == orientation;
+      other.orientation == orientation &&
+      other.customSize == customSize;
 
   @override
-  int get hashCode => Object.hash(style, color, format, orientation);
+  int get hashCode => Object.hash(paper, color, format, orientation, customSize);
 }

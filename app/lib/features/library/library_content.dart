@@ -13,6 +13,7 @@ import 'library_controller.dart';
 import 'library_empty_state.dart';
 import 'library_format.dart';
 import 'library_header.dart';
+import 'new_notebook_tile.dart';
 import 'notebook_card.dart';
 import 'notebook_list_tile.dart';
 import 'thumbnails/thumbnail_renderer.dart';
@@ -46,6 +47,12 @@ class LibraryContent extends StatelessWidget {
     final empty = folders.isEmpty && notebooks.isEmpty;
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
+    // The grid starts with a "New…" tile where notebooks are created.
+    final newTile =
+        _c.layout == LibraryLayout.grid &&
+        _c.section == LibrarySection.library &&
+        !_c.isSearching &&
+        !actions.selection.active;
     final theme = Theme.of(context);
     Widget label(String text) => SliverPadding(
       padding: EdgeInsets.fromLTRB(gutter + Gaps.xxs, Gaps.xl, gutter, Gaps.md),
@@ -116,7 +123,7 @@ class LibraryContent extends StatelessWidget {
               ),
             ),
           ],
-          if (notebooks.isNotEmpty) ...[
+          if (notebooks.isNotEmpty || newTile) ...[
             if (folders.isNotEmpty)
               label('Notebooks')
             else
@@ -125,7 +132,7 @@ class LibraryContent extends StatelessWidget {
               // Bottom padding keeps the last row clear of the FAB.
               padding: EdgeInsets.fromLTRB(gutter, 0, gutter, fullText ? 0 : 120),
               sliver: _c.layout == LibraryLayout.grid
-                  ? _grid(notebooks, compact)
+                  ? _grid(context, notebooks, compact, newTile: newTile)
                   : _list(notebooks),
             ),
           ] else if (!fullText)
@@ -168,7 +175,13 @@ class LibraryContent extends StatelessWidget {
     return '$date · $kind';
   }
 
-  Widget _grid(List<Notebook> notebooks, bool compact) {
+  Widget _grid(
+    BuildContext context,
+    List<Notebook> notebooks,
+    bool compact, {
+    required bool newTile,
+  }) {
+    final offset = newTile ? 1 : 0;
     final maxTile = compact ? 172.0 : 184.0;
     final spacing = compact ? Gaps.lg : Gaps.xl + 4;
     return SliverLayoutBuilder(
@@ -184,13 +197,22 @@ class LibraryContent extends StatelessWidget {
             mainAxisExtent:
                 tile / ThumbnailRenderer.aspect + 18 + MediaQuery.textScalerOf(context).scale(36),
           ),
-          itemCount: notebooks.length,
-          itemBuilder: (context, i) => NotebookCard(
-            key: ValueKey(notebooks[i].id),
-            notebook: notebooks[i],
-            subtitle: _subtitle(notebooks[i]),
-            actions: actions,
-          ),
+          itemCount: notebooks.length + offset,
+          itemBuilder: (context, i) {
+            if (i < offset) {
+              return NewNotebookTile(
+                key: const ValueKey('new-notebook-tile'),
+                onPressed: () => unawaited(actions.createNotebook(context)),
+              );
+            }
+            final notebook = notebooks[i - offset];
+            return NotebookCard(
+              key: ValueKey(notebook.id),
+              notebook: notebook,
+              subtitle: _subtitle(notebook),
+              actions: actions,
+            );
+          },
         );
       },
     );

@@ -66,7 +66,10 @@ class NotebookRepository extends SyncableTable {
   }
 
   /// Creates a notebook; paged notebooks start with one page, made from
-  /// [firstPage] (default: a blank A4 page of [paper]).
+  /// [firstPage] (default: an A4 page of [paper]) — or with one page per
+  /// entry of [papers] (e.g. a generated planner), sized and coloured like
+  /// [firstPage]. [paper] must be a style without parameters (the notebook's
+  /// default for new pages and canvas background).
   Notebook create({
     required String title,
     required NotebookKind kind,
@@ -76,7 +79,9 @@ class NotebookRepository extends SyncableTable {
     CoverStyle coverStyle = CoverStyle.plain,
     String? folderId,
     PageTemplate? firstPage,
+    List<Paper> papers = const [],
   }) {
+    assert(!paper.needsParams, 'A notebook default paper has no parameters');
     final now = clock.nowMs();
     final notebook = Notebook(
       id: clock.newId(),
@@ -93,7 +98,14 @@ class NotebookRepository extends SyncableTable {
     database.transaction(() {
       _write(notebook, deviceId: deviceId, dirty: true);
       if (kind == NotebookKind.paged) {
-        pages.addPage(notebook.id, template: firstPage ?? PageTemplate(style: paper));
+        final first = firstPage ?? PageTemplate.of(paper);
+        if (papers.isEmpty) {
+          pages.addPage(notebook.id, template: first);
+        } else {
+          pages.insertPages(notebook.id, [
+            for (final p in papers) specOf(first.copyWith(paper: p)),
+          ]);
+        }
       }
     });
     return notebook;
@@ -225,11 +237,13 @@ class NotebookRepository extends SyncableTable {
   /// Parses a live record; throws [FormatException] when malformed.
   static Notebook _notebookFromRecord(SyncRecord record) {
     final f = RecordFields(record);
+    final paper = f.choice('paper', PaperStyle.values);
+    if (paper.needsParams) f.invalid('paper'); // A default without parameters.
     return Notebook(
       id: record.id,
       title: f.string('title'),
       kind: f.choice('kind', NotebookKind.values),
-      paper: f.choice('paper', PaperStyle.values),
+      paper: paper,
       paperColor: f.choice('paperColor', PaperColor.values),
       coverColor: f.integer('coverColor'),
       coverStyle: f.choice('coverStyle', CoverStyle.values),

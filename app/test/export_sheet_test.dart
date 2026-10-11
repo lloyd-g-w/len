@@ -56,7 +56,7 @@ void main() {
     for (var i = 0; i < 4; i++) {
       services.pages.addPage(
         notebook.id,
-        template: const PageTemplate(style: PaperStyle.wideRuled),
+        template: const PageTemplate(paper: Paper(PaperStyle.wideRuled)),
       );
     }
     pages = services.pages.pagesOf(notebook.id);
@@ -116,7 +116,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(exporter.pdfCalls.single.map((p) => p.id), [pages[0].id, pages[1].id, pages[3].id]);
-    expect(exporter.pdfCalls.single.first.paper, PaperStyle.gridLarge);
+    expect(exporter.pdfCalls.single.first.paper.style, PaperStyle.gridLarge);
     expect(saved.single.$1, ['Lab p1-2,4.pdf']);
     expect(saved.single.$2, 'application/pdf');
     expect(find.text('Saved somewhere'), findsOneWidget);
@@ -139,7 +139,7 @@ void main() {
 
     final (page, scale, _) = exporter.pngCalls.single;
     expect(page.id, pages[1].id);
-    expect(page.paper, PaperStyle.blank);
+    expect(page.paper.style, PaperStyle.blank);
     expect(page.paperColor, PaperColor.white);
     expect(scale, 4);
     expect(saved.single.$1, ['Lab p2.png']);

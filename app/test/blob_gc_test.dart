@@ -58,7 +58,7 @@ void main() {
   NotebookPage pdfPage(Notebook n, String sha) => s.pages.insertPages(n.id, [
     (
       size: const Size(100, 140),
-      paper: PaperStyle.blank,
+      paper: Paper(PaperStyle.blank),
       color: PaperColor.white,
       background: PageBackground.pdf(blob: sha, pageIndex: 0),
     ),
@@ -123,6 +123,19 @@ void main() {
       s.pages.delete(page.id);
       s.elements.delete([e.id]);
       s.recordings.delete(r.id);
+      expect(referenced(), isEmpty);
+    });
+
+    test('image templates of pages and My templates reference blobs', () async {
+      final paper = await blob('paper'), mine = await blob('mine');
+      final n = notebook();
+      final page = s.pages.pagesOf(n.id).single;
+      s.pages.setPaper([page.id], paper: Paper.image(paper));
+      final template = s.templates.create(name: 'T', blob: mine, size: const Size(100, 100));
+      expect(referenced(), {paper, mine});
+
+      s.templates.delete(template.id);
+      s.pages.setPaper([page.id], paper: Paper.blank);
       expect(referenced(), isEmpty);
     });
 

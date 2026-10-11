@@ -292,6 +292,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Background…'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('Dark'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Dark'));
     await tester.tap(find.text('Use template'));
     await tester.pumpAndSettle();

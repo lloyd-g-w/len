@@ -63,6 +63,7 @@ class LibraryActions {
       coverColor: request.coverColor,
       coverStyle: request.coverStyle,
       firstPage: request.template,
+      papers: request.papers,
     );
     await openNotebook(context, notebook);
   }
@@ -79,7 +80,7 @@ class LibraryActions {
   Future<void> createFolder(BuildContext context) async {
     final details = await showFolderDialog(context, title: 'New folder', confirmLabel: 'Create');
     if (details == null) return;
-    controller.createFolder(details.name, color: details.color);
+    controller.createFolder(details.name, color: details.color, icon: details.icon);
   }
 
   /// Handles a dragged item dropped on folder [folderId] (null = root).
@@ -180,10 +181,13 @@ class LibraryActions {
           confirmLabel: 'Save',
           initialName: folder.name,
           initialColor: folder.color,
+          initialIcon: folder.icon,
         );
         final current = controller.folderById(folder.id);
         if (details == null || current == null) return;
-        controller.updateFolder(current.copyWith(name: details.name, color: details.color));
+        controller.updateFolder(
+          current.copyWith(name: details.name, color: details.color, icon: details.icon),
+        );
       case FolderAction.move:
         final target = await showMoveDialog(
           context,

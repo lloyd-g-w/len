@@ -87,6 +87,21 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final (name, size, dpr) in [('phone', phone, 2.0), ('desktop', desktop, 1.0)]) {
+    testWidgets('folder dialog $name', (tester) async {
+      setWindow(tester, size, dpr: dpr);
+      final services = seededServices();
+      addTearDown(services.dispose);
+      await pumpApp(tester, services, const LibraryScreen());
+      await tester.longPress(find.text('Work').last);
+      await settle(tester);
+      await tester.tap(find.text('Edit folder'));
+      await settle(tester);
+      await shoot(tester, 'folder_dialog_$name');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('phone new sheet dark', (tester) async {
     setWindow(tester, phone, dpr: 2);
     final services = seededServices();

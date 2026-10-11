@@ -8,9 +8,9 @@ const spec = OutlineSpec(width: 8, thinning: 0.9, streamline: 0.4);
 
 /// A horizontal stroke at medium pressure from x=0 to x=100.
 List<StrokePoint> line({double endPressure = 0.5, List<Offset> tail = const []}) => [
-      for (var x = 0.0; x <= 100; x += 4) StrokePoint(x, 50, 0.5),
-      for (final t in tail) StrokePoint(t.dx, t.dy, endPressure),
-    ];
+  for (var x = 0.0; x <= 100; x += 4) StrokePoint(x, 50, 0.5),
+  for (final t in tail) StrokePoint(t.dx, t.dy, endPressure),
+];
 
 /// Vertical extent of the outline within [x0, x1].
 double heightNear(Path path, double x0, double x1) {

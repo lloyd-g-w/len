@@ -11,6 +11,7 @@ class NewNotebookRequest {
     required this.coverColor,
     this.coverStyle = CoverStyle.plain,
     this.template = const PageTemplate(),
+    this.papers = const [],
     this.importPdf = false,
   });
 
@@ -31,7 +32,12 @@ class NewNotebookRequest {
   final int coverColor;
   final CoverStyle coverStyle;
 
-  /// First page of a paged notebook (its style equals [paper]).
+  /// First page of a paged notebook (its style equals [paper] unless that
+  /// style needs parameters; [paper] is then blank).
   final PageTemplate template;
+
+  /// The pages of a paged notebook when there are several (a generated
+  /// planner), each made like [template]; empty for one page.
+  final List<Paper> papers;
   final bool importPdf;
 }

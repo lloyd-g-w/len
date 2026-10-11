@@ -11,6 +11,7 @@ import '../data/recording_repository.dart';
 import '../data/settings_repository.dart';
 import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
+import '../data/template_repository.dart';
 import 'blob_sync.dart';
 import 'sync_api.dart';
 
@@ -22,6 +23,9 @@ class RemoteChanges {
 
   /// Whether any library folder changed.
   bool folders = false;
+
+  /// Whether any of the user's templates changed.
+  bool templates = false;
 
   /// Notebooks whose page list changed.
   final Set<String> pagesOfNotebooks = {};
@@ -35,6 +39,7 @@ class RemoteChanges {
   bool get isEmpty =>
       !notebooks &&
       !folders &&
+      !templates &&
       pagesOfNotebooks.isEmpty &&
       strokeSurfaces.isEmpty &&
       recordingsOfNotebooks.isEmpty;
@@ -59,6 +64,7 @@ class SyncEngine {
     this.blobs,
     required this.elements,
     required this.recordings,
+    required this.templates,
   });
 
   final AppDatabase database;
@@ -74,6 +80,9 @@ class SyncEngine {
 
   /// Audio recordings of notebooks (their audio travels as blobs).
   final RecordingRepository recordings;
+
+  /// The user's own templates (their images travel as blobs).
+  final TemplateRepository templates;
 
   /// Which blobs live rows reference.
   late final BlobReferences blobReferences = BlobReferences(database);
@@ -102,7 +111,15 @@ class SyncEngine {
   static const int _pushPageSize = 500;
 
   late final Map<String, SyncableStore> _stores = {
-    for (final s in <SyncableStore>[folders, notebooks, pages, strokes, elements, recordings])
+    for (final s in <SyncableStore>[
+      folders,
+      templates,
+      notebooks,
+      pages,
+      strokes,
+      elements,
+      recordings,
+    ])
       s.collection: s,
   };
 
@@ -236,6 +253,8 @@ class SyncEngine {
       switch (store) {
         case FolderRepository():
           changes.folders = true;
+        case TemplateRepository():
+          changes.templates = true;
         case NotebookRepository():
           changes.notebooks = true;
         case PageRepository():

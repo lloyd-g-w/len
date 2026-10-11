@@ -33,9 +33,19 @@ class PageActions {
   NotebookPage add(PageSpec spec, {NotebookPage? after, NotebookPage? before}) =>
       services.pages.insertPages(notebookId, [spec], after: after, before: before).single;
 
+  /// Adds pages in order after [after] (at the end if null).
+  List<NotebookPage> addAll(List<PageSpec> specs, {NotebookPage? after}) =>
+      services.pages.insertPages(notebookId, specs, after: after);
+
   /// A blank page with [page]'s paper and exact size (also for PDF pages).
-  static PageSpec blankLike(NotebookPage page) =>
-      (size: page.size, paper: page.paper, color: page.paperColor, background: null);
+  /// With [next], a planner page is for the following period (the page to
+  /// add after [page]).
+  static PageSpec blankLike(NotebookPage page, {bool next = false}) => (
+    size: page.size,
+    paper: next ? page.paper.next : page.paper,
+    color: page.paperColor,
+    background: null,
+  );
 
   /// Inserts a copy of [page] (paper, background, ink and text) right after it.
   NotebookPage duplicate(NotebookPage page) {
@@ -82,9 +92,19 @@ class PageActions {
   /// Moves [page] to position [toIndex].
   void move(NotebookPage page, int toIndex) => services.pages.move(page, toIndex);
 
-  /// Changes the template of [targets] (style and colour; size stays).
-  void setTemplate(Iterable<NotebookPage> targets, PageTemplate template) => services.pages
-      .setPaper([for (final p in targets) p.id], style: template.style, color: template.color);
+  /// Changes the template of [targets] (paper and colour; size stays):
+  /// page i gets `papers[i]` (default: [template]'s paper for all).
+  void setTemplate(List<NotebookPage> targets, PageTemplate template, {List<Paper>? papers}) {
+    services.database.transaction(() {
+      for (var i = 0; i < targets.length; i++) {
+        services.pages.setPaper(
+          [targets[i].id],
+          paper: papers?[i] ?? template.paper,
+          color: template.color,
+        );
+      }
+    });
+  }
 
   void toggleBookmark(NotebookPage page) => services.pages.setBookmarked(page.id, !page.bookmarked);
 }

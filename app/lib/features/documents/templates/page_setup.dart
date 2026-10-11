@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
+import 'template_catalog.dart';
 
 /// A small section heading inside pickers ("Paper colour", "Page size").
 class PickerLabel extends StatelessWidget {
@@ -127,8 +128,20 @@ class PageSizeRow extends StatelessWidget {
 String describeTemplate(PageTemplate t, {bool canvas = false}) {
   final size = canvas
       ? 'Infinite canvas'
+      : t.customSize != null
+      ? 'Template size'
       : t.format == PageFormat.square
       ? 'Square'
       : '${t.format.label} ${t.orientation.name}';
-  return '${t.style.label} · ${t.color.label} · $size';
+  return '${t.paper.label} · ${t.color.label} · $size';
+}
+
+/// [describeTemplate] for a chooser's selection; generated planners say
+/// how many pages they make ("Daily planner · White · A4 portrait · 31
+/// pages").
+String describeSelection(TemplateSelection s, {bool canvas = false, bool generate = true}) {
+  if (!generate || !s.style.isPlanner) return describeTemplate(s.template, canvas: canvas);
+  final t = s.template.copyWith(paper: Paper(s.style));
+  final pages = s.pagesToCreate().length;
+  return '${describeTemplate(t)} · $pages ${pages == 1 ? 'page' : 'pages'}';
 }

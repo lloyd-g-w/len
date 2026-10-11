@@ -19,6 +19,7 @@ import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
+import 'data/template_repository.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
 import 'features/documents/import/incoming_files.dart';
@@ -52,6 +53,7 @@ class AppServices {
     required this.recordings,
     required this.audio,
     required this.incomingFiles,
+    required this.templates,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -84,6 +86,7 @@ class AppServices {
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
+    final templates = TemplateRepository(database, deviceId: deviceId, clock: clock);
     final blobs = BlobStore(database, blobBackend ?? MemoryBlobBackend(), clock: clock);
     final engine = SyncEngine(
       database: database,
@@ -95,6 +98,7 @@ class AppServices {
       blobs: blobs,
       elements: elements,
       recordings: recordings,
+      templates: templates,
     );
     final search = SearchService(database, readBlob: blobs.read);
     final recognition = RecognitionService(
@@ -123,6 +127,7 @@ class AppServices {
       recordings: recordings,
       audio: audio ?? platformAudioBackends(),
       incomingFiles: IncomingFiles(incomingFiles),
+      templates: templates,
     );
   }
 
@@ -151,6 +156,9 @@ class AppServices {
 
   /// Audio recordings of notebooks (their audio is in [blobs]).
   final RecordingRepository recordings;
+
+  /// The user's own templates (images as blobs).
+  final TemplateRepository templates;
 
   /// Makes recorders and players (created only when used).
   final AudioBackends audio;
@@ -200,6 +208,11 @@ class AppScope extends InheritedWidget {
     assert(scope != null, 'No AppScope above this context');
     return scope!.services;
   }
+
+  /// The services if there is an [AppScope] above [context] (widgets that
+  /// also work standalone, e.g. in tests), without subscribing.
+  static AppServices? maybeRead(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<AppScope>()?.services;
 
   /// Like [of] but without subscribing; safe to call from `initState`.
   static AppServices read(BuildContext context) {

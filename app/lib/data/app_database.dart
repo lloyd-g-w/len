@@ -123,7 +123,28 @@ class AppDatabase {
   /// i + 1 (`PRAGMA user_version`). Version 1 creates the whole schema.
   /// Future schema changes **append** a migration; never edit one that has
   /// shipped.
-  static final List<void Function(CommonDatabase)> _migrations = [_createSchema];
+  static final List<void Function(CommonDatabase)> _migrations = [_createSchema, _templates];
+
+  /// Version 2: template parameters on pages (`paper_data`, JSON, see
+  /// `Paper.toData`), the user's own templates, and folder icons.
+  static void _templates(CommonDatabase db) {
+    db.execute("ALTER TABLE pages ADD COLUMN paper_data TEXT NOT NULL DEFAULT '{}'");
+    db.execute('ALTER TABLE folders ADD COLUMN icon TEXT');
+    // A user's template: an image blob and the page size it suggests.
+    db.execute('''
+      CREATE TABLE templates (
+        id          TEXT PRIMARY KEY NOT NULL,
+        name        TEXT NOT NULL,
+        blob        TEXT NOT NULL,
+        width       REAL NOT NULL,
+        height      REAL NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+  }
 
   /// Creates the complete schema of a new database.
   static void _createSchema(CommonDatabase db) {

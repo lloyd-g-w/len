@@ -4,6 +4,8 @@ import '../../domain/cover_style.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
+import '../documents/template_picker.dart';
+import '../documents/templates/template_catalog.dart';
 import 'cover_picker.dart';
 import 'new_notebook/kind_selector.dart';
 import 'new_notebook/new_notebook_request.dart';
@@ -18,10 +20,13 @@ export 'new_notebook/new_notebook_request.dart';
 /// with the preview beside the galleries on wide screens; a tall bottom
 /// sheet on phones.
 class NewNotebookSheet extends StatefulWidget {
-  const NewNotebookSheet({super.key, this.wide = false});
+  const NewNotebookSheet({super.key, this.wide = false, this.today});
 
   /// Two-pane dialog layout.
   final bool wide;
+
+  /// Today's date, the default start of planners (tests fix it).
+  final DateTime? today;
 
   static Future<NewNotebookRequest?> show(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
@@ -55,7 +60,11 @@ class NewNotebookSheet extends StatefulWidget {
 class _NewNotebookSheetState extends State<NewNotebookSheet> {
   final _title = TextEditingController();
   NotebookKind _kind = NotebookKind.paged;
-  PageTemplate _template = const PageTemplate(style: PaperStyle.collegeRuled);
+  late TemplateSelection _selection = initialSelection(
+    PageTemplate.of(PaperStyle.collegeRuled),
+    widget.today ?? DateTime.now(),
+  );
+  PageTemplate get _template => _selection.template;
   PaperStyle get _paper => _template.style;
   int _cover = Palette.covers.first;
   CoverStyle _coverStyle = CoverStyle.plain;
@@ -74,10 +83,11 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
       NewNotebookRequest(
         title: title.isEmpty ? _defaultTitle : title,
         kind: _kind,
-        paper: _paper,
+        paper: _paper.needsParams ? PaperStyle.blank : _paper,
         coverColor: _cover,
         coverStyle: _coverStyle,
         template: _template,
+        papers: !_canvas && _paper.isPlanner ? _selection.pagesToCreate() : const [],
       ),
     );
   }
@@ -86,10 +96,14 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
 
   void _setKind(NotebookKind kind) => setState(() {
     _kind = kind;
-    if (_canvas && _paper.isRuled) _template = _template.copyWith(style: PaperStyle.dotted);
+    if (_canvas && (_paper.isRuled || !_paper.canvas)) {
+      _selection = _selection.copyWith(
+        template: _template.copyWith(paper: const Paper(PaperStyle.dotted), clearCustomSize: true),
+      );
+    }
   });
 
-  void _setTemplate(PageTemplate t) => setState(() => _template = t);
+  void _setSelection(TemplateSelection s) => setState(() => _selection = s);
 
   @override
   Widget build(BuildContext context) {
@@ -164,10 +178,10 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
       SingleChildScrollView(
         padding: padding,
         child: PaperTab(
-          template: _template,
+          selection: _selection,
           canvas: _canvas,
           tileWidth: tileWidth,
-          onChanged: _setTemplate,
+          onChanged: _setSelection,
         ),
       ),
       SingleChildScrollView(

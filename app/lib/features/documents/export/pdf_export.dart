@@ -13,6 +13,7 @@ import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import 'pdf_images.dart';
+import 'pdf_template.dart';
 
 /// A page to export with its ink, elements and (pre-rendered) background.
 class ExportPage {
@@ -62,14 +63,20 @@ abstract final class PdfExporter {
     final doc = PdfDocument();
     PdfInfo(doc, title: title, creator: 'Len'); // Registers itself.
     final images = PdfImageWriter(doc, readBlob ?? (_) async => null);
+    final templates = PdfTemplateWriter(doc);
     for (var i = 0; i < pages.length; i++) {
       onPage?.call(i);
-      await _addPage(doc, pages[i], images);
+      await _addPage(doc, pages[i], images, templates);
     }
     return doc.save();
   }
 
-  static Future<void> _addPage(PdfDocument doc, ExportPage export, PdfImageWriter images) async {
+  static Future<void> _addPage(
+    PdfDocument doc,
+    ExportPage export,
+    PdfImageWriter images,
+    PdfTemplateWriter templates,
+  ) async {
     final page = export.page;
     const k = pointsPerUnit;
     final format = PdfPageFormat(page.width * k, page.height * k);
@@ -96,7 +103,7 @@ abstract final class PdfExporter {
       }
     }
 
-    _drawPattern(pen, page);
+    _drawPattern(pen, page, templates);
     final elements = [...export.elements]..sort(SurfaceElement.paintOrder);
     Future<void> drawElements(bool belowInk) async {
       for (final element in elements.where((e) => e.belowInk == belowInk)) {
@@ -168,37 +175,16 @@ abstract final class PdfExporter {
     return rgb;
   }
 
-  static void _drawPattern(_Pen pen, NotebookPage page) {
+  static void _drawPattern(_Pen pen, NotebookPage page, PdfTemplateWriter templates) {
     final rect = Offset.zero & page.size;
-    final pattern = PaperPattern.of(page.paper, rect, page: rect);
-    final g = pen.g;
-    for (final weight in PatternWeight.values) {
-      final lines = pattern.lines.where((l) => l.weight == weight);
-      if (lines.isEmpty) continue;
-      final color = weight == PatternWeight.margin
-          ? const PaperColors().margin
-          : page.paperColor.pattern;
-      g
-        ..saveContext()
-        ..setGraphicState(PdfGraphicState(strokeOpacity: color.a))
-        ..setStrokeColor(PdfColor.fromInt(color.toARGB32() | 0xFF000000))
-        ..setLineWidth(weight == PatternWeight.normal ? 0.5 : 0.9);
-      for (final l in lines) {
-        pen.moveTo(l.a);
-        pen.lineTo(l.b);
-      }
-      g
-        ..strokePath()
-        ..restoreContext();
-    }
-    if (pattern.dots.isNotEmpty) {
-      g.setFillColor(PdfColor.fromInt(page.paperColor.pattern.toARGB32()));
-      for (final d in pattern.dots) {
-        final c = pen.map(d);
-        g.drawEllipse(c.dx, c.dy, 1.05, 1.05);
-      }
-      g.fillPath();
-    }
+    templates.draw(
+      pen.g,
+      PaperPattern.of(page.paper, rect, page: rect),
+      page.paperColor,
+      margin: const PaperColors().margin,
+      map: pen.map,
+      k: pointsPerUnit,
+    );
   }
 
   static void _drawStroke(_Pen pen, Stroke stroke) {

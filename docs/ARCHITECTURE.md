@@ -211,13 +211,58 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
   while text is edited.
 
-## Templates (`domain/paper.dart`, `domain/paper_pattern.dart`)
+## Templates (`domain/templates/`, `domain/paper_pattern.dart`)
 
-`PaperStyle` names are stored and synced. `PaperPattern.of` computes a
-template's geometry (lines with weights, dots) for an area, independent of the target:
-`PaperRenderer` draws it on screen, in thumbnails and PNG export, and
-`PdfExporter` writes the same lines as PDF vectors. Pages carry their paper
-colour and size; new pages copy the current page's paper and size.
+- **Registry.** `PaperStyle` (`templates/paper_style.dart`) is the registry of built-in
+  templates: stored name (id), label, `TemplateCategory` (Basic, Writing, Planners, Paper; My
+  templates for the user's own), pitch, search keywords, whether it tiles an infinite canvas
+  (`canvas`) and, for planners, the `PlannerPeriod` one page covers. `PaperStyle.image` stands
+  for a user's image template. Built-ins: blank, dotted; narrow / college / wide ruled, Cornell,
+  to-do list, meeting notes; daily planner, weekly planner, monthly calendar; small / large
+  grid, graph paper (1 mm / 5 mm / 1 cm), engineering (5 per inch, bold inches, header),
+  isometric, music staff, storyboard.
+- **Paper.** A page's template is a `Paper` (`templates/paper.dart`): the style plus what it
+  needs — the `date` of a planner page (the first day of its period, UTC) or the `image` blob of
+  a user's template. Stored as `pages.paper` (style name) + `pages.paper_data` (JSON,
+  `Paper.toData`), synced as `paper` + `paperData`. A notebook's `paper` (default for new pages,
+  canvas background) is always a style without parameters. `Paper.next` is the following
+  period: "add page" after a planner page continues the dates.
+- **Geometry ("painter").** `PaperPattern.of(paper, area, page:, minPitch:)` builds a
+  template's pieces for an area, independent of the target: lines with weights (`fine`,
+  `normal`, `heavy`, `margin`), dots, `PatternLabel`s (printed text: dates, headings), tinted
+  `PatternFill`s and planner `PatternLink`s. Layouts are extensions on `PatternBuilder`
+  (`patterns_basic.dart`, `patterns_writing.dart`, `patterns_planner.dart`); page layouts scale
+  with the page (margins, cells) and adapt to landscape (week grid 4 × 2, storyboard 3 columns).
+  Repeating detail closer than `minPitch` (too dense at the current zoom) is left out while
+  structure stays, so graph paper gains its millimetre lines as you zoom in.
+- **Drawing.** `PaperRenderer` (`ink/render/paper_painter.dart`) draws a pattern on screen, in
+  thumbnails, miniatures and PNG export — vector lines and text in the UI font (laid-out
+  paragraphs cached), crisp at any zoom; image templates are drawn over the page from a
+  `PaperImageLookup` (the shared `ElementImages` cache; the editor repaints when one is
+  decoded). `PdfTemplateWriter` writes the same pattern into exported PDFs as vectors with
+  Helvetica labels; image templates are embedded like PDF backgrounds.
+- **Planners** (`templates/planner_dates.dart`, `planner_plan.dart`). `PlannerDates`: UTC
+  calendar arithmetic, Monday weeks, ISO week numbers, month calendars of 4–6 rows, labels.
+  `PlannerPlan` (first month, 1–12 months, `linked`) generates the papers of a planner: a page
+  per day, per week overlapping the range, or per month — linked: each month followed by its
+  weeks, each week by its seven days. Pages link month → week (week numbers) and day (cells),
+  week → day (day headers) and month (that of its Thursday), day → week and month. A link is
+  resolved at tap time to the first page with that exact `Paper`, so reordering, deleting or
+  adding pages never breaks links; a missing target offers "Add page". Links are followed by a
+  finger tap when fingers navigate (stylus mode), a Ctrl/⌘-click, or the long-press menu ("Go
+  to …") — `PlannerLinkTaps` only watches pointers, so drawing is never disturbed.
+- **My templates** (`templates` collection, `TemplateRepository`, `UserTemplate`): an image blob
+  plus the page size it suggests. "Import…" in the picker takes an image (`ImageImport`) or a
+  PDF page (rendered to a 2000 px PNG); "Save page as template" (page menu) renders the page
+  as it looks (paper, background, ink, content). Pages made from a template reference the
+  blob directly (`Paper.image`), so renaming or deleting a template never changes them.
+- **Picker** (`features/documents/templates/`). `TemplateChooser` (search, category chips,
+  `TemplateGallery` of live miniatures, `PlannerOptions`, paper colour, page size) is shared by
+  the template picker (new page, change one / all pages, canvas background) and the
+  new-notebook sheet; `templateSections` / `TemplateSelection` (`template_catalog.dart`) hold
+  the logic. Planners generate a range when creating or adding ("Add 31 pages"); "Apply to all
+  pages" with a planner dates the pages period after period. Image templates fix the page size.
+- Pages carry their paper colour and size; new pages copy the current page's paper and size.
 
 ## Blobs and PDFs
 
@@ -734,6 +779,11 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   status and settings; narrower: bottom navigation. Notebooks and folders drag with a
   mouse immediately and with touch after a long press (a long press released in place
   opens the context menu instead). Shortcuts: Ctrl+N, Ctrl+Shift+N, Ctrl+F, Delete, Esc.
+- **New… tile and folder icons.** The notebook grid starts with a cover-sized "New…" tile
+  (`NewNotebookTile`) in the library root and in folders (not in favourites, trash, search,
+  selection or list layout). Folders have an optional icon (`Folder.icon`, a key from
+  `Folder.iconKeys`; glyphs in `folder_icons.dart`), picked in the folder dialog and shown,
+  tinted with the folder colour, on tiles, in the sidebar tree and in the move dialog.
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
   `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint
@@ -869,9 +919,11 @@ neutral surfaces, a tighter type scale and shared component themes
 `Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
 
 Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width),
-`menus.dart` (`MenuRow`, `showContextMenuAt`), `text_prompt.dart`. Documents UI
-(`features/documents/`): `templates/` (grouped `TemplateGallery`, paper colour and page size
-rows) used by the template picker and the new-notebook sheet; `overview/` (the page overview
+`menus.dart` (`MenuRow`, `showContextMenuAt`), `text_prompt.dart`, `sidebar_item.dart`
+(library sidebar and the settings section list). Settings: from `Breakpoints.expanded` a
+two-pane layout (section list + the selected section), a single column below. Documents UI
+(`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
+dates, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
 with selection mode; `editor/document/page_overview.dart` re-exports it);
 `progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n").
 Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActions`, batch
@@ -881,7 +933,8 @@ in `docs/UX_AUDIT.md`.
 
 Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
 canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar and its popovers in
-`toolbar_screenshot_test.dart`; open-notebook motion frames in `transition_screenshot_test.dart`)
+`toolbar_screenshot_test.dart`; open-notebook motion frames in `transition_screenshot_test.dart`;
+every template at 25 / 100 / 300 % and the picker in `templates_screenshot_test.dart`)
 at phone, tablet and desktop sizes in light and dark with real fonts. Run
 `flutter test test/screenshots --dart-define=SCREENSHOTS=true` and look at
 `app/build/screenshots/*.png`.
@@ -924,6 +977,10 @@ malformed record is skipped. Open screens subscribe to
   installed, playback needs GStreamer with the `-good` (MP4) and an AAC
   decoder plugin; Opus/WebM recordings from Chrome/Firefox may not play on
   platforms without a WebM decoder. No waveform, trimming or audio export.
+- Planners: weeks start on Monday, month and day names are English, and there
+  is no yearly overview yet. User templates are images (PDF pages are
+  rasterised at 2000 px when imported), so they are not vector-crisp at deep
+  zoom; a template only travels inside pages, not as a shared file.
 - Server blob garbage collection is a manual/cron admin command, and finds
   references by scanning record JSON for sha256 strings (see SYNC_PROTOCOL).
 - Image bitmaps are whole-image decodes per mip level (no tiling); a 4096 px
