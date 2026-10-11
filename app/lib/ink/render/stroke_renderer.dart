@@ -1,7 +1,5 @@
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
-
 import '../../domain/stroke.dart';
 import '../pen/pen_profile.dart';
 import 'nib.dart';
@@ -25,6 +23,11 @@ abstract final class StrokeRenderer {
     style: stroke.style,
     complete: true,
   );
+
+  /// Caches [path] as the outline of the just-committed [stroke] (the live
+  /// stroke's builder completes it at pen-up, see `LiveStrokeBuilder`), so
+  /// committing does not rebuild it from scratch.
+  static void adopt(Stroke stroke, Path path) => _paths[stroke] = path;
 
   /// Builds an outline path. [complete] is false while the stroke is still
   /// being drawn (its moving end is not trimmed).
@@ -76,7 +79,6 @@ abstract final class StrokeRenderer {
       specFor(profile.tool, width, style).radiusFor(pressure);
 
   /// The outline shape parameters for a stroke.
-  @visibleForTesting
   static OutlineSpec specFor(InkTool tool, double width, StrokeStyle style) {
     final profile = PenProfile.of(tool);
     return OutlineSpec(

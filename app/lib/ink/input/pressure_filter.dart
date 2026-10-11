@@ -14,7 +14,11 @@
 ///  * never lets the final samples of a stroke swell: the end can only stay
 ///    level or taper ([settleEnd]).
 class PressureFilter {
-  PressureFilter({this.smoothing = 0.4}) : assert(smoothing >= 0 && smoothing < 1);
+  PressureFilter({this.smoothing = defaultSmoothing}) : assert(smoothing >= 0 && smoothing < 1);
+
+  /// The default weight kept from the previous value (the low-latency
+  /// overlay uses the same).
+  static const double defaultSmoothing = 0.4;
 
   /// Weight kept from the previous value (0 = no smoothing).
   final double smoothing;

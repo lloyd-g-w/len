@@ -1,0 +1,137 @@
+import 'dart:math' as math;
+
+import 'growable.dart';
+
+/// Finds pen-down and pen-up *hooks*: the short flick a pen tip makes as it
+/// lands or lifts, which would otherwise be drawn as a nub or a curl.
+///
+/// A hook is a short end piece (at most [maxStart] / [maxEnd] long) that
+/// meets the rest of the stroke at a *kink*: the direction of the piece
+/// and of the body just after it differ by more than 40°, and the turn is
+/// local: more than 30°, and most of the whole turn (85 %), happen within
+/// [local] of the kink. A stroke that merely starts or ends on a curve (the
+/// top of an "o", the curl of an "s") turns as much, but spread along the
+/// curve, and is left alone.
+///
+/// A hook is the hand's motion, not the ink's: its length is a few screen
+/// pixels whatever the pen. It grows a little with thin pens' widths, but
+/// not beyond what a 2.5 px pen allows (a thick pen's round cap hides most
+/// of a hook anyway, while a long reach would eat the curled ends of small
+/// letters).
+///
+/// The start decision only looks at the first [decisionLength] of the
+/// stroke, so it is made once, as soon as that much has been drawn, and
+/// never changes as the stroke grows (the live stroke is shown only from
+/// then on, see `StrokeShaper.startSettled`).
+class HookFinder {
+  /// The hook rules for a pen [width] (world units), in units of [unit]
+  /// per world unit (e.g. screen pixels for the low-latency overlay).
+  HookFinder(double width, {double unit = 1})
+    : maxStart = (1.2 * width).clamp(2.0, 3.0) * unit,
+      maxEnd = (1.6 * width).clamp(2.5, 4.0) * unit,
+      body = (0.3 * width).clamp(0.75, 2.0) * unit,
+      local = (0.3 * width).clamp(0.5, 1.5) * unit;
+
+  /// Rules with explicit lengths (as sent to the overlay).
+  HookFinder.lengths({
+    required this.maxStart,
+    required this.maxEnd,
+    required this.body,
+    required this.local,
+  });
+
+  /// Longest hook at the start / end.
+  final double maxStart, maxEnd;
+
+  /// Length of the body after a kink that gives its direction.
+  final double body;
+
+  /// Reach of the local turn test.
+  final double local;
+
+  static final double _minTurn = 40 * math.pi / 180;
+  static final double _minLocalTurn = 30 * math.pi / 180;
+  static const double _localShare = 0.85;
+
+  /// Stroke length after which the start decision is final.
+  double get decisionLength => maxStart + body;
+
+  /// The first sample to keep of the [n] samples ([x], [y]) from [from],
+  /// or null while the stroke is too short to decide and not [ended].
+  int? startCut(DoubleBuffer x, DoubleBuffer y, int n, {required bool ended}) {
+    if (maxStart <= 0) return 0;
+    final arc = _arcs(x, y, n, (i) => i, decisionLength);
+    if (arc == null && !ended) return null;
+    return _cut(x, y, arc ?? _arcs(x, y, n, (i) => i, double.infinity)!, (i) => i, maxStart);
+  }
+
+  /// How many of the [n] samples to keep once the stroke has ended (the
+  /// pen-up hook removed). Only trims when the rest is at least twice as
+  /// long as the hook.
+  int endKeep(DoubleBuffer x, DoubleBuffer y, int n) {
+    if (maxEnd <= 0) return n;
+    final arc =
+        _arcs(x, y, n, (i) => n - 1 - i, maxEnd + body) ??
+        _arcs(x, y, n, (i) => n - 1 - i, double.infinity)!;
+    final cut = _cut(x, y, arc, (i) => n - 1 - i, maxEnd);
+    if (cut == 0) return n;
+    var total = 0.0;
+    for (var i = 1; i < n; i++) {
+      total += _dist(x[i] - x[i - 1], y[i] - y[i - 1]);
+    }
+    if (total - arc[cut] < 2 * arc[cut]) return n;
+    return n - cut;
+  }
+
+  /// Arc lengths from the end mapped by [at] (0 = the end sample) up to
+  /// [length] and one sample beyond (the kink test looks two samples
+  /// ahead), or null when the [n] samples do not reach that far.
+  static List<double>? _arcs(
+    DoubleBuffer x,
+    DoubleBuffer y,
+    int n,
+    int Function(int) at,
+    double length,
+  ) {
+    final arc = <double>[0];
+    var beyond = -1;
+    for (var i = 1; i < n; i++) {
+      arc.add(arc.last + _dist(x[at(i)] - x[at(i - 1)], y[at(i)] - y[at(i - 1)]));
+      if (beyond < 0 && arc.last >= length) beyond = i;
+      if (beyond >= 0 && i > beyond) return arc;
+    }
+    return length.isFinite ? null : arc;
+  }
+
+  /// The furthest kink within [maxHook] of the end mapped by [at] (0 = the
+  /// end sample, arc lengths in [arc]), as a count of samples to drop.
+  int _cut(DoubleBuffer x, DoubleBuffer y, List<double> arc, int Function(int) at, double maxHook) {
+    var cut = 0;
+    final m = arc.length;
+    for (var j = 1; j < m && arc[j] <= maxHook; j++) {
+      // The body's direction and the local turn over [body] / [local],
+      // and at least two samples (one sample's direction is mostly jitter).
+      var b = j + 2;
+      while (b < m && arc[b] - arc[j] < body) {
+        b++;
+      }
+      if (b >= m) break;
+      var l = math.max(0, j - 2);
+      while (l > 0 && arc[j] - arc[l] < local) {
+        l--;
+      }
+      final jx = x[at(j)], jy = y[at(j)];
+      final hx = jx - x[at(0)], hy = jy - y[at(0)];
+      final bx = x[at(b)] - jx, by = y[at(b)] - jy;
+      final lx = jx - x[at(l)], ly = jy - y[at(l)];
+      final turn = _angle(hx, hy, bx, by), localTurn = _angle(lx, ly, bx, by);
+      if (turn > _minTurn && localTurn > _minLocalTurn && localTurn >= _localShare * turn) cut = j;
+    }
+    return cut;
+  }
+
+  static double _angle(double ax, double ay, double bx, double by) =>
+      math.atan2(ax * by - ay * bx, ax * bx + ay * by).abs();
+
+  static double _dist(double dx, double dy) => math.sqrt(dx * dx + dy * dy);
+}

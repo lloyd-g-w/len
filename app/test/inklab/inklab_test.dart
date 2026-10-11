@@ -11,15 +11,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'known_failures.dart';
 import 'suite.dart';
 
-/// Timing metrics are only meaningful on long contacts.
-bool _timed(SuiteEntry e, String id) =>
-    !id.startsWith('perf.') || e.caseName == 'long_stroke' || e.caseName.startsWith('rec:');
-
 void main() {
   for (final entry in suiteEntries()) {
     group(entry.name, () {
       for (final id in metricIds) {
-        if (!_timed(entry, id)) continue;
+        // Timing metrics are only meaningful on long, timed contacts.
+        if (id.startsWith('perf.') && !entry.judgedTiming) continue;
         final known = knownFailure(id, entry.caseName, entry.streamline);
         test(id, () {
           final m = entry.metric(id);

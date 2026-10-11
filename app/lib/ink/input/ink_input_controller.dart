@@ -7,6 +7,9 @@ import '../../core/clock.dart';
 import '../../domain/preferences.dart';
 import '../../domain/stroke.dart';
 import '../navigation/kinetic_pan.dart';
+import '../render/live_stroke.dart';
+import '../render/stroke_outline.dart';
+import '../render/stroke_renderer.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../tools/content_tools.dart';
@@ -16,6 +19,7 @@ import 'bounce_filter.dart';
 import 'canvas_gestures.dart';
 import 'hold_to_straighten.dart';
 import 'live_ink.dart';
+import 'point_spacing.dart';
 import 'pressure_filter.dart';
 import 'sample_source.dart';
 import 'stylus_buttons.dart';
@@ -99,9 +103,15 @@ class InkInputController {
   /// The pointer tool handling the current drawing pointer, if any.
   PointerTool? _tool;
 
-  /// Points closer than this (in screen pixels) to the previous one are
-  /// dropped; it removes jitter without visible loss of detail.
-  static const double _minPointDistance = 0.75;
+  /// Points dropped since the last kept one (screen position, point, time).
+  final List<(Offset, StrokePoint, Duration)> _dropped = [];
+
+  /// Points of a contact not shown yet: until it cannot be a bounce and
+  /// its start (pen-down hook) is decided, the stroke is held back, so
+  /// nothing appears that would vanish or change a moment later.
+  final List<StrokePoint> _pending = [];
+  final List<Duration> _pendingTimes = [];
+  bool _visible = false;
 
   /// Drops accidental stylus re-contacts right after a lift.
   final BounceFilter _bounces = BounceFilter();
@@ -292,7 +302,15 @@ class InkInputController {
       final ink = tools.activeInk;
       final config = tools.configOf(ink);
       live.begin(tool: ink, color: config.color, width: config.width, style: tools.styleFor(ink));
-      live.add(_pointOf(e));
+      _pending
+        ..clear()
+        ..add(_pointOf(e));
+      _pendingTimes
+        ..clear()
+        ..add(e.timeStamp);
+      _dropped.clear();
+      _visible = false;
+      _reveal(e.timeStamp);
       _straighten.begin(e.localPosition, enabled: tools.holdToStraighten, scale: viewport.scale);
     }
   }
@@ -310,7 +328,7 @@ class InkInputController {
       return;
     }
     _addSamplesBefore(e);
-    _inkTo(e.localPosition, _pressureOf(e), synthesized: e.synthesized);
+    _inkTo(e.localPosition, _pressureOf(e), synthesized: e.synthesized, time: e.timeStamp);
   }
 
   /// Whether the drawing pointer is making ink (not erasing or a tool).
@@ -322,25 +340,96 @@ class InkInputController {
     final extra = samples?.between(e);
     if (extra == null) return;
     for (final s in extra) {
-      _inkTo(s.localPosition, _normalisedPressure(e, s.pressure));
+      _inkTo(s.localPosition, _normalisedPressure(e, s.pressure), time: s.timeStamp);
     }
   }
 
   /// Extends the live stroke to [screen] (unless it is too close to the
   /// previous point, or "hold to straighten" has taken over).
-  void _inkTo(Offset screen, double pressure, {bool synthesized = false}) {
-    final step = (screen - _lastScreen!).distance;
-    if (step < _minPointDistance) return;
-    _drawTravel += step;
-    _lastScreen = screen;
+  void _inkTo(Offset screen, double pressure, {bool synthesized = false, required Duration time}) {
+    final from = _lastScreen!;
+    final step = (screen - from).distance;
     final world = viewport.toWorld(screen);
     final point = StrokePoint(
       world.dx,
       world.dy,
       _pressure.next(pressure, synthesized: synthesized),
     );
+    if (step < PointSpacing.minDistance) {
+      _dropped.add((screen, point, time));
+      return;
+    }
+    _keepExtremeDropped(from, screen);
+    _drawTravel += step;
+    _lastScreen = screen;
     if (_straighten.move(screen, point)) return;
-    live.add(point);
+    _addInk(point, time);
+  }
+
+  /// Keeps the dropped point furthest from the line [from] → [to], if it
+  /// is far enough off it to be a detail (a cusp tip).
+  void _keepExtremeDropped(Offset from, Offset to) {
+    if (_dropped.isEmpty) return;
+    var best = PointSpacing.keepExtreme;
+    (Offset, StrokePoint, Duration)? keep;
+    for (final dropped in _dropped) {
+      final d = _distanceToSegment(dropped.$1, from, to);
+      if (d > best) {
+        best = d;
+        keep = dropped;
+      }
+    }
+    _dropped.clear();
+    if (keep == null) return;
+    final (at, point, time) = keep;
+    _drawTravel += (at - from).distance;
+    if (_straighten.move(at, point)) return;
+    _addInk(point, time);
+  }
+
+  static double _distanceToSegment(Offset p, Offset a, Offset b) {
+    final ab = b - a;
+    final l2 = ab.dx * ab.dx + ab.dy * ab.dy;
+    if (l2 == 0) return (p - a).distance;
+    final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / l2).clamp(0.0, 1.0);
+    return (p - (a + ab * t)).distance;
+  }
+
+  /// Adds [point] to the live stroke, or holds it back while the contact
+  /// is not to be shown yet.
+  void _addInk(StrokePoint point, Duration time) {
+    if (_visible) {
+      live.add(point);
+      return;
+    }
+    _pending.add(point);
+    _pendingTimes.add(time);
+    _reveal(time);
+  }
+
+  /// Shows the held-back points once the contact cannot be a bounce any
+  /// more and its start is decided.
+  void _reveal(Duration now) {
+    if (_visible) return;
+    if (_isStylus(_drawKind) &&
+        _bounces.mightBounce(
+          down: _drawStartTime,
+          now: now,
+          start: _drawStartScreen,
+          travel: _drawTravel,
+        )) {
+      return;
+    }
+    final spec = StrokeRenderer.specFor(live.tool, live.width, live.style);
+    final start = StrokeOutline.settledStart(_pending, spec);
+    if (start == null) return;
+    _visible = true;
+    live
+      ..inkStartUs = _pendingTimes[start].inMicroseconds
+      ..inkUnit = StrokeOutline.unitOf(_pending, spec);
+    live.addAll(_pending);
+    _pending.clear();
+    _pendingTimes.clear();
   }
 
   /// Ends the current contact. [liftTime] is the pen-up timestamp, when known.
@@ -352,20 +441,30 @@ class InkInputController {
     } else if (_erasing) {
       _showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
-      final points = _settleEnd(live.finish());
+      final points = _settleEnd([...live.finish(), ..._pending]);
+      _pending.clear();
+      _pendingTimes.clear();
       if (points.isNotEmpty && !_isBounce(liftTime)) {
-        model.addStroke(
-          Stroke(
-            id: clock.newId(),
-            surfaceId: model.surfaceId,
-            tool: live.tool,
-            color: live.color,
-            width: live.width,
-            style: live.style,
-            points: points,
-            createdAt: _drawStartedAt,
-          ),
+        final stroke = Stroke(
+          id: clock.newId(),
+          surfaceId: model.surfaceId,
+          tool: live.tool,
+          color: live.color,
+          width: live.width,
+          style: live.style,
+          points: points,
+          createdAt: _drawStartedAt,
         );
+        // The live outline's builder completes it (cheaply) at pen-up.
+        final path = LiveStrokeBuilder.finishLive(
+          live,
+          points,
+          tool: stroke.tool,
+          width: stroke.width,
+          style: stroke.style,
+        );
+        if (path != null) StrokeRenderer.adopt(stroke, path);
+        model.addStroke(stroke);
       }
       _recordLift(liftTime);
     }
@@ -399,6 +498,8 @@ class InkInputController {
       tool.cancel();
     } else if (_drawPointer != null && !_erasing) {
       live.finish();
+      _pending.clear();
+      _pendingTimes.clear();
     }
     _showEraser(null);
     _resetDraw();

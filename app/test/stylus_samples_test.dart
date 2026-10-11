@@ -237,7 +237,14 @@ void main() {
     List<Stroke> committed() =>
         model.strokesNear(const Rect.fromLTWH(-500, -500, 1000, 1000)).toList();
 
-    List<double> liveXs() => [for (final p in live.points) p.x];
+    // The live stroke shows only once its start is decided (and it cannot
+    // be a bounce), so the tests look at the committed stroke's points.
+    List<StrokePoint> inked(PointerUpEvent lift) {
+      input.handleUp(lift);
+      return committed().single.points;
+    }
+
+    List<double> inkedXs(PointerUpEvent lift) => [for (final p in inked(lift)) p.x];
 
     test('fills the gaps between pointer events, in order', () {
       input.handleDown(down(0, 0));
@@ -249,7 +256,7 @@ void main() {
         batch(132, [sample(121, 20, 0), sample(127, 25, 0)], 30, 0),
       ]);
       input.handleMove(move(132, 30, 0));
-      expect(liveXs(), [0, 5, 10, 15, 20, 25, 30]);
+      expect(inkedXs(up(140, 30, 0)), [0, 5, 10, 15, 20, 25, 30]);
     });
 
     test('missing batches degrade to the pointer events alone', () {
@@ -261,7 +268,7 @@ void main() {
         batch(116, [sample(110, 10, 0)], 15, 0),
       ]); // too late
       input.handleMove(move(148, 45, 0));
-      expect(liveXs(), [0, 15, 30, 45]);
+      expect(inkedXs(up(156, 45, 0)), [0, 15, 30, 45]);
     });
 
     test('samples before pen-up are kept; nothing after it', () {
@@ -291,7 +298,7 @@ void main() {
         batch(116, [sample(108, 30, 4)], 50, 0),
       ]);
       input.handleMove(move(116, 50, 0));
-      final p = live.points[1];
+      final p = inked(up(124, 50, 0))[1];
       expect(Offset(p.x, p.y), viewport.toWorld(const Offset(30, 4)));
       expect(p.x, 10);
     });
@@ -301,10 +308,15 @@ void main() {
       buffer.addAll([
         batch(116, [sample(108, 10, 0, pressure: 1.0)], 20, 0),
       ]);
-      input.handleMove(move(116, 20, 0));
-      // The pressure filter blends 0.5 (down) with the sample's 1.0.
-      expect(live.points[1].pressure, greaterThan(0.6));
-      expect(live.points[1].pressure, lessThan(1.0));
+      input
+        ..handleMove(move(116, 20, 0))
+        ..handleMove(move(132, 30, 0))
+        ..handleMove(move(148, 40, 0));
+      // The pressure filter blends 0.5 (down) with the sample's 1.0 (and
+      // the pen-up settling only touches the last points).
+      final p = inked(up(156, 40, 0))[1];
+      expect(p.pressure, greaterThan(0.6));
+      expect(p.pressure, lessThan(1.0));
     });
 
     test('erasing ignores samples', () {

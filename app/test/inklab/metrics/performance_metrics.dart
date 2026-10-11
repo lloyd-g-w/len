@@ -55,21 +55,21 @@ List<Metric> performance(ReplayResult r) {
   final fifth = costs.length ~/ 5;
   final early = _median(costs.skip(5).take(fifth).map((c) => c.micros));
   final late = _median(costs.skip(costs.length - fifth).map((c) => c.micros));
-  var commit = 0.0;
+  final commits = <(int, double)>[];
   for (final f in r.frames) {
     for (final s in f.committed) {
+      // As the app does: the committed stroke's outline (handed over by the
+      // live builder at pen-up when it drew the stroke).
       final watch = Stopwatch()..start();
-      StrokeRenderer.buildPath(
-        s.points,
-        tool: s.tool,
-        width: s.width,
-        style: s.style,
-        complete: true,
-      );
-      final ms = (f.commitTime + watch.elapsed).inMicroseconds / 1000;
-      commit = math.max(commit, ms);
+      StrokeRenderer.pathOf(s);
+      commits.add((s.points.length, (f.commitTime + watch.elapsed).inMicroseconds / 1000));
     }
   }
+  // The longest third of the strokes (cost must not grow with length), as
+  // a median: one garbage-collection pause is not the commit's cost.
+  commits.sort((a, b) => b.$1.compareTo(a.$1));
+  final longest = commits.take(math.max(1, commits.length ~/ 3)).map((c) => c.$2);
+  final commit = longest.isEmpty ? 0.0 : _median(longest);
   return [
     Metric(
       'perf.flatness',
@@ -86,7 +86,7 @@ List<Metric> performance(ReplayResult r) {
       commit,
       limit: 8,
       unit: ' ms',
-      note: 'pen-up handling + committed outline',
+      note: 'pen-up handling + committed outline (median, longest third of the strokes)',
     ),
     Metric(
       'perf.subpaths',

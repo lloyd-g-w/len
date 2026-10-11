@@ -26,7 +26,7 @@ class _Frames {
   final View view;
   final (int, int) size;
 
-  Offset px(StrokePoint p) => view(r.toScreen(p.x, p.y));
+  Offset px(StrokePoint p) => view(run.frames.first.toScreen(p.x, p.y));
 
   Coverage coverage(List<StrokePoint> points, {required bool complete}) {
     final contours = outlineOf(
@@ -35,10 +35,10 @@ class _Frames {
       width: r.pen.width,
       style: r.style,
       complete: complete,
-      map: (o) => view(r.toScreen(o.dx, o.dy)),
+      map: (o) => view(run.frames.first.toScreen(o.dx, o.dy)),
       tolerance: 0.1,
     ).contours;
-    return Coverage(0, 0, size.$1, size.$2)..fill(contours);
+    return Coverage(0, 0, size.$1, size.$2)..fill(contours, subRows: 16);
   }
 
   double get zone => (r.pen.width * r.viewScale + 1) * scale;
@@ -70,8 +70,9 @@ ContactRun? pickRun(ReplayResult r, Offset? focus) {
   final runs = contactRuns(r);
   if (runs.isEmpty) return null;
   if (focus != null) {
-    double distance(ContactRun run) =>
-        run.frames.last.points.map((p) => (r.toScreen(p.x, p.y) - focus).distance).reduce(math.min);
+    double distance(ContactRun run) => run.frames.last.points
+        .map((p) => (run.frames.first.toScreen(p.x, p.y) - focus).distance)
+        .reduce(math.min);
     final near = runs.reduce((a, b) => distance(a) <= distance(b) ? a : b);
     if (distance(near) < 2 * r.pen.width * r.viewScale + 4) return near;
   }
@@ -89,7 +90,7 @@ _Frames? _frames(
   final points = [
     ...run.frames.last.points,
     ...?run.committed?.points,
-  ].map((p) => r.toScreen(p.x, p.y)).toList();
+  ].map((p) => run.frames.first.toScreen(p.x, p.y)).toList();
   final area = boundsOf([points]).inflate(r.pen.width * r.viewScale * 2 + 2);
   final scale = math.min(maxScale, maxWidth / math.max(area.width, 1));
   return _Frames(r, run, area, scale);
