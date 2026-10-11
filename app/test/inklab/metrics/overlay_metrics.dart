@@ -7,8 +7,6 @@ import 'package:len/ink/lab/raw_samples.dart';
 import 'package:len/ink/lab/replay_run.dart';
 import 'package:len/ink/lab/wet_ink_model.dart';
 import 'package:len/ink/pen/pen_profile.dart';
-import 'package:len/ink/render/stroke_outline.dart';
-import 'package:len/ink/render/stroke_renderer.dart';
 
 import 'metric.dart';
 import 'outline_geometry.dart';
@@ -73,14 +71,18 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
   }
   final dpr = r.recording.meta.devicePixelRatio;
   final frameUs = frameIntervalUs(r);
-  final spec = StrokeRenderer.specFor(r.pen.tool, r.pen.width, r.style);
   final contacts = rawContacts(r.recording);
-  List<(Rect, Contour)> ink(List<StrokePoint> p, bool complete, Offset Function(Offset) toPx) => [
+  List<(Rect, Contour)> ink(
+    List<StrokePoint> p,
+    bool complete,
+    Offset Function(Offset) toPx,
+    StrokeStyle style,
+  ) => [
     for (final c in outlineOf(
       p,
       tool: r.pen.tool,
       width: r.pen.width,
-      style: r.style,
+      style: style,
       complete: complete,
       map: toPx,
     ).contours)
@@ -96,10 +98,9 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
     final wet = WetInkStyle.forPen(
       r.pen.tool,
       r.pen.width,
-      r.style,
+      stroke.style,
       color: 0xFF000000,
       scale: view.viewScale,
-      unit: StrokeOutline.unitOf(stroke.points, spec),
     )!;
     final radii = [for (final x in wet.radii) x * dpr];
     final shape = wet.shape.scaled(dpr);
@@ -108,28 +109,15 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
         .where((c) => (c.samples.first.position - first).distance < 1)
         .firstOrNull;
     if (contact == null) continue;
-    // Where the ink starts (after the pen-down hook): Dart sends the time
-    // of that sample with `begin`.
-    final startPoint = stroke.points[StrokeOutline.startIndex(stroke.points, spec)];
-    final startAt = view.toScreen(startPoint.x, startPoint.y);
-    final startSample = contact.samples.reduce(
-      (a, b) => (a.position - startAt).distance <= (b.position - startAt).distance ? a : b,
-    );
     final models = {
-      for (final d in depths)
-        d: WetInkModel(
-          radii: radii,
-          shape: shape,
-          frameMs: frameUs / 1000,
-          startMs: startSample.timeUs ~/ 1000,
-        ),
+      for (final d in depths) d: WetInkModel(radii: radii, shape: shape, frameMs: frameUs / 1000),
     };
     final delivered = {for (final d in depths) d: 0};
     final start = run.frames.first.index, end = run.frames.last.index;
     final outlines = <int, List<(Rect, Contour)>>{};
     List<(Rect, Contour)> shownAt(int k) => outlines[k] ??= k <= end
-        ? ink(r.frames[k].points, false, toPx)
-        : ink(stroke.points, true, toPx);
+        ? ink(r.frames[k].points, false, toPx, stroke.style)
+        : ink(stroke.points, true, toPx, stroke.style);
     for (var k = start; k <= end + 2; k++) {
       outlines.remove(k - 1);
       for (final depth in depths) {

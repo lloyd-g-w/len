@@ -102,6 +102,7 @@ const List<String> metricIds = [
   'temporal.behindTip',
   'temporal.settle',
   'temporal.vanished',
+  'temporal.bounceFlash',
   'pop.pixels',
   'pop.max',
   'start.distance',

@@ -53,16 +53,15 @@ List<Metric> start(ReplayResult r, List<RawContact> contacts) {
     }
     final f = frames[fv];
     final live = f.drawing && near(f.points.first.x, f.points.first.y, f.toScreen);
-    final points = live
-        ? f.points
-        : f.committed
-              .firstWhere((s) => near(s.points.first.x, s.points.first.y, f.toScreen))
-              .points;
+    final shown = live
+        ? null
+        : f.committed.firstWhere((s) => near(s.points.first.x, s.points.first.y, f.toScreen));
+    final points = shown?.points ?? f.points;
     final ink = outlineOf(
       points,
       tool: r.pen.tool,
       width: r.pen.width,
-      style: r.style,
+      style: shown?.style ?? f.style,
       complete: !live,
       map: (o) => f.toScreen(o.dx, o.dy),
     ).contours;

@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:len/ink/lab/replay_run.dart';
+import 'package:len/ink/render/stroke_outline.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
+import 'package:len/ink/render/stroke_shaper.dart';
 
 import 'metric.dart';
 import 'outline_geometry.dart';
@@ -10,10 +12,14 @@ import 'temporal_metrics.dart';
 /// Per-frame cost of the live stroke against its length, for the longest
 /// contact of a replay.
 class FrameCost {
-  FrameCost(this.points, this.micros, this.subpaths);
+  FrameCost(this.points, this.micros, this.subpaths, {this.settled = true});
   final int points;
   final double micros;
   final int subpaths;
+
+  /// Whether part of the stroke was final by then (its start decided and
+  /// the first stretch smoothed): before, the whole line is short tail.
+  final bool settled;
 }
 
 /// The live-outline cost of every frame of the longest contact in [r].
@@ -21,6 +27,7 @@ List<FrameCost> frameCosts(ReplayResult r) {
   final runs = contactRuns(r);
   if (runs.isEmpty) return const [];
   final run = runs.reduce((a, b) => a.frames.length >= b.frames.length ? a : b);
+  var settled = false;
   return [
     for (final f in run.frames)
       FrameCost(
@@ -30,11 +37,20 @@ List<FrameCost> frameCosts(ReplayResult r) {
           f.points,
           tool: r.pen.tool,
           width: r.pen.width,
-          style: r.style,
+          style: f.style,
           complete: false,
         ).moves,
+        settled: settled = settled || _settled(r, f),
       ),
   ];
+}
+
+bool _settled(ReplayResult r, ReplayFrame f) {
+  if (f.points.length < StrokeOutline.unitPoints) return false;
+  final spec = StrokeRenderer.specFor(r.pen.tool, r.pen.width, f.style);
+  final shaper = StrokeShaper(StrokeOutline.paramsOf(f.points, spec));
+  StrokeOutline.feed(shaper, f.points, spec, null).update();
+  return shaper.finalCount > 0;
 }
 
 double _median(Iterable<double> v) {
@@ -47,10 +63,13 @@ double _median(Iterable<double> v) {
 /// not O(length)), and committing at pen-up must stay cheap.
 ///
 /// `perf.flatness` = median frame cost over the last fifth of the frames ÷
-/// over the first fifth (after warm-up). Times are this machine's (JIT
-/// tests); a tablet is several times slower.
+/// over the first fifth (after warm-up: 5 frames after part of the stroke
+/// became final, as when the stroke used to be shown only from then; the
+/// first frames of a stroke, all tail and only a few points, are cheaper).
+/// Times are this machine's (JIT tests); a tablet is several times slower.
 List<Metric> performance(ReplayResult r) {
-  final costs = frameCosts(r);
+  final all = frameCosts(r);
+  final costs = all.skipWhile((c) => !c.settled).toList();
   if (costs.length < 20) return const [];
   final fifth = costs.length ~/ 5;
   final early = _median(costs.skip(5).take(fifth).map((c) => c.micros));
