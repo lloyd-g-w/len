@@ -8,6 +8,7 @@ import '../../app_services.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../sync/sync_engine.dart';
+import '../../ui/messages.dart';
 import '../../ui/text_prompt.dart';
 import '../audio/audio_layer.dart';
 import '../audio/notebook_audio.dart';
@@ -46,10 +47,40 @@ class EditorScreen extends StatefulWidget {
   final Notebook notebook;
 
   @override
-  State<EditorScreen> createState() => _EditorScreenState();
+  State<EditorScreen> createState() => _EditorHostState();
 }
 
-class _EditorScreenState extends State<EditorScreen> {
+/// Hosts the editor under a [MessageInsets], so every message shown from
+/// the editor (its own state included) clears the bottom chrome.
+class _EditorHostState extends State<EditorScreen> {
+  final _messageInset = ValueNotifier<double>(0);
+
+  @override
+  void dispose() {
+    _messageInset.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => MessageInsets(
+    bottom: _messageInset,
+    child: _EditorView(notebook: widget.notebook, messageInset: _messageInset),
+  );
+}
+
+class _EditorView extends StatefulWidget {
+  const _EditorView({required this.notebook, required this.messageInset});
+
+  final Notebook notebook;
+
+  /// Updated with the room the bottom chrome takes.
+  final ValueNotifier<double> messageInset;
+
+  @override
+  State<_EditorView> createState() => _EditorScreenState();
+}
+
+class _EditorScreenState extends State<_EditorView> {
   late final AppServices _services = AppScope.read(context);
   late Notebook _notebook = widget.notebook;
   late final EditorSession _session = EditorSession(
@@ -217,16 +248,11 @@ class _EditorScreenState extends State<EditorScreen> {
     _session.content.selection.clear();
     final route = ModalRoute.of(context);
     final navigator = Navigator.of(context);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            '“${_notebook.title}” was ${trashed ? 'moved to the trash' : 'deleted'} '
-            'on another device.',
-          ),
-        ),
-      );
+    showMessage(
+      context,
+      '“${_notebook.title}” was ${trashed ? 'moved to the trash' : 'deleted'} '
+      'on another device',
+    );
     final tabs = _services.openNotebooks;
     if (tabs.contains(_notebook.id)) {
       if (route != null && route.isActive) navigator.popUntil((r) => r == route);
@@ -259,11 +285,10 @@ class _EditorScreenState extends State<EditorScreen> {
     _offerTip(EditorTip.penButton);
     if (_session.tools.stylusOnly != null) return;
     _setStylusOnly(true);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Stylus detected — fingers now pan and zoom.'),
-        action: SnackBarAction(label: 'Undo', onPressed: () => _setStylusOnly(false)),
-      ),
+    showMessage(
+      context,
+      'Stylus detected: fingers now pan and zoom',
+      action: SnackBarAction(label: 'Undo', onPressed: () => _setStylusOnly(false)),
     );
   }
 
@@ -410,6 +435,7 @@ class _EditorScreenState extends State<EditorScreen> {
                     focus: _focus,
                   );
                   _applyInsets(layout.covered);
+                  widget.messageInset.value = layout.floatingInsets.bottom;
                   _resetGuardOnResize(constraints.maxWidth);
                   return CanvasGuardScope(
                     guard: _guard,

@@ -10,6 +10,7 @@ import '../../../ink/recognition/recognition_service.dart';
 import '../../../ink/selection/selection_controller.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/messages.dart';
 
 /// What the user chose in the "Convert to text" dialog.
 sealed class _Choice {
@@ -69,8 +70,7 @@ Future<void> convertSelectionToText(
   }
 }
 
-void _snack(BuildContext context, String message) =>
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(message)));
+void _snack(BuildContext context, String message) => showMessage(context, message);
 
 /// True when the model is (or has just been) downloaded.
 Future<bool> _ensureModel(BuildContext context, RecognitionService recognition) async {

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 
+export '../../ui/messages.dart' show showMessage;
+
 /// Progress of a long task, reported by the task and shown by
 /// [runWithSteps]: what is happening and, when known, how far along.
 class TaskProgress extends ChangeNotifier {
@@ -168,11 +170,4 @@ class ProgressDialog extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Shows a short message at the bottom of the screen.
-void showMessage(BuildContext context, String message, {SnackBarAction? action}) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message), action: action));
 }

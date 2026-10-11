@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'field_border.dart';
 
 /// Component themes shared by the light and dark [AppTheme]s.
 extension ThemeComponents on ThemeData {
@@ -12,6 +13,8 @@ extension ThemeComponents on ThemeData {
     );
     final dark = scheme.brightness == Brightness.dark;
     final menuColor = dark ? scheme.surfaceContainerHigh : scheme.surfaceContainerLowest;
+    FilledFieldBorder field(BorderSide side) =>
+        FilledFieldBorder(borderSide: side, borderRadius: BorderRadius.circular(Radii.control));
     return copyWith(
       cardTheme: CardThemeData(
         elevation: 0,
@@ -22,16 +25,15 @@ extension ThemeComponents on ThemeData {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerHigh.withValues(alpha: dark ? 0.7 : 0.6),
+        // A tint of the text colour, so fields stand out on any container
+        // (dialogs, sheets, cards) in both themes.
+        fillColor: scheme.onSurface.withValues(alpha: dark ? 0.08 : 0.055),
         contentPadding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.md + 2),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(Radii.control),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(Radii.control),
-          borderSide: BorderSide(color: scheme.primary, width: 1.5),
-        ),
+        border: field(BorderSide.none),
+        enabledBorder: field(BorderSide.none),
+        focusedBorder: field(BorderSide(color: scheme.primary, width: 1.5)),
+        errorBorder: field(BorderSide(color: scheme.error)),
+        focusedErrorBorder: field(BorderSide(color: scheme.error, width: 1.5)),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.card)),
@@ -111,7 +113,9 @@ extension ThemeComponents on ThemeData {
       dividerTheme: DividerThemeData(color: scheme.outlineVariant, space: 1, thickness: 1),
       switchTheme: SwitchThemeData(
         thumbIcon: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? const Icon(Icons.check, size: 14) : null,
+          (s) => s.contains(WidgetState.selected)
+              ? Icon(Icons.check_rounded, size: 14, color: dark ? null : scheme.primary)
+              : null,
         ),
       ),
       tooltipTheme: TooltipThemeData(

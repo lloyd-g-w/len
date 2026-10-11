@@ -62,8 +62,11 @@ class ColorDot extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Color(color),
                 shape: BoxShape.circle,
-                // Keeps dark swatches visible on dark chrome and light ones on light.
-                border: Border.all(color: scheme.outline.withValues(alpha: 0.35)),
+                // Keeps dark swatches visible on dark chrome and light ones on
+                // light: a firmer ring when the swatch is close to the surface.
+                border: Border.all(
+                  color: scheme.outline.withValues(alpha: _nearSurface(scheme) ? 0.9 : 0.35),
+                ),
               ),
             ),
           ),
@@ -72,4 +75,7 @@ class ColorDot extends StatelessWidget {
     );
     return tooltip == null ? dot : Tooltip(message: tooltip, child: dot);
   }
+
+  bool _nearSurface(ColorScheme scheme) =>
+      (Color(color).computeLuminance() - scheme.surface.computeLuminance()).abs() < 0.08;
 }

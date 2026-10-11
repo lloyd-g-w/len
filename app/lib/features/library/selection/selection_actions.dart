@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../ui/app_dialogs.dart';
+import '../../../ui/messages.dart';
 import '../dialogs/move_dialog.dart';
 import '../library_actions.dart';
 import '../library_controller.dart';
@@ -48,21 +49,18 @@ extension SelectionActions on LibraryActions {
       controller.trashNotebook(id);
     }
     selection.clear();
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('${_count(ids.length)} moved to Trash'),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () {
-              for (final id in ids) {
-                controller.restoreNotebook(id);
-              }
-            },
-          ),
-        ),
-      );
+    showMessage(
+      context,
+      '${_count(ids.length)} moved to the trash',
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () {
+          for (final id in ids) {
+            controller.restoreNotebook(id);
+          }
+        },
+      ),
+    );
   }
 
   void restoreSelected(LibrarySelection selection) {

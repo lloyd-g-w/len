@@ -100,7 +100,7 @@ void main() {
         await tap(tester, moreOf('Old drafts'));
         await tap(tester, find.text('Delete forever'));
       });
-      await capture('empty_trash', () => tap(tester, find.text('Empty Trash')));
+      await capture('empty_trash', () => tap(tester, find.text('Empty trash')));
 
       if (errors.isNotEmpty) {
         // ignore: avoid_print

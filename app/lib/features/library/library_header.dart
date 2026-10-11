@@ -67,7 +67,7 @@ class LibraryHeader extends StatelessWidget {
           child: OutlinedButton.icon(
             onPressed: () => unawaited(actions.emptyTrash(context)),
             icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-            label: const Text('Empty Trash'),
+            label: const Text('Empty trash'),
           ),
         ),
     ];

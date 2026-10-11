@@ -58,7 +58,7 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
     const MenuRow(
       value: NotebookAction.trash,
       icon: Icons.delete_outline_rounded,
-      label: 'Move to Trash',
+      label: 'Move to trash',
       destructive: true,
     ),
   ];

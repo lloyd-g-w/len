@@ -262,7 +262,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(services.notebooks.list(), isEmpty);
     expect(services.notebooks.trashed().single.title, 'Keys');
-    expect(find.text('“Keys” moved to Trash'), findsOneWidget);
+    expect(find.text('“Keys” moved to the trash'), findsOneWidget);
   });
 
   testWidgets('deleting a folder sends its notebooks to the trash', (tester) async {
@@ -347,10 +347,10 @@ void main() {
     await pumpSeeded(tester, (s) => addNotebook(s, 'Touchy'));
     await tester.longPress(find.byType(NotebookCard));
     await tester.pumpAndSettle();
-    expect(find.text('Move to Trash'), findsOneWidget);
+    expect(find.text('Move to trash'), findsOneWidget);
     await tester.tapAt(const Offset(5, 795));
     await tester.pumpAndSettle();
-    expect(find.text('Move to Trash'), findsNothing);
+    expect(find.text('Move to trash'), findsNothing);
 
     await tester.tap(find.byType(NotebookCard), buttons: kSecondaryMouseButton);
     await tester.pumpAndSettle();

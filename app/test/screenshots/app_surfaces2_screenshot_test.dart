@@ -178,8 +178,8 @@ void main() {
         await tap(tester, find.text('Delete forever'));
         await shoot(tester, 's_dialog_delete_forever_${name}_$m');
         await tap(tester, find.text('Cancel'));
-        await tap(tester, find.text('Empty Trash'));
-        await tap(tester, find.text('Empty Trash').last);
+        await tap(tester, find.text('Empty trash'));
+        await tap(tester, find.text('Empty trash').last);
         expect(find.text('Old drafts'), findsNothing);
         await shoot(tester, 's_library_trash_empty_${name}_$m');
 
@@ -200,7 +200,7 @@ void main() {
         await pumpApp(tester, library(), const LibraryScreen(), mode: mode);
         await reveal(tester, moreOf('Recipes'));
         await tap(tester, moreOf('Recipes'));
-        await tap(tester, find.text('Move to Trash'));
+        await tap(tester, find.text('Move to trash'));
         expect(find.text('Undo'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await shoot(tester, 's_snackbar_trash_undo_${name}_$m');

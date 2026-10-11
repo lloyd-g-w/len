@@ -94,7 +94,7 @@ void main() {
 
       await tester.tap(find.text('Trash').first);
       await settle(tester);
-      await tester.tap(find.text('Empty Trash'));
+      await tester.tap(find.text('Empty trash'));
       await settle(tester);
       await shoot(tester, 'dialog_empty_trash_${mode.name}');
       await tester.tap(find.text('Cancel').last);

@@ -106,7 +106,7 @@ class LibrarySelectionBar extends StatelessWidget {
                         () => unawaited(actions.moveSelected(context, selection)),
                       ),
                       action(
-                        'Move to Trash',
+                        'Move to trash',
                         Icons.delete_outline_rounded,
                         () => actions.trashSelected(context, selection),
                         color: scheme.error,

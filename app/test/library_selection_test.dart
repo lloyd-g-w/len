@@ -42,7 +42,7 @@ void main() {
     await tester.tap(find.byTooltip('Select all'));
     await tester.pumpAndSettle();
     expect(find.text('1 selected'), findsOneWidget); // Only Chemistry is here now.
-    await tester.tap(find.byTooltip('Move to Trash'));
+    await tester.tap(find.byTooltip('Move to trash'));
     await tester.pumpAndSettle();
     expect(s.notebooks.get(id('Chemistry'))!.isTrashed, isTrue);
     await tester.tap(find.text('Undo'));

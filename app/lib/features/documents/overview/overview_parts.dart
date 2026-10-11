@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/messages.dart';
 
 /// What can be done to the pages selected in the overview.
 enum SelectionAction { bookmark, duplicate, delete }
@@ -267,7 +268,5 @@ class NoBookmarks extends StatelessWidget {
 
 /// A short message at the bottom of the screen.
 void showOverviewMessage(BuildContext context, String message) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+  showMessage(context, message);
 }

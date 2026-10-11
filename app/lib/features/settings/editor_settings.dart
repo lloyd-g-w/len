@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_preferences.dart';
 import '../../domain/preferences.dart';
+import '../../ui/segment_label.dart';
 import 'settings_section.dart';
 
 /// Where the editor's toolbar sits (also changeable from the editor menu).
@@ -31,10 +32,10 @@ class EditorSettings extends StatelessWidget {
             below: SegmentedButton<ToolbarPlacement>(
               showSelectedIcon: false,
               segments: const [
-                ButtonSegment(value: ToolbarPlacement.auto, label: Text('Auto')),
-                ButtonSegment(value: ToolbarPlacement.top, label: Text('Top')),
-                ButtonSegment(value: ToolbarPlacement.bottom, label: Text('Bottom')),
-                ButtonSegment(value: ToolbarPlacement.floating, label: Text('Float')),
+                ButtonSegment(value: ToolbarPlacement.auto, label: SegmentLabel('Auto')),
+                ButtonSegment(value: ToolbarPlacement.top, label: SegmentLabel('Top')),
+                ButtonSegment(value: ToolbarPlacement.bottom, label: SegmentLabel('Bottom')),
+                ButtonSegment(value: ToolbarPlacement.floating, label: SegmentLabel('Float')),
               ],
               selected: {preferences.toolbarPlacement},
               onSelectionChanged: (s) => preferences.toolbarPlacement = s.single,

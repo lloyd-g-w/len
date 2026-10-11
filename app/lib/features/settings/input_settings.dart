@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_preferences.dart';
 import '../../domain/preferences.dart';
+import '../../ui/segment_label.dart';
+import '../editor/pen/eraser_icon.dart';
 import 'settings_section.dart';
 
 /// Stylus preferences: palm rejection, the side button and low-latency ink.
@@ -45,18 +47,18 @@ class StylusSettings extends StatelessWidget {
               segments: [
                 ButtonSegment(
                   value: PenButtonAction.eraser,
-                  icon: icons ? const Icon(Icons.auto_fix_normal_outlined) : null,
-                  label: const Text('Erases'),
+                  icon: icons ? const EraserIcon() : null,
+                  label: const SegmentLabel('Erases'),
                 ),
                 ButtonSegment(
                   value: PenButtonAction.lasso,
                   icon: icons ? const Icon(Icons.gesture_rounded) : null,
-                  label: const Text('Selects'),
+                  label: const SegmentLabel('Selects'),
                 ),
                 ButtonSegment(
                   value: PenButtonAction.none,
                   icon: icons ? const Icon(Icons.block_rounded) : null,
-                  label: const Text('Nothing'),
+                  label: const SegmentLabel('Nothing'),
                 ),
               ],
               selected: {preferences.penButtonAction},
