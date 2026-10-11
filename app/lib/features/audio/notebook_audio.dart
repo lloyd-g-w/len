@@ -71,6 +71,10 @@ class NotebookAudio extends ChangeNotifier {
 
   bool _disposed = false;
 
+  /// Shows a message about something that happened without the user
+  /// asking (a recording stopped and saved, or lost, in the background).
+  void Function(String message)? onNotice;
+
   void reload() {
     if (_disposed) return;
     _recordings = services.recordings.listOf(notebookId);
@@ -150,7 +154,16 @@ class NotebookAudio extends ChangeNotifier {
   /// is stopped and saved.
   void _onAppPaused() {
     if (_platform == TargetPlatform.android || _platform == TargetPlatform.iOS) {
-      if (recorder.state.isActive && !recorder.recordsInBackground) unawaited(recorder.stop());
+      if (recorder.state.isActive && !recorder.recordsInBackground) {
+        unawaited(
+          recorder.stop().then((saved) {
+            final message = saved != null
+                ? 'Recording stopped in the background and saved as “${saved.title}”'
+                : recorder.lastError;
+            if (message != null && !_disposed) onNotice?.call(message);
+          }),
+        );
+      }
       if (playback.playing) unawaited(playback.pause());
     }
   }

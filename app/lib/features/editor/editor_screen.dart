@@ -209,6 +209,9 @@ class _EditorScreenState extends State<_EditorView> {
     _services.preferences.addListener(_onPreferences);
     _session.undo.addListener(_onEdit);
     _lifecycle; // Starts listening.
+    _audio.onNotice = (message) {
+      if (mounted) showMessage(context, message);
+    };
     _services.incomingFiles.targets.add(_importTarget);
     // Of two editors (split view), files go to the one used last.
     _focusNode.addListener(_onFocus);
