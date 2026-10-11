@@ -85,6 +85,9 @@ class OpenTab {
 ///
 /// At most [maxTabs] stay open; opening one more closes the least recently
 /// used. Lives in `AppServices`, so tabs survive going back to the library.
+///
+/// Split view (tablets in landscape, desktops) shows a second tab — or the
+/// active notebook a second time — beside the active one ([splitId]).
 class OpenNotebooks extends ChangeNotifier {
   OpenNotebooks({this.maxTabs = 8});
 
@@ -146,6 +149,58 @@ class OpenNotebooks extends ChangeNotifier {
     activate(_tabs[next].id);
   }
 
+  // ---------------------------------------------------------------------------
+  // Split view
+
+  String? _splitId;
+
+  /// The notebook shown in the split view's second pane, if any (it may be
+  /// the active one: two places in one notebook).
+  String? get splitId => _splitId;
+
+  /// Where the second pane was looking when it closed.
+  EditorViewState? splitView;
+
+  /// The first pane's share of the width (0.25..0.75).
+  double get splitFraction => _splitFraction;
+  double _splitFraction = 0.5;
+  set splitFraction(double value) => _splitFraction = value.clamp(0.25, 0.75);
+
+  /// Whether both panes use the same tool, colours and widths.
+  bool get linkTools => _linkTools;
+  bool _linkTools = false;
+  set linkTools(bool value) {
+    if (value == _linkTools) return;
+    _linkTools = value;
+    notifyListeners();
+  }
+
+  /// Shows tab [id] in the second pane.
+  void openSplit(String id) {
+    if (!contains(id) || id == _splitId) return;
+    _splitId = id;
+    splitView = id == _activeId ? null : _views[id];
+    notifyListeners();
+  }
+
+  /// Swaps the panes' notebooks.
+  void swapSplit() {
+    final other = _splitId, active = _activeId;
+    if (other == null || active == null || other == active) return;
+    _splitId = active;
+    splitView = _views[active];
+    _activate(other);
+    notifyListeners();
+  }
+
+  /// Back to one pane.
+  void closeSplit() {
+    if (_splitId == null) return;
+    _splitId = null;
+    splitView = null;
+    notifyListeners();
+  }
+
   /// Closes tab [id]; closing the active tab shows its neighbour.
   void close(String id) {
     final i = _tabs.indexWhere((t) => t.id == id);
@@ -192,6 +247,10 @@ class OpenNotebooks extends ChangeNotifier {
   }
 
   void _remove(String id) {
+    if (id == _splitId) {
+      _splitId = null;
+      splitView = null;
+    }
     _tabs.removeWhere((t) => t.id == id);
     _views.remove(id);
     _recent.remove(id);

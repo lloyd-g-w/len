@@ -21,6 +21,7 @@ import 'document/document_controller.dart';
 import 'document/document_layout.dart';
 import 'document/page_fit.dart';
 import 'document/undo_target.dart';
+import 'double_tap_zoom.dart';
 import 'images/editor_images.dart';
 import 'pdf/pdf_interaction.dart';
 import 'pdf/pdf_page_info.dart';
@@ -57,7 +58,9 @@ class EditorSession {
       nav.open(initialView);
       content = _contentFor(model, viewport);
       input = _inputFor(model, viewport, onStylusDetected, kinetic: nav.kinetic);
-      undo = SurfaceUndo(model);
+      undo = SurfaceUndo(model)..onStep = () => onSurfaceEdited?.call(current.id);
+      model.onCommit = () => onSurfaceEdited?.call(current.id);
+      zoom = DoubleTapZoom(viewport: viewport, animator: nav.animator, home: () => 1);
     } else {
       final doc = this.doc = _openDocument(current, initialView);
       commands = DocumentCommands(services: services, notebook: notebook, doc: doc);
@@ -84,13 +87,26 @@ class EditorSession {
       // Paste onto the page in the middle of the screen.
       content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));
       undo = doc.surfaces;
+      doc.surfaces.onEdited = (pageId) => onSurfaceEdited?.call(pageId);
+      zoom = DoubleTapZoom(
+        viewport: doc.viewport,
+        animator: animator,
+        home: () => doc.frameTarget(doc.currentPage)?.scale,
+        homeOffsetX: () => doc.frameTarget(doc.currentPage)?.offset.dx,
+      );
     }
+    gestures.onDoubleTap = zoom.toggle;
   }
 
   final AppServices services;
   final Notebook Function() _notebook;
   final ToolSettings tools;
   final LiveInk live = LiveInk();
+
+  /// Called with the surface (page or canvas) of every edit made in this
+  /// editor, including undo and redo (split view keeps a second view of
+  /// the same notebook current with it).
+  void Function(String surfaceId)? onSurfaceEdited;
 
   /// Multi-finger taps, long press and right click on the canvas; the
   /// editor sets the callbacks.
@@ -99,6 +115,9 @@ class EditorSession {
   late final InkInputController input;
   late final ContentTools content;
   late final UndoTarget undo;
+
+  /// Double-tap zoom: page fit (100 % on canvases) ⇄ a closer look.
+  late final DoubleTapZoom zoom;
 
   /// Inserting images (picker, clipboard, drag and drop, camera).
   late final EditorImages images = EditorImages(

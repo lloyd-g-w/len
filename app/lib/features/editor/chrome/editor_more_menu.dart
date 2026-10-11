@@ -130,6 +130,12 @@ class EditorMoreMenu extends StatelessWidget {
               onPressed: a.onToolLabels == null ? null : () => a.onToolLabels!(!a.toolLabels),
               child: const Text('Show tool names'),
             ),
+            if (a.onCustomiseToolbar case final onCustomise?)
+              MenuItemButton(
+                leadingIcon: const Icon(Icons.tune_rounded),
+                onPressed: onCustomise,
+                child: const Text('Customise toolbar…'),
+              ),
           ],
         ),
         MenuItemButton(
@@ -138,6 +144,13 @@ class EditorMoreMenu extends StatelessWidget {
           onPressed: a.onFocusMode,
           child: const Text('Focus mode'),
         ),
+        if (a.onPresent case final onPresent?)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.slideshow_rounded),
+            shortcut: compact ? null : const SingleActivator(LogicalKeyboardKey.f5),
+            onPressed: onPresent,
+            child: const Text('Present'),
+          ),
         const Divider(),
         MenuItemButton(
           leadingIcon: const Icon(Icons.draw_outlined),
