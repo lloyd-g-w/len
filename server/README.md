@@ -19,7 +19,7 @@ content-addressed files in a blob directory next to it.
 
    ```sh
    docker compose up -d --build
-   curl http://127.0.0.1:8080/v1/health   # {"status":"ok","protocol":1,"blobs":true}
+   curl http://127.0.0.1:8080/v1/health   # {"status":"ok","protocol":1,"blobs":true,…}
    ```
 
    Data is stored in the named volume `len-data` (mounted at `/data`): the
@@ -77,6 +77,7 @@ content-addressed files in a blob directory next to it.
 | `LEN_DB_PATH`    | `/data/len.db` | SQLite file (WAL mode).                  |
 | `LEN_BLOB_DIR`   | `blobs/` next to `LEN_DB_PATH` (`/data/blobs`) | Blob files, `<first 2 hex>/<sha256>`; created at startup. |
 | `LEN_BLOB_MAX_BYTES` | `209715200` (200 MiB) | Maximum size of one blob upload; positive integer. |
+| `LEN_BLOB_IDLE_TIMEOUT` | `60` | Seconds a blob upload may send no data before it is abandoned (stalled clients); positive integer. |
 | `LEN_CORS_ORIGINS` | `*`          | Browser origins allowed to call the API (CORS), see below. |
 | `PORT`           | `8080`         |                                          |
 | `HOST`           | `0.0.0.0`      |                                          |
@@ -109,7 +110,8 @@ its own CORS headers, disable one of the two.
 database with `sqlite3 len.db ".backup backup.db"` (safe while the server is
 running) and copy `blobs/` (e.g. `rsync -a`; blobs are immutable and written
 atomically, so this is safe while running too; `blobs/tmp/` holds in-flight
-uploads and can be skipped). Alternatively stop the container and copy the
+uploads and can be skipped; files there older than a day are leftovers of
+interrupted uploads and are removed at startup). Alternatively stop the container and copy the
 whole volume, including any `len.db-wal` file. Records reference blobs by
 sha256, so a backup without the blob directory loses attachments.
 

@@ -39,10 +39,14 @@ Whenever a record is stored/replaced it gets a new `seq` (max seq + 1).
 ## Endpoints
 
 ### `GET /v1/health`
-No auth. `200 {"status":"ok","protocol":1,"blobs":true}`
+No auth. `200 {"status":"ok","protocol":1,"blobs":true,"maxBlobBytes":209715200}`
 
 `blobs: true` means the server implements the [blob endpoints](#blobs). Clients must treat a
 missing `blobs` field as `false` (older servers) and then neither upload nor download blobs.
+
+`maxBlobBytes` (added later; absent on older servers) is the largest blob the server accepts
+(`LEN_BLOB_MAX_BYTES`), so clients can skip blobs that are too large without sending them.
+Clients must tolerate unknown fields here.
 
 ### `POST /v1/push`
 Body: `{"records": [Record, …]}` — at most 1000 records, body at most 32 MiB.
@@ -86,10 +90,17 @@ Body: the raw blob bytes (any content type), at most `LEN_BLOB_MAX_BYTES` (defau
   stored.
 - `400 {"error": "…"}` — `<sha256>` is not 64 lowercase hex characters.
 - `413 {"error": "…"}` — `Content-Length` exceeds the limit (rejected before reading), or the
-  streamed body exceeds it; nothing is stored.
+  streamed body exceeds it; nothing is stored. Retrying the same blob is pointless until the
+  limit changes (a reverse proxy in front of the server may also answer `413` with its own,
+  smaller limit).
+- A **stalled** upload — no body data for `LEN_BLOB_IDLE_TIMEOUT` seconds (default 60) — is
+  abandoned: nothing is stored, the temporary file is removed and the connection is closed (the
+  server may answer `408 {"error": "upload stalled"}` first). Clients retry later.
 
 The server hashes while streaming to a temporary file and atomically renames it into place, so a
-blob is only ever visible complete and verified, and concurrent uploads of the same blob are safe.
+blob is only ever visible complete and verified, and concurrent uploads of the same blob are safe. Temporary files
+of interrupted uploads are removed at startup once they are older than a day (younger ones may
+belong to another server process sharing the blob directory).
 
 ### `GET /v1/blobs/<sha256>`
 `200` with the raw bytes, `Content-Type: application/octet-stream` and `Content-Length`.

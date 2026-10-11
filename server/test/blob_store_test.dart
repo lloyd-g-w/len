@@ -97,10 +97,53 @@ void main() {
     expect(tmpFiles(), isEmpty);
   });
 
-  test('open removes leftover temp files', () {
-    File('${blobs.root}/tmp/stale').writeAsStringSync('x');
+  test('open removes only stale temp files (another instance may be uploading)', () {
+    final stale = File('${blobs.root}/tmp/stale')..writeAsStringSync('x');
+    stale.setLastModifiedSync(DateTime.now().subtract(const Duration(days: 2)));
+    final fresh = File('${blobs.root}/tmp/fresh')..writeAsStringSync('y');
     final reopened = BlobStore.open(blobs.root);
-    expect(Directory('${reopened.root}/tmp').listSync(), isEmpty);
+    expect(stale.existsSync(), isFalse);
+    expect(fresh.existsSync(), isTrue);
+    expect(reopened.removeStaleTmpFiles(Duration.zero), 1);
+    expect(fresh.existsSync(), isFalse);
+  });
+
+  test('a stalled upload is abandoned after the idle timeout', () async {
+    final stalled = StreamController<List<int>>();
+    stalled.add(data.sublist(0, 3)); // ...and then nothing.
+    await expectLater(
+      blobs.put(sha, stalled.stream, maxBytes: 100, idleTimeout: const Duration(milliseconds: 50)),
+      throwsA(isA<BlobUploadStalledException>()),
+    );
+    expect(blobs.has(sha), isFalse);
+    expect(tmpFiles(), isEmpty);
+    await stalled.close();
+  });
+
+  test('a slow but steady upload is not timed out', () async {
+    Stream<List<int>> slow() async* {
+      for (final b in data) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        yield [b];
+      }
+    }
+
+    final size = await blobs.put(
+      sha,
+      slow(),
+      maxBytes: 100,
+      idleTimeout: const Duration(milliseconds: 60),
+    );
+    expect(size, data.length);
+  });
+
+  test('re-putting an existing blob refreshes its modification time', () async {
+    await blobs.put(sha, chunks(data), maxBytes: 100);
+    final file = File(blobs.pathFor(sha));
+    final old = DateTime.now().subtract(const Duration(days: 40));
+    file.setLastModifiedSync(old);
+    await blobs.put(sha, chunks(data), maxBytes: 100);
+    expect(file.lastModifiedSync().isAfter(old.add(const Duration(days: 39))), isTrue);
   });
 
   test('invalid sha throws ArgumentError', () {

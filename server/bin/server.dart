@@ -25,6 +25,7 @@ Future<void> main() async {
           blobs: blobs,
           token: config.token,
           maxBlobBytes: config.blobMaxBytes,
+          blobIdleTimeout: config.blobIdleTimeout,
           cors: config.cors,
         ),
       );

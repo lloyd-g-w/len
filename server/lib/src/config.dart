@@ -3,7 +3,7 @@ library;
 
 import 'dart:io' show File;
 
-import 'blob_api.dart' show defaultMaxBlobBytes;
+import 'blob_api.dart' show defaultBlobIdleTimeout, defaultMaxBlobBytes;
 import 'cors.dart';
 
 /// Thrown when the environment does not describe a valid configuration.
@@ -25,6 +25,7 @@ class Config {
     required this.port,
     required this.blobDir,
     this.blobMaxBytes = defaultMaxBlobBytes,
+    this.blobIdleTimeout = defaultBlobIdleTimeout,
     this.cors = const CorsPolicy.any(),
   });
 
@@ -50,6 +51,10 @@ class Config {
   /// Maximum size of one blob upload in bytes (`LEN_BLOB_MAX_BYTES`).
   final int blobMaxBytes;
 
+  /// Longest pause within a blob upload before it is abandoned
+  /// (`LEN_BLOB_IDLE_TIMEOUT`, seconds).
+  final Duration blobIdleTimeout;
+
   /// Origins allowed to call the API from a browser (`LEN_CORS_ORIGINS`):
   /// unset, empty or `*` allows any origin, `none` disables CORS, otherwise
   /// a comma-separated list of origins such as `https://len.example.com`.
@@ -59,7 +64,8 @@ class Config {
   ///
   /// Throws a [ConfigException] if the token is missing or too short, or if
   /// `PORT` is not a valid port number, `LEN_BLOB_MAX_BYTES` is not a
-  /// positive integer, or `LEN_CORS_ORIGINS` is not a valid origin list.
+  /// positive integer, `LEN_BLOB_IDLE_TIMEOUT` is not a positive number of
+  /// seconds, or `LEN_CORS_ORIGINS` is not a valid origin list.
   factory Config.fromEnvironment(Map<String, String> env) {
     final dbPath = _nonEmpty(env['LEN_DB_PATH']) ?? '/data/len.db';
     return Config(
@@ -69,6 +75,7 @@ class Config {
       port: _readPort(env['PORT']),
       blobDir: _nonEmpty(env['LEN_BLOB_DIR']) ?? '${File(dbPath).parent.path}/blobs',
       blobMaxBytes: _readBlobMaxBytes(env['LEN_BLOB_MAX_BYTES']),
+      blobIdleTimeout: _readIdleTimeout(env['LEN_BLOB_IDLE_TIMEOUT']),
       cors: _readCorsOrigins(env['LEN_CORS_ORIGINS']),
     );
   }
@@ -116,6 +123,18 @@ class Config {
       throw ConfigException('LEN_BLOB_MAX_BYTES must be a positive integer, got "$raw".');
     }
     return bytes;
+  }
+
+  static Duration _readIdleTimeout(String? raw) {
+    final value = _nonEmpty(raw);
+    if (value == null) return defaultBlobIdleTimeout;
+    final seconds = int.tryParse(value);
+    if (seconds == null || seconds < 1) {
+      throw ConfigException(
+        'LEN_BLOB_IDLE_TIMEOUT must be a positive number of seconds, got "$raw".',
+      );
+    }
+    return Duration(seconds: seconds);
   }
 
   static String _readToken(String? raw) {

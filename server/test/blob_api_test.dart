@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -47,9 +48,11 @@ void main() {
   Future<Map<String, Object?>> jsonOf(Response r) async =>
       jsonDecode(await r.readAsString()) as Map<String, Object?>;
 
-  test('health advertises blob support', () async {
+  test('health advertises blob support and the size limit', () async {
     final r = await send('GET', '/v1/health', auth: null);
-    expect((await jsonOf(r))['blobs'], true);
+    final json = await jsonOf(r);
+    expect(json['blobs'], true);
+    expect(json['maxBlobBytes'], maxBlobBytes);
   });
 
   test('upload, then GET returns the bytes', () async {
@@ -112,6 +115,58 @@ void main() {
       expect(blobs.has(bigSha), isFalse);
       expect(Directory('${dir.path}/tmp').listSync(), isEmpty);
     });
+  });
+
+  test('stalled upload is 408 and stores nothing', () async {
+    final h = buildHandler(
+      store: store,
+      blobs: blobs,
+      token: token,
+      blobIdleTimeout: const Duration(milliseconds: 50),
+    );
+    final body = StreamController<List<int>>()..add(data.sublist(0, 2));
+    final r = await h(
+      Request(
+        'PUT',
+        Uri.parse('http://localhost/v1/blobs/$sha'),
+        headers: {'authorization': 'Bearer $token', 'content-length': '${data.length}'},
+        body: body.stream,
+      ),
+    );
+    expect(r.statusCode, 408);
+    expect(await jsonOf(r), {'error': 'upload stalled'});
+    expect(blobs.has(sha), isFalse);
+    expect(Directory('${dir.path}/tmp').listSync(), isEmpty);
+    await body.close();
+  });
+
+  test('over real HTTP: a stalled upload is dropped and its temp file removed', () async {
+    final h = buildHandler(
+      store: store,
+      blobs: blobs,
+      token: token,
+      blobIdleTimeout: const Duration(milliseconds: 200),
+    );
+    final server = await shelf_io.serve(h, InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final socket = await Socket.connect(InternetAddress.loopbackIPv4, server.port);
+    addTearDown(socket.destroy);
+    socket.write(
+      'PUT /v1/blobs/$sha HTTP/1.1\r\nHost: localhost\r\n'
+      'Authorization: Bearer $token\r\nContent-Length: ${data.length}\r\n\r\n',
+    );
+    socket.add(data.sublist(0, 2)); // ...then stall.
+    // Completes once the server closes the connection. dart:io drops a
+    // connection whose request body is abandoned, so the 408 may not arrive.
+    final response = await utf8.decoder.bind(socket).join().timeout(const Duration(seconds: 5));
+    expect(response, anyOf(isEmpty, startsWith('HTTP/1.1 408')));
+    // The temp file is removed asynchronously, right after the abort.
+    final tmp = Directory('${dir.path}/tmp');
+    for (var i = 0; i < 50 && tmp.listSync().isNotEmpty; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    expect(tmp.listSync(), isEmpty);
+    expect(blobs.has(sha), isFalse);
   });
 
   test('push body limit does not apply to blobs', () async {

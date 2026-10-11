@@ -12,6 +12,19 @@ void main() {
     expect(c.port, 8080);
     expect(c.blobDir, '/data/blobs');
     expect(c.blobMaxBytes, 209715200);
+    expect(c.blobIdleTimeout, const Duration(seconds: 60));
+  });
+
+  test('reads LEN_BLOB_IDLE_TIMEOUT and rejects invalid values', () {
+    final c = Config.fromEnvironment({'LEN_SYNC_TOKEN': token, 'LEN_BLOB_IDLE_TIMEOUT': '15'});
+    expect(c.blobIdleTimeout, const Duration(seconds: 15));
+    for (final value in ['abc', '0', '-1', '1.5']) {
+      expect(
+        () => Config.fromEnvironment({'LEN_SYNC_TOKEN': token, 'LEN_BLOB_IDLE_TIMEOUT': value}),
+        throwsA(isA<ConfigException>()),
+        reason: value,
+      );
+    }
   });
 
   test('blob dir defaults to blobs/ next to the database', () {
