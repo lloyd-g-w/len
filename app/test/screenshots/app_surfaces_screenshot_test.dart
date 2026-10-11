@@ -113,7 +113,7 @@ void main() {
         await tester.tapAt(const Offset(4, 4));
         await settle(tester);
 
-        await tester.tap(find.text('Delete'));
+        await tester.tap(find.text('Delete…'));
         await settle(tester);
         expect(find.textContaining('model?'), findsOneWidget);
         await shoot(tester, 's_settings_handwriting_delete_${name}_${mode.name}');

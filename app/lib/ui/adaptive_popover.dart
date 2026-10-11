@@ -106,7 +106,7 @@ class _PopoverRoute<T> extends PopupRoute<T> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+    final curved = CurvedAnimation(parent: animation, curve: Motion.standard);
     return FadeTransition(
       opacity: curved,
       child: ScaleTransition(

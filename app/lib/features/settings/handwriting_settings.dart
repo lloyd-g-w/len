@@ -114,7 +114,9 @@ class HandwritingSettings extends StatelessWidget {
     final name = _name(recognition.language);
     final failed = recognition.downloadError != null && status == ModelStatus.missing;
     return SettingsTile(
-      icon: Icons.download_for_offline_outlined,
+      icon: status == ModelStatus.downloaded
+          ? Icons.offline_pin_outlined
+          : Icons.download_for_offline_outlined,
       title: 'Language model',
       subtitle: switch (status) {
         ModelStatus.downloaded => '$name is on this device.',
@@ -127,12 +129,13 @@ class HandwritingSettings extends StatelessWidget {
       },
       trailing: switch (status) {
         ModelStatus.downloaded => TextButton(
+          style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
           onPressed: () => unawaited(_delete(context, name)),
-          child: const Text('Delete'),
+          child: const Text('Delete…'),
         ),
         ModelStatus.missing => FilledButton.tonal(
           onPressed: () => unawaited(recognition.download()),
-          child: const Text('Download'),
+          child: Text(failed ? 'Try again' : 'Download'),
         ),
         _ => null,
       },

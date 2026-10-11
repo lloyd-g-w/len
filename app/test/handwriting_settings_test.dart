@@ -49,7 +49,7 @@ void main() {
     expect(recognition.language, 'de-DE');
     expect(find.text('Deutsch'), findsOneWidget); // the tile's subtitle
 
-    await tester.tap(find.text('Delete'));
+    await tester.tap(find.text('Delete…'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();

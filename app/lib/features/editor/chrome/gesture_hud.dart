@@ -61,7 +61,7 @@ class GestureHud extends StatelessWidget {
         builder: (context, message, _) => AnimatedSwitcher(
           duration: Motion.medium,
           switchInCurve: Motion.emphasized,
-          switchOutCurve: Curves.easeIn,
+          switchOutCurve: Motion.exit,
           transitionBuilder: (child, animation) => FadeTransition(
             opacity: animation,
             child: ScaleTransition(
