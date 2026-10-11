@@ -61,7 +61,7 @@ void main() {
             e.caseName,
             e.streamline,
             s.replay.recording.meta.note,
-            e.metrics,
+            e.judged,
             images,
           ),
         );

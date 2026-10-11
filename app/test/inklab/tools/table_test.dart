@@ -22,15 +22,10 @@ void main() {
       for (final e in suiteEntries()) {
         if (!filter.hasMatch(e.name)) continue;
         final cells = <String>[];
-        // Every metric, also the ones reported without a limit (overlay at
-        // other pipeline depths).
-        for (final m in e.metrics) {
+        // Every judged metric, also the ones reported without a limit
+        // (overlay at other pipeline depths).
+        for (final m in e.judged) {
           final id = m.id;
-          if (id.startsWith('perf.') &&
-              e.caseName != 'long_stroke' &&
-              !e.caseName.startsWith('rec:')) {
-            continue;
-          }
           if (!m.pass) fails++;
           cells.add(
             '${m.pass ? '' : '!!'}$id=${m.formatted.split(' (').first}'
