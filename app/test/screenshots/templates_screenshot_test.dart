@@ -52,6 +52,65 @@ void main() {
       PageOrientation.portrait,
     ),
     (
+      'yearly_landscape',
+      Paper.planner(PaperStyle.yearlyOverview, DateTime.utc(2024)),
+      PageFormat.a4,
+      PageOrientation.landscape,
+    ),
+    (
+      'yearly_sunday_el',
+      Paper.planner(
+        PaperStyle.yearlyOverview,
+        DateTime.utc(2026),
+        calendar: const PlannerCalendar(weekStart: WeekStart.sunday, language: PlannerLanguage.el),
+      ),
+      PageFormat.letter,
+      PageOrientation.portrait,
+    ),
+    (
+      'monthly_de',
+      Paper.planner(
+        PaperStyle.monthlyCalendar,
+        DateTime.utc(2026, 10),
+        calendar: const PlannerCalendar(language: PlannerLanguage.de),
+      ),
+      PageFormat.a4,
+      PageOrientation.portrait,
+    ),
+    (
+      'monthly_sunday_us',
+      Paper.planner(
+        PaperStyle.monthlyCalendar,
+        DateTime.utc(2026, 3),
+        calendar: const PlannerCalendar(
+          weekStart: WeekStart.sunday,
+          language: PlannerLanguage.enUS,
+        ),
+      ),
+      PageFormat.letter,
+      PageOrientation.portrait,
+    ),
+    (
+      'weekly_sunday_ru',
+      Paper.planner(
+        PaperStyle.weeklyPlanner,
+        DateTime.utc(2026, 9, 27),
+        calendar: const PlannerCalendar(weekStart: WeekStart.sunday, language: PlannerLanguage.ru),
+      ),
+      PageFormat.a4,
+      PageOrientation.portrait,
+    ),
+    (
+      'daily_tr',
+      Paper.planner(
+        PaperStyle.dailyPlanner,
+        DateTime.utc(2026, 10, 10),
+        calendar: const PlannerCalendar(language: PlannerLanguage.tr),
+      ),
+      PageFormat.a5,
+      PageOrientation.portrait,
+    ),
+    (
       'storyboard_landscape',
       const Paper(PaperStyle.storyboard),
       PageFormat.letter,

@@ -14,7 +14,7 @@ enum TemplateCategory {
 }
 
 /// The period one page of a date-aware planner template covers.
-enum PlannerPeriod { day, week, month }
+enum PlannerPeriod { day, week, month, year }
 
 /// A built-in background pattern ("template") drawn behind ink, or
 /// [image] for a user's own template.
@@ -56,6 +56,15 @@ enum PaperStyle {
     TemplateCategory.planners,
     period: PlannerPeriod.month,
     keywords: 'month calendar planner',
+  ),
+
+  /// The twelve months of a year as small calendars.
+  yearlyOverview(
+    'Year overview',
+    27,
+    TemplateCategory.planners,
+    period: PlannerPeriod.year,
+    keywords: 'yearly annual calendar planner twelve 12 months',
   ),
   gridSmall('Small grid', 19, TemplateCategory.paper, canvas: true, keywords: 'squared'),
 

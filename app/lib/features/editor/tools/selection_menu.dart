@@ -12,6 +12,16 @@ import '../../../ui/menus.dart';
 import 'colour_sheet.dart';
 import 'selection_style_panel.dart';
 
+/// A command the editor adds to the selection menu (links, stickers):
+/// [run] gets the control it was started from, to anchor a popover.
+class SelectionExtraAction {
+  const SelectionExtraAction(this.label, this.icon, this.run);
+
+  final String label;
+  final IconData icon;
+  final void Function(BuildContext anchor) run;
+}
+
 /// The floating context menu of a lasso selection, placed above it (or
 /// below when there is no room). Hidden while the selection is dragged.
 class SelectionMenu extends StatelessWidget {
@@ -25,10 +35,14 @@ class SelectionMenu extends StatelessWidget {
     this.onCrop,
     this.onConvertToText,
     this.convertUnavailable,
+    this.extraActions,
   });
 
   final SelectionController selection;
   final ViewportController viewport;
+
+  /// More commands for the current selection, placed after Duplicate.
+  final List<SelectionExtraAction> Function()? extraActions;
   final ToolSettings tools;
   final ValueChanged<SurfaceElement> onEditText;
   final VoidCallback onPaste;
@@ -66,6 +80,7 @@ class SelectionMenu extends StatelessWidget {
             onCrop: onCrop,
             onConvertToText: onConvertToText,
             convertUnavailable: convertUnavailable,
+            extras: extraActions?.call() ?? const [],
           ),
         );
       },
@@ -82,10 +97,12 @@ class _MenuBar extends StatelessWidget {
     this.onCrop,
     this.onConvertToText,
     this.convertUnavailable,
+    this.extras = const [],
   });
 
   final SelectionController selection;
   final ToolSettings tools;
+  final List<SelectionExtraAction> extras;
   final ValueChanged<SurfaceElement> onEditText;
   final VoidCallback onPaste;
   final ValueChanged<SurfaceElement>? onCrop;
@@ -139,6 +156,7 @@ class _MenuBar extends StatelessWidget {
           (anchor) => showSelectionStyle(anchor, selection: selection, tools: tools),
         ),
       ],
+      for (final x in extras) _Action.anchored(x.label, x.icon, x.run),
       if (elements.isNotEmpty) ...[
         _Action('Bring to front', Icons.flip_to_front_rounded, selection.bringToFront),
         _Action('Send to back', Icons.flip_to_back_rounded, selection.sendToBack),

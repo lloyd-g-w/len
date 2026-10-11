@@ -27,11 +27,7 @@ List<CanvasAction> canvasActions(
   final clipboard = content.selection.clipboard;
   return [
     if (link != null && onFollowLink != null)
-      CanvasAction(
-        Icons.event_rounded,
-        'Go to ${PlannerDates.describe(link.style.period!, link.date!)}',
-        () => onFollowLink(link),
-      ),
+      CanvasAction(Icons.event_rounded, 'Go to ${link.period}', () => onFollowLink(link)),
     if (!clipboard.isEmpty)
       CanvasAction(Icons.content_paste_rounded, 'Paste here', () {
         session.tools.tool = EditorTool.lasso;

@@ -27,8 +27,8 @@ abstract final class ElementRenderer {
         _drawRotated(canvas, element, () => _drawText(canvas, element));
       case ElementType.image:
         _drawRotated(canvas, element, () => _drawImage(canvas, element, images, pixelScale));
-      case null:
-        break; // Unknown to this version: kept, not drawn.
+      case ElementType.link || null:
+        break; // Links are shown by the editor; unknown types are kept, not drawn.
     }
   }
 

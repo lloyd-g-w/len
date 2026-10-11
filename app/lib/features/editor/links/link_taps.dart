@@ -2,27 +2,24 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../../domain/paper.dart';
-import 'document_controller.dart';
-
-/// Follows planner links (a day on a month calendar, a week number, …) on
-/// taps that do not write: a finger tap while fingers navigate (stylus
-/// mode), or a Ctrl/⌘-click. Watches pointers without taking part in the
-/// gesture arena, so drawing, panning and zooming are unaffected.
-class PlannerLinkTaps extends StatefulWidget {
-  const PlannerLinkTaps({
+/// Follows links — link elements and planner links (a day on a month
+/// calendar, a week number, …) — on taps that do not write: a finger tap
+/// while fingers navigate (stylus mode), or a Ctrl/⌘-click. Watches
+/// pointers without taking part in the gesture arena, so drawing, panning
+/// and zooming are unaffected.
+class LinkTaps extends StatefulWidget {
+  const LinkTaps({
     super.key,
-    required this.doc,
     required this.fingersNavigate,
-    required this.onFollow,
+    required this.follow,
     required this.child,
   });
 
-  final DocumentController doc;
-
   /// Whether one-finger touches pan rather than draw.
   final bool Function() fingersNavigate;
-  final ValueChanged<Paper> onFollow;
+
+  /// Follows the link at a tapped screen point, if there is one.
+  final void Function(Offset screen) follow;
   final Widget child;
 
   /// Longest press and farthest movement that still count as a tap.
@@ -30,10 +27,10 @@ class PlannerLinkTaps extends StatefulWidget {
   static const double maxTapSlop = 12;
 
   @override
-  State<PlannerLinkTaps> createState() => _PlannerLinkTapsState();
+  State<LinkTaps> createState() => _LinkTapsState();
 }
 
-class _PlannerLinkTapsState extends State<PlannerLinkTaps> {
+class _LinkTapsState extends State<LinkTaps> {
   /// The single pointer that may become a link tap.
   ({int pointer, Offset at, Duration time})? _candidate;
   int _down = 0;
@@ -57,7 +54,7 @@ class _PlannerLinkTapsState extends State<PlannerLinkTaps> {
     final c = _candidate;
     if (c != null &&
         c.pointer == e.pointer &&
-        (e.localPosition - c.at).distance > PlannerLinkTaps.maxTapSlop) {
+        (e.localPosition - c.at).distance > LinkTaps.maxTapSlop) {
       _candidate = null;
     }
   }
@@ -67,9 +64,8 @@ class _PlannerLinkTapsState extends State<PlannerLinkTaps> {
     final c = _candidate;
     _candidate = null;
     if (c == null || c.pointer != e.pointer) return;
-    if (e.timeStamp - c.time > PlannerLinkTaps.maxTapDuration) return;
-    final target = widget.doc.plannerLinkAt(c.at);
-    if (target != null) widget.onFollow(target);
+    if (e.timeStamp - c.time > LinkTaps.maxTapDuration) return;
+    widget.follow(c.at);
   }
 
   void _onCancel(PointerCancelEvent e) {

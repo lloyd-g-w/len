@@ -9,6 +9,8 @@ import '../../ui/messages.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_import_flow.dart';
 import '../editor/tabs/editor_workspace.dart' as editor;
+import '../tags/tag_manager.dart';
+import '../tags/tag_picker.dart';
 import 'cover_locator.dart';
 import 'library_controller.dart';
 import 'library_dialogs.dart';
@@ -141,6 +143,8 @@ class LibraryActions {
         controller.updateNotebook(
           current.copyWith(coverColor: choice.color, coverStyle: choice.style),
         );
+      case NotebookAction.tags:
+        await editTags(context, [notebook.id]);
       case NotebookAction.duplicate:
         final copy = controller.duplicate(notebook.id);
         if (copy != null && context.mounted) _toast(context, 'Duplicated as “${copy.title}”');
@@ -208,6 +212,28 @@ class LibraryActions {
         if (ok) controller.deleteFolder(folder.id);
     }
   }
+
+  /// Lets the user choose the tags of notebooks [ids].
+  Future<void> editTags(BuildContext context, List<String> ids) async {
+    final c = controller;
+    final changes = await showTagPicker(
+      context,
+      tags: c.services.tags,
+      title: ids.length == 1 ? 'Tags' : 'Tag ${ids.length} notebooks',
+      current: [for (final id in ids) c.tagsOf(id).map((t) => t.id).toSet()],
+    );
+    // The picker may have created tags even when cancelled.
+    if (changes == null) return c.reload();
+    c.applyTagChanges(ids, changes);
+  }
+
+  /// Opens the tag manager.
+  Future<void> manageTags(BuildContext context) => showTagManager(
+    context,
+    tags: controller.services.tags,
+    countOf: controller.notebookCountOf,
+    onChanged: controller.reload,
+  );
 
   Future<void> emptyTrash(BuildContext context) async {
     final count = controller.trash.length;

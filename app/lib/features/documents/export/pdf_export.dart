@@ -14,6 +14,7 @@ import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import 'pdf_images.dart';
+import 'pdf_links.dart';
 import 'pdf_template.dart';
 import 'pdf_text.dart';
 import 'vector/pdf_page_importer.dart';
@@ -90,17 +91,19 @@ abstract final class PdfExporter {
   }) async {
     final doc = PdfDocument();
     PdfInfo(doc, title: title, creator: 'Len'); // Registers itself.
+    final text = PdfTextWriter(doc, load: loadFont);
     final writer = _Writer(
       doc,
       PdfImageWriter(doc, readBlob ?? (_) async => null),
       PdfPageImporter(doc),
-      PdfTemplateWriter(doc),
-      PdfTextWriter(doc, load: loadFont),
+      PdfTemplateWriter(text),
+      text,
     );
     for (var i = 0; i < pages.length; i++) {
       onPage?.call(i);
       if (!await _addPage(writer, pages[i])) onRasterized?.call(i);
     }
+    PdfLinkWriter.write(doc, pages, writer.written);
     return doc.save();
   }
 
@@ -111,7 +114,9 @@ abstract final class PdfExporter {
     final page = export.page;
     const k = pointsPerUnit;
     final format = PdfPageFormat(page.width * k, page.height * k);
-    final g = PdfPage(doc, pageFormat: format).getGraphics();
+    final pdfPage = PdfPage(doc, pageFormat: format);
+    writer.written.add(pdfPage);
+    final g = pdfPage.getGraphics();
     final pen = _Pen(g, page.height);
 
     g
@@ -124,7 +129,7 @@ abstract final class PdfExporter {
       vector = await _drawBackground(writer, g, background, format);
     }
 
-    _drawPattern(pen, page, templates);
+    await _drawPattern(pen, page, templates);
     final elements = [...export.elements]..sort(SurfaceElement.paintOrder);
     Future<void> drawElements(bool belowInk) async {
       for (final element in elements.where((e) => e.belowInk == belowInk)) {
@@ -189,7 +194,8 @@ abstract final class PdfExporter {
 
   /// Embeds [element] as a transparent image over its (rotated) bounds.
   static Future<void> _drawElement(PdfDocument doc, _Pen pen, SurfaceElement element) async {
-    if (element.knownType == null) return; // Not drawn by this version.
+    // Not drawn by this version; links become annotations.
+    if (element.knownType == null || element.knownType == ElementType.link) return;
     final bounds = element.bounds;
     if (bounds.isEmpty || !bounds.isFinite) return;
     final scale = math.min(
@@ -239,9 +245,9 @@ abstract final class PdfExporter {
     return rgb;
   }
 
-  static void _drawPattern(_Pen pen, NotebookPage page, PdfTemplateWriter templates) {
+  static Future<void> _drawPattern(_Pen pen, NotebookPage page, PdfTemplateWriter templates) {
     final rect = Offset.zero & page.size;
-    templates.draw(
+    return templates.draw(
       pen.g,
       PaperPattern.of(page.paper, rect, page: rect),
       page.paperColor,
@@ -283,6 +289,9 @@ class _Writer {
   final PdfPageImporter importer;
   final PdfTemplateWriter templates;
   final PdfTextWriter text;
+
+  /// The PDF pages written so far, in order.
+  final List<PdfPage> written = [];
 }
 
 /// Maps world coordinates (y down) to PDF points (y up).

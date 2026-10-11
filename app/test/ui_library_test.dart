@@ -148,7 +148,12 @@ void main() {
     expect(pages, hasLength(days));
     expect(
       pages.first.paper,
-      Paper.planner(PaperStyle.dailyPlanner, DateTime.utc(now.year, now.month)),
+      Paper.planner(
+        PaperStyle.dailyPlanner,
+        DateTime.utc(now.year, now.month),
+        // The test device is set to US English.
+        calendar: PlannerCalendar.forLocale('en', 'US'),
+      ),
     );
     expect(tester.takeException(), isNull);
   });

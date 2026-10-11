@@ -36,43 +36,19 @@ List<OutlineRow> outlineRows(
   return rows;
 }
 
-/// Shows the outline (bookmarks / table of contents) of the notebook's
-/// PDFs; picking an entry goes to its page.
-Future<void> showPdfOutline(BuildContext context, PdfInteraction interaction) =>
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      constraints: const BoxConstraints(maxWidth: 560),
-      builder: (context) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.92,
-        builder: (context, scroll) => PdfOutlinePanel(
-          interaction: interaction,
-          scroll: scroll,
-          onPage: (page) {
-            Navigator.of(context).pop();
-            interaction.doc.scrollToPage(page);
-          },
-        ),
-      ),
-    );
-
-/// The outline's content: one section per PDF of the notebook.
-class PdfOutlinePanel extends StatefulWidget {
-  const PdfOutlinePanel({super.key, required this.interaction, required this.onPage, this.scroll});
+/// The outlines (bookmarks) of the notebook's PDFs, mapped onto its pages,
+/// as a section of the editor's outline panel: one group per PDF.
+class PdfOutlineSection extends StatefulWidget {
+  const PdfOutlineSection({super.key, required this.interaction, required this.onPage});
 
   final PdfInteraction interaction;
   final ValueChanged<int> onPage;
-  final ScrollController? scroll;
 
   @override
-  State<PdfOutlinePanel> createState() => _PdfOutlinePanelState();
+  State<PdfOutlineSection> createState() => _PdfOutlineSectionState();
 }
 
-class _PdfOutlinePanelState extends State<PdfOutlinePanel> {
+class _PdfOutlineSectionState extends State<PdfOutlineSection> {
   late final List<String> _blobs = widget.interaction.blobs;
   late final Future<List<List<PdfOutlineItem>>> _outlines = Future.wait([
     for (final b in _blobs) widget.interaction.info.outline(b),
@@ -86,12 +62,7 @@ class _PdfOutlinePanelState extends State<PdfOutlinePanel> {
       future: _outlines,
       builder: (context, snapshot) {
         final outlines = snapshot.data;
-        final children = <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Gaps.xl, 0, Gaps.xl, Gaps.sm),
-            child: Text('Outline', style: theme.textTheme.titleLarge),
-          ),
-        ];
+        final children = <Widget>[];
         if (outlines == null) {
           children.add(
             const Padding(
@@ -102,11 +73,12 @@ class _PdfOutlinePanelState extends State<PdfOutlinePanel> {
         } else if (outlines.every((o) => o.isEmpty)) {
           children.add(
             Padding(
-              padding: const EdgeInsets.all(Gaps.xl),
+              padding: const EdgeInsets.symmetric(horizontal: Gaps.xl, vertical: Gaps.md),
               child: Text(
-                _blobs.length == 1 ? 'This PDF has no outline.' : 'These PDFs have no outline.',
-                style: theme.textTheme.bodyMedium,
-                textAlign: TextAlign.center,
+                _blobs.length == 1 ? 'This PDF has no outline' : 'These PDFs have no outline',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           );
@@ -128,11 +100,7 @@ class _PdfOutlinePanelState extends State<PdfOutlinePanel> {
             ]);
           }
         }
-        return ListView(
-          controller: widget.scroll,
-          padding: const EdgeInsets.only(bottom: Gaps.xl),
-          children: children,
-        );
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
       },
     );
   }

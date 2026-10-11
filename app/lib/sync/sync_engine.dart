@@ -6,11 +6,15 @@ import '../data/blob_store.dart';
 import '../data/element_repository.dart';
 import '../data/folder_repository.dart';
 import '../data/notebook_repository.dart';
+import '../data/outline_repository.dart';
 import '../data/page_repository.dart';
 import '../data/recording_repository.dart';
 import '../data/settings_repository.dart';
+import '../data/sticker_repository.dart';
 import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
+import '../data/tag_repository.dart';
+import '../data/tagging_repository.dart';
 import '../data/template_repository.dart';
 import 'blob_sync.dart';
 import 'sync_api.dart';
@@ -27,11 +31,20 @@ class RemoteChanges {
   /// Whether any of the user's templates changed.
   bool templates = false;
 
+  /// Whether any tag, or which notebooks and pages carry them, changed.
+  bool tags = false;
+
+  /// Whether the sticker library changed.
+  bool stickers = false;
+
   /// Notebooks whose page list changed.
   final Set<String> pagesOfNotebooks = {};
 
   /// Surfaces (pages / canvases) whose content (strokes or elements) changed.
   final Set<String> strokeSurfaces = {};
+
+  /// Notebooks whose own outline changed.
+  final Set<String> outlineOfNotebooks = {};
 
   /// Notebooks whose audio recordings changed.
   final Set<String> recordingsOfNotebooks = {};
@@ -40,9 +53,12 @@ class RemoteChanges {
       !notebooks &&
       !folders &&
       !templates &&
+      !tags &&
+      !stickers &&
       pagesOfNotebooks.isEmpty &&
       strokeSurfaces.isEmpty &&
-      recordingsOfNotebooks.isEmpty;
+      recordingsOfNotebooks.isEmpty &&
+      outlineOfNotebooks.isEmpty;
 }
 
 /// Returns true once a running sync should stop without persisting more
@@ -65,6 +81,9 @@ class SyncEngine {
     required this.elements,
     required this.recordings,
     required this.templates,
+    required this.tags,
+    required this.outline,
+    required this.stickers,
   });
 
   final AppDatabase database;
@@ -83,6 +102,15 @@ class SyncEngine {
 
   /// The user's own templates (their images travel as blobs).
   final TemplateRepository templates;
+
+  /// Tags; their assignments sync through [TagRepository.taggings].
+  final TagRepository tags;
+
+  /// Notebooks' own outlines.
+  final OutlineRepository outline;
+
+  /// The sticker library (images in stickers travel as blobs).
+  final StickerRepository stickers;
 
   /// Which blobs live rows reference.
   late final BlobReferences blobReferences = BlobReferences(database);
@@ -114,8 +142,12 @@ class SyncEngine {
     for (final s in <SyncableStore>[
       folders,
       templates,
+      stickers,
+      tags,
+      tags.taggings,
       notebooks,
       pages,
+      outline,
       strokes,
       elements,
       recordings,
@@ -247,6 +279,7 @@ class SyncEngine {
         StrokeRepository() => strokes.surfaceOf(record.id),
         ElementRepository() => elements.surfaceOf(record.id),
         RecordingRepository() => recordings.notebookOf(record.id),
+        OutlineRepository() => outline.notebookOf(record.id),
         _ => null,
       };
       if (!store.applyRemote(record)) return;
@@ -255,6 +288,10 @@ class SyncEngine {
           changes.folders = true;
         case TemplateRepository():
           changes.templates = true;
+        case TagRepository() || TaggingRepository():
+          changes.tags = true;
+        case StickerRepository():
+          changes.stickers = true;
         case NotebookRepository():
           changes.notebooks = true;
         case PageRepository():
@@ -265,6 +302,9 @@ class SyncEngine {
         case ElementRepository():
           _addKnown(changes.strokeSurfaces, elements.surfaceOf(record.id));
           _addKnown(changes.strokeSurfaces, previousOwner);
+        case OutlineRepository():
+          _addKnown(changes.outlineOfNotebooks, outline.notebookOf(record.id));
+          _addKnown(changes.outlineOfNotebooks, previousOwner);
         case RecordingRepository():
           _addKnown(changes.recordingsOfNotebooks, recordings.notebookOf(record.id));
           _addKnown(changes.recordingsOfNotebooks, previousOwner);

@@ -249,6 +249,21 @@ class SelectionController extends ChangeNotifier {
     select(const [], [..._elements, ...added]);
   }
 
+  /// Makes [elements] the selected elements, replacing the selected ones on
+  /// the surface (e.g. adding a link over the selected content, or
+  /// removing one) as one undoable edit; the strokes stay.
+  void replaceElements(List<SurfaceElement> elements) {
+    if (isEmpty) return;
+    _replace(_strokes, elements);
+  }
+
+  /// Places a copy of [strokes] and [elements] (laid out within [bounds])
+  /// centred on world point [at], like a paste, and selects it.
+  void place(List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds, Offset at) {
+    if (strokes.isEmpty && elements.isEmpty) return;
+    _paste(strokes, elements, bounds, at);
+  }
+
   // ---------------------------------------------------------------------------
   // Internals
 

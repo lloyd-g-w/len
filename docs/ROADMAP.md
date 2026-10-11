@@ -85,7 +85,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   template"; rename / delete; usable for new notebooks and pages
 - ✅ Template picker: categories (Basic, Writing, Planners, Paper, My templates), search, live
   previews
-- ⬜ Planner options: week starting on Sunday, localised month and day names, yearly overview
+- ✅ Planner options: week starting on Monday or Sunday (US week numbers for Sunday weeks),
+  month and day names and dates in 19 languages (intl; default from the device locale, last
+  choice remembered), year overview (twelve mini calendars linking to months and days; optional
+  first page of a monthly planner); exported PDF labels in the embedded Inter
 - ✅ Cancel long imports / exports (partial imports clean up after themselves)
 - ✅ Tiled PDF rendering for deep zoom (visible tiles, LRU, smooth while zooming)
 - ✅ PDF text selection (Select text tool, long press / right click): copy, highlight the selection
