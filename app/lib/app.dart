@@ -76,6 +76,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
             themeMode: themeModeOf(preferences.themeMode),
             themeAnimationDuration: Motion.medium,
             builder: (context, child) => SystemBars(child: child!),
+            navigatorObservers: [widget.services.routeOwners],
             home: const LibraryScreen(),
           );
         },

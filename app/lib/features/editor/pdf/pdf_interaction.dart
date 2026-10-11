@@ -23,9 +23,9 @@ class PdfInteraction extends ChangeNotifier {
   PdfInteraction({
     required this.doc,
     required this.tools,
-    required PdfInfoSource source,
+    required this.info,
     this.clock = const Clock(),
-  }) : info = PdfPageInfoCache(source) {
+  }) {
     doc.addListener(_onDocument);
     _onDocument();
   }
@@ -33,6 +33,9 @@ class PdfInteraction extends ChangeNotifier {
   final DocumentController doc;
   final ToolSettings tools;
   final Clock clock;
+
+  /// Text and links of the PDF pages (shared by the notebook's views;
+  /// not disposed here).
   final PdfPageInfoCache info;
   final PdfSelection selection = PdfSelection();
 
@@ -202,7 +205,6 @@ class PdfInteraction extends ChangeNotifier {
   @override
   void dispose() {
     doc.removeListener(_onDocument);
-    info.dispose();
     selection.dispose();
     super.dispose();
   }

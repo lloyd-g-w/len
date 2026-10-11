@@ -26,6 +26,7 @@ import 'data/template_repository.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
 import 'features/documents/import/incoming_files.dart';
+import 'features/editor/shared/shared_notebooks.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'ink/images/element_images.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
@@ -36,6 +37,7 @@ import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
+import 'ui/route_owners.dart';
 
 /// Composition root: constructs and owns the app's long-lived services.
 class AppServices {
@@ -199,6 +201,14 @@ class AppServices {
   /// Notebooks open in editor tabs (with each tab's place in memory).
   final OpenNotebooks openNotebooks = OpenNotebooks();
 
+  /// Which part of the screen opened each route (register with the app's
+  /// navigator).
+  final RouteOwners routeOwners = RouteOwners();
+
+  /// What the editors of one notebook share (the notebook, its audio,
+  /// surfaces, undo and PDF caches), per open notebook.
+  late final SharedNotebooks sharedNotebooks = SharedNotebooks(this);
+
   /// Deletes blobs nothing references anymore; started by the app at launch.
   late final LocalBlobGc blobGc = LocalBlobGc(
     blobs: blobs,
@@ -210,6 +220,7 @@ class AppServices {
   late final ElementImages images = ElementImages(read: blobs.read, fetch: sync.fetchBlob);
 
   void dispose() {
+    sharedNotebooks.dispose();
     incomingFiles.dispose();
     images.dispose();
     openNotebooks.dispose();

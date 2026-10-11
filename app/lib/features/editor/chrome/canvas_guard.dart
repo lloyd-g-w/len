@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'chrome_metrics.dart';
+
 /// Keeps the canvas from reacting while a chrome menu is open.
 ///
 /// Menus close on a tap outside them, but the canvas reads raw pointer
@@ -33,6 +35,17 @@ class CanvasGuard extends ChangeNotifier {
     if (menu != null) _menus.add(menu);
     _open++;
     if (_open == 1) notifyListeners();
+  }
+
+  bool? _compact;
+
+  /// The chrome laid out [width] wide: the top bar swaps its menus when
+  /// switching between phone and wide layouts, and one disposed while open
+  /// never reports closing, so the guard [reset]s then.
+  void laidOut(double width) {
+    final compact = width < ChromeMetrics.compactWidth;
+    if (_compact != null && _compact != compact) reset();
+    _compact = compact;
   }
 
   /// Forgets all open menus (e.g. after the chrome was rebuilt).

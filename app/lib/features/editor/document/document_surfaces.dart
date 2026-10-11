@@ -8,9 +8,11 @@ import '../../../data/stroke_repository.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/chunk_picture_cache.dart';
 import '../../../ink/surface_model.dart';
+import 'page_models.dart';
 import 'undo_target.dart';
 
-/// One page's in-memory surface and its render cache.
+/// One page's in-memory surface (shared by the notebook's views, see
+/// [PageModels]) and this view's render cache of it.
 class PageSurface {
   PageSurface(this.model) : cache = ChunkPictureCache(model);
 
@@ -19,23 +21,37 @@ class PageSurface {
 
   bool get hasHistory => model.history.canUndo || model.history.canRedo;
 
+  /// Disposes the cache; the model is released to [PageModels].
   void dispose() {
     cache.dispose();
-    model.dispose();
   }
 }
 
-/// The surfaces of a paged notebook's pages, loaded only while visible.
+/// The surfaces of a paged notebook's pages in one view, loaded only
+/// while visible.
 ///
 /// A page's surface is created when it scrolls into view and released
 /// again once it is off-screen — unless it has undo history, which must
 /// survive scrolling. Notifies whenever any held surface changes.
 ///
-/// Undo spans pages: the most recently edited page is undone first, like
-/// one history for the whole notebook. Every committed edit (ink, text,
-/// selection changes) counts, whether or not it came from a pointer.
+/// The models come from [models], which every view of the notebook shares
+/// (and with it the notebook-wide undo this forwards to); each view keeps
+/// its own render caches.
 class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
-  DocumentSurfaces(this.repository, {this.elements, this.images, this.keepIdle = 6});
+  DocumentSurfaces(
+    this.repository, {
+    this.elements,
+    this.images,
+    this.keepIdle = 6,
+    PageModels? models,
+  }) : models = models ?? PageModels(),
+       _ownsModels = models == null {
+    this.models.addListener(notifyListeners);
+  }
+
+  /// The notebook's page models and undo, shared by its views.
+  final PageModels models;
+  final bool _ownsModels;
 
   final StrokeRepository repository;
 
@@ -53,28 +69,19 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
   /// Least recently visible first.
   final List<String> _recency = [];
 
-  /// The page of every undo step across the notebook (most recent last),
-  /// and of every undone step that can be redone.
-  final List<String> _undoPages = [];
-  final List<String> _redoPages = [];
-
-  /// [UndoHistory.recorded] of each page when last seen, to tell new undo
-  /// steps from edits merged into the previous one.
-  final Map<String, int> _recorded = {};
-
   /// The surface of page [pageId], created on demand.
   PageSurface surfaceOf(String pageId) {
     final existing = _surfaces[pageId];
     if (existing != null) return existing;
-    final model =
-        SurfaceModel(
-            surfaceId: pageId,
-            repository: repository,
-            elementRepository: elements,
-            images: images,
-          )
-          ..addListener(notifyListeners)
-          ..onCommit = () => noteEdited(pageId);
+    final model = models.acquire(
+      pageId,
+      () => SurfaceModel(
+        surfaceId: pageId,
+        repository: repository,
+        elementRepository: elements,
+        images: images,
+      ),
+    )..addListener(notifyListeners);
     return _surfaces[pageId] = PageSurface(model);
   }
 
@@ -109,82 +116,45 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
   void retain(Set<String> pageIds) {
     for (final id in _surfaces.keys.where((id) => !pageIds.contains(id)).toList()) {
       _release(id);
-      _undoPages.removeWhere((e) => e == id);
-      _redoPages.removeWhere((e) => e == id);
-      _recorded.remove(id);
     }
+    models.retain(pageIds);
   }
 
   /// Reloads a page whose strokes changed remotely.
-  void reload(String pageId) => _surfaces[pageId]?.model.reload();
+  void reload(String pageId) => models.reload(pageId);
 
   void _release(String id) {
     _recency.remove(id);
     final s = _surfaces.remove(id);
     if (s == null) return;
-    s.model
-      ..removeListener(notifyListeners)
-      ..onCommit = null;
+    s.model.removeListener(notifyListeners);
     s.dispose();
+    models.release(id);
   }
 
   // ---------------------------------------------------------------------------
-  // Notebook-wide undo
-
-  /// Called with the page of every edit made here (commits, undo, redo),
-  /// e.g. to refresh another view of the same notebook.
-  void Function(String pageId)? onEdited;
-
-  /// Records that [pageId] just committed an edit (a new undo step, or
-  /// one merged into its previous step).
-  void noteEdited(String pageId) {
-    onEdited?.call(pageId);
-    final model = _surfaces[pageId]?.model;
-    if (model == null || !model.history.canUndo) return;
-    final recorded = model.history.recorded;
-    if (_recorded[pageId] != recorded) {
-      _recorded[pageId] = recorded;
-      _undoPages.add(pageId);
-    }
-    _redoPages.clear();
-    notifyListeners();
-  }
+  // Notebook-wide undo (see [PageModels])
 
   @override
-  bool get canUndo => _undoPages.any((id) => _surfaces[id]?.model.history.canUndo ?? false);
+  bool get canUndo => models.canUndo;
   @override
-  bool get canRedo => _redoPages.any((id) => _surfaces[id]?.model.history.canRedo ?? false);
+  bool get canRedo => models.canRedo;
 
-  /// Undoes the most recent step on any page.
+  /// Undoes the most recent step on any page, in any view.
   @override
-  void undo() => _step(_undoPages, _redoPages, undo: true);
+  void undo() => models.undo();
 
   /// Redoes the most recently undone step.
   @override
-  void redo() => _step(_redoPages, _undoPages, undo: false);
-
-  /// Pops page ids off [from] until one can step (a page's own history may
-  /// be shorter, e.g. after its limit), steps it and pushes it onto [to].
-  void _step(List<String> from, List<String> to, {required bool undo}) {
-    while (from.isNotEmpty) {
-      final id = from.removeLast();
-      final model = _surfaces[id]?.model;
-      if (model == null) continue;
-      if (undo ? !model.history.canUndo : !model.history.canRedo) continue;
-      undo ? model.undo() : model.redo();
-      to.add(id);
-      onEdited?.call(id);
-      return;
-    }
-  }
+  void redo() => models.redo();
 
   @override
   void dispose() {
-    for (final s in _surfaces.values) {
-      s.model.removeListener(notifyListeners);
-      s.dispose();
+    for (final id in [..._surfaces.keys]) {
+      _release(id);
     }
-    _surfaces.clear();
+    models.removeListener(notifyListeners);
+    if (_ownsModels) models.dispose();
     super.dispose();
   }
 }

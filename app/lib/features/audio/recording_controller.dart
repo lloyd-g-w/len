@@ -39,6 +39,7 @@ class RecordingController extends ChangeNotifier {
     Clock? clock,
     this.onSaved,
     this.describe,
+    this.busy,
   }) : clock = clock ?? repository.clock;
 
   final String notebookId;
@@ -53,6 +54,10 @@ class RecordingController extends ChangeNotifier {
   /// What is being recorded (the notebook's title), for the background
   /// notification.
   final String Function()? describe;
+
+  /// Why the microphone can't be used now (another notebook is recording),
+  /// or null when it can.
+  final String? Function()? busy;
 
   /// Recordings shorter than this are discarded (an accidental tap).
   static const int minimumMs = 500;
@@ -103,6 +108,8 @@ class RecordingController extends ChangeNotifier {
     lastError = null;
     final capture = _capture ??= backends.capture();
     try {
+      final inUse = busy?.call();
+      if (inUse != null) throw AudioUnavailable(inUse);
       final reason = await backends.unavailable?.call();
       if (reason != null) throw AudioUnavailable(reason);
       if (!await capture.requestPermission()) {

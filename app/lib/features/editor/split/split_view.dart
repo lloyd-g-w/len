@@ -5,8 +5,9 @@ import '../../../ui/app_theme.dart';
 
 /// Lays out the workspace's editors: [primary] alone, or beside
 /// [secondary] with a draggable divider ([fraction] of the width for the
-/// primary). [solo] shows one of them alone (presentation) while the other
-/// stays alive offstage. The primary keeps its place in the tree in every
+/// primary). [solo] shows one of them alone (presentation, or the screen
+/// too small for two) while the other stays alive offstage — without
+/// focus or tickers. The primary keeps its place in the tree in every
 /// layout, so opening or closing the split never rebuilds its editor.
 class SplitView extends StatelessWidget {
   const SplitView({
@@ -38,6 +39,10 @@ class SplitView extends StatelessWidget {
   /// and desktops — not phones, not portrait tablets.
   static bool fits(Size size) => size.width >= 900 && size.shortestSide >= 560;
 
+  /// Whether the pane [context] is in is parked (alive but not shown).
+  static bool parkedOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ParkedScope>()?.parked ?? false;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -58,8 +63,8 @@ class SplitView extends StatelessWidget {
               top: 0,
               bottom: 0,
               width: solo == true ? width : left,
-              child: Offstage(
-                offstage: solo == true,
+              child: _Parked(
+                parked: solo == true,
                 child: MediaQuery(
                   data: split ? media.removePadding(removeRight: true) : media,
                   child: primary,
@@ -90,8 +95,8 @@ class SplitView extends StatelessWidget {
                 top: 0,
                 bottom: 0,
                 width: solo == null ? width - left - dividerWidth : width,
-                child: Offstage(
-                  offstage: solo == false,
+                child: _Parked(
+                  parked: solo == false,
                   child: MediaQuery(
                     data: split ? media.removePadding(removeLeft: true) : media,
                     child: secondary,
@@ -104,6 +109,37 @@ class SplitView extends StatelessWidget {
       },
     );
   }
+}
+
+/// A pane that, while [parked], stays alive (its editor keeps its session,
+/// undo and a running recording) but is not shown, takes no keyboard
+/// focus and runs no animations.
+class _Parked extends StatelessWidget {
+  const _Parked({required this.parked, required this.child});
+
+  final bool parked;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Offstage(
+    offstage: parked,
+    child: ExcludeFocus(
+      excluding: parked,
+      child: TickerMode(
+        enabled: !parked,
+        child: _ParkedScope(parked: parked, child: child),
+      ),
+    ),
+  );
+}
+
+class _ParkedScope extends InheritedWidget {
+  const _ParkedScope({required this.parked, required super.child});
+
+  final bool parked;
+
+  @override
+  bool updateShouldNotify(_ParkedScope old) => old.parked != parked;
 }
 
 /// The bar between the panes: drag to resize, double-tap for halves;
