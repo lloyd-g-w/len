@@ -170,51 +170,58 @@ class _CalendarRow extends StatelessWidget {
   final PlannerCalendar calendar;
   final ValueChanged<PlannerCalendar> onChanged;
 
+  /// Room for each control (labels stretch to it).
+  static const double _width = 240;
+
   @override
   Widget build(BuildContext context) {
     return Wrap(
       spacing: Gaps.xl,
       runSpacing: Gaps.md,
       children: [
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const PickerLabel('Week starts on'),
-            ShrinkToFit(
-              child: SegmentedButton<WeekStart>(
-                key: const ValueKey('planner-week-start'),
-                showSelectedIcon: false,
-                style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                segments: const [
-                  ButtonSegment(value: WeekStart.monday, label: SegmentLabel('Monday')),
-                  ButtonSegment(value: WeekStart.sunday, label: SegmentLabel('Sunday')),
-                ],
-                selected: {calendar.weekStart},
-                onSelectionChanged: (s) => onChanged(calendar.copyWith(weekStart: s.single)),
-              ),
-            ),
-          ],
-        ),
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 260),
+          constraints: const BoxConstraints(maxWidth: _width),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const PickerLabel('Language'),
+              const _Label('Week starts on'),
+              ShrinkToFit(
+                child: SegmentedButton<WeekStart>(
+                  key: const ValueKey('planner-week-start'),
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                  segments: const [
+                    ButtonSegment(value: WeekStart.monday, label: SegmentLabel('Monday')),
+                    ButtonSegment(value: WeekStart.sunday, label: SegmentLabel('Sunday')),
+                  ],
+                  selected: {calendar.weekStart},
+                  onSelectionChanged: (s) => onChanged(calendar.copyWith(weekStart: s.single)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _width),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _Label('Language'),
               DecoratedBox(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(Radii.control),
                   border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.only(left: Gaps.md, right: Gaps.xs),
+                  padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.sm, Gaps.sm),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<PlannerLanguage>(
                       key: const ValueKey('planner-language'),
                       value: calendar.language,
                       isExpanded: true,
+                      isDense: true,
                       borderRadius: BorderRadius.circular(Radii.control),
                       items: [
                         for (final l in PlannerLanguage.values)
@@ -236,6 +243,19 @@ class _CalendarRow extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A [PickerLabel] that wraps when it is wider than its control.
+class _Label extends StatelessWidget {
+  const _Label(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: Gaps.sm),
+    child: Text(text, style: Theme.of(context).textTheme.titleSmall),
+  );
 }
 
 /// `‹ October 2026 ›`: a value between two step buttons.
