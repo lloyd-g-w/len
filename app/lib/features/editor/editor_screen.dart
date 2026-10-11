@@ -435,7 +435,7 @@ class _EditorScreenState extends State<_EditorView> {
                     focus: _focus,
                   );
                   _applyInsets(layout.covered);
-                  widget.messageInset.value = layout.floatingInsets.bottom;
+                  widget.messageInset.value = layout.covered.bottom;
                   _resetGuardOnResize(constraints.maxWidth);
                   return CanvasGuardScope(
                     guard: _guard,

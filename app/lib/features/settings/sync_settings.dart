@@ -184,7 +184,7 @@ class _SyncStatusLine extends StatelessWidget {
       builder: (context, _) {
         final last = sync.lastSuccess;
         final (icon, color, text) = switch (sync.state) {
-          SyncState.disabled => (Icons.cloud_off_outlined, scheme.onSurfaceVariant, 'Sync is off.'),
+          SyncState.disabled => (Icons.cloud_off_outlined, scheme.onSurfaceVariant, 'Sync is off'),
           SyncState.syncing => (Icons.cloud_sync_outlined, scheme.primary, 'Syncing…'),
           SyncState.error => (
             Icons.error_outline_rounded,
@@ -194,14 +194,15 @@ class _SyncStatusLine extends StatelessWidget {
           SyncState.idle => (
             Icons.cloud_done_outlined,
             scheme.primary,
-            last == null ? 'Ready.' : 'Last synced ${formatEdited(last.millisecondsSinceEpoch)}.',
+            last == null ? 'Ready' : 'Last synced ${formatEdited(last.millisecondsSinceEpoch)}',
           ),
         };
         final status = Container(
           padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.sm + 2),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(Radii.sm),
+            // A status chip, not a field.
+            borderRadius: BorderRadius.circular(Radii.pill),
           ),
           child: Row(
             children: [
