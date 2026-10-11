@@ -48,8 +48,8 @@ class PullPage {
   final int malformed;
 }
 
-/// What `GET /v1/health` reports; fields are null when the server did not
-/// say (older servers, or a proxy answering instead of the server).
+/// What `GET /v1/health` reports; fields are null when the answer did not
+/// say (e.g. a proxy answering instead of the server).
 class ServerInfo {
   const ServerInfo({this.maxBlobBytes, this.blobsCollectedAt});
 

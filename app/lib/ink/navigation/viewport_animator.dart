@@ -77,12 +77,6 @@ class ViewportAnimator {
     });
   }
 
-  /// Animates a zoom by [factor] keeping the point under [focal] still.
-  void zoomBy(double factor, {Offset? focal}) {
-    final f = focal ?? viewport.size.center(Offset.zero);
-    zoomTo(viewport.scale * factor, focal: f);
-  }
-
   /// Animates to [scale] keeping the point under [focal] (default: the
   /// centre of the view) still.
   void zoomTo(double scale, {Offset? focal}) {

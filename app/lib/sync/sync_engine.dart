@@ -222,7 +222,7 @@ class SyncEngine {
 
   void _apply(SyncRecord record, RemoteChanges changes) {
     final store = _stores[record.collection];
-    if (store == null) return; // A collection from a newer app version.
+    if (store == null) return; // A collection this app does not know.
     try {
       // Look up the owner (surface or notebook) before applying: a tombstone
       // may not carry one.

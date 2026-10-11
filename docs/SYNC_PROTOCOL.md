@@ -4,6 +4,11 @@ The server is a **generic last-write-wins record store with a change feed**. It 
 notebooks or strokes; it just stores opaque JSON records grouped by `collection`. This keeps the
 server tiny and lets the app evolve its data model without server changes.
 
+**Compatibility.** Len is pre-release: this document describes the one current format, and
+changes to it need no compatibility with earlier builds (all devices are expected to run the same
+version). Once Len ships, changes must stay compatible in both directions: new fields optional with
+defaults, unknown fields and values tolerated.
+
 ## Transport & auth
 
 - HTTP + JSON (UTF-8). All endpoints except `/v1/health` require
@@ -40,16 +45,13 @@ Whenever a record is stored/replaced it gets a new `seq` (max seq + 1).
 
 ### `GET /v1/health`
 No auth.
-`200 {"status":"ok","protocol":1,"blobs":true,"maxBlobBytes":209715200,"blobsCollectedAt":0}`
+`200 {"status":"ok","protocol":1,"maxBlobBytes":209715200,"blobsCollectedAt":0}`
 
-`blobs: true` means the server implements the [blob endpoints](#blobs). Clients must treat a
-missing `blobs` field as `false` (older servers) and then neither upload nor download blobs.
-
-`maxBlobBytes` (added later; absent on older servers) is the largest blob the server accepts
-(`LEN_BLOB_MAX_BYTES`), so clients can skip blobs that are too large without sending them.
-`blobsCollectedAt` (added later; absent → 0) is when (ms since epoch) the server last deleted
-blobs by [garbage collection](#blob-garbage-collection), 0 if never. Clients must tolerate unknown
-fields here.
+`maxBlobBytes` is the largest blob the server accepts (`LEN_BLOB_MAX_BYTES`), so clients can skip
+blobs that are too large without sending them. `blobsCollectedAt` is when (ms since epoch) the
+server last deleted blobs by [garbage collection](#blob-garbage-collection), 0 if never. Clients
+ignore unknown fields here, and treat an answer without these fields (e.g. from a proxy) as "not
+known".
 
 ### `POST /v1/push`
 Body: `{"records": [Record, …]}` — at most 1000 records, body at most 32 MiB.
@@ -136,9 +138,8 @@ stored, `404` (empty body) if not.
   back (stay dirty), so a record does not reach the server before its blob — but only for three
   consecutive failed attempts, after which they are pushed anyway, so one blob that can never be
   uploaded cannot keep its records from syncing.
-- A server without blob support (no `"blobs": true` in `/v1/health`) answers `404` to blob
-  requests, which surfaces as a failed upload once a device references a stored blob. When the
-  server URL changes, the "uploaded" and "too large" marks are reset along with `lastPulledSeq`.
+- When the server URL changes, the "uploaded" and "too large" marks are reset along with
+  `lastPulledSeq`.
 - **Lazy download.** Pulled records may reference blobs the client does not have; the client
   downloads them with `GET` only when they are needed (e.g. when a page is displayed) and verifies
   the SHA-256 before storing them. A missing blob (`404`) is treated as temporarily unavailable.
@@ -199,22 +200,26 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | collection  | data                                                                                   |
 |-------------|----------------------------------------------------------------------------------------|
 | `folders`   | `{name, parentId: string|null, color, createdAt}`                                       |
-| `notebooks` | `{title, kind: "paged"|"canvas", paper, coverColor, createdAt, coverStyle?, editedAt?, folderId?, favorite?, trashedAt?, paperColor?}` |
-| `pages`     | `{notebookId, sortKey, width, height, paper, paperColor?, bookmarked?, background?}`     |
+| `notebooks` | `{title, kind: "paged"|"canvas", paper, paperColor, coverColor, coverStyle, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
+| `pages`     | `{notebookId, sortKey, width, height, paper, paperColor, bookmarked: bool, background: object|null}` |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
-| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements (missing → `createdAt`). `type` = `text` (`data` = `{text, size, color, bold, italic, align: "left"|"center"|"right"}`) or `image` (`data` = `{blob, width, height, crop?}`, see below). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
-| `recordings` | `{notebookId, blob, durationMs, startedAt, title, mime, segments}` — an audio recording of a notebook. `blob` is the `<sha256>` of the audio ([blob](#blobs); current clients write `audio/mp4` AAC, or `audio/webm` Opus in browsers without AAC, as given by `mime`; missing → `audio/mp4`). `startedAt` is the wall time (epoch ms) recording began, `durationMs` the audio length; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (missing/empty → one segment `[startedAt, durationMs]`; malformed entries are dropped). Deleting a notebook tombstones its recordings. |
+| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, size, color, bold, italic, align: "left"|"center"|"right"}`) or `image` (`data` = `{blob, width, height, crop?}`, see below). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
+| `recordings` | `{notebookId, blob, durationMs, startedAt, title, mime, segments}` — an audio recording of a notebook. `blob` is the `<sha256>` of the audio ([blob](#blobs); `audio/mp4` AAC, or `audio/webm` Opus in browsers without AAC, as given by `mime`). `startedAt` is the wall time (epoch ms) recording began, `durationMs` the audio length; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (empty → one segment `[startedAt, durationMs]`). Deleting a notebook tombstones its recordings. |
 
 **Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
 cache `pdf_text`) is derived on each device from the collections above and the PDF blobs, and is
 updated when records are applied by sync like any local write. Nothing about it travels over the
 wire, so search needs no protocol change.
 
-Fields marked `?` were added after v1 and may be missing in records from older clients; readers
-keep the local row's value for a missing field (so an old client renaming a notebook does not move,
-unstar or restore it), and for a row not seen before fall back to defaults (`coverStyle` "plain",
-`editedAt` = `updatedAt`, no folder, not favourite, not trashed). Unknown `coverStyle` values read as
-"plain".
+**Validation.** Every field listed for a collection is required (fields typed `…|null` must be
+present, possibly `null`), and enumerated values must be ones listed here. A record that is missing
+a field, has a value of the wrong type or an unknown enumerated value is malformed: the client skips
+it (see [Client algorithm](#client-algorithm)). Unknown extra fields are ignored. Exceptions: an
+element's `type` and the contents of its `data` are open (see its row), and `strokes` (see its row).
+
+Enumerated values: `kind` as above; `paper` and `paperColor` see [Paper and pages](#paper-and-pages);
+`coverStyle` ∈ `plain`, `linen`, `dots`, `grid`, `waves`, `stripes`; `color`, `coverColor` are ARGB
+ints.
 
 **Library semantics.**
 - `folders.parentId` is null for top-level folders. A folder whose parent is missing/deleted is shown
@@ -223,8 +228,7 @@ unstar or restore it), and for a row not seen before fall back to defaults (`cov
 - `notebooks.folderId` pointing at a missing folder means "library root".
 - `notebooks.trashedAt` (ms) puts a notebook in the trash; it stays a live record so it can be
   restored. "Delete forever" tombstones the notebook, its pages, strokes, elements and recordings.
-- `paperColor` (canvas background; same values as on pages): missing → the local value, or
-  `white` for a notebook new to this device; unknown → `white`.
+- `notebooks.paperColor` is the background of a canvas (same values as on pages).
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
   (favourite, move, trash) only bump `updatedAt`.
 
@@ -239,17 +243,11 @@ store images at most 4096 px on their long edge. New images get a negative `z` (
 "bring to front" gives an element a `z` above every other one (and so above the ink), "send to back"
 one below every other.
 
-**Paper and pages.** `paper` (on notebooks and pages) is one of `blank`, `lined` (wide ruled), `grid` (large grid),
-`dotted` and, since the documents update, `collegeRuled`, `narrowRuled`, `gridSmall`, `cornell`,
-`music`, `isometric`. Unknown values are shown as `blank` but kept as-is in storage, so editing
-other fields of the page on an older device does not erase a newer device's template.
+**Paper and pages.** `paper` (on notebooks and pages) is one of `blank`, `narrowRuled`,
+`collegeRuled`, `wideRuled`, `gridSmall`, `gridLarge`, `dotted`, `isometric`, `cornell`, `music`.
+`paperColor` is one of `white`, `cream`, `grey`, `dark`.
 
-Optional `pages` fields (`?` above; absent on data written by older app versions). As for
-notebooks, a missing field keeps the local page's value; the defaults below apply to a page new to
-this device:
-
-- `paperColor`: string, `white` | `cream` | `grey` | `dark`; missing → `white` (see above), unknown → shown as `white`.
-- `bookmarked`: bool; missing → `false`.
-- `background`: object or `null`. `{"type": "pdf", "blob": "<sha256>", "page": <int>}` renders
-  page `page` (0-based) of the PDF stored as blob `<sha256>` behind the strokes. Backgrounds with
-  an unknown `type` are ignored (the page is shown without background).
+- `bookmarked`: whether the page is bookmarked.
+- `background`: `null`, or `{"type": "pdf", "blob": "<sha256>", "page": <int ≥ 0>}`, which renders
+  page `page` (0-based) of the PDF stored as blob `<sha256>` behind the strokes. Any other value
+  makes the record malformed.

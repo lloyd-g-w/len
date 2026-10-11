@@ -9,7 +9,7 @@ NotebookPage _page(int i) => NotebookPage(
   sortKey: i.toDouble(),
   width: 794,
   height: 1123,
-  paper: PaperStyle.grid,
+  paper: PaperStyle.gridLarge,
   paperColor: PaperColor.values.last,
 );
 
@@ -70,7 +70,7 @@ void main() {
     test('resolve picks the pages, ignoring stale indices', () {
       const options = ExportOptions(format: ExportFormat.pdf, pages: [1, 3, 9]);
       expect(options.resolve(pages).map((p) => p.id), ['p1', 'p3']);
-      expect(options.resolve(pages).first.paper, PaperStyle.grid);
+      expect(options.resolve(pages).first.paper, PaperStyle.gridLarge);
     });
 
     test('without templates pages become plain white paper', () {

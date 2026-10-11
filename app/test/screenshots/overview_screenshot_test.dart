@@ -37,7 +37,7 @@ void main() {
           s.pages.addPage(
             nb.id,
             template: PageTemplate(
-              style: i.isEven ? PaperStyle.collegeRuled : PaperStyle.grid,
+              style: i.isEven ? PaperStyle.collegeRuled : PaperStyle.gridLarge,
               color: i == 5 ? PaperColor.cream : PaperColor.white,
             ),
           );

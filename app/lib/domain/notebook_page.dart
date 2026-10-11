@@ -17,8 +17,7 @@ class PageBackground {
 
   Map<String, Object?> toJson() => {'type': 'pdf', 'blob': blob, 'page': pageIndex};
 
-  /// Parses a synced background; unknown or malformed values yield null
-  /// (the page then shows as plain paper).
+  /// Parses a stored background; null if [json] is not a valid one.
   static PageBackground? fromJson(Object? json) {
     if (json is! Map) return null;
     final blob = json['blob'];

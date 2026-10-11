@@ -77,7 +77,6 @@ class DocumentController extends ChangeNotifier {
   int get currentPage => _current;
 
   /// The page that receives drawing input.
-  int get activePage => _active;
   NotebookPage get activePageData => _pages[_active];
   SurfaceModel get activeModel => surfaces.surfaceOf(_pages[_active].id).model;
 

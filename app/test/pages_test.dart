@@ -126,33 +126,47 @@ void main() {
       expect(pages.pagesOf(nb.id).single.bookmarked, isTrue);
     });
 
-    test('remote values from newer versions survive local edits', () {
+    test('remote pages need every field and known values', () {
       final page = pages.pagesOf(nb.id).single;
-      pages.applyRemote(
-        SyncRecord(
-          collection: 'pages',
-          id: page.id,
-          updatedAt: DateTime(2100).millisecondsSinceEpoch,
-          deviceId: 'other',
-          deleted: false,
-          data: {
-            'notebookId': nb.id,
-            'sortKey': 1,
-            'width': 500,
-            'height': 600,
-            'paper': 'hexagons',
-            'background': {'type': 'video', 'url': 'x'},
-          },
-        ),
+      SyncRecord record(Map<String, Object?> data) => SyncRecord(
+        collection: 'pages',
+        id: page.id,
+        updatedAt: DateTime(2100).millisecondsSinceEpoch,
+        deviceId: 'other',
+        deleted: false,
+        data: data,
       );
+      final complete = {
+        'notebookId': nb.id,
+        'sortKey': 1,
+        'width': 500,
+        'height': 600,
+        'paper': 'dotted',
+        'paperColor': 'cream',
+        'bookmarked': true,
+        'background': null,
+      };
+      for (final key in complete.keys) {
+        final missing = {...complete}..remove(key);
+        expect(() => pages.applyRemote(record(missing)), throwsFormatException, reason: key);
+      }
+      for (final (key, value) in [
+        ('paper', 'hexagons'),
+        ('paperColor', 'sepia'),
+        ('background', {'type': 'video', 'url': 'x'}),
+        ('height', 0),
+      ]) {
+        final odd = {...complete, key: value};
+        expect(() => pages.applyRemote(record(odd)), throwsFormatException, reason: key);
+      }
+      expect(pages.get(page.id)!.paper, page.paper, reason: 'nothing was written');
+
+      expect(pages.applyRemote(record(complete)), isTrue);
       final local = pages.get(page.id)!;
-      expect(local.paper, PaperStyle.blank); // Unknown → blank …
-      expect(local.paperColor, page.paperColor); // … missing → local value kept.
-      expect(local.background, isNull);
-      pages.setBookmarked(page.id, true);
-      final data = pages.dirtyRecords(10).single.data!;
-      expect(data['paper'], 'hexagons'); // … but kept for newer devices.
-      expect(data['background'], {'type': 'video', 'url': 'x'});
+      expect(local.paper, PaperStyle.dotted);
+      expect(local.paperColor, PaperColor.cream);
+      expect(local.bookmarked, isTrue);
+      expect(local.size, const Size(500, 600));
     });
 
     test('PDF backgrounds round-trip', () {

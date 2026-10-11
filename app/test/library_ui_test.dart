@@ -18,7 +18,7 @@ import 'ui_library_test.dart' show pumpLibrary;
 Notebook addNotebook(AppServices s, String title, {String? folderId}) => s.notebooks.create(
   title: title,
   kind: NotebookKind.paged,
-  paper: PaperStyle.lined,
+  paper: PaperStyle.wideRuled,
   coverColor: 0xFF3B5BDB,
   folderId: folderId,
 );

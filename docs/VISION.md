@@ -28,7 +28,7 @@ backwards-compatibility code is wanted until the first release.
    - Mouse and touch drawing still work on devices without a stylus.
 
 2. **Two notebook kinds**
-   - **Paged notebooks** — classic page-by-page notebooks with paper styles (blank, lined, grid, dotted).
+   - **Paged notebooks** — classic page-by-page notebooks with paper templates (blank, ruled, grid, dotted, Cornell, music, …).
    - **Infinite canvas** — a whiteboard that is *truly* infinite: never needs clearing, and cost scales
      with what is on screen, not with how much has been drawn overall.
      - Backed by a **sparse spatial structure** (chunked spatial hash) so only populated regions exist.

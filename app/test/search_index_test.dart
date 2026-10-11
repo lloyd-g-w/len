@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
@@ -9,7 +8,6 @@ import 'package:len/data/search/pdf_text_indexer.dart';
 import 'package:len/data/search/pdf_text_source.dart';
 import 'package:len/data/search/search_index.dart';
 import 'package:len/data/search/search_query.dart';
-import 'package:len/data/search/search_schema.dart';
 import 'package:len/data/syncable.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
@@ -227,6 +225,8 @@ void main() {
         'y': 0,
         'w': 100,
         'h': 20,
+        'rotation': 0,
+        'z': 1,
         'createdAt': 1,
         'data': {'text': 'Synchronised photosynthesis'},
       },
@@ -367,45 +367,18 @@ void main() {
     });
   });
 
-  test('rebuild and re-running the migration reproduce the trigger-maintained index', () {
+  test('rebuild reproduces the trigger-maintained index', () {
     final nb = paged('Alpha');
     s.elements.save([textBox('t', s.pages.pagesOf(nb.id).single.id, 'beta gamma')]);
     final before = s.database.db.select(
       'SELECT kind, ref_id, body FROM search_docs ORDER BY ref_id',
     );
     index.rebuild();
-    SearchSchema.create(s.database.db);
     final after = s.database.db.select(
       'SELECT kind, ref_id, body FROM search_docs ORDER BY ref_id',
     );
     expect(after.map((r) => r.values), before.map((r) => r.values));
     expect(find('gam').single.refId, 't');
-  });
-
-  test('the migration indexes existing data (and is idempotent)', () {
-    final dir = Directory.systemTemp.createTempSync('len_search_mig_');
-    addTearDown(() => dir.deleteSync(recursive: true));
-    final path = '${dir.path}/len.db';
-    var db = AppDatabase.open(path);
-    // Simulate a database from before search: data, no index.
-    for (final t in ['search_fts', 'search_docs', 'pdf_text', 'pdf_text_blobs']) {
-      db.db.execute('DROP TABLE IF EXISTS $t');
-    }
-    for (final r in db.db.select("SELECT name FROM sqlite_master WHERE type = 'trigger'")) {
-      db.db.execute('DROP TRIGGER ${r['name']}');
-    }
-    db.db.execute(
-      'INSERT INTO notebooks (id, title, kind, paper, cover_color, created_at, updated_at, '
-      "device_id) VALUES ('n', 'Old Physics', 'canvas', 'blank', 0, 1, 1, 'd')",
-    );
-    db.db.execute('PRAGMA user_version = ${AppDatabase.versionBeforeSearchIndex}');
-    db.close();
-
-    db = AppDatabase.open(path);
-    addTearDown(db.close);
-    expect(SearchIndex(db).search(SearchQuery('physics')).single.notebookId, 'n');
-    SearchSchema.create(db.db); // Re-running changes nothing.
-    expect(SearchIndex(db).search(SearchQuery('physics')), hasLength(1));
   });
 
   test('without FTS5 queries fall back to LIKE with the same word rules', () {

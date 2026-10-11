@@ -116,7 +116,6 @@ String? _bearerToken(String? header) {
 Response _health(RecordStore store, int maxBlobBytes) => _json(HttpStatus.ok, {
   'status': 'ok',
   'protocol': protocolVersion,
-  'blobs': true,
   'maxBlobBytes': maxBlobBytes,
   'blobsCollectedAt': store.blobsCollectedAt,
 });

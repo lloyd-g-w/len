@@ -48,10 +48,9 @@ void main() {
   Future<Map<String, Object?>> jsonOf(Response r) async =>
       jsonDecode(await r.readAsString()) as Map<String, Object?>;
 
-  test('health advertises blob support and the size limit', () async {
+  test('health advertises the blob size limit', () async {
     final r = await send('GET', '/v1/health', auth: null);
     final json = await jsonOf(r);
-    expect(json['blobs'], true);
     expect(json['maxBlobBytes'], maxBlobBytes);
   });
 

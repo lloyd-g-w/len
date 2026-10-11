@@ -7,8 +7,7 @@ enum CoverStyle {
   waves,
   stripes;
 
-  /// Parses a stored name; unknown values (from newer app versions) fall
-  /// back to [plain].
+  /// Parses a stored name; an unknown one (corrupt data) reads as [plain].
   static CoverStyle parse(String? value) =>
       values.firstWhere((s) => s.name == value, orElse: () => plain);
 }
