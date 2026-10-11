@@ -107,7 +107,8 @@ class _TemplateChooserState extends State<TemplateChooser> {
       for (final section in templateSections(
         canvas: widget.canvas,
         query: _query.text,
-        only: _category,
+        // A search looks through every category.
+        only: _query.text.trim().isEmpty ? _category : null,
         mine: _mine,
       ))
         // Without the app's services (standalone use) there is no My templates.
@@ -210,6 +211,8 @@ class _TemplateChooserState extends State<TemplateChooser> {
     ];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      // Chips scroll out to the sheet edge rather than being cut at the inset.
+      clipBehavior: Clip.none,
       child: Row(
         children: [
           for (final c in categories)

@@ -123,7 +123,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
         : _c.current >= 0
         ? (compact ? '${_c.current + 1}/$count' : '${_c.current + 1} of $count')
         : compact
-        ? '$count'
+        ? '$count found'
         : (count == 1 ? '1 match' : '$count matches');
     final density = compact ? VisualDensity.compact : null;
     return Row(

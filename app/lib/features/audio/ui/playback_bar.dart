@@ -66,6 +66,7 @@ class _PlaybackBarState extends State<PlaybackBar> {
                           style: theme.textTheme.labelMedium,
                         ),
                       ),
+                      const SizedBox(width: Gaps.sm),
                       Text(
                         '${formatClock(position.round())} / ${formatClock(recording.durationMs)}',
                         style: small,

@@ -69,8 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final width = MediaQuery.sizeOf(context).width;
     final pages = _pages(context);
     final compact = width < Breakpoints.medium;
-    // Phones: a large title that collapses into the bar as the list scrolls,
-    // so the bar never sits there empty.
+    // Phones: the title lives in a pinned bar, so the bar is never empty.
     return Scaffold(
       appBar: compact ? null : AppBar(scrolledUnderElevation: 0.5),
       body: width >= Breakpoints.expanded
@@ -116,7 +115,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     return CustomScrollView(
       slivers: [
-        const SliverAppBar.large(title: Text('Settings'), scrolledUnderElevation: 0.5),
+        const SliverAppBar(pinned: true, title: Text('Settings'), scrolledUnderElevation: 0.5),
         SliverPadding(
           padding: EdgeInsets.only(bottom: bottom),
           sliver: SliverToBoxAdapter(child: content),

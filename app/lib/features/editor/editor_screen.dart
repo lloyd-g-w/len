@@ -337,6 +337,7 @@ class _EditorScreenState extends State<_EditorView> {
     final title = await showTextPrompt(
       context,
       title: 'Rename notebook',
+      label: 'Name',
       initialValue: _notebook.title,
       confirmLabel: 'Rename',
     );

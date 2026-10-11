@@ -228,7 +228,10 @@ class _ConvertDialogState extends State<_ConvertDialog> {
                   children: [
                     for (final alt in [r.text, ...r.alternatives])
                       ChoiceChip(
-                        label: Text(alt),
+                        label: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 200),
+                          child: Text(alt, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        ),
                         selected: _text.text == alt,
                         onSelected: (_) => _text.text = alt,
                       ),

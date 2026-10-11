@@ -97,21 +97,21 @@ class _FolderTileState extends State<FolderTile> {
             onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
             onHover: (h) => setState(() => _hovered = h),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.xs, Gaps.sm),
+              padding: EdgeInsets.fromLTRB(narrow ? Gaps.sm : Gaps.md, Gaps.sm, narrow ? 0 : Gaps.xs, Gaps.sm),
               child: Row(
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: narrow ? 34 : 40,
+                    height: narrow ? 34 : 40,
                     decoration: BoxDecoration(
                       color: color.withValues(
                         alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14,
                       ),
                       borderRadius: BorderRadius.circular(Radii.sm),
                     ),
-                    child: Icon(iconOfFolder(_folder), color: color, size: 22),
+                    child: Icon(iconOfFolder(_folder), color: color, size: narrow ? 20 : 22),
                   ),
-                  const SizedBox(width: Gaps.md),
+                  SizedBox(width: narrow ? Gaps.sm : Gaps.md),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,

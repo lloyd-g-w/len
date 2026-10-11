@@ -124,6 +124,7 @@ class LibraryActions {
         final title = await showTextPrompt(
           context,
           title: 'Rename notebook',
+          label: 'Name',
           initialValue: notebook.title,
           confirmLabel: 'Rename',
         );

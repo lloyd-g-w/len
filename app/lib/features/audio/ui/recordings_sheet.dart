@@ -131,6 +131,7 @@ class _RecordingTile extends StatelessWidget {
         final title = await showTextPrompt(
           context,
           title: 'Rename recording',
+          label: 'Name',
           initialValue: recording.title,
           confirmLabel: 'Rename',
         );

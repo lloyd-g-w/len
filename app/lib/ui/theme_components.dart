@@ -67,6 +67,10 @@ extension ThemeComponents on ThemeData {
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
         side: BorderSide(color: scheme.outlineVariant),
+        // Unselected chips are outlined only, so they never read as holes
+        // in a lighter dialog or sheet.
+        backgroundColor: Colors.transparent,
+        selectedColor: scheme.secondaryContainer,
       ),
       bottomSheetTheme: BottomSheetThemeData(
         showDragHandle: true,
