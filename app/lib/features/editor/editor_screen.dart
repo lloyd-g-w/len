@@ -31,6 +31,7 @@ import 'document/document_layout.dart';
 import 'editor_actions.dart';
 import 'editor_canvas.dart';
 import 'editor_gestures.dart';
+import 'editor_import_target.dart';
 import 'editor_session.dart';
 import 'editor_shortcuts.dart';
 import 'editor_toolbar.dart';
@@ -109,6 +110,14 @@ class _EditorScreenState extends State<EditorScreen> {
   /// canvas is touched (e.g. after using the width slider).
   final FocusNode _focusNode = FocusNode(debugLabel: 'EditorScreen');
 
+  /// Receives files opened with / shared to Len while this editor is shown.
+  late final EditorImportTarget _importTarget = EditorImportTarget(
+    context: context,
+    session: _session,
+    notebookId: widget.notebook.id,
+    title: () => _notebook.title,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -122,6 +131,7 @@ class _EditorScreenState extends State<EditorScreen> {
     _services.preferences.addListener(_onPreferences);
     _session.undo.addListener(_onEdit);
     _lifecycle; // Starts listening.
+    _services.incomingFiles.targets.add(_importTarget);
     // Take the keyboard even when another editor (the previous tab) still
     // held it while this one was built; autofocus would not.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -131,6 +141,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
   @override
   void dispose() {
+    _services.incomingFiles.targets.remove(_importTarget);
     unawaited(_remoteChanges?.cancel());
     _services.openNotebooks
       ..removeListener(_onTabs)

@@ -12,49 +12,50 @@ const _pdfTypes = [
   XTypeGroup(label: 'PDF', extensions: ['pdf'], mimeTypes: ['application/pdf']),
 ];
 
-/// Lets the user pick a PDF and creates a notebook from it (one page per
-/// PDF page, annotatable). Returns null if cancelled or failed (the user
-/// has then been told why).
-Future<Notebook?> importPdfFlow(BuildContext context) async {
+/// Creates a notebook from PDF [file] (one page per PDF page,
+/// annotatable), letting the user pick one if not given. Returns null if
+/// cancelled or failed (the user has then been told why).
+Future<Notebook?> importPdfFlow(BuildContext context, {XFile? file}) async {
   final services = AppScope.read(context);
-  final file = await openFile(acceptedTypeGroups: _pdfTypes);
-  if (file == null || !context.mounted) return null;
+  final picked = file ?? await openFile(acceptedTypeGroups: _pdfTypes);
+  if (picked == null || !context.mounted) return null;
   final importer = PdfImporter(services);
   try {
-    return await runWithSteps(context, 'Importing PDF', subject: file.name, (progress) async {
+    return await runWithSteps(context, 'Importing PDF', subject: picked.name, (progress) async {
       progress.stageStarted('Copying file…');
-      final sha = await importer.store(file);
+      final sha = await importer.store(picked);
       progress.stageStarted('Reading pages…');
       return importer.createNotebook(
         sha,
-        title: PdfImporter.titleFor(file.name),
+        title: PdfImporter.titleFor(picked.name),
         cover: Palette.covers[3],
         onPages: (n) => progress.stageStarted('Creating pages…', note: _pages(n)),
       );
     });
   } on Exception catch (e) {
-    if (context.mounted) showMessage(context, _failure(file.name, e));
+    if (context.mounted) showMessage(context, _failure(picked.name, e));
     return null;
   } finally {
     await importer.dispose();
   }
 }
 
-/// Lets the user pick a PDF and inserts its pages after [after] (at the end
-/// if null). Returns the inserted pages, or null.
+/// Inserts the pages of PDF [file] (picked by the user if not given)
+/// after [after] (at the end if null). Returns the inserted pages, or null.
 Future<List<NotebookPage>?> insertPdfPagesFlow(
   BuildContext context, {
   required String notebookId,
   NotebookPage? after,
+  XFile? file,
 }) async {
   final services = AppScope.read(context);
-  final file = await openFile(acceptedTypeGroups: _pdfTypes);
-  if (file == null || !context.mounted) return null;
+  final picked = file ?? await openFile(acceptedTypeGroups: _pdfTypes);
+  if (picked == null || !context.mounted) return null;
   final importer = PdfImporter(services);
   try {
-    return await runWithSteps(context, 'Inserting pages', subject: file.name, (progress) async {
+    return await runWithSteps(context, 'Inserting pages', subject: picked.name, (progress) async {
       progress.stageStarted('Copying file…');
-      final sha = await importer.store(file);
+      final sha = await importer.store(picked);
       progress.stageStarted('Reading pages…');
       return importer.insertPages(
         sha,
@@ -64,7 +65,7 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
       );
     });
   } on Exception catch (e) {
-    if (context.mounted) showMessage(context, _failure(file.name, e));
+    if (context.mounted) showMessage(context, _failure(picked.name, e));
     return null;
   } finally {
     await importer.dispose();

@@ -1,3 +1,4 @@
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app_services.dart';
@@ -183,9 +184,15 @@ class DocumentCommands {
     if (number != null && !_disposed) doc.goToPage(number.clamp(1, doc.pages.length) - 1);
   }
 
-  /// Inserts the pages of a PDF after the current page.
-  Future<void> insertPdf(BuildContext context) async {
-    final inserted = await insertPdfPagesFlow(context, notebookId: notebook().id, after: _current);
+  /// Inserts the pages of PDF [file] (picked by the user if null) after
+  /// the current page.
+  Future<void> insertPdf(BuildContext context, {XFile? file}) async {
+    final inserted = await insertPdfPagesFlow(
+      context,
+      notebookId: notebook().id,
+      after: _current,
+      file: file,
+    );
     if (inserted == null || inserted.isEmpty) return;
     _changedAndShow(inserted.first);
   }
