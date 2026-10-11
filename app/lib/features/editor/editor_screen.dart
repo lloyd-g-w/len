@@ -40,6 +40,8 @@ import 'editor_toolbar.dart';
 import 'images/image_entry_points.dart';
 import 'pdf/pdf_layer.dart';
 import 'tabs/open_notebooks.dart';
+import 'toolbar/toolbar_config.dart';
+import 'toolbar/toolbar_editor.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
 /// surface, the content tools' layer and the chrome around them.
@@ -131,6 +133,9 @@ class _EditorScreenState extends State<_EditorView> {
 
   /// Focus mode: all chrome hidden.
   bool _focus = false;
+
+  /// The toolbar is in edit mode ("Customise toolbar…").
+  bool _customising = false;
 
   /// Where the canvas context menu is open, if it is.
   ({Offset at, List<CanvasAction> actions})? _menu;
@@ -432,6 +437,7 @@ class _EditorScreenState extends State<_EditorView> {
                       toolbarWidth: EditorToolbar.oneRowWidth(
                         _session.tools,
                         labels: _services.preferences.toolbarLabels,
+                        config: _services.preferences.toolbarConfig,
                       ),
                     ),
                     toolbarHeight: _toolbarHeight.value,
@@ -541,11 +547,19 @@ class _EditorScreenState extends State<_EditorView> {
   Widget _buildChrome(ChromeLayout layout, OpenNotebooks? tabs) {
     final doc = _session.doc;
     final prefs = _services.preferences;
-    final toolbar = EditorToolbar(
-      tools: _session.tools,
-      onStylusOnlyChanged: _setStylusOnly,
-      showLabels: prefs.toolbarLabels,
-    );
+    final toolbar = _customising
+        ? ToolbarEditor(
+            tools: _session.tools,
+            config: prefs.toolbarConfig,
+            onChanged: (config) => prefs.toolbarConfig = config,
+            onDone: () => setState(() => _customising = false),
+          )
+        : EditorToolbar(
+            tools: _session.tools,
+            onStylusOnlyChanged: _setStylusOnly,
+            showLabels: prefs.toolbarLabels,
+            config: prefs.toolbarConfig,
+          );
     return ListenableBuilder(
       listenable: Listenable.merge([?doc, ?_session.canvasNav, _session.tools]),
       builder: (context, _) => EditorChrome(
@@ -573,6 +587,7 @@ class _EditorScreenState extends State<_EditorView> {
             onFlow: _setFlow,
             onBackground: _pickBackground,
             onSearch: _search.open,
+            onCustomiseToolbar: () => setState(() => _customising = true),
           ),
           undo: _session.undo,
           tabs: tabs,

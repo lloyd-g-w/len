@@ -128,6 +128,12 @@ class SettingsRepository {
   bool get toolbarLabels => _get('toolbar_labels') == 'true';
   set toolbarLabels(bool value) => _set('toolbar_labels', '$value');
 
+  /// The editor toolbar's tool order, hidden tools and favourite pens
+  /// (JSON, see `ToolbarConfig`); null = the default toolbar.
+  String? get toolbarLayout => _get('toolbar_layout');
+  set toolbarLayout(String? value) =>
+      value == null ? _remove('toolbar_layout') : _set('toolbar_layout', value);
+
   /// Centre of the floating toolbar as a fraction of the editor size
   /// (x, y in 0..1); null = not placed yet.
   (double, double)? get toolbarFloat {

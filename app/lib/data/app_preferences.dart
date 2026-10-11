@@ -49,6 +49,11 @@ class AppPreferences extends ChangeNotifier {
   bool get toolbarLabels => _settings.toolbarLabels;
   set toolbarLabels(bool value) => _update(() => _settings.toolbarLabels = value);
 
+  /// The toolbar's tool order, hidden tools and favourite pens (JSON, see
+  /// `ToolbarConfig` in the editor); null = the default toolbar.
+  String? get toolbarLayout => _settings.toolbarLayout;
+  set toolbarLayout(String? value) => _update(() => _settings.toolbarLayout = value);
+
   /// Centre of the floating toolbar, as fractions of the editor's size.
   (double, double)? get toolbarFloat => _settings.toolbarFloat;
   set toolbarFloat((double, double)? value) => _update(() => _settings.toolbarFloat = value);

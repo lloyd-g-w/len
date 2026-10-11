@@ -4,6 +4,8 @@ import '../../ink/tool_settings.dart';
 import '../../ui/adaptive_popover.dart';
 import '../../ui/app_theme.dart';
 import 'editor_tools.dart';
+import 'toolbar/favourite_pens.dart';
+import 'toolbar/toolbar_config.dart';
 import 'toolbar_buttons.dart';
 
 /// The compact (phone) toolbar's tool button: shows the active tool with
@@ -16,12 +18,16 @@ class ToolSwitcherButton extends StatelessWidget {
     required this.active,
     required this.tools,
     required this.onStylusOnlyChanged,
+    this.favourites = const [],
   });
 
   final List<ToolDescriptor> descriptors;
   final ToolDescriptor active;
   final ToolSettings tools;
   final ValueChanged<bool> onStylusOnlyChanged;
+
+  /// Favourite pens, offered in the panel.
+  final List<FavouritePen> favourites;
 
   /// Width of the button (tool glyph plus chevron).
   static const double width = 56;
@@ -68,14 +74,15 @@ class ToolSwitcherButton extends StatelessWidget {
     builder: (popover) => ToolSwitcherPanel(
       descriptors: descriptors,
       tools: tools,
+      favourites: favourites,
       onStylusOnlyChanged: onStylusOnlyChanged,
       anchor: context,
     ),
   );
 }
 
-/// Every tool as a labelled tile (one tap switches and closes), then the
-/// active tool's settings and palm rejection.
+/// Every tool as a labelled tile (one tap switches and closes), the
+/// favourite pens, then the active tool's settings and palm rejection.
 class ToolSwitcherPanel extends StatelessWidget {
   const ToolSwitcherPanel({
     super.key,
@@ -83,11 +90,13 @@ class ToolSwitcherPanel extends StatelessWidget {
     required this.tools,
     required this.onStylusOnlyChanged,
     required this.anchor,
+    this.favourites = const [],
   });
 
   final List<ToolDescriptor> descriptors;
   final ToolSettings tools;
   final ValueChanged<bool> onStylusOnlyChanged;
+  final List<FavouritePen> favourites;
 
   /// Where settings popovers opened from here are anchored (the toolbar).
   final BuildContext anchor;
@@ -124,6 +133,22 @@ class ToolSwitcherPanel extends StatelessWidget {
                   ),
               ],
             ),
+            if (favourites.isNotEmpty) ...[
+              const SizedBox(height: Gaps.sm),
+              Divider(height: 1, color: scheme.outlineVariant),
+              const SizedBox(height: Gaps.xs),
+              Center(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: FavouritePens(
+                    tools: tools,
+                    favourites: favourites,
+                    // Picking a favourite closes the panel, like a tool.
+                    onPicked: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: Gaps.sm),
             Divider(height: 1, color: scheme.outlineVariant),
             const SizedBox(height: Gaps.xs),

@@ -129,6 +129,20 @@ class ToolSettings extends ChangeNotifier {
     selectWidth((c.widthIndex + delta).clamp(0, c.widths.length - 1));
   }
 
+  /// Draws with [tool] (pen or highlighter) in [color] and [width] (a
+  /// favourite pen): selects the quick colour and width slots holding
+  /// them, or puts them into the selected slots, as picking a colour does.
+  void usePreset(EditorTool tool, {required int color, required double width}) {
+    final ink = tool == EditorTool.highlighter ? InkTool.highlighter : InkTool.ballpoint;
+    _tool = tool == EditorTool.highlighter ? tool : EditorTool.pen;
+    updateConfig(ink, (c) {
+      final ci = c.colors.indexOf(color);
+      c = ci == -1 ? c.withColor(c.colorIndex, color) : c.copyWith(colorIndex: ci);
+      final wi = c.widths.indexWhere((w) => (w - width).abs() < 1e-3);
+      return wi == -1 ? c.withWidth(c.widthIndex, width) : c.copyWith(widthIndex: wi);
+    });
+  }
+
   void _leaveNonInk() {
     if (!_tool.usesInk) _tool = EditorTool.pen;
   }
