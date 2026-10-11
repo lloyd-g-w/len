@@ -419,6 +419,12 @@ seventh tile the 2.7 px hook is trimmed (the start moves to the kink).
 
 ![real_spen_02 pen-down close-ups](inklab/rec_real_spen_02_1.0-pendown.png)
 
+![bounces pen-down close-ups](inklab/bounces_0.4-pendown.png)
+
+*`bounces@0.4` at pen-down.* The two bounces (magenta frames) show as a
+dot at the end of the stroke just lifted for three frames (25 ms) and are
+gone after their lift; the intended strokes below start at once.
+
 *`real_spen_02@1` at pen-down.* Every stroke starts under the ring in the
 first frame; the third row is a pen-down flick, trimmed in its second
 frame.

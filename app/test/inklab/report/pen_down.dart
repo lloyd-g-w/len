@@ -53,21 +53,16 @@ Picture? _row(ReplayResult r, InkContact ink, int count, double size, double zoo
     for (var j = 0; j <= k; j++) {
       for (final s in r.frames[j].committed) {
         final at = r.frames[j].toScreen;
-        if ((at(s.points.first.x, s.points.first.y) - landed).distance < 1) continue;
-        if (!s.points.any((p) => (at(p.x, p.y) - landed).distance < size)) continue;
-        pic.fill(_contours(r, r.frames[j], s.points, true, s.style, view), Ink.inkLight);
+        final own = (at(s.points.first.x, s.points.first.y) - landed).distance < 1;
+        if (!own && !s.points.any((p) => (at(p.x, p.y) - landed).distance < size)) continue;
+        final ink = _contours(r, r.frames[j], s.points, true, s.style, view);
+        pic.fill(ink, own ? 0xFF000000 : Ink.inkLight);
       }
     }
     final mine =
         f.drawing && (f.toScreen(f.points.first.x, f.points.first.y) - landed).distance < 1;
-    final committed = f.committed.where(
-      (s) => (f.toScreen(s.points.first.x, s.points.first.y) - landed).distance < 1,
-    );
     if (mine) {
       pic.fill(_contours(r, f, f.points, false, f.style, view), Ink.ink);
-    } else if (committed.isNotEmpty) {
-      final s = committed.first;
-      pic.fill(_contours(r, f, s.points, true, s.style, view), 0xFF000000);
     }
     final seen = [
       for (final s in c.samples)
