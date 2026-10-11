@@ -52,7 +52,7 @@ class RichTextField extends StatelessWidget {
         key(LogicalKeyboardKey.digit9, shift: true): () => c.toggleList(ListKind.check),
         key(LogicalKeyboardKey.digit1, alt: true): () => c.toggleHeading(1),
         key(LogicalKeyboardKey.digit2, alt: true): () => c.toggleHeading(2),
-        key(LogicalKeyboardKey.digit0, alt: true): () => c.toggleHeading(c.currentPara.heading),
+        key(LogicalKeyboardKey.digit0, alt: true): () => c.setHeading(0),
         key(LogicalKeyboardKey.enter): () {
           if (c.currentPara.list == ListKind.check) c.toggleChecked(c.caretLine);
         },

@@ -365,6 +365,9 @@ class RichTextController extends TextEditingController {
     _updateLines((p) => p.copyWith(heading: off ? 0 : level));
   }
 
+  /// Sets heading [level] (0 = body text) for the selected lines.
+  void setHeading(int level) => _updateLines((p) => p.copyWith(heading: level));
+
   /// Makes the selected lines a [kind] list; again → no list.
   void toggleList(ListKind kind) {
     final off = _allLines((p) => p.list == kind);

@@ -191,7 +191,7 @@ class TextFormatBar extends StatelessWidget {
         HeadingMenuButton(
           heading: para.heading,
           onSelected: (level) {
-            c.toggleHeading(level == 0 ? para.heading : level);
+            c.setHeading(level);
             refocus();
           },
         ),
