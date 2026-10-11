@@ -617,30 +617,41 @@ orientation are carried but not used yet.
 
 ### Low-latency ink (Android, experimental; `WetInkOverlay.kt`)
 
-Setting *Low-latency ink (experimental)*, default off. A translucent
-`SurfaceView` (media-overlay z-order) sits above the Flutter view, rendered
-with androidx.graphics' `CanvasFrontBufferedRenderer` (API 29+): the newest
-samples of the contact are drawn into the **front buffer** as each
-`MotionEvent` arrives — round-capped segments in the stroke's colour with the
-outline's radius per pressure (a table sent by Dart) — so the tip appears about
-a frame or two before Flutter's frame shows it. Dart (`_LowLatencySource`, a
-`SampleSource` decorator) sends `begin` (contact, colour, radii) once the
-contact is ink, `progress` (the newest event a built frame contains) after
-each frame, and `end` after the frame showing the committed stroke. On each
-`progress` the overlay *commits*: the front buffer is cleared and only the
-tail Flutter may not have presented yet (samples newer than progress − 2
-frames, never older than 5 frames) is redrawn in the multi-buffered layer, in
-one SurfaceControl transaction, so nothing tears or flickers and the overlay
-never shows more than the last few millimetres of ink, on top of identical
-Flutter ink. Only opaque, round, untextured pens qualify (`WetInkStyle`):
-highlighter, legacy pencil/fountain, translucent colours, erasing, tools and
-straightened strokes are left to Flutter alone.
-Known gaps: the overlay is not clipped to the canvas (a stroke dragged under a
-toolbar shows its tip above it for a few frames), the first stroke after
-switching it on is not accelerated (the surface is created then), start
-tapers appear on the overlay only after the tail expires, and the radius uses
-plain (not causal-smoothed) pressure, so the tip may differ from the final
-outline by a fraction of a pixel.
+Setting *Low-latency ink (experimental)*, default off (see `docs/INK_LAB.md`,
+"Low-latency ink"). A translucent `SurfaceView` (media-overlay z-order) sits
+above the Flutter view, rendered with androidx.graphics'
+`CanvasFrontBufferedRenderer` (API 29+): the newest samples of the contact are
+drawn into the **front buffer** as each `MotionEvent` arrives, so the tip
+appears a frame or two before Flutter's frame shows it.
+
+The overlay draws **the same ink Flutter will**: `WetInkModel.kt` is a
+line-for-line port of the Dart model the Ink Lab measures
+(`ink/lab/wet_ink_model.dart`), which applies the outline's own rules —
+point thinning (`PointSpacing`), the pressure filter, the causal radius
+smoothing in steps along the line, the start and tip end rules, the pen-up
+hook (`HookFinder`), and the shaper's position smoothing (resampling,
+corners, low-pass with end fit) over the points from a little before the
+tail, in step with the whole line's samples. Each piece is the hull of two
+circles (a tapered capsule). `tool/wet_ink_check/check.sh` runs both models
+on vectors from every Ink Lab case and recording and compares them (equal to
+1e-15).
+
+Dart (`_LowLatencySource`, a `SampleSource` decorator) sends `begin`
+(contact, colour, radius table, the rules as `WetInkShape.toList`, where the
+ink starts after the pen-down hook) once the contact is shown, `progress`
+(the newest event a built frame contains) after each frame, and `end` after
+the frame showing the committed stroke. On each `progress` the overlay
+*commits*: the front buffer is cleared and only the points newer than the
+progress reported **two messages before the latest** (Flutter presents a
+frame about two frames after building it) are redrawn in the multi-buffered
+layer, in one SurfaceControl transaction; after `end` the tail stays 3
+frames. So the overlay never shows more than the last few millimetres of
+ink, on top of identical Flutter ink. Only opaque, round, untextured pens
+qualify (`WetInkStyle`): highlighter, legacy pencil/fountain, translucent
+colours, erasing, tools and straightened strokes are left to Flutter alone.
+Known gaps: the overlay is not clipped to the canvas (a stroke dragged under
+a toolbar shows its tip above it for a few frames), and the first stroke
+after switching it on is not accelerated (the surface is created then).
 
 Resting the pen for 600 ms at the end of a stroke snaps it
 (`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`): open
@@ -822,51 +833,84 @@ canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
 
 ### Ink rendering (`ink/render/`)
 
-`StrokeOutline` turns points into a filled outline whose edges are smooth at
-any zoom:
+Every pen stroke — live and committed — goes through one pipeline with a
+**fixed reach**: ink further than a few pen-widths behind the tip of a stroke
+in progress is *final* (bit-identical in every later frame and in the
+committed stroke), so nothing behind the pen moves, and the cost per frame
+does not grow with the stroke's length.
 
-1. Drop duplicate samples, trim pen-down/pen-up hooks, and densify sparse
-   input along a centripetal Catmull-Rom spline (mouse, touch and, without
-   the merged historical samples, Android stylus input arrive at about one
-   sample per frame, so fast curves arrive as chords). Only gaps wider than
-   two resampling steps are filled: dense 240 Hz stylus input passes through
-   point for point. Smoothing (positions, radii) is by arc length, not by
-   sample count, so denser input neither flickers nor gets smoother; the
-   per-sample pressure EMA (`PressureFilter`) is correspondingly lighter in
-   time (≈ 10 ms at 240 Hz instead of ≈ 40 ms at 60 Hz).
-2. `Centerline`: resample at a **fixed** arc-length spacing from the stroke's
-   start (samples of a stroke being drawn never move as it grows), find sharp
-   reversals (tips of `n`, `v`), and low-pass the positions per stretch
-   between them with `2G − G∘G` (`LineFilters`): loops keep their size while
-   digitiser jitter is removed; ends are continued by a local quadratic fit so
-   they neither lag nor bend. At stabiliser 0 the filter only removes
-   sub-pixel noise; it grows with the stabiliser and (up to 3×) with width.
-3. Radii (from pressure): **causal** smoothing (two cascaded exponential
-   passes) and a slope limit, both looking only backwards — the width of ink
-   already drawn never changes as the stroke grows, so nothing flickers behind
-   the pen tip; non-swelling and levelled ends once the stroke is complete;
-   tapers.
-4. `CapsuleEmitter`: the outline is the union of *capsules* — the convex hull
-   of the circles at consecutive samples (nearly collinear, level runs are
-   merged). Each capsule depends only on its two samples, so new input only
-   adds geometry; cusps, hairpins and self-overlaps need no special cases
-   (the non-zero fill unions them); neighbouring capsules share a circle, so
-   edges are tangent-continuous on the outside of bends at any zoom.
+1. **Points** (`input/ink_input_controller.dart`): samples closer than
+   0.75 screen px to the last point are dropped, except the extreme of a
+   dropped run (a cusp tip, `PointSpacing`); pressure is filtered
+   (`PressureFilter`). A contact is shown only once it cannot be a bounce
+   (`BounceFilter.mightBounce`) and its start is decided (below), so a
+   bounce never flashes and the start never changes once shown.
+2. **Unit** (`StrokeOutline.unitOf`): stroke data carry no zoom, but
+   digitiser jitter and hooks are screen-sized. The world size of a screen
+   pixel is estimated from the point spacing of the first points (the
+   controller keeps points ≥ 0.75 screen px apart and a pen lands slowly),
+   so a stroke written zoomed in 7× is smoothed 7× finer in world units.
+3. **`StrokeShaper`** (incremental; each stage looks a fixed number of
+   samples ahead and keeps what is final):
+   - dedupe; the **pen-down hook** is decided once from the first few
+     screen px (`HookFinder`: a short end piece meeting the body at a
+     *local* kink, ≤ 3 px for the start, ≤ 4 px for the end, whatever the
+     pen; curves that merely start or end the stroke are kept);
+   - **resampling** every `step` (≈ σ/3, 0.15–0.6 screen px) along a
+     centripetal Catmull-Rom spline through the points, from the stroke's
+     start, so samples never move as the stroke grows;
+   - **corners**: where the line turns by > 100° within a short baseline
+     (cusps of `n`, `v`); smoothing never crosses them;
+   - **positions**: the finite low-pass `2G − G∘G` (`LineFilters`) per
+     stretch between corners, each stretch continued beyond its ends by a
+     local quadratic fit (no lag, tips stay put). σ = (0.7 + 0.8 ×
+     stabiliser) screen px, a little more for wide pens: never 0, so at
+     stabiliser 0 the digitiser's sub-pixel jitter is still removed;
+   - **radii**: causal (two cascaded exponential passes over the resampled
+     line, then a slope limit), so final as soon as their sample is; the
+     start does not swell and is levelled; the moving tip follows the same
+     end rules within a short reach; tapers.
+4. **`RibbonEmitter`**: the outline is the envelope of the circles along
+   the line. A *run* of samples becomes **one closed contour** — left side
+   forward, a cap, right side back, a cap — whose sides are cubic Béziers
+   fitted to the offset points (within 0.002–0.004 world units, tangent at
+   every join), so edges are smooth at any zoom and a whole stroke is a
+   handful of contours (2–24 sub-paths in the Ink Lab cases, against
+   thousands of capsules before). Runs end where the envelope would fold
+   (corners, bends tighter than the radius); such segments are exact
+   capsules (`capsule_emitter.dart`). All contours wind the same way, so
+   the non-zero fill unions them. Runs are cut at fixed sample indices
+   (`block`, ≈ 24 screen px), so pieces can be frozen.
+5. **Live stroke** (`live_stroke.dart`, `LiveStrokeBuilder`): per frame,
+   only new points are fed to the shaper; pieces that became final are
+   appended to a **frozen path** once, and only the **tail** after them is
+   rebuilt (≈ 20 µs per frame on desktop, flat with length). The tail
+   starts with a round cap inside the frozen part, so opaque ink fills
+   the two without a seam (`LiveInkPainter`); translucent ink fills one
+   combined path.
+6. **Commit** (`LiveStrokeBuilder.finishLive`): at pen-up the shaper rolls
+   back to a recent **checkpoint** that does not depend on the last
+   samples, and completes from there with the pen-up hook trimmed and the
+   last pressures settled; the frozen part is reused. Pen-up handling
+   takes 0.2–1.5 ms on the Ink Lab's cases and recordings and 1–3 ms on
+   its 8 s stroke (desktop, JIT; noisy), and
+   the committed outline equals the last live frame except at its very
+   end. Committed outlines are memoised per stroke (`StrokeRenderer.adopt`).
 
-`OutlineSink` lets tests record the exact segments; specimens of synthetic 240 Hz handwriting with jitter and pressure
-noise are rendered at 1×–16× in `test/ink_specimen_test.dart`. A 1000-point
-stroke builds in well under a millisecond, so the live stroke is rebuilt on
-every pointer move.
+`OutlineSink` lets tests record the exact segments; `test/ribbon_exactness_test.dart`
+checks that the fitted contours cover what the circles cover, and
+`test/live_stroke_test.dart` that live frames and the committed stroke agree.
+Specimens of synthetic 240 Hz handwriting are rendered at 1×–16× in
+`test/ink_specimen_test.dart`.
 
 ### Ink Lab (`ink/lab/`, `features/inklab/`, `test/inklab/`)
 
 Input recordings (`.leninput`), a frame-by-frame replay through the real
-input pipeline, quality metrics against a simulated S Pen's ground truth, an
-opt-in visual report and a hidden on-device recording screen (Settings →
-About, tap the version 7×). See [`INK_LAB.md`](INK_LAB.md). Its findings
-qualify some claims above: merged capsules *do* reshape ink behind the tip
-(F1), stabiliser 0 does no position smoothing (F5), and the live rebuild is
-O(length) with one sub-path per capsule (F6).
+input pipeline, quality metrics against a simulated S Pen's ground truth and
+real recordings, an opt-in visual report and a hidden on-device recording
+screen (Settings → About, tap the version 7×). The engine above passes
+every metric on every entry (`known_failures.dart` is empty). See
+[`INK_LAB.md`](INK_LAB.md).
 
 ## Erasing
 

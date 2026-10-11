@@ -21,6 +21,16 @@ class SuiteEntry {
   late final List<Metric> metrics = allMetrics(subject);
 
   Metric? metric(String id) => metrics.where((m) => m.id == id).firstOrNull;
+
+  /// Whether timing metrics are judged: only on entries that are timed
+  /// (warmed up and repeated: `long_stroke` and recordings).
+  bool get judgedTiming => caseName == 'long_stroke' || caseName.startsWith('rec:');
+
+  /// The metrics the suite judges (timing metrics only when [judgedTiming]).
+  List<Metric> get judged => [
+    for (final m in metrics)
+      if (!m.id.startsWith('perf.') || judgedTiming) m,
+  ];
 }
 
 /// Directory of committed `.leninput` recordings.
@@ -60,13 +70,18 @@ List<SuiteEntry> recordingEntries(File file) {
   final recording = RecordingCodec.decode(file.readAsBytesSync());
   final pen = recording.meta.pen;
   return [
-    SuiteEntry('$name@${pen.streamline}', name, pen.streamline, () => Subject.of(name, recording)),
+    SuiteEntry(
+      '$name@${pen.streamline}',
+      name,
+      pen.streamline,
+      () => Subject.of(name, recording, timed: true),
+    ),
     if (pen.streamline != 0)
       SuiteEntry(
         '$name@0.0',
         name,
         0,
-        () => Subject.of(name, recording, pen: pen.copyWith(streamline: 0)),
+        () => Subject.of(name, recording, pen: pen.copyWith(streamline: 0), timed: true),
       ),
   ];
 }

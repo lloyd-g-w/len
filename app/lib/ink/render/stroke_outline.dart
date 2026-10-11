@@ -2,10 +2,12 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/stroke.dart';
-import 'capsule_emitter.dart';
-import 'catmull_rom.dart';
+import '../input/point_spacing.dart';
 import 'centerline.dart';
 import 'outline_sink.dart';
+import 'ribbon_emitter.dart';
+import 'shape_params.dart';
+import 'stroke_shaper.dart';
 
 /// Shape parameters for [StrokeOutline.build].
 class OutlineSpec {
@@ -40,6 +42,16 @@ class OutlineSpec {
 
   static double _linear(double t) => t;
 
+  /// Whether [other] draws the same outline for the same points.
+  bool sameShape(OutlineSpec other) =>
+      width == other.width &&
+      thinning == other.thinning &&
+      streamline == other.streamline &&
+      easing == other.easing &&
+      taperStart == other.taperStart &&
+      taperEnd == other.taperEnd &&
+      flatCaps == other.flatCaps;
+
   /// Outline radius at [pressure]: half the [width] at medium pressure,
   /// thinner/thicker with lighter/harder pressure as [thinning] allows.
   double radiusFor(double pressure) {
@@ -48,51 +60,57 @@ class OutlineSpec {
   }
 
   // The stabiliser ([streamline], 0..1) is the single control for all
-  // smoothing. At 0 the ink is the pen's raw path and pressure: nothing is
-  // filtered beyond interpolating between samples.
-
-  /// Standard deviation (world units) of the positional smoothing; 0 at
-  /// stabiliser 0, scaled with the width so small handwriting keeps its
-  /// shape.
-  double get positionSigma => 2.0 * streamline * (width / 2).clamp(1.0, 3.0);
+  // smoothing (position smoothing: see [ShapeParams]).
 
   /// Length scale of the (causal) radius smoothing: from half a width at
   /// stabiliser 0 (just digitiser noise) to several widths.
   double get radiusSigma => width * (0.5 + 6 * streamline);
 
-  /// Spacing of the resampled centre line.
-  double get sampleStep => (positionSigma / 2.5).clamp(0.25, 2.0);
-
   /// Fastest allowed change of the radius per unit of length.
   double get maxRadiusSlope => 0.6 - 0.45 * streamline;
 
-  /// How far from a finished stroke's ends the pen-down/pen-up pressure ramp
-  /// is levelled out (0 at stabiliser 0: the natural ramp is kept).
-  double get levelReach => 2 * width * streamline;
-}
+  /// Reach of the non-swelling start and end (world units).
+  double get settleReach => math.min(width, 3.0);
 
-/// A raw input sample: position and outline radius.
-class _Sample {
-  _Sample(this.x, this.y, this.r);
-  final double x, y;
-  double r;
+  /// Reach of the levelled start and end (world units).
+  double get levelReach => math.min(2 * width * streamline, width);
 
-  Offset get offset => Offset(x, y);
+  /// The most the end rules may reach back from a moving pen tip: they
+  /// change ink there as the pen moves on, so they stay within the tip.
+  double get tipReach => 0.5 * width;
+
+  /// The pipeline's numbers for this pen and a stroke written at [unit]
+  /// world units per screen pixel ([StrokeOutline.unitOf]).
+  ShapeParams paramsFor(double unit) => (_params[this] ??= {})[unit] ??= ShapeParams(
+    width: width,
+    unit: unit,
+    streamline: streamline,
+    radiusSigma: radiusSigma,
+    maxRadiusSlope: maxRadiusSlope,
+    settleReach: settleReach,
+    levelReach: levelReach,
+    tipReach: tipReach,
+    taperStart: taperStart,
+    taperEnd: taperEnd,
+  );
+
+  static final Expando<Map<double, ShapeParams>> _params = Expando('outline params');
 }
 
 /// Builds filled outline paths for variable-width ink strokes.
 ///
-/// Pipeline: drop duplicate samples → trim pen-lift hooks → densify along a
-/// centripetal Catmull-Rom spline → resample at a
-/// uniform arc-length spacing → Gaussian-smooth positions (ends pinned, so
-/// there is no lag) and radii → limit how fast the radius may change →
-/// make the ends non-swelling → apply tapers → emit the union of capsules
-/// between consecutive samples ([CapsuleEmitter]).
+/// [StrokeShaper] turns the points into a smoothed centre line with radii
+/// (pen-down hook trimmed, resampled at a fixed step from the start,
+/// finite low-pass smoothing between corners, causal radius smoothing,
+/// end rules); [RibbonEmitter] outlines it with a few smooth contours.
+/// Both have a fixed reach, so ink further than a few pen-widths behind
+/// the tip of a stroke in progress never changes, and the committed
+/// stroke equals the last live frame except at its very end.
 abstract final class StrokeOutline {
   /// Builds the outline of [points]. [pressures], when given, overrides the
   /// per-point pressure (used for direction-dependent nibs). [complete] is
-  /// false while the stroke is still being drawn: its moving end is then
-  /// left untrimmed.
+  /// false while the stroke is still being drawn: the pen-up hook and the
+  /// end taper are then left alone.
   static Path build(
     List<StrokePoint> points,
     OutlineSpec spec, {
@@ -112,114 +130,145 @@ abstract final class StrokeOutline {
     List<double>? pressures,
     bool complete = true,
   }) {
-    final samples = _prepare(points, spec, pressures, complete);
-    if (samples.isEmpty) return;
-    final line = _centerline(samples, spec, complete);
-    final maxR = line.r.fold<double>(0, math.max);
-    if (line.length < 2 || line.arcLength < maxR * 0.5) {
-      final r = math.max(samples.fold<double>(0, (m, s) => math.max(m, s.r)), 0.25);
-      _dot(sink, line.x[0], line.y[0], r, spec.flatCaps);
-      return;
+    final shaper = _shape(points, spec, pressures, complete);
+    if (shaper.inputCount == 0) return;
+    emitLine(sink, shaper, spec);
+  }
+
+  /// Emits the outline of an [update]d [shaper] (a dot when too short).
+  static void emitLine(OutlineSink sink, StrokeShaper shaper, OutlineSpec spec) {
+    if (isDot(shaper)) return dot(sink, shaper, spec);
+    RibbonEmitter(
+      shaper,
+      flatCaps: spec.flatCaps,
+      width: spec.width,
+      step: shaper.p.step,
+    ).emit(sink);
+  }
+
+  /// Whether the line is too short for anything but a dot.
+  static bool isDot(StrokeShaper s) {
+    if (s.length < 2) return true;
+    if (s.p.step * (s.length - 1) >= s.p.width) return false; // radii ≤ width
+    var maxR = 0.0;
+    for (var i = 0; i < s.length; i++) {
+      maxR = math.max(maxR, s.r[i]);
     }
-    CapsuleEmitter(line, flatCaps: spec.flatCaps).emit(sink);
+    return s.p.step * (s.length - 1) < maxR * 0.5;
   }
 
-  /// The smoothed centre line (with radii) [emit] turns into capsules, or
-  /// null for no points. For measurements (Ink Lab, tests).
-  static Centerline? centerline(
-    List<StrokePoint> points,
-    OutlineSpec spec, {
-    List<double>? pressures,
-    bool complete = true,
-  }) {
-    final samples = _prepare(points, spec, pressures, complete);
-    return samples.isEmpty ? null : _centerline(samples, spec, complete);
-  }
-
-  /// Deduplicated samples with pen-lift hooks trimmed.
-  static List<_Sample> _prepare(
-    List<StrokePoint> points,
-    OutlineSpec spec,
-    List<double>? pressures,
-    bool complete,
-  ) {
-    var samples = _dedupe(points, pressures, spec);
-    if (samples.length > 3) {
-      samples = _trimHook(samples, spec.width, atEnd: false);
-      if (complete) samples = _trimHook(samples, spec.width, atEnd: true);
-    }
-    return samples;
-  }
-
-  static Centerline _centerline(List<_Sample> samples, OutlineSpec spec, bool complete) {
-    // Sparse samples from fast writing would otherwise be joined by straight
-    // chords (faceted, "jittery" curves); a spline through them restores
-    // the curve the pen actually travelled.
-    final dense = CatmullRom.densify(
-      [for (final s in samples) s.x],
-      [for (final s in samples) s.y],
-      [for (final s in samples) s.r],
-      spec.sampleStep * 2,
-    );
-    return Centerline.resample(dense.x, dense.y, dense.r, spec.sampleStep)
-      ..settleEnds(spec.width, end: complete)
-      ..findCorners(spec.positionSigma)
-      ..smoothPositions(spec.positionSigma)
-      ..smoothRadii(spec.radiusSigma)
-      ..limitRadiusSlope(spec.maxRadiusSlope)
-      ..settleEnds(spec.width, end: complete)
-      ..levelEnds(spec.levelReach, end: complete)
-      ..taper(spec.taperStart, complete ? spec.taperEnd : 0);
-  }
-
-  static List<_Sample> _dedupe(
-    List<StrokePoint> points,
-    List<double>? pressures,
-    OutlineSpec spec,
-  ) {
-    final eps = math.max(0.01, spec.width * 0.02);
-    final out = <_Sample>[];
-    for (var i = 0; i < points.length; i++) {
-      final p = points[i];
-      final r = spec.radiusFor(pressures?[i] ?? p.pressure);
-      if (out.isNotEmpty && (Offset(p.x, p.y) - out.last.offset).distance < eps) {
-        out.last.r = math.max(out.last.r, r);
-        continue;
-      }
-      out.add(_Sample(p.x, p.y, r));
-    }
-    return out;
-  }
-
-  /// Removes a short end segment that doubles back (the flick a pen makes
-  /// as it lands or lifts), which would otherwise render as a nub. The cut
-  /// is made at the furthest point (within a short reach of the end) where
-  /// the remaining tail turns back by more than 90° against the body.
-  static List<_Sample> _trimHook(List<_Sample> s, double width, {required bool atEnd}) {
-    final maxHook = math.max(2.0, width * 1.2);
-    final seq = atEnd ? s.reversed.toList() : s;
-    var cut = 0;
-    var length = 0.0;
-    for (var j = 1; j + 3 < seq.length; j++) {
-      length += (seq[j].offset - seq[j - 1].offset).distance;
-      if (length > maxHook) break;
-      final hook = seq[0].offset - seq[j].offset;
-      final body = seq[j].offset - seq[j + 3].offset;
-      if (hook.distance == 0 || body.distance == 0) continue;
-      if (hook.dx * body.dx + hook.dy * body.dy < 0) cut = j;
-    }
-    if (cut == 0) return s;
-    final kept = seq.sublist(cut);
-    return atEnd ? kept.reversed.toList() : kept;
-  }
-
-  static void _dot(OutlineSink sink, double x, double y, double r, bool flat) {
-    if (!flat) return addCircle(sink, x, y, r);
+  /// A dot for a (nearly) still contact: the largest input radius.
+  static void dot(OutlineSink sink, StrokeShaper s, OutlineSpec spec) {
+    final r = math.max(s.maxInputRadius, 0.25);
+    final x = s.length > 0 ? s.x[0] : s.inputX(0), y = s.length > 0 ? s.y[0] : s.inputY(0);
+    if (!spec.flatCaps) return addCircle(sink, x, y, r);
     sink
       ..moveTo(x - r, y - r)
       ..lineTo(x + r, y - r)
       ..lineTo(x + r, y + r)
       ..lineTo(x - r, y + r)
       ..close();
+  }
+
+  /// The smoothed centre line (with radii) [emit] outlines, or null for no
+  /// points. For measurements (Ink Lab, tests).
+  static Centerline? centerline(
+    List<StrokePoint> points,
+    OutlineSpec spec, {
+    List<double>? pressures,
+    bool complete = true,
+  }) {
+    final shaper = _shape(points, spec, pressures, complete);
+    if (shaper.length == 0) return null;
+    final s = shaper.snapshot();
+    return Centerline(s.x, s.y, s.r, shaper.p.step, corners: List.of(shaper.corners));
+  }
+
+  /// Whether a live stroke of [points] may be shown: its start (pen-down
+  /// hook, start rules) is decided and will not change any more.
+  static bool startSettled(List<StrokePoint> points, OutlineSpec spec) =>
+      settledStart(points, spec) != null;
+
+  /// The index of the first point that is ink (after the pen-down hook)
+  /// once the start of [points] is decided and final, else null.
+  static int? settledStart(List<StrokePoint> points, OutlineSpec spec) {
+    if (points.length < unitPoints) return null;
+    final shaper = feed(StrokeShaper(paramsOf(points, spec)), points, spec, null)..update();
+    if (!shaper.startFinal) return null;
+    return _pointIndex(points, shaper);
+  }
+
+  /// The index of the first point that is ink in a stroke of [points]
+  /// (after the pen-down hook), deciding with whatever there is.
+  static int startIndex(List<StrokePoint> points, OutlineSpec spec) {
+    final shaper = _shape(points, spec, null, false);
+    return shaper.started ? _pointIndex(points, shaper) : 0;
+  }
+
+  static int _pointIndex(List<StrokePoint> points, StrokeShaper shaper) {
+    final x = shaper.inputX(shaper.startSample), y = shaper.inputY(shaper.startSample);
+    for (var i = 0; i < points.length; i++) {
+      if (points[i].x == x && points[i].y == y) return i;
+    }
+    return 0;
+  }
+
+  /// How many points [unitOf] looks at.
+  static const int unitPoints = 9;
+
+  /// The world size of a screen pixel when [points] were written, estimated
+  /// from their spacing: the input controller keeps points at least
+  /// [PointSpacing.minDistance] screen px apart, and a pen lands slowly, so
+  /// the closest spacings among the first [unitPoints] are that distance
+  /// (the second closest is used: a kept cusp tip may be closer). Clamped to
+  /// a pen 1.5–40 screen px wide; strokes too short to tell use 1.
+  ///
+  /// Stroke data carry no zoom, but how smooth ink should be depends on it:
+  /// the digitiser's jitter is a fraction of a *screen* pixel, so written
+  /// zoomed in 7×, a pen's jitter is 7× smaller in world units.
+  static double unitOf(List<StrokePoint> points, OutlineSpec spec) {
+    final n = math.min(points.length, unitPoints);
+    final gaps = <double>[
+      for (var i = 1; i < n; i++)
+        if ((points[i].offset - points[i - 1].offset).distance case final d when d > 0) d,
+    ]..sort();
+    final u = gaps.length < 2 ? 1.0 : gaps[1] / PointSpacing.minDistance;
+    return u.clamp(spec.width / 40, spec.width / 1.5);
+  }
+
+  /// The pipeline's numbers for [points] drawn with [spec].
+  static ShapeParams paramsOf(List<StrokePoint> points, OutlineSpec spec) =>
+      spec.paramsFor(unitOf(points, spec));
+
+  static StrokeShaper _shape(
+    List<StrokePoint> points,
+    OutlineSpec spec,
+    List<double>? pressures,
+    bool complete,
+  ) {
+    final shaper = feed(StrokeShaper(paramsOf(points, spec)), points, spec, pressures);
+    if (complete) {
+      shaper.update(ended: true, keep: shaper.endKeep());
+    } else {
+      shaper.update();
+      // Too short to decide its start yet: shown as it is.
+      if (!shaper.started) shaper.update(ended: true);
+    }
+    return shaper;
+  }
+
+  /// Adds [points] (from index [from]) to [shaper].
+  static StrokeShaper feed(
+    StrokeShaper shaper,
+    List<StrokePoint> points,
+    OutlineSpec spec,
+    List<double>? pressures, {
+    int from = 0,
+  }) {
+    for (var i = from; i < points.length; i++) {
+      final p = points[i];
+      shaper.add(p.x, p.y, spec.radiusFor(pressures?[i] ?? p.pressure));
+    }
+    return shaper;
   }
 }

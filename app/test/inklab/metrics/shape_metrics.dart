@@ -3,6 +3,8 @@ import 'dart:ui';
 
 import 'package:len/domain/stroke.dart';
 import 'package:len/ink/lab/replay_run.dart';
+import 'package:len/ink/render/hooks.dart';
+import 'package:len/ink/render/stroke_outline.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
 
 import 'metric.dart';
@@ -20,6 +22,18 @@ class StrokePair {
   /// Its centre line on screen (null for a dot).
   final ScreenLine? line;
   final double scale;
+
+  /// The engine's hook rules for this stroke, in screen px.
+  HookFinder get hooks {
+    final spec = StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style);
+    final h = StrokeOutline.paramsOf(stroke.points, spec).hooks;
+    return HookFinder.lengths(
+      maxStart: h.maxStart * scale,
+      maxEnd: h.maxEnd * scale,
+      body: h.body * scale,
+      local: h.local * scale,
+    );
+  }
 
   double radiusFor(double pressure) =>
       StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style).radiusFor(pressure) * scale;
@@ -43,20 +57,21 @@ List<StrokePair> pairStrokes(ReplayResult replay, List<Truth> truths) {
         strokes[i],
         truths[i],
         truths[i].isTap ? null : _line(replay, strokes[i]),
-        replay.viewScale,
+        replay.frameOf(strokes[i]).viewScale,
       ),
   ];
 }
 
 ScreenLine? _line(ReplayResult replay, Stroke s) {
+  final view = replay.frameOf(s);
   final line = centerlineOf(
     s.points,
     tool: s.tool,
     width: s.width,
     style: s.style,
     complete: true,
-    scale: replay.viewScale,
-    offset: replay.viewOffset,
+    scale: view.viewScale,
+    offset: view.viewOffset,
   );
   return line == null || line.c.length < 3 ? null : line;
 }
@@ -78,17 +93,40 @@ List<Metric> fidelity(List<StrokePair> pairs, double streamline) {
       n++;
     }
     final reach = line.r.reduce(math.max);
+    // Raw samples include the pen-down/up flicks the engine trims (exact
+    // truths do not): those may go undrawn (`HookFinder`'s reach).
+    final hooks = p.hooks;
+    final startReach = p.truth.exact ? reach : math.max(reach, hooks.maxStart);
+    final endReach = p.truth.exact ? reach : math.max(reach, hooks.maxEnd);
     final along = arcLengths(p.truth.path);
     for (var i = 0; i < p.truth.path.length; i++) {
-      if (along[i] < reach || along.last - along[i] < reach) continue;
+      if (along[i] < startReach || along.last - along[i] < endReach) continue;
       dev.add(p.lineIndex.distance(p.truth.path[i]), p.truth.path[i]);
     }
     // Width, away from the ends (pen-down/up ramps and tapers are shaped).
+    // The truth point is the nearest one *along* the stroke (near the same
+    // fraction of its length), not anywhere: a stroke crossing itself
+    // passes the same spot twice with different pressures.
     final ends = 2 * p.stroke.width * p.scale;
+    final window = 10 + 4 * reach;
+    var k0 = 0;
     for (var i = 0; i < line.c.length; i++) {
       final s = i * line.step;
+      final target = along.last * s / math.max(line.length, 1e-9);
+      while (k0 < along.length - 1 && along[k0] < target - window) {
+        k0++;
+      }
+      while (k0 > 0 && along[k0 - 1] >= target - window) {
+        k0--;
+      }
+      var best = double.infinity;
+      var at = k0;
+      for (var k = k0; k < along.length && along[k] <= target + window; k++) {
+        final d = (p.truth.path[k] - line.c[i]).distance;
+        if (d < best) (best, at) = (d, k);
+      }
       if (s < ends || line.length - s < ends) continue;
-      final truthR = p.radiusFor(p.truthPressureAt(line.c[i]));
+      final truthR = p.radiusFor(p.truth.pressure[math.min(at, p.truth.pressure.length - 1)]);
       width.add((line.r[i] - truthR).abs() / truthR, line.c[i]);
     }
   }
@@ -125,7 +163,19 @@ List<Metric> detail(List<StrokePair> pairs, double streamline) {
   var any = false;
   for (final p in pairs) {
     if (p.line == null) continue;
-    final points = [...p.truth.cusps, ...tightPoints(p.truth.path, 6)];
+    var points = [...p.truth.cusps, ...tightPoints(p.truth.path, 6)];
+    if (!p.truth.exact) {
+      // Raw samples: the pen-down/up flicks the engine trims are tight too.
+      final hooks = p.hooks;
+      final along = arcLengths(p.truth.path);
+      final index = PolylineIndex(p.truth.path, cell: 3);
+      points = [
+        for (final t in points)
+          if (along[index.nearest(t).segment] >= hooks.maxStart &&
+              along.last - along[index.nearest(t).segment] >= hooks.maxEnd)
+            t,
+      ];
+    }
     for (final t in points) {
       any = true;
       worst.add(p.lineIndex.distance(t), t);

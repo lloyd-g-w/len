@@ -7,6 +7,7 @@ import '../surface_model.dart';
 import '../viewport.dart';
 import 'chunk_picture_cache.dart';
 import 'chunk_raster_cache.dart';
+import 'live_stroke.dart';
 import 'stroke_renderer.dart';
 
 /// Paints committed strokes: only the populated chunks that intersect the
@@ -106,7 +107,7 @@ class LiveInkPainter extends CustomPainter {
 
   /// Outline of the live stroke, rebuilt only when [LiveInk.revision]
   /// changes (not when merely the viewport or eraser cursor moves).
-  Path? _path;
+  LiveOutline? _path;
   int _pathRevision = -1;
 
   static final Paint _eraserFill = Paint()..color = const Color(0x22000000);
@@ -117,16 +118,13 @@ class LiveInkPainter extends CustomPainter {
   /// Told how long each live outline took to build (the Ink Lab's stats).
   static void Function(int points, Duration took)? onBuild;
 
-  Path _livePath() {
+  LiveOutline _livePath() {
     if (_path == null || _pathRevision != live.revision) {
       final watch = onBuild == null ? null : (Stopwatch()..start());
-      _path = StrokeRenderer.buildPath(
-        live.points,
-        tool: live.tool,
-        width: live.width,
-        style: live.style,
-        complete: false,
-      );
+      // Incremental: the builder is kept with the [LiveInk] (painters are
+      // recreated on rebuilds), and hands the committed outline over at
+      // pen-up.
+      _path = LiveStrokeBuilder.livePath(live);
       _pathRevision = live.revision;
       if (watch != null) onBuild?.call(live.points.length, watch.elapsed);
     }
@@ -144,7 +142,19 @@ class LiveInkPainter extends CustomPainter {
       ..scale(viewport.scale);
     if (drawing) {
       if (clip != null) canvas.clipRect(clip!);
-      canvas.drawPath(_livePath(), StrokeRenderer.paintFor(live.tool, live.color, live.style));
+      final outline = _livePath();
+      final paint = StrokeRenderer.paintFor(live.tool, live.color, live.style);
+      final frozen = outline.frozen;
+      if (frozen != null && paint.shader == null && paint.color.a >= 1) {
+        // Opaque ink: the frozen part and the tail overlap (the tail's cap),
+        // so they can be filled separately, without copying the frozen part.
+        canvas
+          ..drawPath(frozen, paint)
+          ..drawPath(outline.tail, paint);
+      } else {
+        // Translucent or textured ink must be filled in one go.
+        canvas.drawPath(outline.combined, paint);
+      }
     }
     if (eraser != null) {
       _eraserOutline.strokeWidth = 1 / viewport.scale; // One screen pixel.

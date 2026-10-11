@@ -36,4 +36,19 @@ void main() {
     final live = drawing(InkTool.ballpoint)..straightened = true;
     expect(WetInkStyle.of(live, 1), isNull);
   });
+
+  test('the overlay gets the outline rules in a fixed order (WetInkOverlay.kt reads it)', () {
+    final shape = WetInkStyle.of(drawing(InkTool.ballpoint), 2)!.shape;
+    final list = shape.toList();
+    // 16 values, then the kernel (odd length, sums to 1).
+    expect(list.length - 16, shape.kernel.length);
+    expect(shape.kernel.length.isOdd, isTrue);
+    expect(shape.kernel.fold<double>(0, (a, b) => a + b), closeTo(1, 1e-9));
+    expect(list[12], shape.step);
+    expect(list[14], shape.fit);
+    expect(list[15], shape.cornerK);
+    final scaled = shape.scaled(3).toList();
+    expect(scaled[0], closeTo(list[0] * 3, 1e-12), reason: 'lengths scale');
+    expect(scaled[2], list[2], reason: 'the pressure filter does not');
+  });
 }

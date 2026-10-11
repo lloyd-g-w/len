@@ -14,7 +14,7 @@ class BounceFilter {
     this.maxGap = const Duration(milliseconds: 120),
     this.maxContact = const Duration(milliseconds: 80),
     this.maxDistance = 16,
-    this.maxTravel = 6,
+    this.maxTravel = 3,
   });
 
   /// Longest pause between the previous lift and the bounce's touch-down.
@@ -42,6 +42,27 @@ class BounceFilter {
   void reset() {
     _liftTime = null;
     _liftPosition = null;
+  }
+
+  /// Whether a contact that started at [down] and is still touching at
+  /// [now] could still turn out to be a bounce. Such a contact is not shown
+  /// yet, so a bounce never flashes; once this is false it never will be a
+  /// bounce ([isBounce] needs the same, or tighter, conditions).
+  bool mightBounce({
+    required Duration down,
+    required Duration now,
+    required Offset start,
+    required double travel,
+  }) {
+    final liftTime = _liftTime;
+    final liftPosition = _liftPosition;
+    if (liftTime == null || liftPosition == null) return false;
+    final gap = down - liftTime;
+    return !gap.isNegative &&
+        gap <= maxGap &&
+        now - down <= maxContact &&
+        (start - liftPosition).distance <= maxDistance &&
+        travel <= maxTravel;
   }
 
   /// Whether a contact from [down] to [up] (screen positions [start]..[end],

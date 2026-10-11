@@ -28,7 +28,7 @@ Rect inkBounds(Subject s, {double pad = 8}) {
   final points = [
     for (final t in s.truths) ...t.path,
     for (final st in r.strokes)
-      for (final p in st.points) r.toScreen(p.x, p.y),
+      for (final p in st.points) r.screenOf(st)(p.x, p.y),
   ];
   if (points.isEmpty) return Rect.zero;
   return boundsOf([points]).inflate(pad);
@@ -68,7 +68,7 @@ Picture finalView(Subject s, Rect area, double zoom, {bool marks = true}) {
         width: st.width,
         style: st.style,
         complete: true,
-        map: (o) => view(r.toScreen(o.dx, o.dy)),
+        map: (o) => view(r.screenOf(st)(o.dx, o.dy)),
         tolerance: 0.1,
       ).contours,
   ];

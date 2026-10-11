@@ -140,7 +140,7 @@ void _dotSize(ReplayResult replay, StrokePair p, Worst worst) {
     width: s.width,
     style: s.style,
     complete: true,
-    map: (o) => replay.toScreen(o.dx, o.dy),
+    map: (o) => replay.screenOf(s)(o.dx, o.dy),
   );
   final b = boundsOf(sink.contours);
   final r = (b.width + b.height) / 4;
@@ -157,8 +157,8 @@ List<ScreenLine> committedLines(ReplayResult replay) => [
           width: s.width,
           style: s.style,
           complete: true,
-          scale: replay.viewScale,
-          offset: replay.viewOffset,
+          scale: replay.frameOf(s).viewScale,
+          offset: replay.frameOf(s).viewOffset,
         )
         case final line? when line.c.length > 8)
       line,

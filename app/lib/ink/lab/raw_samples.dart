@@ -17,10 +17,13 @@ class RawSample {
 /// what the device reported, before the input controller's minimum
 /// spacing, pressure smoothing or the outline engine.
 class RawContact {
-  RawContact(this.kind, this.pointer, this.downUs);
+  RawContact(this.kind, this.pointer, this.downUs, {this.buttons = 0});
   final PointerDeviceKind kind;
   final int pointer;
   final int downUs;
+
+  /// Buttons held at pen-down (a held S Pen side button erases).
+  final int buttons;
   int upUs = 0;
   bool cancelled = false;
   final List<RawSample> samples = [];
@@ -51,7 +54,7 @@ List<RawContact> rawContacts(InputRecording recording) {
         buffer.addAll(entry.batches);
       case PointerEntry(type: PointerType.down) when current == null:
         final e = pointerEventOf(entry) as PointerDownEvent;
-        current = RawContact(entry.kind, entry.pointer, entry.timeStampUs);
+        current = RawContact(entry.kind, entry.pointer, entry.timeStampUs, buttons: entry.buttons);
         contacts.add(current);
         merger.begin(e);
         add(e, e.localPosition, e.pressure, entry.timeStampUs);

@@ -118,8 +118,11 @@ Rect boundsOf(Iterable<Contour> contours) {
   return l.isFinite ? Rect.fromLTRB(l, t, r, b) : Rect.zero;
 }
 
-/// Fills [contours] into a fresh raster spanning [bounds].
-Coverage rasterize(List<Contour> contours, Rect bounds) => Coverage.around(bounds)..fill(contours);
+/// Fills [contours] into a fresh raster spanning [bounds], with [subRows]
+/// sub-scanlines per pixel row (coverage of near-horizontal edges is
+/// resolved to 1 / [subRows]).
+Coverage rasterize(List<Contour> contours, Rect bounds, {int subRows = 5}) =>
+    Coverage.around(bounds)..fill(contours, subRows: subRows);
 
 class _Edge {
   _Edge(Offset a, Offset b, int left, int top)
