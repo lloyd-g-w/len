@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:len/features/editor/document/document_controller.dart';
 import 'package:len/features/documents/overview/page_tile.dart';
+import 'package:len/features/editor/document/document_controller.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/outline/outline_panel.dart';
 

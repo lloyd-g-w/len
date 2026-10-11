@@ -189,15 +189,14 @@ class _TagChips extends StatelessWidget {
             const SizedBox(width: Gaps.xs),
           ],
           if (c.tagFilter.isNotEmpty)
-            TextButton(onPressed: c.clearTagFilter, child: const Text('Clear'))
-          else
-            IconButton(
-              tooltip: 'Manage tags',
-              iconSize: 18,
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => unawaited(actions.manageTags(context)),
-            ),
+            TextButton(onPressed: c.clearTagFilter, child: const Text('Clear')),
+          IconButton(
+            tooltip: 'Manage tags',
+            iconSize: 18,
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => unawaited(actions.manageTags(context)),
+          ),
         ],
       ),
     );

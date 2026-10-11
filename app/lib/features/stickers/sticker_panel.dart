@@ -167,7 +167,10 @@ class _StickerPanelState extends State<StickerPanel> {
                         tooltip: 'Sticker options',
                         visualDensity: VisualDensity.compact,
                         iconSize: 16,
-                        color: scheme.outline,
+                        style: IconButton.styleFrom(
+                          backgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.9),
+                          foregroundColor: scheme.onSurfaceVariant,
+                        ),
                         icon: const Icon(Icons.more_horiz_rounded),
                         onPressed: () => unawaited(_menu(anchor, sticker, null)),
                       ),

@@ -148,6 +148,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
     return ListTile(
       key: ValueKey('user-outline-${entry.id}'),
       selected: page == current,
+      selectedTileColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
       contentPadding: EdgeInsetsDirectional.only(start: Gaps.sm + row.depth * 24.0, end: Gaps.xs),
       minLeadingWidth: 48,
       horizontalTitleGap: Gaps.xs,
@@ -164,7 +165,10 @@ class _OutlinePanelState extends State<OutlinePanel> {
         entry.title,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: row.depth == 0 ? theme.textTheme.bodyLarge : theme.textTheme.bodyMedium,
+        style: (row.depth == 0 ? theme.textTheme.bodyLarge : theme.textTheme.bodyMedium)?.copyWith(
+          color: page == current ? theme.colorScheme.primary : null,
+          fontWeight: page == current ? FontWeight.w600 : null,
+        ),
       ),
       subtitle: page == null ? const Text('Page deleted') : null,
       trailing: Row(
