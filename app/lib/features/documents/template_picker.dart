@@ -53,12 +53,13 @@ Future<TemplateChoice?> showTemplatePicker(
   BuildContext context, {
   required PageTemplate initial,
   TemplatePickerMode mode = TemplatePickerMode.create,
+  DateTime? today,
 }) => showModalBottomSheet<TemplateChoice>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
   constraints: const BoxConstraints(maxWidth: 720),
-  builder: (_) => TemplatePicker(initial: initial, mode: mode),
+  builder: (_) => TemplatePicker(initial: initial, mode: mode, today: today),
 );
 
 /// The selection a chooser starts from: [initial], with planners dated
