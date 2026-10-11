@@ -309,6 +309,52 @@ on mobile and written into a folder the user picks on desktop.
   crop edges, dragging inside pans it, and committing keeps the visible part
   exactly where it was on the surface.
 
+## Opening files from other apps (`features/documents/import/`, `platform/incoming_files*`)
+
+"Open with Len" / "Share to Len" for PDFs and images, GoodNotes-style.
+
+- **Sources** (`platform/incoming_files*`, `openIncomingFiles(args)` → a stream of
+  `XFile` batches, wired in `main.dart`):
+  - *Android:* intent filters on `MainActivity` for `ACTION_VIEW` (content URIs)
+    and `ACTION_SEND` / `ACTION_SEND_MULTIPLE` with `application/pdf` and
+    `image/*`. `IncomingFiles.kt` copies each URI (read permission only lasts
+    with the intent) off the main thread into `cache/incoming/<uuid>/<display
+    name>` and calls `files([{path, name, mime}])` on `len/incoming_files` once
+    Dart has called `ready`, so the launch intent (cold start, `onCreate`) waits
+    for Dart; later intents arrive through `onNewIntent` (warm start). The
+    activity is `singleTask` so a share from another app reaches the running Len
+    instead of starting a second engine in that app's task. Copies are deleted
+    when the next engine starts.
+  - *Linux:* paths / `file://` URIs on the command line (`Exec=len %F`;
+    `MimeType=application/pdf;image/png;image/jpeg;image/webp` in the desktop
+    entry). The GTK runner is single-instance (`G_APPLICATION_HANDLES_OPEN`): a
+    second `len file.pdf` forwards the files over D-Bus to the running one,
+    whose `open` handler sends them on `len/incoming_files`, and exits.
+    `LEN_MULTI_INSTANCE=1` or a non-default `XDG_DATA_HOME` (screenshots, tests)
+    turn this off.
+  - *Windows:* command-line paths (the runner passes them to `main`). File
+    associations belong to a future installer; a second launch is a second
+    process (no forwarding yet).
+  - *Web:* the installed PWA's File Handling API (`file_handlers` +
+    `launch_handler: focus-existing` in `manifest.json`; `launchQueue`
+    consumer), Chromium-based desktop browsers only. Files can also be dropped
+    onto the library on every platform (`LibraryFileDrop`, `desktop_drop`,
+    which supports the web).
+- **`IncomingFiles`** (in `AppServices`) buffers batches until the library sets
+  its handler (cold start) and holds `ImportTargets`: the shown editor
+  registers an `EditorImportTarget` (insert PDF pages after the current page /
+  images on the current page or canvas).
+- **`ImportRouter`** (pure, tested) classifies files by MIME type, else
+  extension (PDF, image, unsupported) and plans `ImportStep`s: with nothing open,
+  each PDF becomes a notebook (existing PDF import flow) and all images one new
+  canvas; with an editor open, the user is asked "Add to this notebook" or "New
+  notebook / canvas" (PDFs always become notebooks when a canvas is open).
+  Unsupported files get a friendly message.
+- **`ImportFlow`** carries a plan out with the existing flows (progress dialogs,
+  messages), one batch at a time; new notebooks open in editor tabs (the last
+  one shown; an open editor just switches tabs), and images wait for the new
+  canvas's editor (`ImportTargets.waitFor`) to be placed by `EditorImages`.
+
 ## Audio (`features/audio/`)
 
 GoodNotes-style lecture recording: audio is captured while writing and
@@ -628,6 +674,7 @@ the web:
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread (`StrokeRepository`)                   |
 | Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
 | Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
+| Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux: command line + forwarding from a second instance; Windows: command line | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
 | Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
@@ -654,13 +701,16 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   Flutter's first frame. Edge to edge: transparent bars in the window themes,
   and `ui/system_bars.dart` (`MaterialApp.builder`) keeps the bar icons in step
   with the *app's* light/dark theme. Freely resizable (split screen, DeX,
-  freeform; `<layout>` minimum 360×400 dp), orientation unlocked. Release:
+  freeform; `<layout>` minimum 360×400 dp), orientation unlocked;
+  `singleTask` with "Open with" / "Share" intent filters (see *Opening files
+  from other apps*). Release:
   `android/key.properties` signing (debug-key fallback), R8 + resource
   shrinking, `versionCode` = pubspec build number.
 - **Linux:** application id `dev.len.len` (= GTK app id = `.desktop` name =
   icon name, so Wayland docks match the window). The bundle carries `share/`
-  (desktop entry, icons) and `install-desktop-entry.sh`; the runner loads its
-  window icon from there.
+  (desktop entry with PDF/image MIME types and `%F`, icons) and
+  `install-desktop-entry.sh`; the runner loads its window icon from there and
+  is single-instance (files opened later are forwarded to the running Len).
 - **Windows:** PerMonitorV2 DPI awareness (manifest), initial window centred
   and clamped to the work area, minimum size 360×400.
 - **CI / releases:** `.github/workflows/ci.yml` (analyze, tests, all builds,
@@ -895,5 +945,9 @@ records with last-write-wins. Open screens subscribe to
   `navigator.storage.persist()` request yet) and quotas vary. Writes reach
   IndexedDB asynchronously, so closing the tab within milliseconds of an edit
   can lose it. Canvas chunk reads run on the UI thread.
+- Open with: Windows has no file associations (installer) or single-instance
+  forwarding yet; Android shares mixing PDFs and images arrive as `*/*`, which
+  Len does not register for; PDFs dropped onto an open editor are ignored (only
+  images are inserted there; drop onto the library or use "Open with").
 - Page reorders made concurrently on two devices converge (LWW per page) but
   may interleave differently than either device intended.

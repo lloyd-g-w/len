@@ -117,8 +117,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   screen, edge-to-edge system bars, Linux desktop entry, Windows window placement
 - ✅ CI (analyze, tests, Linux/Android/Web/Windows builds, server image) and tagged releases
   (APK, Linux tarball, Windows zip, web zip, GHCR server image)
-- ⬜ "Open with Len" for PDFs (Android intent filter / Linux MIME / Windows file association →
-  import); store listings (Play / F-Droid / Flathub / winget)
+- ✅ "Open with Len" / "Share to Len": PDFs → new notebook (or pages of the open notebook),
+  images → new canvas (or onto the open page / canvas), asked when an editor is open; Android
+  intents (cold + warm start), Linux command line + desktop-entry MIME types + single instance,
+  Windows command line, PWA file handlers, drag and drop onto the library (desktop + web)
+- ⬜ Windows file associations (installer) and single-instance forwarding; store listings
+  (Play / F-Droid / Flathub / winget)
 
 ## Sync
 - ✅ Self-hosted LWW record sync
