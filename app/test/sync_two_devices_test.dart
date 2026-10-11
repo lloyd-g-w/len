@@ -17,6 +17,7 @@ import 'package:len/domain/cover_style.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/domain/recording.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
@@ -539,6 +540,74 @@ void main() {
       expect(b.s.templates.get('bad-blob'), isNull);
       expect(b.s.pages.get('undated'), isNull);
       expect(b.s.notebooks.get('planner-default'), isNull);
+    });
+
+    test('recordings: audio, waveform, segments, rename and delete', () async {
+      final (time, server, a, b) = _twoDevices();
+      final nb = a.s.notebooks.create(
+        title: 'Lecture',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      final wave = 'b' * 64;
+      final r = a.s.recordings.create(
+        notebookId: nb.id,
+        blob: _sha,
+        mime: 'audio/webm',
+        title: 'Talk',
+        segments: const [RecordingSegment(5000, 1200), RecordingSegment(9000, 800)],
+        waveform: wave,
+      );
+      var changes = await (() async {
+        await a.sync();
+        return b.sync();
+      })();
+      expect(changes.recordingsOfNotebooks, {nb.id});
+      final got = b.s.recordings.get(r.id)!;
+      expect(
+        (got.notebookId, got.blob, got.mime, got.title, got.waveform, got.durationMs),
+        (nb.id, _sha, 'audio/webm', 'Talk', wave, 2000),
+      );
+      expect(got.startedAt, 5000);
+      expect(got.segments, r.segments);
+
+      time.tick();
+      b.s.recordings.rename(r.id, 'Renamed');
+      await _send(b, a);
+      expect(a.s.recordings.get(r.id)!.title, 'Renamed');
+      expect(a.s.recordings.get(r.id)!.waveform, wave, reason: 'kept through edits');
+
+      time.tick();
+      a.s.recordings.delete(r.id);
+      changes = await (() async {
+        await a.sync();
+        return b.sync();
+      })();
+      expect(changes.recordingsOfNotebooks, {nb.id});
+      expect(b.s.recordings.listOf(nb.id), isEmpty);
+      expect(b.deleted('recordings', r.id), isTrue);
+
+      // A malformed waveform id is skipped; one without a waveform is fine.
+      Map<String, Object?> data(String waveform) => {
+        'notebookId': nb.id,
+        'blob': _sha,
+        'durationMs': 1000,
+        'startedAt': 1,
+        'title': 'x',
+        'mime': 'audio/mp4',
+        'segments': [
+          [1, 1000],
+        ],
+        'waveform': waveform,
+      };
+      server.injected.addAll([
+        _record('recordings', 'bad-wave', 10, data: data('xyz')),
+        _record('recordings', 'no-wave', 10, data: data('')),
+      ]);
+      await b.sync();
+      expect(b.s.recordings.get('bad-wave'), isNull);
+      expect(b.s.recordings.get('no-wave')!.waveform, '');
     });
 
     test('strokes: tool, colour, width, points and style', () async {
