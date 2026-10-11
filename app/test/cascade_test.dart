@@ -12,7 +12,7 @@ import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
-import 'package:len/domain/text_data.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:sqlite3/common.dart';
 
 import 'data_test.dart' show FakeClock;
@@ -93,7 +93,7 @@ class _App {
     final pdf = s.pages.insertPages(paged.id, [
       (
         size: const Size(612, 792),
-        paper: PaperStyle.blank,
+        paper: Paper(PaperStyle.blank),
         color: PaperColor.grey,
         background: const PageBackground.pdf(blob: _sha, pageIndex: 0),
       ),

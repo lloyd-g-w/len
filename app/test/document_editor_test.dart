@@ -35,13 +35,13 @@ Future<(AppServices, Notebook)> pumpEditor(
     kind: NotebookKind.paged,
     paper: PaperStyle.collegeRuled,
     coverColor: 0,
-    firstPage: const PageTemplate(style: PaperStyle.collegeRuled),
+    firstPage: const PageTemplate(paper: Paper(PaperStyle.collegeRuled)),
   );
   final first = services.pages.pagesOf(nb.id).single;
   final second = services.pages.addPage(
     nb.id,
     template: const PageTemplate(
-      style: PaperStyle.grid,
+      paper: Paper(PaperStyle.gridLarge),
       color: PaperColor.cream,
       format: PageFormat.letter,
       orientation: PageOrientation.landscape,
@@ -49,7 +49,7 @@ Future<(AppServices, Notebook)> pumpEditor(
   );
   services.pages.addPage(
     nb.id,
-    template: const PageTemplate(style: PaperStyle.dotted, color: PaperColor.dark),
+    template: const PageTemplate(paper: Paper(PaperStyle.dotted), color: PaperColor.dark),
   );
   services.strokes.save([
     _wave('w1', first.id, const Offset(120, 200), 0xFF1F2937),
@@ -179,7 +179,7 @@ void main() {
     await tester.tap(find.byTooltip('Add page after this one'));
     await tester.pumpAndSettle();
     expect(find.text('2 / 4'), findsOneWidget);
-    expect(pages()[1].paper, PaperStyle.collegeRuled); // Like the page it follows.
+    expect(pages()[1].paper.style, PaperStyle.collegeRuled); // Like the page it follows.
 
     Future<void> menu(String item) async {
       await tester.tap(find.byTooltip('More options'));
@@ -199,10 +199,12 @@ void main() {
     expect(find.text('3 / 5'), findsOneWidget);
 
     await menu('Change template…');
+    await tester.ensureVisible(find.text('Music staff'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Music staff'));
     await tester.tap(find.text('Apply to all pages'));
     await tester.pumpAndSettle();
-    expect(pages().every((p) => p.paper == PaperStyle.music), isTrue);
+    expect(pages().every((p) => p.paper.style == PaperStyle.music), isTrue);
 
     final doomed = pages()[2].id;
     await menu('Delete page');

@@ -28,10 +28,36 @@ class FakeServer {
   final Map<String, Uint8List> blobs = {};
   final List<String> log = [];
 
+  /// `/v1/health` fields: the advertised blob limit (null: not advertised,
+  /// like older servers) and the last garbage collection.
+  int? maxBlobBytes;
+  int blobsCollectedAt = 0;
+
+  /// Blob uploads larger than this are refused with 413 (a proxy, or a
+  /// server not advertising its limit).
+  int? rejectBlobsAbove;
+
+  /// Blob uploads that fail with 500.
+  final Set<String> failingPuts = {};
+
+  /// Every blob upload attempted, in order.
+  final List<String> putAttempts = [];
+
   /// The stored record `collection/id`, or null.
   Map<String, Object?>? stored(String collection, String id) => _records['$collection/$id'];
 
   late final MockClient client = MockClient((request) async {
+    if (request.url.path == '/v1/health') {
+      return http.Response(
+        jsonEncode({
+          'status': 'ok',
+          'protocol': 1,
+          'maxBlobBytes': ?maxBlobBytes,
+          'blobsCollectedAt': blobsCollectedAt,
+        }),
+        200,
+      );
+    }
     if (request.headers['Authorization'] != 'Bearer $token') {
       return http.Response('{"error":"unauthorized"}', 401);
     }
@@ -48,6 +74,11 @@ class FakeServer {
               ? http.Response('{"error":"not found"}', 404)
               : http.Response.bytes(b, 200);
         case 'PUT':
+          putAttempts.add(sha);
+          if (failingPuts.contains(sha)) return http.Response('{"error":"disk full"}', 500);
+          if (request.bodyBytes.length > (rejectBlobsAbove ?? 1 << 62)) {
+            return http.Response('{"error":"blob too large"}', 413);
+          }
           if (sha256.convert(request.bodyBytes).toString() != sha) {
             return http.Response('{"error":"hash mismatch"}', 400);
           }

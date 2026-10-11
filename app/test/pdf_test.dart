@@ -11,7 +11,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
-import 'package:len/domain/text_data.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/documents/export/notebook_exporter.dart';
 import 'package:len/features/documents/pdf/pdf_background_cache.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
@@ -149,7 +149,7 @@ void main() {
         kind: NotebookKind.paged,
         paper: PaperStyle.cornell,
         coverColor: 0,
-        firstPage: const PageTemplate(style: PaperStyle.cornell, color: PaperColor.cream),
+        firstPage: const PageTemplate(paper: Paper(PaperStyle.cornell), color: PaperColor.cream),
       );
       final page = services.pages.pagesOf(nb.id).single;
       services.strokes.save([

@@ -12,6 +12,7 @@ import '../../ui/text_prompt.dart';
 import '../audio/audio_layer.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/audio_bar_button.dart';
+import '../audio/ui/playback_keys.dart';
 import '../documents/template_picker.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
@@ -31,10 +32,12 @@ import 'document/document_layout.dart';
 import 'editor_actions.dart';
 import 'editor_canvas.dart';
 import 'editor_gestures.dart';
+import 'editor_import_target.dart';
 import 'editor_session.dart';
 import 'editor_shortcuts.dart';
 import 'editor_toolbar.dart';
 import 'images/image_entry_points.dart';
+import 'pdf/pdf_layer.dart';
 import 'tabs/open_notebooks.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
@@ -109,6 +112,14 @@ class _EditorScreenState extends State<EditorScreen> {
   /// canvas is touched (e.g. after using the width slider).
   final FocusNode _focusNode = FocusNode(debugLabel: 'EditorScreen');
 
+  /// Receives files opened with / shared to Len while this editor is shown.
+  late final EditorImportTarget _importTarget = EditorImportTarget(
+    context: context,
+    session: _session,
+    notebookId: widget.notebook.id,
+    title: () => _notebook.title,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -122,6 +133,7 @@ class _EditorScreenState extends State<EditorScreen> {
     _services.preferences.addListener(_onPreferences);
     _session.undo.addListener(_onEdit);
     _lifecycle; // Starts listening.
+    _services.incomingFiles.targets.add(_importTarget);
     // Take the keyboard even when another editor (the previous tab) still
     // held it while this one was built; autofocus would not.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -131,6 +143,7 @@ class _EditorScreenState extends State<EditorScreen> {
 
   @override
   void dispose() {
+    _services.incomingFiles.targets.remove(_importTarget);
     unawaited(_remoteChanges?.cancel());
     _services.openNotebooks
       ..removeListener(_onTabs)
@@ -260,14 +273,21 @@ class _EditorScreenState extends State<EditorScreen> {
 
   void _openMenu(Offset at) {
     if (!mounted || _closing) return;
+    // A long press on PDF text selects the word there instead.
+    if (_session.pdf?.selectWordAt(at) ?? false) return;
     final doc = _session.doc;
     final actions = canvasActions(
       _session,
       at,
       bookmarked: doc?.activePageData.bookmarked ?? false,
       onPageCommand: (c) => _session.commands!.run(context, c, doc!.activePageData),
+      onFollowLink: _followLink,
     );
     setState(() => _menu = (at: at, actions: actions));
+  }
+
+  void _followLink(Paper target) {
+    if (mounted && !_closing) _session.commands?.followLink(context, target);
   }
 
   void _closeMenu() {
@@ -308,7 +328,7 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _pickBackground() async {
     final choice = await showTemplatePicker(
       context,
-      initial: PageTemplate(style: _notebook.paper, color: _notebook.paperColor),
+      initial: PageTemplate.of(_notebook.paper, color: _notebook.paperColor),
       mode: TemplatePickerMode.canvas,
     );
     if (choice == null || !mounted || _closing) return;
@@ -359,18 +379,20 @@ class _EditorScreenState extends State<EditorScreen> {
               paste: () => _session.images.paste(context),
             ),
             ...EditorSearchLayer.shortcuts(_search),
+            ...?_session.pdf == null ? null : pdfShortcuts(_session.pdf!),
           },
           child: Focus(
             focusNode: _focusNode,
             autofocus: true,
             // Escape first closes a chrome menu opened with a tap (focus
-            // stayed here, out of the menu's reach).
+            // stayed here, out of the menu's reach). The audio player's
+            // keys (Space, ← / →) come before the editor's shortcuts.
             onKeyEvent: (_, event) =>
                 event is KeyDownEvent &&
                     event.logicalKey == LogicalKeyboardKey.escape &&
                     _guard.closeMenus()
                 ? KeyEventResult.handled
-                : KeyEventResult.ignored,
+                : handlePlaybackKey(_audio, event),
             // Automatic placement depends on the toolbar's width (its slots).
             child: ListenableBuilder(
               listenable: Listenable.merge([_session.tools, _toolbarHeight]),
@@ -409,8 +431,11 @@ class _EditorScreenState extends State<EditorScreen> {
                               focusNode: _focusNode,
                               guard: _guard,
                               chromeInsets: layout.covered,
+                              onFollowLink: _followLink,
                             ),
                           ),
+                          if (_session.pdf case final pdf?)
+                            Positioned.fill(child: PdfLayer(interaction: pdf)),
                           if (_session.canvas != null)
                             Positioned.fill(
                               child: Padding(

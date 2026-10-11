@@ -44,7 +44,9 @@ class DocumentPaperPainter extends CustomPainter {
     required this.desk,
     required this.devicePixelRatio,
     this.backgrounds,
-  }) : super(repaint: Listenable.merge([viewport, ?backgrounds]));
+    this.paperImages,
+    Listenable? paperImagesChanged,
+  }) : super(repaint: Listenable.merge([viewport, ?backgrounds, ?paperImagesChanged]));
 
   final DocumentLayout layout;
   final List<NotebookPage> pages;
@@ -52,6 +54,9 @@ class DocumentPaperPainter extends CustomPainter {
   final Color desk;
   final double devicePixelRatio;
   final PageBackgrounds? backgrounds;
+
+  /// Decoded image templates.
+  final PaperImageLookup? paperImages;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -69,13 +74,11 @@ class DocumentPaperPainter extends CustomPainter {
         ..translate(frame.left, frame.top);
       PaperRenderer.paintSheet(canvas, local, page.paperColor, scale: scale);
       canvas.clipRect(local);
-      final background = page.background;
-      if (background != null) {
-        final pixelWidth = frame.width * scale * devicePixelRatio;
-        final image = backgrounds?.imageFor(background, pixelWidth);
-        if (image != null) paintBackgroundImage(canvas, image, local);
-      }
       final area = visible.shift(-frame.topLeft).intersect(local);
+      final background = page.background;
+      if (background != null && !area.isEmpty) {
+        backgrounds?.paint(canvas, background, frame.size, area, scale * devicePixelRatio);
+      }
       if (!area.isEmpty) {
         PaperRenderer.paintPattern(
           canvas,
@@ -84,6 +87,9 @@ class DocumentPaperPainter extends CustomPainter {
           area,
           page: local,
           scale: scale,
+          images: paperImages == null
+              ? null
+              : (blob, _) => paperImages!(blob, frame.width * scale * devicePixelRatio),
         );
       }
       if (page.bookmarked) paintBookmark(canvas, frame.size);
@@ -98,7 +104,8 @@ class DocumentPaperPainter extends CustomPainter {
       old.viewport != viewport ||
       old.desk != desk ||
       old.devicePixelRatio != devicePixelRatio ||
-      old.backgrounds != backgrounds;
+      old.backgrounds != backgrounds ||
+      old.paperImages != paperImages;
 }
 
 /// Paints the committed ink of the visible pages from their chunk caches.

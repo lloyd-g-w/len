@@ -33,7 +33,12 @@ void main() {
   });
 
   test('no overshoot on a sharp turn', () {
-    final d = CatmullRom.densify(<double>[0, 20, 20.5, 40], <double>[0, 0, 20, 20], <double>[1, 1, 1, 1], 0.5);
+    final d = CatmullRom.densify(<double>[0, 20, 20.5, 40], <double>[0, 0, 20, 20], <double>[
+      1,
+      1,
+      1,
+      1,
+    ], 0.5);
     expect(d.x.reduce(math.max), lessThanOrEqualTo(40));
     expect(d.y.reduce(math.min), greaterThan(-1.5));
   });

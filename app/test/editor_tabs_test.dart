@@ -92,11 +92,11 @@ void main() {
     final physics = s.notebooks.create(
       title: 'Physics',
       kind: NotebookKind.paged,
-      paper: PaperStyle.lined,
+      paper: PaperStyle.wideRuled,
       coverColor: 0,
     );
     for (var i = 0; i < 3; i++) {
-      s.pages.addPage(physics.id, paper: PaperStyle.lined);
+      s.pages.addPage(physics.id, paper: PaperStyle.wideRuled);
     }
     s.notebooks.create(
       title: 'Board',

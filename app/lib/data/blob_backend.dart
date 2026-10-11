@@ -21,6 +21,9 @@ abstract interface class BlobBackend {
   /// write never leaves a partial blob behind.
   Future<void> write(String sha, Stream<List<int>> data);
 
+  /// Removes blob [sha] (a no-op if it is not stored).
+  Future<void> delete(String sha);
+
   /// The file holding blob [sha], when the platform has files (native);
   /// null in browsers. Lets large PDFs be opened without loading them
   /// into memory.
@@ -46,6 +49,9 @@ class MemoryBlobBackend implements BlobBackend {
   @override
   Future<void> write(String sha, Stream<List<int>> data) async =>
       _blobs[sha] = await collectBytes(data);
+
+  @override
+  Future<void> delete(String sha) async => _blobs.remove(sha);
 
   @override
   String? localPath(String sha) => null;

@@ -59,8 +59,22 @@ void main() {
     p.dispose();
   });
 
+  test('task progress can be cancelled: the next step throws', () {
+    final p = TaskProgress('Start');
+    var notified = 0;
+    p.addListener(() => notified++);
+    p.step(0, 3);
+    p.cancel();
+    p.cancel(); // Once is enough.
+    expect(p.isCancelled, isTrue);
+    expect(notified, 2);
+    expect(() => p.step(1, 3), throwsA(isA<Cancelled>()));
+    expect(() => p.stageStarted('More'), throwsA(isA<Cancelled>()));
+    p.dispose();
+  });
+
   test('template descriptions', () {
-    const t = PageTemplate(style: PaperStyle.dotted, color: PaperColor.cream);
+    const t = PageTemplate(paper: Paper(PaperStyle.dotted), color: PaperColor.cream);
     expect(describeTemplate(t), 'Dotted · Cream · A4 portrait');
     expect(describeTemplate(t, canvas: true), 'Dotted · Cream · Infinite canvas');
     expect(describeTemplate(t.copyWith(format: PageFormat.square)), 'Dotted · Cream · Square');

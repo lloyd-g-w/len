@@ -9,6 +9,7 @@ import '../../../domain/surface_element.dart';
 import '../../editor/document/page_painting.dart';
 import '../pdf/pdf_renderer.dart';
 import 'pdf_export.dart';
+import 'pdf_page_sources.dart';
 
 /// The phases of a PDF export.
 enum ExportStage { preparing, writing }
@@ -26,45 +27,52 @@ class NotebookExporter {
   final PdfRenderer _renderer;
   final SurfaceCopier _copier;
 
-  /// Resolution of PDF-page backgrounds embedded in exported PDFs.
+  /// Resolution of PDF pages embedded as images (only pages that cannot be
+  /// copied as vectors).
   static const double backgroundDpi = 150;
 
-  /// A PDF of [pages] (vector ink and templates). [onProgress] hears how
-  /// many pages are prepared, then written. Without [backgrounds],
-  /// imported PDF pages are left out.
+  /// A PDF of [pages] (vector ink and templates; imported PDF pages copied
+  /// as vectors). [onProgress] hears how many pages are prepared, then
+  /// written, and may throw to abandon the export. Without [backgrounds],
+  /// imported PDF pages are left out. [onRasterized] hears the index (in
+  /// [pages]) of each PDF page that had to be embedded as an image.
   Future<Uint8List> pdf(
     List<NotebookPage> pages, {
     String? title,
     ExportProgress? onProgress,
     bool backgrounds = true,
+    void Function(int index)? onRasterized,
   }) async {
+    final sources = PdfPageSources(read: _readBlob, normalize: _renderer.normalized);
     final export = <ExportPage>[];
-    try {
-      for (final page in pages) {
-        onProgress?.call(ExportStage.preparing, export.length, pages.length);
-        final background = backgrounds
-            ? await _background(page, page.width / 96 * backgroundDpi)
-            : null;
-        export.add(
-          ExportPage(
-            page,
-            _copier.loadAll(page.id),
-            elements: _copier.loadAllElements(page.id),
-            background: background,
-          ),
-        );
-      }
-      return await PdfExporter.build(
-        export,
-        title: title,
-        onPage: (done) => onProgress?.call(ExportStage.writing, done, export.length),
-        readBlob: _readBlob,
+    for (final page in pages) {
+      onProgress?.call(ExportStage.preparing, export.length, pages.length);
+      export.add(
+        ExportPage(
+          page,
+          _copier.loadAll(page.id),
+          elements: _copier.loadAllElements(page.id),
+          background: backgrounds ? await _exportBackground(page, sources) : null,
+        ),
       );
-    } finally {
-      for (final e in export) {
-        e.background?.dispose();
-      }
     }
+    return PdfExporter.build(
+      export,
+      title: title,
+      onPage: (done) => onProgress?.call(ExportStage.writing, done, export.length),
+      readBlob: _readBlob,
+      onRasterized: onRasterized,
+    );
+  }
+
+  Future<ExportBackground?> _exportBackground(NotebookPage page, PdfPageSources sources) async {
+    final bg = page.background;
+    if (bg == null || !await services.sync.fetchBlob(bg.blob)) return null;
+    return ExportBackground(
+      source: await sources.sourceOf(bg.blob),
+      pageIndex: bg.pageIndex,
+      raster: () => _background(page, page.width / 96 * backgroundDpi),
+    );
   }
 
   /// A PNG of [page] at [scale] pixels per page unit (2 ≈ 192 dpi);
@@ -99,6 +107,13 @@ class NotebookExporter {
 
   Future<ui.Image?> _background(NotebookPage page, double pixelWidth) async {
     final bg = page.background;
+    final template = page.paper.image;
+    if (bg == null && template != null) {
+      // An image template: exported like a background (a copy, as the
+      // caller disposes it).
+      final image = ImageData(blob: template, width: 0, height: 0);
+      return (await services.images.load(image, pixelWidth))?.clone();
+    }
     if (bg == null || !await services.sync.fetchBlob(bg.blob)) return null;
     return _renderer.render(bg.blob, bg.pageIndex, pixelWidth.round());
   }

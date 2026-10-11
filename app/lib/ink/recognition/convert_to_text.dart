@@ -4,7 +4,7 @@ import 'package:flutter/painting.dart';
 
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
-import '../../domain/text_data.dart';
+import '../../domain/text/text_data.dart';
 import '../elements/text_layout.dart';
 import 'handwriting_recognizer.dart';
 import 'ink_clustering.dart';
@@ -84,7 +84,7 @@ abstract final class ConvertToText {
           .toDouble(),
       color: _commonColour(source),
     );
-    final width = math.max(bounds.width, _naturalWidth(data) + 2);
+    final width = math.max(bounds.width, TextLayout.naturalWidth(data));
     final height = TextLayout.heightOf(data, width);
     return SurfaceElement(
       id: id,
@@ -95,17 +95,6 @@ abstract final class ConvertToText {
       createdAt: createdAt,
       data: data.toJson(),
     );
-  }
-
-  /// The width [data]'s longest line needs.
-  static double _naturalWidth(TextData data) {
-    final painter = TextPainter(
-      text: TextSpan(text: data.text, style: TextLayout.styleOf(data)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    final width = painter.maxIntrinsicWidth;
-    painter.dispose();
-    return width;
   }
 
   static int _commonColour(List<Stroke> strokes) {

@@ -2,7 +2,7 @@ import 'package:flutter/painting.dart';
 
 import '../../domain/image_data.dart';
 import '../../domain/surface_element.dart';
-import '../../domain/text_data.dart';
+import '../../domain/text/text_data.dart';
 import '../images/element_images.dart';
 import 'text_layout.dart';
 
@@ -14,7 +14,7 @@ import 'text_layout.dart';
 /// (device pixels per world unit); until a bitmap is decoded — or when its
 /// blob is unavailable — a placeholder is drawn instead.
 abstract final class ElementRenderer {
-  static final Expando<TextPainter> _layouts = Expando('element layouts');
+  static final Expando<TextBoxLayout> _layouts = Expando('element layouts');
 
   static void draw(
     Canvas canvas,
@@ -46,8 +46,8 @@ abstract final class ElementRenderer {
   }
 
   static void _drawText(Canvas canvas, SurfaceElement e) {
-    final painter = _layouts[e] ??= TextLayout.layout(TextData.fromJson(e.data), e.rect.width);
-    painter.paint(canvas, e.rect.topLeft);
+    final layout = _layouts[e] ??= TextLayout.layout(TextData.fromJson(e.data), e.rect.width);
+    layout.paint(canvas, e.rect.topLeft);
   }
 
   static final Paint _imagePaint = Paint()

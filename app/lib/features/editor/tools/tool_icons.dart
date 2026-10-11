@@ -7,6 +7,9 @@ const IconData lassoIcon = Icons.highlight_alt_rounded;
 const IconData textIcon = Icons.text_fields_rounded;
 const IconData laserIcon = Icons.ads_click_rounded;
 
+/// Select PDF text: lines of text.
+const IconData selectTextIcon = Icons.subject_rounded;
+
 /// A shape drawn with the same outline the Shape tool produces, in the
 /// ambient icon colour.
 class ShapeGlyph extends StatelessWidget {

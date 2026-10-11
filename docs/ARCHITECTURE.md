@@ -38,7 +38,8 @@ Stroke points are stored as a compact little-endian `float32` blob
 Non-ink content are **elements** (`domain/surface_element.dart`, table
 `elements`, synced as collection `elements`): a generic box (`rect` +
 `rotation` about its centre), a stacking order `z` and a `type` with an opaque
-`data` map: `text` (`TextData`: text, size, colour, bold, italic, alignment)
+`data` map: `text` (`domain/text/`: `TextData` — plain text, character
+`spans`, paragraph styles and the box defaults, see *Text boxes* below)
 or `image` (`ImageData`: blob hash, natural size, normalised crop). Elements
 with `z < 0` are drawn beneath the ink (`SurfaceElement.belowInk`), the rest
 above it (`ink/elements/element_order.dart` hands out stacking orders).
@@ -205,20 +206,64 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
   flow fits the whole page and slides it in.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
-  P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode;
+  P / H / E / L / S / T / K (X: Select PDF text, with PDF pages); 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
   Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
   while text is edited.
 
-## Templates (`domain/paper.dart`, `domain/paper_pattern.dart`)
+## Templates (`domain/templates/`, `domain/paper_pattern.dart`)
 
-`PaperStyle` names are stored and synced and never renamed (`lined` is wide
-ruled, `grid` the large grid). `PaperPattern.of` computes a template's
-geometry (lines with weights, dots) for an area, independent of the target:
-`PaperRenderer` draws it on screen, in thumbnails and PNG export, and
-`PdfExporter` writes the same lines as PDF vectors. Pages carry their paper
-colour and size; new pages copy the current page's paper and size.
+- **Registry.** `PaperStyle` (`templates/paper_style.dart`) is the registry of built-in
+  templates: stored name (id), label, `TemplateCategory` (Basic, Writing, Planners, Paper; My
+  templates for the user's own), pitch, search keywords, whether it tiles an infinite canvas
+  (`canvas`) and, for planners, the `PlannerPeriod` one page covers. `PaperStyle.image` stands
+  for a user's image template. Built-ins: blank, dotted; narrow / college / wide ruled, Cornell,
+  to-do list, meeting notes; daily planner, weekly planner, monthly calendar; small / large
+  grid, graph paper (1 mm / 5 mm / 1 cm), engineering (5 per inch, bold inches, header),
+  isometric, music staff, storyboard.
+- **Paper.** A page's template is a `Paper` (`templates/paper.dart`): the style plus what it
+  needs — the `date` of a planner page (the first day of its period, UTC) or the `image` blob of
+  a user's template. Stored as `pages.paper` (style name) + `pages.paper_data` (JSON,
+  `Paper.toData`), synced as `paper` + `paperData`. A notebook's `paper` (default for new pages,
+  canvas background) is always a style without parameters. `Paper.next` is the following
+  period: "add page" after a planner page continues the dates.
+- **Geometry ("painter").** `PaperPattern.of(paper, area, page:, minPitch:)` builds a
+  template's pieces for an area, independent of the target: lines with weights (`fine`,
+  `normal`, `heavy`, `margin`), dots, `PatternLabel`s (printed text: dates, headings), tinted
+  `PatternFill`s and planner `PatternLink`s. Layouts are extensions on `PatternBuilder`
+  (`patterns_basic.dart`, `patterns_writing.dart`, `patterns_planner.dart`); page layouts scale
+  with the page (margins, cells) and adapt to landscape (week grid 4 × 2, storyboard 3 columns).
+  Repeating detail closer than `minPitch` (too dense at the current zoom) is left out while
+  structure stays, so graph paper gains its millimetre lines as you zoom in.
+- **Drawing.** `PaperRenderer` (`ink/render/paper_painter.dart`) draws a pattern on screen, in
+  thumbnails, miniatures and PNG export — vector lines and text in the UI font (laid-out
+  paragraphs cached), crisp at any zoom; image templates are drawn over the page from a
+  `PaperImageLookup` (the shared `ElementImages` cache; the editor repaints when one is
+  decoded). `PdfTemplateWriter` writes the same pattern into exported PDFs as vectors with
+  Helvetica labels; image templates are embedded like PDF backgrounds.
+- **Planners** (`templates/planner_dates.dart`, `planner_plan.dart`). `PlannerDates`: UTC
+  calendar arithmetic, Monday weeks, ISO week numbers, month calendars of 4–6 rows, labels.
+  `PlannerPlan` (first month, 1–12 months, `linked`) generates the papers of a planner: a page
+  per day, per week overlapping the range, or per month — linked: each month followed by its
+  weeks, each week by its seven days. Pages link month → week (week numbers) and day (cells),
+  week → day (day headers) and month (that of its Thursday), day → week and month. A link is
+  resolved at tap time to the first page with that exact `Paper`, so reordering, deleting or
+  adding pages never breaks links; a missing target offers "Add page". Links are followed by a
+  finger tap when fingers navigate (stylus mode), a Ctrl/⌘-click, or the long-press menu ("Go
+  to …") — `PlannerLinkTaps` only watches pointers, so drawing is never disturbed.
+- **My templates** (`templates` collection, `TemplateRepository`, `UserTemplate`): an image blob
+  plus the page size it suggests. "Import…" in the picker takes an image (`ImageImport`) or a
+  PDF page (rendered to a 2000 px PNG); "Save page as template" (page menu) renders the page
+  as it looks (paper, background, ink, content). Pages made from a template reference the
+  blob directly (`Paper.image`), so renaming or deleting a template never changes them.
+- **Picker** (`features/documents/templates/`). `TemplateChooser` (search, category chips,
+  `TemplateGallery` of live miniatures, `PlannerOptions`, paper colour, page size) is shared by
+  the template picker (new page, change one / all pages, canvas background) and the
+  new-notebook sheet; `templateSections` / `TemplateSelection` (`template_catalog.dart`) hold
+  the logic. Planners generate a range when creating or adding ("Add 31 pages"); "Apply to all
+  pages" with a planner dates the pages period after period. Image templates fix the page size.
+- Pages carry their paper colour and size; new pages copy the current page's paper and size.
 
 ## Blobs and PDFs
 
@@ -226,27 +271,74 @@ Large binary data is **content-addressed**: a blob's id is the SHA-256 of its
 bytes. `BlobStore` keeps a `blobs` table (size, mime, uploaded flag) and the
 bytes in a `BlobBackend`: files under `<app support>/blobs/<sha[0..2]>/<sha>`
 natively, an IndexedDB object store on the web, memory in tests. Its API is
-path-free (`read`, `openRead`, `localPath` — null on the web). Each sync cycle first uploads
-pending blobs (`BlobSync`, `HEAD` then `PUT`), then pushes records, so a
-record never reaches the server before its blob. Blobs are fetched lazily
-when a page needs them (`SyncController.fetchBlob`).
+path-free (`read`, `openRead`, `localPath` — null on the web). Each sync cycle first reads
+`/v1/health` (the server's blob limit and last garbage collection), then uploads
+pending blobs that live rows reference (`BlobSync`, `HEAD` then `PUT`), then pushes
+records. One blob never stalls the others: a blob over the server's limit (or
+refused with 413) is marked too large (`blobs.rejected_limit`), skipped from then on
+and its records sync without it, shown as "1 file too large to sync" by the sync
+button and in Settings → Sync (with Retry); a raised server limit is noticed
+automatically. Any other failed upload is retried next sync, and records
+referencing a still-pending blob are held back for up to
+`SyncEngine.maxHoldBackAttempts` syncs, so a record normally never reaches the
+server before its blob. Blobs are fetched lazily when a page needs them
+(`SyncController.fetchBlob`).
+
+`BlobReferences` is the reference graph (live page backgrounds, elements and
+recordings; the trash is live, "delete forever" releases). `LocalBlobGc`
+(started at launch, at most daily) deletes blobs unreferenced for 7 days
+(`blobs.unreferenced_since`); it runs exclusively with `BlobStore`'s `put`
+methods, and storing a blob again restarts its grace period. The server has its
+own admin-run collector (server/README.md).
 
 PDF import (`features/documents/pdf/`) stores the file once as a blob and
 creates one page per PDF page with background `{type: pdf, blob, page}` and
 the PDF page's size. PDF pages are rendered with PDFium via `pdfrx`
-(`PdfRenderer`, serialised); `PdfBackgroundCache` renders at the current
-zoom quantised to √2 steps (≤ 2896 px wide), keeps an LRU of images within a
-memory budget and shows the best cached image while a sharper one renders.
+(`PdfRenderer`, serialised; PDFium runs on pdfrx's worker isolate natively
+and in a web worker, never on the UI thread). `PdfBackgroundCache`
+(`PageBackgrounds.paint`) renders a whole page up to 2048 px wide at the
+zoom quantised to √2 steps; deeper zoom renders only the **tiles** in view
+(`PdfTiling`: 512 px squares of levels whose page widths are powers of two,
+4096 … 65536 px). Until a tile arrives the whole-page image and any cached
+tiles of neighbouring levels are drawn beneath, so pinching stays smooth;
+tiles are drawn without anti-aliasing so neighbours meet without seams.
+Images and tiles share one LRU within a memory budget (160 MiB); requests
+are served newest first (whole pages before tiles, the middle of the view
+before its edges) and dropped when no paint repeated them for 2 s.
 PDFium itself is a native asset downloaded at build time by `pdfium_dart`'s
 build hook (Linux, Windows, Android), so no system package is needed; on the
 web `pdfrx` runs PDFium as WebAssembly in a worker. `PdfRenderer` opens a
 blob from its file when it has one (PDFium reads on demand) and from memory
 otherwise (web).
 
+Long imports and exports run behind `runWithSteps(…, cancellable: true)`:
+the progress dialog's Cancel sets `TaskProgress.token` (a
+`CancellationToken`, `domain/cancellation.dart`); the task throws
+`Cancelled` at its next `step` / `stageStarted` / `check` and cleans up
+after itself. An import checks while hashing the picked file
+(`BlobStore.putFile(cancel:)`) and before creating pages (one transaction,
+so nothing half-made remains) and deletes a blob it stored that nothing
+references (`BlobStore.discardIfUnreferenced`); an export saves nothing and
+disposes what it rendered.
+
 Export (`features/documents/export/`): `PdfExporter` (package `pdf`) writes
 ink as filled polygons flattened from the exact outline paths the app
-renders, templates as vector lines, and imported PDF pages as 150 dpi
-images; PNG export rasterises a page with the same painters as the editor.
+renders, templates as vector lines, and **imported PDF pages as vectors**:
+`PdfPageSources` parses each source PDF once with Len's own pure-Dart
+reader (`export/vector/`: lexer, classic and stream cross-references,
+object streams, `/Prev` chains, a recovery scan for broken files) and
+`PdfPageImporter` copies a page into the export as a Form XObject — its
+content stream(s) and a deep copy of its resources (fonts, images, shadings,
+… written once per source however many pages share them), clipped to the
+crop box, rotated by `/Rotate` — with annotation appearances (`/AP /N`)
+flattened above it, so text stays selectable text and vectors stay sharp.
+Encrypted (empty user password) or otherwise unreadable files are first
+rewritten by PDFium (`PdfRenderer.normalized`: `encodePdf(removeSecurity:
+true)`) and parsed again; a page that still cannot be copied (e.g. an
+unsupported filter in a split content stream) is embedded as a 150 dpi
+image, so export never fails because of one page. Text boxes are written as
+selectable text in the embedded bundled fonts (`pdf_text.dart`, see *Text
+boxes*). PNG export rasterises a page with the same painters as the editor.
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
 indices from a range like "1-3, 5", templates and PDF backgrounds on or off,
 PNG resolution); without templates pages are exported as blank white paper.
@@ -254,6 +346,51 @@ Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
 on mobile and written into a folder the user picks on desktop.
+
+**Why a Dart copier** (not PDFium page import): PDFium's
+`FPDF_ImportPages` / `FPDF_NewXObjectFromPage` are reachable only through
+FFI (`pdfium_dart`), i.e. not on the web, and would mean writing the ink
+through PDFium's page-object API instead of package `pdf`. pdfrx's page
+assembly (`PdfDocument.pages = …` + `encodePdf`) moves whole pages between
+documents but cannot draw on top of them. Copying page objects in Dart
+works identically on Android, Linux, Windows and the web, keeps one export
+writer, and PDFium remains the fallback for files the reader declines.
+Trade-offs: link and form-field annotations are not carried over (their
+appearances are drawn), optional-content groups hidden by default in the
+source may show, and the copied XObjects are drawn via `drawImage` on a unit
+square because package `pdf` 3.13's `drawXObject` writes an invalid resource
+name.
+
+### PDF pages in the editor (`features/editor/pdf/`)
+
+`PdfInteraction` (per paged editor, in `EditorSession.pdf`) reads text with
+character boxes, links and outlines through `PdfInfoSource`
+(`PdfrxInfoSource`: the documents `PdfBackgroundCache`'s renderer already
+opened, so no second copy of the PDF) into `PdfPageInfoCache` (LRU per page;
+`PdfLayer` preloads the pages in view).
+
+- **Select text** — `EditorTool.selectText` (X), offered only when the
+  notebook has PDF pages (`ToolSettings.selectTextAvailable`), is a
+  `PointerTool` (`PdfTextTool`, plugged into `ContentTools.selectText`):
+  drag across text (or a handle of the selection) to select, tap a word to
+  select it, tap a link to follow it. A finger long press or right click on
+  PDF text with any tool selects the word instead of opening the canvas
+  menu. `PdfLayer` paints the selection (one box per line, handles with the
+  tool) and a menu: **Copy** (also Ctrl/⌘+C), **Highlight**, select all on
+  the page.
+- **Highlight** turns each selected line (`PdfGlyphs.rectsFor`) into one
+  highlighter stroke along its middle, 1.1 × the line's height, with the
+  highlighter's colour and opacity (no pressure thinning, stabiliser or
+  tapers), committed to the page's `SurfaceModel` as one `InkEdit` — so it
+  is ordinary ink: undoable, erasable, selectable, synced and exported.
+- **Links** (`loadLinks`, incl. URLs detected in the text): tapped with the
+  tool, or with a finger while fingers navigate (stylus only). Internal
+  links scroll to the notebook page showing the target PDF page (the next
+  one after the link's page if the PDF appears twice); web links ask first
+  ("Open link?") and open in the browser (`url_launcher`).
+- **Outline** — "⋯" → *PDF outline* (`PdfOutlinePanel`, a draggable bottom
+  sheet): the bookmarks of every PDF in the notebook as a collapsible tree
+  with notebook page numbers; entries whose page was deleted are disabled.
 
 ## Images (`ink/images/`, `features/editor/images/`)
 
@@ -294,6 +431,52 @@ on mobile and written into a folder the user picks on desktop.
   crop edges, dragging inside pans it, and committing keeps the visible part
   exactly where it was on the surface.
 
+## Opening files from other apps (`features/documents/import/`, `platform/incoming_files*`)
+
+"Open with Len" / "Share to Len" for PDFs and images, GoodNotes-style.
+
+- **Sources** (`platform/incoming_files*`, `openIncomingFiles(args)` → a stream of
+  `XFile` batches, wired in `main.dart`):
+  - *Android:* intent filters on `MainActivity` for `ACTION_VIEW` (content URIs)
+    and `ACTION_SEND` / `ACTION_SEND_MULTIPLE` with `application/pdf` and
+    `image/*`. `IncomingFiles.kt` copies each URI (read permission only lasts
+    with the intent) off the main thread into `cache/incoming/<uuid>/<display
+    name>` and calls `files([{path, name, mime}])` on `len/incoming_files` once
+    Dart has called `ready`, so the launch intent (cold start, `onCreate`) waits
+    for Dart; later intents arrive through `onNewIntent` (warm start). The
+    activity is `singleTask` so a share from another app reaches the running Len
+    instead of starting a second engine in that app's task. Copies are deleted
+    when the next engine starts.
+  - *Linux:* paths / `file://` URIs on the command line (`Exec=len %F`;
+    `MimeType=application/pdf;image/png;image/jpeg;image/webp` in the desktop
+    entry). The GTK runner is single-instance (`G_APPLICATION_HANDLES_OPEN`): a
+    second `len file.pdf` forwards the files over D-Bus to the running one,
+    whose `open` handler sends them on `len/incoming_files`, and exits.
+    `LEN_MULTI_INSTANCE=1` or a non-default `XDG_DATA_HOME` (screenshots, tests)
+    turn this off.
+  - *Windows:* command-line paths (the runner passes them to `main`). File
+    associations belong to a future installer; a second launch is a second
+    process (no forwarding yet).
+  - *Web:* the installed PWA's File Handling API (`file_handlers` +
+    `launch_handler: focus-existing` in `manifest.json`; `launchQueue`
+    consumer), Chromium-based desktop browsers only. Files can also be dropped
+    onto the library on every platform (`LibraryFileDrop`, `desktop_drop`,
+    which supports the web).
+- **`IncomingFiles`** (in `AppServices`) buffers batches until the library sets
+  its handler (cold start) and holds `ImportTargets`: the shown editor
+  registers an `EditorImportTarget` (insert PDF pages after the current page /
+  images on the current page or canvas).
+- **`ImportRouter`** (pure, tested) classifies files by MIME type, else
+  extension (PDF, image, unsupported) and plans `ImportStep`s: with nothing open,
+  each PDF becomes a notebook (existing PDF import flow) and all images one new
+  canvas; with an editor open, the user is asked "Add to this notebook" or "New
+  notebook / canvas" (PDFs always become notebooks when a canvas is open).
+  Unsupported files get a friendly message.
+- **`ImportFlow`** carries a plan out with the existing flows (progress dialogs,
+  messages), one batch at a time; new notebooks open in editor tabs (the last
+  one shown; an open editor just switches tabs), and images wait for the new
+  canvas's editor (`ImportTargets.waitFor`) to be placed by `EditorImages`.
+
 ## Audio (`features/audio/`)
 
 GoodNotes-style lecture recording: audio is captured while writing and
@@ -303,36 +486,80 @@ replayed in step with the ink.
   of a notebook whose audio is a content-addressed blob, like PDFs and images.
   Its `segments` (`[startedAt, durationMs]` per stretch between pauses) map
   audio positions to wall time and back (`RecordingTimeline`; ink written
-  during a pause belongs to the moment recording resumed). Strokes already
-  carry `createdAt`, so ink needs no change to be replayed. Deleting a
-  notebook tombstones its recordings; duplicating copies them (same blobs).
+  during a pause belongs to the moment recording resumed). Strokes carry
+  `createdAt` = the moment the pen touched down (`InkInputController`,
+  `ShapeTool`), elements their creation time, so content needs nothing else
+  to be replayed. Its `waveform` is a second, small blob (`domain/waveform.dart`,
+  one loudness byte per 100 ms ≈ 36 KB per hour, format in SYNC_PROTOCOL)
+  built while recording from the recorder's input level (`WaveformBuilder`),
+  so no platform ever has to decode audio. Deleting a notebook tombstones its
+  recordings; duplicating copies them (same blobs).
 - **Recording** (`RecordingController`): start / pause / resume / stop with
   elapsed time and an input level meter. `package:record` writes AAC in MP4
   (`audio/mp4`, mono, 64 kbit/s ≈ 29 MB per hour) where the platform has an
   AAC encoder, Opus in WebM in browsers without one (Chrome, Firefox), WAV as
   a last resort. On stop the file becomes a blob (`BlobStore.putFile`,
-  streamed, never loaded whole) plus the row; captures under 0.5 s are
-  discarded. Closing the editor stops and saves a running recording; so does
-  backgrounding the app on Android (the system hands backgrounded apps
-  silence).
+  streamed, never loaded whole), the waveform another, plus the row; captures
+  under 0.5 s are discarded. Closing the editor stops and saves a running
+  recording.
+- **Background recording** (`RecordingKeepAlive`, `AudioBackends.keepAlive`):
+  Android hands backgrounded apps silence, so while recording a foreground
+  service of type `microphone` runs (`RecordingService.kt`, driven by
+  `RecordingServicePlugin.kt` on `len/recording_service`, Dart side
+  `backends/android_keep_alive.dart`). It holds a partial wake lock and shows
+  an ongoing notification (title, live time, Pause / Resume, Stop; tap opens
+  Len); its buttons reach the `RecordingController` that showed it, and it
+  ends once the recording is saved. The notification permission is asked
+  once, before the first capture (Android 13+); refusing it does not stop
+  background recording (the service is then only listed in the system's task
+  manager). With the service up, pausing the app (screen off, another app in
+  front) keeps recording (`NotebookAudio`); if it could not start (or reports
+  `failed`), the old behaviour applies: the recording is stopped and saved
+  when the app is paused. Swiping Len away from the recent apps asks Dart to
+  stop and save, and the service quits after a grace period (or as soon as
+  the engine detaches). Other platforms have no keep-alive (desktop apps keep
+  the microphone; browsers keep recording in a background tab).
 - **Playback** (`PlaybackController`, `package:audioplayers`): plays one
   recording at a time from its blob file (natively streamed; browsers get a
-  blob URL), fetching a missing blob from the server first. The backends are
-  created only when the user records or plays, so platforms and tests that
-  never do never touch the audio plugins (`AudioBackends`; tests use fakes).
+  blob URL), fetching a missing blob from the server first; speed 0.75–2×
+  (kept across recordings while the editor is open), skip ±10 s. The backends
+  are created only when the user records or plays, so platforms and tests
+  that never do never touch the audio plugins (`AudioBackends`; tests use
+  fakes).
+- **Overview** (`recording_overview.dart`): per recording the waveform (loaded
+  once, fetched when missing) and the `InkActivity` — the audio positions at
+  which the notebook's strokes and elements were made
+  (`RecordingRepository.contentTimes`, indexed by `strokes(surface_id,
+  created_at)`), re-read whenever a recording is opened. Bursts of writing
+  (separated by ≥ 4 s without any) become markers.
 - **Ink replay** (`replay/`): while a recording is open, `InkReplayLayer`
-  draws a veil over ink written after the moment being heard
-  (`InkReplayPainter`: one cached picture of the "future" strokes per visible
-  chunk, filled in the paper colour at 82 % opacity, re-recorded only when that
-  set changes). With "tap ink to play" on, a tap on a stroke seeks to 1.5 s
-  before it was written (in the open recording, else the latest recording of
-  the notebook covering that time); drags and pinches still pan and zoom.
+  draws a veil over strokes, text boxes and images created after the moment
+  being heard (`InkReplayPainter`: one cached picture of the "future" content
+  per visible chunk, filled in the paper colour at 82 % opacity — text boxes
+  as their glyph silhouettes, images as their box, with past ink cut back out
+  of a later image beneath it — re-recorded only when that set changes).
+  Ink appears from when it was *begun*. With "tap ink to play" on, a tap on a
+  stroke, text box or image seeks to 1.5 s before it was made (in the open
+  recording, else the latest recording of the notebook covering that time);
+  drags and pinches still pan and zoom.
 - **UI.** Tablets and desktops get a top bar slot (microphone, recordings
   list, and while recording a pill with time, level, pause and stop); phones
   get "⋯" menu entries and floating recording controls (`AudioLayer`). The
-  recordings sheet plays, renames and deletes recordings; the playback bar
-  floats above the bottom chrome. `NotebookAudio` owns all of it per open
-  notebook and reloads when sync reports `recordingsOfNotebooks`.
+  player (`PlaybackBar`) floats above the bottom chrome: title and time, a
+  `WaveformScrubber` (played part in the accent colour, ink density strip with
+  a dot per burst; tap or drag to seek, a tap near a dot plays from just
+  before that writing), skip ±10 s, play / pause, speed menu, "tap ink to
+  play", recordings, close. Keys while the player is open
+  (`playback_keys.dart`, ahead of the editor's shortcuts, never while typing):
+  Space play / pause, ← / → ±10 s (instead of turning pages), Shift+← / → the
+  previous / next burst of writing. The recordings sheet shows each
+  recording's date, duration and size and the total; tap plays, ⋯ renames,
+  exports or deletes; long press or "Select" picks several to export or
+  delete at once. Export hands the audio file (`.m4a`, `.webm`, `.wav`)
+  to the existing save / share path (`platform/file_export`: save dialog on
+  desktop, share sheet on Android, download on the web). `NotebookAudio`
+  owns all of it per open notebook and reloads when sync reports
+  `recordingsOfNotebooks`.
 
 ## Input (`ink/input/ink_input_controller.dart`)
 
@@ -465,14 +692,74 @@ surface.
   creates or edits a box; double-tapping a box with the lasso edits it too.
   While editing, the element is hidden and a real `TextField` is laid out
   in world units and transformed by the viewport — `TextLayout` gives the
-  field and the renderer the same complete (non-inheriting) style, so text
+  field and the renderer the same complete (non-inheriting) styles, so text
   wraps identically while edited and once committed. The whole session is
-  one undoable edit (an emptied box is deleted).
+  one undoable edit (an emptied box is deleted). See *Text boxes*.
 - **Laser pointer**: a fading trail (`tools/laser.dart`) kept only in
   memory, animated by a ticker while visible.
 
 `InkEdit` carries strokes and elements; merging cancels intermediate
 values on both, so undo/redo and sync treat text and ink alike.
+
+## Text boxes (`domain/text/`, `ink/elements/`, `features/editor/tools/text/`)
+
+GoodNotes-style rich text inside a box.
+
+- **Model** (`domain/text/`): `TextData` keeps the **plain text** whole (lines
+  split by `\n`; the search index reads it directly), character formatting as
+  normalised `StyledRange`s of `SpanStyle` (bold, italic, underline,
+  strikethrough, colour, highlight, size, font; unset = the box default), one
+  `ParaStyle` per line (heading 1/2, bullet / numbered / checklist item with
+  indent level, ticked) and the box defaults (`TextFont`, size, colour,
+  alignment, `autoWidth`). Stored compactly (see SYNC_PROTOCOL). Editing logic
+  — inserting, joining and splitting lines (lists continue, headings do not),
+  numbering — is pure Dart in `RichTextBuffer`, unit-tested without Flutter.
+- **Fonts** (`TextFont`, `assets/fonts/`, built by `tool/build_fonts.py` from
+  Google Fonts and subset to Latin/Greek/Cyrillic + symbols): Inter (sans),
+  Lora (serif), JetBrains Mono, Caveat (handwriting; italic is slanted), all SIL
+  OFL 1.1 with their licence files, registered in the licence page
+  (`core/font_licenses.dart`). Boxes use only bundled fonts, so they measure and
+  wrap the same everywhere and in exported PDFs; characters they lack fall back
+  to system fonts.
+- **Layout** (`ink/elements/text_layout.dart`): `TextLayout.spanOf` builds one
+  `TextSpan` tree; list markers are **inline placeholders** at the start of their
+  line (one U+FFFC each), sized by indent level, so bullets, numbers (1. / a. /
+  i. by level) and checkboxes take part in wrapping and alignment identically in
+  the canvas (`TextBoxLayout` paints them via `ListMarker`), the editor
+  (`WidgetSpan`s) and PDF export. Wrapped lines of a list item are not indented
+  (no hanging indent in a single paragraph). `MarkerOffsets` maps text offsets
+  to laid-out offsets (`marker_offsets.dart`).
+- **Editing** (`features/editor/tools/text/`): `RichTextController` (a
+  `TextEditingController`) renders the spans and maps the field's edits back
+  onto the buffer (common prefix/suffix diff, the caret disambiguating repeated
+  characters); the field's text is the laid-out text with placeholders, which
+  the caret steps over. Backspace after a marker removes the list, Enter on an
+  empty item ends it. Formatting acts on the selection, or with a collapsed caret
+  on what is typed next; in an empty box font, size and colour set the box
+  defaults (remembered as the default text style, also in the Text tool's
+  settings). Copy / cut put the plain text on the clipboard and remember its
+  formatting, so pasting the same text into a box (or onto the canvas) keeps it.
+  `TextFormatBar`: font, size, B / I / U / S, colour, highlight, paragraph style,
+  bullet / numbered / checklist, alignment (scrolls on phones; delete and done
+  stay). Shortcuts: Ctrl/⌘+B / I / U, Ctrl+Shift+X strikethrough, Ctrl+Shift+7 /
+  8 / 9 lists, Ctrl+Alt+1 / 2 headings (Ctrl+Alt+0 body), Tab / Shift+Tab indent,
+  Ctrl+Enter ticks, Esc finishes.
+- **Size**: new boxes are **auto-width** (as wide as their text, growing up to
+  the screen edge, then wrapping there); dragging a side handle sets a width and
+  wraps from then on. Lasso corner scaling scales every size in the box.
+- **Checklists**: ticking (tap the box while editing, or with the Text tool on a
+  committed box, `TextHitTest`) is undoable; ticked items are struck through and
+  faded.
+- **Lasso**: *Style* (`selection_style_panel.dart`) changes font and size of the
+  selected boxes and pen type / width of selected ink (`SelectionController
+  .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.
+- **Paste**: Ctrl+V on the canvas with plain text on the system clipboard (newer
+  than ink copied in the app) adds a selected text box at the screen centre.
+- **Export**: `PdfTextWriter` writes boxes as real text in the embedded
+  (subsetted) fonts, each word at the position the app's layout gives it, with
+  vector highlights, decorations and markers; boxes with characters the bundled
+  fonts lack are embedded as images. PNG export and thumbnails use the canvas
+  renderer.
 
 ## Pens (`ink/pen/`, `ink/render/`)
 
@@ -518,7 +805,7 @@ More tools slot in by adding an `EditorTool` value and a descriptor. The
 tools are Pen (P), Highlighter (H), Eraser (E), Lasso (L), Shapes (S; its
 icon is the current shape, settings = shape picker, strip = the pen's slots,
 since shapes are drawn with the pen's colour and width), Text (T; settings =
-defaults for new boxes) and Laser pointer (K). For inks the strip is a row of
+defaults for new boxes) and Laser pointer (K), plus Select PDF text (X) in notebooks with PDF pages. For inks the strip is a row of
 colour slots beside a row of width slots (dots at scaled real size, in a recessed track) — one tap
 picks either; the selected slot sits on a tonal disc; every target is ≥ 40 px.
 Tapping the selected slot (or long-pressing / right-clicking any) edits it
@@ -639,7 +926,9 @@ easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 ## Persistence
 
 `package:sqlite3` (bundles SQLite via build hooks on every platform).
-Schema migrations live in `AppDatabase._migrations` — append, never edit.
+`AppDatabase._createSchema` creates the whole schema (`PRAGMA user_version`
+1). Later schema changes append a migration to `AppDatabase._migrations`;
+once released, never edit one.
 All writes go straight to SQLite; in-memory state is a cache.
 
 ## Platforms (`platform/`)
@@ -657,9 +946,10 @@ the web:
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread (`StrokeRepository`)                   |
 | Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
 | Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
+| Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux: command line + forwarding from a second instance; Windows: command line | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
-| Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
+| Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
 (`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
@@ -683,13 +973,16 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   Flutter's first frame. Edge to edge: transparent bars in the window themes,
   and `ui/system_bars.dart` (`MaterialApp.builder`) keeps the bar icons in step
   with the *app's* light/dark theme. Freely resizable (split screen, DeX,
-  freeform; `<layout>` minimum 360×400 dp), orientation unlocked. Release:
+  freeform; `<layout>` minimum 360×400 dp), orientation unlocked;
+  `singleTask` with "Open with" / "Share" intent filters (see *Opening files
+  from other apps*). Release:
   `android/key.properties` signing (debug-key fallback), R8 + resource
   shrinking, `versionCode` = pubspec build number.
 - **Linux:** application id `dev.len.len` (= GTK app id = `.desktop` name =
   icon name, so Wayland docks match the window). The bundle carries `share/`
-  (desktop entry, icons) and `install-desktop-entry.sh`; the runner loads its
-  window icon from there.
+  (desktop entry with PDF/image MIME types and `%F`, icons) and
+  `install-desktop-entry.sh`; the runner loads its window icon from there and
+  is single-instance (files opened later are forwarded to the running Len).
 - **Windows:** PerMonitorV2 DPI awareness (manifest), initial window centred
   and clamped to the work area, minimum size 360×400.
 - **CI / releases:** `.github/workflows/ci.yml` (analyze, tests, all builds,
@@ -712,6 +1005,11 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   status and settings; narrower: bottom navigation. Notebooks and folders drag with a
   mouse immediately and with touch after a long press (a long press released in place
   opens the context menu instead). Shortcuts: Ctrl+N, Ctrl+Shift+N, Ctrl+F, Delete, Esc.
+- **New… tile and folder icons.** The notebook grid starts with a cover-sized "New…" tile
+  (`NewNotebookTile`) in the library root and in folders (not in favourites, trash, search,
+  selection or list layout). Folders have an optional icon (`Folder.icon`, a key from
+  `Folder.iconKeys`; glyphs in `folder_icons.dart`), picked in the folder dialog and shown,
+  tinted with the folder colour, on tiles, in the sidebar tree and in the move dialog.
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
   `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint
@@ -730,9 +1028,8 @@ boxes, the text of imported PDF pages and recognised handwriting (see
   body)` — one row per title, folder, text box or PDF page — with an FTS5
   index `search_fts` over it (external content, `unicode61
   remove_diacritics 2`, prefix indexes). It is never synced: it is created
-  and filled from the synced tables by an (idempotent) migration and kept
-  current by **SQLite triggers** on `notebooks`, `folders`, `elements` and
-  `pages`, so local edits, duplicates and records applied by sync are
+  with the schema and kept current by **SQLite triggers** on `notebooks`,
+  `folders`, `elements` and `pages`, so local edits, duplicates and records applied by sync are
   indexed by the very write that changes them, whatever code path made it.
   The triggers fire only when an indexed column changes (moving a text box
   costs nothing). `SearchIndex.rebuild()` recreates it from scratch. Builds
@@ -817,7 +1114,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   writing a word re-recognises one line; a surface changed while it was
   being recognised stays queued (the queue row is only removed at the
   version that was read). Failures (model missing) leave the queue for the
-  next change. The migration queues every surface with ink.
+  next change.
 - **Highlights.** The editor search (`EditorSearchController`) turns a
   handwriting hit into one match per occurrence, highlighted on the matched
   words' boxes (`InkMatchRects`) or the whole line; the library lists them
@@ -848,11 +1145,13 @@ neutral surfaces, a tighter type scale and shared component themes
 `Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
 
 Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width),
-`menus.dart` (`MenuRow`, `showContextMenuAt`), `text_prompt.dart`. Documents UI
-(`features/documents/`): `templates/` (grouped `TemplateGallery`, paper colour and page size
-rows) used by the template picker and the new-notebook sheet; `overview/` (the page overview
+`menus.dart` (`MenuRow`, `showContextMenuAt`), `text_prompt.dart`, `sidebar_item.dart`
+(library sidebar and the settings section list). Settings: from `Breakpoints.expanded` a
+two-pane layout (section list + the selected section), a single column below. Documents UI
+(`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
+dates, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
 with selection mode; `editor/document/page_overview.dart` re-exports it);
-`progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n").
+`progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n", optional Cancel).
 Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActions`, batch
 actions, floating bar). `flows_screenshot_test.dart` and `overview_screenshot_test.dart` cover
 sheets, dialogs, empty states, selection, the page overview and 1.3× text; findings are tracked
@@ -860,7 +1159,8 @@ in `docs/UX_AUDIT.md`.
 
 Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
 canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar and its popovers in
-`toolbar_screenshot_test.dart`; open-notebook motion frames in `transition_screenshot_test.dart`)
+`toolbar_screenshot_test.dart`; open-notebook motion frames in `transition_screenshot_test.dart`;
+every template at 25 / 100 / 300 % and the picker in `templates_screenshot_test.dart`)
 at phone, tablet and desktop sizes in light and dark with real fonts. Run
 `flutter test test/screenshots --dart-define=SCREENSHOTS=true` and look at
 `app/build/screenshots/*.png`.
@@ -870,7 +1170,9 @@ at phone, tablet and desktop sizes in light and dark with real fonts. Run
 See [`SYNC_PROTOCOL.md`](SYNC_PROTOCOL.md). Every synced table has
 `updated_at / device_id / deleted / dirty`. A cycle pushes dirty rows, then
 pulls the server's change feed from the last seen sequence number, applying
-records with last-write-wins. Open screens subscribe to
+records with last-write-wins. Remote records are parsed strictly
+(`RecordFields`): every field of the collection's format is required, and a
+malformed record is skipped. Open screens subscribe to
 `SyncController.remoteChanges` and reload only the affected surfaces.
 
 ## Known limitations / next steps
@@ -882,27 +1184,41 @@ records with last-write-wins. Open screens subscribe to
   are rebuilt after reopening. Paged documents do not use LOD rasters yet.
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
-- Text uses Roboto (with system fallbacks); a bundled font would make text
-  boxes wrap identically on every device.
+- Text boxes: list items have no hanging indent (wrapped lines start at the
+  box edge); text pasted from other apps is plain; PDF export places glyphs
+  word by word without kerning; boxes with characters outside the bundled
+  fonts' subsets export as images.
 - Android: historical stylus samples are merged from a platform channel and
   the low-latency overlay is experimental (see *Input*); it has not been
   tuned on every device. Stylus tilt/orientation are received but unused.
 - The sync token is stored in the app's SQLite database; move it to secure
   storage before shipping.
-- PDF backgrounds are rendered as whole-page images (no tiling), so very deep
-  zoom on a PDF page is capped at ~2896 px page width; exported PDFs embed
-  imported pages as images rather than copying their vector content.
+- PDF: tiles are not persisted (re-rendered after reopening) and stop at
+  65536 px page width; text selection, links and search highlights skip
+  rotated PDF pages; selection is per page (not across pages); exported
+  PDFs drop the source's link annotations and form fields (their looks are
+  kept) — see *Blobs and PDFs*.
 - Audio: a recording is one blob, so it syncs only once finished and a
   recording above the server's blob limit (200 MiB by default, ≈ 7 h at
-  64 kbit/s) cannot be uploaded, and a failed upload aborts every sync cycle
-  (as for any oversized blob); downloads hold the
-  whole blob in memory. Recording stops when an Android app is backgrounded
-  (no foreground service yet). Linux recording needs `parecord` and `ffmpeg`
+  64 kbit/s) cannot be uploaded (it stays on the device, reported as too
+  large to sync); downloads hold the
+  whole blob in memory. Android background recording needs the foreground
+  service to start while Len is in front (it does, at the start of a
+  recording); a recording in progress when Len is swiped away from the
+  recent apps is saved only if that finishes within the service's grace
+  period, and one in progress when the process is killed is lost. Linux recording needs `parecord` and `ffmpeg`
   installed, playback needs GStreamer with the `-good` (MP4) and an AAC
   decoder plugin; Opus/WebM recordings from Chrome/Firefox may not play on
-  platforms without a WebM decoder. No waveform, trimming or audio export.
-- Blobs are never garbage-collected (neither on devices nor on the server) —
-  deleting or replacing images leaves their blobs behind.
+  platforms without a WebM decoder. Waveforms come from the recorder's level
+  meter (≈ the loudness of the last buffer every 100 ms), not from decoding
+  the audio; recordings without one show a flat scrubber. No trimming yet;
+  exporting reads the whole audio blob into memory.
+- Planners: weeks start on Monday, month and day names are English, and there
+  is no yearly overview yet. User templates are images (PDF pages are
+  rasterised at 2000 px when imported), so they are not vector-crisp at deep
+  zoom; a template only travels inside pages, not as a shared file.
+- Server blob garbage collection is a manual/cron admin command, and finds
+  references by scanning record JSON for sha256 strings (see SYNC_PROTOCOL).
 - Image bitmaps are whole-image decodes per mip level (no tiling); a 4096 px
   image is the sharpest it gets. Crop mode shows the image on its own (ink
   over it is hidden while cropping).
@@ -924,5 +1240,9 @@ records with last-write-wins. Open screens subscribe to
   `navigator.storage.persist()` request yet) and quotas vary. Writes reach
   IndexedDB asynchronously, so closing the tab within milliseconds of an edit
   can lose it. Canvas chunk reads run on the UI thread.
+- Open with: Windows has no file associations (installer) or single-instance
+  forwarding yet; Android shares mixing PDFs and images arrive as `*/*`, which
+  Len does not register for; PDFs dropped onto an open editor are ignored (only
+  images are inserted there; drop onto the library or use "Open with").
 - Page reorders made concurrently on two devices converge (LWW per page) but
   may interleave differently than either device intended.

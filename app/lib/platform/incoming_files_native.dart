@@ -1,0 +1,49 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:cross_file/cross_file.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
+import 'incoming_args.dart';
+
+/// Channel to `IncomingFiles.kt` (Android) and the Linux runner
+/// (`my_application.cc`: files a second `len <file>` forwarded).
+const String incomingFilesChannel = 'len/incoming_files';
+
+/// Batches of files handed to the app: on Android from intents; on
+/// desktops from the command-line [args] (existing files only) and, on
+/// Linux, files opened while Len runs.
+Stream<List<XFile>> openIncomingFiles(List<String> args) {
+  final controller = StreamController<List<XFile>>();
+  if (!Platform.isAndroid) {
+    final files = [
+      for (final path in incomingPathsFromArgs(args, windows: Platform.isWindows))
+        if (File(path).existsSync()) XFile(File(path).absolute.path),
+    ];
+    if (files.isNotEmpty) controller.add(files);
+  }
+  if (Platform.isAndroid || Platform.isLinux) _listen(controller);
+  return controller.stream;
+}
+
+/// Receives `files` calls (lists of `{path, name, mime}`) once Dart says
+/// it is `ready`; on Android, files of the launch intent arrive first.
+void _listen(StreamController<List<XFile>> controller) {
+  const channel = MethodChannel(incomingFilesChannel);
+  channel.setMethodCallHandler((call) async {
+    if (call.method != 'files') return;
+    final files = [
+      for (final entry in (call.arguments as List<Object?>).cast<Map<Object?, Object?>>())
+        XFile(
+          entry['path']! as String,
+          name: entry['name'] as String?,
+          mimeType: entry['mime'] as String?,
+        ),
+    ];
+    controller.add(files);
+  });
+  channel.invokeMethod<void>('ready').catchError((Object e) {
+    debugPrint('Incoming files unavailable: $e');
+  });
+}

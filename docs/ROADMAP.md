@@ -16,8 +16,16 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
 - ✅ Shapes: draw-and-hold to snap (line, arrow, rectangle, ellipse, triangle, polygon); Shape tool (line, arrow, rectangle, ellipse, triangle, diamond, star)
-- ✅ Text boxes (size, colour, bold/italic, alignment, width; synced `elements`)
-- ⬜ Text: font families, rich text within a box, change width/pen type of selected ink
+- ✅ Text boxes (synced `elements`): rich text within a box — bold, italic, underline,
+  strikethrough, colour, highlight, size and font per character; headings; bulleted, numbered
+  and checklist items (tap to tick, Tab to indent); bundled open-licence fonts (Inter, Lora,
+  JetBrains Mono, Caveat) with a font picker and default text style; auto-width boxes that wrap
+  once resized; Ctrl+B / I / U and list shortcuts; copy / cut / paste keep formatting between
+  boxes; Ctrl+V of plain text adds a text box; exported to PDF as selectable text in embedded
+  fonts
+- ✅ Lasso *Style*: font and size of selected text boxes, pen type and width of selected ink
+- ⬜ Text: hanging indents for wrapped list items, rich paste from other apps, more fonts / font
+  import, paragraph spacing, tables
 - ✅ Images: insert from files (top bar), the system clipboard (Ctrl+V), drag and drop (desktop) and
   the camera (Android); downscaled to 4096 px on import; beneath the ink by default with bring to
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
@@ -30,10 +38,19 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 ## Audio
 - ✅ Record audio while writing (pause / resume, level meter; top bar on tablets/desktops, menu +
   floating controls on phones), recordings list (play, rename, delete), synced as blobs
-- ✅ Ink replay: ink written later than the playback position is faded; tap ink to play from when
-  it was written
-- ⬜ Background recording on Android (foreground service), waveform / seek by ink density,
-  trimming, audio export, upload while recording (chunked blobs)
+- ✅ Ink replay: ink, text boxes and images made later than the playback position are faded; ink
+  appears from when it was begun (strokes are stamped at pen-down); tap ink, a text box or an
+  image to play from when it was made
+- ✅ Background recording on Android: foreground service (type microphone) with a notification
+  (time, pause / resume, stop), keeps recording with the screen off or another app in front;
+  notification permission asked once (Android 13+)
+- ✅ Player: waveform scrubber (captured while recording, synced as a small blob) with ink density
+  and a marker per burst of writing (tap to play from it), skip ±10 s, speed 0.75–2×, keys (Space,
+  ← / →, Shift+← / → between bursts of writing)
+- ✅ Recordings list: date, duration and size of each, total; select several to export or delete;
+  export / share a recording's audio (m4a) through the save / share path
+- ⬜ Trimming, upload while recording (chunked blobs), recovering a recording cut off by a killed
+  process, playback in the background (media notification)
 
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,
@@ -56,10 +73,27 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Progress for import / export: stage, file name, "Page x of n" bar
 - ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
   backgrounds on or off, PNG resolution (192 / 384 dpi); several PNGs shared or saved at once
-- ⬜ Cancel long imports / exports
-- ⬜ Planner / custom (image) templates
-- ⬜ Tiled PDF rendering for extreme zoom; PDF text selection / links / outline
-- ⬜ Export keeps imported PDF pages as vectors (currently embedded at 150 dpi)
+- ✅ Planner templates: daily planner, weekly planner (week grid), monthly calendar — date-aware
+  (pick the first month and 1–12 months; correct days, leap years, ISO weeks), optionally a linked
+  planner (each month followed by its weeks and days) with month → week → day links (finger tap
+  in stylus mode, Ctrl/⌘-click, long-press menu; "Add page" when a target is missing); adding a
+  page after a planner page continues the dates
+- ✅ More templates: to-do list, meeting notes, storyboard, graph paper (mm, detail appears when
+  zooming in), engineering paper — all procedural (vector lines and text, crisp at any zoom, also
+  in PDF export)
+- ✅ Custom templates ("My templates", synced): import an image or a PDF page, "Save page as
+  template"; rename / delete; usable for new notebooks and pages
+- ✅ Template picker: categories (Basic, Writing, Planners, Paper, My templates), search, live
+  previews
+- ⬜ Planner options: week starting on Sunday, localised month and day names, yearly overview
+- ✅ Cancel long imports / exports (partial imports clean up after themselves)
+- ✅ Tiled PDF rendering for deep zoom (visible tiles, LRU, smooth while zooming)
+- ✅ PDF text selection (Select text tool, long press / right click): copy, highlight the selection
+  with highlighter strokes snapped to the lines; links (jump to page, web links after a prompt);
+  outline (bookmarks) panel
+- ✅ Export keeps imported PDF pages as vectors (pure-Dart page copier; PDFium rewrite for
+  encrypted files; image fallback per page)
+- ⬜ Selection across pages, PDF text on rotated pages, carry links into exported PDFs
 
 ## Infinite canvas & navigation
 - ✅ Level-of-detail chunk rasters when zoomed out (cost bounded by visible chunks)
@@ -90,7 +124,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   colour (dialog on wide screens, tall sheet on phones); grouped template gallery
 - ✅ Selection mode: favourite, move, trash (undo), restore, delete forever for many notebooks
 - ✅ Cards show page count and short dates; consistent dialogs; empty states with actions
-- ⬜ "New…" tile in the grid; folder icons
+- ✅ "New…" tile in the grid; folder icons (synced, picked in the folder dialog)
 
 ## App
 - ✅ Web target (PWA): SQLite wasm + IndexedDB, blobs in IndexedDB, PDF import/render (PDFium wasm),
@@ -101,7 +135,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   keyboard shortcuts, redesigned settings
 - ✅ Settings: theme previews, Stylus / Gestures / Editor (toolbar position) sections with
   descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
-- ⬜ Two-pane settings on wide screens
+- ✅ Two-pane settings on wide screens
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
   export, focus, more menu), tool-descriptor toolbar with contextual quick controls, toolbar
   position (automatic / top / bottom / floating, draggable), focus mode (F11 / Ctrl+.) with
@@ -117,10 +151,14 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   screen, edge-to-edge system bars, Linux desktop entry, Windows window placement
 - ✅ CI (analyze, tests, Linux/Android/Web/Windows builds, server image) and tagged releases
   (APK, Linux tarball, Windows zip, web zip, GHCR server image)
-- ⬜ "Open with Len" for PDFs (Android intent filter / Linux MIME / Windows file association →
-  import); store listings (Play / F-Droid / Flathub / winget)
+- ✅ "Open with Len" / "Share to Len": PDFs → new notebook (or pages of the open notebook),
+  images → new canvas (or onto the open page / canvas), asked when an editor is open; Android
+  intents (cold + warm start), Linux command line + desktop-entry MIME types + single instance,
+  Windows command line, PWA file handlers, drag and drop onto the library (desktop + web)
+- ⬜ Windows file associations (installer) and single-instance forwarding; store listings
+  (Play / F-Droid / Flathub / winget)
 
 ## Sync
 - ✅ Self-hosted LWW record sync
 - ✅ Blob sync (content-addressed PDFs, images and audio)
-- ⬜ Blob garbage collection (unreferenced blobs on device and server)
+- ✅ Blob garbage collection (unreferenced blobs on device and server); oversized blobs no longer block sync

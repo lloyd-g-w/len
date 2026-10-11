@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/paper.dart';
 import '../../ink/tool_settings.dart';
-import '../../ink/tools/text_tool.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/gesture_hud.dart';
 import 'document/page_overview.dart';
@@ -15,15 +15,23 @@ List<CanvasAction> canvasActions(
   Offset screen, {
   required void Function(PageCommand command) onPageCommand,
   required bool bookmarked,
+  void Function(Paper target)? onFollowLink,
 }) {
   final doc = session.doc;
   // Act on the page under the finger.
   doc?.activateAt(screen);
+  final link = doc?.plannerLinkAt(screen);
   final content = session.content;
   final viewport = session.viewport;
   final world = viewport.toWorld(screen);
   final clipboard = content.selection.clipboard;
   return [
+    if (link != null && onFollowLink != null)
+      CanvasAction(
+        Icons.event_rounded,
+        'Go to ${PlannerDates.describe(link.style.period!, link.date!)}',
+        () => onFollowLink(link),
+      ),
     if (!clipboard.isEmpty)
       CanvasAction(Icons.content_paste_rounded, 'Paste here', () {
         session.tools.tool = EditorTool.lasso;
@@ -37,11 +45,7 @@ List<CanvasAction> canvasActions(
     CanvasAction(Icons.text_fields_rounded, 'Add text here', () {
       final tools = session.tools;
       tools.tool = EditorTool.text;
-      content.text.create(
-        world,
-        width: TextTool.newBoxWidth / viewport.scale,
-        style: tools.textStyle,
-      );
+      content.textTool.startBox(world);
     }),
     if (doc != null) ...[
       CanvasAction(

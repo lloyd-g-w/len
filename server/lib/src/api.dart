@@ -35,19 +35,21 @@ const _publicPaths = {'v1/health'};
 /// routes. Logging is left to the caller.
 ///
 /// Blob uploads are limited to [maxBlobBytes]; the push body limit
-/// ([maxPushBytes]) does not apply to them.
+/// ([maxPushBytes]) does not apply to them, and an upload pausing longer
+/// than [blobIdleTimeout] is abandoned.
 Handler buildHandler({
   required RecordStore store,
   required BlobStore blobs,
   required String token,
   int maxBlobBytes = defaultMaxBlobBytes,
+  Duration blobIdleTimeout = defaultBlobIdleTimeout,
   CorsPolicy cors = const CorsPolicy.any(),
 }) {
   final router = Router(notFoundHandler: _notFound)
-    ..get('/v1/health', _health)
+    ..get('/v1/health', (Request request) => _health(store, maxBlobBytes))
     ..post('/v1/push', (Request request) => _push(request, store))
     ..get('/v1/pull', (Request request) => _pull(request, store));
-  addBlobRoutes(router, blobs, maxBytes: maxBlobBytes);
+  addBlobRoutes(router, blobs, maxBytes: maxBlobBytes, idleTimeout: blobIdleTimeout);
   return const Pipeline()
       .addMiddleware(corsMiddleware(cors))
       .addMiddleware(_internalErrors)
@@ -110,8 +112,13 @@ String? _bearerToken(String? header) {
   return header.substring(scheme.length).trim();
 }
 
-Response _health(Request request) =>
-    _json(HttpStatus.ok, {'status': 'ok', 'protocol': protocolVersion, 'blobs': true});
+/// `GET /v1/health`: liveness plus what clients need to know up front.
+Response _health(RecordStore store, int maxBlobBytes) => _json(HttpStatus.ok, {
+  'status': 'ok',
+  'protocol': protocolVersion,
+  'maxBlobBytes': maxBlobBytes,
+  'blobsCollectedAt': store.blobsCollectedAt,
+});
 
 Response _notFound(Request request) => _json(HttpStatus.notFound, {'error': 'not found'});
 

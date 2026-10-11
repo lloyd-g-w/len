@@ -28,6 +28,7 @@ class EditorMenuActions {
     this.onAddWithTemplate,
     this.onInsertPdf,
     this.onExport,
+    this.onOutline,
     this.flow,
     this.onFlow,
     this.fit,
@@ -68,6 +69,9 @@ class EditorMenuActions {
 
   /// Opens the export sheet.
   final VoidCallback? onExport;
+
+  /// Opens the outline of the notebook's PDFs (only with PDF pages).
+  final VoidCallback? onOutline;
   final PageFlow? flow;
   final ValueChanged<PageFlow>? onFlow;
 

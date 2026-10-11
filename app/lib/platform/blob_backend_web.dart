@@ -60,6 +60,13 @@ class IndexedDbBlobBackend implements BlobBackend {
   }
 
   @override
+  Future<void> delete(String sha) async {
+    final transaction = _db.transaction(_storeName.toJS, 'readwrite');
+    transaction.objectStore(_storeName).delete(sha.toJS);
+    await _completion(transaction);
+  }
+
+  @override
   String? localPath(String sha) => null;
 }
 

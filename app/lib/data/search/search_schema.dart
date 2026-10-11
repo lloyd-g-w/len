@@ -25,12 +25,10 @@ abstract final class SearchSchema {
   /// A recognised line of handwriting (`InkTextSchema`).
   static const handwriting = 'handwriting';
 
-  /// Creates (or completes) the index and fills it from the synced tables.
-  /// Idempotent: safe however migrations from parallel branches end up
-  /// ordered, and on databases where an earlier run lacked FTS5.
+  /// Creates the (empty) index tables and triggers in a new database.
   static void create(CommonDatabase db) {
     db.execute('''
-      CREATE TABLE IF NOT EXISTS search_docs (
+      CREATE TABLE search_docs (
         id         INTEGER PRIMARY KEY,
         kind       TEXT NOT NULL,
         ref_id     TEXT NOT NULL,
@@ -38,9 +36,9 @@ abstract final class SearchSchema {
         body       TEXT NOT NULL,
         UNIQUE (kind, ref_id)
       )''');
-    db.execute('CREATE INDEX IF NOT EXISTS search_docs_by_surface ON search_docs(surface_id)');
+    db.execute('CREATE INDEX search_docs_by_surface ON search_docs(surface_id)');
     db.execute('''
-      CREATE TABLE IF NOT EXISTS pdf_text (
+      CREATE TABLE pdf_text (
         blob TEXT NOT NULL,
         page INTEGER NOT NULL,
         text TEXT NOT NULL,
@@ -48,14 +46,13 @@ abstract final class SearchSchema {
       ) WITHOUT ROWID''');
     // One row per PDF blob whose text was extracted (or could not be).
     db.execute('''
-      CREATE TABLE IF NOT EXISTS pdf_text_blobs (
+      CREATE TABLE pdf_text_blobs (
         blob  TEXT PRIMARY KEY NOT NULL,
         pages INTEGER NOT NULL,
         ok    INTEGER NOT NULL
       ) WITHOUT ROWID''');
     _createSourceTriggers(db);
     ensureFts(db);
-    rebuild(db);
   }
 
   /// Whether the FTS5 index exists on [db].
@@ -168,12 +165,12 @@ abstract final class SearchSchema {
         DELETE FROM search_docs WHERE kind = '$kind' AND ref_id = NEW.id;
         $insert;''';
       db.execute('''
-        CREATE TRIGGER IF NOT EXISTS ${name}_ai AFTER INSERT ON $table BEGIN $reindex END''');
+        CREATE TRIGGER ${name}_ai AFTER INSERT ON $table BEGIN $reindex END''');
       db.execute('''
-        CREATE TRIGGER IF NOT EXISTS ${name}_au AFTER UPDATE ON $table
+        CREATE TRIGGER ${name}_au AFTER UPDATE ON $table
         WHEN $changed BEGIN $reindex END''');
       db.execute('''
-        CREATE TRIGGER IF NOT EXISTS ${name}_ad AFTER DELETE ON $table BEGIN
+        CREATE TRIGGER ${name}_ad AFTER DELETE ON $table BEGIN
           DELETE FROM search_docs WHERE kind = '$kind' AND ref_id = OLD.id;
         END''');
     }

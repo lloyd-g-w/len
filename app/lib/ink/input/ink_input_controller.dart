@@ -122,6 +122,10 @@ class InkInputController {
   int? _drawPointer;
   PointerDeviceKind? _drawKind;
   Duration _drawStartTime = Duration.zero;
+
+  /// Wall time (epoch ms) the pen touched down: a stroke's `createdAt`, so
+  /// audio replay shows it from when writing it began.
+  int _drawStartedAt = 0;
   Offset _drawStartScreen = Offset.zero;
   double _drawTravel = 0;
   bool _erasing = false;
@@ -278,6 +282,7 @@ class InkInputController {
     _drawPointer = e.pointer;
     _drawKind = e.kind;
     _drawStartTime = e.timeStamp;
+    _drawStartedAt = clock.nowMs();
     _drawStartScreen = e.localPosition;
     _drawTravel = 0;
     _pressure.reset();
@@ -448,7 +453,7 @@ class InkInputController {
           width: live.width,
           style: live.style,
           points: points,
-          createdAt: clock.nowMs(),
+          createdAt: _drawStartedAt,
         );
         // The live outline's builder completes it (cheaply) at pen-up.
         final path = LiveStrokeBuilder.finishLive(

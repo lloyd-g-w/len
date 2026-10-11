@@ -5,6 +5,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
 import '../../../ui/color_picker/color_swatches.dart';
 import '../pen/option_controls.dart';
+import 'text/text_style_menus.dart';
 
 /// Default formatting for new text boxes.
 class TextOptionsPanel extends StatelessWidget {
@@ -31,15 +32,14 @@ class TextOptionsPanel extends StatelessWidget {
               display: (v) => v.round().toString(),
               onChanged: (v) => tools.textStyle = style.copyWith(fontSize: v.roundToDouble()),
             ),
-            OptionSwitch(
-              label: 'Bold',
-              value: style.bold,
-              onChanged: (v) => tools.textStyle = style.copyWith(bold: v),
-            ),
-            OptionSwitch(
-              label: 'Italic',
-              value: style.italic,
-              onChanged: (v) => tools.textStyle = style.copyWith(italic: v),
+            Row(
+              children: [
+                Expanded(child: Text('Font', style: Theme.of(context).textTheme.bodyMedium)),
+                FontMenuButton(
+                  font: style.font,
+                  onSelected: (f) => tools.textStyle = style.copyWith(font: f),
+                ),
+              ],
             ),
             const SizedBox(height: Gaps.sm),
             Wrap(

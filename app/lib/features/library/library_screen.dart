@@ -5,12 +5,15 @@ import 'package:flutter/services.dart';
 
 import '../../app_services.dart';
 import '../../data/surface_stats.dart';
+import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/sync_status_button.dart';
+import '../documents/import/import_flow.dart';
 import '../settings/settings_screen.dart';
 import 'library_actions.dart';
 import 'library_content.dart';
 import 'library_controller.dart';
+import 'library_file_drop.dart';
 import 'library_sidebar.dart';
 import 'selection/selection_actions.dart';
 import 'selection/selection_bar.dart';
@@ -35,6 +38,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   late LibraryController _controller;
   late ThumbnailCache _thumbnails;
   late LibraryActions _actions;
+
+  /// Files opened with / shared to Len, and dropped onto the library.
+  late ImportFlow _imports;
   StreamSubscription<Object?>? _remoteChanges;
   final _search = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'Library search');
@@ -69,6 +75,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
         _actions.selection.retain(_controller.visibleNotebooks.map((n) => n.id));
       }
     });
+    _imports = ImportFlow(
+      services: services,
+      adopt: _controller.adoptNotebook,
+      show: _showImported,
+    );
+    services.incomingFiles.handler = (files) => unawaited(_imports.enqueue(context, files));
     _remoteChanges = services.sync.remoteChanges.listen((c) {
       if (c.strokeSurfaces.isNotEmpty || c.pagesOfNotebooks.isNotEmpty) _thumbnails.invalidate();
       if (c.notebooks || c.folders) _controller.reload();
@@ -79,7 +91,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
   String get _scopeKey => '${_controller.section}/${_controller.folderId}/${_controller.query}';
   String _scope = '';
 
+  /// Opens imported notebooks in editor tabs, the last one shown.
+  void _showImported(List<Notebook> notebooks) {
+    final services = _services!;
+    final tabs = services.openNotebooks;
+    // An editor is shown over the library: just switch its tabs.
+    final editorShown = services.incomingFiles.targets.active != null;
+    for (final notebook in editorShown ? notebooks : notebooks.take(notebooks.length - 1)) {
+      tabs.open(notebook);
+    }
+    if (!editorShown) unawaited(_actions.openNotebook(context, notebooks.last));
+  }
+
   void _disposeServices() {
+    _services?.incomingFiles.handler = null;
     unawaited(_remoteChanges?.cancel());
     _actions.selection.dispose();
     _controller.dispose();
@@ -159,10 +184,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
             bindings: _shortcuts,
             child: Focus(
               autofocus: true,
-              child: LayoutBuilder(
-                builder: (context, constraints) => constraints.maxWidth < Breakpoints.medium
-                    ? _phone(context)
-                    : _wide(context, constraints.maxWidth),
+              child: LibraryFileDrop(
+                onFiles: (files) => unawaited(_imports.enqueue(context, files, offerInsert: false)),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => constraints.maxWidth < Breakpoints.medium
+                      ? _phone(context)
+                      : _wide(context, constraints.maxWidth),
+                ),
               ),
             ),
           ),

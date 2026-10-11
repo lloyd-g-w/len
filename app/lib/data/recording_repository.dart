@@ -4,6 +4,7 @@ import 'package:sqlite3/common.dart';
 
 import '../domain/recording.dart';
 import 'blob_store.dart';
+import 'record_fields.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
@@ -38,6 +39,24 @@ class RecordingRepository extends SyncableTable {
       db.select('SELECT notebook_id FROM recordings WHERE id = ?', [id]).firstOrNull?['notebook_id']
           as String?;
 
+  /// Creation times (epoch ms, sorted) of the live strokes and elements of
+  /// [notebookId] (its canvas or pages) made between [from] and [to]: when
+  /// the ink of a recording was written.
+  List<int> contentTimes(String notebookId, {required int from, required int to}) {
+    const surfaces =
+        '(SELECT ?1 UNION ALL SELECT id FROM pages WHERE notebook_id = ?1 AND deleted = 0)';
+    return db
+        .select(
+          'SELECT created_at FROM strokes WHERE surface_id IN $surfaces AND deleted = 0 '
+          'AND created_at BETWEEN ?2 AND ?3 '
+          'UNION ALL SELECT created_at FROM elements WHERE surface_id IN $surfaces '
+          'AND deleted = 0 AND created_at BETWEEN ?2 AND ?3 ORDER BY 1',
+          [notebookId, from, to],
+        )
+        .map((r) => r['created_at'] as int)
+        .toList();
+  }
+
   /// Adds a recording of [notebookId] whose audio is blob [blob].
   Recording create({
     required String notebookId,
@@ -45,6 +64,7 @@ class RecordingRepository extends SyncableTable {
     required String mime,
     required String title,
     required List<RecordingSegment> segments,
+    String waveform = '',
   }) {
     assert(segments.isNotEmpty);
     final recording = Recording(
@@ -56,6 +76,7 @@ class RecordingRepository extends SyncableTable {
       title: title,
       mime: mime,
       updatedAt: clock.nowMs(),
+      waveform: waveform,
       segments: segments,
     );
     _write(recording, deviceId: deviceId, dirty: true);
@@ -71,9 +92,12 @@ class RecordingRepository extends SyncableTable {
     return updated;
   }
 
-  /// Tombstones recording [id] (its blob stays, see "Blobs" in the sync
-  /// protocol: blobs are never deleted).
+  /// Tombstones recording [id]. Its blob stays until garbage collection
+  /// (see `LocalBlobGc`) finds it unreferenced for long enough.
   void delete(String id) => _tombstone(id);
+
+  /// Tombstones several recordings at once.
+  void deleteAll(Iterable<String> ids) => database.transaction(() => ids.forEach(_tombstone));
 
   /// Tombstones every recording of [notebookId] (notebook deletion).
   void deleteAllOf(String notebookId) {
@@ -111,6 +135,7 @@ class RecordingRepository extends SyncableTable {
               'title': row['title'],
               'mime': row['mime'],
               'segments': jsonDecode(row['segments'] as String),
+              'waveform': row['waveform'],
             },
     );
   }
@@ -129,34 +154,25 @@ class RecordingRepository extends SyncableTable {
       );
       return;
     }
-    final d = record.data!;
-    final notebookId = d['notebookId'];
-    final blob = d['blob'];
-    final durationMs = d['durationMs'];
-    final startedAt = d['startedAt'];
-    if (notebookId is! String ||
-        blob is! String ||
-        !BlobStore.isValidId(blob) ||
-        durationMs is! int ||
-        startedAt is! int) {
-      throw FormatException('Malformed recording ${record.id}');
-    }
-    final title = d['title'];
-    final mime = d['mime'];
-    final rawSegments = d['segments'];
-    final segments = rawSegments is List
-        ? rawSegments.map(RecordingSegment.tryParse).nonNulls.toList()
-        : const <RecordingSegment>[];
+    final f = RecordFields(record);
+    final blob = f.string('blob');
+    if (!BlobStore.isValidId(blob)) f.invalid('blob');
+    final segments = [
+      for (final s in f.list('segments')) RecordingSegment.tryParse(s) ?? f.invalid('segments'),
+    ];
+    final waveform = f.string('waveform');
+    if (waveform.isNotEmpty && !BlobStore.isValidId(waveform)) f.invalid('waveform');
     _write(
       Recording(
         id: record.id,
-        notebookId: notebookId,
+        notebookId: f.string('notebookId'),
         blob: blob,
-        durationMs: durationMs,
-        startedAt: startedAt,
-        title: title is String ? title : '',
-        mime: mime is String ? mime : 'audio/mp4',
+        durationMs: f.integer('durationMs'),
+        startedAt: f.integer('startedAt'),
+        title: f.string('title'),
+        mime: f.string('mime'),
         updatedAt: record.updatedAt,
+        waveform: waveform,
         segments: segments,
       ),
       deviceId: record.deviceId,
@@ -168,8 +184,9 @@ class RecordingRepository extends SyncableTable {
     db.execute(
       '''
       INSERT OR REPLACE INTO recordings (id, notebook_id, blob, duration_ms, started_at, title,
-                                         mime, segments, updated_at, device_id, deleted, dirty)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
+                                         mime, segments, waveform, updated_at, device_id,
+                                         deleted, dirty)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
       [
         r.id,
         r.notebookId,
@@ -179,6 +196,7 @@ class RecordingRepository extends SyncableTable {
         r.title,
         r.mime,
         jsonEncode([for (final s in r.segments) s.toJson()]),
+        r.waveform,
         r.updatedAt,
         deviceId,
         dirty ? 1 : 0,
@@ -197,6 +215,7 @@ class RecordingRepository extends SyncableTable {
       title: row['title'] as String,
       mime: row['mime'] as String,
       updatedAt: row['updated_at'] as int,
+      waveform: row['waveform'] as String,
       segments: raw is List ? raw.map(RecordingSegment.tryParse).nonNulls.toList() : null,
     );
   }

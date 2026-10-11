@@ -1,5 +1,7 @@
 package dev.len.len
 
+import android.content.Intent
+import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -9,6 +11,7 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterActivity(), WetInkOverlay.Host {
     private var stylus: StylusCapture? = null
     private var wetInk: WetInkOverlay? = null
+    private var incoming: IncomingFiles? = null
     private val location = IntArray(2)
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -16,12 +19,30 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         stylus = StylusCapture(messenger)
         wetInk = WetInkOverlay(this, messenger)
+        incoming = IncomingFiles(applicationContext, messenger)
+        // Background audio recording (RecordingService.kt).
+        flutterEngine.plugins.add(RecordingServicePlugin())
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Cold start with files ("Open with" / "Share"); a recreated
+        // activity has handled its intent already.
+        if (savedInstanceState == null) incoming?.handle(intent)
+    }
+
+    /** Warm start: files opened with / shared to the running app. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        incoming?.handle(intent)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         stylus = null
         wetInk?.dispose()
         wetInk = null
+        incoming?.dispose()
+        incoming = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

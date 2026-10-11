@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,9 @@ class _FakeExporter extends NotebookExporter {
   _FakeExporter(super.services);
 
   final pdfCalls = <List<NotebookPage>>[];
+
+  /// When set, [pdf] reports progress page by page, waiting for it each time.
+  Completer<void>? gate;
   final pngCalls = <(NotebookPage, double, bool)>[];
 
   @override
@@ -23,8 +27,14 @@ class _FakeExporter extends NotebookExporter {
     String? title,
     ExportProgress? onProgress,
     bool backgrounds = true,
+    void Function(int index)? onRasterized,
   }) async {
     pdfCalls.add(pages);
+    for (var i = 0; gate != null && i < pages.length; i++) {
+      onProgress?.call(ExportStage.writing, i, pages.length);
+      await gate!.future;
+      gate = Completer();
+    }
     return Uint8List.fromList([1, 2, 3]);
   }
 
@@ -49,12 +59,15 @@ void main() {
     notebook = services.notebooks.create(
       title: 'Lab',
       kind: NotebookKind.paged,
-      paper: PaperStyle.grid,
+      paper: PaperStyle.gridLarge,
       coverColor: 0xFF3B5BDB,
       paperColor: PaperColor.values.last,
     );
     for (var i = 0; i < 4; i++) {
-      services.pages.addPage(notebook.id, template: const PageTemplate(style: PaperStyle.lined));
+      services.pages.addPage(
+        notebook.id,
+        template: const PageTemplate(paper: Paper(PaperStyle.wideRuled)),
+      );
     }
     pages = services.pages.pagesOf(notebook.id);
     exporter = _FakeExporter(services);
@@ -113,10 +126,27 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(exporter.pdfCalls.single.map((p) => p.id), [pages[0].id, pages[1].id, pages[3].id]);
-    expect(exporter.pdfCalls.single.first.paper, PaperStyle.grid);
+    expect(exporter.pdfCalls.single.first.paper.style, PaperStyle.gridLarge);
     expect(saved.single.$1, ['Lab p1-2,4.pdf']);
     expect(saved.single.$2, 'application/pdf');
     expect(find.text('Saved somewhere'), findsOneWidget);
+  });
+
+  testWidgets('an export can be cancelled: nothing is saved', (tester) async {
+    exporter.gate = Completer();
+    await open(tester);
+    await tester.tap(_exportButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Page 1 of 5'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('progress-cancel')));
+    await tester.pump();
+    expect(find.text('Cancelling…'), findsOneWidget);
+    exporter.gate!.complete(); // The exporter reports the next page → stops.
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(saved, isEmpty);
+    expect(find.textContaining('Export failed'), findsNothing);
   });
 
   testWidgets('PNG of the current page without templates is plain paper', (tester) async {
@@ -136,7 +166,7 @@ void main() {
 
     final (page, scale, _) = exporter.pngCalls.single;
     expect(page.id, pages[1].id);
-    expect(page.paper, PaperStyle.blank);
+    expect(page.paper.style, PaperStyle.blank);
     expect(page.paperColor, PaperColor.white);
     expect(scale, 4);
     expect(saved.single.$1, ['Lab p2.png']);

@@ -19,7 +19,7 @@ content-addressed files in a blob directory next to it.
 
    ```sh
    docker compose up -d --build
-   curl http://127.0.0.1:8080/v1/health   # {"status":"ok","protocol":1,"blobs":true}
+   curl http://127.0.0.1:8080/v1/health   # {"status":"ok","protocol":1,…}
    ```
 
    Data is stored in the named volume `len-data` (mounted at `/data`): the
@@ -77,6 +77,7 @@ content-addressed files in a blob directory next to it.
 | `LEN_DB_PATH`    | `/data/len.db` | SQLite file (WAL mode).                  |
 | `LEN_BLOB_DIR`   | `blobs/` next to `LEN_DB_PATH` (`/data/blobs`) | Blob files, `<first 2 hex>/<sha256>`; created at startup. |
 | `LEN_BLOB_MAX_BYTES` | `209715200` (200 MiB) | Maximum size of one blob upload; positive integer. |
+| `LEN_BLOB_IDLE_TIMEOUT` | `60` | Seconds a blob upload may send no data before it is abandoned (stalled clients); positive integer. |
 | `LEN_CORS_ORIGINS` | `*`          | Browser origins allowed to call the API (CORS), see below. |
 | `PORT`           | `8080`         |                                          |
 | `HOST`           | `0.0.0.0`      |                                          |
@@ -109,9 +110,38 @@ its own CORS headers, disable one of the two.
 database with `sqlite3 len.db ".backup backup.db"` (safe while the server is
 running) and copy `blobs/` (e.g. `rsync -a`; blobs are immutable and written
 atomically, so this is safe while running too; `blobs/tmp/` holds in-flight
-uploads and can be skipped). Alternatively stop the container and copy the
+uploads and can be skipped; files there older than a day are leftovers of
+interrupted uploads and are removed at startup). Alternatively stop the container and copy the
 whole volume, including any `len.db-wal` file. Records reference blobs by
 sha256, so a backup without the blob directory loses attachments.
+
+## Blob garbage collection
+
+Blobs that no record references anymore (deleted PDFs, images, recordings)
+are not deleted automatically. Run the collector by hand or from cron:
+
+```sh
+docker compose exec len-sync /opt/len-sync/bin/server gc --dry-run   # report only
+docker compose exec len-sync /opt/len-sync/bin/server gc             # mark / delete
+# without Docker: LEN_DB_PATH=/path/len.db dart run bin/gc.dart [--dry-run]
+```
+
+A run marks blobs it finds unreferenced and deletes those that have been
+unreferenced for the grace period (default 30 days, `--grace-days <n>`), so
+nothing is deleted on the first run: schedule it daily, e.g. a crontab entry
+`17 4 * * * docker compose -f /srv/len/docker-compose.yml exec -T len-sync
+/opt/len-sync/bin/server gc`. It is safe while the server is running.
+
+The server does not understand record contents, so it finds references by
+scanning the JSON data of every live record for 64-character lowercase hex
+strings that match a stored blob. This needs no help from the clients and
+keeps blobs whenever in doubt; the trade-off is that a reference written in
+some other form would not be seen (the app always writes plain sha256
+strings). Deleted records (tombstones) do not count; notebooks in the app's
+trash are still live and keep their attachments. After a run that deleted
+blobs, clients re-check that the server still has every blob they
+reference, and re-upload any that are missing. Details:
+[`docs/SYNC_PROTOCOL.md`](../docs/SYNC_PROTOCOL.md#blob-garbage-collection).
 
 ## Development
 
@@ -134,4 +164,6 @@ Layout: `bin/server.dart` (wiring), `lib/src/config.dart` (env config),
 `lib/src/record.dart` (model, validation), `lib/src/record_store.dart`
 (SQLite/LWW), `lib/src/api.dart` (routes, auth), `lib/src/cors.dart`
 (CORS middleware), `lib/src/blob_store.dart` (content-addressed files),
-`lib/src/blob_api.dart` (blob routes).
+`lib/src/blob_api.dart` (blob routes), `lib/src/blob_gc.dart` (blob garbage
+collection) and `lib/src/gc_command.dart` with `bin/gc.dart` (its admin
+command).

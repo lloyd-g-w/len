@@ -6,6 +6,7 @@ import 'package:sqlite3/common.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke_chunks.dart';
 import '../domain/surface_element.dart';
+import 'record_fields.dart';
 import 'stroke_queries.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
@@ -110,47 +111,33 @@ class ElementRepository extends SyncableTable {
       return;
     }
     _upsert(
-      elementFromData(record.id, record.data!),
+      _elementFromRecord(record),
       updatedAt: record.updatedAt,
       deviceId: record.deviceId,
       dirty: false,
     );
   }
 
-  /// Parses a wire payload; throws [FormatException] when malformed.
-  static SurfaceElement elementFromData(String id, Map<String, Object?> data) {
-    final surfaceId = data['surfaceId'];
-    final type = data['type'];
-    final x = data['x'], y = data['y'], w = data['w'], h = data['h'];
-    final createdAt = data['createdAt'];
-    if (surfaceId is! String ||
-        type is! String ||
-        type.isEmpty ||
-        x is! num ||
-        y is! num ||
-        w is! num ||
-        h is! num ||
-        createdAt is! int) {
-      throw FormatException('Malformed element $id');
-    }
-    final rect = Rect.fromLTWH(x.toDouble(), y.toDouble(), w.toDouble(), h.toDouble());
-    if (!rect.isFinite || w < 0 || h < 0) throw FormatException('Invalid element geometry $id');
-    final rotation = data['rotation'];
-    final z = data['z'];
-    final payload = data['data'];
+  /// Parses a live record; throws [FormatException] when malformed.
+  static SurfaceElement _elementFromRecord(SyncRecord record) {
+    final f = RecordFields(record);
+    final type = f.string('type');
+    if (type.isEmpty) f.invalid('type');
+    final w = f.number('w');
+    final h = f.number('h');
+    if (w < 0) f.invalid('w');
+    if (h < 0) f.invalid('h');
     final element = SurfaceElement(
-      id: id,
-      surfaceId: surfaceId,
+      id: record.id,
+      surfaceId: f.string('surfaceId'),
       type: type,
-      rect: rect,
-      rotation: rotation is num && rotation.isFinite ? rotation.toDouble() : 0,
-      z: z is num && z.isFinite ? z.toDouble() : createdAt.toDouble(),
-      createdAt: createdAt,
-      data: payload is Map<String, Object?> ? payload : const {},
+      rect: Rect.fromLTWH(f.number('x'), f.number('y'), w, h),
+      rotation: f.number('rotation'),
+      z: f.number('z'),
+      createdAt: f.integer('createdAt'),
+      data: f.object('data'),
     );
-    if (!WorldLimits.accepts(element.bounds)) {
-      throw FormatException('Element $id is out of bounds');
-    }
+    if (!WorldLimits.accepts(element.bounds)) f.invalid('bounds');
     return element;
   }
 

@@ -236,7 +236,8 @@ class LibraryController extends ChangeNotifier {
   // Operations
 
   /// Creates a notebook in the open folder; a paged notebook's first page
-  /// is made from [firstPage] (default: a blank A4 page of [paper]).
+  /// is made from [firstPage] (default: a blank A4 page of [paper]); with
+  /// [papers], one page per paper (a generated planner).
   Notebook createNotebook({
     required String title,
     required NotebookKind kind,
@@ -245,6 +246,7 @@ class LibraryController extends ChangeNotifier {
     PaperColor paperColor = PaperColor.white,
     CoverStyle coverStyle = CoverStyle.plain,
     PageTemplate? firstPage,
+    List<Paper> papers = const [],
   }) {
     final notebook = services.notebooks.create(
       title: title,
@@ -255,6 +257,7 @@ class LibraryController extends ChangeNotifier {
       coverStyle: coverStyle,
       folderId: _section == LibrarySection.library ? _folderId : null,
       firstPage: firstPage,
+      papers: papers,
     );
     if (_section == LibrarySection.favorites) services.notebooks.setFavorite(notebook.id, true);
     _changed();
@@ -272,9 +275,9 @@ class LibraryController extends ChangeNotifier {
     return services.notebooks.get(notebook.id) ?? notebook;
   }
 
-  Folder createFolder(String name, {required int color}) {
+  Folder createFolder(String name, {required int color, String? icon}) {
     final parent = _section == LibrarySection.library && !isSearching ? _folderId : null;
-    final folder = services.folders.create(name: name, parentId: parent, color: color);
+    final folder = services.folders.create(name: name, parentId: parent, color: color, icon: icon);
     _changed();
     return folder;
   }

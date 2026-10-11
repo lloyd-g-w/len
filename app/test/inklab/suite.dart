@@ -38,10 +38,20 @@ List<SuiteEntry> suiteEntries() => [
   for (final file in recordingFiles()) ...recordingEntries(file),
 ];
 
+/// Long real-device recordings (`real_*`) replay thousands of frames through
+/// pixel metrics and take many minutes, so the routine suite skips them;
+/// run them with `--dart-define=INKLAB_REAL=true` (CI for pen work does).
+const bool includeRealRecordings = bool.fromEnvironment('INKLAB_REAL');
+
 List<File> recordingFiles() {
   final dir = Directory(recordingsDir);
   if (!dir.existsSync()) return const [];
-  return dir.listSync().whereType<File>().where((f) => f.path.endsWith('.leninput')).toList()
+  return dir
+      .listSync()
+      .whereType<File>()
+      .where((f) => f.path.endsWith('.leninput'))
+      .where((f) => includeRealRecordings || !f.uri.pathSegments.last.startsWith('real_'))
+      .toList()
     ..sort((a, b) => a.path.compareTo(b.path));
 }
 

@@ -1,7 +1,10 @@
 import 'dart:ui';
 
 import '../../core/clock.dart';
+import '../../domain/surface_element.dart';
+import '../../domain/text/text_data.dart';
 import '../elements/text_edit_session.dart';
+import '../elements/text_layout.dart';
 import '../input/live_ink.dart';
 import '../selection/ink_clipboard.dart';
 import '../selection/lasso_path.dart';
@@ -9,6 +12,7 @@ import '../selection/selection_chrome.dart';
 import '../selection/selection_controller.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
+import '../undo_history.dart';
 import '../viewport.dart';
 import 'laser.dart';
 import 'lasso_tool.dart';
@@ -69,6 +73,9 @@ class ContentTools {
   late final TextTool textTool = TextTool(session: text, tools: tools, viewport: viewport);
   late final LaserTool laserTool = LaserTool(laser);
 
+  /// Selects text on imported PDF pages, set by editors that have them.
+  PointerTool? selectText;
+
   EditorTool _lastTool = EditorTool.pen;
 
   SurfaceModel get model => selection.model;
@@ -82,12 +89,14 @@ class ContentTools {
     laser.clear();
   }
 
-  /// The pointer tool for [tool], or null for inking tools.
+  /// The pointer tool for [tool], or null for inking tools (and for
+  /// [EditorTool.selectText] without [selectText]).
   PointerTool? toolFor(EditorTool tool) => switch (tool) {
     EditorTool.lasso => lasso,
     EditorTool.shape => shape,
     EditorTool.text => textTool,
     EditorTool.laser => laserTool,
+    EditorTool.selectText => selectText,
     EditorTool.pen || EditorTool.highlighter || EditorTool.eraser => null,
   };
 
@@ -133,6 +142,38 @@ class ContentTools {
     beforePasteAtCentre?.call();
     selection.paste(viewport.visibleWorld.center);
   }
+
+  /// Adds a text box showing [data] (e.g. pasted text) at the centre of
+  /// the screen as one undoable edit, and selects it with the lasso. It is
+  /// as wide as its text, but wraps at [pasteWidthFraction] of the screen.
+  void pasteText(TextData data) {
+    if (data.text.trim().isEmpty) return;
+    tools.tool = EditorTool.lasso;
+    beforePasteAtCentre?.call();
+    final area = viewport.visibleWorld;
+    var text = data.copyWith(autoWidth: true);
+    var width = TextLayout.naturalWidth(text);
+    final limit = area.width * pasteWidthFraction;
+    if (width > limit) {
+      width = limit;
+      text = text.copyWith(autoWidth: false);
+    }
+    final height = TextLayout.heightOf(text, width);
+    final element = SurfaceElement(
+      id: clock.newId(),
+      surfaceId: model.surfaceId,
+      type: ElementType.text.name,
+      rect: Rect.fromCenter(center: area.center, width: width, height: height),
+      z: model.topZ + 1,
+      createdAt: clock.nowMs(),
+      data: text.toJson(),
+    );
+    model.commit(InkEdit(addedElements: [element]));
+    selection.select(const [], [element]);
+  }
+
+  /// Widest a pasted text box is, as a fraction of the visible width.
+  static const double pasteWidthFraction = 0.6;
 
   /// Leaving a tool ends what it was doing.
   void _onToolChanged() {

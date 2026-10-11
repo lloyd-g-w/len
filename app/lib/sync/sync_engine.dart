@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/app_database.dart';
+import '../data/blob_references.dart';
 import '../data/blob_store.dart';
 import '../data/element_repository.dart';
 import '../data/folder_repository.dart';
@@ -10,6 +11,7 @@ import '../data/recording_repository.dart';
 import '../data/settings_repository.dart';
 import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
+import '../data/template_repository.dart';
 import 'blob_sync.dart';
 import 'sync_api.dart';
 
@@ -21,6 +23,9 @@ class RemoteChanges {
 
   /// Whether any library folder changed.
   bool folders = false;
+
+  /// Whether any of the user's templates changed.
+  bool templates = false;
 
   /// Notebooks whose page list changed.
   final Set<String> pagesOfNotebooks = {};
@@ -34,6 +39,7 @@ class RemoteChanges {
   bool get isEmpty =>
       !notebooks &&
       !folders &&
+      !templates &&
       pagesOfNotebooks.isEmpty &&
       strokeSurfaces.isEmpty &&
       recordingsOfNotebooks.isEmpty;
@@ -58,6 +64,7 @@ class SyncEngine {
     this.blobs,
     required this.elements,
     required this.recordings,
+    required this.templates,
   });
 
   final AppDatabase database;
@@ -74,12 +81,45 @@ class SyncEngine {
   /// Audio recordings of notebooks (their audio travels as blobs).
   final RecordingRepository recordings;
 
+  /// The user's own templates (their images travel as blobs).
+  final TemplateRepository templates;
+
+  /// Which blobs live rows reference.
+  late final BlobReferences blobReferences = BlobReferences(database);
+
+  /// What the server reported in the last sync (null before the first sync
+  /// that had blobs to consider).
+  ServerInfo? serverInfo;
+
+  /// Blobs whose upload failed in the last sync (they are retried).
+  int failedBlobUploads = 0;
+
+  /// Why the first of them failed, for the sync status.
+  String? blobUploadError;
+
+  /// Consecutive failed upload attempts per blob in this app run.
+  final Map<String, int> _uploadFailures = {};
+
+  /// Syncs in a row that a record referencing a blob whose upload keeps
+  /// failing is held back. After that it is pushed anyway (other devices
+  /// show the blob as missing until it arrives), so a blob that can never be
+  /// uploaded cannot keep its records from syncing.
+  static const maxHoldBackAttempts = 3;
+
   /// Dirty rows read from the database at a time. [SyncApi.push] further
   /// splits them by size.
   static const int _pushPageSize = 500;
 
   late final Map<String, SyncableStore> _stores = {
-    for (final s in <SyncableStore>[folders, notebooks, pages, strokes, elements, recordings])
+    for (final s in <SyncableStore>[
+      folders,
+      templates,
+      notebooks,
+      pages,
+      strokes,
+      elements,
+      recordings,
+    ])
       s.collection: s,
   };
 
@@ -94,8 +134,10 @@ class SyncEngine {
       for (final store in stores) {
         store.markAllDirty();
       }
+      settings.syncBlobsCollectedAt = 0;
       blobs?.markAllNotUploaded();
     });
+    _uploadFailures.clear();
   }
 
   /// Pushes local changes, then pulls remote ones. Throws [SyncException]
@@ -103,29 +145,70 @@ class SyncEngine {
   /// request, before anything is written locally.
   Future<RemoteChanges> sync(SyncApi api, {CancelCheck? isCancelled}) async {
     final cancelled = isCancelled ?? () => false;
-    // Blobs first: a record must never reach the server before its blob.
+    failedBlobUploads = 0;
+    blobUploadError = null;
+    // Blobs first: a record must not reach the server before its blob.
     final blobs = this.blobs;
-    if (blobs != null) await BlobSync(blobs).uploadPending(api, cancelled);
+    final heldBack = blobs == null ? const <String>{} : await _uploadBlobs(api, blobs, cancelled);
     if (cancelled()) return RemoteChanges();
-    await _push(api, cancelled);
+    await _push(api, cancelled, heldBack);
     return _pull(api, cancelled);
   }
 
-  Future<void> _push(SyncApi api, CancelCheck cancelled) async {
+  /// Uploads pending blobs and returns those whose records must wait: blobs
+  /// still pending (a failed upload, or stored since the upload started),
+  /// unless their upload has failed too often.
+  Future<Set<String>> _uploadBlobs(SyncApi api, BlobStore blobs, CancelCheck cancelled) async {
+    final info = serverInfo = await api.serverInfo();
+    if (cancelled()) return const {};
+    final collected = info.blobsCollectedAt;
+    if (collected != null && collected != settings.syncBlobsCollectedAt) {
+      // The server deleted blobs: check that it still has ours.
+      database.transaction(() {
+        blobs.recheckUploads();
+        settings.syncBlobsCollectedAt = collected;
+      });
+    }
+    if (info.maxBlobBytes case final limit?) blobs.retryTooLarge(newLimit: limit);
+    final report = await BlobSync(blobs).uploadPending(
+      api,
+      cancelled,
+      referenced: blobReferences.all,
+      maxBlobBytes: info.maxBlobBytes,
+    );
+    _uploadFailures.removeWhere((sha, _) => !report.failed.contains(sha));
+    for (final sha in report.failed) {
+      _uploadFailures.update(sha, (n) => n + 1, ifAbsent: () => 1);
+    }
+    failedBlobUploads = report.failed.length;
+    blobUploadError = report.error;
+    return {
+      for (final sha in blobs.pendingUploads())
+        if ((_uploadFailures[sha] ?? 0) < maxHoldBackAttempts) sha,
+    };
+  }
+
+  Future<void> _push(SyncApi api, CancelCheck cancelled, Set<String> heldBackBlobs) async {
     for (final store in stores) {
       String? after;
       while (!cancelled()) {
         final rows = store.dirtyRecords(_pushPageSize, after: after);
         if (rows.isEmpty) break;
         after = rows.last.id;
-        final oversized = await api.push(rows);
+        final ready = heldBackBlobs.isEmpty
+            ? rows
+            : [
+                for (final r in rows)
+                  if (!BlobReferences.inValue(r.data).any(heldBackBlobs.contains)) r,
+              ];
+        final oversized = ready.isEmpty ? const <SyncRecord>[] : await api.push(ready);
         if (cancelled()) return;
         for (final r in oversized) {
           debugPrint('Not syncing oversized ${r.collection}/${r.id}');
         }
         final skipped = {for (final r in oversized) r.id};
         store.markClean([
-          for (final r in rows)
+          for (final r in ready)
             if (!skipped.contains(r.id)) (id: r.id, updatedAt: r.updatedAt),
         ]);
         if (rows.length < _pushPageSize) break;
@@ -156,7 +239,7 @@ class SyncEngine {
 
   void _apply(SyncRecord record, RemoteChanges changes) {
     final store = _stores[record.collection];
-    if (store == null) return; // A collection from a newer app version.
+    if (store == null) return; // A collection this app does not know.
     try {
       // Look up the owner (surface or notebook) before applying: a tombstone
       // may not carry one.
@@ -170,6 +253,8 @@ class SyncEngine {
       switch (store) {
         case FolderRepository():
           changes.folders = true;
+        case TemplateRepository():
+          changes.templates = true;
         case NotebookRepository():
           changes.notebooks = true;
         case PageRepository():

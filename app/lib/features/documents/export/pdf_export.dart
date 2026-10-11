@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:ui' show Color, Offset;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:pdf/pdf.dart';
 
 import '../../../domain/notebook_page.dart';
@@ -13,6 +14,10 @@ import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import 'pdf_images.dart';
+import 'pdf_template.dart';
+import 'pdf_text.dart';
+import 'vector/pdf_page_importer.dart';
+import 'vector/pdf_source_reader.dart';
 
 /// A page to export with its ink, elements and (pre-rendered) background.
 class ExportPage {
@@ -25,17 +30,37 @@ class ExportPage {
   /// above the ink, see [SurfaceElement.belowInk]).
   final List<SurfaceElement> elements;
 
-  /// The rendered background (e.g. the imported PDF page), if any.
-  final ui.Image? background;
+  /// The imported PDF page behind everything, if any.
+  final ExportBackground? background;
+}
+
+/// An imported PDF page to export behind a page's content: copied from
+/// [source] as vectors when possible, else embedded as the image [raster]
+/// renders.
+class ExportBackground {
+  const ExportBackground({required this.pageIndex, required this.raster, this.source});
+
+  /// The parsed source PDF; null when it can only be rasterised.
+  final PdfSourceReader? source;
+
+  /// The page of [source] (zero-based).
+  final int pageIndex;
+
+  /// Renders the page as an opaque image (the caller's to dispose).
+  final Future<ui.Image?> Function() raster;
 }
 
 /// Writes pages to a PDF with vector ink and vector templates.
 ///
 /// Ink outlines are the exact paths the app renders, flattened into
-/// polygons finer than the eye can see; backgrounds of imported PDF pages
-/// are embedded as images. Text boxes are embedded as transparent images
-/// rendered at [elementDpi] by the app's own text renderer, so they wrap
-/// and look exactly as on screen (but are not selectable text). Image
+/// polygons finer than the eye can see. Imported PDF pages keep their
+/// original content: each is copied from its source PDF as a Form XObject
+/// (text stays text, vectors stay vectors; [PdfPageImporter]), and only a
+/// page that cannot be copied is embedded as an image. Text boxes are real,
+/// selectable text in the embedded bundled fonts, placed word by word where
+/// the app's layout puts them ([PdfTextWriter]); a box with characters the
+/// bundled fonts lack is embedded as a transparent image rendered at
+/// [elementDpi] by the app's own text renderer instead. Image
 /// elements are embedded at their stored resolution ([PdfImageWriter]),
 /// read through `readBlob`.
 abstract final class PdfExporter {
@@ -51,25 +76,38 @@ abstract final class PdfExporter {
   /// Largest side (pixels) of one rendered element.
   static const int maxElementPixels = 4096;
 
-  /// The PDF document of [pages]; [onPage] hears how many are written.
-  /// Image elements are read through [readBlob].
+  /// The PDF document of [pages]; [onPage] hears how many are written (and
+  /// may throw to abandon the export). Image elements are read through
+  /// [readBlob]. [onRasterized] hears the index of each page whose PDF
+  /// background had to be embedded as an image.
   static Future<Uint8List> build(
     List<ExportPage> pages, {
     String? title,
     void Function(int done)? onPage,
     Future<Uint8List?> Function(String sha)? readBlob,
+    void Function(int index)? onRasterized,
+    FontAssetLoader? loadFont,
   }) async {
     final doc = PdfDocument();
     PdfInfo(doc, title: title, creator: 'Len'); // Registers itself.
-    final images = PdfImageWriter(doc, readBlob ?? (_) async => null);
+    final writer = _Writer(
+      doc,
+      PdfImageWriter(doc, readBlob ?? (_) async => null),
+      PdfPageImporter(doc),
+      PdfTemplateWriter(doc),
+      PdfTextWriter(doc, load: loadFont),
+    );
     for (var i = 0; i < pages.length; i++) {
       onPage?.call(i);
-      await _addPage(doc, pages[i], images);
+      if (!await _addPage(writer, pages[i])) onRasterized?.call(i);
     }
     return doc.save();
   }
 
-  static Future<void> _addPage(PdfDocument doc, ExportPage export, PdfImageWriter images) async {
+  /// Writes [export]; false if its PDF background had to be rasterised.
+  static Future<bool> _addPage(_Writer writer, ExportPage export) async {
+    final _Writer(:doc, :images, :templates) = writer;
+    var vector = true;
     final page = export.page;
     const k = pointsPerUnit;
     final format = PdfPageFormat(page.width * k, page.height * k);
@@ -83,25 +121,18 @@ abstract final class PdfExporter {
 
     final background = export.background;
     if (background != null) {
-      final rgba = await background.toByteData(format: ui.ImageByteFormat.rawRgba);
-      if (rgba != null) {
-        final image = PdfImage(
-          doc,
-          image: _rgb(rgba.buffer.asUint8List()),
-          width: background.width,
-          height: background.height,
-          alpha: false,
-        );
-        g.drawImage(image, 0, 0, format.width, format.height);
-      }
+      vector = await _drawBackground(writer, g, background, format);
     }
 
-    _drawPattern(pen, page);
+    _drawPattern(pen, page, templates);
     final elements = [...export.elements]..sort(SurfaceElement.paintOrder);
     Future<void> drawElements(bool belowInk) async {
       for (final element in elements.where((e) => e.belowInk == belowInk)) {
         if (element.knownType == ElementType.image) {
           await images.draw(g, element, toPdf: pen.map, k: k);
+        } else if (element.knownType == ElementType.text &&
+            await writer.text.draw(g, element, pageHeight: page.height, k: k)) {
+          // Written as text.
         } else {
           await _drawElement(doc, pen, element);
         }
@@ -114,6 +145,46 @@ abstract final class PdfExporter {
       _drawStroke(pen, stroke);
     }
     await drawElements(false);
+    return vector;
+  }
+
+  /// Draws [background] over the page [format]: as vectors if its source
+  /// page can be copied, else as an image; returns whether it was vectors.
+  static Future<bool> _drawBackground(
+    _Writer writer,
+    PdfGraphics g,
+    ExportBackground background,
+    PdfPageFormat format,
+  ) async {
+    final source = background.source;
+    if (source != null) {
+      try {
+        writer.importer
+            .importPage(source, background.pageIndex)
+            .draw(g, format.width, format.height);
+        return true;
+      } catch (e) {
+        // Unsupported or malformed page content: fall back to an image.
+        debugPrint('PDF page ${background.pageIndex} is exported as an image: $e');
+      }
+    }
+    final image = await background.raster();
+    if (image == null) return false;
+    try {
+      final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (rgba == null) return false;
+      final embedded = PdfImage(
+        writer.doc,
+        image: _rgb(rgba.buffer.asUint8List()),
+        width: image.width,
+        height: image.height,
+        alpha: false,
+      );
+      g.drawImage(embedded, 0, 0, format.width, format.height);
+    } finally {
+      image.dispose();
+    }
+    return false;
   }
 
   /// Embeds [element] as a transparent image over its (rotated) bounds.
@@ -168,37 +239,16 @@ abstract final class PdfExporter {
     return rgb;
   }
 
-  static void _drawPattern(_Pen pen, NotebookPage page) {
+  static void _drawPattern(_Pen pen, NotebookPage page, PdfTemplateWriter templates) {
     final rect = Offset.zero & page.size;
-    final pattern = PaperPattern.of(page.paper, rect, page: rect);
-    final g = pen.g;
-    for (final weight in PatternWeight.values) {
-      final lines = pattern.lines.where((l) => l.weight == weight);
-      if (lines.isEmpty) continue;
-      final color = weight == PatternWeight.margin
-          ? const PaperColors().margin
-          : page.paperColor.pattern;
-      g
-        ..saveContext()
-        ..setGraphicState(PdfGraphicState(strokeOpacity: color.a))
-        ..setStrokeColor(PdfColor.fromInt(color.toARGB32() | 0xFF000000))
-        ..setLineWidth(weight == PatternWeight.normal ? 0.5 : 0.9);
-      for (final l in lines) {
-        pen.moveTo(l.a);
-        pen.lineTo(l.b);
-      }
-      g
-        ..strokePath()
-        ..restoreContext();
-    }
-    if (pattern.dots.isNotEmpty) {
-      g.setFillColor(PdfColor.fromInt(page.paperColor.pattern.toARGB32()));
-      for (final d in pattern.dots) {
-        final c = pen.map(d);
-        g.drawEllipse(c.dx, c.dy, 1.05, 1.05);
-      }
-      g.fillPath();
-    }
+    templates.draw(
+      pen.g,
+      PaperPattern.of(page.paper, rect, page: rect),
+      page.paperColor,
+      margin: const PaperColors().margin,
+      map: pen.map,
+      k: pointsPerUnit,
+    );
   }
 
   static void _drawStroke(_Pen pen, Stroke stroke) {
@@ -222,6 +272,17 @@ abstract final class PdfExporter {
       ..fillPath()
       ..restoreContext();
   }
+}
+
+/// What one export writes with.
+class _Writer {
+  _Writer(this.doc, this.images, this.importer, this.templates, this.text);
+
+  final PdfDocument doc;
+  final PdfImageWriter images;
+  final PdfPageImporter importer;
+  final PdfTemplateWriter templates;
+  final PdfTextWriter text;
 }
 
 /// Maps world coordinates (y down) to PDF points (y up).

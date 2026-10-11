@@ -1,23 +1,34 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'app_services.dart';
+import 'core/font_licenses.dart';
 import 'data/app_database.dart';
 import 'platform/app_directory.dart';
 import 'platform/blob_backend.dart';
+import 'platform/incoming_files.dart';
 import 'platform/single_instance.dart';
 import 'ui/app_theme.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerFontLicenses();
   // Web: one tab at a time owns the database.
   await claimSingleInstance(onWaiting: () => runApp(const _OpenElsewhere()));
   // Natively: files in the app-support directory. Web: IndexedDB.
   final dir = await appDataDirectory();
   final database = await AppDatabase.openDefault(dir);
-  final services = AppServices.create(database, blobBackend: await openBlobBackend(dir))
-    ..sync.start();
+  final services = AppServices.create(
+    database,
+    blobBackend: await openBlobBackend(dir),
+    // "Open with" / "Share to Len", command-line files, PWA file handler.
+    incomingFiles: openIncomingFiles(args),
+  )..sync.start();
   runApp(LenApp(services: services));
+  // Throttled to once a day; deletes blobs unreferenced for a week.
+  unawaited(services.blobGc.runIfDue());
 }
 
 /// Shown in a browser tab while Len is open in another tab.

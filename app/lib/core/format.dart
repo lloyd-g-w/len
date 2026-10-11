@@ -25,3 +25,18 @@ String formatEdited(int epochMs, {DateTime? now}) {
   final date = '${at.day} ${months[at.month - 1]}';
   return at.year == current.year ? date : '$date ${at.year}';
 }
+
+/// A file size for people, e.g. `512 bytes`, `3.4 MB`, `1.2 GB` (powers of
+/// 1024, as `LEN_BLOB_MAX_BYTES` = 200 MiB shows as `200 MB`).
+String formatBytes(int bytes) {
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  if (bytes < 1024) return '$bytes bytes';
+  var value = bytes / 1024;
+  var unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  final digits = value >= 100 || value == value.roundToDouble() ? 0 : 1;
+  return '${value.toStringAsFixed(digits)} ${units[unit]}';
+}

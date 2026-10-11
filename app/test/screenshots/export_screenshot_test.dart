@@ -67,7 +67,7 @@ void main() {
           sortKey: i.toDouble(),
           width: 794,
           height: 1123,
-          paper: PaperStyle.lined,
+          paper: Paper(PaperStyle.wideRuled),
           background: i.isEven ? PageBackground.pdf(blob: 'a' * 64, pageIndex: i) : null,
         ),
     ];

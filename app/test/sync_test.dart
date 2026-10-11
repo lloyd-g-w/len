@@ -23,7 +23,7 @@ void main() {
     final nb = a.notebooks.create(
       title: 'Shared',
       kind: NotebookKind.canvas,
-      paper: PaperStyle.grid,
+      paper: PaperStyle.gridLarge,
       coverColor: 0xFF00FF00,
     );
     a.strokes.save([

@@ -64,7 +64,7 @@ void main() {
       final notebook = c.createNotebook(
         title: 'Algebra',
         kind: NotebookKind.paged,
-        paper: PaperStyle.grid,
+        paper: PaperStyle.gridLarge,
         coverColor: 1,
       );
       expect(maths.parentId, school.id);
@@ -135,8 +135,12 @@ void main() {
 
     tearDown(() => services.dispose());
 
-    Notebook create(NotebookKind kind) =>
-        services.notebooks.create(title: 'T', kind: kind, paper: PaperStyle.lined, coverColor: 0);
+    Notebook create(NotebookKind kind) => services.notebooks.create(
+      title: 'T',
+      kind: kind,
+      paper: PaperStyle.wideRuled,
+      coverColor: 0,
+    );
 
     test('empty notebooks have no preview; drawn ones do', () {
       final paged = create(NotebookKind.paged);
@@ -202,7 +206,7 @@ void main() {
       final first = cache.imageFor(drawn);
       expect(first, isNotNull);
 
-      services.database.db.execute("UPDATE pages SET paper = 'grid' WHERE id = ?", [page.id]);
+      services.database.db.execute("UPDATE pages SET paper = 'gridLarge' WHERE id = ?", [page.id]);
       cache.invalidate([drawn.id]);
       cache.imageFor(drawn);
       await tester.pump(const Duration(milliseconds: 1));

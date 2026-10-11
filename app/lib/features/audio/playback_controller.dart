@@ -18,8 +18,8 @@ class PlaybackController extends ChangeNotifier {
   /// Fetches a blob from the sync server (see `SyncController.fetchBlob`).
   final Future<bool> Function(String sha) fetch;
 
-  /// How far before a stroke's time [seekToInk] starts, so the words that
-  /// led to it are heard (strokes are stamped when the pen lifts).
+  /// How far before a stroke's time (when it was begun) [seekToInk]
+  /// starts, so the words that led to it are heard.
   static const int leadMs = 1500;
 
   AudioPlayback? _player;
@@ -50,6 +50,27 @@ class PlaybackController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Playback speeds offered by the player.
+  static const List<double> rates = [0.75, 1, 1.25, 1.5, 2];
+
+  double _rate = 1;
+
+  /// Playback speed (one of [rates]); kept when another recording opens.
+  double get rate => _rate;
+
+  Future<void> setRate(double rate) async {
+    if (rate == _rate) return;
+    _rate = rate;
+    notifyListeners();
+    if (_recording != null && !_loading) await _player?.setRate(rate);
+  }
+
+  /// How far [skip] buttons and ← / → jump.
+  static const int skipMs = 10000;
+
+  /// Jumps [deltaMs] forwards (or backwards when negative).
+  Future<void> skip(int deltaMs) => seek(_positionMs + deltaMs);
+
   /// The last problem, for a message.
   String? lastError;
 
@@ -76,6 +97,7 @@ class PlaybackController extends ChangeNotifier {
       return false;
     }
     _loading = false;
+    if (_rate != 1 && _recording == recording) await player.setRate(_rate);
     if (autoplay && _recording == recording) await play();
     notifyListeners();
     return true;

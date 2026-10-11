@@ -52,7 +52,7 @@ Future<void> createNotebook(WidgetTester tester, String title, {bool canvas = fa
     await tester.pumpAndSettle();
   }
   await tester.enterText(
-    find.descendant(of: find.byType(NewNotebookSheet), matching: find.byType(TextField)),
+    find.descendant(of: find.byType(NewNotebookSheet), matching: find.byType(TextField)).first,
     title,
   );
   await tester.tap(find.text('Create'));
@@ -124,7 +124,32 @@ void main() {
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
     final notebook = services.notebooks.list().single;
-    expect(services.pages.pagesOf(notebook.id).single.paper, PaperStyle.gridSmall);
+    expect(services.pages.pagesOf(notebook.id).single.paper.style, PaperStyle.gridSmall);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a new notebook from a planner template gets one page per day', (tester) async {
+    final services = await pumpLibrary(tester);
+    await tester.tap(find.text('New notebook'));
+    await tester.pumpAndSettle();
+    final daily = find.text('Daily planner');
+    await tester.ensureVisible(daily);
+    await tester.tap(daily);
+    await tester.pumpAndSettle();
+    final now = DateTime.now();
+    final days = PlannerDates.daysInMonth(now.year, now.month);
+    expect(find.text('Daily planner · White · A4 portrait · $days pages'), findsOneWidget);
+
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+    final notebook = services.notebooks.list().single;
+    expect(notebook.paper, PaperStyle.blank, reason: 'a default without a date');
+    final pages = services.pages.pagesOf(notebook.id);
+    expect(pages, hasLength(days));
+    expect(
+      pages.first.paper,
+      Paper.planner(PaperStyle.dailyPlanner, DateTime.utc(now.year, now.month)),
+    );
     expect(tester.takeException(), isNull);
   });
 

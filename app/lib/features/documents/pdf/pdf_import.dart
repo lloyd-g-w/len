@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:cross_file/cross_file.dart';
 
 import '../../../app_services.dart';
+import '../../../data/blob_references.dart';
 import '../../../data/page_repository.dart';
+import '../../../domain/cancellation.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
@@ -23,7 +25,13 @@ class PdfImporter {
 
   /// Stores [file] as a blob and returns its id. Desktop pickers give
   /// paths (streamed); Android and browsers give the picked bytes.
-  Future<String> store(XFile file) => services.blobs.putFile(file, mime: 'application/pdf');
+  Future<String> store(XFile file, {CancellationToken? cancel}) =>
+      services.blobs.putFile(file, mime: 'application/pdf', cancel: cancel);
+
+  /// Deletes blob [sha] again if nothing uses it (an import was cancelled
+  /// after [store]).
+  Future<void> discard(String sha) =>
+      services.blobs.discardIfUnreferenced(sha, BlobReferences(services.database).all);
 
   /// Page specs (one per PDF page) for blob [sha].
   Future<List<PageSpec>> specsFor(String sha) async {
@@ -33,7 +41,7 @@ class PdfImporter {
       for (var i = 0; i < sizes.length; i++)
         (
           size: sizes[i] * worldPerPoint,
-          paper: PaperStyle.blank,
+          paper: Paper.blank,
           color: PaperColor.white,
           background: PageBackground.pdf(blob: sha, pageIndex: i),
         ),
@@ -41,7 +49,8 @@ class PdfImporter {
   }
 
   /// Creates a notebook titled [title] with one page per PDF page;
-  /// [onPages] hears the page count before the pages are created.
+  /// [onPages] hears the page count before the pages are created (and may
+  /// throw to stop before anything is created, e.g. [Cancelled]).
   Future<Notebook> createNotebook(
     String sha, {
     required String title,
@@ -69,7 +78,8 @@ class PdfImporter {
   }
 
   /// Inserts the PDF's pages into [notebookId] after [after] (at the end
-  /// if null); returns the new pages. [onPages] hears the page count.
+  /// if null); returns the new pages. [onPages] hears the page count (and
+  /// may throw to stop before anything is inserted).
   Future<List<NotebookPage>> insertPages(
     String sha, {
     required String notebookId,

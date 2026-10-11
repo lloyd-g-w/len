@@ -73,20 +73,31 @@ tool/heavy.sh nix develop ..# -c bash -c \
 ```
 
 `inklab_test.dart` has one test per metric per entry. Entries are the ten
-simulated cases at stabiliser 0, 0.4 and 1, plus every recording (always
-included; the real S Pen takes `real_spen_01/02` are the slowest entries).
-Timing metrics only run on `long_stroke` and recordings. Metrics listed in
-`known_failures.dart` are **skipped with their finding as the reason**. The
-list is **empty**: the engine passes every metric on every entry, so any
+simulated cases at stabiliser 0, 0.4 and 1, plus every recording. Real
+device recordings (`recordings/real_*.leninput`, a minute or more of writing
+each) take many minutes to replay through the pixel metrics, so they only run
+with `--dart-define=INKLAB_REAL=true`:
+
+```sh
+tool/heavy.sh nix develop ..# -c bash -c \
+  'flutter test --concurrency=4 test/inklab --dart-define=INKLAB_REAL=true'
+```
+
+Pen-engine work must pass that run too. Timing metrics only run on
+`long_stroke` and recordings. Metrics listed in `known_failures.dart` are
+**skipped with their finding as the reason**. The list is **empty**: the
+engine passes every metric on every entry, real recordings included, so any
 failure is a regression (or needs a new finding, with evidence, before an
 entry may be added).
 
 Tools for working on the engine (opt-in tests):
 
 ```sh
-# every metric of every entry as a table (≈ 4 min), "!!" marks failures
+# every metric of every entry as a table (≈ 4 min with the real recordings),
+# "!!" marks failures
 tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_test.dart \
-  --dart-define=INKLAB_TABLE=true [--dart-define=INKLAB_ONLY=<regex on entry names>]'
+  --dart-define=INKLAB_TABLE=true --dart-define=INKLAB_REAL=true \
+  [--dart-define=INKLAB_ONLY=<regex on entry names>]'
 # the Kotlin overlay model against the Dart one (needs only nix)
 tool/wet_ink_check/check.sh
 ```

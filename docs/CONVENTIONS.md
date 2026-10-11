@@ -17,6 +17,15 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
 - **ui/** shared widgets and design tokens (`app_theme.dart`). Use tokens
   (`Radii`, `Gaps`, palette) instead of magic numbers.
 
+## Pre-release: breaking changes are fine
+
+Len is far from its first release (user decision). **Do not keep code for
+backwards compatibility**: no legacy data shims, no tolerance for old
+record formats, no keeping removed features around for old data. Change
+formats, rename things, squash migrations and drop old tools freely when it
+makes the code better — just keep the code base itself consistent and the
+tests green. (Forward-compat rules below apply once we ship.)
+
 ## Rules
 
 - `flutter analyze` must report **no issues**; `flutter test` must pass.
@@ -29,10 +38,12 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
   `lib/platform/*_native.dart` (and code only those import); add a
   conditional-export abstraction instead (see ARCHITECTURE "Platforms").
   Mind web integers: no negative or ≥ 31-bit shifts, no 64-bit `ByteData`.
-- Schema changes: **append** a migration to `AppDatabase._migrations`; never edit
-  an existing one.
-- New synced data: add a collection (documented in `docs/SYNC_PROTOCOL.md`).
-  Unknown fields/values must be tolerated (forward compatibility).
+- Schema changes: **append** a migration to `AppDatabase._migrations` (version 1
+  creates the whole schema); never edit one that has shipped.
+- New synced data: add a collection (documented in `docs/SYNC_PROTOCOL.md`) and
+  parse it strictly with `RecordFields` (every field required; malformed →
+  skipped). Once we ship: new fields optional, unknown fields/values tolerated
+  (backward and forward compatibility).
   Large binary data (images, PDFs) goes through content-addressed blobs.
 - Strokes are immutable: editing = remove old + add new (works with undo + sync).
 - Every user-visible edit on a surface must be undoable via `UndoHistory`.

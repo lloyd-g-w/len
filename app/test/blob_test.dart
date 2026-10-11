@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' show Size;
 
 import 'package:cross_file/cross_file.dart';
 import 'package:crypto/crypto.dart';
@@ -11,7 +12,9 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/blob_backend.dart';
 import 'package:len/data/blob_store.dart';
+import 'package:len/domain/cancellation.dart';
 import 'package:len/domain/notebook.dart';
+import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/sync/sync_api.dart';
@@ -104,6 +107,24 @@ void main() {
     expect(dir.listSync(recursive: true).where((f) => f.path.endsWith('.tmp')), isEmpty);
   });
 
+  test('a cancelled putFile stores nothing; cancelled imports discard their blob', () async {
+    final store = BlobStore(AppDatabase.inMemory(), MemoryBlobBackend());
+    final bytes = Uint8List.fromList(utf8.encode('%PDF-1.4 cancel me'));
+    final token = CancellationToken()..cancel();
+    await expectLater(
+      store.putFile(XFile.fromData(bytes), mime: 'application/pdf', cancel: token),
+      throwsA(isA<Cancelled>()),
+    );
+    expect(store.pendingUploads(), isEmpty);
+
+    final sha = await store.putFile(XFile.fromData(bytes), mime: 'application/pdf');
+    await store.discardIfUnreferenced(sha, () => {sha}); // Still used: kept.
+    expect(await store.has(sha), isTrue);
+    await store.discardIfUnreferenced(sha, () => {});
+    expect(await store.has(sha), isFalse);
+    expect(store.pendingUploads(), isEmpty);
+  });
+
   test('downloaded blobs are verified', () async {
     final store = BlobStore(AppDatabase.inMemory(), MemoryBlobBackend());
     final bytes = Uint8List.fromList([1, 2, 3]);
@@ -131,12 +152,20 @@ void main() {
 
     final bytes = Uint8List.fromList(utf8.encode('%PDF-1.7 big document'));
     final sha = await a.blobs.putBytes(bytes, mime: 'application/pdf');
-    a.notebooks.create(
+    final notebook = a.notebooks.create(
       title: 'PDF',
       kind: NotebookKind.paged,
       paper: PaperStyle.blank,
       coverColor: 0,
     );
+    a.pages.insertPages(notebook.id, [
+      (
+        size: const Size(100, 140),
+        paper: Paper(PaperStyle.blank),
+        color: PaperColor.white,
+        background: PageBackground.pdf(blob: sha, pageIndex: 0),
+      ),
+    ]);
     await a.sync.syncNow();
     expect(a.sync.lastError, isNull);
     expect(server.log.take(3), ['HEAD $sha', 'PUT $sha', 'push']);

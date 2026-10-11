@@ -81,8 +81,8 @@ class SearchIndex {
   /// Queries [database]; [preferFts] false forces the `LIKE` fallback
   /// (tests).
   SearchIndex(this.database, {bool preferFts = true}) {
-    // A database migrated by a build without FTS5 gets the index as soon
-    // as one with FTS5 opens it.
+    // A database created where FTS5 was unavailable gets the index as
+    // soon as a build with FTS5 opens it.
     _fts = SearchSchema.ensureFts(db) && preferFts;
   }
 
@@ -203,7 +203,4 @@ class SearchIndex {
 
   /// Empties and refills the index from the synced tables.
   void rebuild() => database.transaction(() => SearchSchema.rebuild(db));
-
-  /// Number of indexed documents (for diagnostics and tests).
-  int get documentCount => db.select('SELECT COUNT(*) AS n FROM search_docs').first['n'] as int;
 }
