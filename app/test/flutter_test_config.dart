@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_font.dart';
 
 /// Runs before every test file: plugins without a platform side in tests
-/// answer like an empty system clipboard, and the bundled text-box fonts
+/// and the platform channel answer like an empty system clipboard, and the bundled text-box fonts
 /// are loaded (tests otherwise only have the Ahem-like test font), so
 /// text boxes measure and render as in the app.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
@@ -14,9 +14,16 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
     const MethodChannel('pasteboard'),
     (call) async => call.method == 'files' ? const <Object>[] : null,
   );
+  mockEmptyClipboard();
   await loadTextFonts();
   await testMain();
 }
+
+/// Makes the system clipboard answer as empty (un-mocked platform calls
+/// would never complete in widget tests). Tests that mock
+/// [SystemChannels.platform] call this again when they are done.
+void mockEmptyClipboard() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+    .setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
 
 /// Loads every bundled text-box font family.
 Future<void> loadTextFonts() async {

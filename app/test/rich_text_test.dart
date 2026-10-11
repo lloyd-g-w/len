@@ -323,7 +323,7 @@ void main() {
       );
       addTearDown(
         () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(SystemChannels.platform, null),
+            .setMockMethodCallHandler(SystemChannels.platform, (_) async => null),
       );
       final c = RichTextController(
         TextData.rich(

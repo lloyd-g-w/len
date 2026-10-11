@@ -24,7 +24,7 @@ void mockClipboardText(String? text) {
     if (call.method == 'Clipboard.setData') clip = (call.arguments as Map)['text'] as String?;
     return null;
   });
-  addTearDown(() => messenger.setMockMethodCallHandler(SystemChannels.platform, null));
+  addTearDown(() => messenger.setMockMethodCallHandler(SystemChannels.platform, (_) async => null));
 }
 
 Future<void> paste(WidgetTester tester) async {
