@@ -193,7 +193,10 @@ class BlobStore {
     } finally {
       if (!committed) {
         await out.close().catchError((Object _) {});
-        if (tmp.existsSync()) await tmp.delete();
+        // Never masks the upload's own error (startup removes leftovers).
+        try {
+          if (tmp.existsSync()) await tmp.delete();
+        } on FileSystemException catch (_) {}
       }
     }
   }

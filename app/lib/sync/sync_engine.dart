@@ -312,6 +312,12 @@ class SyncEngine {
     } on FormatException catch (e) {
       // Skip malformed records instead of blocking sync forever.
       debugPrint('Skipping malformed ${record.collection}/${record.id}: ${e.message}');
+    } on Error catch (e) {
+      // A value parsing missed (a cast, a range): still one bad record,
+      // which must not stop every later one from syncing. (Database errors
+      // are exceptions and still abort the pull.)
+      if (e is! TypeError && e is! ArgumentError) rethrow;
+      debugPrint('Skipping unreadable ${record.collection}/${record.id}: $e');
     }
   }
 

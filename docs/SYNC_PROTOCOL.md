@@ -95,9 +95,10 @@ Body: the raw blob bytes (any content type), at most `LEN_BLOB_MAX_BYTES` (defau
   stored.
 - `400 {"error": "…"}` — `<sha256>` is not 64 lowercase hex characters.
 - `413 {"error": "…"}` — `Content-Length` exceeds the limit (rejected before reading), or the
-  streamed body exceeds it; nothing is stored. Retrying the same blob is pointless until the
-  limit changes (a reverse proxy in front of the server may also answer `413` with its own,
-  smaller limit).
+  streamed body exceeds it; nothing is stored and the connection is closed (a client still
+  sending may see the connection reset instead of the answer). Retrying the same blob is
+  pointless until the limit changes (a reverse proxy in front of the server may also answer `413`
+  with its own, smaller limit).
 - A **stalled** upload — no body data for `LEN_BLOB_IDLE_TIMEOUT` seconds (default 60) — is
   abandoned: nothing is stored, the temporary file is removed and the connection is closed (the
   server may answer `408 {"error": "upload stalled"}` first). Clients retry later.

@@ -57,6 +57,7 @@ class SplitPane {
 class SplitController extends ChangeNotifier {
   SplitController(this.tabs) {
     tabs.addListener(_onTabs);
+    tabs.captureViews = _captureViews;
   }
 
   final OpenNotebooks tabs;
@@ -122,7 +123,26 @@ class SplitController extends ChangeNotifier {
     _pendingPages.remove(pane);
     if (_dropTarget == pane) _dropTarget = null;
     if (_dragSource == pane) _dragSource = null;
-    if (_presenting == pane) _presenting = null;
+    if (_presenting == pane) {
+      // The presenting editor went (its tab closed or switched, the split
+      // closed): show the other pane again. Deferred, as editors detach
+      // while the tree is locked (dispose).
+      _presenting = null;
+      scheduleMicrotask(() {
+        if (!_disposed) notifyListeners();
+      });
+    }
+  }
+
+  /// Records where the shown editors look, before the tabs change.
+  void _captureViews() {
+    for (final pane in _panes) {
+      if (pane.secondary) {
+        if (pane.notebookId == tabs.splitId) tabs.splitView = pane.session.viewState;
+      } else if (pane.notebookId == tabs.activeId) {
+        tabs.saveView(pane.notebookId, pane.session.viewState);
+      }
+    }
   }
 
   SplitPane? _other(SplitPane pane) => _panes.where((p) => p != pane).firstOrNull;
@@ -242,10 +262,14 @@ class SplitController extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _disposed = false;
+
   @override
   void dispose() {
+    _disposed = true;
     _flush?.cancel();
     tabs.removeListener(_onTabs);
+    if (tabs.captureViews == _captureViews) tabs.captureViews = null;
     for (final pane in [..._panes]) {
       detach(pane);
     }

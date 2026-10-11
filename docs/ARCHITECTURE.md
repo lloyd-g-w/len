@@ -215,7 +215,13 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   - **Linked tools** (optional): `ToolSettings.adopt` copies tool, quick colours and
     widths, eraser, shape and text defaults from the pane that changed them.
   - **Presentation** in a pane shows that pane alone (`SplitView.solo`; the other stays
-    alive offstage).
+    alive offstage); when the presenting editor goes (tab closed or switched, split closed),
+    the other pane shows again.
+  - **Views across layout changes**: before tabs change, `OpenNotebooks.captureViews`
+    (set by the controller) records where both panes look, so swapping panes keeps each
+    notebook's view, and closing the active tab next to the split tab moves that notebook
+    into the first pane where it was. The tab limit never closes the split tab. Incoming
+    files go to the pane that last had keyboard focus.
 - **Presentation mode** (`present/`; "⋯" → *Present*, F5): `Presentation` hides all
   chrome (`ChromeLayout.focus`), goes immersive / full screen (`platform/fullscreen*`: the
   browser's fullscreen API on the web; Android hides the system bars; desktop windows

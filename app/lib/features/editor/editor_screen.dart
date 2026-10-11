@@ -171,6 +171,17 @@ class _EditorScreenState extends State<_EditorView> {
 
   /// Measured height of the toolbar panel (it wraps on narrow screens).
   final ValueNotifier<double?> _toolbarHeight = ValueNotifier(null);
+
+  /// The toolbar's width on one row, kept current as the tools change.
+  late final ValueNotifier<double> _toolbarWidth = ValueNotifier(_oneRowWidth());
+
+  double _oneRowWidth() => EditorToolbar.oneRowWidth(
+    _session.tools,
+    labels: _services.preferences.toolbarLabels,
+    config: _services.preferences.toolbarConfig,
+  );
+
+  void _onTools() => _toolbarWidth.value = _oneRowWidth();
   StreamSubscription<RemoteChanges>? _remoteChanges;
 
   /// Focus mode: all chrome hidden.
@@ -210,8 +221,14 @@ class _EditorScreenState extends State<_EditorView> {
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
     _session.undo.addListener(_onEdit);
+    _session.tools.addListener(_onTools);
     _lifecycle; // Starts listening.
+    _audio.onNotice = (message) {
+      if (mounted) showMessage(context, message);
+    };
     _services.incomingFiles.targets.add(_importTarget);
+    // Of two editors (split view), files go to the one used last.
+    _focusNode.addListener(_onFocus);
     attachPdfLinks(context, _session);
     if (_pane case final pane?) widget.split!.attach(pane);
     // Take the keyboard even when another editor (the previous tab) still
@@ -223,17 +240,25 @@ class _EditorScreenState extends State<_EditorView> {
 
   @override
   void dispose() {
-    if (_pane case final pane?) widget.split!.detach(pane);
+    // A text box still being typed is committed while the split view
+    // still mirrors this editor's edits into the other pane, and the
+    // presentation puts back the tool (shared, with linked tools) and page
+    // layout before the view is saved.
+    if (!_closing) _session.content.text.end(); // Counts as an edit below.
     _presentation
       ..removeListener(_onPresentation)
-      ..stop() // Puts back the tool and page layout before the view is saved.
+      ..stop()
       ..dispose();
+    if (_pane case final pane?) widget.split!.detach(pane);
     _presentActivity.dispose();
+    _focusNode.removeListener(_onFocus);
     _services.incomingFiles.targets.remove(_importTarget);
     unawaited(_remoteChanges?.cancel());
     _services.openNotebooks.removeListener(_onTabs);
     if (widget.secondPane) {
-      _services.openNotebooks.splitView = _session.viewState;
+      final tabs = _services.openNotebooks;
+      // Not after a swap: the pane now shows another notebook.
+      if (tabs.splitId == _notebook.id) tabs.splitView = _session.viewState;
     } else {
       _services.openNotebooks.saveView(_notebook.id, _session.viewState);
     }
@@ -241,8 +266,8 @@ class _EditorScreenState extends State<_EditorView> {
     _lifecycle.dispose();
     _services.preferences.removeListener(_onPreferences);
     _session.undo.removeListener(_onEdit);
+    _session.tools.removeListener(_onTools);
     if (_focus) setImmersive(false);
-    if (!_closing) _session.content.text.end(); // Counts as an edit below.
     final edited = _session.edited;
     _search.dispose();
     _audio.dispose(); // Saves a running recording.
@@ -257,6 +282,7 @@ class _EditorScreenState extends State<_EditorView> {
     _hud.dispose();
     _tips.dispose();
     _toolbarHeight.dispose();
+    _toolbarWidth.dispose();
     _guard.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -272,6 +298,10 @@ class _EditorScreenState extends State<_EditorView> {
 
   void _onTabs() {
     if (mounted) setState(() {}); // The tab strip may appear or go.
+  }
+
+  void _onFocus() {
+    if (_focusNode.hasFocus) _services.incomingFiles.targets.add(_importTarget);
   }
 
   /// Toolbar placement, and stylus-only changed elsewhere (e.g. in the
@@ -510,9 +540,11 @@ class _EditorScreenState extends State<_EditorView> {
                   ? KeyEventResult.handled
                   : handlePlaybackKey(_audio, event);
             },
-            // Automatic placement depends on the toolbar's width (its slots).
+            // Automatic placement depends on the toolbar's width (its slots);
+            // other tool changes don't rebuild the whole editor (the toolbar
+            // and chrome listen to the tools themselves).
             child: ListenableBuilder(
-              listenable: Listenable.merge([_session.tools, _toolbarHeight]),
+              listenable: Listenable.merge([_toolbarWidth, _toolbarHeight]),
               builder: (context, _) => LayoutBuilder(
                 builder: (context, constraints) {
                   final media = MediaQuery.of(context);
@@ -520,11 +552,7 @@ class _EditorScreenState extends State<_EditorView> {
                     placement: resolvePlacement(
                       _services.preferences.toolbarPlacement,
                       constraints.maxWidth,
-                      toolbarWidth: EditorToolbar.oneRowWidth(
-                        _session.tools,
-                        labels: _services.preferences.toolbarLabels,
-                        config: _services.preferences.toolbarConfig,
-                      ),
+                      toolbarWidth: _oneRowWidth(),
                     ),
                     toolbarHeight: _toolbarHeight.value,
                     barHeight: EditorTopBar.heightFor(constraints.maxWidth, tabs),

@@ -30,19 +30,64 @@ class ThumbnailCache extends ChangeNotifier {
   /// few hundred pixels wide).
   static const double imageScale = 0.75;
 
+  /// Recorded pages, least recently used first (at most [maxPages]).
   final Map<String, ui.Picture> _ink = {};
+
+  /// Pages to record (again), in the order they were asked for.
+  final Set<String> _queue = {};
+  Timer? _loading;
+  bool _disposed = false;
+
+  /// How many pages' pictures are kept.
+  static const int maxPages = 160;
+
+  /// Time spent recording pages between frames.
+  static const Duration frameBudget = Duration(milliseconds: 6);
 
   /// Image blobs drawn into each page's picture.
   final Map<String, Set<String>> _blobs = {};
   StreamSubscription<String>? _imageChanges;
 
-  /// The page's content as a picture in page units.
-  ui.Picture inkOf(String pageId) => _ink[pageId] ??= _record(pageId);
+  /// The page's content as a picture in page units; null until it is
+  /// recorded. Pages are read from the database between frames, a few at
+  /// a time (listeners hear when more are ready), so scrolling through a
+  /// long notebook never stalls on the queries.
+  ui.Picture? inkOf(String pageId) {
+    final picture = _ink.remove(pageId);
+    if (picture != null) _ink[pageId] = picture; // Most recently used.
+    if (picture == null) _enqueue(pageId);
+    return picture;
+  }
 
-  /// Drops a page's picture after it changed.
+  /// Records a page's picture again after it changed (the old one shows
+  /// meanwhile).
   void invalidate(String pageId) {
-    _ink.remove(pageId)?.dispose();
     _blobs.remove(pageId);
+    if (_ink.containsKey(pageId)) _enqueue(pageId);
+  }
+
+  void _enqueue(String pageId) {
+    _queue.add(pageId);
+    _loading ??= Timer(Duration.zero, _loadSome);
+  }
+
+  void _loadSome() {
+    _loading = null;
+    if (_disposed) return;
+    final watch = Stopwatch()..start();
+    while (_queue.isNotEmpty && watch.elapsed < frameBudget) {
+      final pageId = _queue.first;
+      _queue.remove(pageId);
+      _ink.remove(pageId)?.dispose();
+      _ink[pageId] = _record(pageId);
+    }
+    while (_ink.length > maxPages) {
+      final oldest = _ink.keys.first;
+      _ink.remove(oldest)?.dispose();
+      _blobs.remove(oldest);
+    }
+    if (_queue.isNotEmpty) _loading = Timer(Duration.zero, _loadSome);
+    notifyListeners();
   }
 
   ui.Picture _record(String pageId) {
@@ -89,6 +134,8 @@ class ThumbnailCache extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _loading?.cancel();
     unawaited(_imageChanges?.cancel());
     for (final p in _ink.values) {
       p.dispose();
@@ -131,7 +178,7 @@ class _ThumbnailPainter extends CustomPainter {
     : super(repaint: backgrounds);
 
   final NotebookPage page;
-  final ui.Picture ink;
+  final ui.Picture? ink;
   final PageBackgrounds? backgrounds;
   final double dpr;
   final PaperImageLookup paperImage;
@@ -153,10 +200,12 @@ class _ThumbnailPainter extends CustomPainter {
       miniature: true,
       paperImages: (blob, _) => paperImage(blob, size.width * dpr),
     );
-    canvas
-      ..clipRect(Offset.zero & page.size)
-      ..drawPicture(ink)
-      ..restore();
+    if (ink case final ink?) {
+      canvas
+        ..clipRect(Offset.zero & page.size)
+        ..drawPicture(ink);
+    }
+    canvas.restore();
   }
 
   @override
