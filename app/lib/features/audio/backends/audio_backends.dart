@@ -57,6 +57,9 @@ abstract interface class AudioPlayback {
   Future<void> pause();
   Future<void> seek(Duration position);
 
+  /// Plays at [rate] × normal speed (pitch kept where the platform can).
+  Future<void> setRate(double rate);
+
   /// The playback position, a few times a second while playing.
   Stream<Duration> get positions;
 

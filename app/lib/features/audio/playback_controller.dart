@@ -50,6 +50,27 @@ class PlaybackController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Playback speeds offered by the player.
+  static const List<double> rates = [0.75, 1, 1.25, 1.5, 2];
+
+  double _rate = 1;
+
+  /// Playback speed (one of [rates]); kept when another recording opens.
+  double get rate => _rate;
+
+  Future<void> setRate(double rate) async {
+    if (rate == _rate) return;
+    _rate = rate;
+    notifyListeners();
+    if (_recording != null && !_loading) await _player?.setRate(rate);
+  }
+
+  /// How far [skip] buttons and ← / → jump.
+  static const int skipMs = 10000;
+
+  /// Jumps [deltaMs] forwards (or backwards when negative).
+  Future<void> skip(int deltaMs) => seek(_positionMs + deltaMs);
+
   /// The last problem, for a message.
   String? lastError;
 
@@ -76,6 +97,7 @@ class PlaybackController extends ChangeNotifier {
       return false;
     }
     _loading = false;
+    if (_rate != 1 && _recording == recording) await player.setRate(_rate);
     if (autoplay && _recording == recording) await play();
     notifyListeners();
     return true;

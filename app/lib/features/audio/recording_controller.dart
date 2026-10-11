@@ -6,6 +6,7 @@ import '../../core/clock.dart';
 import '../../data/blob_store.dart';
 import '../../data/recording_repository.dart';
 import '../../domain/recording.dart';
+import '../../domain/waveform.dart';
 import 'backends/audio_backends.dart';
 
 /// Where a [RecordingController] is.
@@ -65,6 +66,9 @@ class RecordingController extends ChangeNotifier {
 
   double _level = 0;
 
+  /// The loudness outline of the current recording (see [Waveform]).
+  final WaveformBuilder _waveform = WaveformBuilder();
+
   /// Input level, 0…1.
   double get level => _level;
 
@@ -98,9 +102,12 @@ class RecordingController extends ChangeNotifier {
       return false;
     }
     _segments.clear();
+    _waveform.clear();
     _segmentStart = clock.nowMs();
     _levels = capture.levels.listen((l) {
+      if (_state != RecorderState.recording) return;
       _level = l;
+      _waveform.add(elapsedMs, l);
       notifyListeners();
     });
     _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) => notifyListeners());
@@ -146,12 +153,17 @@ class RecordingController extends ChangeNotifier {
       // Streamed into the blob store (no full copy in memory natively).
       final sha = await blobs.putFile(audio.file, mime: audio.mime);
       await _capture?.discard(audio);
+      final waveform = await blobs.putBytes(
+        _waveform.build(duration).encode(),
+        mime: Waveform.mime,
+      );
       final recording = repository.create(
         notebookId: notebookId,
         blob: sha,
         mime: audio.mime,
         title: defaultTitle(segments.first.startedAt),
         segments: segments,
+        waveform: waveform,
       );
       onSaved?.call(recording);
       return recording;

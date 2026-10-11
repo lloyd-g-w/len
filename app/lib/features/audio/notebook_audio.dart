@@ -8,6 +8,7 @@ import '../../domain/recording.dart';
 import '../../sync/sync_engine.dart';
 import 'backends/audio_backends.dart';
 import 'playback_controller.dart';
+import 'recording_overview.dart';
 import 'recording_controller.dart';
 
 /// Everything audio for one open notebook: the recorder, the player and
@@ -32,6 +33,12 @@ class NotebookAudio extends ChangeNotifier {
       blobs: services.blobs,
       fetch: services.sync.fetchBlob,
     );
+    overviews = RecordingOverviews(
+      blobs: services.blobs,
+      fetch: services.sync.fetchBlob,
+      contentTimes: (from, to) => services.recordings.contentTimes(notebookId, from: from, to: to),
+    );
+    playback.addListener(_onPlayback);
     _remote = services.sync.remoteChanges.listen(_onRemoteChanges);
     _lifecycle = AppLifecycleListener(onPause: _onAppPaused);
     reload();
@@ -43,6 +50,10 @@ class NotebookAudio extends ChangeNotifier {
 
   late final RecordingController recorder;
   late final PlaybackController playback;
+
+  /// Waveforms and ink activity of the recordings, for the scrubber.
+  late final RecordingOverviews overviews;
+  String? _openId;
   late final StreamSubscription<RemoteChanges> _remote;
   late final AppLifecycleListener _lifecycle;
 
@@ -91,6 +102,15 @@ class NotebookAudio extends ChangeNotifier {
     return playback.seekToInk(createdAt);
   }
 
+  /// Ink times are read afresh whenever a recording is opened (the
+  /// notebook may have been edited since).
+  void _onPlayback() {
+    final id = playback.recording?.id;
+    if (id == _openId) return;
+    _openId = id;
+    if (id != null) overviews.invalidateInk();
+  }
+
   void _onRemoteChanges(RemoteChanges changes) {
     if (changes.recordingsOfNotebooks.contains(notebookId)) reload();
   }
@@ -112,7 +132,9 @@ class NotebookAudio extends ChangeNotifier {
     // Saving continues after the editor is gone; services outlive it.
     unawaited(recorder.shutdown());
     recorder.dispose();
+    playback.removeListener(_onPlayback);
     playback.dispose();
+    overviews.dispose();
     super.dispose();
   }
 }

@@ -52,6 +52,9 @@ class AudioplayersPlayback implements AudioPlayback {
   Future<void> seek(Duration position) => _player.seek(position);
 
   @override
+  Future<void> setRate(double rate) => _player.setPlaybackRate(rate);
+
+  @override
   Stream<Duration> get positions => _player.onPositionChanged;
 
   @override

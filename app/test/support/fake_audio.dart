@@ -84,6 +84,9 @@ class FakePlayback implements AudioPlayback {
   Future<void> seek(Duration position) async => log.add('seek ${position.inMilliseconds}');
 
   @override
+  Future<void> setRate(double rate) async => log.add('rate $rate');
+
+  @override
   Stream<Duration> get positions => _positions.stream;
 
   @override
