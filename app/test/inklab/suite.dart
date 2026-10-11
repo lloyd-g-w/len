@@ -104,6 +104,8 @@ const List<String> metricIds = [
   'temporal.vanished',
   'pop.pixels',
   'pop.max',
+  'start.distance',
+  'start.delay',
   'perf.flatness',
   'perf.frameCost',
   'perf.commit',

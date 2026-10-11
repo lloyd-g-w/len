@@ -10,6 +10,7 @@ import 'metric.dart';
 import 'overlay_metrics.dart';
 import 'performance_metrics.dart';
 import 'shape_metrics.dart';
+import 'start_metrics.dart';
 import 'temporal_metrics.dart';
 import 'truth.dart';
 
@@ -41,12 +42,18 @@ class Subject {
   double get streamline => replay.pen.streamline;
 }
 
-/// Raw-sample truths for the contacts of [recording] that make ink — the
-/// stylus, and fingers or the mouse only without "stylus only" (with it,
-/// fingers pan and zoom) — and are not bounces (shorter than 80 ms,
-/// starting within 120 ms and 16 px of the last lift).
-List<Truth> rawTruths(InputRecording recording) {
-  final out = <Truth>[];
+/// Raw-sample truths for the contacts of [recording] that make ink and are
+/// not bounces ([intendedContacts]).
+List<Truth> rawTruths(InputRecording recording) => [
+  for (final c in intendedContacts(recording)) Truth.ofContact(c),
+];
+
+/// The contacts of [recording] meant as ink: the stylus, and fingers or
+/// the mouse only without "stylus only" (with it, fingers pan and zoom),
+/// and not bounces (shorter than 80 ms, starting within 120 ms and 16 px
+/// of the last lift).
+List<RawContact> intendedContacts(InputRecording recording) {
+  final out = <RawContact>[];
   final fingersNavigate = recording.meta.stylusOnly;
   RawContact? previous;
   for (final c in rawContacts(recording)) {
@@ -60,7 +67,7 @@ List<Truth> rawTruths(InputRecording recording) {
         c.downUs - previous.upUs < 120000 &&
         c.upUs - c.downUs < 80000 &&
         (c.samples.first.position - previous.samples.last.position).distance < 16;
-    if (!bounce) out.add(Truth.ofContact(c));
+    if (!bounce) out.add(c);
     previous = c; // the last ink contact (a bounce follows a pen lift)
   }
   return out;
@@ -75,6 +82,7 @@ List<Metric> qualityMetrics(Subject s) {
     ...smoothness(committedLines(s.replay)),
     ...ends(s.replay, pairs, s.truths, s.streamline),
     ...temporal(s.replay),
+    ...start(s.replay, intendedContacts(s.replay.recording)),
   ];
 }
 
