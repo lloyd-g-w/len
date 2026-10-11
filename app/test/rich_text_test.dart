@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/core/font_licenses.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/element_repository.dart';
 import 'package:len/data/stroke_repository.dart';
@@ -44,6 +46,21 @@ void select(RichTextController c, int start, int end) => c.selection = TextSelec
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('every bundled font has its faces and its OFL licence', () async {
+    for (final font in TextFont.values) {
+      for (final bold in [false, true]) {
+        for (final italic in [false, true]) {
+          final bytes = await rootBundle.load(font.asset(bold: bold, italic: italic));
+          expect(bytes.lengthInBytes, greaterThan(10000));
+        }
+      }
+      expect(await rootBundle.loadString(font.licenseAsset), contains('SIL OPEN FONT LICENSE'));
+    }
+    registerFontLicenses();
+    final entries = await LicenseRegistry.licenses.toList();
+    expect(entries.expand((e) => e.packages), containsAll(['Inter font', 'Caveat font']));
+  });
 
   group('TextData', () {
     test('plain boxes stay compact; rich data round-trips through JSON', () {

@@ -42,6 +42,9 @@ enum TextFont {
     return 'assets/fonts/$file-$face.ttf';
   }
 
+  /// The font's licence (SIL Open Font License 1.1) next to its files.
+  String get licenseAsset => asset().replaceFirst('-Regular.ttf', '-OFL.txt');
+
   static TextFont parse(Object? value) =>
       values.firstWhere((f) => f.name == value, orElse: () => inter);
 
