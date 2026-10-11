@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/section_label.dart';
 import '../search/library_search_results.dart';
 import 'folder_tile.dart';
 import 'library_actions.dart';
@@ -53,15 +54,9 @@ class LibraryContent extends StatelessWidget {
         _c.section == LibrarySection.library &&
         !_c.isSearching &&
         !actions.selection.active;
-    final theme = Theme.of(context);
     Widget label(String text) => SliverPadding(
       padding: EdgeInsets.fromLTRB(gutter + Gaps.xxs, Gaps.xl, gutter, Gaps.md),
-      sliver: SliverToBoxAdapter(
-        child: Text(
-          text,
-          style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      ),
+      sliver: SliverToBoxAdapter(child: SectionLabel(text)),
     );
 
     return CustomScrollView(
@@ -160,17 +155,19 @@ class LibraryContent extends StatelessWidget {
                     )
                   : null,
             ),
+          // Keeps the last result clear of the FAB.
+          if (fullText) const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ],
     );
   }
 
   String _subtitle(Notebook n) {
-    if (n.isTrashed) return 'Deleted ${formatLibraryDate(n.trashedAt!)}';
+    if (n.isTrashed) return libraryDateAfter('Deleted', n.trashedAt!);
     if (_c.isSearching) return _c.locationOf(n);
     final kind = n.kind == NotebookKind.canvas ? 'Canvas' : pageCountLabel(_c.pageCountOf(n.id));
     final date = _c.sort == LibrarySort.created
-        ? 'Created ${formatLibraryDate(n.createdAt)}'
+        ? libraryDateAfter('Created', n.createdAt)
         : formatLibraryDate(n.editedAt);
     return '$date · $kind';
   }

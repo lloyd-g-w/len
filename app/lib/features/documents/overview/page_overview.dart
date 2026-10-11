@@ -111,7 +111,7 @@ class _PageOverviewState extends State<PageOverview> {
         }
       case SelectionAction.delete:
         if (pages.length >= _pages.length) {
-          showOverviewMessage(context, 'A notebook needs at least one page.');
+          showOverviewMessage(context, 'A notebook needs at least one page');
           return;
         }
         final many = widget.handlers.deleteMany;

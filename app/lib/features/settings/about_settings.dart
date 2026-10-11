@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app_services.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/messages.dart';
 import '../inklab/inklab_screen.dart';
 import 'settings_section.dart';
 
@@ -83,9 +84,7 @@ class _VersionTextState extends State<_VersionText> {
   void _onTap() {
     if (++_taps < _VersionText.taps) return;
     _taps = 0;
-    ScaffoldMessenger.maybeOf(context)
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Ink Lab'), duration: Duration(seconds: 1)));
+    showMessage(context, 'Ink Lab', duration: const Duration(seconds: 1));
     final prefs = context.getInheritedWidgetOfExactType<AppScope>()?.services.preferences;
     Navigator.of(context).push(
       MaterialPageRoute<void>(

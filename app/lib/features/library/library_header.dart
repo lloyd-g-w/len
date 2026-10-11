@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/menus.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_drag.dart';
@@ -62,19 +63,28 @@ class LibraryHeader extends StatelessWidget {
         ),
       _LayoutToggle(controller: _c),
       if (_c.section == LibrarySection.trash && _c.trash.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(left: Gaps.sm),
-          child: OutlinedButton.icon(
+        if (compact)
+          IconButton(
+            tooltip: 'Empty trash',
+            color: theme.colorScheme.error,
+            icon: const Icon(Icons.delete_sweep_outlined),
             onPressed: () => unawaited(actions.emptyTrash(context)),
-            icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-            label: const Text('Empty Trash'),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(left: Gaps.sm),
+            child: TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+              onPressed: () => unawaited(actions.emptyTrash(context)),
+              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+              label: const Text('Empty trash'),
+            ),
           ),
-        ),
     ];
     final folders = _c.visibleFolders.length;
     String plural(int n, String one) => '$n ${n == 1 ? one : '${one}s'}';
     final subtitle = switch (_c.section) {
-      LibrarySection.trash => 'Restore notebooks or delete them forever.',
+      LibrarySection.trash => 'Restore notebooks or delete them forever',
       // The library also lists matches inside notebooks (features/search).
       LibrarySection.library when _c.isSearching => 'Titles and contents, across all folders',
       _ when _c.isSearching => '${plural(count + folders, 'result')} across all folders',
@@ -166,6 +176,7 @@ class _SearchField extends StatelessWidget {
           focusNode: focus,
           onChanged: (q) => actions.controller.query = q,
           textInputAction: TextInputAction.search,
+          textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
             hintText: 'Search',
             contentPadding: EdgeInsets.zero,
@@ -204,11 +215,10 @@ class _SortButton extends StatelessWidget {
     return PopupMenuButton<LibrarySort>(
       tooltip: 'Sort: ${label(controller.sort)}',
       icon: const Icon(Icons.sort_rounded),
-      initialValue: controller.sort,
       onSelected: (s) => controller.sort = s,
       itemBuilder: (_) => [
         for (final s in LibrarySort.values)
-          CheckedPopupMenuItem(value: s, checked: s == controller.sort, child: Text(label(s))),
+          MenuRow(value: s, label: label(s), checked: s == controller.sort),
       ],
     );
   }
@@ -227,7 +237,7 @@ class _LayoutToggle extends StatelessWidget {
       icon: AnimatedSwitcher(
         duration: Motion.fast,
         child: Icon(
-          grid ? Icons.view_agenda_outlined : Icons.grid_view_rounded,
+          grid ? Icons.view_agenda_outlined : Icons.grid_view_outlined,
           key: ValueKey(grid),
         ),
       ),

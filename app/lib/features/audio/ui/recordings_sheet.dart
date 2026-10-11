@@ -7,6 +7,7 @@ import '../../../domain/recording.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
+import '../../../ui/messages.dart';
 import '../../../ui/text_prompt.dart';
 import '../notebook_audio.dart';
 import 'audio_bar_button.dart';
@@ -269,10 +270,9 @@ class _RecordingTile extends StatelessWidget {
   }
 
   Future<void> _play(BuildContext context) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
     if (await audio.play(recording)) return;
     final error = audio.playback.lastError;
-    if (error != null) messenger?.showSnackBar(SnackBar(content: Text(error)));
+    if (error != null && context.mounted) showMessage(context, error);
   }
 
   Future<void> _run(BuildContext context, String action) async {
@@ -281,6 +281,7 @@ class _RecordingTile extends StatelessWidget {
         final title = await showTextPrompt(
           context,
           title: 'Rename recording',
+          label: 'Name',
           initialValue: recording.title,
           confirmLabel: 'Rename',
         );

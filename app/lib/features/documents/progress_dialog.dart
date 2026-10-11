@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../domain/cancellation.dart';
+import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 
 export '../../domain/cancellation.dart' show Cancelled;
+export '../../ui/messages.dart' show showMessage;
 
 /// Progress of a long task, reported by the task and shown by
 /// [runWithSteps]: what is happening and, when known, how far along. The
@@ -142,10 +144,9 @@ class ProgressDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return AlertDialog(
-      icon: Icon(Icons.hourglass_top_rounded, color: scheme.primary),
-      title: Text(title, textAlign: TextAlign.center),
+    return AppDialog(
+      icon: Icons.hourglass_top_rounded,
+      title: title,
       content: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 280, maxWidth: 360),
         child: ListenableBuilder(
@@ -218,14 +219,7 @@ class ProgressDialog extends StatelessWidget {
                 ),
               ),
             ]
-          : null,
+          : const [],
     );
   }
-}
-
-/// Shows a short message at the bottom of the screen.
-void showMessage(BuildContext context, String message, {SnackBarAction? action}) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message), action: action));
 }

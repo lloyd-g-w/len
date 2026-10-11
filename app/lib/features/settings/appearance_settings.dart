@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/app_preferences.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/color_dot.dart';
+import '../../ui/even_grid.dart';
 import 'settings_section.dart';
 import 'theme_choice.dart';
 
@@ -42,9 +43,10 @@ class AppearanceSettings extends StatelessWidget {
             SettingsTile(
               title: 'Accent colour',
               subtitle: _accentNames[accent] ?? 'Custom',
-              below: Wrap(
-                spacing: Gaps.xs,
-                runSpacing: Gaps.xs,
+              below: EvenGrid(
+                itemExtent: 44,
+                minItemExtent: 36,
+                maxSpacing: Gaps.md,
                 children: [
                   for (final c in Accents.all)
                     ColorDot(

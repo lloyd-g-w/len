@@ -1,12 +1,31 @@
 import 'package:flutter/widgets.dart';
 
-/// Durations and curves for implicit animations.
+/// Durations and curves for every animation in the app: use these rather
+/// than literals so the app moves with one rhythm.
 abstract final class Motion {
+  /// Small state changes: selection rings, icons swapping, hovers.
   static const Duration fast = Duration(milliseconds: 120);
+
+  /// Panels, chips, fades and size changes.
   static const Duration medium = Duration(milliseconds: 220);
+
+  /// Larger surfaces entering: sheets, popovers, route transitions.
   static const Duration slow = Duration(milliseconds: 360);
+
+  /// Travelling a distance on screen (scrolling to a page or a match).
+  static const Duration travel = Duration(milliseconds: 420);
+
+  /// Entering and settling (decelerate).
   static const Curve standard = Curves.easeOutCubic;
+
+  /// Prominent entrances (decelerate harder).
   static const Curve emphasized = Curves.easeOutQuart;
+
+  /// Leaving the screen (accelerate).
+  static const Curve exit = Curves.easeIn;
+
+  /// Moving between two places that are both on screen.
+  static const Curve move = Curves.easeInOutCubic;
 }
 
 /// Responsive breakpoints (logical pixels of window width).

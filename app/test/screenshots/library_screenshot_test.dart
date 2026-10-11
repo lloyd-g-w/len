@@ -63,7 +63,7 @@ void main() {
     await settle(tester);
     await shoot(tester, 'desktop_menu');
 
-    await tester.tap(find.text('Change cover'));
+    await tester.tap(find.text('Change cover…'));
     await settle(tester);
     await shoot(tester, 'desktop_cover_sheet');
     await tester.tap(find.text('Apply'));
@@ -95,7 +95,7 @@ void main() {
       await pumpApp(tester, services, const LibraryScreen());
       await tester.longPress(find.text('Work').last);
       await settle(tester);
-      await tester.tap(find.text('Edit folder'));
+      await tester.tap(find.text('Edit folder…'));
       await settle(tester);
       await shoot(tester, 'folder_dialog_$name');
       expect(tester.takeException(), isNull);

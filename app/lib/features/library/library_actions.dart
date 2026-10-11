@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app_services.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
+import '../../ui/messages.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_import_flow.dart';
 import '../editor/tabs/editor_workspace.dart' as editor;
@@ -101,18 +102,14 @@ class LibraryActions {
 
   Future<void> trash(BuildContext context, Notebook notebook) async {
     controller.trashNotebook(notebook.id);
-    final messenger = ScaffoldMessenger.of(context);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('“${notebook.title}” moved to Trash'),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () => controller.restoreNotebook(notebook.id),
-          ),
-        ),
-      );
+    showMessage(
+      context,
+      '“${notebook.title}” moved to the trash',
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () => controller.restoreNotebook(notebook.id),
+      ),
+    );
   }
 
   Future<void> onNotebookAction(
@@ -126,7 +123,8 @@ class LibraryActions {
       case NotebookAction.rename:
         final title = await showTextPrompt(
           context,
-          title: 'Rename',
+          title: 'Rename notebook',
+          label: 'Name',
           initialValue: notebook.title,
           confirmLabel: 'Rename',
         );
@@ -203,7 +201,7 @@ class LibraryActions {
         final ok = await confirmAction(
           context,
           title: 'Delete “${folder.name}”?',
-          message: 'Its subfolders are deleted too; notebooks inside move to the Trash.',
+          message: 'Its subfolders are deleted too; notebooks inside move to the trash.',
           confirmLabel: 'Delete',
           destructive: true,
         );
@@ -216,19 +214,17 @@ class LibraryActions {
     if (count == 0) return;
     final ok = await confirmAction(
       context,
-      title: 'Empty Trash?',
+      title: 'Empty trash?',
       message:
           '$count ${count == 1 ? 'notebook' : 'notebooks'} will be deleted forever '
           'on all synced devices.',
-      confirmLabel: 'Empty Trash',
+      confirmLabel: 'Empty trash',
       destructive: true,
     );
     if (ok) controller.emptyTrash();
   }
 
   void _toast(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showMessage(context, message);
   }
 }

@@ -86,7 +86,7 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
 
 String _failure(String name, Exception e) {
   debugPrint('PDF import of $name failed: $e');
-  return 'Couldn’t open “$name”. Is it a valid, unencrypted PDF?';
+  return 'Couldn’t open “$name”. It may be damaged or password-protected.';
 }
 
 String _pages(int n) => n == 1 ? '1 page' : '$n pages';

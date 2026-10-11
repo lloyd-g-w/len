@@ -68,11 +68,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final pages = _pages(context);
+    final compact = width < Breakpoints.medium;
+    // Phones: the title lives in a pinned bar, so the bar is never empty.
     return Scaffold(
-      appBar: AppBar(scrolledUnderElevation: 0.5),
+      appBar: compact ? null : AppBar(scrolledUnderElevation: 0.5),
       body: width >= Breakpoints.expanded
           ? _twoPane(context, pages)
-          : _column(context, pages, compact: width < Breakpoints.medium),
+          : _column(context, pages, compact: compact),
     );
   }
 
@@ -88,24 +90,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// Every section as a card, in a column of readable width.
   Widget _column(BuildContext context, List<_Page> pages, {required bool compact}) {
-    return ListView(
-      padding: EdgeInsets.fromLTRB(0, 0, 0, Gaps.xxl + MediaQuery.paddingOf(context).bottom),
-      children: [
-        Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: compact ? Gaps.lg : Gaps.xl),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _heading(context, compact: compact),
-                  for (final page in pages) page.build(context),
-                ],
-              ),
-            ),
+    final content = Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: compact ? Gaps.lg : Gaps.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!compact) _heading(context, compact: false),
+              for (final page in pages) page.build(context),
+            ],
           ),
+        ),
+      ),
+    );
+    final bottom = Gaps.xxl + MediaQuery.paddingOf(context).bottom;
+    if (!compact) {
+      return ListView(
+        padding: EdgeInsets.only(bottom: bottom),
+        children: [content],
+      );
+    }
+    return CustomScrollView(
+      slivers: [
+        const SliverAppBar(pinned: true, title: Text('Settings'), scrolledUnderElevation: 0.5),
+        SliverPadding(
+          padding: EdgeInsets.only(bottom: bottom),
+          sliver: SliverToBoxAdapter(child: content),
         ),
       ],
     );

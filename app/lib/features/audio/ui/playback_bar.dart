@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
+import '../../../ui/menus.dart';
 import '../notebook_audio.dart';
 import '../playback_controller.dart';
 import 'audio_format.dart';
@@ -138,15 +139,10 @@ class SpeedButton extends StatelessWidget {
     final scheme = theme.colorScheme;
     return PopupMenuButton<double>(
       tooltip: 'Playback speed',
-      initialValue: playback.rate,
       onSelected: (rate) => unawaited(playback.setRate(rate)),
       itemBuilder: (_) => [
         for (final rate in PlaybackController.rates)
-          CheckedPopupMenuItem(
-            value: rate,
-            checked: rate == playback.rate,
-            child: Text(formatRate(rate)),
-          ),
+          MenuRow(value: rate, label: formatRate(rate), checked: rate == playback.rate),
       ],
       child: Container(
         key: const ValueKey('playback-speed'),

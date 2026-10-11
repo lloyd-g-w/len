@@ -61,8 +61,8 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
+    return AppDialog(
+      title: widget.title,
       content: DialogBody(
         child: TextField(
           controller: _controller,

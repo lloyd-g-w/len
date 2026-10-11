@@ -8,6 +8,7 @@ import '../../../ink/selection/selection_controller.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/viewport.dart';
 import '../../../ui/floating_panel.dart';
+import '../../../ui/menus.dart';
 import 'colour_sheet.dart';
 import 'selection_style_panel.dart';
 
@@ -100,59 +101,93 @@ class _MenuBar extends StatelessWidget {
     // Only ink and text have a colour.
     final colourable =
         selection.strokes.isNotEmpty || elements.any((e) => e.knownType == ElementType.text);
-    Widget action(String label, IconData icon, VoidCallback onPressed) =>
-        IconButton(tooltip: label, onPressed: onPressed, icon: Icon(icon, size: 20));
-    return FloatingPanel(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (singleText)
-            action('Edit text', Icons.edit_outlined, () => onEditText(elements.single)),
-          if (singleImage && onCrop != null)
-            action('Crop', Icons.crop_rounded, () => onCrop!(elements.single)),
-          if (onConvertToText != null && selection.strokes.any((s) => !s.tool.isHighlighter))
-            if (convertUnavailable case final reason?)
-              Tooltip(
-                message: reason,
-                child: const IconButton(
-                  onPressed: null,
-                  icon: Icon(Icons.spellcheck_rounded, size: 20),
+    final convertible =
+        onConvertToText != null && selection.strokes.any((s) => !s.tool.isHighlighter);
+    Future<void> recolour(BuildContext anchor) async {
+      final colour = await pickColour(
+        anchor,
+        title: 'Recolour selection',
+        initial: _currentColour(),
+        tools: tools,
+      );
+      if (colour != null) selection.recolor(colour);
+    }
+
+    // In order of importance: what doesn't fit goes into "More", except
+    // Delete, which always stays last in the bar.
+    final actions = <_Action>[
+      if (singleText) _Action('Edit text', Icons.edit_outlined, () => onEditText(elements.single)),
+      if (singleImage && onCrop != null)
+        _Action('Crop', Icons.crop_rounded, () => onCrop!(elements.single)),
+      if (convertible)
+        _Action(
+          'Convert to text',
+          Icons.spellcheck_rounded,
+          convertUnavailable == null ? onConvertToText : null,
+          tooltip: convertUnavailable,
+        ),
+      _Action('Cut', Icons.content_cut_rounded, selection.cut, shortcut: 'Ctrl+X'),
+      _Action('Copy', Icons.content_copy_rounded, selection.copy, shortcut: 'Ctrl+C'),
+      _Action('Duplicate', Icons.library_add_outlined, selection.duplicate, shortcut: 'Ctrl+D'),
+      if (!selection.clipboard.isEmpty)
+        _Action('Paste', Icons.content_paste_rounded, onPaste, shortcut: 'Ctrl+V'),
+      if (colourable) ...[
+        _Action.anchored('Colour', Icons.palette_outlined, recolour),
+        _Action.anchored(
+          'Style',
+          Icons.tune_rounded,
+          (anchor) => showSelectionStyle(anchor, selection: selection, tools: tools),
+        ),
+      ],
+      if (elements.isNotEmpty) ...[
+        _Action('Bring to front', Icons.flip_to_front_rounded, selection.bringToFront),
+        _Action('Send to back', Icons.flip_to_back_rounded, selection.sendToBack),
+      ],
+    ];
+    final delete = _Action(
+      'Delete',
+      Icons.delete_outline_rounded,
+      selection.delete,
+      shortcut: 'Del',
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Buttons are 48 dp; the panel adds 6 dp on each side.
+        final fits = ((constraints.maxWidth - 12) / 48).floor();
+        var shown = actions;
+        var more = const <_Action>[];
+        if (actions.length + 1 > fits) {
+          final keep = (fits - 2).clamp(0, actions.length);
+          shown = actions.sublist(0, keep);
+          more = actions.sublist(keep);
+        }
+        return FloatingPanel(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final a in shown) a.button(),
+              if (more.isNotEmpty)
+                Builder(
+                  builder: (anchor) => PopupMenuButton<_Action>(
+                    tooltip: 'More',
+                    icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                    onSelected: (a) => a.run(anchor),
+                    itemBuilder: (_) => [
+                      for (final a in more)
+                        MenuRow<_Action>(
+                          value: a,
+                          icon: a.icon,
+                          label: a.label,
+                          enabled: a.enabled,
+                        ),
+                    ],
+                  ),
                 ),
-              )
-            else
-              action('Convert to text', Icons.spellcheck_rounded, onConvertToText!),
-          action('Cut (Ctrl+X)', Icons.content_cut_rounded, selection.cut),
-          action('Copy (Ctrl+C)', Icons.content_copy_rounded, selection.copy),
-          action('Duplicate (Ctrl+D)', Icons.library_add_outlined, selection.duplicate),
-          if (!selection.clipboard.isEmpty)
-            action('Paste (Ctrl+V)', Icons.content_paste_rounded, onPaste),
-          if (elements.isNotEmpty) ...[
-            action('Bring to front', Icons.flip_to_front_rounded, selection.bringToFront),
-            action('Send to back', Icons.flip_to_back_rounded, selection.sendToBack),
-          ],
-          if (colourable)
-            Builder(
-              builder: (context) => action('Colour', Icons.palette_outlined, () async {
-                final colour = await pickColour(
-                  context,
-                  title: 'Recolour selection',
-                  initial: _currentColour(),
-                  tools: tools,
-                );
-                if (colour != null) selection.recolor(colour);
-              }),
-            ),
-          if (colourable)
-            Builder(
-              builder: (context) => action(
-                'Style',
-                Icons.tune_rounded,
-                () => showSelectionStyle(context, selection: selection, tools: tools),
-              ),
-            ),
-          action('Delete (Del)', Icons.delete_outline_rounded, selection.delete),
-        ],
-      ),
+              delete.button(),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -194,4 +229,44 @@ class _MenuLayout extends SingleChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_MenuLayout old) => old.target != target || old.chrome != chrome;
+}
+
+/// One command of the selection menu.
+class _Action {
+  const _Action(this.label, this.icon, VoidCallback? onPressed, {this.shortcut, this.tooltip})
+    : _onPressed = onPressed,
+      onPressedAt = null;
+
+  /// An action whose popover anchors to the control it was started from.
+  const _Action.anchored(this.label, this.icon, this.onPressedAt)
+    : _onPressed = null,
+      shortcut = null,
+      tooltip = null;
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? _onPressed;
+  final void Function(BuildContext anchor)? onPressedAt;
+
+  /// Runs the action from the control at [anchor].
+  void run(BuildContext anchor) => onPressedAt != null ? onPressedAt!(anchor) : _onPressed?.call();
+
+  /// Keyboard shortcut shown in the tooltip, e.g. "Ctrl+C".
+  final String? shortcut;
+
+  /// Overrides the tooltip (e.g. why the action is unavailable).
+  final String? tooltip;
+
+  bool get enabled => _onPressed != null || onPressedAt != null;
+
+  Widget button() {
+    final hint = tooltip ?? (shortcut == null ? label : '$label ($shortcut)');
+    return Tooltip(
+      message: hint,
+      child: Builder(
+        builder: (anchor) =>
+            IconButton(onPressed: enabled ? () => run(anchor) : null, icon: Icon(icon, size: 20)),
+      ),
+    );
+  }
 }

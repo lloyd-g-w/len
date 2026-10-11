@@ -97,21 +97,26 @@ class _FolderTileState extends State<FolderTile> {
             onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
             onHover: (h) => setState(() => _hovered = h),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.xs, Gaps.sm),
+              padding: EdgeInsets.fromLTRB(
+                narrow ? Gaps.sm : Gaps.md,
+                Gaps.sm,
+                narrow ? 0 : Gaps.xs,
+                Gaps.sm,
+              ),
               child: Row(
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: narrow ? 34 : 40,
+                    height: narrow ? 34 : 40,
                     decoration: BoxDecoration(
                       color: color.withValues(
                         alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14,
                       ),
                       borderRadius: BorderRadius.circular(Radii.sm),
                     ),
-                    child: Icon(iconOfFolder(_folder), color: color, size: 22),
+                    child: Icon(iconOfFolder(_folder), color: color, size: narrow ? 20 : 22),
                   ),
-                  const SizedBox(width: Gaps.md),
+                  SizedBox(width: narrow ? Gaps.sm : Gaps.md),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -127,11 +132,17 @@ class _FolderTileState extends State<FolderTile> {
                       ],
                     ),
                   ),
-                  if (!feedback && !narrow)
+                  // Narrow (phone) tiles: a slimmer button, still a 48 dp target
+                  // in height.
+                  if (!feedback)
                     Builder(
                       builder: (anchor) => IconButton(
                         tooltip: 'Folder options',
                         iconSize: 18,
+                        constraints: narrow
+                            ? const BoxConstraints(minWidth: 32, minHeight: 48)
+                            : null,
+                        padding: narrow ? EdgeInsets.zero : null,
                         color: scheme.onSurfaceVariant,
                         icon: const Icon(Icons.more_horiz_rounded),
                         onPressed: () => unawaited(_showMenu(anchor: anchor)),

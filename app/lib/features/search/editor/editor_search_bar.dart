@@ -100,7 +100,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _fieldRow(context, showList: showList),
+              _fieldRow(context, showList: showList, compact: compact),
               if (showList && _c.query.trim().isNotEmpty) ...[
                 const Divider(height: Gaps.sm),
                 _results(context, compact: compact),
@@ -112,15 +112,20 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
     );
   }
 
-  Widget _fieldRow(BuildContext context, {required bool showList}) {
+  Widget _fieldRow(BuildContext context, {required bool showList, required bool compact}) {
     final theme = Theme.of(context);
     final count = _c.matches.length;
     final hasMatches = count > 0;
-    final counter = _c.query.trim().isEmpty
+    // Nothing while the list below says "No matches"; short on phones,
+    // where the field needs the room.
+    final counter = _c.query.trim().isEmpty || (count == 0 && showList)
         ? ''
         : _c.current >= 0
-        ? '${_c.current + 1} of $count'
+        ? (compact ? '${_c.current + 1}/$count' : '${_c.current + 1} of $count')
+        : compact
+        ? '$count found'
         : (count == 1 ? '1 match' : '$count matches');
+    final density = compact ? VisualDensity.compact : null;
     return Row(
       children: [
         const SizedBox(width: Gaps.sm),
@@ -146,25 +151,34 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
             ),
           ),
         ),
-        Text(counter, style: theme.textTheme.bodySmall),
+        Text(
+          counter,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
         IconButton(
           tooltip: 'Previous (Shift+Enter)',
+          visualDensity: density,
           onPressed: hasMatches ? _c.previous : null,
           icon: const Icon(Icons.keyboard_arrow_up_rounded),
         ),
         IconButton(
           tooltip: 'Next (Enter)',
+          visualDensity: density,
           onPressed: hasMatches ? _c.next : null,
           icon: const Icon(Icons.keyboard_arrow_down_rounded),
         ),
         IconButton(
           tooltip: showList ? 'Hide results' : 'Show results',
+          visualDensity: density,
           isSelected: showList,
           onPressed: () => setState(() => _showList = !showList),
           icon: const Icon(Icons.list_rounded),
         ),
         IconButton(
           tooltip: 'Close (Esc)',
+          visualDensity: density,
           onPressed: _close,
           icon: const Icon(Icons.close_rounded),
         ),
