@@ -1,5 +1,27 @@
 # Len — UX/UI audit
 
+## Workspace features (`feat/workspace`)
+
+Split view, the customisable toolbar, presentation mode and double-tap zoom,
+reviewed from `test/screenshots/workspace_screenshot_test.dart` (split view
+tablet 1280×800 and desktop 1440×900, light and dark, with the split menu and a
+selection dragged across; toolbar with favourites and in edit mode on tablet and
+phone; the phone tool switcher with favourites; presentation, light and dark).
+
+- ✅ Split panes take the compact chrome below 640 px (tablets in landscape):
+  phone top bar with the tab switcher, one-row toolbar. The 640–720 px gap
+  where the wide bar showed neither tab strip nor switcher is closed (the strip
+  starts at the compact width).
+- ✅ Dragging a selection across shows the target outlined, *Drop to copy here*
+  and a preview of the copy at the target's zoom (the source clips at its edge).
+- ✅ Edit mode reads on phones (tools on their own row; favourites, Reset and
+  Done below) and favourite glyphs are outlined, so dark inks show in dark mode.
+- ✅ Presentation fits the whole page: fitted pages now re-fit when the chrome
+  goes away (the new scroll bounds used to nudge the view and skip the re-fit).
+- ⬜ The second pane's top bar is shorter than the first's when the first shows
+  the tab strip (desktop); an empty strip-coloured band would line them up.
+- ⬜ Reordering in edit mode needs a long press, also with a mouse.
+
 ## Round 3 — whole app (`feat/ux3`)
 
 Scope: every surface. The library, settings, dialogs, import and export

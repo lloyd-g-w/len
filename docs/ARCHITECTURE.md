@@ -186,6 +186,48 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   and clipped to the flight, never relaid out) fades in; back (and predictive back) reverses
   into the cover's current rect, or fades if it is gone. Without a cover (search, new, import)
   it fades and scales in; with reduced motion it only fades. The library does not move.
+- **Split view** (`split/`; tablets in landscape and desktops: `SplitView.fits`, ≥ 900 px
+  wide and ≥ 560 px on the short side — never phones or portrait tablets): a second pane
+  shows another open tab or the active notebook again (two places in one notebook).
+  `OpenNotebooks.splitId` / `splitFraction` / `splitView` / `linkTools` hold it (memory,
+  like tabs). Opened from the top bar's split button (`SplitViewButton`: this notebook
+  or another tab; while split: *Same tools in both panes*, *Swap panes*, *Close split
+  view*) or a tab's menu (right click / long press → *Open in split view*). `SplitView`
+  lays out the panes in a `Stack` whose first child keeps its place in every layout, so
+  opening or closing the split never rebuilds the first editor; a 12 px divider resizes
+  (drag, ← / → when focused, double tap: halves; panes ≥ 320 px). Each pane is a full
+  `EditorScreen` with its own `EditorSession` (viewport, tools, undo, chrome); the
+  second has no tab strip, its back button closes it, Ctrl+W closes it, it keeps its
+  view in `OpenNotebooks.splitView` only, and it has its own `ScaffoldMessenger`
+  (messages show in the pane they belong to). `SplitController` (owned by the
+  workspace; editors `attach` a `SplitPane`) coordinates them:
+  - **Drag between panes (copy)**: `LassoTool.dragOut` (a `SelectionDragOut`) reports
+    a selection being moved; over the other pane, that pane is outlined with *Drop to
+    copy here* and a half-transparent preview of the copy at its zoom; dropped there,
+    the source cancels its move and the target pastes a copy
+    (`SelectionController.pasteItems`) centred where the selection's centre was, on the
+    page under it, selected with the lasso (one undo step in the target).
+  - **Two views of one notebook** stay current: `EditorSession.onSurfaceEdited`
+    (`model.onCommit` / `DocumentSurfaces.onEdited`, undo and redo included) and page
+    list changes are gathered for 250 ms and replayed in the other view through
+    `applyRemoteChanges` — the path remote sync uses (reloads of mirrored changes are
+    not reported back).
+  - **Linked tools** (optional): `ToolSettings.adopt` copies tool, quick colours and
+    widths, eraser, shape and text defaults from the pane that changed them.
+  - **Presentation** in a pane shows that pane alone (`SplitView.solo`; the other stays
+    alive offstage).
+- **Presentation mode** (`present/`; "⋯" → *Present*, F5): `Presentation` hides all
+  chrome (`ChromeLayout.focus`), goes immersive / full screen (`platform/fullscreen*`: the
+  browser's fullscreen API on the web; Android hides the system bars; desktop windows
+  stay as they are — no window plugin), makes the laser pointer the tool, and shows
+  paged notebooks one whole page at a time (single flow, fit page). ← / → / Page Up /
+  Page Down / Space / Shift+Space turn pages (swipes too, when fingers navigate); a
+  small bar (`PresentationControls`: previous, page n / m, next, *Stop presenting*)
+  peeks in near the bottom (pointer near it, a touch, a page turn) and fades after 3 s.
+  Esc, back or F5 stop; the tool, page layout and zoom are put back (never saved as the
+  user's choice). **External displays**: Android mirrors the screen by default, which
+  shows the presentation; a separate audience window (Android `Presentation` API,
+  desktop multi-window) is out of scope — Flutter's multi-window API is not stable yet.
 - **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
   pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
   in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).
@@ -580,8 +622,15 @@ Raw `Listener` pointer events (no gesture arena → no latency, full pressure da
   claiming them: a quick, still two-/three-finger tap (`MultiFingerTapDetector`:
   ≤ 300 ms, ≤ 24 px travel) → undo / redo; a still one-finger long press with a
   navigating finger, or a right click (`LongPressDetector`, `SecondaryClickDetector`)
-  → the canvas context menu. Palm safety: taps and long presses are ignored while a
-  stylus touches, or was seen touching or hovering within 600 ms.
+  → the canvas context menu; a navigating finger's double tap (`DoubleTapDetector`:
+  two ≤ 250 ms taps ≤ 300 ms apart, ≤ 40 px from each other, ≤ 18 px travel, never
+  with a second finger down — so two-finger taps stay undo) → **double-tap zoom**
+  (`features/editor/double_tap_zoom.dart`: the page fit — 100 % on canvases — ⇄ 2× or
+  the zoom last left this way, about the tap, animated). Fingers that draw (palm
+  rejection off) never zoom: their taps are dots. Palm safety: taps, double taps and
+  long presses are ignored while a stylus touches, or was seen touching or hovering
+  within 600 ms. The recognisers live in `CanvasGestures`, so
+  `ink_input_controller.dart` is unchanged.
 
 Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
 rendering* below); paths are memoised per stroke. PDF export flattens the same
@@ -830,6 +879,21 @@ there on one row whichever tool is active, otherwise at the bottom. The slot
 measures the toolbar and `ChromeLayout` uses that height for
 the screen edge it covers, so document scrolling, the page navigator and the
 canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
+
+**Customising** ("⋯" → Toolbar → *Customise toolbar…*): `ToolbarConfig`
+(`toolbar/toolbar_config.dart`, JSON in the local setting `toolbar_layout`,
+`AppPreferences.toolbarLayout`; null = default) holds the tool order, hidden tools and
+up to 8 **favourite pens** (`FavouritePen`: pen or highlighter + colour + width).
+`EditorToolbar`, `oneRowWidth` (automatic placement) and the phone `ToolSwitcherPanel`
+arrange the descriptors with it (`ToolbarConfig.arrange`; the active tool shows even
+when hidden, e.g. picked by its shortcut). Favourites sit in their own group after the
+tools (and under the tools in the switcher panel); one tap draws with one
+(`ToolSettings.usePreset`: selects the quick colour / width slots holding its values, or
+loads them into the selected slots, as picking a colour does). In edit mode the toolbar
+becomes `ToolbarEditor`: every tool as a tile (tap: show / hide, at least one stays;
+hold and drag: reorder, `ReorderableListView`; screen readers get Move left / right),
+the favourites (× removes, ☆ pins the pen in use), Reset and Done; on narrow screens
+the tools take a row of their own. Changes apply and persist immediately.
 
 ### Ink rendering (`ink/render/`)
 

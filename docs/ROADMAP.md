@@ -102,7 +102,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Animated zoom: keyboard `+` `-` `0`, Shift+1 fit; zoom indicator with 50/100/200 %/fit
 - ✅ Minimap (populated chunks + viewport, tap/drag to move), fit content, back to start
 - ✅ Canvas background: template + paper colour
-- ⬜ Double-tap zoom gesture; persistent LOD tiles; LOD for paged documents
+- ✅ Double-tap zoom (finger, when fingers navigate): page fit / 100 % ⇄ 2× or the last zoom, about
+  the tap; palm-safe, never confused with two-finger undo
+- ⬜ Persistent LOD tiles; LOD for paged documents
 
 ## Library
 - ✅ Folders (nested, synced), move to folder (menu + drag and drop), breadcrumbs, folder tree
@@ -146,7 +148,16 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   toolbar with a tool switcher, title left-aligned with the folder on every size, open-notebook
   transition from the cover, export options, one-time tips (pen side button, multi-finger taps),
   empty-canvas hint, Escape closes chrome menus
-- ⬜ Customisable toolbar contents, favourite tools (in-editor search: ✅ text and PDF, see Library)
+- ✅ Customisable toolbar: reorder and hide tools, favourite pens (tool + colour + width, GoodNotes
+  favourites row; also in the phone tool switcher), edit mode from "⋯" → Toolbar, saved per device
+  (in-editor search: ✅ text and PDF, see Library)
+- ✅ Split view (tablets in landscape, desktops): two notebooks — or two places in one — side by
+  side, resizable, each pane a full editor (tools optionally linked); drag a lasso selection across
+  to copy it; from a tab's menu or the top bar
+- ✅ Presentation mode: no chrome, full screen (web) / immersive (Android), laser pointer, one page at
+  a time with ← / → / Space, controls that fade away
+- ⬜ Presentation on a second display as a separate audience view (Android Presentation API,
+  desktop multi-window once Flutter supports it); synced favourite pens
 - ✅ App identity: one icon design for all platforms (Android adaptive + themed icon), splash
   screen, edge-to-edge system bars, Linux desktop entry, Windows window placement
 - ✅ CI (analyze, tests, Linux/Android/Web/Windows builds, server image) and tagged releases
