@@ -24,6 +24,11 @@ abstract final class StrokeRenderer {
     complete: true,
   );
 
+  /// Caches [path] as the outline of the just-committed [stroke] (the live
+  /// stroke's builder completes it at pen-up, see `LiveStrokeBuilder`), so
+  /// committing does not rebuild it from scratch.
+  static void adopt(Stroke stroke, Path path) => _paths[stroke] = path;
+
   /// Builds an outline path. [complete] is false while the stroke is still
   /// being drawn (its moving end is not trimmed).
   static Path buildPath(

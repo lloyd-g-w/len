@@ -7,6 +7,7 @@ import '../../core/clock.dart';
 import '../../domain/preferences.dart';
 import '../../domain/stroke.dart';
 import '../navigation/kinetic_pan.dart';
+import '../render/live_stroke.dart';
 import '../render/stroke_outline.dart';
 import '../render/stroke_renderer.dart';
 import '../surface_model.dart';
@@ -439,18 +440,26 @@ class InkInputController {
       _pending.clear();
       _pendingTimes.clear();
       if (points.isNotEmpty && !_isBounce(liftTime)) {
-        model.addStroke(
-          Stroke(
-            id: clock.newId(),
-            surfaceId: model.surfaceId,
-            tool: live.tool,
-            color: live.color,
-            width: live.width,
-            style: live.style,
-            points: points,
-            createdAt: clock.nowMs(),
-          ),
+        final stroke = Stroke(
+          id: clock.newId(),
+          surfaceId: model.surfaceId,
+          tool: live.tool,
+          color: live.color,
+          width: live.width,
+          style: live.style,
+          points: points,
+          createdAt: clock.nowMs(),
         );
+        // The live outline's builder completes it (cheaply) at pen-up.
+        final path = LiveStrokeBuilder.finishLive(
+          live,
+          points,
+          tool: stroke.tool,
+          width: stroke.width,
+          style: stroke.style,
+        );
+        if (path != null) StrokeRenderer.adopt(stroke, path);
+        model.addStroke(stroke);
       }
       _recordLift(liftTime);
     }

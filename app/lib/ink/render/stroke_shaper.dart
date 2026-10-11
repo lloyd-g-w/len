@@ -116,8 +116,15 @@ class StrokeShaper implements RibbonLine {
   /// Whether the start (pen-down hook, start rules) is decided and final.
   bool get startFinal => _start != null && _roDone > 0;
 
+  /// Number of input points [add]ed so far.
+  int pointCount = 0;
+
+  // The first input point of each sample (merged points follow it).
+  final List<int> _samplePoint = [];
+
   /// Adds an input point at ([x], [y]) with outline radius [radius].
   void add(double x, double y, double radius) {
+    pointCount++;
     final n = _sx.length;
     if (n > 0) {
       final dx = x - _sx[n - 1], dy = y - _sy[n - 1];
@@ -126,18 +133,85 @@ class StrokeShaper implements RibbonLine {
         return;
       }
     }
+    _samplePoint.add(pointCount - 1);
     _sx.add(x);
     _sy.add(y);
     _sr.add(radius);
   }
 
-  /// Total input length (deduplicated samples), for the gate.
-  double inputLength() {
-    var total = 0.0;
-    for (var i = 1; i < _sx.length; i++) {
-      total += _dist(_sx[i] - _sx[i - 1], _sy[i] - _sy[i - 1]);
+  /// The input sample point [point] went into.
+  int sampleOfPoint(int point) {
+    var lo = 0, hi = _samplePoint.length - 1;
+    while (lo < hi) {
+      final mid = (lo + hi + 1) ~/ 2;
+      if (_samplePoint[mid] <= point) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
     }
-    return total;
+    return lo;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Checkpoints: the final state after recent [update]s, so the end of a
+  // finished stroke (pen-up hook, settled pressures) can be redone without
+  // starting over.
+
+  final List<_Checkpoint> _checkpoints = [];
+  static const int _keptCheckpoints = 48;
+
+  /// Records the current final state; returns its id for [rollBack].
+  int checkpoint() {
+    _checkpoints.add(
+      _Checkpoint(
+        id: _checkpointIds++,
+        seg: _seg,
+        next: _next,
+        resFinal: _resFinal,
+        radDone: _radDone,
+        corners: _corners.length,
+        scan: _scan,
+        runBest: _runBest,
+        runTurn: _runTurn,
+        posFinal: _posFinal,
+        roDone: _roDone,
+      ),
+    );
+    if (_checkpoints.length > _keptCheckpoints) _checkpoints.removeAt(0);
+    return _checkpoints.last.id;
+  }
+
+  int _checkpointIds = 0;
+
+  /// Restores the latest checkpoint whose final values do not depend on
+  /// input samples from [sample] on, and drops those samples (re-[add] the
+  /// points from [pointCount] on). Returns the checkpoint's id, or null when
+  /// there is none (start over).
+  int? rollBack(int sample) {
+    for (var k = _checkpoints.length - 1; k >= 0; k--) {
+      final c = _checkpoints[k];
+      // Final segments end before c.seg; they use samples up to c.seg + 1.
+      if (c.seg + 2 > sample || c.resFinal == 0) continue;
+      _checkpoints.removeRange(k + 1, _checkpoints.length);
+      _seg = c.seg;
+      _next = c.next;
+      _resFinal = c.resFinal;
+      _radDone = c.radDone;
+      _corners.removeRange(c.corners, _corners.length);
+      _scan = c.scan;
+      _runBest = c.runBest;
+      _runTurn = c.runTurn;
+      _posFinal = c.posFinal;
+      _roDone = c.roDone;
+      _sx.length = sample;
+      _sy.length = sample;
+      _sr.length = sample;
+      pointCount = _samplePoint[sample];
+      _samplePoint.removeRange(sample, _samplePoint.length);
+      return c.id;
+    }
+    return null;
   }
 
   /// Computes the line for the input so far. With [ended] the input is
@@ -416,6 +490,29 @@ class StrokeShaper implements RibbonLine {
       (x: _cx.toList(), y: _cy.toList(), r: _ro.toList());
 
   static double _dist(double dx, double dy) => math.sqrt(dx * dx + dy * dy);
+}
+
+class _Checkpoint {
+  _Checkpoint({
+    required this.id,
+    required this.seg,
+    required this.next,
+    required this.resFinal,
+    required this.radDone,
+    required this.corners,
+    required this.scan,
+    required this.runBest,
+    required this.runTurn,
+    required this.posFinal,
+    required this.roDone,
+  });
+
+  final int id;
+  final int seg;
+  final double next;
+  final int resFinal, radDone, corners, scan, runBest;
+  final double runTurn;
+  final int posFinal, roDone;
 }
 
 /// One centripetal Catmull-Rom segment from P1 to P2 (Barry–Goldman form).

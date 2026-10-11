@@ -39,11 +39,28 @@ void main() {
         final builder = LiveStrokeBuilder(spec);
         for (var n = 2; n <= points.length; n += 7) {
           final prefix = points.sublist(0, n);
-          final live = builder.update(prefix);
+          final live = builder.update(prefix).combined;
           final full = StrokeOutline.build(prefix, spec, complete: false);
           final diff = differences(live, full);
           expect(diff.length, lessThanOrEqualTo(2), reason: 'at $n points: ${diff.take(5)}');
         }
+      });
+
+      test('finishing a live stroke builds what a full build builds ($name @ $streamline)', () {
+        final builder = LiveStrokeBuilder(spec);
+        for (var n = 2; n <= points.length; n += 5) {
+          builder.update(points.sublist(0, n));
+        }
+        // At pen-up: a lift flick, and the last pressures settled.
+        final last = points.last;
+        final done = [
+          ...points.sublist(0, points.length - 2),
+          for (final p in points.sublist(points.length - 2)) StrokePoint(p.x, p.y, 0.2),
+          StrokePoint(last.x + 0.8, last.y + 1.2, 0.2),
+          StrokePoint(last.x + 0.4, last.y + 2.4, 0.2),
+        ];
+        final diff = differences(builder.finish(done), StrokeOutline.build(done, spec));
+        expect(diff.length, lessThanOrEqualTo(2), reason: '${diff.take(5)}');
       });
     }
   }

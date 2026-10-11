@@ -112,19 +112,10 @@ class ReplayResult {
     final viewport = ViewportController(minScale: 0.01, maxScale: 64);
     final driver = ReplayDriver(recording, model: model, live: live, viewport: viewport, pen: pen);
     final frames = <ReplayFrame>[];
-    LiveStrokeBuilder? builder;
-    Duration timeBuild(List<StrokePoint> points) {
+    Duration timeBuild() {
       final watch = Stopwatch()..start();
-      final built = LiveStrokeBuilder.build(
-        builder,
-        points,
-        tool: live.tool,
-        width: live.width,
-        style: live.style,
-      );
-      final took = watch.elapsed;
-      builder = built.builder;
-      return took;
+      LiveStrokeBuilder.livePath(live);
+      return watch.elapsed;
     }
 
     try {
@@ -137,7 +128,7 @@ class ReplayResult {
             vsyncUs: step.frame?.vsyncUs ?? 0,
             points: points,
             newestEventUs: step.newestEventUs,
-            build: points.isEmpty ? Duration.zero : timeBuild(points),
+            build: points.isEmpty ? Duration.zero : timeBuild(),
             committed: step.committed,
             commitTime: step.commitTime,
             viewScale: viewport.scale,
