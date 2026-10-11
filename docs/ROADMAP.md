@@ -123,4 +123,4 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 ## Sync
 - ✅ Self-hosted LWW record sync
 - ✅ Blob sync (content-addressed PDFs, images and audio)
-- ⬜ Blob garbage collection (unreferenced blobs on device and server)
+- ✅ Blob garbage collection (unreferenced blobs on device and server); oversized blobs no longer block sync
