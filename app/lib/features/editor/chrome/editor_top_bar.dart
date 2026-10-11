@@ -28,6 +28,8 @@ class EditorTopBar extends StatelessWidget {
     this.insert,
     this.audio,
     this.compactMenuItems = const [],
+    this.split,
+    this.secondPane = false,
   });
 
   final String title;
@@ -48,6 +50,13 @@ class EditorTopBar extends StatelessWidget {
   /// phones they hide and [compactMenuItems] go into the "⋯" menu instead.
   final Widget? audio;
   final List<Widget> compactMenuItems;
+
+  /// The split view button (large screens), before focus mode.
+  final Widget? split;
+
+  /// The bar of a split view's second pane: back closes the pane, and
+  /// the tab strip stays with the first pane.
+  final bool secondPane;
 
   /// Height of the bar (without the status bar) for a given [width].
   static double heightFor(double width, OpenNotebooks? tabs) =>
@@ -74,7 +83,11 @@ class EditorTopBar extends StatelessWidget {
                 if (strip)
                   SizedBox(
                     height: ChromeMetrics.tabHeight,
-                    child: NotebookTabStrip(tabs: tabs!, onRename: actions.onRename),
+                    child: NotebookTabStrip(
+                      tabs: tabs!,
+                      onRename: actions.onRename,
+                      splitAvailable: split != null,
+                    ),
                   ),
                 DecoratedBox(
                   decoration: BoxDecoration(
@@ -99,8 +112,9 @@ class EditorTopBar extends StatelessWidget {
     );
   }
 
-  Widget _back() =>
-      BarButton(tooltip: 'Back', icon: Icons.arrow_back_rounded, onPressed: actions.onBack);
+  Widget _back() => secondPane
+      ? BarButton(tooltip: 'Close this pane', icon: Icons.close_rounded, onPressed: actions.onBack)
+      : BarButton(tooltip: 'Back', icon: Icons.arrow_back_rounded, onPressed: actions.onBack);
 
   Widget _title() => TitleButton(title: title, subtitle: subtitle, onRename: actions.onRename);
 
@@ -134,6 +148,7 @@ class EditorTopBar extends StatelessWidget {
         UndoRedoButtons(target: undo),
         const BarDivider(),
         if (a.onExport case final onExport?) ShareMenuButton(onExport: onExport),
+        ?split,
         BarButton(
           tooltip: 'Focus mode (F11)',
           icon: Icons.fullscreen_rounded,
@@ -159,6 +174,7 @@ class EditorTopBar extends StatelessWidget {
         if (actions.onSearch == null) ?search,
         UndoRedoButtons(target: undo),
         if (switcher) TabSwitcherButton(tabs: tabs),
+        ?split,
         EditorMoreMenu(
           actions: actions,
           compact: true,

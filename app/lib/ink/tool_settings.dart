@@ -205,6 +205,29 @@ class ToolSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Takes over [other]'s tool and customisation (linked tools of a split
+  /// view). Notifies only when something differed; [other] persists it.
+  void adopt(ToolSettings other) {
+    final tool = other._tool == EditorTool.selectText && !_selectTextAvailable
+        ? _tool
+        : other._tool;
+    final same =
+        tool == _tool &&
+        _eraser == other._eraser &&
+        _shape == other._shape &&
+        identical(_text, other._text) &&
+        _holdToStraighten == other._holdToStraighten &&
+        inks.every((t) => identical(_configs[t], other._configs[t]));
+    if (same) return;
+    _tool = tool;
+    _configs.addAll(other._configs);
+    _eraser = other._eraser;
+    _shape = other._shape;
+    _text = other._text;
+    _holdToStraighten = other._holdToStraighten;
+    notifyListeners();
+  }
+
   // ---------------------------------------------------------------------------
   // Persistence
 

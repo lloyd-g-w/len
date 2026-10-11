@@ -177,6 +177,14 @@ class SelectionController extends ChangeNotifier {
     _paste(clipboard.strokes, clipboard.elements, clipboard.bounds, at);
   }
 
+  /// Adds a copy of [strokes] and [elements] (from any surface; [bounds]
+  /// around them) centred on world point [at] and selects it, e.g. a
+  /// selection dropped here from another editor.
+  void pasteItems(List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds, Offset at) {
+    if (strokes.isEmpty && elements.isEmpty) return;
+    _paste(strokes, elements, bounds, at);
+  }
+
   /// Moves the selected elements above everything else on the surface
   /// (and above the ink).
   void bringToFront() => _restack(ElementOrder.toFront(_elements, _model.topZ));

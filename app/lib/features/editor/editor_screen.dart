@@ -39,6 +39,11 @@ import 'editor_shortcuts.dart';
 import 'editor_toolbar.dart';
 import 'images/image_entry_points.dart';
 import 'pdf/pdf_layer.dart';
+import 'present/presentation.dart';
+import 'present/presentation_controls.dart';
+import 'split/split_controller.dart';
+import 'split/split_drop_highlight.dart';
+import 'split/split_view_button.dart';
 import 'tabs/open_notebooks.dart';
 import 'toolbar/toolbar_config.dart';
 import 'toolbar/toolbar_editor.dart';
@@ -46,9 +51,15 @@ import 'toolbar/toolbar_editor.dart';
 /// Full-screen editor for a paged notebook or an infinite canvas: the
 /// surface, the content tools' layer and the chrome around them.
 class EditorScreen extends StatefulWidget {
-  const EditorScreen({super.key, required this.notebook});
+  const EditorScreen({super.key, required this.notebook, this.split, this.secondPane = false});
 
   final Notebook notebook;
+
+  /// The workspace's split view, when shown in the editor workspace.
+  final SplitController? split;
+
+  /// The split view's second pane (its own view memory, no tab strip).
+  final bool secondPane;
 
   @override
   State<EditorScreen> createState() => _EditorHostState();
@@ -68,14 +79,26 @@ class _EditorHostState extends State<EditorScreen> {
   @override
   Widget build(BuildContext context) => MessageInsets(
     bottom: _messageInset,
-    child: _EditorView(notebook: widget.notebook, messageInset: _messageInset),
+    child: _EditorView(
+      notebook: widget.notebook,
+      messageInset: _messageInset,
+      split: widget.split,
+      secondPane: widget.secondPane,
+    ),
   );
 }
 
 class _EditorView extends StatefulWidget {
-  const _EditorView({required this.notebook, required this.messageInset});
+  const _EditorView({
+    required this.notebook,
+    required this.messageInset,
+    this.split,
+    this.secondPane = false,
+  });
 
   final Notebook notebook;
+  final SplitController? split;
+  final bool secondPane;
 
   /// Updated with the room the bottom chrome takes.
   final ValueNotifier<double> messageInset;
@@ -91,10 +114,27 @@ class _EditorScreenState extends State<_EditorView> {
     services: _services,
     notebook: () => _notebook,
     onStylusDetected: _onStylusDetected,
-    initialView:
-        _services.openNotebooks.viewOf(widget.notebook.id) ??
-        EditorViewState.decode(_services.settings.editorView(widget.notebook.id)),
+    initialView: widget.secondPane
+        ? _services.openNotebooks.splitView
+        : _services.openNotebooks.viewOf(widget.notebook.id) ??
+              EditorViewState.decode(_services.settings.editorView(widget.notebook.id)),
   );
+
+  /// This editor as the split view sees it.
+  late final SplitPane? _pane = widget.split == null
+      ? null
+      : SplitPane(
+          session: _session,
+          secondary: widget.secondPane,
+          area: () => _areaKey.currentContext?.findRenderObject() as RenderBox?,
+        );
+  final GlobalKey _areaKey = GlobalKey(debugLabel: 'editor area');
+
+  /// Presentation mode (no chrome, laser pointer, page navigation).
+  late final Presentation _presentation = Presentation(_session)..addListener(_onPresentation);
+
+  /// Pointer activity that shows the presentation controls.
+  final ValueNotifier<int> _presentActivity = ValueNotifier(0);
 
   /// Commits a text box being typed and saves where the editor looks when
   /// the app goes to the background (it may be killed there without
@@ -170,6 +210,7 @@ class _EditorScreenState extends State<_EditorView> {
     _session.undo.addListener(_onEdit);
     _lifecycle; // Starts listening.
     _services.incomingFiles.targets.add(_importTarget);
+    if (_pane case final pane?) widget.split!.attach(pane);
     // Take the keyboard even when another editor (the previous tab) still
     // held it while this one was built; autofocus would not.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -179,11 +220,18 @@ class _EditorScreenState extends State<_EditorView> {
 
   @override
   void dispose() {
+    if (_pane case final pane?) widget.split!.detach(pane);
+    if (_presentation.active) _presentation.stop();
+    _presentation.dispose();
+    _presentActivity.dispose();
     _services.incomingFiles.targets.remove(_importTarget);
     unawaited(_remoteChanges?.cancel());
-    _services.openNotebooks
-      ..removeListener(_onTabs)
-      ..saveView(_notebook.id, _session.viewState);
+    _services.openNotebooks.removeListener(_onTabs);
+    if (widget.secondPane) {
+      _services.openNotebooks.splitView = _session.viewState;
+    } else {
+      _services.openNotebooks.saveView(_notebook.id, _session.viewState);
+    }
     _saveView();
     _lifecycle.dispose();
     _services.preferences.removeListener(_onPreferences);
@@ -211,7 +259,9 @@ class _EditorScreenState extends State<_EditorView> {
 
   /// Remembers this notebook's page, zoom and pan for the next launch.
   void _saveView() {
-    if (_closing || _services.database.isClosed) return;
+    // The second pane keeps its place in memory only (it may show the same
+    // notebook as the first).
+    if (_closing || widget.secondPane || _services.database.isClosed) return;
     _services.settings.setEditorView(_notebook.id, _session.viewState.encode());
   }
 
@@ -342,6 +392,18 @@ class _EditorScreenState extends State<_EditorView> {
     setImmersive(_focus);
   }
 
+  void _onPresentation() {
+    if (!mounted) return;
+    final active = _presentation.active;
+    if (!active && _focus) setImmersive(true); // Back to focus mode.
+    if (_pane case final pane?) widget.split!.present(active ? pane : null);
+    if (active) _focusNode.requestFocus();
+    setState(() {});
+  }
+
+  /// Leaves this pane of the split view.
+  void _closePane() => _services.openNotebooks.closeSplit();
+
   Future<void> _rename() async {
     final title = await showTextPrompt(
       context,
@@ -380,7 +442,7 @@ class _EditorScreenState extends State<_EditorView> {
     return id == null ? null : _services.folders.get(id)?.name;
   }
 
-  void _back() => unawaited(Navigator.of(context).maybePop());
+  void _back() => widget.secondPane ? _closePane() : unawaited(Navigator.of(context).maybePop());
 
   void _openSettings() => unawaited(
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
@@ -391,12 +453,16 @@ class _EditorScreenState extends State<_EditorView> {
 
   @override
   Widget build(BuildContext context) {
-    final tabs = _services.openNotebooks.contains(_notebook.id) ? _services.openNotebooks : null;
-    // Back (e.g. Android's) leaves focus mode before leaving the editor.
+    final open = _services.openNotebooks;
+    final tabs = open.contains(_notebook.id) && !widget.secondPane ? open : null;
+    final presenting = _presentation.active;
+    // Back (e.g. Android's) leaves presentation and focus mode before
+    // leaving the editor.
     return PopScope(
-      canPop: !_focus,
+      canPop: !_focus && !presenting,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _focus) _toggleFocus();
+        if (didPop) return;
+        presenting ? _presentation.stop() : _toggleFocus();
       },
       child: Scaffold(
         body: CallbackShortcuts(
@@ -406,9 +472,19 @@ class _EditorScreenState extends State<_EditorView> {
               toggleFocus: _toggleFocus,
               nextTab: tabs?.cycle,
               previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
-              closeTab: tabs == null ? null : () => tabs.close(_notebook.id),
+              closeTab: widget.secondPane
+                  ? _closePane
+                  : tabs == null
+                  ? null
+                  : () => tabs.close(_notebook.id),
               paste: () => _session.images.paste(context),
             ),
+            const SingleActivator(LogicalKeyboardKey.f5): _presentation.toggle,
+            if (presenting) ...{
+              const SingleActivator(LogicalKeyboardKey.space): () => _presentation.turn(1),
+              const SingleActivator(LogicalKeyboardKey.space, shift: true): () =>
+                  _presentation.turn(-1),
+            },
             ...EditorSearchLayer.shortcuts(_search),
             ...?_session.pdf == null ? null : pdfShortcuts(_session.pdf!),
           },
@@ -418,12 +494,16 @@ class _EditorScreenState extends State<_EditorView> {
             // Escape first closes a chrome menu opened with a tap (focus
             // stayed here, out of the menu's reach). The audio player's
             // keys (Space, ← / →) come before the editor's shortcuts.
-            onKeyEvent: (_, event) =>
-                event is KeyDownEvent &&
-                    event.logicalKey == LogicalKeyboardKey.escape &&
-                    _guard.closeMenus()
-                ? KeyEventResult.handled
-                : handlePlaybackKey(_audio, event),
+            onKeyEvent: (_, event) {
+              final escape = event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape;
+              if (escape && _presentation.active) {
+                _presentation.stop();
+                return KeyEventResult.handled;
+              }
+              return escape && _guard.closeMenus()
+                  ? KeyEventResult.handled
+                  : handlePlaybackKey(_audio, event);
+            },
             // Automatic placement depends on the toolbar's width (its slots).
             child: ListenableBuilder(
               listenable: Listenable.merge([_session.tools, _toolbarHeight]),
@@ -445,7 +525,7 @@ class _EditorScreenState extends State<_EditorView> {
                     safe: media.padding,
                     hasNavigator: _session.doc != null,
                     width: constraints.maxWidth,
-                    focus: _focus,
+                    focus: _focus || presenting,
                   );
                   _applyInsets(layout.covered);
                   widget.messageInset.value = layout.covered.bottom;
@@ -453,8 +533,18 @@ class _EditorScreenState extends State<_EditorView> {
                   return CanvasGuardScope(
                     guard: _guard,
                     child: Listener(
-                      onPointerDown: (e) => _touchInput = e.kind != PointerDeviceKind.mouse,
+                      onPointerDown: (e) {
+                        _touchInput = e.kind != PointerDeviceKind.mouse;
+                        if (presenting && _touchInput) _presentActivity.value++;
+                      },
+                      onPointerHover: (e) {
+                        // The pointer near the bottom shows the controls.
+                        if (presenting && e.localPosition.dy > constraints.maxHeight * 0.75) {
+                          _presentActivity.value++;
+                        }
+                      },
                       child: Stack(
+                        key: _areaKey,
                         children: [
                           Positioned.fill(
                             child: EditorCanvas(
@@ -469,7 +559,7 @@ class _EditorScreenState extends State<_EditorView> {
                           ),
                           if (_session.pdf case final pdf?)
                             Positioned.fill(child: PdfLayer(interaction: pdf)),
-                          if (_session.canvas != null)
+                          if (_session.canvas != null && !presenting)
                             Positioned.fill(
                               child: Padding(
                                 padding: layout.covered,
@@ -490,14 +580,28 @@ class _EditorScreenState extends State<_EditorView> {
                               canvasPaper: _notebook.paperColor,
                             ),
                           ),
-                          Positioned.fill(child: _buildChrome(layout, tabs)),
-                          Positioned.fill(
-                            child: EditorSearchLayer(
-                              controller: _search,
-                              top: layout.covered.top,
-                              onClose: _focusNode.requestFocus,
+                          if (presenting)
+                            Positioned.fill(
+                              child: PresentationControls(
+                                presentation: _presentation,
+                                activity: _presentActivity,
+                                doc: _session.doc,
+                              ),
+                            )
+                          else ...[
+                            Positioned.fill(child: _buildChrome(layout, tabs)),
+                            Positioned.fill(
+                              child: EditorSearchLayer(
+                                controller: _search,
+                                top: layout.covered.top,
+                                onClose: _focusNode.requestFocus,
+                              ),
                             ),
-                          ),
+                          ],
+                          if (widget.split case final split?)
+                            Positioned.fill(
+                              child: SplitDropHighlight(split: split, pane: _pane!),
+                            ),
                           if (_menu case final menu?)
                             Positioned.fill(
                               child: CanvasContextMenu(
@@ -588,6 +692,7 @@ class _EditorScreenState extends State<_EditorView> {
             onBackground: _pickBackground,
             onSearch: _search.open,
             onCustomiseToolbar: () => setState(() => _customising = true),
+            onPresent: _presentation.start,
           ),
           undo: _session.undo,
           tabs: tabs,
@@ -599,6 +704,10 @@ class _EditorScreenState extends State<_EditorView> {
             icon: Icons.search_rounded,
             onPressed: _search.open,
           ),
+          secondPane: widget.secondPane,
+          split: (widget.split?.available ?? false) && !widget.secondPane
+              ? SplitViewButton(tabs: _services.openNotebooks, notebookId: _notebook.id)
+              : null,
         ),
         navigator: editorPageNavigator(context, _session, width: layout.width),
         navigatorActivity: _navigatorActivity,
