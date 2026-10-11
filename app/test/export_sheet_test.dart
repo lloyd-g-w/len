@@ -23,6 +23,7 @@ class _FakeExporter extends NotebookExporter {
     String? title,
     ExportProgress? onProgress,
     bool backgrounds = true,
+    void Function(int index)? onRasterized,
   }) async {
     pdfCalls.add(pages);
     return Uint8List.fromList([1, 2, 3]);

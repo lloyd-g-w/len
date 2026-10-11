@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:pdfrx/pdfrx.dart';
@@ -58,6 +59,21 @@ class PdfRenderer {
         image.dispose();
       }
     });
+    _queue = result.then((_) {}, onError: (_) {});
+    return result;
+  }
+
+  /// PDF blob [sha] rewritten by PDFium: decrypted (files that open without
+  /// a password) and repaired, for Len's own PDF reader to copy pages from.
+  /// Null if PDFium cannot open it either.
+  Future<Uint8List?> normalized(String sha) => _serial(() async {
+    if (_disposed) return null;
+    return (await open(sha)).encodePdf(removeSecurity: true);
+  });
+
+  /// Runs [action] after every earlier PDFium request.
+  Future<T> _serial<T>(Future<T> Function() action) {
+    final result = _queue.then((_) => action());
     _queue = result.then((_) {}, onError: (_) {});
     return result;
   }

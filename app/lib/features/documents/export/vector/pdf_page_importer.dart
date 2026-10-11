@@ -30,8 +30,25 @@ class PdfPageImporter {
   static const _skippedKeys = {'Parent', 'P'};
 
   /// Copies page [pageIndex] of [source]; throws [PdfReadException] if the
-  /// page cannot be copied faithfully.
+  /// page cannot be copied faithfully. A failed copy leaves nothing behind:
+  /// the objects it wrote are dropped from [target] and forgotten.
   ImportedPdfPage importPage(PdfSourceReader source, int pageIndex) {
+    final objects = target.objects.toSet();
+    final copied = {...?_copied[source]};
+    final forms = {...?_forms[source]};
+    try {
+      return _importPage(source, pageIndex);
+    } catch (_) {
+      for (final o in target.objects.where((o) => !objects.contains(o))) {
+        o.inUse = false;
+      }
+      _copied[source] = copied;
+      _forms[source] = forms;
+      rethrow;
+    }
+  }
+
+  ImportedPdfPage _importPage(PdfSourceReader source, int pageIndex) {
     if (pageIndex < 0 || pageIndex >= source.pageCount) {
       throw PdfReadException('No page $pageIndex');
     }
