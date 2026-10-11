@@ -13,6 +13,7 @@ class StrokeStyle {
     this.streamline = 0.4,
     this.taperStart = 0,
     this.taperEnd = 0,
+    this.unit = 0,
   });
 
   /// Overall ink opacity, 0..1 (the stroke colour itself is stored opaque).
@@ -29,6 +30,12 @@ class StrokeStyle {
   final double taperStart;
   final double taperEnd;
 
+  /// World units per screen pixel when the stroke was written (the inverse
+  /// of the zoom), 0 when unknown. Digitiser jitter and pen hooks are
+  /// screen-sized, so the outline smooths at this scale; without it, the
+  /// scale is estimated from the points' spacing (`StrokeOutline.unitOf`).
+  final double unit;
+
   /// How a stroke without a stored style is rendered.
   static StrokeStyle defaultsFor(InkTool tool) => switch (tool) {
     InkTool.highlighter => const StrokeStyle(opacity: 0.35, thinning: 0, streamline: 0.5),
@@ -42,12 +49,14 @@ class StrokeStyle {
     double? streamline,
     double? taperStart,
     double? taperEnd,
+    double? unit,
   }) => StrokeStyle(
     opacity: opacity ?? this.opacity,
     thinning: thinning ?? this.thinning,
     streamline: streamline ?? this.streamline,
     taperStart: taperStart ?? this.taperStart,
     taperEnd: taperEnd ?? this.taperEnd,
+    unit: unit ?? this.unit,
   );
 
   /// Compact JSON for storage and sync.
@@ -57,6 +66,7 @@ class StrokeStyle {
     'sl': streamline,
     if (taperStart > 0) 'ts': taperStart,
     if (taperEnd > 0) 'te': taperEnd,
+    if (unit > 0) 'u': unit,
   };
 
   /// Parses [json] leniently: missing, mistyped or out-of-range fields take
@@ -74,6 +84,7 @@ class StrokeStyle {
       streamline: read('sl', fallback.streamline, 1),
       taperStart: read('ts', fallback.taperStart, 1e4),
       taperEnd: read('te', fallback.taperEnd, 1e4),
+      unit: read('u', fallback.unit, 1e6),
     );
   }
 
@@ -84,10 +95,11 @@ class StrokeStyle {
       other.thinning == thinning &&
       other.streamline == streamline &&
       other.taperStart == taperStart &&
-      other.taperEnd == taperEnd;
+      other.taperEnd == taperEnd &&
+      other.unit == unit;
 
   @override
-  int get hashCode => Object.hash(opacity, thinning, streamline, taperStart, taperEnd);
+  int get hashCode => Object.hash(opacity, thinning, streamline, taperStart, taperEnd, unit);
 
   @override
   String toString() => 'StrokeStyle(${toJson()})';
