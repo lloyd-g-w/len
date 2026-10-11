@@ -96,13 +96,56 @@ class FakePlayback implements AudioPlayback {
   Future<void> dispose() async => log.add('dispose player');
 }
 
+/// A background keep-alive (Android's foreground service) that only logs;
+/// tests press its notification buttons with [press].
+class FakeKeepAlive implements RecordingKeepAlive {
+  FakeKeepAlive(this.log, {this.canShow = true});
+
+  final List<String> log;
+  bool canShow;
+  bool shown = false;
+  final StreamController<KeepAliveAction> _actions = StreamController.broadcast(sync: true);
+
+  void press(KeepAliveAction action) => _actions.add(action);
+
+  @override
+  Stream<KeepAliveAction> get actions => _actions.stream;
+
+  @override
+  Future<void> prepare() async => log.add('keepalive prepare');
+
+  @override
+  Future<bool> show({required String title, required bool paused, required int elapsedMs}) async {
+    log.add('keepalive show $title ${paused ? 'paused' : 'recording'} $elapsedMs');
+    shown = canShow;
+    return canShow;
+  }
+
+  @override
+  Future<void> hide() async {
+    log.add('keepalive hide');
+    shown = false;
+  }
+
+  @override
+  Future<void> dispose() async => log.add('keepalive dispose');
+}
+
 /// Fake backends sharing one [log]; [captures] / [players] are the
 /// instances handed out.
 class FakeAudio {
-  FakeAudio({this.allow = true, this.unavailable});
+  FakeAudio({this.allow = true, this.unavailable, this.background = false, this.canShow = true});
 
   final bool allow;
   final String? unavailable;
+
+  /// Whether the platform has a keep-alive ([keepAlives]) at all.
+  final bool background;
+
+  /// Whether the keep-alive manages to start.
+  final bool canShow;
+  final List<FakeKeepAlive> keepAlives = [];
+  FakeKeepAlive get keepAlive => keepAlives.last;
   final List<String> log = [];
   final List<FakeCapture> captures = [];
   final List<FakePlayback> players = [];
@@ -122,5 +165,12 @@ class FakeAudio {
       return player;
     },
     unavailable: () async => unavailable,
+    keepAlive: background
+        ? () {
+            final keepAlive = FakeKeepAlive(log, canShow: canShow);
+            keepAlives.add(keepAlive);
+            return keepAlive;
+          }
+        : null,
   );
 }
