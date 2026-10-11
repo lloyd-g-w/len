@@ -658,8 +658,10 @@ replayed in step with the ink.
   delete at once. Export hands the audio file (`.m4a`, `.webm`, `.wav`)
   to the existing save / share path (`platform/file_export`: save dialog on
   desktop, share sheet on Android, download on the web). `NotebookAudio`
-  owns all of it per open notebook and reloads when sync reports
-  `recordingsOfNotebooks`.
+  owns all of it per open notebook (one per notebook, shared by its editors
+  through `SharedNotebook`; saved when its last editor closes) and reloads when
+  sync reports `recordingsOfNotebooks`. `RecordingController.busy` keeps to one
+  recording at a time across notebooks.
 
 ## Input (`ink/input/ink_input_controller.dart`)
 
