@@ -143,12 +143,22 @@ class BlobStore {
   void _setUnreferencedSince(String sha, int? ms) =>
       database.db.execute('UPDATE blobs SET unreferenced_since = ? WHERE sha256 = ?', [ms, sha]);
 
-  Future<void> _queue = Future.value();
+  /// Completes when the last exclusive action has; null when idle.
+  Future<void>? _tail;
 
-  /// Runs [action] after every earlier exclusive action has finished.
+  /// Runs [action] after every earlier exclusive action has finished (right
+  /// away when none is running, so no future outlives its zone, e.g. in
+  /// tests with fake time).
   Future<T> _exclusive<T>(Future<T> Function() action) {
-    final result = _queue.then((_) => action());
-    _queue = result.then((_) {}, onError: (Object _) {});
+    final previous = _tail;
+    final result = previous == null ? action() : previous.then((_) => action());
+    final tail = result.then<void>((_) {}, onError: (Object _) {});
+    _tail = tail;
+    unawaited(
+      tail.whenComplete(() {
+        if (identical(_tail, tail)) _tail = null;
+      }),
+    );
     return result;
   }
 

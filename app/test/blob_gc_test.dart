@@ -180,6 +180,22 @@ void main() {
       expect(await s.blobGc.run(), [sha]);
     });
 
+    test('a blob stored again while collection runs survives', () async {
+      final sha = await blob('again');
+      await s.blobGc.run();
+      clock.advance(const Duration(days: 8));
+      // Both orders: collection first (deletes, then the put stores it
+      // anew), or the put first (restarting the grace period).
+      final results = await Future.wait([s.blobGc.run(), blob('again')]);
+      expect(results[1], sha);
+      expect(await s.blobs.has(sha), isTrue);
+      expect(s.blobs.pendingUploads(), [sha]);
+      clock.advance(const Duration(days: 8));
+      await blob('again');
+      expect(await s.blobGc.run(), isEmpty);
+      expect(await s.blobs.has(sha), isTrue);
+    });
+
     test('blobs in the trash are kept', () async {
       final sha = await blob('pdf');
       final n = notebook();
