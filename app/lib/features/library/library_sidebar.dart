@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../../domain/folder.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/sidebar_item.dart';
 import '../../ui/sync_status_button.dart';
 import 'folder_icons.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_drag.dart';
 import 'library_menus.dart';
-import 'sidebar_item.dart';
 
 /// Navigation sidebar for tablets and desktop: sections, the folder tree
 /// (all drop targets), sync status and settings.

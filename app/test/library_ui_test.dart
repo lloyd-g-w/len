@@ -13,6 +13,7 @@ import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/features/library/new_notebook_tile.dart';
 import 'package:len/features/library/notebook_card.dart';
 import 'package:len/features/library/notebook_list_tile.dart';
+import 'package:len/ui/sidebar_item.dart';
 
 import 'ui_library_test.dart' show pumpLibrary;
 
@@ -316,9 +317,30 @@ void main() {
     expect(services.preferences.accentColor, 0xFF0B7285);
     expect(app().darkTheme!.colorScheme.primary, isNot(before));
 
+    // Wide windows show one section at a time, picked on the left.
+    expect(find.text('Two-finger tap to undo'), findsNothing);
+    await tester.tap(find.widgetWithText(SidebarItem, 'Gestures'));
+    await tester.pumpAndSettle();
+    expect(find.text('Theme'), findsNothing);
     await tester.tap(find.text('Two-finger tap to undo'));
     await tester.pumpAndSettle();
     expect(services.preferences.twoFingerTapUndo, isFalse);
+  });
+
+  testWidgets('narrow settings list every section in one column', (tester) async {
+    tester.view
+      ..physicalSize = const Size(800, 3000)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    await tester.pumpWidget(LenApp(services: services));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SidebarItem), findsNothing);
+    expect(find.text('Theme'), findsOneWidget);
+    expect(find.text('Two-finger tap to undo'), findsOneWidget);
   });
 
   testWidgets('long-press on touch opens the context menu; right-click too', (tester) async {
