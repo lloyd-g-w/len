@@ -52,7 +52,6 @@ class FakeServer {
         jsonEncode({
           'status': 'ok',
           'protocol': 1,
-          'blobs': true,
           'maxBlobBytes': ?maxBlobBytes,
           'blobsCollectedAt': blobsCollectedAt,
         }),

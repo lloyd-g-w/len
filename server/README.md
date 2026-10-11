@@ -19,7 +19,7 @@ content-addressed files in a blob directory next to it.
 
    ```sh
    docker compose up -d --build
-   curl http://127.0.0.1:8080/v1/health   # {"status":"ok","protocol":1,"blobs":true,…}
+   curl http://127.0.0.1:8080/v1/health   # {"status":"ok","protocol":1,…}
    ```
 
    Data is stored in the named volume `len-data` (mounted at `/data`): the

@@ -58,7 +58,6 @@ void main() {
       expect(await jsonOf(r), {
         'status': 'ok',
         'protocol': 1,
-        'blobs': true,
         'maxBlobBytes': defaultMaxBlobBytes,
         'blobsCollectedAt': 0,
       });

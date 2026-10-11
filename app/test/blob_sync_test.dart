@@ -211,12 +211,12 @@ void main() {
       client: MockClient((r) async => handle(r)),
     );
 
-    test('serverInfo reads the limit and tolerates old servers and proxies', () async {
+    test('serverInfo reads the limit and tolerates proxies and odd answers', () async {
       var info = await api(
         (_) => http.Response('{"status":"ok","maxBlobBytes":42,"blobsCollectedAt":7,"x":1}', 200),
       ).serverInfo();
       expect((info.maxBlobBytes, info.blobsCollectedAt), (42, 7));
-      info = await api((_) => http.Response('{"status":"ok","blobs":true}', 200)).serverInfo();
+      info = await api((_) => http.Response('{"status":"ok"}', 200)).serverInfo();
       expect((info.maxBlobBytes, info.blobsCollectedAt), (null, null));
       info = await api((_) => http.Response('<html>bad gateway</html>', 502)).serverInfo();
       expect(info.maxBlobBytes, isNull);
