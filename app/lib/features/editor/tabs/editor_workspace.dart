@@ -66,6 +66,9 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
   late final AppServices _services = AppScope.read(context);
   OpenNotebooks get _tabs => _services.openNotebooks;
   bool _leaving = false;
+
+  /// Bumped as the split view's divider moves.
+  final ValueNotifier<int> _resized = ValueNotifier(0);
   late final SplitController _split = SplitController(_tabs)..addListener(_onSplit);
 
   @override
@@ -78,6 +81,7 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
   void dispose() {
     _tabs.removeListener(_onTabs);
     _split.dispose();
+    _resized.dispose();
     super.dispose();
   }
 
@@ -125,23 +129,31 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
     final second = _tabs.splitId == null ? null : _services.notebooks.get(_tabs.splitId!);
     final split = available && second != null && !second.isTrashed;
     final presenting = _split.presenting;
-    return SplitView(
-      primary: primary,
-      // Its own messenger: messages of the second pane show in it.
-      secondary: split
-          ? ScaffoldMessenger(
-              child: EditorScreen(
-                key: ValueKey('split-${second.id}'),
-                notebook: second,
-                split: _split,
-                secondPane: true,
-              ),
-            )
-          : null,
-      fraction: _tabs.splitFraction,
-      onFraction: (f) => setState(() => _tabs.splitFraction = f),
-      // Only a pane that is shown presents alone (the second may be gone).
-      solo: split || presenting?.secondary == false ? presenting?.secondary : null,
+    final secondary = split
+        ? ScaffoldMessenger(
+            child: EditorScreen(
+              key: ValueKey('split-${second.id}'),
+              notebook: second,
+              split: _split,
+              secondPane: true,
+            ),
+          )
+        : null;
+    // Dragging the divider rebuilds the layout only: the same editor
+    // widgets are passed on, so the editors themselves are not rebuilt.
+    return ValueListenableBuilder(
+      valueListenable: _resized,
+      builder: (context, _, _) => SplitView(
+        primary: primary,
+        secondary: secondary,
+        fraction: _tabs.splitFraction,
+        onFraction: (f) {
+          _tabs.splitFraction = f;
+          _resized.value++;
+        },
+        // Only a pane that is shown presents alone (the second may be gone).
+        solo: split || presenting?.secondary == false ? presenting?.secondary : null,
+      ),
     );
   }
 }

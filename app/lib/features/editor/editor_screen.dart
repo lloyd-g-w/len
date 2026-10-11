@@ -169,6 +169,17 @@ class _EditorScreenState extends State<_EditorView> {
 
   /// Measured height of the toolbar panel (it wraps on narrow screens).
   final ValueNotifier<double?> _toolbarHeight = ValueNotifier(null);
+
+  /// The toolbar's width on one row, kept current as the tools change.
+  late final ValueNotifier<double> _toolbarWidth = ValueNotifier(_oneRowWidth());
+
+  double _oneRowWidth() => EditorToolbar.oneRowWidth(
+    _session.tools,
+    labels: _services.preferences.toolbarLabels,
+    config: _services.preferences.toolbarConfig,
+  );
+
+  void _onTools() => _toolbarWidth.value = _oneRowWidth();
   StreamSubscription<RemoteChanges>? _remoteChanges;
 
   /// Focus mode: all chrome hidden.
@@ -208,6 +219,7 @@ class _EditorScreenState extends State<_EditorView> {
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
     _session.undo.addListener(_onEdit);
+    _session.tools.addListener(_onTools);
     _lifecycle; // Starts listening.
     _audio.onNotice = (message) {
       if (mounted) showMessage(context, message);
@@ -251,6 +263,7 @@ class _EditorScreenState extends State<_EditorView> {
     _lifecycle.dispose();
     _services.preferences.removeListener(_onPreferences);
     _session.undo.removeListener(_onEdit);
+    _session.tools.removeListener(_onTools);
     if (_focus) setImmersive(false);
     final edited = _session.edited;
     _search.dispose();
@@ -266,6 +279,7 @@ class _EditorScreenState extends State<_EditorView> {
     _hud.dispose();
     _tips.dispose();
     _toolbarHeight.dispose();
+    _toolbarWidth.dispose();
     _guard.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -522,9 +536,11 @@ class _EditorScreenState extends State<_EditorView> {
                   ? KeyEventResult.handled
                   : handlePlaybackKey(_audio, event);
             },
-            // Automatic placement depends on the toolbar's width (its slots).
+            // Automatic placement depends on the toolbar's width (its slots);
+            // other tool changes don't rebuild the whole editor (the toolbar
+            // and chrome listen to the tools themselves).
             child: ListenableBuilder(
-              listenable: Listenable.merge([_session.tools, _toolbarHeight]),
+              listenable: Listenable.merge([_toolbarWidth, _toolbarHeight]),
               builder: (context, _) => LayoutBuilder(
                 builder: (context, constraints) {
                   final media = MediaQuery.of(context);
@@ -532,11 +548,7 @@ class _EditorScreenState extends State<_EditorView> {
                     placement: resolvePlacement(
                       _services.preferences.toolbarPlacement,
                       constraints.maxWidth,
-                      toolbarWidth: EditorToolbar.oneRowWidth(
-                        _session.tools,
-                        labels: _services.preferences.toolbarLabels,
-                        config: _services.preferences.toolbarConfig,
-                      ),
+                      toolbarWidth: _oneRowWidth(),
                     ),
                     toolbarHeight: _toolbarHeight.value,
                     barHeight: EditorTopBar.heightFor(constraints.maxWidth, tabs),

@@ -157,7 +157,8 @@ class _PdfLayerState extends State<PdfLayer> {
       onPointerUp: _onUp,
       onPointerCancel: (_) => _tapPointer = null,
       child: ListenableBuilder(
-        listenable: Listenable.merge([_pdf.selection, doc.viewport, _pdf.info]),
+        // (The tools: handles show with the Select PDF text tool.)
+        listenable: Listenable.merge([_pdf.selection, doc.viewport, _pdf.info, _pdf.tools]),
         builder: (context, _) {
           _preload();
           final ends = PdfTextTool.handleEnds(_pdf);
