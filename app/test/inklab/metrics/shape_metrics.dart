@@ -1,0 +1,163 @@
+import 'dart:math' as math;
+import 'dart:ui';
+
+import 'package:len/domain/stroke.dart';
+import 'package:len/ink/lab/replay_run.dart';
+import 'package:len/ink/render/stroke_renderer.dart';
+
+import 'metric.dart';
+import 'outline_geometry.dart';
+import 'polyline_index.dart';
+import 'smoothing.dart';
+import 'truth.dart';
+
+/// A committed stroke paired with the truth it should match.
+class StrokePair {
+  StrokePair(this.stroke, this.truth, this.line, this.scale);
+  final Stroke stroke;
+  final Truth truth;
+
+  /// Its centre line on screen (null for a dot).
+  final ScreenLine? line;
+  final double scale;
+
+  double radiusFor(double pressure) =>
+      StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style).radiusFor(pressure) * scale;
+
+  late final PolylineIndex truthIndex = PolylineIndex(truth.path, cell: 3);
+  late final PolylineIndex lineIndex = PolylineIndex(line!.c, cell: 3);
+
+  /// Truth pressure nearest to screen point [p].
+  double truthPressureAt(Offset p) {
+    final seg = truthIndex.nearest(p).segment;
+    return truth.pressure[math.min(seg, truth.pressure.length - 1)];
+  }
+}
+
+/// Pairs committed strokes with truths in order (strays are left over).
+List<StrokePair> pairStrokes(ReplayResult replay, List<Truth> truths) {
+  final strokes = replay.strokes;
+  return [
+    for (var i = 0; i < math.min(strokes.length, truths.length); i++)
+      StrokePair(
+        strokes[i],
+        truths[i],
+        truths[i].isTap ? null : _line(replay, strokes[i]),
+        replay.viewScale,
+      ),
+  ];
+}
+
+ScreenLine? _line(ReplayResult replay, Stroke s) {
+  final line = centerlineOf(
+    s.points,
+    tool: s.tool,
+    width: s.width,
+    style: s.style,
+    complete: true,
+    scale: replay.viewScale,
+    offset: replay.viewOffset,
+  );
+  return line == null || line.c.length < 3 ? null : line;
+}
+
+/// (a) Fidelity: how far the committed centre line strays from the true
+/// path (both directions, so loops that shrink count too), and how far
+/// its width strays from the true pressure's width.
+List<Metric> fidelity(List<StrokePair> pairs, double streamline) {
+  final dev = Worst(), width = Worst();
+  var sum = 0.0;
+  var n = 0;
+  for (final p in pairs) {
+    final line = p.line;
+    if (line == null) continue;
+    for (final c in line.c) {
+      final d = p.truthIndex.distance(c);
+      dev.add(d, c);
+      sum += d * d;
+      n++;
+    }
+    final reach = line.r.reduce(math.max);
+    final along = arcLengths(p.truth.path);
+    for (var i = 0; i < p.truth.path.length; i++) {
+      if (along[i] < reach || along.last - along[i] < reach) continue;
+      dev.add(p.lineIndex.distance(p.truth.path[i]), p.truth.path[i]);
+    }
+    // Width, away from the ends (pen-down/up ramps and tapers are shaped).
+    final ends = 2 * p.stroke.width * p.scale;
+    for (var i = 0; i < line.c.length; i++) {
+      final s = i * line.step;
+      if (s < ends || line.length - s < ends) continue;
+      final truthR = p.radiusFor(p.truthPressureAt(line.c[i]));
+      width.add((line.r[i] - truthR).abs() / truthR, line.c[i]);
+    }
+  }
+  final exact = pairs.every((p) => p.truth.exact);
+  final slack = exact ? 0.0 : 0.3; // raw samples carry jitter themselves
+  return [
+    Metric(
+      'fidelity.hausdorff',
+      dev.value,
+      limit: byStabiliser(streamline, 0.5, 1.0, 2.0) + slack,
+      unit: 'px',
+      where: dev.where,
+    ),
+    Metric(
+      'fidelity.rms',
+      n == 0 ? double.nan : math.sqrt(sum / n),
+      limit: byStabiliser(streamline, 0.2, 0.4, 0.8) + slack,
+      unit: 'px',
+    ),
+    Metric(
+      'fidelity.width',
+      width.value * 100,
+      limit: byStabiliser(streamline, 15, 25, 40),
+      unit: '%',
+      where: width.where,
+    ),
+  ];
+}
+
+/// (b) Detail: how far cusp tips and tight curves (radius < 6 px) of the
+/// true path are from the centre line — over-smoothing pulls them in.
+List<Metric> detail(List<StrokePair> pairs, double streamline) {
+  final worst = Worst();
+  var any = false;
+  for (final p in pairs) {
+    if (p.line == null) continue;
+    final points = [...p.truth.cusps, ...tightPoints(p.truth.path, 6)];
+    for (final t in points) {
+      any = true;
+      worst.add(p.lineIndex.distance(t), t);
+    }
+  }
+  if (!any) return const [];
+  return [
+    Metric(
+      'detail.retraction',
+      worst.value,
+      limit: byStabiliser(streamline, 0.5, 1.2, 2.5),
+      unit: 'px',
+      where: worst.where,
+    ),
+  ];
+}
+
+/// Points of [path] whose radius of curvature (over ±1 px) is below [radius].
+List<Offset> tightPoints(List<Offset> path, double radius) {
+  final along = arcLengths(path);
+  final out = <Offset>[];
+  var j0 = 0, j1 = 0;
+  for (var i = 0; i < path.length; i += 4) {
+    while (j0 < i && along[i] - along[j0 + 1] >= 1) {
+      j0++;
+    }
+    while (j1 < path.length - 1 && along[j1] - along[i] < 1) {
+      j1++;
+    }
+    if (j0 >= i || j1 <= i) continue;
+    final k = curvature(path[j0], path[i], path[j1]);
+    if (k > 1 / radius) out.add(path[i]);
+  }
+  return out;
+}

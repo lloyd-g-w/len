@@ -17,6 +17,12 @@ const String stylusSamplesChannel = 'len/stylus_samples';
 const String lowLatencyInkChannel = 'len/low_latency_ink';
 
 StylusBatchBuffer? _buffer;
+void Function(List<StylusBatch> batches)? _observer;
+
+/// Lets the Ink Lab record every stylus batch as it arrives (null stops).
+/// Batches only flow once [openStylusSamples] has been called (Android).
+void observeStylusBatches(void Function(List<StylusBatch> batches)? observer) =>
+    _observer = observer;
 
 /// A sample source for one input controller, or null where the platform
 /// already delivers every sample (everything but Android).
@@ -41,7 +47,10 @@ StylusBatchBuffer _listen() {
   const BasicMessageChannel<ByteData?>(stylusSamplesChannel, BinaryCodec()).setMessageHandler((
     message,
   ) async {
-    if (message != null) buffer.addAll(StylusBatchCodec.decode(message));
+    if (message == null) return null;
+    final batches = StylusBatchCodec.decode(message);
+    buffer.addAll(batches);
+    _observer?.call(batches);
     return null;
   });
   return buffer;
