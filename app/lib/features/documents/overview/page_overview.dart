@@ -47,6 +47,10 @@ class _PageOverviewState extends State<PageOverview> {
   late List<NotebookPage> _pages = widget.handlers.load();
   bool _bookmarksOnly = false;
 
+  /// The page tag filtered by (id), if any.
+  String? _tag;
+  late var _pageTags = widget.handlers.pageTags?.call() ?? const [];
+
   /// Ids of selected pages; null outside selection mode.
   Set<String>? _selection;
 
@@ -69,6 +73,7 @@ class _PageOverviewState extends State<PageOverview> {
     if (!mounted) return;
     setState(() {
       _pages = widget.handlers.load();
+      _pageTags = widget.handlers.pageTags?.call() ?? const [];
       final ids = {for (final p in _pages) p.id};
       _selection?.removeWhere((id) => !ids.contains(id));
     });
@@ -130,12 +135,16 @@ class _PageOverviewState extends State<PageOverview> {
 
   @override
   Widget build(BuildContext context) {
+    final tagged = _pageTags.where((t) => t.tag.id == _tag).firstOrNull;
+    if (tagged == null) _tag = null;
     final shown = [
       for (var i = 0; i < _pages.length; i++)
-        if (!_bookmarksOnly || _pages[i].bookmarked) i,
+        if ((!_bookmarksOnly || _pages[i].bookmarked) &&
+            (tagged == null || tagged.pages.contains(_pages[i].id)))
+          i,
     ];
     final compact = MediaQuery.sizeOf(context).width < Breakpoints.medium;
-    final addTile = !_bookmarksOnly && !_selecting && _pages.isNotEmpty;
+    final addTile = !_bookmarksOnly && _tag == null && !_selecting && _pages.isNotEmpty;
     return PopScope(
       canPop: !_selecting,
       onPopInvokedWithResult: (didPop, _) {
@@ -158,12 +167,15 @@ class _PageOverviewState extends State<PageOverview> {
                 compact: compact,
                 onBookmarksOnly: (v) => setState(() => _bookmarksOnly = v),
                 onSelect: () => setState(() => _selection = {}),
+                tags: [for (final t in _pageTags) t.tag],
+                tag: _tag,
+                onTag: (id) => setState(() => _tag = id),
               ),
         bottomNavigationBar: _selecting
             ? SelectionBar(count: _selection!.length, onAction: _runOnSelection)
             : null,
         body: shown.isEmpty
-            ? const NoBookmarks()
+            ? NoBookmarks(tag: tagged?.tag.name)
             : GridView.builder(
                 padding: EdgeInsets.fromLTRB(
                   compact ? Gaps.lg : Gaps.xxl,
@@ -191,7 +203,7 @@ class _PageOverviewState extends State<PageOverview> {
                     cache: _cache,
                     backgrounds: widget.backgrounds,
                     current: index == widget.currentPage,
-                    reorderable: !_bookmarksOnly,
+                    reorderable: !_bookmarksOnly && _tag == null,
                     selecting: _selecting,
                     selected: _selection?.contains(page.id) ?? false,
                     onTap: () => _selecting ? _toggle(page) : Navigator.of(context).pop(index),

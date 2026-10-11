@@ -14,6 +14,7 @@ import '../../documents/pdf/pdf_import_flow.dart';
 import '../../documents/progress_dialog.dart';
 import '../../documents/template_picker.dart';
 import '../../documents/templates/user_templates.dart';
+import '../tags/editor_tags.dart';
 import 'document_controller.dart';
 import 'page_actions.dart';
 import 'page_backgrounds.dart';
@@ -226,6 +227,7 @@ class DocumentCommands {
               changed = true;
             },
             deleteMany: deleteMany,
+            pageTags: () => pageTagsOf(services, doc.pages),
           ),
         ),
       ),

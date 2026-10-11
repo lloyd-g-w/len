@@ -1,10 +1,27 @@
 import 'package:flutter/material.dart';
 
+import '../../../app_services.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/tag.dart';
 import '../../../ui/messages.dart';
 import '../../tags/tag_picker.dart';
 import '../editor_session.dart';
+
+/// The tags on [pages], by name, each with the ids of its pages.
+List<({Tag tag, Set<String> pages})> pageTagsOf(AppServices services, List<NotebookPage> pages) {
+  final ids = {for (final p in pages) p.id};
+  final byTag = <String, Set<String>>{};
+  services.tags.taggings.all(TagTarget.page).forEach((page, tags) {
+    if (!ids.contains(page)) return;
+    for (final t in tags) {
+      (byTag[t] ??= {}).add(page);
+    }
+  });
+  return [
+    for (final t in services.tags.list())
+      if (byTag[t.id] case final pages?) (tag: t, pages: pages),
+  ];
+}
 
 /// Lets the user choose the tags of the open notebook.
 Future<void> editNotebookTags(BuildContext context, EditorSession session) =>
