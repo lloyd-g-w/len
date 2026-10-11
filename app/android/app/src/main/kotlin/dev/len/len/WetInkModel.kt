@@ -303,10 +303,15 @@ class WetInkModel(
 
     /** How many of the points to keep at pen-up (the pen-up hook removed); `HookFinder.endKeep`. */
     private fun endKeep(n: Int): Int {
+        if (shape.hookEnd <= 0) return n
+        // Arc lengths from the end, up to the hook's reach and one sample beyond.
         val arcEnd = DoubleList().apply { add(0.0) }
+        var beyond = -1
         for (i in n - 2 downTo 0) {
             arcEnd.add(arcEnd[arcEnd.size - 1] + dist(samples[i + 1].x - samples[i].x, samples[i + 1].y - samples[i].y))
-            if (arcEnd[arcEnd.size - 1] >= shape.hookEnd + shape.hookBody) break
+            val k = arcEnd.size - 1
+            if (beyond < 0 && arcEnd[k] >= shape.hookEnd + shape.hookBody) beyond = k
+            if (beyond >= 0 && k > beyond) break
         }
         val cut = hookCut(arcEnd, n)
         if (cut == 0) return n
@@ -322,10 +327,10 @@ class WetInkModel(
         val m = arcEnd.size
         var j = 1
         while (j < m && arcEnd[j] <= shape.hookEnd) {
-            var b = j + 1
+            var b = j + 2
             while (b < m && arcEnd[b] - arcEnd[j] < shape.hookBody) b++
             if (b >= m) break
-            var l = j - 1
+            var l = max(0, j - 2)
             while (l > 0 && arcEnd[j] - arcEnd[l] < shape.hookLocal) l--
             val jx = at(j).x
             val jy = at(j).y

@@ -59,24 +59,20 @@ class HookFinder {
   /// The first sample to keep of the [n] samples ([x], [y]) from [from],
   /// or null while the stroke is too short to decide and not [ended].
   int? startCut(DoubleBuffer x, DoubleBuffer y, int n, {required bool ended}) {
-    final arc = <double>[0];
-    for (var i = 1; i < n; i++) {
-      arc.add(arc.last + _dist(x[i] - x[i - 1], y[i] - y[i - 1]));
-      if (arc.last >= decisionLength) break;
-    }
-    if (arc.last < decisionLength && !ended) return null;
-    return _cut(x, y, arc, (i) => i, maxStart);
+    if (maxStart <= 0) return 0;
+    final arc = _arcs(x, y, n, (i) => i, decisionLength);
+    if (arc == null && !ended) return null;
+    return _cut(x, y, arc ?? _arcs(x, y, n, (i) => i, double.infinity)!, (i) => i, maxStart);
   }
 
   /// How many of the [n] samples to keep once the stroke has ended (the
   /// pen-up hook removed). Only trims when the rest is at least twice as
   /// long as the hook.
   int endKeep(DoubleBuffer x, DoubleBuffer y, int n) {
-    final arc = <double>[0];
-    for (var i = n - 2; i >= 0; i--) {
-      arc.add(arc.last + _dist(x[i + 1] - x[i], y[i + 1] - y[i]));
-      if (arc.last >= maxEnd + body) break;
-    }
+    if (maxEnd <= 0) return n;
+    final arc =
+        _arcs(x, y, n, (i) => n - 1 - i, maxEnd + body) ??
+        _arcs(x, y, n, (i) => n - 1 - i, double.infinity)!;
     final cut = _cut(x, y, arc, (i) => n - 1 - i, maxEnd);
     if (cut == 0) return n;
     var total = 0.0;
@@ -87,18 +83,40 @@ class HookFinder {
     return n - cut;
   }
 
+  /// Arc lengths from the end mapped by [at] (0 = the end sample) up to
+  /// [length] and one sample beyond (the kink test looks two samples
+  /// ahead), or null when the [n] samples do not reach that far.
+  static List<double>? _arcs(
+    DoubleBuffer x,
+    DoubleBuffer y,
+    int n,
+    int Function(int) at,
+    double length,
+  ) {
+    final arc = <double>[0];
+    var beyond = -1;
+    for (var i = 1; i < n; i++) {
+      arc.add(arc.last + _dist(x[at(i)] - x[at(i - 1)], y[at(i)] - y[at(i - 1)]));
+      if (beyond < 0 && arc.last >= length) beyond = i;
+      if (beyond >= 0 && i > beyond) return arc;
+    }
+    return length.isFinite ? null : arc;
+  }
+
   /// The furthest kink within [maxHook] of the end mapped by [at] (0 = the
   /// end sample, arc lengths in [arc]), as a count of samples to drop.
   int _cut(DoubleBuffer x, DoubleBuffer y, List<double> arc, int Function(int) at, double maxHook) {
     var cut = 0;
     final m = arc.length;
     for (var j = 1; j < m && arc[j] <= maxHook; j++) {
-      var b = j + 1;
+      // The body's direction and the local turn over [body] / [local],
+      // and at least two samples (one sample's direction is mostly jitter).
+      var b = j + 2;
       while (b < m && arc[b] - arc[j] < body) {
         b++;
       }
       if (b >= m) break;
-      var l = j - 1;
+      var l = math.max(0, j - 2);
       while (l > 0 && arc[j] - arc[l] < local) {
         l--;
       }
