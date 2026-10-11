@@ -83,11 +83,48 @@ void main() {
           updatedAt: 1 << 40,
           deviceId: 'dev-b',
           deleted: false,
-          data: {'name': 'A', 'parentId': b.id, 'color': 1, 'createdAt': 0},
+          data: {'name': 'A', 'parentId': b.id, 'color': 1, 'icon': null, 'createdAt': 0},
         ),
       );
       expect(folders.childrenOf(null).map((f) => f.name), ['A', 'B']);
       expect(folders.childrenOf(b.id).map((f) => f.id), [c.id]);
+    });
+
+    test('the folder icon round-trips through the repository and sync records', () {
+      final f = folders.create(name: 'Maths', color: 2, icon: 'calculate');
+      expect(folders.get(f.id)!.icon, 'calculate');
+      final record = folders.dirtyRecords(10).single;
+      expect(record.data!['icon'], 'calculate');
+
+      // Back to the default icon.
+      folders.update(folders.get(f.id)!.copyWith(icon: null));
+      expect(folders.get(f.id)!.icon, isNull);
+      expect(folders.dirtyRecords(10).single.data, containsPair('icon', null));
+
+      // A remote device applies the record as-is.
+      final other = AppDatabase.inMemory();
+      addTearDown(other.close);
+      final remote = FolderRepository(other, deviceId: 'dev-b', clock: FakeClock());
+      remote.applyRemote(record);
+      expect(remote.get(f.id)!.icon, 'calculate');
+      expect(remote.get(f.id)!.name, 'Maths');
+    });
+
+    test('a missing or unknown folder icon is malformed', () {
+      SyncRecord withData(Map<String, Object?> data) => SyncRecord(
+        collection: 'folders',
+        id: 'f1',
+        updatedAt: 1,
+        deviceId: 'dev-b',
+        deleted: false,
+        data: {'name': 'X', 'parentId': null, 'color': 1, 'createdAt': 0, ...data},
+      );
+      expect(() => folders.applyRemote(withData({})), throwsFormatException);
+      expect(() => folders.applyRemote(withData({'icon': 'rocket'})), throwsFormatException);
+      expect(() => folders.applyRemote(withData({'icon': 3})), throwsFormatException);
+      expect(folders.list(), isEmpty);
+      folders.applyRemote(withData({'icon': 'school'}));
+      expect(folders.get('f1')!.icon, 'school');
     });
 
     test('deleting a folder deletes its subfolders and trashes their notebooks', () {

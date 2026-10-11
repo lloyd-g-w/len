@@ -82,6 +82,35 @@ void main() {
     expect(find.text('Algebra'), findsNothing);
   });
 
+  testWidgets('the folder dialog sets and changes the folder icon', (tester) async {
+    final services = await pumpSeeded(tester, (_) {});
+
+    await tester.tap(find.byTooltip('New folder').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'School');
+    await tester.tap(find.bySemanticsLabel('School icon'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(services.folders.list().single.icon, 'school');
+    final tile = find.byType(FolderTile);
+    expect(find.descendant(of: tile, matching: find.byIcon(Icons.school_rounded)), findsOneWidget);
+    // The sidebar tree shows it too.
+    expect(find.byIcon(Icons.school_rounded), findsNWidgets(2));
+
+    // Edit: back to the plain folder icon.
+    await tester.tap(find.byTooltip('Folder options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit folder'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Folder icon'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(services.folders.list().single.icon, isNull);
+    expect(find.byIcon(Icons.school_rounded), findsNothing);
+  });
+
   testWidgets('move via menu, favourite, duplicate, search across folders', (tester) async {
     late String schoolId;
     final services = await pumpSeeded(tester, (s) {
