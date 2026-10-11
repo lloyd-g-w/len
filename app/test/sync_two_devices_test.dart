@@ -463,6 +463,78 @@ void main() {
       expect(b.dirty, isEmpty);
     });
 
+    test('templates: planner pages, image templates and My templates', () async {
+      final (time, server, a, b) = _twoDevices();
+      final plan = PlannerPlan(start: DateTime.utc(2024, 2, 1), linked: true);
+      final nb = a.s.notebooks.create(
+        title: 'Planner',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+        papers: plan.papersFor(PaperStyle.monthlyCalendar),
+      );
+      final mine = a.s.templates.create(name: 'Grid A', blob: _sha, size: const Size(800, 600));
+      final first = a.s.pages.pagesOf(nb.id).first;
+      a.s.pages.setPaper([first.id], paper: Paper.image(_sha));
+      await _send(a, b);
+
+      List<Paper> papers(_Device d) => [for (final p in d.s.pages.pagesOf(nb.id)) p.paper];
+      expect(papers(b), papers(a));
+      expect(papers(b).first, Paper.image(_sha));
+      expect(papers(b)[1], Paper.planner(PaperStyle.weeklyPlanner, DateTime.utc(2024, 1, 29)));
+      expect(papers(b).where((p) => p.style == PaperStyle.dailyPlanner), hasLength(35));
+      final leapDay = Paper.planner(PaperStyle.dailyPlanner, DateTime.utc(2024, 2, 29));
+      final leapPage = a.s.pages.pagesOf(nb.id).singleWhere((p) => p.paper == leapDay);
+      expect(server.stored('pages', leapPage.id)!['data'], containsPair('paper', 'dailyPlanner'));
+      expect((server.stored('pages', leapPage.id)!['data']! as Map)['paperData'], {
+        'date': '2024-02-29',
+      });
+      expect(b.s.templates.list().single.name, 'Grid A');
+      expect(b.s.templates.list().single.size, const Size(800, 600));
+
+      time.tick();
+      b.s.templates.rename(mine.id, 'Grid B');
+      await _send(b, a);
+      expect(a.s.templates.get(mine.id)!.name, 'Grid B');
+      time.tick();
+      a.s.templates.delete(mine.id);
+      final changes = await (() async {
+        await a.sync();
+        return b.sync();
+      })();
+      expect(changes.templates, isTrue);
+      expect(b.s.templates.list(), isEmpty);
+      expect(b.s.pages.get(first.id)!.paper, Paper.image(_sha), reason: 'pages keep the image');
+
+      // Malformed template records and planner pages are skipped.
+      server.injected.addAll([
+        _record(
+          'templates',
+          'no-blob',
+          10,
+          data: {'name': 'x', 'width': 1, 'height': 1, 'createdAt': 0},
+        ),
+        _record(
+          'templates',
+          'bad-blob',
+          10,
+          data: {'name': 'x', 'blob': 'abc', 'width': 1, 'height': 1, 'createdAt': 0},
+        ),
+        _record('pages', 'undated', 10, data: {..._pageData(nb.id), 'paper': 'dailyPlanner'}),
+        _record(
+          'notebooks',
+          'planner-default',
+          10,
+          data: {..._notebookData('P'), 'paper': 'weeklyPlanner'},
+        ),
+      ]);
+      await b.sync();
+      expect(b.s.templates.get('no-blob'), isNull);
+      expect(b.s.templates.get('bad-blob'), isNull);
+      expect(b.s.pages.get('undated'), isNull);
+      expect(b.s.notebooks.get('planner-default'), isNull);
+    });
+
     test('strokes: tool, colour, width, points and style', () async {
       final (time, _, a, b) = _twoDevices();
       final nb = a.s.notebooks.create(

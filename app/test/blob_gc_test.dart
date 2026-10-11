@@ -126,6 +126,19 @@ void main() {
       expect(referenced(), isEmpty);
     });
 
+    test('image templates of pages and My templates reference blobs', () async {
+      final paper = await blob('paper'), mine = await blob('mine');
+      final n = notebook();
+      final page = s.pages.pagesOf(n.id).single;
+      s.pages.setPaper([page.id], paper: Paper.image(paper));
+      final template = s.templates.create(name: 'T', blob: mine, size: const Size(100, 100));
+      expect(referenced(), {paper, mine});
+
+      s.templates.delete(template.id);
+      s.pages.setPaper([page.id], paper: Paper.blank);
+      expect(referenced(), isEmpty);
+    });
+
     test('blob ids anywhere in JSON (unknown element types included)', () {
       final sha = 'ab' * 32;
       expect(
