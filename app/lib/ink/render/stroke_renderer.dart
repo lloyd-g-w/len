@@ -92,6 +92,7 @@ abstract final class StrokeRenderer {
       taperStart: style.taperStart,
       taperEnd: style.taperEnd,
       flatCaps: profile.flatCaps,
+      unit: style.unit,
     );
   }
 

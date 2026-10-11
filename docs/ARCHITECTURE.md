@@ -147,8 +147,17 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
 - **`EditorSession`** owns the engine side of one open notebook: `ToolSettings`, live ink,
   `InkInputController` + `CanvasGestures`, `ContentTools`, undo, and either the canvas
   `SurfaceModel` + viewport or the `DocumentController` + `DocumentCommands`.
-- **`EditorScreen`** composes `EditorCanvas` (surface, "Add page" footer, content layer)
-  with `EditorChrome` (`chrome/`): `EditorTopBar` (on every size: back, then the title —
+- **`EditorScreen`** is the editor's composition root: it owns the parts and wires them,
+  each of which lives in its own file — `EditorSession` (engine side: tools, input,
+  content tools, undo, canvas or document), `EditorLayers` (`editor_layers.dart`: what is
+  stacked over the surface, bottom to top — a feature drawing over the surface adds its
+  layer there), `EditorChromeHost` (`editor_chrome_host.dart`: toolbar, top bar, menus and
+  page navigator wired to `EditorScreenCommands`; `ToolbarMeasure` and the chrome
+  layout), `EditorLifecycle` (`editor_lifecycle.dart`: app hidden, view memory, closing
+  after a remote deletion, touch + sync after edits), `editor_commands.dart` (rename,
+  canvas background), `editorScreenShortcuts` and `canvasMenuAt`. It composes
+  `EditorCanvas` (surface, "Add page" footer, content layer) with `EditorChrome`
+  (`chrome/`): `EditorTopBar` (on every size: back, then the title —
   start-aligned, tap to rename, with the folder as a quiet subtitle — then, in groups,
   pages and bookmark, insert image and search | undo/redo | export, focus, "⋯"
   `EditorMoreMenu`; the phone variant keeps back, title, insert image, undo/redo and the
@@ -186,6 +195,78 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   and clipped to the flight, never relaid out) fades in; back (and predictive back) reverses
   into the cover's current rect, or fades if it is gone. Without a cover (search, new, import)
   it fades and scales in; with reduced motion it only fades. The library does not move.
+- **Split view** (`split/`; tablets in landscape and desktops: `SplitView.fits`, ≥ 900 px
+  wide and ≥ 560 px on the short side — never phones or portrait tablets): a second pane
+  shows another open tab or the active notebook again (two places in one notebook).
+  `OpenNotebooks.splitId` / `splitFraction` / `splitView` / `linkTools` hold it (memory,
+  like tabs). Opened from the top bar's split button (`SplitViewButton`: this notebook
+  or another tab; while split: *Same tools in both panes*, *Swap panes*, *Close split
+  view*) or a tab's menu (right click / long press → *Open in split view*). `SplitView`
+  lays out the panes in a `Stack` whose first child keeps its place in every layout, so
+  opening or closing the split never rebuilds the first editor; a 12 px divider resizes
+  (drag, ← / → when focused, double tap: halves; panes ≥ 320 px). Each pane is a full
+  `EditorScreen` with its own `EditorSession` (viewport, tools, chrome); the
+  second has no tab strip, its back button closes it, Ctrl+W closes it, it keeps its
+  view in `OpenNotebooks.splitView` only, and it has its own `ScaffoldMessenger`
+  (messages show in the pane they belong to). When the screen gets too small for two
+  (a tablet turned to portrait) the second pane is **parked**, not closed: it stays
+  in the tree offstage (`SplitView`'s `_Parked`: `Offstage` + `ExcludeFocus` +
+  `TickerMode`; `SplitView.parkedOf`), so its editor, undo history and a running
+  recording live on; it takes no files and is no drop target, and shows again in
+  landscape. `SplitController` (owned by the workspace; editors `attach` a
+  `SplitPane`) coordinates them:
+  - **Drag between panes (copy)**: `LassoTool.dragOut` (a `SelectionDragOut`) reports
+    a selection being moved; over the other pane, that pane is outlined with *Drop to
+    copy here* and a half-transparent preview of the copy at its zoom; dropped there,
+    the source cancels its move and the target pastes a copy
+    (`SelectionController.pasteItems`) centred where the selection's centre was, on the
+    page under it, selected with the lasso (one undo step in the target).
+  - **Two views of one notebook** need no mirroring: they share the notebook's models
+    (see *Shared notebooks* below), so an edit, undo or redo in one shows in the other
+    at once, and both undo one history (nothing erased in one comes back through the
+    other's undo). While one pane has a selection or edits a text box, those items are
+    hidden in the other view too (hiding is per model).
+  - **Linked tools** (optional): `ToolSettings.adopt` copies tool, quick colours and
+    widths, eraser, shape and text defaults from the pane that changed them.
+  - **Presentation** in a pane shows that pane alone (`SplitView.solo`; the other stays
+    alive offstage); when the presenting editor goes (tab closed or switched, split closed),
+    the other pane shows again.
+  - **Views across layout changes**: before tabs change, `OpenNotebooks.captureViews`
+    (set by the controller) records where both panes look, so swapping panes keeps each
+    notebook's view, and closing the active tab next to the split tab moves that notebook
+    into the first pane where it was. The tab limit never closes the split tab. Incoming
+    files go to the pane that last had keyboard focus.
+  - **Deleted on another device**: an editor closes only the dialogs, sheets and pages
+    it opened (`RouteOwners`, `ui/route_owners.dart`: an observer on the app's
+    navigator that records which editor — the last one touched or focused — pushed
+    each route), never the other pane's; the second pane's message shows in the first
+    (`SplitController.messageOther`), since its own messenger goes with it.
+- **Shared notebooks** (`shared/`): `SharedNotebooks` (`AppServices.sharedNotebooks`)
+  holds one ref-counted `SharedNotebook` per notebook open in any editor; every editor
+  of a notebook (a tab and the second pane, or both panes) `acquire`s the same one and
+  the last to close disposes it. It holds the notebook (`update` renames or changes
+  paper in every editor and the tab), its `NotebookAudio` (one recorder and player, one
+  recordings list), the PDF caches (`PdfBackgroundCache`, `PdfPageInfoCache`), the
+  canvas's `SurfaceModel`, or the pages' `PageModels` (`document/page_models.dart`:
+  ref-counted page models plus the notebook-wide undo order; each view's
+  `DocumentSurfaces` acquires the pages it shows and keeps its own render caches; a
+  model goes once no view holds it and undo can't reach it). Page list changes in one
+  view reload the others (`attachDocument`). It follows remote changes once for all
+  its editors (notebook record, page lists, surfaces, PDFs) and sets `gone` when the
+  notebook is deleted or trashed elsewhere. One microphone: a notebook can't start
+  recording while another records ("Already recording in …").
+- **Presentation mode** (`present/`; "⋯" → *Present*, F5): `Presentation` hides all
+  chrome (`ChromeLayout.focus`), goes immersive / full screen (`platform/fullscreen*`: the
+  browser's fullscreen API on the web; Android hides the system bars; desktop windows
+  stay as they are — no window plugin), makes the laser pointer the tool, and shows
+  paged notebooks one whole page at a time (single flow, fit page). ← / → / Page Up /
+  Page Down / Space / Shift+Space turn pages (swipes too, when fingers navigate); a
+  small bar (`PresentationControls`: previous, page n / m, next, *Stop presenting*)
+  peeks in near the bottom (pointer near it, a touch, a page turn) and fades after 3 s.
+  Esc, back or F5 stop; the tool, page layout and zoom are put back (never saved as the
+  user's choice). **External displays**: Android mirrors the screen by default, which
+  shows the presentation; a separate audience window (Android `Presentation` API,
+  desktop multi-window) is out of scope — Flutter's multi-window API is not stable yet.
 - **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
   pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
   in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).
@@ -206,7 +287,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
   flow fits the whole page and slides it in.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
-  P / H / E / L / S / T / K (X: Select PDF text, with PDF pages); 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode;
+  P / H / E / L / S / T / K (X: Select PDF text, with PDF pages); 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 present;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
   Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
@@ -219,15 +300,17 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   templates for the user's own), pitch, search keywords, whether it tiles an infinite canvas
   (`canvas`) and, for planners, the `PlannerPeriod` one page covers. `PaperStyle.image` stands
   for a user's image template. Built-ins: blank, dotted; narrow / college / wide ruled, Cornell,
-  to-do list, meeting notes; daily planner, weekly planner, monthly calendar; small / large
+  to-do list, meeting notes; daily planner, weekly planner, monthly calendar, year overview; small / large
   grid, graph paper (1 mm / 5 mm / 1 cm), engineering (5 per inch, bold inches, header),
   isometric, music staff, storyboard.
 - **Paper.** A page's template is a `Paper` (`templates/paper.dart`): the style plus what it
-  needs — the `date` of a planner page (the first day of its period, UTC) or the `image` blob of
-  a user's template. Stored as `pages.paper` (style name) + `pages.paper_data` (JSON,
-  `Paper.toData`), synced as `paper` + `paperData`. A notebook's `paper` (default for new pages,
-  canvas background) is always a style without parameters. `Paper.next` is the following
-  period: "add page" after a planner page continues the dates.
+  needs — for a planner page the `date` (the first day of its period, UTC) and its
+  `PlannerCalendar` (week start, language), or the `image` blob of a user's template. Stored as
+  `pages.paper` (style name) + `pages.paper_data` (JSON, `Paper.toData`), synced as `paper` +
+  `paperData`. Equality includes the calendar, so links lead to pages of the same planner
+  flavour. A notebook's `paper` (default for new pages, canvas background) is always a style
+  without parameters. `Paper.next` is the following period: "add page" after a planner page
+  continues the dates (in its calendar).
 - **Geometry ("painter").** `PaperPattern.of(paper, area, page:, minPitch:)` builds a
   template's pieces for an area, independent of the target: lines with weights (`fine`,
   `normal`, `heavy`, `margin`), dots, `PatternLabel`s (printed text: dates, headings), tinted
@@ -240,14 +323,31 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   thumbnails, miniatures and PNG export — vector lines and text in the UI font (laid-out
   paragraphs cached), crisp at any zoom; image templates are drawn over the page from a
   `PaperImageLookup` (the shared `ElementImages` cache; the editor repaints when one is
-  decoded). `PdfTemplateWriter` writes the same pattern into exported PDFs as vectors with
-  Helvetica labels; image templates are embedded like PDF backgrounds.
-- **Planners** (`templates/planner_dates.dart`, `planner_plan.dart`). `PlannerDates`: UTC
-  calendar arithmetic, Monday weeks, ISO week numbers, month calendars of 4–6 rows, labels.
-  `PlannerPlan` (first month, 1–12 months, `linked`) generates the papers of a planner: a page
-  per day, per week overlapping the range, or per month — linked: each month followed by its
-  weeks, each week by its seven days. Pages link month → week (week numbers) and day (cells),
-  week → day (day headers) and month (that of its Thursday), day → week and month. A link is
+  decoded). `PdfTemplateWriter` writes the same pattern into exported PDFs as vectors, labels
+  in the embedded bundled Inter (shared with text boxes via `PdfTextWriter.font`; subset, with
+  ToUnicode, covering Latin, Greek and Cyrillic); image templates are embedded like PDF
+  backgrounds.
+- **Planners** (`templates/planner_dates.dart`, `planner_calendar.dart`, `planner_labels.dart`,
+  `planner_plan.dart`). `PlannerDates`: pure UTC calendar arithmetic — weeks from Monday or
+  Sunday, week numbers (Monday weeks ISO 8601; Sunday weeks the US rule: the week holding
+  1 January is week 1, so late-December days can be in week 1 of the next year — what US
+  calendars print, and the only rule where week 1 always contains New Year), month calendars of
+  4–6 rows, years. `PlannerCalendar` = `WeekStart` + `PlannerLanguage` (a curated list of 19:
+  English UK/US, Czech, Danish, German, Spanish, French, Italian, Dutch, Norwegian bokmål,
+  Polish, Portuguese Brazil/Portugal, Finnish, Swedish, Turkish, Greek, Russian, Ukrainian —
+  all covered by the bundled Inter). `PlannerLabels` formats month and day names and dates
+  with `intl` (CLDR); its date symbols are compiled in and initialised synchronously
+  (`ensureDateSymbols`) before any label is built. Fixed headings ("Week", "Schedule",
+  "Notes" …) stay English. New planners default to the calendar chosen last
+  (`SettingsRepository.plannerCalendar`), else the device locale's language (if listed, else
+  English UK) and its CLDR first day of the week. `PlannerPlan` (first month, 1–12 months,
+  `linked`, `yearOverview`, calendar) generates the papers of a planner: a page per day, per
+  week overlapping the range, per month or per year — monthly with `yearOverview`: the year
+  overview before the first month and each January; linked: each month followed by its weeks,
+  each week by its seven days. The year overview shows twelve mini calendars (3 × 4 portrait,
+  4 × 3 landscape). Pages link year → month (titles) and day, month → year (the year label),
+  week (week numbers) and day (cells), week → day (day headers) and month (that of its middle
+  day), day → week and month — always in the page's calendar. A link is
   resolved at tap time to the first page with that exact `Paper`, so reordering, deleting or
   adding pages never breaks links; a missing target offers "Add page". Links are followed by a
   finger tap when fingers navigate (stylus mode), a Ctrl/⌘-click, or the long-press menu ("Go
@@ -558,8 +658,10 @@ replayed in step with the ink.
   delete at once. Export hands the audio file (`.m4a`, `.webm`, `.wav`)
   to the existing save / share path (`platform/file_export`: save dialog on
   desktop, share sheet on Android, download on the web). `NotebookAudio`
-  owns all of it per open notebook and reloads when sync reports
-  `recordingsOfNotebooks`.
+  owns all of it per open notebook (one per notebook, shared by its editors
+  through `SharedNotebook`; saved when its last editor closes) and reloads when
+  sync reports `recordingsOfNotebooks`. `RecordingController.busy` keeps to one
+  recording at a time across notebooks.
 
 ## Input (`ink/input/ink_input_controller.dart`)
 
@@ -580,8 +682,15 @@ Raw `Listener` pointer events (no gesture arena → no latency, full pressure da
   claiming them: a quick, still two-/three-finger tap (`MultiFingerTapDetector`:
   ≤ 300 ms, ≤ 24 px travel) → undo / redo; a still one-finger long press with a
   navigating finger, or a right click (`LongPressDetector`, `SecondaryClickDetector`)
-  → the canvas context menu. Palm safety: taps and long presses are ignored while a
-  stylus touches, or was seen touching or hovering within 600 ms.
+  → the canvas context menu; a navigating finger's double tap (`DoubleTapDetector`:
+  two ≤ 250 ms taps ≤ 300 ms apart, ≤ 40 px from each other, ≤ 18 px travel, never
+  with a second finger down — so two-finger taps stay undo) → **double-tap zoom**
+  (`features/editor/double_tap_zoom.dart`: the page fit — 100 % on canvases — ⇄ 2× or
+  the zoom last left this way, about the tap, animated). Fingers that draw (palm
+  rejection off) never zoom: their taps are dots. Palm safety: taps, double taps and
+  long presses are ignored while a stylus touches, or was seen touching or hovering
+  within 600 ms. The recognisers live in `CanvasGestures`, so
+  `ink_input_controller.dart` is unchanged.
 
 Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
 rendering* below); paths are memoised per stroke. PDF export flattens the same
@@ -628,24 +737,27 @@ The overlay draws **the same ink Flutter will**: `WetInkModel.kt` is a
 line-for-line port of the Dart model the Ink Lab measures
 (`ink/lab/wet_ink_model.dart`), which applies the outline's own rules —
 point thinning (`PointSpacing`), the pressure filter, the causal radius
-smoothing in steps along the line, the start and tip end rules, the pen-up
-hook (`HookFinder`), and the shaper's position smoothing (resampling,
-corners, low-pass with end fit) over the points from a little before the
-tail, in step with the whole line's samples. Each piece is the hull of two
+smoothing in steps along the line, the start and tip end rules, the
+pen-down and pen-up hooks (`HookFinder`; the model decides the pen-down hook
+itself, at the same sample as Flutter's outline), the dot rule (a line
+shorter than half its width is a dot), and the shaper's position smoothing
+(resampling, corners, low-pass with end fit) over the points from a little
+before the tail, in step with the whole line's samples. Each piece is the hull of two
 circles (a tapered capsule). `tool/wet_ink_check/check.sh` runs both models
 on vectors from every Ink Lab case and recording and compares them (equal to
 1e-15).
 
 Dart (`_LowLatencySource`, a `SampleSource` decorator) sends `begin`
-(contact, colour, radius table, the rules as `WetInkShape.toList`, where the
-ink starts after the pen-down hook) once the contact is shown, `progress`
+(contact, colour, radius table, the rules as `WetInkShape.toList`) at
+pen-down, when Flutter's live stroke begins too, `progress`
 (the newest event a built frame contains) after each frame, and `end` after
 the frame showing the committed stroke. On each `progress` the overlay
 *commits*: the front buffer is cleared and only the points newer than the
 progress reported **two messages before the latest** (Flutter presents a
 frame about two frames after building it) are redrawn in the multi-buffered
-layer, in one SurfaceControl transaction; after `end` the tail stays 3
-frames. So the overlay never shows more than the last few millimetres of
+layer, in one SurfaceControl transaction (and the whole start while
+Flutter's frame still shows a pen-down hook the model has trimmed); after
+`end` the tail stays 3 frames. So the overlay never shows more than the last few millimetres of
 ink, on top of identical Flutter ink. Only opaque, round, untextured pens
 qualify (`WetInkStyle`): highlighter, legacy pencil/fountain, translucent
 colours, erasing, tools and straightened strokes are left to Flutter alone.
@@ -831,6 +943,21 @@ measures the toolbar and `ChromeLayout` uses that height for
 the screen edge it covers, so document scrolling, the page navigator and the
 canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
 
+**Customising** ("⋯" → Toolbar → *Customise toolbar…*): `ToolbarConfig`
+(`toolbar/toolbar_config.dart`, JSON in the local setting `toolbar_layout`,
+`AppPreferences.toolbarLayout`; null = default) holds the tool order, hidden tools and
+up to 8 **favourite pens** (`FavouritePen`: pen or highlighter + colour + width).
+`EditorToolbar`, `oneRowWidth` (automatic placement) and the phone `ToolSwitcherPanel`
+arrange the descriptors with it (`ToolbarConfig.arrange`; the active tool shows even
+when hidden, e.g. picked by its shortcut). Favourites sit in their own group after the
+tools (and under the tools in the switcher panel); one tap draws with one
+(`ToolSettings.usePreset`: selects the quick colour / width slots holding its values, or
+loads them into the selected slots, as picking a colour does). In edit mode the toolbar
+becomes `ToolbarEditor`: every tool as a tile (tap: show / hide, at least one stays;
+hold and drag: reorder, `ReorderableListView`; screen readers get Move left / right),
+the favourites (× removes, ☆ pins the pen in use), Reset and Done; on narrow screens
+the tools take a row of their own. Changes apply and persist immediately.
+
 ### Ink rendering (`ink/render/`)
 
 Every pen stroke — live and committed — goes through one pipeline with a
@@ -842,25 +969,37 @@ does not grow with the stroke's length.
 1. **Points** (`input/ink_input_controller.dart`): samples closer than
    0.75 screen px to the last point are dropped, except the extreme of a
    dropped run (a cusp tip, `PointSpacing`); pressure is filtered
-   (`PressureFilter`). A contact is shown only once it cannot be a bounce
-   (`BounceFilter.mightBounce`) and its start is decided (below), so a
-   bounce never flashes and the start never changes once shown.
-2. **Unit** (`StrokeOutline.unitOf`): stroke data carry no zoom, but
-   digitiser jitter and hooks are screen-sized. The world size of a screen
-   pixel is estimated from the point spacing of the first points (the
-   controller keeps points ≥ 0.75 screen px apart and a pen lands slowly),
-   so a stroke written zoomed in 7× is smoothed 7× finer in world units.
+   (`PressureFilter`). **Ink shows from the first sample**, under the nib
+   (latency beats purity): every contact is drawn from pen-down, even one
+   that turns out to be a bounce (`BounceFilter.isBounce`, decided at its
+   lift: it showed as a dot where the pen just lifted for < 80 ms and is
+   not committed), and the pen-down hook is trimmed retroactively (below).
+2. **Unit** (`StrokeStyle.unit`, `StrokeOutline.unitOf`): digitiser jitter
+   and hooks are screen-sized, so the outline smooths in screen units. The
+   controller records the world size of a screen pixel (1 / zoom) in the
+   stroke's style at pen-down, so a stroke written zoomed in 7× is smoothed
+   7× finer in world units, from its first frame on (and a stroke scaled
+   by the lasso is smoothed as if written at that zoom). Strokes without it
+   (shapes, older data) estimate it from the spacing of their first points
+   (the controller keeps points ≥ 0.75 screen px apart); that estimate is
+   often 20–60 % off, so pen strokes do not use it.
 3. **`StrokeShaper`** (incremental; each stage looks a fixed number of
    samples ahead and keeps what is final):
    - dedupe; the **pen-down hook** is decided once from the first few
      screen px (`HookFinder`: a short end piece meeting the body at a
      *local* kink, ≤ 3 px for the start, ≤ 4 px for the end, whatever the
-     pen; curves that merely start or end the stroke are kept);
+     pen; curves that merely start or end the stroke are kept). Until then
+     the line is *provisional*: computed from the first sample, nothing of
+     it final, rebuilt each frame (a few px, so cheap). If a hook is found,
+     its ≤ 3 px of ink disappear once, under the nib, 1–6 frames after
+     landing (about 20 % of real strokes); otherwise nothing changes;
    - **resampling** every `step` (≈ σ/3, 0.15–0.6 screen px) along a
      centripetal Catmull-Rom spline through the points, from the stroke's
      start, so samples never move as the stroke grows;
    - **corners**: where the line turns by > 100° within a short baseline
-     (cusps of `n`, `v`); smoothing never crosses them;
+     (cusps of `n`, `v`); the corner is the run's tip (the sample furthest
+     along the direction the line came in from, not the sharpest turn,
+     which can lie a sample past it); smoothing never crosses them;
    - **positions**: the finite low-pass `2G − G∘G` (`LineFilters`) per
      stretch between corners, each stretch continued beyond its ends by a
      local quadratic fit (no lag, tips stay put). σ = (0.7 + 0.8 ×
@@ -1149,7 +1288,7 @@ Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width
 (library sidebar and the settings section list). Settings: from `Breakpoints.expanded` a
 two-pane layout (section list + the selected section), a single column below. Documents UI
 (`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
-dates, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
+dates, week start and language, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
 with selection mode; `editor/document/page_overview.dart` re-exports it);
 `progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n", optional Cancel).
 Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActions`, batch
@@ -1213,8 +1352,10 @@ malformed record is skipped. Open screens subscribe to
   meter (≈ the loudness of the last buffer every 100 ms), not from decoding
   the audio; recordings without one show a flat scrubber. No trimming yet;
   exporting reads the whole audio blob into memory.
-- Planners: weeks start on Monday, month and day names are English, and there
-  is no yearly overview yet. User templates are images (PDF pages are
+- Planners: fixed headings ("Week", "Schedule", "Priorities", "To do", "Notes") are English
+  whatever the planner's language; the language list is curated (scripts the bundled Inter
+  covers), hours are always 24-hour, and weeks start on Monday or Sunday only. User templates
+  are images (PDF pages are
   rasterised at 2000 px when imported), so they are not vector-crisp at deep
   zoom; a template only travels inside pages, not as a shared file.
 - Server blob garbage collection is a manual/cron admin command, and finds

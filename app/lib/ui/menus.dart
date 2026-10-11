@@ -2,19 +2,25 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 
-/// A compact menu row: icon + label, red when [destructive].
+/// The app's menu row: optional icon + label, red when [destructive], a
+/// trailing check when [checked] (choices such as a sort order).
 class MenuRow<T> extends PopupMenuItem<T> {
   const MenuRow({
     super.key,
     required T super.value,
-    required this.icon,
+    this.icon,
     required this.label,
     this.destructive = false,
+    this.checked = false,
+    super.enabled,
   }) : super(child: null, height: 44);
 
-  final IconData icon;
+  final IconData? icon;
   final String label;
   final bool destructive;
+
+  /// Marks the current choice with a check after the label.
+  final bool checked;
 
   @override
   PopupMenuItemState<T, MenuRow<T>> createState() => _MenuRowState<T>();
@@ -24,12 +30,19 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
   @override
   Widget buildChild() {
     final scheme = Theme.of(context).colorScheme;
-    final color = widget.destructive ? scheme.error : scheme.onSurface;
+    final base = widget.destructive ? scheme.error : scheme.onSurface;
+    final color = widget.enabled ? base : base.withValues(alpha: 0.38);
     return Row(
       children: [
-        Icon(widget.icon, size: 20, color: widget.destructive ? color : scheme.onSurfaceVariant),
-        const SizedBox(width: Gaps.md),
-        Flexible(
+        if (widget.icon case final icon?) ...[
+          Icon(
+            icon,
+            size: 20,
+            color: widget.destructive || !widget.enabled ? color : scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: Gaps.md),
+        ],
+        Expanded(
           child: Text(
             widget.label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
@@ -37,6 +50,10 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        if (widget.checked) ...[
+          const SizedBox(width: Gaps.md),
+          Icon(Icons.check_rounded, size: 20, color: scheme.primary),
+        ],
       ],
     );
   }

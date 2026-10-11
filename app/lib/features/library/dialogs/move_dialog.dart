@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/folder.dart';
+import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../folder_icons.dart';
 import '../library_controller.dart';
@@ -40,8 +41,8 @@ Future<MoveTarget?> showMoveDialog(
   addChildren(null, 1);
   return showDialog<MoveTarget>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
+    builder: (context) => AppDialog(
+      title: title,
       contentPadding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.lg, Gaps.md, 0),
       content: SizedBox(
         width: 420,
@@ -106,12 +107,15 @@ class _FolderRow extends StatelessWidget {
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xxs),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHigh,
+                color: scheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(Radii.pill),
               ),
-              child: Text('Current', style: theme.textTheme.labelSmall),
+              child: Text(
+                'Current',
+                style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSecondaryContainer),
+              ),
             )
-          : Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          : null,
       onTap: onTap,
     );
   }

@@ -83,12 +83,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     services.incomingFiles.handler = (files) => unawaited(_imports.enqueue(context, files));
     _remoteChanges = services.sync.remoteChanges.listen((c) {
       if (c.strokeSurfaces.isNotEmpty || c.pagesOfNotebooks.isNotEmpty) _thumbnails.invalidate();
-      if (c.notebooks || c.folders) _controller.reload();
+      if (c.notebooks || c.folders || c.tags) _controller.reload();
     });
   }
 
   /// Where the library is: section, folder and search.
-  String get _scopeKey => '${_controller.section}/${_controller.folderId}/${_controller.query}';
+  String get _scopeKey =>
+      '${_controller.section}/${_controller.folderId}/${_controller.query}/'
+      '${_controller.tagFilter.join(',')}';
   String _scope = '';
 
   /// Opens imported notebooks in editor tabs, the last one shown.
@@ -215,15 +217,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
   );
 
   /// The "New" button; hidden in the trash and when the empty state
-  /// already offers one.
+  /// already offers one (library and folders).
   Widget? _fab(BuildContext context) =>
       _actions.selection.active ||
           _controller.section == LibrarySection.trash ||
           (_controller.section == LibrarySection.library &&
-              !_controller.isSearching &&
+              !_controller.isFiltering &&
               _controller.visibleFolders.isEmpty &&
-              _controller.visibleNotebooks.isEmpty &&
-              _controller.folderId == null)
+              _controller.visibleNotebooks.isEmpty)
       ? null
       : FloatingActionButton.extended(
           onPressed: () => unawaited(_actions.createNotebook(context)),

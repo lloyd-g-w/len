@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../../ui/messages.dart';
 import '../notebook_audio.dart';
 import 'ink_replay_painter.dart';
 import 'replay_target.dart';
@@ -66,9 +67,7 @@ class _InkReplayLayerState extends State<InkReplayLayer> {
     if (createdAt == null) return;
     final found = await widget.audio.playInk(createdAt);
     if (found || !mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('This ink was not written during a recording.')));
+    showMessage(context, 'This ink wasn’t written during a recording');
   }
 
   void _scaleStart(ScaleStartDetails d) {

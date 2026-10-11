@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/templates/user_template.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/section_label.dart';
 import '../template_preview.dart';
 import 'template_catalog.dart';
 
@@ -35,7 +36,6 @@ class TemplateGallery extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final landscape = selection.template.orientation == PageOrientation.landscape;
     final width = landscape ? tileWidth * 1.3 : tileWidth;
     // Groups flow side by side when there is room, one under the other
@@ -54,13 +54,7 @@ class TemplateGallery extends StatelessWidget {
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(bottom: Gaps.xs, left: Gaps.xs),
-                    child: Text(
-                      category.label.toUpperCase(),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
+                    child: SectionLabel(category.label),
                   ),
                   Wrap(
                     spacing: Gaps.xxs,

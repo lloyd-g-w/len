@@ -101,12 +101,17 @@ class LibrarySelectionBar extends StatelessWidget {
                         () => actions.favoriteSelected(selection),
                       ),
                       action(
+                        'Tags…',
+                        Icons.sell_outlined,
+                        () => unawaited(actions.tagSelected(context, selection)),
+                      ),
+                      action(
                         'Move to folder…',
                         Icons.drive_file_move_outline,
                         () => unawaited(actions.moveSelected(context, selection)),
                       ),
                       action(
-                        'Move to Trash',
+                        'Move to trash',
                         Icons.delete_outline_rounded,
                         () => actions.trashSelected(context, selection),
                         color: scheme.error,

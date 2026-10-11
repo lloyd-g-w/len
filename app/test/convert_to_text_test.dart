@@ -167,7 +167,7 @@ void main() {
 
       await tester.tap(find.widgetWithText(ChoiceChip, 'HELLO WORLD'));
       await tester.pump();
-      await tester.tap(find.text('Replace with text'));
+      await tester.tap(find.text('Replace ink'));
       await tester.pumpAndSettle();
 
       expect(liveStrokes(services, nb.id), isEmpty);

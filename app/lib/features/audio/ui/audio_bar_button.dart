@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/messages.dart';
 import '../../editor/chrome/bar_button.dart';
 import '../notebook_audio.dart';
 import '../recording_controller.dart';
@@ -69,23 +70,21 @@ List<Widget> audioMenuItems(BuildContext context, NotebookAudio audio) => [
 
 /// Starts recording, explaining in a snack bar why it could not.
 Future<void> startRecording(BuildContext context, NotebookAudio audio) async {
-  final messenger = ScaffoldMessenger.maybeOf(context);
   // A recording plays back over the microphone otherwise.
   if (audio.playback.playing) await audio.playback.pause();
   if (await audio.recorder.start()) return;
   final error = audio.recorder.lastError;
-  if (error != null) messenger?.showSnackBar(SnackBar(content: Text(error)));
+  if (error != null && context.mounted) showMessage(context, error);
 }
 
 /// Stops recording and confirms (or explains a failure) in a snack bar.
 Future<void> stopRecording(BuildContext context, RecordingController recorder) async {
-  final messenger = ScaffoldMessenger.maybeOf(context);
   final saved = await recorder.stop();
   final error = recorder.lastError;
   if (saved != null) {
-    messenger?.showSnackBar(SnackBar(content: Text('Saved “${saved.title}”.')));
+    if (context.mounted) showMessage(context, 'Saved “${saved.title}”');
   } else if (error != null) {
-    messenger?.showSnackBar(SnackBar(content: Text(error)));
+    if (context.mounted) showMessage(context, error);
   }
 }
 

@@ -17,13 +17,12 @@ Future<bool> confirmAction(
     builder: (context) {
       final scheme = Theme.of(context).colorScheme;
       final symbol = icon ?? (destructive ? Icons.warning_amber_rounded : null);
-      return AlertDialog(
-        icon: symbol == null
-            ? null
-            : DialogIcon(symbol, color: destructive ? scheme.error : scheme.primary),
-        title: Text(title, textAlign: symbol == null ? null : TextAlign.center),
+      return AppDialog(
+        icon: symbol,
+        iconColor: destructive ? scheme.error : null,
+        title: title,
         content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
+          constraints: const BoxConstraints(maxWidth: dialogFormWidth),
           child: Text(message, textAlign: symbol == null ? null : TextAlign.center),
         ),
         actions: [
@@ -43,6 +42,65 @@ Future<bool> confirmAction(
     },
   );
   return result ?? false;
+}
+
+/// The app's one dialog pattern (an [AlertDialog]): an optional tinted
+/// [icon] centres the title (confirmations, progress, downloads), plain
+/// dialogs are start-aligned. [actions] go Cancel first, the primary
+/// (filled) last; when they don't fit in a row they stack, end-aligned,
+/// with the primary on top and Cancel at the bottom.
+class AppDialog extends StatelessWidget {
+  const AppDialog({
+    super.key,
+    this.icon,
+    this.iconColor,
+    this.leading,
+    required this.title,
+    this.content,
+    this.actions = const [],
+    this.scrollable = false,
+    this.contentPadding,
+  });
+
+  /// Symbol shown in a [DialogIcon] above the title.
+  final IconData? icon;
+
+  /// Tint of [icon] (default: the primary colour).
+  final Color? iconColor;
+
+  /// A custom header widget instead of [icon] (e.g. a live preview).
+  final Widget? leading;
+
+  final String title;
+  final Widget? content;
+  final List<Widget> actions;
+  final bool scrollable;
+  final EdgeInsetsGeometry? contentPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final header =
+        leading ??
+        (icon == null
+            ? null
+            : DialogIcon(icon!, color: iconColor ?? Theme.of(context).colorScheme.primary));
+    return AlertDialog(
+      icon: header,
+      title: Text(
+        title,
+        textAlign: header == null ? null : TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      content: content,
+      contentPadding: contentPadding,
+      scrollable: scrollable,
+      actions: actions.isEmpty ? null : actions,
+      actionsOverflowDirection: VerticalDirection.up,
+      actionsOverflowAlignment: OverflowBarAlignment.end,
+      actionsOverflowButtonSpacing: 0,
+    );
+  }
 }
 
 /// A dialog's leading symbol in a softly tinted circle.

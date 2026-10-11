@@ -5,37 +5,44 @@ import '../paper_pattern.dart';
 import 'paper.dart';
 import 'paper_style.dart';
 import 'pattern_builder.dart';
+import 'planner_calendar.dart';
 import 'planner_dates.dart';
 
-/// Date-aware planner pages. Each page prints its dates and links to the
-/// pages of the periods around it: month → weeks and days, week → days and
-/// month, day → week and month. Without a date the layout is drawn blank.
+/// Date-aware planner pages, printed in the paper's language with weeks
+/// from its week start. Each page prints its dates and links to the pages
+/// of the periods around it (in the same calendar): month → weeks, days
+/// and year, week → days and month, day → week and month. Without a date
+/// the layout is drawn blank.
 extension PlannerPatterns on PatternBuilder {
   /// A day: date header, hourly schedule, priorities, to-dos and notes.
-  void daily(Rect page, DateTime? date) {
+  void daily(Rect page, Paper paper) {
+    final date = paper.date;
     final c = content(page);
     final header = c.top + 3.2 * s;
     if (date != null) {
+      final labels = paper.labels;
+      final weekStart = _weekStart(paper);
       label('${date.day}', Rect.fromLTWH(c.left, c.top, 80, 64), size: 46, bold: true);
       final x = c.left + (date.day >= 10 ? 74.0 : 44.0);
+      final width = c.right - 130 - x;
       label(
-        PlannerDates.weekdayNames[date.weekday - 1],
-        Rect.fromLTWH(x, c.top + 8, 260, 24),
+        labels.weekdayName(date.weekday),
+        Rect.fromLTWH(x, c.top + 8, width, 24),
         size: 19,
         bold: true,
       );
-      final month = Rect.fromLTWH(x, c.top + 34, 260, 22);
-      label(PlannerDates.monthYear(date), month, size: 13.5, muted: true);
-      link(month, Paper.planner(PaperStyle.monthlyCalendar, date));
+      final month = Rect.fromLTWH(x, c.top + 34, width, 22);
+      label(labels.monthYear(date), month, size: 13.5, muted: true);
+      link(month, paper.sibling(PaperStyle.monthlyCalendar, date));
       final week = Rect.fromLTWH(c.right - 120, c.top + 8, 120, 24);
       label(
-        'Week ${PlannerDates.isoWeek(date)}',
+        'Week ${PlannerDates.weekNumber(date, weekStart)}',
         week,
         size: 13,
         align: LabelAlign.end,
         muted: true,
       );
-      link(week, Paper.planner(PaperStyle.weeklyPlanner, date));
+      link(week, paper.sibling(PaperStyle.weeklyPlanner, date));
     }
     h(header, c.left, c.right, PatternWeight.heavy);
 
@@ -68,30 +75,28 @@ extension PlannerPatterns on PatternBuilder {
     rules(y + s * 0.9, c.bottom, x0, c.right);
   }
 
-  /// A week (from Monday): a box per day, plus one for notes.
-  void weekly(Rect page, DateTime? monday) {
+  /// A week (from the calendar's week start): a box per day, plus one for
+  /// notes.
+  void weekly(Rect page, Paper paper) {
+    final first = paper.date;
+    final weekStart = _weekStart(paper);
+    final labels = paper.labels;
     final c = content(page);
     final header = c.top + 2.8 * s;
-    if (monday != null) {
+    if (first != null) {
       final title = Rect.fromLTWH(c.left, c.top, 220, 34);
-      label('Week ${PlannerDates.isoWeek(monday)}', title, size: 24, bold: true);
+      label('Week ${PlannerDates.weekNumber(first, weekStart)}', title, size: 24, bold: true);
       label(
-        PlannerDates.weekRange(monday),
+        labels.weekRange(first),
         Rect.fromLTWH(c.left, c.top + 36, c.width * 0.75, 20),
         size: 13,
         muted: true,
       );
       final month = Rect.fromLTWH(c.right - 160, c.top + 6, 160, 24);
-      // The month most of the week is in (that of its Thursday).
-      final thursday = PlannerDates.addDays(monday, 3);
-      label(
-        PlannerDates.monthNames[thursday.month - 1],
-        month,
-        size: 13,
-        align: LabelAlign.end,
-        muted: true,
-      );
-      link(month, Paper.planner(PaperStyle.monthlyCalendar, thursday));
+      // The month most of the week is in (that of its middle day).
+      final middle = PlannerDates.addDays(first, 3);
+      label(labels.monthName(middle.month), month, size: 13, align: LabelAlign.end, muted: true);
+      link(month, paper.sibling(PaperStyle.monthlyCalendar, middle));
     }
     h(header, c.left, c.right, PatternWeight.heavy);
 
@@ -101,6 +106,7 @@ extension PlannerPatterns on PatternBuilder {
     final grid = Rect.fromLTRB(c.left, header + s * 0.8, c.right, c.bottom);
     final cw = (grid.width - gap * (cols - 1)) / cols;
     final ch = (grid.height - gap * (rows - 1)) / rows;
+    final weekdays = PlannerDates.weekdays(weekStart);
     for (var i = 0; i < cols * rows; i++) {
       final cell = Rect.fromLTWH(
         grid.left + (i % cols) * (cw + gap),
@@ -113,12 +119,13 @@ extension PlannerPatterns on PatternBuilder {
       h(strip.bottom, cell.left, cell.right, PatternWeight.heavy);
       final inner = strip.deflate(8);
       if (i < 7) {
-        if (i >= 5) fill(strip, 0.35); // The weekend.
-        label(PlannerDates.weekdayNames[i].toUpperCase(), inner, size: 10.5, bold: true);
-        if (monday != null) {
-          final day = PlannerDates.addDays(monday, i);
+        final weekday = weekdays[i];
+        if (weekday >= DateTime.saturday) fill(strip, 0.35); // The weekend.
+        label(labels.upper(labels.weekdayName(weekday)), inner, size: 10.5, bold: true);
+        if (first != null) {
+          final day = PlannerDates.addDays(first, i);
           label('${day.day}', inner, size: 15, bold: true, align: LabelAlign.end);
-          link(strip, Paper.planner(PaperStyle.dailyPlanner, day));
+          link(strip, paper.sibling(PaperStyle.dailyPlanner, day));
         }
       } else {
         label('NOTES', inner, size: 10.5, bold: true);
@@ -128,38 +135,41 @@ extension PlannerPatterns on PatternBuilder {
   }
 
   /// A month calendar: weekday heads, week numbers and one cell per day.
-  void monthly(Rect page, DateTime? first) {
+  void monthly(Rect page, Paper paper) {
+    final first = paper.date;
+    final weekStart = _weekStart(paper);
+    final labels = paper.labels;
     final c = content(page);
     final header = c.top + 2.6 * s;
     final weeks = first == null
-        ? [for (var i = 0; i < 5; i++) DateTime.utc(2001, 1, 1 + 7 * i)] // Undated: 5 rows.
-        : PlannerDates.weeksOfMonth(first.year, first.month);
+        ? [
+            for (var i = 0; i < 5; i++)
+              PlannerDates.addDays(PlannerDates.weekStart(DateTime.utc(2001), weekStart), 7 * i),
+          ] // Undated: 5 rows.
+        : PlannerDates.weeksOfMonth(first.year, first.month, weekStart);
     if (first != null) {
       label(
-        PlannerDates.monthNames[first.month - 1],
+        labels.monthName(first.month),
         Rect.fromLTWH(c.left, c.top, c.width * 0.7, 46),
         size: 32,
         bold: true,
       );
-      label(
-        '${first.year}',
-        Rect.fromLTWH(c.right - 140, c.top, 140, 46),
-        size: 24,
-        align: LabelAlign.end,
-        muted: true,
-      );
+      final year = Rect.fromLTWH(c.right - 140, c.top, 140, 46);
+      label('${first.year}', year, size: 24, align: LabelAlign.end, muted: true);
+      link(year, paper.sibling(PaperStyle.yearlyOverview, first));
     }
     const weekColumn = 30.0;
     final grid = Rect.fromLTRB(c.left + weekColumn, header + 1.2 * s, c.right, c.bottom);
     final cw = grid.width / 7, rh = grid.height / weeks.length;
+    final weekdays = PlannerDates.weekdays(weekStart);
     for (var d = 0; d < 7; d++) {
       label(
-        PlannerDates.weekdayNames[d].substring(0, 3).toUpperCase(),
+        labels.weekdayShort(weekdays[d]),
         Rect.fromLTWH(grid.left + d * cw, header, cw, 1.2 * s),
         size: 10.5,
         bold: true,
         align: LabelAlign.center,
-        muted: d >= 5,
+        muted: weekdays[d] >= DateTime.saturday,
       );
     }
     box(grid);
@@ -171,18 +181,18 @@ extension PlannerPatterns on PatternBuilder {
     }
     if (first == null) return;
     for (var r = 0; r < weeks.length; r++) {
-      final monday = weeks[r];
+      final week = weeks[r];
       final number = Rect.fromLTWH(c.left, grid.top + r * rh, weekColumn - 4, rh);
       label(
-        '${PlannerDates.isoWeek(monday)}',
+        '${PlannerDates.weekNumber(week, weekStart)}',
         Rect.fromLTWH(number.left, number.top + 4, number.width, 16),
         size: 10,
         align: LabelAlign.center,
         muted: true,
       );
-      link(number, Paper.planner(PaperStyle.weeklyPlanner, monday));
+      link(number, paper.sibling(PaperStyle.weeklyPlanner, week));
       for (var d = 0; d < 7; d++) {
-        final day = PlannerDates.addDays(monday, d);
+        final day = PlannerDates.addDays(week, d);
         final cell = Rect.fromLTWH(grid.left + d * cw, grid.top + r * rh, cw, rh);
         final inMonth = day.month == first.month;
         if (!inMonth) fill(cell, 0.3);
@@ -191,10 +201,13 @@ extension PlannerPatterns on PatternBuilder {
           Rect.fromLTWH(cell.left + 7, cell.top + 5, cell.width - 14, 18),
           size: 13,
           bold: inMonth,
-          muted: !inMonth || d >= 5,
+          muted: !inMonth || PlannerDates.isWeekend(day),
         );
-        link(cell, Paper.planner(PaperStyle.dailyPlanner, day));
+        link(cell, paper.sibling(PaperStyle.dailyPlanner, day));
       }
     }
   }
+
+  static WeekStart _weekStart(Paper paper) =>
+      (paper.calendar ?? PlannerCalendar.standard).weekStart;
 }

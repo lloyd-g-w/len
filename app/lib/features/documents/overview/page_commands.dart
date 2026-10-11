@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/notebook_page.dart';
+import '../../../domain/tag.dart';
 import '../../../ui/menus.dart';
 
 /// Something the user asked for on one page in the overview.
 enum PageCommand {
-  insertBefore('Insert page before', Icons.vertical_align_top_rounded),
-  insertAfter('Insert page after', Icons.vertical_align_bottom_rounded),
-  duplicate('Duplicate', Icons.copy_rounded),
+  insertBefore('Add page before', Icons.vertical_align_top_rounded),
+  insertAfter('Add page after', Icons.vertical_align_bottom_rounded),
+  duplicate('Duplicate', Icons.library_add_outlined),
   template('Change template…', Icons.grid_on_rounded),
   saveAsTemplate('Save as template…', Icons.dashboard_customize_outlined),
   bookmark('Bookmark', Icons.bookmark_border_rounded),
@@ -26,6 +27,7 @@ class OverviewHandlers {
     required this.command,
     required this.move,
     this.deleteMany,
+    this.pageTags,
   });
 
   /// Current pages in order.
@@ -40,6 +42,10 @@ class OverviewHandlers {
   /// Deletes several pages as one undoable step. Without it, the overview
   /// runs [PageCommand.delete] on each page.
   final Future<void> Function(BuildContext context, List<NotebookPage> pages)? deleteMany;
+
+  /// The tags on the notebook's pages, each with the ids of its pages, for
+  /// the tag filter (none without it).
+  final List<({Tag tag, Set<String> pages})> Function()? pageTags;
 }
 
 /// The options menu of [page].

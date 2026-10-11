@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'package:flutter/widgets.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
@@ -13,7 +13,6 @@ import '../../ink/tool_settings.dart';
 import '../../ink/tools/content_tools.dart';
 import '../../ink/viewport.dart';
 import '../../platform/stylus_samples.dart';
-import '../../sync/sync_engine.dart';
 import '../documents/pdf/pdf_background_cache.dart';
 import 'canvas/canvas_navigation.dart';
 import 'document/document_commands.dart';
@@ -21,32 +20,40 @@ import 'document/document_controller.dart';
 import 'document/document_layout.dart';
 import 'document/page_fit.dart';
 import 'document/undo_target.dart';
+import 'double_tap_zoom.dart';
 import 'images/editor_images.dart';
+import 'links/editor_links.dart';
 import 'pdf/pdf_interaction.dart';
-import 'pdf/pdf_page_info.dart';
+import 'shared/shared_notebook.dart';
+import 'stickers/editor_stickers.dart';
 import 'tabs/open_notebooks.dart';
 
 /// The engine side of one open editor: tool settings, input routing, the
 /// content tools, undo, and either one infinite-canvas surface or a paged
 /// document. Owns (and disposes) all of it; widgets only read it.
+///
+/// The surfaces' models, their undo history and the PDF caches belong to
+/// the [shared] notebook (another view of the same notebook uses the same
+/// ones); this session only holds them.
 class EditorSession {
   EditorSession({
     required this.services,
-    required Notebook Function() notebook,
+    required this.shared,
     required void Function() onStylusDetected,
     EditorViewState? initialView,
-  }) : _notebook = notebook,
-       tools = ToolSettings(stylusOnly: services.settings.stylusOnly, store: services.settings) {
-    final current = notebook();
+  }) : tools = ToolSettings(stylusOnly: services.settings.stylusOnly, store: services.settings) {
+    final current = shared.notebook;
     if (current.kind == NotebookKind.canvas) {
-      final model = canvas = SurfaceModel(
-        surfaceId: current.id,
-        repository: services.strokes,
-        elementRepository: services.elements,
-        images: services.images,
-        reader: services.strokeReader,
-        writeBehind: true,
-        outlines: services.outlines,
+      final model = canvas = shared.canvasModel(
+        () => SurfaceModel(
+          surfaceId: current.id,
+          repository: services.strokes,
+          elementRepository: services.elements,
+          images: services.images,
+          reader: services.strokeReader,
+          writeBehind: true,
+          outlines: services.outlines,
+        ),
       );
       final viewport = canvasViewport = ViewportController();
       final nav = canvasNav = CanvasNavigation(
@@ -60,19 +67,18 @@ class EditorSession {
       content = _contentFor(model, viewport);
       input = _inputFor(model, viewport, onStylusDetected, kinetic: nav.kinetic);
       undo = SurfaceUndo(model);
+      zoom = DoubleTapZoom(viewport: viewport, animator: nav.animator, home: () => 1);
     } else {
       final doc = this.doc = _openDocument(current, initialView);
-      commands = DocumentCommands(services: services, notebook: notebook, doc: doc);
-      final backgrounds = this.backgrounds = PdfBackgroundCache(
-        blobs: services.blobs,
-        fetch: services.sync.fetchBlob,
-      );
-      content = _contentFor(doc.activeModel, doc.pageViewport);
-      final pdf = this.pdf = PdfInteraction(
+      final commands = this.commands = DocumentCommands(
+        services: services,
+        notebook: () => shared.notebook,
         doc: doc,
-        tools: tools,
-        source: PdfrxInfoSource(backgrounds.renderer, services.blobs),
       );
+      shared.attachDocument(doc, commands.reload);
+      backgrounds = shared.backgrounds;
+      content = _contentFor(doc.activeModel, doc.pageViewport);
+      final pdf = this.pdf = PdfInteraction(doc: doc, tools: tools, info: shared.pdfInfo);
       content.selectText = pdf.tool;
       final animator = docAnimator = ViewportAnimator(doc.viewport);
       doc.beforeJump = animator.stop;
@@ -86,11 +92,20 @@ class EditorSession {
       // Paste onto the page in the middle of the screen.
       content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));
       undo = doc.surfaces;
+      zoom = DoubleTapZoom(
+        viewport: doc.viewport,
+        animator: animator,
+        home: () => doc.frameTarget(doc.currentPage)?.scale,
+        homeOffsetX: () => doc.frameTarget(doc.currentPage)?.offset.dx,
+      );
     }
+    gestures.onDoubleTap = zoom.toggle;
   }
 
   final AppServices services;
-  final Notebook Function() _notebook;
+
+  /// What this editor shares with other editors of the notebook.
+  final SharedNotebook shared;
   final ToolSettings tools;
   final LiveInk live = LiveInk();
 
@@ -102,6 +117,9 @@ class EditorSession {
   late final ContentTools content;
   late final UndoTarget undo;
 
+  /// Double-tap zoom: page fit (100 % on canvases) ⇄ a closer look.
+  late final DoubleTapZoom zoom;
+
   /// Inserting images (picker, clipboard, drag and drop, camera).
   late final EditorImages images = EditorImages(
     services: services,
@@ -110,7 +128,13 @@ class EditorSession {
     activateAt: doc?.activateAt,
   );
 
-  // Infinite canvas: one surface.
+  /// Page and web links: finding, following and making them.
+  late final EditorLinks links = EditorLinks(this);
+
+  /// The sticker panel, inserting stickers and saving new ones.
+  late final EditorStickers stickers = EditorStickers(this);
+
+  // Infinite canvas: one surface (the shared notebook's).
   SurfaceModel? canvas;
   ViewportController? canvasViewport;
 
@@ -120,6 +144,8 @@ class EditorSession {
   // Paged notebook: pages laid out as a document.
   DocumentController? doc;
   DocumentCommands? commands;
+
+  /// Rendered PDF backgrounds (the shared notebook's).
   PdfBackgroundCache? backgrounds;
 
   /// Text selection, links and outline of imported PDF pages.
@@ -155,6 +181,7 @@ class EditorSession {
       initialPage: view?.page ?? 0,
       initialView: view,
       fit: PageFit.parse(view?.fit),
+      models: shared.pages,
     );
   }
 
@@ -191,46 +218,45 @@ class EditorSession {
     penButtonAction: () => services.preferences.penButtonAction,
   );
 
-  /// Reloads what another device changed: the page list, and the strokes
-  /// of surfaces that are open.
-  void applyRemoteChanges(RemoteChanges changes) {
+  /// Keeps document content scrollable clear of the chrome covering
+  /// [covered] of the screen, and fits keep canvas content clear of it.
+  /// Applied after the frame (it moves the viewport, which notifies).
+  void setChromeInsets(EdgeInsets covered) {
     final doc = this.doc;
-    final notebookId = notebook.id;
-    services.images.retryMissing(); // Image blobs may be on the server now.
-    if (doc != null && changes.pagesOfNotebooks.contains(notebookId)) {
-      // Every page deleted elsewhere: start a fresh one, as opening does.
-      if (services.pages.pagesOf(notebookId).isEmpty) {
-        services.pages.addPage(notebookId, paper: notebook.paper);
-      }
-      commands!.reload();
-      backgrounds?.retryMissing(); // New pages may bring new PDFs.
-      pdf?.info.retry();
-    }
-    for (final surfaceId in changes.strokeSurfaces) {
-      if (surfaceId == canvas?.surfaceId) canvas!.reload();
-      doc?.surfaces.reload(surfaceId);
-    }
+    final nav = canvasNav;
+    final same = doc != null
+        ? doc.insets == covered
+        : nav != null && !nav.waitingForInsets && nav.insets == covered;
+    if (same) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed) return;
+      doc?.setInsets(covered);
+      nav?.setInsets(covered);
+    });
   }
 
+  bool _disposed = false;
+
   /// Ends the session: commits a text box still being edited and releases
-  /// every surface.
+  /// every surface (shared ones stay with the [shared] notebook).
   void dispose() {
+    _disposed = true;
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     images.dispose();
+    stickers.dispose();
     content.dispose();
     gestures.dispose();
-    canvas?.dispose();
     canvasNav?.dispose();
     canvasViewport?.dispose();
     docAnimator?.dispose();
     commands?.dispose();
     pdf?.dispose();
+    if (doc case final doc?) shared.detachDocument(doc);
     doc?.dispose();
-    backgrounds?.dispose();
     live.dispose();
     tools.dispose();
   }
 
   /// The notebook as currently known (it may be renamed while open).
-  Notebook get notebook => _notebook();
+  Notebook get notebook => shared.notebook;
 }

@@ -5,9 +5,11 @@ import 'canvas/canvas_view.dart';
 import 'chrome/canvas_guard.dart';
 import 'document/add_page_footer.dart';
 import 'document/paged_document_view.dart';
-import 'document/planner_link_taps.dart';
 import 'editor_session.dart';
+import 'links/link_layer.dart';
+import 'links/link_taps.dart';
 import 'tools/content_layer.dart';
+import 'tools/selection_menu.dart';
 
 /// What the chrome floats over: the drawing surface (an infinite canvas or
 /// the paged document with its "add page" footer) and the content tools'
@@ -22,6 +24,7 @@ class EditorCanvas extends StatelessWidget {
     required this.guard,
     required this.chromeInsets,
     required this.onFollowLink,
+    this.selectionActions,
   });
 
   final EditorSession session;
@@ -43,13 +46,17 @@ class EditorCanvas extends StatelessWidget {
   /// Follows a planner link to its page.
   final ValueChanged<Paper> onFollowLink;
 
+  /// Commands the editor adds to the lasso selection's menu.
+  final List<SelectionExtraAction> Function()? selectionActions;
+
   @override
   Widget build(BuildContext context) {
     final doc = session.doc;
     return Stack(
       fit: StackFit.expand,
       children: [
-        _surface(),
+        _surface(context),
+        Positioned.fill(child: LinkLayer(session: session)),
         if (doc != null) AddPageFooter(doc: doc, onAdd: session.commands!.addPage),
         MediaQuery(
           data: MediaQuery.of(context).copyWith(padding: chromeInsets),
@@ -59,21 +66,21 @@ class EditorCanvas extends StatelessWidget {
     );
   }
 
-  Widget _surface() {
+  Widget _surface(BuildContext context) {
     final doc = session.doc;
     bool fingersNavigate() => session.tools.stylusOnly ?? false;
-    final surface = doc != null
-        ? PlannerLinkTaps(
-            doc: doc,
+    void follow(Offset at) {
+      if (session.links.followAt(context, at)) return;
+      if (doc?.plannerLinkAt(at) case final planner?) onFollowLink(planner);
+    }
+
+    final view = doc != null
+        ? PagedDocumentView(
+            controller: doc,
+            input: session.input,
+            live: session.live,
+            backgrounds: session.backgrounds,
             fingersNavigate: fingersNavigate,
-            onFollow: onFollowLink,
-            child: PagedDocumentView(
-              controller: doc,
-              input: session.input,
-              live: session.live,
-              backgrounds: session.backgrounds,
-              fingersNavigate: fingersNavigate,
-            ),
           )
         : CanvasView(
             model: session.canvas!,
@@ -84,6 +91,7 @@ class EditorCanvas extends StatelessWidget {
             paperColor: paperColor,
             insets: chromeInsets,
           );
+    final surface = LinkTaps(fingersNavigate: fingersNavigate, follow: follow, child: view);
     return Listener(
       // Touching the canvas takes keyboard focus back for the shortcuts,
       // without competing for the pointer.
@@ -108,6 +116,7 @@ class EditorCanvas extends StatelessWidget {
         content: session.content,
         viewport: session.canvasViewport!,
         tools: session.tools,
+        selectionActions: selectionActions,
       );
     }
     return ListenableBuilder(
@@ -117,6 +126,7 @@ class EditorCanvas extends StatelessWidget {
         viewport: doc.pageViewport,
         tools: session.tools,
         page: doc.pageViewport.contentBounds,
+        selectionActions: selectionActions,
       ),
     );
   }

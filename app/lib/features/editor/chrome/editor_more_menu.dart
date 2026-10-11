@@ -50,36 +50,39 @@ class EditorMoreMenu extends StatelessWidget {
             () => showTabSwitcher(context, tabs),
           ),
         if (compact && a.onSearch != null)
-          MenuItemButton(
-            leadingIcon: const Icon(Icons.search_rounded),
-            shortcut: const SingleActivator(LogicalKeyboardKey.keyF, control: true),
-            onPressed: a.onSearch,
-            child: const Text('Search in notebook'),
-          ),
+          _item(Icons.search_rounded, 'Search in notebook', a.onSearch),
         if ((compact || pagesInMenu) && a.isPaged) ...[
-          _item(Icons.grid_view_rounded, 'All pages', a.onOverview),
+          _item(Icons.grid_view_outlined, 'All pages', a.onOverview),
           _bookmarkItem(),
         ],
         if (compact && a.isPaged)
           if (a.onExport case final onExport?) exportMenuItem(onExport),
         if (compact) ...compactItems,
+        if (a.onStickers case final onStickers?)
+          _item(
+            Icons.interests_outlined,
+            a.stickersOpen ? 'Hide stickers' : 'Stickers',
+            onStickers,
+          ),
         if (a.isPaged) ...[
           SubmenuButton(
             leadingIcon: const Icon(Icons.description_outlined),
             menuChildren: [
               _item(Icons.numbers_rounded, 'Go to page…', a.onGoTo),
-              _command(PageCommand.insertBefore, 'Insert page before'),
+              _command(PageCommand.insertBefore, 'Add page before'),
               _item(Icons.note_add_outlined, 'Add page with template…', a.onAddWithTemplate),
               _command(PageCommand.duplicate, 'Duplicate page'),
               _command(PageCommand.template, 'Change template…'),
               _command(PageCommand.saveAsTemplate, 'Save page as template…'),
-              _item(Icons.picture_as_pdf_outlined, 'Insert PDF pages…', a.onInsertPdf),
+              _item(Icons.picture_as_pdf_outlined, 'Add pages from PDF…', a.onInsertPdf),
+              _item(Icons.playlist_add_rounded, 'Add page to outline…', a.onAddToOutline),
+              _item(Icons.sell_outlined, 'Page tags…', a.onPageTags),
               const Divider(),
-              _command(PageCommand.delete, 'Delete page'),
+              _command(PageCommand.delete, 'Delete page', destructive: true),
             ],
             child: const Text('Page'),
           ),
-          if (a.onOutline case final onOutline?) _item(Icons.toc_rounded, 'PDF outline', onOutline),
+          if (a.onOutline case final onOutline?) _item(Icons.toc_rounded, 'Outline', onOutline),
           const Divider(),
           _radioSubmenu<PageFlow>(
             icon: Icons.view_agenda_outlined,
@@ -96,16 +99,18 @@ class EditorMoreMenu extends StatelessWidget {
             label: 'Page zoom',
             value: a.fit,
             options: [for (final f in PageFit.values) (f, f.label)],
-            hints: const {PageFit.auto: '0', PageFit.page: 'Shift+1', PageFit.width: 'Shift+2'},
+            hints: compact
+                ? const {}
+                : const {PageFit.auto: '0', PageFit.page: 'Shift+1', PageFit.width: 'Shift+2'},
             onSelected: a.onFit,
           ),
         ] else ...[
           // Infinite canvas: background and navigation.
           _item(Icons.wallpaper_outlined, 'Background…', a.onBackground),
           const Divider(),
-          _item(Icons.fit_screen_outlined, 'Fit content', a.onFitContent, hint: 'Shift+1'),
-          _item(Icons.crop_free_rounded, 'Actual size (100%)', a.onActualSize, hint: '0'),
-          _item(Icons.home_outlined, 'Back to start', a.onBackToStart, hint: 'Home'),
+          _item(Icons.fit_screen_outlined, 'Fit content', a.onFitContent, hint: hint('Shift+1')),
+          _item(Icons.zoom_in_rounded, 'Actual size (100%)', a.onActualSize, hint: hint('0')),
+          _item(Icons.home_outlined, 'Back to start', a.onBackToStart, hint: hint('Home')),
           _item(
             a.showMinimap ? Icons.map_rounded : Icons.map_outlined,
             a.showMinimap ? 'Hide overview' : 'Show overview',
@@ -133,25 +138,36 @@ class EditorMoreMenu extends StatelessWidget {
               onPressed: a.onToolLabels == null ? null : () => a.onToolLabels!(!a.toolLabels),
               child: const Text('Show tool names'),
             ),
+            if (a.onCustomiseToolbar case final onCustomise?)
+              MenuItemButton(
+                leadingIcon: const Icon(Icons.tune_rounded),
+                onPressed: onCustomise,
+                child: const Text('Customise toolbar…'),
+              ),
           ],
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.fullscreen_rounded),
-          shortcut: const SingleActivator(LogicalKeyboardKey.f11),
+          shortcut: compact ? null : const SingleActivator(LogicalKeyboardKey.f11),
           onPressed: a.onFocusMode,
           child: const Text('Focus mode'),
         ),
+        if (a.onPresent case final onPresent?)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.slideshow_rounded),
+            shortcut: compact ? null : const SingleActivator(LogicalKeyboardKey.f5),
+            onPressed: onPresent,
+            child: const Text('Present'),
+          ),
         const Divider(),
         MenuItemButton(
           leadingIcon: const Icon(Icons.draw_outlined),
-          trailingIcon: Icon(
-            a.stylusOnly ? Icons.toggle_on_rounded : Icons.toggle_off_outlined,
-            size: 28,
-          ),
+          trailingIcon: _MenuSwitch(value: a.stylusOnly),
           onPressed: () => a.onStylusOnly(!a.stylusOnly),
           child: const Text('Draw with stylus only'),
         ),
         _item(Icons.edit_outlined, 'Rename notebook…', a.onRename),
+        if (a.onTags case final onTags?) _item(Icons.sell_outlined, 'Notebook tags…', onTags),
         _item(Icons.tune_rounded, 'Stylus & gesture settings…', a.onSettings),
       ],
       builder: (context, menu, _) => BarButton(
@@ -168,18 +184,34 @@ class EditorMoreMenu extends StatelessWidget {
     actions.onToggleBookmark,
   );
 
-  Widget _command(PageCommand c, String label) {
+  /// Keyboard hints only where a keyboard is likely (not on phones).
+  String? hint(String keys) => compact ? null : keys;
+
+  Widget _command(PageCommand c, String label, {bool destructive = false}) {
     final run = actions.onPageCommand;
-    return _item(c.icon, label, run == null ? null : () => run(c));
+    return _item(c.icon, label, run == null ? null : () => run(c), destructive: destructive);
   }
 
-  static Widget _item(IconData icon, String label, VoidCallback? onPressed, {String? hint}) =>
-      MenuItemButton(
+  static Widget _item(
+    IconData icon,
+    String label,
+    VoidCallback? onPressed, {
+    String? hint,
+    bool destructive = false,
+  }) => Builder(
+    builder: (context) {
+      final error = Theme.of(context).colorScheme.error;
+      return MenuItemButton(
+        style: destructive
+            ? MenuItemButton.styleFrom(foregroundColor: error, iconColor: error)
+            : null,
         leadingIcon: Icon(icon),
         trailingIcon: hint == null ? null : Text(hint),
         onPressed: onPressed,
         child: Text(label),
       );
+    },
+  );
 
   static Widget _radioSubmenu<T>({
     required IconData icon,
@@ -224,4 +256,23 @@ class ShareMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       BarButton(tooltip: 'Export & share', icon: Icons.ios_share_rounded, onPressed: onExport);
+}
+
+/// A switch shown in a menu row; the row itself toggles it.
+class _MenuSwitch extends StatelessWidget {
+  const _MenuSwitch({required this.value});
+
+  final bool value;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Transform.scale(
+      scale: 0.8,
+      child: Switch(
+        value: value,
+        onChanged: (_) {},
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    ),
+  );
 }

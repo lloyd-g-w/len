@@ -79,12 +79,23 @@ class BlobGc {
       for (final MapEntry(key: sha, value: since) in marks.entries)
         if (since <= cutoff.millisecondsSinceEpoch && !_newerThan(sha, cutoff)) sha,
     };
-    // Narrow the race with a client pushing a new reference meanwhile.
-    if (due.isNotEmpty) due = due.difference(referencedAmong(due));
+    // Narrow the race with a client pushing a new reference meanwhile; a
+    // blob referenced again loses its mark (a later tombstone starts a new
+    // grace period).
+    if (due.isNotEmpty) {
+      final rescued = referencedAmong(due);
+      due = due.difference(rescued);
+      rescued.forEach(marks.remove);
+    }
 
     final deleted = <String>[];
     var bytes = 0;
-    for (final sha in due) {
+    for (final sha in [...due]) {
+      // Re-uploaded meanwhile (a client was told it is stored): keep it.
+      if (_newerThan(sha, cutoff)) {
+        due.remove(sha);
+        continue;
+      }
       final size = blobs.size(sha) ?? 0;
       if (dryRun || blobs.delete(sha)) {
         deleted.add(sha);

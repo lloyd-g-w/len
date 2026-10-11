@@ -387,4 +387,24 @@ void main() {
     expect(RegExp(r'/Subtype\s*/Image').allMatches(text).length, 2 + 1); // JPEG once, PNG + mask.
     expect(text, contains('/DCTDecode'));
   });
+
+  test('PDF export draws an image template (My templates) as the page paper', () async {
+    final jpeg = jpegOf(60, 80);
+    final sha = 'b' * 64;
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final nb = services.notebooks.create(
+      title: 'Doc',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final page = services.pages.pagesOf(nb.id).first.copyWith(paper: Paper.image(sha));
+    Future<String> export(Map<String, Uint8List> blobs) async => String.fromCharCodes(
+      await PdfExporter.build([ExportPage(page, const [])], readBlob: (b) async => blobs[b]),
+    );
+    expect(await export({sha: jpeg}), contains('/DCTDecode'));
+    // A template whose image is missing exports plain paper.
+    expect(await export({}), isNot(contains('/Subtype /Image')));
+  });
 }

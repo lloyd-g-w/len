@@ -35,7 +35,9 @@ class PdfTextWriter {
   /// Slant of synthetic italics (fonts without an italic face).
   static const double _slant = 0.2;
 
-  Future<PdfTtfFont> _font(TextFont font, {required bool bold, required bool italic}) {
+  /// The embedded face of a bundled [font], loaded once per document
+  /// (also used for template labels, see `PdfTemplateWriter`).
+  Future<PdfTtfFont> font(TextFont font, {required bool bold, required bool italic}) {
     final asset = font.asset(bold: bold, italic: italic);
     return _fonts[asset] ??= _load(asset).then((bytes) => PdfTtfFont(doc, bytes));
   }
@@ -110,7 +112,7 @@ class PdfTextWriter {
         final style = TextLayout.styleFor(data, span, para);
         final font = span.font ?? data.font;
         final bold = span.bold || para.heading > 0;
-        final pdfFont = await _font(font, bold: bold, italic: span.italic);
+        final pdfFont = await this.font(font, bold: bold, italic: span.italic);
         final glyphs = pdfFont.font.charToGlyphIndexMap;
         if (text.substring(i, j).runes.any((r) => !glyphs.containsKey(r) && r > 0x20)) {
           return null;
@@ -259,7 +261,7 @@ class PdfTextWriter {
     final origin = TextBoxLayout.numberOrigin(m, p, m.column(box));
     final baseline = p.computeDistanceToActualBaseline(TextBaseline.alphabetic);
     p.dispose();
-    final font = await _font(m.font, bold: false, italic: false);
+    final font = await this.font(m.font, bold: false, italic: false);
     _fill(g, Color(m.color));
     g
       ..saveContext()

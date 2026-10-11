@@ -1,10 +1,10 @@
-# Len — Code Conventions
+# Len â Code Conventions
 
 Read `docs/ARCHITECTURE.md` first. These rules keep the codebase clean as it grows.
 
 ## Layering (`app/lib`)
 
-`domain/` ← `data/` ← `sync/` ← `ink/` ← `features/` + `ui/`. Lower layers never import
+`domain/` â `data/` â `sync/` â `ink/` â `features/` + `ui/`. Lower layers never import
 higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
 
 - **domain/** immutable models, `copyWith`, value semantics where useful.
@@ -15,7 +15,11 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
   except in `ink_surface.dart`.
 - **features/<area>/** screens and their private widgets.
 - **ui/** shared widgets and design tokens (`app_theme.dart`). Use tokens
-  (`Radii`, `Gaps`, palette) instead of magic numbers.
+  (`Radii`, `Gaps`, `Motion`, palette) instead of magic numbers, and the shared
+  components instead of local styling: `AppDialog` / `confirmAction` for dialogs,
+  `showMessage` for snack bars, `MenuRow` for popup menus, `SectionLabel` for
+  group headings, `EvenGrid` for swatches. Copy is sentence case; commands that
+  ask something first end in …; single-sentence messages have no full stop.
 
 ## Pre-release: breaking changes are fine
 
@@ -23,7 +27,7 @@ Len is far from its first release (user decision). **Do not keep code for
 backwards compatibility**: no legacy data shims, no tolerance for old
 record formats, no keeping removed features around for old data. Change
 formats, rename things, squash migrations and drop old tools freely when it
-makes the code better — just keep the code base itself consistent and the
+makes the code better â just keep the code base itself consistent and the
 tests green. (Forward-compat rules below apply once we ship.)
 
 ## Rules
@@ -37,11 +41,11 @@ tests green. (Forward-compat rules below apply once we ship.)
 - No `dart:io`, `dart:isolate`, `dart:ffi` or `path_provider` outside
   `lib/platform/*_native.dart` (and code only those import); add a
   conditional-export abstraction instead (see ARCHITECTURE "Platforms").
-  Mind web integers: no negative or ≥ 31-bit shifts, no 64-bit `ByteData`.
+  Mind web integers: no negative or â¥ 31-bit shifts, no 64-bit `ByteData`.
 - Schema changes: **append** a migration to `AppDatabase._migrations` (version 1
   creates the whole schema); never edit one that has shipped.
 - New synced data: add a collection (documented in `docs/SYNC_PROTOCOL.md`) and
-  parse it strictly with `RecordFields` (every field required; malformed →
+  parse it strictly with `RecordFields` (every field required; malformed â
   skipped). Once we ship: new fields optional, unknown fields/values tolerated
   (backward and forward compatibility).
   Large binary data (images, PDFs) goes through content-addressed blobs.

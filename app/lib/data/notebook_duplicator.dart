@@ -1,4 +1,5 @@
 import '../domain/notebook.dart';
+import '../domain/tag.dart';
 import 'notebook_repository.dart';
 import 'row_copier.dart';
 
@@ -44,6 +45,12 @@ class NotebookDuplicator {
         _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp);
       });
       _copyRecordings(copier, id, copyId, stamp);
+      repo.outline?.copyAll(id, copyId, surfaces);
+      final taggings = repo.tags?.taggings;
+      if (taggings != null) {
+        taggings.copyTargets({id: copyId}, TagTarget.notebook);
+        taggings.copyTargets({...surfaces}..remove(id), TagTarget.page);
+      }
     });
     return repo.get(copyId);
   }

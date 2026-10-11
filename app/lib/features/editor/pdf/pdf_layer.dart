@@ -10,6 +10,7 @@ import '../../../ink/tool_settings.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../../documents/progress_dialog.dart' show showMessage;
+import '../links/link_menu.dart';
 import 'pdf_interaction.dart';
 import 'pdf_page_info.dart';
 import 'pdf_text_tool.dart';
@@ -157,7 +158,8 @@ class _PdfLayerState extends State<PdfLayer> {
       onPointerUp: _onUp,
       onPointerCancel: (_) => _tapPointer = null,
       child: ListenableBuilder(
-        listenable: Listenable.merge([_pdf.selection, doc.viewport, _pdf.info]),
+        // (The tools: handles show with the Select PDF text tool.)
+        listenable: Listenable.merge([_pdf.selection, doc.viewport, _pdf.info, _pdf.tools]),
         builder: (context, _) {
           _preload();
           final ends = PdfTextTool.handleEnds(_pdf);
@@ -198,7 +200,7 @@ class _PdfLayerState extends State<PdfLayer> {
   /// (the chrome) is too close.
   Widget _menu(BuildContext context, (Offset, Offset) ends) {
     final size = MediaQuery.sizeOf(context);
-    const width = 300.0, height = 44.0;
+    const width = 340.0, height = 44.0;
     final (start, end) = ends;
     final left = (start.dx - 24)
         .clamp(Gaps.sm, math.max(Gaps.sm, size.width - width - Gaps.sm))
@@ -230,6 +232,18 @@ class _PdfLayerState extends State<PdfLayer> {
               children: [
                 button('Copy', Icons.copy_rounded, _copy, 'pdf-copy'),
                 button('Highlight', Icons.border_color_rounded, _highlight, 'pdf-highlight'),
+                if (_pdf.onLinkSelection case final link?)
+                  Builder(
+                    builder: (anchor) => IconButton(
+                      key: const ValueKey('pdf-link'),
+                      tooltip: 'Link…',
+                      icon: const Icon(Icons.link_rounded, size: 20),
+                      onPressed: () async {
+                        final choice = await showLinkMenu(anchor);
+                        if (choice != null) link(url: choice == LinkChoice.url);
+                      },
+                    ),
+                  ),
                 IconButton(
                   key: const ValueKey('pdf-select-all'),
                   tooltip: 'Select all on page',

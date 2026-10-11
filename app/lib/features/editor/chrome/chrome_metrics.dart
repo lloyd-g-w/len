@@ -35,5 +35,5 @@ abstract final class ChromeMetrics {
   static const double roomyBarWidth = 760;
 
   /// From this width the tab strip replaces the phone tab switcher.
-  static const double tabStripWidth = 720;
+  static const double tabStripWidth = compactWidth;
 }

@@ -253,3 +253,9 @@ List<Stroke> handwriting(String surface, Clock clock, {required int lines, requi
   }
   return strokes;
 }
+
+/// The library header's "Empty trash" (an icon button on phones).
+Finder emptyTrashButton() {
+  final icon = find.byTooltip('Empty trash');
+  return icon.evaluate().isNotEmpty ? icon : find.text('Empty trash');
+}

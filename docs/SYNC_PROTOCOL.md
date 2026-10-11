@@ -95,9 +95,10 @@ Body: the raw blob bytes (any content type), at most `LEN_BLOB_MAX_BYTES` (defau
   stored.
 - `400 {"error": "…"}` — `<sha256>` is not 64 lowercase hex characters.
 - `413 {"error": "…"}` — `Content-Length` exceeds the limit (rejected before reading), or the
-  streamed body exceeds it; nothing is stored. Retrying the same blob is pointless until the
-  limit changes (a reverse proxy in front of the server may also answer `413` with its own,
-  smaller limit).
+  streamed body exceeds it; nothing is stored and the connection is closed (a client still
+  sending may see the connection reset instead of the answer). Retrying the same blob is
+  pointless until the limit changes (a reverse proxy in front of the server may also answer `413`
+  with its own, smaller limit).
 - A **stalled** upload — no body data for `LEN_BLOB_IDLE_TIMEOUT` seconds (default 60) — is
   abandoned: nothing is stored, the temporary file is removed and the connection is closed (the
   server may answer `408 {"error": "upload stalled"}` first). Clients retry later.
@@ -170,8 +171,8 @@ its "uploaded" marks, so the next upload phase re-checks (`HEAD`) the blobs its 
 reference and uploads any the server lost.
 
 **Client** (local, never visible to the server): a locally stored blob is deleted from the device
-once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio and waveform) and the user's
-templates; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. The app
+once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio and waveform), the user's
+templates and images inside stickers; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. The app
 checks this at startup at most once a day. A blob collected locally is fetched again lazily if a
 record referencing it arrives later.
 
@@ -203,9 +204,13 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | `notebooks` | `{title, kind: "paged"|"canvas", paper, paperColor, coverColor, coverStyle, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperData: object, paperColor, bookmarked: bool, background: object|null}` — see [Paper and pages](#paper-and-pages) |
 | `templates` | `{name, blob, width, height, createdAt}` — one of the user's own templates ("My templates"): `blob` is the `<sha256>` of a PNG or JPEG image ([blob](#blobs)), `width` / `height` (> 0) the size in world units (96 per inch) of pages made from it. Pages made from a template copy its blob into their `paperData`, so renaming or deleting (tombstoning) a template never changes existing pages. |
-| `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). `createdAt` is the wall time (epoch ms) the stroke was *begun* (pen down), not finished: strokes are painted in this order, and audio replay shows a stroke from the moment writing it started. |
-| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth}`, see [Text boxes](#text-boxes)) or `image` (`data` = `{blob, width, height, crop?}`, see below). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
+| `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd, u?: unit}` (`u`: world units per screen pixel when the stroke was written, i.e. 1 / zoom; missing → estimated from the points; missing style → per-tool defaults; unknown keys ignored). `createdAt` is the wall time (epoch ms) the stroke was *begun* (pen down), not finished: strokes are painted in this order, and audio replay shows a stroke from the moment writing it started. |
+| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth}`, see [Text boxes](#text-boxes)), `image` (`data` = `{blob, width, height, crop?}`, see below) or `link` (`data` = `{target}`, see [Links](#links)). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
 | `recordings` | `{notebookId, blob, durationMs, startedAt, title, mime, segments, waveform}` — an audio recording of a notebook. `blob` is the `<sha256>` of the audio ([blob](#blobs); `audio/mp4` AAC, or `audio/webm` Opus in browsers without AAC, as given by `mime`). `startedAt` is the wall time (epoch ms) recording began, `durationMs` the audio length; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (empty → one segment `[startedAt, durationMs]`); ink and elements are replayed from their `createdAt`. `waveform` is `""` (none) or the `<sha256>` of the recording's [waveform](#waveforms) blob. Deleting a notebook tombstones its recordings. |
+| `tags`      | `{name, color, createdAt}` — a tag the user puts on notebooks and pages: `name` (non-empty; shown as is, matched ignoring case — clients avoid creating two tags of the same name but must cope with duplicates from concurrent edits), `color` an ARGB int. Deleting a tag tombstones it and its taggings. |
+| `taggings`  | `{tagId, targetId, kind}` — tag `tagId` is on `targetId`, a notebook (`kind` = `notebook`) or a page (`page`). The record id is **derived**: the name-based (v5) UUID of `len:tagging/<tagId>/<targetId>` in the URL namespace (`6ba7b811-9dad-11d1-80b4-00c04fd430c8`); a record whose id does not match its fields is malformed. So tagging the same notebook with the same tag on two devices yields one record, untagging is a tombstone that a later re-tag revives, and edits to different tags or targets never conflict. Taggings of a missing or deleted tag or target are ignored by readers. |
+| `outline`   | `{notebookId, pageId, parentId: string|null, title, createdAt}` — an entry of a notebook's own outline (table of contents) leading to page `pageId`. Entries nest by `parentId` (null = top level). There is no stored order: siblings are shown in the order of their pages in the notebook (then by `createdAt`), so reordering pages reorders the outline and concurrent additions never conflict. An entry whose parent is missing, or that is part of a parent cycle, is shown at the top level; one whose page was deleted is shown as such (deleting a page keeps its entries, so undoing the deletion restores them). Deleting an entry moves its children to its parent. |
+| `stickers`  | `{name, category, content, createdAt}` — a sticker of the user's library: reusable content saved from a lasso selection. `category` (non-empty) is a free-text section of the library. `content` = `{strokes: [stroke, …], elements: [element, …]}` laid out from the origin: `stroke` = `{tool, color, width, points, style}` as in `strokes` (paint order = list order), `element` = `{type, x, y, w, h, rotation, z, data}` as in `elements` (image data references blobs, which are uploaded and kept like those of pages). Content without strokes and elements, or with a malformed stroke or element, makes the record malformed. Built-in stickers ship with the app and are never synced. |
 
 **Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
 cache `pdf_text`) is derived on each device from the collections above and the PDF blobs, and is
@@ -218,7 +223,7 @@ a field, has a value of the wrong type or an unknown enumerated value is malform
 it (see [Client algorithm](#client-algorithm)). Unknown extra fields are ignored. Exceptions: an
 element's `type` and the contents of its `data` are open (see its row), and `strokes` (see its row).
 
-Enumerated values: `kind` as above; `paper` and `paperColor` see [Paper and pages](#paper-and-pages);
+Enumerated values: `kind` as above (notebooks), `taggings.kind` ∈ `notebook`, `page`; `paper` and `paperColor` see [Paper and pages](#paper-and-pages);
 `coverStyle` ∈ `plain`, `linen`, `dots`, `grid`, `waves`, `stripes`; `color`, `coverColor` are ARGB
 ints.
 
@@ -228,7 +233,9 @@ ints.
   devices). Deleting a folder tombstones its whole subtree and moves the notebooks inside to the trash.
 - `notebooks.folderId` pointing at a missing folder means "library root".
 - `notebooks.trashedAt` (ms) puts a notebook in the trash; it stays a live record so it can be
-  restored. "Delete forever" tombstones the notebook, its pages, strokes, elements and recordings.
+  restored. "Delete forever" tombstones the notebook, its pages, strokes, elements, recordings,
+  outline entries and the taggings of the notebook and its pages. Duplicating a notebook copies
+  its outline (onto the copied pages) and its and its pages' tags.
 - `notebooks.paperColor` is the background of a canvas (same values as on pages).
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
   (favourite, move, trash) only bump `updatedAt`.
@@ -263,6 +270,14 @@ store images at most 4096 px on their long edge. New images get a negative `z` (
 "bring to front" gives an element a `z` above every other one (and so above the ink), "send to back"
 one below every other.
 
+**Links.** A `link` element is an invisible region (its box, usually around content) that leads
+somewhere when tapped; clients mark it with a subtle affordance but never draw it into thumbnails
+or exports (PDF exports write it as a link annotation). `data.target` is either
+`{"notebook": "<notebook id>", "page": "<page id>"}` — a page, found by id so reordering pages never
+breaks the link; the notebook may be another one — or `{"url": "<address>"}` with an `http`,
+`https` or `mailto` URL. Links are created beneath the ink (negative `z`). A link whose target is
+missing or invalid is kept but does nothing (clients say the page was deleted).
+
 **Waveforms.** A recording's loudness outline for the player's scrubber, captured from the
 recorder's input level while recording (no decoding needed), stored as a blob of type
 `application/x-len-waveform`: the bytes `0x4C 0x57` ("LW"), a version byte (`1`), the bucket
@@ -273,15 +288,19 @@ Readers ignore waveforms with another version or magic.
 
 **Paper and pages.** `paper` names a template: `blank`, `dotted`, `narrowRuled`,
 `collegeRuled`, `wideRuled`, `cornell`, `todo`, `meeting`, `dailyPlanner`, `weeklyPlanner`,
-`monthlyCalendar`, `gridSmall`, `gridLarge`, `graph`, `engineering`, `isometric`, `music`,
+`monthlyCalendar`, `yearlyOverview`, `gridSmall`, `gridLarge`, `graph`, `engineering`, `isometric`, `music`,
 `storyboard`, or `image` (a user's image template). On notebooks (the default for new pages and
 the canvas background) it must be a template without parameters, i.e. not a planner and not
 `image`. On pages, `paperData` holds the template's parameters and must be valid for it:
 
-- planners (`dailyPlanner`, `weeklyPlanner`, `monthlyCalendar`): `{"date": "YYYY-MM-DD"}`, the
-  first day of the page's period (the day; the Monday of the week; the 1st of the month). Pages
-  of other periods are found by this date (planner links), so it is normalised to the period's
-  start when written;
+- planners (`dailyPlanner`, `weeklyPlanner`, `monthlyCalendar`, `yearlyOverview`):
+  `{"date": "YYYY-MM-DD", "weekStart": "monday"|"sunday", "locale": "<tag>"}`, all required.
+  `date` is the first day of the page's period (the day; the first day of the week, a Monday or
+  Sunday as `weekStart` says; the 1st of the month; 1 January). `locale` is the language the
+  page is printed in, one of the BCP 47 tags `en-GB`, `en-US`, `cs`, `da`, `de`, `es`, `fr`,
+  `it`, `nl`, `nb`, `pl`, `pt-BR`, `pt-PT`, `fi`, `sv`, `tr`, `el`, `ru`, `uk` (exactly as
+  written). Planner links find the page with the same style, date, `weekStart` and `locale`,
+  so the date is normalised to the period's start when written;
 - `image`: `{"image": "<sha256>"}`, a PNG or JPEG [blob](#blobs) stretched over the page;
 - every other template: `{}`.
 

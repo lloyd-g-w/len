@@ -4,6 +4,7 @@ import '../../app_services.dart';
 import '../../domain/paper.dart';
 import '../../ink/ink_surface.dart';
 import '../../ink/lab/input_recording.dart';
+import '../../ui/messages.dart';
 import 'inklab_files.dart';
 import 'inklab_pen_menu.dart';
 import 'inklab_replay.dart';
@@ -110,9 +111,7 @@ class _InkLabScreenState extends State<InkLabScreen> with TickerProviderStateMix
     await saveRecording(context, session.recordingSoFar);
   }
 
-  void _message(String text) => ScaffoldMessenger.of(context)
-    ..removeCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(text)));
+  void _message(String text) => showMessage(context, text);
 
   @override
   Widget build(BuildContext context) {

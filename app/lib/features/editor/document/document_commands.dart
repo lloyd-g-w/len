@@ -14,6 +14,7 @@ import '../../documents/pdf/pdf_import_flow.dart';
 import '../../documents/progress_dialog.dart';
 import '../../documents/template_picker.dart';
 import '../../documents/templates/user_templates.dart';
+import '../tags/editor_tags.dart';
 import 'document_controller.dart';
 import 'page_actions.dart';
 import 'page_backgrounds.dart';
@@ -84,8 +85,7 @@ class DocumentCommands {
       doc.goToPage(index);
       return;
     }
-    final period = target.style.period!;
-    final name = PlannerDates.describe(period, target.date!);
+    final name = target.period;
     showMessage(
       context,
       'This notebook has no page for $name',
@@ -165,7 +165,7 @@ class DocumentCommands {
 
   Future<void> _delete(BuildContext context, NotebookPage page) async {
     if (doc.pages.length == 1) {
-      showMessage(context, 'A notebook needs at least one page.');
+      showMessage(context, 'A notebook needs at least one page');
       return;
     }
     final number = doc.pages.indexWhere((p) => p.id == page.id) + 1;
@@ -189,7 +189,7 @@ class DocumentCommands {
   Future<void> deleteMany(BuildContext context, List<NotebookPage> pages) async {
     if (pages.isEmpty) return;
     if (pages.length >= doc.pages.length) {
-      showMessage(context, 'A notebook needs at least one page.');
+      showMessage(context, 'A notebook needs at least one page');
       return;
     }
     if (pages.length == 1) return _delete(context, pages.single);
@@ -227,6 +227,7 @@ class DocumentCommands {
               changed = true;
             },
             deleteMany: deleteMany,
+            pageTags: () => pageTagsOf(services, doc.pages),
           ),
         ),
       ),

@@ -19,13 +19,21 @@ Widget _host(Widget child, {AppServices? services}) {
   return services == null ? app : AppScope(services: services, child: app);
 }
 
+/// Pretends the device is set to [locale] (planners default to it).
+void _deviceLocale(WidgetTester tester, [Locale locale = const Locale('en', 'GB')]) {
+  tester.platformDispatcher.localeTestValue = locale;
+  addTearDown(tester.platformDispatcher.clearLocaleTestValue);
+}
+
 /// Opens the picker from a button; returns a getter for its result.
 Future<TemplateChoice? Function()> _open(
   WidgetTester tester, {
   required TemplatePickerMode mode,
   PageTemplate initial = const PageTemplate(),
   AppServices? services,
+  Locale locale = const Locale('en', 'GB'),
 }) async {
+  _deviceLocale(tester, locale);
   TemplateChoice? choice;
   await tester.pumpWidget(
     _host(
@@ -104,6 +112,7 @@ void main() {
     tester.view.physicalSize = const Size(760, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    _deviceLocale(tester);
     await tester.pumpWidget(
       _host(
         TemplatePicker(
@@ -126,6 +135,7 @@ void main() {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    _deviceLocale(tester);
     await tester.pumpWidget(
       _host(
         TemplatePicker(
@@ -243,7 +253,7 @@ void main() {
 
     await tester.longPress(find.text('Lab sheet'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Rename'));
+    await tester.tap(find.text('Rename…'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Lab');
     await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
@@ -262,7 +272,7 @@ void main() {
     await _tapKey(tester, 'category-mine');
     await tester.longPress(find.text('Lab'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete template'));
+    await tester.tap(find.text('Delete…'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();

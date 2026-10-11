@@ -177,6 +177,14 @@ class SelectionController extends ChangeNotifier {
     _paste(clipboard.strokes, clipboard.elements, clipboard.bounds, at);
   }
 
+  /// Adds a copy of [strokes] and [elements] (from any surface; [bounds]
+  /// around them) centred on world point [at] and selects it, e.g. a
+  /// selection dropped here from another editor.
+  void pasteItems(List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds, Offset at) {
+    if (strokes.isEmpty && elements.isEmpty) return;
+    _paste(strokes, elements, bounds, at);
+  }
+
   /// Moves the selected elements above everything else on the surface
   /// (and above the ink).
   void bringToFront() => _restack(ElementOrder.toFront(_elements, _model.topZ));
@@ -239,6 +247,21 @@ class SelectionController extends ChangeNotifier {
     if (_strokes.isEmpty) return;
     _edit(() => _model.commit(InkEdit(removed: _strokes, addedElements: added)));
     select(const [], [..._elements, ...added]);
+  }
+
+  /// Makes [elements] the selected elements, replacing the selected ones on
+  /// the surface (e.g. adding a link over the selected content, or
+  /// removing one) as one undoable edit; the strokes stay.
+  void replaceElements(List<SurfaceElement> elements) {
+    if (isEmpty) return;
+    _replace(_strokes, elements);
+  }
+
+  /// Places a copy of [strokes] and [elements] (laid out within [bounds])
+  /// centred on world point [at], like a paste, and selects it.
+  void place(List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds, Offset at) {
+    if (strokes.isEmpty && elements.isEmpty) return;
+    _paste(strokes, elements, bounds, at);
   }
 
   // ---------------------------------------------------------------------------

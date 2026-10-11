@@ -5,6 +5,7 @@ import 'package:flutter/animation.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../../ink/viewport.dart';
+import '../../../ui/design_tokens.dart';
 
 /// Smoothly animates a viewport to a target zoom and pan, e.g. scrolling
 /// to a page. The point at the centre of the screen glides in a straight
@@ -19,8 +20,8 @@ class DocumentScroller {
   /// Applies a zoom and pan (e.g. `DocumentController.applyView`).
   final void Function(double scale, Offset offset) apply;
 
-  static const Duration duration = Duration(milliseconds: 420);
-  static const Curve curve = Curves.easeInOutCubic;
+  static const Duration duration = Motion.travel;
+  static const Curve curve = Motion.move;
 
   /// Longest distance (in screen heights) actually animated.
   static const double maxScreens = 2;

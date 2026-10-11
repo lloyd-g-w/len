@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import '../../app_services.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
+import '../../ui/messages.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_import_flow.dart';
 import '../editor/tabs/editor_workspace.dart' as editor;
+import '../tags/tag_manager.dart';
+import '../tags/tag_picker.dart';
 import 'cover_locator.dart';
 import 'library_controller.dart';
 import 'library_dialogs.dart';
@@ -101,18 +104,14 @@ class LibraryActions {
 
   Future<void> trash(BuildContext context, Notebook notebook) async {
     controller.trashNotebook(notebook.id);
-    final messenger = ScaffoldMessenger.of(context);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('“${notebook.title}” moved to Trash'),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () => controller.restoreNotebook(notebook.id),
-          ),
-        ),
-      );
+    showMessage(
+      context,
+      '“${notebook.title}” moved to the trash',
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () => controller.restoreNotebook(notebook.id),
+      ),
+    );
   }
 
   Future<void> onNotebookAction(
@@ -126,7 +125,8 @@ class LibraryActions {
       case NotebookAction.rename:
         final title = await showTextPrompt(
           context,
-          title: 'Rename',
+          title: 'Rename notebook',
+          label: 'Name',
           initialValue: notebook.title,
           confirmLabel: 'Rename',
         );
@@ -143,6 +143,8 @@ class LibraryActions {
         controller.updateNotebook(
           current.copyWith(coverColor: choice.color, coverStyle: choice.style),
         );
+      case NotebookAction.tags:
+        await editTags(context, [notebook.id]);
       case NotebookAction.duplicate:
         final copy = controller.duplicate(notebook.id);
         if (copy != null && context.mounted) _toast(context, 'Duplicated as “${copy.title}”');
@@ -203,7 +205,7 @@ class LibraryActions {
         final ok = await confirmAction(
           context,
           title: 'Delete “${folder.name}”?',
-          message: 'Its subfolders are deleted too; notebooks inside move to the Trash.',
+          message: 'Its subfolders are deleted too; notebooks inside move to the trash.',
           confirmLabel: 'Delete',
           destructive: true,
         );
@@ -211,24 +213,44 @@ class LibraryActions {
     }
   }
 
+  /// Lets the user choose the tags of notebooks [ids].
+  Future<void> editTags(BuildContext context, List<String> ids) async {
+    final c = controller;
+    final changes = await showTagPicker(
+      context,
+      tags: c.services.tags,
+      title: ids.length == 1 ? 'Tags' : 'Tag ${ids.length} notebooks',
+      current: [for (final id in ids) c.tagsOf(id).map((t) => t.id).toSet()],
+    );
+    // The picker may have created tags even when cancelled.
+    if (changes == null) return c.reload();
+    c.applyTagChanges(ids, changes);
+  }
+
+  /// Opens the tag manager.
+  Future<void> manageTags(BuildContext context) => showTagManager(
+    context,
+    tags: controller.services.tags,
+    countOf: controller.notebookCountOf,
+    onChanged: controller.reload,
+  );
+
   Future<void> emptyTrash(BuildContext context) async {
     final count = controller.trash.length;
     if (count == 0) return;
     final ok = await confirmAction(
       context,
-      title: 'Empty Trash?',
+      title: 'Empty trash?',
       message:
           '$count ${count == 1 ? 'notebook' : 'notebooks'} will be deleted forever '
           'on all synced devices.',
-      confirmLabel: 'Empty Trash',
+      confirmLabel: 'Empty trash',
       destructive: true,
     );
     if (ok) controller.emptyTrash();
   }
 
   void _toast(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showMessage(context, message);
   }
 }

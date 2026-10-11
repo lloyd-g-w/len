@@ -13,16 +13,20 @@ import 'data/blob_store.dart';
 import 'data/element_repository.dart';
 import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
+import 'data/outline_repository.dart';
 import 'data/page_repository.dart';
 import 'data/recording_repository.dart';
 import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
+import 'data/sticker_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
+import 'data/tag_repository.dart';
 import 'data/template_repository.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
 import 'features/documents/import/incoming_files.dart';
+import 'features/editor/shared/shared_notebooks.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'ink/images/element_images.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
@@ -34,6 +38,7 @@ import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
+import 'ui/route_owners.dart';
 
 /// Composition root: constructs and owns the app's long-lived services.
 class AppServices {
@@ -56,6 +61,9 @@ class AppServices {
     required this.incomingFiles,
     required this.templates,
     required this.outlines,
+    required this.tags,
+    required this.outline,
+    required this.stickers,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -79,6 +87,9 @@ class AppServices {
     final elements = ElementRepository(database, deviceId: deviceId, clock: clock);
     final recordings = RecordingRepository(database, deviceId: deviceId, clock: clock);
     final pages = PageRepository(database, deviceId: deviceId, clock: clock);
+    final tags = TagRepository(database, deviceId: deviceId, clock: clock);
+    final outline = OutlineRepository(database, deviceId: deviceId, clock: clock);
+    final stickers = StickerRepository(database, deviceId: deviceId, clock: clock);
     final notebooks = NotebookRepository(
       database,
       deviceId: deviceId,
@@ -86,6 +97,8 @@ class AppServices {
       strokes: strokes,
       elements: elements,
       recordings: recordings,
+      tags: tags,
+      outline: outline,
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
@@ -102,6 +115,9 @@ class AppServices {
       elements: elements,
       recordings: recordings,
       templates: templates,
+      tags: tags,
+      outline: outline,
+      stickers: stickers,
     );
     final search = SearchService(database, readBlob: blobs.read);
     final recognition = RecognitionService(
@@ -132,6 +148,9 @@ class AppServices {
       incomingFiles: IncomingFiles(incomingFiles),
       templates: templates,
       outlines: outlines,
+      tags: tags,
+      outline: outline,
+      stickers: stickers,
     );
   }
 
@@ -168,6 +187,15 @@ class AppServices {
   /// worker isolates, see `platform/outline_preparer`).
   final OutlinePreparer outlines;
 
+  /// Tags and which notebooks and pages carry them.
+  final TagRepository tags;
+
+  /// Notebooks' own outlines (tables of contents).
+  final OutlineRepository outline;
+
+  /// The user's sticker library.
+  final StickerRepository stickers;
+
   /// Makes recorders and players (created only when used).
   final AudioBackends audio;
 
@@ -181,6 +209,14 @@ class AppServices {
   /// Notebooks open in editor tabs (with each tab's place in memory).
   final OpenNotebooks openNotebooks = OpenNotebooks();
 
+  /// Which part of the screen opened each route (register with the app's
+  /// navigator).
+  final RouteOwners routeOwners = RouteOwners();
+
+  /// What the editors of one notebook share (the notebook, its audio,
+  /// surfaces, undo and PDF caches), per open notebook.
+  late final SharedNotebooks sharedNotebooks = SharedNotebooks(this);
+
   /// Deletes blobs nothing references anymore; started by the app at launch.
   late final LocalBlobGc blobGc = LocalBlobGc(
     blobs: blobs,
@@ -192,6 +228,7 @@ class AppServices {
   late final ElementImages images = ElementImages(read: blobs.read, fetch: sync.fetchBlob);
 
   void dispose() {
+    sharedNotebooks.dispose();
     incomingFiles.dispose();
     images.dispose();
     openNotebooks.dispose();

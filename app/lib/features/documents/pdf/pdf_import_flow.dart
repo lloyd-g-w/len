@@ -38,8 +38,9 @@ Future<Notebook?> importPdfFlow(BuildContext context, {XFile? file}) async {
   } on Cancelled {
     if (sha != null) await importer.discard(sha!);
     return null;
-  } on Exception catch (e) {
-    if (context.mounted) showMessage(context, _failure(picked.name, e));
+  } on Object catch (e, stack) {
+    // Errors too (a malformed file can trip a parser): never fail silently.
+    if (context.mounted) showMessage(context, _failure(picked.name, e, stack));
     return null;
   } finally {
     await importer.dispose();
@@ -76,17 +77,18 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
   } on Cancelled {
     if (sha != null) await importer.discard(sha!);
     return null;
-  } on Exception catch (e) {
-    if (context.mounted) showMessage(context, _failure(picked.name, e));
+  } on Object catch (e, stack) {
+    // Errors too (a malformed file can trip a parser): never fail silently.
+    if (context.mounted) showMessage(context, _failure(picked.name, e, stack));
     return null;
   } finally {
     await importer.dispose();
   }
 }
 
-String _failure(String name, Exception e) {
-  debugPrint('PDF import of $name failed: $e');
-  return 'Couldn’t open “$name”. Is it a valid, unencrypted PDF?';
+String _failure(String name, Object e, StackTrace stack) {
+  debugPrint('PDF import of $name failed: $e\n$stack');
+  return 'Couldn’t open “$name”. It may be damaged or password-protected.';
 }
 
 String _pages(int n) => n == 1 ? '1 page' : '$n pages';

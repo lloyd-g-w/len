@@ -18,6 +18,7 @@ import 'package:len/features/audio/ui/waveform_scrubber.dart';
 import 'package:len/features/documents/export/export_flow.dart' show ExportFile;
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:len/ui/menus.dart';
 
 import 'content_golden_test.dart' show loadFonts;
 import 'data_test.dart' show FakeClock;
@@ -162,9 +163,7 @@ void main() {
     // Speed.
     await tester.tap(find.byKey(const ValueKey('playback-speed')));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.ancestor(of: find.text('1.5×'), matching: find.byType(CheckedPopupMenuItem<double>)),
-    );
+    await tester.tap(find.ancestor(of: find.text('1.5×'), matching: find.byType(MenuRow<double>)));
     await tester.pumpAndSettle();
     expect(e.audio.log.last, 'rate 1.5');
     expect(find.text('1.5×'), findsOneWidget);

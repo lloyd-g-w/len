@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../domain/tag.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/menus.dart';
+import '../../../ui/messages.dart';
+import '../../tags/tag_widgets.dart';
 
 /// What can be done to the pages selected in the overview.
 enum SelectionAction { bookmark, duplicate, delete }
@@ -15,9 +19,17 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.compact,
     required this.onBookmarksOnly,
     required this.onSelect,
+    this.tags = const [],
+    this.tag,
+    this.onTag,
   });
 
   final int pageCount;
+
+  /// Tags on pages of the notebook; [tag] the one filtered by (id).
+  final List<Tag> tags;
+  final String? tag;
+  final ValueChanged<String?>? onTag;
   final bool bookmarksOnly;
   final bool compact;
   final ValueChanged<bool> onBookmarksOnly;
@@ -50,6 +62,10 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
           selected: bookmarksOnly,
           onSelected: onBookmarksOnly,
         ),
+        if (tags.isNotEmpty && onTag != null) ...[
+          const SizedBox(width: Gaps.xs),
+          _TagFilter(tags: tags, tag: tag, onTag: onTag!),
+        ],
         const SizedBox(width: Gaps.xs),
         TextButton(onPressed: onSelect, child: const Text('Select')),
         SizedBox(width: compact ? Gaps.xs : Gaps.md),
@@ -164,7 +180,7 @@ class SelectionBar extends StatelessWidget {
                       () => onAction(SelectionAction.bookmark),
                     ),
                     action(
-                      Icons.copy_rounded,
+                      Icons.library_add_outlined,
                       'Duplicate',
                       () => onAction(SelectionAction.duplicate),
                     ),
@@ -234,9 +250,48 @@ class AddPageTile extends StatelessWidget {
   }
 }
 
-/// Shown when the bookmarks filter finds nothing.
+/// Filters the overview by one page tag (a chip opening a menu).
+class _TagFilter extends StatelessWidget {
+  const _TagFilter({required this.tags, required this.tag, required this.onTag});
+
+  final List<Tag> tags;
+  final String? tag;
+  final ValueChanged<String?> onTag;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = tags.where((t) => t.id == tag).firstOrNull;
+    return Builder(
+      builder: (anchor) => FilterChip(
+        key: const ValueKey('overview-tag-filter'),
+        avatar: selected == null
+            ? const Icon(Icons.sell_outlined, size: 18)
+            : TagDot(selected.color, size: 12),
+        showCheckmark: false,
+        label: Text(selected?.name ?? 'Tags'),
+        selected: selected != null,
+        onSelected: (_) async {
+          final choice = await showContextMenuAt<String>(
+            anchor,
+            items: [
+              MenuRow(value: '', label: 'All pages', checked: selected == null),
+              const PopupMenuDivider(),
+              for (final t in tags) MenuRow(value: t.id, label: t.name, checked: t.id == tag),
+            ],
+          );
+          if (choice != null) onTag(choice.isEmpty ? null : choice);
+        },
+      ),
+    );
+  }
+}
+
+/// Shown when the bookmarks or tag filter finds nothing.
 class NoBookmarks extends StatelessWidget {
-  const NoBookmarks({super.key});
+  const NoBookmarks({super.key, this.tag});
+
+  /// The tag filtered by, if any.
+  final String? tag;
 
   @override
   Widget build(BuildContext context) {
@@ -247,12 +302,21 @@ class NoBookmarks extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.bookmark_border_rounded, size: 48, color: theme.colorScheme.outline),
+            Icon(
+              tag == null ? Icons.bookmark_border_rounded : Icons.sell_outlined,
+              size: 48,
+              color: theme.colorScheme.outline,
+            ),
             const SizedBox(height: Gaps.lg),
-            Text('No bookmarked pages yet', style: theme.textTheme.titleMedium),
+            Text(
+              tag == null ? 'No bookmarked pages yet' : 'No pages tagged “$tag”',
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: Gaps.xs),
             Text(
-              'Bookmark pages from their ··· menu to find them here.',
+              tag == null
+                  ? 'Bookmark pages from their ··· menu to find them here.'
+                  : 'Tag pages from the editor’s Page menu, or clear the filters.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -267,7 +331,5 @@ class NoBookmarks extends StatelessWidget {
 
 /// A short message at the bottom of the screen.
 void showOverviewMessage(BuildContext context, String message) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+  showMessage(context, message);
 }

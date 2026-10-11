@@ -23,9 +23,9 @@ class PdfInteraction extends ChangeNotifier {
   PdfInteraction({
     required this.doc,
     required this.tools,
-    required PdfInfoSource source,
+    required this.info,
     this.clock = const Clock(),
-  }) : info = PdfPageInfoCache(source) {
+  }) {
     doc.addListener(_onDocument);
     _onDocument();
   }
@@ -33,6 +33,9 @@ class PdfInteraction extends ChangeNotifier {
   final DocumentController doc;
   final ToolSettings tools;
   final Clock clock;
+
+  /// Text and links of the PDF pages (shared by the notebook's views;
+  /// not disposed here).
   final PdfPageInfoCache info;
   final PdfSelection selection = PdfSelection();
 
@@ -42,6 +45,26 @@ class PdfInteraction extends ChangeNotifier {
   /// Follows a link (set by the editor: jump to a page, or confirm and
   /// open a web address).
   void Function(PdfLinkArea link, PageBackground from)? onLink;
+
+  /// Makes a link over the selected text (set by the editor): [url] a web
+  /// address, else a page.
+  void Function({required bool url})? onLinkSelection;
+
+  /// The selected lines in the selection's page's world coordinates.
+  List<Rect> get selectionRects {
+    final page = selection.page;
+    if (page == null) return const [];
+    final size = page.size;
+    return [
+      for (final r in selection.rects)
+        Rect.fromLTRB(
+          r.left * size.width,
+          r.top * size.height,
+          r.right * size.width,
+          r.bottom * size.height,
+        ),
+    ];
+  }
 
   List<NotebookPage>? _pages;
 
@@ -182,7 +205,6 @@ class PdfInteraction extends ChangeNotifier {
   @override
   void dispose() {
     doc.removeListener(_onDocument);
-    info.dispose();
     selection.dispose();
     super.dispose();
   }

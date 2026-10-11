@@ -78,10 +78,14 @@ class NotebookExporter {
   }
 
   /// A PNG of [page] at [scale] pixels per page unit (2 ≈ 192 dpi);
-  /// without [backgrounds], an imported PDF page is left out.
+  /// without [backgrounds], an imported PDF page is left out (an image
+  /// template stays: it is the page's paper).
   Future<Uint8List> png(NotebookPage page, {double scale = 2, bool backgrounds = true}) async {
     SurfaceModel.flushAll(); // Ink drawn a moment ago.
-    final background = backgrounds ? await _background(page, page.width * scale) : null;
+    final paperOnly = page.background == null && page.paper.image != null;
+    final background = backgrounds || paperOnly
+        ? await _background(page, page.width * scale)
+        : null;
     final elements = _copier.loadAllElements(page.id);
     // Decode images first: painting only uses what is ready.
     for (final e in elements.where((e) => e.knownType == ElementType.image)) {

@@ -4,9 +4,12 @@ import '../../ink/tool_settings.dart';
 import '../../ui/floating_panel.dart';
 import 'editor_tools.dart';
 import 'tool_switcher.dart';
+import 'toolbar/favourite_pens.dart';
+import 'toolbar/toolbar_config.dart';
 import 'toolbar_buttons.dart';
 
-/// The floating tool palette (GoodNotes style), in groups: the tools, the
+/// The floating tool palette (GoodNotes style), in groups: the tools (in
+/// the user's order, without hidden ones: [config]), favourite pens, the
 /// active tool's quick controls (for inks: a colour row and, in a recessed
 /// track, a width row), then its settings and palm rejection.
 ///
@@ -19,9 +22,13 @@ class EditorToolbar extends StatelessWidget {
     required this.tools,
     required this.onStylusOnlyChanged,
     this.showLabels = false,
+    this.config = const ToolbarConfig(),
   });
 
   final ToolSettings tools;
+
+  /// Order and visibility of the tools, and the favourite pens.
+  final ToolbarConfig config;
   final ValueChanged<bool> onStylusOnlyChanged;
 
   /// Tool names under the icons (when the full row fits).
@@ -42,9 +49,11 @@ class EditorToolbar extends StatelessWidget {
     List<ToolDescriptor> descriptors,
     ToolDescriptor descriptor, {
     bool labels = false,
+    int favourites = 0,
   }) {
     final hasStrip = descriptor.strip != null;
     return descriptors.length * _toolWidth(labels) +
+        (favourites > 0 ? _dividerWidth + FavouritePens.widthFor(favourites) : 0) +
         (hasStrip ? _dividerWidth + (descriptor.stripWidth?.call() ?? 0) : 0) +
         _dividerWidth +
         (descriptor.options == null ? 1 : 2) * _buttonWidth +
@@ -53,11 +62,18 @@ class EditorToolbar extends StatelessWidget {
 
   /// The width the toolbar needs to stay on one row whichever tool is
   /// active (for the current quick colours and widths).
-  static double oneRowWidth(ToolSettings tools, {bool labels = false}) {
-    final descriptors = editorTools(tools);
+  static double oneRowWidth(
+    ToolSettings tools, {
+    bool labels = false,
+    ToolbarConfig config = const ToolbarConfig(),
+  }) {
+    final all = editorTools(tools);
     var widest = 0.0;
-    for (final d in descriptors) {
-      final w = _oneRowWidth(descriptors, d, labels: labels);
+    for (final d in all) {
+      // The active tool is shown even when hidden.
+      final descriptors = config.arrange(all, (d) => d.tool, keep: d.tool);
+      final favourites = config.favourites.length;
+      final w = _oneRowWidth(descriptors, d, labels: labels, favourites: favourites);
       if (w > widest) widest = w;
     }
     return widest;
@@ -72,17 +88,21 @@ class EditorToolbar extends StatelessWidget {
   }
 
   Widget _build(BuildContext context, BoxConstraints constraints) {
-    final descriptors = editorTools(tools);
+    final all = editorTools(tools);
+    final descriptors = config.arrange(all, (d) => d.tool, keep: tools.tool);
     final active = descriptors.firstWhere(
       (d) => d.tool == tools.tool,
       orElse: () => descriptors.first,
     );
     final available = constraints.maxWidth - _padding;
+    final favourites = config.favourites.length;
+    double width(bool labels) =>
+        _oneRowWidth(descriptors, active, labels: labels, favourites: favourites) - _padding;
     var labels = showLabels;
-    if (labels && _oneRowWidth(descriptors, active, labels: true) - _padding > available) {
+    if (labels && width(true) > available) {
       labels = false; // Names only when they fit.
     }
-    if (_oneRowWidth(descriptors, active, labels: labels) - _padding <= available) {
+    if (width(labels) <= available) {
       return _oneRow(context, descriptors, active, labels: labels);
     }
     return _compact(context, descriptors, active, available);
@@ -114,6 +134,10 @@ class EditorToolbar extends StatelessWidget {
                 size: _toolSize,
                 showLabel: labels,
               ),
+            if (config.favourites.isNotEmpty) ...[
+              const ToolbarDivider(),
+              FavouritePens(tools: tools, favourites: config.favourites),
+            ],
             if (strip != null) ...[const ToolbarDivider(), _switching(active, strip(context))],
             const ToolbarDivider(),
             if (active.options != null) SettingsButton(descriptor: active),
@@ -146,6 +170,7 @@ class EditorToolbar extends StatelessWidget {
             descriptors: descriptors,
             active: active,
             tools: tools,
+            favourites: config.favourites,
             onStylusOnlyChanged: onStylusOnlyChanged,
           ),
           const ToolbarDivider(),

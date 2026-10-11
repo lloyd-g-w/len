@@ -31,7 +31,10 @@ abstract final class TransformItems {
       width: (stroke.width * t.meanScale).clamp(_minWidth, _maxWidth),
       points: points,
       createdAt: stroke.createdAt,
-      style: stroke.style,
+      // Written at another zoom, as far as its smoothing is concerned.
+      style: stroke.style.unit > 0
+          ? stroke.style.copyWith(unit: stroke.style.unit * t.meanScale)
+          : stroke.style,
     );
   }
 

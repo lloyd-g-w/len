@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../ink/tool_settings.dart';
+import '../search/editor/editor_search_controller.dart';
+import '../search/editor/editor_search_layer.dart';
 import 'canvas/canvas_shortcuts.dart';
 import 'document/page_fit.dart';
 import 'editor_session.dart';
+import 'pdf/pdf_layer.dart';
+import 'present/presentation.dart';
+import 'tabs/open_notebooks.dart';
 import 'tools/content_shortcuts.dart';
 
 /// Wraps a single-key shortcut so it doesn't fire while text is edited.
@@ -91,3 +96,32 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
     },
   };
 }
+
+/// Everything the editor screen binds: [editorShortcuts] (with tab
+/// switching when it shows [tabs]), presentation (F5; Space and
+/// Shift+Space turn pages while presenting), search and PDF text.
+Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
+  EditorSession session, {
+  required Presentation presentation,
+  required EditorSearchController search,
+  required VoidCallback toggleFocus,
+  required VoidCallback paste,
+  OpenNotebooks? tabs,
+  VoidCallback? closeTab,
+}) => {
+  ...editorShortcuts(
+    session,
+    toggleFocus: toggleFocus,
+    nextTab: tabs?.cycle,
+    previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
+    closeTab: closeTab,
+    paste: paste,
+  ),
+  const SingleActivator(LogicalKeyboardKey.f5): presentation.toggle,
+  if (presentation.active) ...{
+    const SingleActivator(LogicalKeyboardKey.space): () => presentation.turn(1),
+    const SingleActivator(LogicalKeyboardKey.space, shift: true): () => presentation.turn(-1),
+  },
+  ...EditorSearchLayer.shortcuts(search),
+  ...?session.pdf == null ? null : pdfShortcuts(session.pdf!),
+};

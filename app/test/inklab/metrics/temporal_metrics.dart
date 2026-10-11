@@ -3,9 +3,13 @@ import 'dart:ui';
 
 import 'package:len/domain/stroke.dart';
 import 'package:len/ink/lab/replay_run.dart';
+import 'package:len/ink/render/stroke_outline.dart';
+import 'package:len/ink/render/stroke_renderer.dart';
 
+import 'contacts.dart';
 import 'metric.dart';
 import 'outline_geometry.dart';
+import 'overlay_metrics.dart' show frameIntervalUs;
 import 'raster.dart';
 
 /// The live frames of one contact and the stroke it committed (if any).
@@ -62,11 +66,12 @@ List<Contour> _outline(
   List<StrokePoint> points,
   Offset Function(Offset) map, {
   required bool complete,
+  required StrokeStyle style,
 }) => outlineOf(
   points,
   tool: r.pen.tool,
   width: r.pen.width,
-  style: r.style,
+  style: style,
   complete: complete,
   map: map,
 ).contours;
@@ -116,10 +121,23 @@ double _segDist(Offset p, Offset a, Offset b) {
 /// segment, and how far behind the tip changes reach. Also (e) the pop at
 /// pen-up: the last live frame against the committed stroke, outside the
 /// samples that arrived after that frame.
+///
+/// One change is allowed behind the tip: ink shows from pen-down, before
+/// the pen-down hook is decided ([HookFinder], within the first few px), so
+/// once per contact, in the frame where the stroke's start moves past a
+/// trimmed hook, the ink of the hook (within [reach] of its points, at most
+/// `HookFinder.maxStart` long) may go. A second start change is not exempt.
+///
+/// Bounces (see [inkContacts]) show while they touch and are not committed:
+/// `temporal.vanished` counts only intended contacts that vanish, and
+/// `temporal.bounceFlash` how long a bounce shows.
 List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
   final dpr = r.recording.meta.devicePixelRatio;
   final behind = Worst(), settle = Worst(), pop = Worst(), popMax = Worst();
+  final flash = Worst();
   var vanished = 0;
+  final contacts = inkContacts(r.recording);
+  final frameMs = frameIntervalUs(r) / 1000;
   var zone = (r.pen.width * r.viewScale + 1) * dpr;
   for (final run in contactRuns(r)) {
     final frames = run.frames;
@@ -129,17 +147,30 @@ List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
     zone = (r.pen.width * view.viewScale + 1) * dpr;
     final reach = r.pen.width * view.viewScale * dpr + 1.5 * dpr; // around new samples
     final step = math.max(1, (frames.length / maxFramesPerRun).ceil());
+    final spec = StrokeRenderer.specFor(r.pen.tool, r.pen.width, view.style);
+    var startMoved = false;
     Coverage? prev;
     List<StrokePoint>? prevPoints;
     for (var i = 0; i < frames.length; i += step) {
       final points = frames[i].points;
-      final contours = _outline(r, points, toPx, complete: false);
+      final contours = _outline(r, points, toPx, complete: false, style: view.style);
       final cov = rasterize(contours, boundsOf(contours), subRows: _subRows);
       if (prev != null && prevPoints != null) {
         final tip = toPx(Offset(prevPoints.last.x, prevPoints.last.y));
         final fresh = [for (final p in points.skip(prevPoints.length - 1)) toPx(Offset(p.x, p.y))];
-        final isNew = nearPolyline(fresh, reach);
-        final changed = changedPixels(prev, cov, isNew, 0.2);
+        var allowed = nearPolyline(fresh, reach);
+        // The pen-down hook trimmed (decided within the first few px).
+        if (!startMoved && _screenLength(prevPoints, view.viewScale) < 20) {
+          final was = StrokeOutline.startIndex(prevPoints, spec);
+          final now = StrokeOutline.startIndex(points, spec);
+          if (now != was) {
+            startMoved = true;
+            final hook = [for (final p in points.take(now + 1)) toPx(Offset(p.x, p.y))];
+            final isNew = allowed, inHook = nearPolyline(hook, reach);
+            allowed = (p) => isNew(p) || inHook(p);
+          }
+        }
+        final changed = changedPixels(prev, cov, allowed, 0.2);
         final outside = changed.where((p) => (p - tip).distance > zone).toList();
         behind.add(outside.length.toDouble(), outside.isEmpty ? null : outside.first / dpr);
         for (final p in changed) {
@@ -151,12 +182,21 @@ List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
     }
     final stroke = run.committed;
     if (stroke == null) {
-      vanished++;
+      final first = view.toScreen(view.points.first.x, view.points.first.y);
+      final bounce = contacts
+          .where((c) => (c.contact.samples.first.position - first).distance < 1)
+          .firstOrNull
+          ?.bounce;
+      if (bounce ?? false) {
+        flash.add(frames.length * frameMs, first);
+      } else {
+        vanished++;
+      }
       continue;
     }
     final last = frames.last.points;
-    final done = _outline(r, stroke.points, toPx, complete: true);
-    final liveOutline = _outline(r, last, toPx, complete: false);
+    final done = _outline(r, stroke.points, toPx, complete: true, style: stroke.style);
+    final liveOutline = _outline(r, last, toPx, complete: false, style: view.style);
     final a = rasterize(liveOutline, boundsOf(liveOutline), subRows: _subRows);
     final b = rasterize(done, boundsOf(done), subRows: _subRows);
     final tail = [
@@ -202,7 +242,24 @@ List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
       'temporal.vanished',
       vanished.toDouble(),
       limit: 0,
-      note: 'contacts drawn live but never committed (bounces flash)',
+      note: 'intended contacts drawn live but never committed',
+    ),
+    Metric(
+      'temporal.bounceFlash',
+      flash.value,
+      limit: 100,
+      unit: ' ms',
+      where: flash.where,
+      note: 'how long a bounce shows (it touches < 80 ms; plus the frame of its lift)',
     ),
   ];
+}
+
+/// Length of the polyline through [points] on screen (logical px).
+double _screenLength(List<StrokePoint> points, double scale) {
+  var d = 0.0;
+  for (var i = 1; i < points.length; i++) {
+    d += (points[i].offset - points[i - 1].offset).distance;
+  }
+  return d * scale;
 }

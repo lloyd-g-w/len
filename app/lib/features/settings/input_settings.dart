@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_preferences.dart';
 import '../../domain/preferences.dart';
+import '../../ui/segment_label.dart';
+import '../editor/pen/eraser_icon.dart';
 import 'settings_section.dart';
 
 /// Stylus preferences: palm rejection, the side button and low-latency ink.
@@ -40,27 +42,29 @@ class StylusSettings extends StatelessWidget {
             icon: Icons.ads_click_outlined,
             title: 'Side button',
             subtitle: 'While you hold the S Pen (or stylus) button, the pen…',
-            below: SegmentedButton<PenButtonAction>(
-              showSelectedIcon: false,
-              segments: [
-                ButtonSegment(
-                  value: PenButtonAction.eraser,
-                  icon: icons ? const Icon(Icons.auto_fix_normal_outlined) : null,
-                  label: const Text('Erases'),
-                ),
-                ButtonSegment(
-                  value: PenButtonAction.lasso,
-                  icon: icons ? const Icon(Icons.gesture_rounded) : null,
-                  label: const Text('Selects'),
-                ),
-                ButtonSegment(
-                  value: PenButtonAction.none,
-                  icon: icons ? const Icon(Icons.block_rounded) : null,
-                  label: const Text('Nothing'),
-                ),
-              ],
-              selected: {preferences.penButtonAction},
-              onSelectionChanged: (s) => preferences.penButtonAction = s.single,
+            below: ShrinkToFit(
+              child: SegmentedButton<PenButtonAction>(
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: PenButtonAction.eraser,
+                    icon: icons ? const EraserIcon() : null,
+                    label: const SegmentLabel('Erases'),
+                  ),
+                  ButtonSegment(
+                    value: PenButtonAction.lasso,
+                    icon: icons ? const Icon(Icons.gesture_rounded) : null,
+                    label: const SegmentLabel('Selects'),
+                  ),
+                  ButtonSegment(
+                    value: PenButtonAction.none,
+                    icon: icons ? const Icon(Icons.block_rounded) : null,
+                    label: const SegmentLabel('Nothing'),
+                  ),
+                ],
+                selected: {preferences.penButtonAction},
+                onSelectionChanged: (s) => preferences.penButtonAction = s.single,
+              ),
             ),
           ),
           if (showLowLatencyInk)

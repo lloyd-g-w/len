@@ -55,6 +55,14 @@ class PdfImageWriter {
       ..restoreContext();
   }
 
+  /// Draws image [blob] stretched over the whole page (an image template,
+  /// as `PaperRenderer` paints it) of [width] × [height] points; nothing
+  /// if the blob is unavailable.
+  Future<void> drawPage(PdfGraphics g, String blob, double width, double height) async {
+    final image = await _imageOf(blob);
+    if (image != null) g.drawImage(image, 0, 0, width, height);
+  }
+
   Future<PdfImage?> _imageOf(String blob) async {
     if (_embedded.containsKey(blob)) return _embedded[blob];
     PdfImage? image;

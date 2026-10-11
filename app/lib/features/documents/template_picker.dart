@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import 'templates/page_setup.dart';
+import 'templates/planner_options.dart';
 import 'templates/template_catalog.dart';
 import 'templates/template_chooser.dart';
 
@@ -63,10 +64,17 @@ Future<TemplateChoice?> showTemplatePicker(
 );
 
 /// The selection a chooser starts from: [initial], with planners dated
-/// from [today] (or the initial page's date).
-TemplateSelection initialSelection(PageTemplate initial, DateTime today) {
-  final date = initial.paper.date ?? today;
-  return TemplateSelection(initial, PlannerPlan(start: date));
+/// from [today] in [calendar] (or the initial page's date and calendar).
+TemplateSelection initialSelection(
+  PageTemplate initial,
+  DateTime today, {
+  PlannerCalendar calendar = PlannerCalendar.standard,
+}) {
+  final paper = initial.paper;
+  return TemplateSelection(
+    initial,
+    PlannerPlan(start: paper.date ?? today, calendar: paper.calendar ?? calendar),
+  );
 }
 
 /// Template gallery with live miniatures, paper colours, size and
@@ -85,7 +93,11 @@ class TemplatePicker extends StatefulWidget {
 }
 
 class _TemplatePickerState extends State<TemplatePicker> {
-  late TemplateSelection _s = initialSelection(widget.initial, widget.today ?? DateTime.now());
+  late TemplateSelection _s = initialSelection(
+    widget.initial,
+    widget.today ?? DateTime.now(),
+    calendar: defaultPlannerCalendar(context),
+  );
 
   PageTemplate get _t => _s.template;
 
@@ -167,43 +179,41 @@ class _TemplatePickerState extends State<TemplatePicker> {
     TemplatePickerMode.change => 'Change template',
   };
 
+  /// Cancel, then the choices with the primary (filled) last; stacked,
+  /// primary on top, when they don't fit in a row (large text, phones).
   Widget _actions() {
     final cancel = TextButton(
       onPressed: () => Navigator.of(context).pop(),
       child: const Text('Cancel'),
     );
-    if (widget.mode != TemplatePickerMode.change) {
-      final add = widget.mode == TemplatePickerMode.addPage;
+    final List<Widget> choices;
+    if (widget.mode == TemplatePickerMode.change) {
+      choices = [
+        OutlinedButton(
+          onPressed: () => _done(allPages: true),
+          child: const Text('Apply to all pages'),
+        ),
+        FilledButton(onPressed: _done, child: const Text('Apply to this page')),
+      ];
+    } else {
       final count = _generates ? _s.pagesToCreate().length : 1;
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          cancel,
-          const SizedBox(width: Gaps.sm),
-          FilledButton.icon(
-            onPressed: _done,
-            icon: Icon(add ? Icons.note_add_outlined : Icons.check_rounded),
-            label: Text(add ? (count == 1 ? 'Add page' : 'Add $count pages') : 'Use template'),
-          ),
-        ],
-      );
+      choices = [
+        FilledButton(
+          onPressed: _done,
+          child: Text(switch (widget.mode) {
+            TemplatePickerMode.addPage => count == 1 ? 'Add page' : 'Add $count pages',
+            _ => 'Use template',
+          }),
+        ),
+      ];
     }
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: () => _done(allPages: true),
-            child: const Text('Apply to all pages', maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-        ),
-        const SizedBox(width: Gaps.md),
-        Expanded(
-          child: FilledButton(
-            onPressed: _done,
-            child: const Text('Apply to this page', maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-        ),
-      ],
+    return OverflowBar(
+      alignment: MainAxisAlignment.end,
+      spacing: Gaps.sm,
+      overflowSpacing: Gaps.xs,
+      overflowAlignment: OverflowBarAlignment.end,
+      overflowDirection: VerticalDirection.up,
+      children: [cancel, ...choices],
     );
   }
 }

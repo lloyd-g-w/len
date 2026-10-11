@@ -35,6 +35,9 @@ class _SyncSettingsState extends State<SyncSettings> {
   bool _obscureToken = true;
   bool _busy = false;
   String? _testMessage;
+
+  /// Shown under the URL field until it is edited.
+  String? _urlError;
   bool _testOk = false;
 
   @override
@@ -48,8 +51,8 @@ class _SyncSettingsState extends State<SyncSettings> {
     final urlError = SyncSettings.validateUrl(_url.text.trim());
     if (urlError != null) {
       setState(() {
-        _testOk = false;
-        _testMessage = urlError;
+        _urlError = urlError;
+        _testMessage = null;
       });
       return;
     }
@@ -86,8 +89,8 @@ class _SyncSettingsState extends State<SyncSettings> {
       title: 'Sync',
       icon: Icons.cloud_outlined,
       description:
-          'Sync with your own Len server. See server/README.md to run one with Docker '
-          'in a couple of minutes.',
+          'Keep your notebooks in sync across devices through your own Len server '
+          '(self-hosted; it runs with Docker in a couple of minutes).',
       children: [
         Padding(
           padding: const EdgeInsets.all(Gaps.lg + 2),
@@ -101,10 +104,15 @@ class _SyncSettingsState extends State<SyncSettings> {
                 keyboardType: TextInputType.url,
                 textInputAction: TextInputAction.next,
                 autocorrect: false,
-                decoration: const InputDecoration(
+                onChanged: (_) {
+                  if (_urlError != null) setState(() => _urlError = null);
+                },
+                decoration: InputDecoration(
                   labelText: 'Server URL',
                   hintText: 'https://len.example.com',
-                  prefixIcon: Icon(Icons.dns_outlined),
+                  prefixIcon: const Icon(Icons.dns_outlined),
+                  errorText: _urlError,
+                  errorMaxLines: 3,
                 ),
               ),
               const SizedBox(height: Gaps.md),
@@ -129,7 +137,10 @@ class _SyncSettingsState extends State<SyncSettings> {
                 ),
               ),
               const SizedBox(height: Gaps.lg),
-              Row(
+              Wrap(
+                spacing: Gaps.lg,
+                runSpacing: Gaps.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   FilledButton(
                     onPressed: _busy ? null : _testAndSave,
@@ -140,18 +151,15 @@ class _SyncSettingsState extends State<SyncSettings> {
                           )
                         : const Text('Connect & save'),
                   ),
-                  const SizedBox(width: Gaps.lg),
-                  Expanded(
-                    child: AnimatedSwitcher(
-                      duration: Motion.medium,
-                      child: _testMessage == null
-                          ? const SizedBox()
-                          : Text(
-                              _testMessage!,
-                              key: ValueKey(_testMessage),
-                              style: TextStyle(color: _testOk ? scheme.primary : scheme.error),
-                            ),
-                    ),
+                  AnimatedSwitcher(
+                    duration: Motion.medium,
+                    child: _testMessage == null
+                        ? const SizedBox()
+                        : Text(
+                            _testMessage!,
+                            key: ValueKey(_testMessage),
+                            style: TextStyle(color: _testOk ? scheme.primary : scheme.error),
+                          ),
                   ),
                 ],
               ),
@@ -176,7 +184,7 @@ class _SyncStatusLine extends StatelessWidget {
       builder: (context, _) {
         final last = sync.lastSuccess;
         final (icon, color, text) = switch (sync.state) {
-          SyncState.disabled => (Icons.cloud_off_outlined, scheme.onSurfaceVariant, 'Sync is off.'),
+          SyncState.disabled => (Icons.cloud_off_outlined, scheme.onSurfaceVariant, 'Sync is off'),
           SyncState.syncing => (Icons.cloud_sync_outlined, scheme.primary, 'Syncing…'),
           SyncState.error => (
             Icons.error_outline_rounded,
@@ -186,14 +194,15 @@ class _SyncStatusLine extends StatelessWidget {
           SyncState.idle => (
             Icons.cloud_done_outlined,
             scheme.primary,
-            last == null ? 'Ready.' : 'Last synced ${formatEdited(last.millisecondsSinceEpoch)}.',
+            last == null ? 'Ready' : 'Last synced ${formatEdited(last.millisecondsSinceEpoch)}',
           ),
         };
         final status = Container(
           padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.sm + 2),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(Radii.sm),
+            // A status chip, not a field.
+            borderRadius: BorderRadius.circular(Radii.pill),
           ),
           child: Row(
             children: [

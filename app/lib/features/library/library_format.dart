@@ -20,3 +20,10 @@ String formatLibraryDate(int epochMs, {DateTime? now}) {
 
 /// `1 page`, `12 pages`.
 String pageCountLabel(int n) => n == 1 ? '1 page' : '$n pages';
+
+/// [formatLibraryDate] after a verb: `Deleted yesterday`, `Created just now`.
+String libraryDateAfter(String verb, int epochMs, {DateTime? now}) {
+  final date = formatLibraryDate(epochMs, now: now);
+  final lower = date == 'Yesterday' || date == 'Just now';
+  return '$verb ${lower ? date.toLowerCase() : date}';
+}

@@ -116,6 +116,12 @@ The report has, per entry:
   pen-up;
 - a **heatmap** of changes behind the tip over all frames (yellow to red, more
   frames redder; magenta: changed at pen-up);
+- **pen-down close-ups** (`report/pen_down.dart`): for a few contacts
+  (bounces first, magenta frame), the frame before pen-down and each frame
+  after it, 28 px around where the pen landed at 8×: ink committed before
+  (light grey), the contact's ink (grey, black once committed), its raw
+  samples so far (red, the landing one ringed) and the pen (black ring).
+  Ink must be under the ring from the second tile on;
 - the **low-latency overlay sheet**: the 12 worst moments of the wet-ink
   model. Dark is Flutter now, light grey Flutter once caught up, blue the
   overlay, red ghost ink, orange gaps.
@@ -156,12 +162,15 @@ are for stabiliser 0 / 0.4 / 1, linear in between (`byStabiliser`).
 | `ends.nub` | Ink beyond the true path within 3 widths of an end (pen-down/up hooks) | 0.6 / 1.2 / 2.2 px (+0.3) |
 | `ends.stray` | Committed strokes minus intended ones (bounces) | 0 |
 | `ends.dotSize` | Size error of a tap's dot against the true peak pressure | 30 % |
-| `temporal.behindTip` | Worst frame: physical pixels whose coverage changes by > 20 % more than one stroke width + 1 px behind the previous tip, outside the new samples | 0 px² |
-| `temporal.settle` | Farthest change from the previous tip | width + 1 px (3.5 px) |
-| `temporal.vanished` | Contacts drawn live but never committed (a bounce flashing) | 0 |
+| `start.distance` | How far the pen was from ink when ink first showed: the raw samples' travel during frames without ink, else the distance from where the pen landed to the first frame's ink | 0.5 px |
+| `start.delay` | Frames from the first frame built after pen-down to the first frame with the contact's ink | 1 frame |
+| `temporal.behindTip` | Worst frame: physical pixels whose coverage changes by > 20 % more than one stroke width + 1 px behind the previous tip, outside the new samples (and, once per contact, the trimmed pen-down hook, see F9) | 0 px² |
+| `temporal.settle` | Farthest change from the previous tip (same exception) | width + 1 px (3.5 px) |
+| `temporal.vanished` | Intended contacts drawn live but never committed | 0 |
+| `temporal.bounceFlash` | How long a bounce shows (it is drawn while it touches, < 80 ms, and dropped at its lift) | 100 ms |
 | `pop.pixels` | Pixels changing by > 25 % between the last live frame and the committed stroke, outside the samples that came after that frame | 2 px² |
 | `pop.max` | Largest such coverage change | 50 % |
-| `perf.flatness` | Median live-outline build time in the last fifth of the longest contact ÷ the first fifth, which is ≈ 1 if per-frame cost is O(1) | 2× |
+| `perf.flatness` | Median live-outline build time in the last fifth of the longest contact ÷ the first fifth (counted from 5 frames after part of the stroke became final: the first frames, a few points of tail, are cheaper), which is ≈ 1 if per-frame cost is O(1) | 2× |
 | `perf.frameCost` | Median live build in the last fifth (this machine, JIT) | 1000 µs |
 | `perf.commit` | Pen-up handling + committed outline | 8 ms |
 | `perf.subpaths` | Sub-paths (`moveTo`s) in the last live outline; the GPU re-tessellates all of them each frame | 64 |
@@ -185,7 +194,10 @@ first ones) and 25 on the two simulated recordings, explained by eight
 findings, F1–F8 below. The new engine (`StrokeShaper` + `RibbonEmitter` +
 `LiveStrokeBuilder`, see ARCHITECTURE "Ink rendering") was built against
 them: **every metric now passes on every entry**, including the two real S
-Pen recordings, and `known_failures.dart` is empty.
+Pen recordings, and `known_failures.dart` is empty. F9 (late ink at
+pen-down) was found on the new engine and fixed with the `start.*`
+metrics; the table below is from before F9, which changed some values a
+little (see F9).
 
 Worst value per group of entries, old → new (✗ = entries failing; the
 recordings were added with the new engine, so they have no "before"; timings
@@ -257,8 +269,8 @@ everywhere.
 
 Was: `ends.nub` 3 px on `hooks`. Now `HookFinder` trims a short end piece
 that meets the body at a local kink. The start is decided once, from the
-first few screen px, before the contact is shown (so it never changes on
-screen); the end at pen-up. `ends.nub` ≤ 0.3 px everywhere.
+first few screen px (since F9 the stroke shows before that, and a trimmed
+hook's ink goes once); the end at pen-up. `ends.nub` ≤ 0.3 px everywhere.
 
 The rules were tuned against false positives too: a hook is at most 3 px
 (start) / 4 px (end) on screen whatever the pen (it is the hand's motion;
@@ -274,10 +286,13 @@ specimen's cursive "r" lead-in, a fraction of a pixel at 1×).
 
 ### F4 (resolved): bounces flashed
 
-Was: `temporal.vanished` 2 on `bounces`. Now a contact that starts right
-after and next to a lift is held back while it could still be a bounce
-(`BounceFilter.mightBounce`, at most 80 ms), and every contact until its
-pen-down hook is decided, so a bounce is never drawn.
+Was: `temporal.vanished` 2 on `bounces`. Then a contact that started right
+after and next to a lift was held back while it could still be a bounce,
+and every contact until its pen-down hook was decided, so a bounce was
+never drawn. That held back nearly every stroke of fast handwriting, so
+since F9 a bounce shows while it touches (< 80 ms, `temporal.bounceFlash`
+25 ms on `bounces`) and is dropped at its lift; it is still never
+committed (`ends.stray` 0).
 
 ### F5 (resolved): stabiliser 0 smoothed nothing
 
@@ -326,6 +341,93 @@ fit), so tips stay put: ≤ 0.39 px at stabiliser 0.
 
 ![zigzag tip at 16x, before](inklab/before/zigzag_0.0-16x.png)
 ![zigzag tip at 16x, now](inklab/zigzag_0.0-16x.png)
+
+### F9 (resolved): ink appeared late at pen-down
+
+User report (S Pen): "the pen takes too much distance from when I put
+pressure down to start drawing". Measured with `start.distance` /
+`start.delay` (added for it):
+
+| | sim cases (worst per case) | real recordings (worst) | real (median contact) |
+|---|---|---|---|
+| before: pen travel before ink | 1.6 (taps) – 13.2 px | 20.9–26.4 px | 8.0–8.2 px |
+| before: frames to first ink | 4–38 | 7–10 | 2–4 |
+| now | 0 px, 0 frames | 0 px, 0 frames | 0 px, 0 frames |
+
+Cause: a contact was shown only once (1) it could no longer be a bounce
+(`BounceFilter.mightBounce`: starting within 120 ms and 16 px of the last
+lift, the contact stayed hidden until it lasted 80 ms or travelled 3 px:
+in fast handwriting nearly every stroke), and (2) its start was final:
+≥ 9 points (to estimate the stroke's zoom from its point spacing), the
+pen-down hook decided (≤ 5 px of travel) and the first smoothing window
+final. All three held the ink back, and once shown it appeared all at once
+behind the nib.
+
+Now (latency beats purity):
+- **Ink from the first sample.** The controller adds every point to the
+  live stroke at once; the first frame after pen-down shows a dot under the
+  nib, and the stroke grows from exactly where the pen landed.
+- **The zoom is recorded, not estimated**: `StrokeStyle.unit` (1 / zoom at
+  pen-down; synced as `u`). The estimate from the first 9 points was
+  20–60 % off on the simulated cases and 0.6–2.9× on the real recordings,
+  so switching to it after 9 points would have changed the whole start;
+  smoothing now happens at the zoom the stroke was really written at
+  (which changes the committed ink a little, see below).
+- **The pen-down hook is trimmed retroactively.** Until `HookFinder` can
+  decide (≤ 5 px of travel) the shaper's line is provisional: from the
+  first sample, nothing final. If it finds a hook, the hook's ink (≤ 3 px,
+  under the nib) disappears once, 1–6 frames after landing; otherwise
+  nothing changes (provisional and decided lines are identical). The rules
+  were kept: they trim 12 of 58 strokes on `real_spen_01` and 3 of 19 on
+  `real_spen_02` (≤ 2.7 px each), all visibly flicks in the pen-down
+  close-ups, and loosening them would bring back the nubs of F3.
+  `temporal.behindTip` / `settle` exempt pixels within the reach of new
+  samples (one width + 1.5 px) of the trimmed hook's points, in the one
+  frame where the start moves (a second start change would count). Without
+  it `hooks` measured 11 px², 5.0 px away (the trim itself), and nothing
+  else changed behind the tip anywhere.
+- **Bounces** show while they touch and are dropped at the lift (F4).
+- **The overlay begins at pen-down** and decides the pen-down hook itself
+  with the outline's rules (`WetInkShape.hookStart`); while Flutter's
+  frame still shows a hook the model has trimmed, it draws the whole start
+  as it is now (otherwise the trimmed start's cap, 0.3 px beyond
+  Flutter's provisional smoothed corner, was a 1 px² gap on
+  `real_spen_02@1`). It also follows Flutter's dot rule (a line shorter
+  than half its width is a dot of the contact's largest radius; drawing a
+  capsule there was a 56 px² ghost at depth 1 on `real_spen_01`). Overlay
+  gap and ghost stay 0 at depths 1 and 2 everywhere.
+- **Corners at the tip.** With the recorded zoom, `real_spen_01@0` showed
+  how fragile picking the corner by the sharpest turn was: retraction at
+  one cusp ranged 0.47–0.78 px as the resampling phase moved. The corner
+  is now the run's sample furthest along the incoming direction:
+  0.34–0.48 px over the same range, and `detail.retraction` ≤ 0.39 / 0.39
+  / 0.58 px (sim @0 / 0.4 / 1, was 0.39 / 0.47 / 0.80) and 0.36 px on the
+  recordings (was 0.49).
+
+Other changes from smoothing at the true zoom (worst per group, old → new;
+all within limits): `smooth.edgeBump16x` 0.60 → 0.71 / 0.33 → 0.57 /
+0.16 → 0.38 px on the simulated cases (σ was inflated by the 1.2–1.7×
+unit estimate there; recordings unchanged at 0.93), `smooth.facet`
+2.3 → 3.0° / 0.84 → 0.95° / 0.37 → 0.43°, `fidelity.hausdorff`
+0.36 → 0.30 / 0.47 → 0.39 / 0.80 → 0.59 px and 0.51 → 0.46 px on the
+recordings.
+
+![hooks pen-down close-ups](inklab/hooks_0.4-pendown.png)
+
+*`hooks@0.4` at pen-down.* Ink under the nib from the first frame; in the
+seventh tile the 2.7 px hook is trimmed (the start moves to the kink).
+
+![real_spen_02 pen-down close-ups](inklab/rec_real_spen_02_1.0-pendown.png)
+
+*`real_spen_02@1` at pen-down.* Every stroke starts under the ring in the
+first frame; the third row is a pen-down flick, trimmed in its second
+frame.
+
+![bounces pen-down close-ups](inklab/bounces_0.4-pendown.png)
+
+*`bounces@0.4` at pen-down.* The two bounces (magenta frames) show as a
+dot at the end of the stroke just lifted for three frames (25 ms) and are
+gone after their lift; the intended strokes below start at once.
 
 ### Real S Pen recordings
 

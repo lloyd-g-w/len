@@ -18,6 +18,7 @@ import 'filmstrip.dart';
 import 'final_views.dart';
 import 'html.dart';
 import 'overlay_sheet.dart';
+import 'pen_down.dart';
 import 'picture.dart';
 
 const bool _enabled = bool.fromEnvironment('INKLAB_REPORT');
@@ -53,6 +54,11 @@ void main() {
         ].nonNulls.firstOrNull;
         save('live frames (last tile: committed)', 'film', filmstrip(s.replay, live));
         save('changes behind the tip over all frames', 'heat', diffHeatmap(s.replay, live));
+        save(
+          'pen-down close-ups (frame before, then each frame)',
+          'pendown',
+          penDownStrip(s.replay),
+        );
         final overlay = overlaySheet(s.replay);
         if (overlay.width > 1) save('low-latency overlay, worst moments', 'overlay', overlay);
         entries.add(

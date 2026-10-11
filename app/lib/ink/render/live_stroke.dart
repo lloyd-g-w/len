@@ -51,7 +51,8 @@ class LiveStrokeBuilder {
 
   final OutlineSpec spec;
 
-  // Created once the stroke's unit is known ([StrokeOutline.unitPoints]).
+  // Created once the stroke's unit is known: at once when the stroke
+  // records it (`StrokeStyle.unit`), else after [StrokeOutline.unitPoints].
   StrokeShaper? _shaperOrNull;
   late StrokeShaper _shaper;
   late RibbonEmitter _emitter;
@@ -87,7 +88,10 @@ class LiveStrokeBuilder {
     _feed(points);
     _shaper.update();
     if (!_shaper.started) {
-      return LiveOutline.of(StrokeOutline.build(points, spec, complete: false));
+      // The start (pen-down hook) is undecided: the provisional line.
+      final out = Path();
+      StrokeOutline.emitLine(PathSink(out), _shaper, spec);
+      return LiveOutline.of(out);
     }
     if (StrokeOutline.isDot(_shaper)) {
       final out = Path();
@@ -172,7 +176,7 @@ class LiveStrokeBuilder {
   bool _ready(List<StrokePoint> points) {
     if (_shaperOrNull != null) return true;
     // Too few points to tell the stroke's unit: build from scratch.
-    if (points.length < StrokeOutline.unitPoints) return false;
+    if (spec.unit <= 0 && points.length < StrokeOutline.unitPoints) return false;
     _shaper = _shaperOrNull = StrokeShaper(StrokeOutline.paramsOf(points, spec));
     _emitter = RibbonEmitter(
       _shaper,

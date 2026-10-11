@@ -148,7 +148,12 @@ void main() {
     expect(pages, hasLength(days));
     expect(
       pages.first.paper,
-      Paper.planner(PaperStyle.dailyPlanner, DateTime.utc(now.year, now.month)),
+      Paper.planner(
+        PaperStyle.dailyPlanner,
+        DateTime.utc(now.year, now.month),
+        // The test device is set to US English.
+        calendar: PlannerCalendar.forLocale('en', 'US'),
+      ),
     );
     expect(tester.takeException(), isNull);
   });
@@ -193,7 +198,7 @@ void main() {
 
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Rename'));
+    await tester.tap(find.text('Rename…'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Final');
     await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
@@ -202,7 +207,7 @@ void main() {
 
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Move to Trash'));
+    await tester.tap(find.text('Move to trash'));
     await tester.pumpAndSettle();
     expect(services.notebooks.list(), isEmpty);
     expect(find.text('Nothing here yet'), findsOneWidget);
@@ -223,13 +228,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Move to Trash'));
+    await tester.tap(find.text('Move to trash'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Trash').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete forever'));
+    await tester.tap(find.text('Delete forever…'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete forever'));
     await tester.pumpAndSettle();

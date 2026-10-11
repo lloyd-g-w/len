@@ -17,13 +17,19 @@ import 'recording_overview.dart';
 /// Everything audio for one open notebook: the recorder, the player and
 /// the notebook's recordings (kept current with local edits and sync).
 ///
-/// Lives as long as the editor: a recording continues across page changes
-/// and is stopped and saved when the editor closes, and — on mobile, where
-/// a backgrounded app loses the microphone — when the app is paused unless
-/// a foreground service keeps it going (Android).
+/// One per open notebook, shared by its editors (see `SharedNotebook`);
+/// `microphoneBusy` keeps to one recorder at a time across notebooks. Lives
+/// as long as the notebook is open: a recording continues across page
+/// changes and is stopped and saved when its last editor closes, and — on
+/// mobile, where a backgrounded app loses the microphone — when the app is
+/// paused unless a foreground service keeps it going (Android).
 class NotebookAudio extends ChangeNotifier {
-  NotebookAudio(this.services, {required this.notebookId, TargetPlatform? platform})
-    : _platform = platform ?? defaultTargetPlatform {
+  NotebookAudio(
+    this.services, {
+    required this.notebookId,
+    TargetPlatform? platform,
+    String? Function()? microphoneBusy,
+  }) : _platform = platform ?? defaultTargetPlatform {
     final backends = services.audio;
     recorder = RecordingController(
       notebookId: notebookId,
@@ -32,6 +38,7 @@ class NotebookAudio extends ChangeNotifier {
       repository: services.recordings,
       onSaved: (_) => reload(),
       describe: () => services.notebooks.get(notebookId)?.title ?? '',
+      busy: microphoneBusy,
     );
     playback = PlaybackController(
       backends: backends,
@@ -70,6 +77,10 @@ class NotebookAudio extends ChangeNotifier {
   AudioBackends get backends => services.audio;
 
   bool _disposed = false;
+
+  /// Shows a message about something that happened without the user
+  /// asking (a recording stopped and saved, or lost, in the background).
+  void Function(String message)? onNotice;
 
   void reload() {
     if (_disposed) return;
@@ -150,7 +161,16 @@ class NotebookAudio extends ChangeNotifier {
   /// is stopped and saved.
   void _onAppPaused() {
     if (_platform == TargetPlatform.android || _platform == TargetPlatform.iOS) {
-      if (recorder.state.isActive && !recorder.recordsInBackground) unawaited(recorder.stop());
+      if (recorder.state.isActive && !recorder.recordsInBackground) {
+        unawaited(
+          recorder.stop().then((saved) {
+            final message = saved != null
+                ? 'Recording stopped in the background and saved as “${saved.title}”'
+                : recorder.lastError;
+            if (message != null && !_disposed) onNotice?.call(message);
+          }),
+        );
+      }
       if (playback.playing) unawaited(playback.pause());
     }
   }

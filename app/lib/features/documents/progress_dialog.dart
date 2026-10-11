@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../domain/cancellation.dart';
+import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 
 export '../../domain/cancellation.dart' show Cancelled;
+export '../../ui/messages.dart' show showMessage;
 
 /// Progress of a long task, reported by the task and shown by
 /// [runWithSteps]: what is happening and, when known, how far along. The
@@ -96,26 +98,33 @@ Future<T> runWithSteps<T>(
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
   final progress = TaskProgress('Working…');
-  unawaited(
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      useRootNavigator: true,
-      builder: (context) => PopScope(
-        canPop: false,
-        child: ProgressDialog(
-          title: title,
-          subject: subject,
-          progress: progress,
-          cancellable: cancellable,
-        ),
+  final route = DialogRoute<void>(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: DialogTheme.of(context).barrierColor ?? Colors.black54,
+    themes: InheritedTheme.capture(from: context, to: navigator.context),
+    builder: (context) => PopScope(
+      canPop: false,
+      child: ProgressDialog(
+        title: title,
+        subject: subject,
+        progress: progress,
+        cancellable: cancellable,
       ),
     ),
   );
+  unawaited(navigator.push(route));
   try {
     return await task(progress);
   } finally {
-    navigator.pop();
+    // Only this dialog: it may be gone already (e.g. closed with the
+    // editor when its notebook was deleted on another device), and then
+    // popping would close whatever is on top instead.
+    if (route.isCurrent) {
+      navigator.pop();
+    } else if (route.isActive) {
+      navigator.removeRoute(route);
+    }
     progress.dispose();
   }
 }
@@ -142,10 +151,9 @@ class ProgressDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return AlertDialog(
-      icon: Icon(Icons.hourglass_top_rounded, color: scheme.primary),
-      title: Text(title, textAlign: TextAlign.center),
+    return AppDialog(
+      icon: Icons.hourglass_top_rounded,
+      title: title,
       content: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 280, maxWidth: 360),
         child: ListenableBuilder(
@@ -218,14 +226,7 @@ class ProgressDialog extends StatelessWidget {
                 ),
               ),
             ]
-          : null,
+          : const [],
     );
   }
-}
-
-/// Shows a short message at the bottom of the screen.
-void showMessage(BuildContext context, String message, {SnackBarAction? action}) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message), action: action));
 }

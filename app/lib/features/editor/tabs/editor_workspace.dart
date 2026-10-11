@@ -4,6 +4,8 @@ import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../editor_screen.dart';
+import '../split/split_controller.dart';
+import '../split/split_view.dart';
 import 'notebook_open_route.dart';
 import 'open_notebooks.dart';
 
@@ -48,6 +50,9 @@ Future<void> openNotebook(
 /// The editor route: shows the active tab's notebook and swaps editors as
 /// tabs change. Each editor saves its place when it closes and restores
 /// it when its tab is shown again. Closing the last tab leaves.
+///
+/// On large screens a second tab (or the active notebook again) can be
+/// shown beside it ([OpenNotebooks.splitId], [SplitView]).
 class EditorWorkspace extends StatefulWidget {
   const EditorWorkspace({super.key});
 
@@ -62,6 +67,10 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
   OpenNotebooks get _tabs => _services.openNotebooks;
   bool _leaving = false;
 
+  /// Bumped as the split view's divider moves.
+  final ValueNotifier<int> _resized = ValueNotifier(0);
+  late final SplitController _split = SplitController(_tabs)..addListener(_onSplit);
+
   @override
   void initState() {
     super.initState();
@@ -71,7 +80,13 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
   @override
   void dispose() {
     _tabs.removeListener(_onTabs);
+    _split.dispose();
+    _resized.dispose();
     super.dispose();
+  }
+
+  void _onSplit() {
+    if (mounted) setState(() {}); // A pane presents (alone) or stops.
   }
 
   void _onTabs() {
@@ -103,12 +118,47 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
       // Deleted or trashed while the tab was in the background.
       WidgetsBinding.instance.addPostFrameCallback((_) => _tabs.close(tab.id));
     }
-    return AnimatedSwitcher(
+    final primary = AnimatedSwitcher(
       duration: Motion.fast,
       switchInCurve: Motion.standard,
       child: notebook == null || notebook.isTrashed
           ? const Scaffold(key: ValueKey('empty'))
-          : EditorScreen(key: ValueKey(notebook.id), notebook: notebook),
+          : EditorScreen(key: ValueKey(notebook.id), notebook: notebook, split: _split),
+    );
+    final available = _split.available = SplitView.fits(MediaQuery.sizeOf(context));
+    final second = _tabs.splitId == null ? null : _services.notebooks.get(_tabs.splitId!);
+    final hasSecond = second != null && !second.isTrashed;
+    final presenting = _split.presenting;
+    // Too small for two panes (e.g. a tablet turned to portrait): the
+    // second pane is parked, alive, until there is room again.
+    final secondary = hasSecond
+        ? ScaffoldMessenger(
+            child: EditorScreen(
+              key: ValueKey('split-${second.id}'),
+              notebook: second,
+              split: _split,
+              secondPane: true,
+            ),
+          )
+        : null;
+    // Dragging the divider rebuilds the layout only: the same editor
+    // widgets are passed on, so the editors themselves are not rebuilt.
+    return ValueListenableBuilder(
+      valueListenable: _resized,
+      builder: (context, _, _) => SplitView(
+        primary: primary,
+        secondary: secondary,
+        fraction: _tabs.splitFraction,
+        onFraction: (f) {
+          _tabs.splitFraction = f;
+          _resized.value++;
+        },
+        solo: !hasSecond
+            ? null
+            : available
+            ? presenting?.secondary
+            : presenting?.secondary ?? false,
+      ),
     );
   }
 }

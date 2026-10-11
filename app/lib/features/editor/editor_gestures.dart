@@ -6,6 +6,32 @@ import 'chrome/canvas_context_menu.dart';
 import 'chrome/gesture_hud.dart';
 import 'document/page_overview.dart';
 import 'editor_session.dart';
+import 'links/link_actions.dart';
+
+/// The canvas context menu: where it is open and what it offers.
+typedef EditorMenu = ({Offset at, List<CanvasAction> actions});
+
+/// The canvas context menu for a long press or right click at [at]: a
+/// link there first, then [canvasActions]. Null when that selects a word of
+/// PDF text instead.
+EditorMenu? canvasMenuAt(
+  BuildContext context,
+  EditorSession session,
+  Offset at, {
+  required void Function(Paper target) onFollowLink,
+}) {
+  if (session.pdf?.selectWordAt(at) ?? false) return null;
+  final doc = session.doc;
+  final actions = canvasActions(
+    session,
+    at,
+    bookmarked: doc?.activePageData.bookmarked ?? false,
+    onPageCommand: (c) => session.commands!.run(context, c, doc!.activePageData),
+    onFollowLink: onFollowLink,
+  );
+  if (openLinkAction(context, session, at) case final link?) actions.insert(0, link);
+  return (at: at, actions: actions);
+}
 
 /// The entries of the canvas context menu for a long press at [screen]:
 /// paste there, select everything on the page (or in view), add a text box
@@ -27,11 +53,7 @@ List<CanvasAction> canvasActions(
   final clipboard = content.selection.clipboard;
   return [
     if (link != null && onFollowLink != null)
-      CanvasAction(
-        Icons.event_rounded,
-        'Go to ${PlannerDates.describe(link.style.period!, link.date!)}',
-        () => onFollowLink(link),
-      ),
+      CanvasAction(Icons.event_rounded, 'Go to ${link.period}', () => onFollowLink(link)),
     if (!clipboard.isEmpty)
       CanvasAction(Icons.content_paste_rounded, 'Paste here', () {
         session.tools.tool = EditorTool.lasso;
