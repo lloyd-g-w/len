@@ -273,15 +273,19 @@ Readers ignore waveforms with another version or magic.
 
 **Paper and pages.** `paper` names a template: `blank`, `dotted`, `narrowRuled`,
 `collegeRuled`, `wideRuled`, `cornell`, `todo`, `meeting`, `dailyPlanner`, `weeklyPlanner`,
-`monthlyCalendar`, `gridSmall`, `gridLarge`, `graph`, `engineering`, `isometric`, `music`,
+`monthlyCalendar`, `yearlyOverview`, `gridSmall`, `gridLarge`, `graph`, `engineering`, `isometric`, `music`,
 `storyboard`, or `image` (a user's image template). On notebooks (the default for new pages and
 the canvas background) it must be a template without parameters, i.e. not a planner and not
 `image`. On pages, `paperData` holds the template's parameters and must be valid for it:
 
-- planners (`dailyPlanner`, `weeklyPlanner`, `monthlyCalendar`): `{"date": "YYYY-MM-DD"}`, the
-  first day of the page's period (the day; the Monday of the week; the 1st of the month). Pages
-  of other periods are found by this date (planner links), so it is normalised to the period's
-  start when written;
+- planners (`dailyPlanner`, `weeklyPlanner`, `monthlyCalendar`, `yearlyOverview`):
+  `{"date": "YYYY-MM-DD", "weekStart": "monday"|"sunday", "locale": "<tag>"}`, all required.
+  `date` is the first day of the page's period (the day; the first day of the week, a Monday or
+  Sunday as `weekStart` says; the 1st of the month; 1 January). `locale` is the language the
+  page is printed in, one of the BCP 47 tags `en-GB`, `en-US`, `cs`, `da`, `de`, `es`, `fr`,
+  `it`, `nl`, `nb`, `pl`, `pt-BR`, `pt-PT`, `fi`, `sv`, `tr`, `el`, `ru`, `uk` (exactly as
+  written). Planner links find the page with the same style, date, `weekStart` and `locale`,
+  so the date is normalised to the period's start when written;
 - `image`: `{"image": "<sha256>"}`, a PNG or JPEG [blob](#blobs) stretched over the page;
 - every other template: `{}`.
 
