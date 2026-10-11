@@ -13,6 +13,7 @@ import 'data/blob_store.dart';
 import 'data/element_repository.dart';
 import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
+import 'data/outline_repository.dart';
 import 'data/page_repository.dart';
 import 'data/recording_repository.dart';
 import 'data/search/search_service.dart';
@@ -56,6 +57,7 @@ class AppServices {
     required this.incomingFiles,
     required this.templates,
     required this.tags,
+    required this.outline,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -79,6 +81,7 @@ class AppServices {
     final recordings = RecordingRepository(database, deviceId: deviceId, clock: clock);
     final pages = PageRepository(database, deviceId: deviceId, clock: clock);
     final tags = TagRepository(database, deviceId: deviceId, clock: clock);
+    final outline = OutlineRepository(database, deviceId: deviceId, clock: clock);
     final notebooks = NotebookRepository(
       database,
       deviceId: deviceId,
@@ -87,6 +90,7 @@ class AppServices {
       elements: elements,
       recordings: recordings,
       tags: tags,
+      outline: outline,
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
@@ -104,6 +108,7 @@ class AppServices {
       recordings: recordings,
       templates: templates,
       tags: tags,
+      outline: outline,
     );
     final search = SearchService(database, readBlob: blobs.read);
     final recognition = RecognitionService(
@@ -134,6 +139,7 @@ class AppServices {
       incomingFiles: IncomingFiles(incomingFiles),
       templates: templates,
       tags: tags,
+      outline: outline,
     );
   }
 
@@ -168,6 +174,9 @@ class AppServices {
 
   /// Tags and which notebooks and pages carry them.
   final TagRepository tags;
+
+  /// Notebooks' own outlines (tables of contents).
+  final OutlineRepository outline;
 
   /// Makes recorders and players (created only when used).
   final AudioBackends audio;

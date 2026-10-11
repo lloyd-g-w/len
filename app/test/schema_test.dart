@@ -89,6 +89,7 @@ void main() {
         'templates',
         'tags',
         'taggings',
+        'outline',
         'blobs',
         'search_docs',
         'pdf_text',

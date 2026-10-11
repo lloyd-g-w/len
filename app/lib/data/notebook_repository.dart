@@ -5,6 +5,7 @@ import '../domain/notebook.dart';
 import '../domain/paper.dart';
 import 'element_repository.dart';
 import 'notebook_duplicator.dart';
+import 'outline_repository.dart';
 import 'page_repository.dart';
 import 'record_fields.dart';
 import 'recording_repository.dart';
@@ -25,6 +26,7 @@ class NotebookRepository extends SyncableTable {
     this.elements,
     this.recordings,
     this.tags,
+    this.outline,
     super.clock,
   });
 
@@ -40,6 +42,9 @@ class NotebookRepository extends SyncableTable {
   /// Tags are taken off the notebook and its pages when it is deleted, and
   /// copied when it is duplicated, when set.
   final TagRepository? tags;
+
+  /// The notebook's own outline is deleted and duplicated with it when set.
+  final OutlineRepository? outline;
 
   @override
   String get collection => 'notebooks';
@@ -186,6 +191,7 @@ class NotebookRepository extends SyncableTable {
       elements?.deleteSurfaces([id, ...pageIds]);
       recordings?.deleteAllOf(id);
       tags?.taggings.removeTargets([id, ...pageIds]);
+      outline?.deleteAllOf(id);
     });
   }
 

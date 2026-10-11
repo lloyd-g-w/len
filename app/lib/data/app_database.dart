@@ -127,11 +127,12 @@ class AppDatabase {
     _createSchema,
     _templates,
     _recordingWaveforms,
-    _tags,
+    _organise,
   ];
 
-  /// Version 4: tags and which notebooks and pages carry them.
-  static void _tags(CommonDatabase db) {
+  /// Version 4: tags and which notebooks and pages carry them; notebooks'
+  /// own outlines.
+  static void _organise(CommonDatabase db) {
     db.execute('''
       CREATE TABLE tags (
         id          TEXT PRIMARY KEY NOT NULL,
@@ -157,6 +158,21 @@ class AppDatabase {
       )''');
     db.execute('CREATE INDEX taggings_by_target ON taggings(target_id)');
     db.execute('CREATE INDEX taggings_by_tag ON taggings(tag_id)');
+    // A notebook's own table of contents; siblings follow page order.
+    db.execute('''
+      CREATE TABLE outline (
+        id          TEXT PRIMARY KEY NOT NULL,
+        notebook_id TEXT NOT NULL,
+        page_id     TEXT NOT NULL,
+        parent_id   TEXT,
+        title       TEXT NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute('CREATE INDEX outline_by_notebook ON outline(notebook_id)');
   }
 
   /// Version 3: a recording's waveform blob (`''` = none), and stroke
