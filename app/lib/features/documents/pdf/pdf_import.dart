@@ -41,7 +41,7 @@ class PdfImporter {
       for (var i = 0; i < sizes.length; i++)
         (
           size: sizes[i] * worldPerPoint,
-          paper: PaperStyle.blank,
+          paper: Paper.blank,
           color: PaperColor.white,
           background: PageBackground.pdf(blob: sha, pageIndex: i),
         ),

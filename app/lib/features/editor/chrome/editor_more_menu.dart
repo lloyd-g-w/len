@@ -72,6 +72,7 @@ class EditorMoreMenu extends StatelessWidget {
               _item(Icons.note_add_outlined, 'Add page with template…', a.onAddWithTemplate),
               _command(PageCommand.duplicate, 'Duplicate page'),
               _command(PageCommand.template, 'Change template…'),
+              _command(PageCommand.saveAsTemplate, 'Save page as template…'),
               _item(Icons.picture_as_pdf_outlined, 'Insert PDF pages…', a.onInsertPdf),
               const Divider(),
               _command(PageCommand.delete, 'Delete page'),

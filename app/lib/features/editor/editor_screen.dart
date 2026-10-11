@@ -280,8 +280,13 @@ class _EditorScreenState extends State<EditorScreen> {
       at,
       bookmarked: doc?.activePageData.bookmarked ?? false,
       onPageCommand: (c) => _session.commands!.run(context, c, doc!.activePageData),
+      onFollowLink: _followLink,
     );
     setState(() => _menu = (at: at, actions: actions));
+  }
+
+  void _followLink(Paper target) {
+    if (mounted && !_closing) _session.commands?.followLink(context, target);
   }
 
   void _closeMenu() {
@@ -322,7 +327,7 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _pickBackground() async {
     final choice = await showTemplatePicker(
       context,
-      initial: PageTemplate(style: _notebook.paper, color: _notebook.paperColor),
+      initial: PageTemplate.of(_notebook.paper, color: _notebook.paperColor),
       mode: TemplatePickerMode.canvas,
     );
     if (choice == null || !mounted || _closing) return;
@@ -424,6 +429,7 @@ class _EditorScreenState extends State<EditorScreen> {
                               focusNode: _focusNode,
                               guard: _guard,
                               chromeInsets: layout.covered,
+                              onFollowLink: _followLink,
                             ),
                           ),
                           if (_session.pdf case final pdf?)

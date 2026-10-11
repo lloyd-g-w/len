@@ -139,6 +139,7 @@ Map<String, Object?> _pageData(String notebookId, {Object? background}) => {
   'width': 600,
   'height': 800,
   'paper': 'blank',
+  'paperData': <String, Object?>{},
   'paperColor': 'white',
   'bookmarked': false,
   'background': background,
@@ -408,14 +409,14 @@ void main() {
       final pdf = a.s.pages.insertPages(nb.id, [
         (
           size: const Size(612, 792),
-          paper: PaperStyle.blank,
+          paper: Paper(PaperStyle.blank),
           color: PaperColor.white,
           background: const PageBackground.pdf(blob: _sha, pageIndex: 2),
         ),
       ]).single;
       time.tick();
       a.s.pages.move(p3, 0);
-      a.s.pages.setPaper([p2.id], style: PaperStyle.gridSmall, color: PaperColor.cream);
+      a.s.pages.setPaper([p2.id], paper: Paper(PaperStyle.gridSmall), color: PaperColor.cream);
       a.s.pages.setBookmarked(p1.id, true);
       final changes = await (() async {
         await a.sync();
@@ -431,7 +432,7 @@ void main() {
         a.s.pages.pagesOf(nb.id).map((p) => p.sortKey),
       );
       final b2 = b.s.pages.get(p2.id)!;
-      expect(b2.paper, PaperStyle.gridSmall);
+      expect(b2.paper.style, PaperStyle.gridSmall);
       expect(b2.paperColor, PaperColor.cream);
       expect(b.s.pages.get(p1.id)!.bookmarked, isTrue);
       expect(b.s.pages.get(p3.id)!.bookmarked, isFalse);
@@ -460,6 +461,78 @@ void main() {
       expect(order(b), [p1.id, pdf.id, p3.id]);
       expect(a.dirty, isEmpty);
       expect(b.dirty, isEmpty);
+    });
+
+    test('templates: planner pages, image templates and My templates', () async {
+      final (time, server, a, b) = _twoDevices();
+      final plan = PlannerPlan(start: DateTime.utc(2024, 2, 1), linked: true);
+      final nb = a.s.notebooks.create(
+        title: 'Planner',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+        papers: plan.papersFor(PaperStyle.monthlyCalendar),
+      );
+      final mine = a.s.templates.create(name: 'Grid A', blob: _sha, size: const Size(800, 600));
+      final first = a.s.pages.pagesOf(nb.id).first;
+      a.s.pages.setPaper([first.id], paper: Paper.image(_sha));
+      await _send(a, b);
+
+      List<Paper> papers(_Device d) => [for (final p in d.s.pages.pagesOf(nb.id)) p.paper];
+      expect(papers(b), papers(a));
+      expect(papers(b).first, Paper.image(_sha));
+      expect(papers(b)[1], Paper.planner(PaperStyle.weeklyPlanner, DateTime.utc(2024, 1, 29)));
+      expect(papers(b).where((p) => p.style == PaperStyle.dailyPlanner), hasLength(35));
+      final leapDay = Paper.planner(PaperStyle.dailyPlanner, DateTime.utc(2024, 2, 29));
+      final leapPage = a.s.pages.pagesOf(nb.id).singleWhere((p) => p.paper == leapDay);
+      expect(server.stored('pages', leapPage.id)!['data'], containsPair('paper', 'dailyPlanner'));
+      expect((server.stored('pages', leapPage.id)!['data']! as Map)['paperData'], {
+        'date': '2024-02-29',
+      });
+      expect(b.s.templates.list().single.name, 'Grid A');
+      expect(b.s.templates.list().single.size, const Size(800, 600));
+
+      time.tick();
+      b.s.templates.rename(mine.id, 'Grid B');
+      await _send(b, a);
+      expect(a.s.templates.get(mine.id)!.name, 'Grid B');
+      time.tick();
+      a.s.templates.delete(mine.id);
+      final changes = await (() async {
+        await a.sync();
+        return b.sync();
+      })();
+      expect(changes.templates, isTrue);
+      expect(b.s.templates.list(), isEmpty);
+      expect(b.s.pages.get(first.id)!.paper, Paper.image(_sha), reason: 'pages keep the image');
+
+      // Malformed template records and planner pages are skipped.
+      server.injected.addAll([
+        _record(
+          'templates',
+          'no-blob',
+          10,
+          data: {'name': 'x', 'width': 1, 'height': 1, 'createdAt': 0},
+        ),
+        _record(
+          'templates',
+          'bad-blob',
+          10,
+          data: {'name': 'x', 'blob': 'abc', 'width': 1, 'height': 1, 'createdAt': 0},
+        ),
+        _record('pages', 'undated', 10, data: {..._pageData(nb.id), 'paper': 'dailyPlanner'}),
+        _record(
+          'notebooks',
+          'planner-default',
+          10,
+          data: {..._notebookData('P'), 'paper': 'weeklyPlanner'},
+        ),
+      ]);
+      await b.sync();
+      expect(b.s.templates.get('no-blob'), isNull);
+      expect(b.s.templates.get('bad-blob'), isNull);
+      expect(b.s.pages.get('undated'), isNull);
+      expect(b.s.notebooks.get('planner-default'), isNull);
     });
 
     test('strokes: tool, colour, width, points and style', () async {
@@ -667,7 +740,13 @@ void main() {
       final (_, server, _, b) = _twoDevices();
       const nb = 'ghost-nb';
       final live = {
-        'folders': {'name': 'Ghost folder', 'parentId': null, 'color': 1, 'createdAt': 1},
+        'folders': {
+          'name': 'Ghost folder',
+          'parentId': null,
+          'color': 1,
+          'icon': null,
+          'createdAt': 1,
+        },
         'notebooks': _notebookData('Ghost notebook'),
         'pages': _pageData(nb, background: {'type': 'pdf', 'blob': _sha, 'page': 0}),
         'strokes': {
@@ -863,7 +942,7 @@ void main() {
       final page = a.s.pages.insertPages(nb.id, [
         (
           size: const Size(612, 792),
-          paper: PaperStyle.blank,
+          paper: Paper(PaperStyle.blank),
           color: PaperColor.white,
           background: PageBackground.pdf(blob: sha, pageIndex: 0),
         ),

@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
 
+import '../../../domain/image_data.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
@@ -23,6 +24,7 @@ void paintWholePage(
   required double scale,
   ui.Image? background,
   ElementImages? images,
+  PaperImageLookup? paperImages,
   bool miniature = false,
   bool showBookmark = false,
 }) {
@@ -40,11 +42,16 @@ void paintWholePage(
     page: rect,
     scale: scale,
     always: miniature,
+    images: paperImages ?? (images == null ? null : paperImagesOf(images)),
   );
   if (showBookmark && page.bookmarked) paintBookmark(canvas, page.size);
   ContentPainter.paint(canvas, strokes, elements, images: images, pixelScale: scale);
   canvas.restore();
 }
+
+/// Image templates looked up in [images] (decoding them if needed).
+PaperImageLookup paperImagesOf(ElementImages images) =>
+    (blob, width) => images.imageFor(ImageData(blob: blob, width: 0, height: 0), width);
 
 /// Renders a page to an image [scale] pixels per page unit.
 Future<ui.Image> renderPageImage(

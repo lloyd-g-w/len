@@ -93,7 +93,7 @@ class _App {
     final pdf = s.pages.insertPages(paged.id, [
       (
         size: const Size(612, 792),
-        paper: PaperStyle.blank,
+        paper: Paper(PaperStyle.blank),
         color: PaperColor.grey,
         background: const PageBackground.pdf(blob: _sha, pageIndex: 0),
       ),

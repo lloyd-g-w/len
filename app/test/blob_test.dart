@@ -161,7 +161,7 @@ void main() {
     a.pages.insertPages(notebook.id, [
       (
         size: const Size(100, 140),
-        paper: PaperStyle.blank,
+        paper: Paper(PaperStyle.blank),
         color: PaperColor.white,
         background: PageBackground.pdf(blob: sha, pageIndex: 0),
       ),

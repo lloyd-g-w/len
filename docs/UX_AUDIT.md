@@ -96,15 +96,19 @@ settings — at the four sizes, light and dark, and at 1.3× text.
     "Select"). → `LibrarySelection` + a floating action bar: select all,
     favourite, move, trash (with Undo); restore / delete forever in the
     Trash. Esc / back ends it; leaving the folder clears it.
-13. ⬜ No "New…" tile in the grid (GoodNotes). The FAB covers it; revisit
-    after selection mode.
-14. ⬜ Settings on wide screens could use a two-pane layout (category list +
-    detail) like GoodNotes on iPad; the single 680 px column is fine for now.
+13. ✅ No "New…" tile in the grid (GoodNotes). → `NewNotebookTile` first in the
+    grid of the library root and folders (not in favourites, trash, search,
+    selection mode or list layout); the FAB stays.
+14. ✅ Settings on wide screens could use a two-pane layout (category list +
+    detail) like GoodNotes on iPad. → From 1040 px: section list with icons
+    on the left, the selected section on the right; one column below.
 15. ✅ Motion: shared-element transition from cover to editor (GoodNotes
     "opens" the notebook). → `NotebookOpenRoute`: the tapped cover grows
     into the screen, fades into the paper and the editor fades in; back
     shrinks it into the cover (wherever it is now), else fades.
-16. ⬜ Folder colours only; GoodNotes allows folder icons/emoji.
+16. ✅ Folder colours only; GoodNotes allows folder icons/emoji. → 19 icons
+    (synced) picked in the folder dialog, tinted with the folder colour on
+    tiles, in the sidebar and in the move dialog.
 17. ⬜ Long PDF imports/exports can't be cancelled (the progress dialog has
     no Cancel; needs cancellation in `PdfImporter` / `NotebookExporter`).
 18. ✅ No export options sheet (page range, PNG resolution, flatten
@@ -113,6 +117,13 @@ settings — at the four sizes, light and dark, and at 1.3× text.
 19. ⬜ Paper-colour chips wrap to two rows on phones in the template picker.
 20. ⬜ Typing a search ends selection mode (selection is scoped to the
     place, search included); keep it if the selected notebooks match.
+21. ✅ Template picker had one flat set of 10 templates. → Categories (Basic,
+    Writing, Planners, Paper, My templates) as chips, search, planners with
+    dates ("Add 31 pages"), an Import tile and per-template menu (rename,
+    delete) for My templates; image templates fix the page size. Checked in
+    `templates_screenshot_test.dart` (phone and tablet).
+22. ⬜ The template picker puts paper colour and size below the (now long)
+    gallery; a side-by-side layout on wide screens would keep them in view.
 
 ## Accessibility notes
 

@@ -38,14 +38,14 @@ SurfaceElement textBox(String id, String surface, String text, Offset at, {doubl
     kind: NotebookKind.paged,
     paper: PaperStyle.collegeRuled,
     coverColor: cover,
-    firstPage: const PageTemplate(style: PaperStyle.collegeRuled),
+    firstPage: const PageTemplate(paper: Paper(PaperStyle.collegeRuled)),
   );
   final biology = paged('Biology', 0xFF2F9E44);
   final b1 = s.pages.pagesOf(biology.id).single;
-  s.pages.addPage(biology.id, template: const PageTemplate(style: PaperStyle.collegeRuled));
+  s.pages.addPage(biology.id, template: const PageTemplate(paper: Paper(PaperStyle.collegeRuled)));
   final b3 = s.pages.addPage(
     biology.id,
-    template: const PageTemplate(style: PaperStyle.collegeRuled),
+    template: const PageTemplate(paper: Paper(PaperStyle.collegeRuled)),
   );
   final chemistry = paged('Chemistry', 0xFFE8590C);
   final c1 = s.pages.pagesOf(chemistry.id).single;

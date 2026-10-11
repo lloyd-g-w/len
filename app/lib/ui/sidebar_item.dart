@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../ui/app_theme.dart';
+import 'app_theme.dart';
 
-/// One row of the library sidebar: icon, label and optional trailing
+/// One row of a sidebar (library, settings): icon, label and optional trailing
 /// count, with selected, hover and drop-target states.
 class SidebarItem extends StatefulWidget {
   const SidebarItem({

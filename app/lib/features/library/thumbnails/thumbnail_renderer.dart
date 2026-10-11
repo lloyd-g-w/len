@@ -20,7 +20,7 @@ import '../../../ink/viewport.dart';
 
 /// The surface a notebook preview shows, with its paper and, for paged
 /// notebooks, the page.
-typedef PreviewSource = ({String surfaceId, PaperStyle paper, NotebookPage? page});
+typedef PreviewSource = ({String surfaceId, Paper paper, NotebookPage? page});
 
 /// Renders small preview images of notebooks with the editor's own paper
 /// stroke and element renderers, so previews look exactly like the real
@@ -54,7 +54,7 @@ class ThumbnailRenderer {
   /// notebook, or the canvas itself. Null for a notebook without pages.
   PreviewSource? sourceOf(Notebook notebook) {
     if (notebook.kind == NotebookKind.canvas) {
-      return (surfaceId: notebook.id, paper: notebook.paper, page: null);
+      return (surfaceId: notebook.id, paper: Paper(notebook.paper), page: null);
     }
     final page = pages.pagesOf(notebook.id).firstOrNull;
     return page == null ? null : (surfaceId: page.id, paper: page.paper, page: page);
@@ -102,7 +102,7 @@ class ThumbnailRenderer {
     return _paint(
       size,
       _frame(content, size.aspectRatio),
-      notebook.paper,
+      Paper(notebook.paper),
       ink,
       items,
       color: notebook.paperColor,
@@ -129,6 +129,17 @@ class ThumbnailRenderer {
     final keys = (among ?? repo.populatedChunks(surfaceId, range)).where(range.contains).toList();
     return repo.loadChunks(surfaceId, keys)..sort(SurfaceElement.paintOrder);
   }
+
+  /// An image template's bitmap; remembered as pending while it decodes.
+  ui.Image? _paperImage(String blob, double pixelWidth) {
+    final images = this.images;
+    if (images == null) return null;
+    final image = images.imageFor(ImageData(blob: blob, width: 0, height: 0), pixelWidth);
+    if (image == null && !images.isMissing(blob)) _paperPending.add(blob);
+    return image;
+  }
+
+  final Set<String> _paperPending = {};
 
   Set<String> _stillDecoding(List<SurfaceElement> items, double pixelScale) {
     final images = this.images;
@@ -161,7 +172,7 @@ class ThumbnailRenderer {
   ui.Image _paint(
     Size size,
     Rect world,
-    PaperStyle paper,
+    Paper paper,
     List<Stroke> ink,
     List<SurfaceElement> items, {
     PaperColor color = PaperColor.white,
@@ -175,9 +186,10 @@ class ThumbnailRenderer {
     final canvas = Canvas(recorder, Offset.zero & size);
     PaperPainter(
       viewport: viewport,
-      style: paper,
+      paper: paper,
       paperColor: color,
       page: page,
+      images: _paperImage,
     ).paint(canvas, size);
     canvas
       ..save()
@@ -187,7 +199,8 @@ class ThumbnailRenderer {
     final pixelScale = viewport.scale;
     ContentPainter.paint(canvas, ink, items, images: images, pixelScale: pixelScale);
     canvas.restore();
-    _pending = _stillDecoding(items, pixelScale);
+    _pending = {..._stillDecoding(items, pixelScale), ..._paperPending};
+    _paperPending.clear();
     viewport.dispose();
     final picture = recorder.endRecording();
     try {

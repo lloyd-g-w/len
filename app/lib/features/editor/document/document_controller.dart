@@ -7,6 +7,8 @@ import 'package:flutter/painting.dart' show EdgeInsets;
 import '../../../data/element_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../domain/paper.dart';
+import '../../../domain/paper_pattern.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/input/ink_input_controller.dart';
 import '../../../ink/surface_model.dart';
@@ -226,6 +228,25 @@ class DocumentController extends ChangeNotifier {
       },
     );
   }
+
+  /// The planner page a link at [screen] leads to (a day, week or month
+  /// printed on a planner page), or null when there is no link there.
+  Paper? plannerLinkAt(Offset screen) {
+    final world = viewport.toWorld(screen);
+    final index = _layout.pageAt(world);
+    if (index == null) return null;
+    final page = _pages[index];
+    if (!page.paper.style.isPlanner) return null;
+    final local = world - _layout.frameOf(index)!.topLeft;
+    final pattern = PaperPattern.of(page.paper, page.bounds, page: page.bounds);
+    for (final link in pattern.links) {
+      if (link.rect.contains(local)) return link.target;
+    }
+    return null;
+  }
+
+  /// The index of the first page with template [paper], or -1.
+  int indexOfPaper(Paper paper) => _pages.indexWhere((p) => p.paper == paper);
 
   /// Makes the page under [screen] (or nearest to it) the active page.
   void activateAt(Offset screen) {

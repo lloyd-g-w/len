@@ -107,6 +107,13 @@ class NotebookExporter {
 
   Future<ui.Image?> _background(NotebookPage page, double pixelWidth) async {
     final bg = page.background;
+    final template = page.paper.image;
+    if (bg == null && template != null) {
+      // An image template: exported like a background (a copy, as the
+      // caller disposes it).
+      final image = ImageData(blob: template, width: 0, height: 0);
+      return (await services.images.load(image, pixelWidth))?.clone();
+    }
     if (bg == null || !await services.sync.fetchBlob(bg.blob)) return null;
     return _renderer.render(bg.blob, bg.pageIndex, pixelWidth.round());
   }

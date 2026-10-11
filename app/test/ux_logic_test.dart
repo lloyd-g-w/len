@@ -74,7 +74,7 @@ void main() {
   });
 
   test('template descriptions', () {
-    const t = PageTemplate(style: PaperStyle.dotted, color: PaperColor.cream);
+    const t = PageTemplate(paper: Paper(PaperStyle.dotted), color: PaperColor.cream);
     expect(describeTemplate(t), 'Dotted · Cream · A4 portrait');
     expect(describeTemplate(t, canvas: true), 'Dotted · Cream · Infinite canvas');
     expect(describeTemplate(t.copyWith(format: PageFormat.square)), 'Dotted · Cream · Square');
