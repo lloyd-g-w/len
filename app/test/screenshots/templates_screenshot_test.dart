@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/domain/notebook.dart';
 import 'package:len/features/documents/template_picker.dart';
+import 'package:len/features/editor/document/paged_document_view.dart';
+import 'package:len/features/editor/tabs/editor_workspace.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/ink/render/paper_painter.dart';
 
@@ -78,6 +81,33 @@ void main() {
         ),
       );
       await shoot(tester, 'paper_$name');
+    });
+  }
+
+  for (final (name, size) in const [
+    ('tablet', Size(1280, 800)),
+    ('tablet_portrait', Size(800, 1280)),
+  ]) {
+    testWidgets('editor with a linked planner $name', (tester) async {
+      setWindow(tester, size);
+      final services = seededServices();
+      addTearDown(services.dispose);
+      final nb = services.notebooks.create(
+        title: 'Planner 2026',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0xFF0B7285,
+        papers: PlannerPlan(start: _today, linked: true).papersFor(PaperStyle.monthlyCalendar),
+        firstPage: const PageTemplate(color: PaperColor.cream),
+      );
+      services.openNotebooks.open(nb);
+      await pumpApp(tester, services, const EditorWorkspace());
+      await shoot(tester, 'templates_editor_month_$name');
+      final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
+      doc.goToPage(doc.indexOfPaper(Paper.planner(PaperStyle.dailyPlanner, _today)));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      await shoot(tester, 'templates_editor_day_$name');
     });
   }
 
