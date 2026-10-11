@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'app.dart';
@@ -18,6 +20,8 @@ Future<void> main() async {
   final services = AppServices.create(database, blobBackend: await openBlobBackend(dir))
     ..sync.start();
   runApp(LenApp(services: services));
+  // Throttled to once a day; deletes blobs unreferenced for a week.
+  unawaited(services.blobGc.runIfDue());
 }
 
 /// Shown in a browser tab while Len is open in another tab.

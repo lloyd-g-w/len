@@ -124,7 +124,22 @@ class AppDatabase {
     _createSearchIndex,
     _createInkText,
     _createRecordings,
+    _addBlobSyncState,
   ];
+
+  /// Per-blob sync and garbage collection state: `rejected_limit` is set
+  /// when the server refused the blob as too large (the server's limit at
+  /// the time, 0 if unknown), `unreferenced_since` (ms) when no live row was
+  /// last found referencing it. Idempotent.
+  static void _addBlobSyncState(CommonDatabase db) {
+    final columns = db.select('PRAGMA table_info(blobs)').map((r) => r['name']).toSet();
+    if (!columns.contains('rejected_limit')) {
+      db.execute('ALTER TABLE blobs ADD COLUMN rejected_limit INTEGER');
+    }
+    if (!columns.contains('unreferenced_since')) {
+      db.execute('ALTER TABLE blobs ADD COLUMN unreferenced_since INTEGER');
+    }
+  }
 
   /// Recognised handwriting (derived, never synced) and its search
   /// documents. Idempotent (see [InkTextSchema.create]).

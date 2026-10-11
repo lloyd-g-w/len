@@ -71,8 +71,8 @@ class RecordingRepository extends SyncableTable {
     return updated;
   }
 
-  /// Tombstones recording [id] (its blob stays, see "Blobs" in the sync
-  /// protocol: blobs are never deleted).
+  /// Tombstones recording [id]. Its blob stays until garbage collection
+  /// (see `LocalBlobGc`) finds it unreferenced for long enough.
   void delete(String id) => _tombstone(id);
 
   /// Tombstones every recording of [notebookId] (notebook deletion).
