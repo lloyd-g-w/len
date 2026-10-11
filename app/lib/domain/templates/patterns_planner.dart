@@ -82,14 +82,16 @@ extension PlannerPatterns on PatternBuilder {
         muted: true,
       );
       final month = Rect.fromLTWH(c.right - 160, c.top + 6, 160, 24);
+      // The month most of the week is in (that of its Thursday).
+      final thursday = PlannerDates.addDays(monday, 3);
       label(
-        PlannerDates.monthNames[monday.month - 1],
+        PlannerDates.monthNames[thursday.month - 1],
         month,
         size: 13,
         align: LabelAlign.end,
         muted: true,
       );
-      link(month, Paper.planner(PaperStyle.monthlyCalendar, monday));
+      link(month, Paper.planner(PaperStyle.monthlyCalendar, thursday));
     }
     h(header, c.left, c.right, PatternWeight.heavy);
 
