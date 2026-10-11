@@ -213,9 +213,8 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
 
 ## Templates (`domain/paper.dart`, `domain/paper_pattern.dart`)
 
-`PaperStyle` names are stored and synced and never renamed (`lined` is wide
-ruled, `grid` the large grid). `PaperPattern.of` computes a template's
-geometry (lines with weights, dots) for an area, independent of the target:
+`PaperStyle` names are stored and synced. `PaperPattern.of` computes a
+template's geometry (lines with weights, dots) for an area, independent of the target:
 `PaperRenderer` draws it on screen, in thumbnails and PNG export, and
 `PdfExporter` writes the same lines as PDF vectors. Pages carry their paper
 colour and size; new pages copy the current page's paper and size.
@@ -656,7 +655,9 @@ easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 ## Persistence
 
 `package:sqlite3` (bundles SQLite via build hooks on every platform).
-Schema migrations live in `AppDatabase._migrations` — append, never edit.
+`AppDatabase._createSchema` creates the whole schema (`PRAGMA user_version`
+1). Later schema changes append a migration to `AppDatabase._migrations`;
+once released, never edit one.
 All writes go straight to SQLite; in-memory state is a cache.
 
 ## Platforms (`platform/`)
@@ -751,9 +752,8 @@ boxes, the text of imported PDF pages and recognised handwriting (see
   body)` — one row per title, folder, text box or PDF page — with an FTS5
   index `search_fts` over it (external content, `unicode61
   remove_diacritics 2`, prefix indexes). It is never synced: it is created
-  and filled from the synced tables by an (idempotent) migration and kept
-  current by **SQLite triggers** on `notebooks`, `folders`, `elements` and
-  `pages`, so local edits, duplicates and records applied by sync are
+  with the schema and kept current by **SQLite triggers** on `notebooks`,
+  `folders`, `elements` and `pages`, so local edits, duplicates and records applied by sync are
   indexed by the very write that changes them, whatever code path made it.
   The triggers fire only when an indexed column changes (moving a text box
   costs nothing). `SearchIndex.rebuild()` recreates it from scratch. Builds
@@ -838,7 +838,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   writing a word re-recognises one line; a surface changed while it was
   being recognised stays queued (the queue row is only removed at the
   version that was read). Failures (model missing) leave the queue for the
-  next change. The migration queues every surface with ink.
+  next change.
 - **Highlights.** The editor search (`EditorSearchController`) turns a
   handwriting hit into one match per occurrence, highlighted on the matched
   words' boxes (`InkMatchRects`) or the whole line; the library lists them
@@ -891,7 +891,9 @@ at phone, tablet and desktop sizes in light and dark with real fonts. Run
 See [`SYNC_PROTOCOL.md`](SYNC_PROTOCOL.md). Every synced table has
 `updated_at / device_id / deleted / dirty`. A cycle pushes dirty rows, then
 pulls the server's change feed from the last seen sequence number, applying
-records with last-write-wins. Open screens subscribe to
+records with last-write-wins. Remote records are parsed strictly
+(`RecordFields`): every field of the collection's format is required, and a
+malformed record is skipped. Open screens subscribe to
 `SyncController.remoteChanges` and reload only the affected surfaces.
 
 ## Known limitations / next steps
