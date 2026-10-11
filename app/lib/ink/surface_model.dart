@@ -17,6 +17,7 @@ import 'content_index.dart';
 import 'geometry/stroke_splitter.dart';
 import 'images/element_images.dart';
 import 'pen/eraser_config.dart';
+import 'render/outline_preparer.dart';
 import 'stroke_hit_test.dart';
 import 'surface_loader.dart';
 import 'undo_history.dart';
@@ -38,6 +39,7 @@ class SurfaceModel extends ChangeNotifier {
     this.maxLoadedChunks = 1024,
     this.clock = const Clock(),
     this.writeBehind = false,
+    this.outlines,
   }) {
     _loading = SurfaceLoader(
       reader: reader ?? _repository,
@@ -68,6 +70,14 @@ class SurfaceModel extends ChangeNotifier {
   final bool writeBehind;
 
   final List<InkEdit> _unsaved = [];
+
+  /// Builds loaded strokes' outlines before they are added (off the UI
+  /// thread), so the first frame drawing a page does not build thousands
+  /// of them; null: built when first drawn.
+  final OutlinePreparer? outlines;
+
+  /// Bumped by [reload]: loads prepared before are dropped.
+  int _generation = 0;
 
   // Indexed with the same chunk functions as storage (path-based for ink).
   final _strokes = ContentIndex<Stroke>(idOf: (s) => s.id, chunksOf: StrokeChunks.of);
@@ -210,11 +220,22 @@ class SurfaceModel extends ChangeNotifier {
     _loading.request(range);
   }
 
-  /// Whether chunks are still being read in the background.
-  bool get isLoading => _loading.isLoading;
+  /// Whether chunks are still being read (or their outlines built).
+  bool get isLoading => _loading.isLoading || _preparing > 0;
 
   /// Completes when no background read is pending.
-  Future<void> get loaded => _loading.idle;
+  Future<void> get loaded async {
+    await _loading.idle;
+    while (_preparing > 0 && !_disposed) {
+      await Future<void>.delayed(const Duration(milliseconds: 4));
+    }
+  }
+
+  int _preparing = 0;
+
+  /// Ids removed while loads were being prepared: those loads must not
+  /// bring them back.
+  final Set<String> _removedWhilePreparing = {};
 
   Set<ChunkKey> _loadedWithin(ChunkRange range) => {
     for (final key in _loaded)
@@ -223,6 +244,36 @@ class SurfaceModel extends ChangeNotifier {
 
   void _onLoad(ChunkLoad load) {
     if (_disposed) return;
+    final outlines = this.outlines;
+    if (outlines == null || load.strokes.isEmpty) return _insertLoad(load);
+    final generation = _generation;
+    _preparing++;
+    // Synchronous when the outlines are built inline.
+    outlines.prepare(load.strokes).then((_) {
+      _preparing--;
+      if (!_disposed && generation == _generation) {
+        final removed = _removedWhilePreparing;
+        _insertLoad(
+          removed.isEmpty
+              ? load
+              : ChunkLoad(
+                  chunks: load.chunks,
+                  strokes: [
+                    for (final s in load.strokes)
+                      if (!removed.contains(s.id)) s,
+                  ],
+                  elements: [
+                    for (final e in load.elements)
+                      if (!removed.contains(e.id)) e,
+                  ],
+                ),
+        );
+      }
+      if (_preparing == 0) _removedWhilePreparing.clear();
+    });
+  }
+
+  void _insertLoad(ChunkLoad load) {
     if (load.chunks.isNotEmpty) {
       final changed = <ChunkKey>{};
       for (final stroke in load.strokes) {
@@ -249,6 +300,7 @@ class SurfaceModel extends ChangeNotifier {
   /// brought in remote changes).
   void reload() {
     flush();
+    _generation++;
     _strokes.clear();
     _elements.clear();
     _loaded.clear();
@@ -369,6 +421,11 @@ class SurfaceModel extends ChangeNotifier {
       } else {
         _write(edit);
       }
+    }
+    if (_preparing > 0) {
+      _removedWhilePreparing
+        ..addAll(edit.removed.map((s) => s.id))
+        ..addAll(edit.removedElements.map((e) => e.id));
     }
     for (final s in edit.removed) {
       final current = _strokes[s.id];

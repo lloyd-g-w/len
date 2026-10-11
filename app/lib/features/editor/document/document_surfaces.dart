@@ -7,6 +7,7 @@ import '../../../data/element_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/chunk_picture_cache.dart';
+import '../../../ink/render/outline_preparer.dart';
 import '../../../ink/render/tiles/ink_tile_cache.dart';
 import '../../../ink/surface_model.dart';
 import 'undo_target.dart';
@@ -42,7 +43,7 @@ class PageSurface {
 /// one history for the whole notebook. Every committed edit (ink, text,
 /// selection changes) counts, whether or not it came from a pointer.
 class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
-  DocumentSurfaces(this.repository, {this.elements, this.images, this.keepIdle = 6});
+  DocumentSurfaces(this.repository, {this.elements, this.images, this.outlines, this.keepIdle = 6});
 
   final StrokeRepository repository;
 
@@ -51,6 +52,9 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
 
   /// Decoded bitmaps for image elements.
   final ElementImages? images;
+
+  /// Builds loaded strokes' outlines off the UI thread (optional).
+  final OutlinePreparer? outlines;
 
   /// Off-screen surfaces without history kept around for quick returns.
   final int keepIdle;
@@ -84,6 +88,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
             elementRepository: elements,
             images: images,
             writeBehind: true,
+            outlines: outlines,
           )
           ..addListener(notifyListeners)
           ..onCommit = () => noteEdited(pageId);

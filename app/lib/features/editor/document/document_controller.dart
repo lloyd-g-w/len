@@ -11,6 +11,7 @@ import '../../../domain/paper.dart';
 import '../../../domain/paper_pattern.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/input/ink_input_controller.dart';
+import '../../../ink/render/outline_preparer.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ink/viewport.dart';
 import '../tabs/open_notebooks.dart';
@@ -29,6 +30,7 @@ class DocumentController extends ChangeNotifier {
     required StrokeRepository strokes,
     ElementRepository? elements,
     ElementImages? images,
+    OutlinePreparer? outlines,
     this._flow = PageFlow.continuous,
     int initialPage = 0,
     this._initialView,
@@ -36,7 +38,12 @@ class DocumentController extends ChangeNotifier {
   }) : assert(pages.isNotEmpty, 'A document needs at least one page'),
        _pages = pages,
        _current = initialPage.clamp(0, pages.length - 1),
-       surfaces = DocumentSurfaces(strokes, elements: elements, images: images) {
+       surfaces = DocumentSurfaces(
+         strokes,
+         elements: elements,
+         images: images,
+         outlines: outlines,
+       ) {
     _active = _current;
     surfaces.active = pages[_current].id;
     _relayout();

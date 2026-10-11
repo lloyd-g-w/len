@@ -10,6 +10,7 @@ import 'ink/lab/perf_probe.dart';
 import 'platform/app_directory.dart';
 import 'platform/blob_backend.dart';
 import 'platform/incoming_files.dart';
+import 'platform/outline_preparer.dart';
 import 'platform/single_instance.dart';
 import 'ui/app_theme.dart';
 
@@ -26,6 +27,8 @@ Future<void> main(List<String> args) async {
     blobBackend: await openBlobBackend(dir),
     // "Open with" / "Share to Len", command-line files, PWA file handler.
     incomingFiles: openIncomingFiles(args),
+    // Outlines of loaded ink are built on worker isolates.
+    outlines: createOutlinePreparer(),
   )..sync.start();
   if (PerfProbe.requested) PerfProbe.start();
   runApp(LenApp(services: services));
