@@ -56,6 +56,8 @@ EditorMenuActions editorMenuActions(
     onAddToOutline: paged ? () => addPageToOutline(context, session) : null,
     onPageTags: paged ? () => editPageTags(context, session, page) : null,
     onTags: () => editNotebookTags(context, session),
+    onStickers: session.stickers.toggle,
+    stickersOpen: session.stickers.open.value,
     flow: doc?.flow,
     onFlow: paged ? onFlow : null,
     fit: doc?.fit,

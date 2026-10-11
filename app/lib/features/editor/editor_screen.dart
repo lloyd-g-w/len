@@ -40,6 +40,7 @@ import 'editor_toolbar.dart';
 import 'images/image_entry_points.dart';
 import 'links/link_actions.dart';
 import 'pdf/pdf_layer.dart';
+import 'stickers/sticker_layer.dart';
 import 'tabs/open_notebooks.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
@@ -462,7 +463,10 @@ class _EditorScreenState extends State<_EditorView> {
                               guard: _guard,
                               chromeInsets: layout.covered,
                               onFollowLink: _followLink,
-                              selectionActions: () => [linkSelectionAction(context, _session)],
+                              selectionActions: () => [
+                                linkSelectionAction(context, _session),
+                                _session.stickers.saveAction(context),
+                              ],
                             ),
                           ),
                           if (_session.pdf case final pdf?)
@@ -489,6 +493,12 @@ class _EditorScreenState extends State<_EditorView> {
                             ),
                           ),
                           Positioned.fill(child: _buildChrome(layout, tabs)),
+                          Positioned.fill(
+                            child: StickerLayer(
+                              stickers: _session.stickers,
+                              insets: layout.floatingInsets,
+                            ),
+                          ),
                           Positioned.fill(
                             child: EditorSearchLayer(
                               controller: _search,

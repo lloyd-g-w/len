@@ -32,6 +32,8 @@ class EditorMenuActions {
     this.onAddToOutline,
     this.onPageTags,
     this.onTags,
+    this.onStickers,
+    this.stickersOpen = false,
     this.flow,
     this.onFlow,
     this.fit,
@@ -84,6 +86,10 @@ class EditorMenuActions {
 
   /// Tags the notebook (every notebook kind).
   final VoidCallback? onTags;
+
+  /// Shows or hides the sticker panel.
+  final VoidCallback? onStickers;
+  final bool stickersOpen;
   final PageFlow? flow;
   final ValueChanged<PageFlow>? onFlow;
 

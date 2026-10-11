@@ -58,6 +58,12 @@ class EditorMoreMenu extends StatelessWidget {
         if (compact && a.isPaged)
           if (a.onExport case final onExport?) exportMenuItem(onExport),
         if (compact) ...compactItems,
+        if (a.onStickers case final onStickers?)
+          _item(
+            Icons.interests_outlined,
+            a.stickersOpen ? 'Hide stickers' : 'Stickers',
+            onStickers,
+          ),
         if (a.isPaged) ...[
           SubmenuButton(
             leadingIcon: const Icon(Icons.description_outlined),
