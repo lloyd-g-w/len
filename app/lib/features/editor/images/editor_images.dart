@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard;
 import 'package:image_picker/image_picker.dart' as picker;
 import 'package:pasteboard/pasteboard.dart';
 
@@ -14,6 +15,7 @@ import '../../../domain/surface_element.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/tools/content_tools.dart';
 import '../../documents/progress_dialog.dart';
+import '../tools/text/rich_text_controller.dart';
 import 'image_import.dart';
 import 'image_placement.dart';
 
@@ -52,6 +54,10 @@ class EditorImages {
   /// Hash of the system clipboard's image when ink was last copied in the
   /// app: that image is older than the ink, so Ctrl+V pastes the ink.
   String? _imageBeforeInkCopy;
+
+  /// The system clipboard's text when ink was last copied in the app (as
+  /// [_imageBeforeInkCopy], for text).
+  String? _textBeforeInkCopy;
 
   /// Whether the camera can be offered (Android only).
   static bool get canUseCamera => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -111,6 +117,12 @@ class EditorImages {
     if (!context.mounted) return;
     if (bytes != null && _hash(bytes) != _imageBeforeInkCopy) {
       await insertBytes(context, bytes);
+      return;
+    }
+    // Plain text newer than the copied ink becomes a new text box.
+    final text = await _clipboardText();
+    if (text != null && (services.clipboard.isEmpty || text != _textBeforeInkCopy)) {
+      content.pasteText(RichTextController.pasted(text, tools.textStyle));
     } else {
       content.pasteAtCentre();
     }
@@ -185,8 +197,19 @@ class EditorImages {
     }
   }
 
+  static Future<String?> _clipboardText() async {
+    try {
+      final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+      return text == null || text.trim().isEmpty ? null : text;
+    } on Object catch (e) {
+      debugPrint('Clipboard text unavailable: $e');
+      return null;
+    }
+  }
+
   void _onInkCopied() {
     if (services.clipboard.isEmpty) return;
+    unawaited(_clipboardText().then((text) => _textBeforeInkCopy = text));
     unawaited(
       _clipboardImage().then((bytes) => _imageBeforeInkCopy = bytes == null ? null : _hash(bytes)),
     );

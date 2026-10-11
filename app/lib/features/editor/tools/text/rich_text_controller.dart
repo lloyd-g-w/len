@@ -43,6 +43,16 @@ class RichTextController extends TextEditingController {
   /// plain text keeps the formatting.
   static ({String text, List<SpanStyle> styles})? _richClip;
 
+  /// [text] from the clipboard as a new box formatted like [box]; text
+  /// last copied from a box here keeps its formatting.
+  static TextData pasted(String text, TextData box) {
+    final clean = text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n');
+    final clip = _richClip;
+    final base = box.copyWith(text: clean);
+    if (clip == null || clip.text != clean) return base;
+    return base.withFormatting(spans: TextData.compact(clip.styles));
+  }
+
   /// The formatted text with the box's defaults.
   TextData get data => _data ??= _buffer.toData(_box);
 

@@ -15,7 +15,56 @@ Future<void> ctrl(WidgetTester tester, LogicalKeyboardKey key, {bool shift = fal
   await tester.pump();
 }
 
+/// Makes the system clipboard hold [text] (for this test).
+void mockClipboardText(String? text) {
+  final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  var clip = text;
+  messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+    if (call.method == 'Clipboard.getData') return clip == null ? null : {'text': clip};
+    if (call.method == 'Clipboard.setData') clip = (call.arguments as Map)['text'] as String?;
+    return null;
+  });
+  addTearDown(() => messenger.setMockMethodCallHandler(SystemChannels.platform, null));
+}
+
+Future<void> paste(WidgetTester tester) async {
+  await ctrl(tester, LogicalKeyboardKey.keyV);
+  for (var i = 0; i < 4; i++) {
+    await tester.pump(); // clipboard reads
+  }
+}
+
 void main() {
+  testWidgets('Ctrl+V pastes plain text as a new, selected text box; copied ink wins after', (
+    tester,
+  ) async {
+    mockClipboardText('Pasted line one\nand two');
+    final (services, nb) = await openCanvas(
+      tester,
+      seed: (s, nb) => s.strokes.save([seedStroke(nb.id)]),
+    );
+    await paste(tester);
+    final box = liveElements(services, nb.id).single;
+    final data = TextData.fromJson(box.data);
+    expect(data.text, 'Pasted line one\nand two');
+    expect(data.autoWidth, isTrue);
+    expect(box.rect.center.dx, closeTo(640, 1));
+    expect(find.byTooltip('Style'), findsOneWidget); // selected with the lasso
+
+    // Copy the ink: the clipboard's text is older now, so ink is pasted.
+    await key(tester, LogicalKeyboardKey.escape);
+    await mouseDrag(tester, const [Offset(150, 401)]);
+    await ctrl(tester, LogicalKeyboardKey.keyC);
+    await tester.pump();
+    await paste(tester);
+    expect(liveStrokes(services, nb.id), hasLength(2));
+    expect(liveElements(services, nb.id), hasLength(1));
+    await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
+    await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
+    await tester.pump();
+    expect(liveElements(services, nb.id), isEmpty);
+  });
+
   testWidgets('text: shortcuts format, lists toggle, checkboxes tick (editing and not)', (
     tester,
   ) async {
