@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
@@ -20,6 +21,7 @@ import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
+import 'features/documents/import/incoming_files.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'ink/images/element_images.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
@@ -49,12 +51,14 @@ class AppServices {
     required this.recognition,
     required this.recordings,
     required this.audio,
+    required this.incomingFiles,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
   /// substitute the sync transport. Blobs (PDFs) are kept in [blobBackend]
   /// (in memory if omitted, e.g. in tests). [audio] replaces the
-  /// recorder and player (tests use fakes).
+  /// recorder and player (tests use fakes). [incomingFiles] are files
+  /// handed to the app from outside (`platform/incoming_files`).
   factory AppServices.create(
     AppDatabase database, {
     Clock clock = const Clock(),
@@ -62,6 +66,7 @@ class AppServices {
     AudioBackends? audio,
     SyncApi Function(String url, String token)? syncApiFactory,
     HandwritingRecognizer? recognizer,
+    Stream<List<XFile>>? incomingFiles,
   }) {
     final settings = SettingsRepository(database);
     final deviceId = settings.deviceId(clock);
@@ -117,6 +122,7 @@ class AppServices {
       recognition: recognition,
       recordings: recordings,
       audio: audio ?? platformAudioBackends(),
+      incomingFiles: IncomingFiles(incomingFiles),
     );
   }
 
@@ -149,6 +155,9 @@ class AppServices {
   /// Makes recorders and players (created only when used).
   final AudioBackends audio;
 
+  /// Files opened with / shared to Len, and the editor they may go into.
+  final IncomingFiles incomingFiles;
+
   /// Copied strokes and text, shared by every editor (paste across pages
   /// and notebooks).
   final InkClipboard clipboard = InkClipboard();
@@ -167,6 +176,7 @@ class AppServices {
   late final ElementImages images = ElementImages(read: blobs.read, fetch: sync.fetchBlob);
 
   void dispose() {
+    incomingFiles.dispose();
     images.dispose();
     openNotebooks.dispose();
     clipboard.dispose();

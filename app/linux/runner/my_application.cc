@@ -10,6 +10,13 @@
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
+  // The one window of the primary instance (null until activated).
+  GtkWindow* window;
+  // "len/incoming_files": files another `len <file>` forwarded to this
+  // instance (lib/platform/incoming_files_native.dart).
+  FlMethodChannel* incoming;
+  gboolean dart_ready;
+  GPtrArray* pending_paths;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -38,11 +45,54 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+// Sends the files waiting in pending_paths to Dart once it is ready.
+static void send_pending_files(MyApplication* self) {
+  if (!self->dart_ready || self->incoming == nullptr ||
+      self->pending_paths->len == 0) {
+    return;
+  }
+  g_autoptr(FlValue) files = fl_value_new_list();
+  for (guint i = 0; i < self->pending_paths->len; i++) {
+    const gchar* path =
+        static_cast<const gchar*>(g_ptr_array_index(self->pending_paths, i));
+    g_autofree gchar* name = g_path_get_basename(path);
+    FlValue* file = fl_value_new_map();
+    fl_value_set_string_take(file, "path", fl_value_new_string(path));
+    fl_value_set_string_take(file, "name", fl_value_new_string(name));
+    fl_value_append_take(files, file);
+  }
+  g_ptr_array_set_size(self->pending_paths, 0);
+  fl_method_channel_invoke_method(self->incoming, "files", files, nullptr,
+                                  nullptr, nullptr);
+}
+
+static void incoming_method_cb(FlMethodChannel* channel,
+                               FlMethodCall* method_call, gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  g_autoptr(FlMethodResponse) response = nullptr;
+  if (g_strcmp0(fl_method_call_get_name(method_call), "ready") == 0) {
+    self->dart_ready = TRUE;
+    send_pending_files(self);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  }
+  fl_method_call_respond(method_call, response, nullptr);
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
+  // A second `len` without files: bring the running window forward.
+  if (self->window != nullptr) {
+    gtk_window_present(self->window);
+    return;
+  }
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+  self->window = window;
+  g_object_add_weak_pointer(G_OBJECT(window),
+                            reinterpret_cast<gpointer*>(&self->window));
 
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
@@ -97,6 +147,13 @@ static void my_application_activate(GApplication* application) {
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  self->incoming = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      "len/incoming_files", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(self->incoming, incoming_method_cb,
+                                            self, nullptr);
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
@@ -115,10 +172,43 @@ static gboolean my_application_local_command_line(GApplication* application,
     return TRUE;
   }
 
-  g_application_activate(application);
   *exit_status = 0;
+  if (g_application_get_is_remote(application)) {
+    // Len is already running: hand it the files (or just raise it) and
+    // exit, so one process owns the database.
+    g_autoptr(GPtrArray) files = g_ptr_array_new_with_free_func(g_object_unref);
+    for (gchar** arg = self->dart_entrypoint_arguments; *arg != nullptr;
+         arg++) {
+      if ((*arg)[0] != '-' && (*arg)[0] != '\0') {
+        g_ptr_array_add(files, g_file_new_for_commandline_arg(*arg));
+      }
+    }
+    if (files->len > 0) {
+      g_application_open(application,
+                         reinterpret_cast<GFile**>(files->pdata), files->len,
+                         "");
+    } else {
+      g_application_activate(application);
+    }
+    return TRUE;
+  }
 
+  // The primary instance: Dart reads its files from the arguments.
+  g_application_activate(application);
   return TRUE;
+}
+
+// Implements GApplication::open: files forwarded by a second `len <file>`.
+static void my_application_open(GApplication* application, GFile** files,
+                                gint n_files, const gchar* hint) {
+  MyApplication* self = MY_APPLICATION(application);
+  if (self->window == nullptr) g_application_activate(application);
+  for (gint i = 0; i < n_files; i++) {
+    gchar* path = g_file_get_path(files[i]);
+    if (path != nullptr) g_ptr_array_add(self->pending_paths, path);
+  }
+  send_pending_files(self);
+  if (self->window != nullptr) gtk_window_present(self->window);
 }
 
 // Implements GApplication::startup.
@@ -143,11 +233,14 @@ static void my_application_shutdown(GApplication* application) {
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  g_clear_object(&self->incoming);
+  g_clear_pointer(&self->pending_paths, g_ptr_array_unref);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
 static void my_application_class_init(MyApplicationClass* klass) {
   G_APPLICATION_CLASS(klass)->activate = my_application_activate;
+  G_APPLICATION_CLASS(klass)->open = my_application_open;
   G_APPLICATION_CLASS(klass)->local_command_line =
       my_application_local_command_line;
   G_APPLICATION_CLASS(klass)->startup = my_application_startup;
@@ -155,7 +248,9 @@ static void my_application_class_init(MyApplicationClass* klass) {
   G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
 }
 
-static void my_application_init(MyApplication* self) {}
+static void my_application_init(MyApplication* self) {
+  self->pending_paths = g_ptr_array_new_with_free_func(g_free);
+}
 
 MyApplication* my_application_new() {
   // Set the program name to the application ID, which helps various systems
@@ -164,7 +259,19 @@ MyApplication* my_application_new() {
   // the application to be recognized beyond its binary name.
   g_set_prgname(APPLICATION_ID);
 
+  // One instance per user (files opened later go to the running one), unless
+  // LEN_MULTI_INSTANCE is set or a non-default data directory is used
+  // (XDG_DATA_HOME=$(mktemp -d), e.g. for screenshots and tests).
+  GApplicationFlags flags = G_APPLICATION_HANDLES_OPEN;
+  g_autofree gchar* default_data =
+      g_build_filename(g_get_home_dir(), ".local", "share", nullptr);
+  const gchar* data = g_getenv("XDG_DATA_HOME");
+  if (g_getenv("LEN_MULTI_INSTANCE") != nullptr ||
+      (data != nullptr && data[0] != '\0' &&
+       g_strcmp0(data, default_data) != 0)) {
+    flags = static_cast<GApplicationFlags>(flags | G_APPLICATION_NON_UNIQUE);
+  }
   return MY_APPLICATION(g_object_new(my_application_get_type(),
                                      "application-id", APPLICATION_ID, "flags",
-                                     G_APPLICATION_NON_UNIQUE, nullptr));
+                                     flags, nullptr));
 }
