@@ -148,7 +148,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) => [
   if (tools.selectTextAvailable)
     const ToolDescriptor(
       tool: EditorTool.selectText,
-      icon: Icon(Icons.highlight_alt_rounded),
+      icon: Icon(selectTextIcon),
       label: 'Select PDF text',
       shortLabel: 'Select',
       shortcut: 'X',
