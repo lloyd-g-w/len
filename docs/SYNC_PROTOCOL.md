@@ -39,14 +39,17 @@ Whenever a record is stored/replaced it gets a new `seq` (max seq + 1).
 ## Endpoints
 
 ### `GET /v1/health`
-No auth. `200 {"status":"ok","protocol":1,"blobs":true,"maxBlobBytes":209715200}`
+No auth.
+`200 {"status":"ok","protocol":1,"blobs":true,"maxBlobBytes":209715200,"blobsCollectedAt":0}`
 
 `blobs: true` means the server implements the [blob endpoints](#blobs). Clients must treat a
 missing `blobs` field as `false` (older servers) and then neither upload nor download blobs.
 
 `maxBlobBytes` (added later; absent on older servers) is the largest blob the server accepts
 (`LEN_BLOB_MAX_BYTES`), so clients can skip blobs that are too large without sending them.
-Clients must tolerate unknown fields here.
+`blobsCollectedAt` (added later; absent → 0) is when (ms since epoch) the server last deleted
+blobs by [garbage collection](#blob-garbage-collection), 0 if never. Clients must tolerate unknown
+fields here.
 
 ### `POST /v1/push`
 Body: `{"records": [Record, …]}` — at most 1000 records, body at most 32 MiB.
@@ -124,8 +127,37 @@ stored, `404` (empty body) if not.
 - **Lazy download.** Pulled records may reference blobs the client does not have; the client
   downloads them with `GET` only when they are needed (e.g. when a page is displayed) and verifies
   the SHA-256 before storing them. A missing blob (`404`) is treated as temporarily unavailable.
-- **No deletion.** Blobs are never deleted by the protocol, even when no record references them
-  anymore. Garbage collection of unreferenced blobs is future work.
+- **No deletion over the wire.** There is no endpoint to delete a blob; unreferenced blobs are
+  removed by garbage collection on each side, see below.
+
+### Blob garbage collection
+
+**Server.** The server does not understand record payloads, so it finds references by scanning the
+stored JSON `data` of every **live** record (tombstones do not count; a trashed notebook is still a
+live record, so its pages keep their PDFs) for runs of lowercase hex characters and checking every
+64-character window against the stored blobs. No protocol addition is needed and new kinds of
+references in future app versions are covered automatically, provided they are written as plain
+lowercase `<sha256>` strings (the convention for all blob references). The scan errs on the side
+of keeping: any string that happens to equal a stored blob's id keeps it. Collection is an admin
+command (`dart run bin/gc.dart`, or `server gc` in the Docker image), never automatic:
+
+1. A run marks every stored blob no live record references with the time it was first found
+   unreferenced, and clears the mark of blobs that are referenced again.
+2. A blob is deleted only once it has been marked for at least the grace period (default 30 days),
+   is still unreferenced in a second scan right before deletion, and its file was not stored or
+   re-uploaded (an idempotent `PUT` refreshes it) within the grace period either.
+3. When a run deletes anything, `blobsCollectedAt` in `/v1/health` is set to the time of the run.
+
+The grace period protects devices that were offline with records still referencing a blob. As a
+second safety net, a client whose last seen `blobsCollectedAt` differs from the server's forgets
+its "uploaded" marks, so the next upload phase re-checks (`HEAD`) the blobs its live records
+reference and uploads any the server lost.
+
+**Client** (local, never visible to the server): a locally stored blob is deleted from the device
+once no live local row references it (page backgrounds, image elements and recordings; pages,
+elements and recordings of trashed notebooks are live rows, so they count) for 7 days. The app
+checks this at startup at most once a day. A blob collected locally is fetched again lazily if a
+record referencing it arrives later.
 
 ## Client algorithm
 

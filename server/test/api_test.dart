@@ -60,6 +60,7 @@ void main() {
         'protocol': 1,
         'blobs': true,
         'maxBlobBytes': defaultMaxBlobBytes,
+        'blobsCollectedAt': 0,
       });
     });
 

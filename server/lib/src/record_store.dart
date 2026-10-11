@@ -64,7 +64,7 @@ class RecordStore {
   factory RecordStore.inMemory() => RecordStore._(sqlite3.openInMemory());
 
   /// Schema version stored in `PRAGMA user_version`.
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
 
   final Database _db;
 
@@ -95,6 +95,21 @@ class RecordStore {
         // Unique index: enforces seq uniqueness and serves pull queries.
         _db.execute('CREATE UNIQUE INDEX records_seq ON records (seq)');
         _db.userVersion = 1;
+      });
+    }
+    if (version < 2) {
+      _transaction(() {
+        // Blob garbage collection state (see `BlobGc`): since when each
+        // stored blob has been unreferenced, and server-wide facts such as
+        // when blobs were last deleted.
+        _db.execute('''
+          CREATE TABLE blob_gc (
+            sha256             TEXT    PRIMARY KEY NOT NULL,
+            unreferenced_since INTEGER NOT NULL
+          ) WITHOUT ROWID
+        ''');
+        _db.execute('CREATE TABLE meta (key TEXT PRIMARY KEY NOT NULL, value) WITHOUT ROWID');
+        _db.userVersion = 2;
       });
     }
   }
@@ -198,6 +213,50 @@ class RecordStore {
     final rows = _db.select('SELECT COALESCE(MAX(seq), 0) AS s FROM records');
     return rows.first['s'] as int;
   }
+
+  /// Calls [visit] with the stored JSON `data` of every live (not deleted)
+  /// record, streaming rows so memory use stays flat.
+  void forEachLiveData(void Function(String data) visit) {
+    final stmt = _db.prepare('SELECT data FROM records WHERE deleted = 0 AND data IS NOT NULL');
+    try {
+      final cursor = stmt.selectCursor();
+      while (cursor.moveNext()) {
+        visit(cursor.current.columnAt(0) as String);
+      }
+    } finally {
+      stmt.close();
+    }
+  }
+
+  /// When (ms since epoch) blobs were last deleted by garbage collection;
+  /// 0 if never. Reported by `/v1/health` so clients re-check their uploads.
+  int get blobsCollectedAt =>
+      (_db.select("SELECT value FROM meta WHERE key = 'blobsCollectedAt'").firstOrNull?['value']
+          as int?) ??
+      0;
+
+  set blobsCollectedAt(int ms) =>
+      _db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('blobsCollectedAt', ?)", [ms]);
+
+  /// Unreferenced blobs known to garbage collection: sha256 → since when
+  /// (ms since epoch) they have been unreferenced.
+  Map<String, int> unreferencedBlobs() => {
+    for (final row in _db.select('SELECT sha256, unreferenced_since FROM blob_gc'))
+      row['sha256'] as String: row['unreferenced_since'] as int,
+  };
+
+  /// Replaces the garbage collection marks with [since] (sha256 → ms).
+  void setUnreferencedBlobs(Map<String, int> since) => _transaction(() {
+    _db.execute('DELETE FROM blob_gc');
+    final insert = _db.prepare('INSERT INTO blob_gc (sha256, unreferenced_since) VALUES (?, ?)');
+    try {
+      for (final e in since.entries) {
+        insert.execute([e.key, e.value]);
+      }
+    } finally {
+      insert.close();
+    }
+  });
 
   /// Closes the underlying database.
   void close() => _db.close();

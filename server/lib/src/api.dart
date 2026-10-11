@@ -46,7 +46,7 @@ Handler buildHandler({
   CorsPolicy cors = const CorsPolicy.any(),
 }) {
   final router = Router(notFoundHandler: _notFound)
-    ..get('/v1/health', (Request request) => _health(maxBlobBytes))
+    ..get('/v1/health', (Request request) => _health(store, maxBlobBytes))
     ..post('/v1/push', (Request request) => _push(request, store))
     ..get('/v1/pull', (Request request) => _pull(request, store));
   addBlobRoutes(router, blobs, maxBytes: maxBlobBytes, idleTimeout: blobIdleTimeout);
@@ -113,11 +113,12 @@ String? _bearerToken(String? header) {
 }
 
 /// `GET /v1/health`: liveness plus what clients need to know up front.
-Response _health(int maxBlobBytes) => _json(HttpStatus.ok, {
+Response _health(RecordStore store, int maxBlobBytes) => _json(HttpStatus.ok, {
   'status': 'ok',
   'protocol': protocolVersion,
   'blobs': true,
   'maxBlobBytes': maxBlobBytes,
+  'blobsCollectedAt': store.blobsCollectedAt,
 });
 
 Response _notFound(Request request) => _json(HttpStatus.notFound, {'error': 'not found'});

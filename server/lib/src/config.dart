@@ -67,18 +67,27 @@ class Config {
   /// positive integer, `LEN_BLOB_IDLE_TIMEOUT` is not a positive number of
   /// seconds, or `LEN_CORS_ORIGINS` is not a valid origin list.
   factory Config.fromEnvironment(Map<String, String> env) {
-    final dbPath = _nonEmpty(env['LEN_DB_PATH']) ?? '/data/len.db';
+    final dbPath = dbPathFrom(env);
     return Config(
       token: _readToken(env['LEN_SYNC_TOKEN']),
       dbPath: dbPath,
       host: _nonEmpty(env['HOST']) ?? '0.0.0.0',
       port: _readPort(env['PORT']),
-      blobDir: _nonEmpty(env['LEN_BLOB_DIR']) ?? '${File(dbPath).parent.path}/blobs',
+      blobDir: blobDirFrom(env),
       blobMaxBytes: _readBlobMaxBytes(env['LEN_BLOB_MAX_BYTES']),
       blobIdleTimeout: _readIdleTimeout(env['LEN_BLOB_IDLE_TIMEOUT']),
       cors: _readCorsOrigins(env['LEN_CORS_ORIGINS']),
     );
   }
+
+  /// The database path from `LEN_DB_PATH` (default `/data/len.db`).
+  static String dbPathFrom(Map<String, String> env) =>
+      _nonEmpty(env['LEN_DB_PATH']) ?? '/data/len.db';
+
+  /// The blob directory from `LEN_BLOB_DIR` (default `blobs/` next to the
+  /// database).
+  static String blobDirFrom(Map<String, String> env) =>
+      _nonEmpty(env['LEN_BLOB_DIR']) ?? '${File(dbPathFrom(env)).parent.path}/blobs';
 
   static CorsPolicy _readCorsOrigins(String? raw) {
     final value = _nonEmpty(raw);

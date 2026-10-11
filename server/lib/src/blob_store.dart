@@ -103,6 +103,37 @@ class BlobStore {
     return stat.type == FileSystemEntityType.file ? stat.size : null;
   }
 
+  /// Ids of all stored blobs (in no particular order).
+  Iterable<String> list() sync* {
+    final dir = Directory(root);
+    if (!dir.existsSync()) return;
+    for (final sub in dir.listSync(followLinks: false)) {
+      final name = sub.uri.pathSegments.lastWhere((s) => s.isNotEmpty);
+      if (sub is! Directory || name.length != 2) continue;
+      for (final file in sub.listSync(followLinks: false)) {
+        final sha = file.uri.pathSegments.last;
+        if (file is File && isValidSha(sha) && sha.startsWith(name)) yield sha;
+      }
+    }
+  }
+
+  /// Last modification time of the blob [sha] (when it was stored or last
+  /// re-uploaded), or `null` if it is not stored.
+  DateTime? modified(String sha) {
+    final stat = FileStat.statSync(pathFor(sha));
+    return stat.type == FileSystemEntityType.file ? stat.modified : null;
+  }
+
+  /// Deletes the blob [sha]; returns whether it existed.
+  bool delete(String sha) {
+    try {
+      File(pathFor(sha)).deleteSync();
+      return true;
+    } on PathNotFoundException {
+      return false;
+    }
+  }
+
   /// Streams the contents of the blob [sha] (which must exist).
   Stream<List<int>> openRead(String sha) => File(pathFor(sha)).openRead();
 
