@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/stroke.dart';
 import '../pen/pen_profile.dart';
 import 'nib.dart';
+import 'outline_sink.dart';
 import 'pencil_texture.dart';
 import 'stroke_outline.dart';
 
@@ -34,21 +35,39 @@ abstract final class StrokeRenderer {
     required StrokeStyle style,
     required bool complete,
   }) {
-    if (points.isEmpty) return Path();
-    final profile = PenProfile.of(tool);
-    final pressures = profile.nibVariation > 0
-        ? Nib.pressures(
-            points,
-            variation: profile.nibVariation,
-            angle: PenProfile.nibAngle,
-            thinning: style.thinning,
-          )
-        : null;
-    return StrokeOutline.build(
+    final path = Path();
+    emitOutline(PathSink(path), points, tool: tool, width: width, style: style, complete: complete);
+    return path;
+  }
+
+  /// Like [buildPath], but writes the outline's segments to [sink] (tests
+  /// and the Ink Lab measure them).
+  static void emitOutline(
+    OutlineSink sink,
+    List<StrokePoint> points, {
+    required InkTool tool,
+    required double width,
+    required StrokeStyle style,
+    required bool complete,
+  }) {
+    if (points.isEmpty) return;
+    StrokeOutline.emit(
+      sink,
       points,
       specFor(tool, width, style),
-      pressures: pressures,
+      pressures: _nibPressures(points, tool, style),
       complete: complete,
+    );
+  }
+
+  static List<double>? _nibPressures(List<StrokePoint> points, InkTool tool, StrokeStyle style) {
+    final profile = PenProfile.of(tool);
+    if (profile.nibVariation <= 0) return null;
+    return Nib.pressures(
+      points,
+      variation: profile.nibVariation,
+      angle: PenProfile.nibAngle,
+      thinning: style.thinning,
     );
   }
 

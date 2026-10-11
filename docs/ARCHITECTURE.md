@@ -586,6 +586,16 @@ noise are rendered at 1×–16× in `test/ink_specimen_test.dart`. A 1000-point
 stroke builds in well under a millisecond, so the live stroke is rebuilt on
 every pointer move.
 
+### Ink Lab (`ink/lab/`, `features/inklab/`, `test/inklab/`)
+
+Input recordings (`.leninput`), a frame-by-frame replay through the real
+input pipeline, quality metrics against a simulated S Pen's ground truth, an
+opt-in visual report and a hidden on-device recording screen (Settings →
+About, tap the version 7×). See [`INK_LAB.md`](INK_LAB.md). Its findings
+qualify some claims above: merged capsules *do* reshape ink behind the tip
+(F1), stabiliser 0 does no position smoothing (F5), and the live rebuild is
+O(length) with one sub-path per capsule (F6).
+
 ## Erasing
 
 `SurfaceModel.eraseAlong` either removes whole strokes or, in *pixel* mode,

@@ -24,3 +24,12 @@ CommonDatabase openSqliteFile(String path) =>
 
 /// Browser databases are not files.
 String? sqliteFilePath({required String name, required String directory}) => null;
+
+/// A private in-memory database (scratch surfaces such as the Ink Lab's):
+/// its own WebAssembly instance with an in-memory file system, so nothing
+/// reaches IndexedDB.
+Future<CommonDatabase> openSqliteScratch() async {
+  final sqlite = await WasmSqlite3.loadFromUrl(Uri.parse('sqlite3.wasm'));
+  sqlite.registerVirtualFileSystem(InMemoryFileSystem(), makeDefault: true);
+  return sqlite.openInMemory();
+}

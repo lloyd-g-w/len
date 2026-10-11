@@ -18,3 +18,7 @@ CommonDatabase openSqliteFile(String path) => sqlite3.open(path);
 /// The file [openSqlite] opens for [name] in [directory].
 String? sqliteFilePath({required String name, required String directory}) =>
     p.join(directory, name);
+
+/// A private in-memory database that also works in browsers (scratch
+/// surfaces such as the Ink Lab's).
+Future<CommonDatabase> openSqliteScratch() async => sqlite3.openInMemory();
