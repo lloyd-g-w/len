@@ -54,7 +54,8 @@ class ParaStyle {
     final h = json['h'], n = json['n'];
     final list = ListKind.parse(json['l']);
     return ParaStyle(
-      heading: h == 1 || h == 2 ? h as int : 0,
+      // (`1.0` from another JSON writer is a heading too, not a TypeError.)
+      heading: h is num && (h == 1 || h == 2) ? h.toInt() : 0,
       list: list,
       checked: list == ListKind.check && json['x'] == true,
       indent: list != ListKind.none && n is int ? n.clamp(0, maxIndent) : 0,
