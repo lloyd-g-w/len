@@ -15,11 +15,16 @@ class CanvasEmptyHint extends StatefulWidget {
     required this.reader,
     required this.surfaceId,
     required this.edits,
+    this.darkPaper = false,
   });
 
   final StrokeReader reader;
   final String surfaceId;
   final Listenable edits;
+
+  /// The hint sits on the paper, so its colour follows the paper, not the
+  /// UI theme (readable at about 5:1 either way).
+  final bool darkPaper;
 
   @override
   State<CanvasEmptyHint> createState() => _CanvasEmptyHintState();
@@ -60,7 +65,9 @@ class _CanvasEmptyHintState extends State<CanvasEmptyHint> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colour = theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+    final colour = widget.darkPaper
+        ? Colors.white.withValues(alpha: 0.7)
+        : Colors.black.withValues(alpha: 0.6);
     return IgnorePointer(
       child: AnimatedOpacity(
         opacity: _empty ? 1 : 0,

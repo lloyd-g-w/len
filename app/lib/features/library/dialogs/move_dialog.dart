@@ -107,12 +107,15 @@ class _FolderRow extends StatelessWidget {
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xxs),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerHigh,
+                color: scheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(Radii.pill),
               ),
-              child: Text('Current', style: theme.textTheme.labelSmall),
+              child: Text(
+                'Current',
+                style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSecondaryContainer),
+              ),
             )
-          : Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          : null,
       onTap: onTap,
     );
   }

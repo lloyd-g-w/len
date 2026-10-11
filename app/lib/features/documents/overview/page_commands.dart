@@ -7,7 +7,7 @@ import '../../../ui/menus.dart';
 enum PageCommand {
   insertBefore('Add page before', Icons.vertical_align_top_rounded),
   insertAfter('Add page after', Icons.vertical_align_bottom_rounded),
-  duplicate('Duplicate', Icons.copy_rounded),
+  duplicate('Duplicate', Icons.library_add_outlined),
   template('Change template…', Icons.grid_on_rounded),
   saveAsTemplate('Save as template…', Icons.dashboard_customize_outlined),
   bookmark('Bookmark', Icons.bookmark_border_rounded),

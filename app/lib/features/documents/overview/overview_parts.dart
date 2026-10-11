@@ -165,7 +165,7 @@ class SelectionBar extends StatelessWidget {
                       () => onAction(SelectionAction.bookmark),
                     ),
                     action(
-                      Icons.copy_rounded,
+                      Icons.library_add_outlined,
                       'Duplicate',
                       () => onAction(SelectionAction.duplicate),
                     ),

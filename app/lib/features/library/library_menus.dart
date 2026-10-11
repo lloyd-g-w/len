@@ -50,7 +50,7 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
     ),
     const MenuRow(
       value: NotebookAction.duplicate,
-      icon: Icons.copy_all_outlined,
+      icon: Icons.library_add_outlined,
       label: 'Duplicate',
     ),
     const MenuRow(

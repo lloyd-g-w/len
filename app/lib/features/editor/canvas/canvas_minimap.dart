@@ -119,7 +119,10 @@ class _CanvasMinimapState extends State<CanvasMinimap> {
                   frozen: _dragProjection,
                   colors: MinimapColors(
                     ink: widget.paperColor.isDark ? Colors.white60 : Colors.black54,
-                    view: scheme.primary,
+                    // The frame sits on the paper: the accent for its brightness.
+                    view: widget.paperColor.isDark == (scheme.brightness == Brightness.dark)
+                        ? scheme.primary
+                        : scheme.inversePrimary,
                     origin: scheme.outline,
                   ),
                 ),

@@ -462,6 +462,7 @@ class _EditorScreenState extends State<_EditorView> {
                                   reader: _services.strokeReader,
                                   surfaceId: _notebook.id,
                                   edits: _session.undo,
+                                  darkPaper: _notebook.paperColor.isDark,
                                 ),
                               ),
                             ),
