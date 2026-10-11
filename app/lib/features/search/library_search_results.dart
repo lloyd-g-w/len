@@ -41,9 +41,13 @@ class LibrarySearchResults extends StatefulWidget {
     required this.onOpen,
     this.padding = EdgeInsets.zero,
     this.whenEmpty,
+    this.include,
   });
 
   final String query;
+
+  /// Only notebooks it accepts are listed (e.g. a tag filter); all if null.
+  final bool Function(Notebook notebook)? include;
   final OpenSearchResult onOpen;
   final EdgeInsets padding;
   final Widget? whenEmpty;
@@ -98,7 +102,7 @@ class _LibrarySearchResultsState extends State<LibrarySearchResults> {
     _groups = groupByNotebook(
       hits,
       _services.notebooks.get,
-    ).where((g) => g.content.isNotEmpty).toList();
+    ).where((g) => g.content.isNotEmpty && (widget.include?.call(g.notebook) ?? true)).toList();
   }
 
   @override

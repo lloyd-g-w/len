@@ -495,6 +495,8 @@ void main() {
       expect(server.stored('pages', leapPage.id)!['data'], containsPair('paper', 'dailyPlanner'));
       expect((server.stored('pages', leapPage.id)!['data']! as Map)['paperData'], {
         'date': '2024-02-29',
+        'weekStart': 'monday',
+        'locale': 'en-GB',
       });
       expect(b.s.templates.list().single.name, 'Grid A');
       expect(b.s.templates.list().single.size, const Size(800, 600));
@@ -528,6 +530,28 @@ void main() {
           data: {'name': 'x', 'blob': 'abc', 'width': 1, 'height': 1, 'createdAt': 0},
         ),
         _record('pages', 'undated', 10, data: {..._pageData(nb.id), 'paper': 'dailyPlanner'}),
+        for (final (id, paperData) in [
+          ('no-locale', {'date': '2024-02-29', 'weekStart': 'monday'}),
+          ('no-week-start', {'date': '2024-02-29', 'locale': 'de'}),
+          ('bad-locale', {'date': '2024-02-29', 'weekStart': 'monday', 'locale': 'xx'}),
+          ('bad-week-start', {'date': '2024-02-29', 'weekStart': 'friday', 'locale': 'de'}),
+        ])
+          _record(
+            'pages',
+            id,
+            10,
+            data: {..._pageData(nb.id), 'paper': 'yearlyOverview', 'paperData': paperData},
+          ),
+        _record(
+          'pages',
+          'sunday-year',
+          10,
+          data: {
+            ..._pageData(nb.id),
+            'paper': 'yearlyOverview',
+            'paperData': {'date': '2024-01-01', 'weekStart': 'sunday', 'locale': 'el'},
+          },
+        ),
         _record(
           'notebooks',
           'planner-default',
@@ -539,6 +563,20 @@ void main() {
       expect(b.s.templates.get('no-blob'), isNull);
       expect(b.s.templates.get('bad-blob'), isNull);
       expect(b.s.pages.get('undated'), isNull);
+      for (final id in ['no-locale', 'no-week-start', 'bad-locale', 'bad-week-start']) {
+        expect(b.s.pages.get(id), isNull, reason: id);
+      }
+      expect(
+        b.s.pages.get('sunday-year')!.paper,
+        Paper.planner(
+          PaperStyle.yearlyOverview,
+          DateTime.utc(2024),
+          calendar: const PlannerCalendar(
+            weekStart: WeekStart.sunday,
+            language: PlannerLanguage.el,
+          ),
+        ),
+      );
       expect(b.s.notebooks.get('planner-default'), isNull);
     });
 

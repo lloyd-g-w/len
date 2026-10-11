@@ -38,12 +38,14 @@ import 'editor_session.dart';
 import 'editor_shortcuts.dart';
 import 'editor_toolbar.dart';
 import 'images/image_entry_points.dart';
+import 'links/link_actions.dart';
 import 'pdf/pdf_layer.dart';
 import 'present/presentation.dart';
 import 'present/presentation_controls.dart';
 import 'split/split_controller.dart';
 import 'split/split_drop_highlight.dart';
 import 'split/split_view_button.dart';
+import 'stickers/sticker_layer.dart';
 import 'tabs/open_notebooks.dart';
 import 'toolbar/toolbar_config.dart';
 import 'toolbar/toolbar_editor.dart';
@@ -227,6 +229,7 @@ class _EditorScreenState extends State<_EditorView> {
     _services.incomingFiles.targets.add(_importTarget);
     // Of two editors (split view), files go to the one used last.
     _focusNode.addListener(_onFocus);
+    attachPdfLinks(context, _session);
     if (_pane case final pane?) widget.split!.attach(pane);
     // Take the keyboard even when another editor (the previous tab) still
     // held it while this one was built; autofocus would not.
@@ -395,6 +398,7 @@ class _EditorScreenState extends State<_EditorView> {
       onPageCommand: (c) => _session.commands!.run(context, c, doc!.activePageData),
       onFollowLink: _followLink,
     );
+    if (openLinkAction(context, _session, at) case final link?) actions.insert(0, link);
     setState(() => _menu = (at: at, actions: actions));
   }
 
@@ -585,6 +589,10 @@ class _EditorScreenState extends State<_EditorView> {
                               guard: _guard,
                               chromeInsets: layout.covered,
                               onFollowLink: _followLink,
+                              selectionActions: () => [
+                                linkSelectionAction(context, _session),
+                                _session.stickers.saveAction(context),
+                              ],
                             ),
                           ),
                           if (_session.pdf case final pdf?)
@@ -620,6 +628,12 @@ class _EditorScreenState extends State<_EditorView> {
                             )
                           else ...[
                             Positioned.fill(child: _buildChrome(layout, tabs)),
+                            Positioned.fill(
+                              child: StickerLayer(
+                                stickers: _session.stickers,
+                                insets: layout.floatingInsets,
+                              ),
+                            ),
                             Positioned.fill(
                               child: EditorSearchLayer(
                                 controller: _search,

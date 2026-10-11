@@ -5,6 +5,7 @@ import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../documents/template_picker.dart';
+import '../documents/templates/planner_options.dart';
 import '../documents/templates/template_catalog.dart';
 import 'cover_picker.dart';
 import 'new_notebook/kind_selector.dart';
@@ -63,6 +64,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   late TemplateSelection _selection = initialSelection(
     PageTemplate.of(PaperStyle.collegeRuled),
     widget.today ?? DateTime.now(),
+    calendar: defaultPlannerCalendar(context),
   );
   PageTemplate get _template => _selection.template;
   PaperStyle get _paper => _template.style;

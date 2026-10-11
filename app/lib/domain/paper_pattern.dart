@@ -6,6 +6,7 @@ import 'templates/pattern_builder.dart';
 import 'templates/patterns_basic.dart';
 import 'templates/patterns_planner.dart';
 import 'templates/patterns_writing.dart';
+import 'templates/patterns_year.dart';
 
 /// How prominent a pattern line is.
 enum PatternWeight {
@@ -137,11 +138,13 @@ class PaperPattern {
       case PaperStyle.storyboard:
         b.storyboard(page!);
       case PaperStyle.dailyPlanner:
-        b.daily(page!, paper.date);
+        b.daily(page!, paper);
       case PaperStyle.weeklyPlanner:
-        b.weekly(page!, paper.date);
+        b.weekly(page!, paper);
       case PaperStyle.monthlyCalendar:
-        b.monthly(page!, paper.date);
+        b.monthly(page!, paper);
+      case PaperStyle.yearlyOverview:
+        b.yearly(page!, paper);
     }
   }
 }

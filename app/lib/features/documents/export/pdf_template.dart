@@ -4,26 +4,31 @@ import 'package:pdf/pdf.dart';
 
 import '../../../domain/paper.dart';
 import '../../../domain/paper_pattern.dart';
+import '../../../domain/text/text_font.dart';
+import 'pdf_text.dart';
 
 /// Writes a template's pattern into a PDF page as vectors: tints, lines
-/// (by weight), dots and printed labels (planner dates and headings in
-/// Helvetica). [map] turns world coordinates into PDF points; [k] is PDF
-/// points per world unit.
+/// (by weight), dots and printed labels (planner dates and headings).
+/// Labels are set in the bundled Inter (embedded, subset, with a ToUnicode
+/// map so they can be searched and copied), which covers every planner
+/// language (Latin, Greek, Cyrillic) — the standard PDF fonts only know
+/// Latin-1. The faces are shared with the text boxes ([PdfTextWriter]).
+/// [map] turns world coordinates into PDF points; [k] is PDF points per
+/// world unit.
 class PdfTemplateWriter {
-  PdfTemplateWriter(this.doc);
+  PdfTemplateWriter(this.text);
 
-  final PdfDocument doc;
-  late final PdfFont _regular = PdfFont.helvetica(doc);
-  late final PdfFont _bold = PdfFont.helveticaBold(doc);
+  /// Where the embedded fonts come from.
+  final PdfTextWriter text;
 
-  void draw(
+  Future<void> draw(
     PdfGraphics g,
     PaperPattern pattern,
     PaperColor color, {
     required Color margin,
     required Offset Function(Offset) map,
     required double k,
-  }) {
+  }) async {
     for (final f in pattern.fills) {
       final a = map(f.rect.bottomLeft), b = map(f.rect.topRight);
       g
@@ -70,19 +75,20 @@ class PdfTemplateWriter {
       g.fillPath();
     }
     for (final label in pattern.labels) {
-      _label(g, label, color, map, k);
+      final font = await text.font(TextFont.inter, bold: label.bold, italic: false);
+      _label(g, font, label, color, map, k);
     }
   }
 
   void _label(
     PdfGraphics g,
+    PdfFont font,
     PatternLabel label,
     PaperColor color,
     Offset Function(Offset) map,
     double k,
   ) {
-    final font = label.bold ? _bold : _regular;
-    final text = _latin1(label.text);
+    final text = label.text;
     final size = label.size * k;
     final width = font.stringMetrics(text).width * size;
     final box = label.box;
@@ -104,8 +110,4 @@ class PdfTemplateWriter {
   }
 
   static PdfColor _opaque(Color c) => PdfColor.fromInt(c.toARGB32() | 0xFF000000);
-
-  /// The standard PDF fonts cover Latin-1 (plus a few punctuation marks);
-  /// labels only need dashes beyond that.
-  static String _latin1(String s) => s.replaceAll('–', '-').replaceAll('…', '...');
 }
