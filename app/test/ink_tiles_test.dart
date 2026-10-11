@@ -264,6 +264,48 @@ void main() {
     });
   });
 
+  testWidgets('split view: two views of one shared model keep their own tiles, both current', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final strokes = scribbles(300, const Rect.fromLTWH(0, 0, 600, 400), seed: 3);
+      final scene = _Scene(strokes);
+      // A second view (another pane) of the same model with its own caches.
+      final pictures = ChunkPictureCache(scene.model);
+      final tiles = InkTileCache(pictures, settleDelay: const Duration(milliseconds: 20));
+      CommittedInkPainter other() => CommittedInkPainter(
+        model: scene.model,
+        cache: pictures,
+        viewport: scene.viewport,
+        tiles: tiles,
+        devicePixelRatio: 1,
+      );
+      Future<void> warmOther() async {
+        for (var i = 0; i < 50 && (tiles.isBusy || i == 0); i++) {
+          other().paint(_CountingCanvas(), scene.size);
+          await settle(() => !tiles.isBusy);
+          other().paint(_CountingCanvas(), scene.size);
+        }
+      }
+
+      await scene.warm();
+      await warmOther();
+      // A stroke drawn in the first view shows in both, right away.
+      scene.model.addStroke(_line('new', const Offset(40, 300), const Offset(560, 330)));
+      scene.painter().paint(_CountingCanvas(), scene.size);
+      other().paint(_CountingCanvas(), scene.size);
+      expect(scene.tiles.lastPaint.overlayStrokes, greaterThan(0));
+      expect(tiles.lastPaint.overlayStrokes, greaterThan(0));
+      // Closing the second view leaves the first one working.
+      await warmOther();
+      tiles.dispose();
+      pictures.dispose();
+      await scene.warm();
+      expect(_diff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.001));
+      scene.dispose();
+    });
+  });
+
   testWidgets('tile memory stays within the pool budget', (tester) async {
     await tester.runAsync(() async {
       const tileBytes = TileSpace.size * TileSpace.size * 4;
