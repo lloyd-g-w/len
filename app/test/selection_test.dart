@@ -316,5 +316,35 @@ void main() {
       model.undo(); // duplicate
       expect(model.loadedStrokeCount, 1);
     });
+
+    test('restyle text boxes (font, size) and ink (width, pen type)', () {
+      selectAll();
+      final box = selection.elements.single;
+      selection.restyleText((t) => t.withFont(TextFont.caveat).withFontSize(48));
+      final text = selection.elements.single;
+      final data = TextData.fromJson(text.data);
+      expect(data.font, TextFont.caveat);
+      expect(data.fontSize, 48);
+      expect(text.id, box.id);
+      expect(text.rect.topLeft, box.rect.topLeft);
+      expect(text.rect.height, greaterThan(box.rect.height)); // laid out again
+      expect(selection.strokes.single.id, 'a'); // ink untouched
+
+      selection.restyleInk(
+        width: 9,
+        tool: InkTool.highlighter,
+        styleFor: (tool, width) => StrokeStyle.defaultsFor(tool),
+      );
+      final ink = selection.strokes.single;
+      expect(ink.tool, InkTool.highlighter);
+      expect(ink.width, 9);
+      expect(ink.style, StrokeStyle.defaultsFor(InkTool.highlighter));
+      expect(ink.points, model.strokeById(ink.id)!.points);
+      expect(model.strokeById('a'), isNull);
+      model.undo();
+      expect(model.strokeById('a')!.tool, InkTool.ballpoint);
+      model.undo();
+      expect(TextData.fromJson(model.elementById(box.id)!.data).font, TextFont.inter);
+    });
   });
 }

@@ -59,12 +59,12 @@ abstract final class TransformItems {
     if (element.knownType == ElementType.text) {
       final text = TextData.fromJson(element.data);
       final uniform = (su - sv).abs() <= 1e-3 * math.max(su, sv);
-      final scaled = uniform
-          ? text.copyWith(
-              fontSize: (text.fontSize * su).clamp(TextData.minFontSize, TextData.maxFontSize),
-            )
-          : text;
-      width = math.max(width, TextLayout.minWidth);
+      // Uniform scaling scales every size in the box; a box resized along
+      // one axis wraps at its new width from now on.
+      final scaled = uniform ? text.scaled(su) : text.copyWith(autoWidth: false);
+      width = uniform && text.autoWidth
+          ? TextLayout.naturalWidth(scaled)
+          : math.max(width, TextLayout.minWidth);
       height = TextLayout.heightOf(scaled, width);
       data = scaled.toJson(element.data);
     }
@@ -94,10 +94,43 @@ abstract final class TransformItems {
     style: stroke.style,
   );
 
-  /// [element] recoloured; types without a colour are returned unchanged.
-  static SurfaceElement recolorElement(SurfaceElement element, int argb) {
+  /// [element] recoloured (all its text); types without a colour are
+  /// returned unchanged.
+  static SurfaceElement recolorElement(SurfaceElement element, int argb) =>
+      restyleText(element, (t) => t.withColor(argb));
+
+  /// Text box [element] with its text changed by [update] (e.g. another
+  /// font or size), laid out again: its top left stays, an auto-width box
+  /// fits its text, others keep their width. Other elements are returned
+  /// unchanged.
+  static SurfaceElement restyleText(SurfaceElement element, TextData Function(TextData) update) {
     if (element.knownType != ElementType.text) return element;
-    final text = TextData.fromJson(element.data).copyWith(color: argb);
-    return element.copyWith(data: text.toJson(element.data));
+    final text = update(TextData.fromJson(element.data));
+    final r = element.rect;
+    final width = text.autoWidth ? TextLayout.naturalWidth(text) : r.width;
+    return element.copyWith(
+      rect: Rect.fromLTWH(r.left, r.top, width, TextLayout.heightOf(text, width)),
+      data: text.toJson(element.data),
+    );
   }
+
+  /// [stroke] with another line [width] and/or [tool] (new id): a new
+  /// [style] goes with a new tool, since pens and highlighters differ in
+  /// opacity and ends.
+  static Stroke restyleStroke(
+    Stroke stroke, {
+    double? width,
+    InkTool? tool,
+    StrokeStyle? style,
+    required String id,
+  }) => Stroke(
+    id: id,
+    surfaceId: stroke.surfaceId,
+    tool: tool ?? stroke.tool,
+    color: stroke.color,
+    width: (width ?? stroke.width).clamp(_minWidth, _maxWidth),
+    points: stroke.points,
+    createdAt: stroke.createdAt,
+    style: style ?? stroke.style,
+  );
 }
