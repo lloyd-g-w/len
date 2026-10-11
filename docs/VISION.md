@@ -10,6 +10,11 @@ Len is a handwriting-first note-taking app in the spirit of **Notewise** and **G
 - **Web** (any modern browser; installable PWA, data in the browser, same sync server)
 - iOS / iPadOS are *not* required, but nothing should be done that rules them out (Flutter keeps the door open).
 
+## Status
+
+Pre-release. Breaking changes (data format, sync protocol, settings) are fine; no
+backwards-compatibility code is wanted until the first release.
+
 ## Core requirements
 
 1. **Excellent stylus support**

@@ -17,6 +17,15 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
 - **ui/** shared widgets and design tokens (`app_theme.dart`). Use tokens
   (`Radii`, `Gaps`, palette) instead of magic numbers.
 
+## Pre-release: breaking changes are fine
+
+Len is far from its first release (user decision). **Do not keep code for
+backwards compatibility**: no legacy data shims, no tolerance for old
+record formats, no keeping removed features around for old data. Change
+formats, rename things, squash migrations and drop old tools freely when it
+makes the code better — just keep the code base itself consistent and the
+tests green. (Forward-compat rules below apply once we ship.)
+
 ## Rules
 
 - `flutter analyze` must report **no issues**; `flutter test` must pass.
