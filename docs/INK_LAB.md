@@ -73,11 +73,23 @@ tool/heavy.sh nix develop ..# -c bash -c \
 ```
 
 `inklab_test.dart` has one test per metric per entry. Entries are the ten
-simulated cases at stabiliser 0, 0.4 and 1, plus every recording. Timing
-metrics only run on `long_stroke` and recordings. Metrics listed in
-`known_failures.dart` are **skipped with their finding as the reason**, so the
-suite is green on the current engine. Fixing a finding means deleting its
-entries; the suite then guards the fix.
+simulated cases at stabiliser 0, 0.4 and 1, plus every recording (always
+included; the real S Pen takes `real_spen_01/02` are the slowest entries).
+Timing metrics only run on `long_stroke` and recordings. Metrics listed in
+`known_failures.dart` are **skipped with their finding as the reason**. The
+list is **empty**: the engine passes every metric on every entry, so any
+failure is a regression (or needs a new finding, with evidence, before an
+entry may be added).
+
+Tools for working on the engine (opt-in tests):
+
+```sh
+# every metric of every entry as a table (≈ 4 min), "!!" marks failures
+tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_test.dart \
+  --dart-define=INKLAB_TABLE=true [--dart-define=INKLAB_ONLY=<regex on entry names>]'
+# the Kotlin overlay model against the Dart one (needs only nix)
+tool/wet_ink_check/check.sh
+```
 
 The report has, per entry:
 - the metrics table: ok / known / FAIL, and where (logical px) the worst value
@@ -145,161 +157,203 @@ are for stabiliser 0 / 0.4 / 1, linear in between (`byStabiliser`).
 | `overlay.gap` | Low-latency model, Flutter 2 frames behind: pixels the caught-up ink covers that neither Flutter's current ink nor the overlay does (also reported at depths 1 and 3, no limit) | 0 px² |
 | `overlay.ghost` | Overlay pixels where the caught-up ink is not, which shows as a bulge or a pop when the overlay retracts | 2 px² |
 
-The overlay metrics use `WetInkModel`, a Dart model of
-`android/.../WetInkOverlay.kt`. Keep the two in step.
+The overlay metrics use `WetInkModel` (`lib/ink/lab/wet_ink_model.dart`).
+`android/.../WetInkModel.kt` is its line-for-line port, which the overlay
+draws with; `tool/wet_ink_check/check.sh` feeds both every case and
+recording and compares their answers (they agree to 1e-15). A moment at
+depth *d* is the screen when Flutter's frame *k* is shown, *d* − 1 frame
+intervals after it was built (in time: after a lift the app idles and the
+next recorded frames come much later).
 
-## Findings (engine as of this branch)
+## Findings: the old engine, and the new one
 
-On the current engine, 151 metric results fail across the 30 simulated
-entries, and 25 more across the 4 recording entries. All of them are explained
-by the eight findings below and listed in `known_failures.dart`. Everything
-else passes:
-- width fidelity, blobs, dot sizes, strays and commit time everywhere;
-- fidelity and smoothness at stabiliser 0.4 and 1, except where the findings
-  below say otherwise.
+The suite was built against the capsule engine (`CapsuleEmitter`, a
+whole-stroke rebuild every frame). On it, 111 metric results failed across
+the 30 simulated entries (with today's metric definitions; 151 with the
+first ones) and 25 on the two simulated recordings, explained by eight
+findings, F1–F8 below. The new engine (`StrokeShaper` + `RibbonEmitter` +
+`LiveStrokeBuilder`, see ARCHITECTURE "Ink rendering") was built against
+them: **every metric now passes on every entry**, including the two real S
+Pen recordings, and `known_failures.dart` is empty.
 
-Images below come from the report (`docs/inklab/`).
+Worst value per group of entries, old → new (✗ = entries failing; the
+recordings were added with the new engine, so they have no "before"; timings
+are desktop JIT and vary by ±50 % between runs):
 
-### F1: ink behind the tip changes while writing
+| Metric | sim @0 | sim @0.4 | sim @1 | recordings (new) |
+|---|---|---|---|---|
+| `fidelity.hausdorff` | 2.99 (3✗) → 0.355 px | 2.99 (1✗) → 0.474 | 3.01 (1✗) → 0.797 | 0.512 |
+| `fidelity.rms` | 0.356 (1✗) → 0.066 px | 0.354 → 0.067 | 0.428 → 0.112 | 0.054 |
+| `fidelity.width` | 9.1 → 7.5 % | 19.4 → 19.5 | 21.0 → 21.5 | 22.9 |
+| `detail.retraction` | 0.555 (2✗) → 0.385 px | 0.932 → 0.472 | 1.54 → 0.795 | 0.49 |
+| `smooth.edgeBump16x` | 2.26 (6✗) → 0.60 px | 0.918 → 0.328 | 0.341 → 0.164 | 0.934 |
+| `smooth.facet` | 21.8° (7✗) → 2.3° | 1.07 → 0.84 | 0.80 → 0.37 | 3.44 |
+| `ends.nub` | 2.99 (1✗) → 0.30 px | 2.99 (1✗) → 0.30 | 3.01 (1✗) → 0.30 | 0.28 |
+| `temporal.behindTip` | 200 (3✗) → 0 px² | 376 (5✗) → 0 | 273 (8✗) → 0 | 0 |
+| `temporal.settle` | 88.8 (3✗) → 0 px | 100 (5✗) → 0 | 76.8 (8✗) → 0 | 0 |
+| `temporal.vanished` | 2 (1✗) → 0 | 2 (1✗) → 0 | 2 (1✗) → 0 | 0 |
+| `pop.pixels` | 0 → 0 px² | 248 (2✗) → 0 | 192 (2✗) → 0 | 0 |
+| `pop.max` | 0 → 0 % | 88 (1✗) → 0 | 100 (1✗) → 0 | 0 |
+| `perf.flatness` | 5.5 (1✗) → 1.6× | 8.7 (1✗) → 0.7 | 8.6 (1✗) → 1.0 | 1.5 |
+| `perf.frameCost` | 1292 (1✗) → 42 µs | 1135 (1✗) → 54 | 602 → 30 | 156 |
+| `perf.commit` | 2.7 → 1.9 ms | 2.4 → 2.8 | 1.6 → 2.2 | 1.5 |
+| `perf.subpaths` | 2665 (1✗) → 22 | 1869 (1✗) → 24 | 1043 (1✗) → 21 | 4 |
+| `overlay.gap` | 0 → 0 px² | 11 (3✗) → 0 | 13 (5✗) → 0 | 0 |
+| `overlay.ghost` | 22 (10✗) → 0 px² | 21 (10✗) → 0 | 21 (10✗) → 0 | 0 |
 
-`temporal.behindTip` / `settle` fail on:
-- `lines`, `hooks` and `bounces` at every stabiliser: up to 376 px² in one
-  frame, changes up to 100 px behind the tip;
-- `zigzag`, `pressure_swell`, `cursive`, `spiral` and `long_stroke` at 0.4
-  and 1: 1–67 px², up to 19 px behind.
+Blobs (≤ 1.09×), strays (0), dot sizes (22.5 %) and width bumps (< 0.02 px)
+passed before and still do. The overlay at pipeline depth 1 has no gap or
+ghost anywhere; at depth 3 (one frame deeper than the overlay assumes) the
+only gap is 5 px² on `real_spen_01`.
 
-The cause is in `CapsuleEmitter._keySamples`. Nearly collinear runs are merged
-into one capsule while the direction stays within **0.02 rad of where the run
-started**. On a straight-ish stroke the last merged capsule keeps growing, and
-its far end moves with every new sample. The whole edge strip then re-tilts by
-a pixel row as you write. This contradicts ARCHITECTURE.md ("each capsule
-depends only on its two samples, so new input only adds geometry"). Near
-corners and cusps, the centre-line filter (stretch boundaries move as
-reversals are found) also reshapes ink 14–19 px behind the tip (`zigzag`,
-`pressure_swell`).
+Images: the old engine's in `docs/inklab/before/`, the new one's in
+`docs/inklab/` (from the report).
 
-![hooks filmstrip](inklab/hooks_0.4-film.png)
+### F1 (resolved): ink behind the tip changed while writing
 
-*`hooks@0.4`, first stroke (a 120 px line).* From the 5th tile on, red
-streaks run along both edges for 30–70 px behind the tip. The last tile, the
-committed stroke, is framed in magenta, with magenta along the right half of
-the edge.
+Was: `temporal.behindTip` up to 376 px², changes up to 100 px behind the tip
+(`lines`, `hooks`, `bounces` at every stabiliser; most cases at 0.4 and 1).
+Merged capsule runs kept growing, so whole edges re-tilted, and the
+centre-line filter reshaped ink near corners as reversals were found.
 
-![hooks heatmap](inklab/hooks_0.4-heat.png)
+Now: every stage of `StrokeShaper` has a fixed reach (resampling from the
+start, a *finite* low-pass kernel, corners decided from samples a fixed
+distance ahead, causal radii), and `RibbonEmitter` decides runs from at most
+two samples ahead and cuts them at fixed indices. Ink beyond that reach is
+final and frozen. `behindTip` and `settle` are 0 on every entry, the
+heatmaps are empty.
 
-*The same stroke over all frames.* Yellow/red pixels line both edges over the
-last ~60 % of the line. The changes are one-pixel-row steps along the whole
-edge: a tilt, not a bump at the tip.
+![hooks filmstrip, before](inklab/before/hooks_0.4-film.png)
+![hooks filmstrip, now](inklab/hooks_0.4-film.png)
 
-### F2: pop at pen-up
+*`hooks@0.4`, first stroke, before and now.* Before, red streaks ran along
+both edges behind the tip and the committed frame had magenta along the
+edge (F2). Now no tile has a red, blue-behind-the-tip or magenta pixel.
 
-`pop.pixels` is 158 px² (`lines@0.4`), 145 px² (`lines@1`), 248 px²
-(`hooks@0.4`) and 192 px² (`hooks@1`). `pop.max` reaches 88–100 % (`hooks`).
+![hooks heatmap, before](inklab/before/hooks_0.4-heat.png)
+![hooks heatmap, now](inklab/hooks_0.4-heat.png)
 
-The committed outline is built with `complete: true`: hooks trimmed, ends
-levelled, the merge runs re-decided. It differs from the last live frame along
-the whole edge, not just at the tip. The magenta strips in the two images
-above are this pop.
+### F2 (resolved): pop at pen-up
 
-### F3: pen-down/up hooks are not trimmed
+Was: `pop.pixels` up to 248 px², `pop.max` 100 %: the committed outline was
+built anew (hooks trimmed, ends levelled, runs re-merged) and differed along
+the whole edge. Now the commit continues the live builder: it rolls back to
+a checkpoint that does not depend on the last samples and only redoes the
+end, so the committed stroke *is* the last live frame plus its end. 0
+everywhere.
 
-`ends.nub` is 2.99–3.01 px on `hooks` at every stabiliser. The limits are 0.6
-/ 1.2 / 2.2 px. The simulated flicks are 2.5–3 px over three samples, turning
-back by about 115–125°. The hook trimmer misses them, and they are drawn as
-small curls. Against raw samples (`rec:sim_hooks`) the flick is only half
-drawn (`fidelity.hausdorff` 1.76 px).
+### F3 (resolved): pen-down/up hooks were not trimmed
 
-![hooks 16x](inklab/hooks_0.4-16x.png)
+Was: `ends.nub` 3 px on `hooks`. Now `HookFinder` trims a short end piece
+that meets the body at a local kink. The start is decided once, from the
+first few screen px, before the contact is shown (so it never changes on
+screen); the end at pen-up. `ends.nub` ≤ 0.3 px everywhere.
 
-*`hooks@0.4` at 16x, end of "uue".* The up-flick at the right is drawn as a
-3 px hooked tail rising from the baseline: the true path (green, under the
-blue centre line) and the raw samples (red) go there too, but it should not
-be ink.
+The rules were tuned against false positives too: a hook is at most 3 px
+(start) / 4 px (end) on screen whatever the pen (it is the hand's motion;
+first scaled with the width, it ate the top of an "o" and the curl of an "s"
+written with a 4 px pen, see `test/hooks_test.dart`), and most of its turn
+must happen within a short reach of the kink, measured over at least two
+samples each way (a fast curve's single-sample jitter is not a kink). A
+sharp kink in the first 3 px is still trimmed even when intended (the
+specimen's cursive "r" lead-in, a fraction of a pixel at 1×).
 
-### F4: bounces flash
+![hooks 16x, before](inklab/before/hooks_0.4-16x.png)
+![hooks 16x, now](inklab/hooks_0.4-16x.png)
 
-`temporal.vanished` = 2 on `bounces` at every stabiliser: both 40 ms
-re-contacts are drawn live for a few frames. The bounce filter only drops them
-at pen-up (`ends.stray` passes), so they flash and disappear.
+### F4 (resolved): bounces flashed
 
-### F5: stabiliser 0 smooths nothing
+Was: `temporal.vanished` 2 on `bounces`. Now a contact that starts right
+after and next to a lift is held back while it could still be a bounce
+(`BounceFilter.mightBounce`, at most 80 ms), and every contact until its
+pen-down hook is decided, so a bounce is never drawn.
 
-At stabiliser 0, `OutlineSpec.positionSigma` is `2 × streamline × …` = **0**,
-so digitiser jitter goes straight into the ink.
+### F5 (resolved): stabiliser 0 smoothed nothing
 
-| Metric | Range at stabiliser 0 | Limit |
-|---|---|---|
-| `smooth.edgeBump16x` | 1.0–2.3 px (6 cases) | 1 px |
-| `smooth.facet` | 6.5–21.8° (7 cases) | 5° |
+Was: σ = 0 at stabiliser 0, `edgeBump16x` up to 2.3 px and `facet` up to
+21.8°. Now σ = (0.7 + 0.8 × stabiliser) screen px (more for wide pens), in
+*screen* units: the stroke's unit is estimated from its point spacing, so
+strokes written zoomed in are smoothed as finely as they were seen. At
+stabiliser 0: `edgeBump16x` ≤ 0.6 px and `facet` ≤ 2.3° on the simulated
+cases, 0.93 px and 3.4° on the real recordings.
 
-ARCHITECTURE.md says that "at stabiliser 0 the filter only removes sub-pixel
-noise". It removes none.
+![cursive at stabiliser 0, 16x, before](inklab/before/cursive_0.0-16x.png)
+![cursive at stabiliser 0, 16x, now](inklab/cursive_0.0-16x.png)
 
-![cursive at stabiliser 0, 16x](inklab/cursive_0.0-16x.png)
-![cursive at stabiliser 0.4, 16x](inklab/cursive_0.4-16x.png)
+*`cursive@0` loop top at 16x.* Before, polygonal edges with a kink at every
+raw sample; now smooth edges with the centre line through the middle of the
+sample scatter.
 
-*`cursive` loop tops at 16x, stabiliser 0 (first) and 0.4 (second).* At 0
-both edges are visibly polygonal: straight facets with kinks following every
-raw sample (red dots), bumps of about a tenth of a pixel that are plain at
-16x. At 0.4 the same loop has smooth, round edges, and the centre line (blue)
-runs through the middle of the sample scatter.
+### F6 (resolved): live cost grew with the stroke's length
 
-### F6: live cost grows with stroke length
+Was: `perf.frameCost` 1.1–1.3 ms late in the 8 s stroke, `flatness` 8.7×,
+up to 2665 sub-paths. Now only the tail is rebuilt (`LiveStrokeBuilder`):
+30–60 µs on the long stroke, flat (0.7–1.6×), 21–24 sub-paths; the real
+recordings 57–156 µs, 2–4 sub-paths.
 
-`perf.flatness` is 8.5–8.9× on `long_stroke`: the live outline takes 132 µs
-early and 1126 µs at 1108 points (stabiliser 0.4), so `perf.frameCost` is
-1.1–1.2 ms here, on desktop JIT. It is 4–6.6× on the 2–3 s cases and
-recordings. `perf.subpaths` at the end of `long_stroke` is **2665** (0),
-**1869** (0.4) and **1043** (1). The two-word `cursive` case already has 340.
+### F7 (resolved): the wet-ink overlay could not match Flutter's ink
 
-`LiveInkPainter` rebuilds the whole live stroke every frame, and every capsule
-is its own sub-path, which the GPU re-tessellates each frame. That is most
-likely the slowness felt on the tablet: a few times slower CPU than this
-machine, plus thousands of sub-paths per frame late in a long stroke. The
-docs' "a 1000-point stroke builds in well under a millisecond" does not hold
-here. Fix direction: freeze the settled part of the live stroke into a
-picture or raster, and rebuild only the tail.
+Was: `overlay.ghost` 6–22 px² everywhere and gaps at 0.4 and 1: the overlay
+drew raw-sample capsules with its own pressure filter. Now the overlay
+applies the outline's own rules (`WetInkModel`, ported to Kotlin, see
+ARCHITECTURE "Low-latency ink"), including the position smoothing, and
+retracts only behind what Flutter has presented. 0 everywhere.
 
-### F7: the wet-ink overlay can't match Flutter's ink
+![overlay sheet, before](inklab/before/hooks_0.4-overlay.png)
+![overlay sheet, now](inklab/hooks_0.4-overlay.png)
 
-`overlay.ghost` is 6–22 px² on every case and stabiliser. `overlay.gap` is
-2–13 px² on `hooks`, `pressure_swell` and `zigzag` at 0.4 and 1, and on
-`cursive` and `long_stroke` at 1. The overlay (`WetInkOverlay.kt`, modelled
-by `WetInkModel`) draws raw-sample capsules:
-- pressure EMA keeping 0.65, while Dart's `PressureFilter` keeps 0.4;
-- no stabiliser, causal radius smoothing, slope limit, minimum spacing, hook
-  trimming or tapers.
+*`hooks@0.4`, worst overlay moments.* Before, red ghost rims around the
+overlay's tip and orange gaps; now the overlay (blue) lies exactly on the ink
+Flutter draws next (light grey), with no red or orange.
 
-Its tip therefore sticks out of the ink Flutter draws when it catches up.
+### F8 (resolved): tips cut short at stabiliser 0
 
-![overlay sheet](inklab/hooks_0.4-overlay.png)
+Was: `detail.retraction` 0.55 px on `zigzag@0` and `long_stroke@0`. Now
+corners are found on the resampled line and each stretch ends exactly at
+its corner sample (the low-pass is continued past it by a pinned quadratic
+fit), so tips stay put: ≤ 0.39 px at stabiliser 0.
 
-*`hooks@0.4`, worst overlay moments.*
-- Almost every tile has a red rim of ghost ink, 1–3 physical px, around the
-  front of the blue overlay blob: it is wider and further ahead than Flutter's
-  caught-up ink.
-- In tiles 3–5 the overlay draws the up-flick that Flutter later trims, a
-  whole red patch.
-- Tiles 2 and 4 have an orange gap strip along the stroke's edge: the overlay
-  has retracted while Flutter's catching-up frame has moved that edge (F1).
+![zigzag tip at 16x, before](inklab/before/zigzag_0.0-16x.png)
+![zigzag tip at 16x, now](inklab/zigzag_0.0-16x.png)
 
-### F8: tips cut short at stabiliser 0
+### Real S Pen recordings
 
-`detail.retraction` and `fidelity.hausdorff` are 0.54–0.56 px on `zigzag@0`
-and `long_stroke@0`, against a 0.5 px limit. Cusp tips and tight loop tops
-end slightly inside the true path even without smoothing. This is marginal,
-but it means the stabiliser-0 limit cannot be met as is.
+![real_spen_01 at stabiliser 0, 16x](inklab/rec_real_spen_01_0.0-16x.png)
 
-![zigzag tip at 16x](inklab/zigzag_0.0-16x.png)
+*`real_spen_01@0` at 16x, the worst edge bump.* The raw samples (red)
+themselves kink there; at stabiliser 0 the ink follows them, smoothly.
 
-*A `zigzag@0` tip at 16x.* The edges are faceted (F5). The ink's apex is
-rounded slightly below the topmost raw sample and the green truth.
+![real_spen_02 at stabiliser 1, 16x](inklab/rec_real_spen_02_1.0-16x.png)
+
+*`real_spen_02@1` at 16x, the worst edge bump.* A small loop the pen really
+made at the bottom of a sharp turn.
+
+![real_spen_02 overlay sheet](inklab/rec_real_spen_02_1.0-overlay.png)
+
+*`real_spen_02@1`, worst overlay moments.* No ghost, no gap.
 
 ### Not failures, but worth knowing
 
-- Fidelity, width and detail pass at the default stabiliser 0.4 on every case.
-  The default pen is accurate; the problems are temporal (F1, F2), the ends
-  (F3, F4) and cost (F6).
-- At 16x on `long_stroke@0.4`, slowly curving edges sometimes show long
-  straight stretches meeting at a faint bend: merged capsules (the same
-  0.02 rad rule as F1). They stay below the facet limit.
+- `fidelity.width` is 15–23 % at stabilisers 0.4 and 1 (limits 25 / 40 %),
+  as with the old engine: the stabiliser also smooths the width (the radius
+  smoothing length is 0.5 + 6 × stabiliser widths), so quick pressure
+  changes are evened out by design.
+- The real recordings are rougher than the simulated pen (`edgeBump16x`
+  0.93 px and `facet` 3.4° at stabiliser 0, limits 1 px and 5°): real
+  hand motion and digitiser noise, which stabiliser 0 is meant to keep.
+- Timings are this desktop's JIT; the tablet is a few times slower. The
+  numbers that matter are the shape: per-frame cost flat with length, and
+  pen-up no more than a few frames' work.
+
+## Low-latency ink: default
+
+**Off by default, for now.** The model says the overlay is right: no gap or
+ghost at pipeline depths 1 and 2 on any case or recording, 5 px² once at
+depth 3, and the Kotlin model agrees with the measured Dart model to 1e-15.
+But the Kotlin overlay was rewritten here and has not yet run on a tablet:
+the model checks its geometry and timing rules, not the front-buffer
+rendering, the surface's z-order, or its cost per `MotionEvent` on a tablet
+CPU, and it is still not clipped to the canvas (a tip dragged under a toolbar
+shows above it for a frame or two). Switch it on in Settings → Input; if it
+looks identical to Flutter's ink and feels faster, turning it on by default
+is a one-line change (`SettingsRepository.lowLatencyInk`).
