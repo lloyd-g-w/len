@@ -1,17 +1,19 @@
 import 'package:flutter/gestures.dart';
 
+import 'double_tap_detector.dart';
 import 'long_press_detector.dart';
 import 'multi_finger_tap.dart';
 
 /// Canvas-level gestures recognised alongside drawing and navigation:
-/// multi-finger taps (undo / redo), a finger long press and a right click
-/// (context menu).
+/// multi-finger taps (undo / redo), a navigating finger's double tap
+/// (zoom), a finger long press and a right click (context menu).
 ///
 /// `InkInputController` feeds it every raw event it sees; recognition never
 /// claims the pointer, so drawing, panning and palm rejection behave as if
 /// it weren't there.
 class CanvasGestures {
-  CanvasGestures({this.onMultiFingerTap, this.onContextMenu}) {
+  CanvasGestures({this.onMultiFingerTap, this.onContextMenu, this.onDoubleTap}) {
+    doubleTap = DoubleTapDetector(onDoubleTap: (at) => onDoubleTap?.call(at));
     _longPress = LongPressDetector(onLongPress: _contextMenu);
     _rightClick = SecondaryClickDetector(onClick: _contextMenu);
   }
@@ -23,7 +25,11 @@ class CanvasGestures {
   /// position.
   void Function(Offset screen)? onContextMenu;
 
+  /// A double tap with one navigating finger, at a screen position.
+  void Function(Offset screen)? onDoubleTap;
+
   final MultiFingerTapDetector taps = MultiFingerTapDetector();
+  late final DoubleTapDetector doubleTap;
   late final LongPressDetector _longPress;
   late final SecondaryClickDetector _rightClick;
 
@@ -38,9 +44,11 @@ class CanvasGestures {
         // A still palm next to a (hovering) pen must not open a menu.
         final eligible = navigates && !taps.isStylusNear(e.timeStamp);
         _longPress.down(e.pointer, e.localPosition, eligible: eligible);
+        doubleTap.down(e.pointer, e.localPosition, e.timeStamp, eligible: eligible);
       case PointerDeviceKind.stylus || PointerDeviceKind.invertedStylus:
         taps.noteStylus(e.timeStamp, down: true);
         _longPress.reset();
+        doubleTap.reset();
       case PointerDeviceKind.mouse:
         if (e.buttons & kSecondaryMouseButton != 0) _rightClick.down(e.pointer, e.localPosition);
       default:
@@ -50,6 +58,7 @@ class CanvasGestures {
 
   void move(PointerMoveEvent e) {
     taps.move(e.pointer, e.localPosition);
+    doubleTap.move(e.pointer, e.localPosition);
     _longPress.move(e.pointer, e.localPosition);
     _rightClick.move(e.pointer, e.localPosition);
   }
@@ -61,12 +70,14 @@ class CanvasGestures {
     }
     _longPress.up(e.pointer);
     _rightClick.up(e.pointer);
+    if (e.kind == PointerDeviceKind.touch) doubleTap.up(e.pointer, e.localPosition, e.timeStamp);
     final fingers = taps.up(e.pointer, e.localPosition, e.timeStamp);
     if (fingers != null) onMultiFingerTap?.call(fingers);
   }
 
   void cancel(PointerCancelEvent e) {
     taps.cancel(e.pointer);
+    if (e.kind == PointerDeviceKind.touch) doubleTap.cancel(e.pointer);
     _longPress.up(e.pointer);
     _rightClick.cancel();
   }
@@ -76,6 +87,7 @@ class CanvasGestures {
     if (e.kind == PointerDeviceKind.stylus || e.kind == PointerDeviceKind.invertedStylus) {
       taps.noteStylus(e.timeStamp);
       _longPress.reset();
+      doubleTap.reset();
     }
   }
 
