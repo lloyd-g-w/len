@@ -64,7 +64,7 @@ class RecordStore {
   factory RecordStore.inMemory() => RecordStore._(sqlite3.openInMemory());
 
   /// Schema version stored in `PRAGMA user_version`.
-  static const schemaVersion = 2;
+  static const schemaVersion = 1;
 
   final Database _db;
 
@@ -75,6 +75,8 @@ class RecordStore {
     _db.execute('PRAGMA busy_timeout = 5000');
   }
 
+  /// Creates the schema of a new database. Future schema changes add a
+  /// migration step per version here (`if (version < 2) …`).
   void _migrate() {
     final version = _db.userVersion;
     if (version > schemaVersion) throw UnsupportedSchemaException(version);
@@ -94,11 +96,6 @@ class RecordStore {
         ''');
         // Unique index: enforces seq uniqueness and serves pull queries.
         _db.execute('CREATE UNIQUE INDEX records_seq ON records (seq)');
-        _db.userVersion = 1;
-      });
-    }
-    if (version < 2) {
-      _transaction(() {
         // Blob garbage collection state (see `BlobGc`): since when each
         // stored blob has been unreferenced, and server-wide facts such as
         // when blobs were last deleted.
@@ -109,7 +106,7 @@ class RecordStore {
           ) WITHOUT ROWID
         ''');
         _db.execute('CREATE TABLE meta (key TEXT PRIMARY KEY NOT NULL, value) WITHOUT ROWID');
-        _db.userVersion = 2;
+        _db.userVersion = 1;
       });
     }
   }

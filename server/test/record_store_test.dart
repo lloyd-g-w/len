@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:len_sync_server/len_sync_server.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
 SyncRecord rec(
@@ -169,5 +170,39 @@ void main() {
     expect(b.pull(since: 0, limit: 10).records.single.id, '1');
     b.close();
     await dir.delete(recursive: true);
+  });
+
+  test('creates the schema at user_version 1; reopening changes nothing', () async {
+    final dir = await Directory.systemTemp.createTemp('len_store_schema');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/len.db';
+    RecordStore.open(path).close();
+    String schema(Database db) => db
+        .select('SELECT type, name, sql FROM sqlite_master ORDER BY name')
+        .map((r) => '${r['type']} ${r['name']} ${r['sql']}')
+        .join('\n');
+    final raw = sqlite3.open(path);
+    expect(raw.userVersion, 1);
+    expect(RecordStore.schemaVersion, 1);
+    final before = schema(raw);
+    expect(before, allOf(contains('table records'), contains('index records_seq')));
+    expect(before, allOf(contains('table blob_gc'), contains('table meta')));
+    raw.close();
+
+    RecordStore.open(path).close();
+    final again = sqlite3.open(path);
+    expect(schema(again), before);
+    expect(again.userVersion, 1);
+    again.close();
+  });
+
+  test('refuses a database from a newer server', () async {
+    final dir = await Directory.systemTemp.createTemp('len_store_newer');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/len.db';
+    sqlite3.open(path)
+      ..userVersion = RecordStore.schemaVersion + 1
+      ..close();
+    expect(() => RecordStore.open(path), throwsA(isA<UnsupportedSchemaException>()));
   });
 }
