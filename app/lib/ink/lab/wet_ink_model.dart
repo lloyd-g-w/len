@@ -4,6 +4,7 @@ import 'dart:ui';
 import '../input/wet_ink.dart';
 import '../render/growable.dart';
 import '../render/hooks.dart';
+import '../render/stroke_shaper.dart';
 
 /// A Dart model of what the experimental low-latency overlay
 /// (`android/.../WetInkOverlay.kt`) draws, so its geometry and timing can
@@ -24,19 +25,29 @@ import '../render/hooks.dart';
 ///    are not drawn.
 ///  * **Radius**: the `begin` radius table (pressure 0, 0.1 … 1), then the
 ///    outline's causal smoothing by length (two exponential passes and a
-///    slope limit), the non-swelling and levelled start, and the same rules
-///    at the tip (so the overlay's tip is as wide as Flutter's will be).
+///    slope limit, in steps of [WetInkShape.step] along each segment, like
+///    the outline's resampled line), the non-swelling and levelled start,
+///    and the same rules at the tip (so the overlay's tip is as wide as
+///    Flutter's will be).
+///  * **Positions**: the outline's position rules ([WetInkShape.positions]:
+///    resampling every step along a Catmull-Rom spline, corners, the
+///    low-pass kernel with its end fit) applied to the points from a little
+///    before the tail (enough for the kernel), so the overlay's ink lies
+///    where Flutter's will, also with the stabiliser up.
 ///  * **Lift**: the last three pressures may not rise, and the pen-up hook
 ///    is trimmed with the outline's rules ([HookFinder]).
-///  * **Shape**: the hull of the circles of consecutive points (a tapered
-///    capsule: two circles and the quad between their tangents); one point
-///    is a dot.
+///  * **Shape**: the hull of the circles of consecutive smoothed points (a
+///    tapered capsule: two circles and the quad between their tangents);
+///    one point is a dot.
 ///  * **Tail**: on every commit (after each Flutter frame's `progress`,
 ///    and every frame while a tail remains) the front buffer is cleared
-///    and only points newer than `max(progress − 2 frames, now − 5
-///    frames)` are drawn, plus the point before them (the segment leading
-///    in). New points are drawn into the front buffer as they arrive.
-///    After `end`, the tail stays until 2 frames have passed.
+///    and only points newer than the `progress` reported two messages
+///    before the latest are drawn (Flutter presents a frame about two
+///    frames after building it; counting messages rather than time keeps
+///    this right when frames are late), plus the point before them (the
+///    segment leading in); after the lift at least the last point. New
+///    points are drawn into the front buffer as they arrive. After `end`,
+///    the tail stays until 2 frames have passed.
 class WetInkModel {
   WetInkModel({required this.radii, required this.shape, required this.frameMs, this.startMs = 0});
 
@@ -98,10 +109,20 @@ class WetInkModel {
     if (s.timeMs >= startMs) samples.add(s);
   }
 
+  // Causal radii per point (two passes, slope-limited) and arc lengths.
+  final List<double> _r1 = [], _r2 = [], _rs = [], _arc = [];
+
+  void _forget(int from) {
+    for (final l in [_r1, _r2, _rs, _arc]) {
+      if (l.length > from) l.removeRange(math.max(0, from), l.length);
+    }
+  }
+
   /// Pen-up: the last pressures may not rise; the pen-up hook is trimmed.
   void _lift() {
     _lifted = true;
     final n = samples.length;
+    _forget(n - 3);
     final from = math.max(1, n - 3);
     for (var i = from; i < n; i++) {
       final ceiling = samples[i - 1].pressure;
@@ -123,6 +144,9 @@ class WetInkModel {
     );
     final keep = samples.length < 2 ? samples.length : hooks.endKeep(x, y, samples.length);
     samples.removeRange(keep, samples.length);
+    _forget(keep);
+    // Spline lengths that used a removed point.
+    if (_arcs.length > keep - 1) _arcs.removeRange(math.max(1, keep - 1), _arcs.length);
   }
 
   double radiusAt(double p) {
@@ -136,22 +160,37 @@ class WetInkModel {
   /// and tip rules.
   List<double> pointRadii() {
     final n = samples.length;
-    final r = List<double>.filled(n, 0);
-    final arc = List<double>.filled(n, 0);
-    double r1 = 0, r2 = 0;
-    for (var i = 0; i < n; i++) {
+    // The causal part, cached (it depends only on the points before).
+    for (var i = _rs.length; i < n; i++) {
       final raw = radiusAt(samples[i].pressure);
       if (i == 0) {
-        r1 = r2 = r[0] = raw;
+        _r1.add(raw);
+        _r2.add(raw);
+        _rs.add(raw);
+        _arc.add(0);
         continue;
       }
       final d = (samples[i].position - samples[i - 1].position).distance;
-      arc[i] = arc[i - 1] + d;
-      final keep = math.exp(-2 * d / shape.radiusSigma);
-      r1 = r1 * keep + raw * (1 - keep);
-      r2 = r2 * keep + r1 * (1 - keep);
-      r[i] = r2.clamp(r[i - 1] - shape.slope * d, r[i - 1] + shape.slope * d);
+      _arc.add(_arc[i - 1] + d);
+      // In steps along the segment, the input radius interpolated (as the
+      // outline filters its resampled line).
+      final before = radiusAt(samples[i - 1].pressure);
+      final steps = math.max(1, (d / shape.step).ceil());
+      final h = d / steps;
+      final keep = math.exp(-2 * h / shape.radiusSigma);
+      var r1 = _r1[i - 1], r2 = _r2[i - 1], limited = _rs[i - 1];
+      for (var k = 1; k <= steps; k++) {
+        final input = before + (raw - before) * k / steps;
+        r1 = r1 * keep + input * (1 - keep);
+        r2 = r2 * keep + r1 * (1 - keep);
+        limited = r2.clamp(limited - shape.slope * h, limited + shape.slope * h);
+      }
+      _r1.add(r1);
+      _r2.add(r2);
+      _rs.add(limited);
     }
+    final r = List<double>.of(_rs);
+    final arc = _arc;
     if (n == 0) return r;
     final total = arc[n - 1];
     for (var i = n - 2; i >= 0; i--) {
@@ -185,31 +224,103 @@ class WetInkModel {
   }
 
   /// Index of the first point the overlay shows at [nowMs], given the
-  /// newest `progress` ([flutterUpToMs]) and, after `end`, when it ended.
-  /// Equal to the number of points when it shows nothing.
-  int tailStart({required double nowMs, required double flutterUpToMs, double? endedAtMs}) {
+  /// `progress` reported two messages before the latest ([shownUpToMs]: the
+  /// input of the frame Flutter shows, at the latest) and, after `end`,
+  /// when it ended. Equal to the number of points when it shows nothing.
+  int tailStart({required double nowMs, required double shownUpToMs, double? endedAtMs}) {
     if (endedAtMs != null && nowMs - endedAtMs >= 2 * frameMs) return samples.length;
-    final cutoff = math.max(flutterUpToMs - 2 * frameMs, nowMs - 5 * frameMs);
+    final cutoff = shownUpToMs;
     var from = samples.length;
     while (from > 0 && samples[from - 1].timeMs > cutoff) {
       from--;
     }
+    // After the lift Flutter's last live frame may still be on screen while
+    // the committed end (pen-up hook trimmed, end settled) differs from it:
+    // keep the last point until the committed stroke is shown.
+    if (_lifted && samples.isNotEmpty) from = math.min(from, samples.length - 1);
     if (from == samples.length) return from;
     return math.max(0, from - 1);
   }
 
   /// The overlay's pieces from point [from] to [to] (exclusive): the hull
-  /// of the circles `(a, ra)` and `(b, rb)`; one point is a dot (a == b).
+  /// of the circles `(a, ra)` and `(b, rb)` of consecutive smoothed points;
+  /// one point is a dot (a == b).
   List<WetSegment> segments(int from, int to) {
     final r = pointRadii();
     if (to - from == 1) {
       final s = samples[from];
       return [WetSegment(s.position, s.position, r[from], r[from])];
     }
+    // Smooth from a little before [from]: the kernel, its end fit and the
+    // corner test reach that far back.
+    final p = shape.positions;
+    final reach = (p.kernelK + p.fit + p.cornerK + 4) * p.step;
+    var start = from;
+    var back = 0.0;
+    while (start > 0 && back < reach) {
+      back += (samples[start].position - samples[start - 1].position).distance;
+      start--;
+    }
+    // Resample in step with the whole line: from the spline length up to
+    // the window's first point, with the point before it as the spline's
+    // lead-in.
+    final StrokeShaper shaper;
+    if (start == 0) {
+      shaper = StrokeShaper(p);
+    } else {
+      final arc = _splineArc(start, p.step);
+      shaper = StrokeShaper(p, start: 1, phase: (arc / p.step).ceil() * p.step - arc);
+    }
+    for (var i = math.max(0, start - 1); i < to; i++) {
+      final s = samples[i].position;
+      shaper.add(s.dx, s.dy, r[i]);
+    }
+    shaper.update(ended: _lifted && to == samples.length);
+    // The smoothed points from about where point [from] is.
+    var skip = 0.0;
+    for (var i = start + 1; i <= from; i++) {
+      skip += (samples[i].position - samples[i - 1].position).distance;
+    }
+    final first = math.max(0, (skip / p.step).floor() - 1);
+    final x = shaper.x, y = shaper.y, rr = shaper.r;
+    final n = shaper.length;
+    if (n - first < 2) {
+      final i = math.min(first, n - 1);
+      return [WetSegment(Offset(x[i], y[i]), Offset(x[i], y[i]), rr[i], rr[i])];
+    }
     return [
-      for (var i = from + 1; i < to; i++)
-        WetSegment(samples[i - 1].position, samples[i].position, r[i - 1], r[i]),
+      for (var i = first + 1; i < n; i++)
+        WetSegment(Offset(x[i - 1], y[i - 1]), Offset(x[i], y[i]), rr[i - 1], rr[i]),
     ];
+  }
+
+  // Spline length from the first point to point i (as the outline's
+  // resampling measures it), for the points so far.
+  final List<double> _arcs = [0];
+
+  double _splineArc(int i, double step) {
+    while (_arcs.length <= i) {
+      final k = _arcs.length - 1; // segment k → k + 1
+      Offset at(int j) => samples[j].position;
+      final a = at(k), b = at(k + 1);
+      final before = k > 0 ? at(k - 1) : a * 2 - b;
+      final after = k + 2 < samples.length ? at(k + 2) : b * 2 - a;
+      _arcs.add(
+        _arcs[k] +
+            StrokeShaper.segmentLength(
+              before.dx,
+              before.dy,
+              a.dx,
+              a.dy,
+              b.dx,
+              b.dy,
+              after.dx,
+              after.dy,
+              step,
+            ),
+      );
+    }
+    return _arcs[i];
   }
 
   static double _distanceToSegment(Offset p, Offset a, Offset b) {

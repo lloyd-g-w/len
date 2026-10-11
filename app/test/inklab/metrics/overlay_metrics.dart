@@ -59,23 +59,22 @@ class OverlayMoment {
 
 /// The screen moments of each contact with low-latency ink at Flutter
 /// pipeline [depth] (frames from build to display).
-///
-/// [cache] keeps flattened outlines per frame between calls.
-List<OverlayMoment> overlayMoments(
-  ReplayResult r, {
-  int depth = 2,
-  Map<(int, int), List<(Rect, Contour)>>? cache,
-}) {
-  final outlines = cache ?? {};
+List<OverlayMoment> overlayMoments(ReplayResult r, {int depth = 2}) =>
+    overlayMomentsAt(r, depths: [depth])[depth]!;
+
+/// [overlayMoments] for several pipeline [depths] in one pass (each frame's
+/// outline is built once, and only a few are kept at a time; the moments
+/// keep only the ink near the pen tip).
+Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<int> depths}) {
+  final moments = {for (final d in depths) d: <OverlayMoment>[]};
   final profile = PenProfile.of(r.pen.tool);
   if (profile.flatCaps || profile.textured || profile.nibVariation > 0 || r.style.opacity < 1) {
-    return const [];
+    return moments;
   }
   final dpr = r.recording.meta.devicePixelRatio;
   final frameUs = frameIntervalUs(r);
   final spec = StrokeRenderer.specFor(r.pen.tool, r.pen.width, r.style);
   final contacts = rawContacts(r.recording);
-  final moments = <OverlayMoment>[];
   List<(Rect, Contour)> ink(List<StrokePoint> p, bool complete, Offset Function(Offset) toPx) => [
     for (final c in outlineOf(
       p,
@@ -116,53 +115,111 @@ List<OverlayMoment> overlayMoments(
     final startSample = contact.samples.reduce(
       (a, b) => (a.position - startAt).distance <= (b.position - startAt).distance ? a : b,
     );
-    final model = WetInkModel(
-      radii: radii,
-      shape: shape,
-      frameMs: frameUs / 1000,
-      startMs: startSample.timeUs ~/ 1000,
-    );
-    var delivered = 0;
+    final models = {
+      for (final d in depths)
+        d: WetInkModel(
+          radii: radii,
+          shape: shape,
+          frameMs: frameUs / 1000,
+          startMs: startSample.timeUs ~/ 1000,
+        ),
+    };
+    final delivered = {for (final d in depths) d: 0};
     final start = run.frames.first.index, end = run.frames.last.index;
-    List<(Rect, Contour)> shownAt(int k) => outlines[(start, k)] ??= k <= end
+    final outlines = <int, List<(Rect, Contour)>>{};
+    List<(Rect, Contour)> shownAt(int k) => outlines[k] ??= k <= end
         ? ink(r.frames[k].points, false, toPx)
         : ink(stroke.points, true, toPx);
-    List<Contour> clip(List<(Rect, Contour)> ink, Rect window) => [
-      for (final (b, c) in ink)
-        if (b.overlaps(window)) c,
-    ];
-    for (var k = start; k <= end + 2 && k + depth < r.frames.length; k++) {
-      final progress = r.frames[math.min(k + depth - 1, end)].newestEventUs;
-      final ended = k + depth - 1 > end;
-      final upTo = r.frames[k + depth].newestEventUs;
-      while (delivered < contact.samples.length && contact.samples[delivered].timeUs <= upTo) {
-        final s = contact.samples[delivered++];
-        final lift = delivered == contact.samples.length;
-        model.add(s.position * dpr, s.pressure, s.timeUs ~/ 1000, lift: lift);
+    for (var k = start; k <= end + 2; k++) {
+      outlines.remove(k - 1);
+      for (final depth in depths) {
+        if (k + depth >= r.frames.length) continue;
+        final model = models[depth]!;
+        // The progress Flutter reported two messages before the latest one
+        // (frame k + depth − 1): before the first frame of the contact, it
+        // has shown nothing of it.
+        final shownIndex = math.min(k + depth - 3, end);
+        final shown = shownIndex < start ? contact.downUs : r.frames[shownIndex].newestEventUs;
+        final ended = k + depth - 1 > end;
+        final upTo = r.frames[k + depth].newestEventUs;
+        var n = delivered[depth]!;
+        while (n < contact.samples.length && contact.samples[n].timeUs <= upTo) {
+          final s = contact.samples[n++];
+          final lift = n == contact.samples.length;
+          model.add(s.position * dpr, s.pressure, s.timeUs ~/ 1000, lift: lift);
+        }
+        delivered[depth] = n;
+        if (model.samples.isEmpty) continue;
+        final from = model.tailStart(
+          nowMs: r.frames[k + depth - 1].vsyncUs / 1000 + 1,
+          shownUpToMs: shown / 1000,
+          endedAtMs: ended ? r.frames[end + 1].vsyncUs / 1000 : null,
+        );
+        final overlay = from >= model.samples.length
+            ? <Contour>[]
+            : [
+                for (final g in model.segments(from, model.samples.length))
+                  hullPolygon(g.a, g.b, g.ra, g.rb),
+              ];
+        final tip = model.samples.last.position;
+        final reach = radii.last * 2 + 2;
+        var window = Rect.fromCircle(center: tip, radius: reach);
+        if (overlay.isNotEmpty) window = window.expandToInclude(boundsOf(overlay).inflate(reach));
+        moments[depth]!.add(
+          OverlayMoment(
+            _clip(shownAt(k), window),
+            overlay,
+            _clip(shownAt(k + depth), window),
+            window,
+          ),
+        );
       }
-      if (model.samples.isEmpty) continue;
-      final from = model.tailStart(
-        nowMs: r.frames[k + depth - 1].vsyncUs / 1000 + 1,
-        flutterUpToMs: progress / 1000,
-        endedAtMs: ended ? r.frames[end + 1].vsyncUs / 1000 : null,
-      );
-      final overlay = from >= model.samples.length
-          ? <Contour>[]
-          : [
-              for (final g in model.segments(from, model.samples.length))
-                hullPolygon(g.a, g.b, g.ra, g.rb),
-            ];
-      final tip = model.samples.last.position;
-      final reach = radii.last * 2 + 2;
-      var window = Rect.fromCircle(center: tip, radius: reach);
-      if (overlay.isNotEmpty) window = window.expandToInclude(boundsOf(overlay).inflate(reach));
-      moments.add(
-        OverlayMoment(clip(shownAt(k), window), overlay, clip(shownAt(k + depth), window), window),
-      );
     }
   }
   return moments;
 }
+
+/// The parts of [ink] inside [window] (a little beyond it), each contour
+/// clipped to it (Sutherland–Hodgman), so a moment keeps only what it is
+/// judged on.
+List<Contour> _clip(List<(Rect, Contour)> ink, Rect window) {
+  final box = window.inflate(4);
+  final out = <Contour>[];
+  for (final (b, c) in ink) {
+    if (!b.overlaps(box)) continue;
+    if (box.contains(b.topLeft) && box.contains(b.bottomRight)) {
+      out.add(c);
+      continue;
+    }
+    var poly = c;
+    for (final (inside, cross) in <(bool Function(Offset), Offset Function(Offset, Offset))>[
+      ((p) => p.dx >= box.left, (a, b) => _atX(a, b, box.left)),
+      ((p) => p.dx <= box.right, (a, b) => _atX(a, b, box.right)),
+      ((p) => p.dy >= box.top, (a, b) => _atY(a, b, box.top)),
+      ((p) => p.dy <= box.bottom, (a, b) => _atY(a, b, box.bottom)),
+    ]) {
+      if (poly.isEmpty) break;
+      final next = <Offset>[];
+      for (var i = 0; i < poly.length; i++) {
+        final a = poly[(i + poly.length - 1) % poly.length], p = poly[i];
+        if (inside(p)) {
+          if (!inside(a)) next.add(cross(a, p));
+          next.add(p);
+        } else if (inside(a)) {
+          next.add(cross(a, p));
+        }
+      }
+      poly = next;
+    }
+    if (poly.length > 2) out.add(poly);
+  }
+  return out;
+}
+
+Offset _atX(Offset a, Offset b, double x) =>
+    Offset(x, a.dy + (b.dy - a.dy) * (x - a.dx) / (b.dx - a.dx));
+Offset _atY(Offset a, Offset b, double y) =>
+    Offset(a.dx + (b.dx - a.dx) * (y - a.dy) / (b.dy - a.dy), y);
 
 /// (h) Low-latency overlay: at every screen moment, Flutter's ink plus the
 /// overlay's must cover what Flutter's ink will be once it catches up (no
@@ -170,11 +227,11 @@ List<OverlayMoment> overlayMoments(
 /// ink, which shows as a bulge or a pop when the overlay retracts).
 List<Metric> overlay(ReplayResult r) {
   final out = <Metric>[];
-  final cache = <(int, int), List<(Rect, Contour)>>{};
+  final all = overlayMomentsAt(r, depths: const [2, 1, 3]);
   for (final depth in [2, 1, 3]) {
     final gap = Worst(), ghost = Worst();
     final dpr = r.recording.meta.devicePixelRatio;
-    for (final m in overlayMoments(r, depth: depth, cache: cache)) {
+    for (final m in all[depth]!) {
       final b = m.window;
       final f = Coverage.around(b)..fill(m.flutter);
       final o = Coverage.around(b)..fill(m.overlay);

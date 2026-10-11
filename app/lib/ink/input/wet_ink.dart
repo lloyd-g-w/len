@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../../domain/stroke.dart';
 import '../pen/pen_profile.dart';
+import '../render/shape_params.dart';
 import '../render/stroke_outline.dart';
 import '../render/stroke_renderer.dart';
 import 'live_ink.dart';
@@ -97,12 +98,18 @@ class WetInkShape {
     required this.hookEnd,
     required this.hookBody,
     required this.hookLocal,
+    required this.step,
+    required this.dedupe,
+    required this.kernel,
+    required this.fit,
+    required this.cornerK,
   });
 
   /// The rules of [spec] for a stroke of [unit] (`StrokeOutline.unitOf`)
   /// at viewport [scale] (world → logical px).
   factory WetInkShape.of(OutlineSpec spec, double scale, double unit) {
-    final hooks = spec.paramsFor(unit).hooks;
+    final params = spec.paramsFor(unit);
+    final hooks = params.hooks;
     return WetInkShape(
       minSpacing: PointSpacing.minDistance,
       keepExtreme: PointSpacing.keepExtreme,
@@ -116,6 +123,11 @@ class WetInkShape {
       hookEnd: hooks.maxEnd * scale,
       hookBody: hooks.body * scale,
       hookLocal: hooks.local * scale,
+      step: params.step * scale,
+      dedupe: params.dedupe * scale,
+      kernel: params.kernel,
+      fit: params.fit,
+      cornerK: params.cornerK,
     );
   }
 
@@ -134,6 +146,19 @@ class WetInkShape {
   /// Pen-up hook rules (see `HookFinder`).
   final double hookEnd, hookBody, hookLocal;
 
+  /// Position smoothing (see `StrokeShaper`): resampling step, merge
+  /// distance, low-pass kernel (per sample), samples of the end fit, and
+  /// the corner baseline in samples.
+  final double step, dedupe;
+  final List<double> kernel;
+  final int fit, cornerK;
+
+  /// The outline's position rules for points in these units.
+  ShapeParams get positions => ShapeParams.positionsOf(
+    ShapeParams.explicit(step: step, dedupe: dedupe, kernel: kernel, fit: fit, cornerK: cornerK),
+    1,
+  );
+
   /// The same rules with every length multiplied by [f] (e.g. the device
   /// pixel ratio).
   WetInkShape scaled(double f) => WetInkShape(
@@ -149,9 +174,15 @@ class WetInkShape {
     hookEnd: hookEnd * f,
     hookBody: hookBody * f,
     hookLocal: hookLocal * f,
+    step: step * f,
+    dedupe: dedupe * f,
+    kernel: kernel,
+    fit: fit,
+    cornerK: cornerK,
   );
 
-  /// The values in the order the overlay's `begin` message carries them.
+  /// The values in the order the overlay's `begin` message carries them
+  /// (the kernel last, it has as many values as are left).
   Float64List toList() => Float64List.fromList([
     minSpacing,
     keepExtreme,
@@ -165,5 +196,10 @@ class WetInkShape {
     hookEnd,
     hookBody,
     hookLocal,
+    step,
+    dedupe,
+    fit.toDouble(),
+    cornerK.toDouble(),
+    ...kernel,
   ]);
 }

@@ -52,6 +52,53 @@ class ShapeParams {
     endReach = math.max(settleEndK, levelEndK) + 1;
   }
 
+  /// Only the position rules of [base], with every length multiplied by
+  /// [f], and none of the radius rules (radii are taken as given) or hooks:
+  /// what the low-latency overlay applies to the newest samples, in its
+  /// own pixels (see `WetInkModel`).
+  ShapeParams.positionsOf(ShapeParams base, double f)
+    : width = base.width * f,
+      unit = base.unit * f,
+      dedupe = base.dedupe * f,
+      taperStart = 0,
+      taperEnd = 0 {
+    sigma = base.sigma * f;
+    step = base.step * f;
+    cornerBaseline = base.cornerBaseline * f;
+    hooks = HookFinder.lengths(maxStart: 0, maxEnd: 0, body: 0, local: 0);
+    kernel = base.kernel;
+    kernelK = base.kernelK;
+    fit = base.fit;
+    cornerK = base.cornerK;
+    radiusKeep = 0;
+    slope = double.infinity;
+    settleK = levelK = settleEndK = levelEndK = 0;
+    startReach = endReach = 1;
+  }
+
+  /// Position rules given explicitly (as the low-latency overlay receives
+  /// them); see [positionsOf].
+  ShapeParams.explicit({
+    required this.step,
+    required this.dedupe,
+    required List<double> kernel,
+    required this.fit,
+    required this.cornerK,
+  }) : width = 1,
+       unit = 1,
+       taperStart = 0,
+       taperEnd = 0 {
+    this.kernel = Float64List.fromList(kernel);
+    kernelK = (kernel.length - 1) ~/ 2;
+    sigma = 0;
+    cornerBaseline = cornerK * step;
+    hooks = HookFinder.lengths(maxStart: 0, maxEnd: 0, body: 0, local: 0);
+    radiusKeep = 0;
+    slope = double.infinity;
+    settleK = levelK = settleEndK = levelEndK = 0;
+    startReach = endReach = 1;
+  }
+
   final double width;
 
   /// World units per screen pixel when the stroke was written (estimated

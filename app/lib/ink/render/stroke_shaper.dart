@@ -33,7 +33,16 @@ import 'shape_params.dart';
 /// [line] writes the whole line (final values plus the not-yet-final tail)
 /// into the output buffers; only the tail is recomputed per call.
 class StrokeShaper implements RibbonLine {
-  StrokeShaper(this.p) : _hooks = p.hooks;
+  /// A shaper for [p]. For a piece of a longer line (the low-latency
+  /// overlay smooths only the newest part), [start] makes input sample
+  /// `start − 1` a lead-in (only the spline's neighbour of the first
+  /// segment) and [phase] is the arc length of the first resampled point
+  /// after the start, so the samples fall where the whole line's do.
+  StrokeShaper(this.p, {int? start, double? phase})
+    : _hooks = p.hooks,
+      _start = start,
+      _leadIn = start != null && start > 0,
+      _phase = phase;
 
   final ShapeParams p;
   final HookFinder _hooks;
@@ -43,6 +52,8 @@ class StrokeShaper implements RibbonLine {
 
   // 2. First sample kept (pen-down hook), once decided.
   int? _start;
+  final bool _leadIn;
+  final double? _phase;
 
   // 3. Resampled positions and interpolated input radii. [_resFinal] values
   //    are final; segments before [_seg] are done; [_next] is the arc
@@ -254,7 +265,8 @@ class StrokeShaper implements RibbonLine {
       _push(_sx[start], _sy[start], _sr[start]);
       _resFinal = 1;
       _seg = start;
-      _next = p.step;
+      final phase = _phase;
+      _next = phase != null && phase > 1e-9 ? phase : p.step;
     }
     while (_seg + 2 <= n - 2 && !ended) {
       _next = _segment(_seg, start, n, _next);
@@ -275,8 +287,9 @@ class StrokeShaper implements RibbonLine {
   /// sample measured from the start of segment k + 1.
   double _segment(int k, int start, int n, double next) {
     final x1 = _sx[k], y1 = _sy[k], x2 = _sx[k + 1], y2 = _sy[k + 1];
-    final x0 = k > start ? _sx[k - 1] : 2 * x1 - x2;
-    final y0 = k > start ? _sy[k - 1] : 2 * y1 - y2;
+    final lead = k > start || (_leadIn && k > 0);
+    final x0 = lead ? _sx[k - 1] : 2 * x1 - x2;
+    final y0 = lead ? _sy[k - 1] : 2 * y1 - y2;
     final x3 = k + 2 < n ? _sx[k + 2] : 2 * x2 - x1;
     final y3 = k + 2 < n ? _sy[k + 2] : 2 * y2 - y1;
     final r1 = _sr[k], r2 = _sr[k + 1];
@@ -299,6 +312,34 @@ class StrokeShaper implements RibbonLine {
       ay = by;
     }
     return next - along;
+  }
+
+  /// The length of the resampling spline's segment from (x1, y1) to
+  /// (x2, y2) with neighbours (x0, y0) and (x3, y3), flattened as the
+  /// shaper flattens it for [step] (the overlay tracks where the whole
+  /// line's samples fall).
+  static double segmentLength(
+    double x0,
+    double y0,
+    double x1,
+    double y1,
+    double x2,
+    double y2,
+    double x3,
+    double y3,
+    double step,
+  ) {
+    final gap = _dist(x2 - x1, y2 - y1);
+    final pieces = math.max(1, math.min(64, (gap / (step * 0.5)).ceil()));
+    final cr = _CatmullRom(x0, y0, x1, y1, x2, y2, x3, y3);
+    var ax = x1, ay = y1, along = 0.0;
+    for (var q = 1; q <= pieces; q++) {
+      final (bx, by) = q == pieces ? (x2, y2) : cr.at(q / pieces);
+      along += _dist(bx - ax, by - ay);
+      ax = bx;
+      ay = by;
+    }
+    return along;
   }
 
   void _push(double x, double y, double r) {
