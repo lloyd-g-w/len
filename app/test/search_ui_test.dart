@@ -243,7 +243,7 @@ void main() {
     await tester.tap(find.textContaining('mitosis', findRichText: true));
     await tester.pumpAndSettle();
     expect(find.text('1 of 2'), findsNothing);
-    expect(find.text('2 of 2'), findsOneWidget, reason: 'opened at the tapped match');
+    expect(find.text('2/2'), findsOneWidget, reason: 'opened at the tapped match');
     expect(currentPage(tester), 2);
     expect(nbs.biology.title, 'Biology');
     await expectLater(
