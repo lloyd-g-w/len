@@ -149,7 +149,9 @@ void main() {
 
     // Close and reopen (a new launch: no tab memory).
     await tester.pumpWidget(const SizedBox());
-    s.openNotebooks.closeAll();
+    for (final tab in s.openNotebooks.tabs) {
+      s.openNotebooks.close(tab.id);
+    }
     await open(tester, s, nb);
     expect(doc().fit, PageFit.width);
     expect(doc().currentPage, 1);

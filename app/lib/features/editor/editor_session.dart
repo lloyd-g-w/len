@@ -112,8 +112,6 @@ class EditorSession {
   /// Drives the document's inertial scrolling.
   ViewportAnimator? docAnimator;
 
-  bool get isCanvas => doc == null;
-
   /// The viewport input works in: the canvas, or the active page's view.
   ViewportController get viewport => doc?.pageViewport ?? canvasViewport!;
 

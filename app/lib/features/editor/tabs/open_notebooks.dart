@@ -183,14 +183,6 @@ class OpenNotebooks extends ChangeNotifier {
   /// Where tab [id] was looking, if known.
   EditorViewState? viewOf(String id) => _views[id];
 
-  void closeAll() {
-    _tabs.clear();
-    _views.clear();
-    _recent.clear();
-    _activeId = null;
-    notifyListeners();
-  }
-
   void _activate(String id) {
     _activeId = id;
     _visited.add(id);

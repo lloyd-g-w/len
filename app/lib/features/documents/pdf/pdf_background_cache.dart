@@ -65,9 +65,6 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     return _bestFor(background);
   }
 
-  @override
-  bool isMissing(PageBackground background) => _missing.contains(background.blob);
-
   /// Forgets that blobs were unavailable, e.g. after a sync.
   void retryMissing() {
     if (_missing.isEmpty) return;

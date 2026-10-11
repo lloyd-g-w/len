@@ -13,8 +13,5 @@ abstract class PageBackgrounds implements Listenable {
   /// An image of [background], ideally about [pixelWidth] pixels wide.
   ui.Image? imageFor(PageBackground background, double pixelWidth);
 
-  /// Whether [background] cannot be shown (e.g. its blob is unavailable).
-  bool isMissing(PageBackground background);
-
   void dispose();
 }
