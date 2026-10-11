@@ -70,8 +70,8 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 3);
-    expect(AppDatabase.latestVersion, 3);
+    expect(schema['version'], 4);
+    expect(AppDatabase.latestVersion, 4);
     // Version 3: recording waveforms, stroke times per surface.
     expect(schema['recordings'], contains("waveform TEXT 1 '' 0"));
     expect(
@@ -87,6 +87,8 @@ void main() {
         'element_chunks',
         'recordings',
         'templates',
+        'tags',
+        'taggings',
         'blobs',
         'search_docs',
         'pdf_text',

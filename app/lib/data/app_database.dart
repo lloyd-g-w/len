@@ -127,7 +127,37 @@ class AppDatabase {
     _createSchema,
     _templates,
     _recordingWaveforms,
+    _tags,
   ];
+
+  /// Version 4: tags and which notebooks and pages carry them.
+  static void _tags(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE tags (
+        id          TEXT PRIMARY KEY NOT NULL,
+        name        TEXT NOT NULL,
+        color       INTEGER NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    // `kind`: `notebook` or `page`; the id is derived from tag and target.
+    db.execute('''
+      CREATE TABLE taggings (
+        id          TEXT PRIMARY KEY NOT NULL,
+        tag_id      TEXT NOT NULL,
+        target_id   TEXT NOT NULL,
+        kind        TEXT NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute('CREATE INDEX taggings_by_target ON taggings(target_id)');
+    db.execute('CREATE INDEX taggings_by_tag ON taggings(tag_id)');
+  }
 
   /// Version 3: a recording's waveform blob (`''` = none), and stroke
   /// times indexed per surface (ink density of a recording, see

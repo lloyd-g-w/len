@@ -19,6 +19,7 @@ import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
+import 'data/tag_repository.dart';
 import 'data/template_repository.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
@@ -54,6 +55,7 @@ class AppServices {
     required this.audio,
     required this.incomingFiles,
     required this.templates,
+    required this.tags,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -76,6 +78,7 @@ class AppServices {
     final elements = ElementRepository(database, deviceId: deviceId, clock: clock);
     final recordings = RecordingRepository(database, deviceId: deviceId, clock: clock);
     final pages = PageRepository(database, deviceId: deviceId, clock: clock);
+    final tags = TagRepository(database, deviceId: deviceId, clock: clock);
     final notebooks = NotebookRepository(
       database,
       deviceId: deviceId,
@@ -83,6 +86,7 @@ class AppServices {
       strokes: strokes,
       elements: elements,
       recordings: recordings,
+      tags: tags,
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
@@ -99,6 +103,7 @@ class AppServices {
       elements: elements,
       recordings: recordings,
       templates: templates,
+      tags: tags,
     );
     final search = SearchService(database, readBlob: blobs.read);
     final recognition = RecognitionService(
@@ -128,6 +133,7 @@ class AppServices {
       audio: audio ?? platformAudioBackends(),
       incomingFiles: IncomingFiles(incomingFiles),
       templates: templates,
+      tags: tags,
     );
   }
 
@@ -159,6 +165,9 @@ class AppServices {
 
   /// The user's own templates (images as blobs).
   final TemplateRepository templates;
+
+  /// Tags and which notebooks and pages carry them.
+  final TagRepository tags;
 
   /// Makes recorders and players (created only when used).
   final AudioBackends audio;

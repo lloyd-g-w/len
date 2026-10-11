@@ -11,6 +11,8 @@ import '../data/recording_repository.dart';
 import '../data/settings_repository.dart';
 import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
+import '../data/tag_repository.dart';
+import '../data/tagging_repository.dart';
 import '../data/template_repository.dart';
 import 'blob_sync.dart';
 import 'sync_api.dart';
@@ -27,6 +29,9 @@ class RemoteChanges {
   /// Whether any of the user's templates changed.
   bool templates = false;
 
+  /// Whether any tag, or which notebooks and pages carry them, changed.
+  bool tags = false;
+
   /// Notebooks whose page list changed.
   final Set<String> pagesOfNotebooks = {};
 
@@ -40,6 +45,7 @@ class RemoteChanges {
       !notebooks &&
       !folders &&
       !templates &&
+      !tags &&
       pagesOfNotebooks.isEmpty &&
       strokeSurfaces.isEmpty &&
       recordingsOfNotebooks.isEmpty;
@@ -65,6 +71,7 @@ class SyncEngine {
     required this.elements,
     required this.recordings,
     required this.templates,
+    required this.tags,
   });
 
   final AppDatabase database;
@@ -83,6 +90,9 @@ class SyncEngine {
 
   /// The user's own templates (their images travel as blobs).
   final TemplateRepository templates;
+
+  /// Tags; their assignments sync through [TagRepository.taggings].
+  final TagRepository tags;
 
   /// Which blobs live rows reference.
   late final BlobReferences blobReferences = BlobReferences(database);
@@ -114,6 +124,8 @@ class SyncEngine {
     for (final s in <SyncableStore>[
       folders,
       templates,
+      tags,
+      tags.taggings,
       notebooks,
       pages,
       strokes,
@@ -255,6 +267,8 @@ class SyncEngine {
           changes.folders = true;
         case TemplateRepository():
           changes.templates = true;
+        case TagRepository() || TaggingRepository():
+          changes.tags = true;
         case NotebookRepository():
           changes.notebooks = true;
         case PageRepository():
