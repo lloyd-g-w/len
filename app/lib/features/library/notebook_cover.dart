@@ -23,14 +23,16 @@ class NotebookCover extends StatelessWidget {
     this.favorite = false,
   });
 
-  /// Cover for [notebook] with its live preview from the [ThumbnailScope].
-  static Widget of(Notebook notebook, {Key? key}) => Builder(
+  /// Cover for [notebook] with its live preview from the [ThumbnailScope];
+  /// without the favourite badge when [showFavorite] is false (list rows
+  /// show a star of their own).
+  static Widget of(Notebook notebook, {Key? key, bool showFavorite = true}) => Builder(
     key: key,
     builder: (context) => NotebookCover(
       color: notebook.coverColor,
       style: notebook.coverStyle,
       kind: notebook.kind,
-      favorite: notebook.favorite,
+      favorite: showFavorite && notebook.favorite,
       preview: ThumbnailScope.previewOf(context, notebook),
     ),
   );

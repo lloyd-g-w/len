@@ -89,7 +89,7 @@ class _NotebookListTileState extends State<NotebookListTile> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          NotebookCover.of(_notebook),
+                          NotebookCover.of(_notebook, showFavorite: false),
                           if (widget.actions.selection.active)
                             SelectionMark(
                               selected: widget.actions.selection.contains(_notebook.id),

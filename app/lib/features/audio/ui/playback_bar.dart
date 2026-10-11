@@ -37,6 +37,8 @@ class _PlaybackBarState extends State<PlaybackBar> {
       color: scheme.onSurfaceVariant,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+    // Narrow bars (phones) leave Recordings to the menu, so the title has room.
+    final roomy = MediaQuery.sizeOf(context).width >= 480;
     return FloatingPanel(
       key: const ValueKey('playback-bar'),
       padding: const EdgeInsets.symmetric(horizontal: Gaps.xs, vertical: Gaps.xxs),
@@ -109,11 +111,12 @@ class _PlaybackBarState extends State<PlaybackBar> {
               ),
             ),
           ),
-          IconButton(
-            tooltip: 'Recordings',
-            onPressed: () => unawaited(showRecordingsSheet(context, widget.audio)),
-            icon: const Icon(Icons.queue_music_rounded),
-          ),
+          if (roomy)
+            IconButton(
+              tooltip: 'Recordings',
+              onPressed: () => unawaited(showRecordingsSheet(context, widget.audio)),
+              icon: const Icon(Icons.queue_music_rounded),
+            ),
           IconButton(
             tooltip: 'Close player',
             onPressed: playback.close,
