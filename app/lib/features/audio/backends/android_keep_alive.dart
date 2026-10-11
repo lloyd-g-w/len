@@ -8,19 +8,25 @@ import 'audio_backends.dart';
 /// [RecordingKeepAlive] on Android: `RecordingService.kt`, a foreground
 /// service of type "microphone" with a notification, driven over the
 /// `len/recording_service` channel (`RecordingServicePlugin.kt`).
+///
+/// There is one service per app, so the notification's buttons go to the
+/// instance that showed it last (each open notebook has its own).
 class AndroidKeepAlive implements RecordingKeepAlive {
-  AndroidKeepAlive({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel('len/recording_service') {
+  AndroidKeepAlive() {
     _channel.setMethodCallHandler(_onCall);
   }
 
-  final MethodChannel _channel;
+  static const MethodChannel _channel = MethodChannel('len/recording_service');
+
+  /// The instance whose recording the notification shows.
+  static AndroidKeepAlive? _current;
+
   final StreamController<KeepAliveAction> _actions = StreamController.broadcast();
 
-  Future<Object?> _onCall(MethodCall call) async {
+  static Future<Object?> _onCall(MethodCall call) async {
     if (call.method != 'action') return null;
     final action = KeepAliveAction.values.asNameMap()[call.arguments];
-    if (action != null) _actions.add(action);
+    if (action != null) _current?._actions.add(action);
     return null;
   }
 
@@ -40,6 +46,7 @@ class AndroidKeepAlive implements RecordingKeepAlive {
 
   @override
   Future<bool> show({required String title, required bool paused, required int elapsedMs}) async {
+    _current = this;
     try {
       final shown = await _channel.invokeMethod<bool>('show', {
         'title': title,
@@ -57,6 +64,7 @@ class AndroidKeepAlive implements RecordingKeepAlive {
 
   @override
   Future<void> hide() async {
+    if (_current != this) return; // Another notebook's recording took over.
     try {
       await _channel.invokeMethod<void>('hide');
     } on PlatformException catch (e) {
@@ -68,7 +76,7 @@ class AndroidKeepAlive implements RecordingKeepAlive {
 
   @override
   Future<void> dispose() async {
-    _channel.setMethodCallHandler(null);
+    if (_current == this) _current = null;
     await _actions.close();
   }
 }
