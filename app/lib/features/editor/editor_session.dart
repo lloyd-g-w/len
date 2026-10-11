@@ -22,6 +22,7 @@ import 'document/document_layout.dart';
 import 'document/page_fit.dart';
 import 'document/undo_target.dart';
 import 'images/editor_images.dart';
+import 'links/editor_links.dart';
 import 'pdf/pdf_interaction.dart';
 import 'pdf/pdf_page_info.dart';
 import 'tabs/open_notebooks.dart';
@@ -107,6 +108,9 @@ class EditorSession {
     tools: tools,
     activateAt: doc?.activateAt,
   );
+
+  /// Page and web links: finding, following and making them.
+  late final EditorLinks links = EditorLinks(this);
 
   // Infinite canvas: one surface.
   SurfaceModel? canvas;

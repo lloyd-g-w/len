@@ -9,7 +9,11 @@ enum ElementType {
   text,
 
   /// A bitmap stored as a blob (`ImageData`: blob hash, natural size, crop).
-  image;
+  image,
+
+  /// A tappable region leading to a page or a web address (`LinkTarget`);
+  /// shown only by the editor, never drawn into the content.
+  link;
 
   static ElementType? parse(String value) {
     for (final t in values) {

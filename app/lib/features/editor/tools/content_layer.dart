@@ -29,9 +29,13 @@ class ContentLayer extends StatefulWidget {
     required this.viewport,
     required this.tools,
     this.page,
+    this.selectionActions,
   });
 
   final ContentTools content;
+
+  /// Commands the editor adds to the selection menu (links, stickers).
+  final List<SelectionExtraAction> Function()? selectionActions;
   final ViewportController viewport;
   final ToolSettings tools;
 
@@ -181,6 +185,7 @@ class _ContentLayerState extends State<ContentLayer> with SingleTickerProviderSt
             selection: _content.selection,
           ),
           convertUnavailable: recognition.isSupported ? null : recognition.unsupportedReason,
+          extraActions: widget.selectionActions,
         ),
         TextBoxEditor(session: _content.text, viewport: widget.viewport, tools: widget.tools),
         if (_crop case final crop?)

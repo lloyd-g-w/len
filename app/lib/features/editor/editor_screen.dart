@@ -38,6 +38,7 @@ import 'editor_session.dart';
 import 'editor_shortcuts.dart';
 import 'editor_toolbar.dart';
 import 'images/image_entry_points.dart';
+import 'links/link_actions.dart';
 import 'pdf/pdf_layer.dart';
 import 'tabs/open_notebooks.dart';
 
@@ -165,6 +166,7 @@ class _EditorScreenState extends State<_EditorView> {
     _session.undo.addListener(_onEdit);
     _lifecycle; // Starts listening.
     _services.incomingFiles.targets.add(_importTarget);
+    attachPdfLinks(context, _session);
     // Take the keyboard even when another editor (the previous tab) still
     // held it while this one was built; autofocus would not.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -308,6 +310,7 @@ class _EditorScreenState extends State<_EditorView> {
       onPageCommand: (c) => _session.commands!.run(context, c, doc!.activePageData),
       onFollowLink: _followLink,
     );
+    if (openLinkAction(context, _session, at) case final link?) actions.insert(0, link);
     setState(() => _menu = (at: at, actions: actions));
   }
 
@@ -459,6 +462,7 @@ class _EditorScreenState extends State<_EditorView> {
                               guard: _guard,
                               chromeInsets: layout.covered,
                               onFollowLink: _followLink,
+                              selectionActions: () => [linkSelectionAction(context, _session)],
                             ),
                           ),
                           if (_session.pdf case final pdf?)

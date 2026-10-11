@@ -43,6 +43,26 @@ class PdfInteraction extends ChangeNotifier {
   /// open a web address).
   void Function(PdfLinkArea link, PageBackground from)? onLink;
 
+  /// Makes a link over the selected text (set by the editor): [url] a web
+  /// address, else a page.
+  void Function({required bool url})? onLinkSelection;
+
+  /// The selected lines in the selection's page's world coordinates.
+  List<Rect> get selectionRects {
+    final page = selection.page;
+    if (page == null) return const [];
+    final size = page.size;
+    return [
+      for (final r in selection.rects)
+        Rect.fromLTRB(
+          r.left * size.width,
+          r.top * size.height,
+          r.right * size.width,
+          r.bottom * size.height,
+        ),
+    ];
+  }
+
   List<NotebookPage>? _pages;
 
   /// Whether the notebook has imported PDF pages.

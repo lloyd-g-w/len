@@ -14,6 +14,7 @@ import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import 'pdf_images.dart';
+import 'pdf_links.dart';
 import 'pdf_template.dart';
 import 'pdf_text.dart';
 import 'vector/pdf_page_importer.dart';
@@ -101,6 +102,7 @@ abstract final class PdfExporter {
       onPage?.call(i);
       if (!await _addPage(writer, pages[i])) onRasterized?.call(i);
     }
+    PdfLinkWriter.write(doc, pages, writer.written);
     return doc.save();
   }
 
@@ -111,7 +113,9 @@ abstract final class PdfExporter {
     final page = export.page;
     const k = pointsPerUnit;
     final format = PdfPageFormat(page.width * k, page.height * k);
-    final g = PdfPage(doc, pageFormat: format).getGraphics();
+    final pdfPage = PdfPage(doc, pageFormat: format);
+    writer.written.add(pdfPage);
+    final g = pdfPage.getGraphics();
     final pen = _Pen(g, page.height);
 
     g
@@ -189,7 +193,8 @@ abstract final class PdfExporter {
 
   /// Embeds [element] as a transparent image over its (rotated) bounds.
   static Future<void> _drawElement(PdfDocument doc, _Pen pen, SurfaceElement element) async {
-    if (element.knownType == null) return; // Not drawn by this version.
+    // Not drawn by this version; links become annotations.
+    if (element.knownType == null || element.knownType == ElementType.link) return;
     final bounds = element.bounds;
     if (bounds.isEmpty || !bounds.isFinite) return;
     final scale = math.min(
@@ -283,6 +288,9 @@ class _Writer {
   final PdfPageImporter importer;
   final PdfTemplateWriter templates;
   final PdfTextWriter text;
+
+  /// The PDF pages written so far, in order.
+  final List<PdfPage> written = [];
 }
 
 /// Maps world coordinates (y down) to PDF points (y up).
