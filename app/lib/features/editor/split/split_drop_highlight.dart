@@ -19,36 +19,43 @@ class SplitDropHighlight extends StatelessWidget {
         listenable: split,
         builder: (context, _) {
           final on = split.dropTarget == pane;
-          return AnimatedOpacity(
-            opacity: on ? 1 : 0,
+          return AnimatedSwitcher(
             duration: Motion.fast,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.06),
-                border: Border.all(color: scheme.primary, width: 3),
-              ),
-              child: Align(
-                alignment: const Alignment(0, -0.6),
-                child: Material(
-                  color: scheme.primary,
-                  borderRadius: BorderRadius.circular(Radii.pill),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.sm),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.content_copy_rounded, size: 18, color: scheme.onPrimary),
-                        const SizedBox(width: Gaps.sm),
-                        Text(
-                          'Drop to copy here',
-                          style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.w600),
+            child: !on
+                ? const SizedBox.expand()
+                : DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.06),
+                      border: Border.all(color: scheme.primary, width: 3),
+                    ),
+                    child: Align(
+                      alignment: const Alignment(0, -0.6),
+                      child: Material(
+                        color: scheme.primary,
+                        borderRadius: BorderRadius.circular(Radii.pill),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Gaps.lg,
+                            vertical: Gaps.sm,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.content_copy_rounded, size: 18, color: scheme.onPrimary),
+                              const SizedBox(width: Gaps.sm),
+                              Text(
+                                'Drop to copy here',
+                                style: TextStyle(
+                                  color: scheme.onPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ),
           );
         },
       ),
