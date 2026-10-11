@@ -212,7 +212,7 @@ class WetInkModel(
      * it ended ([endedAtMs] ≥ 0). The number of points when nothing shows.
      */
     fun tailStart(nowMs: Double, shownUpToMs: Double, endedAtMs: Double): Int {
-        if (endedAtMs >= 0 && nowMs - endedAtMs >= 2 * frameMs) return samples.size
+        if (endedAtMs >= 0 && nowMs - endedAtMs >= END_FRAMES * frameMs) return samples.size
         var from = samples.size
         while (from > 0 && samples[from - 1].timeMs > shownUpToMs) from--
         if (lifted && samples.isNotEmpty()) from = min(from, samples.size - 1)
@@ -349,6 +349,9 @@ class WetInkModel(
     }
 
     companion object {
+        /** `WetInkModel.endFrames`: frames the tail stays after `end`. */
+        const val END_FRAMES = 3
+
         // `HookFinder`'s turns.
         private val HOOK_TURN = Math.toRadians(40.0)
         private val HOOK_LOCAL_TURN = Math.toRadians(30.0)

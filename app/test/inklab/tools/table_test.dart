@@ -22,9 +22,10 @@ void main() {
       for (final e in suiteEntries()) {
         if (!filter.hasMatch(e.name)) continue;
         final cells = <String>[];
-        for (final id in metricIds) {
-          final m = e.metric(id);
-          if (m == null) continue;
+        // Every metric, also the ones reported without a limit (overlay at
+        // other pipeline depths).
+        for (final m in e.metrics) {
+          final id = m.id;
           if (id.startsWith('perf.') &&
               e.caseName != 'long_stroke' &&
               !e.caseName.startsWith('rec:')) {

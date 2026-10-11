@@ -138,7 +138,7 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
         // The progress Flutter reported two messages before the latest one
         // (frame k + depth − 1): before the first frame of the contact, it
         // has shown nothing of it.
-        final shownIndex = math.min(k + depth - 3, end);
+        final shownIndex = math.min(k + depth - 1 - WetInkModel.progressLag, end);
         final shown = shownIndex < start ? contact.downUs : r.frames[shownIndex].newestEventUs;
         final ended = k + depth - 1 > end;
         final upTo = r.frames[k + depth].newestEventUs;
@@ -150,8 +150,15 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
         }
         delivered[depth] = n;
         if (model.samples.isEmpty) continue;
+        // Frame k is on screen `depth` − 1 frame intervals after it was
+        // built (in time: after a lift the app idles and the next recorded
+        // frames come much later, but the commit frame is shown on time).
+        final shownAtUs = math.min(
+          r.frames[k + depth - 1].vsyncUs,
+          r.frames[k].vsyncUs + (depth - 1) * frameUs,
+        );
         final from = model.tailStart(
-          nowMs: r.frames[k + depth - 1].vsyncUs / 1000 + 1,
+          nowMs: shownAtUs / 1000 + 1,
           shownUpToMs: shown / 1000,
           endedAtMs: ended ? r.frames[end + 1].vsyncUs / 1000 : null,
         );

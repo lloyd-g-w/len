@@ -47,7 +47,7 @@ import '../render/stroke_shaper.dart';
 ///    this right when frames are late), plus the point before them (the
 ///    segment leading in); after the lift at least the last point. New
 ///    points are drawn into the front buffer as they arrive. After `end`,
-///    the tail stays until 2 frames have passed.
+///    the tail stays until [endFrames] frames have passed.
 class WetInkModel {
   WetInkModel({required this.radii, required this.shape, required this.frameMs, this.startMs = 0});
 
@@ -59,6 +59,17 @@ class WetInkModel {
 
   /// Display frame interval.
   final double frameMs;
+
+  /// How many `progress` messages before the latest one the overlay takes
+  /// as what Flutter shows (frames are presented that many frames after
+  /// they are built, at most).
+  static const int progressLag = 2;
+
+  /// Frames the tail stays after `end` (sent once the frame showing the
+  /// committed stroke is built): enough for a pipeline one frame deeper
+  /// than [progressLag] (the overlay's ink is the committed ink, so staying
+  /// longer costs nothing).
+  static const int endFrames = 3;
 
   /// Points before this time are not ink (the pen-down hook).
   final int startMs;
@@ -228,7 +239,7 @@ class WetInkModel {
   /// input of the frame Flutter shows, at the latest) and, after `end`,
   /// when it ended. Equal to the number of points when it shows nothing.
   int tailStart({required double nowMs, required double shownUpToMs, double? endedAtMs}) {
-    if (endedAtMs != null && nowMs - endedAtMs >= 2 * frameMs) return samples.length;
+    if (endedAtMs != null && nowMs - endedAtMs >= endFrames * frameMs) return samples.length;
     final cutoff = shownUpToMs;
     var from = samples.length;
     while (from > 0 && samples[from - 1].timeMs > cutoff) {
