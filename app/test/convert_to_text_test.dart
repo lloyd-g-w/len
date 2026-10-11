@@ -18,7 +18,7 @@ import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/undo_history.dart';
 import 'package:len/ui/app_theme.dart';
 
-import 'content_tools_ui_test.dart' show key, liveElements, liveStrokes, mouseDrag;
+import 'content_tools_ui_test.dart' show key, liveElements, liveStrokes, mouseDrag, pinCanvasView;
 import 'data_test.dart' show FakeClock;
 import 'support/fake_recognizer.dart';
 
@@ -131,6 +131,7 @@ void main() {
         coverColor: 0xFF3B5BDB,
       );
       services.strokes.save(helloWorld(notebook.id));
+      pinCanvasView(services, notebook.id, const Size(1280, 800));
       await tester.pumpWidget(
         AppScope(
           services: services,

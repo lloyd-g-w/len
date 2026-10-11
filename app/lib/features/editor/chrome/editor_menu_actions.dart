@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../domain/preferences.dart';
-import '../../documents/export/export_flow.dart';
 import '../document/document_layout.dart';
+import '../document/page_fit.dart';
 import '../document/page_overview.dart';
 
 /// What the editor's top bar and menus can do, and the state they show.
@@ -16,7 +16,10 @@ class EditorMenuActions {
     required this.onStylusOnly,
     required this.placement,
     required this.onPlacement,
+    this.toolLabels = false,
+    this.onToolLabels,
     required this.onSettings,
+    this.onSearch,
     this.bookmarked = false,
     this.onToggleBookmark,
     this.onOverview,
@@ -27,6 +30,8 @@ class EditorMenuActions {
     this.onExport,
     this.flow,
     this.onFlow,
+    this.fit,
+    this.onFit,
     this.onBackground,
     this.onFitContent,
     this.onActualSize,
@@ -42,7 +47,15 @@ class EditorMenuActions {
   final ValueChanged<bool> onStylusOnly;
   final ToolbarPlacement placement;
   final ValueChanged<ToolbarPlacement> onPlacement;
+
+  /// Tool names under the toolbar's icons.
+  final bool toolLabels;
+  final ValueChanged<bool>? onToolLabels;
   final VoidCallback onSettings;
+
+  /// Opens in-notebook search (a menu item on phones, where the bar has
+  /// no room for its button).
+  final VoidCallback? onSearch;
 
   // Paged notebooks.
   final bool bookmarked;
@@ -52,9 +65,15 @@ class EditorMenuActions {
   final VoidCallback? onGoTo;
   final VoidCallback? onAddWithTemplate;
   final VoidCallback? onInsertPdf;
-  final ValueChanged<ExportKind>? onExport;
+
+  /// Opens the export sheet.
+  final VoidCallback? onExport;
   final PageFlow? flow;
   final ValueChanged<PageFlow>? onFlow;
+
+  /// How pages are zoomed (fit width / whole page / automatic).
+  final PageFit? fit;
+  final ValueChanged<PageFit>? onFit;
 
   // Infinite canvases.
   /// Opens the background picker (template and paper colour).

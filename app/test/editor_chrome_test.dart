@@ -122,7 +122,7 @@ void main() {
     final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Toolbar position'));
+    await tester.tap(find.text('Toolbar'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Bottom'));
     await tester.pumpAndSettle();

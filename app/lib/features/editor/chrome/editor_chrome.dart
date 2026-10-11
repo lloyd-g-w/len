@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../domain/preferences.dart';
 import '../../../ui/app_theme.dart';
 import 'chrome_metrics.dart';
+import 'editor_tips.dart';
 import 'focus_handle.dart';
 import 'gesture_hud.dart';
+import 'peeking.dart';
 import 'toolbar_slot.dart';
 
 /// Where the chrome sits for a given screen, and how much of the screen it
@@ -45,6 +47,11 @@ class ChromeLayout {
   /// The navigator sits above a bottom toolbar unless there is room beside it.
   bool get navigatorAboveToolbar => placement == ToolbarPlacement.bottom && width < 1180;
 
+  /// Phones: the page navigator only peeks in while pages scroll or turn
+  /// (it would otherwise cover the page above the toolbar), so it takes
+  /// no room.
+  bool get navigatorPeeks => width < ChromeMetrics.compactWidth;
+
   /// Bottom of the top bar.
   double get barBottom => safe.top + barHeight;
 
@@ -53,11 +60,19 @@ class ChromeLayout {
     if (focus) return EdgeInsets.only(top: safe.top, bottom: safe.bottom);
     final toolbarTop = placement == ToolbarPlacement.top ? toolbarExtent : 0.0;
     final toolbarBottom = placement == ToolbarPlacement.bottom ? toolbarExtent : 0.0;
-    final navigator = hasNavigator ? ChromeMetrics.navigatorExtent : 0.0;
+    final navigator = hasNavigator && !navigatorPeeks ? ChromeMetrics.navigatorExtent : 0.0;
     final bottom = navigatorAboveToolbar
         ? toolbarBottom + navigator
         : (toolbarBottom > navigator ? toolbarBottom : navigator);
     return EdgeInsets.only(top: barBottom + toolbarTop, bottom: safe.bottom + bottom);
+  }
+
+  /// [covered], plus the spot a peeking navigator appears in (phones):
+  /// floating controls along the bottom (the audio bar) stay clear of it.
+  EdgeInsets get floatingInsets {
+    final insets = covered;
+    if (focus || !hasNavigator || !navigatorPeeks) return insets;
+    return insets.copyWith(bottom: insets.bottom + ChromeMetrics.navigatorExtent);
   }
 }
 
@@ -71,8 +86,10 @@ class EditorChrome extends StatelessWidget {
     required this.topBar,
     required this.toolbar,
     required this.hud,
+    this.tips,
     required this.onExitFocus,
     this.navigator,
+    this.navigatorActivity,
     this.floatAt,
     this.onFloatMoved,
     this.onToolbarHeight,
@@ -82,7 +99,14 @@ class EditorChrome extends StatelessWidget {
   final Widget topBar;
   final Widget toolbar;
   final Widget? navigator;
+
+  /// Notifies when pages scroll or turn: shows a peeking navigator
+  /// ([ChromeLayout.navigatorPeeks]).
+  final Listenable? navigatorActivity;
   final HudController hud;
+
+  /// One-time tips, shown under the HUD.
+  final TipsController? tips;
   final VoidCallback onExitFocus;
   final (double, double)? floatAt;
   final ValueChanged<(double, double)>? onFloatMoved;
@@ -120,7 +144,15 @@ class EditorChrome extends StatelessWidget {
             curve: Motion.emphasized,
             right: safe.right + ChromeMetrics.edge,
             bottom: navigatorBottom,
-            child: _Hideable(visible: !focus, offset: const Offset(0, 0.4), child: navigator),
+            child: _Hideable(
+              visible: !focus,
+              offset: const Offset(0, 0.4),
+              child: Peeking(
+                enabled: layout.navigatorPeeks,
+                activity: navigatorActivity,
+                child: navigator,
+              ),
+            ),
           ),
         Positioned(
           top: 0,
@@ -132,7 +164,17 @@ class EditorChrome extends StatelessWidget {
           top: layout.covered.top + Gaps.xl,
           left: 0,
           right: 0,
-          child: Center(child: GestureHud(controller: hud)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureHud(controller: hud),
+              if (tips case final tips?)
+                Padding(
+                  padding: const EdgeInsets.only(top: Gaps.sm, left: Gaps.md, right: Gaps.md),
+                  child: TipBanner(controller: tips),
+                ),
+            ],
+          ),
         ),
         Positioned(
           top: safe.top + Gaps.sm,

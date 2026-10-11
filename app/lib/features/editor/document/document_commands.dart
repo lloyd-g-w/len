@@ -83,7 +83,7 @@ class DocumentCommands {
         changed = true;
         reload();
       case PageCommand.delete:
-        _delete(context, page);
+        await _delete(context, page);
     }
   }
 
@@ -99,7 +99,7 @@ class DocumentCommands {
     reload();
   }
 
-  void _delete(BuildContext context, NotebookPage page) {
+  Future<void> _delete(BuildContext context, NotebookPage page) async {
     if (doc.pages.length == 1) {
       showMessage(context, 'A notebook needs at least one page.');
       return;
@@ -116,6 +116,30 @@ class DocumentCommands {
         onPressed: () {
           actions.restore(deleted);
           reload(keep: page.id);
+        },
+      ),
+    );
+  }
+
+  /// Deletes [pages] as one step with one Undo (the overview's selection).
+  Future<void> deleteMany(BuildContext context, List<NotebookPage> pages) async {
+    if (pages.isEmpty) return;
+    if (pages.length >= doc.pages.length) {
+      showMessage(context, 'A notebook needs at least one page.');
+      return;
+    }
+    if (pages.length == 1) return _delete(context, pages.single);
+    final deleted = actions.deleteAll(pages);
+    changed = true;
+    reload();
+    showMessage(
+      context,
+      '${pages.length} pages deleted',
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () {
+          actions.restoreAll(deleted);
+          reload();
         },
       ),
     );
@@ -138,6 +162,7 @@ class DocumentCommands {
               actions.move(page, to);
               changed = true;
             },
+            deleteMany: deleteMany,
           ),
         ),
       ),
@@ -165,6 +190,13 @@ class DocumentCommands {
     _changedAndShow(inserted.first);
   }
 
-  Future<void> export(BuildContext context, ExportKind kind) =>
-      exportFlow(context, kind: kind, notebook: notebook(), pages: doc.pages, page: _current);
+  /// Opens the export sheet with [range] (all pages or the current one)
+  /// preselected, then exports.
+  Future<void> export(BuildContext context, {ExportRange range = ExportRange.all}) => exportFlow(
+    context,
+    notebook: notebook(),
+    pages: doc.pages,
+    currentPage: doc.currentPage,
+    initialRange: range,
+  );
 }

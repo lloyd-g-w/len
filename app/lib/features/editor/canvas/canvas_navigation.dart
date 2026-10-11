@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../../../data/stroke_reader.dart';
 import '../../../ink/navigation/kinetic_pan.dart';
 import '../../../ink/navigation/viewport_animator.dart';
 import '../../../ink/viewport.dart';
+import '../tabs/open_notebooks.dart';
 
 /// Navigation of an infinite canvas: inertial panning, animated zoom
 /// steps, "fit content", "back to the origin", jumps from the minimap, and
@@ -39,6 +42,26 @@ class CanvasNavigation extends ChangeNotifier {
   /// the screen otherwise).
   static const double fitScaleCap = 2;
 
+  /// Opening a canvas shows its content at most at 100 %.
+  static const double openScaleCap = 1;
+
+  /// Screen padding around fitted content (inside [insets]).
+  static const double fitPadding = 32;
+
+  /// Screen edges covered by the editor's chrome: fits keep clear of them.
+  EdgeInsets get insets => _insets;
+  EdgeInsets _insets = EdgeInsets.zero;
+
+  /// The view to restore once the viewport is laid out ([open]).
+  EditorViewState? _opening;
+  bool _waitingForSize = false;
+  bool _waitingForInsets = false;
+
+  /// Whether [open] still waits for the first [setInsets].
+  bool get waitingForInsets => _waitingForInsets || _waitingForSize;
+  bool _disposed = false;
+  bool _hasInsets = false;
+
   bool _showMinimap;
   bool get showMinimap => _showMinimap;
 
@@ -67,11 +90,94 @@ class CanvasNavigation extends ChangeNotifier {
   Future<void> fitContent() async {
     final bounds = await reader.contentBounds(surfaceId);
     if (bounds == null) return goToOrigin();
-    animator.fit(bounds, scaleCap: fitScaleCap);
+    final view = viewFitting(bounds, scaleCap: fitScaleCap);
+    animator.animateTo(scale: view.scale, offset: view.offset);
   }
 
-  /// Back to where a new canvas starts: the origin at the top left, 100 %.
-  void goToOrigin() => animator.animateTo(scale: 1, offset: Offset.zero);
+  /// The view showing [world] as large as fits (at most [scaleCap]),
+  /// centred in the part of the screen the chrome leaves free.
+  ({double scale, Offset offset}) viewFitting(Rect world, {double scaleCap = fitScaleCap}) {
+    final size = viewport.size;
+    var area = _insets.deflateRect(Offset.zero & size).deflate(fitPadding);
+    if (area.width < 1 || area.height < 1) area = Offset.zero & size;
+    final fit = math.min(
+      area.width / math.max(world.width, 1),
+      area.height / math.max(world.height, 1),
+    );
+    final scale = math.min(fit, scaleCap).clamp(viewport.minScale, viewport.maxScale);
+    return (scale: scale, offset: area.center - world.center * scale);
+  }
+
+  /// Sets the chrome [insets]; the first call finishes [open].
+  void setInsets(EdgeInsets insets) {
+    _insets = insets;
+    _hasInsets = true;
+    if (_waitingForInsets) {
+      _waitingForInsets = false;
+      unawaited(_openFresh());
+    }
+  }
+
+  /// Shows the canvas once its viewport is laid out: [view] where it was
+  /// left (same screen size), else centred on its content (at most 100 %)
+  /// once the chrome's [insets] are known, so nothing hides under it.
+  void open(EditorViewState? view) {
+    _opening = view;
+    _waitingForSize = true;
+    viewport.addListener(_onFirstSize);
+    _onFirstSize();
+  }
+
+  void _onFirstSize() {
+    final size = viewport.size;
+    if (!_waitingForSize || size.isEmpty) return;
+    _waitingForSize = false;
+    viewport.removeListener(_onFirstSize);
+    final view = _opening;
+    if (view != null && view.fitsSize(size)) {
+      _opening = null;
+      _quietly(() => viewport.setView(scale: view.scale, offset: view.offset));
+    } else if (_hasInsets) {
+      unawaited(_openFresh());
+    } else {
+      _waitingForInsets = true;
+    }
+  }
+
+  Future<void> _openFresh() async {
+    final view = _opening;
+    _opening = null;
+    if (view != null) {
+      // Saved at another size: keep the same point in the middle.
+      final centre = (view.size!.center(Offset.zero) - view.offset) / view.scale;
+      final middle = _insets.deflateRect(Offset.zero & viewport.size).center;
+      _quietly(() => viewport.setView(scale: view.scale, offset: middle - centre * view.scale));
+      return;
+    }
+    final before = (viewport.scale, viewport.offset);
+    final bounds = await reader.contentBounds(surfaceId);
+    // Not if the user already moved (or the canvas is empty: the origin).
+    if (_disposed || bounds == null || before != (viewport.scale, viewport.offset)) return;
+    final fitted = viewFitting(bounds, scaleCap: openScaleCap);
+    _quietly(() => viewport.setView(scale: fitted.scale, offset: fitted.offset));
+  }
+
+  /// Whether the view is being set by [open] (not a zoom to announce).
+  bool get opening => _openingNow;
+  bool _openingNow = false;
+
+  void _quietly(VoidCallback change) {
+    _openingNow = true;
+    try {
+      change();
+    } finally {
+      _openingNow = false;
+    }
+  }
+
+  /// Back to where a new canvas starts: the origin at the top left (below
+  /// the chrome), 100 %.
+  void goToOrigin() => animator.animateTo(scale: 1, offset: Offset(_insets.left, _insets.top));
 
   /// Glides so that [world] is centred.
   void glideTo(Offset world) => animator.centreOn(world);
@@ -87,6 +193,8 @@ class CanvasNavigation extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    viewport.removeListener(_onFirstSize);
     animator.dispose();
     super.dispose();
   }

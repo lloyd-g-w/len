@@ -8,6 +8,7 @@ import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/pen/pen_options_panel.dart';
 import 'package:len/features/editor/pen/slot_editors.dart';
 import 'package:len/features/editor/pen/stroke_preview.dart';
+import 'package:len/features/editor/tool_switcher.dart';
 import 'package:len/ink/input/hold_to_straighten.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
@@ -166,9 +167,25 @@ void main() {
       expect(tools.configOf(InkTool.ballpoint).colorIndex, 0);
     });
 
-    testWidgets('tapping the active pen opens its settings (sheet on phones)', (tester) async {
+    testWidgets('phones: the tool switcher changes tools and opens settings (sheet)', (
+      tester,
+    ) async {
       final tools = await pumpToolbar(tester, const Size(390, 800));
-      await tester.tap(find.byTooltip('Pen (P)'));
+      await tester.tap(find.byType(ToolSwitcherButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(ToolSwitcherPanel), findsOneWidget);
+      await tester.tap(find.text('Highlighter'));
+      await tester.pumpAndSettle();
+      expect(tools.tool, EditorTool.highlighter);
+      expect(find.byType(ToolSwitcherPanel), findsNothing);
+
+      await tester.tap(find.byType(ToolSwitcherButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(ToolSwitcherButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pen settings'));
       await tester.pumpAndSettle();
       expect(find.byType(PenOptionsPanel), findsOneWidget);
       expect(find.byType(BottomSheet), findsOneWidget);
@@ -181,13 +198,60 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the toolbar fits a phone on two rows and a tablet on one', (tester) async {
+    testWidgets('tapping the active pen opens its settings', (tester) async {
+      await pumpToolbar(tester, const Size(1280, 800));
+      await tester.tap(find.byTooltip('Pen (P)'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PenOptionsPanel), findsOneWidget);
+    });
+
+    testWidgets('one compact row on phones, the full row on tablets', (tester) async {
       await pumpToolbar(tester, const Size(390, 800));
       final phone = tester.getSize(find.byType(EditorToolbar));
       expect(phone.width, lessThanOrEqualTo(390));
-      expect(phone.height, greaterThan(80), reason: 'two rows');
+      expect(phone.height, lessThan(60), reason: 'one row');
+      expect(find.byType(ToolSwitcherButton), findsOneWidget);
+      expect(find.byKey(const ValueKey('color-2')), findsOneWidget);
+      expect(find.byKey(const ValueKey('width-2')), findsOneWidget);
+      // Every target stays finger- and S Pen-sized.
+      for (final key in ['color-0', 'width-0']) {
+        final size = tester.getSize(find.byKey(ValueKey(key)));
+        expect(size.width, greaterThanOrEqualTo(40));
+        expect(size.height, greaterThanOrEqualTo(40));
+      }
       await pumpToolbar(tester, const Size(1194, 834));
       expect(tester.getSize(find.byType(EditorToolbar)).height, lessThan(60), reason: 'one row');
+      expect(find.byType(ToolSwitcherButton), findsNothing);
+      expect(find.byTooltip('Lasso (L)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('tool names under the icons when they fit', (tester) async {
+      tester.view
+        ..physicalSize = const Size(1280, 800)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final tools = ToolSettings();
+      addTearDown(tools.dispose);
+      Future<void> pump(Size size) async {
+        tester.view.physicalSize = size;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topCenter,
+                child: EditorToolbar(tools: tools, onStylusOnlyChanged: (_) {}, showLabels: true),
+              ),
+            ),
+          ),
+        );
+      }
+
+      await pump(const Size(1280, 800));
+      expect(find.text('Laser'), findsOneWidget);
+      expect(find.text('Highlighter'), findsOneWidget);
+      await pump(const Size(700, 800)); // No room: icons only.
+      expect(find.text('Laser'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 

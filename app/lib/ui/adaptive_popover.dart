@@ -6,14 +6,16 @@ import 'app_theme.dart';
 
 /// Shows [builder]'s content as a bottom sheet on phones and as a popover
 /// anchored to [context]'s widget (e.g. the button that opened it) on
-/// tablets and desktops.
+/// tablets and desktops — or everywhere, without [sheetOnPhones] (small,
+/// quick menus such as the tool switcher).
 Future<T?> showAdaptivePopover<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   double width = 340,
+  bool sheetOnPhones = true,
 }) {
   final media = MediaQuery.of(context);
-  if (media.size.shortestSide < 600) {
+  if (sheetOnPhones && media.size.shortestSide < 600) {
     return showModalBottomSheet<T>(
       context: context,
       isScrollControlled: true,

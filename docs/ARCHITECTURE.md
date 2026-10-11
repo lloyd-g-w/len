@@ -136,7 +136,9 @@ most recently edited page is undone first. Painting mirrors `InkSurface`
 Page management (`PageActions`, `DocumentCommands`, `PageOverview`): insert,
 duplicate (copies stroke rows wholesale via `SurfaceCopier`, so stroke
 columns added later are copied too), delete (with an Undo snack bar that
-re-saves the page's strokes), reorder (fractional sort keys, `PageOrder`;
+re-saves the page's strokes; the overview's selection goes through
+`DocumentCommands.deleteMany` → `PageActions.deleteAll`, one step with one Undo
+that restores every page in place — at least one page always remains), reorder (fractional sort keys, `PageOrder`;
 the list is renumbered only when a gap is exhausted), bookmarks, templates.
 
 ## Editor screen (`features/editor/`)
@@ -145,22 +147,59 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   `InkInputController` + `CanvasGestures`, `ContentTools`, undo, and either the canvas
   `SurfaceModel` + viewport or the `DocumentController` + `DocumentCommands`.
 - **`EditorScreen`** composes `EditorCanvas` (surface, "Add page" footer, content layer)
-  with `EditorChrome` (`chrome/`): `EditorTopBar` (back, pages, bookmark, title — tap to
-  rename — undo/redo, export, focus, "⋯" `EditorMoreMenu`; a phone variant keeps the
-  essentials and moves the rest into the menu), `ToolbarSlot` (hosts the pen toolbar at
-  the top, bottom or floating by a grip; animated), `PageNavigator`, `GestureHud` and,
-  in focus mode, only a `FocusHandle`. `ChromeLayout` says how much of each screen edge
+  with `EditorChrome` (`chrome/`): `EditorTopBar` (on every size: back, then the title —
+  start-aligned, tap to rename, with the folder as a quiet subtitle — then, in groups,
+  pages and bookmark, insert image and search | undo/redo | export, focus, "⋯"
+  `EditorMoreMenu`; the phone variant keeps back, title, insert image, undo/redo and the
+  tab switcher, and moves search, pages, bookmark and export into the menu), `ToolbarSlot` (hosts the pen toolbar at
+  the top, bottom or floating by a grip; animated), `PageNavigator`, `GestureHud` (counts
+  repeats: "Undo ×3"), `TipBanner` and, in focus mode, only a `FocusHandle`. On phones
+  (< 640 px) the page navigator *peeks* (`chrome/peeking.dart`): it shows when the
+  notebook opens and while the document viewport moves, fades after ~2 s (stays while
+  touched or hovered), lets touches through when hidden, and takes no room in
+  `ChromeLayout.covered` — so it no longer covers the page above the toolbar. `ChromeLayout` says how much of each screen edge
   the chrome covers; the document pads its scroll bounds by it (in screen pixels, so it
   is re-applied on zoom), and the selection / text menus and the canvas's zoom pill and
   minimap (`CanvasView`) avoid it (passed down as `MediaQuery.padding` / insets).
   On canvases the "⋯" menu also holds the canvas entries: background (template and paper
-  colour), fit content, actual size, back to start, show / hide overview. Menus report to a `CanvasGuard`, which blocks the surface while
-  one is open, so the tap that closes a menu never draws.
+  colour), fit content, actual size, back to start, show / hide overview. Chrome menus are
+  `ChromeMenuAnchor`s: they report to a `CanvasGuard`, which blocks the surface while one is
+  open (the tap that closes a menu never draws) and closes them on Escape (a menu opened
+  by tap leaves keyboard focus on the editor, where Escape would otherwise clear the
+  selection instead).
+- **Hints** (shown sparingly, never blocking): an empty infinite canvas shows a quiet
+  "Draw anywhere" note with how to move around (`canvas/canvas_empty_hint.dart`; gone at
+  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows one-time tips under
+  the top bar, one at a time, for 10 s or until dismissed, remembered per device
+  (`SettingsRepository.seenTips`): the stylus side button (after the first pen contact,
+  phrased for `PenButtonAction`; none if it does nothing) and two/three-finger taps
+  (after the first edit made by finger or pen; skipped if both gestures are off).
 - **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
   the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
   the active tab's `EditorScreen` (keyed by notebook), which saves its view on dispose
   and restores it on creation. Closing the last tab leaves the workspace.
+  The workspace route is a `NotebookOpenRoute` (`tabs/notebook_open_route.dart`): opened from
+  a library cover (`NotebookOpenOrigin` from the library's `CoverLocator`), the cover's rect
+  grows to the screen with easing corners, fades into the paper colour and the editor (scaled
+  and clipped to the flight, never relaid out) fades in; back (and predictive back) reverses
+  into the cover's current rect, or fades if it is gone. Without a cover (search, new, import)
+  it fades and scales in; with reduced motion it only fades. The library does not move.
+- **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
+  pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
+  in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).
+  Restored only at the same viewport size; otherwise a paged notebook re-fits its
+  current page, and a canvas keeps the same world point in the middle. A canvas without
+  a saved view opens centred on its content (`CanvasNavigation.open`: `contentBounds`,
+  fitted into the area the chrome leaves free, at most 100 %; an empty canvas stays at
+  the origin), after the chrome's insets are known so nothing starts under the toolbar.
+- **Page zoom** (`document/page_fit.dart`, "⋯" → Page zoom, Shift+1 fit page, Shift+2
+  fit width, `0` automatic): `PageFit.width` fills the width, `PageFit.page` shows the
+  whole page, `PageFit.auto` fits the width but at most 1.4× and so that ≥ 55 % of the
+  page's height shows (landscape tablets and desktops see most of a page instead of a
+  third); single-page flow always shows whole pages. The fit applies on open and on page
+  jumps; a fitted view that the user hasn't moved is re-fitted when the chrome or the
+  screen size changes. Saved per notebook in `EditorViewState.fit`.
 - **Page navigation**: `DocumentController.scrollToPage` animates the viewport with
   `DocumentScroller` (centre point glides, zoom eases; jumps longer than two screens
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
@@ -208,9 +247,13 @@ Export (`features/documents/export/`): `PdfExporter` (package `pdf`) writes
 ink as filled polygons flattened from the exact outline paths the app
 renders, templates as vector lines, and imported PDF pages as 150 dpi
 images; PNG export rasterises a page with the same painters as the editor.
+The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
+indices from a range like "1-3, 5", templates and PDF backgrounds on or off,
+PNG resolution); without templates pages are exported as blank white paper.
 Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
-(`platform/file_export*`).
+(`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
+on mobile and written into a folder the user picks on desktop.
 
 ## Images (`ink/images/`, `features/editor/images/`)
 
@@ -465,12 +508,19 @@ tools are Pen (P), Highlighter (H), Eraser (E), Lasso (L), Shapes (S; its
 icon is the current shape, settings = shape picker, strip = the pen's slots,
 since shapes are drawn with the pen's colour and width), Text (T; settings =
 defaults for new boxes) and Laser pointer (K). For inks the strip is a row of
-colour slots beside a row of width slots (dots at scaled real size) — one tap
-picks either; tapping the selected slot (or long-pressing / right-clicking
-any) edits it (colour picker, or slider with a live stroke preview; both can
-remove the slot); `+` adds one. It lays out on one row when it fits, else on
-two (phones: tools and palm rejection above, the strip below; the settings
-button only if it fits — tapping the active tool opens settings too).
+colour slots beside a row of width slots (dots at scaled real size, in a recessed track) — one tap
+picks either; the selected slot sits on a tonal disc; every target is ≥ 40 px.
+Tapping the selected slot (or long-pressing / right-clicking any) edits it
+(colour picker, or slider with a live stroke preview; both can remove the
+slot); `+` adds one. Groups (tools | quick controls | settings and palm
+rejection) are separated by dividers. "⋯" → Toolbar → *Show tool names*
+(`AppPreferences.toolbarLabels`) puts short names under the tool icons when
+the row still fits. When the full row doesn't fit (phones), the toolbar stays
+**one row**: a `ToolSwitcherButton` showing the active tool (tap: the
+`ToolSwitcherPanel` popover with every tool as a labelled tile, the tool's
+settings and "Draw with stylus only"; long press: settings) followed by the
+tool's quick controls (`ToolDescriptor.compactStrip`, without the `+`
+buttons when short of room; scrolls if still too wide).
 Picking a quick colour or width from a tool that draws no ink (lasso, text,
 laser) switches to the pen. Shortcuts: P / H / E / L / S / T / K, 1–6 colour
 slots, [ / ] thinner / thicker (plus the canvas keys `+` `-` `0` Shift+1 Home).
@@ -479,7 +529,7 @@ Placement is a preference (`ToolbarPlacement`: automatic / top / bottom /
 floating, in the "⋯" menu and the settings); `ToolbarSlot` hosts it. *Automatic*
 (`resolvePlacement`) puts it under the top bar from 960 px wide if it fits
 there on one row whichever tool is active, otherwise at the bottom. The slot
-measures the toolbar (one or two rows) and `ChromeLayout` uses that height for
+measures the toolbar and `ChromeLayout` uses that height for
 the screen edge it covers, so document scrolling, the page navigator and the
 canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
 
@@ -732,7 +782,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
 `SettingsRepository`: theme mode and accent (the app rebuilds its `ThemeData` from them),
 stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
-(`PenButtonAction.eraser|lasso|none`), low-latency ink (Android, experimental), editor toolbar placement (and floating position),
+(`PenButtonAction.eraser|lasso|none`), low-latency ink (Android, experimental), editor toolbar placement (and floating position) and tool names,
 library layout and sort. Getters always read
 the store, so values written elsewhere are never stale.
 
@@ -756,8 +806,8 @@ in `docs/UX_AUDIT.md`.
 
 Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
 canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar and its popovers in
-`toolbar_screenshot_test.dart`) at phone, tablet and
-desktop sizes in light and dark with real fonts. Run
+`toolbar_screenshot_test.dart`; open-notebook motion frames in `transition_screenshot_test.dart`)
+at phone, tablet and desktop sizes in light and dark with real fonts. Run
 `flutter test test/screenshots --dart-define=SCREENSHOTS=true` and look at
 `app/build/screenshots/*.png`.
 

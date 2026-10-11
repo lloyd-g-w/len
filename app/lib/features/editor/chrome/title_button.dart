@@ -2,18 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
 
-/// The notebook title in the top bar; tap to rename.
+/// The notebook title in the top bar (start-aligned, with an optional
+/// quiet subtitle); tap to rename.
 class TitleButton extends StatelessWidget {
-  const TitleButton({
-    super.key,
-    required this.title,
-    required this.onRename,
-    this.subtitle,
-    this.centered = true,
-  });
-
-  /// Centred text (wide top bar) or start-aligned (phones).
-  final bool centered;
+  const TitleButton({super.key, required this.title, required this.onRename, this.subtitle});
 
   final String title;
 
@@ -37,7 +29,7 @@ class TitleButton extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,

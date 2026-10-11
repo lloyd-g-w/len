@@ -111,6 +111,14 @@ class SettingsRepository {
   ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
   set toolbarPlacement(ToolbarPlacement value) => _set('toolbar_placement', value.name);
 
+  /// Ids of the editor's one-time tips already shown on this device.
+  Set<String> get seenTips => {...?_get('tips_seen')?.split(',').where((id) => id.isNotEmpty)};
+  void markTipSeen(String id) => _set('tips_seen', {...seenTips, id}.join(','));
+
+  /// Whether the editor toolbar shows tool names under the icons.
+  bool get toolbarLabels => _get('toolbar_labels') == 'true';
+  set toolbarLabels(bool value) => _set('toolbar_labels', '$value');
+
   /// Centre of the floating toolbar as a fraction of the editor size
   /// (x, y in 0..1); null = not placed yet.
   (double, double)? get toolbarFloat {
@@ -131,6 +139,12 @@ class SettingsRepository {
   /// Whether handwriting is recognised in the background for search.
   bool get handwritingIndexing => _get('handwriting_indexing') != 'false';
   set handwritingIndexing(bool value) => _set('handwriting_indexing', '$value');
+
+  /// Where the editor last looked in notebook [notebookId] (an opaque
+  /// string owned by the editor), or null.
+  String? editorView(String notebookId) => _get('editor_view.$notebookId');
+  void setEditorView(String notebookId, String? value) =>
+      value == null ? _remove('editor_view.$notebookId') : _set('editor_view.$notebookId', value);
 
   String? _get(String key) {
     final rows = _database.db.select('SELECT value FROM settings WHERE key = ?', [key]);

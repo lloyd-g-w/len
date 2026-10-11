@@ -15,6 +15,7 @@ import '../tabs/open_notebooks.dart';
 import 'document_layout.dart';
 import 'document_scroller.dart';
 import 'document_surfaces.dart';
+import 'page_fit.dart';
 import 'page_viewport.dart';
 
 /// State of an open paged notebook: its pages, their layout in document
@@ -29,6 +30,7 @@ class DocumentController extends ChangeNotifier {
     this._flow = PageFlow.continuous,
     int initialPage = 0,
     this._initialView,
+    this._fit = PageFit.auto,
   }) : assert(pages.isNotEmpty, 'A document needs at least one page'),
        _pages = pages,
        _current = initialPage.clamp(0, pages.length - 1),
@@ -79,12 +81,8 @@ class DocumentController extends ChangeNotifier {
   NotebookPage get activePageData => _pages[_active];
   SurfaceModel get activeModel => surfaces.surfaceOf(_pages[_active].id).model;
 
-  /// Largest zoom used when fitting a page to the screen, so pages don't
-  /// become huge on wide desktop windows.
-  static const double maxFitScale = 1.4;
-
   /// Screen padding around a fitted page.
-  static const double fitPadding = 16;
+  static const double fitPadding = PageFit.padding;
 
   /// Screen space covered by editor chrome (top bar, toolbar, page
   /// navigator). Pages can be scrolled clear of it, and a page shown by
@@ -98,15 +96,46 @@ class DocumentController extends ChangeNotifier {
 
   EditorViewState? _initialView;
 
+  PageFit _fit;
+
+  /// How pages are zoomed when opening and jumping to a page.
+  PageFit get fit => _fit;
+
+  /// The view last set by fitting a page, while the user hasn't moved it:
+  /// it is re-fitted when the chrome or the screen size changes.
+  ({double scale, Offset offset, Size size})? _fitted;
+
   void setInsets(EdgeInsets insets) {
     if (insets == _insets) return;
     _insets = insets;
     _updateBounds();
+    if (_untouched) _frame(_current);
+  }
+
+  /// Whether the view is still the one the last fit set (the user has not
+  /// scrolled or zoomed since).
+  bool get _untouched {
+    final f = _fitted;
+    return f != null &&
+        (f.scale - viewport.scale).abs() < 1e-6 &&
+        (f.offset - viewport.offset).distance < 0.5;
+  }
+
+  /// Changes how pages are zoomed and shows the current page that way.
+  void setFit(PageFit fit) {
+    _fit = fit;
+    scrollToPage(_current, animateSamePage: true);
+    notifyListeners();
   }
 
   /// Where the document is looking (to restore it later, e.g. in a tab).
-  EditorViewState get viewState =>
-      EditorViewState(scale: viewport.scale, offset: viewport.offset, page: _current);
+  EditorViewState get viewState => EditorViewState(
+    scale: viewport.scale,
+    offset: viewport.offset,
+    page: _current,
+    size: viewport.size,
+    fit: _fit == PageFit.auto ? null : _fit.name,
+  );
 
   /// The frame of the last page on screen, for the "add page" footer.
   Rect? get lastPageOnScreen {
@@ -175,10 +204,12 @@ class DocumentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Like [goToPage], but scrolls there smoothly in continuous flow.
-  void scrollToPage(int index) {
+  /// Like [goToPage], but scrolls there smoothly in continuous flow (and
+  /// with [animateSamePage], also re-fits the page shown in single flow).
+  void scrollToPage(int index, {bool animateSamePage = false}) {
     if (index < 0 || index >= _pages.length) return;
-    final target = _flow == PageFlow.continuous ? frameTarget(index) : null;
+    final smooth = _flow == PageFlow.continuous || (animateSamePage && index == _current);
+    final target = smooth ? frameTarget(index) : null;
     if (target == null) {
       goToPage(index);
       return;
@@ -187,7 +218,14 @@ class DocumentController extends ChangeNotifier {
     // Show the destination in the indicator straight away.
     _current = index;
     notifyListeners();
-    scroller.animateTo(target.scale, target.offset, onDone: () => settleOn(index));
+    scroller.animateTo(
+      target.scale,
+      target.offset,
+      onDone: () {
+        settleOn(index);
+        _fitted = (scale: viewport.scale, offset: viewport.offset, size: viewport.size);
+      },
+    );
   }
 
   /// Makes the page under [screen] (or nearest to it) the active page.
@@ -235,21 +273,34 @@ class DocumentController extends ChangeNotifier {
   /// into view.
   void _frame(int index) {
     final target = frameTarget(index);
-    if (target != null) applyView(target.scale, target.offset);
+    if (target == null) return;
+    applyView(target.scale, target.offset);
+    _fitted = (scale: viewport.scale, offset: viewport.offset, size: viewport.size);
   }
 
   void _onViewport() {
     _updateBounds(); // A no-op unless the zoom changed.
-    if (!_framed && !viewport.size.isEmpty) {
+    final size = viewport.size;
+    if (!_framed && !size.isEmpty) {
       _framed = true;
       final view = _initialView;
       _initialView = null;
-      if (view != null) {
+      if (view != null && view.fitsSize(size)) {
         applyView(view.scale, view.offset);
       } else {
         _frame(_current);
       }
       return; // The viewport notified again.
+    }
+    // Rotated or resized while showing a fitted page: fit it again.
+    final fitted = _fitted;
+    if (fitted != null && fitted.size != size && !size.isEmpty) {
+      final untouched = (fitted.scale - viewport.scale).abs() < 1e-6;
+      _fitted = null;
+      if (untouched) {
+        _frame(_current);
+        return;
+      }
     }
     _refreshVisible();
   }
@@ -260,22 +311,26 @@ class DocumentController extends ChangeNotifier {
     viewport.panBy(offset - viewport.offset);
   }
 
-  /// The zoom and pan that [goToPage] would use to show page [index]: fit
-  /// to the width (continuous flow) or whole (single-page flow) and below
-  /// the top chrome. Null before the first layout.
+  /// The zoom and pan that [goToPage] would use to show page [index],
+  /// zoomed as [fit] says, horizontally centred, below the top chrome (in
+  /// single-page flow, vertically centred when it fits). Null before the
+  /// first layout.
   ({double scale, Offset offset})? frameTarget(int index) {
     final size = viewport.size;
     final frame = _layout.frameOf(index);
     if (size.isEmpty || frame == null) return null;
     final widest = _layout.bounds.width;
-    var scale = math.min((size.width - 2 * fitPadding) / widest, maxFitScale);
-    if (_flow == PageFlow.single) {
-      final free = size.height - _insets.vertical - 2 * fitPadding;
-      if (free > 0) scale = math.min(scale, free / frame.height);
-    }
+    final fit = _flow == PageFlow.single && _fit == PageFit.auto ? PageFit.page : _fit;
+    final scale = fit
+        .scale(screen: size, insets: _insets, width: widest, height: frame.height)
+        .clamp(viewport.minScale, viewport.maxScale);
+    final free = size.height - _insets.vertical - 2 * fitPadding;
+    // A whole page shown alone sits in the middle of the free space.
+    final alone = _flow == PageFlow.single;
+    final spare = alone ? math.max(0.0, free - frame.height * scale) : 0.0;
     final x = (size.width - widest * scale) / 2 - _layout.bounds.left * scale;
-    final y = fitPadding + _insets.top - frame.top * scale;
-    return (scale: scale.clamp(viewport.minScale, viewport.maxScale), offset: Offset(x, y));
+    final y = fitPadding + _insets.top + spare / 2 - frame.top * scale;
+    return (scale: scale, offset: Offset(x, y));
   }
 
   /// Marks page [index] as current once a scroll to it has finished.

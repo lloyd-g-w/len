@@ -6,6 +6,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
+import 'package:len/features/editor/tool_switcher.dart';
 
 import '../support/handwriting.dart';
 import 'screenshot_harness.dart';
@@ -135,4 +136,32 @@ void main() {
     await shoot(tester, 'phone_color_sheet');
     expect(tester.takeException(), isNull);
   });
+
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    testWidgets('toolbar phone: tool switcher ${mode.name}', (tester) async {
+      await openEditor(tester, phone, 2, mode);
+      await tester.tap(find.byType(ToolSwitcherButton));
+      await settle(tester);
+      await shoot(tester, 'phone_tool_switcher_${mode.name}');
+      await tester.tap(find.text('Eraser'));
+      await settle(tester);
+      await shoot(tester, 'toolbar_phone_eraser_${mode.name}', crop: toolbarRect(tester));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('toolbar with tool names ${mode.name}', (tester) async {
+      setWindow(tester, tablet, dpr: 2);
+      final services = seededServices();
+      addTearDown(services.dispose);
+      services.preferences.toolbarLabels = true;
+      await pumpApp(
+        tester,
+        services,
+        EditorScreen(notebook: writtenNotebook(services)),
+        mode: mode,
+      );
+      await shoot(tester, 'toolbar_labels_${mode.name}', crop: toolbarRect(tester));
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

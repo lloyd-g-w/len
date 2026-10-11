@@ -15,6 +15,7 @@ import 'package:len/sync/sync_api.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'content_golden_test.dart' show loadFonts;
+import 'content_tools_ui_test.dart' show pinCanvasView;
 import 'support/fake_server.dart' show FakeServer, apiFor;
 import 'ui_library_test.dart' show pumpLibrary;
 
@@ -174,6 +175,7 @@ void main() {
     final services = AppServices.create(AppDatabase.inMemory());
     addTearDown(services.dispose);
     final nbs = seed(services);
+    pinCanvasView(services, nbs.ideas.id, const Size(900, 1200));
     await pumpEditorFor(tester, services, nbs.ideas);
     final viewport = tester.widget<CanvasView>(find.byType(CanvasView)).navigation.viewport;
     expect(viewport.visibleWorld.contains(const Offset(3180, 2020)), isFalse);

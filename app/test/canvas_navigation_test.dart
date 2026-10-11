@@ -11,6 +11,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/canvas/canvas_minimap.dart';
 import 'package:len/features/editor/canvas/canvas_navigation.dart';
+import 'package:len/features/editor/canvas/canvas_view.dart';
 import 'package:len/features/editor/canvas/minimap_painter.dart';
 import 'package:len/features/editor/canvas/zoom_indicator.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -18,6 +19,8 @@ import 'package:len/ink/navigation/kinetic_pan.dart';
 import 'package:len/ink/navigation/viewport_animator.dart';
 import 'package:len/ink/viewport.dart';
 import 'package:len/ui/app_theme.dart';
+
+import 'content_tools_ui_test.dart' show pinCanvasView;
 
 Stroke _wave(String id, String surface, Offset at, {int color = 0xFF1F2937}) => Stroke(
   id: id,
@@ -53,6 +56,7 @@ Future<(AppServices, Notebook)> _pumpCanvas(WidgetTester tester, {bool minimap =
     _wave('b', nb.id, const Offset(3000, 1500), color: 0xFF1C7ED6),
     _wave('c', nb.id, const Offset(-1800, 2600), color: 0xFFE03131),
   ]);
+  pinCanvasView(services, nb.id, const Size(1000, 700));
   await tester.pumpWidget(
     AppScope(
       services: services,
@@ -242,7 +246,10 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.home);
     await tester.pumpAndSettle();
     expect(viewport.scale, closeTo(1, 1e-9));
-    expect(viewport.offset.distance, lessThan(0.5));
+    // The origin sits at the top left, below the chrome.
+    final insets = tester.widget<CanvasView>(find.byType(CanvasView)).insets;
+    expect((viewport.offset - Offset(insets.left, insets.top)).distance, lessThan(0.5));
+    expect(insets.top, greaterThan(0));
     await _close(tester);
   });
 

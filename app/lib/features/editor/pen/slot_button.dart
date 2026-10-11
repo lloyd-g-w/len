@@ -17,6 +17,7 @@ class SlotButton extends StatelessWidget {
     required this.onSelect,
     required this.onEdit,
     required this.child,
+    this.tonal = false,
   });
 
   /// Square hit target (logical pixels).
@@ -31,6 +32,10 @@ class SlotButton extends StatelessWidget {
   final void Function(BuildContext anchor) onEdit;
 
   final Widget child;
+
+  /// Shows the selection as a filled tonal disc instead of a ring (width
+  /// slots, so they never read as colours).
+  final bool tonal;
 
   @override
   Widget build(BuildContext context) {
@@ -59,8 +64,9 @@ class SlotButton extends StatelessWidget {
                   height: 34,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    color: tonal && selected ? scheme.secondaryContainer : null,
                     border: Border.all(
-                      color: selected ? scheme.primary : Colors.transparent,
+                      color: selected && !tonal ? scheme.primary : Colors.transparent,
                       width: 2,
                     ),
                   ),

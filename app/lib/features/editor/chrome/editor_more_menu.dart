@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../domain/preferences.dart';
-import '../../documents/export/export_flow.dart';
 import '../document/document_layout.dart';
+import '../document/page_fit.dart';
 import '../document/page_overview.dart';
 import '../tabs/open_notebooks.dart';
 import '../tabs/tab_switcher.dart';
@@ -19,12 +19,17 @@ class EditorMoreMenu extends StatelessWidget {
     super.key,
     required this.actions,
     this.compact = false,
+    this.pagesInMenu = false,
     this.tabs,
     this.compactItems = const [],
   });
 
   final EditorMenuActions actions;
   final bool compact;
+
+  /// All pages and the bookmark go in the menu even when not [compact]
+  /// (top bars just wider than a phone's).
+  final bool pagesInMenu;
 
   /// Open notebooks to offer a switcher for (when the bar has no room).
   final OpenNotebooks? tabs;
@@ -36,10 +41,7 @@ class EditorMoreMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = actions;
     final tabs = this.tabs;
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      onOpen: CanvasGuardScope.maybeOf(context)?.opened,
-      onClose: CanvasGuardScope.maybeOf(context)?.closed,
+    return ChromeMenuAnchor(
       menuChildren: [
         if (tabs != null)
           _item(
@@ -47,11 +49,19 @@ class EditorMoreMenu extends StatelessWidget {
             'Open notebooks (${tabs.length})',
             () => showTabSwitcher(context, tabs),
           ),
-        if (compact && a.isPaged) ...[
+        if (compact && a.onSearch != null)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.search_rounded),
+            shortcut: const SingleActivator(LogicalKeyboardKey.keyF, control: true),
+            onPressed: a.onSearch,
+            child: const Text('Search in notebook'),
+          ),
+        if ((compact || pagesInMenu) && a.isPaged) ...[
           _item(Icons.grid_view_rounded, 'All pages', a.onOverview),
           _bookmarkItem(),
-          if (a.onExport case final onExport?) exportSubmenu(onExport),
         ],
+        if (compact && a.isPaged)
+          if (a.onExport case final onExport?) exportMenuItem(onExport),
         if (compact) ...compactItems,
         if (a.isPaged) ...[
           SubmenuButton(
@@ -79,6 +89,14 @@ class EditorMoreMenu extends StatelessWidget {
             ],
             onSelected: a.onFlow,
           ),
+          _radioSubmenu<PageFit>(
+            icon: Icons.zoom_out_map_rounded,
+            label: 'Page zoom',
+            value: a.fit,
+            options: [for (final f in PageFit.values) (f, f.label)],
+            hints: const {PageFit.auto: '0', PageFit.page: 'Shift+1', PageFit.width: 'Shift+2'},
+            onSelected: a.onFit,
+          ),
         ] else ...[
           // Infinite canvas: background and navigation.
           _item(Icons.wallpaper_outlined, 'Background…', a.onBackground),
@@ -95,15 +113,25 @@ class EditorMoreMenu extends StatelessWidget {
         ],
         _radioSubmenu<ToolbarPlacement>(
           icon: Icons.space_dashboard_outlined,
-          label: 'Toolbar position',
+          label: 'Toolbar',
           value: a.placement,
           options: const [
-            (ToolbarPlacement.auto, 'Automatic'),
+            (ToolbarPlacement.auto, 'Automatic position'),
             (ToolbarPlacement.top, 'Top'),
             (ToolbarPlacement.bottom, 'Bottom'),
             (ToolbarPlacement.floating, 'Floating'),
           ],
           onSelected: a.onPlacement,
+          extra: [
+            const Divider(),
+            MenuItemButton(
+              leadingIcon: Icon(
+                a.toolLabels ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+              ),
+              onPressed: a.onToolLabels == null ? null : () => a.onToolLabels!(!a.toolLabels),
+              child: const Text('Show tool names'),
+            ),
+          ],
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.fullscreen_rounded),
@@ -157,6 +185,8 @@ class EditorMoreMenu extends StatelessWidget {
     required T? value,
     required List<(T, String)> options,
     required ValueChanged<T>? onSelected,
+    Map<T, String> hints = const {},
+    List<Widget> extra = const [],
   }) => SubmenuButton(
     leadingIcon: Icon(icon),
     menuChildren: [
@@ -165,53 +195,31 @@ class EditorMoreMenu extends StatelessWidget {
           leadingIcon: Icon(
             option == value ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
           ),
+          trailingIcon: hints[option] == null ? null : Text(hints[option]!),
           onPressed: onSelected == null ? null : () => onSelected(option),
           child: Text(text),
         ),
+      ...extra,
     ],
     child: Text(label),
   );
 }
 
-/// "Export" submenu items (also used by the share button's menu).
-Widget exportSubmenu(ValueChanged<ExportKind> onExport) => SubmenuButton(
+/// The "Export…" menu entry: opens the export sheet.
+Widget exportMenuItem(VoidCallback onExport) => MenuItemButton(
   leadingIcon: const Icon(Icons.ios_share_rounded),
-  menuChildren: [
-    for (final kind in ExportKind.values)
-      MenuItemButton(onPressed: () => onExport(kind), child: Text(kind.label)),
-  ],
-  child: const Text('Export'),
+  onPressed: onExport,
+  child: const Text('Export…'),
 );
 
-/// The top bar's share button: export the notebook or the page.
+/// The top bar's share button: opens the export sheet (format, pages and
+/// options), so exporting takes one tap to the sheet and one to export.
 class ShareMenuButton extends StatelessWidget {
   const ShareMenuButton({super.key, required this.onExport});
 
-  final ValueChanged<ExportKind> onExport;
+  final VoidCallback onExport;
 
   @override
-  Widget build(BuildContext context) {
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      onOpen: CanvasGuardScope.maybeOf(context)?.opened,
-      onClose: CanvasGuardScope.maybeOf(context)?.closed,
-      menuChildren: [
-        for (final (kind, icon) in const [
-          (ExportKind.notebookPdf, Icons.menu_book_outlined),
-          (ExportKind.pagePdf, Icons.picture_as_pdf_outlined),
-          (ExportKind.pagePng, Icons.image_outlined),
-        ])
-          MenuItemButton(
-            leadingIcon: Icon(icon),
-            onPressed: () => onExport(kind),
-            child: Text(kind.label),
-          ),
-      ],
-      builder: (context, menu, _) => BarButton(
-        tooltip: 'Export & share',
-        icon: Icons.ios_share_rounded,
-        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      BarButton(tooltip: 'Export & share', icon: Icons.ios_share_rounded, onPressed: onExport);
 }

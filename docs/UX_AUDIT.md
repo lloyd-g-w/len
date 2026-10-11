@@ -100,14 +100,16 @@ settings — at the four sizes, light and dark, and at 1.3× text.
     after selection mode.
 14. ⬜ Settings on wide screens could use a two-pane layout (category list +
     detail) like GoodNotes on iPad; the single 680 px column is fine for now.
-15. ⬜ Motion: shared-element transition from cover to editor (GoodNotes
-    "opens" the notebook). Needs the editor route (other agent).
+15. ✅ Motion: shared-element transition from cover to editor (GoodNotes
+    "opens" the notebook). → `NotebookOpenRoute`: the tapped cover grows
+    into the screen, fades into the paper and the editor fades in; back
+    shrinks it into the cover (wherever it is now), else fades.
 16. ⬜ Folder colours only; GoodNotes allows folder icons/emoji.
 17. ⬜ Long PDF imports/exports can't be cancelled (the progress dialog has
     no Cancel; needs cancellation in `PdfImporter` / `NotebookExporter`).
-18. ⬜ No export options sheet (page range, PNG resolution, flatten
-    template) like GoodNotes' export dialog; the entry points live in the
-    editor menu.
+18. ✅ No export options sheet (page range, PNG resolution, flatten
+    template) like GoodNotes' export dialog. → `ExportSheet` (dialog / bottom
+    sheet): format, pages or range, templates & PDF backgrounds, PNG resolution.
 19. ⬜ Paper-colour chips wrap to two rows on phones in the template picker.
 20. ⬜ Typing a search ends selection mode (selection is scoped to the
     place, search included); keep it if the selected notebooks match.
@@ -129,23 +131,28 @@ settings — at the four sizes, light and dark, and at 1.3× text.
 From `test/screenshots/editor_screenshot_test.dart` (the editor agents'
 renders, reviewed next to the library):
 
-- ➡️ **Page overview batch delete**: `DocumentCommands` should pass
-  `OverviewHandlers.deleteMany` (one undo for all pages). Without it the
-  overview deletes page by page and only the last "Undo" snack bar
-  survives.
-- ➡️ **Canvas opens at the origin's top-left**: content drawn around the
-  origin is cut off at the top-left (Whiteboard sample). Open centred on
-  the content (or the last viewport).
-- ➡️ **Title bar**: centred on tablets but left-aligned on phones; no
-  context (folder, page count). GoodNotes shows the title with a dropdown
-  (rename, move, export).
-- ➡️ **Fit width on landscape tablets**: an A4 page fills 1 112 px of a
-  1 280 px screen (≈ 1.4× zoom), so only a third of the page is visible;
-  consider "fit page" by default in landscape.
-- ➡️ **Toolbar**: tools have no visible labels or selected-state text; the
-  colour and width slots look alike; the phone toolbar is two rows (tools,
-  then presets) — consider collapsing presets into the active tool.
-- ➡️ **Motion**: opening a notebook could animate from its cover (a Hero on
-  `NotebookCover` in the library and the first page in the editor).
+Status of these in `feat/editorux2` (✅ done there):
+
+- ✅ **Page overview batch delete**: `DocumentCommands.deleteMany` deletes the
+  selection as one step with one Undo.
+- ✅ **Canvas opens at the origin's top-left**: canvases reopen where they
+  were left, else centred on their content (at most 100 %).
+- ✅ **Title bar**: start-aligned on every size, with the folder as a
+  subtitle (tap to rename). A title dropdown (move, export) is still open.
+- ✅ **Fit width on landscape tablets**: page zoom *Automatic* keeps ≥ 55 % of
+  the page visible (A4 on 1 280 × 800 now shows most of the page); *Fit
+  width* and *Fit page* in the menu (Shift+2 / Shift+1), per notebook.
+- ✅ **Toolbar**: groups (recessed width track, tonal disc for the selected
+  slot, ≥ 40 px targets), optional tool names; the phone toolbar is one row —
+  the active tool opens a tool switcher next to its quick controls.
+- ✅ **Phone page pill** covered part of the page above the toolbar: it now
+  peeks in while pages move and fades away.
+- ✅ **Discoverability**: empty-canvas hint, one-time tips (pen side button,
+  two/three-finger taps), repeated undos counted in the HUD, Escape closes
+  chrome menus.
+- ⬜ Keyboard: chrome buttons are reachable with Tab but there is no
+  "skip to canvas" or toolbar arrow-key navigation yet.
+- ✅ **Motion**: opening a notebook animates from its cover (container
+  transform in `NotebookOpenRoute`, see 15); reduced motion → plain fade.
 - ➡️ **Export**: entry points should offer options (see 18); progress is
   already shown through `exportFlow`.

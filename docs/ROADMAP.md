@@ -42,15 +42,21 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Page sizes (A4, A5, Letter, square) and orientation
 - ✅ Page overview: live thumbnails, drag to reorder (drop indicator), duplicate, delete (undo),
   insert before/after, go to page, "Add page" tile, selection mode (bookmark / duplicate / delete
-  several pages)
+  several pages, one Undo)
 - ✅ Bookmarks (synced) with a bookmarks filter in the overview
 - ✅ Continuous vertical scrolling of pages (default) or one page at a time (swipe / arrows)
 - ✅ Page navigation: smooth scroll-to-page, whole-page fit + slide in single-page flow, "Add page"
   after the last page, arrow / PageUp / Home / End keys, jump to page, compact indicator on phones
+  (peeks in while pages move, never covers the page)
+- ✅ Page zoom: automatic (fit width, but most of a page stays visible on landscape) / fit width /
+  fit page, per notebook; notebooks and canvases reopen where you left off (canvases otherwise
+  centred on their content)
 - ✅ PDF import & annotate (new notebook or insert pages); export notebook / page to PDF (vector
   ink) and page to PNG; save dialog on desktop, share sheet on Android
 - ✅ Progress for import / export: stage, file name, "Page x of n" bar
-- ⬜ Cancel long imports / exports; export options (page range, PNG resolution)
+- ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
+  backgrounds on or off, PNG resolution (192 / 384 dpi); several PNGs shared or saved at once
+- ⬜ Cancel long imports / exports
 - ⬜ Planner / custom (image) templates
 - ⬜ Tiled PDF rendering for extreme zoom; PDF text selection / links / outline
 - ⬜ Export keeps imported PDF pages as vectors (currently embedded at 150 dpi)
@@ -102,6 +108,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   immersive system bars
 - ✅ Open-notebook tabs (up to 8, each keeps its page and zoom; tab strip on tablets/desktops,
   switcher on phones; Ctrl+Tab, Ctrl+W)
+- ✅ Editor UX round 2: toolbar in groups (≥ 40 px targets, optional tool names), one-row phone
+  toolbar with a tool switcher, title left-aligned with the folder on every size, open-notebook
+  transition from the cover, export options, one-time tips (pen side button, multi-finger taps),
+  empty-canvas hint, Escape closes chrome menus
 - ⬜ Customisable toolbar contents, favourite tools (in-editor search: ✅ text and PDF, see Library)
 - ✅ App identity: one icon design for all platforms (Android adaptive + themed icon), splash
   screen, edge-to-edge system bars, Linux desktop entry, Windows window placement
