@@ -123,6 +123,26 @@ void main() {
     expect(gc.run(now: day(51)).deleted, [sha]);
   });
 
+  test('a blob referenced just before deletion is kept and loses its mark', () async {
+    final sha = await blob('rescued');
+    gc.run(now: day(0));
+    // A client pushes a reference between the two scans of a run.
+    final racing = _RacingGc(
+      records,
+      blobs,
+      onSecondScan: () {
+        put('elements', 'e', {
+          'data': {'blob': sha},
+        });
+      },
+    );
+    expect(racing.run(now: day(31)).deleted, isEmpty);
+    expect(blobs.has(sha), isTrue);
+    expect(records.unreferencedBlobs(), isEmpty, reason: 'a later tombstone starts a new grace');
+    put('elements', 'e', null);
+    expect(gc.run(now: day(32)).deleted, isEmpty);
+  });
+
   test('recently stored or re-uploaded blobs are kept', () async {
     final sha = await blob('fresh', age: Duration.zero);
     gc.run(now: day(-40)); // Marked long ago...
@@ -185,4 +205,18 @@ void main() {
       expect(err.toString(), contains('Usage'));
     });
   });
+}
+
+/// Runs [onSecondScan] right before the re-check of blobs due for deletion.
+class _RacingGc extends BlobGc {
+  _RacingGc(super.records, super.blobs, {required this.onSecondScan});
+
+  final void Function() onSecondScan;
+  var _scans = 0;
+
+  @override
+  Set<String> referencedAmong(Set<String> candidates) {
+    if (++_scans == 2) onSecondScan();
+    return super.referencedAmong(candidates);
+  }
 }
