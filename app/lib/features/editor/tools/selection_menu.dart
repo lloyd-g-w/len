@@ -9,6 +9,7 @@ import '../../../ink/tool_settings.dart';
 import '../../../ink/viewport.dart';
 import '../../../ui/floating_panel.dart';
 import 'colour_sheet.dart';
+import 'selection_style_panel.dart';
 
 /// The floating context menu of a lasso selection, placed above it (or
 /// below when there is no room). Hidden while the selection is dragged.
@@ -140,6 +141,14 @@ class _MenuBar extends StatelessWidget {
                 );
                 if (colour != null) selection.recolor(colour);
               }),
+            ),
+          if (colourable)
+            Builder(
+              builder: (context) => action(
+                'Style',
+                Icons.tune_rounded,
+                () => showSelectionStyle(context, selection: selection, tools: tools),
+              ),
             ),
           action('Delete (Del)', Icons.delete_outline_rounded, selection.delete),
         ],

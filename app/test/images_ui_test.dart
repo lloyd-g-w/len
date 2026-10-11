@@ -171,7 +171,9 @@ void main() {
     await ctrl(tester, LogicalKeyboardKey.keyC);
     await tester.pump();
     await ctrl(tester, LogicalKeyboardKey.keyV);
-    await tester.pump();
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(); // Reads the clipboard's image, then its text.
+    }
     expect(liveStrokes(services, nb.id), hasLength(2));
     expect(liveElements(services, nb.id), isEmpty);
   });

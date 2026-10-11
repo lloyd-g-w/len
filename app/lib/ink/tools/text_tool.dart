@@ -1,5 +1,9 @@
+import 'dart:math' as math;
+import 'dart:ui';
+
 import '../../domain/surface_element.dart';
 import '../elements/text_edit_session.dart';
+import '../elements/text_hit_test.dart';
 import '../tool_settings.dart';
 import '../viewport.dart';
 import 'content_hit_test.dart';
@@ -14,8 +18,12 @@ class TextTool implements PointerTool {
   final ToolSettings tools;
   final ViewportController viewport;
 
-  /// Width of a new text box, in screen pixels at the current zoom.
-  static const double newBoxWidth = 320;
+  /// Narrowest a new box may wrap at, in screen pixels at the current zoom
+  /// (it grows with its text up to the edge of the screen, at least this).
+  static const double minWrapWidth = 240;
+
+  /// Distance kept from the right edge of the screen, in screen pixels.
+  static const double edgeMargin = 24;
 
   /// Movement (pixels) after which a press is no longer a tap.
   static const double slop = 8;
@@ -37,12 +45,31 @@ class TextTool implements PointerTool {
     final hit = ContentHitTest.elementAt(session.model, down.world, type: ElementType.text);
     if (hit != null && hit.id == session.current?.id) return;
     if (hit != null) {
+      final line = TextHitTest.checkboxAt(hit, down.world);
+      if (line != null) {
+        TextHitTest.toggleChecked(session.model, hit, line);
+        return;
+      }
+      _limitAt(hit.rect.left);
       session.edit(hit);
     } else if (session.isEditing) {
       session.end(); // A tap outside finishes the current box first.
     } else {
-      session.create(down.world, width: newBoxWidth / viewport.scale, style: tools.textStyle);
+      startBox(down.world);
     }
+  }
+
+  /// Starts a new box (default style, auto width) at world point [at].
+  void startBox(Offset at) {
+    _limitAt(at.dx);
+    session.create(at, style: tools.textStyle);
+  }
+
+  /// Auto-width boxes starting at [left] wrap at the screen's edge.
+  void _limitAt(double left) {
+    final scale = viewport.scale;
+    final edge = viewport.visibleWorld.right - edgeMargin / scale;
+    session.autoWidthLimit = math.max(edge - left, minWrapWidth / scale);
   }
 
   @override

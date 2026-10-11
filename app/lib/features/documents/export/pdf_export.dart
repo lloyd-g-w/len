@@ -15,6 +15,7 @@ import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import 'pdf_images.dart';
 import 'pdf_template.dart';
+import 'pdf_text.dart';
 import 'vector/pdf_page_importer.dart';
 import 'vector/pdf_source_reader.dart';
 
@@ -55,9 +56,11 @@ class ExportBackground {
 /// polygons finer than the eye can see. Imported PDF pages keep their
 /// original content: each is copied from its source PDF as a Form XObject
 /// (text stays text, vectors stay vectors; [PdfPageImporter]), and only a
-/// page that cannot be copied is embedded as an image. Text boxes are embedded as transparent images
-/// rendered at [elementDpi] by the app's own text renderer, so they wrap
-/// and look exactly as on screen (but are not selectable text). Image
+/// page that cannot be copied is embedded as an image. Text boxes are real,
+/// selectable text in the embedded bundled fonts, placed word by word where
+/// the app's layout puts them ([PdfTextWriter]); a box with characters the
+/// bundled fonts lack is embedded as a transparent image rendered at
+/// [elementDpi] by the app's own text renderer instead. Image
 /// elements are embedded at their stored resolution ([PdfImageWriter]),
 /// read through `readBlob`.
 abstract final class PdfExporter {
@@ -83,6 +86,7 @@ abstract final class PdfExporter {
     void Function(int done)? onPage,
     Future<Uint8List?> Function(String sha)? readBlob,
     void Function(int index)? onRasterized,
+    FontAssetLoader? loadFont,
   }) async {
     final doc = PdfDocument();
     PdfInfo(doc, title: title, creator: 'Len'); // Registers itself.
@@ -91,6 +95,7 @@ abstract final class PdfExporter {
       PdfImageWriter(doc, readBlob ?? (_) async => null),
       PdfPageImporter(doc),
       PdfTemplateWriter(doc),
+      PdfTextWriter(doc, load: loadFont),
     );
     for (var i = 0; i < pages.length; i++) {
       onPage?.call(i);
@@ -125,6 +130,9 @@ abstract final class PdfExporter {
       for (final element in elements.where((e) => e.belowInk == belowInk)) {
         if (element.knownType == ElementType.image) {
           await images.draw(g, element, toPdf: pen.map, k: k);
+        } else if (element.knownType == ElementType.text &&
+            await writer.text.draw(g, element, pageHeight: page.height, k: k)) {
+          // Written as text.
         } else {
           await _drawElement(doc, pen, element);
         }
@@ -268,12 +276,13 @@ abstract final class PdfExporter {
 
 /// What one export writes with.
 class _Writer {
-  _Writer(this.doc, this.images, this.importer, this.templates);
+  _Writer(this.doc, this.images, this.importer, this.templates, this.text);
 
   final PdfDocument doc;
   final PdfImageWriter images;
   final PdfPageImporter importer;
   final PdfTemplateWriter templates;
+  final PdfTextWriter text;
 }
 
 /// Maps world coordinates (y down) to PDF points (y up).

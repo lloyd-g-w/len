@@ -7,7 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
-import 'package:len/domain/text_data.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/tool_switcher.dart';
 import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ink/pen/pen_config.dart';
@@ -165,15 +165,20 @@ Future<void> seededCanvas(WidgetTester tester) async {
         text(
           nb.id,
           const Offset(420, 420),
-          const TextData(text: 'Meeting notes\nShapes, lasso & text', fontSize: 24, bold: true),
+          TextData.rich(
+            text: 'Meeting notes\nShapes, lasso & text',
+            paras: const [ParaStyle(heading: 2)],
+            spans: const [StyledRange(14, 20, SpanStyle(underline: true))],
+          ),
         ),
         text(
           nb.id,
           const Offset(420, 540),
-          const TextData(
+          TextData.rich(
             text: 'Centred italic text wraps inside its box.',
+            spans: const [StyledRange(0, 41, SpanStyle(italic: true))],
+            font: TextFont.lora,
             fontSize: 18,
-            italic: true,
             align: TextAlignment.center,
             color: 0xFFC2255C,
           ),

@@ -38,7 +38,8 @@ Stroke points are stored as a compact little-endian `float32` blob
 Non-ink content are **elements** (`domain/surface_element.dart`, table
 `elements`, synced as collection `elements`): a generic box (`rect` +
 `rotation` about its centre), a stacking order `z` and a `type` with an opaque
-`data` map: `text` (`TextData`: text, size, colour, bold, italic, alignment)
+`data` map: `text` (`domain/text/`: `TextData` — plain text, character
+`spans`, paragraph styles and the box defaults, see *Text boxes* below)
 or `image` (`ImageData`: blob hash, natural size, normalised crop). Elements
 with `z < 0` are drawn beneath the ink (`SurfaceElement.belowInk`), the rest
 above it (`ink/elements/element_order.dart` hands out stacking orders).
@@ -335,8 +336,9 @@ Encrypted (empty user password) or otherwise unreadable files are first
 rewritten by PDFium (`PdfRenderer.normalized`: `encodePdf(removeSecurity:
 true)`) and parsed again; a page that still cannot be copied (e.g. an
 unsupported filter in a split content stream) is embedded as a 150 dpi
-image, so export never fails because of one page. PNG export rasterises a
-page with the same painters as the editor.
+image, so export never fails because of one page. Text boxes are written as
+selectable text in the embedded bundled fonts (`pdf_text.dart`, see *Text
+boxes*). PNG export rasterises a page with the same painters as the editor.
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
 indices from a range like "1-3, 5", templates and PDF backgrounds on or off,
 PNG resolution); without templates pages are exported as blank white paper.
@@ -635,14 +637,74 @@ surface.
   creates or edits a box; double-tapping a box with the lasso edits it too.
   While editing, the element is hidden and a real `TextField` is laid out
   in world units and transformed by the viewport — `TextLayout` gives the
-  field and the renderer the same complete (non-inheriting) style, so text
+  field and the renderer the same complete (non-inheriting) styles, so text
   wraps identically while edited and once committed. The whole session is
-  one undoable edit (an emptied box is deleted).
+  one undoable edit (an emptied box is deleted). See *Text boxes*.
 - **Laser pointer**: a fading trail (`tools/laser.dart`) kept only in
   memory, animated by a ticker while visible.
 
 `InkEdit` carries strokes and elements; merging cancels intermediate
 values on both, so undo/redo and sync treat text and ink alike.
+
+## Text boxes (`domain/text/`, `ink/elements/`, `features/editor/tools/text/`)
+
+GoodNotes-style rich text inside a box.
+
+- **Model** (`domain/text/`): `TextData` keeps the **plain text** whole (lines
+  split by `\n`; the search index reads it directly), character formatting as
+  normalised `StyledRange`s of `SpanStyle` (bold, italic, underline,
+  strikethrough, colour, highlight, size, font; unset = the box default), one
+  `ParaStyle` per line (heading 1/2, bullet / numbered / checklist item with
+  indent level, ticked) and the box defaults (`TextFont`, size, colour,
+  alignment, `autoWidth`). Stored compactly (see SYNC_PROTOCOL). Editing logic
+  — inserting, joining and splitting lines (lists continue, headings do not),
+  numbering — is pure Dart in `RichTextBuffer`, unit-tested without Flutter.
+- **Fonts** (`TextFont`, `assets/fonts/`, built by `tool/build_fonts.py` from
+  Google Fonts and subset to Latin/Greek/Cyrillic + symbols): Inter (sans),
+  Lora (serif), JetBrains Mono, Caveat (handwriting; italic is slanted), all SIL
+  OFL 1.1 with their licence files, registered in the licence page
+  (`core/font_licenses.dart`). Boxes use only bundled fonts, so they measure and
+  wrap the same everywhere and in exported PDFs; characters they lack fall back
+  to system fonts.
+- **Layout** (`ink/elements/text_layout.dart`): `TextLayout.spanOf` builds one
+  `TextSpan` tree; list markers are **inline placeholders** at the start of their
+  line (one U+FFFC each), sized by indent level, so bullets, numbers (1. / a. /
+  i. by level) and checkboxes take part in wrapping and alignment identically in
+  the canvas (`TextBoxLayout` paints them via `ListMarker`), the editor
+  (`WidgetSpan`s) and PDF export. Wrapped lines of a list item are not indented
+  (no hanging indent in a single paragraph). `MarkerOffsets` maps text offsets
+  to laid-out offsets (`marker_offsets.dart`).
+- **Editing** (`features/editor/tools/text/`): `RichTextController` (a
+  `TextEditingController`) renders the spans and maps the field's edits back
+  onto the buffer (common prefix/suffix diff, the caret disambiguating repeated
+  characters); the field's text is the laid-out text with placeholders, which
+  the caret steps over. Backspace after a marker removes the list, Enter on an
+  empty item ends it. Formatting acts on the selection, or with a collapsed caret
+  on what is typed next; in an empty box font, size and colour set the box
+  defaults (remembered as the default text style, also in the Text tool's
+  settings). Copy / cut put the plain text on the clipboard and remember its
+  formatting, so pasting the same text into a box (or onto the canvas) keeps it.
+  `TextFormatBar`: font, size, B / I / U / S, colour, highlight, paragraph style,
+  bullet / numbered / checklist, alignment (scrolls on phones; delete and done
+  stay). Shortcuts: Ctrl/⌘+B / I / U, Ctrl+Shift+X strikethrough, Ctrl+Shift+7 /
+  8 / 9 lists, Ctrl+Alt+1 / 2 headings (Ctrl+Alt+0 body), Tab / Shift+Tab indent,
+  Ctrl+Enter ticks, Esc finishes.
+- **Size**: new boxes are **auto-width** (as wide as their text, growing up to
+  the screen edge, then wrapping there); dragging a side handle sets a width and
+  wraps from then on. Lasso corner scaling scales every size in the box.
+- **Checklists**: ticking (tap the box while editing, or with the Text tool on a
+  committed box, `TextHitTest`) is undoable; ticked items are struck through and
+  faded.
+- **Lasso**: *Style* (`selection_style_panel.dart`) changes font and size of the
+  selected boxes and pen type / width of selected ink (`SelectionController
+  .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.
+- **Paste**: Ctrl+V on the canvas with plain text on the system clipboard (newer
+  than ink copied in the app) adds a selected text box at the screen centre.
+- **Export**: `PdfTextWriter` writes boxes as real text in the embedded
+  (subsetted) fonts, each word at the position the app's layout gives it, with
+  vector highlights, decorations and markers; boxes with characters the bundled
+  fonts lack are embedded as images. PNG export and thumbnails use the canvas
+  renderer.
 
 ## Pens (`ink/pen/`, `ink/render/`)
 
@@ -1034,8 +1096,10 @@ malformed record is skipped. Open screens subscribe to
   are rebuilt after reopening. Paged documents do not use LOD rasters yet.
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
-- Text uses Roboto (with system fallbacks); a bundled font would make text
-  boxes wrap identically on every device.
+- Text boxes: list items have no hanging indent (wrapped lines start at the
+  box edge); text pasted from other apps is plain; PDF export places glyphs
+  word by word without kerning; boxes with characters outside the bundled
+  fonts' subsets export as images.
 - Android: historical stylus samples are merged from a platform channel and
   the low-latency overlay is experimental (see *Input*); it has not been
   tuned on every device. Stylus tilt/orientation are received but unused.

@@ -6,11 +6,13 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/surface_element.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/features/search/editor/editor_search_bar.dart';
+import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -19,16 +21,20 @@ import 'content_tools_ui_test.dart' show pinCanvasView;
 import 'support/fake_server.dart' show FakeServer, apiFor;
 import 'ui_library_test.dart' show pumpLibrary;
 
-SurfaceElement textBox(String id, String surface, String text, Offset at, {double width = 360}) =>
-    SurfaceElement(
-      id: id,
-      surfaceId: surface,
-      type: 'text',
-      rect: Rect.fromLTWH(at.dx, at.dy, width, 40),
-      z: 1,
-      createdAt: 1,
-      data: {'text': text, 'size': 24},
-    );
+/// An auto-width text box sized by the app's layout.
+SurfaceElement textBox(String id, String surface, String text, Offset at) {
+  final data = TextData(text: text, autoWidth: true);
+  final width = TextLayout.naturalWidth(data);
+  return SurfaceElement(
+    id: id,
+    surfaceId: surface,
+    type: 'text',
+    rect: Rect.fromLTWH(at.dx, at.dy, width, TextLayout.heightOf(data, width)),
+    z: 1,
+    createdAt: 1,
+    data: data.toJson(),
+  );
+}
 
 /// Biology (3 pages), Chemistry (1 page) and an "Ideas" canvas, with text
 /// boxes mentioning "light".

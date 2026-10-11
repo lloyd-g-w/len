@@ -9,7 +9,7 @@ import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/surface_element.dart';
-import 'package:len/domain/text_data.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/undo_history.dart';
