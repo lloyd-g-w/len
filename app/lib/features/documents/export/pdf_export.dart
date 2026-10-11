@@ -91,12 +91,13 @@ abstract final class PdfExporter {
   }) async {
     final doc = PdfDocument();
     PdfInfo(doc, title: title, creator: 'Len'); // Registers itself.
+    final text = PdfTextWriter(doc, load: loadFont);
     final writer = _Writer(
       doc,
       PdfImageWriter(doc, readBlob ?? (_) async => null),
       PdfPageImporter(doc),
-      PdfTemplateWriter(doc),
-      PdfTextWriter(doc, load: loadFont),
+      PdfTemplateWriter(text),
+      text,
     );
     for (var i = 0; i < pages.length; i++) {
       onPage?.call(i);
@@ -128,7 +129,7 @@ abstract final class PdfExporter {
       vector = await _drawBackground(writer, g, background, format);
     }
 
-    _drawPattern(pen, page, templates);
+    await _drawPattern(pen, page, templates);
     final elements = [...export.elements]..sort(SurfaceElement.paintOrder);
     Future<void> drawElements(bool belowInk) async {
       for (final element in elements.where((e) => e.belowInk == belowInk)) {
@@ -244,9 +245,9 @@ abstract final class PdfExporter {
     return rgb;
   }
 
-  static void _drawPattern(_Pen pen, NotebookPage page, PdfTemplateWriter templates) {
+  static Future<void> _drawPattern(_Pen pen, NotebookPage page, PdfTemplateWriter templates) {
     final rect = Offset.zero & page.size;
-    templates.draw(
+    return templates.draw(
       pen.g,
       PaperPattern.of(page.paper, rect, page: rect),
       page.paperColor,

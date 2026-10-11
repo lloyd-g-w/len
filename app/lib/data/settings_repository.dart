@@ -1,5 +1,6 @@
 import '../core/clock.dart';
 import '../domain/preferences.dart';
+import '../domain/templates/planner_calendar.dart';
 import 'app_database.dart';
 
 /// Small key/value store for local, non-synced settings.
@@ -148,6 +149,20 @@ class SettingsRepository {
   /// Whether handwriting is recognised in the background for search.
   bool get handwritingIndexing => _get('handwriting_indexing') != 'false';
   set handwritingIndexing(bool value) => _set('handwriting_indexing', '$value');
+
+  /// The planner week start and language chosen last (`sunday de`); null
+  /// before the first choice (then they follow the device locale).
+  PlannerCalendar? get plannerCalendar {
+    final parts = _get('planner_calendar')?.split(' ');
+    if (parts == null || parts.length != 2) return null;
+    final weekStart = WeekStart.tryParse(parts[0]), language = PlannerLanguage.tryParse(parts[1]);
+    if (weekStart == null || language == null) return null;
+    return PlannerCalendar(weekStart: weekStart, language: language);
+  }
+
+  set plannerCalendar(PlannerCalendar? value) => value == null
+      ? _remove('planner_calendar')
+      : _set('planner_calendar', '${value.weekStart.name} ${value.language.tag}');
 
   /// Where the editor last looked in notebook [notebookId] (an opaque
   /// string owned by the editor), or null.

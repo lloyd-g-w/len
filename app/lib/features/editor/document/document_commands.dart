@@ -84,8 +84,7 @@ class DocumentCommands {
       doc.goToPage(index);
       return;
     }
-    final period = target.style.period!;
-    final name = PlannerDates.describe(period, target.date!);
+    final name = target.period;
     showMessage(
       context,
       'This notebook has no page for $name',

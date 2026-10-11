@@ -111,7 +111,7 @@ void main() {
     final (s, nb) = await _open(tester, [Paper.planner(PaperStyle.monthlyCalendar, _oct)]);
     await tester.tapAt(_linkOn(tester, 0, _oct12));
     await tester.pumpAndSettle();
-    expect(find.text('This notebook has no page for Mon 12 Oct 2026'), findsOneWidget);
+    expect(find.text('This notebook has no page for Mon, 12 Oct 2026'), findsOneWidget);
     await tester.tap(find.text('Add page'));
     await tester.pumpAndSettle();
     final pages = s.pages.pagesOf(nb.id);

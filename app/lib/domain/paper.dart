@@ -5,7 +5,9 @@ import 'templates/paper_style.dart';
 
 export 'templates/paper.dart';
 export 'templates/paper_style.dart';
+export 'templates/planner_calendar.dart';
 export 'templates/planner_dates.dart';
+export 'templates/planner_labels.dart';
 export 'templates/planner_plan.dart';
 
 /// The colour of the paper. Ink colours are unaffected, so dark paper is a
