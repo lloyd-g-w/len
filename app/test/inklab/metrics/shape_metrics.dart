@@ -104,11 +104,29 @@ List<Metric> fidelity(List<StrokePair> pairs, double streamline) {
       dev.add(p.lineIndex.distance(p.truth.path[i]), p.truth.path[i]);
     }
     // Width, away from the ends (pen-down/up ramps and tapers are shaped).
+    // The truth point is the nearest one *along* the stroke (near the same
+    // fraction of its length), not anywhere: a stroke crossing itself
+    // passes the same spot twice with different pressures.
     final ends = 2 * p.stroke.width * p.scale;
+    final window = 10 + 4 * reach;
+    var k0 = 0;
     for (var i = 0; i < line.c.length; i++) {
       final s = i * line.step;
+      final target = along.last * s / math.max(line.length, 1e-9);
+      while (k0 < along.length - 1 && along[k0] < target - window) {
+        k0++;
+      }
+      while (k0 > 0 && along[k0 - 1] >= target - window) {
+        k0--;
+      }
+      var best = double.infinity;
+      var at = k0;
+      for (var k = k0; k < along.length && along[k] <= target + window; k++) {
+        final d = (p.truth.path[k] - line.c[i]).distance;
+        if (d < best) (best, at) = (d, k);
+      }
       if (s < ends || line.length - s < ends) continue;
-      final truthR = p.radiusFor(p.truthPressureAt(line.c[i]));
+      final truthR = p.radiusFor(p.truth.pressure[math.min(at, p.truth.pressure.length - 1)]);
       width.add((line.r[i] - truthR).abs() / truthR, line.c[i]);
     }
   }
