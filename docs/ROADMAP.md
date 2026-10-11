@@ -16,8 +16,16 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
 - ✅ Shapes: draw-and-hold to snap (line, arrow, rectangle, ellipse, triangle, polygon); Shape tool (line, arrow, rectangle, ellipse, triangle, diamond, star)
-- ✅ Text boxes (size, colour, bold/italic, alignment, width; synced `elements`)
-- ⬜ Text: font families, rich text within a box, change width/pen type of selected ink
+- ✅ Text boxes (synced `elements`): rich text within a box — bold, italic, underline,
+  strikethrough, colour, highlight, size and font per character; headings; bulleted, numbered
+  and checklist items (tap to tick, Tab to indent); bundled open-licence fonts (Inter, Lora,
+  JetBrains Mono, Caveat) with a font picker and default text style; auto-width boxes that wrap
+  once resized; Ctrl+B / I / U and list shortcuts; copy / cut / paste keep formatting between
+  boxes; Ctrl+V of plain text adds a text box; exported to PDF as selectable text in embedded
+  fonts
+- ✅ Lasso *Style*: font and size of selected text boxes, pen type and width of selected ink
+- ⬜ Text: hanging indents for wrapped list items, rich paste from other apps, more fonts / font
+  import, paragraph spacing, tables
 - ✅ Images: insert from files (top bar), the system clipboard (Ctrl+V), drag and drop (desktop) and
   the camera (Android); downscaled to 4096 px on import; beneath the ink by default with bring to
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;

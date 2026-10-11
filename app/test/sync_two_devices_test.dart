@@ -625,6 +625,13 @@ void main() {
       expect(got['tb']!.z, box.z);
       expect(got['tb']!.createdAt, box.createdAt);
       expect(got['tb']!.data, box.data);
+      // Rich text (spans, list paragraphs, font) survives the round trip.
+      final synced = TextData.fromJson(got['tb']!.data);
+      expect(synced, TextData.fromJson(box.data));
+      expect(
+        (synced.isRich, synced.font, synced.paras.single.checked),
+        (true, TextFont.caveat, true),
+      );
       expect(got['sticker']!.type, 'sticker', reason: 'unknown types are kept');
       expect(got['sticker']!.data, {'emoji': 'x'});
       final hello = b.search('hello').single;

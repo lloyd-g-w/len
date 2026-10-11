@@ -204,7 +204,7 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperData: object, paperColor, bookmarked: bool, background: object|null}` — see [Paper and pages](#paper-and-pages) |
 | `templates` | `{name, blob, width, height, createdAt}` — one of the user's own templates ("My templates"): `blob` is the `<sha256>` of a PNG or JPEG image ([blob](#blobs)), `width` / `height` (> 0) the size in world units (96 per inch) of pages made from it. Pages made from a template copy its blob into their `paperData`, so renaming or deleting (tombstoning) a template never changes existing pages. |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
-| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, size, color, bold, italic, align: "left"|"center"|"right"}`) or `image` (`data` = `{blob, width, height, crop?}`, see below). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
+| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth}`, see [Text boxes](#text-boxes)) or `image` (`data` = `{blob, width, height, crop?}`, see below). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
 | `recordings` | `{notebookId, blob, durationMs, startedAt, title, mime, segments}` — an audio recording of a notebook. `blob` is the `<sha256>` of the audio ([blob](#blobs); `audio/mp4` AAC, or `audio/webm` Opus in browsers without AAC, as given by `mime`). `startedAt` is the wall time (epoch ms) recording began, `durationMs` the audio length; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (empty → one segment `[startedAt, durationMs]`). Deleting a notebook tombstones its recordings. |
 
 **Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
@@ -232,6 +232,25 @@ ints.
 - `notebooks.paperColor` is the background of a canvas (same values as on pages).
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
   (favourite, move, trash) only bump `updatedAt`.
+
+**Text boxes.** `text` is the plain text (lines separated by `\n`; what search indexes);
+`font` ∈ `inter`, `lora`, `mono`, `caveat` (the bundled fonts), `size` the body font size in world
+units (6–400), `color` an ARGB int, `align` ∈ `left`, `center`, `right`, and `autoWidth` whether the
+box grows with its text (`true`) or wraps at its width. Formatting is compact:
+
+- `spans` = `[[start, end, style], …]` — character formatting of the UTF-16 range `[start, end)` of
+  `text`, sorted, non-overlapping, never empty or unformatted. `style` holds only what is set:
+  `b`, `i`, `u`, `s` (bold, italic, underline, strikethrough; `true`), `c` (colour) and `hl`
+  (highlight, translucent) as ARGB ints, `sz` (size in world units), `f` (font, as `font`). Unset
+  attributes take the box's.
+- `paras` = `[para, …]` — empty when no line is formatted, else one object per line: `h` heading
+  level (1 or 2), `l` list ∈ `bullet`, `number`, `check`, `x` ticked (`true`, checklists), `n` list
+  indent level (1–4); `{}` is body text. Numbers are not stored (they count consecutive items).
+
+Example: `{"text": "Todo\nmilk", "spans": [[0, 4, {"b": true}]], "paras": [{"h": 1}, {"l": "check",
+"x": true}], "font": "inter", "size": 24, "color": 4280229663, "align": "left", "autoWidth": true}`.
+Readers ignore spans and paragraph entries they cannot use and unknown keys (the contents of
+`data` are open).
 
 **Image elements.** `data.blob` is the `<sha256>` of the encoded image ([blob](#blobs); PNG, JPEG or
 WebP as written by current clients — readers decode whatever the platform supports and show a
