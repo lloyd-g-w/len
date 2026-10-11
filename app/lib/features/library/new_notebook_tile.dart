@@ -70,18 +70,34 @@ class _NewNotebookTileState extends State<NewNotebookTile> {
             ),
           ),
           const SizedBox(height: Gaps.sm + 2),
-          // Lines up with the titles of the notebook cards next to it.
+          // Same layout as a card's title row (title, subtitle line, "More"
+          // button), so the tile's cover matches the covers next to it.
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: widget.onPressed,
-            child: Padding(
-              padding: const EdgeInsets.only(left: Gaps.xxs),
-              child: Text(
-                'New…',
-                style: theme.textTheme.titleSmall,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: Gaps.xxs),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'New…',
+                          style: theme.textTheme.titleSmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: Gaps.xxs),
+                        Text(' ', style: theme.textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 36, height: 36),
+              ],
             ),
           ),
         ],
