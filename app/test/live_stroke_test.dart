@@ -32,10 +32,11 @@ void main() {
     'line': [for (var i = 0; i <= 200; i++) StrokePoint(i * 0.7, 0.05 * math.sin(i * 1.3), 0.5)],
   };
 
-  for (final streamline in [0.0, 0.4, 1.0]) {
-    final spec = OutlineSpec(width: 2.5, thinning: 0.25, streamline: streamline);
+  for (final (streamline, unit) in [(0.0, 0.0), (0.4, 0.0), (1.0, 0.0), (0.0, 1.0), (0.4, 1.0)]) {
+    final spec = OutlineSpec(width: 2.5, thinning: 0.25, streamline: streamline, unit: unit);
     for (final MapEntry(key: name, value: points) in strokes.entries) {
-      test('the live builder draws what a full rebuild draws ($name @ $streamline)', () {
+      final name_ = unit > 0 ? '$name, unit $unit' : name;
+      test('the live builder draws what a full rebuild draws ($name_ @ $streamline)', () {
         final builder = LiveStrokeBuilder(spec);
         for (var n = 2; n <= points.length; n += 7) {
           final prefix = points.sublist(0, n);
@@ -46,7 +47,7 @@ void main() {
         }
       });
 
-      test('finishing a live stroke builds what a full build builds ($name @ $streamline)', () {
+      test('finishing a live stroke builds what a full build builds ($name_ @ $streamline)', () {
         final builder = LiveStrokeBuilder(spec);
         for (var n = 2; n <= points.length; n += 5) {
           builder.update(points.sublist(0, n));
@@ -64,4 +65,54 @@ void main() {
       });
     }
   }
+
+  group('from pen-down', () {
+    const spec = OutlineSpec(width: 2.5, thinning: 0.25, streamline: 0.4, unit: 1);
+    // A flick landing on a stroke to the right (hooks_test.dart's landing).
+    final hooked = [
+      for (var i = 3; i > 0; i--) StrokePoint(-1.2 * i / 3, 2.2 * i / 3, 0.5),
+      for (var i = 0; i < 40; i++) StrokePoint(i * 0.9, 0, 0.5),
+    ];
+    final straight = [for (var i = 0; i < 40; i++) StrokePoint(i * 0.9, 0, 0.5)];
+
+    test('ink covers where the pen landed from the first point on', () {
+      final builder = LiveStrokeBuilder(spec);
+      for (var n = 1; n <= straight.length; n++) {
+        final path = builder.update(straight.sublist(0, n)).combined;
+        expect(path.contains(straight.first.offset), isTrue, reason: 'at $n points');
+      }
+    });
+
+    test('a pen-down hook is trimmed once, a few px after landing; the rest never changes', () {
+      final builder = LiveStrokeBuilder(spec);
+      Path? previous;
+      var changes = 0;
+      int? trimmedAt;
+      for (var n = 1; n <= hooked.length; n++) {
+        final path = builder.update(hooked.sublist(0, n)).combined;
+        final landed = path.contains(hooked.first.offset);
+        if (!landed) trimmedAt ??= n;
+        expect(landed, trimmedAt == null, reason: 'at $n points');
+        if (previous != null) {
+          // Changes behind the tip (beyond the newest points' reach).
+          final tip = hooked[n - 2].offset;
+          final behind = differences(
+            previous,
+            path,
+          ).where((p) => (p - tip).distance > 3.5).toList();
+          if (behind.isNotEmpty) {
+            changes++;
+            // Only within the hook (≤ 3 px) and the pen's radius around it.
+            for (final p in behind) {
+              expect(p.dx, lessThan(1.5), reason: 'at $n points: $p');
+            }
+          }
+        }
+        previous = path;
+      }
+      expect(changes, 1);
+      // Decided within about 5 px of travel.
+      expect(trimmedAt, inInclusiveRange(4, 9));
+    });
+  });
 }

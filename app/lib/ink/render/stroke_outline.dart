@@ -19,6 +19,7 @@ class OutlineSpec {
     this.taperStart = 0,
     this.taperEnd = 0,
     this.flatCaps = false,
+    this.unit = 0,
   });
 
   /// Nominal diameter at medium (0.5) pressure, in world units.
@@ -40,6 +41,11 @@ class OutlineSpec {
   /// Square ends (highlighter) instead of round caps.
   final bool flatCaps;
 
+  /// World units per screen pixel the stroke was written at
+  /// (`StrokeStyle.unit`); 0: estimated from the points
+  /// ([StrokeOutline.unitOf]).
+  final double unit;
+
   static double _linear(double t) => t;
 
   /// Whether [other] draws the same outline for the same points.
@@ -50,7 +56,8 @@ class OutlineSpec {
       easing == other.easing &&
       taperStart == other.taperStart &&
       taperEnd == other.taperEnd &&
-      flatCaps == other.flatCaps;
+      flatCaps == other.flatCaps &&
+      unit == other.unit;
 
   /// Outline radius at [pressure]: half the [width] at medium pressure,
   /// thinner/thicker with lighter/harder pressure as [thinning] allows.
@@ -184,20 +191,6 @@ abstract final class StrokeOutline {
     return Centerline(s.x, s.y, s.r, shaper.p.step, corners: List.of(shaper.corners));
   }
 
-  /// Whether a live stroke of [points] may be shown: its start (pen-down
-  /// hook, start rules) is decided and will not change any more.
-  static bool startSettled(List<StrokePoint> points, OutlineSpec spec) =>
-      settledStart(points, spec) != null;
-
-  /// The index of the first point that is ink (after the pen-down hook)
-  /// once the start of [points] is decided and final, else null.
-  static int? settledStart(List<StrokePoint> points, OutlineSpec spec) {
-    if (points.length < unitPoints) return null;
-    final shaper = feed(StrokeShaper(paramsOf(points, spec)), points, spec, null)..update();
-    if (!shaper.startFinal) return null;
-    return _pointIndex(points, shaper);
-  }
-
   /// The index of the first point that is ink in a stroke of [points]
   /// (after the pen-down hook), deciding with whatever there is.
   static int startIndex(List<StrokePoint> points, OutlineSpec spec) {
@@ -216,23 +209,30 @@ abstract final class StrokeOutline {
   /// How many points [unitOf] looks at.
   static const int unitPoints = 9;
 
-  /// The world size of a screen pixel when [points] were written, estimated
-  /// from their spacing: the input controller keeps points at least
-  /// [PointSpacing.minDistance] screen px apart, and a pen lands slowly, so
-  /// the closest spacings among the first [unitPoints] are that distance
-  /// (the second closest is used: a kept cusp tip may be closer). Clamped to
-  /// a pen 1.5–40 screen px wide; strokes too short to tell use 1.
+  /// The world size of a screen pixel when [points] were written: the
+  /// spec's [OutlineSpec.unit] when the stroke recorded it (strokes drawn
+  /// with the pen do), else estimated from the points' spacing: the input
+  /// controller keeps points at least [PointSpacing.minDistance] screen px
+  /// apart, and a pen usually lands slowly, so the closest spacings among
+  /// the first [unitPoints] are about that distance (the second closest is
+  /// used: a kept cusp tip may be closer; strokes too short to tell use 1).
+  /// Clamped to a pen 1.5–40 screen px wide.
   ///
   /// Stroke data carry no zoom, but how smooth ink should be depends on it:
   /// the digitiser's jitter is a fraction of a *screen* pixel, so written
   /// zoomed in 7×, a pen's jitter is 7× smaller in world units.
   static double unitOf(List<StrokePoint> points, OutlineSpec spec) {
-    final n = math.min(points.length, unitPoints);
-    final gaps = <double>[
-      for (var i = 1; i < n; i++)
-        if ((points[i].offset - points[i - 1].offset).distance case final d when d > 0) d,
-    ]..sort();
-    final u = gaps.length < 2 ? 1.0 : gaps[1] / PointSpacing.minDistance;
+    final double u;
+    if (spec.unit > 0) {
+      u = spec.unit;
+    } else {
+      final n = math.min(points.length, unitPoints);
+      final gaps = <double>[
+        for (var i = 1; i < n; i++)
+          if ((points[i].offset - points[i - 1].offset).distance case final d when d > 0) d,
+      ]..sort();
+      u = gaps.length < 2 ? 1.0 : gaps[1] / PointSpacing.minDistance;
+    }
     return u.clamp(spec.width / 40, spec.width / 1.5);
   }
 
@@ -250,9 +250,8 @@ abstract final class StrokeOutline {
     if (complete) {
       shaper.update(ended: true, keep: shaper.endKeep());
     } else {
+      // Too short to decide its start: provisionally from the first point.
       shaper.update();
-      // Too short to decide its start yet: shown as it is.
-      if (!shaper.started) shaper.update(ended: true);
     }
     return shaper;
   }

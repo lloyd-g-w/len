@@ -21,8 +21,9 @@ import 'growable.dart';
 ///
 /// The start decision only looks at the first [decisionLength] of the
 /// stroke, so it is made once, as soon as that much has been drawn, and
-/// never changes as the stroke grows (the live stroke is shown only from
-/// then on, see `StrokeShaper.startSettled`).
+/// never changes as the stroke grows. The live stroke shows from pen-down
+/// meanwhile (see `StrokeShaper`), so a trimmed hook disappears from under
+/// the nib once, a few px after landing.
 class HookFinder {
   /// The hook rules for a pen [width] (world units), in units of [unit]
   /// per world unit (e.g. screen pixels for the low-latency overlay).
