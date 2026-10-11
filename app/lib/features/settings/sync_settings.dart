@@ -189,7 +189,7 @@ class _SyncStatusLine extends StatelessWidget {
             last == null ? 'Ready.' : 'Last synced ${formatEdited(last.millisecondsSinceEpoch)}.',
           ),
         };
-        return Container(
+        final status = Container(
           padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.sm + 2),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.08),
@@ -203,7 +203,70 @@ class _SyncStatusLine extends StatelessWidget {
             ],
           ),
         );
+        if (sync.state == SyncState.disabled || sync.tooLargeFiles.isEmpty) return status;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            status,
+            const SizedBox(height: Gaps.sm),
+            _TooLargeNotice(sync: sync),
+          ],
+        );
       },
+    );
+  }
+}
+
+/// Explains files the server refuses as too large, with a retry.
+class _TooLargeNotice extends StatelessWidget {
+  const _TooLargeNotice({required this.sync});
+
+  final SyncController sync;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final files = sync.tooLargeFiles;
+    final largest = files.map((f) => f.size).reduce((a, b) => a > b ? a : b);
+    final limit = sync.serverMaxBlobBytes;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm + 2, Gaps.sm, Gaps.sm),
+      decoration: BoxDecoration(
+        color: scheme.tertiary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(Radii.sm),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(Icons.cloud_upload_outlined, size: 18, color: scheme.tertiary),
+          ),
+          const SizedBox(width: Gaps.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${sync.tooLargeSummary}.', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 2),
+                Text(
+                  '${files.length == 1 ? 'It is' : 'The largest is'} ${formatBytes(largest)}; '
+                  'the server accepts ${limit == null ? 'less' : 'up to ${formatBytes(limit)}'}. '
+                  'It stays on this device and other devices show it as missing. '
+                  'Raise LEN_BLOB_MAX_BYTES on the server (and the upload limit of any proxy), '
+                  'then retry.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => unawaited(sync.retryTooLargeFiles()),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 }

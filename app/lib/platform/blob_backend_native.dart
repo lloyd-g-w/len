@@ -56,5 +56,11 @@ class FileBlobBackend implements BlobBackend {
   }
 
   @override
+  Future<void> delete(String sha) async {
+    final file = _file(sha);
+    if (await file.exists()) await file.delete();
+  }
+
+  @override
   String? localPath(String sha) => _file(sha).path;
 }

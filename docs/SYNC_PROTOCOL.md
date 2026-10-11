@@ -39,10 +39,17 @@ Whenever a record is stored/replaced it gets a new `seq` (max seq + 1).
 ## Endpoints
 
 ### `GET /v1/health`
-No auth. `200 {"status":"ok","protocol":1,"blobs":true}`
+No auth.
+`200 {"status":"ok","protocol":1,"blobs":true,"maxBlobBytes":209715200,"blobsCollectedAt":0}`
 
 `blobs: true` means the server implements the [blob endpoints](#blobs). Clients must treat a
 missing `blobs` field as `false` (older servers) and then neither upload nor download blobs.
+
+`maxBlobBytes` (added later; absent on older servers) is the largest blob the server accepts
+(`LEN_BLOB_MAX_BYTES`), so clients can skip blobs that are too large without sending them.
+`blobsCollectedAt` (added later; absent → 0) is when (ms since epoch) the server last deleted
+blobs by [garbage collection](#blob-garbage-collection), 0 if never. Clients must tolerate unknown
+fields here.
 
 ### `POST /v1/push`
 Body: `{"records": [Record, …]}` — at most 1000 records, body at most 32 MiB.
@@ -86,10 +93,17 @@ Body: the raw blob bytes (any content type), at most `LEN_BLOB_MAX_BYTES` (defau
   stored.
 - `400 {"error": "…"}` — `<sha256>` is not 64 lowercase hex characters.
 - `413 {"error": "…"}` — `Content-Length` exceeds the limit (rejected before reading), or the
-  streamed body exceeds it; nothing is stored.
+  streamed body exceeds it; nothing is stored. Retrying the same blob is pointless until the
+  limit changes (a reverse proxy in front of the server may also answer `413` with its own,
+  smaller limit).
+- A **stalled** upload — no body data for `LEN_BLOB_IDLE_TIMEOUT` seconds (default 60) — is
+  abandoned: nothing is stored, the temporary file is removed and the connection is closed (the
+  server may answer `408 {"error": "upload stalled"}` first). Clients retry later.
 
 The server hashes while streaming to a temporary file and atomically renames it into place, so a
-blob is only ever visible complete and verified, and concurrent uploads of the same blob are safe.
+blob is only ever visible complete and verified, and concurrent uploads of the same blob are safe. Temporary files
+of interrupted uploads are removed at startup once they are older than a day (younger ones may
+belong to another server process sharing the blob directory).
 
 ### `GET /v1/blobs/<sha256>`
 `200` with the raw bytes, `Content-Type: application/octet-stream` and `Content-Length`.
@@ -102,19 +116,63 @@ stored, `404` (empty body) if not.
 ### Client algorithm for blobs
 
 - Records reference blobs by `<sha256>` inside their `data` (e.g. a page `background.blob`).
-- **Upload before push.** Before each push, the client uploads every locally stored blob it has
-  not yet uploaded to the current server: `HEAD` to skip blobs the server already has, otherwise
-  `PUT`. It remembers successfully uploaded blobs. Records are only pushed after the blobs they
-  reference are on the server, so a record never reaches the server before its blob: a failed
-  upload aborts the sync cycle before any record is pushed (everything stays dirty and is retried
-  on the next sync). A server without blob support (no `"blobs": true` in `/v1/health`) answers
-  `404` to blob requests, which surfaces as a sync error once a device has stored a blob.
-  When the server URL changes, the "uploaded" marks are reset along with `lastPulledSeq`.
+- **Upload before push.** Each sync cycle starts with `GET /v1/health`. Before pushing, the client
+  uploads every locally stored blob that a live local row references and that it has not yet
+  uploaded to the current server: `HEAD` to skip blobs the server already has, otherwise `PUT`. It
+  remembers successfully uploaded blobs (and forgets those marks when the server's
+  `blobsCollectedAt` changes, see [garbage collection](#blob-garbage-collection)). Blobs no live
+  row references are not uploaded.
+- **Too large.** A blob larger than the advertised `maxBlobBytes`, or answered with `413`, is
+  marked "too large" for this server and skipped from then on, without blocking anything else:
+  records referencing it are pushed normally, and other devices show their usual placeholder for a
+  missing blob. The mark records the advertised limit at that time; it is dropped when the server
+  advertises a larger limit that fits the blob, when the user retries (Settings → Sync), or when
+  the server changes. The app reports such blobs ("1 file too large to sync").
+- **Other failures.** If `/v1/health` or a `HEAD` cannot reach the server, or the token is
+  rejected, the cycle aborts (nothing else would get through). Any other failure of one blob (an
+  error status, or a connection breaking during a long upload) does not stop the other blobs; the
+  blob stays pending and is retried on the next sync, and the cycle is reported as failed after
+  pushing and pulling everything else. Records referencing a blob that is still pending are held
+  back (stay dirty), so a record does not reach the server before its blob — but only for three
+  consecutive failed attempts, after which they are pushed anyway, so one blob that can never be
+  uploaded cannot keep its records from syncing.
+- A server without blob support (no `"blobs": true` in `/v1/health`) answers `404` to blob
+  requests, which surfaces as a failed upload once a device references a stored blob. When the
+  server URL changes, the "uploaded" and "too large" marks are reset along with `lastPulledSeq`.
 - **Lazy download.** Pulled records may reference blobs the client does not have; the client
   downloads them with `GET` only when they are needed (e.g. when a page is displayed) and verifies
   the SHA-256 before storing them. A missing blob (`404`) is treated as temporarily unavailable.
-- **No deletion.** Blobs are never deleted by the protocol, even when no record references them
-  anymore. Garbage collection of unreferenced blobs is future work.
+- **No deletion over the wire.** There is no endpoint to delete a blob; unreferenced blobs are
+  removed by garbage collection on each side, see below.
+
+### Blob garbage collection
+
+**Server.** The server does not understand record payloads, so it finds references by scanning the
+stored JSON `data` of every **live** record (tombstones do not count; a trashed notebook is still a
+live record, so its pages keep their PDFs) for runs of lowercase hex characters and checking every
+64-character window against the stored blobs. No protocol addition is needed and new kinds of
+references in future app versions are covered automatically, provided they are written as plain
+lowercase `<sha256>` strings (the convention for all blob references). The scan errs on the side
+of keeping: any string that happens to equal a stored blob's id keeps it. Collection is an admin
+command (`dart run bin/gc.dart`, or `server gc` in the Docker image), never automatic:
+
+1. A run marks every stored blob no live record references with the time it was first found
+   unreferenced, and clears the mark of blobs that are referenced again.
+2. A blob is deleted only once it has been marked for at least the grace period (default 30 days),
+   is still unreferenced in a second scan right before deletion, and its file was not stored or
+   re-uploaded (an idempotent `PUT` refreshes it) within the grace period either.
+3. When a run deletes anything, `blobsCollectedAt` in `/v1/health` is set to the time of the run.
+
+The grace period protects devices that were offline with records still referencing a blob. As a
+second safety net, a client whose last seen `blobsCollectedAt` differs from the server's forgets
+its "uploaded" marks, so the next upload phase re-checks (`HEAD`) the blobs its live records
+reference and uploads any the server lost.
+
+**Client** (local, never visible to the server): a locally stored blob is deleted from the device
+once no live local row references it (page backgrounds, image elements and recordings; pages,
+elements and recordings of trashed notebooks are live rows, so they count) for 7 days. The app
+checks this at startup at most once a day. A blob collected locally is fetched again lazily if a
+record referencing it arrives later.
 
 ## Client algorithm
 

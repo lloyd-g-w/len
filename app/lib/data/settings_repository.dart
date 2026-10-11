@@ -35,6 +35,15 @@ class SettingsRepository {
   int get syncLastSeq => int.tryParse(_get(_syncLastSeq) ?? '') ?? 0;
   set syncLastSeq(int value) => _set(_syncLastSeq, '$value');
 
+  /// The server's `blobsCollectedAt` (`/v1/health`) seen last; when it
+  /// changes, the server deleted blobs and uploads are re-checked.
+  int get syncBlobsCollectedAt => int.tryParse(_get('sync_blobs_collected_at') ?? '') ?? 0;
+  set syncBlobsCollectedAt(int value) => _set('sync_blobs_collected_at', '$value');
+
+  /// When (ms since epoch) local blob garbage collection last ran; 0 = never.
+  int get blobGcLastRun => int.tryParse(_get('blob_gc_last_run') ?? '') ?? 0;
+  set blobGcLastRun(int value) => _set('blob_gc_last_run', '$value');
+
   /// When true, only a stylus draws and fingers always pan/zoom.
   /// Null means "not decided yet": it switches on when a stylus is first seen.
   bool? get stylusOnly => switch (_get(_stylusOnly)) {

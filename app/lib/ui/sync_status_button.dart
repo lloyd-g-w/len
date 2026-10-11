@@ -17,16 +17,24 @@ class SyncStatusButton extends StatelessWidget {
     return ListenableBuilder(
       listenable: sync,
       builder: (context, _) {
-        final (icon, tooltip) = switch (sync.state) {
+        final tooLarge = sync.state == SyncState.disabled ? null : sync.tooLargeSummary;
+        final (icon, status) = switch (sync.state) {
           SyncState.disabled => (Icons.cloud_off_outlined, 'Set up sync'),
           SyncState.idle => (Icons.cloud_done_outlined, 'Synced — tap to sync now'),
           SyncState.syncing => (Icons.cloud_sync_outlined, 'Syncing…'),
           SyncState.error => (Icons.cloud_off_rounded, 'Sync failed: ${sync.lastError}'),
         };
-        final color = sync.state == SyncState.error ? Theme.of(context).colorScheme.error : null;
+        final scheme = Theme.of(context).colorScheme;
+        final color = sync.state == SyncState.error ? scheme.error : null;
         return IconButton(
-          tooltip: tooltip,
-          icon: Icon(icon, color: color),
+          tooltip: tooLarge == null ? status : '$status\n$tooLarge',
+          // A small badge: some files stay on this device (see Settings → Sync).
+          icon: Badge(
+            isLabelVisible: tooLarge != null,
+            smallSize: 8,
+            backgroundColor: scheme.tertiary,
+            child: Icon(icon, color: color),
+          ),
           onPressed: switch (sync.state) {
             SyncState.disabled => onConfigure,
             SyncState.syncing => null,

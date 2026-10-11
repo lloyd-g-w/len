@@ -6,10 +6,26 @@ import 'package:http/http.dart' as http;
 
 import '../data/syncable.dart';
 
+/// What kind of failure a [SyncException] reports.
+enum SyncFailure {
+  /// The server could not be reached (or did not answer in time).
+  network,
+
+  /// The server rejected the access token.
+  auth,
+
+  /// The server (or a proxy in front of it) refused a request as too large.
+  tooLarge,
+
+  /// Anything else: an error status or an unexpected response.
+  server,
+}
+
 /// Thrown for any failed sync request, with a user-presentable message.
 class SyncException implements Exception {
-  const SyncException(this.message);
+  const SyncException(this.message, {this.kind = SyncFailure.server});
   final String message;
+  final SyncFailure kind;
 
   @override
   String toString() => message;
@@ -32,6 +48,21 @@ class PullPage {
   final int malformed;
 }
 
+/// What `GET /v1/health` reports; fields are null when the server did not
+/// say (older servers, or a proxy answering instead of the server).
+class ServerInfo {
+  const ServerInfo({this.maxBlobBytes, this.blobsCollectedAt});
+
+  /// Nothing known.
+  static const unknown = ServerInfo();
+
+  /// Largest blob the server accepts.
+  final int? maxBlobBytes;
+
+  /// When the server last deleted blobs by garbage collection (0 = never).
+  final int? blobsCollectedAt;
+}
+
 /// Thin HTTP client for the Len sync server (docs/SYNC_PROTOCOL.md).
 class SyncApi {
   /// Throws [SyncException] if [baseUrl] is not an http(s) URL.
@@ -40,8 +71,8 @@ class SyncApi {
     required this.token,
     http.Client? client,
     this.timeout = const Duration(seconds: 30),
-  })  : baseUri = _parseBaseUrl(baseUrl),
-        _client = client ?? http.Client();
+  }) : baseUri = _parseBaseUrl(baseUrl),
+       _client = client ?? http.Client();
 
   /// Server limit on records per push.
   static const maxPushRecords = 1000;
@@ -64,13 +95,29 @@ class SyncApi {
   final http.Client _client;
 
   Map<String, String> get _headers => {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json; charset=utf-8',
-      };
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json; charset=utf-8',
+  };
 
   /// Checks that the server is reachable and the token is accepted.
   Future<void> check() async {
-    await _send(() => _client.get(_uri('v1/pull', {'since': '0', 'limit': '1'}), headers: _headers));
+    await _send(
+      () => _client.get(_uri('v1/pull', {'since': '0', 'limit': '1'}), headers: _headers),
+    );
+  }
+
+  /// Reads `/v1/health`. Throws [SyncException] only if the server cannot
+  /// be reached; any other unexpected answer gives [ServerInfo.unknown].
+  Future<ServerInfo> serverInfo() async {
+    final response = await _request(() => _client.get(_uri('v1/health')));
+    final json = response.statusCode == 200 ? _decodeObject(response.body) : null;
+    if (json == null) return ServerInfo.unknown;
+    int? positive(Object? v) => v is int && v > 0 ? v : null;
+    final collected = json['blobsCollectedAt'];
+    return ServerInfo(
+      maxBlobBytes: positive(json['maxBlobBytes']),
+      blobsCollectedAt: collected is int && collected >= 0 ? collected : null,
+    );
   }
 
   /// Uploads [records], split into as many requests as the server's count
@@ -115,10 +162,7 @@ class SyncApi {
   /// whole page, so one bad record can never block sync forever.
   Future<PullPage> pull({required int since, int limit = pullLimit}) async {
     final json = await _send(
-      () => _client.get(
-        _uri('v1/pull', {'since': '$since', 'limit': '$limit'}),
-        headers: _headers,
-      ),
+      () => _client.get(_uri('v1/pull', {'since': '$since', 'limit': '$limit'}), headers: _headers),
     );
     final rawRecords = json['records'];
     final nextSince = json['nextSince'];
@@ -139,12 +183,7 @@ class SyncApi {
         malformed++;
       }
     }
-    return PullPage(
-      records: records,
-      nextSince: nextSince,
-      hasMore: hasMore,
-      malformed: malformed,
-    );
+    return PullPage(records: records, nextSince: nextSince, hasMore: hasMore, malformed: malformed);
   }
 
   // ---------------------------------------------------------------------------
@@ -159,7 +198,8 @@ class SyncApi {
   }
 
   /// Uploads blob [sha], [length] bytes streamed from [data]; the server
-  /// verifies its hash.
+  /// verifies its hash. A blob the server refuses as too large throws a
+  /// [SyncException] of kind [SyncFailure.tooLarge].
   Future<void> putBlob(String sha, Stream<List<int>> data, {required int length}) async {
     final request = http.StreamedRequest('PUT', _uri('v1/blobs/$sha'))
       ..headers.addAll({..._headers, 'Content-Type': 'application/octet-stream'})
@@ -191,7 +231,7 @@ class SyncApi {
     try {
       return await request().timeout(timeout ?? this.timeout);
     } on Exception catch (e) {
-      throw SyncException('Cannot reach sync server: $e');
+      throw SyncException('Cannot reach sync server: $e', kind: SyncFailure.network);
     }
   }
 
@@ -200,9 +240,12 @@ class SyncApi {
       case 200:
         return;
       case 401:
-        throw const SyncException('Sync server rejected the access token');
+        throw const SyncException('Sync server rejected the access token', kind: SyncFailure.auth);
       case 413:
-        throw const SyncException('Sync server refused an oversized file');
+        throw const SyncException(
+          'Sync server refused an oversized file',
+          kind: SyncFailure.tooLarge,
+        );
       case final status:
         throw SyncException(
           'Sync server error $status${_errorDetail(_decodeObject(response.body))}',
@@ -228,7 +271,7 @@ class SyncApi {
     try {
       response = await request().timeout(timeout);
     } on Exception catch (e) {
-      throw SyncException('Cannot reach sync server: $e');
+      throw SyncException('Cannot reach sync server: $e', kind: SyncFailure.network);
     }
     final json = _decodeObject(response.body);
     switch (response.statusCode) {
@@ -236,9 +279,12 @@ class SyncApi {
         if (json != null) return json;
         throw const SyncException('Unexpected response from sync server');
       case 401:
-        throw const SyncException('Sync server rejected the access token');
+        throw const SyncException('Sync server rejected the access token', kind: SyncFailure.auth);
       case 413:
-        throw const SyncException('Sync server refused an oversized request');
+        throw const SyncException(
+          'Sync server refused an oversized request',
+          kind: SyncFailure.tooLarge,
+        );
       case final status:
         throw SyncException('Sync server error $status${_errorDetail(json)}');
     }

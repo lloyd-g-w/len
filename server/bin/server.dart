@@ -6,7 +6,11 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 
 /// Entry point: reads config, opens the store and serves the API.
-Future<void> main() async {
+/// `server gc …` runs blob garbage collection instead (see bin/gc.dart).
+Future<void> main(List<String> args) async {
+  if (args.isNotEmpty && args.first == 'gc') {
+    exit(runGcCommand(args.sublist(1), Platform.environment, out: stdout, err: stderr));
+  }
   final Config config;
   try {
     config = Config.fromEnvironment(Platform.environment);
@@ -25,6 +29,7 @@ Future<void> main() async {
           blobs: blobs,
           token: config.token,
           maxBlobBytes: config.blobMaxBytes,
+          blobIdleTimeout: config.blobIdleTimeout,
           cors: config.cors,
         ),
       );

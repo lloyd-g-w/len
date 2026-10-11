@@ -226,10 +226,25 @@ Large binary data is **content-addressed**: a blob's id is the SHA-256 of its
 bytes. `BlobStore` keeps a `blobs` table (size, mime, uploaded flag) and the
 bytes in a `BlobBackend`: files under `<app support>/blobs/<sha[0..2]>/<sha>`
 natively, an IndexedDB object store on the web, memory in tests. Its API is
-path-free (`read`, `openRead`, `localPath` — null on the web). Each sync cycle first uploads
-pending blobs (`BlobSync`, `HEAD` then `PUT`), then pushes records, so a
-record never reaches the server before its blob. Blobs are fetched lazily
-when a page needs them (`SyncController.fetchBlob`).
+path-free (`read`, `openRead`, `localPath` — null on the web). Each sync cycle first reads
+`/v1/health` (the server's blob limit and last garbage collection), then uploads
+pending blobs that live rows reference (`BlobSync`, `HEAD` then `PUT`), then pushes
+records. One blob never stalls the others: a blob over the server's limit (or
+refused with 413) is marked too large (`blobs.rejected_limit`), skipped from then on
+and its records sync without it, shown as "1 file too large to sync" by the sync
+button and in Settings → Sync (with Retry); a raised server limit is noticed
+automatically. Any other failed upload is retried next sync, and records
+referencing a still-pending blob are held back for up to
+`SyncEngine.maxHoldBackAttempts` syncs, so a record normally never reaches the
+server before its blob. Blobs are fetched lazily when a page needs them
+(`SyncController.fetchBlob`).
+
+`BlobReferences` is the reference graph (live page backgrounds, elements and
+recordings; the trash is live, "delete forever" releases). `LocalBlobGc`
+(started at launch, at most daily) deletes blobs unreferenced for 7 days
+(`blobs.unreferenced_since`); it runs exclusively with `BlobStore`'s `put`
+methods, and storing a blob again restarts its grace period. The server has its
+own admin-run collector (server/README.md).
 
 PDF import (`features/documents/pdf/`) stores the file once as a blob and
 creates one page per PDF page with background `{type: pdf, blob, page}` and
@@ -850,15 +865,15 @@ records with last-write-wins. Open screens subscribe to
   imported pages as images rather than copying their vector content.
 - Audio: a recording is one blob, so it syncs only once finished and a
   recording above the server's blob limit (200 MiB by default, ≈ 7 h at
-  64 kbit/s) cannot be uploaded, and a failed upload aborts every sync cycle
-  (as for any oversized blob); downloads hold the
+  64 kbit/s) cannot be uploaded (it stays on the device, reported as too
+  large to sync); downloads hold the
   whole blob in memory. Recording stops when an Android app is backgrounded
   (no foreground service yet). Linux recording needs `parecord` and `ffmpeg`
   installed, playback needs GStreamer with the `-good` (MP4) and an AAC
   decoder plugin; Opus/WebM recordings from Chrome/Firefox may not play on
   platforms without a WebM decoder. No waveform, trimming or audio export.
-- Blobs are never garbage-collected (neither on devices nor on the server) —
-  deleting or replacing images leaves their blobs behind.
+- Server blob garbage collection is a manual/cron admin command, and finds
+  references by scanning record JSON for sha256 strings (see SYNC_PROTOCOL).
 - Image bitmaps are whole-image decodes per mip level (no tiling); a 4096 px
   image is the sharpest it gets. Crop mode shows the image on its own (ink
   over it is hidden while cropping).

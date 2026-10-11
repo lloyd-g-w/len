@@ -6,6 +6,8 @@ import 'core/clock.dart';
 import 'data/app_database.dart';
 import 'data/app_preferences.dart';
 import 'data/blob_backend.dart';
+import 'data/blob_gc.dart';
+import 'data/blob_references.dart';
 import 'data/blob_store.dart';
 import 'data/element_repository.dart';
 import 'data/folder_repository.dart';
@@ -140,6 +142,7 @@ class AppServices {
   /// Handwriting recognition: language, model, background indexing for
   /// search, "Convert to text".
   final RecognitionService recognition;
+
   /// Audio recordings of notebooks (their audio is in [blobs]).
   final RecordingRepository recordings;
 
@@ -152,6 +155,13 @@ class AppServices {
 
   /// Notebooks open in editor tabs (with each tab's place in memory).
   final OpenNotebooks openNotebooks = OpenNotebooks();
+
+  /// Deletes blobs nothing references anymore; started by the app at launch.
+  late final LocalBlobGc blobGc = LocalBlobGc(
+    blobs: blobs,
+    references: BlobReferences(database),
+    settings: settings,
+  );
 
   /// Decoded bitmaps of image elements, shared by editors and previews.
   late final ElementImages images = ElementImages(read: blobs.read, fetch: sync.fetchBlob);

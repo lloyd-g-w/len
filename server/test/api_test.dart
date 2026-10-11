@@ -55,7 +55,13 @@ void main() {
       final r = await send('GET', '/v1/health', auth: null);
       expect(r.statusCode, 200);
       expect(r.headers['content-type'], startsWith('application/json'));
-      expect(await jsonOf(r), {'status': 'ok', 'protocol': 1, 'blobs': true});
+      expect(await jsonOf(r), {
+        'status': 'ok',
+        'protocol': 1,
+        'blobs': true,
+        'maxBlobBytes': defaultMaxBlobBytes,
+        'blobsCollectedAt': 0,
+      });
     });
 
     test('missing token is 401', () async {
