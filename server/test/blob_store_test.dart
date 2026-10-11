@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -67,6 +68,18 @@ void main() {
       blobs.put(sha, chunks(data), maxBytes: data.length - 1),
       throwsA(isA<BlobTooLargeException>()),
     );
+    expect(blobs.has(sha), isFalse);
+    expect(tmpFiles(), isEmpty);
+  });
+
+  test('aborted upload (stream error) stores nothing and removes the temp file', () async {
+    final aborted =
+        (StreamController<List<int>>()
+              ..add(data.sublist(0, 3))
+              ..addError(const SocketException('reset'))
+              ..close())
+            .stream;
+    await expectLater(blobs.put(sha, aborted, maxBytes: 100), throwsA(isA<SocketException>()));
     expect(blobs.has(sha), isFalse);
     expect(tmpFiles(), isEmpty);
   });

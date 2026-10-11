@@ -19,6 +19,7 @@ import 'canvas/canvas_navigation.dart';
 import 'document/document_commands.dart';
 import 'document/document_controller.dart';
 import 'document/document_layout.dart';
+import 'document/page_fit.dart';
 import 'document/undo_target.dart';
 import 'images/editor_images.dart';
 import 'tabs/open_notebooks.dart';
@@ -51,8 +52,7 @@ class EditorSession {
         showMinimap: services.settings.canvasMinimap,
         onMinimapChanged: (show) => services.settings.canvasMinimap = show,
       );
-      _initialCanvasView = initialView;
-      if (initialView != null) viewport.addListener(_frameCanvas);
+      nav.open(initialView);
       content = _contentFor(model, viewport);
       input = _inputFor(model, viewport, onStylusDetected, kinetic: nav.kinetic);
       undo = SurfaceUndo(model);
@@ -103,7 +103,6 @@ class EditorSession {
 
   /// Inertial panning, zoom steps, fit, minimap of the canvas.
   CanvasNavigation? canvasNav;
-  EditorViewState? _initialCanvasView;
 
   // Paged notebook: pages laid out as a document.
   DocumentController? doc;
@@ -126,7 +125,7 @@ class EditorSession {
     final doc = this.doc;
     if (doc != null) return doc.viewState;
     final v = canvasViewport!;
-    return EditorViewState(scale: v.scale, offset: v.offset);
+    return EditorViewState(scale: v.scale, offset: v.offset, size: v.size);
   }
 
   DocumentController _openDocument(Notebook notebook, EditorViewState? view) {
@@ -140,6 +139,7 @@ class EditorSession {
       flow: PageFlow.parse(services.settings.pageFlow),
       initialPage: view?.page ?? 0,
       initialView: view,
+      fit: PageFit.parse(view?.fit),
     );
   }
 
@@ -183,7 +183,11 @@ class EditorSession {
     final notebookId = notebook.id;
     services.images.retryMissing(); // Image blobs may be on the server now.
     if (doc != null && changes.pagesOfNotebooks.contains(notebookId)) {
-      if (services.pages.pagesOf(notebookId).isNotEmpty) commands!.reload();
+      // Every page deleted elsewhere: start a fresh one, as opening does.
+      if (services.pages.pagesOf(notebookId).isEmpty) {
+        services.pages.addPage(notebookId, paper: notebook.paper);
+      }
+      commands!.reload();
       backgrounds?.retryMissing(); // New pages may bring new PDFs.
     }
     for (final surfaceId in changes.strokeSurfaces) {
@@ -192,29 +196,18 @@ class EditorSession {
     }
   }
 
-  /// Restores a canvas tab's view once the viewport has its size.
-  void _frameCanvas() {
-    final viewport = canvasViewport!;
-    final view = _initialCanvasView;
-    if (view == null || viewport.size.isEmpty) return;
-    viewport.removeListener(_frameCanvas);
-    _initialCanvasView = null;
-    viewport
-      ..zoomAt(Offset.zero, view.scale / viewport.scale)
-      ..panBy(view.offset - viewport.offset);
-  }
-
   /// Ends the session: commits a text box still being edited and releases
   /// every surface.
   void dispose() {
+    input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     images.dispose();
     content.dispose();
     gestures.dispose();
-    canvasViewport?.removeListener(_frameCanvas);
     canvas?.dispose();
     canvasNav?.dispose();
     canvasViewport?.dispose();
     docAnimator?.dispose();
+    commands?.dispose();
     doc?.dispose();
     backgrounds?.dispose();
     live.dispose();

@@ -14,6 +14,7 @@ import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/document/page_overview.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/ink/render/ink_painters.dart';
 import 'package:len/ui/app_theme.dart';
 
 /// A notebook with three differently shaped pages, some with ink.
@@ -98,6 +99,16 @@ Future<void> closeEditor(WidgetTester tester) async {
 List<Stroke> inkOf(AppServices s, NotebookPage page) => SurfaceCopier(s.strokes).loadAll(page.id);
 
 void main() {
+  testWidgets('paged documents paint the live highlighter under the committed ink', (tester) async {
+    await pumpEditor(tester);
+    final live = tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((p) => p.painter)
+        .whereType<LiveInkPainter>()
+        .toList();
+    expect(live.map((p) => p.belowInk), unorderedEquals([true, false]));
+  });
+
   testWidgets('pages scroll continuously and ink lands on the page under the pen', (tester) async {
     final (s, nb) = await pumpEditor(tester);
     await expectLater(
@@ -237,6 +248,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(PageOverview), findsNothing);
     expect(find.text('1 / 3'), findsOneWidget);
+    await closeEditor(tester);
+  });
+
+  testWidgets('overview: deleting several pages is one undo', (tester) async {
+    final (s, nb) = await pumpEditor(tester, size: const Size(1000, 800));
+    final original = s.pages.pagesOf(nb.id);
+    await tester.tap(find.byTooltip('All pages'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('page-tile-0')));
+    await tester.tap(find.byKey(const ValueKey('page-tile-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(s.pages.pagesOf(nb.id).map((p) => p.id), [original[2].id]);
+    expect(find.text('2 pages deleted'), findsOneWidget);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(s.pages.pagesOf(nb.id).map((p) => p.id), [for (final p in original) p.id]);
+    expect(inkOf(s, original[0]), hasLength(1)); // Content came back too.
+    expect(inkOf(s, original[1]), hasLength(1));
     await closeEditor(tester);
   });
 }

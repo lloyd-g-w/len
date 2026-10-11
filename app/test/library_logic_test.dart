@@ -208,5 +208,42 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
       expect(cache.imageFor(drawn), isNot(same(first)));
     });
+
+    testWidgets('more covers on screen than its capacity settle (no re-render loop)', (
+      tester,
+    ) async {
+      final count = ThumbnailCache.capacity + 20;
+      final notebooks = [for (var i = 0; i < count; i++) create(NotebookKind.paged)];
+      for (final n in notebooks) {
+        final page = services.pages.pagesOf(n.id).single;
+        services.strokes.save([stroke('s${n.id}', const Offset(100, 100), surface: page.id)]);
+      }
+      final cache = ThumbnailCache(
+        renderer: renderer,
+        stats: SurfaceStats(services.database),
+        width: 8,
+      );
+      addTearDown(cache.dispose);
+      // Every cover is on screen: each notification rebuilds all of them.
+      void build() {
+        for (final n in notebooks) {
+          cache.imageFor(n);
+        }
+      }
+
+      var notified = 0;
+      cache.addListener(() {
+        notified++;
+        build();
+      });
+      build();
+      for (var i = 0; i < 400 && notified < 400; i++) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+      final settled = notified;
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(notified, settled, reason: 'no more renders once all are cached');
+      expect(notebooks.every((n) => cache.imageFor(n) != null), isTrue);
+    });
   });
 }

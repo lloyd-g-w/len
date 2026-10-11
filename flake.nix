@@ -27,7 +27,14 @@
         let
           # PDFium (PDF import via `pdfrx`) needs no system package: the
           # `pdfium_dart` build hook downloads a prebuilt library at build time.
-          linuxDesktop = with pkgs; [ cmake ninja pkg-config clang gtk3 sqlite ];
+          linuxDesktop = with pkgs; [ cmake ninja pkg-config clang gtk3 sqlite ] ++ linuxAudio;
+
+          # Audio (features/audio): `audioplayers_linux` builds against
+          # GStreamer and plays through its plugins (qtdemux in -good, AAC via
+          # -libav, Opus/WebM in -base/-good); `record_linux` records by
+          # running `parecord` (PulseAudio/PipeWire) and `ffmpeg`.
+          gstPlugins = with pkgs.gst_all_1; [ gst-plugins-base gst-plugins-good gst-libav ];
+          linuxAudio = with pkgs; [ gst_all_1.gstreamer libunwind elfutils pulseaudio ffmpeg-headless ] ++ gstPlugins;
 
           androidSdk = (pkgs.androidenv.composeAndroidPackages {
             platformVersions = androidVersions.platforms;
@@ -47,6 +54,7 @@
             # nixpkgs' Flutter engine has its own RUNPATH, which hides the
             # bundled libsqlite3.so; provide SQLite explicitly.
             LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.sqlite ];
+            GST_PLUGIN_SYSTEM_PATH_1_0 = pkgs.lib.makeSearchPath "lib/gstreamer-1.0" gstPlugins;
           };
 
           # Android development: `nix develop .#android`

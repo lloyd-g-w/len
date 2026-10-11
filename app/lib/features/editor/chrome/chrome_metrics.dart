@@ -30,6 +30,10 @@ abstract final class ChromeMetrics {
   /// Below this width the top bar keeps only the essentials (phones).
   static const double compactWidth = 640;
 
+  /// Below this the wide top bar moves All pages and the bookmark into
+  /// its "⋯" menu (room for the title and a recording).
+  static const double roomyBarWidth = 760;
+
   /// From this width the tab strip replaces the phone tab switcher.
   static const double tabStripWidth = 720;
 }

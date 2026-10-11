@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 /// Keeps the canvas from reacting while a chrome menu is open.
 ///
@@ -8,8 +8,13 @@ import 'package:flutter/widgets.dart';
 /// events, so without this the tap that closes a menu would also draw a
 /// dot. Menus report [opened] / [closed]; the editor makes the canvas
 /// ignore pointers while [blocking].
+///
+/// Menus opened with a tap leave keyboard focus on the canvas, where
+/// Escape would never reach them: [closeMenus] closes those that
+/// registered their controller ([ChromeMenuAnchor]).
 class CanvasGuard extends ChangeNotifier {
   int _open = 0;
+  final Set<MenuController> _menus = {};
   bool _disposed = false;
 
   void _notify() {
@@ -24,23 +29,64 @@ class CanvasGuard extends ChangeNotifier {
 
   bool get blocking => _open > 0;
 
-  void opened() {
+  void opened([MenuController? menu]) {
+    if (menu != null) _menus.add(menu);
     _open++;
     if (_open == 1) notifyListeners();
   }
 
   /// Forgets all open menus (e.g. after the chrome was rebuilt).
   void reset() {
+    _menus.clear();
     if (_open == 0) return;
     _open = 0;
     scheduleMicrotask(_notify);
   }
 
-  void closed() {
+  void closed([MenuController? menu]) {
+    if (menu != null) _menus.remove(menu);
     if (_open == 0) return;
     _open--;
     // Menus may close while the tree is being torn down; notify later.
     if (_open == 0) scheduleMicrotask(_notify);
+  }
+
+  /// Closes the open chrome menus; false if there were none.
+  bool closeMenus() {
+    if (_menus.isEmpty) return false;
+    for (final menu in [..._menus]) {
+      menu.close();
+    }
+    return true;
+  }
+}
+
+/// A [MenuAnchor] for the editor chrome: the canvas ignores the tap that
+/// closes it, and Escape closes it (see [CanvasGuard.closeMenus]).
+class ChromeMenuAnchor extends StatefulWidget {
+  const ChromeMenuAnchor({super.key, required this.menuChildren, required this.builder});
+
+  final List<Widget> menuChildren;
+  final MenuAnchorChildBuilder builder;
+
+  @override
+  State<ChromeMenuAnchor> createState() => _ChromeMenuAnchorState();
+}
+
+class _ChromeMenuAnchorState extends State<ChromeMenuAnchor> {
+  final MenuController _controller = MenuController();
+
+  @override
+  Widget build(BuildContext context) {
+    final guard = CanvasGuardScope.maybeOf(context);
+    return MenuAnchor(
+      controller: _controller,
+      consumeOutsideTap: true,
+      onOpen: () => guard?.opened(_controller),
+      onClose: () => guard?.closed(_controller),
+      menuChildren: widget.menuChildren,
+      builder: widget.builder,
+    );
   }
 }
 

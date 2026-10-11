@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
+import '../../../ui/app_theme.dart';
 import '../../../ui/color_picker/color_hex.dart';
 import '../../../ui/color_picker/color_swatches.dart';
 import 'slot_button.dart';
@@ -10,10 +11,13 @@ import 'slot_editors.dart';
 /// The active ink's quick colours: tap to use one, tap the selected one
 /// again (or long-press / right-click any) to change it, "+" to add one.
 class ColorSlots extends StatelessWidget {
-  const ColorSlots({super.key, required this.tools, required this.ink});
+  const ColorSlots({super.key, required this.tools, required this.ink, this.showAdd = true});
 
   final ToolSettings tools;
   final InkTool ink;
+
+  /// Whether to offer "+" (left out on compact toolbars short of room).
+  final bool showAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +46,7 @@ class ColorSlots extends StatelessWidget {
               ),
             ),
           ),
-        if (config.colors.length < PenConfig.maxSlots)
+        if (showAdd && config.colors.length < PenConfig.maxSlots)
           AddSlotButton(
             key: const ValueKey('add-color'),
             tooltip: 'Add colour',
@@ -64,10 +68,13 @@ class ColorSlots extends StatelessWidget {
 
 /// The active ink's quick widths, shown as dots at (scaled) real size.
 class WidthSlots extends StatelessWidget {
-  const WidthSlots({super.key, required this.tools, required this.ink});
+  const WidthSlots({super.key, required this.tools, required this.ink, this.showAdd = true});
 
   final ToolSettings tools;
   final InkTool ink;
+
+  /// Whether to offer "+" (left out on compact toolbars short of room).
+  final bool showAdd;
 
   /// Dot diameter for [width] of [ink], in logical pixels.
   static double dotSize(InkTool ink, double width) =>
@@ -78,39 +85,48 @@ class WidthSlots extends StatelessWidget {
     final config = tools.configOf(ink);
     final scheme = Theme.of(context).colorScheme;
     final active = tools.tool.usesInk;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < config.widths.length; i++)
-          SlotButton(
-            key: ValueKey('width-$i'),
-            selected: active && i == config.widthIndex,
-            tooltip: 'Width ${_format(config.widths[i])}',
-            semanticLabel: 'Width ${i + 1}, ${_format(config.widths[i])}',
-            onSelect: () => tools.selectWidth(i),
-            onEdit: (anchor) => openWidthSlotEditor(anchor, tools, ink, i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 120),
-              width: dotSize(ink, config.widths[i]),
-              height: dotSize(ink, config.widths[i]),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: active && i == config.widthIndex
-                    ? scheme.onSurface
-                    : scheme.onSurfaceVariant.withValues(alpha: 0.7),
+    // A recessed track with neutral dots and a tonal selection: reads as
+    // "size", never as another colour.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(Radii.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < config.widths.length; i++)
+            SlotButton(
+              key: ValueKey('width-$i'),
+              tonal: true,
+              selected: active && i == config.widthIndex,
+              tooltip: 'Width ${_format(config.widths[i])}',
+              semanticLabel: 'Width ${i + 1}, ${_format(config.widths[i])}',
+              onSelect: () => tools.selectWidth(i),
+              onEdit: (anchor) => openWidthSlotEditor(anchor, tools, ink, i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                width: dotSize(ink, config.widths[i]),
+                height: dotSize(ink, config.widths[i]),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active && i == config.widthIndex
+                      ? scheme.onSecondaryContainer
+                      : scheme.onSurfaceVariant.withValues(alpha: 0.75),
+                ),
               ),
             ),
-          ),
-        if (config.widths.length < PenConfig.maxSlots)
-          AddSlotButton(
-            key: const ValueKey('add-width'),
-            tooltip: 'Add width',
-            onAdd: (anchor) {
-              tools.updateConfig(ink, (c) => c.addWidth(_newWidth(ink, c)));
-              openWidthSlotEditor(anchor, tools, ink, tools.configOf(ink).widthIndex);
-            },
-          ),
-      ],
+          if (showAdd && config.widths.length < PenConfig.maxSlots)
+            AddSlotButton(
+              key: const ValueKey('add-width'),
+              tooltip: 'Add width',
+              onAdd: (anchor) {
+                tools.updateConfig(ink, (c) => c.addWidth(_newWidth(ink, c)));
+                openWidthSlotEditor(anchor, tools, ink, tools.configOf(ink).widthIndex);
+              },
+            ),
+        ],
+      ),
     );
   }
 

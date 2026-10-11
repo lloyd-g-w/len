@@ -8,12 +8,14 @@ environment:
   sdk: ^3.13.3
 
 dependencies:
+  audioplayers: ^6.8.1
   cross_file: ^0.3.5+5
   crypto: ^3.0.7
   desktop_drop:
     # Vendored: Built-in Kotlin detector fix (see third_party/README.md).
     path: third_party/desktop_drop
   file_selector: ^1.1.0
+  google_mlkit_digital_ink_recognition: ^0.16.1
   flutter:
     sdk: flutter
   http: ^1.6.0
@@ -26,6 +28,7 @@ dependencies:
   path_provider: ^2.1.6
   pdf: ^3.13.1
   pdfrx: ^2.6.5
+  record: ^7.1.2
   share_plus: ^13.3.1
   sqlite3: ^3.7.0
   uuid: ^4.6.0

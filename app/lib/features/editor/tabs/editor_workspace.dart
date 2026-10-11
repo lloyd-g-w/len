@@ -4,12 +4,20 @@ import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../editor_screen.dart';
+import 'notebook_open_route.dart';
 import 'open_notebooks.dart';
+
+export 'notebook_open_route.dart' show NotebookOpenOrigin;
 
 /// Opens [notebook] in a tab and shows the editor: pushes the workspace
 /// over [context]'s route (e.g. the library), or just switches tabs when
-/// called from inside the editor.
-Future<void> openNotebook(BuildContext context, Notebook notebook) async {
+/// called from inside the editor. With [from] (the tapped cover) the
+/// notebook opens out of its cover (see [NotebookOpenRoute]).
+Future<void> openNotebook(
+  BuildContext context,
+  Notebook notebook, {
+  NotebookOpenOrigin? from,
+}) async {
   final services = AppScope.read(context);
   final tabs = services.openNotebooks;
   // Drop tabs whose notebooks were deleted or trashed meanwhile, and pick
@@ -23,10 +31,15 @@ Future<void> openNotebook(BuildContext context, Notebook notebook) async {
     }
   }
   tabs.open(notebook);
-  if (context.findAncestorWidgetOfExactType<EditorWorkspace>() != null) return;
+  if (context.findAncestorWidgetOfExactType<EditorWorkspace>() != null) {
+    from?.dispose?.call();
+    return;
+  }
   await Navigator.of(context).push(
-    MaterialPageRoute<void>(
+    NotebookOpenRoute<void>(
       settings: const RouteSettings(name: EditorWorkspace.routeName),
+      origin: from,
+      reduceMotion: MediaQuery.disableAnimationsOf(context),
       builder: (_) => const EditorWorkspace(),
     ),
   );

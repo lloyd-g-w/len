@@ -70,7 +70,7 @@ responses stay bounded when records are large.
 
 ## Blobs
 
-Binary payloads (PDFs used as page backgrounds, images) are stored as **content-addressed blobs**,
+Binary payloads (PDFs used as page backgrounds, images, audio recordings) are stored as **content-addressed blobs**,
 separately from records. A blob is identified by the SHA-256 of its bytes, written as 64
 lowercase hex characters (`<sha256>`); any other identifier is rejected with `400`. Blobs are
 immutable. All blob endpoints require the bearer token (`401` otherwise).
@@ -145,6 +145,7 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperColor?, bookmarked?, background?}`     |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd}` (missing → per-tool defaults; unknown keys ignored). |
 | `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements (missing → `createdAt`). `type` = `text` (`data` = `{text, size, color, bold, italic, align: "left"|"center"|"right"}`) or `image` (`data` = `{blob, width, height, crop?}`, see below). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
+| `recordings` | `{notebookId, blob, durationMs, startedAt, title, mime, segments}` — an audio recording of a notebook. `blob` is the `<sha256>` of the audio ([blob](#blobs); current clients write `audio/mp4` AAC, or `audio/webm` Opus in browsers without AAC, as given by `mime`; missing → `audio/mp4`). `startedAt` is the wall time (epoch ms) recording began, `durationMs` the audio length; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (missing/empty → one segment `[startedAt, durationMs]`; malformed entries are dropped). Deleting a notebook tombstones its recordings. |
 
 **Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
 cache `pdf_text`) is derived on each device from the collections above and the PDF blobs, and is
@@ -163,7 +164,7 @@ unstar or restore it), and for a row not seen before fall back to defaults (`cov
   devices). Deleting a folder tombstones its whole subtree and moves the notebooks inside to the trash.
 - `notebooks.folderId` pointing at a missing folder means "library root".
 - `notebooks.trashedAt` (ms) puts a notebook in the trash; it stays a live record so it can be
-  restored. "Delete forever" tombstones the notebook, its pages, strokes and elements as before.
+  restored. "Delete forever" tombstones the notebook, its pages, strokes, elements and recordings.
 - `paperColor` (canvas background; same values as on pages): missing → the local value, or
   `white` for a notebook new to this device; unknown → `white`.
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
@@ -185,9 +186,11 @@ one below every other.
 `music`, `isometric`. Unknown values are shown as `blank` but kept as-is in storage, so editing
 other fields of the page on an older device does not erase a newer device's template.
 
-Optional `pages` fields (`?` above; absent on data written by older app versions):
+Optional `pages` fields (`?` above; absent on data written by older app versions). As for
+notebooks, a missing field keeps the local page's value; the defaults below apply to a page new to
+this device:
 
-- `paperColor`: string, `white` | `cream` | `grey` | `dark`; missing or unknown → `white`.
+- `paperColor`: string, `white` | `cream` | `grey` | `dark`; missing → `white` (see above), unknown → shown as `white`.
 - `bookmarked`: bool; missing → `false`.
 - `background`: object or `null`. `{"type": "pdf", "blob": "<sha256>", "page": <int>}` renders
   page `page` (0-based) of the PDF stored as blob `<sha256>` behind the strokes. Backgrounds with

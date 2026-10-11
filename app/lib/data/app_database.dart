@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:sqlite3/common.dart';
 
 import '../platform/sqlite_connection.dart';
 
+import 'search/ink_text_schema.dart';
 import 'search/search_schema.dart';
 
 /// Owns the SQLite connection and applies schema migrations.
@@ -59,7 +61,14 @@ class AppDatabase {
     }
   }
 
-  void close() => db.close();
+  /// Whether [close] was called.
+  bool get isClosed => _closed;
+  bool _closed = false;
+
+  void close() {
+    _closed = true;
+    db.close();
+  }
 
   void _configure() {
     if (sqliteSupportsWal) db.execute('PRAGMA journal_mode = WAL');
@@ -77,12 +86,30 @@ class AppDatabase {
     }
   }
 
+  /// The schema version of a fully migrated database.
+  @visibleForTesting
+  static int get latestVersion => _migrations.length;
+
+  /// Applies the first [toVersion] migrations to a fresh connection [db]
+  /// and sets its `user_version`, building a database exactly as that
+  /// schema version left it.
+  @visibleForTesting
+  static void migrateForTest(CommonDatabase db, int toVersion) {
+    for (var v = 0; v < toVersion; v++) {
+      _migrations[v](db);
+    }
+    db.execute('PRAGMA user_version = $toVersion');
+  }
+
   /// Schema version from which the page/blob migration runs (its index in
   /// [_migrations]); lets tests rewind a database without hard-coding it.
   static int get versionBeforePageDetailsAndBlobs => _migrations.indexOf(_addPageDetailsAndBlobs);
 
   /// Schema version from which the search index migration runs.
   static int get versionBeforeSearchIndex => _migrations.indexOf(_createSearchIndex);
+
+  /// Schema version from which the handwriting (ink text) migration runs.
+  static int get versionBeforeInkText => _migrations.indexOf(_createInkText);
 
   /// Ordered list of schema migrations; index i migrates from version i.
   /// Never edit an existing entry — append a new one instead.
@@ -95,7 +122,38 @@ class AppDatabase {
     _createElements,
     _addNotebookPaperColor,
     _createSearchIndex,
+    _createInkText,
+    _createRecordings,
   ];
+
+  /// Recognised handwriting (derived, never synced) and its search
+  /// documents. Idempotent (see [InkTextSchema.create]).
+  static void _createInkText(CommonDatabase db) => InkTextSchema.create(db);
+
+  /// Audio recordings of notebooks (collection `recordings`; the audio is a
+  /// blob). Idempotent, so it is safe however migrations from parallel
+  /// branches end up ordered.
+  static void _createRecordings(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS recordings (
+        id          TEXT PRIMARY KEY NOT NULL,
+        notebook_id TEXT NOT NULL,
+        blob        TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL,
+        started_at  INTEGER NOT NULL,
+        title       TEXT NOT NULL,
+        mime        TEXT NOT NULL,
+        segments    TEXT NOT NULL DEFAULT '[]',
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute(
+      'CREATE INDEX IF NOT EXISTS recordings_by_notebook ON recordings(notebook_id, started_at)',
+    );
+    db.execute('CREATE INDEX IF NOT EXISTS recordings_dirty ON recordings(id) WHERE dirty = 1');
+  }
 
   /// The local full-text search index (derived, never synced) and the
   /// triggers that keep it current. Idempotent (see [SearchSchema.create]).

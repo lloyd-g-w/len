@@ -60,12 +60,22 @@ class PageActions {
     });
   }
 
+  /// Deletes [targets] and their content in one transaction. Keep the
+  /// result to [restoreAll] them.
+  List<DeletedPage> deleteAll(List<NotebookPage> targets) =>
+      services.database.transaction(() => [for (final page in targets) delete(page)]);
+
   /// Undoes [delete].
-  void restore(DeletedPage deleted) {
+  void restore(DeletedPage deleted) => restoreAll([deleted]);
+
+  /// Undoes [deleteAll] (or several [delete]s) in one transaction.
+  void restoreAll(List<DeletedPage> deleted) {
     services.database.transaction(() {
-      services.pages.restore(deleted.page.id);
-      services.strokes.save(deleted.strokes);
-      if (deleted.elements.isNotEmpty) services.elements.save(deleted.elements);
+      for (final d in deleted) {
+        services.pages.restore(d.page.id);
+        services.strokes.save(d.strokes);
+        if (d.elements.isNotEmpty) services.elements.save(d.elements);
+      }
     });
   }
 

@@ -19,7 +19,8 @@ import 'package:len/ui/app_theme.dart';
 
 import 'content_documents_test.dart' show elementsOf;
 import 'content_golden_test.dart' show loadFonts;
-import 'content_tools_ui_test.dart' show key, liveElements, liveStrokes, mouseDrag, seedStroke;
+import 'content_tools_ui_test.dart'
+    show key, liveElements, liveStrokes, mouseDrag, pinCanvasView, seedStroke;
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
 import 'images_test.dart' show jpegOf, pngOf;
 
@@ -45,6 +46,8 @@ Future<(AppServices, Notebook)> openImageCanvas(
     coverColor: 0xFF3B5BDB,
   );
   if (seed != null) await tester.runAsync(() => seed(services, notebook));
+  // World = screen coordinates: open at the origin, 100 %.
+  pinCanvasView(services, notebook.id, const Size(1280, 800));
   await tester.pumpWidget(
     AppScope(
       services: services,

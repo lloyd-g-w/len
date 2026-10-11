@@ -16,7 +16,7 @@ import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/surface_element.dart';
 
-import 'sync_test.dart' show FakeServer, apiFor, device;
+import 'support/fake_server.dart' show FakeServer, apiFor, device;
 
 /// A PDF "reader" serving canned page texts per blob.
 class FakePdfSource implements PdfTextSource {

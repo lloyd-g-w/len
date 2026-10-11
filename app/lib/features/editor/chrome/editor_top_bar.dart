@@ -12,9 +12,9 @@ import 'editor_more_menu.dart';
 import 'title_button.dart';
 import 'undo_redo_buttons.dart';
 
-/// The editor's top bar, GoodNotes-style: back, pages and bookmark on the
-/// left, the notebook title in the middle, undo/redo, export, focus mode
-/// and more on the right. Several open notebooks add a tab strip above it
+/// The editor's top bar: back and the notebook title on the left (on
+/// every screen size), then pages and bookmark, audio, insert image, search, undo/redo, export,
+/// focus mode and more on the right. Several open notebooks add a tab strip above it
 /// (tablets, desktops) or a tab switcher button (phones).
 class EditorTopBar extends StatelessWidget {
   const EditorTopBar({
@@ -26,6 +26,8 @@ class EditorTopBar extends StatelessWidget {
     this.subtitle,
     this.search,
     this.insert,
+    this.audio,
+    this.compactMenuItems = const [],
   });
 
   final String title;
@@ -41,6 +43,11 @@ class EditorTopBar extends StatelessWidget {
 
   /// The insert-image button (features/editor/images), before search.
   final Widget? insert;
+
+  /// The audio recording controls (features/audio), before insert; on
+  /// phones they hide and [compactMenuItems] go into the "⋯" menu instead.
+  final Widget? audio;
+  final List<Widget> compactMenuItems;
 
   /// Height of the bar (without the status bar) for a given [width].
   static double heightFor(double width, OpenNotebooks? tabs) =>
@@ -80,7 +87,7 @@ class EditorTopBar extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
                       child: width < ChromeMetrics.compactWidth
                           ? _compact(width)
-                          : _wide(showTitle: !strip),
+                          : _wide(width, showTitle: !strip),
                     ),
                   ),
                 ),
@@ -95,45 +102,45 @@ class EditorTopBar extends StatelessWidget {
   Widget _back() =>
       BarButton(tooltip: 'Back', icon: Icons.arrow_back_rounded, onPressed: actions.onBack);
 
-  Widget _title({bool centered = true}) =>
-      TitleButton(title: title, subtitle: subtitle, onRename: actions.onRename, centered: centered);
+  Widget _title() => TitleButton(title: title, subtitle: subtitle, onRename: actions.onRename);
 
-  Widget _wide({required bool showTitle}) {
+  /// Back and the title on the left (as on phones), page tools, history and
+  /// the view and more menus on the right, in groups.
+  Widget _wide(double width, {required bool showTitle}) {
     final a = actions;
-    return NavigationToolbar(
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _back(),
-          if (a.onOverview != null)
-            BarButton(tooltip: 'All pages', icon: Icons.grid_view_rounded, onPressed: a.onOverview),
-          if (a.onToggleBookmark != null)
-            BarButton(
-              tooltip: a.bookmarked ? 'Remove bookmark' : 'Bookmark page',
-              icon: Icons.bookmark_border_rounded,
-              selectedIcon: Icons.bookmark_rounded,
-              selected: a.bookmarked,
-              onPressed: a.onToggleBookmark,
-            ),
-        ],
-      ),
-      middle: showTitle ? _title() : null,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ?insert,
-          ?search,
-          UndoRedoButtons(target: undo),
-          const BarDivider(),
-          if (a.onExport case final onExport?) ShareMenuButton(onExport: onExport),
+    final roomy = width >= ChromeMetrics.roomyBarWidth;
+    return Row(
+      children: [
+        _back(),
+        Expanded(
+          child: showTitle
+              ? Align(alignment: Alignment.centerLeft, child: _title())
+              : const SizedBox.shrink(),
+        ),
+        if (roomy && a.onOverview != null)
+          BarButton(tooltip: 'All pages', icon: Icons.grid_view_rounded, onPressed: a.onOverview),
+        if (roomy && a.onToggleBookmark != null)
           BarButton(
-            tooltip: 'Focus mode (F11)',
-            icon: Icons.fullscreen_rounded,
-            onPressed: a.onFocusMode,
+            tooltip: a.bookmarked ? 'Remove bookmark' : 'Bookmark page',
+            icon: Icons.bookmark_border_rounded,
+            selectedIcon: Icons.bookmark_rounded,
+            selected: a.bookmarked,
+            onPressed: a.onToggleBookmark,
           ),
-          EditorMoreMenu(actions: a),
-        ],
-      ),
+        ?audio,
+        ?insert,
+        ?search,
+        const BarDivider(),
+        UndoRedoButtons(target: undo),
+        const BarDivider(),
+        if (a.onExport case final onExport?) ShareMenuButton(onExport: onExport),
+        BarButton(
+          tooltip: 'Focus mode (F11)',
+          icon: Icons.fullscreen_rounded,
+          onPressed: a.onFocusMode,
+        ),
+        EditorMoreMenu(actions: a, pagesInMenu: !roomy),
+      ],
     );
   }
 
@@ -145,15 +152,17 @@ class EditorTopBar extends StatelessWidget {
       children: [
         _back(),
         Expanded(
-          child: Align(alignment: Alignment.centerLeft, child: _title(centered: false)),
+          child: Align(alignment: Alignment.centerLeft, child: _title()),
         ),
         ?insert,
-        ?search,
+        // Phones: search lives in the "⋯" menu, so the title has room.
+        if (actions.onSearch == null) ?search,
         UndoRedoButtons(target: undo),
         if (switcher) TabSwitcherButton(tabs: tabs),
         EditorMoreMenu(
           actions: actions,
           compact: true,
+          compactItems: compactMenuItems,
           tabs: switcher || tabs == null || tabs.length < 2 ? null : tabs,
         ),
       ],

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:sqlite3/common.dart';
 
 import '../app_database.dart';
+import 'ink_text_boxes.dart';
 import 'search_query.dart';
 import 'search_schema.dart';
 
@@ -18,12 +19,16 @@ enum SearchHitKind {
   text,
 
   /// The text of an imported PDF page.
-  pdf;
+  pdf,
+
+  /// A recognised line of handwriting.
+  handwriting;
 
   static SearchHitKind of(String kind) => switch (kind) {
     SearchSchema.notebook => notebookTitle,
     SearchSchema.folder => folderName,
     SearchSchema.pdf => pdf,
+    SearchSchema.handwriting => handwriting,
     _ => text,
   };
 }
@@ -61,7 +66,8 @@ class SearchHit {
   /// titles).
   final int? pageIndex;
 
-  bool get isContent => kind == SearchHitKind.text || kind == SearchHitKind.pdf;
+  bool get isContent =>
+      kind == SearchHitKind.text || kind == SearchHitKind.pdf || kind == SearchHitKind.handwriting;
 
   @override
   String toString() => 'SearchHit(${kind.name} $refId p$pageIndex "$body")';
@@ -102,7 +108,8 @@ class SearchIndex {
                 AND (q.sort_key < p.sort_key OR (q.sort_key = p.sort_key AND q.id < p.id)))
                AS page_index
       FROM $from
-      LEFT JOIN pages p ON d.kind IN ('${SearchSchema.text}', '${SearchSchema.pdf}')
+      LEFT JOIN pages p ON d.kind IN ('${SearchSchema.text}', '${SearchSchema.pdf}',
+                                      '${SearchSchema.handwriting}')
                         AND p.id = d.surface_id
       JOIN notebooks n ON n.id = CASE WHEN d.kind = '${SearchSchema.notebook}' THEN d.ref_id
                                       ELSE coalesce(p.notebook_id, d.surface_id) END
@@ -177,6 +184,21 @@ class SearchIndex {
     final r = rows.first;
     double d(String c) => (r[c] as num).toDouble();
     return (rect: Rect.fromLTWH(d('x'), d('y'), d('w'), d('h')), rotation: d('rotation'));
+  }
+
+  /// Where recognised handwriting line [refId] is: the line's bounds and,
+  /// when known, one box per word of its text (page coordinates).
+  ({Rect line, List<Rect>? words})? inkTextBoxes(String refId) {
+    final id = int.tryParse(refId);
+    if (id == null) return null;
+    final rows = db.select('SELECT x, y, w, h, words FROM ink_text WHERE id = ?', [id]);
+    if (rows.isEmpty) return null;
+    final r = rows.first;
+    double d(String c) => (r[c] as num).toDouble();
+    return (
+      line: Rect.fromLTWH(d('x'), d('y'), d('w'), d('h')),
+      words: InkTextBoxes.decode(r['words'] as String?),
+    );
   }
 
   /// Empties and refills the index from the synced tables.

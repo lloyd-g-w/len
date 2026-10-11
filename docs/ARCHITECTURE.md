@@ -136,7 +136,9 @@ most recently edited page is undone first. Painting mirrors `InkSurface`
 Page management (`PageActions`, `DocumentCommands`, `PageOverview`): insert,
 duplicate (copies stroke rows wholesale via `SurfaceCopier`, so stroke
 columns added later are copied too), delete (with an Undo snack bar that
-re-saves the page's strokes), reorder (fractional sort keys, `PageOrder`;
+re-saves the page's strokes; the overview's selection goes through
+`DocumentCommands.deleteMany` → `PageActions.deleteAll`, one step with one Undo
+that restores every page in place — at least one page always remains), reorder (fractional sort keys, `PageOrder`;
 the list is renumbered only when a gap is exhausted), bookmarks, templates.
 
 ## Editor screen (`features/editor/`)
@@ -145,22 +147,59 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   `InkInputController` + `CanvasGestures`, `ContentTools`, undo, and either the canvas
   `SurfaceModel` + viewport or the `DocumentController` + `DocumentCommands`.
 - **`EditorScreen`** composes `EditorCanvas` (surface, "Add page" footer, content layer)
-  with `EditorChrome` (`chrome/`): `EditorTopBar` (back, pages, bookmark, title — tap to
-  rename — undo/redo, export, focus, "⋯" `EditorMoreMenu`; a phone variant keeps the
-  essentials and moves the rest into the menu), `ToolbarSlot` (hosts the pen toolbar at
-  the top, bottom or floating by a grip; animated), `PageNavigator`, `GestureHud` and,
-  in focus mode, only a `FocusHandle`. `ChromeLayout` says how much of each screen edge
+  with `EditorChrome` (`chrome/`): `EditorTopBar` (on every size: back, then the title —
+  start-aligned, tap to rename, with the folder as a quiet subtitle — then, in groups,
+  pages and bookmark, insert image and search | undo/redo | export, focus, "⋯"
+  `EditorMoreMenu`; the phone variant keeps back, title, insert image, undo/redo and the
+  tab switcher, and moves search, pages, bookmark and export into the menu), `ToolbarSlot` (hosts the pen toolbar at
+  the top, bottom or floating by a grip; animated), `PageNavigator`, `GestureHud` (counts
+  repeats: "Undo ×3"), `TipBanner` and, in focus mode, only a `FocusHandle`. On phones
+  (< 640 px) the page navigator *peeks* (`chrome/peeking.dart`): it shows when the
+  notebook opens and while the document viewport moves, fades after ~2 s (stays while
+  touched or hovered), lets touches through when hidden, and takes no room in
+  `ChromeLayout.covered` — so it no longer covers the page above the toolbar. `ChromeLayout` says how much of each screen edge
   the chrome covers; the document pads its scroll bounds by it (in screen pixels, so it
   is re-applied on zoom), and the selection / text menus and the canvas's zoom pill and
   minimap (`CanvasView`) avoid it (passed down as `MediaQuery.padding` / insets).
   On canvases the "⋯" menu also holds the canvas entries: background (template and paper
-  colour), fit content, actual size, back to start, show / hide overview. Menus report to a `CanvasGuard`, which blocks the surface while
-  one is open, so the tap that closes a menu never draws.
+  colour), fit content, actual size, back to start, show / hide overview. Chrome menus are
+  `ChromeMenuAnchor`s: they report to a `CanvasGuard`, which blocks the surface while one is
+  open (the tap that closes a menu never draws) and closes them on Escape (a menu opened
+  by tap leaves keyboard focus on the editor, where Escape would otherwise clear the
+  selection instead).
+- **Hints** (shown sparingly, never blocking): an empty infinite canvas shows a quiet
+  "Draw anywhere" note with how to move around (`canvas/canvas_empty_hint.dart`; gone at
+  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows one-time tips under
+  the top bar, one at a time, for 10 s or until dismissed, remembered per device
+  (`SettingsRepository.seenTips`): the stylus side button (after the first pen contact,
+  phrased for `PenButtonAction`; none if it does nothing) and two/three-finger taps
+  (after the first edit made by finger or pen; skipped if both gestures are off).
 - **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
   the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
   the active tab's `EditorScreen` (keyed by notebook), which saves its view on dispose
   and restores it on creation. Closing the last tab leaves the workspace.
+  The workspace route is a `NotebookOpenRoute` (`tabs/notebook_open_route.dart`): opened from
+  a library cover (`NotebookOpenOrigin` from the library's `CoverLocator`), the cover's rect
+  grows to the screen with easing corners, fades into the paper colour and the editor (scaled
+  and clipped to the flight, never relaid out) fades in; back (and predictive back) reverses
+  into the cover's current rect, or fades if it is gone. Without a cover (search, new, import)
+  it fades and scales in; with reduced motion it only fades. The library does not move.
+- **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
+  pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
+  in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).
+  Restored only at the same viewport size; otherwise a paged notebook re-fits its
+  current page, and a canvas keeps the same world point in the middle. A canvas without
+  a saved view opens centred on its content (`CanvasNavigation.open`: `contentBounds`,
+  fitted into the area the chrome leaves free, at most 100 %; an empty canvas stays at
+  the origin), after the chrome's insets are known so nothing starts under the toolbar.
+- **Page zoom** (`document/page_fit.dart`, "⋯" → Page zoom, Shift+1 fit page, Shift+2
+  fit width, `0` automatic): `PageFit.width` fills the width, `PageFit.page` shows the
+  whole page, `PageFit.auto` fits the width but at most 1.4× and so that ≥ 55 % of the
+  page's height shows (landscape tablets and desktops see most of a page instead of a
+  third); single-page flow always shows whole pages. The fit applies on open and on page
+  jumps; a fitted view that the user hasn't moved is re-fitted when the chrome or the
+  screen size changes. Saved per notebook in `EditorViewState.fit`.
 - **Page navigation**: `DocumentController.scrollToPage` animates the viewport with
   `DocumentScroller` (centre point glides, zoom eases; jumps longer than two screens
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
@@ -208,9 +247,13 @@ Export (`features/documents/export/`): `PdfExporter` (package `pdf`) writes
 ink as filled polygons flattened from the exact outline paths the app
 renders, templates as vector lines, and imported PDF pages as 150 dpi
 images; PNG export rasterises a page with the same painters as the editor.
+The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
+indices from a range like "1-3, 5", templates and PDF backgrounds on or off,
+PNG resolution); without templates pages are exported as blank white paper.
 Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
-(`platform/file_export*`).
+(`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
+on mobile and written into a folder the user picks on desktop.
 
 ## Images (`ink/images/`, `features/editor/images/`)
 
@@ -250,6 +293,46 @@ sheet on Android (`share_plus`) and downloaded in browsers
   + `ImageCropOverlay`) works in the image's unrotated frame: handles move the
   crop edges, dragging inside pans it, and committing keeps the visible part
   exactly where it was on the surface.
+
+## Audio (`features/audio/`)
+
+GoodNotes-style lecture recording: audio is captured while writing and
+replayed in step with the ink.
+
+- **Data.** A recording is a synced `recordings` row (`RecordingRepository`)
+  of a notebook whose audio is a content-addressed blob, like PDFs and images.
+  Its `segments` (`[startedAt, durationMs]` per stretch between pauses) map
+  audio positions to wall time and back (`RecordingTimeline`; ink written
+  during a pause belongs to the moment recording resumed). Strokes already
+  carry `createdAt`, so ink needs no change to be replayed. Deleting a
+  notebook tombstones its recordings; duplicating copies them (same blobs).
+- **Recording** (`RecordingController`): start / pause / resume / stop with
+  elapsed time and an input level meter. `package:record` writes AAC in MP4
+  (`audio/mp4`, mono, 64 kbit/s ≈ 29 MB per hour) where the platform has an
+  AAC encoder, Opus in WebM in browsers without one (Chrome, Firefox), WAV as
+  a last resort. On stop the file becomes a blob (`BlobStore.putFile`,
+  streamed, never loaded whole) plus the row; captures under 0.5 s are
+  discarded. Closing the editor stops and saves a running recording; so does
+  backgrounding the app on Android (the system hands backgrounded apps
+  silence).
+- **Playback** (`PlaybackController`, `package:audioplayers`): plays one
+  recording at a time from its blob file (natively streamed; browsers get a
+  blob URL), fetching a missing blob from the server first. The backends are
+  created only when the user records or plays, so platforms and tests that
+  never do never touch the audio plugins (`AudioBackends`; tests use fakes).
+- **Ink replay** (`replay/`): while a recording is open, `InkReplayLayer`
+  draws a veil over ink written after the moment being heard
+  (`InkReplayPainter`: one cached picture of the "future" strokes per visible
+  chunk, filled in the paper colour at 82 % opacity, re-recorded only when that
+  set changes). With "tap ink to play" on, a tap on a stroke seeks to 1.5 s
+  before it was written (in the open recording, else the latest recording of
+  the notebook covering that time); drags and pinches still pan and zoom.
+- **UI.** Tablets and desktops get a top bar slot (microphone, recordings
+  list, and while recording a pill with time, level, pause and stop); phones
+  get "⋯" menu entries and floating recording controls (`AudioLayer`). The
+  recordings sheet plays, renames and deletes recordings; the playback bar
+  floats above the bottom chrome. `NotebookAudio` owns all of it per open
+  notebook and reloads when sync reports `recordingsOfNotebooks`.
 
 ## Input (`ink/input/ink_input_controller.dart`)
 
@@ -425,12 +508,19 @@ tools are Pen (P), Highlighter (H), Eraser (E), Lasso (L), Shapes (S; its
 icon is the current shape, settings = shape picker, strip = the pen's slots,
 since shapes are drawn with the pen's colour and width), Text (T; settings =
 defaults for new boxes) and Laser pointer (K). For inks the strip is a row of
-colour slots beside a row of width slots (dots at scaled real size) — one tap
-picks either; tapping the selected slot (or long-pressing / right-clicking
-any) edits it (colour picker, or slider with a live stroke preview; both can
-remove the slot); `+` adds one. It lays out on one row when it fits, else on
-two (phones: tools and palm rejection above, the strip below; the settings
-button only if it fits — tapping the active tool opens settings too).
+colour slots beside a row of width slots (dots at scaled real size, in a recessed track) — one tap
+picks either; the selected slot sits on a tonal disc; every target is ≥ 40 px.
+Tapping the selected slot (or long-pressing / right-clicking any) edits it
+(colour picker, or slider with a live stroke preview; both can remove the
+slot); `+` adds one. Groups (tools | quick controls | settings and palm
+rejection) are separated by dividers. "⋯" → Toolbar → *Show tool names*
+(`AppPreferences.toolbarLabels`) puts short names under the tool icons when
+the row still fits. When the full row doesn't fit (phones), the toolbar stays
+**one row**: a `ToolSwitcherButton` showing the active tool (tap: the
+`ToolSwitcherPanel` popover with every tool as a labelled tile, the tool's
+settings and "Draw with stylus only"; long press: settings) followed by the
+tool's quick controls (`ToolDescriptor.compactStrip`, without the `+`
+buttons when short of room; scrolls if still too wide).
 Picking a quick colour or width from a tool that draws no ink (lasso, text,
 laser) switches to the pen. Shortcuts: P / H / E / L / S / T / K, 1–6 colour
 slots, [ / ] thinner / thicker (plus the canvas keys `+` `-` `0` Shift+1 Home).
@@ -439,7 +529,7 @@ Placement is a preference (`ToolbarPlacement`: automatic / top / bottom /
 floating, in the "⋯" menu and the settings); `ToolbarSlot` hosts it. *Automatic*
 (`resolvePlacement`) puts it under the top bar from 960 px wide if it fits
 there on one row whichever tool is active, otherwise at the bottom. The slot
-measures the toolbar (one or two rows) and `ChromeLayout` uses that height for
+measures the toolbar and `ChromeLayout` uses that height for
 the screen edge it covers, so document scrolling, the page navigator and the
 canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
 
@@ -513,7 +603,9 @@ the web:
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread (`StrokeRepository`)                   |
 | Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
 | Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
+| Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
+| Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
 (`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
@@ -577,7 +669,8 @@ below 31 bits, and use `float32`/`int32` in binary formats.
 ## Search (`data/search/`, `features/search/`)
 
 GoodNotes-style full-text search over notebook titles, folder names, text
-boxes and the text of imported PDF pages.
+boxes, the text of imported PDF pages and recognised handwriting (see
+*Handwriting recognition*).
 
 - **Index.** A local, derived table `search_docs(kind, ref_id, surface_id,
   body)` — one row per title, folder, text box or PDF page — with an FTS5
@@ -623,28 +716,73 @@ boxes and the text of imported PDF pages.
   highlighted on the exact glyph boxes, which `PdfGlyphCache` loads on
   demand per page (normalised to the page, merged per line).
 
-**Handwriting (plan, not implemented).** There is no clean offline
-recogniser for all of Android, Linux and Windows. Plan: a
-`HandwritingRecognizer` interface (`ink/recognition/`) taking stroke groups
-(clustered into lines by the existing chunk index) and returning text with
-bounding boxes; implementations: **Android** — Google ML Kit Digital Ink
-(on-device, per-language model download, `google_mlkit_digital_ink_recognition`);
-**Windows** — the WinRT ink analyser (`Windows.UI.Input.Inking.Analysis`)
-behind a small plugin; **Linux/web** — none at first (optionally the sync
-server could run a recogniser later). Results would go to a local derived
-table `ink_text(surface_id, text, rect, stroke_ids)`, recognised lazily in
-idle time for surfaces whose strokes changed (debounced, batched like PDF
-text) and indexed as another `search_docs` kind, highlighted by rect like
-text boxes. Devices without a recogniser would simply not find
-handwriting; syncing `ink_text` as a derived collection could share results
-with them later.
+## Handwriting recognition (`ink/recognition/`, `platform/handwriting_recognizer*`)
+
+GoodNotes-style handwriting search and lasso "Convert to text", on-device.
+
+- **Recogniser.** `HandwritingRecognizer` (strokes in writing order →
+  candidates, best first; per-language model download / delete) behind a
+  conditional export: **Android** uses Google ML Kit Digital Ink
+  (`google_mlkit_digital_ink_recognition`, already on AGP 9 / built-in Kotlin;
+  `MlKitRecognizer` synthesises point timestamps from the stroke's start time
+  and passes a writing area and pre-context); **Linux, Windows and web** get
+  `UnavailableRecognizer` (WinRT ink analysis on Windows is a possible later
+  implementation). Models are BCP 47 tags (`RecognitionLanguages`); the
+  language follows the device locale unless chosen in the settings.
+- **`RecognitionService`** (in `AppServices`) holds the language, the
+  model's state (checks it at start; with indexing on, a missing model is
+  downloaded over Wi-Fi; the settings and "Convert to text" download on
+  demand with a progress bar — ML Kit reports no byte progress) and the
+  `HandwritingIndexer`. Settings: language, "Search handwriting" (off
+  forgets recognised text, on re-recognises everything), model download /
+  delete.
+- **Clustering** (`InkClustering`): a surface's strokes (highlighter
+  excluded) become lines and words. The unit is the median stroke height;
+  a stroke joins a line whose letter band it overlaps vertically (small
+  strokes — dots, accents, commas — only need their centre near it) within
+  3 units horizontally, preferring the previous stroke's line when written
+  within 1.5 s; lines on the same band are merged; words split at gaps wider
+  than 0.6 × the line's letter height. A line's key is a hash of its stroke
+  ids.
+- **Index.** Local, derived and **not synced** (results depend on the
+  device's model; strokes already sync, so every device can derive them —
+  syncing `ink_text` would let devices without a recogniser search, see
+  limitations): `ink_text(surface_id, stroke_key, language, text, rect,
+  words)` — one row per line, `words` = per-word boxes when the recognised
+  words match the word clusters — and `ink_text_queue(surface_id, version)`,
+  filled by **triggers on `strokes`** (insert, delete, and updates of
+  `deleted` / `points` / `surface_id`), so local edits, undo, duplicates and
+  sync all queue their surface without any call. Triggers mirror `ink_text`
+  into `search_docs` as kind `handwriting` (ref = row id), searched and
+  ranked like text boxes, with page numbers.
+- **Background work.** `HandwritingIndexer` listens to the database's commit
+  stream (only on platforms with a recogniser and the model present), waits
+  until no commit came for 3 s (the user stopped writing), then drains the
+  queue oldest first, one surface and one line at a time (pausing again if
+  edits arrive). Lines whose key is already stored keep their text, so
+  writing a word re-recognises one line; a surface changed while it was
+  being recognised stays queued (the queue row is only removed at the
+  version that was read). Failures (model missing) leave the queue for the
+  next change. The migration queues every surface with ink.
+- **Highlights.** The editor search (`EditorSearchController`) turns a
+  handwriting hit into one match per occurrence, highlighted on the matched
+  words' boxes (`InkMatchRects`) or the whole line; the library lists them
+  with a pen icon.
+- **Convert to text** (`features/editor/recognition/`): the lasso menu's
+  "Convert to text" (disabled with the reason as tooltip where unsupported)
+  makes sure the model is present, recognises the selected ink line by line
+  (`ConvertToText.recognize`), and shows the reading — editable, with
+  alternatives for a single line — to **replace** the strokes with a text
+  box (top-left of the ink, its most common colour, font size 1.25 × the
+  letter height, at least as wide as the ink; one `InkEdit` via
+  `SelectionController.replaceStrokesWith`) or **copy** it.
 
 ## Preferences
 
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
 `SettingsRepository`: theme mode and accent (the app rebuilds its `ThemeData` from them),
 stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
-(`PenButtonAction.eraser|lasso|none`), low-latency ink (Android, experimental), editor toolbar placement (and floating position),
+(`PenButtonAction.eraser|lasso|none`), low-latency ink (Android, experimental), editor toolbar placement (and floating position) and tool names,
 library layout and sort. Getters always read
 the store, so values written elsewhere are never stale.
 
@@ -668,8 +806,8 @@ in `docs/UX_AUDIT.md`.
 
 Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
 canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar and its popovers in
-`toolbar_screenshot_test.dart`) at phone, tablet and
-desktop sizes in light and dark with real fonts. Run
+`toolbar_screenshot_test.dart`; open-notebook motion frames in `transition_screenshot_test.dart`)
+at phone, tablet and desktop sizes in light and dark with real fonts. Run
 `flutter test test/screenshots --dart-define=SCREENSHOTS=true` and look at
 `app/build/screenshots/*.png`.
 
@@ -700,12 +838,27 @@ records with last-write-wins. Open screens subscribe to
 - PDF backgrounds are rendered as whole-page images (no tiling), so very deep
   zoom on a PDF page is capped at ~2896 px page width; exported PDFs embed
   imported pages as images rather than copying their vector content.
+- Audio: a recording is one blob, so it syncs only once finished and a
+  recording above the server's blob limit (200 MiB by default, ≈ 7 h at
+  64 kbit/s) cannot be uploaded, and a failed upload aborts every sync cycle
+  (as for any oversized blob); downloads hold the
+  whole blob in memory. Recording stops when an Android app is backgrounded
+  (no foreground service yet). Linux recording needs `parecord` and `ffmpeg`
+  installed, playback needs GStreamer with the `-good` (MP4) and an AAC
+  decoder plugin; Opus/WebM recordings from Chrome/Firefox may not play on
+  platforms without a WebM decoder. No waveform, trimming or audio export.
 - Blobs are never garbage-collected (neither on devices nor on the server) —
   deleting or replacing images leaves their blobs behind.
 - Image bitmaps are whole-image decodes per mip level (no tiling); a 4096 px
   image is the sharpest it gets. Crop mode shows the image on its own (ink
   over it is hidden while cropping).
-- Search: handwriting is not searchable yet (see *Search*); PDF text is only
+- Handwriting: recognised only on Android (Linux, Windows and web find no
+  handwriting; recognised text is not synced, so they cannot borrow it
+  either); a changed surface is re-clustered from all its strokes (cheap per
+  page, heavier on huge canvases); a phrase is found only within one line;
+  shapes drawn with the pen are recognised like writing (usually as
+  nonsense); no pause while on battery.
+- Search: PDF text is only
   extracted for PDFs present on the device (fetched when a page is viewed);
   glyph highlights skip rotated PDF pages (the page is still shown); FTS5's
   `unicode61` tokenizer does not segment CJK text (prefix matches only from

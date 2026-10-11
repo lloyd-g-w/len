@@ -11,11 +11,12 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text_data.dart';
+import 'package:len/ink/elements/text_edit_session.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/undo_history.dart';
 
 import 'data_test.dart' show FakeClock, stroke;
-import 'sync_test.dart' show FakeServer, apiFor, device;
+import 'support/fake_server.dart' show FakeServer, apiFor, device;
 
 SurfaceElement textBox(
   String id,
@@ -234,6 +235,47 @@ void main() {
       model.setHidden({'a'}); // unchanged → no-op
       expect(invalidated, hasLength(1));
       sub.cancel();
+    });
+
+    test('owners hide independently (selection + text editor)', () {
+      model.setHidden({'a', 'b'}, owner: #selection);
+      model.setHidden({'t'}, owner: #text);
+      model.setHidden(const {}, owner: #selection);
+      expect(model.isHidden('t'), isTrue, reason: 'the text editor still hides it');
+      expect(model.isHidden('a'), isFalse);
+      model.setHidden(const {}, owner: #text);
+      expect(model.isHidden('t'), isFalse);
+    });
+
+    test('a text box being edited survives a reload; edits win, a removal ends it', () {
+      final box = textBox('t', const Offset(10, 10), text: 'one');
+      elements.save([box]);
+      model.ensureLoaded(const Rect.fromLTWH(0, 0, 800, 600));
+      final session = TextEditSession(model: model, clock: clock);
+      addTearDown(session.dispose);
+
+      session.edit(model.elementById('t')!);
+      model.reload(); // e.g. sync brought a change to another item
+      expect(session.isEditing, isTrue);
+      expect(model.isHidden('t'), isTrue);
+
+      // Changed by another device while open but untouched here: follow it.
+      elements.save([box.copyWith(data: const TextData(text: 'remote').toJson())]);
+      model.reload();
+      expect(session.data.text, 'remote');
+
+      session.setData(const TextData(text: 'mine'));
+      model.reload();
+      expect(session.data.text, 'mine');
+      session.end();
+      expect(TextData.fromJson(model.elementById('t')!.data).text, 'mine');
+
+      session.edit(model.elementById('t')!);
+      model.undo(); // back to 'remote': still the same box, keep editing
+      expect(session.isEditing, isTrue);
+      session.end();
+      model.commit(InkEdit(removedElements: [model.elementById('t')!]));
+      expect(model.elementById('t'), isNull);
     });
   });
 

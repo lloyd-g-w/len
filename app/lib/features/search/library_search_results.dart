@@ -304,9 +304,17 @@ class SearchHitIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: hit.kind == SearchHitKind.pdf ? 'PDF text' : 'Text box',
+    message: switch (hit.kind) {
+      SearchHitKind.pdf => 'PDF text',
+      SearchHitKind.handwriting => 'Handwriting',
+      _ => 'Text box',
+    },
     child: Icon(
-      hit.kind == SearchHitKind.pdf ? Icons.picture_as_pdf_outlined : Icons.text_fields_rounded,
+      switch (hit.kind) {
+        SearchHitKind.pdf => Icons.picture_as_pdf_outlined,
+        SearchHitKind.handwriting => Icons.draw_outlined,
+        _ => Icons.text_fields_rounded,
+      },
       size: 18,
       color: Theme.of(context).colorScheme.onSurfaceVariant,
     ),

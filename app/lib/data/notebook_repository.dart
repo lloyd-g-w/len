@@ -6,6 +6,7 @@ import '../domain/paper.dart';
 import 'element_repository.dart';
 import 'notebook_duplicator.dart';
 import 'page_repository.dart';
+import 'recording_repository.dart';
 import 'stroke_repository.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
@@ -20,6 +21,7 @@ class NotebookRepository extends SyncableTable {
     required this.pages,
     required this.strokes,
     this.elements,
+    this.recordings,
     super.clock,
   });
 
@@ -28,6 +30,9 @@ class NotebookRepository extends SyncableTable {
 
   /// Elements are tombstoned with their surfaces when set.
   final ElementRepository? elements;
+
+  /// Audio recordings are tombstoned with their notebook when set.
+  final RecordingRepository? recordings;
 
   @override
   String get collection => 'notebooks';
@@ -97,8 +102,17 @@ class NotebookRepository extends SyncableTable {
   /// `updatedAt`.
   Notebook update(Notebook notebook) {
     final updated = notebook.copyWith(updatedAt: nextVersion(notebook.id));
-    _write(updated, deviceId: deviceId, dirty: true);
+    _write(updated, deviceId: deviceId, dirty: true, paper: _keptPaper(updated));
     return updated;
+  }
+
+  /// The stored paper name of [n] if it is one this version does not know
+  /// and [n] still shows it (as blank); otherwise null (write `paper.name`).
+  String? _keptPaper(Notebook n) {
+    final rows = db.select('SELECT paper FROM notebooks WHERE id = ?', [n.id]);
+    if (rows.isEmpty) return null;
+    final raw = rows.first['paper'] as String;
+    return PaperStyle.parse(raw) == n.paper && raw != n.paper.name ? raw : null;
   }
 
   /// Marks the notebook as recently edited (sorts it to the top).
@@ -147,7 +161,8 @@ class NotebookRepository extends SyncableTable {
   Notebook? duplicate(String id, {String? title}) =>
       NotebookDuplicator(this).duplicate(id, title: title);
 
-  /// Permanently tombstones the notebook together with its pages and strokes.
+  /// Permanently tombstones the notebook together with its pages, strokes,
+  /// elements and recordings.
   void delete(String id) {
     database.transaction(() {
       db.execute(
@@ -159,6 +174,7 @@ class NotebookRepository extends SyncableTable {
       // A canvas notebook is itself a surface; pages are surfaces too.
       strokes.deleteSurfaces([id, ...pageIds]);
       elements?.deleteSurfaces([id, ...pageIds]);
+      recordings?.deleteAllOf(id);
     });
   }
 
@@ -216,7 +232,14 @@ class NotebookRepository extends SyncableTable {
       record,
       local: local.isEmpty ? null : _rowToNotebook(local.first),
     );
-    _write(notebook, deviceId: record.deviceId, dirty: false);
+    // Keep the raw paper name: values from newer clients show as blank
+    // but survive (SYNC_PROTOCOL.md "Paper and pages").
+    _write(
+      notebook,
+      deviceId: record.deviceId,
+      dirty: false,
+      paper: record.data!['paper'] as String,
+    );
   }
 
   /// Parses a live record. Fields added after protocol v1 (folder, favourite,
@@ -268,7 +291,8 @@ class NotebookRepository extends SyncableTable {
     );
   }
 
-  void _write(Notebook n, {required String deviceId, required bool dirty}) {
+  /// Writes [n]; [paper] overrides the stored paper name (raw values).
+  void _write(Notebook n, {required String deviceId, required bool dirty, String? paper}) {
     db.execute(
       '''
       INSERT OR REPLACE INTO notebooks (id, title, kind, paper, cover_color,
@@ -281,7 +305,7 @@ class NotebookRepository extends SyncableTable {
         n.id,
         n.title,
         n.kind.name,
-        n.paper.name,
+        paper ?? n.paper.name,
         n.coverColor,
         n.createdAt,
         n.updatedAt,

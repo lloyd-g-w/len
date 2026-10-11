@@ -2,7 +2,7 @@
 library;
 
 import 'dart:convert';
-import 'dart:io' show HttpStatus;
+import 'dart:io' show HttpStatus, stderr;
 import 'dart:typed_data';
 
 import 'package:shelf/shelf.dart';
@@ -50,8 +50,24 @@ Handler buildHandler({
   addBlobRoutes(router, blobs, maxBytes: maxBlobBytes);
   return const Pipeline()
       .addMiddleware(corsMiddleware(cors))
+      .addMiddleware(_internalErrors)
       .addMiddleware(bearerAuth(token, publicPaths: _publicPaths))
       .addHandler(router.call);
+}
+
+/// Turns unexpected exceptions into a JSON 500 (inside the CORS middleware,
+/// so browsers can read it); details go to stderr, never to the client.
+Handler _internalErrors(Handler inner) {
+  return (Request request) async {
+    try {
+      return await inner(request);
+    } on HijackException {
+      rethrow;
+    } catch (e, st) {
+      stderr.writeln('len-sync: error handling ${request.method} /${request.url.path}: $e\n$st');
+      return _json(HttpStatus.internalServerError, {'error': 'internal server error'});
+    }
+  };
 }
 
 /// Middleware rejecting requests without `Authorization: Bearer <token>`
@@ -159,7 +175,11 @@ Response _pull(Request request, RecordStore store) {
 }
 
 /// Parses an optional integer query parameter; `null` means invalid.
-int? _intParam(String? raw, {required int fallback}) => raw == null ? fallback : int.tryParse(raw);
+/// Only plain decimal digits are accepted (no sign, whitespace or `0x`).
+int? _intParam(String? raw, {required int fallback}) =>
+    raw == null ? fallback : (_digits.hasMatch(raw) ? int.tryParse(raw) : null);
+
+final _digits = RegExp(r'^[0-9]{1,19}$');
 
 /// Signals that a request body exceeded the allowed size.
 class _TooLarge implements Exception {}
