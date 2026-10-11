@@ -23,12 +23,16 @@ import 'picture.dart';
 const bool _enabled = bool.fromEnvironment('INKLAB_REPORT');
 const String _dir = 'build/inklab_report';
 
+/// Optional regex: only entries whose name matches (quick looks).
+const String _only = String.fromEnvironment('INKLAB_ONLY');
+
 void main() {
   test(
     'visual report',
     () {
       final entries = <ReportEntry>[];
       for (final e in suiteEntries()) {
+        if (!RegExp(_only).hasMatch(e.name)) continue;
         final s = e.subject;
         final file = e.name.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
         final images = <String, String>{};

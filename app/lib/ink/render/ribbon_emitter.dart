@@ -42,7 +42,7 @@ typedef RibbonCursor = ({int at, bool cut});
 /// stroke can [freeze] final pieces once and only rebuild its tail.
 class RibbonEmitter {
   RibbonEmitter(this.line, {required this.flatCaps, required this.width, required double step})
-    : tolerance = 0.004 * (1 + width),
+    : tolerance = math.min(0.012, 0.004 * (1 + width)),
       block = math.max(16, (24 / step).ceil());
 
   final RibbonLine line;
@@ -57,6 +57,15 @@ class RibbonEmitter {
   final int block;
 
   static const int _maxSpan = 32;
+
+  /// Within a run, a side may not run backwards by more than this many
+  /// centre-line steps per step (a mild fold of the inner side, at a bend
+  /// tighter than the radius, is fine: the non-zero fill still covers
+  /// exactly the union of the circles, see test/ribbon_exactness_test.dart).
+  static double foldAdvance = -2;
+
+  /// Cosine of the largest tangent turn per sample within a run.
+  static double foldCos = -0.5;
 
   /// Emits the whole outline from [from] to the end of the line. With
   /// [cut], the outline starts at [from] with a straight cut (the frozen
@@ -157,19 +166,19 @@ class RibbonEmitter {
     );
   }
 
-  /// Whether the envelope folds over segment [i] → i + 1: a side would run
-  /// backwards (a bend tighter than the radius) or turn too sharply to be
-  /// one smooth curve.
+  /// Whether the envelope breaks over segment [i] → i + 1: the samples
+  /// coincide, a side runs far backwards or the line turns too sharply
+  /// for the sides to follow (cusps are corners and split runs anyway).
   bool _folded(int i, int lo, int hi) {
     final x = line.x, y = line.y;
     final ux = x[i + 1] - x[i], uy = y[i + 1] - y[i];
     final u = math.sqrt(ux * ux + uy * uy);
     if (u < 1e-9) return true;
     final a = _offsets(i, lo, hi), b = _offsets(i + 1, lo, hi);
-    final min = 0.25 * u * u; // along the chord, a side must advance ≥ u / 4
+    final min = foldAdvance * u * u; // along the chord, a side must advance enough
     if ((b.lx - a.lx) * ux + (b.ly - a.ly) * uy < min) return true;
     if ((b.rx - a.rx) * ux + (b.ry - a.ry) * uy < min) return true;
-    return a.tx * b.tx + a.ty * b.ty < 0.85; // > ~32° per sample
+    return a.tx * b.tx + a.ty * b.ty < foldCos;
   }
 
   void _capsule(OutlineSink sink, int i) {

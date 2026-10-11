@@ -69,7 +69,7 @@ class OutlineSpec {
   /// at stabiliser 0 it removes the digitiser's sub-pixel jitter and keeps
   /// every visible detail (cusps are corners, which smoothing never
   /// crosses); it grows with the stabiliser.
-  double get positionSigma => (0.55 + 1.2 * streamline) * _scale;
+  double get positionSigma => (0.7 + 1.05 * streamline) * _scale;
 
   /// Length scale of the (causal) radius smoothing: from half a width at
   /// stabiliser 0 (just digitiser noise) to several widths.
