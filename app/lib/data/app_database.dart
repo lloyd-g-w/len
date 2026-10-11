@@ -131,7 +131,7 @@ class AppDatabase {
   ];
 
   /// Version 4: tags and which notebooks and pages carry them; notebooks'
-  /// own outlines.
+  /// own outlines; the sticker library.
   static void _organise(CommonDatabase db) {
     db.execute('''
       CREATE TABLE tags (
@@ -173,6 +173,19 @@ class AppDatabase {
         dirty       INTEGER NOT NULL DEFAULT 1
       )''');
     db.execute('CREATE INDEX outline_by_notebook ON outline(notebook_id)');
+    // Saved stickers: `content` is JSON (see `StickerCodec`).
+    db.execute('''
+      CREATE TABLE stickers (
+        id          TEXT PRIMARY KEY NOT NULL,
+        name        TEXT NOT NULL,
+        category    TEXT NOT NULL,
+        content     TEXT NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
   }
 
   /// Version 3: a recording's waveform blob (`''` = none), and stroke
