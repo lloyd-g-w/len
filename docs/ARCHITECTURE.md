@@ -673,7 +673,7 @@ GoodNotes-style rich text inside a box.
   the canvas (`TextBoxLayout` paints them via `ListMarker`), the editor
   (`WidgetSpan`s) and PDF export. Wrapped lines of a list item are not indented
   (no hanging indent in a single paragraph). `MarkerOffsets` maps text offsets
-  to laid-out offsets.
+  to laid-out offsets (`marker_offsets.dart`).
 - **Editing** (`features/editor/tools/text/`): `RichTextController` (a
   `TextEditingController`) renders the spans and maps the field's edits back
   onto the buffer (common prefix/suffix diff, the caret disambiguating repeated
