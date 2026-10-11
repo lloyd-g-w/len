@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 
 /// Progress of a long task, reported by the task and shown by
@@ -101,10 +102,9 @@ class ProgressDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return AlertDialog(
-      icon: Icon(Icons.hourglass_top_rounded, color: scheme.primary),
-      title: Text(title, textAlign: TextAlign.center),
+    return AppDialog(
+      icon: Icons.hourglass_top_rounded,
+      title: title,
       content: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 280, maxWidth: 360),
         child: ListenableBuilder(

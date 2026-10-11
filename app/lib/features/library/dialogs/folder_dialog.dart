@@ -75,11 +75,11 @@ class _FolderDialogState extends State<_FolderDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = Color(_color);
-    return AlertDialog(
+    return AppDialog(
       // Name, colours and icons can outgrow short (landscape phone) screens.
       scrollable: true,
       // The folder as it will look, in its colour.
-      icon: Center(
+      leading: Center(
         child: AnimatedContainer(
           duration: Motion.medium,
           width: 64,
@@ -94,7 +94,7 @@ class _FolderDialogState extends State<_FolderDialog> {
           ),
         ),
       ),
-      title: Text(widget.title),
+      title: widget.title,
       content: DialogBody(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -10,6 +10,7 @@ class MenuRow<T> extends PopupMenuItem<T> {
     required this.icon,
     required this.label,
     this.destructive = false,
+    super.enabled,
   }) : super(child: null, height: 44);
 
   final IconData icon;
@@ -24,10 +25,15 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
   @override
   Widget buildChild() {
     final scheme = Theme.of(context).colorScheme;
-    final color = widget.destructive ? scheme.error : scheme.onSurface;
+    final base = widget.destructive ? scheme.error : scheme.onSurface;
+    final color = widget.enabled ? base : base.withValues(alpha: 0.38);
     return Row(
       children: [
-        Icon(widget.icon, size: 20, color: widget.destructive ? color : scheme.onSurfaceVariant),
+        Icon(
+          widget.icon,
+          size: 20,
+          color: widget.destructive || !widget.enabled ? color : scheme.onSurfaceVariant,
+        ),
         const SizedBox(width: Gaps.md),
         Flexible(
           child: Text(

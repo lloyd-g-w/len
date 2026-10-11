@@ -149,7 +149,7 @@ void main() {
           await _convert(tester);
           expect(find.text('Recognised text'), findsOneWidget);
           await shoot(tester, shot);
-          await tester.tap(find.text('Replace with text'));
+          await tester.tap(find.text('Replace ink'));
           await settle(tester);
           await shoot(tester, '${shot}_replaced');
         });

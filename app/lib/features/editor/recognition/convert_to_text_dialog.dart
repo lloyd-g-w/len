@@ -97,9 +97,9 @@ class _DownloadDialog extends StatelessWidget {
     builder: (context, _) {
       final downloading = recognition.modelStatus == ModelStatus.downloading;
       final error = recognition.downloadError;
-      return AlertDialog(
-        icon: DialogIcon(Icons.download_rounded, color: Theme.of(context).colorScheme.primary),
-        title: const Text('Download handwriting model?', textAlign: TextAlign.center),
+      return AppDialog(
+        icon: Icons.download_rounded,
+        title: 'Download handwriting model?',
         content: DialogBody(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -133,7 +133,13 @@ class _DownloadDialog extends StatelessWidget {
                     final ok = await recognition.download();
                     if (ok && context.mounted) Navigator.pop(context, true);
                   },
-            child: Text(downloading ? 'Downloading…' : 'Download'),
+            child: Text(
+              downloading
+                  ? 'Downloading…'
+                  : error != null
+                  ? 'Try again'
+                  : 'Download',
+            ),
           ),
         ],
       );
@@ -185,8 +191,10 @@ class _ConvertDialogState extends State<_ConvertDialog> {
     final result = _result;
     final theme = Theme.of(context);
     final text = _text.text.trim();
-    return AlertDialog(
-      title: const Text('Convert to text'),
+    // Copy / Replace only once there is a reading to use.
+    final ready = result != null && !result.isEmpty && _error == null;
+    return AppDialog(
+      title: 'Convert to text',
       content: DialogBody(
         child: switch ((result, _error)) {
           (_, final Object _) => Text(
@@ -195,7 +203,7 @@ class _ConvertDialogState extends State<_ConvertDialog> {
           ),
           (null, _) => const Padding(
             padding: EdgeInsets.symmetric(vertical: Gaps.lg),
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(heightFactor: 1, child: CircularProgressIndicator()),
           ),
           (final r?, _) when r.isEmpty => const Text('No text was found in the selection.'),
           (final r?, _) => Column(
@@ -232,16 +240,20 @@ class _ConvertDialogState extends State<_ConvertDialog> {
         },
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        TextButton.icon(
-          onPressed: text.isEmpty ? null : () => Navigator.pop(context, _Copy(text)),
-          icon: const Icon(Icons.content_copy_rounded, size: 18),
-          label: const Text('Copy'),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(ready || (result == null && _error == null) ? 'Cancel' : 'Close'),
         ),
-        FilledButton(
-          onPressed: text.isEmpty ? null : () => Navigator.pop(context, _Replace(text)),
-          child: const Text('Replace with text'),
-        ),
+        if (ready) ...[
+          TextButton(
+            onPressed: text.isEmpty ? null : () => Navigator.pop(context, _Copy(text)),
+            child: const Text('Copy'),
+          ),
+          FilledButton(
+            onPressed: text.isEmpty ? null : () => Navigator.pop(context, _Replace(text)),
+            child: const Text('Replace ink'),
+          ),
+        ],
       ],
     );
   }

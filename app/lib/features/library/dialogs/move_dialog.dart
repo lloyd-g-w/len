@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/folder.dart';
+import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../folder_icons.dart';
 import '../library_controller.dart';
@@ -40,8 +41,8 @@ Future<MoveTarget?> showMoveDialog(
   addChildren(null, 1);
   return showDialog<MoveTarget>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
+    builder: (context) => AppDialog(
+      title: title,
       contentPadding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.lg, Gaps.md, 0),
       content: SizedBox(
         width: 420,

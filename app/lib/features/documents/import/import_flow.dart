@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/paper.dart';
+import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../pdf/pdf_import_flow.dart';
 import '../progress_dialog.dart';
@@ -110,10 +111,10 @@ class ImportFlow {
     ].join('\n\n');
     return showDialog<ImportChoice>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(name != null ? 'Open $name' : 'Open ${files.length} files'),
+      builder: (context) => AppDialog(
+        title: name != null ? 'Open “$name”' : 'Open ${files.length} files',
         content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
+          constraints: const BoxConstraints(maxWidth: dialogFormWidth),
           child: Text(message),
         ),
         actions: [
