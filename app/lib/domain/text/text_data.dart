@@ -1,0 +1,310 @@
+import 'paragraph_style.dart';
+import 'span_style.dart';
+import 'text_font.dart';
+
+export 'paragraph_style.dart';
+export 'span_style.dart';
+export 'text_font.dart';
+
+/// Horizontal alignment of a text box. Stored by [name].
+enum TextAlignment {
+  left,
+  center,
+  right;
+
+  static TextAlignment parse(Object? value) =>
+      values.firstWhere((a) => a.name == value, orElse: () => left);
+}
+
+/// The content and formatting of a text element (`SurfaceElement.data` of
+/// type `text`): plain [text] (lines separated by `\n`), character
+/// formatting as [spans] over it, one [ParaStyle] per line, and the box's
+/// defaults ([font], [fontSize], [color]) that unformatted text uses.
+///
+/// Keeping the plain text whole makes it directly searchable (the search
+/// index reads `data.text`). Spans are kept normalised: sorted,
+/// non-overlapping, non-empty, never plain, and adjacent equal spans
+/// merged; [paras] has exactly one entry per line. Parsing tolerates
+/// malformed values (element data is open, see SYNC_PROTOCOL.md).
+class TextData {
+  /// A box of plain [text]. Use [TextData.rich] for formatted text.
+  const TextData({
+    this.text = '',
+    this.font = TextFont.inter,
+    this.fontSize = 24,
+    this.color = defaultColor,
+    this.align = TextAlignment.left,
+    this.autoWidth = false,
+  }) : spans = const [],
+       _paras = const [];
+
+  TextData._(
+    this.text,
+    this.spans,
+    this._paras, {
+    required this.font,
+    required this.fontSize,
+    required this.color,
+    required this.align,
+    required this.autoWidth,
+  });
+
+  /// Formatted text; [spans] and [paras] are normalised.
+  factory TextData.rich({
+    required String text,
+    List<StyledRange> spans = const [],
+    List<ParaStyle> paras = const [],
+    TextFont font = TextFont.inter,
+    double fontSize = 24,
+    int color = defaultColor,
+    TextAlignment align = TextAlignment.left,
+    bool autoWidth = false,
+  }) => TextData._(
+    text,
+    normalizeSpans(spans, text.length),
+    _normalizeParas(paras, text),
+    font: font,
+    fontSize: fontSize.clamp(minFontSize, maxFontSize),
+    color: color,
+    align: align,
+    autoWidth: autoWidth,
+  );
+
+  static const int defaultColor = 0xFF1F2937;
+  static const double minFontSize = 6;
+  static const double maxFontSize = 400;
+
+  final String text;
+
+  /// Character formatting (see the class doc).
+  final List<StyledRange> spans;
+  final List<ParaStyle> _paras;
+
+  /// The box font, used where no span sets one.
+  final TextFont font;
+
+  /// Body font size in world units, used where no span sets one.
+  final double fontSize;
+
+  /// ARGB colour of text without a span colour.
+  final int color;
+  final TextAlignment align;
+
+  /// Whether the box is as wide as its text (it grows while typing) rather
+  /// than wrapping at a width the user chose.
+  final bool autoWidth;
+
+  /// One style per line of [text].
+  List<ParaStyle> get paras {
+    final lines = lineCount;
+    if (_paras.length == lines) return _paras;
+    return [for (var i = 0; i < lines; i++) i < _paras.length ? _paras[i] : ParaStyle.body];
+  }
+
+  int get lineCount => '\n'.allMatches(text).length + 1;
+
+  /// Whether any character or paragraph formatting is set.
+  bool get isRich => spans.isNotEmpty || _paras.any((p) => p != ParaStyle.body);
+
+  factory TextData.fromJson(Map<String, Object?> json) {
+    final size = json['size'];
+    final color = json['color'];
+    final text = json['text'] is String ? json['text']! as String : '';
+    final spans = <StyledRange>[];
+    if (json['spans'] case final List<Object?> list) {
+      for (final s in list) {
+        if (s is List && s.length == 3 && s[0] is int && s[1] is int && s[2] is Map) {
+          spans.add(StyledRange(s[0] as int, s[1] as int, SpanStyle.fromJson(s[2] as Map)));
+        }
+      }
+    }
+    final paras = json['paras'] is List
+        ? [for (final p in json['paras']! as List) ParaStyle.fromJson(p)]
+        : const <ParaStyle>[];
+    return TextData.rich(
+      text: text,
+      spans: spans,
+      paras: paras,
+      font: TextFont.parse(json['font']),
+      fontSize: size is num && size.isFinite ? size.toDouble() : 24,
+      color: color is int ? color : defaultColor,
+      align: TextAlignment.parse(json['align']),
+      autoWidth: json['autoWidth'] == true,
+    );
+  }
+
+  /// Merges into [base] so unknown keys written by newer clients survive
+  /// an edit made here.
+  Map<String, Object?> toJson([Map<String, Object?> base = const {}]) => {
+    ...base,
+    'text': text,
+    'spans': [for (final s in spans) s.toJson()],
+    'paras': [for (final p in _paras) p.toJson()],
+    'font': font.name,
+    'size': fontSize,
+    'color': color,
+    'align': align.name,
+    'autoWidth': autoWidth,
+  };
+
+  /// A copy with other box defaults. Changing [text] drops the formatting
+  /// (use [TextData.rich] to keep some).
+  TextData copyWith({
+    String? text,
+    TextFont? font,
+    double? fontSize,
+    int? color,
+    TextAlignment? align,
+    bool? autoWidth,
+  }) {
+    final same = text == null || text == this.text;
+    return TextData._(
+      text ?? this.text,
+      same ? spans : const [],
+      same ? _paras : const [],
+      font: font ?? this.font,
+      fontSize: (fontSize ?? this.fontSize).clamp(minFontSize, maxFontSize),
+      color: color ?? this.color,
+      align: align ?? this.align,
+      autoWidth: autoWidth ?? this.autoWidth,
+    );
+  }
+
+  /// The same formatting with other [spans] / [paras].
+  TextData withFormatting({List<StyledRange>? spans, List<ParaStyle>? paras}) => TextData.rich(
+    text: text,
+    spans: spans ?? this.spans,
+    paras: paras ?? this.paras,
+    font: font,
+    fontSize: fontSize,
+    color: color,
+    align: align,
+    autoWidth: autoWidth,
+  );
+
+  /// Every size (the box's and the spans') scaled by [factor], so the
+  /// text keeps its proportions (lasso resize, "Size" on a selection).
+  TextData scaled(double factor) {
+    if (factor == 1) return this;
+    double clamp(double v) => (v * factor).clamp(minFontSize, maxFontSize);
+    return TextData._(
+      text,
+      [
+        for (final s in spans)
+          s.style.size == null
+              ? s
+              : StyledRange(s.start, s.end, s.style.withSize(clamp(s.style.size!))),
+      ],
+      _paras,
+      font: font,
+      fontSize: clamp(fontSize),
+      color: color,
+      align: align,
+      autoWidth: autoWidth,
+    );
+  }
+
+  /// The box set to [size]: other sizes in it scale along.
+  TextData withFontSize(double size) => scaled(size.clamp(minFontSize, maxFontSize) / fontSize);
+
+  /// All text in [argb]: span colours are dropped.
+  TextData withColor(int argb) => TextData.rich(
+    text: text,
+    spans: [for (final s in spans) StyledRange(s.start, s.end, s.style.withColor(null))],
+    paras: paras,
+    font: font,
+    fontSize: fontSize,
+    color: argb,
+    align: align,
+    autoWidth: autoWidth,
+  );
+
+  /// All text in [value]: span fonts are dropped.
+  TextData withFont(TextFont value) => TextData.rich(
+    text: text,
+    spans: [for (final s in spans) StyledRange(s.start, s.end, s.style.withFont(null))],
+    paras: paras,
+    font: value,
+    fontSize: fontSize,
+    color: color,
+    align: align,
+    autoWidth: autoWidth,
+  );
+
+  /// The style of every UTF-16 unit of [text].
+  List<SpanStyle> charStyles() {
+    final styles = List<SpanStyle>.filled(text.length, SpanStyle.plain);
+    for (final s in spans) {
+      styles.fillRange(s.start, s.end, s.style);
+    }
+    return styles;
+  }
+
+  /// Sorted, clipped to [length], overlaps resolved (later spans win),
+  /// plain and empty ones dropped, adjacent equal ones merged.
+  static List<StyledRange> normalizeSpans(List<StyledRange> spans, int length) {
+    if (spans.isEmpty) return const [];
+    final styles = List<SpanStyle>.filled(length, SpanStyle.plain);
+    for (final s in spans) {
+      final start = s.start.clamp(0, length), end = s.end.clamp(0, length);
+      if (end > start) styles.fillRange(start, end, s.style);
+    }
+    return compact(styles);
+  }
+
+  /// Per-character [styles] as normalised ranges.
+  static List<StyledRange> compact(List<SpanStyle> styles) {
+    final out = <StyledRange>[];
+    var i = 0;
+    while (i < styles.length) {
+      final style = styles[i];
+      var j = i + 1;
+      while (j < styles.length && styles[j] == style) {
+        j++;
+      }
+      if (!style.isPlain) out.add(StyledRange(i, j, style));
+      i = j;
+    }
+    return List.unmodifiable(out);
+  }
+
+  static List<ParaStyle> _normalizeParas(List<ParaStyle> paras, String text) {
+    final lines = '\n'.allMatches(text).length + 1;
+    if (paras.every((p) => p == ParaStyle.body)) return const [];
+    return List.unmodifiable([
+      for (var i = 0; i < lines; i++) i < paras.length ? paras[i] : ParaStyle.body,
+    ]);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is TextData &&
+      other.text == text &&
+      other.font == font &&
+      other.fontSize == fontSize &&
+      other.color == color &&
+      other.align == align &&
+      other.autoWidth == autoWidth &&
+      _listEquals(other.spans, spans) &&
+      _listEquals(other.paras, paras);
+
+  @override
+  int get hashCode => Object.hash(
+    text,
+    font,
+    fontSize,
+    color,
+    align,
+    autoWidth,
+    Object.hashAll(spans),
+    Object.hashAll(paras),
+  );
+
+  static bool _listEquals<T>(List<T> a, List<T> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+}

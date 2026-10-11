@@ -97,7 +97,12 @@ class _FolderTileState extends State<FolderTile> {
             onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
             onHover: (h) => setState(() => _hovered = h),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(narrow ? Gaps.sm : Gaps.md, Gaps.sm, narrow ? 0 : Gaps.xs, Gaps.sm),
+              padding: EdgeInsets.fromLTRB(
+                narrow ? Gaps.sm : Gaps.md,
+                Gaps.sm,
+                narrow ? 0 : Gaps.xs,
+                Gaps.sm,
+              ),
               child: Row(
                 children: [
                   Container(

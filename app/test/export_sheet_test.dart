@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,9 @@ class _FakeExporter extends NotebookExporter {
   _FakeExporter(super.services);
 
   final pdfCalls = <List<NotebookPage>>[];
+
+  /// When set, [pdf] reports progress page by page, waiting for it each time.
+  Completer<void>? gate;
   final pngCalls = <(NotebookPage, double, bool)>[];
 
   @override
@@ -23,8 +27,14 @@ class _FakeExporter extends NotebookExporter {
     String? title,
     ExportProgress? onProgress,
     bool backgrounds = true,
+    void Function(int index)? onRasterized,
   }) async {
     pdfCalls.add(pages);
+    for (var i = 0; gate != null && i < pages.length; i++) {
+      onProgress?.call(ExportStage.writing, i, pages.length);
+      await gate!.future;
+      gate = Completer();
+    }
     return Uint8List.fromList([1, 2, 3]);
   }
 
@@ -120,6 +130,23 @@ void main() {
     expect(saved.single.$1, ['Lab p1-2,4.pdf']);
     expect(saved.single.$2, 'application/pdf');
     expect(find.text('Saved somewhere'), findsOneWidget);
+  });
+
+  testWidgets('an export can be cancelled: nothing is saved', (tester) async {
+    exporter.gate = Completer();
+    await open(tester);
+    await tester.tap(_exportButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Page 1 of 5'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('progress-cancel')));
+    await tester.pump();
+    expect(find.text('Cancelling…'), findsOneWidget);
+    exporter.gate!.complete(); // The exporter reports the next page → stops.
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(saved, isEmpty);
+    expect(find.textContaining('Export failed'), findsNothing);
   });
 
   testWidgets('PNG of the current page without templates is plain paper', (tester) async {

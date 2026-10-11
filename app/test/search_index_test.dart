@@ -13,6 +13,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/surface_element.dart';
+import 'package:len/domain/text/text_data.dart';
 
 import 'support/fake_server.dart' show FakeServer, apiFor, device;
 
@@ -159,6 +160,34 @@ void main() {
     // Deleting the page hides its boxes; reordering renumbers.
     s.pages.delete(second.id);
     expect(find('ribo'), isEmpty);
+  });
+
+  test('rich text boxes are indexed by their plain text (no markers or formatting)', () {
+    final nb = paged('Notes');
+    final page = s.pages.pagesOf(nb.id).single;
+    final rich = TextData.rich(
+      text: 'Groceries\nbuy oat milk',
+      spans: const [StyledRange(4, 7, SpanStyle(bold: true, color: 0xFFD00000))],
+      paras: const [
+        ParaStyle(heading: 1),
+        ParaStyle(list: ListKind.check),
+      ],
+    );
+    s.elements.save([
+      SurfaceElement(
+        id: 'r',
+        surfaceId: page.id,
+        type: 'text',
+        rect: const Rect.fromLTWH(10, 20, 200, 40),
+        z: 1,
+        createdAt: 1,
+        data: rich.toJson(),
+      ),
+    ]);
+    final hit = find('oat milk').single;
+    expect(hit.refId, 'r');
+    final body = s.database.db.select("SELECT body FROM search_docs WHERE ref_id = 'r'").single;
+    expect(body['body'], 'Groceries\nbuy oat milk');
   });
 
   test('canvas text boxes have no page number; images are not indexed', () {

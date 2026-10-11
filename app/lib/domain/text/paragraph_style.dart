@@ -1,0 +1,94 @@
+/// The kind of list a paragraph belongs to. Stored by [name] (except
+/// [none], which is not stored).
+enum ListKind {
+  none,
+  bullet,
+  number,
+
+  /// A to-do item with a checkbox (tap to toggle).
+  check;
+
+  static ListKind parse(Object? value) =>
+      values.firstWhere((k) => k != none && k.name == value, orElse: () => none);
+}
+
+/// Formatting of one paragraph (line) of a text box.
+///
+/// Stored compactly (only set attributes): `h` heading level (1 or 2),
+/// `l` list kind (`bullet`, `number`, `check`), `x` checked (true),
+/// `n` list indent level (1..[maxIndent]).
+class ParaStyle {
+  const ParaStyle({
+    this.heading = 0,
+    this.list = ListKind.none,
+    this.checked = false,
+    this.indent = 0,
+  });
+
+  static const ParaStyle body = ParaStyle();
+
+  /// Deepest list nesting.
+  static const int maxIndent = 4;
+
+  /// 0 = body text, 1 = heading 1, 2 = heading 2.
+  final int heading;
+  final ListKind list;
+
+  /// Whether a [ListKind.check] item is ticked.
+  final bool checked;
+
+  /// Nesting level of a list item, 0..[maxIndent].
+  final int indent;
+
+  bool get isList => list != ListKind.none;
+
+  /// Font size factor of the heading level.
+  double get sizeFactor => switch (heading) {
+    1 => 1.6,
+    2 => 1.3,
+    _ => 1,
+  };
+
+  factory ParaStyle.fromJson(Object? json) {
+    if (json is! Map) return body;
+    final h = json['h'], n = json['n'];
+    final list = ListKind.parse(json['l']);
+    return ParaStyle(
+      heading: h == 1 || h == 2 ? h as int : 0,
+      list: list,
+      checked: list == ListKind.check && json['x'] == true,
+      indent: list != ListKind.none && n is int ? n.clamp(0, maxIndent) : 0,
+    );
+  }
+
+  Map<String, Object?> toJson() => {
+    if (heading != 0) 'h': heading,
+    if (isList) 'l': list.name,
+    if (checked) 'x': true,
+    if (indent != 0) 'n': indent,
+  };
+
+  ParaStyle copyWith({int? heading, ListKind? list, bool? checked, int? indent}) {
+    final l = list ?? this.list;
+    return ParaStyle(
+      heading: heading ?? this.heading,
+      list: l,
+      checked: l == ListKind.check && (checked ?? this.checked),
+      indent: l == ListKind.none ? 0 : (indent ?? this.indent).clamp(0, maxIndent),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ParaStyle &&
+      other.heading == heading &&
+      other.list == list &&
+      other.checked == checked &&
+      other.indent == indent;
+
+  @override
+  int get hashCode => Object.hash(heading, list, checked, indent);
+
+  @override
+  String toString() => 'ParaStyle(${toJson()})';
+}

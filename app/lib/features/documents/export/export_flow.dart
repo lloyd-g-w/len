@@ -67,7 +67,9 @@ Future<void> runExport(
   final worker = exporter ?? NotebookExporter(AppScope.read(context));
   final subject = names.length == 1 ? names.single : '${names.length} images';
   try {
-    final files = await runWithSteps(context, 'Exporting', subject: subject, (progress) async {
+    final files = await runWithSteps(context, 'Exporting', subject: subject, cancellable: true, (
+      progress,
+    ) async {
       progress.stageStarted('Rendering…');
       if (options.format == ExportFormat.pdf) {
         final bytes = await worker.pdf(
@@ -80,20 +82,25 @@ Future<void> runExport(
             stage: stage == ExportStage.preparing ? 'Preparing pages…' : 'Writing PDF…',
           ),
         );
+        progress.check(); // Cancelled while the file was assembled.
         return [(bytes: bytes, name: names.single)];
       }
-      return [
+      final pngs = [
         for (final (i, page) in selected.indexed)
           (
             bytes: await _png(worker, page, options, () => progress.step(i, selected.length)),
             name: names[i],
           ),
       ];
+      progress.check();
+      return pngs;
     });
     if (!context.mounted) return;
     final saved = await save(files, mime: options.format.mime);
     if (saved == null || !context.mounted) return;
     showMessage(context, files.length == 1 ? 'Saved $saved' : 'Saved ${files.length} images');
+  } on Cancelled {
+    return; // Nothing was saved; rendered pages are already disposed.
   } on Exception catch (e) {
     debugPrint('Export failed: $e');
     if (context.mounted) showMessage(context, 'Export failed: $e');

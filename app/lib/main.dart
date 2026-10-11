@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'app_services.dart';
+import 'core/font_licenses.dart';
 import 'data/app_database.dart';
 import 'platform/app_directory.dart';
 import 'platform/blob_backend.dart';
@@ -13,6 +14,7 @@ import 'ui/app_theme.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerFontLicenses();
   // Web: one tab at a time owns the database.
   await claimSingleInstance(onWaiting: () => runApp(const _OpenElsewhere()));
   // Natively: files in the app-support directory. Web: IndexedDB.

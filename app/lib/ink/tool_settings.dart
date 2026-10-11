@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/settings_repository.dart';
 import '../domain/stroke.dart';
-import '../domain/text_data.dart';
+import '../domain/text/text_data.dart';
 import 'pen/eraser_config.dart';
 import 'pen/pen_config.dart';
 import 'shapes/shape_kind.dart';
@@ -23,7 +23,10 @@ enum EditorTool {
   lasso,
   shape,
   text,
-  laser;
+  laser,
+
+  /// Selects the text of imported PDF pages (offered when there are any).
+  selectText;
 
   /// Whether the tool draws ink with the active ink's quick colour and width.
   bool get usesInk => this == pen || this == highlighter || this == shape;
@@ -61,8 +64,20 @@ class ToolSettings extends ChangeNotifier {
 
   EditorTool get tool => _tool;
   set tool(EditorTool value) {
-    if (value == _tool) return;
+    if (value == _tool || (value == EditorTool.selectText && !_selectTextAvailable)) return;
     _tool = value;
+    notifyListeners();
+  }
+
+  bool _selectTextAvailable = false;
+
+  /// Whether [EditorTool.selectText] is offered: the open notebook has
+  /// imported PDF pages. Turning it off leaves the tool for the pen.
+  bool get selectTextAvailable => _selectTextAvailable;
+  set selectTextAvailable(bool value) {
+    if (value == _selectTextAvailable) return;
+    _selectTextAvailable = value;
+    if (!value && _tool == EditorTool.selectText) _tool = EditorTool.pen;
     notifyListeners();
   }
 

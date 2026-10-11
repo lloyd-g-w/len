@@ -6,6 +6,7 @@ import 'document/document_layout.dart';
 import 'document/page_overview.dart';
 import 'editor_session.dart';
 import 'page_navigator.dart';
+import 'pdf/pdf_outline_sheet.dart';
 
 /// Builds what the top bar and menus offer for [session]; page commands
 /// act on the current page. The editor screen supplies the actions that
@@ -50,6 +51,9 @@ EditorMenuActions editorMenuActions(
     onAddWithTemplate: paged ? () => commands.addPageWithTemplate(context) : null,
     onInsertPdf: paged ? () => commands.insertPdf(context) : null,
     onExport: paged ? () => commands.export(context) : null,
+    onOutline: paged && (session.pdf?.hasPdf ?? false)
+        ? () => showPdfOutline(context, session.pdf!)
+        : null,
     flow: doc?.flow,
     onFlow: paged ? onFlow : null,
     fit: doc?.fit,

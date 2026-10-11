@@ -13,6 +13,7 @@ import '../../ui/text_prompt.dart';
 import '../audio/audio_layer.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/audio_bar_button.dart';
+import '../audio/ui/playback_keys.dart';
 import '../documents/template_picker.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
@@ -37,6 +38,7 @@ import 'editor_session.dart';
 import 'editor_shortcuts.dart';
 import 'editor_toolbar.dart';
 import 'images/image_entry_points.dart';
+import 'pdf/pdf_layer.dart';
 import 'tabs/open_notebooks.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
@@ -296,6 +298,8 @@ class _EditorScreenState extends State<_EditorView> {
 
   void _openMenu(Offset at) {
     if (!mounted || _closing) return;
+    // A long press on PDF text selects the word there instead.
+    if (_session.pdf?.selectWordAt(at) ?? false) return;
     final doc = _session.doc;
     final actions = canvasActions(
       _session,
@@ -401,18 +405,20 @@ class _EditorScreenState extends State<_EditorView> {
               paste: () => _session.images.paste(context),
             ),
             ...EditorSearchLayer.shortcuts(_search),
+            ...?_session.pdf == null ? null : pdfShortcuts(_session.pdf!),
           },
           child: Focus(
             focusNode: _focusNode,
             autofocus: true,
             // Escape first closes a chrome menu opened with a tap (focus
-            // stayed here, out of the menu's reach).
+            // stayed here, out of the menu's reach). The audio player's
+            // keys (Space, ← / →) come before the editor's shortcuts.
             onKeyEvent: (_, event) =>
                 event is KeyDownEvent &&
                     event.logicalKey == LogicalKeyboardKey.escape &&
                     _guard.closeMenus()
                 ? KeyEventResult.handled
-                : KeyEventResult.ignored,
+                : handlePlaybackKey(_audio, event),
             // Automatic placement depends on the toolbar's width (its slots).
             child: ListenableBuilder(
               listenable: Listenable.merge([_session.tools, _toolbarHeight]),
@@ -455,6 +461,8 @@ class _EditorScreenState extends State<_EditorView> {
                               onFollowLink: _followLink,
                             ),
                           ),
+                          if (_session.pdf case final pdf?)
+                            Positioned.fill(child: PdfLayer(interaction: pdf)),
                           if (_session.canvas != null)
                             Positioned.fill(
                               child: Padding(

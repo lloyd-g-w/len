@@ -10,6 +10,7 @@ import '../../../ink/viewport.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
 import 'colour_sheet.dart';
+import 'selection_style_panel.dart';
 
 /// The floating context menu of a lasso selection, placed above it (or
 /// below when there is no room). Hidden while the selection is dragged.
@@ -102,9 +103,9 @@ class _MenuBar extends StatelessWidget {
         selection.strokes.isNotEmpty || elements.any((e) => e.knownType == ElementType.text);
     final convertible =
         onConvertToText != null && selection.strokes.any((s) => !s.tool.isHighlighter);
-    Future<void> recolour() async {
+    Future<void> recolour(BuildContext anchor) async {
       final colour = await pickColour(
-        context,
+        anchor,
         title: 'Recolour selection',
         initial: _currentColour(),
         tools: tools,
@@ -130,7 +131,14 @@ class _MenuBar extends StatelessWidget {
       _Action('Duplicate', Icons.library_add_outlined, selection.duplicate, shortcut: 'Ctrl+D'),
       if (!selection.clipboard.isEmpty)
         _Action('Paste', Icons.content_paste_rounded, onPaste, shortcut: 'Ctrl+V'),
-      if (colourable) _Action('Colour', Icons.palette_outlined, recolour),
+      if (colourable) ...[
+        _Action.anchored('Colour', Icons.palette_outlined, recolour),
+        _Action.anchored(
+          'Style',
+          Icons.tune_rounded,
+          (anchor) => showSelectionStyle(anchor, selection: selection, tools: tools),
+        ),
+      ],
       if (elements.isNotEmpty) ...[
         _Action('Bring to front', Icons.flip_to_front_rounded, selection.bringToFront),
         _Action('Send to back', Icons.flip_to_back_rounded, selection.sendToBack),
@@ -159,14 +167,21 @@ class _MenuBar extends StatelessWidget {
             children: [
               for (final a in shown) a.button(),
               if (more.isNotEmpty)
-                PopupMenuButton<_Action>(
-                  tooltip: 'More',
-                  icon: const Icon(Icons.more_horiz_rounded, size: 20),
-                  onSelected: (a) => a.onPressed?.call(),
-                  itemBuilder: (_) => [
-                    for (final a in more)
-                      MenuRow<_Action>(value: a, icon: a.icon, label: a.label, enabled: a.enabled),
-                  ],
+                Builder(
+                  builder: (anchor) => PopupMenuButton<_Action>(
+                    tooltip: 'More',
+                    icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                    onSelected: (a) => a.run(anchor),
+                    itemBuilder: (_) => [
+                      for (final a in more)
+                        MenuRow<_Action>(
+                          value: a,
+                          icon: a.icon,
+                          label: a.label,
+                          enabled: a.enabled,
+                        ),
+                    ],
+                  ),
                 ),
               delete.button(),
             ],
@@ -218,11 +233,23 @@ class _MenuLayout extends SingleChildLayoutDelegate {
 
 /// One command of the selection menu.
 class _Action {
-  const _Action(this.label, this.icon, this.onPressed, {this.shortcut, this.tooltip});
+  const _Action(this.label, this.icon, VoidCallback? onPressed, {this.shortcut, this.tooltip})
+    : _onPressed = onPressed,
+      onPressedAt = null;
+
+  /// An action whose popover anchors to the control it was started from.
+  const _Action.anchored(this.label, this.icon, this.onPressedAt)
+    : _onPressed = null,
+      shortcut = null,
+      tooltip = null;
 
   final String label;
   final IconData icon;
-  final VoidCallback? onPressed;
+  final VoidCallback? _onPressed;
+  final void Function(BuildContext anchor)? onPressedAt;
+
+  /// Runs the action from the control at [anchor].
+  void run(BuildContext anchor) => onPressedAt != null ? onPressedAt!(anchor) : _onPressed?.call();
 
   /// Keyboard shortcut shown in the tooltip, e.g. "Ctrl+C".
   final String? shortcut;
@@ -230,13 +257,16 @@ class _Action {
   /// Overrides the tooltip (e.g. why the action is unavailable).
   final String? tooltip;
 
-  bool get enabled => onPressed != null;
+  bool get enabled => _onPressed != null || onPressedAt != null;
 
   Widget button() {
     final hint = tooltip ?? (shortcut == null ? label : '$label ($shortcut)');
     return Tooltip(
       message: hint,
-      child: IconButton(onPressed: onPressed, icon: Icon(icon, size: 20)),
+      child: Builder(
+        builder: (anchor) =>
+            IconButton(onPressed: enabled ? () => run(anchor) : null, icon: Icon(icon, size: 20)),
+      ),
     );
   }
 }

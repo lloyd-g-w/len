@@ -1,0 +1,132 @@
+/// A source PDF page copied into a `package:pdf` document as Form XObjects.
+library;
+
+import 'dart:typed_data';
+
+import 'package:archive/archive.dart' show ZLibEncoder;
+import 'package:flutter/rendering.dart' show Matrix4, Size;
+import 'package:pdf/pdf.dart' as pw;
+// ignore: implementation_imports
+import 'package:pdf/src/priv.dart' as pw;
+
+/// Creates a Form XObject in [document] from the dictionary entries [values]
+/// (keys with a leading slash) and the raw stream bytes [data] (already encoded
+/// when [values] has a `/Filter`; deflated here otherwise).
+///
+/// `package:pdf` 3.13.1's `PdfGraphics.drawXObject` registers forms under a
+/// resource key without the leading slash (an invalid name), so the form is
+/// built on a [pw.PdfImage] (whose name is correct) drawn with `drawImage` on a
+/// unit square. Its dictionary and stream are replaced entirely, so the written
+/// object is a plain Form XObject. Encrypted target documents are not
+/// supported (`PdfImage.jpegStream` throws for them).
+pw.PdfImage rawFormXObject(
+  pw.PdfDocument document,
+  Map<String, pw.PdfDataType> values,
+  Uint8List data,
+) {
+  final v = {...values}..remove('/Length');
+  if (!v.containsKey('/Filter')) {
+    v.remove('/DecodeParms');
+    if (data.isNotEmpty) {
+      data = ZLibEncoder().encodeBytes(data);
+      v['/Filter'] = const pw.PdfName('/FlateDecode');
+    }
+  }
+  final form = pw.PdfImage.jpegStream(
+    document,
+    width: 1,
+    height: 1,
+    length: data.length,
+    write: (s) => s.putBytes(data),
+  );
+  form.params.values
+    ..clear()
+    ..addAll(v)
+    ..['/Type'] = const pw.PdfName('/XObject')
+    ..['/Subtype'] = const pw.PdfName('/Form');
+  return form;
+}
+
+/// A flattened annotation appearance: a form drawn with [matrix] in the
+/// source page's default user space.
+class AnnotationAppearance {
+  /// Creates an appearance placement.
+  AnnotationAppearance(this.form, this.matrix);
+
+  /// The copied appearance stream.
+  final pw.PdfImage form;
+
+  /// The matrix `[a b c d e f]` mapping form space (after its `/Matrix`) to
+  /// page space (PDF 32000-1 §12.5.5 matrix A).
+  final List<double> matrix;
+}
+
+/// A page imported by `PdfPageImporter`, ready to be drawn on target pages.
+class ImportedPdfPage {
+  /// Creates an imported page; normally done by `PdfPageImporter.importPage`.
+  ImportedPdfPage({
+    required this.content,
+    required this.annotations,
+    required this.cropBox,
+    required this.rotate,
+  });
+
+  /// The page content as a form whose `/BBox` is [cropBox].
+  final pw.PdfImage content;
+
+  /// Flattened annotation appearances, drawn above [content] in order.
+  final List<AnnotationAppearance> annotations;
+
+  /// The visible region `[x0, y0, x1, y1]` in source page space.
+  final List<double> cropBox;
+
+  /// The page rotation: 0, 90, 180 or 270 (clockwise when displayed).
+  final int rotate;
+
+  /// The displayed page size in points, with [rotate] applied.
+  Size get displayedSize {
+    final w = cropBox[2] - cropBox[0], h = cropBox[3] - cropBox[1];
+    return rotate % 180 == 0 ? Size(w, h) : Size(h, w);
+  }
+
+  /// Draws the page (and its annotation appearances) filling the rectangle
+  /// `[0, 0, width, height]` of the target page (points, y up), rotated by
+  /// [rotate] and scaled independently along x and y.
+  void draw(pw.PdfGraphics g, double width, double height) {
+    final m = pageMatrix(cropBox, rotate, width, height);
+    g
+      ..saveContext()
+      ..setTransform(_matrix4(m))
+      ..drawRect(cropBox[0], cropBox[1], cropBox[2] - cropBox[0], cropBox[3] - cropBox[1])
+      ..clipPath()
+      ..drawImage(content, 0, 0, 1, 1);
+    for (final a in annotations) {
+      g
+        ..saveContext()
+        ..setTransform(_matrix4(a.matrix))
+        ..drawImage(a.form, 0, 0, 1, 1)
+        ..restoreContext();
+    }
+    g.restoreContext();
+  }
+
+  /// The matrix `[a b c d e f]` mapping source page space onto the target
+  /// rectangle `[0, 0, width, height]` for a page with [cropBox] `[x0 y0 x1 y1]`
+  /// shown rotated clockwise by [rotate] degrees (0, 90, 180 or 270).
+  static List<double> pageMatrix(List<double> cropBox, int rotate, double width, double height) {
+    final [x0, y0, x1, y1] = cropBox;
+    final cw = x1 - x0, ch = y1 - y0;
+    final r = ((rotate ~/ 90) % 4 + 4) % 4;
+    final sx = width / (r.isEven ? cw : ch);
+    final sy = height / (r.isEven ? ch : cw);
+    return switch (r) {
+      0 => [sx, 0, 0, sy, -sx * x0, -sy * y0],
+      1 => [0, -sy, sx, 0, -sx * y0, sy * x1],
+      2 => [-sx, 0, 0, -sy, sx * x1, sy * y1],
+      _ => [0, sy, -sx, 0, sx * y1, -sy * x0],
+    };
+  }
+
+  static Matrix4 _matrix4(List<double> m) =>
+      Matrix4(m[0], m[1], 0, 0, m[2], m[3], 0, 0, 0, 0, 1, 0, m[4], m[5], 0, 1);
+}

@@ -34,12 +34,16 @@ class ShapeTool implements PointerTool {
   static const double minDrag = 4;
 
   Offset? _start;
+
+  /// When the drag began (epoch ms): the shape's `createdAt`.
+  int _startedAt = 0;
   Offset? _startScreen;
   bool _dragged = false;
 
   @override
   void down(ToolPointer p) {
     _start = p.world;
+    _startedAt = clock.nowMs();
     _startScreen = p.screen;
     _dragged = false;
     const ink = InkTool.ballpoint;
@@ -81,7 +85,7 @@ class ShapeTool implements PointerTool {
           width: live.width,
           style: live.style,
           points: points,
-          createdAt: clock.nowMs(),
+          createdAt: _startedAt,
         ),
       );
     }

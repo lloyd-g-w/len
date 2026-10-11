@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'dart:ui' show Canvas, Rect, Size;
 
 import 'package:flutter/foundation.dart';
 
@@ -10,8 +11,21 @@ import '../../../domain/notebook_page.dart';
 /// right now (possibly at a lower resolution, or null) and schedules a
 /// render at the requested size; listeners are notified when it is ready.
 abstract class PageBackgrounds implements Listenable {
-  /// An image of [background], ideally about [pixelWidth] pixels wide.
+  /// An image of the whole [background], ideally about [pixelWidth] pixels
+  /// wide (e.g. for thumbnails).
   ui.Image? imageFor(PageBackground background, double pixelWidth);
+
+  /// Paints [background] over a page of [page] units at the origin of
+  /// [canvas], sharp in the [visible] part (page units) at [pixelsPerUnit]
+  /// device pixels per unit. Deep zoom may paint only the visible part
+  /// sharply (tiles) over a coarser whole page.
+  void paint(
+    Canvas canvas,
+    PageBackground background,
+    Size page,
+    Rect visible,
+    double pixelsPerUnit,
+  );
 
   void dispose();
 }

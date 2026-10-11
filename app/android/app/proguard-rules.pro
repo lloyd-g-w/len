@@ -15,8 +15,17 @@
 -keep class androidx.room.** { *; }
 -dontwarn androidx.room.paging.**
 
-# ML Kit digital ink plugin: keep its Flutter plugin + method handlers intact
-# (a release build reported MissingPluginException for vision#manageInkModels).
+# ML Kit (handwriting recognition). Its startup provider discovers component
+# registrars by class name and instantiates them reflectively; R8 otherwise
+# strips their no-arg constructors (NoSuchMethodException → the plugin fails
+# to register → MissingPluginException in Dart). Partial keeps of only some
+# ML Kit packages are worse: kept classes then reference renamed internals
+# ("Unsatisfied dependency" crash at startup). So keep ML Kit whole, plus the
+# Flutter plugin bridge, which R8 cannot see is reached from Dart.
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.internal.mlkit_** { *; }
+-keep class * implements com.google.firebase.components.ComponentRegistrar { <init>(); }
+-keep class com.google.firebase.components.** { *; }
 -keep class com.google_mlkit_commons.** { *; }
 -keep class com.google_mlkit_digital_ink_recognition.** { *; }
--keep class com.google.mlkit.vision.digitalink.** { *; }
+-dontwarn com.google.mlkit.**

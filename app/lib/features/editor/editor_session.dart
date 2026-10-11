@@ -22,6 +22,8 @@ import 'document/document_layout.dart';
 import 'document/page_fit.dart';
 import 'document/undo_target.dart';
 import 'images/editor_images.dart';
+import 'pdf/pdf_interaction.dart';
+import 'pdf/pdf_page_info.dart';
 import 'tabs/open_notebooks.dart';
 
 /// The engine side of one open editor: tool settings, input routing, the
@@ -59,8 +61,17 @@ class EditorSession {
     } else {
       final doc = this.doc = _openDocument(current, initialView);
       commands = DocumentCommands(services: services, notebook: notebook, doc: doc);
-      backgrounds = PdfBackgroundCache(blobs: services.blobs, fetch: services.sync.fetchBlob);
+      final backgrounds = this.backgrounds = PdfBackgroundCache(
+        blobs: services.blobs,
+        fetch: services.sync.fetchBlob,
+      );
       content = _contentFor(doc.activeModel, doc.pageViewport);
+      final pdf = this.pdf = PdfInteraction(
+        doc: doc,
+        tools: tools,
+        source: PdfrxInfoSource(backgrounds.renderer, services.blobs),
+      );
+      content.selectText = pdf.tool;
       final animator = docAnimator = ViewportAnimator(doc.viewport);
       doc.beforeJump = animator.stop;
       input = doc.input = _inputFor(
@@ -108,6 +119,9 @@ class EditorSession {
   DocumentController? doc;
   DocumentCommands? commands;
   PdfBackgroundCache? backgrounds;
+
+  /// Text selection, links and outline of imported PDF pages.
+  PdfInteraction? pdf;
 
   /// Drives the document's inertial scrolling.
   ViewportAnimator? docAnimator;
@@ -187,6 +201,7 @@ class EditorSession {
       }
       commands!.reload();
       backgrounds?.retryMissing(); // New pages may bring new PDFs.
+      pdf?.info.retry();
     }
     for (final surfaceId in changes.strokeSurfaces) {
       if (surfaceId == canvas?.surfaceId) canvas!.reload();
@@ -206,6 +221,7 @@ class EditorSession {
     canvasViewport?.dispose();
     docAnimator?.dispose();
     commands?.dispose();
+    pdf?.dispose();
     doc?.dispose();
     backgrounds?.dispose();
     live.dispose();

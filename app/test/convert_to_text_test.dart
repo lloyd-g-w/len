@@ -8,7 +8,7 @@ import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
-import 'package:len/domain/text_data.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ink/recognition/convert_to_text.dart';
 import 'package:len/ink/recognition/handwriting_recognizer.dart';

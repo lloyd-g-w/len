@@ -95,7 +95,7 @@ class AppDialog extends StatelessWidget {
       content: content,
       contentPadding: contentPadding,
       scrollable: scrollable,
-      actions: actions,
+      actions: actions.isEmpty ? null : actions,
       actionsOverflowDirection: VerticalDirection.up,
       actionsOverflowAlignment: OverflowBarAlignment.end,
       actionsOverflowButtonSpacing: 0,

@@ -1,19 +1,22 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../domain/surface_element.dart';
+import '../../../domain/text/text_data.dart';
 import '../../../ink/elements/text_edit_session.dart';
 import '../../../ink/elements/text_layout.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/viewport.dart';
+import 'text/list_marker_view.dart';
+import 'text/rich_text_controller.dart';
+import 'text/rich_text_field.dart';
 import 'text_format_bar.dart';
 
-/// Edits the session's text box in place: a real [TextField] laid out in
+/// Edits the session's text box in place: a real text field laid out in
 /// world units (exactly as the box will render) and transformed by the
-/// viewport, a grip to move it, a grip to change its width, and a
-/// formatting bar above it.
+/// viewport, a grip to move it, grips on both sides to change its width,
+/// and a formatting bar above it.
 class TextBoxEditor extends StatefulWidget {
   const TextBoxEditor({
     super.key,
@@ -31,7 +34,7 @@ class TextBoxEditor extends StatefulWidget {
 }
 
 class _TextBoxEditorState extends State<TextBoxEditor> {
-  final TextEditingController _text = TextEditingController();
+  final RichTextController _text = RichTextController(const TextData());
   final FocusNode _focus = FocusNode(debugLabel: 'TextBoxEditor');
   String? _editingId;
 
@@ -40,9 +43,21 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   @override
   void initState() {
     super.initState();
+    _text
+      ..onDataChanged = _push
+      ..markerBuilder = (m) => ListMarkerView(
+        marker: m,
+        onToggle: () {
+          _text.toggleChecked(m.line);
+          _focus.requestFocus();
+        },
+      );
     _session.addListener(_onSession);
     _onSession();
   }
+
+  /// The field's text and formatting → the session.
+  void _push() => _session.setData(_text.data);
 
   @override
   void dispose() {
@@ -55,13 +70,17 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   /// A new box (or another box) started: load its text and focus it.
   void _onSession() {
     final id = _session.current?.id;
-    if (id == _editingId) return;
+    if (id == _editingId) {
+      // The session may end auto width (box resized or grown to its limit).
+      final auto = _session.data.autoWidth;
+      if (id != null && _text.box.autoWidth != auto) {
+        _text.adoptBox(_text.box.copyWith(autoWidth: auto));
+      }
+      return;
+    }
     _editingId = id;
     if (id == null) return;
-    _text.value = TextEditingValue(
-      text: _session.data.text,
-      selection: TextSelection.collapsed(offset: _session.data.text.length),
-    );
+    _text.load(_session.data);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _editingId != null) _focus.requestFocus();
     });
@@ -81,13 +100,13 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
         final element = _session.current;
         if (element == null) return const SizedBox.shrink();
         final scale = widget.viewport.scale;
-        final data = _session.data;
         final accent = Theme.of(context).colorScheme.primary;
         // The outline sits a few pixels outside the text, which is laid out
         // exactly as it renders.
         final pad = 6 / scale;
+        final cursor = 2 / scale;
         final box = SizedBox(
-          width: element.rect.width,
+          width: element.rect.width + RichTextField.caretMargin(cursor),
           child: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -106,33 +125,12 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                 ),
               ),
               DefaultTextEditingShortcuts(
-                child: CallbackShortcuts(
-                  bindings: {const SingleActivator(LogicalKeyboardKey.escape): _session.end},
-                  child: TextField(
-                    key: const ValueKey('text-box-field'),
-                    controller: _text,
-                    focusNode: _focus,
-                    maxLines: null,
-                    style: TextLayout.styleOf(data),
-                    textAlign: TextLayout.alignOf(data),
-                    cursorColor: accent,
-                    cursorWidth: 2 / scale,
-                    // Fully explicit, so the app's input theme (fill,
-                    // padding, focus outline) cannot shift the text off
-                    // where the box renders it.
-                    decoration: const InputDecoration(
-                      isCollapsed: true,
-                      filled: false,
-                      contentPadding: EdgeInsets.zero,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      errorBorder: InputBorder.none,
-                      focusedErrorBorder: InputBorder.none,
-                    ),
-                    onChanged: (text) => _session.setData(_session.data.copyWith(text: text)),
-                  ),
+                child: RichTextField(
+                  controller: _text,
+                  focusNode: _focus,
+                  cursorWidth: cursor,
+                  cursorColor: accent,
+                  onDone: _session.end,
                 ),
               ),
             ],
@@ -157,43 +155,54 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                       alignment: Alignment.topLeft,
                       icon: Icons.open_with_rounded,
                       tooltip: 'Move',
-                      onDrag: (d) => _session.setRect(element.rect.shift(d)),
+                      onDrag: (d) => _session.setRect(_session.current!.rect.shift(d)),
                     ),
-                    _grip(
-                      scale,
-                      accent,
-                      pad: pad,
-                      alignment: Alignment.centerRight,
-                      icon: Icons.width_normal_outlined,
-                      tooltip: 'Width',
-                      onDrag: (d) {
-                        final r = _session.current!.rect;
-                        _session.setRect(Rect.fromLTWH(r.left, r.top, r.width + d.dx, r.height));
-                      },
-                    ),
+                    for (final side in [Alignment.centerLeft, Alignment.centerRight])
+                      _grip(
+                        scale,
+                        accent,
+                        pad: pad,
+                        alignment: side,
+                        icon: Icons.drag_indicator_rounded,
+                        tooltip: 'Width',
+                        onDrag: (d) => _resize(side.x, d),
+                      ),
                   ],
                 ),
               ),
             ),
             TextFormatBar(
               anchor: _screenBounds(element),
-              data: data,
+              controller: _text,
               tools: widget.tools,
-              onChanged: (d) {
-                // The field holds the latest text, even before a rebuild.
-                _session.setData(d.copyWith(text: _text.text));
-                widget.tools.textStyle = d;
-              },
+              onBoxChanged: (box) => widget.tools.textStyle = box,
               onDelete: () {
-                _session.setData(data.copyWith(text: ''));
+                _session.setData(const TextData());
                 _session.end();
               },
               onDone: _session.end,
+              refocus: _focus.requestFocus,
             ),
           ],
         );
       },
     );
+  }
+
+  /// Drags the left (`side` < 0) or right edge of the box by [d] (along
+  /// the box's own axis).
+  void _resize(double side, Offset d) {
+    final e = _session.current;
+    if (e == null) return;
+    final rot = e.rotation;
+    final along = d.dx * math.cos(rot) + d.dy * math.sin(rot);
+    final r = e.rect;
+    if (side > 0) {
+      _session.setWidth(r.left, r.width + along);
+    } else {
+      final width = math.max(r.width - along, TextLayout.minWidth);
+      _session.setWidth(r.right - width, width);
+    }
   }
 
   /// A round handle on the box edge (constant size on screen) that drags

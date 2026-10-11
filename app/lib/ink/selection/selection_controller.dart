@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/clock.dart';
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
+import '../../domain/text/text_data.dart';
 import '../elements/element_order.dart';
 import '../geometry/affine.dart';
 import '../render/content_painter.dart';
@@ -195,6 +196,39 @@ class SelectionController extends ChangeNotifier {
       [for (final s in _strokes) TransformItems.recolorStroke(s, argb, id: clock.newId())],
       [for (final e in _elements) TransformItems.recolorElement(e, argb)],
       frame: _frame,
+    );
+  }
+
+  /// Changes every selected text box by [update] (font, size, …) as one
+  /// undoable edit; strokes and other elements are kept.
+  void restyleText(TextData Function(TextData) update) {
+    if (!_elements.any((e) => e.knownType == ElementType.text)) return;
+    _replace(_strokes, [
+      for (final e in _elements) TransformItems.restyleText(e, update),
+    ], frame: null);
+  }
+
+  /// Gives every selected stroke line [width] and/or pen [tool] (with the
+  /// [StrokeStyle] [styleFor] makes for it) as one undoable edit.
+  void restyleInk({
+    double? width,
+    InkTool? tool,
+    StrokeStyle Function(InkTool tool, double width)? styleFor,
+  }) {
+    if (_strokes.isEmpty) return;
+    _replace(
+      [
+        for (final s in _strokes)
+          TransformItems.restyleStroke(
+            s,
+            width: width,
+            tool: tool,
+            style: tool == null || tool == s.tool ? null : styleFor?.call(tool, width ?? s.width),
+            id: clock.newId(),
+          ),
+      ],
+      _elements,
+      frame: width == null ? _frame : null,
     );
   }
 

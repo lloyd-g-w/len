@@ -8,6 +8,7 @@ environment:
   sdk: ^3.13.3
 
 dependencies:
+  archive: ^4.4.0
   audioplayers: ^6.8.1
   cross_file: ^0.3.5+5
   crypto: ^3.0.7
@@ -33,6 +34,7 @@ dependencies:
   sqlite3: ^3.7.0
   uuid: ^4.6.0
   web: ^1.1.1
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:
@@ -41,3 +43,43 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Text-box fonts (SIL OFL 1.1; built by tool/build_fonts.py). Bundled so
+  # text boxes look and wrap the same on every platform and in PDF export.
+  assets:
+    - assets/fonts/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Inter-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Inter-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-Regular.ttf
+        - asset: assets/fonts/Lora-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Lora-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Lora-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+        - asset: assets/fonts/JetBrainsMono-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/JetBrainsMono-Italic.ttf
+          style: italic
+        - asset: assets/fonts/JetBrainsMono-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: Caveat
+      fonts:
+        - asset: assets/fonts/Caveat-Regular.ttf
+        - asset: assets/fonts/Caveat-Bold.ttf
+          weight: 700

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../domain/paper.dart';
 import '../../../domain/stroke.dart';
+import '../../../domain/surface_element.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ink/tools/content_hit_test.dart';
 import '../../../ink/viewport.dart';
@@ -46,6 +47,22 @@ abstract class ReplayTarget {
     }
     return null;
   }
+
+  /// The topmost element (text box, image) under [screen].
+  SurfaceElement? elementAt(Offset screen) {
+    final world = viewport.toWorld(screen);
+    for (final s in visible(viewport.size)) {
+      final local = world - s.origin;
+      if (s.clip != null && !s.clip!.contains(local)) continue;
+      final hit = ContentHitTest.elementAt(s.model, local);
+      if (hit != null) return hit;
+    }
+    return null;
+  }
+
+  /// When the content under [screen] was created (epoch ms): a stroke near
+  /// it, else a text box or image under it; null over empty paper.
+  int? createdAtUnder(Offset screen) => strokeAt(screen)?.createdAt ?? elementAt(screen)?.createdAt;
 }
 
 class _CanvasTarget extends ReplayTarget {

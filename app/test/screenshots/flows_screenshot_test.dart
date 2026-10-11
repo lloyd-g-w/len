@@ -102,10 +102,16 @@ void main() {
 
       final done = Completer<void>();
       unawaited(
-        runWithSteps(ctx(tester), 'Exporting', subject: 'Physics — Mechanics.pdf', (progress) {
-          progress.step(41, 120, stage: 'Writing PDF…');
-          return done.future;
-        }),
+        runWithSteps(
+          ctx(tester),
+          'Exporting',
+          subject: 'Physics — Mechanics.pdf',
+          cancellable: true,
+          (progress) {
+            progress.step(41, 120, stage: 'Writing PDF…');
+            return done.future;
+          },
+        ),
       );
       await settle(tester);
       await shoot(tester, 'dialog_progress_${mode.name}');

@@ -74,7 +74,8 @@ class ToolDescriptor {
   }
 }
 
-/// The toolbar's tools, in display order.
+/// The toolbar's tools, in display order (Select PDF text only in notebooks
+/// with imported PDF pages).
 List<ToolDescriptor> editorTools(ToolSettings tools) => [
   ToolDescriptor(
     tool: EditorTool.pen,
@@ -144,4 +145,12 @@ List<ToolDescriptor> editorTools(ToolSettings tools) => [
     shortcut: 'K',
     inkColor: () => 0xFFFF2D2D,
   ),
+  if (tools.selectTextAvailable)
+    const ToolDescriptor(
+      tool: EditorTool.selectText,
+      icon: Icon(selectTextIcon),
+      label: 'Select PDF text',
+      shortLabel: 'Select',
+      shortcut: 'X',
+    ),
 ];
