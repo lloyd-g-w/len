@@ -57,7 +57,19 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
   backgrounds on or off, PNG resolution (192 / 384 dpi); several PNGs shared or saved at once
 - ⬜ Cancel long imports / exports
-- ⬜ Planner / custom (image) templates
+- ✅ Planner templates: daily planner, weekly planner (week grid), monthly calendar — date-aware
+  (pick the first month and 1–12 months; correct days, leap years, ISO weeks), optionally a linked
+  planner (each month followed by its weeks and days) with month → week → day links (finger tap
+  in stylus mode, Ctrl/⌘-click, long-press menu; "Add page" when a target is missing); adding a
+  page after a planner page continues the dates
+- ✅ More templates: to-do list, meeting notes, storyboard, graph paper (mm, detail appears when
+  zooming in), engineering paper — all procedural (vector lines and text, crisp at any zoom, also
+  in PDF export)
+- ✅ Custom templates ("My templates", synced): import an image or a PDF page, "Save page as
+  template"; rename / delete; usable for new notebooks and pages
+- ✅ Template picker: categories (Basic, Writing, Planners, Paper, My templates), search, live
+  previews
+- ⬜ Planner options: week starting on Sunday, localised month and day names, yearly overview
 - ⬜ Tiled PDF rendering for extreme zoom; PDF text selection / links / outline
 - ⬜ Export keeps imported PDF pages as vectors (currently embedded at 150 dpi)
 
@@ -90,7 +102,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   colour (dialog on wide screens, tall sheet on phones); grouped template gallery
 - ✅ Selection mode: favourite, move, trash (undo), restore, delete forever for many notebooks
 - ✅ Cards show page count and short dates; consistent dialogs; empty states with actions
-- ⬜ "New…" tile in the grid; folder icons
+- ✅ "New…" tile in the grid; folder icons (synced, picked in the folder dialog)
 
 ## App
 - ✅ Web target (PWA): SQLite wasm + IndexedDB, blobs in IndexedDB, PDF import/render (PDFium wasm),
@@ -101,7 +113,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   keyboard shortcuts, redesigned settings
 - ✅ Settings: theme previews, Stylus / Gestures / Editor (toolbar position) sections with
   descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
-- ⬜ Two-pane settings on wide screens
+- ✅ Two-pane settings on wide screens
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
   export, focus, more menu), tool-descriptor toolbar with contextual quick controls, toolbar
   position (automatic / top / bottom / floating, draggable), focus mode (F11 / Ctrl+.) with
