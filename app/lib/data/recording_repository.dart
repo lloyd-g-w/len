@@ -4,6 +4,7 @@ import 'package:sqlite3/common.dart';
 
 import '../domain/recording.dart';
 import 'blob_store.dart';
+import 'record_fields.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
@@ -129,33 +130,21 @@ class RecordingRepository extends SyncableTable {
       );
       return;
     }
-    final d = record.data!;
-    final notebookId = d['notebookId'];
-    final blob = d['blob'];
-    final durationMs = d['durationMs'];
-    final startedAt = d['startedAt'];
-    if (notebookId is! String ||
-        blob is! String ||
-        !BlobStore.isValidId(blob) ||
-        durationMs is! int ||
-        startedAt is! int) {
-      throw FormatException('Malformed recording ${record.id}');
-    }
-    final title = d['title'];
-    final mime = d['mime'];
-    final rawSegments = d['segments'];
-    final segments = rawSegments is List
-        ? rawSegments.map(RecordingSegment.tryParse).nonNulls.toList()
-        : const <RecordingSegment>[];
+    final f = RecordFields(record);
+    final blob = f.string('blob');
+    if (!BlobStore.isValidId(blob)) f.invalid('blob');
+    final segments = [
+      for (final s in f.list('segments')) RecordingSegment.tryParse(s) ?? f.invalid('segments'),
+    ];
     _write(
       Recording(
         id: record.id,
-        notebookId: notebookId,
+        notebookId: f.string('notebookId'),
         blob: blob,
-        durationMs: durationMs,
-        startedAt: startedAt,
-        title: title is String ? title : '',
-        mime: mime is String ? mime : 'audio/mp4',
+        durationMs: f.integer('durationMs'),
+        startedAt: f.integer('startedAt'),
+        title: f.string('title'),
+        mime: f.string('mime'),
         updatedAt: record.updatedAt,
         segments: segments,
       ),

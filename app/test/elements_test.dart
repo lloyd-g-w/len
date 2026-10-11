@@ -107,6 +107,8 @@ void main() {
           'y': 2,
           'w': 3,
           'h': 4,
+          'rotation': 0.5,
+          'z': -2,
           'createdAt': 9,
           'data': {'blob': 'abc'},
           'extra': 'ignored',
@@ -117,22 +119,40 @@ void main() {
       expect(loaded.type, 'sticker');
       expect(loaded.knownType, isNull);
       expect(loaded.data, {'blob': 'abc'});
-      expect(loaded.z, 9); // missing z defaults to createdAt
+      expect(loaded.rotation, 0.5);
+      expect(loaded.z, -2);
       elements.markAllDirty();
       expect(elements.dirtyRecords(10).single.data!['data'], {'blob': 'abc'});
     });
 
-    test('malformed payloads are rejected before writing', () {
-      final bad = SyncRecord(
+    test('malformed or partial payloads are rejected before writing', () {
+      const complete = {
+        'surfaceId': 's',
+        'type': 'text',
+        'x': 0,
+        'y': 0,
+        'w': 10,
+        'h': 10,
+        'rotation': 0,
+        'z': 1,
+        'createdAt': 1,
+        'data': {'text': 'hi'},
+      };
+      SyncRecord record(Map<String, Object?> data) => SyncRecord(
         collection: 'elements',
         id: 'x',
         updatedAt: 5,
         deviceId: 'b',
         deleted: false,
-        data: {'surfaceId': 's', 'type': 'text', 'x': 'nope'},
+        data: data,
       );
-      expect(() => elements.applyRemote(bad), throwsFormatException);
+      expect(() => elements.applyRemote(record({...complete, 'x': 'nope'})), throwsFormatException);
+      for (final key in complete.keys) {
+        final missing = {...complete}..remove(key);
+        expect(() => elements.applyRemote(record(missing)), throwsFormatException, reason: key);
+      }
       expect(elements.dirtyRecords(10), isEmpty);
+      expect(elements.applyRemote(record(complete)), isTrue);
     });
   });
 

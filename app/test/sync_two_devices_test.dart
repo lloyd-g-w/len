@@ -117,6 +117,47 @@ Map<String, Object?> _record(
   'data': data,
 };
 
+/// A complete `notebooks` payload (every field is required on the wire).
+Map<String, Object?> _notebookData(String title, {String kind = 'canvas'}) => {
+  'title': title,
+  'kind': kind,
+  'paper': 'blank',
+  'paperColor': 'white',
+  'coverColor': 0,
+  'coverStyle': 'plain',
+  'createdAt': 1,
+  'editedAt': 1,
+  'folderId': null,
+  'favorite': false,
+  'trashedAt': null,
+};
+
+/// A complete `pages` payload.
+Map<String, Object?> _pageData(String notebookId, {Object? background}) => {
+  'notebookId': notebookId,
+  'sortKey': 1.0,
+  'width': 600,
+  'height': 800,
+  'paper': 'blank',
+  'paperColor': 'white',
+  'bookmarked': false,
+  'background': background,
+};
+
+/// A complete `elements` payload of a text box.
+Map<String, Object?> _textData(String surfaceId, String text, {double w = 100, double h = 20}) => {
+  'surfaceId': surfaceId,
+  'type': 'text',
+  'x': 0,
+  'y': 0,
+  'w': w,
+  'h': h,
+  'rotation': 0,
+  'z': 1,
+  'createdAt': 1,
+  'data': {'text': text},
+};
+
 String _points(List<StrokePoint> points) => base64Encode(StrokeCodec.encode(points));
 
 const _sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -627,21 +668,8 @@ void main() {
       const nb = 'ghost-nb';
       final live = {
         'folders': {'name': 'Ghost folder', 'parentId': null, 'color': 1, 'createdAt': 1},
-        'notebooks': {
-          'title': 'Ghost notebook',
-          'kind': 'canvas',
-          'paper': 'blank',
-          'coverColor': 0,
-          'createdAt': 1,
-        },
-        'pages': {
-          'notebookId': nb,
-          'sortKey': 1.0,
-          'width': 600,
-          'height': 800,
-          'paper': 'blank',
-          'background': {'type': 'pdf', 'blob': _sha, 'page': 0},
-        },
+        'notebooks': _notebookData('Ghost notebook'),
+        'pages': _pageData(nb, background: {'type': 'pdf', 'blob': _sha, 'page': 0}),
         'strokes': {
           'surfaceId': nb,
           'tool': 'ballpoint',
@@ -650,16 +678,7 @@ void main() {
           'points': _points(const [StrokePoint(1, 1, 0.5), StrokePoint(9, 9, 0.5)]),
           'createdAt': 1,
         },
-        'elements': {
-          'surfaceId': nb,
-          'type': 'text',
-          'x': 0,
-          'y': 0,
-          'w': 100,
-          'h': 20,
-          'createdAt': 1,
-          'data': {'text': 'Ghost text'},
-        },
+        'elements': _textData(nb, 'Ghost text'),
       };
       String idOf(String collection) => collection == 'notebooks' ? nb : 'ghost-$collection';
       server.injected.addAll([
@@ -702,23 +721,18 @@ void main() {
         coverColor: 0,
       );
       await a.sync();
-      const goodNotebook = {
-        'title': 'Injected fine',
-        'kind': 'canvas',
-        'paper': 'blank',
-        'coverColor': 0,
-        'createdAt': 1,
-      };
+      final goodNotebook = _notebookData('Injected fine');
       server.injected.addAll([
         _record('future_things', 'f1', 10, data: {'anything': true}),
         _record('notebooks', 'bad-nb', 10, data: {'title': 5}),
         _record('folders', 'bad-folder', 10, data: {'name': null, 'createdAt': 1}),
-        _record(
-          'pages',
-          'bad-page',
-          10,
-          data: {'notebookId': 'n', 'sortKey': 1, 'width': -1, 'height': 5, 'paper': 'blank'},
-        ),
+        _record('pages', 'bad-page', 10, data: {..._pageData('n'), 'width': -1}),
+        // Every field is required, and enum values must be known.
+        _record('notebooks', 'partial-nb', 10, data: {...goodNotebook}..remove('editedAt')),
+        _record('notebooks', 'odd-paper', 10, data: {...goodNotebook, 'paper': 'hexagon'}),
+        _record('pages', 'partial-page', 10, data: {..._pageData('n')}..remove('bookmarked')),
+        _record('pages', 'odd-color', 10, data: {..._pageData('n'), 'paperColor': 'sepia'}),
+        _record('pages', 'odd-bg', 10, data: _pageData('n', background: {'type': 'video'})),
         _record(
           'strokes',
           'bad-stroke',
@@ -732,12 +746,8 @@ void main() {
             'createdAt': 0,
           },
         ),
-        _record(
-          'elements',
-          'bad-element',
-          10,
-          data: {'surfaceId': 's', 'type': '', 'x': 0, 'y': 0, 'w': 1, 'h': 1, 'createdAt': 0},
-        ),
+        _record('elements', 'bad-element', 10, data: {..._textData('s', 'x'), 'type': ''}),
+        _record('elements', 'no-z', 10, data: {..._textData('s', 'x')}..remove('z')),
         // Absurd coordinates would make chunk indexing (and outlining) hang.
         _record(
           'strokes',
@@ -752,20 +762,7 @@ void main() {
             'createdAt': 0,
           },
         ),
-        _record(
-          'elements',
-          'huge-element',
-          10,
-          data: {
-            'surfaceId': 's',
-            'type': 'text',
-            'x': 0,
-            'y': 0,
-            'w': 1e15,
-            'h': 1e15,
-            'createdAt': 0,
-          },
-        ),
+        _record('elements', 'huge-element', 10, data: _textData('s', 'x', w: 1e15, h: 1e15)),
         _record('notebooks', 'no-device', 10, data: goodNotebook)..remove('deviceId'),
         {..._record('notebooks', 'no-data', 10, data: goodNotebook), 'data': null},
         _record('notebooks', 'good-nb', 10, data: goodNotebook),
@@ -782,6 +779,12 @@ void main() {
         ('notebooks', 'no-data'),
         ('folders', 'bad-folder'),
         ('pages', 'bad-page'),
+        ('notebooks', 'partial-nb'),
+        ('notebooks', 'odd-paper'),
+        ('pages', 'partial-page'),
+        ('pages', 'odd-color'),
+        ('pages', 'odd-bg'),
+        ('elements', 'no-z'),
         ('strokes', 'bad-stroke'),
         ('elements', 'bad-element'),
         ('strokes', 'far-stroke'),
@@ -804,177 +807,6 @@ void main() {
       expect(b.s.notebooks.list().map((n) => n.title), contains('After'));
       expect(b.s.settings.syncLastSeq, greaterThan(seq));
       expect(b.dirty, isEmpty);
-    });
-
-    test('unknown page paper values survive a round trip through an editing device', () async {
-      final (time, server, a, b) = _twoDevices();
-      final nb = a.s.notebooks.create(
-        title: 'Newer client',
-        kind: NotebookKind.paged,
-        paper: PaperStyle.blank,
-        coverColor: 0,
-      );
-      await a.sync();
-      // A page from a newer app version: unknown template, colour and background.
-      server.injected.add(
-        _record(
-          'pages',
-          'np',
-          time.now,
-          data: {
-            'notebookId': nb.id,
-            'sortKey': 9.0,
-            'width': 600,
-            'height': 800,
-            'paper': 'hexagon',
-            'paperColor': 'sepia',
-            'bookmarked': false,
-            'background': {'type': 'video', 'src': 'x'},
-          },
-        ),
-      );
-      await b.sync();
-      final page = b.s.pages.get('np')!;
-      expect(page.paper, PaperStyle.blank, reason: 'shown as blank');
-      expect(page.paperColor, PaperColor.white, reason: 'shown as white');
-      expect(page.background, isNull, reason: 'unknown background type ignored');
-
-      time.tick();
-      b.s.pages.setBookmarked('np', true);
-      b.s.pages.move(page, 0);
-      await b.sync();
-      final data = server.stored('pages', 'np')!['data']! as Map;
-      expect(data['bookmarked'], isTrue);
-      expect(data['paper'], 'hexagon');
-      expect(data['paperColor'], 'sepia');
-      expect(data['background'], {'type': 'video', 'src': 'x'});
-
-      // And a third device (A) receives them unchanged too.
-      server.injected.clear();
-      await a.sync();
-      expect(a.db.select("SELECT paper, paper_color FROM pages WHERE id = 'np'").first.values, [
-        'hexagon',
-        'sepia',
-      ]);
-    });
-
-    test('unknown notebook paper values survive a round trip through an editing device', () async {
-      final (time, server, _, b) = _twoDevices();
-      server.injected.add(
-        _record(
-          'notebooks',
-          'nn',
-          time.now,
-          data: {
-            'title': 'From a newer client',
-            'kind': 'canvas',
-            'paper': 'hexagon',
-            'coverColor': 0,
-            'createdAt': 1,
-          },
-        ),
-      );
-      await b.sync();
-      expect(b.s.notebooks.get('nn')!.paper, PaperStyle.blank, reason: 'shown as blank');
-      expect(
-        b.db.select("SELECT paper FROM notebooks WHERE id = 'nn'").first['paper'],
-        'hexagon',
-        reason: 'kept as-is in storage',
-      );
-
-      time.tick();
-      b.s.notebooks.setFavorite('nn', true);
-      await b.sync();
-      final data = server.stored('notebooks', 'nn')!['data']! as Map;
-      expect(data['favorite'], isTrue);
-      expect(data['paper'], 'hexagon');
-    });
-
-    test('a record from an older client keeps the local notebook-only fields', () async {
-      final (time, server, a, b) = _twoDevices();
-      final folder = a.s.folders.create(name: 'Kept', color: 1);
-      final nb = a.s.notebooks.create(
-        title: 'Old title',
-        kind: NotebookKind.canvas,
-        paper: PaperStyle.dotted,
-        coverColor: 0,
-        paperColor: PaperColor.grey,
-        coverStyle: CoverStyle.linen,
-        folderId: folder.id,
-      );
-      a.s.notebooks.setFavorite(nb.id, true);
-      a.s.notebooks.trash(nb.id);
-      await _send(a, b);
-      final before = b.s.notebooks.get(nb.id)!;
-
-      time.tick();
-      server.injected.add(
-        _record(
-          'notebooks',
-          nb.id,
-          time.now,
-          data: {
-            'title': 'Renamed by v1',
-            'kind': 'canvas',
-            'paper': 'dotted',
-            'coverColor': 0,
-            'createdAt': nb.createdAt,
-          },
-        ),
-      );
-      await b.sync();
-      final after = b.s.notebooks.get(nb.id)!;
-      expect(after.title, 'Renamed by v1');
-      expect(after.folderId, folder.id);
-      expect(after.favorite, isTrue);
-      expect(after.trashedAt, before.trashedAt);
-      expect(after.coverStyle, CoverStyle.linen);
-      expect(after.paperColor, PaperColor.grey);
-      expect(after.editedAt, before.editedAt);
-    });
-
-    test('a page record from an older client keeps the local page-only fields', () async {
-      final (time, server, a, b) = _twoDevices();
-      final nb = a.s.notebooks.create(
-        title: 'PDF',
-        kind: NotebookKind.paged,
-        paper: PaperStyle.blank,
-        coverColor: 0,
-      );
-      final page = a.s.pages.insertPages(nb.id, [
-        (
-          size: const Size(600, 800),
-          paper: PaperStyle.blank,
-          color: PaperColor.cream,
-          background: const PageBackground.pdf(blob: _sha, pageIndex: 1),
-        ),
-      ]).single;
-      a.s.pages.setBookmarked(page.id, true);
-      await _send(a, b);
-
-      // A v1 client reorders the page: its record has no paperColor,
-      // bookmarked or background.
-      time.tick();
-      server.injected.add(
-        _record(
-          'pages',
-          page.id,
-          time.now,
-          data: {
-            'notebookId': nb.id,
-            'sortKey': 0.5,
-            'width': 600,
-            'height': 800,
-            'paper': 'blank',
-          },
-        ),
-      );
-      await b.sync();
-      final after = b.s.pages.get(page.id)!;
-      expect(after.sortKey, 0.5);
-      expect(after.paperColor, PaperColor.cream);
-      expect(after.bookmarked, isTrue);
-      expect(after.background, const PageBackground.pdf(blob: _sha, pageIndex: 1));
     });
 
     test('search on the receiving device reflects synced titles and text boxes', () async {

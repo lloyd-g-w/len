@@ -6,6 +6,7 @@ import '../domain/paper.dart';
 import 'element_repository.dart';
 import 'notebook_duplicator.dart';
 import 'page_repository.dart';
+import 'record_fields.dart';
 import 'recording_repository.dart';
 import 'stroke_repository.dart';
 import 'syncable.dart';
@@ -102,17 +103,8 @@ class NotebookRepository extends SyncableTable {
   /// `updatedAt`.
   Notebook update(Notebook notebook) {
     final updated = notebook.copyWith(updatedAt: nextVersion(notebook.id));
-    _write(updated, deviceId: deviceId, dirty: true, paper: _keptPaper(updated));
+    _write(updated, deviceId: deviceId, dirty: true);
     return updated;
-  }
-
-  /// The stored paper name of [n] if it is one this version does not know
-  /// and [n] still shows it (as blank); otherwise null (write `paper.name`).
-  String? _keptPaper(Notebook n) {
-    final rows = db.select('SELECT paper FROM notebooks WHERE id = ?', [n.id]);
-    if (rows.isEmpty) return null;
-    final raw = rows.first['paper'] as String;
-    return PaperStyle.parse(raw) == n.paper && raw != n.paper.name ? raw : null;
   }
 
   /// Marks the notebook as recently edited (sorts it to the top).
@@ -227,72 +219,30 @@ class NotebookRepository extends SyncableTable {
       );
       return;
     }
-    final local = db.select('SELECT * FROM notebooks WHERE id = ? AND deleted = 0', [record.id]);
-    final notebook = _notebookFromRecord(
-      record,
-      local: local.isEmpty ? null : _rowToNotebook(local.first),
-    );
-    // Keep the raw paper name: values from newer clients show as blank
-    // but survive (SYNC_PROTOCOL.md "Paper and pages").
-    _write(
-      notebook,
-      deviceId: record.deviceId,
-      dirty: false,
-      paper: record.data!['paper'] as String,
-    );
+    _write(_notebookFromRecord(record), deviceId: record.deviceId, dirty: false);
   }
 
-  /// Parses a live record. Fields added after protocol v1 (folder, favourite,
-  /// trash, cover style, edit time) are optional: a client that predates
-  /// them omits them when it edits, e.g., the title. Missing fields keep the
-  /// [local] notebook's values (so such an edit does not move, unstar or
-  /// restore it), or take their defaults when the notebook is new here.
-  static Notebook _notebookFromRecord(SyncRecord record, {Notebook? local}) {
-    final d = record.data!;
-    final title = d['title'];
-    final kind = d['kind'];
-    final paper = d['paper'];
-    final coverColor = d['coverColor'];
-    final createdAt = d['createdAt'];
-    if (title is! String ||
-        kind is! String ||
-        paper is! String ||
-        coverColor is! int ||
-        createdAt is! int) {
-      throw FormatException('Malformed notebook ${record.id}');
-    }
-    final folderId = d['folderId'];
-    final trashedAt = d['trashedAt'];
-    final editedAt = d['editedAt'];
-    final coverStyle = d['coverStyle'];
-    final paperColor = d['paperColor'];
+  /// Parses a live record; throws [FormatException] when malformed.
+  static Notebook _notebookFromRecord(SyncRecord record) {
+    final f = RecordFields(record);
     return Notebook(
       id: record.id,
-      title: title,
-      kind: NotebookKind.parse(kind),
-      paper: PaperStyle.parse(paper),
-      paperColor: d.containsKey('paperColor') || local == null
-          ? PaperColor.parse(paperColor is String ? paperColor : null)
-          : local.paperColor,
-      coverColor: coverColor,
-      coverStyle: d.containsKey('coverStyle') || local == null
-          ? CoverStyle.parse(coverStyle is String ? coverStyle : null)
-          : local.coverStyle,
-      createdAt: createdAt,
+      title: f.string('title'),
+      kind: f.choice('kind', NotebookKind.values),
+      paper: f.choice('paper', PaperStyle.values),
+      paperColor: f.choice('paperColor', PaperColor.values),
+      coverColor: f.integer('coverColor'),
+      coverStyle: f.choice('coverStyle', CoverStyle.values),
+      createdAt: f.integer('createdAt'),
       updatedAt: record.updatedAt,
-      editedAt: editedAt is int ? editedAt : (local?.editedAt ?? record.updatedAt),
-      folderId: d.containsKey('folderId') || local == null
-          ? (folderId is String ? folderId : null)
-          : local.folderId,
-      favorite: d.containsKey('favorite') || local == null ? d['favorite'] == true : local.favorite,
-      trashedAt: d.containsKey('trashedAt') || local == null
-          ? (trashedAt is int ? trashedAt : null)
-          : local.trashedAt,
+      editedAt: f.integer('editedAt'),
+      folderId: f.stringOrNull('folderId'),
+      favorite: f.boolean('favorite'),
+      trashedAt: f.integerOrNull('trashedAt'),
     );
   }
 
-  /// Writes [n]; [paper] overrides the stored paper name (raw values).
-  void _write(Notebook n, {required String deviceId, required bool dirty, String? paper}) {
+  void _write(Notebook n, {required String deviceId, required bool dirty}) {
     db.execute(
       '''
       INSERT OR REPLACE INTO notebooks (id, title, kind, paper, cover_color,
@@ -305,7 +255,7 @@ class NotebookRepository extends SyncableTable {
         n.id,
         n.title,
         n.kind.name,
-        paper ?? n.paper.name,
+        n.paper.name,
         n.coverColor,
         n.createdAt,
         n.updatedAt,

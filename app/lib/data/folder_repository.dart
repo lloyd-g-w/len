@@ -1,6 +1,7 @@
 import 'package:sqlite3/common.dart';
 
 import '../domain/folder.dart';
+import 'record_fields.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
@@ -173,21 +174,14 @@ class FolderRepository extends SyncableTable {
       );
       return;
     }
-    final d = record.data!;
-    final name = d['name'];
-    final parentId = d['parentId'];
-    final color = d['color'];
-    final createdAt = d['createdAt'];
-    if (name is! String || (parentId != null && parentId is! String) || createdAt is! int) {
-      throw FormatException('Malformed folder ${record.id}');
-    }
+    final f = RecordFields(record);
     _write(
       Folder(
         id: record.id,
-        name: name,
-        parentId: parentId as String?,
-        color: color is int ? color : 0xFF3B5BDB,
-        createdAt: createdAt,
+        name: f.string('name'),
+        parentId: f.stringOrNull('parentId'),
+        color: f.integer('color'),
+        createdAt: f.integer('createdAt'),
         updatedAt: record.updatedAt,
       ),
       deviceId: record.deviceId,

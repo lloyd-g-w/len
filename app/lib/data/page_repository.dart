@@ -6,6 +6,7 @@ import 'package:sqlite3/common.dart';
 import '../domain/notebook_page.dart';
 import '../domain/paper.dart';
 import 'page_order.dart';
+import 'record_fields.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
@@ -16,12 +17,8 @@ typedef PageSpec = ({Size size, PaperStyle paper, PaperColor color, PageBackgrou
 PageSpec specOf(PageTemplate template) =>
     (size: template.size, paper: template.style, color: template.color, background: null);
 
-/// Persists the pages of paged notebooks.
-///
-/// Columns written by remote records keep their raw values (e.g. a paper
-/// style or background type from a newer app version), and local edits
-/// only update the columns they change, so such values survive a round
-/// trip through this device.
+/// Persists the pages of paged notebooks. Local edits only update the
+/// columns they change.
 class PageRepository extends SyncableTable {
   PageRepository(super.database, {required super.deviceId, super.clock});
 
@@ -233,47 +230,26 @@ class PageRepository extends SyncableTable {
       );
       return;
     }
-    final d = record.data!;
-    final notebookId = d['notebookId'];
-    final sortKey = d['sortKey'];
-    final width = d['width'];
-    final height = d['height'];
-    final paper = d['paper'];
-    if (notebookId is! String ||
-        sortKey is! num ||
-        width is! num ||
-        height is! num ||
-        paper is! String ||
-        width <= 0 ||
-        height <= 0) {
-      throw FormatException('Malformed page ${record.id}');
-    }
-    // Optional fields (added later): tolerate odd values, and keep the
-    // local row's value when a field is missing (an older client's record),
-    // so e.g. a reorder from such a client does not drop a PDF background.
-    final local = db.select(
-      'SELECT paper_color, bookmarked, background FROM pages WHERE id = ? AND deleted = 0',
-      [record.id],
-    );
-    final old = local.isEmpty ? null : local.first;
-    final color = d['paperColor'];
-    final background = d['background'];
-    _writeRow(
-      id: record.id,
-      notebookId: notebookId,
-      sortKey: sortKey.toDouble(),
-      width: width.toDouble(),
-      height: height.toDouble(),
-      paper: paper,
-      paperColor: d.containsKey('paperColor') || old == null
-          ? (color is String ? color : PaperColor.white.name)
-          : old['paper_color'] as String,
-      bookmarked: d.containsKey('bookmarked') || old == null
-          ? d['bookmarked'] == true
-          : old['bookmarked'] == 1,
-      background: d.containsKey('background') || old == null
-          ? (background is Map ? jsonEncode(background) : null)
-          : old['background'] as String?,
+    final f = RecordFields(record);
+    final width = f.number('width');
+    final height = f.number('height');
+    if (width <= 0) f.invalid('width');
+    if (height <= 0) f.invalid('height');
+    final rawBackground = f.objectOrNull('background');
+    final background = rawBackground == null ? null : PageBackground.fromJson(rawBackground);
+    if (rawBackground != null && background == null) f.invalid('background');
+    _insert(
+      NotebookPage(
+        id: record.id,
+        notebookId: f.string('notebookId'),
+        sortKey: f.number('sortKey'),
+        width: width,
+        height: height,
+        paper: f.choice('paper', PaperStyle.values),
+        paperColor: f.choice('paperColor', PaperColor.values),
+        bookmarked: f.boolean('bookmarked'),
+        background: background,
+      ),
       updatedAt: record.updatedAt,
       deviceId: record.deviceId,
       dirty: false,
@@ -285,35 +261,8 @@ class PageRepository extends SyncableTable {
     required int updatedAt,
     required String deviceId,
     required bool dirty,
-  }) => _writeRow(
-    id: page.id,
-    notebookId: page.notebookId,
-    sortKey: page.sortKey,
-    width: page.width,
-    height: page.height,
-    paper: page.paper.name,
-    paperColor: page.paperColor.name,
-    bookmarked: page.bookmarked,
-    background: page.background == null ? null : jsonEncode(page.background!.toJson()),
-    updatedAt: updatedAt,
-    deviceId: deviceId,
-    dirty: dirty,
-  );
-
-  void _writeRow({
-    required String id,
-    required String notebookId,
-    required double sortKey,
-    required double width,
-    required double height,
-    required String paper,
-    required String paperColor,
-    required bool bookmarked,
-    required String? background,
-    required int updatedAt,
-    required String deviceId,
-    required bool dirty,
   }) {
+    final background = page.background;
     db.execute(
       '''
       INSERT OR REPLACE INTO pages (id, notebook_id, sort_key, width, height, paper,
@@ -321,15 +270,15 @@ class PageRepository extends SyncableTable {
                                     updated_at, device_id, deleted, dirty)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
       [
-        id,
-        notebookId,
-        sortKey,
-        width,
-        height,
-        paper,
-        paperColor,
-        bookmarked ? 1 : 0,
-        background,
+        page.id,
+        page.notebookId,
+        page.sortKey,
+        page.width,
+        page.height,
+        page.paper.name,
+        page.paperColor.name,
+        page.bookmarked ? 1 : 0,
+        background == null ? null : jsonEncode(background.toJson()),
         updatedAt,
         deviceId,
         dirty ? 1 : 0,

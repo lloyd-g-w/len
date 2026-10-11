@@ -225,6 +225,8 @@ void main() {
         'y': 0,
         'w': 100,
         'h': 20,
+        'rotation': 0,
+        'z': 1,
         'createdAt': 1,
         'data': {'text': 'Synchronised photosynthesis'},
       },

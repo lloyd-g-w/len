@@ -171,7 +171,7 @@ void main() {
     expect(b.recordings.listOf(nb.id), isEmpty);
   });
 
-  test('remote recordings: malformed skipped, missing optional fields defaulted', () {
+  test('remote recordings: complete records apply, partial or malformed ones throw', () {
     final s = AppServices.create(AppDatabase.inMemory());
     addTearDown(s.dispose);
     SyncRecord record(String id, Map<String, Object?> data) => SyncRecord(
@@ -182,27 +182,36 @@ void main() {
       deleted: false,
       data: data,
     );
-    expect(
-      () => s.recordings.applyRemote(record('bad', {'notebookId': 'n', 'blob': 'nope'})),
-      throwsFormatException,
-    );
-    s.recordings.applyRemote(
-      record('ok', {
-        'notebookId': 'n',
-        'blob': _sha,
-        'durationMs': 3000,
-        'startedAt': 50,
-        'future': {'x': 1},
-        'segments': [
-          [50, 1000],
-          'junk',
-          [2000, 2000],
-        ],
-      }),
-    );
+    final complete = {
+      'notebookId': 'n',
+      'blob': _sha,
+      'durationMs': 3000,
+      'startedAt': 50,
+      'title': 'Lecture',
+      'mime': 'audio/webm',
+      'segments': [
+        [50, 1000],
+        [2000, 2000],
+      ],
+    };
+    for (final key in complete.keys) {
+      final missing = {...complete}..remove(key);
+      expect(() => s.recordings.applyRemote(record('bad', missing)), throwsFormatException);
+    }
+    for (final (key, value) in [
+      ('blob', 'nope'),
+      ('segments', ['junk']),
+      ('title', null),
+    ]) {
+      final odd = {...complete, key: value};
+      expect(() => s.recordings.applyRemote(record('bad', odd)), throwsFormatException);
+    }
+    expect(s.recordings.get('bad'), isNull);
+
+    s.recordings.applyRemote(record('ok', {...complete, 'future': 1}));
     final r = s.recordings.get('ok')!;
-    expect(r.title, '');
-    expect(r.mime, 'audio/mp4');
+    expect(r.title, 'Lecture');
+    expect(r.mime, 'audio/webm');
     expect(r.segments, const [RecordingSegment(50, 1000), RecordingSegment(2000, 2000)]);
     final pushed = s.recordings.rowToRecord(
       s.database.db.select("SELECT * FROM recordings WHERE id = 'ok'").first,

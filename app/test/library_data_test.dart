@@ -213,72 +213,51 @@ void main() {
       expect(pages.pagesOf(copy.id), isEmpty);
     });
 
-    test('records from older clients without library fields still parse', () {
-      notebooks.applyRemote(
-        const SyncRecord(
-          collection: 'notebooks',
-          id: 'old',
-          updatedAt: 5,
-          deviceId: 'dev-old',
-          deleted: false,
-          data: {
-            'title': 'Legacy',
-            'kind': 'canvas',
-            'paper': 'grid',
-            'coverColor': 7,
-            'createdAt': 1,
-            'coverStyle': 'from-the-future',
-          },
-        ),
+    test('notebook records missing a field or with an unknown value are malformed', () {
+      const complete = {
+        'title': 'Full',
+        'kind': 'canvas',
+        'paper': 'dotted',
+        'paperColor': 'white',
+        'coverColor': 7,
+        'coverStyle': 'plain',
+        'createdAt': 1,
+        'editedAt': 2,
+        'folderId': null,
+        'favorite': false,
+        'trashedAt': null,
+      };
+      SyncRecord record(Map<String, Object?> data) => SyncRecord(
+        collection: 'notebooks',
+        id: 'nb',
+        updatedAt: 5,
+        deviceId: 'dev-b',
+        deleted: false,
+        data: data,
       );
-      final n = notebooks.get('old')!;
-      expect(n.folderId, isNull);
-      expect(n.favorite, isFalse);
-      expect(n.isTrashed, isFalse);
-      expect(n.coverStyle, CoverStyle.plain);
-      expect(n.paperColor, PaperColor.white);
-      expect(n.editedAt, 5);
+      for (final key in complete.keys) {
+        final missing = {...complete}..remove(key);
+        expect(() => notebooks.applyRemote(record(missing)), throwsFormatException, reason: key);
+      }
+      for (final (key, value) in [
+        ('kind', 'scroll'),
+        ('paper', 'hexagons'),
+        ('paperColor', 'mauve'),
+        ('coverStyle', 'tartan'),
+        ('favorite', 1),
+      ]) {
+        final odd = {...complete, key: value};
+        expect(() => notebooks.applyRemote(record(odd)), throwsFormatException, reason: key);
+      }
+      expect(notebooks.get('nb'), isNull);
+      expect(notebooks.applyRemote(record({...complete, 'unknown': 1})), isTrue);
+      expect(notebooks.get('nb')!.title, 'Full');
     });
 
-    test('an edit from an older client keeps the library fields it omits', () {
+    test('remote records replace every field, null included', () {
       final folder = folders.create(name: 'School', color: 1);
       final nb = notebook('Algebra', folderId: folder.id);
       notebooks.setFavorite(nb.id, true);
-      notebooks.trash(nb.id);
-      notebooks.update(
-        notebooks.get(nb.id)!.copyWith(coverStyle: CoverStyle.waves, paperColor: PaperColor.dark),
-      );
-      final before = notebooks.get(nb.id)!;
-      final applied = notebooks.applyRemote(
-        SyncRecord(
-          collection: 'notebooks',
-          id: nb.id,
-          updatedAt: before.updatedAt + 10,
-          deviceId: 'dev-old',
-          deleted: false,
-          data: {
-            'title': 'Renamed on an old phone',
-            'kind': 'paged',
-            'paper': 'lined',
-            'coverColor': 1,
-            'createdAt': before.createdAt,
-          },
-        ),
-      );
-      expect(applied, isTrue);
-      final after = notebooks.get(nb.id)!;
-      expect(after.title, 'Renamed on an old phone');
-      expect(after.folderId, folder.id);
-      expect(after.favorite, isTrue);
-      expect(after.trashedAt, before.trashedAt);
-      expect(after.coverStyle, CoverStyle.waves);
-      expect(after.paperColor, PaperColor.dark);
-      expect(after.editedAt, before.editedAt);
-    });
-
-    test('fields a newer record does send replace local values, null included', () {
-      final folder = folders.create(name: 'School', color: 1);
-      final nb = notebook('Algebra', folderId: folder.id);
       notebooks.applyRemote(
         SyncRecord(
           collection: 'notebooks',
@@ -289,18 +268,25 @@ void main() {
           data: {
             'title': 'Algebra',
             'kind': 'paged',
-            'paper': 'lined',
+            'paper': 'dotted',
+            'paperColor': 'cream',
             'coverColor': 1,
+            'coverStyle': 'waves',
             'createdAt': nb.createdAt,
+            'editedAt': 42,
             'folderId': null,
             'favorite': false,
             'trashedAt': null,
-            'paperColor': 'cream',
           },
         ),
       );
-      expect(notebooks.get(nb.id)!.folderId, isNull);
-      expect(notebooks.get(nb.id)!.paperColor, PaperColor.cream);
+      final after = notebooks.get(nb.id)!;
+      expect(after.folderId, isNull);
+      expect(after.favorite, isFalse);
+      expect(after.paper, PaperStyle.dotted);
+      expect(after.paperColor, PaperColor.cream);
+      expect(after.coverStyle, CoverStyle.waves);
+      expect(after.editedAt, 42);
       // And it round-trips through the wire format.
       expect(notebooks.dirtyRecords(10), isEmpty);
       notebooks.update(notebooks.get(nb.id)!);
