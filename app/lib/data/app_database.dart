@@ -6,7 +6,7 @@ import '../platform/sqlite_connection.dart';
 import 'search/ink_text_schema.dart';
 import 'search/search_schema.dart';
 
-/// Owns the SQLite connection and applies schema migrations.
+/// Owns the SQLite connection and creates (later: migrates) the schema.
 ///
 /// Every syncable table carries the same bookkeeping columns:
 ///   * `updated_at` / `device_id` — last-write-wins version (see
@@ -90,96 +90,109 @@ class AppDatabase {
   @visibleForTesting
   static int get latestVersion => _migrations.length;
 
-  /// Applies the first [toVersion] migrations to a fresh connection [db]
-  /// and sets its `user_version`, building a database exactly as that
-  /// schema version left it.
-  @visibleForTesting
-  static void migrateForTest(CommonDatabase db, int toVersion) {
-    for (var v = 0; v < toVersion; v++) {
-      _migrations[v](db);
-    }
-    db.execute('PRAGMA user_version = $toVersion');
-  }
+  /// Ordered list of schema migrations; index i migrates from version i to
+  /// i + 1 (`PRAGMA user_version`). Version 1 creates the whole schema.
+  /// Future schema changes **append** a migration; never edit one that has
+  /// shipped.
+  static final List<void Function(CommonDatabase)> _migrations = [_createSchema];
 
-  /// Schema version from which the page/blob migration runs (its index in
-  /// [_migrations]); lets tests rewind a database without hard-coding it.
-  static int get versionBeforePageDetailsAndBlobs => _migrations.indexOf(_addPageDetailsAndBlobs);
-
-  /// Schema version from which the search index migration runs.
-  static int get versionBeforeSearchIndex => _migrations.indexOf(_createSearchIndex);
-
-  /// Schema version from which the handwriting (ink text) migration runs.
-  static int get versionBeforeInkText => _migrations.indexOf(_createInkText);
-
-  /// Ordered list of schema migrations; index i migrates from version i.
-  /// Never edit an existing entry — append a new one instead.
-  static final List<void Function(CommonDatabase)> _migrations = [
-    _createInitialSchema,
-    _indexDirtyStrokesById,
-    _addStrokeStyle,
-    _addFoldersAndLibraryFields,
-    _addPageDetailsAndBlobs,
-    _createElements,
-    _addNotebookPaperColor,
-    _createSearchIndex,
-    _createInkText,
-    _createRecordings,
-    _addBlobSyncState,
-  ];
-
-  /// Per-blob sync and garbage collection state: `rejected_limit` is set
-  /// when the server refused the blob as too large (the server's limit at
-  /// the time, 0 if unknown), `unreferenced_since` (ms) when no live row was
-  /// last found referencing it. Idempotent.
-  static void _addBlobSyncState(CommonDatabase db) {
-    final columns = db.select('PRAGMA table_info(blobs)').map((r) => r['name']).toSet();
-    if (!columns.contains('rejected_limit')) {
-      db.execute('ALTER TABLE blobs ADD COLUMN rejected_limit INTEGER');
-    }
-    if (!columns.contains('unreferenced_since')) {
-      db.execute('ALTER TABLE blobs ADD COLUMN unreferenced_since INTEGER');
-    }
-  }
-
-  /// Recognised handwriting (derived, never synced) and its search
-  /// documents. Idempotent (see [InkTextSchema.create]).
-  static void _createInkText(CommonDatabase db) => InkTextSchema.create(db);
-
-  /// Audio recordings of notebooks (collection `recordings`; the audio is a
-  /// blob). Idempotent, so it is safe however migrations from parallel
-  /// branches end up ordered.
-  static void _createRecordings(CommonDatabase db) {
+  /// Creates the complete schema of a new database.
+  static void _createSchema(CommonDatabase db) {
     db.execute('''
-      CREATE TABLE IF NOT EXISTS recordings (
+      CREATE TABLE settings (
+        key   TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL
+      )''');
+
+    db.execute('''
+      CREATE TABLE folders (
         id          TEXT PRIMARY KEY NOT NULL,
-        notebook_id TEXT NOT NULL,
-        blob        TEXT NOT NULL,
-        duration_ms INTEGER NOT NULL,
-        started_at  INTEGER NOT NULL,
-        title       TEXT NOT NULL,
-        mime        TEXT NOT NULL,
-        segments    TEXT NOT NULL DEFAULT '[]',
+        name        TEXT NOT NULL,
+        parent_id   TEXT,
+        color       INTEGER NOT NULL,
+        created_at  INTEGER NOT NULL,
         updated_at  INTEGER NOT NULL,
         device_id   TEXT NOT NULL,
         deleted     INTEGER NOT NULL DEFAULT 0,
         dirty       INTEGER NOT NULL DEFAULT 1
       )''');
-    db.execute(
-      'CREATE INDEX IF NOT EXISTS recordings_by_notebook ON recordings(notebook_id, started_at)',
-    );
-    db.execute('CREATE INDEX IF NOT EXISTS recordings_dirty ON recordings(id) WHERE dirty = 1');
-  }
+    db.execute('CREATE INDEX folders_by_parent ON folders(parent_id)');
 
-  /// The local full-text search index (derived, never synced) and the
-  /// triggers that keep it current. Idempotent (see [SearchSchema.create]).
-  static void _createSearchIndex(CommonDatabase db) => SearchSchema.create(db);
-
-  /// Surface elements (text boxes; later images) and their sparse chunk
-  /// index, mirroring `strokes` / `stroke_chunks`. Idempotent, so it is safe
-  /// however migrations from parallel branches end up ordered.
-  static void _createElements(CommonDatabase db) {
     db.execute('''
-      CREATE TABLE IF NOT EXISTS elements (
+      CREATE TABLE notebooks (
+        id          TEXT PRIMARY KEY NOT NULL,
+        title       TEXT NOT NULL,
+        kind        TEXT NOT NULL,
+        paper       TEXT NOT NULL,
+        paper_color TEXT NOT NULL DEFAULT 'white',
+        cover_color INTEGER NOT NULL,
+        cover_style TEXT NOT NULL DEFAULT 'plain',
+        folder_id   TEXT,
+        favorite    INTEGER NOT NULL DEFAULT 0,
+        trashed_at  INTEGER,
+        created_at  INTEGER NOT NULL,
+        edited_at   INTEGER NOT NULL DEFAULT 0,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute('CREATE INDEX notebooks_by_folder ON notebooks(folder_id)');
+
+    // `background`: JSON object (see `PageBackground`) or NULL.
+    db.execute('''
+      CREATE TABLE pages (
+        id          TEXT PRIMARY KEY NOT NULL,
+        notebook_id TEXT NOT NULL,
+        sort_key    REAL NOT NULL,
+        width       REAL NOT NULL,
+        height      REAL NOT NULL,
+        paper       TEXT NOT NULL,
+        paper_color TEXT NOT NULL DEFAULT 'white',
+        bookmarked  INTEGER NOT NULL DEFAULT 0,
+        background  TEXT,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute('CREATE INDEX pages_by_notebook ON pages(notebook_id, sort_key)');
+
+    // `style`: JSON (see `StrokeStyle`).
+    db.execute('''
+      CREATE TABLE strokes (
+        id          TEXT PRIMARY KEY NOT NULL,
+        surface_id  TEXT NOT NULL,
+        tool        TEXT NOT NULL,
+        color       INTEGER NOT NULL,
+        width       REAL NOT NULL,
+        style       TEXT,
+        points      BLOB NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute('CREATE INDEX strokes_by_surface ON strokes(surface_id)');
+
+    // Sparse spatial index: which chunks of a surface each live stroke
+    // touches. Only populated chunks have rows, so an infinite canvas costs
+    // nothing where it is empty. Derived data — never synced.
+    db.execute('''
+      CREATE TABLE stroke_chunks (
+        surface_id TEXT NOT NULL,
+        cx         INTEGER NOT NULL,
+        cy         INTEGER NOT NULL,
+        stroke_id  TEXT NOT NULL,
+        PRIMARY KEY (surface_id, cx, cy, stroke_id)
+      ) WITHOUT ROWID''');
+    db.execute('CREATE INDEX stroke_chunks_by_stroke ON stroke_chunks(stroke_id)');
+
+    // Non-ink objects on a surface (text boxes, images) and their sparse
+    // chunk index, mirroring `strokes` / `stroke_chunks`.
+    db.execute('''
+      CREATE TABLE elements (
         id          TEXT PRIMARY KEY NOT NULL,
         surface_id  TEXT NOT NULL,
         type        TEXT NOT NULL,
@@ -196,164 +209,61 @@ class AppDatabase {
         deleted     INTEGER NOT NULL DEFAULT 0,
         dirty       INTEGER NOT NULL DEFAULT 1
       )''');
-    db.execute('CREATE INDEX IF NOT EXISTS elements_by_surface ON elements(surface_id)');
-    db.execute('CREATE INDEX IF NOT EXISTS elements_dirty ON elements(id) WHERE dirty = 1');
+    db.execute('CREATE INDEX elements_by_surface ON elements(surface_id)');
     db.execute('''
-      CREATE TABLE IF NOT EXISTS element_chunks (
+      CREATE TABLE element_chunks (
         surface_id TEXT NOT NULL,
         cx         INTEGER NOT NULL,
         cy         INTEGER NOT NULL,
         element_id TEXT NOT NULL,
         PRIMARY KEY (surface_id, cx, cy, element_id)
       ) WITHOUT ROWID''');
-    db.execute(
-      'CREATE INDEX IF NOT EXISTS element_chunks_by_element ON element_chunks(element_id)',
-    );
-  }
+    db.execute('CREATE INDEX element_chunks_by_element ON element_chunks(element_id)');
 
-  /// Background colour of infinite canvases. Idempotent (parallel branches
-  /// may order migrations differently).
-  static void _addNotebookPaperColor(CommonDatabase db) {
-    final columns = db.select('PRAGMA table_info(notebooks)').map((r) => r['name']).toSet();
-    if (!columns.contains('paper_color')) {
-      db.execute("ALTER TABLE notebooks ADD COLUMN paper_color TEXT NOT NULL DEFAULT 'white'");
-    }
-  }
-
-  /// Per-stroke rendering style (JSON, see `StrokeStyle`); NULL for strokes
-  /// drawn before styles existed. Idempotent, so it is safe however
-  /// migrations from parallel branches end up ordered.
-  static void _addStrokeStyle(CommonDatabase db) {
-    final columns = db.select('PRAGMA table_info(strokes)').map((r) => r['name']);
-    if (!columns.contains('style')) db.execute('ALTER TABLE strokes ADD COLUMN style TEXT');
-  }
-
-  /// Library organisation: nested folders, plus per-notebook folder,
-  /// favourite, trash, cover pattern and last-edit time.
-  static void _addFoldersAndLibraryFields(CommonDatabase db) {
+    // Audio recordings of notebooks (the audio itself is a blob).
     db.execute('''
-      CREATE TABLE folders (
-        id          TEXT PRIMARY KEY NOT NULL,
-        name        TEXT NOT NULL,
-        parent_id   TEXT,
-        color       INTEGER NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-    db.execute('CREATE INDEX folders_by_parent ON folders(parent_id)');
-    db.execute('ALTER TABLE notebooks ADD COLUMN folder_id TEXT');
-    db.execute('ALTER TABLE notebooks ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
-    db.execute('ALTER TABLE notebooks ADD COLUMN trashed_at INTEGER');
-    db.execute("ALTER TABLE notebooks ADD COLUMN cover_style TEXT NOT NULL DEFAULT 'plain'");
-    db.execute('ALTER TABLE notebooks ADD COLUMN edited_at INTEGER NOT NULL DEFAULT 0');
-    db.execute('UPDATE notebooks SET edited_at = updated_at');
-    db.execute('CREATE INDEX notebooks_by_folder ON notebooks(folder_id)');
-  }
-
-  /// Paper colour, bookmarks and backgrounds (PDF pages) for pages, plus
-  /// the local index of content-addressed blob files. Idempotent, like
-  /// [_addStrokeStyle]; it also re-applies that one, because databases
-  /// created by the pre-merge documents branch recorded this migration at
-  /// index 2 and so skip [_addStrokeStyle].
-  static void _addPageDetailsAndBlobs(CommonDatabase db) {
-    _addStrokeStyle(db);
-    final columns = db.select('PRAGMA table_info(pages)').map((r) => r['name']).toSet();
-    if (!columns.contains('paper_color')) {
-      db.execute("ALTER TABLE pages ADD COLUMN paper_color TEXT NOT NULL DEFAULT 'white'");
-    }
-    if (!columns.contains('bookmarked')) {
-      db.execute('ALTER TABLE pages ADD COLUMN bookmarked INTEGER NOT NULL DEFAULT 0');
-    }
-    // JSON object (see PageBackground) or NULL.
-    if (!columns.contains('background')) {
-      db.execute('ALTER TABLE pages ADD COLUMN background TEXT');
-    }
-    // Blob files live in the app support directory; this table records
-    // which ones are present and which still need uploading.
-    db.execute('''
-      CREATE TABLE IF NOT EXISTS blobs (
-        sha256     TEXT PRIMARY KEY NOT NULL,
-        size       INTEGER NOT NULL,
-        mime       TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        uploaded   INTEGER NOT NULL DEFAULT 0
-      )''');
-  }
-
-  /// Push pages through dirty rows in id order (keyset pagination); index
-  /// exactly that, so a sync with nothing to push never scans all strokes.
-  static void _indexDirtyStrokesById(CommonDatabase db) {
-    db.execute('DROP INDEX IF EXISTS strokes_dirty');
-    db.execute('CREATE INDEX strokes_dirty ON strokes(id) WHERE dirty = 1');
-  }
-
-  static void _createInitialSchema(CommonDatabase db) {
-    db.execute('''
-      CREATE TABLE notebooks (
-        id          TEXT PRIMARY KEY NOT NULL,
-        title       TEXT NOT NULL,
-        kind        TEXT NOT NULL,
-        paper       TEXT NOT NULL,
-        cover_color INTEGER NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-
-    db.execute('''
-      CREATE TABLE pages (
+      CREATE TABLE recordings (
         id          TEXT PRIMARY KEY NOT NULL,
         notebook_id TEXT NOT NULL,
-        sort_key    REAL NOT NULL,
-        width       REAL NOT NULL,
-        height      REAL NOT NULL,
-        paper       TEXT NOT NULL,
+        blob        TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL,
+        started_at  INTEGER NOT NULL,
+        title       TEXT NOT NULL,
+        mime        TEXT NOT NULL,
+        segments    TEXT NOT NULL DEFAULT '[]',
         updated_at  INTEGER NOT NULL,
         device_id   TEXT NOT NULL,
         deleted     INTEGER NOT NULL DEFAULT 0,
         dirty       INTEGER NOT NULL DEFAULT 1
       )''');
-    db.execute('CREATE INDEX pages_by_notebook ON pages(notebook_id, sort_key)');
+    db.execute('CREATE INDEX recordings_by_notebook ON recordings(notebook_id, started_at)');
 
+    // Sync pushes dirty rows in id order (keyset pagination); index exactly
+    // that for the big tables, so a sync with nothing to push scans nothing.
+    for (final table in ['strokes', 'elements', 'recordings']) {
+      db.execute('CREATE INDEX ${table}_dirty ON $table(id) WHERE dirty = 1');
+    }
+
+    // Blob files live in the app support directory; this table records
+    // which ones are present and their sync / garbage collection state:
+    // `uploaded` to the current server, `rejected_limit` when the server
+    // refused the blob as too large (its limit at the time, 0 if unknown),
+    // `unreferenced_since` (ms) when no live row was last found
+    // referencing it.
     db.execute('''
-      CREATE TABLE strokes (
-        id          TEXT PRIMARY KEY NOT NULL,
-        surface_id  TEXT NOT NULL,
-        tool        TEXT NOT NULL,
-        color       INTEGER NOT NULL,
-        width       REAL NOT NULL,
-        points      BLOB NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
+      CREATE TABLE blobs (
+        sha256             TEXT PRIMARY KEY NOT NULL,
+        size               INTEGER NOT NULL,
+        mime               TEXT NOT NULL,
+        created_at         INTEGER NOT NULL,
+        uploaded           INTEGER NOT NULL DEFAULT 0,
+        rejected_limit     INTEGER,
+        unreferenced_since INTEGER
       )''');
-    db.execute('CREATE INDEX strokes_by_surface ON strokes(surface_id)');
-    db.execute('CREATE INDEX strokes_dirty ON strokes(dirty) WHERE dirty = 1');
 
-    // Sparse spatial index: which chunks of a surface each live stroke
-    // touches. Only populated chunks have rows, so an infinite canvas costs
-    // nothing where it is empty. Derived data — never synced.
-    db.execute('''
-      CREATE TABLE stroke_chunks (
-        surface_id TEXT NOT NULL,
-        cx         INTEGER NOT NULL,
-        cy         INTEGER NOT NULL,
-        stroke_id  TEXT NOT NULL,
-        PRIMARY KEY (surface_id, cx, cy, stroke_id)
-      ) WITHOUT ROWID''');
-    db.execute('CREATE INDEX stroke_chunks_by_stroke ON stroke_chunks(stroke_id)');
-
-    db.execute('''
-      CREATE TABLE settings (
-        key   TEXT PRIMARY KEY NOT NULL,
-        value TEXT NOT NULL
-      )''');
+    // Derived and local only (never synced): the full-text search index and
+    // recognised handwriting.
+    SearchSchema.create(db);
+    InkTextSchema.create(db);
   }
 }

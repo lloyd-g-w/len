@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -134,20 +133,6 @@ void main() {
       );
       expect(() => elements.applyRemote(bad), throwsFormatException);
       expect(elements.dirtyRecords(10), isEmpty);
-    });
-
-    test('the migration is idempotent when re-run', () {
-      final dir = Directory.systemTemp.createTempSync('len_migrate');
-      final path = '${dir.path}/db.sqlite';
-      final first = AppDatabase.open(path);
-      final version = first.db.select('PRAGMA user_version').first.columnAt(0) as int;
-      // Pretend a parallel branch's migration ran ours already, out of order.
-      first.db.execute('PRAGMA user_version = ${version - 1}');
-      first.close();
-      final second = AppDatabase.open(path);
-      expect(second.db.select('PRAGMA user_version').first.columnAt(0), version);
-      second.close();
-      dir.deleteSync(recursive: true);
     });
   });
 

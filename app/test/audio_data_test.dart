@@ -138,18 +138,6 @@ void main() {
       expect(s.recordings.listOf(nb.id).single.id, r.id);
       expect(s.recordings.dirtyRecords(10).map((x) => x.id), contains(copied.id));
     });
-
-    test('the migration is idempotent', () {
-      final nb = _notebook(s);
-      _record(s, nb.id);
-      final db = s.database.db;
-      final version = db.select('PRAGMA user_version').first.columnAt(0) as int;
-      // Re-run the last migration over the existing table.
-      db.execute('PRAGMA user_version = ${version - 1}');
-      AppDatabase.fromConnection(db);
-      expect(db.select('PRAGMA user_version').first.columnAt(0), version);
-      expect(s.recordings.listOf(nb.id), hasLength(1));
-    });
   });
 
   test('recordings sync between devices: create, rename, delete', () async {
