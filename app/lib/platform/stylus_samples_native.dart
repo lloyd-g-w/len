@@ -62,7 +62,7 @@ bool? _overlayEnabled;
 /// Tells the overlay which contact to draw and how far Flutter has got.
 ///
 /// Messages: `[enable, bool]`, `[begin, device, downTimeUs, argb, radii px,
-/// shape (`WetInkShape.toList`, px), inkStartUs]`,
+/// shape (`WetInkShape.toList`, px)]` (at pen-down: ink shows from there),
 /// `[progress, eventTimeUs]` (after a frame showing input up to that event
 /// was built), `[end, device, downTimeUs]` (after the frame that shows the
 /// finished stroke).
@@ -89,6 +89,26 @@ class _LowLatencySource implements SampleSource {
     final stylus = down.kind == PointerDeviceKind.stylus;
     _contact = enabled && stylus ? down : null;
     _drawing = false;
+    // The controller has started the live stroke: the overlay draws from
+    // the first sample, as Flutter does.
+    _start();
+  }
+
+  /// Sends `begin` if the contact is ink the overlay can draw.
+  void _start() {
+    final contact = _contact;
+    final style = _style();
+    if (contact == null || _drawing || style == null) return;
+    _drawing = true;
+    final dpr = _devicePixelRatio();
+    _send([
+      'begin',
+      contact.device,
+      contact.timeStamp.inMicroseconds.toDouble(),
+      style.color,
+      Float64List.fromList([for (final r in style.radii) r * dpr]),
+      style.shape.scaled(dpr).toList(),
+    ]);
   }
 
   @override
@@ -98,17 +118,7 @@ class _LowLatencySource implements SampleSource {
     if (contact == null || event.device != contact.device) return samples;
     final style = _style();
     if (!_drawing && style != null) {
-      _drawing = true;
-      final dpr = _devicePixelRatio();
-      _send([
-        'begin',
-        contact.device,
-        contact.timeStamp.inMicroseconds.toDouble(),
-        style.color,
-        Float64List.fromList([for (final r in style.radii) r * dpr]),
-        style.shape.scaled(dpr).toList(),
-        style.startUs.toDouble(),
-      ]);
+      _start();
     } else if (_drawing && style == null) {
       _finish(); // Straightened (or no longer ink): Flutter draws it.
       _contact = null;

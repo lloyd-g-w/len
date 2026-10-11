@@ -26,18 +26,19 @@ class WetInkShape(v: DoubleArray) {
     val levelStart = v[6]
     val settleEnd = v[7]
     val levelEnd = v[8]
-    val hookEnd = v[9]
-    val hookBody = v[10]
-    val hookLocal = v[11]
-    val step = v[12]
-    val dedupe = v[13]
-    val fit = v[14].toInt()
-    val cornerK = v[15].toInt()
+    val hookStart = v[9]
+    val hookEnd = v[10]
+    val hookBody = v[11]
+    val hookLocal = v[12]
+    val step = v[13]
+    val dedupe = v[14]
+    val fit = v[15].toInt()
+    val cornerK = v[16].toInt()
     val kernel: DoubleArray = v.copyOfRange(FIELDS, v.size)
     val kernelK = (kernel.size - 1) / 2
 
     companion object {
-        const val FIELDS = 16
+        const val FIELDS = 17
 
         /** The rules in [v], or null when it is not a valid list. */
         fun of(v: DoubleArray): WetInkShape? =
@@ -57,10 +58,20 @@ class WetInkModel(
     private val radii: DoubleArray,
     private val shape: WetInkShape,
     private val frameMs: Double,
-    private val startMs: Long,
 ) {
-    /** The points drawn (from [startMs] on). */
+    /** The points drawn: from the end of the pen-down hook, or from pen-down while that is undecided. */
     val samples = ArrayList<WetSample>()
+
+    // Every point of the contact (the hooks are decided on them), and how
+    // many of them the pen-down hook drops, once decided (-1: undecided).
+    private val allX = DoubleList()
+    private val allY = DoubleList()
+    private var start = -1
+
+    // When the pen-down hook was trimmed (time of the deciding point; -1:
+    // not trimmed), and the largest radius among its points.
+    private var trimmedAtMs = -1L
+    private var trimmedRadius = 0.0
 
     private var pressure = -1.0
     private var hasLast = false
@@ -100,14 +111,30 @@ class WetInkModel(
             if (extreme != null) keep(extreme)
             keep(sample)
         }
-        if (lift) lift()
+        if (lift) lift(timeMs)
     }
 
     private fun keep(s: WetSample) {
         hasLast = true
         lastX = s.x
         lastY = s.y
-        if (s.timeMs >= startMs) samples.add(s)
+        allX.add(s.x)
+        allY.add(s.y)
+        samples.add(s)
+        if (start < 0) decideStart(allX.size, ended = false, atMs = s.timeMs)
+    }
+
+    /** Decides the pen-down hook from the first [n] points, if they reach far enough (or [ended]); drops its points. */
+    private fun decideStart(n: Int, ended: Boolean, atMs: Long) {
+        val cut = startCut(n, ended)
+        if (cut < 0) return
+        start = cut
+        if (cut == 0) return
+        trimmedAtMs = atMs
+        for (i in 0 until min(cut, samples.size)) trimmedRadius = max(trimmedRadius, radiusAt(samples[i].pressure))
+        samples.subList(0, min(cut, samples.size)).clear()
+        forget(0)
+        arcs.size = 1
     }
 
     // Causal radii per point (two passes, slope-limited) and arc lengths.
@@ -122,7 +149,7 @@ class WetInkModel(
         }
     }
 
-    private fun lift() {
+    private fun lift(timeMs: Long) {
         lifted = true
         val n = samples.size
         forget(n - 3)
@@ -130,7 +157,11 @@ class WetInkModel(
             val ceiling = samples[i - 1].pressure
             if (samples[i].pressure > ceiling) samples[i].pressure = ceiling
         }
-        val keep = if (samples.size < 2) samples.size else endKeep(samples.size)
+        // The pen-up hook, on every point (as the outline finds it).
+        val all = allX.size
+        val keepAll = if (all < 2) all else endKeep(all)
+        if (start < 0) decideStart(keepAll, ended = true, atMs = timeMs)
+        val keep = max(min(1, samples.size), keepAll - start)
         while (samples.size > keep) samples.removeAt(samples.size - 1)
         forget(keep)
         if (arcs.size > keep - 1) arcs.size = max(1, keep - 1)
@@ -216,6 +247,8 @@ class WetInkModel(
         var from = samples.size
         while (from > 0 && samples[from - 1].timeMs > shownUpToMs) from--
         if (lifted && samples.isNotEmpty()) from = min(from, samples.size - 1)
+        // Flutter still shows the start from pen-down: draw the trimmed start.
+        if (trimmedAtMs >= 0 && trimmedAtMs > shownUpToMs && samples.isNotEmpty()) return 0
         if (from == samples.size) return from
         return max(0, from - 1)
     }
@@ -229,7 +262,8 @@ class WetInkModel(
         val r = pointRadii()
         if (to - from == 1) {
             val s = samples[from]
-            return doubleArrayOf(s.x, s.y, r[from])
+            val radius = if (from == 0 && to == samples.size) max(r[from], trimmedRadius) else r[from]
+            return doubleArrayOf(s.x, s.y, radius)
         }
         val step = shape.step
         val reach = (shape.kernelK + shape.fit + shape.cornerK + 4) * step
@@ -248,6 +282,12 @@ class WetInkModel(
         }
         for (i in max(0, start - 1) until to) shaper.add(samples[i].x, samples[i].y, r[i])
         shaper.update()
+        // A whole line shorter than half its width is a dot (`StrokeOutline.isDot`).
+        if (start == 0 && to == samples.size && shaper.isDot()) {
+            var radius = trimmedRadius
+            for (q in samples) radius = max(radius, radiusAt(q.pressure))
+            return doubleArrayOf(samples[0].x, samples[0].y, radius)
+        }
         var skip = 0.0
         for (i in start + 1..from) {
             skip += dist(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y)
@@ -301,45 +341,59 @@ class WetInkModel(
         return arcs[i]
     }
 
-    /** How many of the points to keep at pen-up (the pen-up hook removed); `HookFinder.endKeep`. */
+    /** The first of the [n] points to keep (the pen-down hook removed), or -1 while undecided; `HookFinder.startCut`. */
+    private fun startCut(n: Int, ended: Boolean): Int {
+        if (shape.hookStart <= 0) return 0
+        val at = { i: Int -> i }
+        val arc = hookArcs(n, at, shape.hookStart + shape.hookBody)
+            ?: if (ended) hookArcs(n, at, Double.POSITIVE_INFINITY)!! else return -1
+        return hookCut(arc, at, shape.hookStart)
+    }
+
+    /** How many of the [n] points to keep at pen-up (the pen-up hook removed); `HookFinder.endKeep`. */
     private fun endKeep(n: Int): Int {
         if (shape.hookEnd <= 0) return n
-        // Arc lengths from the end, up to the hook's reach and one sample beyond.
-        val arcEnd = DoubleList().apply { add(0.0) }
-        var beyond = -1
-        for (i in n - 2 downTo 0) {
-            arcEnd.add(arcEnd[arcEnd.size - 1] + dist(samples[i + 1].x - samples[i].x, samples[i + 1].y - samples[i].y))
-            val k = arcEnd.size - 1
-            if (beyond < 0 && arcEnd[k] >= shape.hookEnd + shape.hookBody) beyond = k
-            if (beyond >= 0 && k > beyond) break
-        }
-        val cut = hookCut(arcEnd, n)
+        val at = { i: Int -> n - 1 - i }
+        val arc = hookArcs(n, at, shape.hookEnd + shape.hookBody) ?: hookArcs(n, at, Double.POSITIVE_INFINITY)!!
+        val cut = hookCut(arc, at, shape.hookEnd)
         if (cut == 0) return n
         var total = 0.0
-        for (i in 1 until n) total += dist(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y)
-        if (total - arcEnd[cut] < 2 * arcEnd[cut]) return n
+        for (i in 1 until n) total += dist(allX[i] - allX[i - 1], allY[i] - allY[i - 1])
+        if (total - arc[cut] < 2 * arc[cut]) return n
         return n - cut
     }
 
-    private fun hookCut(arcEnd: DoubleList, n: Int): Int {
-        fun at(i: Int) = samples[n - 1 - i]
+    /** Arc lengths from the end mapped by [at] up to [length] and one point beyond, or null when the points do not reach. */
+    private fun hookArcs(n: Int, at: (Int) -> Int, length: Double): DoubleList? {
+        val arc = DoubleList().apply { add(0.0) }
+        var beyond = -1
+        for (i in 1 until n) {
+            arc.add(arc[i - 1] + dist(allX[at(i)] - allX[at(i - 1)], allY[at(i)] - allY[at(i - 1)]))
+            if (beyond < 0 && arc[i] >= length) beyond = i
+            if (beyond >= 0 && i > beyond) return arc
+        }
+        return if (length.isFinite()) null else arc
+    }
+
+    /** The furthest kink within [maxHook] of the end mapped by [at], as a count of points to drop. */
+    private fun hookCut(arc: DoubleList, at: (Int) -> Int, maxHook: Double): Int {
         var cut = 0
-        val m = arcEnd.size
+        val m = arc.size
         var j = 1
-        while (j < m && arcEnd[j] <= shape.hookEnd) {
+        while (j < m && arc[j] <= maxHook) {
             var b = j + 2
-            while (b < m && arcEnd[b] - arcEnd[j] < shape.hookBody) b++
+            while (b < m && arc[b] - arc[j] < shape.hookBody) b++
             if (b >= m) break
             var l = max(0, j - 2)
-            while (l > 0 && arcEnd[j] - arcEnd[l] < shape.hookLocal) l--
-            val jx = at(j).x
-            val jy = at(j).y
-            val hx = jx - at(0).x
-            val hy = jy - at(0).y
-            val bx = at(b).x - jx
-            val by = at(b).y - jy
-            val lx = jx - at(l).x
-            val ly = jy - at(l).y
+            while (l > 0 && arc[j] - arc[l] < shape.hookLocal) l--
+            val jx = allX[at(j)]
+            val jy = allY[at(j)]
+            val hx = jx - allX[at(0)]
+            val hy = jy - allY[at(0)]
+            val bx = allX[at(b)] - jx
+            val by = allY[at(b)] - jy
+            val lx = jx - allX[at(l)]
+            val ly = jy - allY[at(l)]
             val turn = angle(hx, hy, bx, by)
             val localTurn = angle(lx, ly, bx, by)
             if (turn > HOOK_TURN && localTurn > HOOK_LOCAL_TURN && localTurn >= HOOK_LOCAL_SHARE * turn) cut = j
@@ -396,6 +450,14 @@ class WetShaper(
     val cy = DoubleList()
     var length = 0
         private set
+
+    /** Whether the line is shorter than half its largest radius (`StrokeOutline.isDot`). */
+    fun isDot(): Boolean {
+        if (length < 2) return true
+        var maxR = 0.0
+        for (i in 0 until length) maxR = max(maxR, rr[i])
+        return p.step * (length - 1) < maxR * 0.5
+    }
 
     fun add(x: Double, y: Double, radius: Double) {
         val n = sx.size
@@ -493,23 +555,36 @@ class WetShaper(
         return WetInkModel.angle(ax, ay, bx, by)
     }
 
+    /** How far sample [i] lies along the direction the line came in from before the run starting at [first] (`StrokeShaper._tipScore`). */
+    private fun tipScore(first: Int, i: Int): Double {
+        val k = p.cornerK
+        val ux = rx[first] - rx[first - k]
+        val uy = ry[first] - ry[first - k]
+        return (rx[i] - rx[first]) * ux + (ry[i] - ry[first]) * uy
+    }
+
     private fun findCorners(count: Int): IntArray {
         val k = p.cornerK
         val found = ArrayList<Int>()
+        var first = -1
         var best = -1
-        var bestTurn = 0.0
+        var score = 0.0
         var i = k
         while (i + k < count) {
-            val turn = turnAt(i)
-            if (turn > MIN_TURN) {
-                if (turn > bestTurn) {
+            if (turnAt(i) > MIN_TURN) {
+                if (first < 0) {
+                    first = i
                     best = i
-                    bestTurn = turn
+                    score = 0.0
+                } else if (tipScore(first, i) > score) {
+                    best = i
+                    score = tipScore(first, i)
                 }
-            } else if (best >= 0) {
+            } else if (first >= 0) {
                 found.add(best)
+                first = -1
                 best = -1
-                bestTurn = 0.0
+                score = 0.0
             }
             i++
         }
