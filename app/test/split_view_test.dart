@@ -8,6 +8,7 @@ import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/audio/backends/audio_backends.dart';
 import 'package:len/features/editor/document/document_layout.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -21,24 +22,22 @@ import 'package:len/ui/app_theme.dart';
 import 'document_editor_test.dart' show closeEditor, drawAt, pumpEditor;
 import 'editor_tabs_test.dart' show notebook;
 
-/// A desktop workspace with two notebooks open: "Physics" (paged, active)
-/// and "Chemistry" (paged).
+/// A desktop workspace with two notebooks open: "Physics" (active) and
+/// "Chemistry", both paged unless [kind] says otherwise.
 Future<(AppServices, Notebook, Notebook)> pumpWorkspace(
   WidgetTester tester, {
   Size size = const Size(1440, 900),
+  NotebookKind kind = NotebookKind.paged,
+  AudioBackends? audio,
 }) async {
   tester.view
     ..physicalSize = size
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final s = AppServices.create(AppDatabase.inMemory());
+  final s = AppServices.create(AppDatabase.inMemory(), audio: audio);
   addTearDown(s.dispose);
-  Notebook make(String title) => s.notebooks.create(
-    title: title,
-    kind: NotebookKind.paged,
-    paper: PaperStyle.collegeRuled,
-    coverColor: 0,
-  );
+  Notebook make(String title) =>
+      s.notebooks.create(title: title, kind: kind, paper: PaperStyle.collegeRuled, coverColor: 0);
   final physics = make('Physics'), chemistry = make('Chemistry');
   s.openNotebooks
     ..open(chemistry)

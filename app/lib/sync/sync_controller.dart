@@ -78,6 +78,10 @@ class SyncController extends ChangeNotifier {
   /// Fires after a sync that changed local data.
   Stream<RemoteChanges> get remoteChanges => _remoteChanges.stream;
 
+  /// Announces [changes] as if a sync had brought them (tests).
+  @visibleForTesting
+  void debugAnnounce(RemoteChanges changes) => _remoteChanges.add(changes);
+
   /// Starts periodic syncing (and syncs once right away).
   void start() {
     if (_disposed) return;

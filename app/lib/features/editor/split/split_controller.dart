@@ -6,7 +6,6 @@ import 'package:flutter/rendering.dart';
 import '../../../ink/selection/selection_controller.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/tools/lasso_tool.dart';
-import '../../../sync/sync_engine.dart';
 import '../editor_session.dart';
 import '../tabs/open_notebooks.dart';
 
@@ -50,10 +49,10 @@ class SplitPane {
 }
 
 /// Coordinates the two editors of a split view: selections dragged from
-/// one into the other are copied there, two views of one notebook stay
-/// current with each other's edits, and tools can be linked (one tool,
-/// colour and width for both). Owned by the editor workspace; editors
-/// [attach] while shown.
+/// one into the other are copied there, and tools can be linked (one tool,
+/// colour and width for both). Two views of one notebook need nothing from
+/// here: they share the notebook's models (`SharedNotebook`). Owned by the
+/// editor workspace; editors [attach] while shown.
 class SplitController extends ChangeNotifier {
   SplitController(this.tabs) {
     tabs.addListener(_onTabs);
@@ -68,7 +67,6 @@ class SplitController extends ChangeNotifier {
 
   final List<SplitPane> _panes = [];
   final Map<SplitPane, VoidCallback> _toolListeners = {};
-  final Map<SplitPane, VoidCallback> _docListeners = {};
 
   /// The pane a dragged selection would be dropped into.
   SplitPane? get dropTarget => _dropTarget;
@@ -90,22 +88,10 @@ class SplitController extends ChangeNotifier {
   /// Starts tracking [pane] (an editor shown in the workspace).
   void attach(SplitPane pane) {
     _panes.add(pane);
-    pane.session.onSurfaceEdited = (surfaceId) => _edited(pane, surfaceId);
     pane.session.content.lasso.dragOut = _DragOut(this, pane);
     void onTools() => _toolsChanged(pane);
     _toolListeners[pane] = onTools;
     pane.session.tools.addListener(onTools);
-    if (pane.session.doc case final doc?) {
-      var pages = doc.pages;
-      void onDoc() {
-        if (identical(doc.pages, pages)) return;
-        pages = doc.pages;
-        if (!_flushing) _pagesChanged(pane); // Not the reload of a mirrored change.
-      }
-
-      _docListeners[pane] = onDoc;
-      doc.addListener(onDoc);
-    }
     // A pane opened while tools are linked starts with the other's.
     final other = _other(pane);
     if (tabs.linkTools && other != null) pane.session.tools.adopt(other.session.tools);
@@ -113,14 +99,9 @@ class SplitController extends ChangeNotifier {
 
   void detach(SplitPane pane) {
     _panes.remove(pane);
-    pane.session.onSurfaceEdited = null;
     pane.session.content.lasso.dragOut = null;
     final listener = _toolListeners.remove(pane);
     if (listener != null) pane.session.tools.removeListener(listener);
-    final docListener = _docListeners.remove(pane);
-    if (docListener != null) pane.session.doc?.removeListener(docListener);
-    _pending.remove(pane);
-    _pendingPages.remove(pane);
     if (_dropTarget == pane) _dropTarget = null;
     if (_dragSource == pane) _dragSource = null;
     if (_presenting == pane) {
@@ -180,61 +161,6 @@ class SplitController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // Two views of one notebook
-
-  /// Surfaces edited in a pane, waiting to be reloaded in the other.
-  final Map<SplitPane, Set<String>> _pending = {};
-
-  /// Panes whose notebook's page list changed in the other.
-  final Set<SplitPane> _pendingPages = {};
-  Timer? _flush;
-  bool _flushing = false;
-
-  /// How long edits gather before the other view reloads.
-  static const Duration mirrorDelay = Duration(milliseconds: 250);
-
-  Iterable<SplitPane> _sameNotebook(SplitPane pane) =>
-      _panes.where((p) => p != pane && p.notebookId == pane.notebookId);
-
-  void _edited(SplitPane from, String surfaceId) {
-    for (final other in _sameNotebook(from)) {
-      (_pending[other] ??= {}).add(surfaceId);
-    }
-    _scheduleFlush();
-  }
-
-  void _pagesChanged(SplitPane from) {
-    _pendingPages.addAll(_sameNotebook(from));
-    _scheduleFlush();
-  }
-
-  void _scheduleFlush() {
-    if (_pending.isEmpty && _pendingPages.isEmpty) return;
-    _flush ??= Timer(mirrorDelay, flushEdits);
-  }
-
-  /// Reloads what one view of a notebook changed in the other now.
-  void flushEdits() {
-    _flush?.cancel();
-    _flush = null;
-    final pending = Map.of(_pending);
-    final pages = {..._pendingPages};
-    _pending.clear();
-    _pendingPages.clear();
-    for (final pane in {...pending.keys, ...pages}) {
-      if (!_panes.contains(pane)) continue;
-      final changes = RemoteChanges()..strokeSurfaces.addAll(pending[pane] ?? const {});
-      if (pages.contains(pane)) changes.pagesOfNotebooks.add(pane.notebookId);
-      _flushing = true;
-      try {
-        pane.session.applyRemoteChanges(changes);
-      } finally {
-        _flushing = false;
-      }
-    }
-  }
-
-  // ---------------------------------------------------------------------------
   // Dragging selections between panes
 
   void _dragging(SplitPane from, Offset pointer, Offset centre) {
@@ -267,7 +193,6 @@ class SplitController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _flush?.cancel();
     tabs.removeListener(_onTabs);
     if (tabs.captureViews == _captureViews) tabs.captureViews = null;
     for (final pane in [..._panes]) {

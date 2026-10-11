@@ -35,6 +35,7 @@ import 'editor_toolbar.dart';
 import 'links/link_actions.dart';
 import 'pdf/pdf_layer.dart';
 import 'present/presentation.dart';
+import 'shared/shared_notebooks.dart';
 import 'split/split_controller.dart';
 import 'split/split_view_button.dart';
 import 'tabs/open_notebooks.dart';
@@ -106,10 +107,14 @@ class _EditorView extends StatefulWidget {
 
 class _EditorScreenState extends State<_EditorView> {
   late final AppServices _services = AppScope.read(context);
-  late Notebook _notebook = widget.notebook;
+
+  /// The notebook and what this editor shares with its other editors.
+  late final SharedNotebook _shared = _services.sharedNotebooks.acquire(widget.notebook)
+    ..addListener(_onShared);
+  Notebook get _notebook => _shared.notebook;
   late final EditorSession _session = EditorSession(
     services: _services,
-    notebook: () => _notebook,
+    shared: _shared,
     onStylusDetected: _onStylusDetected,
     initialView: widget.secondPane
         ? _services.openNotebooks.splitView
@@ -122,8 +127,6 @@ class _EditorScreenState extends State<_EditorView> {
     services: _services,
     session: _session,
     secondPane: widget.secondPane,
-    onNotebookChanged: (n) => setState(() => _notebook = n),
-    onGone: ({required trashed}) => _lifecycle.closeDeleted(context, trashed: trashed),
   );
 
   /// This editor as the split view sees it.
@@ -143,8 +146,9 @@ class _EditorScreenState extends State<_EditorView> {
   final ValueNotifier<int> _presentActivity = ValueNotifier(0);
   final HudController _hud = HudController();
 
-  /// Audio recording and ink replay (features/audio).
-  late final NotebookAudio _audio = NotebookAudio(_services, notebookId: widget.notebook.id);
+  /// Audio recording and ink replay (features/audio), shared by the
+  /// notebook's editors.
+  NotebookAudio get _audio => _shared.audio;
 
   /// One-time tips (stylus side button, multi-finger taps).
   late final TipsController _tips = TipsController(
@@ -223,9 +227,7 @@ class _EditorScreenState extends State<_EditorView> {
     _services.preferences.addListener(_onPreferences);
     _session.undo.addListener(_onEdit);
     _session.tools.addListener(_onTools);
-    _audio.onNotice = (message) {
-      if (mounted) showMessage(context, message);
-    };
+    _audio.onNotice = _onAudioNotice;
     _services.incomingFiles.targets.add(_importTarget);
     // Of two editors (split view), files go to the one used last.
     _focusNode.addListener(_onFocus);
@@ -261,8 +263,12 @@ class _EditorScreenState extends State<_EditorView> {
     if (_focus) setImmersive(false);
     final edited = _session.edited;
     _search.dispose();
-    _audio.dispose(); // Saves a running recording.
+    if (_audio.onNotice == _onAudioNotice) _audio.onNotice = null;
     _session.dispose(); // Commits a text box still being edited.
+    _shared.removeListener(_onShared);
+    // The last editor of the notebook disposes what they shared (and
+    // saves a running recording).
+    _services.sharedNotebooks.release(_shared);
     _lifecycle.finish(edited: edited);
     _hud.dispose();
     _tips.dispose();
@@ -275,6 +281,21 @@ class _EditorScreenState extends State<_EditorView> {
 
   void _onTabs() {
     if (mounted) setState(() {}); // The tab strip may appear or go.
+  }
+
+  void _onAudioNotice(String message) {
+    if (mounted) showMessage(context, message);
+  }
+
+  /// The notebook changed (in another editor or on another device), or
+  /// was deleted on another device.
+  void _onShared() {
+    if (!mounted || _closing) return;
+    if (_shared.gone case final gone?) {
+      _lifecycle.closeDeleted(context, trashed: gone == NotebookGone.trashed);
+    } else {
+      setState(() {});
+    }
   }
 
   void _onFocus() {
@@ -385,8 +406,7 @@ class _EditorScreenState extends State<_EditorView> {
       confirmLabel: 'Rename',
     );
     if (title == null || title.isEmpty || !mounted || _closing) return;
-    _update((n) => n.copyWith(title: title));
-    _services.openNotebooks.rename(_notebook.id, title);
+    _shared.update((n) => n.copyWith(title: title));
   }
 
   /// Changes the canvas's template and paper colour.
@@ -398,14 +418,7 @@ class _EditorScreenState extends State<_EditorView> {
     );
     if (choice == null || !mounted || _closing) return;
     final template = choice.template;
-    _update((n) => n.copyWith(paper: template.style, paperColor: template.color));
-  }
-
-  void _update(Notebook Function(Notebook current) change) {
-    // Re-read so a concurrent remote change isn't overwritten wholesale.
-    final current = _services.notebooks.get(_notebook.id);
-    if (current == null) return;
-    setState(() => _notebook = _services.notebooks.update(change(current)));
+    _shared.update((n) => n.copyWith(paper: template.style, paperColor: template.color));
   }
 
   /// The folder the notebook is filed in, shown under its title.

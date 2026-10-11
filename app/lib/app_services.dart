@@ -26,6 +26,7 @@ import 'data/template_repository.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
 import 'features/documents/import/incoming_files.dart';
+import 'features/editor/shared/shared_notebooks.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'ink/images/element_images.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
@@ -199,6 +200,10 @@ class AppServices {
   /// Notebooks open in editor tabs (with each tab's place in memory).
   final OpenNotebooks openNotebooks = OpenNotebooks();
 
+  /// What the editors of one notebook share (the notebook, its audio,
+  /// surfaces, undo and PDF caches), per open notebook.
+  late final SharedNotebooks sharedNotebooks = SharedNotebooks(this);
+
   /// Deletes blobs nothing references anymore; started by the app at launch.
   late final LocalBlobGc blobGc = LocalBlobGc(
     blobs: blobs,
@@ -210,6 +215,7 @@ class AppServices {
   late final ElementImages images = ElementImages(read: blobs.read, fetch: sync.fetchBlob);
 
   void dispose() {
+    sharedNotebooks.dispose();
     incomingFiles.dispose();
     images.dispose();
     openNotebooks.dispose();

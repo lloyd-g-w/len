@@ -4,25 +4,19 @@ import 'package:flutter/material.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
-import '../../sync/sync_engine.dart';
 import '../../ui/messages.dart';
 import 'editor_session.dart';
 
 /// Ties one editor to the app and to sync: remembers where it looks (when
-/// the app is hidden and when the editor closes), follows remote changes
-/// to its notebook, closes the editor when the notebook is deleted on
-/// another device, and after edits marks the notebook edited and syncs.
+/// the app is hidden and when the editor closes), closes the editor when
+/// the notebook is deleted on another device, and after edits marks the
+/// notebook edited and syncs. (Remote changes to the notebook itself are
+/// followed by its `SharedNotebook`.)
 ///
 /// A feature that must react to the app going to the background or to the
 /// editor closing hooks in here.
 class EditorLifecycle {
-  EditorLifecycle({
-    required this.services,
-    required this.session,
-    required this.secondPane,
-    required this.onNotebookChanged,
-    required this.onGone,
-  });
+  EditorLifecycle({required this.services, required this.session, required this.secondPane});
 
   final AppServices services;
   final EditorSession session;
@@ -30,12 +24,6 @@ class EditorLifecycle {
   /// The split view's second pane keeps its place in memory only (it may
   /// show the same notebook as the first).
   final bool secondPane;
-
-  /// The notebook was changed on another device (renamed, new paper).
-  final ValueChanged<Notebook> onNotebookChanged;
-
-  /// The notebook was deleted (or [trashed]) on another device.
-  final void Function({required bool trashed}) onGone;
 
   Notebook get _notebook => session.notebook;
 
@@ -52,25 +40,9 @@ class EditorLifecycle {
       saveView();
     },
   );
-  StreamSubscription<RemoteChanges>? _remoteChanges;
 
   void start() {
     _app; // Starts listening.
-    _remoteChanges = services.sync.remoteChanges.listen(_onRemoteChanges);
-  }
-
-  void _onRemoteChanges(RemoteChanges changes) {
-    if (closing) return;
-    if (changes.notebooks) {
-      final updated = services.notebooks.get(_notebook.id);
-      if (updated == null || updated.isTrashed) {
-        onGone(trashed: updated != null);
-        return;
-      }
-      onNotebookChanged(updated);
-      services.openNotebooks.rename(updated.id, updated.title);
-    }
-    session.applyRemoteChanges(changes);
   }
 
   /// Remembers this notebook's page, zoom and pan for the next launch.
@@ -111,7 +83,6 @@ class EditorLifecycle {
   /// the second pane, the split view) and for the next launch. Called
   /// while the session is still alive.
   void dispose() {
-    unawaited(_remoteChanges?.cancel());
     final tabs = services.openNotebooks;
     if (secondPane) {
       // Not after a swap: the pane now shows another notebook.
