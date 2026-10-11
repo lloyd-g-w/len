@@ -6,6 +6,7 @@ import 'app.dart';
 import 'app_services.dart';
 import 'core/font_licenses.dart';
 import 'data/app_database.dart';
+import 'ink/lab/perf_probe.dart';
 import 'platform/app_directory.dart';
 import 'platform/blob_backend.dart';
 import 'platform/incoming_files.dart';
@@ -26,6 +27,7 @@ Future<void> main(List<String> args) async {
     // "Open with" / "Share to Len", command-line files, PWA file handler.
     incomingFiles: openIncomingFiles(args),
   )..sync.start();
+  if (PerfProbe.requested) PerfProbe.start();
   runApp(LenApp(services: services));
   // Throttled to once a day; deletes blobs unreferenced for a week.
   unawaited(services.blobGc.runIfDue());

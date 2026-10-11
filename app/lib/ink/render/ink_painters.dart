@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../domain/chunk_grid.dart';
 import '../input/live_ink.dart';
+import '../lab/perf_probe.dart';
 import '../surface_model.dart';
 import '../viewport.dart';
 import 'chunk_picture_cache.dart';
@@ -74,6 +75,7 @@ class CommittedInkPainter extends CustomPainter {
           : cache.peek(key) ?? (fresh-- > 0 ? cache.pictureFor(key) : null);
       if (picture != null) canvas.drawPicture(picture);
     }
+    PerfProbe.count('chunkDraws', chunks.length);
     canvas.restore();
   }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -339,8 +340,10 @@ class SurfaceModel extends ChangeNotifier {
   void _apply(InkEdit edit) {
     final changed = <ChunkKey>{};
 
+    developer.Timeline.startSync('len.persistStrokes');
     if (edit.removed.isNotEmpty) _repository.delete(edit.removed.map((s) => s.id));
     if (edit.added.isNotEmpty) _repository.save(edit.added);
+    developer.Timeline.finishSync();
     for (final s in edit.removed) {
       final current = _strokes[s.id];
       if (current != null) _removeStroke(current);

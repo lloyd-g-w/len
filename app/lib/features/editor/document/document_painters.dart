@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../../domain/chunk_grid.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../ink/lab/perf_probe.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/viewport.dart';
 import 'document_layout.dart';
@@ -142,6 +143,7 @@ class DocumentInkPainter extends CustomPainter {
       for (final key in chunks) {
         canvas.drawPicture(surface.cache.pictureFor(key));
       }
+      PerfProbe.count('chunkDraws', chunks.length);
       canvas.restore();
     }
   }
