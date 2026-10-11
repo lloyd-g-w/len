@@ -42,7 +42,7 @@ class StrokeShaper implements RibbonLine {
     : _hooks = p.hooks,
       _start = start,
       _leadIn = start != null && start > 0,
-      _phase = phase;
+      _phase = phase; // ignore: prefer_initializing_formals
 
   final ShapeParams p;
   final HookFinder _hooks;
