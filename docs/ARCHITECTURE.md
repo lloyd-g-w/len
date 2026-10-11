@@ -147,8 +147,17 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
 - **`EditorSession`** owns the engine side of one open notebook: `ToolSettings`, live ink,
   `InkInputController` + `CanvasGestures`, `ContentTools`, undo, and either the canvas
   `SurfaceModel` + viewport or the `DocumentController` + `DocumentCommands`.
-- **`EditorScreen`** composes `EditorCanvas` (surface, "Add page" footer, content layer)
-  with `EditorChrome` (`chrome/`): `EditorTopBar` (on every size: back, then the title —
+- **`EditorScreen`** is the editor's composition root: it owns the parts and wires them,
+  each of which lives in its own file — `EditorSession` (engine side: tools, input,
+  content tools, undo, canvas or document), `EditorLayers` (`editor_layers.dart`: what is
+  stacked over the surface, bottom to top — a feature drawing over the surface adds its
+  layer there), `EditorChromeHost` (`editor_chrome_host.dart`: toolbar, top bar, menus and
+  page navigator wired to `EditorScreenCommands`; `ToolbarMeasure` and the chrome
+  layout), `EditorLifecycle` (`editor_lifecycle.dart`: app hidden, view memory, closing
+  after a remote deletion, touch + sync after edits), `editor_commands.dart` (rename,
+  canvas background), `editorScreenShortcuts` and `canvasMenuAt`. It composes
+  `EditorCanvas` (surface, "Add page" footer, content layer) with `EditorChrome`
+  (`chrome/`): `EditorTopBar` (on every size: back, then the title —
   start-aligned, tap to rename, with the folder as a quiet subtitle — then, in groups,
   pages and bookmark, insert image and search | undo/redo | export, focus, "⋯"
   `EditorMoreMenu`; the phone variant keeps back, title, insert image, undo/redo and the
@@ -196,22 +205,27 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   lays out the panes in a `Stack` whose first child keeps its place in every layout, so
   opening or closing the split never rebuilds the first editor; a 12 px divider resizes
   (drag, ← / → when focused, double tap: halves; panes ≥ 320 px). Each pane is a full
-  `EditorScreen` with its own `EditorSession` (viewport, tools, undo, chrome); the
+  `EditorScreen` with its own `EditorSession` (viewport, tools, chrome); the
   second has no tab strip, its back button closes it, Ctrl+W closes it, it keeps its
   view in `OpenNotebooks.splitView` only, and it has its own `ScaffoldMessenger`
-  (messages show in the pane they belong to). `SplitController` (owned by the
-  workspace; editors `attach` a `SplitPane`) coordinates them:
+  (messages show in the pane they belong to). When the screen gets too small for two
+  (a tablet turned to portrait) the second pane is **parked**, not closed: it stays
+  in the tree offstage (`SplitView`'s `_Parked`: `Offstage` + `ExcludeFocus` +
+  `TickerMode`; `SplitView.parkedOf`), so its editor, undo history and a running
+  recording live on; it takes no files and is no drop target, and shows again in
+  landscape. `SplitController` (owned by the workspace; editors `attach` a
+  `SplitPane`) coordinates them:
   - **Drag between panes (copy)**: `LassoTool.dragOut` (a `SelectionDragOut`) reports
     a selection being moved; over the other pane, that pane is outlined with *Drop to
     copy here* and a half-transparent preview of the copy at its zoom; dropped there,
     the source cancels its move and the target pastes a copy
     (`SelectionController.pasteItems`) centred where the selection's centre was, on the
     page under it, selected with the lasso (one undo step in the target).
-  - **Two views of one notebook** stay current: `EditorSession.onSurfaceEdited`
-    (`model.onCommit` / `DocumentSurfaces.onEdited`, undo and redo included) and page
-    list changes are gathered for 250 ms and replayed in the other view through
-    `applyRemoteChanges` — the path remote sync uses (reloads of mirrored changes are
-    not reported back).
+  - **Two views of one notebook** need no mirroring: they share the notebook's models
+    (see *Shared notebooks* below), so an edit, undo or redo in one shows in the other
+    at once, and both undo one history (nothing erased in one comes back through the
+    other's undo). While one pane has a selection or edits a text box, those items are
+    hidden in the other view too (hiding is per model).
   - **Linked tools** (optional): `ToolSettings.adopt` copies tool, quick colours and
     widths, eraser, shape and text defaults from the pane that changed them.
   - **Presentation** in a pane shows that pane alone (`SplitView.solo`; the other stays
@@ -222,6 +236,25 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
     notebook's view, and closing the active tab next to the split tab moves that notebook
     into the first pane where it was. The tab limit never closes the split tab. Incoming
     files go to the pane that last had keyboard focus.
+  - **Deleted on another device**: an editor closes only the dialogs, sheets and pages
+    it opened (`RouteOwners`, `ui/route_owners.dart`: an observer on the app's
+    navigator that records which editor — the last one touched or focused — pushed
+    each route), never the other pane's; the second pane's message shows in the first
+    (`SplitController.messageOther`), since its own messenger goes with it.
+- **Shared notebooks** (`shared/`): `SharedNotebooks` (`AppServices.sharedNotebooks`)
+  holds one ref-counted `SharedNotebook` per notebook open in any editor; every editor
+  of a notebook (a tab and the second pane, or both panes) `acquire`s the same one and
+  the last to close disposes it. It holds the notebook (`update` renames or changes
+  paper in every editor and the tab), its `NotebookAudio` (one recorder and player, one
+  recordings list), the PDF caches (`PdfBackgroundCache`, `PdfPageInfoCache`), the
+  canvas's `SurfaceModel`, or the pages' `PageModels` (`document/page_models.dart`:
+  ref-counted page models plus the notebook-wide undo order; each view's
+  `DocumentSurfaces` acquires the pages it shows and keeps its own render caches; a
+  model goes once no view holds it and undo can't reach it). Page list changes in one
+  view reload the others (`attachDocument`). It follows remote changes once for all
+  its editors (notebook record, page lists, surfaces, PDFs) and sets `gone` when the
+  notebook is deleted or trashed elsewhere. One microphone: a notebook can't start
+  recording while another records ("Already recording in …").
 - **Presentation mode** (`present/`; "⋯" → *Present*, F5): `Presentation` hides all
   chrome (`ChromeLayout.focus`), goes immersive / full screen (`platform/fullscreen*`: the
   browser's fullscreen API on the web; Android hides the system bars; desktop windows
@@ -625,8 +658,10 @@ replayed in step with the ink.
   delete at once. Export hands the audio file (`.m4a`, `.webm`, `.wav`)
   to the existing save / share path (`platform/file_export`: save dialog on
   desktop, share sheet on Android, download on the web). `NotebookAudio`
-  owns all of it per open notebook and reloads when sync reports
-  `recordingsOfNotebooks`.
+  owns all of it per open notebook (one per notebook, shared by its editors
+  through `SharedNotebook`; saved when its last editor closes) and reloads when
+  sync reports `recordingsOfNotebooks`. `RecordingController.busy` keeps to one
+  recording at a time across notebooks.
 
 ## Input (`ink/input/ink_input_controller.dart`)
 

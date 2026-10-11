@@ -22,6 +22,26 @@ phone; the phone tool switcher with favourites; presentation, light and dark).
   the tab strip (desktop); an empty strip-coloured band would line them up.
 - ⬜ Reordering in edit mode needs a long press, also with a mouse.
 
+### Split view robustness (`fix/split`, QA round 2)
+
+Reviewed from `split_same_tablet_*`, `split_parked_portrait_*` and
+`split_restored_tablet_*` (one notebook in both panes; turned to portrait and back).
+
+- ✅ Turning a tablet to portrait parks the second pane instead of closing it: a
+  running recording continues and its undo history survives; landscape shows it again.
+- ✅ One notebook in both panes: edits, undo and redo show in the other pane at once
+  (no reload every 250 ms while drawing), and one history means the other pane's undo
+  can't resurrect erased ink.
+- ✅ Recordings list in both panes; only one recording at a time (the other notebook
+  says *Already recording in “…”*).
+- ✅ Renames and new paper show in both panes; PDF caches are shared.
+- ✅ A second pane whose notebook was deleted elsewhere says so in the first pane and
+  leaves the first pane's dialogs open.
+- ⬜ A parked pane gives no hint in portrait (e.g. its recording runs unseen; the first
+  pane only learns of it when it tries to record).
+- ⬜ A selection or a text box being edited in one pane hides those items in the other
+  view of the same notebook until it ends.
+
 ## Round 3 — whole app (`feat/ux3`)
 
 Scope: every surface. The library, settings, dialogs, import and export

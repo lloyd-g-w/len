@@ -18,6 +18,7 @@ import 'document_layout.dart';
 import 'document_scroller.dart';
 import 'document_surfaces.dart';
 import 'page_fit.dart';
+import 'page_models.dart';
 import 'page_viewport.dart';
 
 /// State of an open paged notebook: its pages, their layout in document
@@ -33,10 +34,11 @@ class DocumentController extends ChangeNotifier {
     int initialPage = 0,
     this._initialView,
     this._fit = PageFit.auto,
+    PageModels? models,
   }) : assert(pages.isNotEmpty, 'A document needs at least one page'),
        _pages = pages,
        _current = initialPage.clamp(0, pages.length - 1),
-       surfaces = DocumentSurfaces(strokes, elements: elements, images: images) {
+       surfaces = DocumentSurfaces(strokes, elements: elements, images: images, models: models) {
     _active = _current;
     surfaces.active = pages[_current].id;
     _relayout();

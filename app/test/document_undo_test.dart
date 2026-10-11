@@ -5,6 +5,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/document/document_surfaces.dart';
+import 'package:len/features/editor/document/page_models.dart';
 import 'package:len/ink/undo_history.dart';
 
 Stroke _stroke(String id, String surface) => Stroke(
@@ -76,5 +77,37 @@ void main() {
     expect(state(), 'a1|');
     surfaces.undo();
     expect(ids('A'), isEmpty);
+  });
+
+  test('two views share page models and one notebook-wide undo', () {
+    final db = AppDatabase.inMemory();
+    addTearDown(db.close);
+    final repository = StrokeRepository(db, deviceId: 'd');
+    final models = PageModels();
+    final left = DocumentSurfaces(repository, models: models, keepIdle: 0);
+    final right = DocumentSurfaces(repository, models: models, keepIdle: 0);
+    addTearDown(() {
+      right.dispose();
+      models.dispose();
+    });
+    final a = left.surfaceOf('A').model;
+    expect(right.surfaceOf('A').model, same(a));
+    a.addStroke(_stroke('a1', 'A'));
+    left.surfaceOf('B').model.addStroke(_stroke('b1', 'B'));
+    expect(right.canUndo, isTrue);
+
+    // The left view goes: the right one still undoes its edits, on page B
+    // too although it never showed that page.
+    left.dispose();
+    right.undo();
+    expect(models.peek('B')!.strokesNear(const Rect.fromLTWH(0, 0, 100, 100)), isEmpty);
+    right.undo();
+    expect(a.strokesNear(const Rect.fromLTWH(0, 0, 100, 100)), isEmpty);
+    expect(right.canUndo, isFalse);
+
+    // Pages deleted: their models go once no view holds them.
+    right.retain(const {});
+    expect(models.peek('A'), isNull);
+    expect(models.peek('B'), isNull);
   });
 }
