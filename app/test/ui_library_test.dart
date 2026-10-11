@@ -128,6 +128,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a new notebook from a planner template gets one page per day', (tester) async {
+    final services = await pumpLibrary(tester);
+    await tester.tap(find.text('New notebook'));
+    await tester.pumpAndSettle();
+    final daily = find.text('Daily planner');
+    await tester.ensureVisible(daily);
+    await tester.tap(daily);
+    await tester.pumpAndSettle();
+    final now = DateTime.now();
+    final days = PlannerDates.daysInMonth(now.year, now.month);
+    expect(find.text('Daily planner · White · A4 portrait · $days pages'), findsOneWidget);
+
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+    final notebook = services.notebooks.list().single;
+    expect(notebook.paper, PaperStyle.blank, reason: 'a default without a date');
+    final pages = services.pages.pagesOf(notebook.id);
+    expect(pages, hasLength(days));
+    expect(
+      pages.first.paper,
+      Paper.planner(PaperStyle.dailyPlanner, DateTime.utc(now.year, now.month)),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('infinite canvas opens on a narrow phone without overflow', (tester) async {
     await pumpLibrary(tester, size: const Size(320, 640), themeMode: ThemeMode.dark);
     await createNotebook(tester, 'A rather long canvas title that must ellipsize', canvas: true);
