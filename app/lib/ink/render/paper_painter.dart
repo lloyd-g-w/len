@@ -184,6 +184,8 @@ abstract final class PatternText {
             ..pushStyle(
               ui.TextStyle(
                 color: color,
+                // The UI font (falls back to the platform's where missing).
+                fontFamily: 'Roboto',
                 fontSize: label.size,
                 fontWeight: label.bold ? FontWeight.w600 : FontWeight.w400,
                 letterSpacing: label.bold && label.size < 12 ? label.size * 0.06 : 0,

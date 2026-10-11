@@ -77,20 +77,25 @@ extension WritingPatterns on PatternBuilder {
     _titleRow(c, 'Storyboard', fields: const ['Scene']);
     final grid = Rect.fromLTRB(c.left, c.top + 3 * s, c.right, c.bottom);
     final cols = page.width > page.height ? 3 : 2;
-    const gap = 20.0, noteLines = 2;
-    final cellW = (grid.width - gap * (cols - 1)) / cols;
+    const minGap = 20.0, minNotes = 2;
+    final cellW = (grid.width - minGap * (cols - 1)) / cols;
     final frameH = cellW * 9 / 16;
-    final cellH = frameH + (noteLines + 0.9) * s;
-    final rows = math.max(1, ((grid.height + gap) / (cellH + gap)).floor());
+    double cellHeight(int notes) => frameH + (notes + 0.9) * s;
+    final rows = math.max(1, ((grid.height + minGap) / (cellHeight(minNotes) + minGap)).floor());
+    // Spend the space left over on more note lines, then on the gaps.
+    final slack = grid.height - rows * cellHeight(minNotes) - (rows - 1) * minGap;
+    final notes = minNotes + math.max(0, (slack / rows / s).floor()).toInt();
+    final cellH = cellHeight(notes);
+    final gap = rows == 1 ? minGap : (grid.height - rows * cellH) / (rows - 1);
     var n = 1;
     for (var r = 0; r < rows; r++) {
       for (var col = 0; col < cols; col++) {
-        final left = grid.left + col * (cellW + gap);
+        final left = grid.left + col * (cellW + minGap);
         final top = grid.top + r * (cellH + gap);
         final frame = Rect.fromLTWH(left, top, cellW, frameH);
         box(frame);
         label('${n++}', Rect.fromLTWH(left + 6, top + 4, 40, 16), size: 10, muted: true);
-        rules(top + frameH + s, top + frameH + noteLines * s, left, left + cellW);
+        rules(top + frameH + s, top + frameH + notes * s, left, left + cellW);
       }
     }
   }
