@@ -62,8 +62,7 @@ abstract class ReplayTarget {
 
   /// When the content under [screen] was created (epoch ms): a stroke near
   /// it, else a text box or image under it; null over empty paper.
-  int? createdAtUnder(Offset screen) =>
-      strokeAt(screen)?.createdAt ?? elementAt(screen)?.createdAt;
+  int? createdAtUnder(Offset screen) => strokeAt(screen)?.createdAt ?? elementAt(screen)?.createdAt;
 }
 
 class _CanvasTarget extends ReplayTarget {

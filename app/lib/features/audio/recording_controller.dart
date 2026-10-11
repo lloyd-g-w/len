@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../core/clock.dart';
@@ -153,8 +154,9 @@ class RecordingController extends ChangeNotifier {
       // Streamed into the blob store (no full copy in memory natively).
       final sha = await blobs.putFile(audio.file, mime: audio.mime);
       await _capture?.discard(audio);
-      final waveform = await blobs.putBytes(
-        _waveform.build(duration).encode(),
+      // Small (≈ 36 KB per hour): hashed in place, no isolate.
+      final waveform = await blobs.putFile(
+        XFile.fromData(_waveform.build(duration).encode(), mimeType: Waveform.mime),
         mime: Waveform.mime,
       );
       final recording = repository.create(

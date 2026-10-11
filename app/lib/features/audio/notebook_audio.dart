@@ -5,10 +5,13 @@ import 'package:flutter/widgets.dart';
 
 import '../../app_services.dart';
 import '../../domain/recording.dart';
+import '../../platform/file_export.dart' as platform;
 import '../../sync/sync_engine.dart';
+import '../documents/export/export_flow.dart' show ExportSaver;
 import 'backends/audio_backends.dart';
 import 'playback_controller.dart';
 import 'recording_controller.dart';
+import 'recording_export.dart';
 import 'recording_overview.dart';
 
 /// Everything audio for one open notebook: the recorder, the player and
@@ -86,6 +89,29 @@ class NotebookAudio extends ChangeNotifier {
     services.recordings.delete(id);
     reload();
   }
+
+  /// Deletes several recordings at once.
+  void deleteAll(Set<String> ids) {
+    if (ids.contains(playback.recording?.id)) playback.close();
+    services.recordings.deleteAll(ids);
+    reload();
+  }
+
+  /// Hands exported files to the user (tests replace it).
+  @visibleForTesting
+  ExportSaver saveFiles = platform.saveOrShareAll;
+
+  /// Exports [recordings]' audio (save dialog, share sheet or download).
+  Future<void> export(BuildContext context, List<Recording> recordings) => exportRecordings(
+    context,
+    recordings,
+    blobs: services.blobs,
+    fetch: services.sync.fetchBlob,
+    save: saveFiles,
+  );
+
+  /// Size of [recording]'s audio on this device (null while not here).
+  int? sizeOf(Recording recording) => services.blobs.sizeOf(recording.blob);
 
   /// Opens [recording] in the player and plays it.
   Future<bool> play(Recording recording) => playback.open(recording);

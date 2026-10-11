@@ -12,6 +12,7 @@ import '../../ui/text_prompt.dart';
 import '../audio/audio_layer.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/audio_bar_button.dart';
+import '../audio/ui/playback_keys.dart';
 import '../documents/template_picker.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
@@ -384,13 +385,14 @@ class _EditorScreenState extends State<EditorScreen> {
             focusNode: _focusNode,
             autofocus: true,
             // Escape first closes a chrome menu opened with a tap (focus
-            // stayed here, out of the menu's reach).
+            // stayed here, out of the menu's reach). The audio player's
+            // keys (Space, ← / →) come before the editor's shortcuts.
             onKeyEvent: (_, event) =>
                 event is KeyDownEvent &&
                     event.logicalKey == LogicalKeyboardKey.escape &&
                     _guard.closeMenus()
                 ? KeyEventResult.handled
-                : KeyEventResult.ignored,
+                : handlePlaybackKey(_audio, event),
             // Automatic placement depends on the toolbar's width (its slots).
             child: ListenableBuilder(
               listenable: Listenable.merge([_session.tools, _toolbarHeight]),
