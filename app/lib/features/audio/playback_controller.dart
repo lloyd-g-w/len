@@ -18,8 +18,8 @@ class PlaybackController extends ChangeNotifier {
   /// Fetches a blob from the sync server (see `SyncController.fetchBlob`).
   final Future<bool> Function(String sha) fetch;
 
-  /// How far before a stroke's time [seekToInk] starts, so the words that
-  /// led to it are heard (strokes are stamped when the pen lifts).
+  /// How far before a stroke's time (when it was begun) [seekToInk]
+  /// starts, so the words that led to it are heard.
   static const int leadMs = 1500;
 
   AudioPlayback? _player;
