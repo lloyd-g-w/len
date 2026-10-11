@@ -7,20 +7,14 @@ import 'package:flutter/services.dart';
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
-import '../../sync/sync_engine.dart';
 import '../../ui/messages.dart';
 import '../../ui/text_prompt.dart';
-import '../audio/audio_layer.dart';
 import '../audio/notebook_audio.dart';
-import '../audio/ui/audio_bar_button.dart';
 import '../audio/ui/playback_keys.dart';
 import '../documents/template_picker.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
 import '../settings/settings_screen.dart';
-import 'canvas/canvas_empty_hint.dart';
-import 'chrome/bar_button.dart';
-import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/chrome_metrics.dart';
 import 'chrome/editor_chrome.dart';
@@ -30,28 +24,29 @@ import 'chrome/focus_handle.dart';
 import 'chrome/gesture_hud.dart';
 import 'chrome/toolbar_slot.dart';
 import 'document/document_layout.dart';
-import 'editor_actions.dart';
-import 'editor_canvas.dart';
+import 'editor_chrome_host.dart';
 import 'editor_gestures.dart';
 import 'editor_import_target.dart';
+import 'editor_layers.dart';
+import 'editor_lifecycle.dart';
 import 'editor_session.dart';
 import 'editor_shortcuts.dart';
 import 'editor_toolbar.dart';
-import 'images/image_entry_points.dart';
 import 'links/link_actions.dart';
 import 'pdf/pdf_layer.dart';
 import 'present/presentation.dart';
-import 'present/presentation_controls.dart';
 import 'split/split_controller.dart';
-import 'split/split_drop_highlight.dart';
 import 'split/split_view_button.dart';
-import 'stickers/sticker_layer.dart';
 import 'tabs/open_notebooks.dart';
 import 'toolbar/toolbar_config.dart';
-import 'toolbar/toolbar_editor.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
 /// surface, the content tools' layer and the chrome around them.
+///
+/// The pieces live next to it: [EditorSession] (the engine side),
+/// [EditorLayers] (what is stacked over the surface), [EditorChromeHost]
+/// (toolbar, top bar and menus) and [EditorLifecycle] (app lifecycle,
+/// sync, closing). This state owns them and wires them together.
 class EditorScreen extends StatefulWidget {
   const EditorScreen({super.key, required this.notebook, this.split, this.secondPane = false});
 
@@ -122,6 +117,15 @@ class _EditorScreenState extends State<_EditorView> {
               EditorViewState.decode(_services.settings.editorView(widget.notebook.id)),
   );
 
+  /// App lifecycle, remote changes, remembering the view, closing.
+  late final EditorLifecycle _lifecycle = EditorLifecycle(
+    services: _services,
+    session: _session,
+    secondPane: widget.secondPane,
+    onNotebookChanged: (n) => setState(() => _notebook = n),
+    onGone: ({required trashed}) => _lifecycle.closeDeleted(context, trashed: trashed),
+  );
+
   /// This editor as the split view sees it.
   late final SplitPane? _pane = widget.split == null
       ? null
@@ -137,16 +141,6 @@ class _EditorScreenState extends State<_EditorView> {
 
   /// Pointer activity that shows the presentation controls.
   final ValueNotifier<int> _presentActivity = ValueNotifier(0);
-
-  /// Commits a text box being typed and saves where the editor looks when
-  /// the app goes to the background (it may be killed there without
-  /// [dispose]).
-  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
-    onHide: () {
-      _session.content.text.end();
-      _saveView();
-    },
-  );
   final HudController _hud = HudController();
 
   /// Audio recording and ink replay (features/audio).
@@ -160,9 +154,6 @@ class _EditorScreenState extends State<_EditorView> {
 
   /// Whether the last pointer down in the editor was a finger or a pen.
   bool _touchInput = false;
-
-  /// Pages scrolling, zooming or turning (shows the phone page indicator).
-  late final Listenable? _navigatorActivity = _session.doc?.viewport;
 
   /// In-notebook search, Ctrl+F (features/search).
   late final EditorSearchController _search;
@@ -182,7 +173,6 @@ class _EditorScreenState extends State<_EditorView> {
   );
 
   void _onTools() => _toolbarWidth.value = _oneRowWidth();
-  StreamSubscription<RemoteChanges>? _remoteChanges;
 
   /// Focus mode: all chrome hidden.
   bool _focus = false;
@@ -191,11 +181,9 @@ class _EditorScreenState extends State<_EditorView> {
   bool _customising = false;
 
   /// Where the canvas context menu is open, if it is.
-  ({Offset at, List<CanvasAction> actions})? _menu;
+  EditorMenu? _menu;
 
-  /// Set once the editor is leaving because its notebook was deleted
-  /// remotely, so further sync events don't pop another route.
-  bool _closing = false;
+  bool get _closing => _lifecycle.closing;
 
   /// Keyboard focus for the editor's shortcuts; reclaimed whenever the
   /// canvas is touched (e.g. after using the width slider).
@@ -209,20 +197,32 @@ class _EditorScreenState extends State<_EditorView> {
     title: () => _notebook.title,
   );
 
+  late final EditorScreenCommands _commands = EditorScreenCommands(
+    back: _back,
+    rename: _rename,
+    toggleFocus: _toggleFocus,
+    setStylusOnly: _setStylusOnly,
+    openSettings: _openSettings,
+    setFlow: _setFlow,
+    pickBackground: _pickBackground,
+    openSearch: _search.open,
+    customiseToolbar: (on) => setState(() => _customising = on),
+    present: _presentation.start,
+  );
+
   @override
   void initState() {
     super.initState();
     _session.gestures
       ..onMultiFingerTap = _onMultiFingerTap
       ..onContextMenu = _openMenu;
-    _remoteChanges = _services.sync.remoteChanges.listen(_onRemoteChanges);
+    _lifecycle.start();
     // Created now: it takes a result the library asked to show.
     _search = EditorSearchController.forSession(_services, _session, notebookId: _notebook.id);
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
     _session.undo.addListener(_onEdit);
     _session.tools.addListener(_onTools);
-    _lifecycle; // Starts listening.
     _audio.onNotice = (message) {
       if (mounted) showMessage(context, message);
     };
@@ -253,16 +253,7 @@ class _EditorScreenState extends State<_EditorView> {
     _presentActivity.dispose();
     _focusNode.removeListener(_onFocus);
     _services.incomingFiles.targets.remove(_importTarget);
-    unawaited(_remoteChanges?.cancel());
     _services.openNotebooks.removeListener(_onTabs);
-    if (widget.secondPane) {
-      final tabs = _services.openNotebooks;
-      // Not after a swap: the pane now shows another notebook.
-      if (tabs.splitId == _notebook.id) tabs.splitView = _session.viewState;
-    } else {
-      _services.openNotebooks.saveView(_notebook.id, _session.viewState);
-    }
-    _saveView();
     _lifecycle.dispose();
     _services.preferences.removeListener(_onPreferences);
     _session.undo.removeListener(_onEdit);
@@ -272,13 +263,7 @@ class _EditorScreenState extends State<_EditorView> {
     _search.dispose();
     _audio.dispose(); // Saves a running recording.
     _session.dispose(); // Commits a text box still being edited.
-    if (edited) {
-      _services.notebooks.touch(_notebook.id);
-      // Deferred: syncing notifies listeners (e.g. the library's sync button),
-      // which must not happen while the tree is locked during dispose.
-      final sync = _services.sync;
-      scheduleMicrotask(() => unawaited(sync.syncNow()));
-    }
+    _lifecycle.finish(edited: edited);
     _hud.dispose();
     _tips.dispose();
     _toolbarHeight.dispose();
@@ -286,14 +271,6 @@ class _EditorScreenState extends State<_EditorView> {
     _guard.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  /// Remembers this notebook's page, zoom and pan for the next launch.
-  void _saveView() {
-    // The second pane keeps its place in memory only (it may show the same
-    // notebook as the first).
-    if (_closing || widget.secondPane || _services.database.isClosed) return;
-    _services.settings.setEditorView(_notebook.id, _session.viewState.encode());
   }
 
   void _onTabs() {
@@ -315,47 +292,6 @@ class _EditorScreenState extends State<_EditorView> {
 
   // ---------------------------------------------------------------------------
   // Events
-
-  void _onRemoteChanges(RemoteChanges changes) {
-    if (!mounted || _closing) return;
-    if (changes.notebooks) {
-      final updated = _services.notebooks.get(_notebook.id);
-      if (updated == null || updated.isTrashed) {
-        _closeDeleted(trashed: updated != null);
-        return;
-      }
-      setState(() => _notebook = updated);
-      _services.openNotebooks.rename(updated.id, updated.title);
-    }
-    _session.applyRemoteChanges(changes);
-  }
-
-  /// The notebook was deleted (or [trashed]) on another device: close the
-  /// editor together with anything open on top of it (dialogs, menus,
-  /// sheets). Nothing in progress is written to the deleted notebook.
-  void _closeDeleted({bool trashed = false}) {
-    _closing = true;
-    _session.input.cancelDraw();
-    _session.content.text.discard();
-    _session.content.selection.clear();
-    final route = ModalRoute.of(context);
-    final navigator = Navigator.of(context);
-    showMessage(
-      context,
-      '“${_notebook.title}” was ${trashed ? 'moved to the trash' : 'deleted'} '
-      'on another device',
-    );
-    final tabs = _services.openNotebooks;
-    if (tabs.contains(_notebook.id)) {
-      if (route != null && route.isActive) navigator.popUntil((r) => r == route);
-      tabs.close(_notebook.id); // The workspace shows another tab or leaves.
-      return;
-    }
-    if (route == null || !route.isActive) return; // Already leaving.
-    navigator
-      ..popUntil((r) => r == route)
-      ..pop();
-  }
 
   void _offerTip(EditorTip tip) {
     final prefs = _services.preferences;
@@ -410,6 +346,15 @@ class _EditorScreenState extends State<_EditorView> {
     if (_menu != null) setState(() => _menu = null);
   }
 
+  void _onPresentation() {
+    if (!mounted) return;
+    final active = _presentation.active;
+    if (!active && _focus) setImmersive(true); // Back to focus mode.
+    if (_pane case final pane?) widget.split!.present(active ? pane : null);
+    if (active) _focusNode.requestFocus();
+    setState(() {});
+  }
+
   // ---------------------------------------------------------------------------
   // Commands
 
@@ -426,15 +371,6 @@ class _EditorScreenState extends State<_EditorView> {
   void _toggleFocus() {
     setState(() => _focus = !_focus);
     setImmersive(_focus);
-  }
-
-  void _onPresentation() {
-    if (!mounted) return;
-    final active = _presentation.active;
-    if (!active && _focus) setImmersive(true); // Back to focus mode.
-    if (_pane case final pane?) widget.split!.present(active ? pane : null);
-    if (active) _focusNode.requestFocus();
-    setState(() {});
   }
 
   /// Leaves this pane of the split view.
@@ -502,163 +438,18 @@ class _EditorScreenState extends State<_EditorView> {
       },
       child: Scaffold(
         body: CallbackShortcuts(
-          bindings: {
-            ...editorShortcuts(
-              _session,
-              toggleFocus: _toggleFocus,
-              nextTab: tabs?.cycle,
-              previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
-              closeTab: widget.secondPane
-                  ? _closePane
-                  : tabs == null
-                  ? null
-                  : () => tabs.close(_notebook.id),
-              paste: () => _session.images.paste(context),
-            ),
-            const SingleActivator(LogicalKeyboardKey.f5): _presentation.toggle,
-            if (presenting) ...{
-              const SingleActivator(LogicalKeyboardKey.space): () => _presentation.turn(1),
-              const SingleActivator(LogicalKeyboardKey.space, shift: true): () =>
-                  _presentation.turn(-1),
-            },
-            ...EditorSearchLayer.shortcuts(_search),
-            ...?_session.pdf == null ? null : pdfShortcuts(_session.pdf!),
-          },
+          bindings: _shortcuts(tabs),
           child: Focus(
             focusNode: _focusNode,
             autofocus: true,
-            // Escape first closes a chrome menu opened with a tap (focus
-            // stayed here, out of the menu's reach). The audio player's
-            // keys (Space, ← / →) come before the editor's shortcuts.
-            onKeyEvent: (_, event) {
-              final escape = event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape;
-              if (escape && _presentation.active) {
-                _presentation.stop();
-                return KeyEventResult.handled;
-              }
-              return escape && _guard.closeMenus()
-                  ? KeyEventResult.handled
-                  : handlePlaybackKey(_audio, event);
-            },
+            onKeyEvent: _onKey,
             // Automatic placement depends on the toolbar's width (its slots);
             // other tool changes don't rebuild the whole editor (the toolbar
             // and chrome listen to the tools themselves).
             child: ListenableBuilder(
               listenable: Listenable.merge([_toolbarWidth, _toolbarHeight]),
               builder: (context, _) => LayoutBuilder(
-                builder: (context, constraints) {
-                  final media = MediaQuery.of(context);
-                  final layout = ChromeLayout(
-                    placement: resolvePlacement(
-                      _services.preferences.toolbarPlacement,
-                      constraints.maxWidth,
-                      toolbarWidth: _oneRowWidth(),
-                    ),
-                    toolbarHeight: _toolbarHeight.value,
-                    barHeight: EditorTopBar.heightFor(constraints.maxWidth, tabs),
-                    safe: media.padding,
-                    hasNavigator: _session.doc != null,
-                    width: constraints.maxWidth,
-                    focus: _focus || presenting,
-                  );
-                  _applyInsets(layout.covered);
-                  widget.messageInset.value = layout.covered.bottom;
-                  _resetGuardOnResize(constraints.maxWidth);
-                  return CanvasGuardScope(
-                    guard: _guard,
-                    child: Listener(
-                      onPointerDown: (e) {
-                        _touchInput = e.kind != PointerDeviceKind.mouse;
-                        if (presenting && _touchInput) _presentActivity.value++;
-                      },
-                      onPointerHover: (e) {
-                        // The pointer near the bottom shows the controls.
-                        if (presenting && e.localPosition.dy > constraints.maxHeight * 0.75) {
-                          _presentActivity.value++;
-                        }
-                      },
-                      child: Stack(
-                        key: _areaKey,
-                        children: [
-                          Positioned.fill(
-                            child: EditorCanvas(
-                              session: _session,
-                              paper: _notebook.paper,
-                              paperColor: _notebook.paperColor,
-                              focusNode: _focusNode,
-                              guard: _guard,
-                              chromeInsets: layout.covered,
-                              onFollowLink: _followLink,
-                              selectionActions: () => [
-                                linkSelectionAction(context, _session),
-                                _session.stickers.saveAction(context),
-                              ],
-                            ),
-                          ),
-                          if (_session.pdf case final pdf?)
-                            Positioned.fill(child: PdfLayer(interaction: pdf)),
-                          if (_session.canvas != null && !presenting)
-                            Positioned.fill(
-                              child: Padding(
-                                padding: layout.covered,
-                                child: CanvasEmptyHint(
-                                  reader: _services.strokeReader,
-                                  surfaceId: _notebook.id,
-                                  edits: _session.undo,
-                                  darkPaper: _notebook.paperColor.isDark,
-                                ),
-                              ),
-                            ),
-                          Positioned.fill(child: ImageDropTarget(images: _session.images)),
-                          Positioned.fill(
-                            child: AudioLayer(
-                              audio: _audio,
-                              session: _session,
-                              chromeInsets: layout.floatingInsets,
-                              canvasPaper: _notebook.paperColor,
-                            ),
-                          ),
-                          if (presenting)
-                            Positioned.fill(
-                              child: PresentationControls(
-                                presentation: _presentation,
-                                activity: _presentActivity,
-                                doc: _session.doc,
-                              ),
-                            )
-                          else ...[
-                            Positioned.fill(child: _buildChrome(layout, tabs)),
-                            Positioned.fill(
-                              child: StickerLayer(
-                                stickers: _session.stickers,
-                                insets: layout.floatingInsets,
-                              ),
-                            ),
-                            Positioned.fill(
-                              child: EditorSearchLayer(
-                                controller: _search,
-                                top: layout.covered.top,
-                                onClose: _focusNode.requestFocus,
-                              ),
-                            ),
-                          ],
-                          if (widget.split case final split?)
-                            Positioned.fill(
-                              child: SplitDropHighlight(split: split, pane: _pane!),
-                            ),
-                          if (_menu case final menu?)
-                            Positioned.fill(
-                              child: CanvasContextMenu(
-                                at: menu.at,
-                                actions: menu.actions,
-                                onDismiss: _closeMenu,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                builder: (context, constraints) => _buildArea(context, constraints, tabs),
               ),
             ),
           ),
@@ -666,6 +457,116 @@ class _EditorScreenState extends State<_EditorView> {
       ),
     );
   }
+
+  Map<ShortcutActivator, VoidCallback> _shortcuts(OpenNotebooks? tabs) => {
+    ...editorShortcuts(
+      _session,
+      toggleFocus: _toggleFocus,
+      nextTab: tabs?.cycle,
+      previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
+      closeTab: widget.secondPane
+          ? _closePane
+          : tabs == null
+          ? null
+          : () => tabs.close(_notebook.id),
+      paste: () => _session.images.paste(context),
+    ),
+    const SingleActivator(LogicalKeyboardKey.f5): _presentation.toggle,
+    if (_presentation.active) ...{
+      const SingleActivator(LogicalKeyboardKey.space): () => _presentation.turn(1),
+      const SingleActivator(LogicalKeyboardKey.space, shift: true): () => _presentation.turn(-1),
+    },
+    ...EditorSearchLayer.shortcuts(_search),
+    ...?_session.pdf == null ? null : pdfShortcuts(_session.pdf!),
+  };
+
+  /// Escape first leaves presentation, then closes a chrome menu opened
+  /// with a tap (focus stayed here, out of the menu's reach). The audio
+  /// player's keys (Space, ← / →) come before the editor's shortcuts.
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    final escape = event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape;
+    if (escape && _presentation.active) {
+      _presentation.stop();
+      return KeyEventResult.handled;
+    }
+    return escape && _guard.closeMenus()
+        ? KeyEventResult.handled
+        : handlePlaybackKey(_audio, event);
+  }
+
+  Widget _buildArea(BuildContext context, BoxConstraints constraints, OpenNotebooks? tabs) {
+    final media = MediaQuery.of(context);
+    final presenting = _presentation.active;
+    final layout = ChromeLayout(
+      placement: resolvePlacement(
+        _services.preferences.toolbarPlacement,
+        constraints.maxWidth,
+        toolbarWidth: _oneRowWidth(),
+      ),
+      toolbarHeight: _toolbarHeight.value,
+      barHeight: EditorTopBar.heightFor(constraints.maxWidth, tabs),
+      safe: media.padding,
+      hasNavigator: _session.doc != null,
+      width: constraints.maxWidth,
+      focus: _focus || presenting,
+    );
+    _applyInsets(layout.covered);
+    widget.messageInset.value = layout.covered.bottom;
+    _resetGuardOnResize(constraints.maxWidth);
+    return CanvasGuardScope(
+      guard: _guard,
+      child: Listener(
+        onPointerDown: (e) {
+          _touchInput = e.kind != PointerDeviceKind.mouse;
+          if (presenting && _touchInput) _presentActivity.value++;
+        },
+        onPointerHover: (e) {
+          // The pointer near the bottom shows the controls.
+          if (presenting && e.localPosition.dy > constraints.maxHeight * 0.75) {
+            _presentActivity.value++;
+          }
+        },
+        child: EditorLayers(
+          key: _areaKey,
+          session: _session,
+          notebook: _notebook,
+          layout: layout,
+          focusNode: _focusNode,
+          guard: _guard,
+          audio: _audio,
+          search: _search,
+          presentation: _presentation,
+          presentActivity: _presentActivity,
+          chrome: _buildChrome(layout, tabs),
+          onFollowLink: _followLink,
+          split: _pane == null ? null : (controller: widget.split!, pane: _pane),
+          menu: _menu,
+          onCloseMenu: _closeMenu,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChrome(ChromeLayout layout, OpenNotebooks? tabs) => EditorChromeHost(
+    session: _session,
+    layout: layout,
+    commands: _commands,
+    title: _notebook.title,
+    subtitle: _folderName(),
+    audio: _audio,
+    hud: _hud,
+    tips: _tips,
+    customising: _customising,
+    onToolbarHeight: (height) {
+      if (mounted) _toolbarHeight.value = height;
+    },
+    tabs: tabs,
+    secondPane: widget.secondPane,
+    splitButton: (widget.split?.available ?? false) && !widget.secondPane
+        ? SplitViewButton(tabs: _services.openNotebooks, notebookId: _notebook.id)
+        : null,
+    navigatorActivity: _session.doc?.viewport,
+  );
 
   /// The top bar swaps its menus when switching between phone and wide
   /// layouts; one disposed while open never reports closing.
@@ -690,72 +591,5 @@ class _EditorScreenState extends State<_EditorView> {
       doc?.setInsets(covered);
       nav?.setInsets(covered);
     });
-  }
-
-  Widget _buildChrome(ChromeLayout layout, OpenNotebooks? tabs) {
-    final doc = _session.doc;
-    final prefs = _services.preferences;
-    final toolbar = _customising
-        ? ToolbarEditor(
-            tools: _session.tools,
-            config: prefs.toolbarConfig,
-            onChanged: (config) => prefs.toolbarConfig = config,
-            onDone: () => setState(() => _customising = false),
-          )
-        : EditorToolbar(
-            tools: _session.tools,
-            onStylusOnlyChanged: _setStylusOnly,
-            showLabels: prefs.toolbarLabels,
-            config: prefs.toolbarConfig,
-          );
-    return ListenableBuilder(
-      listenable: Listenable.merge([?doc, ?_session.canvasNav, _session.tools]),
-      builder: (context, _) => EditorChrome(
-        layout: layout,
-        hud: _hud,
-        tips: _tips,
-        onExitFocus: _toggleFocus,
-        floatAt: prefs.toolbarFloat,
-        onFloatMoved: (at) => prefs.toolbarFloat = at,
-        onToolbarHeight: (height) {
-          if (mounted) _toolbarHeight.value = height;
-        },
-        toolbar: toolbar,
-        topBar: EditorTopBar(
-          title: _notebook.title,
-          subtitle: _folderName(),
-          actions: editorMenuActions(
-            context,
-            _session,
-            onBack: _back,
-            onRename: _rename,
-            onFocusMode: _toggleFocus,
-            onStylusOnly: _setStylusOnly,
-            onSettings: _openSettings,
-            onFlow: _setFlow,
-            onBackground: _pickBackground,
-            onSearch: _search.open,
-            onCustomiseToolbar: () => setState(() => _customising = true),
-            onPresent: _presentation.start,
-          ),
-          undo: _session.undo,
-          tabs: tabs,
-          audio: AudioBarButton(audio: _audio),
-          compactMenuItems: audioMenuItems(context, _audio),
-          insert: InsertImageButton(images: _session.images),
-          search: BarButton(
-            tooltip: 'Search (Ctrl+F)',
-            icon: Icons.search_rounded,
-            onPressed: _search.open,
-          ),
-          secondPane: widget.secondPane,
-          split: (widget.split?.available ?? false) && !widget.secondPane
-              ? SplitViewButton(tabs: _services.openNotebooks, notebookId: _notebook.id)
-              : null,
-        ),
-        navigator: editorPageNavigator(context, _session, width: layout.width),
-        navigatorActivity: _navigatorActivity,
-      ),
-    );
   }
 }
