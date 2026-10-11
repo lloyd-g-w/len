@@ -66,12 +66,12 @@ void main() {
   setUp(() => dir = Directory.systemTemp.createTempSync('len_schema_'));
   tearDown(() => dir.deleteSync(recursive: true));
 
-  test('a new database gets the whole schema at user_version 1', () {
+  test('a new database gets the whole schema at the latest user_version', () {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 1);
-    expect(AppDatabase.latestVersion, 1);
+    expect(schema['version'], 2);
+    expect(AppDatabase.latestVersion, 2);
     expect(
       schema.keys,
       containsAll([
@@ -84,6 +84,7 @@ void main() {
         'elements',
         'element_chunks',
         'recordings',
+        'templates',
         'blobs',
         'search_docs',
         'pdf_text',
