@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../ink/tool_settings.dart';
 import '../../ui/adaptive_popover.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/section_label.dart';
 import 'editor_tools.dart';
 import 'toolbar/favourite_pens.dart';
 import 'toolbar/toolbar_config.dart';
@@ -137,6 +138,10 @@ class ToolSwitcherPanel extends StatelessWidget {
               const SizedBox(height: Gaps.sm),
               Divider(height: 1, color: scheme.outlineVariant),
               const SizedBox(height: Gaps.xs),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xs),
+                child: SectionLabel('Favourites'),
+              ),
               Center(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,

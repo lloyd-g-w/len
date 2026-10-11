@@ -221,8 +221,10 @@ class _EditorScreenState extends State<_EditorView> {
   @override
   void dispose() {
     if (_pane case final pane?) widget.split!.detach(pane);
-    if (_presentation.active) _presentation.stop();
-    _presentation.dispose();
+    _presentation
+      ..removeListener(_onPresentation)
+      ..stop() // Puts back the tool and page layout before the view is saved.
+      ..dispose();
     _presentActivity.dispose();
     _services.incomingFiles.targets.remove(_importTarget);
     unawaited(_remoteChanges?.cancel());

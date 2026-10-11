@@ -57,29 +57,53 @@ class ToolbarEditor extends StatelessWidget {
               ),
             ),
             LayoutBuilder(
-              builder: (context, constraints) => Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: SizedBox(
-                      height: _height,
-                      width: math.min(
-                        _naturalWidth(ordered.length),
-                        math.max(0.0, constraints.maxWidth - _actionsWidth),
+              builder: (context, constraints) {
+                final room = constraints.maxWidth;
+                final tools = ordered.length * _tileWidth;
+                final favourites = _favouritesWidth;
+                // One row when everything fits; otherwise (phones) the
+                // tools get their own row, favourites and actions below.
+                if (tools + favourites + _actionsWidth <= room) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: _height,
+                        width: tools,
+                        child: _list(context, ordered, shown),
                       ),
+                      const ToolbarDivider(),
+                      _favourites(context),
+                      ..._actions(),
+                    ],
+                  );
+                }
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: _height,
+                      width: math.min(tools, room),
                       child: _list(context, ordered, shown),
                     ),
-                  ),
-                  const ToolbarDivider(),
-                  if (!config.isDefault)
-                    TextButton(
-                      onPressed: () => onChanged(const ToolbarConfig()),
-                      child: const Text('Reset'),
+                    SizedBox(
+                      width: math.min(room, math.max(tools, favourites + _actionsWidth)),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: _favourites(context),
+                            ),
+                          ),
+                          ..._actions(),
+                        ],
+                      ),
                     ),
-                  const SizedBox(width: Gaps.xs),
-                  FilledButton.tonal(onPressed: onDone, child: const Text('Done')),
-                ],
-              ),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -90,8 +114,19 @@ class ToolbarEditor extends StatelessWidget {
   /// Room for the divider, Reset and Done.
   static const double _actionsWidth = 13 + 72 + 4 + 80;
 
-  double _naturalWidth(int tools) =>
-      tools * _tileWidth + 13 + (config.favourites.length + 1) * SlotButton.size + Gaps.xs;
+  /// The favourites with their label and "add" button.
+  double get _favouritesWidth => 84 + config.favourites.length * _favouriteWidth + SlotButton.size;
+
+  /// A favourite with room for its remove badge.
+  static const double _favouriteWidth = 46;
+
+  List<Widget> _actions() => [
+    const ToolbarDivider(),
+    if (!config.isDefault)
+      TextButton(onPressed: () => onChanged(const ToolbarConfig()), child: const Text('Reset')),
+    const SizedBox(width: Gaps.xs),
+    FilledButton.tonal(onPressed: onDone, child: const Text('Done')),
+  ];
 
   Widget _list(BuildContext context, List<ToolDescriptor> ordered, List<EditorTool> shown) {
     return ReorderableListView.builder(
@@ -99,7 +134,6 @@ class ToolbarEditor extends StatelessWidget {
       buildDefaultDragHandles: false,
       itemCount: ordered.length,
       onReorderItem: (from, to) => onChanged(config.reorder(shown, from, to)),
-      footer: _favourites(context),
       itemBuilder: (context, i) {
         final d = ordered[i];
         return ReorderableDelayedDragStartListener(
@@ -131,17 +165,25 @@ class ToolbarEditor extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const ToolbarDivider(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
+          child: Text(
+            'Favourites',
+            style: Theme.of(context).textTheme.labelMedium
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
         for (final (i, pen) in config.favourites.indexed)
-          SizedBox.square(
-            dimension: SlotButton.size,
+          SizedBox(
+            width: _favouriteWidth,
+            height: SlotButton.size,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 FavouriteGlyph(pen: pen),
                 Positioned(
                   right: 0,
-                  top: 2,
+                  top: 0,
                   child: Tooltip(
                     message: 'Remove favourite: ${describeFavourite(pen)}',
                     child: InkResponse(
@@ -149,7 +191,7 @@ class ToolbarEditor extends StatelessWidget {
                       radius: 12,
                       onTap: () => onChanged(config.removeFavourite(i)),
                       child: CircleAvatar(
-                        radius: 8,
+                        radius: 7,
                         backgroundColor: scheme.inverseSurface,
                         child: Icon(Icons.close_rounded, size: 12, color: scheme.onInverseSurface),
                       ),

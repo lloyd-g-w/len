@@ -15,8 +15,9 @@ import 'pointer_tool.dart';
 /// surface: another editor of a split view. Positions are in the lasso's
 /// screen coordinates.
 abstract interface class SelectionDragOut {
-  /// The selection is being moved with the pointer at [pointer].
-  void dragging(Offset pointer);
+  /// The selection is being moved with the pointer at [pointer] and its
+  /// centre at [centre].
+  void dragging(Offset pointer, Offset centre);
 
   /// The pointer lifted at [pointer] with the selection's centre at
   /// [centre]. Returns true when another editor took a copy there; the
@@ -114,7 +115,7 @@ class LassoTool implements PointerTool {
           final handle => frame.resized(handle, p.world),
         };
         selection.setPreview(result.transform, result.frame);
-        if (_handle == null) dragOut?.dragging(p.screen);
+        if (_handle == null) dragOut?.dragging(p.screen, _centreOnScreen);
       case _Mode.idle:
         break;
     }
@@ -142,12 +143,14 @@ class LassoTool implements PointerTool {
     _mode = _Mode.idle;
   }
 
+  /// Where the centre of the selection being moved is on screen.
+  Offset get _centreOnScreen => viewport.toScreen(_startFrame!.center + (_lastWorld - _startWorld));
+
   /// Offers a moved selection to [dragOut] (another editor).
   bool _droppedElsewhere() {
     final out = dragOut;
     if (out == null || _handle != null) return false;
-    final centre = viewport.toScreen(_startFrame!.center + (_lastWorld - _startWorld));
-    final dropped = out.drop(_lastScreen, centre);
+    final dropped = out.drop(_lastScreen, _centreOnScreen);
     out.end();
     return dropped;
   }

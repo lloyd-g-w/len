@@ -16,16 +16,17 @@ class FavouriteGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final size = WidthSlots.dotSize(pen.ink, pen.width).clamp(8.0, 22.0);
+    final size = WidthSlots.dotSize(pen.ink, pen.width).clamp(12.0, 22.0);
     final highlighter = pen.tool == EditorTool.highlighter;
     return Container(
       width: highlighter ? 22 : size,
-      height: highlighter ? (size * 0.6).clamp(6.0, 14.0) : size,
+      height: highlighter ? (size * 0.6).clamp(8.0, 14.0) : size,
       decoration: BoxDecoration(
         color: Color(pen.color).withValues(alpha: highlighter ? 0.75 : 1),
         shape: highlighter ? BoxShape.rectangle : BoxShape.circle,
         borderRadius: highlighter ? BorderRadius.circular(3) : null,
-        border: Border.all(color: scheme.outline.withValues(alpha: 0.8), width: 0.5),
+        // Reads on the toolbar for any colour, dark inks in dark mode too.
+        border: Border.all(color: scheme.outline, width: 1),
       ),
     );
   }

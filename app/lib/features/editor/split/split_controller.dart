@@ -73,6 +73,13 @@ class SplitController extends ChangeNotifier {
   SplitPane? get dropTarget => _dropTarget;
   SplitPane? _dropTarget;
 
+  /// The pane a selection is dragged from, and where (global) its centre
+  /// is, while over [dropTarget].
+  SplitPane? get dragSource => _dragSource;
+  SplitPane? _dragSource;
+  Offset get dragCentre => _dragCentre;
+  Offset _dragCentre = Offset.zero;
+
   /// The pane shown alone while it presents (the other stays alive).
   SplitPane? get presenting => _presenting;
   SplitPane? _presenting;
@@ -114,6 +121,7 @@ class SplitController extends ChangeNotifier {
     _pending.remove(pane);
     _pendingPages.remove(pane);
     if (_dropTarget == pane) _dropTarget = null;
+    if (_dragSource == pane) _dragSource = null;
     if (_presenting == pane) _presenting = null;
   }
 
@@ -209,11 +217,13 @@ class SplitController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Dragging selections between panes
 
-  void _dragging(SplitPane from, Offset local) {
-    final global = from.toGlobal(local);
+  void _dragging(SplitPane from, Offset pointer, Offset centre) {
+    final global = from.toGlobal(pointer);
     final target = _panes.where((p) => p != from && p.contains(global)).firstOrNull;
-    if (target == _dropTarget) return;
+    if (target == null && _dropTarget == null) return;
     _dropTarget = target;
+    _dragSource = from;
+    _dragCentre = from.toGlobal(centre);
     notifyListeners();
   }
 
@@ -226,6 +236,7 @@ class SplitController extends ChangeNotifier {
   }
 
   void _endDrag() {
+    _dragSource = null;
     if (_dropTarget == null) return;
     _dropTarget = null;
     notifyListeners();
@@ -249,7 +260,7 @@ class _DragOut implements SelectionDragOut {
   final SplitPane pane;
 
   @override
-  void dragging(Offset pointer) => split._dragging(pane, pointer);
+  void dragging(Offset pointer, Offset centre) => split._dragging(pane, pointer, centre);
 
   @override
   bool drop(Offset pointer, Offset centre) => split._drop(pane, pointer, centre);
