@@ -29,16 +29,18 @@ class EditorSettings extends StatelessWidget {
               ToolbarPlacement.bottom => 'Always at the bottom, within thumb reach.',
               ToolbarPlacement.floating => 'Floating; drag it anywhere by its grip.',
             },
-            below: SegmentedButton<ToolbarPlacement>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: ToolbarPlacement.auto, label: SegmentLabel('Auto')),
-                ButtonSegment(value: ToolbarPlacement.top, label: SegmentLabel('Top')),
-                ButtonSegment(value: ToolbarPlacement.bottom, label: SegmentLabel('Bottom')),
-                ButtonSegment(value: ToolbarPlacement.floating, label: SegmentLabel('Float')),
-              ],
-              selected: {preferences.toolbarPlacement},
-              onSelectionChanged: (s) => preferences.toolbarPlacement = s.single,
+            below: ShrinkToFit(
+              child: SegmentedButton<ToolbarPlacement>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: ToolbarPlacement.auto, label: SegmentLabel('Auto')),
+                  ButtonSegment(value: ToolbarPlacement.top, label: SegmentLabel('Top')),
+                  ButtonSegment(value: ToolbarPlacement.bottom, label: SegmentLabel('Bottom')),
+                  ButtonSegment(value: ToolbarPlacement.floating, label: SegmentLabel('Float')),
+                ],
+                selected: {preferences.toolbarPlacement},
+                onSelectionChanged: (s) => preferences.toolbarPlacement = s.single,
+              ),
             ),
           ),
         ],

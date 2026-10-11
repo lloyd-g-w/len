@@ -176,6 +176,7 @@ class _SearchField extends StatelessWidget {
           focusNode: focus,
           onChanged: (q) => actions.controller.query = q,
           textInputAction: TextInputAction.search,
+          textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
             hintText: 'Search',
             contentPadding: EdgeInsets.zero,

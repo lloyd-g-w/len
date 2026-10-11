@@ -78,7 +78,7 @@ class EditorImages {
     try {
       photo = await picker.ImagePicker().pickImage(source: picker.ImageSource.camera);
     } on Exception catch (e) {
-      if (context.mounted) showMessage(context, 'Couldn’t open the camera.');
+      if (context.mounted) showMessage(context, 'Couldn’t open the camera');
       debugPrint('Camera failed: $e');
       return;
     }
@@ -94,7 +94,7 @@ class EditorImages {
       try {
         bytes = await file.readAsBytes();
       } on Exception {
-        if (context.mounted) showMessage(context, 'Couldn’t read “${file.name}”.');
+        if (context.mounted) showMessage(context, 'Couldn’t read “${file.name}”');
         continue;
       }
       if (!context.mounted) return;
@@ -165,7 +165,7 @@ class EditorImages {
       if (context.mounted) {
         showMessage(
           context,
-          name == null ? 'That image can’t be opened.' : 'Couldn’t open “$name” as an image.',
+          name == null ? 'That image can’t be opened' : 'Couldn’t open “$name” as an image',
         );
       }
       return null;

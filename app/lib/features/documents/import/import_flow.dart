@@ -42,7 +42,7 @@ class ImportFlow {
           await run(context, files, offerInsert: offerInsert);
         } on Object catch (e, stack) {
           debugPrint('Opening incoming files failed: $e\n$stack');
-          if (context.mounted) showMessage(context, 'Couldn’t open the files.');
+          if (context.mounted) showMessage(context, 'Couldn’t open the files');
         }
       });
 

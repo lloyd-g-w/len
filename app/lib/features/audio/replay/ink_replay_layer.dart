@@ -67,7 +67,7 @@ class _InkReplayLayerState extends State<InkReplayLayer> {
     if (stroke == null) return;
     final found = await widget.audio.playInk(stroke.createdAt);
     if (found || !mounted) return;
-    showMessage(context, 'This ink was not written during a recording.');
+    showMessage(context, 'This ink wasn’t written during a recording');
   }
 
   void _scaleStart(ScaleStartDetails d) {
