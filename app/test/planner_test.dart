@@ -53,10 +53,11 @@ void main() {
     });
 
     test('labels', () {
-      expect(PlannerDates.weekRange(d(2026, 10, 5)), '5 – 11 October 2026');
-      expect(PlannerDates.weekRange(d(2026, 9, 28)), '28 September – 4 October 2026');
-      expect(PlannerDates.weekRange(d(2025, 12, 29)), '29 December 2025 – 4 January 2026');
-      expect(PlannerDates.describe(PlannerPeriod.day, d(2026, 10, 11)), 'Sun 11 Oct 2026');
+      final en = PlannerLabels.of(PlannerLanguage.enGB);
+      expect(en.weekRange(d(2026, 10, 5)), '5 – 11 October 2026');
+      expect(en.weekRange(d(2026, 9, 28)), '28 September – 4 October 2026');
+      expect(en.weekRange(d(2025, 12, 29)), '29 December 2025 – 4 January 2026');
+      expect(en.describe(PlannerPeriod.day, d(2026, 10, 11), WeekStart.monday), 'Sun, 11 Oct 2026');
     });
   });
 
@@ -64,7 +65,7 @@ void main() {
     test('planner papers start at their period and round-trip', () {
       final week = Paper.planner(PaperStyle.weeklyPlanner, d(2026, 10, 9));
       expect(week.date, d(2026, 10, 5));
-      expect(week.toData(), {'date': '2026-10-05'});
+      expect(week.toData(), {'date': '2026-10-05', 'weekStart': 'monday', 'locale': 'en-GB'});
       expect(Paper.fromData(PaperStyle.weeklyPlanner, week.toData()), week);
       expect(Paper.planner(PaperStyle.monthlyCalendar, d(2024, 2, 29)).date, d(2024, 2, 1));
     });
@@ -154,9 +155,12 @@ void main() {
       final pages = PlannerPlan(
         start: d(2026, 10, 1),
         linked: true,
+        yearOverview: true,
       ).papersFor(PaperStyle.monthlyCalendar);
       const page = Rect.fromLTWH(0, 0, 794, 1123);
-      final month = PaperPattern.of(pages.first, page, page: page);
+      expect(pages.first, Paper.planner(PaperStyle.yearlyOverview, d(2026, 1, 1)));
+      final october = pages.firstWhere((p) => p.style == PaperStyle.monthlyCalendar);
+      final month = PaperPattern.of(october, page, page: page);
       final inMonth = [
         for (final l in month.links)
           if (l.target.style == PaperStyle.dailyPlanner && l.target.date!.month == 10) l,

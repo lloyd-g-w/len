@@ -109,9 +109,18 @@ class RecordingController extends ChangeNotifier {
         throw const AudioUnavailable('Microphone access was not allowed.');
       }
       await _keepAliveOrNull()?.prepare();
+      if (_disposed) throw const _ShutDown();
       await capture.start();
+      if (_disposed) {
+        // Shut down while starting (the editor closed during the
+        // permission prompt): don't leave the microphone running.
+        await capture.stop().then((audio) => audio == null ? null : capture.discard(audio));
+        throw const _ShutDown();
+      }
     } on Object catch (e) {
-      lastError = e is AudioUnavailable ? e.message : 'Could not start recording ($e).';
+      if (e is! _ShutDown) {
+        lastError = e is AudioUnavailable ? e.message : 'Could not start recording ($e).';
+      }
       _set(RecorderState.idle);
       return false;
     }
@@ -172,15 +181,28 @@ class RecordingController extends ChangeNotifier {
     _closeSegment();
     _level = 0;
     _set(RecorderState.paused);
-    await _capture?.pause();
+    try {
+      await _capture?.pause();
+    } on Object catch (e) {
+      // (Called from the notification too: never an unhandled error.)
+      lastError = 'Could not pause recording ($e).';
+      notifyListeners();
+    }
     await _showKeepAlive();
   }
 
   Future<void> resume() async {
     if (_state != RecorderState.paused) return;
+    try {
+      await _capture?.resume();
+    } on Object catch (e) {
+      lastError = 'Could not resume recording ($e).';
+      notifyListeners();
+      return;
+    }
+    if (_state != RecorderState.paused) return; // Stopped meanwhile.
     _segmentStart = clock.nowMs();
     _set(RecorderState.recording);
-    await _capture?.resume();
     await _showKeepAlive();
   }
 
@@ -279,4 +301,9 @@ class RecordingController extends ChangeNotifier {
     _ticker?.cancel();
     super.dispose();
   }
+}
+
+/// [RecordingController.start] gave up because the controller shut down.
+class _ShutDown implements Exception {
+  const _ShutDown();
 }

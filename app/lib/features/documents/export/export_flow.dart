@@ -101,8 +101,9 @@ Future<void> runExport(
     showMessage(context, files.length == 1 ? 'Saved $saved' : 'Saved ${files.length} images');
   } on Cancelled {
     return; // Nothing was saved; rendered pages are already disposed.
-  } on Exception catch (e) {
-    debugPrint('Export failed: $e');
+  } on Object catch (e, stack) {
+    // Errors too: the dialog is closed, the user must hear about it.
+    debugPrint('Export failed: $e\n$stack');
     if (context.mounted) showMessage(context, 'Export failed: $e');
   } finally {
     if (exporter == null) await worker.dispose();

@@ -128,7 +128,8 @@ class ReplayVeils {
     ];
     final elements = [
       for (final e in model.elementsInChunk(key))
-        if (e.createdAt > now && !model.isHidden(e.id)) e,
+        // Links are invisible: nothing to veil.
+        if (e.createdAt > now && !model.isHidden(e.id) && e.knownType != ElementType.link) e,
     ]..sort(SurfaceElement.paintOrder);
     final below = elements.where((e) => e.belowInk).toList();
     if (below.isNotEmpty) {

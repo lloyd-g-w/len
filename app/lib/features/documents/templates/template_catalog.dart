@@ -82,7 +82,8 @@ class TemplateSelection {
 
   final PageTemplate template;
 
-  /// Planners: the month range (pages generated when creating or adding).
+  /// Planners: the month range (pages generated when creating or adding)
+  /// and the calendar (week start, language) of every planner page.
   final PlannerPlan plan;
 
   PaperStyle get style => template.style;
@@ -108,13 +109,13 @@ class TemplateSelection {
     ),
   };
 
-  /// [style] with the selected date (planners keep a date they already
-  /// have when the style stays a planner of the same period).
+  /// [style] with the selected date and calendar (planners keep a date
+  /// they already have when the style stays a planner).
   Paper paperFor(PaperStyle style) {
     if (!style.isPlanner) return Paper(style);
     final current = template.paper;
     final date = current.style.isPlanner && current.date != null ? current.date! : plan.start;
-    return Paper.planner(style, date);
+    return Paper.planner(style, date, calendar: plan.calendar);
   }
 
   /// Selects [entry].

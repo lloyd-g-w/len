@@ -10,9 +10,9 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/editor/outline/outline_panel.dart';
 import 'package:len/features/editor/pdf/pdf_interaction.dart';
 import 'package:len/features/editor/pdf/pdf_layer.dart';
-import 'package:len/features/editor/pdf/pdf_outline_sheet.dart';
 import 'package:len/features/editor/pdf/pdf_page_info.dart';
 import 'package:len/features/editor/pdf/pdf_text_selection.dart';
 import 'package:len/ink/tool_settings.dart';
@@ -261,7 +261,7 @@ void main() {
       final pdf = await open(tester);
       await tester.tap(find.byTooltip('More options'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('PDF outline'));
+      await tester.tap(find.text('Outline'));
       for (var i = 0; i < 10; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
         await tester.pump();
@@ -269,7 +269,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Introduction'), findsOneWidget);
       expect(find.text('Details'), findsOneWidget);
-      await expectLater(find.byType(PdfOutlinePanel), matchesGoldenFile('goldens/pdf_outline.png'));
+      await expectLater(find.byType(OutlinePanel), matchesGoldenFile('goldens/pdf_outline.png'));
       await tester.tap(find.byTooltip('Collapse'));
       await tester.pumpAndSettle();
       expect(find.text('Details'), findsNothing);

@@ -267,6 +267,19 @@ void main() {
       c.dispose();
     });
 
+    test('shut down while asking for permission: the microphone never starts', () async {
+      final nb = _notebook(s);
+      final c = recorder(nb.id);
+      final started = c.start();
+      await c.shutdown(); // The editor closed during the permission prompt.
+      expect(await started, isFalse);
+      expect(c.state, RecorderState.idle);
+      expect(c.lastError, isNull);
+      expect(audio.log, isNot(contains('start')));
+      expect(s.recordings.listOf(nb.id), isEmpty);
+      c.dispose();
+    });
+
     test('refused permission, unavailable tools and too-short recordings', () async {
       final nb = _notebook(s);
       final refused = FakeAudio(allow: false);

@@ -58,6 +58,12 @@ class EditorMoreMenu extends StatelessWidget {
         if (compact && a.isPaged)
           if (a.onExport case final onExport?) exportMenuItem(onExport),
         if (compact) ...compactItems,
+        if (a.onStickers case final onStickers?)
+          _item(
+            Icons.interests_outlined,
+            a.stickersOpen ? 'Hide stickers' : 'Stickers',
+            onStickers,
+          ),
         if (a.isPaged) ...[
           SubmenuButton(
             leadingIcon: const Icon(Icons.description_outlined),
@@ -69,12 +75,14 @@ class EditorMoreMenu extends StatelessWidget {
               _command(PageCommand.template, 'Change template…'),
               _command(PageCommand.saveAsTemplate, 'Save page as template…'),
               _item(Icons.picture_as_pdf_outlined, 'Add pages from PDF…', a.onInsertPdf),
+              _item(Icons.playlist_add_rounded, 'Add page to outline…', a.onAddToOutline),
+              _item(Icons.sell_outlined, 'Page tags…', a.onPageTags),
               const Divider(),
               _command(PageCommand.delete, 'Delete page', destructive: true),
             ],
             child: const Text('Page'),
           ),
-          if (a.onOutline case final onOutline?) _item(Icons.toc_rounded, 'PDF outline', onOutline),
+          if (a.onOutline case final onOutline?) _item(Icons.toc_rounded, 'Outline', onOutline),
           const Divider(),
           _radioSubmenu<PageFlow>(
             icon: Icons.view_agenda_outlined,
@@ -159,6 +167,7 @@ class EditorMoreMenu extends StatelessWidget {
           child: const Text('Draw with stylus only'),
         ),
         _item(Icons.edit_outlined, 'Rename notebook…', a.onRename),
+        if (a.onTags case final onTags?) _item(Icons.sell_outlined, 'Notebook tags…', onTags),
         _item(Icons.tune_rounded, 'Stylus & gesture settings…', a.onSettings),
       ],
       builder: (context, menu, _) => BarButton(

@@ -31,6 +31,11 @@ class EditorMenuActions {
     this.onInsertPdf,
     this.onExport,
     this.onOutline,
+    this.onAddToOutline,
+    this.onPageTags,
+    this.onTags,
+    this.onStickers,
+    this.stickersOpen = false,
     this.flow,
     this.onFlow,
     this.fit,
@@ -78,8 +83,21 @@ class EditorMenuActions {
   /// Opens the export sheet.
   final VoidCallback? onExport;
 
-  /// Opens the outline of the notebook's PDFs (only with PDF pages).
+  /// Opens the outline: the notebook's own and its PDFs'.
   final VoidCallback? onOutline;
+
+  /// Adds the current page to the notebook's outline.
+  final VoidCallback? onAddToOutline;
+
+  /// Tags the current page.
+  final VoidCallback? onPageTags;
+
+  /// Tags the notebook (every notebook kind).
+  final VoidCallback? onTags;
+
+  /// Shows or hides the sticker panel.
+  final VoidCallback? onStickers;
+  final bool stickersOpen;
   final PageFlow? flow;
   final ValueChanged<PageFlow>? onFlow;
 

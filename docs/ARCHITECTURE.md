@@ -215,7 +215,13 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   - **Linked tools** (optional): `ToolSettings.adopt` copies tool, quick colours and
     widths, eraser, shape and text defaults from the pane that changed them.
   - **Presentation** in a pane shows that pane alone (`SplitView.solo`; the other stays
-    alive offstage).
+    alive offstage); when the presenting editor goes (tab closed or switched, split closed),
+    the other pane shows again.
+  - **Views across layout changes**: before tabs change, `OpenNotebooks.captureViews`
+    (set by the controller) records where both panes look, so swapping panes keeps each
+    notebook's view, and closing the active tab next to the split tab moves that notebook
+    into the first pane where it was. The tab limit never closes the split tab. Incoming
+    files go to the pane that last had keyboard focus.
 - **Presentation mode** (`present/`; "⋯" → *Present*, F5): `Presentation` hides all
   chrome (`ChromeLayout.focus`), goes immersive / full screen (`platform/fullscreen*`: the
   browser's fullscreen API on the web; Android hides the system bars; desktop windows
@@ -261,15 +267,17 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   templates for the user's own), pitch, search keywords, whether it tiles an infinite canvas
   (`canvas`) and, for planners, the `PlannerPeriod` one page covers. `PaperStyle.image` stands
   for a user's image template. Built-ins: blank, dotted; narrow / college / wide ruled, Cornell,
-  to-do list, meeting notes; daily planner, weekly planner, monthly calendar; small / large
+  to-do list, meeting notes; daily planner, weekly planner, monthly calendar, year overview; small / large
   grid, graph paper (1 mm / 5 mm / 1 cm), engineering (5 per inch, bold inches, header),
   isometric, music staff, storyboard.
 - **Paper.** A page's template is a `Paper` (`templates/paper.dart`): the style plus what it
-  needs — the `date` of a planner page (the first day of its period, UTC) or the `image` blob of
-  a user's template. Stored as `pages.paper` (style name) + `pages.paper_data` (JSON,
-  `Paper.toData`), synced as `paper` + `paperData`. A notebook's `paper` (default for new pages,
-  canvas background) is always a style without parameters. `Paper.next` is the following
-  period: "add page" after a planner page continues the dates.
+  needs — for a planner page the `date` (the first day of its period, UTC) and its
+  `PlannerCalendar` (week start, language), or the `image` blob of a user's template. Stored as
+  `pages.paper` (style name) + `pages.paper_data` (JSON, `Paper.toData`), synced as `paper` +
+  `paperData`. Equality includes the calendar, so links lead to pages of the same planner
+  flavour. A notebook's `paper` (default for new pages, canvas background) is always a style
+  without parameters. `Paper.next` is the following period: "add page" after a planner page
+  continues the dates (in its calendar).
 - **Geometry ("painter").** `PaperPattern.of(paper, area, page:, minPitch:)` builds a
   template's pieces for an area, independent of the target: lines with weights (`fine`,
   `normal`, `heavy`, `margin`), dots, `PatternLabel`s (printed text: dates, headings), tinted
@@ -282,14 +290,31 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   thumbnails, miniatures and PNG export — vector lines and text in the UI font (laid-out
   paragraphs cached), crisp at any zoom; image templates are drawn over the page from a
   `PaperImageLookup` (the shared `ElementImages` cache; the editor repaints when one is
-  decoded). `PdfTemplateWriter` writes the same pattern into exported PDFs as vectors with
-  Helvetica labels; image templates are embedded like PDF backgrounds.
-- **Planners** (`templates/planner_dates.dart`, `planner_plan.dart`). `PlannerDates`: UTC
-  calendar arithmetic, Monday weeks, ISO week numbers, month calendars of 4–6 rows, labels.
-  `PlannerPlan` (first month, 1–12 months, `linked`) generates the papers of a planner: a page
-  per day, per week overlapping the range, or per month — linked: each month followed by its
-  weeks, each week by its seven days. Pages link month → week (week numbers) and day (cells),
-  week → day (day headers) and month (that of its Thursday), day → week and month. A link is
+  decoded). `PdfTemplateWriter` writes the same pattern into exported PDFs as vectors, labels
+  in the embedded bundled Inter (shared with text boxes via `PdfTextWriter.font`; subset, with
+  ToUnicode, covering Latin, Greek and Cyrillic); image templates are embedded like PDF
+  backgrounds.
+- **Planners** (`templates/planner_dates.dart`, `planner_calendar.dart`, `planner_labels.dart`,
+  `planner_plan.dart`). `PlannerDates`: pure UTC calendar arithmetic — weeks from Monday or
+  Sunday, week numbers (Monday weeks ISO 8601; Sunday weeks the US rule: the week holding
+  1 January is week 1, so late-December days can be in week 1 of the next year — what US
+  calendars print, and the only rule where week 1 always contains New Year), month calendars of
+  4–6 rows, years. `PlannerCalendar` = `WeekStart` + `PlannerLanguage` (a curated list of 19:
+  English UK/US, Czech, Danish, German, Spanish, French, Italian, Dutch, Norwegian bokmål,
+  Polish, Portuguese Brazil/Portugal, Finnish, Swedish, Turkish, Greek, Russian, Ukrainian —
+  all covered by the bundled Inter). `PlannerLabels` formats month and day names and dates
+  with `intl` (CLDR); its date symbols are compiled in and initialised synchronously
+  (`ensureDateSymbols`) before any label is built. Fixed headings ("Week", "Schedule",
+  "Notes" …) stay English. New planners default to the calendar chosen last
+  (`SettingsRepository.plannerCalendar`), else the device locale's language (if listed, else
+  English UK) and its CLDR first day of the week. `PlannerPlan` (first month, 1–12 months,
+  `linked`, `yearOverview`, calendar) generates the papers of a planner: a page per day, per
+  week overlapping the range, per month or per year — monthly with `yearOverview`: the year
+  overview before the first month and each January; linked: each month followed by its weeks,
+  each week by its seven days. The year overview shows twelve mini calendars (3 × 4 portrait,
+  4 × 3 landscape). Pages link year → month (titles) and day, month → year (the year label),
+  week (week numbers) and day (cells), week → day (day headers) and month (that of its middle
+  day), day → week and month — always in the page's calendar. A link is
   resolved at tap time to the first page with that exact `Paper`, so reordering, deleting or
   adding pages never breaks links; a missing target offers "Add page". Links are followed by a
   finger tap when fingers navigate (stylus mode), a Ctrl/⌘-click, or the long-press menu ("Go
@@ -1228,7 +1253,7 @@ Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width
 (library sidebar and the settings section list). Settings: from `Breakpoints.expanded` a
 two-pane layout (section list + the selected section), a single column below. Documents UI
 (`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
-dates, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
+dates, week start and language, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
 with selection mode; `editor/document/page_overview.dart` re-exports it);
 `progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n", optional Cancel).
 Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActions`, batch
@@ -1292,8 +1317,10 @@ malformed record is skipped. Open screens subscribe to
   meter (≈ the loudness of the last buffer every 100 ms), not from decoding
   the audio; recordings without one show a flat scrubber. No trimming yet;
   exporting reads the whole audio blob into memory.
-- Planners: weeks start on Monday, month and day names are English, and there
-  is no yearly overview yet. User templates are images (PDF pages are
+- Planners: fixed headings ("Week", "Schedule", "Priorities", "To do", "Notes") are English
+  whatever the planner's language; the language list is curated (scripts the bundled Inter
+  covers), hours are always 24-hour, and weeks start on Monday or Sunday only. User templates
+  are images (PDF pages are
   rasterised at 2000 px when imported), so they are not vector-crisp at deep
   zoom; a template only travels inside pages, not as a shared file.
 - Server blob garbage collection is a manual/cron admin command, and finds

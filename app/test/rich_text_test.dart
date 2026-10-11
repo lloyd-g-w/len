@@ -144,6 +144,18 @@ void main() {
       expect(d.toJson({'future': 1})['future'], 1);
     });
 
+    test('headings written as doubles (another JSON writer) are headings, not errors', () {
+      final d = TextData.fromJson({
+        'text': 'a',
+        'paras': [
+          {'h': 1.0},
+          {'h': 2.5},
+        ],
+      });
+      expect(d.paras.single.heading, 1);
+      expect(ParaStyle.fromJson({'h': 2.5}).heading, 0);
+    });
+
     test('scaling a box scales span sizes too', () {
       final d = TextData.rich(
         text: 'ab',

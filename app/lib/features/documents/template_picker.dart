@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import 'templates/page_setup.dart';
+import 'templates/planner_options.dart';
 import 'templates/template_catalog.dart';
 import 'templates/template_chooser.dart';
 
@@ -63,10 +64,17 @@ Future<TemplateChoice?> showTemplatePicker(
 );
 
 /// The selection a chooser starts from: [initial], with planners dated
-/// from [today] (or the initial page's date).
-TemplateSelection initialSelection(PageTemplate initial, DateTime today) {
-  final date = initial.paper.date ?? today;
-  return TemplateSelection(initial, PlannerPlan(start: date));
+/// from [today] in [calendar] (or the initial page's date and calendar).
+TemplateSelection initialSelection(
+  PageTemplate initial,
+  DateTime today, {
+  PlannerCalendar calendar = PlannerCalendar.standard,
+}) {
+  final paper = initial.paper;
+  return TemplateSelection(
+    initial,
+    PlannerPlan(start: paper.date ?? today, calendar: paper.calendar ?? calendar),
+  );
 }
 
 /// Template gallery with live miniatures, paper colours, size and
@@ -85,7 +93,11 @@ class TemplatePicker extends StatefulWidget {
 }
 
 class _TemplatePickerState extends State<TemplatePicker> {
-  late TemplateSelection _s = initialSelection(widget.initial, widget.today ?? DateTime.now());
+  late TemplateSelection _s = initialSelection(
+    widget.initial,
+    widget.today ?? DateTime.now(),
+    calendar: defaultPlannerCalendar(context),
+  );
 
   PageTemplate get _t => _s.template;
 

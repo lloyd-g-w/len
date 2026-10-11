@@ -17,6 +17,7 @@ import 'package:len/domain/cover_style.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/domain/recording.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
@@ -494,6 +495,8 @@ void main() {
       expect(server.stored('pages', leapPage.id)!['data'], containsPair('paper', 'dailyPlanner'));
       expect((server.stored('pages', leapPage.id)!['data']! as Map)['paperData'], {
         'date': '2024-02-29',
+        'weekStart': 'monday',
+        'locale': 'en-GB',
       });
       expect(b.s.templates.list().single.name, 'Grid A');
       expect(b.s.templates.list().single.size, const Size(800, 600));
@@ -527,6 +530,28 @@ void main() {
           data: {'name': 'x', 'blob': 'abc', 'width': 1, 'height': 1, 'createdAt': 0},
         ),
         _record('pages', 'undated', 10, data: {..._pageData(nb.id), 'paper': 'dailyPlanner'}),
+        for (final (id, paperData) in [
+          ('no-locale', {'date': '2024-02-29', 'weekStart': 'monday'}),
+          ('no-week-start', {'date': '2024-02-29', 'locale': 'de'}),
+          ('bad-locale', {'date': '2024-02-29', 'weekStart': 'monday', 'locale': 'xx'}),
+          ('bad-week-start', {'date': '2024-02-29', 'weekStart': 'friday', 'locale': 'de'}),
+        ])
+          _record(
+            'pages',
+            id,
+            10,
+            data: {..._pageData(nb.id), 'paper': 'yearlyOverview', 'paperData': paperData},
+          ),
+        _record(
+          'pages',
+          'sunday-year',
+          10,
+          data: {
+            ..._pageData(nb.id),
+            'paper': 'yearlyOverview',
+            'paperData': {'date': '2024-01-01', 'weekStart': 'sunday', 'locale': 'el'},
+          },
+        ),
         _record(
           'notebooks',
           'planner-default',
@@ -538,7 +563,89 @@ void main() {
       expect(b.s.templates.get('no-blob'), isNull);
       expect(b.s.templates.get('bad-blob'), isNull);
       expect(b.s.pages.get('undated'), isNull);
+      for (final id in ['no-locale', 'no-week-start', 'bad-locale', 'bad-week-start']) {
+        expect(b.s.pages.get(id), isNull, reason: id);
+      }
+      expect(
+        b.s.pages.get('sunday-year')!.paper,
+        Paper.planner(
+          PaperStyle.yearlyOverview,
+          DateTime.utc(2024),
+          calendar: const PlannerCalendar(
+            weekStart: WeekStart.sunday,
+            language: PlannerLanguage.el,
+          ),
+        ),
+      );
       expect(b.s.notebooks.get('planner-default'), isNull);
+    });
+
+    test('recordings: audio, waveform, segments, rename and delete', () async {
+      final (time, server, a, b) = _twoDevices();
+      final nb = a.s.notebooks.create(
+        title: 'Lecture',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      final wave = 'b' * 64;
+      final r = a.s.recordings.create(
+        notebookId: nb.id,
+        blob: _sha,
+        mime: 'audio/webm',
+        title: 'Talk',
+        segments: const [RecordingSegment(5000, 1200), RecordingSegment(9000, 800)],
+        waveform: wave,
+      );
+      var changes = await (() async {
+        await a.sync();
+        return b.sync();
+      })();
+      expect(changes.recordingsOfNotebooks, {nb.id});
+      final got = b.s.recordings.get(r.id)!;
+      expect(
+        (got.notebookId, got.blob, got.mime, got.title, got.waveform, got.durationMs),
+        (nb.id, _sha, 'audio/webm', 'Talk', wave, 2000),
+      );
+      expect(got.startedAt, 5000);
+      expect(got.segments, r.segments);
+
+      time.tick();
+      b.s.recordings.rename(r.id, 'Renamed');
+      await _send(b, a);
+      expect(a.s.recordings.get(r.id)!.title, 'Renamed');
+      expect(a.s.recordings.get(r.id)!.waveform, wave, reason: 'kept through edits');
+
+      time.tick();
+      a.s.recordings.delete(r.id);
+      changes = await (() async {
+        await a.sync();
+        return b.sync();
+      })();
+      expect(changes.recordingsOfNotebooks, {nb.id});
+      expect(b.s.recordings.listOf(nb.id), isEmpty);
+      expect(b.deleted('recordings', r.id), isTrue);
+
+      // A malformed waveform id is skipped; one without a waveform is fine.
+      Map<String, Object?> data(String waveform) => {
+        'notebookId': nb.id,
+        'blob': _sha,
+        'durationMs': 1000,
+        'startedAt': 1,
+        'title': 'x',
+        'mime': 'audio/mp4',
+        'segments': [
+          [1, 1000],
+        ],
+        'waveform': waveform,
+      };
+      server.injected.addAll([
+        _record('recordings', 'bad-wave', 10, data: data('xyz')),
+        _record('recordings', 'no-wave', 10, data: data('')),
+      ]);
+      await b.sync();
+      expect(b.s.recordings.get('bad-wave'), isNull);
+      expect(b.s.recordings.get('no-wave')!.waveform, '');
     });
 
     test('strokes: tool, colour, width, points and style', () async {

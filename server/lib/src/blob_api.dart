@@ -76,8 +76,13 @@ Future<Response> _put(
 Response _invalidSha() =>
     _json(HttpStatus.badRequest, {'error': 'blob id must be 64 lowercase hex chars (sha256)'});
 
-Response _tooLarge(int maxBytes) =>
-    _json(HttpStatus.requestEntityTooLarge, {'error': 'blob exceeds $maxBytes bytes'});
+/// The body is not read (further), so the connection is closed: a client
+/// still sending sees the answer rather than a stalled connection.
+Response _tooLarge(int maxBytes) => Response(
+  HttpStatus.requestEntityTooLarge,
+  body: jsonEncode({'error': 'blob exceeds $maxBytes bytes'}),
+  headers: {'content-type': 'application/json; charset=utf-8', 'connection': 'close'},
+);
 
 Response _json(int status, Object body) => Response(
   status,

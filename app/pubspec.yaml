@@ -22,6 +22,7 @@ dependencies:
   http: ^1.6.0
   image: ^4.10.2
   image_picker: ^1.2.4
+  intl: ^0.20.3
   pasteboard:
     # Vendored: Built-in Kotlin fix (see third_party/README.md).
     path: third_party/pasteboard
