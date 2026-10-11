@@ -26,8 +26,8 @@ class HandwritingSettings extends StatelessWidget {
         title: 'Handwriting',
         icon: Icons.draw_outlined,
         description:
-            'Search your handwriting and convert it to text (lasso → Convert to '
-            'text). Recognition runs on this device; nothing is sent anywhere.',
+            'Search your handwriting, and convert it to text: select it with the lasso, '
+            'then tap Convert to text. Recognition runs on this device; nothing is sent anywhere.',
         children: recognition.isSupported
             ? [_language(context), _indexing(context), _model(context)]
             : [
@@ -45,7 +45,7 @@ class HandwritingSettings extends StatelessWidget {
     icon: Icons.translate_rounded,
     title: 'Language',
     subtitle: recognition.isAutomaticLanguage
-        ? 'Automatic: ${_name(recognition.language)} (from the device language)'
+        ? 'Same as the device · ${_name(recognition.language)}'
         : _name(recognition.language),
     onTap: () => unawaited(_pickLanguage(context)),
     trailing: const Icon(Icons.chevron_right_rounded),
@@ -67,7 +67,7 @@ class HandwritingSettings extends StatelessWidget {
               children: [
                 RadioListTile<String>(
                   value: automatic,
-                  title: Text('Automatic (${_name(recognition.automaticLanguage)})'),
+                  title: Text('Same as the device · ${_name(recognition.automaticLanguage)}'),
                 ),
                 for (final l in RecognitionLanguages.all)
                   RadioListTile<String>(value: l.tag, title: Text(l.name)),
