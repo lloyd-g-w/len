@@ -40,6 +40,8 @@ void main() {
       // Audio longer than the waveform: the rest is silent.
       expect(w.bars(2, toMs: 1600), [1.0, 0.0]);
       expect(w.bars(0, toMs: 800), isEmpty);
+      // A range (a trimmed recording's kept audio).
+      expect(w.bars(2, fromMs: 300, toMs: 700), [0.4, 0.8]);
     });
 
     test('the builder keeps peaks per bucket and fills gaps', () {
@@ -63,6 +65,7 @@ void main() {
     test('density is relative to the busiest slice', () {
       expect(ink.density(4, toMs: 40000), [1.0, 0.0, 0.0, 0.4]);
       expect(InkActivity.none.density(3, toMs: 1000), [0.0, 0.0, 0.0]);
+      expect(ink.density(2, fromMs: 20000, toMs: 40000), [0.0, 1.0]);
     });
 
     test('next / previous marker', () {

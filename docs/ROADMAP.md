@@ -64,7 +64,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   blob synced as soon as it is finished; played and exported as one
 - ✅ Recovering a recording cut off by a killed app (native: journal + spool files, "Recover
   recording?" on the next start; browsers keep the parts finished before)
-- ⬜ Trimming, playback in the background (media notification)
+- ✅ Trimming (GoodNotes-style handles on the player's waveform, preview, Cancel / Save, "Reset
+  trim"): non-destructive, synced (`trimStartMs` / `trimEndMs`); playback, list durations, ink
+  replay, markers and export (raw AAC cut at frame boundaries) keep to the kept audio
+- ⬜ Playback in the background (media notification)
+- ⬜ Trimming that frees storage (drop parts wholly outside the trim) and trimmed export of
+  browser recordings (MP4 / WebM would need decoding; exported untrimmed)
 
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,

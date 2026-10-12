@@ -758,6 +758,33 @@ replayed in step with the ink.
   are created only when the user records or plays, so platforms and tests
   that never do never touch the audio plugins (`AudioBackends`; tests use
   fakes).
+- **Trimming** (non-destructive). A recording's row keeps the audio range
+  it plays, `trimStartMs`…`trimEndMs` (positions in the whole audio; `0`
+  and the duration when untrimmed), synced with it. Positions stay those of
+  the whole audio everywhere; `PlaybackController.startMs` / `endMs` (the
+  trim, or `trimDraft` while it is edited) clamp seeking and skipping,
+  opening seeks to the start and reaching the end pauses as the end of the
+  recording would. The list and the player show the kept length
+  (`Recording.lengthMs`), the scrubber shows only the kept audio
+  (`WaveformScrubber` `fromMs` / `toMs`; waveform bars and ink density take
+  a range). Ink is related to the kept audio only
+  (`Recording.inkPositionOf`): ink made before the start counts as written
+  before the recording, ink made after the end as written after it — never
+  veiled (`veilUntil` → `ReplayVeils.pictureFor(until:)`), not tappable to
+  play, no markers. Trim mode (`trim_panel.dart`, `trim_scrubber.dart`;
+  from the scissors in the player's title row or "Trim…" in a recording's
+  menu) shows the whole waveform framed by two handles (drag; focus and ← /
+  → by 1 s, Shift 0.1 s; at least `Recording.minTrimMs` = 1 s apart,
+  `TrimEditing` in `trim_range.dart`), audio outside drawn faint; preview
+  plays only the kept audio (after moving the end it plays the last 2 s);
+  "Keep all", Cancel, Save. Saving is not an editor undo step (recordings
+  are not part of a surface, like renaming): its message offers Undo, and
+  "Reset trim" in the list restores the whole recording at any time.
+  Export of raw AAC keeps the whole frames overlapping the range
+  (`AdtsReader.cut`, ≈ 23 ms at 44.1 kHz, exact sample counting); browser
+  recordings (MP4 / WebM) export untrimmed. Storage is not freed: parts
+  outside the trim stay (dropping them would need the timeline and
+  waveform rewritten and would make trimming one-way).
 - **Overview** (`recording_overview.dart`): per recording the waveform (loaded
   once, fetched when missing) and the `InkActivity` — the audio positions at
   which the notebook's strokes and elements were made
@@ -785,8 +812,8 @@ replayed in step with the ink.
   (`playback_keys.dart`, ahead of the editor's shortcuts, never while typing):
   Space play / pause, ← / → ±10 s (instead of turning pages), Shift+← / → the
   previous / next burst of writing. The recordings sheet shows each
-  recording's date, duration and size and the total; tap plays, ⋯ renames,
-  exports or deletes; long press or "Select" picks several to export or
+  recording's date, (kept) duration and size and the total; tap plays, ⋯
+  renames, trims (or resets the trim), exports or deletes; long press or "Select" picks several to export or
   delete at once. Export hands the audio file (`.aac` with the parts
   joined; browser recordings in parts as one `.webm` / `.m4a` per part)
   to the existing save / share path (`platform/file_export`: save dialog on

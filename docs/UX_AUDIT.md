@@ -181,7 +181,9 @@ things locally:
 - `messages.dart` (`showMessage` / `appSnackBar` / `MessageInsets`) is
   the one snack bar. It floats, is at most 560 px wide and centred, and
   sits above the editor's bottom chrome. Every `showSnackBar` call goes
-  through it.
+  through it. ✅ Messages from the audio player or ink replay (e.g. "Trimmed
+  … · Undo") sit above the player instead of covering it (`AudioLayer`
+  nests a `MessageInsets` that adds the player's height).
 - `FilledFieldBorder` keeps the floating label inside filled fields. The
   field fill is a tint of the text colour, so fields show on any
   container.
