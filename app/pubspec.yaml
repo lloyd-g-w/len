@@ -36,6 +36,7 @@ dependencies:
   uuid: ^4.6.0
   web: ^1.1.1
   url_launcher: ^6.3.3
+  material_symbols_icons: ^4.2960.0
 
 dev_dependencies:
   flutter_test:
@@ -52,6 +53,10 @@ flutter:
     - family: Inter
       fonts:
         - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
         - asset: assets/fonts/Inter-Bold.ttf
           weight: 700
         - asset: assets/fonts/Inter-Italic.ttf
