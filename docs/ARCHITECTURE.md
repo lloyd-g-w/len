@@ -949,7 +949,12 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   the pen-down and pen-up hooks (`HookFinder`), the dot rule and the
   shaper's position smoothing — in screen pixels (a view is a translation
   and a uniform scale, so the rules scale with it). Each piece is the hull
-  of two circles. Two checks keep the ports equal: a shared golden
+  of two circles. With the stabiliser on, it draws what Flutter's live
+  ink does: only the final, smoothed line (the shaper's `finalCount`,
+  ported), from where Flutter's shown frame ends (the lag reach before
+  its newest input), and no predicted tip or line to the raw sample
+  (`WetContact.predicts`) — the smoothed line, as soon as the smoothing
+  allows. Two checks keep the ports equal: a shared golden
   (`test/inklab/wet_ink_golden_test.dart` writes/compares
   `android/app/src/test/resources/wet_ink/`, `WetInkModelTest.kt` checks
   the Kotlin model against it: `tool/wet_ink_check/unit_test.sh`, or
@@ -968,11 +973,12 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   16 ms. The pen-up's frame has no tip at all (no prediction, and no line
   to the raw pen-up sample, which could draw a pen-up hook the model cut).
   Predicted points are only drawn, never stored; each event replaces them
-  (in reused buffers). `WetContact.predicts = false` turns the whole tip
-  off (only the model's ink is drawn). Measured by replaying the Ink Lab
+  (in reused buffers). With the stabiliser on (`WetInkModel.stabilised`)
+  `WetContact.predicts` is false: the whole tip is off (only the model's
+  ink is drawn). Measured by replaying the Ink Lab
   recordings: `docs/INK_LAB.md`, *Low-latency ink → Prediction*.
 - **Only opaque pen ink** (`WetInkStyle`): the highlighter, translucent
-  colours, textured or nib pens, the eraser, lasso, shapes, text and
+  colours, the eraser, lasso, shapes, text and
   straightened strokes stay on the Flutter path, as do fingers and other
   platforms. Overlay and Flutter ink overlap, so only opaque ink can look
   the same where they do.
@@ -1294,11 +1300,15 @@ does not grow with the stroke's length.
      (cusps of `n`, `v`); the corner is the run's tip (the sample furthest
      along the direction the line came in from, not the sharpest turn,
      which can lie a sample past it); smoothing never crosses them;
-   - **positions**: the finite low-pass `2G − G∘G` (`LineFilters`) per
-     stretch between corners, each stretch continued beyond its ends by a
-     local quadratic fit (no lag, tips stay put). σ = (0.7 + 0.8 ×
-     stabiliser) screen px, a little more for wide pens: never 0, so at
-     stabiliser 0 the digitiser's sub-pixel jitter is still removed;
+   - **positions**: the finite low-pass `(1 + a)G − aG∘G` (`LineFilters`)
+     per stretch between corners, each stretch continued beyond its ends
+     by a local quadratic fit (no lag, tips stay put). σ grows from 0.7
+     screen px at stabiliser 0 to 4 px at 1 (`ShapeParams.sigmaFor`; a
+     little more for wide pens): never 0, so at stabiliser 0 the
+     digitiser's sub-pixel jitter is still removed. The sharpness a goes
+     from 1 (flat response: curves barely shrink) at stabiliser 0 to 0.25
+     (nearly the plain Gaussian, which takes out more of a shaky hand's
+     wobble for the lag it costs) at 1 (`sharpnessFor`);
    - **radii**: causal (two cascaded exponential passes over the resampled
      line, then a slope limit), so final as soon as their sample is; the
      start does not swell and is levelled; the moving tip follows the same
@@ -1321,7 +1331,14 @@ does not grow with the stroke's length.
    rebuilt (≈ 20 µs per frame on desktop, flat with length). The tail
    starts with a round cap inside the frozen part, so opaque ink fills
    the two without a seam (`LiveInkPainter`); translucent ink fills one
-   combined path.
+   combined path. **With the stabiliser on** (> 0) live ink shows only
+   the final line (`StrokeShaper.liveLength`, `ShapeParams.lag`): it
+   trails the pen by the reach of the smoothing (kernel, corner test and
+   resampling: ≈ 6 px at 0.2, 10 px at 0.4, 15 px at 1) — the least the
+   smoothing needs — instead of drawing a
+   provisional tip that wags into place; the first sample shows as a dot
+   from pen-down, and at pen-up the end catches up with the pen. At 0 the
+   live line reaches the pen, as below.
 6. **Commit** (`LiveStrokeBuilder.finishLive`): at pen-up the shaper rolls
    back to a recent **checkpoint** that does not depend on the last
    samples, and completes from there with the pen-up hook trimmed and the

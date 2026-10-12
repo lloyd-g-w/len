@@ -153,10 +153,10 @@ are for stabiliser 0 / 0.4 / 1, linear in between (`byStabiliser`).
 
 | Metric | What it measures | Limit |
 |---|---|---|
-| `fidelity.hausdorff` | Farthest distance between the committed centre line and the true path, both ways, so shrunken loops count too | 0.5 / 1.0 / 2.0 px (+0.3 for recordings) |
-| `fidelity.rms` | RMS distance from centre line to true path | 0.2 / 0.4 / 0.8 px (+0.3) |
+| `fidelity.hausdorff` | Farthest distance between the committed centre line and the true path, both ways, so shrunken loops count too | 0.5 / 1.3 / 3.5 px (+0.3 for recordings) |
+| `fidelity.rms` | RMS distance from centre line to true path | 0.2 / 0.4 / 1.0 px (+0.3) |
 | `fidelity.width` | Worst relative error of the ink radius against the radius the true pressure gives, away from the ends | 15 / 25 / 40 % |
-| `detail.retraction` | How far cusp tips and tight bends (radius < 6 px) of the true path lie from the centre line, i.e. over-smoothing | 0.5 / 1.2 / 2.5 px |
+| `detail.retraction` | How far cusp tips and tight bends (radius < 6 px) of the true path lie from the centre line, i.e. over-smoothing | 0.5 / 1.3 / 3.5 px |
 | `smooth.edgeBump16x` | Edge bumps as seen at 16x: residual of a local parabola fit (±1.5 px) of each edge, × 16. Cusps, ends and too-tight bends are skipped | 1 px |
 | `smooth.widthBump16x` | The same for the width | 1 px |
 | `smooth.facet` | Kinks: residual of the turn per centre-line sample against its neighbours | 5° |
@@ -430,6 +430,49 @@ frame.
 *`bounces@0.4` at pen-down.* The two bounces (magenta frames) show as a
 dot at the end of the stroke just lifted for three frames (25 ms) and are
 gone after their lift; the intended strokes below start at once.
+
+### F10 (resolved): the stabiliser did nothing visible
+
+User report (S Pen): "the stabiliser seems to not work now". Measured
+with `test/inklab/stabiliser_test.dart` (added for it): a slow, gently
+bowed 300 px line written in 4 s with hand tremor across it (±1.2 px at
+5.3 and 8.7 Hz, plus the digitiser's jitter), replayed through the input
+pipeline; how far the ink strays from the steady path, RMS (max) in px:
+
+| stabiliser | committed, before → now | Flutter live (newest 12 px) | overlay (newest 12 px) |
+|---|---|---|---|
+| 0 | 0.58 (1.27) → 0.58 (1.27) | 0.58 (1.27) → 0.58 (1.27) | 0.58 (1.28) → 0.58 (1.27) |
+| 0.5 | 0.57 (1.25) → 0.42 (0.93) | 0.57 (1.26) → 0.40 (0.93) | 0.57 (1.28) → 0.40 (0.93) |
+| 1 | 0.56 (1.20) → 0.21 (0.54) | 0.55 (1.26) → 0.19 (0.54) | 0.55 (1.28) → 0.19 (0.54) |
+
+Cause: since pen3 the stabiliser only set the position smoothing's σ
+from 0.7 to 1.5 *screen* px (before, up to 2.5 world units, i.e. 4–6
+screen px when writing zoomed in), with a kernel whose flat response
+keeps everything much larger than σ: tremor at writing speed has
+wavelengths of 10–60 px, so even at 1 it removed 4 % of it. And the
+overlay drew a line from the smoothed ink to the raw newest sample plus
+the raw prediction (its max is the raw samples' 1.28 px at every
+setting). Not a broken port: the Kotlin model matched Dart's to 1e-15
+throughout.
+
+Now σ goes from 0.7 to 4 screen px and the kernel from the flat
+`2G − G∘G` towards the plain Gaussian (`ShapeParams.sigmaFor`,
+`sharpnessFor`): 28 % of the tremor goes at 0.5, 64 % at 1. Smoothing
+that strong cannot be drawn up to the pen without the tip wagging into
+place, so with the stabiliser on live ink shows only the final line
+(`StrokeShaper.liveLength`): it trails the pen by the smoothing's reach
+(≈ 10 px at 0.4, 15 px at 1) and never changes once drawn; the overlay
+draws exactly that (its model ports the shaper's `finalCount`), without
+prediction. `temporal.*` and `pop.*` then measure from the end of the
+drawn line (what is new is the line drawn since, and at pen-up the part
+not drawn yet). The pen's default stabiliser is now 0: ink under the
+nib, as fast as possible; the highlighter's stays 0.5.
+
+The stronger stabiliser shrinks small loops more: at 1, `fidelity` and
+`detail.retraction` reach 2.9 px on the 10 px x-height cursive cases
+(`fidelity.rms` 0.86 px), so their limits at stabiliser 1 are now 3.5 /
+1.0 px (and 1.3 px at 0.4, where `long_stroke` reaches 1.13); at 0 nothing
+changed. Every other metric passes unchanged, real recordings included.
 
 ### Real S Pen recordings
 

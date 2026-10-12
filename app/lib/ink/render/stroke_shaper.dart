@@ -102,6 +102,17 @@ class StrokeShaper implements RibbonLine {
   /// Samples of the last [update] that are final (position and radius).
   int finalCount = 0;
 
+  bool _ended = false;
+
+  /// The samples live ink shows: all of them, or with the stabiliser on
+  /// ([ShapeParams.lag]) only the final ones ([finalCount]: positions and
+  /// radii; at least the first sample, so ink shows from pen-down), and all
+  /// of them once the stroke has ended.
+  int get liveLength {
+    if (p.lag == 0 || _ended || length == 0) return length;
+    return math.max(1, finalCount);
+  }
+
   /// Whether the pen-down decision has been made (otherwise the line is
   /// provisional: from the first sample, nothing final).
   bool get started => _start != null;
@@ -239,6 +250,7 @@ class StrokeShaper implements RibbonLine {
   /// [keep] input samples (the pen-up hook removed, see [endKeep]) are used.
   void update({bool ended = false, int? keep}) {
     if (_provisional) _restart();
+    _ended = ended;
     final n = keep ?? _sx.length;
     _start ??= _hooks.startCut(_sx, _sy, n, ended: ended);
     if (n == 0) {

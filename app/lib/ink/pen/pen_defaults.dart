@@ -45,7 +45,7 @@ class PenDefaults {
     label: 'Pen',
     opacity: 1,
     thinning: 0.25,
-    streamline: 0.4,
+    streamline: 0,
     minWidth: 0.5,
     maxWidth: 12,
     dotScale: 2.4,

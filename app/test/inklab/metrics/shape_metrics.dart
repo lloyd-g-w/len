@@ -136,14 +136,14 @@ List<Metric> fidelity(List<StrokePair> pairs, double streamline) {
     Metric(
       'fidelity.hausdorff',
       dev.value,
-      limit: byStabiliser(streamline, 0.5, 1.0, 2.0) + slack,
+      limit: byStabiliser(streamline, 0.5, 1.3, 3.5) + slack,
       unit: 'px',
       where: dev.where,
     ),
     Metric(
       'fidelity.rms',
       n == 0 ? double.nan : math.sqrt(sum / n),
-      limit: byStabiliser(streamline, 0.2, 0.4, 0.8) + slack,
+      limit: byStabiliser(streamline, 0.2, 0.4, 1.0) + slack,
       unit: 'px',
     ),
     Metric(
@@ -186,7 +186,7 @@ List<Metric> detail(List<StrokePair> pairs, double streamline) {
     Metric(
       'detail.retraction',
       worst.value,
-      limit: byStabiliser(streamline, 0.5, 1.2, 2.5),
+      limit: byStabiliser(streamline, 0.5, 1.3, 3.5),
       unit: 'px',
       where: worst.where,
     ),

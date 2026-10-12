@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/ink/render/live_stroke.dart';
 import 'package:len/ink/render/stroke_outline.dart';
+import 'package:len/ink/render/stroke_shaper.dart';
 
 import 'support/handwriting.dart';
 
@@ -84,7 +85,10 @@ void main() {
     });
 
     test('a pen-down hook is trimmed once, a few px after landing; the rest never changes', () {
-      final builder = LiveStrokeBuilder(spec);
+      // Stabiliser off: the live line reaches the pen.
+      final builder = LiveStrokeBuilder(
+        const OutlineSpec(width: 2.5, thinning: 0.25, streamline: 0, unit: 1),
+      );
       Path? previous;
       var changes = 0;
       int? trimmedAt;
@@ -114,5 +118,49 @@ void main() {
       // Decided within about 5 px of travel.
       expect(trimmedAt, inInclusiveRange(4, 9));
     });
+  });
+
+  group('with the stabiliser on', () {
+    final points = Handwriting(seed: 3).cursive(const Offset(0, 30), [e, l, u, e]);
+    for (final streamline in [0.4, 1.0]) {
+      final spec = OutlineSpec(width: 2.5, thinning: 0.25, streamline: streamline, unit: 1);
+      test('live ink only grows, trailing the pen by the smoothing\'s reach (@ $streamline)', () {
+        final builder = LiveStrokeBuilder(spec);
+        final params = spec.paramsFor(1);
+        final reach = (params.kernelK + params.cornerK + params.lag + 8) * params.step;
+        Path? previous;
+        for (var n = 1; n <= points.length; n += 3) {
+          final path = builder.update(points.sublist(0, n)).combined;
+          expect(path.contains(points.first.offset), isTrue, reason: 'at $n points');
+          if (previous != null) {
+            // Lost ink, beyond an edge's refit (a grid point right on an
+            // edge may flip as the tail's curves are refitted).
+            bool near(Offset p) => [
+              for (final d in const [
+                Offset(0.03, 0),
+                Offset(-0.03, 0),
+                Offset(0, 0.03),
+                Offset(0, -0.03),
+              ])
+                p + d,
+            ].any(path.contains);
+            final lost = differences(
+              previous,
+              path,
+            ).where((p) => previous!.contains(p) && !near(p));
+            expect(lost, isEmpty, reason: 'ink taken back at $n points');
+          }
+          // Trailing the pen by no more than the smoothing needs.
+          final shaper = StrokeOutline.feed(StrokeShaper(params), points.sublist(0, n), spec)
+            ..update();
+          if (shaper.started && shaper.length > 1) {
+            final behind = shaper.length - shaper.liveLength;
+            expect(behind * params.step, lessThanOrEqualTo(reach), reason: 'at $n');
+            if (n > 40) expect(behind, greaterThan(params.kernelK), reason: 'at $n');
+          }
+          previous = path;
+        }
+      });
+    }
   });
 }

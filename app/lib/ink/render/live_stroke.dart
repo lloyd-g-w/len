@@ -83,10 +83,11 @@ class LiveStrokeBuilder {
     }
     _feed(points);
     _shaper.update();
-    if (!_shaper.started) {
-      // The start (pen-down hook) is undecided: the provisional line.
+    if (!_shaper.started || _shaper.liveLength == 1) {
+      // The start (pen-down hook) is undecided: the provisional line (with
+      // the stabiliser on, or before anything is final: its first sample).
       final out = Path();
-      StrokeOutline.emitLine(PathSink(out), _shaper, spec);
+      StrokeOutline.emitLine(PathSink(out), _shaper, spec, live: true);
       return LiveOutline.of(out);
     }
     if (StrokeOutline.isDot(_shaper)) {
@@ -105,7 +106,18 @@ class LiveStrokeBuilder {
     final tail = Path();
     // A cap rather than a cut where the tail meets the frozen part: drawn
     // separately, two paths sharing an edge would leave a hairline seam.
-    _emitter.emit(PathSink(tail), from: (at: _cursor.at, cut: false));
+    // With the stabiliser on, only the final line ([StrokeShaper.liveLength],
+    // which reaches past the frozen part).
+    final shown = _shaper.liveLength;
+    final emitter = shown < _shaper.length
+        ? RibbonEmitter(
+            RibbonPrefix(_shaper, shown),
+            flatCaps: spec.flatCaps,
+            width: spec.width,
+            step: _shaper.p.step,
+          )
+        : _emitter;
+    emitter.emit(PathSink(tail), from: (at: _cursor.at, cut: false));
     return LiveOutline(_frozen, tail);
   }
 

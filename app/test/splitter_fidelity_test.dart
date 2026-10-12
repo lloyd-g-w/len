@@ -20,7 +20,8 @@ void main() {
             StrokePoint(x, 30 * math.sin(x / 25), 0.4 + 0.3 * math.sin(x / 40).abs()),
         ],
         createdAt: 1,
-        style: StrokeStyle.defaultsFor(tool).copyWith(streamline: 0.6),
+        // Written at 100 % (pen strokes record it).
+        style: StrokeStyle.defaultsFor(tool).copyWith(streamline: 0.6, unit: 1),
       );
       var n = 0;
       final parts = StrokeSplitter.erase(

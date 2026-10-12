@@ -192,10 +192,11 @@ void main() {
     }
   });
 
-  test('the stroke being drawn reaches the pen (no lag)', () {
+  test('with the stabiliser off, the stroke being drawn reaches the pen (no lag)', () {
     final points = [for (var i = 0; i <= 60; i++) StrokePoint(i * 1.5, 10 * math.sin(i / 8), 0.5)];
     final sink = RecordingSink();
-    StrokeOutline.emit(sink, points, ballpoint, complete: false);
+    const spec = OutlineSpec(width: 2, thinning: 0.25, streamline: 0);
+    StrokeOutline.emit(sink, points, spec, complete: false);
     final tip = points.last.offset;
     final reach = sink.points.map((p) => (p - tip).distance).reduce(math.min);
     expect(reach, lessThan(1.05), reason: 'outline passes within a radius of the pen');

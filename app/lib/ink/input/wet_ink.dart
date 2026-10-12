@@ -136,6 +136,8 @@ class WetInkShape {
     required this.kernel,
     required this.fit,
     required this.cornerK,
+    required this.lag,
+    required this.startReach,
   });
 
   /// The rules of [spec] for a stroke of [unit] (`StrokeOutline.unitOf`)
@@ -162,6 +164,8 @@ class WetInkShape {
       kernel: params.kernel,
       fit: params.fit,
       cornerK: params.cornerK,
+      lag: params.lag,
+      startReach: params.startReach,
     );
   }
 
@@ -187,9 +191,22 @@ class WetInkShape {
   final List<double> kernel;
   final int fit, cornerK;
 
+  /// With the stabiliser on, live ink shows only the final line (see
+  /// `ShapeParams.lag`): how many samples the tip rules keep back, and the
+  /// start rules' reach (samples); [lag] is 0 with the stabiliser off.
+  final int lag, startReach;
+
   /// The outline's position rules for points in these units.
   ShapeParams get positions => ShapeParams.positionsOf(
-    ShapeParams.explicit(step: step, dedupe: dedupe, kernel: kernel, fit: fit, cornerK: cornerK),
+    ShapeParams.explicit(
+      step: step,
+      dedupe: dedupe,
+      kernel: kernel,
+      fit: fit,
+      cornerK: cornerK,
+      lag: lag,
+      startReach: startReach,
+    ),
     1,
   );
 
@@ -214,6 +231,8 @@ class WetInkShape {
     kernel: kernel,
     fit: fit,
     cornerK: cornerK,
+    lag: lag,
+    startReach: startReach,
   );
 
   /// The values in the order the overlay's `begin` message carries them
@@ -236,6 +255,8 @@ class WetInkShape {
     dedupe,
     fit.toDouble(),
     cornerK.toDouble(),
+    lag.toDouble(),
+    startReach.toDouble(),
     ...kernel,
   ]);
 }

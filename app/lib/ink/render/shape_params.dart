@@ -31,12 +31,13 @@ class ShapeParams {
     final boost = (screenWidth / 2.5).clamp(0.85, 1.6);
     // Never 0: at stabiliser 0 it removes the digitiser's sub-pixel jitter
     // and keeps every visible detail (cusps are corners, which smoothing
-    // never crosses); it grows with the stabiliser.
-    sigma = (0.7 + 0.8 * streamline) * boost * unit;
+    // never crosses). The stabiliser raises it to [maxSigma] screen px,
+    // gently at first (fine control where handwriting keeps its detail).
+    sigma = sigmaFor(streamline) * boost * unit;
     step = (sigma / 3).clamp(0.15 * unit, 0.6 * unit);
     cornerBaseline = (0.4 * screenWidth).clamp(0.5, 2.0) * unit;
     hooks = HookFinder(screenWidth, unit: unit);
-    kernel = LineFilters.lowPassKernel(sigma / step);
+    kernel = LineFilters.lowPassKernel(sigma / step, sharpness: sharpnessFor(streamline));
     kernelK = (kernel.length - 1) ~/ 2;
     fit = math.min(kernelK, math.max(2, (2 * sigma / step).ceil()));
     cornerK = math.max(1, (cornerBaseline / step).ceil());
@@ -48,7 +49,25 @@ class ShapeParams {
     levelEndK = (math.min(levelReach, tipReach) / step).ceil();
     startReach = math.max(settleK, levelK) + 1;
     endReach = math.max(settleEndK, levelEndK) + 1;
+    lag = streamline > 0 ? endReach : 0;
   }
+
+  /// Position smoothing (σ, screen px) at stabiliser [streamline], before
+  /// the boost for wide pens.
+  static double sigmaFor(double streamline) =>
+      0.7 + (maxSigma - 0.7) * (0.7 * streamline + 0.3 * streamline * streamline);
+
+  /// σ (screen px) at full stabiliser.
+  static const double maxSigma = 4.0;
+
+  /// The kernel's sharpness at stabiliser [streamline]
+  /// (`LineFilters.lowPassKernel`): the flat-response kernel at 0, keeping
+  /// every detail; towards the plain Gaussian as it rises, which takes out
+  /// more of a shaky hand's wobble for the lag it costs. Not all the way:
+  /// a pure Gaussian this wide bends tiny loops tighter than the ribbon's
+  /// envelope follows exactly (test/ribbon_exactness_test.dart).
+  static double sharpnessFor(double streamline) =>
+      0.25 + 0.75 * math.pow(1 - streamline, 3).toDouble();
 
   /// Only the position rules of [base], with every length multiplied by
   /// [f], and none of the radius rules (radii are taken as given) or hooks:
@@ -69,7 +88,11 @@ class ShapeParams {
     radiusKeep = 0;
     slope = double.infinity;
     settleK = levelK = settleEndK = levelEndK = 0;
-    startReach = endReach = 1;
+    // With the stabiliser on, what is final (and so shown live) still
+    // follows the base's end rules.
+    lag = base.lag;
+    startReach = lag > 0 ? base.startReach : 1;
+    endReach = lag > 0 ? base.endReach : 1;
   }
 
   /// Position rules given explicitly (as the low-latency overlay receives
@@ -80,8 +103,11 @@ class ShapeParams {
     required List<double> kernel,
     required this.fit,
     required this.cornerK,
+    this.lag = 0,
+    this.startReach = 1,
   }) : width = 1,
        unit = 1 {
+    endReach = math.max(1, lag);
     this.kernel = Float64List.fromList(kernel);
     kernelK = (kernel.length - 1) ~/ 2;
     sigma = 0;
@@ -90,10 +116,17 @@ class ShapeParams {
     radiusKeep = 0;
     slope = double.infinity;
     settleK = levelK = settleEndK = levelEndK = 0;
-    startReach = endReach = 1;
   }
 
   final double width;
+
+  /// 0: live ink reaches the pen (stabiliser off: the tip is drawn from the
+  /// samples so far, and settles as more come). Otherwise (stabiliser on)
+  /// live ink shows only the final, fully smoothed line, and not its last
+  /// [lag] samples ([endReach], the reach of the tip rules), so it trails
+  /// the pen by the reach of the smoothing and never changes once drawn
+  /// (`StrokeShaper.liveLength`).
+  late final int lag;
 
   /// World units per screen pixel when the stroke was written (estimated
   /// from its points, `StrokeOutline.unitOf`).

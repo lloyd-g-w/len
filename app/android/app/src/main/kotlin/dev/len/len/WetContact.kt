@@ -30,8 +30,9 @@ internal class WetContact(val device: Int, val downMs: Long) {
     /**
      * Whether to draw the tip: the line from the end of the ink to the newest
      * sample and the predicted points after it. False draws only the
-     * model's ink (e.g. a mode that smooths heavily, where the raw sample
-     * and its extrapolation would stick out).
+     * model's ink: with the stabiliser on ([WetInkModel.stabilised]), where
+     * the raw sample and its extrapolation would stick out of the smoothed,
+     * trailing ink.
      */
     var predicts = true
         set(value) {
@@ -140,6 +141,8 @@ internal class WetContact(val device: Int, val downMs: Long) {
     fun begin(color: Int, model: WetInkModel, clip: RectF) {
         this.color = color
         this.clip = clip
+        // With the stabiliser on, the ink trails the pen on purpose: no tip.
+        predicts = !model.stabilised
         inkFrom = -1
         for (i in 0 until samples.size) {
             val lift = liftedAtMs >= 0 && i == samples.size - 1

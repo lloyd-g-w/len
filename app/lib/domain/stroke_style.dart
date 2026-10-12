@@ -3,7 +3,7 @@ import 'stroke.dart';
 /// Per-stroke rendering parameters, stored with the stroke so it renders
 /// identically on every device regardless of the local tool settings.
 class StrokeStyle {
-  const StrokeStyle({this.opacity = 1, this.thinning = 0.5, this.streamline = 0.4, this.unit = 0});
+  const StrokeStyle({this.opacity = 1, this.thinning = 0.5, this.streamline = 0, this.unit = 0});
 
   /// Overall ink opacity, 0..1 (the stroke colour itself is stored opaque).
   final double opacity;

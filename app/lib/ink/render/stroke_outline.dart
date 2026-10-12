@@ -114,14 +114,22 @@ abstract final class StrokeOutline {
   }) {
     final shaper = _shape(points, spec, complete);
     if (shaper.inputCount == 0) return;
-    emitLine(sink, shaper, spec);
+    emitLine(sink, shaper, spec, live: !complete);
   }
 
-  /// Emits the outline of an [update]d [shaper] (a dot when too short).
-  static void emitLine(OutlineSink sink, StrokeShaper shaper, OutlineSpec spec) {
+  /// Emits the outline of an [update]d [shaper] (a dot when too short);
+  /// with [live], only what live ink shows ([StrokeShaper.liveLength]).
+  static void emitLine(
+    OutlineSink sink,
+    StrokeShaper shaper,
+    OutlineSpec spec, {
+    bool live = false,
+  }) {
     if (isDot(shaper)) return dot(sink, shaper, spec);
+    final n = live ? shaper.liveLength : shaper.length;
+    if (n == 1) return _dotAt(sink, shaper.x[0], shaper.y[0], shaper.r[0], spec.flatCaps);
     RibbonEmitter(
-      shaper,
+      n < shaper.length ? RibbonPrefix(shaper, n) : shaper,
       flatCaps: spec.flatCaps,
       width: spec.width,
       step: shaper.p.step,
@@ -143,7 +151,11 @@ abstract final class StrokeOutline {
   static void dot(OutlineSink sink, StrokeShaper s, OutlineSpec spec) {
     final r = math.max(s.maxInputRadius, 0.25);
     final x = s.length > 0 ? s.x[0] : s.inputX(0), y = s.length > 0 ? s.y[0] : s.inputY(0);
-    if (!spec.flatCaps) return addCircle(sink, x, y, r);
+    _dotAt(sink, x, y, r, spec.flatCaps);
+  }
+
+  static void _dotAt(OutlineSink sink, double x, double y, double r, bool square) {
+    if (!square) return addCircle(sink, x, y, r);
     sink
       ..moveTo(x - r, y - r)
       ..lineTo(x + r, y - r)
@@ -162,7 +174,14 @@ abstract final class StrokeOutline {
     final shaper = _shape(points, spec, complete);
     if (shaper.length == 0) return null;
     final s = shaper.snapshot();
-    return Centerline(s.x, s.y, s.r, shaper.p.step, corners: List.of(shaper.corners));
+    return Centerline(
+      s.x,
+      s.y,
+      s.r,
+      shaper.p.step,
+      corners: List.of(shaper.corners),
+      live: shaper.liveLength,
+    );
   }
 
   /// The index of the first point that is ink in a stroke of [points]

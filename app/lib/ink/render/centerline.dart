@@ -5,7 +5,8 @@ import 'dart:typed_data';
 /// reversals) that split it into stretches. Produced by `StrokeShaper`;
 /// used for measurements (Ink Lab, tests).
 class Centerline {
-  Centerline(this.x, this.y, this.r, this.step, {this.corners = const []});
+  Centerline(this.x, this.y, this.r, this.step, {this.corners = const [], int? live})
+    : live = live ?? x.length;
 
   final Float64List x, y, r;
 
@@ -16,4 +17,8 @@ class Centerline {
   final List<int> corners;
 
   int get length => x.length;
+
+  /// How many samples live ink shows (fewer than [length] with the
+  /// stabiliser on, `StrokeShaper.liveLength`).
+  final int live;
 }
