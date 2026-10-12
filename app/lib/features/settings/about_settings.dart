@@ -34,10 +34,10 @@ class AboutSettings extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color.lerp(scheme.primary, Colors.white, 0.15)!, scheme.primary],
+                    colors: [Color.lerp(AppTheme.seed, Colors.white, 0.15)!, AppTheme.seed],
                   ),
                 ),
-                child: Icon(Symbols.gesture_rounded, color: scheme.onPrimary, size: 28),
+                child: Icon(Symbols.gesture_rounded, color: Colors.white, size: 28),
               ),
               const SizedBox(width: Gaps.lg),
               Expanded(

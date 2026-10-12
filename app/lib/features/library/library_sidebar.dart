@@ -233,7 +233,6 @@ class _Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Gaps.xl - 2, Gaps.xl, Gaps.lg, Gaps.lg),
       child: Row(
@@ -246,11 +245,11 @@ class _Brand extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color.lerp(scheme.primary, Colors.white, 0.15)!, scheme.primary],
+                colors: [Color.lerp(AppTheme.seed, Colors.white, 0.15)!, AppTheme.seed],
               ),
               boxShadow: Shadows.low(theme.brightness),
             ),
-            child: Icon(Symbols.gesture_rounded, size: Glyphs.bar, color: scheme.onPrimary),
+            child: Icon(Symbols.gesture_rounded, size: Glyphs.bar, color: Colors.white),
           ),
           const SizedBox(width: Gaps.md),
           Text('Len', style: theme.textTheme.titleMedium),
