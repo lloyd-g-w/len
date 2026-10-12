@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:collection';
+import 'dart:developer' as developer;
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -6,14 +8,45 @@ import '../../domain/stroke.dart';
 import 'outline_preparer.dart';
 import 'stroke_renderer.dart';
 
-/// Builds outlines on worker isolates (spawned on first use), a share of
-/// each batch per worker, and memoises them on the UI isolate. Only
-/// imported by `platform/outline_preparer_native.dart`.
+/// Builds outlines on worker isolates (spawned on first use) and on the UI
+/// isolate between frames, and memoises them on the UI isolate.
+///
+/// A batch is cut into slices of [sliceSize] strokes, handed out in order
+/// to the workers (two at a time each, so a worker never waits for the UI
+/// isolate). The UI isolate turns their answers into paths and, while none
+/// is waiting, builds outlines of the next strokes itself — a stroke at a
+/// time, never more than [stepBudget] before yielding to the event loop
+/// (and so to the next frame). Both matter on a phone or tablet: worker
+/// threads run on slower cores than the UI thread (on the Galaxy Tab S8+
+/// three workers together build about as many outlines per second as the
+/// UI thread does in its spare time), and a large batch (a canvas of tens
+/// of thousands of strokes) must neither stall a frame nor show nothing
+/// until its last stroke is done: [OutlinePreparer.prepare]'s `onReady`
+/// hears of every slice as soon as its paths exist. Only imported by
+/// `platform/outline_preparer_native.dart`.
 class BackgroundOutlines implements OutlinePreparer {
-  BackgroundOutlines({this.workers = 2});
+  BackgroundOutlines({
+    this.workers = 2,
+    this.sliceSize = 96,
+    this.stepBudget = const Duration(milliseconds: 3),
+    this.buildHere = true,
+  });
 
   /// Worker isolates to spread the work over.
   final int workers;
+
+  /// Strokes per message to a worker.
+  final int sliceSize;
+
+  /// UI-isolate time one step may take before yielding.
+  final Duration stepBudget;
+
+  /// Whether the UI isolate builds outlines too while it has nothing to
+  /// convert (off: only the workers build them; tests).
+  final bool buildHere;
+
+  /// Strokes the UI isolate takes at a time.
+  static const int hereSlice = 8;
 
   /// Batches smaller than this are built inline (not worth a round trip).
   static const int inlineBelow = 24;
@@ -22,56 +55,146 @@ class BackgroundOutlines implements OutlinePreparer {
   final List<Isolate> _isolates = [];
   bool _closed = false;
 
+  /// Batches being prepared, oldest first.
+  final List<_Batch> _batches = [];
+
+  /// Worker answers waiting to be turned into paths, oldest first.
+  final Queue<_Answer> _answers = Queue();
+
+  /// Whether a worker could not be started (the UI isolate builds all).
+  bool _workerless = false;
+
+  /// The slice the UI isolate is building itself, and how far it got.
+  _Answer? _own;
+  bool _running = false;
+
   @override
-  Future<void> prepare(List<Stroke> strokes) async {
-    final todo = [
-      for (final s in strokes)
-        if (!StrokeRenderer.hasPath(s)) s,
-    ];
+  Future<void> prepare(List<Stroke> strokes, {void Function(List<Stroke> ready)? onReady}) async {
+    final todo = <Stroke>[];
+    final done = <Stroke>[];
+    for (final s in strokes) {
+      (StrokeRenderer.hasPath(s) ? done : todo).add(s);
+    }
+    if (done.isNotEmpty) onReady?.call(done);
     if (todo.isEmpty) return;
     if (_closed || todo.length < inlineBelow) {
-      await const InlineOutlinePreparer().prepare(todo);
+      await const InlineOutlinePreparer().prepare(todo, onReady: onReady);
       return;
     }
+    final batch = _Batch(onReady, todo.length);
+    for (var i = 0; i < todo.length; i += sliceSize) {
+      batch.slices.add(todo.sublist(i, i + sliceSize > todo.length ? todo.length : i + sliceSize));
+    }
+    _batches.add(batch);
     final ports = _ports ??= List.generate(workers, _spawn);
-    final share = (todo.length / ports.length).ceil();
-    await Future.wait([
-      for (var w = 0; w < ports.length; w++)
-        if (w * share < todo.length)
-          _build(
-            ports[w],
-            todo.sublist(w * share, (w + 1) * share > todo.length ? todo.length : (w + 1) * share),
-          ),
-    ]);
+    // Two loops per worker: one slice being built while the answer to the
+    // other is on its way back.
+    for (final port in ports) {
+      for (var k = 0; k < 2; k++) {
+        unawaited(_work(port, batch));
+      }
+    }
+    if (buildHere) _wake();
+    await batch.done.future;
   }
 
-  Future<void> _build(Future<SendPort?> port, List<Stroke> strokes) async {
+  /// Hands [batch]'s slices to the worker behind [port] until none is left.
+  Future<void> _work(Future<SendPort?> port, _Batch batch) async {
     final worker = _closed ? null : await port;
     if (worker == null) {
-      await const InlineOutlinePreparer().prepare(strokes);
+      _workerless = true;
+      _wake(); // The UI isolate builds them.
       return;
     }
-    final reply = ReceivePort();
-    worker.send((TransferableTypedData.fromList([_pack(strokes)]), reply.sendPort));
-    final answer = await reply.first;
-    reply.close();
-    if (answer is! (TransferableTypedData, Int32List)) {
-      await const InlineOutlinePreparer().prepare(strokes);
-      return;
-    }
-    final (data, ends) = answer;
-    final commands = data.materialize().asFloat64List();
-    var start = 0;
-    for (var i = 0; i < strokes.length; i++) {
-      final end = ends[i];
-      if (!StrokeRenderer.hasPath(strokes[i])) {
-        StrokeRenderer.adopt(
-          strokes[i],
-          OutlineCommands.toPath(Float64List.sublistView(commands, start, end)),
-        );
+    while (batch.slices.isNotEmpty && !_closed) {
+      final slice = batch.slices.removeFirst();
+      final reply = ReceivePort();
+      worker.send((TransferableTypedData.fromList([_pack(slice)]), reply.sendPort));
+      final answer = await reply.first;
+      reply.close();
+      if (answer is (TransferableTypedData, Int32List)) {
+        final (data, ends) = answer;
+        _answers.add(_Answer(batch, slice, data.materialize().asFloat64List(), ends));
+      } else {
+        _answers.add(_Answer(batch, slice, null, null)); // Built here instead.
       }
-      start = end;
+      _wake();
     }
+    if (_closed) _wake();
+  }
+
+  /// Starts the UI isolate's loop unless it is running.
+  void _wake() {
+    if (_running) return;
+    _running = true;
+    unawaited(_run());
+  }
+
+  /// The UI isolate's share: worker answers first (cheap per stroke), then
+  /// strokes no worker has taken yet; [stepBudget] at a time.
+  Future<void> _run() async {
+    final watch = Stopwatch()..start();
+    developer.Timeline.startSync('len.outlineStep');
+    try {
+      while (true) {
+        if (watch.elapsed > stepBudget) {
+          developer.Timeline.finishSync();
+          await Future<void>.delayed(Duration.zero);
+          developer.Timeline.startSync('len.outlineStep');
+          watch.reset();
+        }
+        final answer = _answers.isNotEmpty ? _answers.first : _own ?? _takeOwn();
+        if (answer == null) return;
+        final strokes = answer.strokes;
+        if (answer.next < strokes.length) {
+          final i = answer.next++;
+          final stroke = strokes[i];
+          if (!StrokeRenderer.hasPath(stroke)) {
+            final commands = answer.commands;
+            if (commands == null) {
+              StrokeRenderer.pathOf(stroke);
+            } else {
+              final ends = answer.ends!;
+              StrokeRenderer.adopt(
+                stroke,
+                OutlineCommands.toPath(
+                  Float64List.sublistView(commands, i == 0 ? 0 : ends[i - 1], ends[i]),
+                ),
+              );
+            }
+          }
+          continue;
+        }
+        if (identical(answer, _own)) {
+          _own = null;
+        } else {
+          _answers.removeFirst();
+        }
+        answer.batch.report(strokes);
+        if (answer.batch.done.isCompleted) _batches.remove(answer.batch);
+      }
+    } finally {
+      developer.Timeline.finishSync();
+      _running = false;
+    }
+  }
+
+  /// A few strokes of the oldest batch that no worker has taken yet (all
+  /// of them once the workers are gone).
+  _Answer? _takeOwn() {
+    for (final batch in _batches) {
+      final slices = batch.slices;
+      if (slices.isEmpty) continue;
+      final all = _closed || _workerless;
+      if (!buildHere && !all) return null;
+      var slice = slices.removeFirst();
+      if (slice.length > hereSlice && !all) {
+        slices.addFirst(slice.sublist(hereSlice));
+        slice = slice.sublist(0, hereSlice);
+      }
+      return _own = _Answer(batch, slice, null, null);
+    }
+    return null;
   }
 
   /// Per stroke: tool, width, the style's five numbers, the point count,
@@ -159,18 +282,7 @@ class BackgroundOutlines implements OutlinePreparer {
     requests.listen((message) {
       final (packed, reply) = message as (TransferableTypedData, SendPort);
       try {
-        final strokes = _unpack(packed.materialize().asFloat64List());
-        final outlines = [for (final s in strokes) OutlineCommands.of(s)];
-        final ends = Int32List(outlines.length);
-        var total = 0;
-        for (var k = 0; k < outlines.length; k++) {
-          ends[k] = total += outlines[k].length;
-        }
-        final all = Float64List(total);
-        var at = 0;
-        for (final o in outlines) {
-          all.setRange(at, at += o.length, o);
-        }
+        final (all, ends) = OutlineCommands.ofAll(_unpack(packed.materialize().asFloat64List()));
         reply.send((TransferableTypedData.fromList([all]), ends));
       } on Object catch (e) {
         reply.send('$e');
@@ -186,4 +298,34 @@ class BackgroundOutlines implements OutlinePreparer {
     }
     _isolates.clear();
   }
+}
+
+/// One [BackgroundOutlines.prepare] call: the slices nobody has taken
+/// yet, and how many strokes are still to come.
+class _Batch {
+  _Batch(this.onReady, this.remaining);
+
+  final void Function(List<Stroke> ready)? onReady;
+  final Queue<List<Stroke>> slices = Queue();
+  int remaining;
+  final Completer<void> done = Completer();
+
+  void report(List<Stroke> strokes) {
+    onReady?.call(strokes);
+    remaining -= strokes.length;
+    if (remaining <= 0 && !done.isCompleted) done.complete();
+  }
+}
+
+/// Strokes whose outlines are being memoised: from a worker's [commands]
+/// (each stroke ending at its entry in [ends]), or built here when those
+/// are null; [next] is the first one not done yet.
+class _Answer {
+  _Answer(this.batch, this.strokes, this.commands, this.ends);
+
+  final _Batch batch;
+  final List<Stroke> strokes;
+  final Float64List? commands;
+  final Int32List? ends;
+  int next = 0;
 }

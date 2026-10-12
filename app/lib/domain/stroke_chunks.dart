@@ -45,6 +45,10 @@ abstract final class StrokeChunks {
       keys.addAll(ChunkGrid.rangeFor(Rect.fromCircle(center: p, radius: pad)).keys);
       return keys;
     }
+    // Within one chunk (most handwriting): that chunk, without measuring
+    // every segment (loading a page indexes thousands of strokes at once).
+    final range = ChunkGrid.rangeFor(bounds);
+    if (range.count == 1) return {(x: range.minX, y: range.minY)};
     // A pathological stroke (very long zigzags) would take too many
     // pieces; its bounding box is always a valid (if coarser) answer.
     var pieces = 0.0;

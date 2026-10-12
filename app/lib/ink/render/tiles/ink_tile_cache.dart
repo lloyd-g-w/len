@@ -27,7 +27,9 @@ typedef VectorFallback = void Function(ui.Canvas canvas, List<ui.Rect> world);
 ///   [SurfaceChange.appended]) keep the tiles: the stroke is drawn as a
 ///   vector over them until each tile is re-rendered as [old image + the
 ///   stroke], off the frame. So a committed stroke never disappears.
-/// - **Other edits** (erasing, undo, loads, selections) drop the tiles they
+/// - **Loads** ([SurfaceChange.loaded]) keep the images of the tiles they
+///   touch as stale stand-ins until those are rendered again.
+/// - **Other edits** (erasing, undo, selections) drop the tiles they
 ///   touch; those areas are drawn as vectors until rendered again.
 /// - **Zooming and panning** by fractions of a pixel draw the existing tiles
 ///   transformed; once the view has been still for [settleDelay] the new
@@ -132,6 +134,7 @@ class InkTileCache extends ChangeNotifier {
         _drawImage(canvas, image, dst, exact: same);
         pool.touch(tile);
         lastPaint.images++;
+        if (tile.stale && canRender) _request(index, 1);
         if (tile.overlay.isNotEmpty) overlays.add(tile);
         continue;
       }
@@ -263,8 +266,32 @@ class InkTileCache extends ChangeNotifier {
       _dropTouching(_old, chunks, all: true);
       return;
     }
-    _dropTouching(_tiles, chunks);
+    if (change.loaded) {
+      _staleTouching(chunks);
+    } else {
+      _dropTouching(_tiles, chunks);
+    }
     _dropTouching(_old, chunks, all: true);
+  }
+
+  /// Stored content arrived in [chunks]: tiles over them that have an
+  /// image keep showing it until they are rendered again (the content was
+  /// not on screen before, so nothing the user did lingers); the others
+  /// are invalidated.
+  void _staleTouching(Set<ChunkKey> chunks) {
+    if (_tiles.isEmpty || chunks.isEmpty) return;
+    final rects = [for (final c in chunks) ChunkGrid.rectOf(c)];
+    for (final tile in _tiles.values) {
+      if (!rects.any(tile.space.worldRectOf(tile.index).overlaps)) continue;
+      if (tile.image == null) {
+        tile.invalidate();
+      } else {
+        tile
+          ..version += 1
+          ..stale = true;
+        _request(tile.index, 1);
+      }
+    }
   }
 
   /// Drops the images of tiles overlapping [chunks] ([all]: forgets the
@@ -355,7 +382,8 @@ class InkTileCache extends ChangeNotifier {
     final rect = space.worldRectOf(tile.index);
     final clipped = _clip == null ? rect : rect.intersect(_clip!);
     final included = tile.overlay.length;
-    final base = tile.image;
+    // A stale image is rendered afresh (the chunk pictures hold everything).
+    final base = tile.stale ? null : tile.image;
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     if (base != null) canvas.drawImage(base, ui.Offset.zero, _exactPaint);
@@ -414,6 +442,7 @@ class InkTileCache extends ChangeNotifier {
     tile.image?.dispose();
     tile
       ..image = image
+      ..stale = false
       ..overlay.removeRange(0, included);
     pool.add(tile);
     _notify();
@@ -471,7 +500,12 @@ class _Tile implements PooledTile {
   int version = 0;
   bool rendering = false;
 
-  bool get needsRender => image == null ? blank != true || overlay.isNotEmpty : overlay.isNotEmpty;
+  /// Whether [image] predates stored content that arrived since (it stands
+  /// in until the tile is rendered again).
+  bool stale = false;
+
+  bool get needsRender =>
+      image == null ? blank != true || overlay.isNotEmpty : overlay.isNotEmpty || stale;
 
   @override
   int get bytes => TileSpace.size * TileSpace.size * 4;
@@ -480,6 +514,7 @@ class _Tile implements PooledTile {
   void invalidate() {
     version++;
     blank = null;
+    stale = false;
     overlay.clear();
     _dropImage();
   }
@@ -487,6 +522,7 @@ class _Tile implements PooledTile {
   /// The tile is forgotten.
   void release() {
     version++;
+    stale = false;
     overlay.clear();
     _dropImage();
   }
@@ -495,6 +531,7 @@ class _Tile implements PooledTile {
   void evict() {
     image?.dispose();
     image = null;
+    stale = false;
     // An evicted tile with pending strokes is rendered in full next time.
   }
 

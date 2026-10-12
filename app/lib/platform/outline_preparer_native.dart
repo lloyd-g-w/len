@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import '../ink/render/background_outlines.dart';
 import '../ink/render/outline_preparer.dart';
 
-/// Worker isolates (two, or one on a two-core machine).
+/// Worker isolates: up to three, leaving two cores for the UI and raster
+/// threads (one on a machine with three cores or fewer).
 OutlinePreparer createOutlinePreparer() =>
-    BackgroundOutlines(workers: math.max(1, math.min(2, Platform.numberOfProcessors - 1)));
+    BackgroundOutlines(workers: math.max(1, math.min(3, Platform.numberOfProcessors - 2)));

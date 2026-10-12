@@ -250,6 +250,15 @@ class ChunkRasterCache extends ChangeNotifier {
   void _onChange(SurfaceChange change) {
     final appended = change.appended;
     final chunks = change.chunks;
+    if (change.loaded && chunks != null) {
+      // Stored content arrived: the images (and their overlays) stand in,
+      // stale, until new ones are made — no vector frames while a canvas
+      // loads.
+      for (final chunk in chunks) {
+        _versions[chunk] = ++_counter;
+      }
+      return;
+    }
     if (appended == null || chunks == null) return _invalidate(chunks);
     for (final chunk in chunks) {
       final version = _versions[chunk] = ++_counter;
