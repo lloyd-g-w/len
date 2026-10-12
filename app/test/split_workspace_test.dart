@@ -148,7 +148,7 @@ void main() {
 
     s.sharedNotebooks
         .peek(physics.id)!
-        .update((n) => n.copyWith(paper: PaperStyle.dotted, paperColor: PaperColor.dark));
+        .update((n) => n.copyWith(paper: const Paper(PaperStyle.dotted), paperColor: PaperColor.dark));
     await tester.pump();
     final papers = tester.widgetList<EditorCanvas>(find.byType(EditorCanvas));
     expect(papers.map((c) => (c.paper, c.paperColor)), [

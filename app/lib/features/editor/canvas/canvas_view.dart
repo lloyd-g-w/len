@@ -30,7 +30,7 @@ class CanvasView extends StatelessWidget {
   final CanvasNavigation navigation;
   final InkInputController input;
   final LiveInk live;
-  final PaperStyle paper;
+  final Paper paper;
   final PaperColor paperColor;
 
   /// Screen edges covered by the editor's chrome (top bar, toolbar, safe

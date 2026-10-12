@@ -16,6 +16,22 @@ enum TemplateCategory {
 /// The period one page of a date-aware planner template covers.
 enum PlannerPeriod { day, week, month, year }
 
+/// What a template's pitch measures, which decides the spacing presets and
+/// range the Paper options offer for it.
+enum PitchKind {
+  /// Writing lines (ruled paper, Cornell notes, lists).
+  lines,
+
+  /// Grid cells (also isometric triangles).
+  grid,
+
+  /// Dot spacing.
+  dots,
+
+  /// Distance between staff lines.
+  staff,
+}
+
 /// A built-in background pattern ("template") drawn behind ink, or
 /// [image] for a user's own template.
 ///
@@ -122,6 +138,33 @@ enum PaperStyle {
     for (final s in values)
       if (s != image) s,
   ];
+
+  /// What the pitch measures, or null when it is fixed (blank, graph and
+  /// engineering paper, planners, storyboards, images).
+  PitchKind? get pitchKind => switch (this) {
+    narrowRuled || collegeRuled || wideRuled || cornell || todo || meeting => PitchKind.lines,
+    gridSmall || gridLarge || isometric => PitchKind.grid,
+    dotted => PitchKind.dots,
+    music => PitchKind.staff,
+    _ => null,
+  };
+
+  /// Whether pages have a margin line that can be turned off.
+  bool get hasMargin => isRuled;
+
+  /// Whether pages can have a header area (repeating papers without a
+  /// layout of their own).
+  bool get hasHeader => switch (this) {
+    blank || dotted || narrowRuled || collegeRuled || wideRuled => true,
+    gridSmall || gridLarge || graph || isometric => true,
+    _ => false,
+  };
+
+  /// Whether the pattern has dots (dot size applies).
+  bool get hasDots => this == dotted;
+
+  /// Whether the pattern has lines (line weight applies).
+  bool get hasLines => this != blank && this != dotted && this != image;
 
   /// Whether the pattern consists of horizontal writing lines.
   bool get isRuled => this == wideRuled || this == collegeRuled || this == narrowRuled;

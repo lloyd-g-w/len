@@ -26,12 +26,12 @@ Future<void> pickCanvasBackground(BuildContext context, SharedNotebook shared) a
   final notebook = shared.notebook;
   final choice = await showTemplatePicker(
     context,
-    initial: PageTemplate.of(notebook.paper, color: notebook.paperColor),
+    initial: PageTemplate(paper: notebook.paper, color: notebook.paperColor),
     mode: TemplatePickerMode.canvas,
   );
   if (choice == null || !context.mounted) return;
   final template = choice.template;
-  shared.update((n) => n.copyWith(paper: template.style, paperColor: template.color));
+  shared.update((n) => n.copyWith(paper: template.paper, paperColor: template.color));
 }
 
 /// The folder [notebook] is filed in, shown under its title.

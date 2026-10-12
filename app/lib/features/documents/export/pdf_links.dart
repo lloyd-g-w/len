@@ -62,7 +62,7 @@ abstract final class PdfLinkWriter {
       if (page.paper.style.isPlanner) {
         final pattern = PaperPattern.of(page.paper, page.bounds, page: page.bounds);
         for (final link in pattern.links) {
-          final j = pages.indexWhere((p) => p.page.paper == link.target);
+          final j = pages.indexWhere((p) => p.page.paper.sameSheet(link.target));
           if (j >= 0 && j != i) goTo(i, j, world(link.rect));
         }
       }

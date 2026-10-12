@@ -7,8 +7,20 @@ import 'pattern_builder.dart';
 /// Repeating papers: ruled, grids, dots, isometric, music, graph and
 /// engineering paper. All of them also tile an infinite canvas.
 extension BasicPatterns on PatternBuilder {
-  /// Header space above the first ruled line on a page.
-  double get _top => (page?.top ?? 0) + 3 * s;
+  /// The first ruled line on a page: below the header area, or below a
+  /// blank band of three lines.
+  double get _top => headerBottom != null ? headerBottom! + s : (page?.top ?? 0) + 3 * s;
+
+  /// Where a page's dots start across and down: centred on the page (so
+  /// no dots sit on its edges), below the header if any; 0 on a canvas.
+  ({double x, double y}) get _origin {
+    final page = this.page;
+    if (page == null) return (x: 0, y: 0);
+    return (
+      x: page.left + (page.width % s + s) / 2,
+      y: headerBottom != null ? headerBottom! + s / 2 : page.top + (page.height % s + s) / 2,
+    );
+  }
 
   /// Horizontal writing lines (below a header on pages) with a red margin.
   void ruled({double? bottom}) {
@@ -19,14 +31,15 @@ extension BasicPatterns on PatternBuilder {
         h(y, area.left, area.right);
       }
     }
-    if (page != null) v(page.left + 80, page.top, page.bottom, PatternWeight.margin);
+    if (page != null && margin) v(page.left + 80, page.top, page.bottom, PatternWeight.margin);
   }
 
-  void grid() => _grid(s, PatternWeight.normal);
+  /// Squares edge to edge (below the header, if any).
+  void grid() => _grid(s, PatternWeight.normal, top: headerBottom);
 
   void _grid(double pitch, PatternWeight weight, {double origin = 0, double? top}) {
     if (!shows(pitch)) return;
-    final y0 = top ?? area.top;
+    final y0 = top == null ? area.top : math.max(top, area.top);
     for (final y in ticks(y0, area.bottom, pitch, top ?? origin)) {
       h(y, area.left, area.right, weight);
     }
@@ -38,7 +51,7 @@ extension BasicPatterns on PatternBuilder {
   /// Grid lines every [pitch] that are not also lines of [coarser].
   void _subGrid(double pitch, int every, PatternWeight weight, {double origin = 0, double? top}) {
     if (!shows(pitch)) return;
-    final y0 = top ?? area.top;
+    final y0 = top == null ? area.top : math.max(top, area.top);
     bool onCoarse(double v, double o) => (((v - o) / pitch).round() % every) == 0;
     for (final y in ticks(y0, area.bottom, pitch, top ?? origin)) {
       if (!onCoarse(y, top ?? origin)) h(y, area.left, area.right, weight);
@@ -50,8 +63,9 @@ extension BasicPatterns on PatternBuilder {
 
   void dotted() {
     if (!shows(s)) return;
-    for (final y in ticks(area.top, area.bottom, s)) {
-      for (final x in ticks(area.left, area.right, s)) {
+    final o = _origin;
+    for (final y in ticks(area.top, area.bottom, s, o.y)) {
+      for (final x in ticks(area.left, area.right, s, o.x)) {
         dots.add(Offset(x, y));
       }
     }
@@ -61,10 +75,11 @@ extension BasicPatterns on PatternBuilder {
   /// level shows once it is far enough apart on screen).
   void graph() {
     final cm = 2 * s, mm = s / 5;
-    _subGrid(mm, 5, PatternWeight.fine);
-    _subGrid(s, 2, PatternWeight.normal);
+    final top = headerBottom;
+    _subGrid(mm, 5, PatternWeight.fine, top: top);
+    _subGrid(s, 2, PatternWeight.normal, top: top);
     // Centimetre lines stay visible longest.
-    if (shows(cm)) _grid(cm, PatternWeight.heavy);
+    if (shows(cm)) _grid(cm, PatternWeight.heavy, top: top);
   }
 
   /// Engineering (quad) paper: five squares per inch, a bold line every

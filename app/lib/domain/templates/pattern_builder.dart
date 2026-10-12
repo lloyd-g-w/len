@@ -8,9 +8,16 @@ import 'paper.dart';
 /// and labels and fills that touch it. Template layouts are written as
 /// extensions on this class (`patterns_*.dart`).
 class PatternBuilder {
-  PatternBuilder(this.s, this.area, this.page, {this.minPitch = 0});
+  PatternBuilder(
+    this.s,
+    this.area,
+    this.page, {
+    this.minPitch = 0,
+    this.headerBottom,
+    this.margin = true,
+  });
 
-  /// The template's pitch (`PaperStyle.spacing`).
+  /// The template's pitch (`Paper.pitch`).
   final double s;
   final Rect area;
 
@@ -19,6 +26,15 @@ class PatternBuilder {
 
   /// Repeating detail closer than this is left out (too dense to see).
   final double minPitch;
+
+  /// Where a page's header area ends (the pattern starts there), if it has one.
+  final double? headerBottom;
+
+  /// Whether ruled pages get their margin line.
+  final bool margin;
+
+  /// Height of a page's header area.
+  static double headerHeight(Rect page) => math.max(56, page.height * 0.09);
 
   final List<PatternLine> lines = [];
   final List<Offset> dots = [];

@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import '../../app_services.dart';
 import '../../core/clock.dart';
 import '../../domain/notebook.dart';
+import '../../domain/paper.dart';
 import '../../domain/stroke.dart';
-import '../../domain/templates/paper_style.dart';
 
 /// Scratch notebooks for rendering measurements (Ink Lab → "Perf test
 /// notebooks"): a page with a little writing, two pages packed with
@@ -53,7 +53,7 @@ abstract final class PerfNotebooks {
       coverColor: 0xFF8E8E93,
     );
     for (var i = 1; i < pages; i++) {
-      services.pages.addPage(notebook.id, paper: PaperStyle.collegeRuled);
+      services.pages.addPage(notebook.id, paper: const Paper(PaperStyle.collegeRuled));
     }
     return [for (final p in services.pages.pagesOf(notebook.id)) p.id];
   }

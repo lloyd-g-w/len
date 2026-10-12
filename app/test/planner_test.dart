@@ -65,7 +65,12 @@ void main() {
     test('planner papers start at their period and round-trip', () {
       final week = Paper.planner(PaperStyle.weeklyPlanner, d(2026, 10, 9));
       expect(week.date, d(2026, 10, 5));
-      expect(week.toData(), {'date': '2026-10-05', 'weekStart': 'monday', 'locale': 'en-GB'});
+      expect(week.toData(), {
+        'date': '2026-10-05',
+        'weekStart': 'monday',
+        'locale': 'en-GB',
+        'look': PaperLook.standard.toJson(),
+      });
       expect(Paper.fromData(PaperStyle.weeklyPlanner, week.toData()), week);
       expect(Paper.planner(PaperStyle.monthlyCalendar, d(2024, 2, 29)).date, d(2024, 2, 1));
     });
@@ -83,7 +88,16 @@ void main() {
       expect(Paper.fromData(PaperStyle.image, const {'image': 'not-a-hash'}), isNull);
       final image = Paper.image('a' * 64);
       expect(Paper.fromData(PaperStyle.image, image.toData()), image);
-      expect(Paper.fromData(PaperStyle.cornell, const {}), const Paper(PaperStyle.cornell));
+      expect(Paper.fromData(PaperStyle.cornell, const {}), isNull, reason: 'no look');
+      expect(
+        Paper.fromData(PaperStyle.cornell, const {}, requireLook: false),
+        const Paper(PaperStyle.cornell),
+      );
+      const look = PaperLook(spacing: 6, lineWeight: 2, patternColor: 0xFF3366CC, margin: false);
+      final cornell = const Paper(PaperStyle.cornell).withLook(look);
+      expect(Paper.fromData(PaperStyle.cornell, cornell.toData()), cornell);
+      expect(cornell.sameSheet(const Paper(PaperStyle.cornell)), isTrue);
+      expect(cornell == const Paper(PaperStyle.cornell), isFalse);
       expect(Paper.defaultFor(PaperStyle.image, today: d(2026, 1, 1)), isNull);
     });
   });

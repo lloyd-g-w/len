@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'templates/paper.dart';
@@ -93,14 +94,40 @@ class PaperPattern {
   static PaperPattern of(Paper paper, Rect area, {Rect? page, double minPitch = 0}) {
     final region = page == null ? area : area.intersect(page);
     final style = paper.style;
-    if (region.isEmpty || style == PaperStyle.blank || style == PaperStyle.image) {
+    final headed = page != null && paper.look.header && style.hasHeader;
+    if (region.isEmpty || style == PaperStyle.image || (style == PaperStyle.blank && !headed)) {
       return const PaperPattern();
     }
-    final b = PatternBuilder(style.spacing, region, page, minPitch: minPitch);
-    if (page == null && !style.canvas) {
+    // A header area: ruled off, the pattern starts below it.
+    final header = headed
+        ? page.top + PatternBuilder.headerHeight(page)
+        : null;
+    final body = header == null
+        ? region
+        : region.intersect(Rect.fromLTRB(region.left, header, region.right, region.bottom));
+    final b = PatternBuilder(
+      paper.pitch,
+      body.isEmpty ? Rect.zero : body,
+      page,
+      minPitch: minPitch,
+      headerBottom: header,
+      margin: paper.look.margin,
+    );
+    if (body.isEmpty) {
+      // Only the header area is in view.
+    } else if (page == null && !style.canvas) {
       b.ruled(); // Page layouts have no meaning on a canvas.
     } else {
       _build(b, paper, page);
+    }
+    if (header != null) {
+      final c = b.content(page!);
+      if (header >= region.top && header <= region.bottom) {
+        final from = math.max(c.left, region.left), to = math.min(c.right, region.right);
+        if (from < to) {
+          b.lines.add((a: Offset(from, header), b: Offset(to, header), weight: PatternWeight.heavy));
+        }
+      }
     }
     return PaperPattern(
       lines: b.lines,

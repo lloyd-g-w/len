@@ -10,7 +10,7 @@ NotebookPage _page(int i) => NotebookPage(
   width: 794,
   height: 1123,
   paper: Paper(PaperStyle.gridLarge),
-  paperColor: PaperColor.values.last,
+  paperColor: PaperColor.presets.last,
 );
 
 void main() {

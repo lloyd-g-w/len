@@ -49,7 +49,7 @@ class PaperColorRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return EvenChoices(
       choices: [
-        for (final c in PaperColor.values)
+        for (final c in PaperColor.presets)
           EvenChoice(
             key: ValueKey('paper-${c.name}'),
             label: c.label,
