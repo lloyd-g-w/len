@@ -7,6 +7,8 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 
+import 'fs_sync.dart' as fs;
+
 /// Thrown by [BlobStore.put] when the data exceeds the size limit.
 class BlobTooLargeException implements Exception {
   BlobTooLargeException(this.maxBytes);
@@ -49,7 +51,14 @@ class BlobStore {
   /// interrupted uploads older than [staleTmpAge] are removed; younger ones
   /// may belong to an upload in progress in another server process sharing
   /// the directory, so they are left alone.
-  BlobStore.open(this.root, {Duration staleTmpAge = defaultStaleTmpAge}) {
+  ///
+  /// [syncDirectory] flushes a directory to disk after blobs are renamed
+  /// into it (tests may observe it).
+  BlobStore.open(
+    this.root, {
+    Duration staleTmpAge = defaultStaleTmpAge,
+    void Function(String path) syncDirectory = fs.syncDirectory,
+  }) : _syncDirectory = syncDirectory {
     Directory(_tmpDir).createSync(recursive: true);
     removeStaleTmpFiles(staleTmpAge);
   }
@@ -59,6 +68,8 @@ class BlobStore {
 
   /// Directory holding all blobs.
   final String root;
+
+  final void Function(String path) _syncDirectory;
 
   static final _shaPattern = RegExp(r'^[0-9a-f]{64}$');
   static final _random = Random.secure();
@@ -163,7 +174,8 @@ class BlobStore {
     final tmp = File('$_tmpDir/$sha.$pid.${_counter++}.${_random.nextInt(1 << 32)}');
     final digestSink = _DigestSink();
     final hasher = sha256.startChunkedConversion(digestSink);
-    final out = tmp.openWrite();
+    final out = await tmp.open(mode: FileMode.writeOnly);
+    var outClosed = false;
     var length = 0;
     var committed = false;
     try {
@@ -179,20 +191,29 @@ class BlobStore {
         length += chunk.length;
         if (length > maxBytes) throw BlobTooLargeException(maxBytes);
         hasher.add(chunk);
-        out.add(chunk);
+        await out.writeFrom(chunk);
       }
       hasher.close();
-      await out.flush();
-      await out.close();
       final actual = digestSink.value.toString();
       if (actual != sha) throw BlobHashMismatchException(sha, actual);
-      await Directory(File(finalPath).parent.path).create(recursive: true);
+      // The data must be on disk before the rename publishes it: otherwise a
+      // crash can leave a complete-looking but empty or torn blob in place.
+      await out.flush(); // fsync
+      outClosed = true;
+      await out.close();
+      final shardDir = File(finalPath).parent.path;
+      if (!Directory(shardDir).existsSync()) {
+        await Directory(shardDir).create(recursive: true);
+        _syncDirectory(root);
+      }
       await tmp.rename(finalPath);
       committed = true;
+      // Makes the rename itself durable (the new directory entry).
+      _syncDirectory(shardDir);
       return length;
     } finally {
       if (!committed) {
-        await out.close().catchError((Object _) {});
+        if (!outClosed) await out.close().catchError((Object _) {});
         // Never masks the upload's own error (startup removes leftovers).
         try {
           if (tmp.existsSync()) await tmp.delete();

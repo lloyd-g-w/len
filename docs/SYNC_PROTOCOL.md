@@ -65,8 +65,8 @@ Applied atomically in one transaction. Response `200`:
 ### `GET /v1/pull?since=<int>&limit=<int>`
 `since` defaults to 0, `limit` defaults to 500, larger values are clamped to 1000. Returns records
 with `seq > since` ordered by `seq` ascending. A page may hold fewer than `limit` records: the
-server stops adding records once their payloads exceed ~8 MiB (always returning at least one), so
-responses stay bounded when records are large.
+server stops adding records once their payloads (the UTF-8 bytes of their stored `data` JSON) add
+up to 8 MiB (always returning at least one), so responses stay bounded when records are large.
 ```json
 {"records": [Record+seq, …], "nextSince": 4711, "hasMore": false}
 ```
@@ -103,8 +103,9 @@ Body: the raw blob bytes (any content type), at most `LEN_BLOB_MAX_BYTES` (defau
   abandoned: nothing is stored, the temporary file is removed and the connection is closed (the
   server may answer `408 {"error": "upload stalled"}` first). Clients retry later.
 
-The server hashes while streaming to a temporary file and atomically renames it into place, so a
-blob is only ever visible complete and verified, and concurrent uploads of the same blob are safe. Temporary files
+The server hashes while streaming to a temporary file, flushes it to disk (`fsync`) and atomically
+renames it into place, then flushes the directory, so a blob is only ever visible complete and
+verified (also after a crash or power loss), and concurrent uploads of the same blob are safe. Temporary files
 of interrupted uploads are removed at startup once they are older than a day (younger ones may
 belong to another server process sharing the blob directory).
 

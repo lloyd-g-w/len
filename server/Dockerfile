@@ -1,7 +1,13 @@
 # syntax=docker/dockerfile:1
 
+# Base images are pinned by version and digest (multi-arch index), so builds
+# are reproducible and a re-pushed tag cannot change them. To update, pick
+# new tags and look up their digests, e.g.
+#   docker buildx imagetools inspect dart:3.13.5-sdk
+#   docker buildx imagetools inspect debian:bookworm-20261005-slim
+
 # ---- Build stage -----------------------------------------------------------
-FROM dart:stable AS build
+FROM dart:3.13.5-sdk@sha256:8604cbd137b6d67c24f49b916f2aa9b67d71b539576e0178bf161d831c9e344f AS build
 WORKDIR /app
 
 # Resolve dependencies first for better layer caching.
@@ -17,7 +23,7 @@ COPY . .
 RUN dart build cli --target bin/server.dart -o /out
 
 # ---- Runtime stage ---------------------------------------------------------
-FROM debian:bookworm-slim
+FROM debian:bookworm-20261005-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl \
  && rm -rf /var/lib/apt/lists/* \

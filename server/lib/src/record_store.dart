@@ -169,7 +169,7 @@ class RecordStore {
   /// Returns up to [limit] records with `seq > since`, ordered by seq.
   ///
   /// The page is also cut short once the stored JSON payloads add up to
-  /// [maxDataBytes] (at least one record is always returned), so responses
+  /// [maxDataBytes] (UTF-8 bytes) (at least one record is always returned), so responses
   /// stay bounded even when records are large; `hasMore` is then true.
   PullResult pull({
     required int since,
@@ -177,7 +177,9 @@ class RecordStore {
     int maxDataBytes = defaultPullDataBytes,
   }) {
     final stmt = _db.prepare(
-      'SELECT collection, id, updated_at, device_id, deleted, data, seq '
+      // `CAST(… AS BLOB)` makes length() count the UTF-8 bytes of the JSON.
+      'SELECT collection, id, updated_at, device_id, deleted, data, seq, '
+      'length(CAST(data AS BLOB)) AS data_bytes '
       'FROM records WHERE seq > ? ORDER BY seq ASC LIMIT ?',
     );
     final records = <SyncRecord>[];
@@ -192,7 +194,7 @@ class RecordStore {
           break;
         }
         final row = cursor.current;
-        bytes += (row['data'] as String?)?.length ?? 0;
+        bytes += (row['data_bytes'] as int?) ?? 0;
         records.add(_rowToRecord(row));
       }
     } finally {

@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:sqlite3/common.dart';
 
+import '../../core/pointer_activity.dart';
 import '../../data/app_database.dart';
 import '../../data/search/ink_text_boxes.dart';
 import '../../data/stroke_queries.dart';
@@ -20,7 +21,10 @@ import 'ink_clustering.dart';
 /// The indexer wakes on database commits (when [start]ed), waits until the
 /// database has been quiet for [idleDelay] (the user stopped writing), and
 /// then works through the queue one surface at a time, one line at a time,
-/// pausing again whenever new edits arrive. Lines whose strokes did not
+/// pausing again whenever new edits arrive. With [activity] it also waits
+/// while a pointer is down (writing — strokes reach the database only at
+/// pen-up —, scrolling, zooming) and for [idleDelay] after the last one, so
+/// no recognition work starts while the user interacts. Lines whose strokes did not
 /// change keep their earlier result, so adding a word re-recognises just
 /// that line.
 class HandwritingIndexer extends ChangeNotifier {
@@ -30,6 +34,7 @@ class HandwritingIndexer extends ChangeNotifier {
     required this.language,
     this.idleDelay = const Duration(seconds: 3),
     this.pauseBetweenLines = const Duration(milliseconds: 15),
+    this.activity,
     Stream<void>? commits,
   }) : _commitSource = commits;
 
@@ -44,6 +49,9 @@ class HandwritingIndexer extends ChangeNotifier {
 
   /// A breather between recognised lines, to stay light on the device.
   final Duration pauseBetweenLines;
+
+  /// The user's pointer activity, which defers work like database commits.
+  final PointerActivity? activity;
 
   final Stream<void>? _commitSource;
 
@@ -119,6 +127,9 @@ class HandwritingIndexer extends ChangeNotifier {
         if (next.isEmpty) break;
         final surface = next.first['surface_id'] as String;
         final version = next.first['version'] as int;
+        // Clustering a surface is UI-thread work too.
+        await _untilQuiet(pause: false);
+        if (!_active || _disposed) break;
         _current = surface;
         notifyListeners();
         try {
@@ -230,14 +241,26 @@ class HandwritingIndexer extends ChangeNotifier {
 
   static String _tail(String text) => text.length <= 20 ? text : text.substring(text.length - 20);
 
-  Future<void> _untilQuiet() async {
-    if (pauseBetweenLines > Duration.zero) await Future<void>.delayed(pauseBetweenLines);
+  /// Waits (after [pauseBetweenLines] if [pause]) until neither the
+  /// database nor the pointers ([activity]) saw activity for [idleDelay].
+  Future<void> _untilQuiet({bool pause = true}) async {
+    if (pause && pauseBetweenLines > Duration.zero) {
+      await Future<void>.delayed(pauseBetweenLines);
+    }
     while (!_disposed) {
-      final quietFor = DateTime.now().difference(_lastActivity);
-      if (quietFor >= idleDelay) return;
-      await Future<void>.delayed(idleDelay - quietFor);
+      final pointers = activity;
+      final busy = pointers != null && pointers.isActive;
+      var last = _lastActivity;
+      if (pointers != null && pointers.lastActivity.isAfter(last)) last = pointers.lastActivity;
+      final quietFor = DateTime.now().difference(last);
+      if (!busy && quietFor >= idleDelay) return;
+      // While a pointer is down, poll: its release is not a commit.
+      final wait = busy ? _busyPoll : idleDelay - quietFor;
+      await Future<void>.delayed(wait > Duration.zero ? wait : _busyPoll);
     }
   }
+
+  static const _busyPoll = Duration(milliseconds: 250);
 
   /// Runs [action] in a transaction whose commit [_onCommit] ignores.
   void _ownTransaction(void Function() action) {

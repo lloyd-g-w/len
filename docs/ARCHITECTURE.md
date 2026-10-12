@@ -1671,9 +1671,15 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
 - **Recogniser.** `HandwritingRecognizer` (strokes in writing order →
   candidates, best first; per-language model download) behind a
   conditional export: **Android** uses Google ML Kit Digital Ink
-  (`google_mlkit_digital_ink_recognition`, already on AGP 9 / built-in Kotlin;
-  `MlKitRecognizer` synthesises point timestamps from the stroke's start time
-  and passes a writing area and pre-context); **Linux, Windows and web** get
+  (`MlKitRecognizer` synthesises point timestamps from the stroke's start time
+  and passes a writing area and pre-context). Recognition goes through Len's
+  own channel `len/handwriting` (`HandwritingRecognitionPlugin.kt`): points
+  travel packed in typed arrays, the channel decodes on a background task
+  queue and builds, recognises and answers on a single-thread executor, so
+  none of it runs on the merged platform/UI thread (the plugin's channel did,
+  ≈ 40 ms a line). Model downloads stay with
+  `google_mlkit_digital_ink_recognition` (already on AGP 9 / built-in
+  Kotlin); **Linux, Windows and web** get
   `UnavailableRecognizer` (WinRT ink analysis on Windows is a possible later
   implementation). Models are BCP 47 tags (`RecognitionLanguages`); the
   language follows the device locale unless chosen in the settings.
@@ -1707,7 +1713,12 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   stream (only on platforms with a recogniser and the model present), waits
   until no commit came for 3 s (the user stopped writing), then drains the
   queue oldest first, one surface and one line at a time (pausing again if
-  edits arrive). Lines whose key is already stored keep their text, so
+  edits arrive). It also waits while any pointer is down or a trackpad
+  gesture runs and for 3 s after the last pointer event (`PointerActivity`,
+  `core/`, a global pointer route attached by `LenApp`; a hovering pen
+  counts): strokes reach the database only at pen-up, and scrolling or
+  zooming commits nothing, so commits alone did not keep clustering and
+  recognition out of those. Lines whose key is already stored keep their text, so
   writing a word re-recognises one line; a surface changed while it was
   being recognised stays queued (the queue row is only removed at the
   version that was read). Failures (model missing) leave the queue for the
