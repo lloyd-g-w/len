@@ -1077,10 +1077,9 @@ GoodNotes-style rich text inside a box.
   — inserting, joining and splitting lines (lists continue, headings do not),
   numbering — is pure Dart in `RichTextBuffer`, unit-tested without Flutter.
 - **Fonts** (`TextFont`, `assets/fonts/`, built by `tool/build_fonts.py` from
-  Google Fonts and subset to Latin/Greek/Cyrillic + symbols; static families
-  like Kalam are only subset): Inter (sans), Nunito (rounded), Lora (serif),
-  JetBrains Mono, Caveat (handwriting) and Kalam (hand lettering; these two
-  have no italic, it is slanted), all SIL OFL 1.1 with their licence files, registered in the licence page
+  Google Fonts and subset to Latin/Greek/Cyrillic + symbols): Inter (sans),
+  Lora (serif), JetBrains Mono and Caveat (handwriting; no italic, it is
+  slanted), all SIL OFL 1.1 with their licence files, registered in the licence page
   (`core/font_licenses.dart`). Boxes use only bundled fonts, so they measure and
   wrap the same everywhere and in exported PDFs; characters they lack fall back
   to system fonts.

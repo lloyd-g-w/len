@@ -26,8 +26,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Text boxes (synced `elements`): rich text within a box — bold, italic, underline,
   strikethrough, colour, highlight, size and font per character; headings; bulleted, numbered
   and checklist items (tap to tick, Tab to indent) with hanging indents when they wrap (canvas,
-  editing field and PDF alike); bundled open-licence fonts (Inter, Nunito, Lora, JetBrains Mono,
-  Caveat, Kalam) with a font picker and default text style; auto-width boxes that wrap
+  editing field and PDF alike); bundled open-licence fonts (Inter, Lora, JetBrains Mono,
+  Caveat) with a font picker and default text style; auto-width boxes that wrap
   once resized; Ctrl+B / I / U and list shortcuts; copy / cut / paste keep formatting between
   boxes; Ctrl+V of plain text adds a text box; exported to PDF as selectable text in embedded
   fonts
