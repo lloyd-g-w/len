@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
@@ -16,7 +17,13 @@ import '../domain/surface_element.dart';
 ///  * [reset] (e.g. a reload after sync) drops a read in flight;
 ///  * strokes and elements removed while a read is in flight (erased,
 ///    undone, moved) are filtered out of its result, since the read may
-///    predate the removal.
+///    predate the removal;
+///  * a large range (over [splitAbove] chunks: a whole canvas seen from
+///    afar) is read in blocks of [block] × [block] chunks, those nearest
+///    its middle first, so ink
+///    shows from where the user looks within a fraction of a second
+///    instead of after one read (and one copy between isolates) of tens
+///    of thousands of strokes.
 ///
 /// A synchronous reader delivers results immediately, inside [request].
 class SurfaceLoader {
@@ -25,7 +32,15 @@ class SurfaceLoader {
     required this.surfaceId,
     required this.skipFor,
     required this.onLoad,
+    this.block = 4,
+    this.splitAbove = 36,
   });
+
+  /// Chunks per side of the blocks a large range is read in.
+  final int block;
+
+  /// Ranges of more chunks than this are read in blocks.
+  final int splitAbove;
 
   final StrokeReader reader;
   final String surfaceId;
@@ -39,6 +54,9 @@ class SurfaceLoader {
   int _generation = 0;
   bool _inFlight = false;
   ChunkRange? _queued;
+
+  /// Blocks of the current request still to read, nearest first.
+  final List<ChunkRange> _blocks = [];
   final Set<String> _removed = {};
   Completer<void>? _idle;
   bool _disposed = false;
@@ -56,6 +74,50 @@ class SurfaceLoader {
       _queued = range;
       return;
     }
+    _blocks
+      ..clear()
+      ..addAll(_split(range));
+    _readNext();
+  }
+
+  /// [range] cut into blocks, ordered by their distance from its middle.
+  List<ChunkRange> _split(ChunkRange range) {
+    final w = range.maxX - range.minX + 1, h = range.maxY - range.minY + 1;
+    if (range.count <= splitAbove || (w <= block && h <= block)) return [range];
+    final cx = (range.minX + range.maxX) / 2, cy = (range.minY + range.maxY) / 2;
+    // Blocks centred on the middle chunk, so the first one is the middle.
+    final ox = range.minX + ((cx - range.minX - (block - 1) / 2).round() % block);
+    final oy = range.minY + ((cy - range.minY - (block - 1) / 2).round() % block);
+    final blocks = <ChunkRange>[];
+    for (var y = oy - block; y <= range.maxY; y += block) {
+      for (var x = ox - block; x <= range.maxX; x += block) {
+        final b = ChunkRange(
+          math.max(x, range.minX),
+          math.max(y, range.minY),
+          math.min(x + block - 1, range.maxX),
+          math.min(y + block - 1, range.maxY),
+        );
+        if (b.minX <= b.maxX && b.minY <= b.maxY) blocks.add(b);
+      }
+    }
+    double distance(ChunkRange b) {
+      final dx = (b.minX + b.maxX) / 2 - cx, dy = (b.minY + b.maxY) / 2 - cy;
+      return dx * dx + dy * dy;
+    }
+
+    return blocks..sort((a, b) => distance(a).compareTo(distance(b)));
+  }
+
+  /// Reads the next block of the current request, if any.
+  void _readNext() {
+    while (_blocks.isNotEmpty && !_disposed) {
+      final range = _blocks.removeAt(0);
+      if (!_read(range)) return; // In flight.
+    }
+  }
+
+  /// Reads [range]; false while the read is in flight.
+  bool _read(ChunkRange range) {
     _removed.clear();
     final generation = _generation;
     final FutureOr<ChunkLoad> result;
@@ -63,11 +125,11 @@ class SurfaceLoader {
       result = reader.read(surfaceId, range, skip: skipFor(range));
     } on Object catch (error, stack) {
       _report(error, stack);
-      return;
+      return true;
     }
     if (result is ChunkLoad) {
       onLoad(result);
-      return;
+      return true;
     }
     _inFlight = true;
     result.then(
@@ -84,6 +146,7 @@ class SurfaceLoader {
         _next();
       },
     );
+    return false;
   }
 
   /// Records that a stroke or element left memory, so a read in flight
@@ -97,6 +160,7 @@ class SurfaceLoader {
     _generation++;
     _inFlight = false;
     _queued = null;
+    _blocks.clear();
     _completeIdle();
   }
 
@@ -123,7 +187,11 @@ class SurfaceLoader {
   void _next() {
     final queued = _queued;
     _queued = null;
-    if (queued != null) request(queued);
+    if (queued != null) {
+      request(queued);
+    } else {
+      _readNext();
+    }
     if (!_inFlight) _completeIdle();
   }
 

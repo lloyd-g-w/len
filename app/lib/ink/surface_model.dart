@@ -237,8 +237,14 @@ class SurfaceModel extends ChangeNotifier {
   /// bring them back.
   final Set<String> _removedWhilePreparing = {};
 
+  /// Chunks read but not added yet (their outlines are being built): not
+  /// read again meanwhile.
+  final Set<ChunkKey> _arriving = {};
+
   Set<ChunkKey> _loadedWithin(ChunkRange range) => {
     for (final key in _loaded)
+      if (range.contains(key)) key,
+    for (final key in _arriving)
       if (range.contains(key)) key,
   };
 
@@ -249,6 +255,7 @@ class SurfaceModel extends ChangeNotifier {
     final generation = _generation;
     bool current() => !_disposed && generation == _generation;
     _preparing++;
+    _arriving.addAll(load.chunks);
     // Strokes are added as their outlines arrive, a chunk's worth at a
     // time (by first point), those nearest the middle of the view first,
     // so a large load (a whole canvas seen from afar) fills in from where
@@ -279,6 +286,7 @@ class SurfaceModel extends ChangeNotifier {
         .then((_) {
           _preparing--;
           if (current()) {
+            _arriving.removeAll(load.chunks);
             final removed = _removedWhilePreparing;
             _insertLoad(
               removed.isEmpty
@@ -366,6 +374,7 @@ class SurfaceModel extends ChangeNotifier {
     _strokes.clear();
     _elements.clear();
     _loaded.clear();
+    _arriving.clear();
     _lastRange = null;
     _loading.reset();
     _changes.add(const SurfaceChange(null));
