@@ -65,4 +65,3 @@ backwards-compatibility code is wanted until the first release.
 - Level-of-detail rendering for extreme zoom-out on the infinite canvas.
 - Folders / tags, search (handwriting recognition).
 - Per-user accounts on the server, end-to-end encryption.
-- Android low-latency front-buffer rendering: experimental overlay exists (setting), to be tuned on devices.

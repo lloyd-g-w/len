@@ -1,20 +1,15 @@
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:flutter/gestures.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../ink/input/sample_source.dart';
 import '../ink/input/stylus_batch.dart';
 import '../ink/input/wet_ink.dart';
+import 'low_latency_ink_native.dart';
 
 /// Channel carrying `StylusBatchCodec` messages from `StylusCapture.kt`.
 const String stylusSamplesChannel = 'len/stylus_samples';
-
-/// Control messages for the native low-latency ink overlay (`WetInkOverlay.kt`).
-const String lowLatencyInkChannel = 'len/low_latency_ink';
 
 StylusBatchBuffer? _buffer;
 void Function(List<StylusBatch> batches)? _observer;
@@ -27,15 +22,22 @@ void observeStylusBatches(void Function(List<StylusBatch> batches)? observer) =>
 /// A sample source for one input controller, or null where the platform
 /// already delivers every sample (everything but Android).
 ///
-/// [wetInk], when given, is asked at the start of each stylus stroke whether
-/// low-latency ink is on (null = off) and how the stroke looks; the native
-/// overlay then draws its tip ahead of Flutter.
-SampleSource? openStylusSamples({WetInkStyle? Function()? wetInk, bool Function()? lowLatency}) {
+/// With [wetInk], [wetInkNext] and [wetInkView] (Android), the native
+/// low-latency overlay draws the newest part of each stylus stroke ahead of
+/// Flutter (`low_latency_ink_native.dart`): [wetInk] says at the start of
+/// a stroke how it looks (null: the overlay cannot draw it), [wetInkNext]
+/// how the next one would while the stylus hovers, [wetInkView] where it
+/// may be drawn.
+SampleSource? openStylusSamples({
+  WetInkStyle? Function()? wetInk,
+  WetInkStyle? Function()? wetInkNext,
+  WetInkView Function()? wetInkView,
+}) {
   if (!Platform.isAndroid) return null;
   final buffer = _buffer ??= _listen();
   final merger = StylusSampleMerger(buffer, devicePixelRatio: _devicePixelRatio);
-  if (wetInk == null || lowLatency == null) return merger;
-  return _LowLatencySource(merger, wetInk, lowLatency);
+  if (wetInk == null || wetInkNext == null || wetInkView == null) return merger;
+  return LowLatencySource(merger, wetInk, wetInkNext, wetInkView, _devicePixelRatio);
 }
 
 double _devicePixelRatio() =>
@@ -54,106 +56,4 @@ StylusBatchBuffer _listen() {
     return null;
   });
   return buffer;
-}
-
-const _overlay = BasicMessageChannel<Object?>(lowLatencyInkChannel, StandardMessageCodec());
-bool? _overlayEnabled;
-
-/// Tells the overlay which contact to draw and how far Flutter has got.
-///
-/// Messages: `[enable, bool]`, `[begin, device, downTimeUs, argb, radii px,
-/// shape (`WetInkShape.toList`, px)]` (at pen-down: ink shows from there),
-/// `[progress, eventTimeUs]` (after a frame showing input up to that event
-/// was built), `[end, device, downTimeUs]` (after the frame that shows the
-/// finished stroke).
-class _LowLatencySource implements SampleSource {
-  _LowLatencySource(this._inner, this._style, this._enabled);
-
-  final SampleSource _inner;
-  final WetInkStyle? Function() _style;
-  final bool Function() _enabled;
-
-  PointerDownEvent? _contact;
-  bool _drawing = false;
-  int _processedUs = 0;
-  bool _progressScheduled = false;
-
-  @override
-  void begin(PointerDownEvent down) {
-    _inner.begin(down);
-    final enabled = _enabled();
-    if (enabled != _overlayEnabled) {
-      _overlayEnabled = enabled;
-      _send(['enable', enabled]);
-    }
-    final stylus = down.kind == PointerDeviceKind.stylus;
-    _contact = enabled && stylus ? down : null;
-    _drawing = false;
-    // The controller has started the live stroke: the overlay draws from
-    // the first sample, as Flutter does.
-    _start();
-  }
-
-  /// Sends `begin` if the contact is ink the overlay can draw.
-  void _start() {
-    final contact = _contact;
-    final style = _style();
-    if (contact == null || _drawing || style == null) return;
-    _drawing = true;
-    final dpr = _devicePixelRatio();
-    _send([
-      'begin',
-      contact.device,
-      contact.timeStamp.inMicroseconds.toDouble(),
-      style.color,
-      Float64List.fromList([for (final r in style.radii) r * dpr]),
-      style.shape.scaled(dpr).toList(),
-    ]);
-  }
-
-  @override
-  List<PointerSample> between(PointerEvent event) {
-    final samples = _inner.between(event);
-    final contact = _contact;
-    if (contact == null || event.device != contact.device) return samples;
-    final style = _style();
-    if (!_drawing && style != null) {
-      _start();
-    } else if (_drawing && style == null) {
-      _finish(); // Straightened (or no longer ink): Flutter draws it.
-      _contact = null;
-      return samples;
-    }
-    _processedUs = event.timeStamp.inMicroseconds;
-    _scheduleProgress();
-    return samples;
-  }
-
-  @override
-  void end() {
-    _inner.end();
-    _finish();
-    _contact = null;
-  }
-
-  void _finish() {
-    final contact = _contact;
-    if (!_drawing || contact == null) return;
-    _drawing = false;
-    final message = ['end', contact.device, contact.timeStamp.inMicroseconds.toDouble()];
-    SchedulerBinding.instance
-      ..addPostFrameCallback((_) => _send(message))
-      ..ensureVisualUpdate();
-  }
-
-  void _scheduleProgress() {
-    if (_progressScheduled) return;
-    _progressScheduled = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      _progressScheduled = false;
-      if (_drawing) _send(['progress', _processedUs.toDouble()]);
-    });
-  }
-
-  static void _send(List<Object?> message) => _overlay.send(message).ignore();
 }

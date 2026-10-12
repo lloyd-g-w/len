@@ -37,10 +37,6 @@ class AppPreferences extends ChangeNotifier {
   PenButtonAction get penButtonAction => _settings.penButtonAction;
   set penButtonAction(PenButtonAction value) => _update(() => _settings.penButtonAction = value);
 
-  /// Android: low-latency (front-buffered) ink overlay, experimental.
-  bool get lowLatencyInk => _settings.lowLatencyInk;
-  set lowLatencyInk(bool value) => _update(() => _settings.lowLatencyInk = value);
-
   /// Where the editor toolbar sits.
   ToolbarPlacement get toolbarPlacement => _settings.toolbarPlacement;
   set toolbarPlacement(ToolbarPlacement value) => _update(() => _settings.toolbarPlacement = value);

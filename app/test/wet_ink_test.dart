@@ -1,9 +1,11 @@
+import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/ink/input/live_ink.dart';
 import 'package:len/ink/input/wet_ink.dart';
 import 'package:len/ink/pen/pen_profile.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
+import 'package:len/ink/viewport.dart';
 
 LiveInk drawing(InkTool tool, {int color = 0xFF112233, StrokeStyle? style}) => LiveInk()
   ..begin(tool: tool, color: color, width: 3, style: style)
@@ -51,5 +53,35 @@ void main() {
     final scaled = shape.scaled(3).toList();
     expect(scaled[0], closeTo(list[0] * 3, 1e-12), reason: 'lengths scale');
     expect(scaled[2], list[2], reason: 'the pressure filter does not');
+  });
+
+  group('the overlay draws only in the writing area', () {
+    ViewportController viewport({Rect? page}) => ViewportController()
+      ..setSize(const Size(800, 600))
+      ..setView(scale: 2, offset: const Offset(10, 20))
+      ..contentBounds = page;
+
+    test('a canvas: the surface less the chrome', () {
+      final view = WetInkView.of(
+        viewport(),
+        covered: const EdgeInsets.only(top: 60, bottom: 40),
+      );
+      expect(view.clip, const Rect.fromLTRB(0, 60, 800, 560));
+      expect(view.scale, 2);
+      expect(view.offset, const Offset(10, 20));
+    });
+
+    test('a page: only the page, where its ink is clipped too', () {
+      final v = viewport(page: const Rect.fromLTWH(0, 0, 300, 400));
+      final view = WetInkView.of(v, covered: const EdgeInsets.only(top: 60));
+      expect(view.clip, Rect.fromLTRB(v.offset.dx, 60, v.offset.dx + 600, 600));
+    });
+
+    test('a moved view is another transform', () {
+      final a = WetInkView.of(viewport());
+      expect(a.sameTransform(WetInkView.of(viewport())), isTrue);
+      final moved = viewport()..panBy(const Offset(1, 0));
+      expect(a.sameTransform(WetInkView.of(moved)), isFalse);
+    });
   });
 }

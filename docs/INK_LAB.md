@@ -23,8 +23,8 @@ draws. It has three parts:
    The Ink Lab opens. It is a scratch surface: nothing is saved to your
    notebooks or synced.
 2. Choose the pen with the pen menu in the app bar: stabiliser 0 / 0.4 / 1 and
-   width 1.5 / 2.5 / 4. Low-latency ink and stylus-only follow the app's
-   settings.
+   width 1.5 / 2.5 / 4. Stylus-only follows the app's setting; the
+   low-latency overlay is on, as in the editor (Android).
 3. Write. The bar at the bottom shows:
    - the digitiser rate (Hz) and samples per frame of the latest contact;
    - mean and maximum frame build and raster times (ms);
@@ -98,8 +98,10 @@ Tools for working on the engine (opt-in tests):
 tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_test.dart \
   --dart-define=INKLAB_TABLE=true --dart-define=INKLAB_REAL=true \
   [--dart-define=INKLAB_ONLY=<regex on entry names>]'
-# the Kotlin overlay model against the Dart one (needs only nix)
+# the Kotlin overlay model against the Dart one (needs only nix): every case
+# and recording, then the Kotlin unit test on the shared golden
 tool/wet_ink_check/check.sh
+tool/wet_ink_check/unit_test.sh
 ```
 
 The report has, per entry:
@@ -555,15 +557,63 @@ per-stroke `Path`s being adopted, plus `len.insertLoaded` frames. And the
 ML Kit recogniser's platform-channel calls run on the merged platform/UI
 thread (≈ 40 ms each, after 3 s without writing).
 
-## Low-latency ink: default
+## Low-latency ink
 
-**Off by default, for now.** The model says the overlay is right: no gap or
-ghost at pipeline depths 1 and 2 on any case or recording, 5 px² once at
-depth 3, and the Kotlin model agrees with the measured Dart model to 1e-15.
-But the Kotlin overlay was rewritten here and has not yet run on a tablet:
-the model checks its geometry and timing rules, not the front-buffer
-rendering, the surface's z-order, or its cost per `MotionEvent` on a tablet
-CPU, and it is still not clipped to the canvas (a tip dragged under a toolbar
-shows above it for a frame or two). Switch it on in Settings → Input; if it
-looks identical to Flutter's ink and feels faster, turning it on by default
-is a one-line change (`SettingsRepository.lowLatencyInk`).
+The overlay (ARCHITECTURE, *Low-latency ink*) is always on for opaque pen
+ink on Android 10+. Measured on the Galaxy Tab S8+ (Android 16, 120 Hz),
+profile build, 2026-10-12: 40 injected stylus strokes of 250 ms
+(`adb shell input stylus swipe`, about 128 samples/s) per trace, on an
+empty page, an empty canvas and a canvas with 160 strokes.
+
+How: a system trace with `tool/wet_ink_check/latency_trace.cfg` (atrace
+`gfx view input` + app `dev.len.len`, SurfaceFlinger frame timeline),
+summarised by `tool/wet_ink_check/latency.sql` (trace_processor). The
+overlay's markers carry each frame's newest `MotionEvent` time:
+`len.wet` (drawing a frame), `len.wetDone` (front buffer written, GPU
+done), `len.progress` (Dart built a Flutter frame with input up to then).
+Flutter's present is the end of the first SurfaceFlinger display frame
+starting after the next `setBuffer` of Flutter's `SurfaceView`.
+
+| ms (p50 / p90 / p99 / max) | Empty page | Empty canvas | Canvas, 160 strokes |
+|---|---|---|---|
+| Overlay: sample's event → in the front buffer | 6.8 / 9.5 / 13.8 / 24.6 | 5.5 / 7.4 / 10.9 / 13.6 | 5.4 / 7.3 / 10.5 / 14.4 |
+| Overlay: arrival in the app → in the front buffer | 5.0 / 6.9 / 8.5 / 15.1 | 4.0 / 5.5 / 7.6 / 10.0 | 3.9 / 5.4 / 7.2 / 8.8 |
+| Flutter: sample's event → frame presented | 30.5 / 39.9 / 51.4 / 67.3 | 31.2 / 39.6 / 46.3 / 49.5 | 29.5 / 37.9 / 41.9 / 47.6 |
+| Flutter: frame built (`progress`) → presented | 20.8 / 29.2 / 40.7 / 48.2 | 21.3 / 29.5 / 37.3 / 42.8 | 21.0 / 29.0 / 30.5 / 37.8 |
+
+The release build (R8) measures the same on a page: overlay 5.4 / 7.3 /
+11.0 / 20.8 ms from the event (3.9 / 5.5 / 7.6 / 10.0 from arrival),
+Flutter 31.3 / 39.8 / 42.9 / 51.7.
+
+- **≈ 25 ms sooner.** The overlay shows a sample about 5.5 ms after the
+  digitiser event (4 ms after it reaches the app; 1.5 ms is Android's input
+  dispatch), Flutter about 30 ms. Both then wait for the scan-out to reach
+  the pixel (0–8.3 ms, the same for both). Of the overlay's 4 ms, ≈ 3 are
+  the main thread (shared with Dart's UI isolate) getting to the event,
+  0.6 drawing, ≈ 2 the GPU.
+- **Front buffer is scanned out directly.** `dumpsys SurfaceFlinger` while
+  writing: `FrontBufferedLayer` has composition type DEVICE (its own
+  display-processor pipe), so writing it shows at the next scan-out, with no
+  composition. The display stays at 120 Hz while the layer is up.
+- **Pen-down.** The first overlay frame is written 4.2 ms (3.3–10.7) after
+  the down reaches the app. Injected strokes have no real hover, but
+  Flutter's synthesised hover at the previous lift arms the overlay; a
+  stroke started after more than 400 ms without hovering waits for Dart's
+  `begin` instead (about one Flutter frame). The real S Pen hovers before
+  every stroke.
+- **Hand-over.** Flutter presents a frame up to 48 ms after Dart reported
+  building it (progress → present, max of all three). The overlay held
+  points 50 ms after the report, too close to that, so it now holds them
+  70 ms (`SHOWN_AFTER_MS`); longer only keeps opaque ink on Flutter's.
+
+Checked with screenshots taken mid-stroke from a build that drew the
+overlay green (not committed): the overlay's tip sits exactly on the end
+of Flutter's red stroke, at the same width; it is clipped to the page and
+never shows over the toolbars (landscape, and portrait with the bottom
+toolbar); it follows a zoomed (300 %) and panned canvas and a scrolled
+page; it works after rotating twice and after home → resume; after the
+lift, nothing green is left, and an undo right after a stroke leaves no
+ink. Not checked: zoom on pages and a pan or zoom during a stroke (adb
+cannot inject a pinch or two-finger drag), and fast transients at pen-up
+that screenshots (≈ 150 ms apart) cannot catch; the model checks above
+(gap and ghost 0 at depths 1 and 2) cover those.

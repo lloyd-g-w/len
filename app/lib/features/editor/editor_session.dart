@@ -215,8 +215,11 @@ class EditorSession {
     gestures: gestures,
     kinetic: kinetic,
     samples: openStylusSamples(
-      lowLatency: () => services.preferences.lowLatencyInk,
       wetInk: () => WetInkStyle.of(live, viewport.scale),
+      // Pressing on a selection moves it rather than drawing.
+      wetInkNext: () =>
+          content.selection.isEmpty ? WetInkStyle.forNextStroke(tools, viewport.scale) : null,
+      wetInkView: () => WetInkView.of(viewport, covered: _chromeInsets),
     ),
     penButtonAction: () => services.preferences.penButtonAction,
   );
@@ -225,6 +228,7 @@ class EditorSession {
   /// [covered] of the screen, and fits keep canvas content clear of it.
   /// Applied after the frame (it moves the viewport, which notifies).
   void setChromeInsets(EdgeInsets covered) {
+    _chromeInsets = covered;
     final doc = this.doc;
     final nav = canvasNav;
     final same = doc != null
@@ -239,6 +243,9 @@ class EditorSession {
   }
 
   bool _disposed = false;
+
+  /// Screen edges covered by chrome (the low-latency overlay stays clear of them).
+  EdgeInsets _chromeInsets = EdgeInsets.zero;
 
   /// Ends the session: commits a text box still being edited and releases
   /// every surface (shared ones stay with the [shared] notebook).
