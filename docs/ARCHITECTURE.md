@@ -1204,10 +1204,26 @@ highlighter stroke is painted on a layer beneath committed ink.
 User customisation lives in `ToolSettings`, persisted as JSON in the local
 `settings` table: per ink a `PenConfig` with **independent quick colours and
 quick widths** (1–6 slots each, one of each selected) and feel settings
-(pressure sensitivity, stabiliser; opacity for the highlighter —
-the pen is always opaque), plus eraser options, hold-to-straighten and
-favourite colours (`PenConfigJson` parses it leniently: anything missing or
-invalid takes its default).
+(pressure sensitivity, stabiliser, straight lines; opacity for the
+highlighter — the pen is always opaque), plus eraser options,
+hold-to-straighten, the 8 **recent colours** (`RecentColors`: picked for a
+quick colour slot, noted when its editor closes; shown in that colour
+picker) and favourite colours. Parsing is strict (`PenConfigJson`,
+`EraserConfig.fromJson`): a part with a missing or invalid field keeps its
+defaults as a whole.
+
+The settings popovers (`features/editor/pen/`) are self-contained:
+`PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, hold to
+snap) and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
+lines, hold to snap); Reset restores the feel settings, not the slots. The
+stabiliser shows "Off" at 0 (the pen's default: ink under the nib) and up to
+100 % (the live ink then trails the pen by ~6–15 px). **Straight lines**
+(`PenConfig.straight`, offered for the highlighter): every stroke is the line
+from pen-down to the pen — `HoldToStraighten.begin(straight: true)` makes
+the live stroke straight from its first point, like a held line, so it
+stays on the Flutter path (no low-latency overlay) and is committed with
+stabiliser 0 (`PenConfig.styleFor`); the stabiliser and hold to snap are
+greyed out meanwhile.
 
 ### Toolbar (`features/editor/`)
 
@@ -1370,7 +1386,11 @@ cuts the ink under the eraser out (`geometry/stroke_splitter.dart`): the stroke
 is removed and its surviving fragments are added as new strokes (keeping the
 original `createdAt`, so paint order is unchanged). One drag is one undoable
 `InkEdit`; fragments cut and erased again within the drag cancel out.
-Optionally only highlighter ink is erased. Both modes test against the ink as
+Optionally only highlighter ink is erased. With *auto-deselect*
+(`EraserConfig.autoDeselect`, off by default) an erase stroke made with the
+Eraser tool switches back to the ink used before it, pen or highlighter
+(`ToolSettings.eraserStrokeEnded`); the S Pen side button and the eraser end
+are temporary anyway and leave the tool alone. Both modes test against the ink as
 rendered: its radius at each point depends on pressure, thinning and the pen's
 easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 
