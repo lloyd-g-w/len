@@ -200,9 +200,6 @@ void main() {
     await pen.up();
     await settle(tester);
     await shoot(tester, 'editor_phone_tip');
-    await tester.tap(find.byTooltip('Dismiss tip'));
-    await settle(tester);
-    await shoot(tester, 'editor_phone_tip_gestures');
     await tester.pump(const Duration(seconds: 11));
     await settle(tester);
   });

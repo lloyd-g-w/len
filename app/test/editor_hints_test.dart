@@ -65,45 +65,40 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('a pen shows the side-button tip once; a touch edit the gestures tip', (
-    tester,
-  ) async {
+  testWidgets('a pen shows the side-button tip once', (tester) async {
     final (s, _) = await pumpEditor(tester);
     s.preferences.stylusOnly = true; // Decided: no "stylus detected" snack bar.
     await penStroke(tester, const Offset(300, 400));
     await tester.pumpAndSettle();
     expect(find.text('Hold the pen’s side button to erase'), findsOneWidget);
     expect(s.settings.seenTips, contains(EditorTip.penButton.name));
-    // The gestures tip waits its turn.
-    expect(find.textContaining('two fingers'), findsNothing);
     await tester.tap(find.byTooltip('Dismiss tip'));
     await tester.pumpAndSettle();
     expect(find.text('Hold the pen’s side button to erase'), findsNothing);
-    expect(find.text('Tap with two fingers to undo, three to redo'), findsOneWidget);
-    // Goes away by itself.
-    await tester.pump(TipsController.visibleFor);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('two fingers'), findsNothing);
+    expect(find.byTooltip('Dismiss tip'), findsNothing, reason: 'no multi-finger tip');
     await closeEditor(tester);
-
-    // Never again on this device.
-    expect(s.settings.seenTips, containsAll(['penButton', 'gestures']));
   });
 
-  testWidgets('tips follow the settings and skip mouse edits', (tester) async {
+  testWidgets('tips follow the settings and go away by themselves', (tester) async {
     final (s, _) = await pumpEditor(tester);
     s.preferences.penButtonAction = PenButtonAction.none;
-    s.preferences.threeFingerTapRedo = false;
-    await drawAt(tester, const Offset(300, 400)); // Mouse: no gestures tip.
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('Dismiss tip'), findsNothing);
     s.preferences.stylusOnly = true;
     await penStroke(tester, const Offset(300, 500)); // Side button off: no tip for it.
     await tester.pumpAndSettle();
-    expect(find.text('Tap with two fingers to undo'), findsOneWidget);
+    expect(find.byTooltip('Dismiss tip'), findsNothing);
     expect(s.settings.seenTips, isNot(contains('penButton')));
+    await closeEditor(tester);
+
+    final (s2, _) = await pumpEditor(tester);
+    s2.preferences
+      ..penButtonAction = PenButtonAction.lasso
+      ..stylusOnly = true;
+    await penStroke(tester, const Offset(300, 600));
+    await tester.pumpAndSettle();
+    expect(find.text('Hold the pen’s side button to select with the lasso'), findsOneWidget);
     await tester.pump(TipsController.visibleFor);
     await tester.pumpAndSettle();
+    expect(find.byTooltip('Dismiss tip'), findsNothing);
     await closeEditor(tester);
   });
 

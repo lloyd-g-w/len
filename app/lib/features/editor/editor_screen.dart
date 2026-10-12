@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -150,9 +149,6 @@ class _EditorScreenState extends State<_EditorView> {
     markSeen: _services.settings.markTipSeen,
   );
 
-  /// Whether the last pointer down in the editor was a finger or a pen.
-  bool _touchInput = false;
-
   /// In-notebook search, Ctrl+F (features/search).
   late final EditorSearchController _search;
   final CanvasGuard _guard = CanvasGuard();
@@ -209,7 +205,6 @@ class _EditorScreenState extends State<_EditorView> {
     _search = EditorSearchController.forSession(_services, _session, notebookId: _notebook.id);
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
-    _session.undo.addListener(_onEdit);
     _audio.onNotice = _onAudioNotice;
     _services.incomingFiles.targets.add(_importTarget);
     // Of two editors (split view), files go to the one used last.
@@ -238,7 +233,6 @@ class _EditorScreenState extends State<_EditorView> {
     _services.openNotebooks.removeListener(_onTabs);
     _lifecycle.dispose();
     _services.preferences.removeListener(_onPreferences);
-    _session.undo.removeListener(_onEdit);
     final edited = _session.edited;
     _search.dispose();
     if (_audio.onNotice == _onAudioNotice) _audio.onNotice = null;
@@ -316,12 +310,6 @@ class _EditorScreenState extends State<_EditorView> {
   // Events
 
   void _offerTip(EditorTip tip) => _tips.offerFor(tip, _services.preferences);
-
-  /// After the first edit by finger or pen: how to undo without reaching
-  /// for the top bar.
-  void _onEdit() {
-    if (_touchInput && _session.undo.canUndo) _offerTip(EditorTip.gestures);
-  }
 
   void _onStylusDetected() {
     _offerTip(EditorTip.penButton);
@@ -499,7 +487,6 @@ class _EditorScreenState extends State<_EditorView> {
         onPointerDown: (e) {
           // What opens from here (dialogs, sheets) belongs to this editor.
           _services.routeOwners.current = this;
-          _touchInput = e.kind != PointerDeviceKind.mouse;
         },
         child: EditorLayers(
           key: _areaKey,

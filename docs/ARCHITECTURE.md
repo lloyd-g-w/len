@@ -266,11 +266,11 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   selection instead).
 - **Hints** (shown sparingly, never blocking): an empty infinite canvas shows a quiet
   "Draw anywhere" note with how to move around (`canvas/canvas_empty_hint.dart`; gone at
-  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows one-time tips under
-  the top bar, one at a time, for 10 s or until dismissed, remembered per device
+  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows a one-time tip under
+  the top bar, for 10 s or until dismissed, remembered per device
   (`SettingsRepository.seenTips`): the stylus side button (after the first pen contact,
-  phrased for `PenButtonAction`; none if it does nothing) and two/three-finger taps
-  (after the first edit made by finger or pen; skipped if both gestures are off).
+  phrased for `PenButtonAction`; none if it does nothing). Multi-finger taps get no
+  tip: the gesture HUD names them when they happen.
 - **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
   the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows

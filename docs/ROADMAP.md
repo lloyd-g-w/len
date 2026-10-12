@@ -178,7 +178,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   switcher on phones; Ctrl+Tab, Ctrl+W)
 - ✅ Editor UX round 2: toolbar in groups (≥ 40 px targets, optional tool names), one-row phone
   toolbar with a tool switcher, title left-aligned with the folder on every size, open-notebook
-  transition from the cover, export options, one-time tips (pen side button, multi-finger taps),
+  transition from the cover, export options, a one-time pen side-button tip,
   empty-canvas hint, Escape closes chrome menus
 - ✅ Customisable toolbar: reorder and hide tools, favourite pens (tool + colour + width, GoodNotes
   favourites row; also in the phone tool switcher), edit mode from "⋯" → Toolbar, saved per device

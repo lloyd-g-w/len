@@ -437,8 +437,8 @@ Status of these in `feat/editorux2` (✅ done there):
   the active tool opens a tool switcher next to its quick controls.
 - ✅ **Phone page pill** covered part of the page above the toolbar: it now
   peeks in while pages move and fades away.
-- ✅ **Discoverability**: empty-canvas hint, one-time tips (pen side button,
-  two/three-finger taps), repeated undos counted in the HUD, Escape closes
+- ✅ **Discoverability**: empty-canvas hint, a one-time pen side-button
+  tip, repeated undos counted in the HUD, Escape closes
   chrome menus.
 - ⬜ Keyboard: chrome buttons are reachable with Tab but there is no
   "skip to canvas" or toolbar arrow-key navigation yet.

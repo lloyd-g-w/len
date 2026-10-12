@@ -10,10 +10,6 @@ import '../../../ui/app_theme.dart';
 enum EditorTip {
   /// The stylus side button (after the first stylus contact).
   penButton,
-
-  /// Two-finger tap undo / three-finger tap redo (after the first touch or
-  /// stylus edit).
-  gestures,
 }
 
 /// What a shown tip says.
@@ -26,10 +22,9 @@ class TipMessage {
   final String text;
 }
 
-/// Shows each [EditorTip] once per device, one at a time (later offers
-/// wait in a queue), for [visibleFor] or until dismissed. Tips that don't
-/// apply to the current settings (e.g. the side button does nothing) are
-/// never shown.
+/// Shows each [EditorTip] once per device, for [visibleFor] or until
+/// dismissed. Tips that don't apply to the current settings (e.g. the side
+/// button does nothing) are never shown.
 class TipsController extends ValueNotifier<TipMessage?> {
   TipsController({required this.seen, required this.markSeen}) : super(null);
 
@@ -39,27 +34,15 @@ class TipsController extends ValueNotifier<TipMessage?> {
 
   static const Duration visibleFor = Duration(seconds: 10);
 
-  final List<TipMessage> _queue = [];
   Timer? _timer;
 
-  /// Offers [tip], phrased for the current settings ([penButton],
-  /// [twoFingerUndo], [threeFingerRedo]).
-  /// Offers [tip] as [preferences] have it (the pen button's action,
-  /// which multi-finger taps are on).
-  void offerFor(EditorTip tip, AppPreferences preferences) => offer(
-    tip,
-    penButton: preferences.penButtonAction,
-    twoFingerUndo: preferences.twoFingerTapUndo,
-    threeFingerRedo: preferences.threeFingerTapRedo,
-  );
+  /// Offers [tip] as [preferences] have it (the pen button's action).
+  void offerFor(EditorTip tip, AppPreferences preferences) =>
+      offer(tip, penButton: preferences.penButtonAction);
 
-  void offer(
-    EditorTip tip, {
-    PenButtonAction penButton = PenButtonAction.eraser,
-    bool twoFingerUndo = true,
-    bool threeFingerRedo = true,
-  }) {
-    if (seen(tip.name) || value?.tip == tip || _queue.any((m) => m.tip == tip)) return;
+  /// Offers [tip], phrased for the current settings ([penButton]).
+  void offer(EditorTip tip, {PenButtonAction penButton = PenButtonAction.eraser}) {
+    if (seen(tip.name) || value?.tip == tip) return;
     final message = switch (tip) {
       EditorTip.penButton => switch (penButton) {
         PenButtonAction.eraser => TipMessage(
@@ -74,41 +57,18 @@ class TipsController extends ValueNotifier<TipMessage?> {
         ),
         PenButtonAction.none => null,
       },
-      EditorTip.gestures => switch ((twoFingerUndo, threeFingerRedo)) {
-        (true, true) => TipMessage(
-          tip,
-          Icons.touch_app_outlined,
-          'Tap with two fingers to undo, three to redo',
-        ),
-        (true, false) => TipMessage(tip, Icons.touch_app_outlined, 'Tap with two fingers to undo'),
-        (false, true) => TipMessage(
-          tip,
-          Icons.touch_app_outlined,
-          'Tap with three fingers to redo',
-        ),
-        (false, false) => null,
-      },
     };
     if (message == null) return;
-    if (value == null) {
-      _show(message);
-    } else {
-      _queue.add(message);
-    }
-  }
-
-  void _show(TipMessage message) {
     markSeen(message.tip.name);
     value = message;
     _timer?.cancel();
     _timer = Timer(visibleFor, dismiss);
   }
 
-  /// Hides the current tip (and shows the next one, if any).
+  /// Hides the current tip.
   void dismiss() {
     _timer?.cancel();
     value = null;
-    if (_queue.isNotEmpty) _show(_queue.removeAt(0));
   }
 
   @override
