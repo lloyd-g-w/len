@@ -16,6 +16,7 @@ class PenConfig {
     required this.opacity,
     required this.thinning,
     required this.streamline,
+    this.straight = false,
   }) : assert(colors.length > 0 && widths.length > 0);
 
   /// Defaults for [tool]: three colours and three widths.
@@ -55,6 +56,10 @@ class PenConfig {
   /// Stabiliser strength (0..1).
   final double streamline;
 
+  /// Every stroke is a straight line from pen-down to the pen (offered for
+  /// the highlighter).
+  final bool straight;
+
   /// The selected colour and width.
   int get color => colors[colorIndex];
   double get width => widths[widthIndex];
@@ -68,6 +73,7 @@ class PenConfig {
     double? opacity,
     double? thinning,
     double? streamline,
+    bool? straight,
   }) => PenConfig(
     colors: colors ?? this.colors,
     widths: widths ?? this.widths,
@@ -76,7 +82,20 @@ class PenConfig {
     opacity: opacity ?? this.opacity,
     thinning: thinning ?? this.thinning,
     streamline: streamline ?? this.streamline,
+    straight: straight ?? this.straight,
   );
+
+  /// A copy with the feel settings (opacity, pressure sensitivity,
+  /// stabiliser, straight lines) of [tool]'s defaults, keeping the slots.
+  PenConfig withFeelDefaults(InkTool tool) {
+    final d = PenConfig.defaultsFor(tool);
+    return copyWith(
+      opacity: d.opacity,
+      thinning: d.thinning,
+      streamline: d.streamline,
+      straight: d.straight,
+    );
+  }
 
   /// A copy with colour slot [index] set to [argb] (made opaque).
   PenConfig withColor(int index, int argb) =>
@@ -117,11 +136,12 @@ class PenConfig {
   static int _afterRemoval(int selected, int removed) =>
       selected > removed || (selected == removed && selected > 0) ? selected - 1 : selected;
 
-  /// The style a new stroke of [tool] drawn with this config gets.
+  /// The style a new stroke of [tool] drawn with this config gets (a
+  /// straight line needs no stabiliser).
   StrokeStyle styleFor(InkTool tool) => StrokeStyle(
     opacity: tool.isHighlighter ? opacity : 1,
     thinning: thinning,
-    streamline: streamline,
+    streamline: straight ? 0 : streamline,
   );
 
   /// JSON for the local settings store (see [fromJson]).
@@ -133,12 +153,13 @@ class PenConfig {
     'opacity': opacity,
     'thinning': thinning,
     'streamline': streamline,
+    'straight': straight,
   };
 
-  /// Parses the config of [tool] leniently, taking anything missing or
-  /// invalid from [fallback] and clamping values to their valid ranges.
-  static PenConfig fromJson(Object? json, PenConfig fallback, {required InkTool tool}) =>
-      PenConfigJson.parse(json, fallback, tool: tool);
+  /// Parses the config of [tool] strictly (every field present and valid),
+  /// or returns null.
+  static PenConfig? fromJson(Object? json, {required InkTool tool}) =>
+      PenConfigJson.parse(json, tool: tool);
 
   @override
   bool operator ==(Object other) =>
@@ -149,7 +170,8 @@ class PenConfig {
       other.widthIndex == widthIndex &&
       other.opacity == opacity &&
       other.thinning == thinning &&
-      other.streamline == streamline;
+      other.streamline == streamline &&
+      other.straight == straight;
 
   @override
   int get hashCode => Object.hash(
@@ -160,5 +182,6 @@ class PenConfig {
     opacity,
     thinning,
     streamline,
+    straight,
   );
 }

@@ -17,6 +17,9 @@ import 'live_ink.dart';
 ///    polygon (which then stays put until the pen lifts);
 ///  * an unrecognisable closed stroke (a scribble) is left alone.
 /// Only the clean shape is ever committed, so a single undo removes it.
+///
+/// An ink with [PenConfig.straight] is straight from the start: [begin]
+/// with `straight` makes the live stroke the line from pen-down to the pen.
 class HoldToStraighten {
   HoldToStraighten(this.live);
 
@@ -42,10 +45,19 @@ class HoldToStraighten {
   bool get active => _from != null || _shaped;
 
   /// A stroke started at [screen]; [enabled] reflects the user setting.
-  void begin(Offset screen, {required bool enabled, required double scale}) {
+  /// With [straight], the live stroke (its first point already added) is a
+  /// straight line from that point to the pen until it lifts.
+  void begin(Offset screen, {required bool enabled, required double scale, bool straight = false}) {
     end();
     _scale = scale;
-    if (enabled) _restart(screen);
+    if (straight) {
+      final from = live.points.first;
+      _from = from;
+      _pressure = from.pressure;
+      live.straightened = true;
+    } else if (enabled) {
+      _restart(screen);
+    }
   }
 
   /// The pen moved to [screen] / [point]. Returns true if the move was
