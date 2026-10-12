@@ -272,7 +272,8 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   opening or closing the split never rebuilds the first editor; a 12 px divider resizes
   (drag, ← / → when focused, double tap: halves; panes ≥ 320 px). Each pane is a full
   `EditorScreen` with its own `EditorSession` (viewport, tools, chrome); the
-  second has no tab strip, its back button closes it, Ctrl+W closes it, it keeps its
+  second has no tab strip (an empty strip-coloured band in its place while the first
+  shows one, via `SplitView.primaryWidthOf`, so the bars line up), its back button closes it, Ctrl+W closes it, it keeps its
   view in `OpenNotebooks.splitView` only, and it has its own `ScaffoldMessenger`
   (messages show in the pane they belong to). When the screen gets too small for two
   (a tablet turned to portrait) the second pane is **parked**, not closed: it stays

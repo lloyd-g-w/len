@@ -15,6 +15,7 @@ import '../settings/settings_screen.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/editor_chrome.dart';
 import 'chrome/editor_tips.dart';
+import 'chrome/editor_top_bar.dart';
 import 'chrome/focus_handle.dart';
 import 'chrome/gesture_hud.dart';
 import 'document/document_layout.dart';
@@ -399,6 +400,9 @@ class _EditorScreenState extends State<_EditorView> {
   Widget build(BuildContext context) {
     final open = _services.openNotebooks;
     final tabs = open.contains(_notebook.id) && !widget.secondPane ? open : null;
+    // The second pane's bar lines up with the first's tab strip.
+    final primaryWidth = widget.secondPane ? SplitView.primaryWidthOf(context) : null;
+    final band = primaryWidth != null && EditorTopBar.showsStrip(primaryWidth, open);
     final presenting = _presentation.active;
     // Back (e.g. Android's) leaves presentation and focus mode before
     // leaving the editor.
@@ -433,7 +437,7 @@ class _EditorScreenState extends State<_EditorView> {
             child: ListenableBuilder(
               listenable: _toolbar,
               builder: (context, _) => LayoutBuilder(
-                builder: (context, constraints) => _buildArea(context, constraints, tabs),
+                builder: (context, constraints) => _buildArea(context, constraints, tabs, band),
               ),
             ),
           ),
@@ -456,13 +460,19 @@ class _EditorScreenState extends State<_EditorView> {
         : handlePlaybackKey(_audio, event);
   }
 
-  Widget _buildArea(BuildContext context, BoxConstraints constraints, OpenNotebooks? tabs) {
+  Widget _buildArea(
+    BuildContext context,
+    BoxConstraints constraints,
+    OpenNotebooks? tabs,
+    bool band,
+  ) {
     final presenting = _presentation.active;
     final layout = _toolbar.layout(
       width: constraints.maxWidth,
       safe: MediaQuery.paddingOf(context),
       tabs: tabs,
       focus: _focus || presenting,
+      band: band,
     );
     _session.setChromeInsets(layout.covered);
     widget.messageInset.value = layout.covered.bottom;
@@ -493,7 +503,7 @@ class _EditorScreenState extends State<_EditorView> {
           search: _search,
           presentation: _presentation,
           presentActivity: _presentActivity,
-          chrome: _buildChrome(layout, tabs),
+          chrome: _buildChrome(layout, tabs, band),
           onFollowLink: _followLink,
           split: _pane == null ? null : (controller: widget.split!, pane: _pane),
           menu: _menu,
@@ -503,7 +513,7 @@ class _EditorScreenState extends State<_EditorView> {
     );
   }
 
-  Widget _buildChrome(ChromeLayout layout, OpenNotebooks? tabs) => EditorChromeHost(
+  Widget _buildChrome(ChromeLayout layout, OpenNotebooks? tabs, bool band) => EditorChromeHost(
     session: _session,
     layout: layout,
     commands: _commands,
@@ -518,6 +528,7 @@ class _EditorScreenState extends State<_EditorView> {
     },
     tabs: tabs,
     secondPane: widget.secondPane,
+    band: band,
     splitButton: (widget.split?.available ?? false) && !widget.secondPane
         ? SplitViewButton(tabs: _services.openNotebooks, notebookId: _notebook.id)
         : null,

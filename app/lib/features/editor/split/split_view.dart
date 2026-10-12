@@ -43,6 +43,12 @@ class SplitView extends StatelessWidget {
   static bool parkedOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_ParkedScope>()?.parked ?? false;
 
+  /// The primary pane's width, for the secondary pane [context] is in while
+  /// both are shown (null otherwise): its top bar lines up with the
+  /// primary's.
+  static double? primaryWidthOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ParkedScope>()?.primaryWidth;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -97,6 +103,7 @@ class SplitView extends StatelessWidget {
                 width: solo == null ? width - left - dividerWidth : width,
                 child: _Parked(
                   parked: solo == false,
+                  primaryWidth: split ? left : null,
                   child: MediaQuery(
                     data: split ? media.removePadding(removeLeft: true) : media,
                     child: secondary,
@@ -115,9 +122,10 @@ class SplitView extends StatelessWidget {
 /// undo and a running recording) but is not shown, takes no keyboard
 /// focus and runs no animations.
 class _Parked extends StatelessWidget {
-  const _Parked({required this.parked, required this.child});
+  const _Parked({required this.parked, required this.child, this.primaryWidth});
 
   final bool parked;
+  final double? primaryWidth;
   final Widget child;
 
   @override
@@ -127,19 +135,21 @@ class _Parked extends StatelessWidget {
       excluding: parked,
       child: TickerMode(
         enabled: !parked,
-        child: _ParkedScope(parked: parked, child: child),
+        child: _ParkedScope(parked: parked, primaryWidth: primaryWidth, child: child),
       ),
     ),
   );
 }
 
 class _ParkedScope extends InheritedWidget {
-  const _ParkedScope({required this.parked, required super.child});
+  const _ParkedScope({required this.parked, required super.child, this.primaryWidth});
 
   final bool parked;
+  final double? primaryWidth;
 
   @override
-  bool updateShouldNotify(_ParkedScope old) => old.parked != parked;
+  bool updateShouldNotify(_ParkedScope old) =>
+      old.parked != parked || old.primaryWidth != primaryWidth;
 }
 
 /// The bar between the panes: drag to resize, double-tap for halves;

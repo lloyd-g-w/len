@@ -30,6 +30,7 @@ class EditorTopBar extends StatelessWidget {
     this.compactMenuItems = const [],
     this.split,
     this.secondPane = false,
+    this.band = false,
   });
 
   final String title;
@@ -58,11 +59,17 @@ class EditorTopBar extends StatelessWidget {
   /// the tab strip stays with the first pane.
   final bool secondPane;
 
-  /// Height of the bar (without the status bar) for a given [width].
-  static double heightFor(double width, OpenNotebooks? tabs) =>
-      ChromeMetrics.barHeight + (_showStrip(width, tabs) ? ChromeMetrics.tabHeight : 0);
+  /// An empty strip-coloured band in place of the tab strip: the second
+  /// pane's bar beside a first pane that shows the strip, so both line up.
+  final bool band;
 
-  static bool _showStrip(double width, OpenNotebooks? tabs) =>
+  /// Height of the bar (without the status bar) for a given [width] (with
+  /// the empty [band] in place of the strip).
+  static double heightFor(double width, OpenNotebooks? tabs, {bool band = false}) =>
+      ChromeMetrics.barHeight + (band || showsStrip(width, tabs) ? ChromeMetrics.tabHeight : 0);
+
+  /// Whether a bar [width] wide shows the tab strip for [tabs].
+  static bool showsStrip(double width, OpenNotebooks? tabs) =>
       tabs != null && tabs.length > 1 && width >= ChromeMetrics.tabStripWidth;
 
   @override
@@ -71,10 +78,10 @@ class EditorTopBar extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final strip = _showStrip(width, tabs);
+        final strip = showsStrip(width, tabs);
         // With tabs, the status bar area takes the strip's colour.
         return Material(
-          color: strip ? scheme.surfaceContainer : scheme.surface,
+          color: strip || band ? scheme.surfaceContainer : scheme.surface,
           child: SafeArea(
             bottom: false,
             child: Column(
@@ -88,7 +95,9 @@ class EditorTopBar extends StatelessWidget {
                       onRename: actions.onRename,
                       splitAvailable: split != null,
                     ),
-                  ),
+                  )
+                else if (band)
+                  const SizedBox(height: ChromeMetrics.tabHeight),
                 DecoratedBox(
                   decoration: BoxDecoration(
                     color: scheme.surface,
