@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../../data/blob_store.dart';
+import '../../../data/search/pdf_text_source.dart' show pdfiumRectToDisplay;
+import '../../../domain/pdf_page_space.dart';
 
 /// Opens PDF blobs with PDFium (via `pdfrx`) and renders their pages.
 ///
@@ -111,6 +113,24 @@ class PdfRenderer {
   Future<List<ui.Size>> pageSizes(String sha) async {
     final doc = await open(sha);
     return [for (final p in doc.pages) ui.Size(p.width, p.height)];
+  }
+
+  /// The links of page [index] of PDF blob [sha] (annotations and web
+  /// addresses found in its text), normalised to the page as shown.
+  Future<List<PdfLinkArea>> links(String sha, int index) async {
+    final doc = await open(sha);
+    if (index >= doc.pages.length) return const [];
+    final p = doc.pages[index];
+    if (p.width <= 0 || p.height <= 0) return const [];
+    return [
+      for (final link in await p.loadLinks())
+        if (link.url != null || link.dest != null)
+          PdfLinkArea(
+            [for (final r in link.rects) pdfiumRectToDisplay(r, p)],
+            page: link.dest == null ? null : link.dest!.pageNumber - 1,
+            url: link.url,
+          ),
+    ];
   }
 
   Future<void> dispose() async {

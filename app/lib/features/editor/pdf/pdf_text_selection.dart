@@ -10,7 +10,7 @@ import 'pdf_page_info.dart';
 /// 0..1 from the page's left and top edges).
 extension PdfGlyphHits on PdfGlyphs {
   /// The character under [p], or the nearest one on the line under it
-  /// within [slop] (horizontally); null if there is no text there.
+  /// within [slop] (along the line); null if there is no text there.
   int? indexAt(Offset p, {double slop = 0.02}) {
     int? best;
     var bestDistance = double.infinity;
@@ -18,11 +18,11 @@ extension PdfGlyphHits on PdfGlyphs {
       final box = boxes[i];
       if (box.isEmpty) continue;
       if (box.contains(p)) return i;
-      if (p.dy < box.top || p.dy > box.bottom) continue; // Another line.
-      final d = p.dx < box.left ? box.left - p.dx : p.dx - box.right;
-      if (d <= slop && d < bestDistance) {
+      final (along, across) = _distances(box, p, lineOf(i)?.direction.vertical ?? false);
+      if (across > 0) continue; // Another line.
+      if (along <= slop && along < bestDistance) {
         best = i;
-        bestDistance = d;
+        bestDistance = along;
       }
     }
     return best;
@@ -36,16 +36,23 @@ extension PdfGlyphHits on PdfGlyphs {
     for (var i = 0; i < boxes.length; i++) {
       final box = boxes[i];
       if (box.isEmpty) continue;
-      // Lines first: vertical distance weighs more than horizontal.
-      final dx = math.max(0.0, math.max(box.left - p.dx, p.dx - box.right));
-      final dy = math.max(0.0, math.max(box.top - p.dy, p.dy - box.bottom));
-      final d = dy * 4 + dx;
+      // Lines first: the distance across lines weighs more than along them.
+      final (along, across) = _distances(box, p, lineOf(i)?.direction.vertical ?? false);
+      final d = across * 4 + along;
       if (d < bestDistance) {
         best = i;
         bestDistance = d;
       }
     }
     return best;
+  }
+
+  /// How far [p] is from [box] along and across a line running down the
+  /// screen if [vertical], else across it.
+  static (double, double) _distances(Rect box, Offset p, bool vertical) {
+    final dx = math.max(0.0, math.max(box.left - p.dx, p.dx - box.right));
+    final dy = math.max(0.0, math.max(box.top - p.dy, p.dy - box.bottom));
+    return vertical ? (dy, dx) : (dx, dy);
   }
 
   /// The word (letters, digits and joiners) around character [i], as
@@ -88,7 +95,10 @@ class PdfSelection extends ChangeNotifier {
   String get text => isEmpty ? '' : _glyphs!.text.substring(_start, _end).trim();
 
   /// One box per selected line, normalised to the page.
-  List<Rect> get rects => isEmpty ? const [] : _glyphs!.rectsFor(_start, _end);
+  List<Rect> get rects => [for (final l in lines) l.rect];
+
+  /// The selected part of each line (with its direction).
+  List<PdfTextLine> get lines => isEmpty ? const [] : _glyphs!.linesFor(_start, _end);
 
   /// Selects `[start, end)` (in either order) of [glyphs] on [page].
   void select(NotebookPage page, PdfGlyphs glyphs, int start, int end, {bool menu = false}) {
