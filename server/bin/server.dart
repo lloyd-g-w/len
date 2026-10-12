@@ -9,7 +9,14 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 /// `server gc …` runs blob garbage collection instead (see bin/gc.dart).
 Future<void> main(List<String> args) async {
   if (args.isNotEmpty && args.first == 'gc') {
-    exit(runGcCommand(args.sublist(1), Platform.environment, out: stdout, err: stderr));
+    exit(
+      runGcCommand(
+        args.sublist(1),
+        Platform.environment,
+        out: stdout,
+        err: stderr,
+      ),
+    );
   }
   final Config config;
   try {
@@ -48,10 +55,31 @@ Future<void> main(List<String> args) async {
   // commits, an upload completes) and only then close the database; give
   // up after a grace period that fits Docker's default stop timeout (10 s).
   final closing = server.close();
+  final grace = Stopwatch()..start();
   if (!await requests.drain(_shutdownGrace)) {
-    stderr.writeln('len-sync: ${requests.inFlight} request(s) still running, closing anyway');
+    stderr.writeln(
+      'len-sync: ${requests.inFlight} request(s) still running, closing anyway',
+    );
     await server.close(force: true);
+  } else {
+    // A handler can return a streaming response, so the request tracker
+    // may be idle while close() still waits for a client reading forever.
+    final remaining = _shutdownGrace - grace.elapsed;
+    if (remaining <= Duration.zero) {
+      await server.close(force: true);
+    } else {
+      await closing.timeout(
+        remaining,
+        onTimeout: () async {
+          stderr.writeln(
+            'len-sync: forcing closed stalled client connection(s)',
+          );
+          await server.close(force: true);
+        },
+      );
+    }
   }
+  // close(force: true) also finishes the original close() future.
   await closing;
   store.close(); // checkpoints the WAL
   exit(0);
