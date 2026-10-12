@@ -123,8 +123,16 @@ draws a few dozen images, however much ink is on screen.
   frame, and each such tile is re-rendered as *old image + stroke* off the
   frame. So committed ink never vanishes or flickers at pen-up, and a
   pen-up never re-records a chunk picture or replays a page of ink.
-- **Other edits** (erase, undo, lasso, loads) invalidate only the tiles over
-  the changed chunks; those are drawn from vectors for a frame or two.
+- **Loads** (`SurfaceChange.loaded`: stored content arriving) keep the
+  images of the tiles they touch as stale stand-ins until re-rendered (that
+  content was not on screen yet), so a loading canvas never drops to
+  vectors.
+- **Other edits** (erase, undo, lasso) invalidate only the tiles over the
+  changed chunks; those are drawn from vectors for a frame or two.
+- **Idle caches**: a cache not painted for 500 ms (its view zoomed out to
+  level-of-detail images, say) renders nothing on edits; appended strokes
+  wait as overlays until it is painted again, so it never takes raster
+  time from what is on screen.
 - **Zoom and pan**: panning by whole device pixels keeps the space and its
   tiles. Zooming, or a sub-pixel shift, draws the current tiles transformed
   (`FilterQuality.medium`) while the gesture lasts; after 150 ms still the
@@ -148,18 +156,32 @@ Two more things keep pen-up and first show off the frame:
   that shows them (`len.persistStrokes`), not inside the pointer-up
   handler. Reads, `reload`, `dispose` and `SurfaceModel.flushAll()`
   (exports, page copies and deletions) flush first.
-- **Outlines off the UI thread** (`OutlinePreparer`, `platform/
-  outline_preparer*`): strokes read from storage get their outlines built on
-  worker isolates (`BackgroundOutlines`, as plain command lists turned into
-  `Path`s on the UI isolate) before the model adds them; a page of 2 000
-  strokes no longer stalls the frame that first shows it for 1–3 s. Tests
-  and the web build them inline (`InlineOutlinePreparer`).
+- **Outlines off the frame** (`OutlinePreparer`, `platform/
+  outline_preparer*`): strokes read from storage get their outlines built
+  before the model adds them — on up to three worker isolates
+  (`BackgroundOutlines`, as plain command lists turned into `Path`s on the
+  UI isolate) and, between frames in steps of ≤ 3 ms, on the UI isolate
+  too (the workers run on the slower cores), except while a pointer is
+  down or was lifted < 400 ms ago. The model adds them a chunk's worth at
+  a time as they arrive, the chunks nearest the view first
+  (`len.insertLoaded`); a page of 2 000 strokes no longer stalls the frame
+  that first shows it for 1–3 s. Tests and the web build them inline
+  (`InlineOutlinePreparer`).
+- **Reads in blocks** (`SurfaceLoader`): a range of more than 36 chunks (a
+  canvas seen from afar) is read in 4 × 4-chunk blocks, middle first, so
+  the first ink shows within a second rather than after reading (and
+  copying between isolates) tens of thousands of strokes. Chunks whose
+  outlines are being built count as loaded for the next read.
+- **Previews** (`ThumbnailRenderer`): ink thinner than 1.5 px in the
+  preview is drawn as plain lines along its points
+  (`StrokeRenderer.drawSketch`), without building outlines.
 
 Measuring: profile builds with `--dart-define=LEN_PERF=true` log frame and
 pen-up latency summaries (`PerfProbe`, see docs/INK_LAB.md, *Rendering
 performance*); timeline markers `len.renderTile`, `len.commitStroke`,
-`len.persistStrokes`, `len.recordChunk`, `len.handwritingCluster` show up in
-Perfetto / DevTools.
+`len.persistStrokes`, `len.recordChunk`, `len.handwritingCluster`,
+`len.outlineStep`, `len.insertLoaded`, `len.thumbnail` show up in Perfetto /
+DevTools.
 
 **Navigation** (`ink/navigation/`, `features/editor/canvas/`): `KineticPan`
 measures the viewport's own motion during a navigation gesture (fingers,

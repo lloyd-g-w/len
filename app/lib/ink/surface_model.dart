@@ -237,8 +237,14 @@ class SurfaceModel extends ChangeNotifier {
   /// bring them back.
   final Set<String> _removedWhilePreparing = {};
 
+  /// Chunks read but not added yet (their outlines are being built): not
+  /// read again meanwhile.
+  final Set<ChunkKey> _arriving = {};
+
   Set<ChunkKey> _loadedWithin(ChunkRange range) => {
     for (final key in _loaded)
+      if (range.contains(key)) key,
+    for (final key in _arriving)
       if (range.contains(key)) key,
   };
 
@@ -247,30 +253,94 @@ class SurfaceModel extends ChangeNotifier {
     final outlines = this.outlines;
     if (outlines == null || load.strokes.isEmpty) return _insertLoad(load);
     final generation = _generation;
+    bool current() => !_disposed && generation == _generation;
     _preparing++;
+    _arriving.addAll(load.chunks);
+    // Strokes are added as their outlines arrive, a chunk's worth at a
+    // time (by first point), those nearest the middle of the view first,
+    // so a large load (a whole canvas seen from afar) fills in from where
+    // the user looks instead of showing nothing until its last outline is
+    // built — and each chunk is re-rendered about once, not per slice.
     // Synchronous when the outlines are built inline.
-    outlines.prepare(load.strokes).then((_) {
-      _preparing--;
-      if (!_disposed && generation == _generation) {
-        final removed = _removedWhilePreparing;
-        _insertLoad(
-          removed.isEmpty
-              ? load
-              : ChunkLoad(
-                  chunks: load.chunks,
-                  strokes: [
-                    for (final s in load.strokes)
-                      if (!removed.contains(s.id)) s,
-                  ],
-                  elements: [
-                    for (final e in load.elements)
-                      if (!removed.contains(e.id)) e,
-                  ],
-                ),
-        );
+    final groups = _nearestFirst(load.strokes);
+    final groupOf = Map<Stroke, int>.identity();
+    for (var g = 0; g < groups.length; g++) {
+      for (final s in groups[g]) {
+        groupOf[s] = g;
       }
-      if (_preparing == 0) _removedWhilePreparing.clear();
-    });
+    }
+    final waiting = [for (final g in groups) g.length];
+    outlines
+        .prepare(
+          [for (final g in groups) ...g],
+          onReady: (ready) {
+            if (!current()) return;
+            final complete = <Stroke>[];
+            for (final s in ready) {
+              final g = groupOf[s];
+              if (g != null && --waiting[g] == 0) complete.addAll(groups[g]);
+            }
+            if (complete.isNotEmpty) _insertStrokes(complete);
+          },
+        )
+        .then((_) {
+          _preparing--;
+          if (current()) {
+            _arriving.removeAll(load.chunks);
+            final removed = _removedWhilePreparing;
+            _insertLoad(
+              removed.isEmpty
+                  ? load
+                  : ChunkLoad(
+                      chunks: load.chunks,
+                      strokes: [
+                        for (final s in load.strokes)
+                          if (!removed.contains(s.id)) s,
+                      ],
+                      elements: [
+                        for (final e in load.elements)
+                          if (!removed.contains(e.id)) e,
+                      ],
+                    ),
+            );
+          }
+          if (_preparing == 0) _removedWhilePreparing.clear();
+        });
+  }
+
+  /// [strokes] grouped by the chunk of their first point, the groups
+  /// ordered by their distance from the middle of the last visible area.
+  List<List<Stroke>> _nearestFirst(List<Stroke> strokes) {
+    final visible = _lastVisible;
+    final byChunk = <ChunkKey, List<Stroke>>{};
+    for (final s in strokes) {
+      final p = s.points.isEmpty ? null : s.points.first;
+      (byChunk[ChunkGrid.keyAt(p?.x ?? 0, p?.y ?? 0)] ??= []).add(s);
+    }
+    final keys = byChunk.keys.toList();
+    if (visible != null && keys.length > 1) {
+      final centre = visible.center;
+      double distance(ChunkKey k) => (ChunkGrid.rectOf(k).center - centre).distanceSquared;
+      keys.sort((a, b) => distance(a).compareTo(distance(b)));
+    }
+    return [for (final k in keys) byChunk[k]!];
+  }
+
+  /// Adds loaded [strokes] whose outlines are ready (the rest of their
+  /// load, and its chunks, follow in [_insertLoad]).
+  void _insertStrokes(List<Stroke> strokes) {
+    developer.Timeline.startSync('len.insertLoaded');
+    final changed = <ChunkKey>{};
+    final removed = _removedWhilePreparing;
+    for (final stroke in strokes) {
+      if (_strokes.containsId(stroke.id) || removed.contains(stroke.id)) continue;
+      _strokes.insert(stroke);
+      changed.addAll(StrokeChunks.of(stroke));
+    }
+    developer.Timeline.startSync('len.loadedChanged');
+    if (changed.isNotEmpty) _changed(changed, loaded: true);
+    developer.Timeline.finishSync();
+    developer.Timeline.finishSync();
   }
 
   void _insertLoad(ChunkLoad load) {
@@ -290,7 +360,7 @@ class SurfaceModel extends ChangeNotifier {
         }
       }
       _loaded.addAll(load.chunks);
-      if (changed.isNotEmpty) _changed(changed);
+      if (changed.isNotEmpty) _changed(changed, loaded: true);
     }
     final keep = _lastRange;
     if (keep != null && _loaded.length > maxLoadedChunks) _evictOutside(keep);
@@ -304,6 +374,7 @@ class SurfaceModel extends ChangeNotifier {
     _strokes.clear();
     _elements.clear();
     _loaded.clear();
+    _arriving.clear();
     _lastRange = null;
     _loading.reset();
     _changes.add(const SurfaceChange(null));
@@ -531,8 +602,8 @@ class SurfaceModel extends ChangeNotifier {
     _loading.noteRemoved(element.id);
   }
 
-  void _changed(Set<ChunkKey> chunks, {List<Stroke>? appended}) {
-    _changes.add(SurfaceChange(chunks, appended: appended));
+  void _changed(Set<ChunkKey> chunks, {List<Stroke>? appended, bool loaded = false}) {
+    _changes.add(SurfaceChange(chunks, appended: appended, loaded: loaded));
     notifyListeners();
   }
 
@@ -549,7 +620,7 @@ class SurfaceModel extends ChangeNotifier {
 /// A change of what a surface renders: the [chunks] whose rendering is
 /// stale (null: everything).
 class SurfaceChange {
-  const SurfaceChange(this.chunks, {this.appended});
+  const SurfaceChange(this.chunks, {this.appended, this.loaded = false});
 
   final Set<ChunkKey>? chunks;
 
@@ -557,4 +628,10 @@ class SurfaceChange {
   /// in [chunks] (pen ink, nothing above it there): a rendering of the
   /// chunks from before plus these strokes, in order, is up to date.
   final List<Stroke>? appended;
+
+  /// Set when the change only brings in stored content (a load): a
+  /// rendering from before may stand in until a new one is made, as the
+  /// content was not on screen yet anyway (nothing the user did vanishes
+  /// or lingers).
+  final bool loaded;
 }
