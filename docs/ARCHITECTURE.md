@@ -682,7 +682,8 @@ GoodNotes-style lecture recording: audio is captured while writing and
 replayed in step with the ink.
 
 - **Data.** A recording is a synced `recordings` row (`RecordingRepository`)
-  of a notebook whose audio is a content-addressed blob, like PDFs and images.
+  of a notebook whose audio is an ordered list of **parts** (`RecordingPart`:
+  a content-addressed blob and its duration), like PDFs and images.
   Its `segments` (`[startedAt, durationMs]` per stretch between pauses) map
   audio positions to wall time and back (`RecordingTimeline`; ink written
   during a pause belongs to the moment recording resumed). Strokes carry
@@ -694,13 +695,41 @@ replayed in step with the ink.
   so no platform ever has to decode audio. Deleting a notebook tombstones its
   recordings; duplicating copies them (same blobs).
 - **Recording** (`RecordingController`): start / pause / resume / stop with
-  elapsed time and an input level meter. `package:record` writes AAC in MP4
-  (`audio/mp4`, mono, 64 kbit/s ≈ 29 MB per hour) where the platform has an
-  AAC encoder, Opus in WebM in browsers without one (Chrome, Firefox), WAV as
-  a last resort. On stop the file becomes a blob (`BlobStore.putFile`,
-  streamed, never loaded whole), the waveform another, plus the row; captures
-  under 0.5 s are discarded. Closing the editor stops and saves a running
-  recording.
+  elapsed time and an input level meter. Natively `package:record` captures
+  **raw AAC in ADTS frames** (`audio/aac`, mono, 64 kbit/s ≈ 29 MB per hour):
+  every frame carries its own header, so files join by concatenation, can be
+  cut between any two frames, and stay playable when cut off mid-frame
+  (`adts.dart`: `AdtsReader` finds whole frames and counts their audio). On
+  Android and Windows the recorder streams the frames to Len (`startStream`;
+  its file mode would write MP4 there), which writes them itself; on Linux
+  `ffmpeg` writes the `.aac` file. Browsers record AAC in MP4 (Safari) or
+  Opus in WebM, held in memory until the recorder stops; WAV is a last
+  resort. Captures under 0.5 s are discarded. Closing the editor stops and
+  saves a running recording.
+- **Parts: upload while recording** (`RecordingParts`). Every
+  `RecordingController.partMs` (5 min) of audio the capture moves on to a
+  new file (`AudioCapture.split`): where frames are streamed to Len the cut
+  falls between two frames and no audio is lost; elsewhere (Linux, browsers)
+  the recorder restarts — a gap of roughly 0.1–0.3 s every 5 minutes. The
+  finished file becomes a blob at once (`BlobStore.putFile`, streamed) and
+  the `recordings` row is saved with the parts so far (plus the waveform so
+  far), so the blob is referenced — uploaded by the next sync, kept by
+  garbage collection — while recording continues. The row being made is
+  left out of its own device's recordings list until stopped; other devices
+  see it grow part by part. Stop stores the last part.
+- **Recovery** (`recording_journal.dart`, `recording_recovery.dart`).
+  Natively the capture files live in a spool directory,
+  `<app support>/recording` (`SpoolStorage`, `platform/spool_storage*`),
+  next to a small JSON journal per recording (`RecordingJournal`: notebook,
+  title, MIME type, stored parts, pause stretches and the running one's
+  start, files not stored yet), rewritten at start, each part, pause and
+  resume. A clean stop deletes both. On the next start the library looks for
+  journals of recordings not being made (`offerRecordingRecovery`, once per
+  run) and asks "Recover recording?": Recover stores the leftover files'
+  whole frames as further parts (durations from frame counts) and saves the
+  row with a timeline fitted to the audio (`RecordingJournal.timelineFor`);
+  Discard deletes the files (parts stored before stay either way). Browsers
+  have no spool: a killed tab keeps only the parts finished before.
 - **Background recording** (`RecordingKeepAlive`, `AudioBackends.keepAlive`):
   Android hands backgrounded apps silence, so while recording a foreground
   service of type `microphone` runs (`RecordingService.kt`, driven by
@@ -719,8 +748,12 @@ replayed in step with the ink.
   the engine detaches). Other platforms have no keep-alive (desktop apps keep
   the microphone; browsers keep recording in a background tab).
 - **Playback** (`PlaybackController`, `package:audioplayers`): plays one
-  recording at a time from its blob file (natively streamed; browsers get a
-  blob URL), fetching a missing blob from the server first; speed 0.75–2×
+  recording at a time, fetching missing blobs from the server first. Raw AAC
+  parts are joined into one source (natively a temporary file streamed from
+  the blobs, a single part is played from its blob file; browsers get a blob
+  URL), so playback and seeking across parts are seamless; parts that don't
+  join (browser recordings) play one after the other with positions mapped
+  across them (`RecordingPartsMap.partAt`) — a short gap at each joint; speed 0.75–2×
   (kept across recordings while the editor is open), skip ±10 s. The backends
   are created only when the user records or plays, so platforms and tests
   that never do never touch the audio plugins (`AudioBackends`; tests use
@@ -754,7 +787,8 @@ replayed in step with the ink.
   previous / next burst of writing. The recordings sheet shows each
   recording's date, duration and size and the total; tap plays, ⋯ renames,
   exports or deletes; long press or "Select" picks several to export or
-  delete at once. Export hands the audio file (`.m4a`, `.webm`, `.wav`)
+  delete at once. Export hands the audio file (`.aac` with the parts
+  joined; browser recordings in parts as one `.webm` / `.m4a` per part)
   to the existing save / share path (`platform/file_export`: save dialog on
   desktop, share sheet on Android, download on the web). `NotebookAudio`
   owns all of it per open notebook (one per notebook, shared by its editors

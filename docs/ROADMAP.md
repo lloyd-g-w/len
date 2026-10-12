@@ -59,9 +59,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   and a marker per burst of writing (tap to play from it), skip ±10 s, speed 0.75–2×, keys (Space,
   ← / →, Shift+← / → between bursts of writing)
 - ✅ Recordings list: date, duration and size of each, total; select several to export or delete;
-  export / share a recording's audio (m4a) through the save / share path
-- ⬜ Trimming, upload while recording (chunked blobs), recovering a recording cut off by a killed
-  process, playback in the background (media notification)
+  export / share a recording's audio (AAC) through the save / share path
+- ✅ Upload while recording: recordings are stored in 5-minute parts (raw AAC natively), each a
+  blob synced as soon as it is finished; played and exported as one
+- ✅ Recovering a recording cut off by a killed app (native: journal + spool files, "Recover
+  recording?" on the next start; browsers keep the parts finished before)
+- ⬜ Trimming, playback in the background (media notification)
 
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,
