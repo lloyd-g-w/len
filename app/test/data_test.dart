@@ -246,8 +246,8 @@ void main() {
         coverColor: 0,
       );
       final first = pages.pagesOf(nb.id).single;
-      final last = pages.addPage(nb.id, paper: PaperStyle.blank);
-      final middle = pages.addPage(nb.id, paper: PaperStyle.blank, after: first);
+      final last = pages.addPage(nb.id, paper: const Paper(PaperStyle.blank));
+      final middle = pages.addPage(nb.id, paper: const Paper(PaperStyle.blank), after: first);
       expect(pages.pagesOf(nb.id).map((p) => p.id), [first.id, middle.id, last.id]);
     });
   });

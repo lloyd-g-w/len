@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqlite3/common.dart';
 
 import '../domain/notebook.dart';
@@ -78,6 +80,7 @@ class NotebookRepository extends SyncableTable {
     required String title,
     required NotebookKind kind,
     required PaperStyle paper,
+    PaperLook look = PaperLook.standard,
     required int coverColor,
     PaperColor paperColor = PaperColor.white,
     String? folderId,
@@ -90,7 +93,7 @@ class NotebookRepository extends SyncableTable {
       id: clock.newId(),
       title: title,
       kind: kind,
-      paper: paper,
+      paper: Paper(paper, look: look),
       paperColor: paperColor,
       coverColor: coverColor,
       folderId: folderId,
@@ -100,7 +103,7 @@ class NotebookRepository extends SyncableTable {
     database.transaction(() {
       _write(notebook, deviceId: deviceId, dirty: true);
       if (kind == NotebookKind.paged) {
-        final first = firstPage ?? PageTemplate.of(paper);
+        final first = firstPage ?? PageTemplate(paper: notebook.paper, color: paperColor);
         if (papers.isEmpty) {
           pages.addPage(notebook.id, template: first);
         } else {
@@ -208,6 +211,7 @@ class NotebookRepository extends SyncableTable {
               'title': row['title'],
               'kind': row['kind'],
               'paper': row['paper'],
+              'paperData': jsonDecode(row['paper_data'] as String),
               'paperColor': row['paper_color'],
               'coverColor': row['cover_color'],
               'createdAt': row['created_at'],
@@ -239,14 +243,15 @@ class NotebookRepository extends SyncableTable {
   /// Parses a live record; throws [FormatException] when malformed.
   static Notebook _notebookFromRecord(SyncRecord record) {
     final f = RecordFields(record);
-    final paper = f.choice('paper', PaperStyle.values);
-    if (paper.needsParams) f.invalid('paper'); // A default without parameters.
+    final style = f.choice('paper', PaperStyle.values);
+    if (style.needsParams) f.invalid('paper'); // A default without parameters.
+    final paper = Paper.fromData(style, f.object('paperData')) ?? f.invalid('paperData');
     return Notebook(
       id: record.id,
       title: f.string('title'),
       kind: f.choice('kind', NotebookKind.values),
       paper: paper,
-      paperColor: f.choice('paperColor', PaperColor.values),
+      paperColor: PaperColor.tryParse(f.string('paperColor')) ?? f.invalid('paperColor'),
       coverColor: f.integer('coverColor'),
       createdAt: f.integer('createdAt'),
       updatedAt: record.updatedAt,
@@ -264,13 +269,13 @@ class NotebookRepository extends SyncableTable {
                                         created_at, updated_at, device_id,
                                         deleted, dirty, folder_id, favorite,
                                         trashed_at, edited_at,
-                                        paper_color)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)''',
+                                        paper_color, paper_data)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)''',
       [
         n.id,
         n.title,
         n.kind.name,
-        n.paper.name,
+        n.paper.style.name,
         n.coverColor,
         n.createdAt,
         n.updatedAt,
@@ -281,6 +286,7 @@ class NotebookRepository extends SyncableTable {
         n.trashedAt,
         n.editedAt,
         n.paperColor.name,
+        jsonEncode(n.paper.toData()),
       ],
     );
   }
@@ -289,7 +295,7 @@ class NotebookRepository extends SyncableTable {
     id: row['id'] as String,
     title: row['title'] as String,
     kind: NotebookKind.parse(row['kind'] as String),
-    paper: PaperStyle.parse(row['paper'] as String),
+    paper: _decodePaper(row['paper'] as String, row['paper_data'] as String),
     paperColor: PaperColor.parse(row['paper_color'] as String?),
     coverColor: row['cover_color'] as int,
     createdAt: row['created_at'] as int,
@@ -299,4 +305,20 @@ class NotebookRepository extends SyncableTable {
     favorite: row['favorite'] == 1,
     trashedAt: row['trashed_at'] as int?,
   );
+
+  /// A stored default paper; a style needing parameters, unknown or
+  /// corrupt data reads as blank.
+  static Paper _decodePaper(String name, String data) {
+    final style = PaperStyle.parse(name);
+    if (style.needsParams) return Paper.blank;
+    try {
+      final json = jsonDecode(data);
+      if (json is Map<String, Object?>) {
+        return Paper.fromData(style, json, requireLook: false) ?? Paper(style);
+      }
+    } on FormatException {
+      // Corrupt local data: the style's standard look.
+    }
+    return Paper(style);
+  }
 }

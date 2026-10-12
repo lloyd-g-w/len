@@ -209,9 +209,9 @@ void main() {
     expect(liveStrokes(services, nb.id), isEmpty);
     expect(trail().isEmpty, isFalse);
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.pump(LaserTrail.lifetime);
+    await tester.pump(LaserConfig.defaultDuration);
     await tester.pump(const Duration(milliseconds: 100));
-    expect(trail().isEmpty, isTrue);
+    expect(trail().isVisible, isFalse);
   });
 
   testWidgets('the toolbar shape picker selects the shape tool', (tester) async {

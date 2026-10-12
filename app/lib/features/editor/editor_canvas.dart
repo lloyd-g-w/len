@@ -30,7 +30,7 @@ class EditorCanvas extends StatelessWidget {
   final EditorSession session;
 
   /// Background of an infinite canvas.
-  final PaperStyle paper;
+  final Paper paper;
   final PaperColor paperColor;
 
   /// The editor's keyboard focus, reclaimed when the canvas is touched.

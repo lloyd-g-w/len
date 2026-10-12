@@ -122,6 +122,7 @@ Map<String, Object?> _notebookData(String title, {String kind = 'canvas'}) => {
   'title': title,
   'kind': kind,
   'paper': 'blank',
+  'paperData': {'look': PaperLook.standard.toJson()},
   'paperColor': 'white',
   'coverColor': 0,
   'createdAt': 1,
@@ -138,7 +139,7 @@ Map<String, Object?> _pageData(String notebookId, {Object? background}) => {
   'width': 600,
   'height': 800,
   'paper': 'blank',
-  'paperData': <String, Object?>{},
+  'paperData': {'look': PaperLook.standard.toJson()},
   'paperColor': 'white',
   'bookmarked': false,
   'background': background,
@@ -325,7 +326,7 @@ void main() {
               folderId: null,
               favorite: false,
               paperColor: PaperColor.cream,
-              paper: PaperStyle.music,
+              paper: const Paper(PaperStyle.music),
             ),
       );
       await _send(b, a);
@@ -492,6 +493,7 @@ void main() {
         'date': '2024-02-29',
         'weekStart': 'monday',
         'locale': 'en-GB',
+        'look': PaperLook.standard.toJson(),
       });
       expect(b.s.templates.list().single.name, 'Grid A');
       expect(b.s.templates.list().single.size, const Size(800, 600));
@@ -535,7 +537,11 @@ void main() {
             'pages',
             id,
             10,
-            data: {..._pageData(nb.id), 'paper': 'yearlyOverview', 'paperData': paperData},
+            data: {
+              ..._pageData(nb.id),
+              'paper': 'yearlyOverview',
+              'paperData': {...paperData, 'look': PaperLook.standard.toJson()},
+            },
           ),
         _record(
           'pages',
@@ -544,7 +550,12 @@ void main() {
           data: {
             ..._pageData(nb.id),
             'paper': 'yearlyOverview',
-            'paperData': {'date': '2024-01-01', 'weekStart': 'sunday', 'locale': 'el'},
+            'paperData': {
+              'date': '2024-01-01',
+              'weekStart': 'sunday',
+              'locale': 'el',
+              'look': PaperLook.standard.toJson(),
+            },
           },
         ),
         _record(

@@ -139,7 +139,7 @@ class _Sheets extends CustomPainter {
     final page = Offset.zero & PageFormat.a5.sizeFor(PageOrientation.portrait);
     var i = 0;
     for (final style in PaperStyle.builtIn) {
-      final color = PaperColor.values[i % PaperColor.values.length];
+      final color = PaperColor.presets[i % PaperColor.presets.length];
       canvas
         ..save()
         ..translate(10 + (i % 5) * 235.0, 10 + (i ~/ 5) * 330.0)

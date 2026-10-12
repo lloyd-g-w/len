@@ -130,7 +130,14 @@ class AppDatabase {
     _organise,
     _recordingParts,
     _recordingTrim,
+    _notebookPaperData,
   ];
+
+  /// Version 7: a notebook's paper look (`paper_data`, JSON, `Paper.toData`
+  /// of its default paper: the canvas background and new pages).
+  static void _notebookPaperData(CommonDatabase db) {
+    db.execute("ALTER TABLE notebooks ADD COLUMN paper_data TEXT NOT NULL DEFAULT '{}'");
+  }
 
   /// Version 6: a recording's kept range (`trim_start_ms`, `trim_end_ms`;
   /// untrimmed = `0` and `duration_ms`).

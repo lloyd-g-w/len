@@ -60,6 +60,7 @@ class LibraryActions {
       title: request.title,
       kind: request.kind,
       paper: request.paper,
+      look: request.template.paper.look,
       paperColor: request.template.color,
       coverColor: request.coverColor,
       firstPage: request.template,

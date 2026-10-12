@@ -16,6 +16,30 @@ enum TemplateCategory {
 /// The period one page of a date-aware planner template covers.
 enum PlannerPeriod { day, week, month, year }
 
+/// What a template's pitch measures, which decides the spacing presets and
+/// range (millimetres) the Paper options offer for it.
+enum PitchKind {
+  /// Writing lines (ruled paper, Cornell notes, lists).
+  lines(4, 15, [('Narrow', 6.4), ('College', 7.1), ('Wide', 8.5)]),
+
+  /// Grid cells (also isometric triangles).
+  grid(3, 20, [('5 mm', 5), ('¼ in', 6.35), ('1 cm', 10)]),
+
+  /// Dot spacing.
+  dots(3, 20, [('5 mm', 5), ('¼ in', 6.35), ('1 cm', 10)]),
+
+  /// Distance between staff lines.
+  staff(1.5, 4, [('Small', 2), ('Medium', 2.4), ('Large', 3)]);
+
+  const PitchKind(this.min, this.max, this.presets);
+
+  /// Slider range (mm).
+  final double min, max;
+
+  /// Named spacings (mm).
+  final List<(String, double)> presets;
+}
+
 /// A built-in background pattern ("template") drawn behind ink, or
 /// [image] for a user's own template.
 ///
@@ -122,6 +146,33 @@ enum PaperStyle {
     for (final s in values)
       if (s != image) s,
   ];
+
+  /// What the pitch measures, or null when it is fixed (blank, graph and
+  /// engineering paper, planners, storyboards, images).
+  PitchKind? get pitchKind => switch (this) {
+    narrowRuled || collegeRuled || wideRuled || cornell || todo || meeting => PitchKind.lines,
+    gridSmall || gridLarge || isometric => PitchKind.grid,
+    dotted => PitchKind.dots,
+    music => PitchKind.staff,
+    _ => null,
+  };
+
+  /// Whether pages have a margin line that can be turned off.
+  bool get hasMargin => isRuled;
+
+  /// Whether pages can have a header area (repeating papers without a
+  /// layout of their own).
+  bool get hasHeader => switch (this) {
+    blank || dotted || narrowRuled || collegeRuled || wideRuled => true,
+    gridSmall || gridLarge || graph || isometric => true,
+    _ => false,
+  };
+
+  /// Whether the pattern has dots (dot size applies).
+  bool get hasDots => this == dotted;
+
+  /// Whether the pattern has lines (line weight applies).
+  bool get hasLines => this != blank && this != dotted && this != image;
 
   /// Whether the pattern consists of horizontal writing lines.
   bool get isRuled => this == wideRuled || this == collegeRuled || this == narrowRuled;

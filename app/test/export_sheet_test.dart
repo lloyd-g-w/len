@@ -61,7 +61,7 @@ void main() {
       kind: NotebookKind.paged,
       paper: PaperStyle.gridLarge,
       coverColor: 0xFF3B5BDB,
-      paperColor: PaperColor.values.last,
+      paperColor: PaperColor.presets.last,
     );
     for (var i = 0; i < 4; i++) {
       services.pages.addPage(

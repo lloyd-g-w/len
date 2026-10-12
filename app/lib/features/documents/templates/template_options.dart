@@ -4,11 +4,13 @@ import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
 import '../template_preview.dart';
 import 'page_setup.dart';
+import 'paper_options.dart';
 import 'planner_options.dart';
 import 'template_catalog.dart';
 
 /// The options of a [TemplateSelection] below or beside the gallery:
-/// planner dates (planners only), paper colour and page size. With
+/// planner dates (planners only), the paper ([PaperOptions]: colours,
+/// spacing, weights, extras) and page size. With
 /// [preview], a larger miniature of the selection comes first (the
 /// side-by-side layout, where the gallery's own tiles are further away).
 class TemplateOptions extends StatelessWidget {
@@ -88,8 +90,7 @@ class TemplateOptions extends StatelessWidget {
                 )
               : SizedBox(width: double.infinity, height: preview ? 0 : Gaps.lg),
         ),
-        PickerLabel(canvas ? 'Background colour' : 'Paper colour'),
-        PaperColorRow(template: s.template, onChanged: setTemplate),
+        PaperOptions(template: s.template, onChanged: setTemplate, canvas: canvas),
         if (sizeEditable && !canvas) ...[
           const SizedBox(height: Gaps.lg),
           PickerLabel('Page size', trailing: custom ? 'Set by the template' : null),

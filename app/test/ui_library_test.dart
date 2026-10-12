@@ -143,7 +143,7 @@ void main() {
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
     final notebook = services.notebooks.list().single;
-    expect(notebook.paper, PaperStyle.blank, reason: 'a default without a date');
+    expect(notebook.paper, Paper.blank, reason: 'a default without a date');
     final pages = services.pages.pagesOf(notebook.id);
     expect(pages, hasLength(days));
     expect(

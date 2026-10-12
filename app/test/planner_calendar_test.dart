@@ -78,7 +78,12 @@ void main() {
     test('the calendar is stored and part of equality', () {
       final week = Paper.planner(PaperStyle.weeklyPlanner, d(2026, 10, 8), calendar: sunday);
       expect(week.date, d(2026, 10, 4));
-      expect(week.toData(), {'date': '2026-10-04', 'weekStart': 'sunday', 'locale': 'en-US'});
+      expect(week.toData(), {
+        'date': '2026-10-04',
+        'weekStart': 'sunday',
+        'locale': 'en-US',
+        'look': PaperLook.standard.toJson(),
+      });
       expect(Paper.fromData(PaperStyle.weeklyPlanner, week.toData()), week);
       expect(week.next.date, d(2026, 10, 11));
       expect(week.next.calendar, sunday);
@@ -92,7 +97,12 @@ void main() {
     });
 
     test('every planner field is required and parsed strictly', () {
-      const ok = {'date': '2026-10-05', 'weekStart': 'monday', 'locale': 'de'};
+      final ok = {
+        'date': '2026-10-05',
+        'weekStart': 'monday',
+        'locale': 'de',
+        'look': PaperLook.standard.toJson(),
+      };
       expect(Paper.fromData(PaperStyle.dailyPlanner, ok)?.calendar, german);
       for (final bad in <Map<String, Object?>>[
         {'date': '2026-10-05'},
@@ -107,7 +117,8 @@ void main() {
         {...ok, 'date': '2026-02-30'},
         {'weekStart': 'monday', 'locale': 'de'},
       ]) {
-        expect(Paper.fromData(PaperStyle.dailyPlanner, bad), isNull, reason: '$bad');
+        final data = {'look': PaperLook.standard.toJson(), ...bad};
+        expect(Paper.fromData(PaperStyle.dailyPlanner, data), isNull, reason: '$bad');
       }
     });
   });

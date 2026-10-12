@@ -391,12 +391,19 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   isometric, music staff, storyboard.
 - **Paper.** A page's template is a `Paper` (`templates/paper.dart`): the style plus what it
   needs — for a planner page the `date` (the first day of its period, UTC) and its
-  `PlannerCalendar` (week start, language), or the `image` blob of a user's template. Stored as
-  `pages.paper` (style name) + `pages.paper_data` (JSON, `Paper.toData`), synced as `paper` +
-  `paperData`. Equality includes the calendar, so links lead to pages of the same planner
-  flavour. A notebook's `paper` (default for new pages, canvas background) is always a style
-  without parameters. `Paper.next` is the following period: "add page" after a planner page
-  continues the dates (in its calendar).
+  `PlannerCalendar` (week start, language), or the `image` blob of a user's template — and its
+  **look** (`templates/paper_look.dart`, `PaperLook`): spacing in mm (for styles with a
+  `PitchKind`: lines, grid, dots, staff; `Paper.pitch` is the effective pitch), line weight and
+  dot size (× default), pattern colour (null = the paper colour's) and opacity, the ruled margin
+  line on/off and a header area (`PaperStyle.hasHeader`: a band of 9 % of the page ruled off at
+  the top, the pattern below it). Stored as `pages.paper` (style name) + `pages.paper_data`
+  (JSON, `Paper.toData`, look under `look`), synced as `paper` + `paperData`. Equality includes
+  calendar and look; planner links match with `Paper.sameSheet` (any look), and `sibling` /
+  `next` keep the look. A notebook's `paper` (default for new pages, canvas background) is a
+  `Paper` without parameters, look included (`notebooks.paper` + `paper_data`). `Paper.next` is
+  the following period: "add page" after a planner page continues the dates (in its calendar).
+- **Paper colour.** `PaperColor` is a preset (white, cream, grey, dark) or `PaperColor.custom`
+  (stored `#RRGGBB`), whose pattern and text colours are derived from its luminance.
 - **Geometry ("painter").** `PaperPattern.of(paper, area, page:, minPitch:)` builds a
   template's pieces for an area, independent of the target: lines with weights (`fine`,
   `normal`, `heavy`, `margin`), dots, `PatternLabel`s (printed text: dates, headings), tinted
@@ -406,7 +413,8 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   Repeating detail closer than `minPitch` (too dense at the current zoom) is left out while
   structure stays, so graph paper gains its millimetre lines as you zoom in.
 - **Drawing.** `PaperRenderer` (`ink/render/paper_painter.dart`) draws a pattern on screen, in
-  thumbnails, miniatures and PNG export — vector lines and text in the UI font (laid-out
+  thumbnails, miniatures and PNG export, with the look's colour, opacity, line weight and dot
+  size (lines are device-pixel hairlines × weight) — vector lines and text in the UI font (laid-out
   paragraphs cached), crisp at any zoom; image templates are drawn over the page from a
   `PaperImageLookup` (the shared `ElementImages` cache; the editor repaints when one is
   decoded). `PdfTemplateWriter` writes the same pattern into exported PDFs as vectors, labels
@@ -444,7 +452,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   as it looks (paper, background, ink, content). Pages made from a template reference the
   blob directly (`Paper.image`), so renaming or deleting a template never changes them.
 - **Picker** (`features/documents/templates/`). `TemplateChooser` (search, category chips,
-  `TemplateGallery` of live miniatures, `PlannerOptions`, paper colour, page size) is shared by
+  `TemplateGallery` of live miniatures, `PlannerOptions`, `PaperOptions`, page size) is shared by
   the template picker (new page, change one / all pages, canvas background) and the
   new-notebook sheet; `templateSections` / `TemplateSelection` (`template_catalog.dart`) hold
   the logic. Planners generate a range when creating or adding ("Add 31 pages"); "Apply to all
@@ -453,7 +461,14 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   notebook, Export and the cover sheet): a centred dialog from `Breakpoints.medium`, where the
   chooser is `split` — gallery left, `TemplateOptions` (preview, planner options, paper colour,
   size) in a 300 dp column right, each scrolling on its own — and a bottom sheet on phones,
-  stacked. `TemplateGallery.fillWidth` picks the column count whose tiles come closest to the
+  stacked. **`PaperOptions`** (`paper_options.dart`, rows in `paper_option_rows.dart`) is the
+  one compact "Paper" section: an actual-size `PaperSwatch` of the page's top-left corner, paper
+  colour dots (+ custom picker, `ui/color_picker/pick_color.dart`), pattern colour (Auto,
+  presets, custom) and opacity, spacing (slider + `PitchKind.presets`, e.g. narrow / college /
+  wide), line weight or dot size, and Margin line / Header chips — only what the style uses;
+  Reset restores the standard look. Choosing another template keeps the look but not the
+  spacing (`TemplateSelection.paperFor`); the selected tile shows the selection itself.
+  `TemplateGallery.fillWidth` picks the column count whose tiles come closest to the
   preferred width and stretches them to fill the row; paper colours and formats are
   `EvenChoices` (equal-width chips in one row, or two even rows).
 - Pages carry their paper colour and size; new pages copy the current page's paper and size.
@@ -1055,8 +1070,20 @@ surface.
   field and the renderer the same complete (non-inheriting) styles, so text
   wraps identically while edited and once committed. The whole session is
   one undoable edit (an emptied box is deleted). See *Text boxes*.
-- **Laser pointer**: a fading trail (`tools/laser.dart`) kept only in
-  memory, animated by a ticker while visible.
+- **Laser pointer** (`tools/laser.dart`, `render/laser_painter.dart`,
+  `render/laser_ribbon.dart`, `features/editor/tools/laser_overlay.dart`): `LaserTrail` keeps
+  the samples (at least 1.5 px apart on screen; the dot follows every one) in a fixed-size ring
+  buffer of typed arrays, stamped with frame time; `LaserOverlay` owns a `RepaintBoundary`, a
+  `CustomPaint` repainting from the trail (no widget rebuilds) and a ticker that runs only while
+  something is visible. `LaserPainter` draws, in screen space, a centripetal Catmull-Rom curve
+  through the samples as two vertex meshes with per-vertex colours (`LaserRibbon`: a wide soft
+  glow, a bright core whitened in the middle — lanes transparent at the edges, so no blur
+  filter), narrowing and fading with age (smoothstep), plus a radial-gradient dot at the pointer.
+  `LaserConfig` (in `ToolSettings`, persisted): dot or trail mode, colour (six presets or
+  custom), size and trail duration (0.3–3 s), set in the tool's options popup
+  (`LaserOptionsPanel`, with a live preview). The old painter drew two lines per sample, one
+  with a blur mask filter — hundreds of blurs per frame; `test/perf/laser_perf_test.dart`
+  measures a move (0 rebuilds, 1 paint) and a full trail against it.
 
 `InkEdit` carries strokes and elements; merging cancels intermediate
 values on both, so undo/redo and sync treat text and ink alike.

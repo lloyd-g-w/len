@@ -195,7 +195,7 @@ class _InkLabScreenState extends State<InkLabScreen> with TickerProviderStateMix
                 viewport: session.viewport,
                 input: session.input,
                 live: session.live,
-                paper: PaperStyle.blank,
+                paper: Paper.blank,
               ),
             ),
           ),

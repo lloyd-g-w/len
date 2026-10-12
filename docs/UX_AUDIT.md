@@ -1,5 +1,25 @@
 # Len — UX/UI audit
 
+## Paper and laser pointer (`feat/paper`)
+
+User feedback: page settings lacked customisation (dot spacing, colours); the
+laser pointer was not customisable and "crazy slow". Reviewed from
+`test/goldens/paper_looks.png`, `template_picker*.png` and `laser.png`.
+
+- ✅ **Paper options**: one compact "Paper" section in the template picker
+  (change page / all pages, add page, new notebook, canvas background): an
+  actual-size preview, paper colour (presets + custom), pattern colour
+  (Auto + presets + custom) and opacity, spacing (slider + presets such as
+  narrow / college / wide), line weight or dot size, margin line and header
+  chips — only the controls the template uses, with Reset.
+- ✅ Dots no longer sit on the page edges: dotted pages are centred.
+- ✅ **Laser pointer**: dot or trail, six colours + custom, size and trail
+  length in its options popup; soft glow with a bright core on a smooth,
+  fading, thinning curve. Fast: no blur filters, a ring buffer and a
+  self-contained repaint (see ARCHITECTURE *Editing tools*).
+- ⬜ The laser dot shows only while pressed; a hover dot for mouse
+  presenters would be nice.
+
 ## Workspace features (`feat/workspace`)
 
 Split view, the customisable toolbar, presentation mode and double-tap zoom,

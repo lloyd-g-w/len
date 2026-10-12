@@ -46,12 +46,13 @@ class PageRepository extends SyncableTable {
   /// styles that need parameters).
   NotebookPage addPage(
     String notebookId, {
-    PaperStyle? paper,
+    Paper? paper,
     PageTemplate? template,
     NotebookPage? after,
   }) {
-    final style = paper == null || paper.needsParams ? PaperStyle.blank : paper;
-    final t = template ?? PageTemplate.of(style);
+    final t =
+        template ??
+        PageTemplate(paper: paper == null || paper.style.needsParams ? Paper.blank : paper);
     return insertPages(notebookId, [specOf(t)], after: after).single;
   }
 
@@ -240,7 +241,7 @@ class PageRepository extends SyncableTable {
         width: width,
         height: height,
         paper: paper,
-        paperColor: f.choice('paperColor', PaperColor.values),
+        paperColor: PaperColor.tryParse(f.string('paperColor')) ?? f.invalid('paperColor'),
         bookmarked: f.boolean('bookmarked'),
         background: background,
       ),
@@ -294,7 +295,7 @@ class PageRepository extends SyncableTable {
     try {
       final json = jsonDecode(data);
       if (json is Map<String, Object?>) {
-        return Paper.fromData(PaperStyle.parse(style), json) ?? Paper.blank;
+        return Paper.fromData(PaperStyle.parse(style), json, requireLook: false) ?? Paper.blank;
       }
     } on FormatException {
       // Corrupt local data reads as blank paper.

@@ -92,7 +92,7 @@ class TemplateGallery extends StatelessWidget {
   }
 
   Widget _tile(TemplateEntry entry, double width) {
-    final template = selection.templateFor(entry);
+    final template = selection.tileTemplate(entry);
     final user = entry is MyTemplate ? entry.template : null;
     final tileWidth = user == null ? width : width * (user.width / user.height) / (1 / 1.414);
     return TemplateTile(

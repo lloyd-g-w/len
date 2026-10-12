@@ -31,7 +31,7 @@ class InkSurface extends StatefulWidget {
   final ViewportController viewport;
   final InkInputController input;
   final LiveInk live;
-  final PaperStyle paper;
+  final Paper paper;
   final PaperColor paperColor;
 
   /// The page rectangle for paged notebooks; null for an infinite canvas.
@@ -130,7 +130,7 @@ class _InkSurfaceState extends State<InkSurface> {
                   child: CustomPaint(
                     painter: PaperPainter(
                       viewport: widget.viewport,
-                      style: widget.paper,
+                      paper: widget.paper,
                       paperColor: widget.paperColor,
                       page: widget.page,
                     ),
