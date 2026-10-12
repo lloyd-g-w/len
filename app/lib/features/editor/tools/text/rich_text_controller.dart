@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../../../domain/text/html_text.dart';
 import '../../../../domain/text/rich_text_buffer.dart';
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_layout.dart';
+import '../../../../platform/clipboard_html.dart';
 
 /// The text field controller of a text box being edited: keeps the
 /// formatted text in a [RichTextBuffer] and renders it with
@@ -20,6 +22,7 @@ import '../../../../ink/elements/text_layout.dart';
 /// collapsed caret, on what is typed next).
 class RichTextController extends TextEditingController {
   RichTextController(TextData data) : _box = data, _buffer = RichTextBuffer(data) {
+    watchClipboardPastes();
     _sync(const TextSelection.collapsed(offset: 0));
   }
 
@@ -46,10 +49,16 @@ class RichTextController extends TextEditingController {
   /// plain text keeps the formatting.
   static ({String text, List<SpanStyle> styles})? _richClip;
 
+  /// Whether [text] was last copied from a box here (pasting it keeps
+  /// that formatting, so it wins over the clipboard's HTML).
+  static bool isOwnClip(String text) => _richClip?.text == _clean(text);
+
+  static String _clean(String text) => text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n');
+
   /// [text] from the clipboard as a new box formatted like [box]; text
   /// last copied from a box here keeps its formatting.
   static TextData pasted(String text, TextData box) {
-    final clean = text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n');
+    final clean = _clean(text);
     final clip = _richClip;
     final base = box.copyWith(text: clean);
     if (clip == null || clip.text != clean) return base;
@@ -166,7 +175,7 @@ class RichTextController extends TextEditingController {
       s++;
     }
     final removedEnd = o.length - s;
-    final inserted = n.substring(p, n.length - s).replaceAll('\uFFFC', '');
+    var inserted = n.substring(p, n.length - s).replaceAll('\uFFFC', '');
     var start = _offsets.toModel(p), end = _offsets.toModel(removedEnd);
     final composing = _composing(next.composing, p, n.length - s, start);
     final line = _buffer.lineOf(start);
@@ -201,7 +210,14 @@ class RichTextController extends TextEditingController {
         : end > start && _buffer.text.codeUnitAt(start) != 0x0A
         ? _buffer.charStyle(start)
         : _buffer.styleAt(start);
-    _buffer.replace(start, end, inserted, style);
+    // A browser paste (web) of HTML from another app: formatted.
+    final rich = inserted.isEmpty || clip?.text == inserted ? null : _pastedHtml(inserted);
+    if (rich != null) {
+      _buffer.insertRich(start, end, rich, style);
+      inserted = rich.text;
+    } else {
+      _buffer.replace(start, end, inserted, style);
+    }
     if (clip != null && clip.text == inserted && inserted.isNotEmpty) {
       for (var i = 0; i < inserted.length; i++) {
         _buffer.updateChars(start + i, start + i + 1, (_) => clip.styles[i]);
@@ -279,6 +295,29 @@ class RichTextController extends TextEditingController {
       _pending = null;
       _changedKeeping(TextRange.collapsed(r.start));
     }
+  }
+
+  TextData? _pastedHtml(String inserted) {
+    final html = htmlPastedAs(inserted);
+    return html == null ? null : textFromHtml(html, _box);
+  }
+
+  /// Pastes formatted text from another app over the selection.
+  void pasteRich(TextData fragment) {
+    final r = modelSelection;
+    _buffer.insertRich(r.start, r.end, fragment, _buffer.styleAt(r.start));
+    _pending = null;
+    _changedKeeping(TextRange.collapsed(r.start + fragment.text.length));
+  }
+
+  /// Pastes [text] without formatting over the selection (it takes the
+  /// caret's style).
+  void pastePlain(String text) {
+    final r = modelSelection;
+    final clean = _clean(text);
+    _buffer.replace(r.start, r.end, clean, currentStyle);
+    _pending = null;
+    _changedKeeping(TextRange.collapsed(r.start + clean.length));
   }
 
   // ---------------------------------------------------------------------

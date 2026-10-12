@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/html_css.dart';
 import 'package:len/domain/text/html_text.dart';
+import 'package:len/domain/text/rich_text_buffer.dart';
 import 'package:len/domain/text/text_data.dart';
 
 const _box = TextData(fontSize: 20, font: TextFont.lora);
@@ -185,5 +186,28 @@ void main() {
     expect(parseColor('rgb(255,255,255)'), isNull);
     expect(parseColor('transparent'), isNull);
     expect(parseColor('red'), 0xFFFF0000);
+  });
+
+  group('RichTextBuffer.insertRich', () {
+    const caret = SpanStyle(size: 30, color: 0xFF0000FF);
+    final item = TextData.rich(
+      text: 'item',
+      paras: const [ParaStyle(list: ListKind.bullet)],
+      spans: const [StyledRange(0, 4, caret)],
+    );
+
+    test('one formatted line pasted into a list item keeps the item', () {
+      final b = RichTextBuffer(item)..insertRich(4, 4, _parse('<p>, and <b>more</b></p>'), caret);
+      final d = b.toData(_box);
+      expect(d.text, 'item, and more');
+      expect(d.paras, const [ParaStyle(list: ListKind.bullet)]);
+      expect(d.charStyles()[11], const SpanStyle(bold: true, size: 30, color: 0xFF0000FF));
+    });
+
+    test('lines take the fragment paragraph styles; a filled line too', () {
+      final b = RichTextBuffer(item)
+        ..insertRich(0, 4, _parse('<h1>T</h1><ol><li>x</li></ol>'), caret);
+      expect(b.toData(_box).paras, const [ParaStyle(heading: 1), ParaStyle(list: ListKind.number)]);
+    });
   });
 }

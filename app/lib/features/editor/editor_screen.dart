@@ -426,6 +426,7 @@ class _EditorScreenState extends State<_EditorView> {
                 ? null
                 : () => tabs.close(_notebook.id),
             paste: () => _session.images.paste(context),
+            pastePlain: () => _session.images.paste(context, plain: true),
           ),
           child: Focus(
             focusNode: _focusNode,
