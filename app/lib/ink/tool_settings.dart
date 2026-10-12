@@ -30,7 +30,6 @@ class ToolSettings extends ChangeNotifier {
     if (store == null) return;
     final json = store.toolPrefs;
     if (json != null) _restore(json);
-    _favorites = _normalizedFavorites(store.favoriteColors);
   }
 
   final SettingsRepository? _store;
@@ -43,19 +42,16 @@ class ToolSettings extends ChangeNotifier {
   LaserConfig _laser = const LaserConfig();
   TextData _text = const TextData();
   bool _holdToStraighten = true;
-  List<int> _favorites = const [];
   List<int> _recent = const [];
   EditorTool _lastInk = EditorTool.pen;
   bool? _stylusOnly;
-
-  static const int maxFavorites = 16;
 
   /// The inks offered in the toolbar: the pen (ballpoint) and highlighter.
   static const List<InkTool> inks = [InkTool.ballpoint, InkTool.highlighter];
 
   EditorTool get tool => _tool;
   set tool(EditorTool value) {
-    if (value == _tool || (value == EditorTool.selectText && !_selectTextAvailable)) return;
+    if (value == _tool) return;
     _select(value);
     notifyListeners();
   }
@@ -63,18 +59,6 @@ class ToolSettings extends ChangeNotifier {
   void _select(EditorTool value) {
     _tool = value;
     if (value == EditorTool.pen || value == EditorTool.highlighter) _lastInk = value;
-  }
-
-  bool _selectTextAvailable = false;
-
-  /// Whether [EditorTool.selectText] is offered: the open notebook has
-  /// imported PDF pages. Turning it off leaves the tool for the pen.
-  bool get selectTextAvailable => _selectTextAvailable;
-  set selectTextAvailable(bool value) {
-    if (value == _selectTextAvailable) return;
-    _selectTextAvailable = value;
-    if (!value && _tool == EditorTool.selectText) _tool = EditorTool.pen;
-    notifyListeners();
   }
 
   /// The ink the colour/width controls currently edit: the highlighter
@@ -117,20 +101,6 @@ class ToolSettings extends ChangeNotifier {
   void stepWidth(int delta) {
     final c = activeConfig;
     selectWidth((c.widthIndex + delta).clamp(0, c.widths.length - 1));
-  }
-
-  /// Draws with [tool] (pen or highlighter) in [color] and [width] (a
-  /// favourite pen): selects the quick colour and width slots holding
-  /// them, or puts them into the selected slots, as picking a colour does.
-  void usePreset(EditorTool tool, {required int color, required double width}) {
-    final ink = tool == EditorTool.highlighter ? InkTool.highlighter : InkTool.ballpoint;
-    _select(tool == EditorTool.highlighter ? tool : EditorTool.pen);
-    updateConfig(ink, (c) {
-      final ci = c.colors.indexOf(color);
-      c = ci == -1 ? c.withColor(c.colorIndex, color) : c.copyWith(colorIndex: ci);
-      final wi = c.widths.indexWhere((w) => (w - width).abs() < 1e-3);
-      return wi == -1 ? c.withWidth(c.widthIndex, width) : c.copyWith(widthIndex: wi);
-    });
   }
 
   void _leaveNonInk() {
@@ -185,24 +155,6 @@ class ToolSettings extends ChangeNotifier {
     _changed();
   }
 
-  /// Saved favourite colours (ARGB), most recent first.
-  List<int> get favorites => _favorites;
-
-  /// Saves [argb] as the most recent favourite (moving it to the front if
-  /// already saved); keeps at most [maxFavorites].
-  void addFavorite(int argb) {
-    _favorites = _normalizedFavorites([argb, ..._favorites]);
-    _store?.favoriteColors = _favorites;
-    notifyListeners();
-  }
-
-  /// Forgets favourite [argb].
-  void removeFavorite(int argb) {
-    _favorites = _favorites.where((c) => c != argb).toList();
-    _store?.favoriteColors = _favorites;
-    notifyListeners();
-  }
-
   /// Colours recently picked for quick colour slots (opaque ARGB), most
   /// recent first, at most [RecentColors.max].
   List<int> get recentColors => _recent;
@@ -227,9 +179,7 @@ class ToolSettings extends ChangeNotifier {
   /// Takes over [other]'s tool and customisation (linked tools of a split
   /// view). Notifies only when something differed; [other] persists it.
   void adopt(ToolSettings other) {
-    final tool = other._tool == EditorTool.selectText && !_selectTextAvailable
-        ? _tool
-        : other._tool;
+    final tool = other._tool;
     final same =
         tool == _tool &&
         _eraser == other._eraser &&
@@ -255,7 +205,7 @@ class ToolSettings extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Persistence
 
-  /// The persisted customisation (favourites are stored separately).
+  /// The persisted customisation.
   Map<String, Object?> toJson() => {
     'pens': {for (final e in _configs.entries) e.key.name: e.value.toJson()},
     'eraser': _eraser.toJson(),
@@ -289,10 +239,6 @@ class ToolSettings extends ChangeNotifier {
     _laser = LaserConfig.fromJson(data['laser']);
     if (data['text'] case final Map<String, Object?> text) _text = TextData.fromJson(text);
   }
-
-  /// Distinct colours, first occurrence first, at most [maxFavorites].
-  static List<int> _normalizedFavorites(Iterable<int> colors) =>
-      colors.toSet().take(maxFavorites).toList(growable: false);
 
   void _changed() {
     notifyListeners();

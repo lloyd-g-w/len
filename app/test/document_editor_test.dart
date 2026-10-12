@@ -158,7 +158,7 @@ void main() {
     final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Page layout'));
+    await tester.tap(find.text('View'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('One page at a time'));
     await tester.pumpAndSettle();
@@ -190,8 +190,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    await tester.tap(find.byTooltip('Bookmark page'));
-    await tester.pumpAndSettle();
+    await menu('Bookmark page');
     expect(pages()[1].bookmarked, isTrue);
     await menu('Duplicate page');
     expect(pages(), hasLength(5));

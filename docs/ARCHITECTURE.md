@@ -244,14 +244,14 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   after a remote deletion, touch + sync after edits), `editor_commands.dart` (rename,
   canvas background), `editorScreenShortcuts` and `canvasMenuAt`. It composes
   `EditorCanvas` (surface, "Add page" footer, content layer) with `EditorChrome`
-  (`chrome/`): `EditorTopBar` (on every size: back, then the title —
-  start-aligned, tap to rename, with the folder as a quiet subtitle — then, in groups,
-  pages and bookmark, insert image and search | undo/redo | export, focus, "⋯"
-  `EditorMoreMenu`; the phone variant keeps back, title, insert image, undo/redo and the
-  tab switcher, and moves search, pages, bookmark and export into the menu), `ToolbarSlot` (hosts the pen toolbar at
-  the top, bottom or floating by a grip; animated), `PageNavigator`, `GestureHud` (counts
+  (`chrome/`): `EditorTopBar` (fixed clusters: navigation — back, ▦ pages, the title,
+  start-aligned, tap to rename, with the folder as a quiet subtitle — then the tools when
+  they are docked inside the bar, then actions — the 🎙▾ audio split button, undo/redo and
+  "⋯" `EditorMoreMenu`; phones keep back, the title, undo/redo and ⋯), the toolbar
+  (inside the bar, attached under it, the phone's bottom row, or floating in `ToolbarSlot`
+  by a grip; see *Toolbar*), `PageNavigator`, `GestureHud` (counts
   repeats: "Undo ×3"), `TipBanner` and, in focus mode, only a `FocusHandle`. On phones
-  (< 640 px) the page navigator *peeks* (`chrome/peeking.dart`): it shows when the
+  (< 600 px) the page navigator *peeks* (`chrome/peeking.dart`): it shows when the
   notebook opens and while the document viewport moves, fades after ~2 s (stays while
   touched or hovered), lets touches through when hidden, and takes no room in
   `ChromeLayout.covered` — so it no longer covers the page above the toolbar. `ChromeLayout` says how much of each screen edge
@@ -286,7 +286,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   wide and ≥ 560 px on the short side — never phones or portrait tablets): a second pane
   shows another open tab or the active notebook again (two places in one notebook).
   `OpenNotebooks.splitId` / `splitFraction` / `splitView` hold it (memory,
-  like tabs). Opened from the top bar's split button (`SplitViewButton`: this notebook
+  like tabs). Opened from "⋯" → *Open in split view* (`SplitViewMenu`: this notebook
   or another tab; while split: *Swap panes*, *Close split
   view*) or a tab's menu (right click / long press → *Open in split view*). `SplitView`
   lays out the panes in a `Stack` whose first child keeps its place in every layout, so
@@ -343,7 +343,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   its editors (notebook record, page lists, surfaces, PDFs) and sets `gone` when the
   notebook is deleted or trashed elsewhere. One microphone: a notebook can't start
   recording while another records ("Already recording in …").
-- **Focus mode** (`EditorScreen._setFocus`; "⋯" → *Focus mode*, F11, Ctrl/⌘+.) hides
+- **Focus mode** (`EditorScreen._setFocus`; "⋯" → View → *Focus mode*, F11, Ctrl/⌘+.) hides
   all chrome (`ChromeLayout.focus`) but the `FocusHandle`, and goes immersive / full
   screen (`platform/fullscreen*`: the browser's fullscreen API on the web; Android hides
   the system bars; Linux and Windows windows go full screen through the runners'
@@ -361,7 +361,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   a saved view opens centred on its content (`CanvasNavigation.open`: `contentBounds`,
   fitted into the area the chrome leaves free, at most 100 %; an empty canvas stays at
   the origin), after the chrome's insets are known so nothing starts under the toolbar.
-- **Page zoom** (`document/page_fit.dart`, "⋯" → Page zoom, Shift+1 fit page, Shift+2
+- **Page zoom** (`document/page_fit.dart`, "⋯" → View, Shift+1 fit page, Shift+2
   fit width, `0` automatic): `PageFit.width` fills the width, `PageFit.page` shows the
   whole page, `PageFit.auto` fits the width but at most 1.4× and so that ≥ 55 % of the
   page's height shows (landscape tablets and desktops see most of a page instead of a
@@ -374,6 +374,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   flow fits the whole page and slides it in.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
   P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
+  Ctrl/⌘+E export (paged), Ctrl+F search;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
   Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
@@ -1227,16 +1228,22 @@ User customisation lives in `ToolSettings`, persisted as JSON in the local
 quick widths** (1–6 slots each, one of each selected) and feel settings
 (pressure sensitivity, stabiliser, straight lines; opacity for the
 highlighter — the pen is always opaque), plus eraser options,
-hold-to-straighten, the 8 **recent colours** (`RecentColors`: picked for a
-quick colour slot, noted when its editor closes; shown in that colour
-picker) and favourite colours. Parsing is strict (`PenConfigJson`,
+hold-to-straighten and the 8 **recent colours** (`RecentColors`: colours
+newly put into an ink's quick slots, noted when the tool options popover
+closes; shown in its palette and in the selection's Style colours).
+Parsing is strict (`PenConfigJson`,
 `EraserConfig.fromJson`): a part with a missing or invalid field keeps its
 defaults as a whole.
 
-The settings popovers (`features/editor/pen/`) are self-contained:
+The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, hold to
 snap) and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
 lines, hold to snap); Reset restores the feel settings, not the slots. The
+tool options popover hosts them unchanged under *Feel* (`InkOptions`,
+`pen/ink_options.dart`), inside an `EmbeddedOptions` scope that makes
+their title row (`FeelHeader`) and `PreviewCard` step aside, since the
+popover shows its own above: so a setting added to a panel shows up in the
+popover with no other change. The
 stabiliser shows "Off" at 0 (the pen's default: ink under the nib) and up to
 100 % (the live ink then trails the pen by ~6–15 px). **Straight lines**
 (`PenConfig.straight`, offered for the highlighter): every stroke is the line
@@ -1246,54 +1253,67 @@ stays on the Flutter path (no low-latency overlay) and is committed with
 stabiliser 0 (`PenConfig.styleFor`); the stabiliser and hold to snap are
 greyed out meanwhile.
 
-### Toolbar (`features/editor/`)
+### Toolbar (`features/editor/`, `toolbar/`)
 
-`EditorToolbar` is built from `ToolDescriptor`s (`editor_tools.dart`): icon,
-label, shortcut, ink colour, a contextual *strip* and a settings popover.
-More tools slot in by adding an `EditorTool` value and a descriptor. The
-tools are Pen (P), Highlighter (H), Eraser (E), Lasso (L), Shapes (S; its
-icon is the current shape, settings = shape picker, strip = the pen's slots,
-since shapes are drawn with the pen's colour and width), Text (T; settings =
-defaults for new boxes) and Laser pointer (K). For inks the strip is a row of
-colour slots beside a row of width slots (dots at scaled real size, in a recessed track) — one tap
-picks either; the selected slot sits on a tonal disc; every target is ≥ 40 px.
-Tapping the selected slot (or long-pressing / right-clicking any) edits it
-(colour picker, or slider with a live stroke preview; both can remove the
-slot); `+` adds one. Groups (tools | quick controls | settings and palm
-rejection) are separated by dividers. "⋯" → Toolbar → *Show tool names*
-(`AppPreferences.toolbarLabels`) puts short names under the tool icons when
-the row still fits. When the full row doesn't fit (phones), the toolbar stays
-**one row**: a `ToolSwitcherButton` showing the active tool (tap: the
-`ToolSwitcherPanel` popover with every tool as a labelled tile, the tool's
-settings and "Draw with stylus only"; long press: settings) followed by the
-tool's quick controls (`ToolDescriptor.compactStrip`, without the `+`
-buttons when short of room; scrolls if still too wide).
-Picking a quick colour or width from a tool that draws no ink (lasso, text,
-laser) switches to the pen. Shortcuts: P / H / E / L / S / T / K, 1–6 colour
-slots, [ / ] thinner / thicker (plus the canvas keys `+` `-` `0` Shift+1 Home).
+`EditorToolbar` is built from `ToolDescriptor`s (`editor_tools.dart`, a fixed
+order): icon, label, shortcut, ink colour, a quick-control *strip* (with its
+width) and its section of the options popover. More tools slot in by adding an
+`EditorTool` value and a descriptor. The tools are Pen (P), Highlighter (H),
+Eraser (E), Lasso (L), Shapes (S; its icon is the current shape), Text (T) and
+Laser pointer (K), then **Insert ⊕** (`toolbar/insert_menu.dart`; a button, not
+a tool: Image…, Take photo on Android, and in notebooks Pages from PDF… and
+Page with template…).
 
-Placement is a preference (`ToolbarPlacement`: docked / floating, in the "⋯"
-menu and the settings); `ToolbarSlot` hosts it. *Docked* (`resolvePlacement`
-→ `ToolbarPosition`) puts it under the top bar from 960 px wide if it fits
-there on one row whichever tool is active, otherwise at the bottom. The slot
-measures the toolbar and `ChromeLayout` uses that height for
-the screen edge it covers, so document scrolling, the page navigator and the
-canvas overlays (zoom pill, fit button) keep clear of it.
+- **`ToolCluster`** (`toolbar/tool_cluster.dart`): the tool buttons in fixed
+  cells (44 dp with a pointer, 48 on touch) over one neutral `xs` plate
+  (`Surfaces.pressed`) that slides to the active tool in `Motion.fast`.
+  Inking tools show their colour as a bar under the glyph. Tap selects; tapping
+  the active tool, a long press or a right click opens its options.
+- **`ToolStrip`** (`toolbar/tool_strip.dart`): the active tool's quick
+  controls, cross-fading as it changes: Pen and Highlighter, their **colour
+  slots then width slots** (`pen/ink_strip.dart`; 3 + 3 by default, 1–6 each,
+  independent); Eraser, three size slots; Shapes, a kind button and the pen's
+  slots; Laser, three colour slots (red, green, blue); Lasso and Text, none.
+  Slots (`pen/slot_button.dart`) are 22-dp swatches or neutral dots at real
+  size (4–20 dp) in 36-dp cells (44 on touch); the selected one gets a 2-px
+  `onSurface` ring with a 2-px gap. Tapping the selected slot, a long press or
+  a right click opens the tool's options on it. Picking a quick colour or width
+  from a tool that draws no ink switches to the pen.
+- **One options popover** (`toolbar/tool_options_popover.dart`,
+  `showToolOptions`): `showAdaptivePopover`, anchored and 320 dp wide, a
+  sheet on phones; edits apply live. Sections: inks (`InkOptions`: title and
+  Reset, live preview, Colour with − n + for the slot count, the selected
+  slot's colour from the palette, recent colours or Custom (HSV, inline),
+  Width with − n + and a slider for the selected slot, then *Feel* collapsed);
+  `EraserOptionsPanel`; `LassoOptionsPanel` (what it does); Shapes
+  (`ShapeOptionsPanel` and "Hold to snap shapes"); `TextOptionsPanel`;
+  `LaserOptionsPanel` (`ToolSettings.laser`: dot / trail, colours, size,
+  trail length).
+- **Where it goes** (`ToolbarDock`, decided by `ToolbarMeasure.dockFor` from
+  the *pane's* width, so split panes lay out on their own): with
+  `ToolbarPlacement.docked` it sits **inside the top bar** when the bar fits
+  it on one row (`ToolbarMetrics.oneRow`: navigation with a 120-dp title,
+  the tools, the reserved strip, the actions; about 1 040 dp), centred when
+  the clusters beside it have room; else in a **48-dp row attached under the
+  bar** (tools centred, the strip after them; short of room, as in a split
+  pane on touch, its cells shrink to the 40 / 36-dp visuals through
+  `ToolbarDensity`, and shorter still the strip scrolls); in panes under 600 dp in a
+  **56-dp bottom row** (`ToolSwitcherButton` `[✎▾]`, whose popover is a 4 × 2
+  grid of the tools and Insert, then the strip, scrolling if needed). With
+  `ToolbarPlacement.floating` (⋯ → View, or Settings → Writing) it is a
+  `raised` palette dragged by its grip (`ToolbarSlot`; it covers no edge).
+  The strip's width is reserved at its widest across tools, so switching
+  tools moves nothing and never changes the layout.
+- **Rebuilds**: the cluster, strip and switcher listen to `ToolSettings`
+  themselves; the chrome host, top bar and canvas never rebuild on a tool
+  change (`test/toolbar_test.dart` counts rebuilds). `ToolbarMeasure`
+  notifies only when the reserved strip width changes (slots added or
+  removed), which may move the toolbar between the bar and its row.
 
-**Customising** ("⋯" → Toolbar → *Customise toolbar…*): `ToolbarConfig`
-(`toolbar/toolbar_config.dart`, JSON in the local setting `toolbar_layout`,
-`AppPreferences.toolbarLayout`; null = default) holds the tool order, hidden tools and
-up to 8 **favourite pens** (`FavouritePen`: pen or highlighter + colour + width).
-`EditorToolbar`, `oneRowWidth` (docked placement) and the phone `ToolSwitcherPanel`
-arrange the descriptors with it (`ToolbarConfig.arrange`; the active tool shows even
-when hidden, e.g. picked by its shortcut). Favourites sit in their own group after the
-tools (and under the tools in the switcher panel); one tap draws with one
-(`ToolSettings.usePreset`: selects the quick colour / width slots holding its values, or
-loads them into the selected slots, as picking a colour does). In edit mode the toolbar
-becomes `ToolbarEditor`: every tool as a tile (tap: show / hide, at least one stays;
-hold and drag: reorder, `ReorderableListView`; screen readers get Move left / right),
-the favourites (× removes, ☆ pins the pen in use), Reset and Done; on narrow screens
-the tools take a row of their own. Changes apply and persist immediately.
+Shortcuts: P / H / E / L / S / T / K, 1–6 colour slots, [ / ] thinner /
+thicker (plus the canvas keys `+` `-` `0` Shift+1 Home). Palm rejection is
+automatic (on at the first stylus contact); "⋯" → *Draw with finger* turns it
+off once a stylus has been seen.
 
 ### Ink rendering (`ink/render/`)
 
@@ -1710,7 +1730,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
 `SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
 stylus-only, finger-tap undo and redo (one switch), stylus side-button action
-(`PenButtonAction.eraser|lasso|none`), editor toolbar placement (and floating position) and tool names,
+(`PenButtonAction.eraser|lasso|none`), editor toolbar placement (docked / floating, and the floating position),
 library layout and sort, and the papers of the latest new notebooks. Getters always read
 the store, so values written elsewhere are never stale.
 
@@ -1757,8 +1777,8 @@ sheets, dialogs, empty states, selection, the page overview and 1.3× text; find
 in `docs/UX_AUDIT.md`.
 
 Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
-canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar and its popovers in
-`toolbar_screenshot_test.dart`; open-notebook motion frames in `transition_screenshot_test.dart`;
+canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar at every dock, its
+options popovers, Insert and ⋯ menus and 1.3× text in `toolbar_screenshot_test.dart`; open-notebook motion frames in `transition_screenshot_test.dart`;
 every template at 25 / 100 / 300 % and the picker in `templates_screenshot_test.dart`)
 at phone, tablet and desktop sizes in light and dark with real fonts. Run
 `flutter test test/screenshots --dart-define=SCREENSHOTS=true` and look at

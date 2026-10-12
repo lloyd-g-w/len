@@ -52,7 +52,7 @@ void main() {
           await settle(tester);
           await tester.tap(find.byTooltip('More options'));
           await settle(tester);
-          await tester.tap(find.text('Page zoom'));
+          await tester.tap(find.text('View'));
           await settle(tester);
           await shoot(tester, 'e_page_zoom_menu_$shot');
           await tester.tap(find.text('Page'));
@@ -137,7 +137,9 @@ void main() {
           phoneInsets: true,
           before: moreTabs,
         );
-        await tester.tap(find.byTooltip('Open notebooks'));
+        await tester.tap(find.byTooltip('More options'));
+        await settle(tester);
+        await tester.tap(find.textContaining('Open notebooks'));
         await settle(tester);
         await shoot(tester, 'e_tab_switcher_phone_${mode.name}');
       });

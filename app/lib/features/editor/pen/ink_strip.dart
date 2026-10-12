@@ -2,40 +2,33 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
+import '../toolbar/toolbar_metrics.dart';
 import 'ink_slots.dart';
-import 'slot_button.dart';
 
-/// The pen's or highlighter's quick controls: its colour row and, beside
-/// it, its width row — independent, so one tap changes either.
+/// The pen's or highlighter's quick controls: its colour slots, then its
+/// width slots, 12 apart. Independent, so one tap changes either; slot
+/// counts (1–6 each) are set in the tool's options.
 class InkStrip extends StatelessWidget {
-  const InkStrip({super.key, required this.tools, required this.ink, this.showAdd = true});
+  const InkStrip({super.key, required this.tools, required this.ink, required this.onEdit});
 
   final ToolSettings tools;
   final InkTool ink;
 
-  /// Whether the rows offer "+" to add a slot.
-  final bool showAdd;
+  /// Opens the tool's options anchored to a slot.
+  final SlotEdit onEdit;
 
-  /// Width the strip needs for [config] (for choosing the toolbar layout),
-  /// with or without the "+" buttons.
-  static double widthFor(PenConfig config, {bool showAdd = true}) {
-    int row(int n) => showAdd && n < PenConfig.maxSlots ? n + 1 : n;
-    return (row(config.colors.length) + row(config.widths.length)) * SlotButton.size + 13;
-  }
+  /// Width the strip needs for [config] with [slot] cells.
+  static double widthFor(PenConfig config, double slot) =>
+      (config.colors.length + config.widths.length) * slot + ToolbarMetrics.groupGap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ColorSlots(tools: tools, ink: ink, showAdd: showAdd),
-        Container(
-          width: 1,
-          height: 20,
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
-        WidthSlots(tools: tools, ink: ink, showAdd: showAdd),
+        ColorSlots(tools: tools, ink: ink, onEdit: onEdit),
+        const SizedBox(width: ToolbarMetrics.groupGap),
+        WidthSlots(tools: tools, ink: ink, onEdit: onEdit),
       ],
     );
   }

@@ -6,6 +6,7 @@ import '../../../domain/stroke.dart';
 import '../../../ink/pen/pen_config.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import '../../../ui/app_theme.dart';
+import 'option_controls.dart';
 
 /// Draws a sample S-curve with real ink, to preview a pen's look and feel.
 class StrokePreview extends StatelessWidget {
@@ -115,6 +116,8 @@ class PreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The options popover shows its own preview above the embedded panel.
+    if (EmbeddedOptions.of(context)) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
       decoration: BoxDecoration(

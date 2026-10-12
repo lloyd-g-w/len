@@ -148,7 +148,9 @@ class StabiliserSlider extends StatelessWidget {
   );
 }
 
-/// An ink settings popover's title row with Reset (restores the feel defaults).
+/// An ink settings panel's title row with Reset (restores the feel defaults).
+/// Inside an [EmbeddedOptions] (the options popover's Feel section, which
+/// has its own header) it shows nothing.
 class FeelHeader extends StatelessWidget {
   const FeelHeader(this.title, {super.key, required this.onReset});
 
@@ -156,8 +158,26 @@ class FeelHeader extends StatelessWidget {
   final VoidCallback onReset;
 
   @override
-  Widget build(BuildContext context) => OptionHeader(
-    title,
-    trailing: TextButton(onPressed: onReset, child: const Text('Reset')),
-  );
+  Widget build(BuildContext context) {
+    if (EmbeddedOptions.of(context)) return const SizedBox.shrink();
+    return OptionHeader(
+      title,
+      trailing: TextButton(onPressed: onReset, child: const Text('Reset')),
+    );
+  }
+}
+
+/// Marks an options panel as hosted inside the tool options popover, which
+/// shows the title, Reset and the stroke preview itself: [FeelHeader] and
+/// `PreviewCard` then step aside. This lets the popover wrap the pen and
+/// highlighter panels without changing them.
+class EmbeddedOptions extends InheritedWidget {
+  const EmbeddedOptions({super.key, required super.child});
+
+  /// Whether [context] is inside an [EmbeddedOptions].
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<EmbeddedOptions>() != null;
+
+  @override
+  bool updateShouldNotify(EmbeddedOptions oldWidget) => false;
 }

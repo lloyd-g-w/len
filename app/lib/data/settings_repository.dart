@@ -14,7 +14,6 @@ class SettingsRepository {
   static const _syncLastSeq = 'sync_last_seq';
   static const _stylusOnly = 'stylus_only';
   static const _toolPrefs = 'tool_prefs';
-  static const _favoriteColors = 'favorite_colors';
 
   /// Stable per-installation id, created on first use.
   String deviceId([Clock clock = const Clock()]) {
@@ -58,13 +57,6 @@ class SettingsRepository {
   String? get toolPrefs => _get(_toolPrefs);
   set toolPrefs(String? value) => value == null ? _remove(_toolPrefs) : _set(_toolPrefs, value);
 
-  /// The user's saved favourite colours (ARGB), most recent first.
-  List<int> get favoriteColors => [
-    for (final part in (_get(_favoriteColors) ?? '').split(','))
-      if (int.tryParse(part) case final int c) c,
-  ];
-  set favoriteColors(List<int> colors) => _set(_favoriteColors, colors.join(','));
-
   // ---------------------------------------------------------------------------
   // Appearance, gestures and library view (prefer [AppPreferences], which
   // also notifies listeners).
@@ -96,23 +88,13 @@ class SettingsRepository {
   String? get pageFlow => _get('page_flow');
   set pageFlow(String? value) => value == null ? _remove('page_flow') : _set('page_flow', value);
 
-  /// Where the editor toolbar sits (default: automatic).
+  /// Where the editor toolbar sits (default: docked).
   ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
   set toolbarPlacement(ToolbarPlacement value) => _set('toolbar_placement', value.name);
 
   /// Ids of the editor's one-time tips already shown on this device.
   Set<String> get seenTips => {...?_get('tips_seen')?.split(',').where((id) => id.isNotEmpty)};
   void markTipSeen(String id) => _set('tips_seen', {...seenTips, id}.join(','));
-
-  /// Whether the editor toolbar shows tool names under the icons.
-  bool get toolbarLabels => _get('toolbar_labels') == 'true';
-  set toolbarLabels(bool value) => _set('toolbar_labels', '$value');
-
-  /// The editor toolbar's tool order, hidden tools and favourite pens
-  /// (JSON, see `ToolbarConfig`); null = the default toolbar.
-  String? get toolbarLayout => _get('toolbar_layout');
-  set toolbarLayout(String? value) =>
-      value == null ? _remove('toolbar_layout') : _set('toolbar_layout', value);
 
   /// Centre of the floating toolbar as a fraction of the editor size
   /// (x, y in 0..1); null = not placed yet.

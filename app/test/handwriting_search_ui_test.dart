@@ -40,7 +40,9 @@ void main() {
 
     await pumpEditorFor(tester, services, ideas);
     final viewport = tester.widget<CanvasView>(find.byType(CanvasView)).navigation.viewport;
-    await tester.tap(find.byTooltip('Search (Ctrl+F)'));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Search in notebook'));
     await tester.pumpAndSettle();
     await typeSearch(tester, 'gamma');
     await tester.tap(find.byTooltip('Next (Enter)'));

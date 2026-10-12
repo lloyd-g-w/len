@@ -50,6 +50,35 @@ Reviewed from the `library_`, `flows_`, `organise_` and `app_surfaces*` suites
 - ⬜ The sidebar shows sync as an icon beside Settings, not yet the "Synced 2m"
   caption of the spec's sketch.
 
+## Toolbar redesign (`feat/toolbar`, REDESIGN phases 3–4)
+
+User feedback: "the UI needs an entire overhaul — especially the toolbar and in
+notes". Reviewed from `test/screenshots/toolbar_screenshot_test.dart` (phone
+390, tablet portrait 800, tablet 1280, desktop 1440; light and dark; every
+tool's options popover; Insert and ⋯ menus; floating; 1.3× text) and the
+`workspace_` and `editor_` suites.
+
+- ✅ **One home per control.** The top bar keeps navigation (←, ▦, title),
+  the tools when they fit and the actions (🎙▾, ↶ ↷, ⋯); bookmark, insert
+  image, search, export, focus and split moved to ⋯, Insert ⊕ and shortcuts
+  (Ctrl/⌘+E export is new). The tune and palm buttons, tool names,
+  favourite pens and edit mode are gone.
+- ✅ **Docked by width, not by guess.** Inside the bar on wide panes, a row
+  attached under it on portrait tablets and split panes, a bottom row on
+  phones. The strip's width is reserved, so switching tools never moves a
+  button or relays out the page.
+- ✅ **Calm selection.** A neutral plate slides between tools; slots show a
+  2-px `onSurface` ring; widths are neutral dots at real size; dark inks get a
+  firmer edge on dark chrome.
+- ✅ **One options popover** for every tool (tap the active tool, or the
+  selected slot): colour (palette, recent, custom) and width of the selected
+  slot, slot counts (1–6 each), feel collapsed.
+- ✅ **Fast:** switching tools, picking slots and opening the popover rebuild
+  only the toolbar's parts (checked by a rebuild-count test).
+- ⬜ The floating palette doesn't snap to edges or go vertical yet (phase 6).
+- ⬜ The page navigator is still the old pill (phase 5: peeking indicator).
+- ⬜ Keyboard: no arrow-key navigation inside the tool cluster.
+
 ## Paper and laser pointer (`feat/paper`)
 
 User feedback: page settings lacked customisation (dot spacing, colours); the

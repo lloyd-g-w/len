@@ -175,7 +175,9 @@ void main() {
     await shoot(tester, 'editor_phone_more_menu');
     await tester.tapAt(const Offset(20, 700));
     await settle(tester);
-    await tester.tap(find.byTooltip('Open notebooks'));
+    await tester.tap(find.byTooltip('More options'));
+    await settle(tester);
+    await tester.tap(find.textContaining('Open notebooks'));
     await settle(tester);
     await shoot(tester, 'editor_phone_tabs');
   });

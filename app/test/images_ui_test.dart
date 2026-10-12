@@ -138,7 +138,7 @@ void main() {
   ) async {
     final (services, nb) = await openImageCanvas(tester);
     mockClipboardImage(pngOf(320, 160));
-    expect(find.byTooltip('Insert image'), findsOneWidget);
+    expect(find.byTooltip('Insert'), findsOneWidget);
     await ctrl(tester, LogicalKeyboardKey.keyV);
     await settleReal(tester, () => liveElements(services, nb.id).isNotEmpty);
     await tester.pumpAndSettle();

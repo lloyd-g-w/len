@@ -16,17 +16,13 @@ class EditorMenuActions {
     required this.onStylusOnly,
     required this.placement,
     required this.onPlacement,
-    this.toolLabels = false,
-    this.onToolLabels,
-    this.onCustomiseToolbar,
     required this.onSettings,
-    this.onSearch,
+    required this.onSearch,
     this.bookmarked = false,
     this.onToggleBookmark,
     this.onOverview,
     this.onPageCommand,
     this.onAddWithTemplate,
-    this.onInsertPdf,
     this.onExport,
     this.onOutline,
     this.onAddToOutline,
@@ -38,35 +34,32 @@ class EditorMenuActions {
   });
 
   final VoidCallback onBack;
+
+  /// Renames the notebook (a tap on the title).
   final VoidCallback onRename;
   final VoidCallback onFocusMode;
-  final bool stylusOnly;
+
+  /// Palm rejection; null until a stylus has been seen (then the menu
+  /// offers "Draw with finger").
+  final bool? stylusOnly;
   final ValueChanged<bool> onStylusOnly;
   final ToolbarPlacement placement;
   final ValueChanged<ToolbarPlacement> onPlacement;
-
-  /// Tool names under the toolbar's icons.
-  final bool toolLabels;
-  final ValueChanged<bool>? onToolLabels;
-
-  /// Puts the toolbar into edit mode (order, hidden tools, favourites).
-  final VoidCallback? onCustomiseToolbar;
-
   final VoidCallback onSettings;
 
-  /// Opens in-notebook search (a menu item on phones, where the bar has
-  /// no room for its button).
-  final VoidCallback? onSearch;
+  /// Opens in-notebook search (Ctrl+F).
+  final VoidCallback onSearch;
 
   // Paged notebooks.
   final bool bookmarked;
   final VoidCallback? onToggleBookmark;
+
+  /// Opens the page overview (▦ in the bar).
   final VoidCallback? onOverview;
   final ValueChanged<PageCommand>? onPageCommand;
   final VoidCallback? onAddWithTemplate;
-  final VoidCallback? onInsertPdf;
 
-  /// Opens the export sheet.
+  /// Opens the export sheet (Ctrl+E).
   final VoidCallback? onExport;
 
   /// Opens the outline: the notebook's own and its PDFs'.

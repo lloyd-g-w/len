@@ -15,12 +15,13 @@ import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
 /// The coordinates are for a toolbar docked at the top at 800 × 1300 (page 1
 /// ends at ~949 px on screen, page 2 starts just below it, ~966 px); [up]
 /// moves them to where the pages are with the toolbar at the bottom.
-/// Laid out for a toolbar docked at the top; at 800 px it docks at the
-/// bottom, so the pages sit higher on screen by its extent.
+/// Laid out for a toolbar docked at the top in a 72-dp band; at 800 px
+/// it is a 48-dp row under the bar, so the pages sit higher on screen by
+/// the difference.
 double _up = 0;
 List<Offset> up(List<Offset> points) => [for (final p in points) p.translate(0, -_up)];
 Future<void> _measure(WidgetTester tester) async =>
-    _up = tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.toolbarExtent;
+    _up = 72 - tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.toolRowHeight;
 
 void main() {
   Future<void> lasso(WidgetTester tester, Rect r) => mouseDrag(tester, [

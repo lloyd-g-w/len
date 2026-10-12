@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/design_tokens.dart';
-import '../../../ui/surfaces.dart';
+import '../toolbar/toolbar_metrics.dart';
 
-/// One quick-pick slot in the toolbar (a colour or a width): tap to select;
-/// tap again when selected, long-press or right-click to edit.
+/// One quick slot in the toolbar (a colour, a width or an eraser size):
+/// tap to select it; tap it again when selected, long-press or right-click
+/// to open the tool's options on it ([onEdit]).
 ///
-/// The selection ring is drawn in the theme's primary colour with a gap of
-/// toolbar surface between it and the content, so it reads on any swatch
-/// colour (white and black included) in light and dark themes.
+/// The selected slot gets a 2-px `onSurface` ring with a 2-px gap around
+/// its content, so it reads on any swatch colour (white and black
+/// included) in light and dark themes and never looks like another colour.
 class SlotButton extends StatelessWidget {
   const SlotButton({
     super.key,
@@ -17,31 +17,28 @@ class SlotButton extends StatelessWidget {
     required this.tooltip,
     required this.semanticLabel,
     required this.onSelect,
-    required this.onEdit,
     required this.child,
-    this.tonal = false,
+    this.onEdit,
   });
 
-  /// Square hit target (logical pixels).
-  static const double size = 40;
+  /// Outer diameter of the selection ring.
+  static const double ring = 30;
 
   final bool selected;
   final String tooltip;
   final String semanticLabel;
   final VoidCallback onSelect;
 
-  /// Opens the slot's editor anchored to the given context.
-  final void Function(BuildContext anchor) onEdit;
+  /// Opens the slot's options anchored to the given context; null: a tap
+  /// on the selected slot does nothing more (slots inside the popover).
+  final void Function(BuildContext anchor)? onEdit;
 
   final Widget child;
-
-  /// Shows the selection as a filled tonal disc instead of a ring (width
-  /// slots, so they never read as colours).
-  final bool tonal;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final edit = onEdit;
     return Tooltip(
       message: tooltip,
       waitDuration: const Duration(milliseconds: 500),
@@ -49,26 +46,25 @@ class SlotButton extends StatelessWidget {
         button: true,
         selected: selected,
         label: semanticLabel,
-        hint: selected ? 'Double tap to edit' : null,
+        hint: selected && edit != null ? 'Double tap for options' : null,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => selected ? onEdit(context) : onSelect(),
-            onLongPress: () => onEdit(context),
-            onSecondaryTap: () => onEdit(context),
+            onTap: () => selected && edit != null ? edit(context) : onSelect(),
+            onLongPress: edit == null ? null : () => edit(context),
+            onSecondaryTap: edit == null ? null : () => edit(context),
             child: SizedBox.square(
-              dimension: size,
+              dimension: ToolbarMetrics.slotOf(context),
               child: Center(
                 child: AnimatedContainer(
                   duration: Motion.fast,
-                  width: 34,
-                  height: 34,
+                  width: ring,
+                  height: ring,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: tonal && selected ? Surfaces.pressed(scheme) : null,
                     border: Border.all(
-                      color: selected && !tonal ? scheme.primary : Colors.transparent,
+                      color: selected ? scheme.onSurface : scheme.onSurface.withValues(alpha: 0),
                       width: 2,
                     ),
                   ),
@@ -84,26 +80,59 @@ class SlotButton extends StatelessWidget {
   }
 }
 
-/// The subtle "+" that adds a slot to a row.
-class AddSlotButton extends StatelessWidget {
-  const AddSlotButton({super.key, required this.tooltip, required this.onAdd});
+/// A colour slot's swatch: a 22-dp dot with a hairline, so white reads on
+/// light chrome and black on dark.
+class SlotSwatch extends StatelessWidget {
+  const SlotSwatch({super.key, required this.color});
 
-  final String tooltip;
-  final void Function(BuildContext anchor) onAdd;
+  /// Opaque ARGB.
+  final int color;
+
+  static const double size = 22;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Builder(
-      builder: (context) => SizedBox.square(
-        dimension: SlotButton.size,
-        child: IconButton(
-          tooltip: tooltip,
-          padding: EdgeInsets.zero,
-          style: IconButton.styleFrom(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-          onPressed: () => onAdd(context),
-          icon: Icon(Symbols.add_rounded, size: 18, color: scheme.onSurfaceVariant),
+    final nearSurface =
+        (Color(color).computeLuminance() - scheme.surface.computeLuminance()).abs() < 0.1;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Color(color),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: nearSurface ? scheme.onSurfaceVariant : scheme.outline.withValues(alpha: 0.5),
+          width: nearSurface ? 1 : 0.5,
         ),
+      ),
+    );
+  }
+}
+
+/// A width slot's dot, at (scaled) real size, neutral so it never reads as
+/// a colour: `onSurface` when [selected], else `onSurfaceVariant`.
+class SlotDot extends StatelessWidget {
+  const SlotDot({super.key, required this.diameter, required this.selected, this.hollow = false});
+
+  final double diameter;
+  final bool selected;
+
+  /// Drawn as a ring (eraser sizes).
+  final bool hollow;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = selected ? scheme.onSurface : scheme.onSurfaceVariant;
+    return AnimatedContainer(
+      duration: Motion.fast,
+      width: diameter,
+      height: diameter,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: hollow ? null : color,
+        border: hollow ? Border.all(color: color, width: 1.5) : null,
       ),
     );
   }

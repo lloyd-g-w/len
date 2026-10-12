@@ -31,6 +31,12 @@ Future<void> _menu(WidgetTester tester, List<String> path) async {
   }
 }
 
+/// Renames from the title (tap it).
+Future<void> _rename(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('Rename'));
+  await settle(tester);
+}
+
 Future<void> _open(WidgetTester tester, Screen screen, ThemeMode mode, {bool tabs = false}) =>
     pumpEditor(
       tester,
@@ -174,7 +180,7 @@ void main() {
       testWidgets('e_dialogs $shot', (tester) async {
         await guardOverflows('e_dialogs_$shot', () async {
           await _open(tester, screen, mode);
-          await _menu(tester, ['Rename notebook…']);
+          await _rename(tester);
           await shoot(tester, 'e_dialog_rename_$shot');
           await _cancel(tester);
           await _menu(tester, ['Page', 'Add page with template…']);
@@ -185,12 +191,7 @@ void main() {
           await shoot(tester, 'e_dialog_change_template_$shot');
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await settle(tester);
-          if (screen == phoneScreen) {
-            await _menu(tester, ['Bookmark page']);
-          } else {
-            await tester.tap(find.byTooltip('Bookmark page'));
-            await settle(tester);
-          }
+          await _menu(tester, ['Page', 'Bookmark page']);
           await shoot(tester, 'e_bookmarked_$shot');
         });
       });
@@ -202,7 +203,7 @@ void main() {
       await _open(tester, phoneScreen, ThemeMode.light);
       tester.platformDispatcher.textScaleFactorTestValue = 1.3;
       await settle(tester);
-      await _menu(tester, ['Rename notebook…']);
+      await _rename(tester);
       await shoot(tester, 'e_dialog_rename_phone_large_text');
       await _cancel(tester);
       await _menu(tester, ['Page', 'Add page with template…']);

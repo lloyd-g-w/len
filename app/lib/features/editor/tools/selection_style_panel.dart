@@ -84,12 +84,12 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
       if (e.knownType == ElementType.text) TextData.fromJson(e.data).color | 0xFF000000,
   ]);
 
-  /// The pen's quick colours, then the saved favourites; at most two rows.
+  /// The pen's quick colours, then the recent colours; at most two rows.
   List<int> _swatches() {
     final tools = widget.tools;
     return {
       for (final c in tools.configOf(InkTool.ballpoint).colors) c | 0xFF000000,
-      ...tools.favorites.map((c) => c | 0xFF000000),
+      ...tools.recentColors.map((c) => c | 0xFF000000),
     }.take(_maxSwatches).toList();
   }
 

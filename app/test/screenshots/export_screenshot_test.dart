@@ -17,14 +17,9 @@ void main() {
   setUpAll(loadRealFonts);
 
   Future<void> openSheet(WidgetTester tester) async {
-    final share = find.byTooltip('Export & share');
-    if (share.evaluate().isNotEmpty) {
-      await tester.tap(share);
-    } else {
-      await tester.tap(find.byTooltip('More options'));
-      await settle(tester);
-      await tester.tap(find.text('Export…'));
-    }
+    await tester.tap(find.byTooltip('More options'));
+    await settle(tester);
+    await tester.tap(find.text('Export…'));
     await settle(tester);
     expect(find.byType(ExportSheet), findsOneWidget);
   }
