@@ -4,6 +4,7 @@ import '../../domain/cover_style.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/dialog_or_sheet.dart';
 import '../documents/template_picker.dart';
 import '../documents/templates/planner_options.dart';
 import '../documents/templates/template_catalog.dart';
@@ -30,27 +31,14 @@ class NewNotebookSheet extends StatefulWidget {
   final DateTime? today;
 
   static Future<NewNotebookRequest?> show(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    if (size.width >= Breakpoints.medium && size.height >= 560) {
-      return showDialog<NewNotebookRequest>(
-        context: context,
-        builder: (_) => Dialog(
-          clipBehavior: Clip.antiAlias,
-          insetPadding: const EdgeInsets.all(Gaps.xl),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 960, maxHeight: 680),
-            child: const NewNotebookSheet(wide: true),
-          ),
-        ),
-      );
-    }
-    return showModalBottomSheet<NewNotebookRequest>(
+    return showDialogOrSheet<NewNotebookRequest>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: false,
-      builder: (context) =>
-          FractionallySizedBox(heightFactor: 0.94, child: const NewNotebookSheet()),
+      maxWidth: 960,
+      maxHeight: 680,
+      minHeight: 560,
+      sheetDragHandle: false,
+      sheetHeightFactor: 0.94,
+      builder: (_, wide) => NewNotebookSheet(wide: wide),
     );
   }
 
