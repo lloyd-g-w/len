@@ -14,7 +14,9 @@ import 'thumbnail_renderer.dart';
 /// and queues a re-render when the notebook's content fingerprint changed.
 /// Queued previews are rendered in short batches, one batch per event-loop
 /// turn, so a large library never blocks a frame for long; listeners are
-/// notified once per batch in which a preview changed.
+/// notified once per batch in which a preview changed. The latest requests
+/// go first: after a fling, the covers on screen render before those
+/// scrolled past.
 class ThumbnailCache extends ChangeNotifier {
   ThumbnailCache({required this.renderer, required this.stats, this.width = 320}) {
     _imageChanges = renderer.images?.changes.listen(_onImage);
@@ -89,9 +91,14 @@ class ThumbnailCache extends ChangeNotifier {
 
   void _enqueue(Notebook notebook) {
     if (_disposed) return;
-    _queue[notebook.id] = notebook;
+    _queue.remove(notebook.id);
+    _queue[notebook.id] = notebook; // Last in, first out.
     _timer ??= Timer(Duration.zero, _processBatch);
   }
+
+  /// Previews waiting to render (tests).
+  @visibleForTesting
+  int get queued => _queue.length;
 
   void _processBatch() {
     _timer = null;
@@ -99,7 +106,7 @@ class ThumbnailCache extends ChangeNotifier {
     final watch = Stopwatch()..start();
     var changed = false;
     while (_queue.isNotEmpty && watch.elapsed < _batchBudget) {
-      final notebook = _queue.remove(_queue.keys.first)!;
+      final notebook = _queue.remove(_queue.keys.last)!;
       changed |= _refresh(notebook);
     }
     if (_queue.isNotEmpty) _timer = Timer(Duration.zero, _processBatch);

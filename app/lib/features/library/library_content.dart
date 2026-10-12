@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter/rendering.dart';
 
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
@@ -199,38 +199,28 @@ class LibraryContent extends StatelessWidget {
     required bool newTile,
   }) {
     final offset = newTile ? 1 : 0;
-    final spacing = compact ? Gaps.lg : Gaps.xl;
-    final textScaler = MediaQuery.textScalerOf(context);
-    return SliverLayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.crossAxisExtent;
-        // Covers of about [coverWidth], the columns stretched to the width.
-        final columns = math.max(2, ((width + spacing) / (coverWidth + spacing)).floor());
-        final tile = (width - spacing * (columns - 1)) / columns;
-        return SliverGrid.builder(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: spacing,
-            mainAxisSpacing: Gaps.lg,
-            mainAxisExtent:
-                tile / ThumbnailRenderer.aspect + NotebookCard.captionHeight(textScaler),
-          ),
-          itemCount: notebooks.length + offset,
-          itemBuilder: (context, i) {
-            if (i < offset) {
-              return NewNotebookTile(
-                key: const ValueKey('new-notebook-tile'),
-                onPressed: () => unawaited(actions.createNotebook(context)),
-              );
-            }
-            final notebook = notebooks[i - offset];
-            return NotebookCard(
-              key: ValueKey(notebook.id),
-              notebook: notebook,
-              subtitle: _subtitle(notebook),
-              actions: actions,
-            );
-          },
+    return SliverGrid.builder(
+      // Columns from the width in the delegate, not a layout builder: a
+      // builder above the grid would rebuild every card on every scroll frame.
+      gridDelegate: CoverGridDelegate(
+        coverWidth: coverWidth,
+        spacing: compact ? Gaps.lg : Gaps.xl,
+        captionHeight: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
+      ),
+      itemCount: notebooks.length + offset,
+      itemBuilder: (context, i) {
+        if (i < offset) {
+          return NewNotebookTile(
+            key: const ValueKey('new-notebook-tile'),
+            onPressed: () => unawaited(actions.createNotebook(context)),
+          );
+        }
+        final notebook = notebooks[i - offset];
+        return NotebookCard(
+          key: ValueKey(notebook.id),
+          notebook: notebook,
+          subtitle: _subtitle(notebook),
+          actions: actions,
         );
       },
     );
@@ -248,4 +238,39 @@ class LibraryContent extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The notebook grid's layout: covers of about [coverWidth] (at least two
+/// columns, stretched to the width) at [ThumbnailRenderer.aspect], with
+/// [captionHeight] below each for the title and caption.
+class CoverGridDelegate extends SliverGridDelegate {
+  const CoverGridDelegate({
+    required this.coverWidth,
+    required this.spacing,
+    required this.captionHeight,
+  });
+
+  final double coverWidth;
+  final double spacing;
+  final double captionHeight;
+
+  @override
+  SliverGridLayout getLayout(SliverConstraints constraints) {
+    final width = constraints.crossAxisExtent;
+    final columns = math.max(2, ((width + spacing) / (coverWidth + spacing)).floor());
+    final tile = (width - spacing * (columns - 1)) / columns;
+    final height = tile / ThumbnailRenderer.aspect + captionHeight;
+    return SliverGridRegularTileLayout(
+      crossAxisCount: columns,
+      mainAxisStride: height + Gaps.lg,
+      crossAxisStride: tile + spacing,
+      childMainAxisExtent: height,
+      childCrossAxisExtent: tile,
+      reverseCrossAxis: axisDirectionIsReversed(constraints.crossAxisDirection),
+    );
+  }
+
+  @override
+  bool shouldRelayout(CoverGridDelegate old) =>
+      old.coverWidth != coverWidth || old.spacing != spacing || old.captionHeight != captionHeight;
 }
