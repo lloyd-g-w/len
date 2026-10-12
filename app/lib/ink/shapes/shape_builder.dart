@@ -78,7 +78,7 @@ abstract final class ShapeBuilder {
 
   /// Densifies [vertices] to points at most [spacing] apart (keeping every
   /// vertex exactly, so corners stay sharp) at constant [pressure]. Dense
-  /// points make tapers and the pixel eraser behave as on drawn ink.
+  /// points make the pixel eraser behave as on drawn ink.
   static List<StrokePoint> points(
     List<Offset> vertices, {
     double spacing = 2,
@@ -98,7 +98,6 @@ abstract final class ShapeBuilder {
   }
 
   /// The look of a shape stroke drawn with [style]: no stabiliser (it
-  /// would round the corners) and no tapers (outlines have even weight).
-  static StrokeStyle styleFor(StrokeStyle style) =>
-      style.copyWith(streamline: 0, taperStart: 0, taperEnd: 0);
+  /// would round the corners).
+  static StrokeStyle styleFor(StrokeStyle style) => style.copyWith(streamline: 0);
 }

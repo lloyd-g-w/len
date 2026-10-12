@@ -9,7 +9,6 @@ class PenDefaults {
     required this.opacity,
     required this.thinning,
     required this.streamline,
-    this.taperFactor = 0,
     required this.minWidth,
     required this.maxWidth,
     required this.dotScale,
@@ -27,9 +26,6 @@ class PenDefaults {
   final double opacity;
   final double thinning;
   final double streamline;
-
-  /// Taper length as a multiple of the stroke width, when tapering is on.
-  final double taperFactor;
 
   /// Width range in world units.
   final double minWidth;
@@ -50,7 +46,6 @@ class PenDefaults {
     opacity: 1,
     thinning: 0.25,
     streamline: 0.4,
-    taperFactor: 2,
     minWidth: 0.5,
     maxWidth: 12,
     dotScale: 2.4,

@@ -41,7 +41,8 @@ import '../render/stroke_shaper.dart';
 ///    is trimmed with the outline's rules ([HookFinder]; the pen-down hook
 ///    is decided now if it was not yet).
 ///  * **Shape**: the hull of the circles of consecutive smoothed points (a
-///    tapered capsule: two circles and the quad between their tangents);
+///    capsule of two circles, of their own radii, and the quad between their
+///    tangents);
 ///    one point is a dot, and so is a whole line shorter than half its
 ///    width, with the contact's largest radius (as Flutter draws it).
 ///  * **Tail**: on every commit (after each Flutter frame's `progress`,

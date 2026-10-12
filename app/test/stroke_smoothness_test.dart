@@ -215,7 +215,6 @@ void main() {
         width: 0.2 + rng.nextDouble() * 30,
         thinning: rng.nextDouble(),
         streamline: rng.nextDouble(),
-        taperStart: rng.nextBool() ? 5 : 0,
         flatCaps: rng.nextBool(),
       );
       final bounds = StrokeOutline.build(points, spec).getBounds();

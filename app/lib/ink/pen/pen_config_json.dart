@@ -14,14 +14,12 @@ abstract final class PenConfigJson {
 
     final defaults = PenDefaults.of(tool);
     final slots = _slots(json, fallback, defaults);
-    final taper = json['taper'];
     return slots.copyWith(
       opacity: tool.isHighlighter
           ? unit('opacity', fallback.opacity, min: PenConfig.minOpacity)
           : fallback.opacity,
       thinning: unit('thinning', fallback.thinning),
       streamline: unit('streamline', fallback.streamline),
-      taper: taper is bool ? taper : fallback.taper,
     );
   }
 

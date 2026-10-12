@@ -159,9 +159,7 @@ class PdfInteraction extends ChangeNotifier {
     final page = selection.page;
     if (page == null || selection.isEmpty) return 0;
     final config = tools.configOf(InkTool.highlighter);
-    final style = tools
-        .styleFor(InkTool.highlighter)
-        .copyWith(thinning: 0, streamline: 0, taperStart: 0, taperEnd: 0);
+    final style = tools.styleFor(InkTool.highlighter).copyWith(thinning: 0, streamline: 0);
     final now = clock.nowMs();
     final strokes = [
       for (final line in selection.lines)

@@ -11,7 +11,7 @@ import 'support/handwriting.dart';
 int _ids = 0;
 
 Stroke make(InkTool tool, List<StrokePoint> points, {required int color, required double width}) {
-  final style = PenConfig.defaultsFor(tool).styleFor(tool, width);
+  final style = PenConfig.defaultsFor(tool).styleFor(tool);
   return Stroke(
     id: 's${_ids++}',
     surfaceId: 's',

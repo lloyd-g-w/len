@@ -78,7 +78,7 @@ class Stroke {
   /// Nominal stroke diameter in world units.
   final double width;
 
-  /// Rendering parameters (opacity, pressure response, stabiliser, tapers).
+  /// Rendering parameters (opacity, pressure response, stabiliser).
   final StrokeStyle style;
 
   final List<StrokePoint> points;

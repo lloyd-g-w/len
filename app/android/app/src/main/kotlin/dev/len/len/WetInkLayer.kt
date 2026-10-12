@@ -218,10 +218,11 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
 
         /**
          * Adds the ink of consecutive (x, y, radius) triples to [path]: each
-         * pair is the hull of its two circles (a tapered capsule), one triple
-         * a dot. Every piece winds the same way, so filling the path (non-zero
-         * rule) covers their union once: antialiased edges are not darkened
-         * by pieces overlapping, as they would be if each were filled alone.
+         * pair is the hull of its two circles (a capsule with unequal ends),
+         * one triple a dot. Every piece winds the same way, so filling the
+         * path (non-zero rule) covers their union once: antialiased edges are
+         * not darkened by pieces overlapping, as they would be if each were
+         * filled alone.
          */
         fun addHulls(path: Path, xyr: FloatArray) {
             val n = xyr.size / 3

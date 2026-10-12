@@ -601,8 +601,8 @@ search highlights use the same boxes.
   the page.
 - **Highlight** turns each selected line (`PdfGlyphs.rectsFor`) into one
   highlighter stroke along its middle, 1.1 × the line's height, with the
-  highlighter's colour and opacity (no pressure thinning, stabiliser or
-  tapers), committed to the page's `SurfaceModel` as one `InkEdit` — so it
+  highlighter's colour and opacity (no pressure thinning or stabiliser),
+  committed to the page's `SurfaceModel` as one `InkEdit` — so it
   is ordinary ink: undoable, erasable, selectable, synced and exported.
 - **Links** (`loadLinks`, incl. URLs detected in the text): tapped with the
   tool, or with a finger while fingers navigate (stylus only). Internal
@@ -1013,7 +1013,7 @@ surface.
 ## Editing tools
 
 - **Shapes** are ordinary strokes whose points trace a clean outline at
-  constant pressure, with no stabiliser or tapers
+  constant pressure, with no stabiliser
   (`shapes/shape_builder.dart`), so they render, erase, select and sync
   like ink. The Shape tool drags out a box (Shift: square / 15° lines).
 - **Lasso** (`selection/`): a stroke is selected when at least half of its
@@ -1171,13 +1171,14 @@ The toolbar offers exactly two inks — the **pen** (`InkTool.ballpoint`) and th
 **highlighter** — plus the eraser. A stroke's look = its `InkTool` + its
 `StrokeStyle`:
 
-- **`PenDefaults`** (pen, highlighter): default colours, widths, feel settings,
-  width range and taper factor offered in the UI.
+- **`PenDefaults`** (pen, highlighter): default colours, widths, feel settings
+  and the width range offered in the UI.
 - **`StrokeStyle`** (per stroke, stored in `strokes.style` and synced as
   `data.style`): opacity, thinning (pressure sensitivity), streamline
-  (stabiliser) and start/end taper lengths; required, parsed strictly (as
-  is the tool: an unknown one makes the stroke malformed). So a stroke
-  renders identically on every device, whatever the local tool settings.
+  (stabiliser) and the zoom it was written at (`unit`); required and parsed
+  strictly (as is the tool: an unknown one makes the stroke malformed). So
+  a stroke renders identically on every device, whatever the local tool
+  settings.
 
 **Highlighter** strokes are translucent with flat chisel ends (the pen has
 round caps), drawn before other ink in each chunk picture, and the live
@@ -1186,7 +1187,7 @@ highlighter stroke is painted on a layer beneath committed ink.
 User customisation lives in `ToolSettings`, persisted as JSON in the local
 `settings` table: per ink a `PenConfig` with **independent quick colours and
 quick widths** (1–6 slots each, one of each selected) and feel settings
-(pressure sensitivity, stabiliser, tapered ends; opacity for the highlighter —
+(pressure sensitivity, stabiliser; opacity for the highlighter —
 the pen is always opaque), plus eraser options, hold-to-straighten and
 favourite colours (`PenConfigJson` parses it leniently: anything missing or
 invalid takes its default).
@@ -1290,7 +1291,8 @@ does not grow with the stroke's length.
    - **radii**: causal (two cascaded exponential passes over the resampled
      line, then a slope limit), so final as soon as their sample is; the
      start does not swell and is levelled; the moving tip follows the same
-     end rules within a short reach; tapers.
+     end rules within a short reach. Ends are round caps at the width
+     the pressure gives (flat for the highlighter).
 4. **`RibbonEmitter`**: the outline is the envelope of the circles along
    the line. A *run* of samples becomes **one closed contour** — left side
    forward, a cap, right side back, a cap — whose sides are cubic Béziers

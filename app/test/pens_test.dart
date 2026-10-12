@@ -8,7 +8,6 @@ import 'package:len/ink/geometry/straighten.dart';
 import 'package:len/ink/geometry/stroke_splitter.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
 import 'package:len/ink/stroke_hit_test.dart';
-import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/undo_history.dart';
 import 'package:len/ui/color_picker/color_hex.dart';
 
@@ -44,7 +43,7 @@ void main() {
     });
 
     test('JSON round-trips and parses strictly', () {
-      const style = StrokeStyle(opacity: 0.8, thinning: 0.7, streamline: 0.2, taperStart: 9);
+      const style = StrokeStyle(opacity: 0.8, thinning: 0.7, streamline: 0.2, unit: 0.5);
       final json = jsonDecode(jsonEncode(style.toJson()));
       expect(StrokeStyle.fromJson(json), style);
       expect(StrokeStyle.fromJson({'o': 1, 'th': 0.5, 'sl': 0.4, 'future': true}).unit, 0);
@@ -62,13 +61,12 @@ void main() {
 
   group('pen options', () {
     test('styles map to outline specs', () {
-      const style = StrokeStyle(thinning: 0.3, streamline: 0.4, taperStart: 5);
+      const style = StrokeStyle(thinning: 0.3, streamline: 0.4, unit: 0.5);
       final o = StrokeRenderer.specFor(InkTool.ballpoint, 3, style);
       expect(o.width, 3);
       expect(o.thinning, 0.3);
       expect(o.streamline, 0.4);
-      expect(o.taperStart, 5);
-      expect(o.taperEnd, 0);
+      expect(o.unit, 0.5);
       expect(o.flatCaps, isFalse);
 
       final h = StrokeRenderer.specFor(
@@ -79,11 +77,12 @@ void main() {
       expect(h.flatCaps, isTrue, reason: 'highlighters have flat chisel ends');
     });
 
-    test('taper length scales with width; off means none', () {
-      final config = PenConfig.defaultsFor(InkTool.ballpoint).copyWith(taper: true);
-      final style = config.styleFor(InkTool.ballpoint, 10);
-      expect(style.taperStart, 10 * PenDefaults.pen.taperFactor);
-      expect(config.copyWith(taper: false).styleFor(InkTool.ballpoint, 10).taperEnd, 0);
+    test('pen strokes end in round caps at their full width', () {
+      final bounds = StrokeRenderer.pathOf(line('a')).getBounds();
+      // Width 2 at medium pressure: radius 1 beyond both end points.
+      expect(bounds.left, closeTo(-1, 0.05));
+      expect(bounds.right, closeTo(101, 0.05));
+      expect(bounds.height, closeTo(2, 0.05));
     });
   });
 
@@ -92,8 +91,8 @@ void main() {
     String newId() => 'f${ids++}';
 
     test('cutting through the middle leaves two fragments', () {
-      const tapered = StrokeStyle(taperStart: 4, taperEnd: 4);
-      final s = line('a', style: tapered);
+      const style = StrokeStyle(thinning: 0.7, unit: 0.5);
+      final s = line('a', style: style);
       final parts = StrokeSplitter.erase(
         s,
         const Offset(50, -10),
@@ -106,11 +105,7 @@ void main() {
       expect(parts[0].points.last.x, lessThanOrEqualTo(44));
       expect(parts[1].points.first.x, greaterThanOrEqualTo(56));
       expect(parts[1].points.last.x, 100);
-      // Only original ends keep their taper.
-      expect(parts[0].style.taperStart, 4);
-      expect(parts[0].style.taperEnd, 0);
-      expect(parts[1].style.taperStart, 0);
-      expect(parts[1].style.taperEnd, 4);
+      expect(parts.every((p) => p.style == style), isTrue);
       expect(parts.every((p) => p.createdAt == s.createdAt && p.id != s.id), isTrue);
     });
 

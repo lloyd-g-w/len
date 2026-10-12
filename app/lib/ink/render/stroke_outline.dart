@@ -15,8 +15,6 @@ class OutlineSpec {
     required this.width,
     required this.thinning,
     required this.streamline,
-    this.taperStart = 0,
-    this.taperEnd = 0,
     this.flatCaps = false,
     this.unit = 0,
   });
@@ -29,10 +27,6 @@ class OutlineSpec {
 
   /// Stabiliser strength, 0..1: how much positional jitter is smoothed away.
   final double streamline;
-
-  /// Lengths (world units) over which the ends taper to a point; 0 = none.
-  final double taperStart;
-  final double taperEnd;
 
   /// Square ends (highlighter) instead of round caps.
   final bool flatCaps;
@@ -47,8 +41,6 @@ class OutlineSpec {
       width == other.width &&
       thinning == other.thinning &&
       streamline == other.streamline &&
-      taperStart == other.taperStart &&
-      taperEnd == other.taperEnd &&
       flatCaps == other.flatCaps &&
       unit == other.unit;
 
@@ -90,8 +82,6 @@ class OutlineSpec {
     settleReach: settleReach,
     levelReach: levelReach,
     tipReach: tipReach,
-    taperStart: taperStart,
-    taperEnd: taperEnd,
   );
 
   static final Expando<Map<double, ShapeParams>> _params = Expando('outline params');
@@ -107,8 +97,8 @@ class OutlineSpec {
 /// the tip of a stroke in progress never changes, and the committed
 /// stroke equals the last live frame except at its very end.
 abstract final class StrokeOutline {
-  /// Builds the outline of [points]. [complete] is false while the stroke is still being drawn: the pen-up hook and the
-  /// end taper are then left alone.
+  /// Builds the outline of [points]. [complete] is false while the stroke
+  /// is still being drawn: the pen-up hook is then left alone.
   static Path build(List<StrokePoint> points, OutlineSpec spec, {bool complete = true}) {
     final path = Path();
     emit(PathSink(path), points, spec, complete: complete);

@@ -103,7 +103,7 @@ List<Metric> fidelity(List<StrokePair> pairs, double streamline) {
       if (along[i] < startReach || along.last - along[i] < endReach) continue;
       dev.add(p.lineIndex.distance(p.truth.path[i]), p.truth.path[i]);
     }
-    // Width, away from the ends (pen-down/up ramps and tapers are shaped).
+    // Width, away from the ends (pen-down/up ramps are shaped).
     // The truth point is the nearest one *along* the stroke (near the same
     // fraction of its length), not anywhere: a stroke crossing itself
     // passes the same spot twice with different pressures.

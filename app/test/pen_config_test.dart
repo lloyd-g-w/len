@@ -53,9 +53,9 @@ void main() {
     });
 
     test('the pen is opaque; the highlighter keeps its opacity', () {
-      expect(pen.copyWith(opacity: 0.3).styleFor(InkTool.ballpoint, 2).opacity, 1);
+      expect(pen.copyWith(opacity: 0.3).styleFor(InkTool.ballpoint).opacity, 1);
       final h = PenConfig.defaultsFor(InkTool.highlighter);
-      expect(h.styleFor(InkTool.highlighter, 10).opacity, h.opacity);
+      expect(h.styleFor(InkTool.highlighter).opacity, h.opacity);
     });
   });
 

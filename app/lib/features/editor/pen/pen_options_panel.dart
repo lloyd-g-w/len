@@ -7,8 +7,7 @@ import 'option_controls.dart';
 import 'stroke_preview.dart';
 
 /// The compact settings popover of the pen (pressure sensitivity,
-/// stabiliser, tapered ends) or the highlighter (opacity), plus hold to
-/// straighten. Edits apply live; quick colours and widths live in the
+/// stabiliser) or the highlighter (opacity), plus hold to straighten. Edits apply live; quick colours and widths live in the
 /// toolbar itself.
 class PenOptionsPanel extends StatelessWidget {
   const PenOptionsPanel({super.key, required this.tools, required this.ink});
@@ -40,7 +39,6 @@ class PenOptionsPanel extends StatelessWidget {
                     opacity: d.opacity,
                     thinning: d.thinning,
                     streamline: d.streamline,
-                    taper: d.taper,
                   );
                 }),
                 child: const Text('Reset'),
@@ -64,11 +62,6 @@ class PenOptionsPanel extends StatelessWidget {
                 max: 0.95,
                 display: percent,
                 onChanged: (v) => update((c) => c.copyWith(streamline: v)),
-              ),
-              OptionSwitch(
-                label: 'Tapered ends',
-                value: config.taper,
-                onChanged: (v) => update((c) => c.copyWith(taper: v)),
               ),
             ] else
               OptionSlider(

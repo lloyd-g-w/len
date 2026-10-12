@@ -64,8 +64,6 @@ abstract final class StrokeRenderer {
     width: width,
     thinning: style.thinning,
     streamline: style.streamline,
-    taperStart: style.taperStart,
-    taperEnd: style.taperEnd,
     flatCaps: tool.isHighlighter,
     unit: style.unit,
   );

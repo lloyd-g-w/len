@@ -3,14 +3,7 @@ import 'stroke.dart';
 /// Per-stroke rendering parameters, stored with the stroke so it renders
 /// identically on every device regardless of the local tool settings.
 class StrokeStyle {
-  const StrokeStyle({
-    this.opacity = 1,
-    this.thinning = 0.5,
-    this.streamline = 0.4,
-    this.taperStart = 0,
-    this.taperEnd = 0,
-    this.unit = 0,
-  });
+  const StrokeStyle({this.opacity = 1, this.thinning = 0.5, this.streamline = 0.4, this.unit = 0});
 
   /// Overall ink opacity, 0..1 (the stroke colour itself is stored opaque).
   final double opacity;
@@ -20,11 +13,6 @@ class StrokeStyle {
 
   /// Stabiliser: how much input jitter is smoothed away, 0..1.
   final double streamline;
-
-  /// Length (world units) over which the start / end of the stroke tapers
-  /// to a point; 0 means a round, untapered end.
-  final double taperStart;
-  final double taperEnd;
 
   /// World units per screen pixel when the stroke was written (the inverse
   /// of the zoom), 0 when unknown. Digitiser jitter and pen hooks are
@@ -39,34 +27,24 @@ class StrokeStyle {
     InkTool.ballpoint => const StrokeStyle(),
   };
 
-  StrokeStyle copyWith({
-    double? opacity,
-    double? thinning,
-    double? streamline,
-    double? taperStart,
-    double? taperEnd,
-    double? unit,
-  }) => StrokeStyle(
-    opacity: opacity ?? this.opacity,
-    thinning: thinning ?? this.thinning,
-    streamline: streamline ?? this.streamline,
-    taperStart: taperStart ?? this.taperStart,
-    taperEnd: taperEnd ?? this.taperEnd,
-    unit: unit ?? this.unit,
-  );
+  StrokeStyle copyWith({double? opacity, double? thinning, double? streamline, double? unit}) =>
+      StrokeStyle(
+        opacity: opacity ?? this.opacity,
+        thinning: thinning ?? this.thinning,
+        streamline: streamline ?? this.streamline,
+        unit: unit ?? this.unit,
+      );
 
   /// Compact JSON for storage and sync.
   Map<String, Object?> toJson() => {
     'o': opacity,
     'th': thinning,
     'sl': streamline,
-    if (taperStart > 0) 'ts': taperStart,
-    if (taperEnd > 0) 'te': taperEnd,
     if (unit > 0) 'u': unit,
   };
 
   /// Parses [json] strictly: `o`, `th` and `sl` are required, in 0..1;
-  /// `ts`, `te` and `u` are omitted when 0. Throws [FormatException] when
+  /// `u` is omitted when 0. Throws [FormatException] when
   /// malformed. Unknown fields are ignored.
   static StrokeStyle fromJson(Object? json) {
     if (json is! Map) throw const FormatException('Malformed stroke style');
@@ -81,8 +59,6 @@ class StrokeStyle {
       opacity: read('o', 1, required: true),
       thinning: read('th', 1, required: true),
       streamline: read('sl', 1, required: true),
-      taperStart: read('ts', 1e4),
-      taperEnd: read('te', 1e4),
       unit: read('u', 1e6),
     );
   }
@@ -93,12 +69,10 @@ class StrokeStyle {
       other.opacity == opacity &&
       other.thinning == thinning &&
       other.streamline == streamline &&
-      other.taperStart == taperStart &&
-      other.taperEnd == taperEnd &&
       other.unit == unit;
 
   @override
-  int get hashCode => Object.hash(opacity, thinning, streamline, taperStart, taperEnd, unit);
+  int get hashCode => Object.hash(opacity, thinning, streamline, unit);
 
   @override
   String toString() => 'StrokeStyle(${toJson()})';

@@ -99,10 +99,7 @@ class ToolSettings extends ChangeNotifier {
   }
 
   /// The style a new stroke with [tool] gets.
-  StrokeStyle styleFor(InkTool tool) {
-    final config = configOf(tool);
-    return config.styleFor(tool, config.width);
-  }
+  StrokeStyle styleFor(InkTool tool) => configOf(tool).styleFor(tool);
 
   /// Selects colour slot [index] of the active ink (switching to the pen
   /// from tools that draw no ink).

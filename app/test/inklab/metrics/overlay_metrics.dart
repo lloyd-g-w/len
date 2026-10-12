@@ -16,7 +16,7 @@ import 'temporal_metrics.dart';
 Contour capsulePolygon(Offset a, Offset b, double r, {int n = 16}) => hullPolygon(a, b, r, r, n: n);
 
 /// The hull of the circles ([a], [ra]) and ([b], [rb]) as a polygon (a
-/// tapered capsule), as the overlay draws each piece.
+/// capsule with unequal ends), as the overlay draws each piece.
 Contour hullPolygon(Offset a, Offset b, double ra, double rb, {int n = 16}) {
   final d = b - a;
   final len = d.distance;

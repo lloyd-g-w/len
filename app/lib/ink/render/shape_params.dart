@@ -24,8 +24,6 @@ class ShapeParams {
     required double settleReach,
     required double levelReach,
     required double tipReach,
-    required this.taperStart,
-    required this.taperEnd,
   }) : dedupe = math.max(0.01 * unit, math.min(0.01, width * 0.02)) {
     // The pen's width on screen, and smoothing that grows a little with it
     // (detail finer than a wide pen is invisible anyway).
@@ -48,7 +46,7 @@ class ShapeParams {
     levelK = (levelReach / step).ceil();
     settleEndK = (math.min(settleReach, tipReach) / step).ceil();
     levelEndK = (math.min(levelReach, tipReach) / step).ceil();
-    startReach = math.max(settleK, levelK) + (taperStart / step).ceil() + 1;
+    startReach = math.max(settleK, levelK) + 1;
     endReach = math.max(settleEndK, levelEndK) + 1;
   }
 
@@ -59,9 +57,7 @@ class ShapeParams {
   ShapeParams.positionsOf(ShapeParams base, double f)
     : width = base.width * f,
       unit = base.unit * f,
-      dedupe = base.dedupe * f,
-      taperStart = 0,
-      taperEnd = 0 {
+      dedupe = base.dedupe * f {
     sigma = base.sigma * f;
     step = base.step * f;
     cornerBaseline = base.cornerBaseline * f;
@@ -85,9 +81,7 @@ class ShapeParams {
     required this.fit,
     required this.cornerK,
   }) : width = 1,
-       unit = 1,
-       taperStart = 0,
-       taperEnd = 0 {
+       unit = 1 {
     this.kernel = Float64List.fromList(kernel);
     kernelK = (kernel.length - 1) ~/ 2;
     sigma = 0;
@@ -139,9 +133,6 @@ class ShapeParams {
   late final int levelK;
   late final int settleEndK;
   late final int levelEndK;
-
-  /// Tapers (world units).
-  final double taperStart, taperEnd;
 
   /// Samples at the start / end that the end rules may still change.
   late final int startReach;

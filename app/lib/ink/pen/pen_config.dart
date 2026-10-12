@@ -16,7 +16,6 @@ class PenConfig {
     required this.opacity,
     required this.thinning,
     required this.streamline,
-    required this.taper,
   }) : assert(colors.length > 0 && widths.length > 0);
 
   /// Defaults for [tool]: three colours and three widths.
@@ -29,7 +28,6 @@ class PenConfig {
       opacity: d.opacity,
       thinning: d.thinning,
       streamline: d.streamline,
-      taper: false,
     );
   }
 
@@ -57,9 +55,6 @@ class PenConfig {
   /// Stabiliser strength (0..1).
   final double streamline;
 
-  /// Whether stroke ends taper to a point.
-  final bool taper;
-
   /// The selected colour and width.
   int get color => colors[colorIndex];
   double get width => widths[widthIndex];
@@ -73,7 +68,6 @@ class PenConfig {
     double? opacity,
     double? thinning,
     double? streamline,
-    bool? taper,
   }) => PenConfig(
     colors: colors ?? this.colors,
     widths: widths ?? this.widths,
@@ -82,7 +76,6 @@ class PenConfig {
     opacity: opacity ?? this.opacity,
     thinning: thinning ?? this.thinning,
     streamline: streamline ?? this.streamline,
-    taper: taper ?? this.taper,
   );
 
   /// A copy with colour slot [index] set to [argb] (made opaque).
@@ -124,17 +117,12 @@ class PenConfig {
   static int _afterRemoval(int selected, int removed) =>
       selected > removed || (selected == removed && selected > 0) ? selected - 1 : selected;
 
-  /// The style a new stroke drawn with this config and [width] gets.
-  StrokeStyle styleFor(InkTool tool, double width) {
-    final taperLength = taper ? width * PenDefaults.of(tool).taperFactor : 0.0;
-    return StrokeStyle(
-      opacity: tool.isHighlighter ? opacity : 1,
-      thinning: thinning,
-      streamline: streamline,
-      taperStart: taperLength,
-      taperEnd: taperLength,
-    );
-  }
+  /// The style a new stroke of [tool] drawn with this config gets.
+  StrokeStyle styleFor(InkTool tool) => StrokeStyle(
+    opacity: tool.isHighlighter ? opacity : 1,
+    thinning: thinning,
+    streamline: streamline,
+  );
 
   /// JSON for the local settings store (see [fromJson]).
   Map<String, Object?> toJson() => {
@@ -145,7 +133,6 @@ class PenConfig {
     'opacity': opacity,
     'thinning': thinning,
     'streamline': streamline,
-    'taper': taper,
   };
 
   /// Parses the config of [tool] leniently, taking anything missing or
@@ -162,8 +149,7 @@ class PenConfig {
       other.widthIndex == widthIndex &&
       other.opacity == opacity &&
       other.thinning == thinning &&
-      other.streamline == streamline &&
-      other.taper == taper;
+      other.streamline == streamline;
 
   @override
   int get hashCode => Object.hash(
@@ -174,6 +160,5 @@ class PenConfig {
     opacity,
     thinning,
     streamline,
-    taper,
   );
 }

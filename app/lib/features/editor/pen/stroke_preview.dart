@@ -75,7 +75,7 @@ class _PreviewPainter extends CustomPainter {
     // Keep thick pens inside the preview.
     final shown = math.min(width, size.height * 0.4);
     final points = samplePoints(size, shown / 2 + 4);
-    final style = config.styleFor(tool, shown);
+    final style = config.styleFor(tool);
     final path = StrokeRenderer.buildPath(
       points,
       tool: tool,

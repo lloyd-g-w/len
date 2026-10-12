@@ -203,12 +203,12 @@ class BackgroundOutlines implements OutlinePreparer {
     return null;
   }
 
-  /// Per stroke: tool, width, the style's five numbers, the point count,
+  /// Per stroke: tool, width, the style's four numbers, the point count,
   /// then x, y, pressure of each point.
   static Float64List _pack(List<Stroke> strokes) {
     var length = 0;
     for (final s in strokes) {
-      length += 8 + 3 * s.points.length;
+      length += 7 + 3 * s.points.length;
     }
     final data = Float64List(length);
     var i = 0;
@@ -220,8 +220,7 @@ class BackgroundOutlines implements OutlinePreparer {
         ..[i++] = style.opacity
         ..[i++] = style.thinning
         ..[i++] = style.streamline
-        ..[i++] = style.taperStart
-        ..[i++] = style.taperEnd
+        ..[i++] = style.unit
         ..[i++] = s.points.length.toDouble();
       for (final p in s.points) {
         data
@@ -243,11 +242,10 @@ class BackgroundOutlines implements OutlinePreparer {
         opacity: data[i + 2],
         thinning: data[i + 3],
         streamline: data[i + 4],
-        taperStart: data[i + 5],
-        taperEnd: data[i + 6],
+        unit: data[i + 5],
       );
-      final n = data[i + 7].toInt();
-      i += 8;
+      final n = data[i + 6].toInt();
+      i += 7;
       strokes.add(
         Stroke(
           id: '',

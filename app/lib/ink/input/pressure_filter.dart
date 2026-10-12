@@ -12,7 +12,7 @@
 ///    within a few samples (stylus input arrives at 120–240 Hz);
 ///  * ignores the pressure of synthesized samples, reusing the last real one;
 ///  * never lets the final samples of a stroke swell: the end can only stay
-///    level or taper ([settleEnd]).
+///    level or thin ([settleEnd]).
 class PressureFilter {
   PressureFilter({this.smoothing = defaultSmoothing}) : assert(smoothing >= 0 && smoothing < 1);
 

@@ -14,8 +14,8 @@ abstract final class StrokeSplitter {
   ///
   /// Returns null when nothing is erased, otherwise the surviving fragments
   /// (possibly none), each a new stroke with an id from [newId]. Fragments
-  /// keep the original's creation time, so they paint in the same order,
-  /// and only keep a taper at an end that is an original end.
+  /// keep the original's creation time and style, so they paint in the
+  /// same order and look.
   static List<Stroke>? erase(
     Stroke stroke,
     Offset a,
@@ -53,16 +53,7 @@ abstract final class StrokeSplitter {
       if (kept && start < 0) start = i;
       if (!kept && start >= 0) {
         if (i - start >= 2) {
-          fragments.add(
-            stroke.withPoints(
-              points.sublist(start, i),
-              id: newId(),
-              style: stroke.style.copyWith(
-                taperStart: start == 0 ? null : 0,
-                taperEnd: i == points.length ? null : 0,
-              ),
-            ),
-          );
+          fragments.add(stroke.withPoints(points.sublist(start, i), id: newId()));
         }
         start = -1;
       }

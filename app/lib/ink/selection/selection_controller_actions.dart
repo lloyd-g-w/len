@@ -96,11 +96,7 @@ class SelectionController extends _SelectionCore {
 
   /// Gives every selected stroke line [width] and/or pen [tool] (with the
   /// [StrokeStyle] [styleFor] makes for it) as one undoable edit.
-  void restyleInk({
-    double? width,
-    InkTool? tool,
-    StrokeStyle Function(InkTool tool, double width)? styleFor,
-  }) {
+  void restyleInk({double? width, InkTool? tool, StrokeStyle Function(InkTool tool)? styleFor}) {
     if (_strokes.isEmpty) return;
     _replace(
       [
@@ -109,7 +105,7 @@ class SelectionController extends _SelectionCore {
             s,
             width: width,
             tool: tool,
-            style: tool == null || tool == s.tool ? null : styleFor?.call(tool, width ?? s.width),
+            style: tool == null || tool == s.tool ? null : styleFor?.call(tool),
             id: clock.newId(),
           ),
       ],

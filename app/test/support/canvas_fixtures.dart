@@ -73,7 +73,7 @@ List<Stroke> scribbles(int count, Rect area, {int seed = 1, int points = 10}) {
         width: width,
         points: pts,
         createdAt: n,
-        style: config.styleFor(tool, width),
+        style: config.styleFor(tool),
       ),
     );
   }

@@ -5,7 +5,7 @@ import '../../domain/stroke.dart';
 /// "Hold to straighten": turns a freehand stroke into a straight line.
 abstract final class Straighten {
   /// A straight line from the first to the last of [points], resampled
-  /// every [spacing] world units so tapers and the pixel eraser behave as
+  /// every [spacing] world units so the pixel eraser behaves as
   /// on a hand-drawn line. Pressure is the stroke's typical (median)
   /// pressure, so the line keeps the weight the user was writing with.
   static List<StrokePoint> line(List<StrokePoint> points, {double spacing = 2}) {

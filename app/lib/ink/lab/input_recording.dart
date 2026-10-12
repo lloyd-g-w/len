@@ -85,7 +85,6 @@ class PenSettings {
     this.opacity = 1,
     this.thinning = 0.25,
     this.streamline = 0.4,
-    this.taper = false,
   });
 
   final InkTool tool;
@@ -96,18 +95,15 @@ class PenSettings {
 
   /// Stabiliser (0..1).
   final double streamline;
-  final bool taper;
 
-  PenSettings copyWith({double? streamline, double? width, double? thinning, bool? taper}) =>
-      PenSettings(
-        tool: tool,
-        color: color,
-        width: width ?? this.width,
-        opacity: opacity,
-        thinning: thinning ?? this.thinning,
-        streamline: streamline ?? this.streamline,
-        taper: taper ?? this.taper,
-      );
+  PenSettings copyWith({double? streamline, double? width, double? thinning}) => PenSettings(
+    tool: tool,
+    color: color,
+    width: width ?? this.width,
+    opacity: opacity,
+    thinning: thinning ?? this.thinning,
+    streamline: streamline ?? this.streamline,
+  );
 }
 
 /// One thing the app received. [t] is when (µs since the recording

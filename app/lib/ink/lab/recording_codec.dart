@@ -74,7 +74,6 @@ abstract final class RecordingCodec {
       'opacity': m.pen.opacity,
       'thinning': m.pen.thinning,
       'streamline': m.pen.streamline,
-      'taper': m.pen.taper,
     },
   };
 
@@ -101,7 +100,6 @@ abstract final class RecordingCodec {
         opacity: _num(pen['opacity'], 1),
         thinning: _num(pen['thinning'], 0.25),
         streamline: _num(pen['streamline'], 0.4),
-        taper: pen['taper'] == true,
       ),
     );
   }

@@ -660,13 +660,7 @@ void main() {
         paper: PaperStyle.blank,
         coverColor: 0,
       );
-      const style = StrokeStyle(
-        opacity: 0.375,
-        thinning: 0.125,
-        streamline: 0.75,
-        taperStart: 20,
-        taperEnd: 15,
-      );
+      const style = StrokeStyle(opacity: 0.375, thinning: 0.125, streamline: 0.75, unit: 0.25);
       a.s.strokes.save([
         _stroke('hl', nb.id, tool: InkTool.highlighter, style: style),
         _stroke('bp', nb.id),

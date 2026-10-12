@@ -19,7 +19,7 @@ Stroke styled(String id, {InkTool tool = InkTool.ballpoint, double y = 0}) => St
   width: 4,
   points: [for (var x = 0.0; x <= 100; x += 5) StrokePoint(x, y, 0.6)],
   createdAt: 3,
-  style: const StrokeStyle(opacity: 0.9, thinning: 0.7, streamline: 0.3, taperStart: 10),
+  style: const StrokeStyle(opacity: 0.9, thinning: 0.7, streamline: 0.3, unit: 0.5),
 );
 
 void main() {

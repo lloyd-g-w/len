@@ -185,7 +185,6 @@ class ReplayDriver {
         opacity: pen.opacity,
         thinning: pen.thinning,
         streamline: pen.streamline,
-        taper: pen.taper,
       ),
     );
   }
