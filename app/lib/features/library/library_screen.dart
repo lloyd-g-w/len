@@ -8,6 +8,7 @@ import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/sync_status_button.dart';
+import '../audio/ui/recover_recording_dialog.dart';
 import '../documents/import/import_flow.dart';
 import '../settings/settings_screen.dart';
 import 'library_actions.dart';
@@ -81,6 +82,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
       show: _showImported,
     );
     services.incomingFiles.handler = (files) => unawaited(_imports.enqueue(context, files));
+    // A recording cut off by the app being killed: offer to recover it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(offerRecordingRecovery(context, services));
+    });
     _remoteChanges = services.sync.remoteChanges.listen((c) {
       if (c.strokeSurfaces.isNotEmpty || c.pagesOfNotebooks.isNotEmpty) _thumbnails.invalidate();
       if (c.notebooks || c.folders || c.tags) _controller.reload();
