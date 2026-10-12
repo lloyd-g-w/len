@@ -30,6 +30,8 @@ abstract final class AppTheme {
     );
     return brightness == Brightness.light
         ? base.copyWith(
+            primary: seed,
+            onPrimary: const Color(0xFFFFFFFF),
             surface: const Color(0xFFF9F9F7),
             onSurface: const Color(0xFF1B1B1F),
             onSurfaceVariant: const Color(0xFF66666E),
@@ -46,6 +48,12 @@ abstract final class AppTheme {
             surfaceTint: Colors.transparent,
           )
         : base.copyWith(
+            // The same ink blue, lifted so text and links in it stay above
+            // 4.5:1 on raised surfaces; labels on it are dark ink.
+            primary: const Color(0xFF748FFC),
+            onPrimary: const Color(0xFF0F1530),
+            error: const Color(0xFFFF6B6B),
+            onError: const Color(0xFF1B1B1F),
             surface: const Color(0xFF131316),
             onSurface: const Color(0xFFECECF0),
             onSurfaceVariant: const Color(0xFF9F9FA9),
