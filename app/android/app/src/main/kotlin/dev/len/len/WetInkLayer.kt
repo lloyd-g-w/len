@@ -7,12 +7,20 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.RectF
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.os.Trace
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.RequiresApi
 import androidx.graphics.lowlatency.CanvasFrontBufferedRenderer
+import androidx.graphics.surface.SurfaceControlCompat
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.ceil
+import kotlin.math.floor
 
 /**
  * The surface of the low-latency ink: a translucent [SurfaceView] above the
@@ -35,8 +43,15 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
      */
     class Ink(val color: Int, val clip: RectF, val hulls: FloatArray, val tip: FloatArray)
 
-    /** Everything the overlay shows. [newestNs] is the newest input it contains (for traces). */
-    class Frame(val dirty: RectF, val inks: List<Ink>, val newestNs: Long)
+    /**
+     * Everything the overlay shows, within [bounds]. [newestNs] is the
+     * newest input it contains (for traces).
+     */
+    class Frame(val bounds: RectF, val inks: List<Ink>, val newestNs: Long) {
+        /** What to clear first: this frame's bounds and the last one's (set when sent). */
+        internal val dirty = RectF()
+        internal var generation = 0
+    }
 
     private val view = SurfaceView(parent.context)
     private val paint = Paint().apply {
@@ -60,11 +75,65 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
     /** Whether the layer still sits above [flutter] (activity views get recreated). */
     fun isAbove(flutter: View): Boolean = view.parent != null && view.parent === flutter.parent
 
-    /** Shows [frame] (from the main thread; rendered on the renderer's thread). */
-    fun draw(frame: Frame) = renderer.renderFrontBufferedLayer(frame)
+    private val main = Handler(Looper.getMainLooper())
+
+    // At most [MAX_IN_FLIGHT] frames queued for the renderer; beyond that
+    // only the newest waiting one is kept (input can come faster than frames
+    // render). [generation] tells completions of frames sent before a
+    // [clear] apart.
+    private val inFlight = AtomicInteger()
+    private var waiting: Frame? = null
+    private val hasWaiting = AtomicBoolean()
+    @Volatile private var generation = 0
+    private var sentAtMs = 0L
+    private val inBuffer = RectF()
+
+    /**
+     * Shows [frame] (from the main thread; rendered on the renderer's
+     * thread), or once the frame being rendered is done.
+     */
+    fun draw(frame: Frame) {
+        val now = SystemClock.uptimeMillis()
+        // Frames sent while the surface was gone never complete.
+        if (now - sentAtMs > STUCK_MS) inFlight.set(0)
+        if (inFlight.get() >= MAX_IN_FLIGHT) {
+            waiting = frame
+            hasWaiting.set(true)
+            return
+        }
+        frame.dirty.set(frame.bounds)
+        if (!inBuffer.isEmpty) frame.dirty.union(inBuffer)
+        frame.dirty.set(
+            floor(frame.dirty.left),
+            floor(frame.dirty.top),
+            ceil(frame.dirty.right),
+            ceil(frame.dirty.bottom),
+        )
+        inBuffer.set(frame.bounds)
+        frame.generation = generation
+        inFlight.incrementAndGet()
+        sentAtMs = now
+        renderer.renderFrontBufferedLayer(frame)
+    }
+
+    /** Sends the frame that waited for the renderer, if any (main thread). */
+    private val sendWaiting = Runnable {
+        hasWaiting.set(false)
+        waiting?.let {
+            waiting = null
+            draw(it)
+        }
+    }
 
     /** Removes all ink. */
-    fun clear() = renderer.cancel()
+    fun clear() {
+        generation++
+        inFlight.set(0)
+        waiting = null
+        hasWaiting.set(false)
+        inBuffer.setEmpty()
+        renderer.cancel()
+    }
 
     fun release() {
         renderer.release(true)
@@ -72,7 +141,13 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
     }
 
     private inner class Callback : CanvasFrontBufferedRenderer.Callback<Frame> {
+        // The generation of the frame rendered last (renderer thread only).
+        private var drawnGeneration = -1
+        private var drawnNewestNs = 0L
+
         override fun onDrawFrontBufferedLayer(canvas: Canvas, bufferWidth: Int, bufferHeight: Int, param: Frame) {
+            drawnGeneration = param.generation
+            drawnNewestNs = param.newestNs
             val traced = Trace.isEnabled()
             if (traced) Trace.beginSection("len.wet ${param.newestNs}")
             canvas.save()
@@ -92,6 +167,19 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
             if (traced) Trace.endSection()
         }
 
+        override fun onFrontBufferedLayerRenderComplete(
+            frontBufferedLayerSurfaceControl: SurfaceControlCompat,
+            transaction: SurfaceControlCompat.Transaction,
+        ) {
+            if (Trace.isEnabled()) {
+                Trace.beginSection("len.wetDone $drawnNewestNs")
+                Trace.endSection()
+            }
+            if (drawnGeneration != generation) return
+            inFlight.decrementAndGet()
+            if (hasWaiting.get()) main.post(sendWaiting)
+        }
+
         override fun onDrawMultiBufferedLayer(
             canvas: Canvas,
             bufferWidth: Int,
@@ -103,6 +191,12 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
     }
 
     companion object {
+        /** Frames queued for the renderer before newer ones replace each other. */
+        private const val MAX_IN_FLIGHT = 1
+
+        /** A frame not rendered after this long (ms) never will be. */
+        private const val STUCK_MS = 250L
+
         /**
          * Adds the ink of consecutive (x, y, radius) triples to [path]: each
          * pair is the hull of its two circles (a tapered capsule), one triple

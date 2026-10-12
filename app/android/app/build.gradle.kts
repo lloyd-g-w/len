@@ -80,4 +80,6 @@ dependencies {
     // Low-latency ink (WetInkOverlay.kt): front-buffered rendering and motion prediction.
     implementation("androidx.graphics:graphics-core:1.0.4")
     implementation("androidx.input:input-motionprediction:1.0.0")
+    // WetInkModelTest (plain JVM): ./gradlew :app:testDebugUnitTest
+    testImplementation("junit:junit:4.13.2")
 }

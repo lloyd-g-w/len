@@ -55,7 +55,6 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
     private val progressAt = ArrayDeque<Long>()
     private val progressUpTo = ArrayDeque<Double>()
 
-    private val drawnBounds = RectF()
     private var shown = false
     private var ticking = false
 
@@ -184,11 +183,23 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
         return upTo
     }
 
-    /** Re-evaluates the tails once per display frame while there is ink. */
+    /**
+     * Once per display frame while there is ink: removes the strokes Flutter
+     * surely shows by now. Only then is the overlay redrawn; a tail Flutter
+     * has caught up with may stay until the next sample (it lies exactly on
+     * Flutter's ink), which saves the renderer half its work.
+     */
     private val tick = Choreographer.FrameCallback {
         ticking = false
-        render()
+        if (prune(SystemClock.uptimeMillis())) render()
         if (contacts.isNotEmpty()) startTicking()
+    }
+
+    /** Drops the contacts Flutter surely shows by [now]; whether there were any. */
+    private fun prune(now: Long): Boolean = contacts.removeAll {
+        // Shown by Flutter for sure (or never ended: Dart went away).
+        (it.endedAtMs >= 0 && now - it.endedAtMs >= SHOWN_AFTER_MS) ||
+            (it.liftedAtMs >= 0 && now - it.liftedAtMs >= LOST_AFTER_MS)
     }
 
     private fun startTicking() {
@@ -202,11 +213,7 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
         val layer = layer ?: return
         val now = SystemClock.uptimeMillis()
         val upTo = shownUpTo(now)
-        contacts.removeAll {
-            // Shown by Flutter for sure (or never ended: Dart went away).
-            (it.endedAtMs >= 0 && now - it.endedAtMs >= SHOWN_AFTER_MS) ||
-                (it.liftedAtMs >= 0 && now - it.liftedAtMs >= LOST_AFTER_MS)
-        }
+        prune(now)
         val inks = ArrayList<WetInkLayer.Ink>(contacts.size)
         val bounds = RectF()
         var newest = 0L
@@ -222,19 +229,9 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
         if (inks.isEmpty()) {
             if (shown) layer.clear()
             shown = false
-            drawnBounds.setEmpty()
             return
         }
-        val dirty = RectF(bounds)
-        if (!drawnBounds.isEmpty) dirty.union(drawnBounds)
-        dirty.set(
-            Math.floor(dirty.left.toDouble()).toFloat(),
-            Math.floor(dirty.top.toDouble()).toFloat(),
-            Math.ceil(dirty.right.toDouble()).toFloat(),
-            Math.ceil(dirty.bottom.toDouble()).toFloat(),
-        )
-        drawnBounds.set(bounds)
-        layer.draw(WetInkLayer.Frame(dirty, inks, newest))
+        layer.draw(WetInkLayer.Frame(bounds, inks, newest))
         shown = true
     }
 
@@ -251,9 +248,11 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
 
         /**
          * How long after Dart reports building a frame it is surely on
-         * screen (raster, then SurfaceFlinger's latch and present).
+         * screen: raster, queued buffers, SurfaceFlinger's latch and the
+         * present. Measured on a Galaxy Tab S8+ (120 Hz): 25 ms median,
+         * 40 ms p99 (docs/INK_LAB.md, "Low-latency ink").
          */
-        const val SHOWN_AFTER_MS = 30L
+        const val SHOWN_AFTER_MS = 50L
 
         /** A lifted contact Dart has not ended by then is dropped (ms). */
         private const val LOST_AFTER_MS = 1000L
