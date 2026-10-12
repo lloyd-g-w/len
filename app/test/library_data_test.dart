@@ -185,7 +185,7 @@ void main() {
     test('duplicate copies pages and strokes under new ids', () {
       final source = notebook('Physics');
       final page = pages.pagesOf(source.id).single;
-      pages.addPage(source.id, paper: PaperStyle.gridLarge, after: page);
+      pages.addPage(source.id, paper: const Paper(PaperStyle.gridLarge), after: page);
       strokes.save([
         stroke('s1', const Offset(10, 10), surface: page.id),
         stroke('s2', const Offset(600, 600), surface: page.id),
@@ -251,10 +251,11 @@ void main() {
     });
 
     test('notebook records missing a field or with an unknown value are malformed', () {
-      const complete = {
+      final complete = {
         'title': 'Full',
         'kind': 'canvas',
         'paper': 'dotted',
+        'paperData': {'look': PaperLook.standard.toJson()},
         'paperColor': 'white',
         'coverColor': 7,
         'coverStyle': 'plain',
@@ -280,6 +281,7 @@ void main() {
         ('kind', 'scroll'),
         ('paper', 'hexagons'),
         ('paperColor', 'mauve'),
+        ('paperData', <String, Object?>{}),
         ('coverStyle', 'tartan'),
         ('favorite', 1),
       ]) {
@@ -306,7 +308,8 @@ void main() {
             'title': 'Algebra',
             'kind': 'paged',
             'paper': 'dotted',
-            'paperColor': 'cream',
+            'paperData': {'look': const PaperLook(dotSize: 2, header: true).toJson()},
+            'paperColor': '#F0E6FF',
             'coverColor': 1,
             'coverStyle': 'waves',
             'createdAt': nb.createdAt,
@@ -320,14 +323,17 @@ void main() {
       final after = notebooks.get(nb.id)!;
       expect(after.folderId, isNull);
       expect(after.favorite, isFalse);
-      expect(after.paper, PaperStyle.dotted);
-      expect(after.paperColor, PaperColor.cream);
+      expect(
+        after.paper,
+        const Paper(PaperStyle.dotted, look: PaperLook(dotSize: 2, header: true)),
+      );
+      expect(after.paperColor, PaperColor.custom(0xFFF0E6FF));
       expect(after.coverStyle, CoverStyle.waves);
       expect(after.editedAt, 42);
       // And it round-trips through the wire format.
       expect(notebooks.dirtyRecords(10), isEmpty);
       notebooks.update(notebooks.get(nb.id)!);
-      expect(notebooks.dirtyRecords(10).single.data!['paperColor'], 'cream');
+      expect(notebooks.dirtyRecords(10).single.data!['paperColor'], '#F0E6FF');
     });
   });
 

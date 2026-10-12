@@ -71,7 +71,7 @@ class ContentTools {
     clock: clock,
   );
   late final TextTool textTool = TextTool(session: text, tools: tools, viewport: viewport);
-  late final LaserTool laserTool = LaserTool(laser);
+  late final LaserTool laserTool = LaserTool(laser, config: () => tools.laser);
 
   /// Selects text on imported PDF pages, set by editors that have them.
   PointerTool? selectText;

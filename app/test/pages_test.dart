@@ -128,6 +128,7 @@ void main() {
 
     test('remote pages need every field and known values', () {
       final page = pages.pagesOf(nb.id).single;
+      const look = PaperLook(spacing: 5, dotSize: 2, patternColor: 0xFF2255AA, header: true);
       SyncRecord record(Map<String, Object?> data) => SyncRecord(
         collection: 'pages',
         id: page.id,
@@ -142,8 +143,8 @@ void main() {
         'width': 500,
         'height': 600,
         'paper': 'dotted',
-        'paperData': <String, Object?>{},
-        'paperColor': 'cream',
+        'paperData': {'look': look.toJson()},
+        'paperColor': '#336699',
         'bookmarked': true,
         'background': null,
       };
@@ -155,7 +156,21 @@ void main() {
         ('paper', 'hexagons'),
         ('paper', 'dailyPlanner'), // A planner needs a date.
         ('paperData', 'none'),
+        ('paperData', <String, Object?>{}), // Every template needs a look.
+        (
+          'paperData',
+          {
+            'look': {...look.toJson()}..remove('header'),
+          },
+        ),
+        (
+          'paperData',
+          {
+            'look': {...look.toJson(), 'dotSize': 'big'},
+          },
+        ),
         ('paperColor', 'sepia'),
+        ('paperColor', '#12345'),
         ('background', {'type': 'video', 'url': 'x'}),
         ('height', 0),
       ]) {
@@ -167,7 +182,9 @@ void main() {
       expect(pages.applyRemote(record(complete)), isTrue);
       final local = pages.get(page.id)!;
       expect(local.paper.style, PaperStyle.dotted);
-      expect(local.paperColor, PaperColor.cream);
+      expect(local.paper.look, look);
+      expect(local.paperColor, PaperColor.custom(0xFF336699));
+      expect(local.paperColor.name, '#336699');
       expect(local.bookmarked, isTrue);
       expect(local.size, const Size(500, 600));
     });

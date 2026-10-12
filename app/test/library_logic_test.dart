@@ -21,7 +21,7 @@ Notebook nb(String title, {int created = 0, int edited = 0}) => Notebook(
   id: title,
   title: title,
   kind: NotebookKind.paged,
-  paper: PaperStyle.blank,
+  paper: Paper.blank,
   coverColor: 0,
   createdAt: created,
   updatedAt: edited,

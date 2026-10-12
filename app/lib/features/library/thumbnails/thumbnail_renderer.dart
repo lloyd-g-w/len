@@ -55,7 +55,7 @@ class ThumbnailRenderer {
   /// notebook, or the canvas itself. Null for a notebook without pages.
   PreviewSource? sourceOf(Notebook notebook) {
     if (notebook.kind == NotebookKind.canvas) {
-      return (surfaceId: notebook.id, paper: Paper(notebook.paper), page: null);
+      return (surfaceId: notebook.id, paper: notebook.paper, page: null);
     }
     final page = pages.pagesOf(notebook.id).firstOrNull;
     return page == null ? null : (surfaceId: page.id, paper: page.paper, page: page);
@@ -112,7 +112,7 @@ class ThumbnailRenderer {
     return _paint(
       size,
       _frame(content, size.aspectRatio),
-      Paper(notebook.paper),
+      notebook.paper,
       ink,
       items,
       color: notebook.paperColor,

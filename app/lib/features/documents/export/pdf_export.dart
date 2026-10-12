@@ -267,6 +267,7 @@ abstract final class PdfExporter {
       pen.g,
       PaperPattern.of(page.paper, rect, page: rect),
       page.paperColor,
+      look: page.paper.look,
       margin: const PaperColors().margin,
       map: pen.map,
       k: pointsPerUnit,

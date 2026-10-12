@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/paper_pattern.dart';
 import '../../../domain/text/text_font.dart';
+import '../../../ink/render/paper_painter.dart';
 import 'pdf_text.dart';
 
 /// Writes a template's pattern into a PDF page as vectors: tints, lines
@@ -25,16 +26,18 @@ class PdfTemplateWriter {
     PdfGraphics g,
     PaperPattern pattern,
     PaperColor color, {
+    PaperLook look = PaperLook.standard,
     required Color margin,
     required Offset Function(Offset) map,
     required double k,
   }) async {
+    final ink = look.patternOn(color.pattern);
     for (final f in pattern.fills) {
       final a = map(f.rect.bottomLeft), b = map(f.rect.topRight);
       g
         ..saveContext()
-        ..setGraphicState(PdfGraphicState(fillOpacity: color.pattern.a * f.opacity))
-        ..setFillColor(_opaque(color.pattern))
+        ..setGraphicState(PdfGraphicState(fillOpacity: ink.a * f.opacity))
+        ..setFillColor(_opaque(ink))
         ..drawRect(a.dx, a.dy, b.dx - a.dx, b.dy - a.dy)
         ..fillPath()
         ..restoreContext();
@@ -44,18 +47,21 @@ class PdfTemplateWriter {
       if (lines.isEmpty) continue;
       final c = switch (weight) {
         PatternWeight.margin => margin,
-        PatternWeight.heavy => Color.lerp(color.pattern, color.text, 0.22)!,
-        _ => color.pattern,
+        PatternWeight.heavy => PaperRenderer.heavyColor(ink, color),
+        _ => ink,
       };
       g
         ..saveContext()
         ..setGraphicState(PdfGraphicState(strokeOpacity: c.a))
         ..setStrokeColor(_opaque(c))
-        ..setLineWidth(switch (weight) {
-          PatternWeight.fine => 0.3,
-          PatternWeight.normal => 0.5,
-          PatternWeight.heavy || PatternWeight.margin => 0.9,
-        });
+        ..setLineWidth(
+          look.lineWeight *
+              switch (weight) {
+                PatternWeight.fine => 0.3,
+                PatternWeight.normal => 0.5,
+                PatternWeight.heavy || PatternWeight.margin => 0.9,
+              },
+        );
       for (final l in lines) {
         final a = map(l.a), b = map(l.b);
         g
@@ -67,12 +73,18 @@ class PdfTemplateWriter {
         ..restoreContext();
     }
     if (pattern.dots.isNotEmpty) {
-      g.setFillColor(_opaque(color.pattern));
+      final r = 1.05 * look.dotSize;
+      g
+        ..saveContext()
+        ..setGraphicState(PdfGraphicState(fillOpacity: ink.a))
+        ..setFillColor(_opaque(ink));
       for (final d in pattern.dots) {
         final c = map(d);
-        g.drawEllipse(c.dx, c.dy, 1.05, 1.05);
+        g.drawEllipse(c.dx, c.dy, r, r);
       }
-      g.fillPath();
+      g
+        ..fillPath()
+        ..restoreContext();
     }
     for (final label in pattern.labels) {
       final font = await text.font(TextFont.inter, bold: label.bold, italic: false);

@@ -42,7 +42,7 @@ Future<AppServices> pumpEditor(
   final physics = named('Physics');
   final first = s.pages.pagesOf(physics.id).first;
   for (var i = 0; i < 2; i++) {
-    final page = s.pages.addPage(physics.id, paper: PaperStyle.wideRuled);
+    final page = s.pages.addPage(physics.id, paper: const Paper(PaperStyle.wideRuled));
     s.strokes.save([
       for (final st in SurfaceCopier(s.strokes).loadAll(first.id).take(20 + i * 10))
         Stroke(

@@ -37,8 +37,9 @@ class Notebook {
   final String title;
   final NotebookKind kind;
 
-  /// Default paper for new pages (paged) or the canvas background (canvas).
-  final PaperStyle paper;
+  /// Default paper for new pages (paged) or the canvas background (canvas):
+  /// a template without parameters (not a planner or image), with its look.
+  final Paper paper;
 
   /// Colour of the canvas background (canvas notebooks; pages of paged
   /// notebooks carry their own colour).
@@ -79,7 +80,7 @@ class Notebook {
   /// `trashedAt: null` explicitly to clear them.
   Notebook copyWith({
     String? title,
-    PaperStyle? paper,
+    Paper? paper,
     PaperColor? paperColor,
     int? coverColor,
     CoverStyle? coverStyle,

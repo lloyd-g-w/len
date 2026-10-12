@@ -9,11 +9,13 @@ import '../domain/text/text_data.dart';
 import 'pen/eraser_config.dart';
 import 'pen/pen_config.dart';
 import 'shapes/shape_kind.dart';
+import 'tools/laser_config.dart';
 
 export 'pen/eraser_config.dart';
 export 'pen/pen_config.dart';
 export 'pen/pen_defaults.dart';
 export 'shapes/shape_kind.dart';
+export 'tools/laser_config.dart';
 
 /// The tools selectable in the editor toolbar.
 enum EditorTool {
@@ -52,6 +54,7 @@ class ToolSettings extends ChangeNotifier {
   final Map<InkTool, PenConfig> _configs = {for (final t in inks) t: PenConfig.defaultsFor(t)};
   EraserConfig _eraser = const EraserConfig();
   ShapeKind _shape = ShapeKind.rectangle;
+  LaserConfig _laser = const LaserConfig();
   TextData _text = const TextData();
   bool _holdToStraighten = true;
   List<int> _favorites = const [];
@@ -155,6 +158,14 @@ class ToolSettings extends ChangeNotifier {
     _changed();
   }
 
+  /// How the laser pointer looks.
+  LaserConfig get laser => _laser;
+  set laser(LaserConfig value) {
+    if (value == _laser) return;
+    _laser = value;
+    _changed();
+  }
+
   /// Formatting of new text boxes (its text is ignored).
   TextData get textStyle => _text;
   set textStyle(TextData value) {
@@ -215,6 +226,7 @@ class ToolSettings extends ChangeNotifier {
         tool == _tool &&
         _eraser == other._eraser &&
         _shape == other._shape &&
+        _laser == other._laser &&
         identical(_text, other._text) &&
         _holdToStraighten == other._holdToStraighten &&
         inks.every((t) => identical(_configs[t], other._configs[t]));
@@ -223,6 +235,7 @@ class ToolSettings extends ChangeNotifier {
     _configs.addAll(other._configs);
     _eraser = other._eraser;
     _shape = other._shape;
+    _laser = other._laser;
     _text = other._text;
     _holdToStraighten = other._holdToStraighten;
     notifyListeners();
@@ -237,6 +250,7 @@ class ToolSettings extends ChangeNotifier {
     'eraser': _eraser.toJson(),
     'straighten': _holdToStraighten,
     'shape': _shape.name,
+    'laser': _laser.toJson(),
     'text': _text.toJson(),
   };
 
@@ -261,6 +275,7 @@ class ToolSettings extends ChangeNotifier {
     _eraser = EraserConfig.fromJson(data['eraser']);
     if (data['straighten'] case final bool straighten) _holdToStraighten = straighten;
     _shape = ShapeKind.parse(data['shape']);
+    _laser = LaserConfig.fromJson(data['laser']);
     if (data['text'] case final Map<String, Object?> text) _text = TextData.fromJson(text);
   }
 

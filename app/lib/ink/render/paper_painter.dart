@@ -45,10 +45,10 @@ abstract final class PaperRenderer {
     _ => minScreenSpacing,
   };
 
-  /// Whether [style]'s repeating pattern is legible at [scale] device
+  /// Whether [paper]'s repeating pattern is legible at [scale] device
   /// pixels per unit.
-  static bool patternVisible(PaperStyle style, double scale) =>
-      style.spacing * scale >= _threshold(style);
+  static bool patternVisible(Paper paper, double scale) =>
+      paper.pitch * scale >= _threshold(paper.style);
 
   /// Fills [page] with the paper colour, with a soft drop shadow.
   static void paintSheet(
@@ -87,7 +87,7 @@ abstract final class PaperRenderer {
     PaperImageLookup? images,
   }) {
     final style = paper.style;
-    if (style == PaperStyle.blank) return;
+    if (style == PaperStyle.blank && !paper.look.header) return;
     if (style == PaperStyle.image) {
       final blob = paper.image;
       final image = page == null || blob == null ? null : images?.call(blob, page.width * scale);
@@ -97,14 +97,14 @@ abstract final class PaperRenderer {
     final minPitch = (always ? minMiniatureSpacing : _threshold(style)) / scale;
     final pattern = PaperPattern.of(paper, area, page: page, minPitch: minPitch);
     if (pattern.isEmpty) return;
+    final look = paper.look;
+    final ink = look.patternOn(color.pattern);
     for (final f in pattern.fills) {
-      canvas.drawRect(
-        f.rect,
-        Paint()..color = color.pattern.withValues(alpha: color.pattern.a * f.opacity),
-      );
+      canvas.drawRect(f.rect, Paint()..color = ink.withValues(alpha: ink.a * f.opacity));
     }
-    // One device pixel in world units (thinner in miniatures).
-    final px = (always ? math.min(1.0, 0.5 + scale) : 1) / scale;
+    // One device pixel in world units (thinner in miniatures), times the
+    // look's weight.
+    final px = (always ? math.min(1.0, 0.5 + scale) : 1) / scale * look.lineWeight;
     for (final weight in PatternWeight.values) {
       final points = <Offset>[
         for (final l in pattern.lines)
@@ -114,9 +114,9 @@ abstract final class PaperRenderer {
       final paint = Paint()
         ..color = switch (weight) {
           PatternWeight.margin => colors.margin,
-          PatternWeight.fine => color.pattern.withValues(alpha: color.pattern.a * 0.6),
-          PatternWeight.normal => color.pattern,
-          PatternWeight.heavy => Color.lerp(color.pattern, color.text, 0.22)!,
+          PatternWeight.fine => ink.withValues(alpha: ink.a * 0.6),
+          PatternWeight.normal => ink,
+          PatternWeight.heavy => heavyColor(ink, color),
         }
         ..strokeWidth = switch (weight) {
           PatternWeight.fine => 0.7 * px,
@@ -127,12 +127,13 @@ abstract final class PaperRenderer {
       canvas.drawPoints(ui.PointMode.lines, points, paint);
     }
     if (pattern.dots.isNotEmpty) {
-      final radius = math.max(1.0, 1.4 * math.min(1.0, scale)) * px;
+      final radius =
+          math.max(1.0, 1.4 * math.min(1.0, scale)) * px / look.lineWeight * look.dotSize;
       canvas.drawPoints(
         ui.PointMode.points,
         pattern.dots,
         Paint()
-          ..color = color.pattern
+          ..color = ink
           ..strokeWidth = radius * 2
           ..strokeCap = StrokeCap.round,
       );
@@ -147,6 +148,13 @@ abstract final class PaperRenderer {
         label.muted ? color.text.withValues(alpha: 0.62) : color.text,
       );
     }
+  }
+
+  /// Structural lines: the pattern colour [ink] a little towards the
+  /// paper's text colour.
+  static Color heavyColor(Color ink, PaperColor color) {
+    final heavy = Color.lerp(ink.withValues(alpha: 1), color.text, 0.22)!;
+    return heavy.withValues(alpha: ink.a);
   }
 
   static void _paintImage(Canvas canvas, ui.Image image, Rect page) {

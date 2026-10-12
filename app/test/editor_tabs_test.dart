@@ -15,7 +15,7 @@ Notebook notebook(String id, {NotebookKind kind = NotebookKind.paged}) => Notebo
   id: id,
   title: 'Notebook $id',
   kind: kind,
-  paper: PaperStyle.blank,
+  paper: Paper.blank,
   coverColor: 0,
   createdAt: 0,
   updatedAt: 0,
@@ -96,7 +96,7 @@ void main() {
       coverColor: 0,
     );
     for (var i = 0; i < 3; i++) {
-      s.pages.addPage(physics.id, paper: PaperStyle.wideRuled);
+      s.pages.addPage(physics.id, paper: const Paper(PaperStyle.wideRuled));
     }
     s.notebooks.create(
       title: 'Board',

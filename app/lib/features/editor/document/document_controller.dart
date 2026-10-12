@@ -258,7 +258,7 @@ class DocumentController extends ChangeNotifier {
   }
 
   /// The index of the first page with template [paper], or -1.
-  int indexOfPaper(Paper paper) => _pages.indexWhere((p) => p.paper == paper);
+  int indexOfPaper(Paper paper) => _pages.indexWhere((p) => p.paper.sameSheet(paper));
 
   /// Makes the page under [screen] (or nearest to it) the active page.
   void activateAt(Offset screen) {
