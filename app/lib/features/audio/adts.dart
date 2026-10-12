@@ -23,11 +23,12 @@ class AdtsReader {
   /// Whole frames read so far.
   int frames = 0;
 
-  /// Audio read so far, in µs (exact sums across sample rates).
-  int _micros = 0;
+  /// Audio read so far: µs at earlier sample rates, plus samples at the
+  /// current one (summed exactly; rates change only at a joint).
+  int _micros = 0, _samples = 0, _rate = 0;
 
   /// Audio in the whole frames read so far.
-  int get durationMs => _micros ~/ 1000;
+  int get durationMs => (_micros + (_rate == 0 ? 0 : _samples * 1000000 ~/ _rate)) ~/ 1000;
 
   /// Bytes held back: the start of a frame not complete yet.
   int get pendingBytes => _pending.length;
@@ -76,7 +77,12 @@ class AdtsReader {
     final rate = sampleRates[(d[i + 2] >> 2) & 0x0F];
     final blocks = (d[i + 6] & 0x03) + 1;
     frames++;
-    _micros += blocks * samplesPerBlock * 1000000 ~/ rate;
+    if (rate != _rate) {
+      if (_rate != 0) _micros += _samples * 1000000 ~/ _rate;
+      _samples = 0;
+      _rate = rate;
+    }
+    _samples += blocks * samplesPerBlock;
   }
 
   /// The whole frames of [bytes] and their duration: a file cut off

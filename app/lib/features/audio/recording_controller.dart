@@ -320,10 +320,17 @@ class RecordingController extends ChangeNotifier {
   }
 
   void _tick() {
+    unawaited(nextPartIfDue());
+    notifyListeners();
+  }
+
+  /// Moves on to the next part once the current one holds [partMs] of
+  /// audio (checked by the ticker; tests call it directly).
+  Future<void> nextPartIfDue() {
     if (_state == RecorderState.recording && !_splitting && elapsedMs - _fileStartMs >= partMs) {
       _work = _split();
     }
-    notifyListeners();
+    return _work;
   }
 
   /// Moves the capture on to a new file and stores the finished one.
