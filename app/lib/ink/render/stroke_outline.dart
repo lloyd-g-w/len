@@ -17,6 +17,8 @@ class OutlineSpec {
     required this.streamline,
     this.flatCaps = false,
     this.unit = 0,
+    this.taperStart = 0,
+    this.taperEnd = 0,
   });
 
   /// Nominal diameter at medium (0.5) pressure, in world units.
@@ -28,8 +30,15 @@ class OutlineSpec {
   /// Stabiliser strength, 0..1: how much positional jitter is smoothed away.
   final double streamline;
 
-  /// Square ends (highlighter) instead of round caps.
+  /// Butt caps, square to the stroke (the highlighter, flat pen ends),
+  /// instead of round caps.
   final bool flatCaps;
+
+  /// Lengths (world units) over which the start and the end narrow to a
+  /// point (`Taper`); 0: that end has its cap. The end's applies only to a
+  /// complete stroke (live ink cannot know where it will end).
+  final double taperStart;
+  final double taperEnd;
 
   /// World units per screen pixel the stroke was written at
   /// (`StrokeStyle.unit`); 0: estimated from the points
@@ -42,7 +51,26 @@ class OutlineSpec {
       thinning == other.thinning &&
       streamline == other.streamline &&
       flatCaps == other.flatCaps &&
-      unit == other.unit;
+      unit == other.unit &&
+      taperStart == other.taperStart &&
+      taperEnd == other.taperEnd;
+
+  /// Whether [other] draws the same outline while the stroke is drawn:
+  /// all but the end taper, which forms at pen-up.
+  bool sameLiveShape(OutlineSpec other) => sameShape(other.withTaperEnd(taperEnd));
+
+  /// A copy with the end taper [taperEnd].
+  OutlineSpec withTaperEnd(double taperEnd) => taperEnd == this.taperEnd
+      ? this
+      : OutlineSpec(
+          width: width,
+          thinning: thinning,
+          streamline: streamline,
+          flatCaps: flatCaps,
+          unit: unit,
+          taperStart: taperStart,
+          taperEnd: taperEnd,
+        );
 
   /// Outline radius at [pressure]: half the [width] at medium pressure,
   /// thinner/thicker with lighter/harder pressure as [thinning] allows.
@@ -82,6 +110,7 @@ class OutlineSpec {
     settleReach: settleReach,
     levelReach: levelReach,
     tipReach: tipReach,
+    taperStart: taperStart,
   );
 
   static final Expando<Map<double, ShapeParams>> _params = Expando('outline params');
@@ -141,8 +170,9 @@ abstract final class StrokeOutline {
     if (s.length < 2) return true;
     if (s.p.step * (s.length - 1) >= s.p.width) return false; // radii ≤ width
     var maxR = 0.0;
+    final r = s.untaperedR;
     for (var i = 0; i < s.length; i++) {
-      maxR = math.max(maxR, s.r[i]);
+      maxR = math.max(maxR, r[i]);
     }
     return s.p.step * (s.length - 1) < maxR * 0.5;
   }
@@ -236,6 +266,7 @@ abstract final class StrokeOutline {
   static StrokeShaper _shape(List<StrokePoint> points, OutlineSpec spec, bool complete) {
     final shaper = feed(StrokeShaper(paramsOf(points, spec)), points, spec);
     if (complete) {
+      shaper.taperEnd = spec.taperEnd;
       shaper.update(ended: true, keep: shaper.endKeep());
     } else {
       // Too short to decide its start: provisionally from the first point.

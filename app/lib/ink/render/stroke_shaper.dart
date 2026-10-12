@@ -6,6 +6,7 @@ import 'hooks.dart';
 import 'line_filters.dart';
 import 'ribbon_emitter.dart';
 import 'shape_params.dart';
+import 'taper.dart';
 
 /// Turns the input points of a stroke into its smoothed centre line with
 /// radii, *incrementally* and with a fixed reach: every value further than
@@ -32,7 +33,10 @@ import 'shape_params.dart';
 ///     by a local quadratic fit (no lag, tips stay put);
 ///  6. radii: causal (two cascaded exponential passes, then a slope limit),
 ///     so final as soon as their sample is; then the end rules, which only
-///     touch the first and last few samples.
+///     touch the first and last few samples; then the tapers: the start's
+///     ([ShapeParams.taperStart]) by arc length from the start, so final
+///     with its sample, and once the stroke has ended the end's
+///     ([taperEnd]).
 ///
 /// [line] writes the whole line (final values plus the not-yet-final tail)
 /// into the output buffers; only the tail is recomputed per call.
@@ -91,6 +95,21 @@ class StrokeShaper implements RibbonLine {
   final DoubleBuffer _ro = DoubleBuffer();
   int _roDone = 0;
 
+  // 6c. Tapered radii (only with a taper): [_rtFrom] of them up to date.
+  final DoubleBuffer _rt = DoubleBuffer();
+  int _rtFrom = 0;
+
+  /// Length (world units) over which the end narrows to a point once the
+  /// stroke has ended (`OutlineSpec.taperEnd`; 0: none). Set before the
+  /// [update] with `ended`.
+  double taperEnd = 0;
+
+  bool get _tapers => p.taperStart > 0 || taperEnd > 0;
+
+  /// The first sample the end taper changed in the last [update] ([length]
+  /// without one).
+  int taperedFrom = 0;
+
   /// Corner sample indices of the last [update] (final and provisional).
   @override
   List<int> corners = const [];
@@ -126,7 +145,11 @@ class StrokeShaper implements RibbonLine {
   @override
   DoubleBuffer get y => _cy;
   @override
-  DoubleBuffer get r => _ro;
+  DoubleBuffer get r => _tapers ? _rt : _ro;
+
+  /// The radii without the tapers (whether a line is a dot does not
+  /// depend on them).
+  DoubleBuffer get untaperedR => _ro;
 
   int get inputCount => _sx.length;
 
@@ -266,6 +289,7 @@ class StrokeShaper implements RibbonLine {
     _findCorners(count);
     _smooth(count);
     _endRules(count);
+    _taper(count, ended: ended);
     length = count;
     finalCount = _provisional ? 0 : math.min(_posFinal, _roDone);
   }
@@ -273,10 +297,10 @@ class StrokeShaper implements RibbonLine {
   /// Forgets the line computed while the start was undecided.
   void _restart() {
     _provisional = false;
-    for (final b in [_rx, _ry, _rr, _r1, _r2, _rs, _cx, _cy, _ro]) {
+    for (final b in [_rx, _ry, _rr, _r1, _r2, _rs, _cx, _cy, _ro, _rt]) {
       b.length = 0;
     }
-    _resFinal = _seg = _radDone = _scan = _posFinal = _roDone = 0;
+    _resFinal = _seg = _radDone = _scan = _posFinal = _roDone = _rtFrom = 0;
     _next = 0;
     _corners.clear();
     _runFirst = _runBest = -1;
@@ -558,9 +582,39 @@ class StrokeShaper implements RibbonLine {
     if (settled > p.startReach && settled > _roDone) _roDone = settled;
   }
 
+  // ---------------------------------------------------------------------------
+  // 6c. Tapers
+
+  void _taper(int count, {required bool ended}) {
+    taperedFrom = count;
+    if (!_tapers) return;
+    _rt.length = count;
+    // Final radii taper as they were; the rest (and an end taper from
+    // before a roll-back) is redone.
+    _rtFrom = math.min(_rtFrom, _roDone);
+    final start = p.taperStart, step = p.step;
+    for (var i = _rtFrom; i < count; i++) {
+      _rt[i] = start > 0 ? _ro[i] * Taper.factor(i * step, start) : _ro[i];
+    }
+    _rtFrom = _roDone;
+    taperedFrom = count;
+    if (!ended || taperEnd <= 0 || count < 2) return;
+    // Every sample is a step from the one before, but the last.
+    final dx = _rx[count - 1] - _rx[count - 2], dy = _ry[count - 1] - _ry[count - 2];
+    final total = (count - 2) * step + _dist(dx, dy);
+    final length = math.min(taperEnd, total * Taper.maxEndShare);
+    for (var i = count - 1; i >= 0; i--) {
+      final along = i == count - 1 ? 0.0 : total - i * step;
+      if (along >= length) break;
+      _rt[i] *= Taper.factor(along, length);
+      _rtFrom = math.min(_rtFrom, i);
+      taperedFrom = i;
+    }
+  }
+
   /// A copy of the line's samples (for measurements).
   ({Float64List x, Float64List y, Float64List r}) snapshot() =>
-      (x: _cx.toList(), y: _cy.toList(), r: _ro.toList());
+      (x: _cx.toList(), y: _cy.toList(), r: r.toList());
 
   static double _dist(double dx, double dy) => math.sqrt(dx * dx + dy * dy);
 }

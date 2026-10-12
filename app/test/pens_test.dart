@@ -46,13 +46,16 @@ void main() {
       const style = StrokeStyle(opacity: 0.8, thinning: 0.7, streamline: 0.2, unit: 0.5);
       final json = jsonDecode(jsonEncode(style.toJson()));
       expect(StrokeStyle.fromJson(json), style);
-      expect(StrokeStyle.fromJson({'o': 1, 'th': 0.5, 'sl': 0.4, 'future': true}).unit, 0);
+      expect(
+        StrokeStyle.fromJson({'o': 1, 'th': 0.5, 'sl': 0.4, 'e': 'round', 'future': true}).unit,
+        0,
+      );
 
       for (final bad in [
         null,
         {'o': 1, 'th': 0.5}, // missing
-        {'o': 'x', 'th': 0.5, 'sl': 0.4}, // mistyped
-        {'o': 1, 'th': 4, 'sl': 0.4}, // out of range
+        {'o': 'x', 'th': 0.5, 'sl': 0.4, 'e': 'round'}, // mistyped
+        {'o': 1, 'th': 4, 'sl': 0.4, 'e': 'round'}, // out of range
       ]) {
         expect(() => StrokeStyle.fromJson(bad), throwsFormatException, reason: '$bad');
       }

@@ -11,18 +11,18 @@ import 'stylus_buttons.dart';
 /// [PointSpacing.minDistance] thinned out (keeping a dropped cusp tip), and
 /// the end settled.
 class StrokeSampler {
-  /// [onKeep] receives each kept point with its screen position and the
-  /// screen position of the point before it.
+  /// [onKeep] receives each kept point with its screen position, the
+  /// screen position of the point before it and its time (whole ms).
   StrokeSampler(this.viewport, this.onKeep);
 
   final ViewportController viewport;
-  final void Function(Offset from, Offset at, StrokePoint point) onKeep;
+  final void Function(Offset from, Offset at, StrokePoint point, int timeMs) onKeep;
 
   /// Smooths stylus pressure and suppresses spikes at pen-up.
   final PressureFilter _pressure = PressureFilter();
 
-  /// Points dropped since the last kept one (screen position, point).
-  final List<(Offset, StrokePoint)> _dropped = [];
+  /// Points dropped since the last kept one (screen position, point, time).
+  final List<(Offset, StrokePoint, int)> _dropped = [];
 
   /// Starts a new contact.
   void reset() {
@@ -37,10 +37,10 @@ class StrokeSampler {
     return StrokePoint(world.dx, world.dy, pressure);
   }
 
-  /// Samples [screen] after the last kept point at [from]; returns whether
-  /// it was kept (then after any dropped point kept as a detail), each
-  /// through [onKeep].
-  bool add(Offset from, Offset screen, double pressure, {bool synthesized = false}) {
+  /// Samples [screen] at [timeMs] after the last kept point at [from];
+  /// returns whether it was kept (then after any dropped point kept as a
+  /// detail), each through [onKeep].
+  bool add(Offset from, Offset screen, double pressure, int timeMs, {bool synthesized = false}) {
     final step = (screen - from).distance;
     final world = viewport.toWorld(screen);
     final point = StrokePoint(
@@ -49,11 +49,11 @@ class StrokeSampler {
       _pressure.next(pressure, synthesized: synthesized),
     );
     if (step < PointSpacing.minDistance) {
-      _dropped.add((screen, point));
+      _dropped.add((screen, point, timeMs));
       return false;
     }
     _keepExtremeDropped(from, screen);
-    onKeep(from, screen, point);
+    onKeep(from, screen, point, timeMs);
     return true;
   }
 
@@ -62,7 +62,7 @@ class StrokeSampler {
   void _keepExtremeDropped(Offset from, Offset to) {
     if (_dropped.isEmpty) return;
     var best = PointSpacing.keepExtreme;
-    (Offset, StrokePoint)? keep;
+    (Offset, StrokePoint, int)? keep;
     for (final dropped in _dropped) {
       final d = _distanceToSegment(dropped.$1, from, to);
       if (d > best) {
@@ -72,8 +72,8 @@ class StrokeSampler {
     }
     _dropped.clear();
     if (keep == null) return;
-    final (at, point) = keep;
-    onKeep(from, at, point);
+    final (at, point, timeMs) = keep;
+    onKeep(from, at, point, timeMs);
   }
 
   static double _distanceToSegment(Offset p, Offset a, Offset b) {
@@ -91,6 +91,9 @@ class StrokeSampler {
       for (var i = 0; i < points.length; i++) StrokePoint(points[i].x, points[i].y, settled[i]),
     ];
   }
+
+  /// [time] in whole milliseconds (as Android's `MotionEvent` times).
+  static int msOf(Duration time) => time.inMicroseconds ~/ 1000;
 
   /// [e]'s pressure as 0.05..1; 0.5 without a stylus.
   static double pressureOf(PointerEvent e) => normalisedPressure(e, e.pressure);

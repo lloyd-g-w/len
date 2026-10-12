@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart' show listEquals;
 import '../../domain/stroke.dart';
 import 'pen_config_json.dart';
 import 'pen_defaults.dart';
+import 'pen_ends.dart';
+
+export 'pen_ends.dart';
 
 /// The user's customisation of one ink (pen or highlighter): its quick
 /// colours and quick widths — independent rows of slots, one of each
@@ -17,6 +20,7 @@ class PenConfig {
     required this.thinning,
     required this.streamline,
     this.straight = false,
+    this.ends = const PenEnds(),
   }) : assert(colors.length > 0 && widths.length > 0);
 
   /// Defaults for [tool]: three colours and three widths.
@@ -60,6 +64,10 @@ class PenConfig {
   /// the highlighter).
   final bool straight;
 
+  /// The shape of the ends (offered for the pen; the highlighter's are
+  /// flat).
+  final PenEnds ends;
+
   /// The selected colour and width.
   int get color => colors[colorIndex];
   double get width => widths[widthIndex];
@@ -74,6 +82,7 @@ class PenConfig {
     double? thinning,
     double? streamline,
     bool? straight,
+    PenEnds? ends,
   }) => PenConfig(
     colors: colors ?? this.colors,
     widths: widths ?? this.widths,
@@ -83,10 +92,12 @@ class PenConfig {
     thinning: thinning ?? this.thinning,
     streamline: streamline ?? this.streamline,
     straight: straight ?? this.straight,
+    ends: ends ?? this.ends,
   );
 
   /// A copy with the feel settings (opacity, pressure sensitivity,
-  /// stabiliser, straight lines) of [tool]'s defaults, keeping the slots.
+  /// stabiliser, straight lines, ends) of [tool]'s defaults, keeping the
+  /// slots.
   PenConfig withFeelDefaults(InkTool tool) {
     final d = PenConfig.defaultsFor(tool);
     return copyWith(
@@ -94,6 +105,7 @@ class PenConfig {
       thinning: d.thinning,
       streamline: d.streamline,
       straight: d.straight,
+      ends: d.ends,
     );
   }
 
@@ -137,12 +149,16 @@ class PenConfig {
       selected > removed || (selected == removed && selected > 0) ? selected - 1 : selected;
 
   /// The style a new stroke of [tool] drawn with this config gets (a
-  /// straight line needs no stabiliser).
-  StrokeStyle styleFor(InkTool tool) => StrokeStyle(
-    opacity: tool.isHighlighter ? opacity : 1,
-    thinning: thinning,
-    streamline: straight ? 0 : streamline,
-  );
+  /// straight line needs no stabiliser; the highlighter's ends are its
+  /// own).
+  StrokeStyle styleFor(InkTool tool) {
+    final style = StrokeStyle(
+      opacity: tool.isHighlighter ? opacity : 1,
+      thinning: thinning,
+      streamline: straight ? 0 : streamline,
+    );
+    return tool.isHighlighter ? style : ends.applyTo(style);
+  }
 
   /// JSON for the local settings store (see [fromJson]).
   Map<String, Object?> toJson() => {
@@ -154,6 +170,7 @@ class PenConfig {
     'thinning': thinning,
     'streamline': streamline,
     'straight': straight,
+    'ends': ends.toJson(),
   };
 
   /// Parses the config of [tool] strictly (every field present and valid),
@@ -171,7 +188,8 @@ class PenConfig {
       other.opacity == opacity &&
       other.thinning == thinning &&
       other.streamline == streamline &&
-      other.straight == straight;
+      other.straight == straight &&
+      other.ends == ends;
 
   @override
   int get hashCode => Object.hash(
@@ -183,5 +201,6 @@ class PenConfig {
     thinning,
     streamline,
     straight,
+    ends,
   );
 }

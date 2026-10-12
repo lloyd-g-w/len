@@ -14,6 +14,7 @@ import '../tools/pointer_tool.dart';
 import '../viewport.dart';
 import 'bounce_filter.dart';
 import 'hold_to_straighten.dart';
+import 'lift_speed.dart';
 import 'live_ink.dart';
 import 'sample_source.dart';
 import 'stroke_sampler.dart';
@@ -57,6 +58,10 @@ class InkDrawing {
   /// Thins and pressure-filters the ink's samples.
   late final StrokeSampler _sampler = StrokeSampler(viewport, _keep);
 
+  /// The pen's speed at the lift, for an end taper that follows it.
+  final LiftSpeed _liftSpeed = LiftSpeed();
+  bool _endFollowsSpeed = false;
+
   int? _drawPointer;
   PointerDeviceKind? _drawKind;
   Duration _drawStartTime = Duration.zero;
@@ -95,6 +100,7 @@ class InkDrawing {
     _drawStartScreen = e.localPosition;
     _drawTravel = 0;
     _sampler.reset();
+    _liftSpeed.reset();
     _erasing = erase;
     _erasingWithTool = eraserTool ?? erase;
     _eraseStarted = false;
@@ -116,7 +122,9 @@ class InkDrawing {
         width: config.width,
         style: tools.styleFor(ink).copyWith(unit: 1 / viewport.scale),
       );
+      _endFollowsSpeed = config.ends.endFollowsSpeed && !ink.isHighlighter;
       live.add(_sampler.first(e));
+      _liftSpeed.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _straighten.begin(
         e.localPosition,
         enabled: tools.holdToStraighten,
@@ -141,7 +149,7 @@ class InkDrawing {
       return;
     }
     _addSamplesBefore(e);
-    _inkTo(e.localPosition, StrokeSampler.pressureOf(e), synthesized: e.synthesized);
+    _inkTo(e.localPosition, StrokeSampler.pressureOf(e), e.timeStamp, synthesized: e.synthesized);
   }
 
   /// Ends the contact at [e] (the pen lifted).
@@ -159,21 +167,23 @@ class InkDrawing {
     final extra = samples?.between(e);
     if (extra == null) return;
     for (final s in extra) {
-      _inkTo(s.localPosition, StrokeSampler.normalisedPressure(e, s.pressure));
+      _inkTo(s.localPosition, StrokeSampler.normalisedPressure(e, s.pressure), s.timeStamp);
     }
   }
 
   /// Extends the live stroke to [screen] (unless it is too close to the
   /// previous point, or "hold to straighten" has taken over).
-  void _inkTo(Offset screen, double pressure, {bool synthesized = false}) {
-    if (_sampler.add(_lastScreen!, screen, pressure, synthesized: synthesized)) {
+  void _inkTo(Offset screen, double pressure, Duration time, {bool synthesized = false}) {
+    final ms = StrokeSampler.msOf(time);
+    if (_sampler.add(_lastScreen!, screen, pressure, ms, synthesized: synthesized)) {
       _lastScreen = screen;
     }
   }
 
   /// A point [_sampler] kept, at [at] after [from].
-  void _keep(Offset from, Offset at, StrokePoint point) {
+  void _keep(Offset from, Offset at, StrokePoint point, int timeMs) {
     _drawTravel += (at - from).distance;
+    _liftSpeed.add(at, timeMs);
     if (_straighten.move(at, point)) return;
     live.add(point);
   }
@@ -188,6 +198,8 @@ class InkDrawing {
       final deselected = _erasingWithTool && tools.eraserStrokeEnded();
       showEraser(_drawKind == PointerDeviceKind.touch || deselected ? null : _lastScreen);
     } else {
+      // A snapped shape's end follows no speed (the pen rested to snap it).
+      if (live.straightened) _endFollowsSpeed = false;
       final points = StrokeSampler.settleEnd(live.finish());
       // A bounce was shown while it touched (under the nib, where the pen
       // just lifted, for less than `BounceFilter.maxContact`) and goes now.
@@ -204,7 +216,9 @@ class InkDrawing {
       tool: live.tool,
       color: live.color,
       width: live.width,
-      style: live.style,
+      style: _endFollowsSpeed
+          ? live.style.copyWith(taperEnd: live.style.taperEnd * _liftSpeed.scale)
+          : live.style,
       points: points,
       createdAt: _drawStartedAt,
     );

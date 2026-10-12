@@ -24,6 +24,7 @@ class ShapeParams {
     required double settleReach,
     required double levelReach,
     required double tipReach,
+    this.taperStart = 0,
   }) : dedupe = math.max(0.01 * unit, math.min(0.01, width * 0.02)) {
     // The pen's width on screen, and smoothing that grows a little with it
     // (detail finer than a wide pen is invisible anyway).
@@ -76,7 +77,8 @@ class ShapeParams {
   ShapeParams.positionsOf(ShapeParams base, double f)
     : width = base.width * f,
       unit = base.unit * f,
-      dedupe = base.dedupe * f {
+      dedupe = base.dedupe * f,
+      taperStart = 0 {
     sigma = base.sigma * f;
     step = base.step * f;
     cornerBaseline = base.cornerBaseline * f;
@@ -106,7 +108,8 @@ class ShapeParams {
     this.lag = 0,
     this.startReach = 1,
   }) : width = 1,
-       unit = 1 {
+       unit = 1,
+       taperStart = 0 {
     endReach = math.max(1, lag);
     this.kernel = Float64List.fromList(kernel);
     kernelK = (kernel.length - 1) ~/ 2;
@@ -119,6 +122,11 @@ class ShapeParams {
   }
 
   final double width;
+
+  /// Length (world units) over which the start narrows to a point (`Taper`;
+  /// 0: none). The end's is the shaper's (`StrokeShaper.taperEnd`), known
+  /// only once the stroke has ended.
+  final double taperStart;
 
   /// 0: live ink reaches the pen (stabiliser off: the tip is drawn from the
   /// samples so far, and settles as more come). Otherwise (stabiliser on)
