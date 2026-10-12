@@ -19,10 +19,15 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   final Map<String, SurfaceModel> _models = {};
   final Map<String, int> _users = {};
 
-  /// The page of every undo step across the notebook (most recent last),
-  /// and of every undone step that can be redone.
-  final List<String> _undoPages = [];
-  final List<String> _redoPages = [];
+  /// The pages of every undo step across the notebook (most recent last),
+  /// and of every undone step that can be redone. A step is usually one
+  /// page's; a [group] (e.g. a selection moved across pages) lists each
+  /// page's own step in the order they were made.
+  final List<List<String>> _undoPages = [];
+  final List<List<String>> _redoPages = [];
+
+  /// The steps made while a [group] runs.
+  List<String>? _grouping;
 
   /// [UndoHistory.recorded] of each page when last seen, to tell new undo
   /// steps from edits merged into the previous one.
@@ -52,8 +57,12 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   /// Forgets the undo steps of pages that no longer exist (and their
   /// models, once no view holds them).
   void retain(Set<String> pageIds) {
-    _undoPages.removeWhere((id) => !pageIds.contains(id));
-    _redoPages.removeWhere((id) => !pageIds.contains(id));
+    for (final steps in [_undoPages, _redoPages]) {
+      for (final step in steps) {
+        step.removeWhere((id) => !pageIds.contains(id));
+      }
+      steps.removeWhere((step) => step.isEmpty);
+    }
     _recorded.removeWhere((id, _) => !pageIds.contains(id));
     _collect();
   }
@@ -61,7 +70,8 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   /// Reloads a page whose content changed remotely.
   void reload(String pageId) => _models[pageId]?.reload();
 
-  bool _reachable(String id) => _undoPages.contains(id) || _redoPages.contains(id);
+  bool _reachable(String id) =>
+      _undoPages.any((step) => step.contains(id)) || _redoPages.any((step) => step.contains(id));
 
   /// Disposes models no view holds and undo no longer reaches.
   void _collect() {
@@ -85,7 +95,8 @@ class PageModels extends ChangeNotifier implements UndoTarget {
     final recorded = model.history.recorded;
     if (_recorded[pageId] != recorded) {
       _recorded[pageId] = recorded;
-      _undoPages.add(pageId);
+      final group = _grouping;
+      group == null ? _undoPages.add([pageId]) : group.add(pageId);
     }
     final redone = _redoPages.isNotEmpty;
     _redoPages.clear();
@@ -93,10 +104,28 @@ class PageModels extends ChangeNotifier implements UndoTarget {
     notifyListeners();
   }
 
+  /// Runs [edits] — commits on several pages — as one notebook-wide undo
+  /// step: undo takes back each page's part (latest first), redo replays
+  /// them in order.
+  void group(void Function() edits) {
+    if (_grouping != null) return edits();
+    final group = _grouping = [];
+    try {
+      edits();
+    } finally {
+      _grouping = null;
+      if (group.isNotEmpty) _undoPages.add(group);
+      notifyListeners();
+    }
+  }
+
   @override
-  bool get canUndo => _undoPages.any((id) => _models[id]?.history.canUndo ?? false);
+  bool get canUndo => _undoPages.any((step) => step.any(_canUndo));
   @override
-  bool get canRedo => _redoPages.any((id) => _models[id]?.history.canRedo ?? false);
+  bool get canRedo => _redoPages.any((step) => step.any(_canRedo));
+
+  bool _canUndo(String id) => _models[id]?.history.canUndo ?? false;
+  bool _canRedo(String id) => _models[id]?.history.canRedo ?? false;
 
   /// Undoes the most recent step on any page.
   @override
@@ -106,16 +135,22 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   @override
   void redo() => _step(_redoPages, _undoPages, undo: false);
 
-  /// Pops page ids off [from] until one can step (a page's own history may
-  /// be shorter, e.g. after its limit), steps it and pushes it onto [to].
-  void _step(List<String> from, List<String> to, {required bool undo}) {
+  /// Pops steps off [from] until one can step (a page's own history may
+  /// be shorter, e.g. after its limit), steps each of its pages (backwards
+  /// to undo) and pushes it onto [to].
+  void _step(List<List<String>> from, List<List<String>> to, {required bool undo}) {
     while (from.isNotEmpty) {
-      final id = from.removeLast();
-      final model = _models[id];
-      if (model == null) continue;
-      if (undo ? !model.history.canUndo : !model.history.canRedo) continue;
-      undo ? model.undo() : model.redo();
-      to.add(id);
+      final step = from.removeLast();
+      final pages = undo ? step.reversed : step;
+      var stepped = false;
+      for (final id in pages) {
+        final model = _models[id];
+        if (model == null || !(undo ? _canUndo(id) : _canRedo(id))) continue;
+        undo ? model.undo() : model.redo();
+        stepped = true;
+      }
+      if (!stepped) continue;
+      to.add(step);
       notifyListeners();
       return;
     }

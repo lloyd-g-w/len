@@ -125,7 +125,7 @@ class EditorCanvas extends StatelessWidget {
         content: session.content,
         viewport: doc.pageViewport,
         tools: session.tools,
-        page: doc.pageViewport.contentBounds,
+        pages: [for (final f in doc.layout.frames) f.shift(-doc.pageViewport.origin)],
         selectionActions: selectionActions,
       ),
     );

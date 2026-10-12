@@ -29,8 +29,9 @@ class SelectionPainter extends CustomPainter {
   final Color accent;
   final Color handleFill;
 
-  /// World-space clip (the page) for the selected content.
-  final Rect? clip;
+  /// World-space clip for the selected content: the pages it may show on
+  /// (a selection can span pages and be dragged from one to another).
+  final List<Rect>? clip;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -47,7 +48,14 @@ class SelectionPainter extends CustomPainter {
       ..save()
       ..translate(viewport.offset.dx, viewport.offset.dy)
       ..scale(viewport.scale);
-    if (clip != null) canvas.clipRect(clip!);
+    final clip = this.clip;
+    if (clip != null) {
+      final pages = Path();
+      for (final page in clip) {
+        pages.addRect(page);
+      }
+      canvas.clipPath(pages);
+    }
     canvas
       ..transform(selection.preview.matrix4)
       ..drawPicture(picture)
@@ -116,5 +124,5 @@ class SelectionPainter extends CustomPainter {
       old.viewport != viewport ||
       old.accent != accent ||
       old.handleFill != handleFill ||
-      old.clip != clip;
+      !listEquals(old.clip, clip);
 }

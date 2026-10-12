@@ -24,6 +24,10 @@ class Lasso {
   final List<Offset> points;
   final Rect bounds;
 
+  /// This lasso moved by [delta], e.g. into the coordinates of another
+  /// page of a document (a lasso drawn across pages selects on each).
+  Lasso shifted(Offset delta) => Lasso([for (final p in points) p + delta]);
+
   /// Fraction of a stroke's length that must be inside the lasso.
   static const double strokeShare = 0.5;
 
