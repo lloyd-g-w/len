@@ -70,7 +70,9 @@ abstract final class PerfNotebooks {
     double spacing = 27,
   }) {
     final strokes = <Stroke>[];
-    var time = _clock.nowMs() - 3600 * 1000;
+    // Written a day ago, so all of it is older than what is written now
+    // (new ink then paints over it: the pen-up path of real use).
+    var time = _clock.nowMs() - 24 * 3600 * 1000;
     for (var line = 0; line < lines; line++) {
       final baseline = 80 + spacing * (line + 1) - 6;
       if (baseline > bottom) break;
