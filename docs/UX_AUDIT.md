@@ -18,9 +18,10 @@ phone; the phone tool switcher with favourites; presentation, light and dark).
   Done below) and favourite glyphs are outlined, so dark inks show in dark mode.
 - ✅ Presentation fits the whole page: fitted pages now re-fit when the chrome
   goes away (the new scroll bounds used to nudge the view and skip the re-fit).
-- ⬜ The second pane's top bar is shorter than the first's when the first shows
-  the tab strip (desktop); an empty strip-coloured band would line them up.
-- ⬜ Reordering in edit mode needs a long press, also with a mouse.
+- ✅ The second pane's top bar is shorter than the first's when the first shows
+  the tab strip (desktop). → It shows an empty strip-coloured band; the bars line up.
+- ✅ Reordering in edit mode needs a long press, also with a mouse. → A mouse or
+  trackpad drags at once (`ReorderStartListener`); touch and stylus keep the hold.
 
 ### Split view robustness (`fix/split`, QA round 2)
 
@@ -149,11 +150,17 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
 
 18. ✅ Motion: 26 literal durations in features/ → `Motion` tokens.
 19. ✅ Phone menus show desktop shortcut hints ("Ctrl+F", "F11").
-20. ⬜ Menus sit flush against the screen edge (no 8 dp margin).
-21. 🟡 Accent dots (40 dp), folder icon tiles (35 dp) and selection
-    checkboxes (28 dp) are under 48 dp on phones.
+20. 🟡 Menus sit flush against the screen edge (no 8 dp margin). → Popup
+    menus keep 8 dp; tall chrome menus now clear the system bars by 8 dp
+    (`menuReservedPadding`). Open: Flutter's `MenuAnchor` still places a menu
+    that meets the left or right edge flush against it (the phone "⋯" menu).
+21. ✅ Accent dots (40 dp), folder icon tiles (35 dp) and selection
+    checkboxes (28 dp) are under 48 dp on phones. → `EvenGrid(touchTargets:)`
+    gives swatch and icon cells 48 dp on phones (visuals unchanged, the whole
+    cell takes taps); the checkmark never was a target (the whole cover is).
 22. 🟡 The playback bar truncates the title (title and time share one row);
-    the paused recorder shows no "Paused" label.
+    ✅ the paused recorder shows "Paused" in place of the level meter and
+    Resume is a play icon.
 23. ✅ List view shows the favourite star twice (cover badge plus column).
 24. ⬜ A missing PDF background renders as a silently blank page (should be
     a placeholder with a "Relink…" action).
@@ -174,7 +181,9 @@ things locally:
 - `messages.dart` (`showMessage` / `appSnackBar` / `MessageInsets`) is
   the one snack bar. It floats, is at most 560 px wide and centred, and
   sits above the editor's bottom chrome. Every `showSnackBar` call goes
-  through it.
+  through it. ✅ Messages from the audio player or ink replay (e.g. "Trimmed
+  … · Undo") sit above the player instead of covering it (`AudioLayer`
+  nests a `MessageInsets` that adds the player's height).
 - `FilledFieldBorder` keeps the floating label inside filled fields. The
   field fill is a tint of the text colour, so fields show on any
   container.
@@ -201,25 +210,28 @@ the second for what is left.
 
 ### Still open after round 3
 
-- 12: the template pickers (Add page, Change template, Canvas background)
+- ✅ 12: the template pickers (Add page, Change template, Canvas background)
   and the cover sheet are bottom sheets with drag handles on tablets and
   desktops. Elsewhere those sizes use centred dialogs (New notebook,
-  Export, Folder).
+  Export, Folder). → All of them go through the shared `showDialogOrSheet`
+  (centred dialog from 720 dp wide, sheet with drag handle on phones).
 - Progress dialogs have no Cancel (also item 17 of round 2).
   Convert-to-text errors only offer Close, with no Try again (it would
   need to re-run recognition).
 - Stacked dialog actions are end-aligned at their own widths, so they
   look ragged (Change template on phones). Full-width stacked buttons
-  would need a custom actions layout.
+  would need a custom actions layout. (✅ for the template picker: full-width
+  buttons on phones, primary on top; other dialogs still open.)
 - New-notebook sheet on phones at 1.3×: the preview takes most of the
   screen, leaving about one row of templates. On phones the preview
   should collapse.
 - The phone library shows both the "New…" tile and the "New" FAB.
 - The FAB still shows over the empty Favourites and empty search states,
   which offer no create action of their own.
-- Selection checkmarks on covers: unselected rings are low-contrast on
+- ✅ Selection checkmarks on covers: unselected rings are low-contrast on
   light covers, the style differs between light and dark, and targets
-  are 28 dp.
+  are 28 dp. → A dark ring on white in both themes; the whole cover is the
+  target.
 - Editor search on phones: stepping to a match pans the page sideways.
 - Lasso selection handles in dark mode are dark and filled on light
   paper. They should follow the paper, as the canvas hint and minimap
@@ -231,9 +243,13 @@ the second for what is left.
   would suit phones better).
 - The handwriting language picker is a `SimpleDialog`: no Cancel, and no
   hint that it scrolls.
-- The paused recorder shows no "Paused" label, and Resume is a mic icon.
-- Template grid on phones: 3 fixed columns leave a gutter on the right.
-  Paper-colour chips wrap 3 + 1 (also item 19 of round 2).
+- ✅ The paused recorder shows no "Paused" label, and Resume is a mic icon.
+  → "Paused" replaces the level meter; Resume is a play icon.
+- ✅ Template grid on phones: 3 fixed columns leave a gutter on the right.
+  Paper-colour chips wrap 3 + 1 (also item 19 of round 2). → The gallery
+  picks the column count whose tiles come closest to the preferred size and
+  stretches them to fill the width; paper colours and page formats are
+  `EvenChoices` (one even row, or two even rows when they don't fit).
 
 ### Accessibility (round 3)
 
@@ -360,6 +376,8 @@ settings — at the four sizes, light and dark, and at 1.3× text.
 14. ✅ Settings on wide screens could use a two-pane layout (category list +
     detail) like GoodNotes on iPad. → From 1040 px: section list with icons
     on the left, the selected section on the right; one column below.
+    ✅ The detail pane no longer repeats the section's title and icon (the
+    selected entry names it; `SettingsSection.untitled`).
 15. ✅ Motion: shared-element transition from cover to editor (GoodNotes
     "opens" the notebook). → `NotebookOpenRoute`: the tapped cover grows
     into the screen, fades into the paper and the editor fades in; back
@@ -372,7 +390,8 @@ settings — at the four sizes, light and dark, and at 1.3× text.
 18. ✅ No export options sheet (page range, PNG resolution, flatten
     template) like GoodNotes' export dialog. → `ExportSheet` (dialog / bottom
     sheet): format, pages or range, templates & PDF backgrounds, PNG resolution.
-19. ⬜ Paper-colour chips wrap to two rows on phones in the template picker.
+19. ✅ Paper-colour chips wrap to two rows on phones in the template picker.
+    → Even rows (`EvenChoices`): four in a row when they fit, else 2 × 2.
 20. ⬜ Typing a search ends selection mode (selection is scoped to the
     place, search included); keep it if the selected notebooks match.
 21. ✅ Template picker had one flat set of 10 templates. → Categories (Basic,
@@ -380,8 +399,13 @@ settings — at the four sizes, light and dark, and at 1.3× text.
     dates ("Add 31 pages"), an Import tile and per-template menu (rename,
     delete) for My templates; image templates fix the page size. Checked in
     `templates_screenshot_test.dart` (phone and tablet).
-22. ⬜ The template picker puts paper colour and size below the (now long)
+22. ✅ The template picker puts paper colour and size below the (now long)
     gallery; a side-by-side layout on wide screens would keep them in view.
+    → On tablets and desktops the picker is a dialog with the gallery on
+    the left and an options column on the right (preview, planner dates,
+    paper colour, size, orientation), each scrolling on its own. Phones keep
+    the stacked sheet. Checked in `templates_screenshot_test.dart` (phone,
+    tablet portrait / landscape, desktop; light and dark).
 
 ## Accessibility notes
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -11,6 +12,9 @@ Future<String> newCaptureTarget(String extension) async {
   await dir.create(recursive: true);
   return p.join(dir.path, 'len-recording-${DateTime.now().microsecondsSinceEpoch}.$extension');
 }
+
+/// Writes a capture streamed by the recorder to file [path].
+StreamSink<List<int>> openCaptureSink(String path) => File(path).openWrite();
 
 /// Deletes a finished capture's temporary file (after it became a blob).
 Future<void> deleteCapture(String path) async {
@@ -40,14 +44,47 @@ bool _onPath(String tool) {
   return path.split(':').any((dir) => dir.isNotEmpty && File(p.join(dir, tool)).existsSync());
 }
 
-/// Where a player can read blob [sha]: its file (streamed by the player,
-/// never loaded into memory here). Null if it is not on the device.
-Future<({String uri, bool isFile})?> audioUriFor(BlobStore blobs, String sha, String mime) async {
-  if (!await blobs.has(sha)) return null;
-  final path = blobs.localPath(sha);
-  if (path != null) return (uri: path, isFile: true);
-  return null;
+/// Where a player can read [blobs] joined into one stream (a single blob,
+/// or parts in a format that joins by concatenation, see
+/// `Recording.joinable`): a single blob's file, or a temporary file of the
+/// parts joined (streamed, never loaded into memory here). Null if one is
+/// not on the device.
+Future<({String uri, bool isFile})?> audioUriFor(
+  BlobStore blobs,
+  List<String> shas,
+  String mime,
+) async {
+  for (final sha in shas) {
+    if (!await blobs.has(sha)) return null;
+  }
+  if (shas.length == 1) {
+    final path = blobs.localPath(shas.single);
+    return path == null ? null : (uri: path, isFile: true);
+  }
+  final dir = await getTemporaryDirectory();
+  await dir.create(recursive: true);
+  final joined = File(
+    p.join(dir.path, 'len-play-${DateTime.now().microsecondsSinceEpoch}.${_extension(mime)}'),
+  );
+  final sink = joined.openWrite();
+  try {
+    for (final sha in shas) {
+      await sink.addStream(blobs.openRead(sha));
+    }
+  } finally {
+    await sink.close();
+  }
+  return (uri: joined.path, isFile: true);
 }
 
-/// Frees what [audioUriFor] allocated (nothing natively).
-void releaseAudioUri(String uri) {}
+String _extension(String mime) => mime == 'audio/aac' ? 'aac' : 'audio';
+
+/// Frees what [audioUriFor] allocated: a joined temporary file.
+void releaseAudioUri(String uri) {
+  if (!p.basename(uri).startsWith('len-play-')) return;
+  try {
+    File(uri).deleteSync();
+  } on FileSystemException {
+    // Already gone.
+  }
+}

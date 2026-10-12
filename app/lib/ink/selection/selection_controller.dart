@@ -14,18 +14,20 @@ import '../render/content_painter.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
 import 'ink_clipboard.dart';
+import 'lasso.dart';
 import 'selection_frame.dart';
+import 'selection_plan.dart';
+import 'selection_reach.dart';
+import 'selection_surfaces.dart';
 import 'transform_items.dart';
 
-/// The current lasso selection on a surface and the edits applied to it.
-///
-/// Selected items are hidden from the committed ink layer and drawn from
-/// one cached [picture] instead, so a drag only changes the [preview]
-/// transform — nothing is re-tessellated until the gesture ends. Each
-/// gesture or action commits one undoable [InkEdit] (strokes are replaced
-/// by transformed copies; elements keep their ids).
-class SelectionController extends ChangeNotifier {
-  SelectionController({required this._model, required this.clipboard, this.clock = const Clock()}) {
+part 'selection_controller_actions.dart';
+
+/// The state of a [SelectionController]: what is selected, where it is
+/// stored, the gesture preview and the commit machinery. The actions live
+/// in `selection_controller_actions.dart`.
+abstract class _SelectionCore extends ChangeNotifier {
+  _SelectionCore({required this._model, required this.clipboard, required this.clock}) {
     _model.addListener(_onModelChanged);
     _watchImages();
   }
@@ -45,6 +47,9 @@ class SelectionController extends ChangeNotifier {
 
   StreamSubscription<String>? _imageChanges;
 
+  /// Other surfaces the selection may reach (pages of a document).
+  SelectionSurfaces? surfaces;
+
   /// Re-records the selection when one of its images finishes decoding.
   void _watchImages() {
     unawaited(_imageChanges?.cancel());
@@ -58,6 +63,10 @@ class SelectionController extends ChangeNotifier {
 
   List<Stroke> _strokes = const [];
   List<SurfaceElement> _elements = const [];
+  Map<String, SelectionSource> _sources = const {};
+
+  /// Other surfaces holding selected items (hidden there, watched).
+  Set<SurfaceModel> _others = const {};
   SelectionFrame? _frame;
   SelectionFrame? _previewFrame;
   Affine _preview = Affine.identity;
@@ -75,6 +84,9 @@ class SelectionController extends ChangeNotifier {
   List<SurfaceElement> get elements => _elements;
   bool get isEmpty => _strokes.isEmpty && _elements.isEmpty;
 
+  /// Whether some selected items are stored on other surfaces (pages).
+  bool get spansSurfaces => _sources.isNotEmpty;
+
   /// The frame as shown (including an in-progress gesture).
   SelectionFrame? get frame => _previewFrame ?? _frame;
 
@@ -85,30 +97,44 @@ class SelectionController extends ChangeNotifier {
   ui.Picture? get picture => _picture;
 
   /// Selects [strokes] and [elements] (replacing any previous selection).
+  /// Items stored on other surfaces are given in this surface's
+  /// coordinates, with their [sources] (by id).
   void select(
     Iterable<Stroke> strokes,
     Iterable<SurfaceElement> elements, {
     SelectionFrame? frame,
+    Map<String, SelectionSource> sources = const {},
   }) {
     _strokes = List.unmodifiable(strokes);
     _elements = List.unmodifiable(elements);
+    _sources = Map.unmodifiable(sources);
     _preview = Affine.identity;
     _previewFrame = null;
     _picture?.dispose();
     _picture = null;
-    if (isEmpty) {
-      _frame = null;
-      _model.setHidden(const {}, owner: this);
-    } else {
-      _frame = frame ?? _frameAround(_strokes, _elements);
-      _picture = _record();
-      _model.setHidden({
-        for (final s in _strokes) s.id,
-        for (final e in _elements) e.id,
-      }, owner: this);
-    }
+    _frame = isEmpty ? null : frame ?? _frameAround(_strokes, _elements);
+    if (!isEmpty) _picture = _record();
+    _hide();
     notifyListeners();
   }
+
+  /// Selects what [lasso] (this surface's coordinates) encloses here and
+  /// on the other [surfaces] it reaches.
+  void selectLasso(Lasso lasso) {
+    final pick = SelectionReach.pick(_model, surfaces, lasso);
+    select(pick.strokes, pick.elements, sources: pick.sources);
+  }
+
+  /// Hides the selected items on the surfaces holding them (and watches
+  /// those surfaces for changes underneath the selection).
+  void _hide() => _others = SelectionReach.hide(
+    owner: this,
+    model: _model,
+    ids: [for (final s in _strokes) s.id, for (final e in _elements) e.id],
+    sources: _sources,
+    before: _others,
+    onChanged: _onModelChanged,
+  );
 
   void clear() {
     if (isEmpty && _frame == null) return;
@@ -135,7 +161,7 @@ class SelectionController extends ChangeNotifier {
     }
     final strokes = [for (final s in _strokes) TransformItems.stroke(s, t, id: clock.newId())];
     final elements = [for (final e in _elements) TransformItems.element(e, t)];
-    _replace(strokes, elements, frame: frame);
+    _replace(strokes, elements, frame: frame, transfer: true);
   }
 
   void cancelPreview() {
@@ -143,125 +169,6 @@ class SelectionController extends ChangeNotifier {
     _preview = Affine.identity;
     _previewFrame = null;
     notifyListeners();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Actions
-
-  void delete() {
-    if (isEmpty) return;
-    _edit(() => _model.commit(InkEdit(removed: _strokes, removedElements: _elements)));
-    clear();
-  }
-
-  void copy() {
-    if (isEmpty) return;
-    clipboard.put(_strokes, _elements, boundsOf(_strokes, _elements));
-  }
-
-  void cut() {
-    copy();
-    delete();
-  }
-
-  /// Adds a copy of the selection slightly offset and selects it.
-  void duplicate() {
-    if (isEmpty) return;
-    final bounds = boundsOf(_strokes, _elements);
-    _paste(_strokes, _elements, bounds, bounds.center + const Offset(24, 24));
-  }
-
-  /// Pastes the clipboard centred on world point [at] and selects it.
-  void paste(Offset at) {
-    if (clipboard.isEmpty) return;
-    _paste(clipboard.strokes, clipboard.elements, clipboard.bounds, at);
-  }
-
-  /// Adds a copy of [strokes] and [elements] (from any surface; [bounds]
-  /// around them) centred on world point [at] and selects it, e.g. a
-  /// selection dropped here from another editor.
-  void pasteItems(List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds, Offset at) {
-    if (strokes.isEmpty && elements.isEmpty) return;
-    _paste(strokes, elements, bounds, at);
-  }
-
-  /// Moves the selected elements above everything else on the surface
-  /// (and above the ink).
-  void bringToFront() => _restack(ElementOrder.toFront(_elements, _model.topZ));
-
-  /// Moves the selected elements beneath everything else (and the ink).
-  void sendToBack() => _restack(ElementOrder.toBack(_elements, _model.bottomZ));
-
-  void _restack(List<SurfaceElement> elements) {
-    if (_elements.isEmpty) return;
-    _replace(_strokes, elements, frame: _frame);
-  }
-
-  /// Recolours every selected stroke and text box.
-  void recolor(int argb) {
-    if (isEmpty) return;
-    _replace(
-      [for (final s in _strokes) TransformItems.recolorStroke(s, argb, id: clock.newId())],
-      [for (final e in _elements) TransformItems.recolorElement(e, argb)],
-      frame: _frame,
-    );
-  }
-
-  /// Changes every selected text box by [update] (font, size, …) as one
-  /// undoable edit; strokes and other elements are kept.
-  void restyleText(TextData Function(TextData) update) {
-    if (!_elements.any((e) => e.knownType == ElementType.text)) return;
-    _replace(_strokes, [
-      for (final e in _elements) TransformItems.restyleText(e, update),
-    ], frame: null);
-  }
-
-  /// Gives every selected stroke line [width] and/or pen [tool] (with the
-  /// [StrokeStyle] [styleFor] makes for it) as one undoable edit.
-  void restyleInk({
-    double? width,
-    InkTool? tool,
-    StrokeStyle Function(InkTool tool, double width)? styleFor,
-  }) {
-    if (_strokes.isEmpty) return;
-    _replace(
-      [
-        for (final s in _strokes)
-          TransformItems.restyleStroke(
-            s,
-            width: width,
-            tool: tool,
-            style: tool == null || tool == s.tool ? null : styleFor?.call(tool, width ?? s.width),
-            id: clock.newId(),
-          ),
-      ],
-      _elements,
-      frame: width == null ? _frame : null,
-    );
-  }
-
-  /// Replaces the selected strokes with [added] elements ("Convert to
-  /// text") as one undoable edit and selects them (with any selected
-  /// elements).
-  void replaceStrokesWith(List<SurfaceElement> added) {
-    if (_strokes.isEmpty) return;
-    _edit(() => _model.commit(InkEdit(removed: _strokes, addedElements: added)));
-    select(const [], [..._elements, ...added]);
-  }
-
-  /// Makes [elements] the selected elements, replacing the selected ones on
-  /// the surface (e.g. adding a link over the selected content, or
-  /// removing one) as one undoable edit; the strokes stay.
-  void replaceElements(List<SurfaceElement> elements) {
-    if (isEmpty) return;
-    _replace(_strokes, elements);
-  }
-
-  /// Places a copy of [strokes] and [elements] (laid out within [bounds])
-  /// centred on world point [at], like a paste, and selects it.
-  void place(List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds, Offset at) {
-    if (strokes.isEmpty && elements.isEmpty) return;
-    _paste(strokes, elements, bounds, at);
   }
 
   // ---------------------------------------------------------------------------
@@ -288,8 +195,14 @@ class SelectionController extends ChangeNotifier {
           t,
         ).copyWith(id: clock.newId(), surfaceId: _model.surfaceId, z: z[i], createdAt: now),
     ];
-    _edit(() => _model.commit(InkEdit(added: newStrokes, addedElements: newElements)));
-    select(newStrokes, newElements);
+    final plan = SelectionPlan(_model);
+    for (final s in newStrokes) {
+      plan.addStroke(s, to: _target(s.bounds.center, null, transfer: true));
+    }
+    for (final e in newElements) {
+      plan.addElement(e, to: _target(e.rect.center, null, transfer: true));
+    }
+    _apply(plan);
   }
 
   Stroke _onSurface(Stroke s, int createdAt) => Stroke(
@@ -303,23 +216,61 @@ class SelectionController extends ChangeNotifier {
     style: s.style,
   );
 
-  void _replace(List<Stroke> strokes, List<SurfaceElement> elements, {SelectionFrame? frame}) {
+  /// Replaces the selected items with [strokes] (one per selected stroke,
+  /// in order; or the very same list to keep them) and [elements] (matched
+  /// by id) as one undoable edit, each on the surface it was stored on —
+  /// or, with [transfer], on the page under its centre.
+  void _replace(
+    List<Stroke> strokes,
+    List<SurfaceElement> elements, {
+    SelectionFrame? frame,
+    bool transfer = false,
+  }) {
+    final plan = SelectionPlan(_model);
     final same = identical(strokes, _strokes);
-    final edit = InkEdit(
-      added: same ? const [] : strokes,
-      removed: same ? const [] : _strokes,
-      addedElements: elements,
-      removedElements: _elements,
-    );
-    _edit(() => _model.commit(edit));
-    select(strokes, elements, frame: frame);
+    for (var i = 0; i < _strokes.length; i++) {
+      final source = _sources[_strokes[i].id];
+      same ? plan.keepStroke(_strokes[i], source) : plan.removeStroke(_strokes[i], source);
+    }
+    if (!same) {
+      for (var i = 0; i < strokes.length; i++) {
+        final from = i < _strokes.length ? _sources[_strokes[i].id] : null;
+        plan.addStroke(strokes[i], to: _target(strokes[i].bounds.center, from, transfer: transfer));
+      }
+    }
+    for (final e in _elements) {
+      plan.removeElement(e, _sources[e.id]);
+    }
+    for (final e in elements) {
+      final from = _sources[e.id];
+      plan.addElement(
+        e,
+        to: _target(e.rect.center, from, transfer: transfer),
+        from: from,
+      );
+    }
+    _apply(plan, frame: frame);
   }
 
-  /// Runs a model edit without the change listener dropping the selection.
-  void _edit(void Function() action) {
+  /// Where an item centred on [centre] goes: with [transfer] the page under
+  /// it, else (or when it is on no page) the surface it came [from].
+  ShiftedSurface? _target(Offset centre, SelectionSource? from, {required bool transfer}) {
+    final here = transfer ? surfaces?.at(_model, centre) : null;
+    return here ?? from?.surface;
+  }
+
+  /// Commits [plan] and selects what it leaves selected.
+  void _apply(SelectionPlan plan, {SelectionFrame? frame}) {
+    _commit(plan);
+    select(plan.strokes, plan.elements, frame: frame, sources: plan.sources);
+  }
+
+  /// Commits [plan] (one undo step) without the change listener dropping
+  /// the selection.
+  void _commit(SelectionPlan plan) {
     _editing = true;
     try {
-      action();
+      plan.commit(surfaces?.batch ?? (edits) => edits());
     } finally {
       _editing = false;
     }
@@ -330,9 +281,15 @@ class SelectionController extends ChangeNotifier {
   void _onModelChanged() {
     if (_editing || isEmpty) return;
     final stale =
-        _strokes.any((s) => !identical(_model.strokeById(s.id), s)) ||
-        _elements.any((e) => !identical(_model.elementById(e.id), e));
+        _strokes.any((s) => !_stored(s.id, s, (m) => m.strokeById(s.id))) ||
+        _elements.any((e) => !_stored(e.id, e, (m) => m.elementById(e.id)));
     if (stale) clear();
+  }
+
+  /// Whether selected item [item] is still what its surface stores.
+  bool _stored(String id, Object item, Object? Function(SurfaceModel) lookup) {
+    final source = _sources[id];
+    return identical(lookup(source?.surface.model ?? _model), source?.original ?? item);
   }
 
   ui.Picture _record() {
@@ -355,26 +312,15 @@ class SelectionController extends ChangeNotifier {
       final e = elements.single;
       return SelectionFrame(e.rect.inflate(framePadding), e.rotation);
     }
-    return SelectionFrame(boundsOf(strokes, elements).inflate(framePadding));
-  }
-
-  /// Tight world bounds of strokes (their points plus half the line width)
-  /// and elements.
-  static Rect boundsOf(List<Stroke> strokes, List<SurfaceElement> elements) {
-    Rect? r;
-    for (final s in strokes) {
-      final b = Stroke.computeBounds(s.points, s.width / 2);
-      r = r == null ? b : r.expandToInclude(b);
-    }
-    for (final e in elements) {
-      r = r == null ? e.bounds : r.expandToInclude(e.bounds);
-    }
-    return r ?? Rect.zero;
+    return SelectionFrame(SelectionController.boundsOf(strokes, elements).inflate(framePadding));
   }
 
   @override
   void dispose() {
     _model.removeListener(_onModelChanged);
+    for (final model in _others) {
+      model.removeListener(_onModelChanged);
+    }
     unawaited(_imageChanges?.cancel());
     _picture?.dispose();
     super.dispose();

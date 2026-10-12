@@ -20,9 +20,9 @@ final _sha = 'ab' * 32;
 Notebook _notebook(AppServices s, {NotebookKind kind = NotebookKind.paged}) =>
     s.notebooks.create(title: 'Lecture', kind: kind, paper: PaperStyle.wideRuled, coverColor: 1);
 
-Recording _record(AppServices s, String notebookId, {String title = 'Talk'}) => s.recordings.create(
+Recording _record(AppServices s, String notebookId, {String title = 'Talk'}) => s.recordings.save(
   notebookId: notebookId,
-  blob: _sha,
+  parts: [RecordingPart(_sha, 8000)],
   mime: 'audio/mp4',
   title: title,
   segments: const [RecordingSegment(10000, 5000), RecordingSegment(20000, 3000)],
@@ -67,7 +67,7 @@ void main() {
       final r = Recording(
         id: 'r',
         notebookId: 'n',
-        blob: _sha,
+        parts: [RecordingPart(_sha, 4000)],
         durationMs: 4000,
         startedAt: 100,
         title: '',
@@ -132,7 +132,7 @@ void main() {
       final copy = s.notebooks.duplicate(nb.id)!;
       final copied = s.recordings.listOf(copy.id).single;
       expect(copied.id, isNot(r.id));
-      expect(copied.blob, r.blob);
+      expect(copied.parts, r.parts);
       expect(copied.segments, r.segments);
       expect(copied.title, r.title);
       expect(s.recordings.listOf(nb.id).single.id, r.id);
@@ -153,7 +153,7 @@ void main() {
     expect(changes.recordingsOfNotebooks, {nb.id});
     final got = b.recordings.listOf(nb.id).single;
     expect(
-      (got.id, got.blob, got.durationMs, got.startedAt, got.title, got.mime),
+      (got.id, got.blobs.single, got.durationMs, got.startedAt, got.title, got.mime),
       (r.id, _sha, 8000, 10000, 'Talk', 'audio/mp4'),
     );
     expect(got.segments, r.segments);
@@ -184,7 +184,10 @@ void main() {
     );
     final complete = {
       'notebookId': 'n',
-      'blob': _sha,
+      'audio': [
+        [_sha, 1000],
+        ['cd' * 32, 2000],
+      ],
       'durationMs': 3000,
       'startedAt': 50,
       'title': 'Lecture',
@@ -194,16 +197,35 @@ void main() {
         [2000, 2000],
       ],
       'waveform': '',
+      'trimStartMs': 0,
+      'trimEndMs': 3000,
     };
     for (final key in complete.keys) {
       final missing = {...complete}..remove(key);
       expect(() => s.recordings.applyRemote(record('bad', missing)), throwsFormatException);
     }
     for (final (key, value) in [
-      ('blob', 'nope'),
+      ('audio', 'nope'),
+      ('audio', <Object>[]),
+      (
+        'audio',
+        [
+          ['nope', 1000],
+        ],
+      ),
+      (
+        'audio',
+        [
+          [_sha, -1],
+        ],
+      ),
       ('segments', ['junk']),
       ('title', null),
       ('waveform', 'nope'),
+      ('trimStartMs', -1),
+      ('trimStartMs', 3001),
+      ('trimEndMs', 3001),
+      ('trimEndMs', 2.5),
     ]) {
       final odd = {...complete, key: value};
       expect(() => s.recordings.applyRemote(record('bad', odd)), throwsFormatException);
@@ -219,6 +241,11 @@ void main() {
       s.database.db.select("SELECT * FROM recordings WHERE id = 'ok'").first,
     );
     expect(jsonEncode(pushed.data!['segments']), '[[50,1000],[2000,2000]]');
+    expect(r.parts, [RecordingPart(_sha, 1000), RecordingPart('cd' * 32, 2000)]);
+    expect(pushed.data!['audio'], [
+      [_sha, 1000],
+      ['cd' * 32, 2000],
+    ]);
   });
 
   group('controllers', () {
@@ -260,7 +287,7 @@ void main() {
         RecordingSegment(114000, 2000),
       ]);
       expect(saved.durationMs, 6000);
-      expect(await s.blobs.has(saved.blob), isTrue);
+      expect(await s.blobs.has(saved.blobs.single), isTrue);
       expect(audio.capture.discarded, hasLength(1)); // Temporary file removed.
       expect(c.state, RecorderState.idle);
       expect(audio.log, ['permission', 'start', 'pause', 'resume', 'stop']);

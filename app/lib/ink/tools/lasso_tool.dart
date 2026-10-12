@@ -170,11 +170,7 @@ class LassoTool implements PointerTool {
       selection.clear();
       return;
     }
-    final model = selection.model;
-    selection.select(
-      model.strokesNear(lasso.bounds).where(lasso.selectsStroke),
-      model.elementsNear(lasso.bounds).where(lasso.selectsElement),
-    );
+    selection.selectLasso(lasso);
   }
 
   /// Selects what is under a tap; a second tap on a text box edits it.

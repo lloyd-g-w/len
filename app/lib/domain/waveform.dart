@@ -41,15 +41,15 @@ class Waveform {
     return Waveform(Uint8List.fromList(bytes.sublist(4)), bucketMs: bytes[3] * 10);
   }
 
-  /// [count] bars (0…1) over [durationMs] of audio (the recording's
-  /// length; buckets beyond the waveform are silent): each bar is the
-  /// loudest bucket it covers.
-  List<double> bars(int count, {required int durationMs}) {
+  /// [count] bars (0…1) over audio [fromMs]…[toMs] (by default the start
+  /// of the recording; buckets beyond the waveform are silent): each bar is
+  /// the loudest bucket it covers.
+  List<double> bars(int count, {int fromMs = 0, required int toMs}) {
     if (count <= 0) return const [];
-    final total = math.max(1, durationMs);
+    final total = math.max(1, toMs - fromMs);
     return List.generate(count, (i) {
-      final from = (i * total / count / bucketMs).floor();
-      final to = math.max(from + 1, ((i + 1) * total / count / bucketMs).ceil());
+      final from = ((fromMs + i * total / count) / bucketMs).floor();
+      final to = math.max(from + 1, ((fromMs + (i + 1) * total / count) / bucketMs).ceil());
       var peak = 0;
       for (var b = from; b < to && b < levels.length; b++) {
         if (levels[b] > peak) peak = levels[b];

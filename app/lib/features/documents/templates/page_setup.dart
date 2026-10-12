@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
+import 'even_choices.dart';
 import 'template_catalog.dart';
 
 /// A small section heading inside pickers ("Paper colour", "Page size").
@@ -36,7 +37,7 @@ class PickerLabel extends StatelessWidget {
   }
 }
 
-/// Paper colours as labelled chips with a swatch.
+/// Paper colours as labelled chips with a swatch, in even rows.
 class PaperColorRow extends StatelessWidget {
   const PaperColorRow({super.key, required this.template, required this.onChanged});
 
@@ -46,34 +47,28 @@ class PaperColorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Wrap(
-      spacing: Gaps.sm,
-      runSpacing: Gaps.sm,
-      children: [
+    return EvenChoices(
+      choices: [
         for (final c in PaperColor.values)
-          ChoiceChip(
+          EvenChoice(
             key: ValueKey('paper-${c.name}'),
-            tooltip: c.label,
-            showCheckmark: false,
-            avatar: Container(
-              width: 18,
-              height: 18,
+            label: c.label,
+            selected: template.color == c,
+            onTap: () => onChanged(template.copyWith(color: c)),
+            leading: DecoratedBox(
               decoration: BoxDecoration(
                 color: c.paper,
                 shape: BoxShape.circle,
-                border: Border.all(color: scheme.outline.withValues(alpha: 0.5)),
+                border: Border.all(color: scheme.outline.withValues(alpha: 0.6)),
               ),
             ),
-            label: Text(c.label),
-            selected: template.color == c,
-            onSelected: (_) => onChanged(template.copyWith(color: c)),
           ),
       ],
     );
   }
 }
 
-/// Page format chips plus a portrait / landscape toggle.
+/// Page format chips (even rows) above a portrait / landscape toggle.
 class PageSizeRow extends StatelessWidget {
   const PageSizeRow({super.key, required this.template, required this.onChanged});
 
@@ -82,43 +77,42 @@ class PageSizeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: Gaps.md,
-      runSpacing: Gaps.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: Gaps.sm,
-          runSpacing: Gaps.sm,
-          children: [
+        EvenChoices(
+          choices: [
             for (final f in PageFormat.values)
-              ChoiceChip(
-                showCheckmark: false,
-                label: Text(f.label),
+              EvenChoice(
+                key: ValueKey('format-${f.name}'),
+                label: f.label,
                 selected: template.format == f,
-                onSelected: (_) => onChanged(template.copyWith(format: f)),
+                onTap: () => onChanged(template.copyWith(format: f)),
               ),
           ],
         ),
-        if (template.format != PageFormat.square)
+        if (template.format != PageFormat.square) ...[
+          const SizedBox(height: Gaps.sm),
           SegmentedButton<PageOrientation>(
             showSelectedIcon: false,
+            expandedInsets: EdgeInsets.zero,
             style: const ButtonStyle(visualDensity: VisualDensity.compact),
             segments: const [
               ButtonSegment(
                 value: PageOrientation.portrait,
                 icon: Icon(Icons.crop_portrait_rounded),
-                tooltip: 'Portrait',
+                label: Text('Portrait'),
               ),
               ButtonSegment(
                 value: PageOrientation.landscape,
                 icon: Icon(Icons.crop_landscape_rounded),
-                tooltip: 'Landscape',
+                label: Text('Landscape'),
               ),
             ],
             selected: {template.orientation},
             onSelectionChanged: (s) => onChanged(template.copyWith(orientation: s.single)),
           ),
+        ],
       ],
     );
   }

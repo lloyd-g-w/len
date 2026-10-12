@@ -101,6 +101,37 @@ class RichTextBuffer {
     }
   }
 
+  /// Replaces [start, end) with [fragment]'s formatted text (pasted from
+  /// another app): its character formatting over [base] (the font, size,
+  /// colour and highlight at the caret, where the fragment sets none) and
+  /// the paragraph styles of the lines it adds. The first line takes the
+  /// fragment's style only if the paste fills it and that style is not
+  /// body text (plain text pasted into a list item stays an item).
+  void insertRich(int start, int end, TextData fragment, SpanStyle base) {
+    final line = lineOf(start);
+    final fills = start == lineStart(line) && end == lineEnd(lineOf(end));
+    replace(start, end, fragment.text, base);
+    final styles = fragment.charStyles();
+    for (var i = 0; i < styles.length; i++) {
+      final s = styles[i];
+      _chars[start + i] = SpanStyle(
+        bold: s.bold,
+        italic: s.italic,
+        underline: s.underline,
+        strike: s.strike,
+        color: s.color ?? base.color,
+        highlight: s.highlight ?? base.highlight,
+        size: s.size ?? base.size,
+        font: s.font ?? base.font,
+      );
+    }
+    final paras = fragment.paras;
+    if (fills && paras.first != ParaStyle.body) _paras[line] = paras.first;
+    for (var k = 1; k < paras.length; k++) {
+      _paras[line + k] = paras[k];
+    }
+  }
+
   /// Changes the style of the characters in [start, end).
   void updateChars(int start, int end, SpanStyle Function(SpanStyle) update) {
     for (var i = start; i < end; i++) {

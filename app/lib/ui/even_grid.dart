@@ -19,6 +19,7 @@ class EvenGrid extends MultiChildRenderObjectWidget {
     this.minSpacing = Gaps.xs,
     this.runSpacing = Gaps.sm,
     this.maxSpacing = Gaps.lg,
+    this.touchTargets = false,
   }) : minItemExtent = minItemExtent ?? itemExtent;
 
   /// Width (and height) of every child.
@@ -30,20 +31,28 @@ class EvenGrid extends MultiChildRenderObjectWidget {
 
   final double minSpacing, runSpacing, maxSpacing;
 
+  /// On phones, cells grow to [Targets.touch] and need no spacing of their
+  /// own: children that centre a smaller visual in their cell (and take taps
+  /// across all of it) get full-size touch targets.
+  final bool touchTargets;
+
   @override
-  RenderEvenGrid createRenderObject(BuildContext context) => RenderEvenGrid(_spec);
+  RenderEvenGrid createRenderObject(BuildContext context) => RenderEvenGrid(_spec(context));
 
   @override
   void updateRenderObject(BuildContext context, RenderEvenGrid renderObject) =>
-      renderObject.spec = _spec;
+      renderObject.spec = _spec(context);
 
-  EvenGridSpec get _spec => EvenGridSpec(
-    itemExtent: itemExtent,
-    minItemExtent: minItemExtent,
-    minSpacing: minSpacing,
-    runSpacing: runSpacing,
-    maxSpacing: maxSpacing,
-  );
+  EvenGridSpec _spec(BuildContext context) {
+    final grow = touchTargets && Targets.of(context, minItemExtent) > minItemExtent;
+    return EvenGridSpec(
+      itemExtent: grow ? math.max(itemExtent, Targets.touch) : itemExtent,
+      minItemExtent: grow ? Targets.touch : minItemExtent,
+      minSpacing: grow ? 0 : minSpacing,
+      runSpacing: grow ? 0 : runSpacing,
+      maxSpacing: maxSpacing,
+    );
+  }
 }
 
 /// The geometry of an [EvenGrid] and how it resolves for a width.

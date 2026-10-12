@@ -142,6 +142,11 @@ void main() {
       expect(late, isNot(same(mid)));
       // Everything made: nothing to veil.
       expect(veils.pictureFor(model, key, 8000, paper), isNull);
+      // A trimmed recording kept up to 6 s: the image (7 s) was made after
+      // it and stays visible; only the text box (5 s) is veiled at 4.5 s.
+      final trimmed = veils.pictureFor(model, key, 4500, paper, until: 6000);
+      expect(trimmed, isNot(same(mid)));
+      expect(veils.pictureFor(model, key, 6000, paper, until: 6000), isNull);
       // Hidden content (being edited) is not veiled.
       model.setHidden({'i'});
       expect(veils.pictureFor(model, key, 6000, paper), isNull);
@@ -191,7 +196,16 @@ void main() {
 
     // Mapped onto the recording and grouped into bursts of writing.
     final ink = InkActivity.of(
-      RecordingTimeline(const [RecordingSegment(0, 1000)]),
+      Recording(
+        id: 'r',
+        notebookId: nb.id,
+        parts: [RecordingPart('ab' * 32, 1000)],
+        durationMs: 1000,
+        startedAt: 0,
+        title: 'Lecture',
+        mime: Recording.adtsMime,
+        updatedAt: 1,
+      ),
       s.recordings.contentTimes(nb.id, from: 0, to: 1000),
     );
     expect(ink.positions, [100, 700]);

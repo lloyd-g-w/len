@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +11,7 @@ import '../../documents/progress_dialog.dart' show showMessage;
 import '../links/link_menu.dart';
 import 'pdf_interaction.dart';
 import 'pdf_page_info.dart';
+import 'pdf_selection_paint.dart';
 import 'pdf_text_tool.dart';
 
 /// Ctrl/⌘+C copies selected PDF text, Escape drops the selection (both
@@ -168,7 +167,7 @@ class _PdfLayerState extends State<PdfLayer> {
               Positioned.fill(
                 child: IgnorePointer(
                   child: CustomPaint(
-                    painter: _SelectionPainter(
+                    painter: PdfSelectionPainter(
                       _pdf,
                       // Pages are paper in either theme: a mid-tone accent.
                       HSLColor.fromColor(Theme.of(context).colorScheme.primary)
@@ -179,7 +178,7 @@ class _PdfLayerState extends State<PdfLayer> {
                   ),
                 ),
               ),
-              if (_pdf.selection.showsMenu && ends != null) _menu(context, ends),
+              if (_pdf.selection.showsMenu && ends != null) _menu(context, _selectionOnScreen()),
             ],
           );
         },
@@ -196,18 +195,26 @@ class _PdfLayerState extends State<PdfLayer> {
     }
   }
 
-  /// The menu above the selection, or below it when the top of the screen
-  /// (the chrome) is too close.
-  Widget _menu(BuildContext context, (Offset, Offset) ends) {
-    final size = MediaQuery.sizeOf(context);
-    const width = 340.0, height = 44.0;
-    final (start, end) = ends;
-    final left = (start.dx - 24)
-        .clamp(Gaps.sm, math.max(Gaps.sm, size.width - width - Gaps.sm))
-        .toDouble();
-    final above = start.dy - height - 24;
+  /// The box around the selected lines on screen.
+  Rect _selectionOnScreen() {
+    final doc = _pdf.doc;
+    final index = doc.pages.indexWhere((p) => p.id == _pdf.selection.page?.id);
+    final frame = index < 0 ? null : doc.layout.frameOf(index);
+    if (frame == null) return Rect.zero;
+    final rects = [
+      for (final r in _pdf.selectionRects)
+        Rect.fromPoints(
+          doc.viewport.toScreen(frame.topLeft + r.topLeft),
+          doc.viewport.toScreen(frame.topLeft + r.bottomRight),
+        ),
+    ];
+    return rects.isEmpty ? Rect.zero : rects.reduce((a, b) => a.expandToInclude(b));
+  }
+
+  /// The selection's menu, above the selected lines (below them if there
+  /// is no room above).
+  Widget _menu(BuildContext context, Rect selected) {
     final roomAbove = MediaQuery.paddingOf(context).top + 64;
-    final top = above >= roomAbove ? above : math.min(end.dy + 20, size.height - height - Gaps.sm);
     final scheme = Theme.of(context).colorScheme;
     Widget button(String label, IconData icon, VoidCallback onPressed, String key) =>
         TextButton.icon(
@@ -216,92 +223,46 @@ class _PdfLayerState extends State<PdfLayer> {
           icon: Icon(icon, size: 18),
           label: Text(label),
         );
-    return Positioned(
-      left: left,
-      top: top,
-      child: Listener(
-        onPointerDown: (_) => _onMenu = true,
-        child: Material(
-          elevation: 6,
-          color: scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(Radii.pill),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                button('Copy', Icons.copy_rounded, _copy, 'pdf-copy'),
-                button('Highlight', Icons.border_color_rounded, _highlight, 'pdf-highlight'),
-                if (_pdf.onLinkSelection case final link?)
-                  Builder(
-                    builder: (anchor) => IconButton(
-                      key: const ValueKey('pdf-link'),
-                      tooltip: 'Link…',
-                      icon: const Icon(Icons.link_rounded, size: 20),
-                      onPressed: () async {
-                        final choice = await showLinkMenu(anchor);
-                        if (choice != null) link(url: choice == LinkChoice.url);
-                      },
+    return Positioned.fill(
+      child: CustomSingleChildLayout(
+        delegate: PdfMenuPlacement(selected, roomAbove: roomAbove),
+        child: Listener(
+          onPointerDown: (_) => _onMenu = true,
+          child: Material(
+            elevation: 6,
+            color: scheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(Radii.pill),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  button('Copy', Icons.copy_rounded, _copy, 'pdf-copy'),
+                  button('Highlight', Icons.border_color_rounded, _highlight, 'pdf-highlight'),
+                  if (_pdf.onLinkSelection case final link?)
+                    Builder(
+                      builder: (anchor) => IconButton(
+                        key: const ValueKey('pdf-link'),
+                        tooltip: 'Link…',
+                        icon: const Icon(Icons.link_rounded, size: 20),
+                        onPressed: () async {
+                          final choice = await showLinkMenu(anchor);
+                          if (choice != null) link(url: choice == LinkChoice.url);
+                        },
+                      ),
                     ),
+                  IconButton(
+                    key: const ValueKey('pdf-select-all'),
+                    tooltip: 'Select all on page',
+                    icon: const Icon(Icons.select_all_rounded, size: 20),
+                    onPressed: _pdf.selectAll,
                   ),
-                IconButton(
-                  key: const ValueKey('pdf-select-all'),
-                  tooltip: 'Select all on page',
-                  icon: const Icon(Icons.select_all_rounded, size: 20),
-                  onPressed: _pdf.selectAll,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
-}
-
-/// Paints the selected lines (and, with the Select text tool, the handles).
-class _SelectionPainter extends CustomPainter {
-  _SelectionPainter(this.pdf, this.color, {required this.handles});
-
-  final PdfInteraction pdf;
-  final Color color;
-  final bool handles;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final selection = pdf.selection;
-    final page = selection.page;
-    if (page == null || selection.isEmpty) return;
-    final doc = pdf.doc;
-    final index = doc.pages.indexWhere((p) => p.id == page.id);
-    final frame = index < 0 ? null : doc.layout.frameOf(index);
-    if (frame == null) return;
-    final fill = Paint()..color = color.withValues(alpha: 0.28);
-    for (final r in selection.rects) {
-      final a = doc.viewport.toScreen(
-        frame.topLeft + Offset(r.left * frame.width, r.top * frame.height),
-      );
-      final b = doc.viewport.toScreen(
-        frame.topLeft + Offset(r.right * frame.width, r.bottom * frame.height),
-      );
-      canvas.drawRect(Rect.fromPoints(a, b), fill);
-    }
-    final ends = PdfTextTool.handleEnds(pdf);
-    if (!handles || ends == null) return;
-    final solid = Paint()
-      ..color = color
-      ..strokeWidth = 2;
-    final rects = selection.rects;
-    final scale = doc.viewport.scale;
-    final startHeight = rects.first.height * frame.height * scale;
-    final endHeight = rects.last.height * frame.height * scale;
-    canvas
-      ..drawLine(ends.$1, ends.$1 + Offset(0, startHeight), solid)
-      ..drawCircle(ends.$1 - const Offset(0, 5), 6, solid)
-      ..drawLine(ends.$2, ends.$2 - Offset(0, endHeight), solid)
-      ..drawCircle(ends.$2 + const Offset(0, 5), 6, solid);
-  }
-
-  @override
-  bool shouldRepaint(_SelectionPainter old) => true; // Repainted by the builder's listenables.
 }

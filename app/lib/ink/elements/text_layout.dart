@@ -4,7 +4,13 @@ import '../../domain/text/rich_text_buffer.dart';
 import '../../domain/text/text_data.dart';
 import 'list_marker.dart';
 
+import 'text_box_layout.dart';
+import 'text_wraps.dart';
+
+export 'list_marker.dart';
 export 'marker_offsets.dart';
+export 'text_box_layout.dart';
+export 'text_wraps.dart';
 
 /// Builds and lays out text-box content. The renderer, the PDF export and
 /// the on-canvas text editor all use the same [spanOf] / [styleFor] /
@@ -13,7 +19,8 @@ export 'marker_offsets.dart';
 /// device.
 ///
 /// List markers are inline placeholders at the start of their line (one
-/// U+FFFC in the laid-out text, see [MarkerOffsets]).
+/// U+FFFC in the laid-out text, see [MarkerOffsets]); wrapped list items
+/// get hanging indents ([TextWraps]).
 abstract final class TextLayout {
   /// Minimum width of a text box, in world units.
   static const double minWidth = 24;
@@ -108,40 +115,51 @@ abstract final class TextLayout {
   }
 
   /// The styled content of [data]: per line its marker (built by
-  /// [marker]) and its runs. [underlined] (model offsets) is underlined,
-  /// e.g. the IME composing range.
+  /// [marker]) and its runs. At each of [wraps] (model offsets, see
+  /// [TextWraps]) a list item continues on a new line behind a gap as wide
+  /// as its marker (built by [gap]): a hanging indent. [underlined] (model
+  /// offsets) is underlined, e.g. the IME composing range.
   static TextSpan spanOf(
     TextData data, {
     required InlineSpan Function(ListMarker marker) marker,
+    InlineSpan Function(Size size) gap = gapSpan,
+    List<int> wraps = const [],
     TextRange underlined = TextRange.empty,
   }) {
     final text = data.text;
     final chars = data.charStyles();
     final paras = data.paras;
     final markers = {for (final m in markersOf(data)) m.line: m};
-    bool under(int i) => underlined.isValid && i >= underlined.start && i < underlined.end;
     final children = <InlineSpan>[];
+    var w = 0;
     var start = 0;
     for (var line = 0; line < paras.length; line++) {
       final para = paras[line];
-      if (markers[line] case final m?) children.add(marker(m));
+      final m = markers[line];
+      if (m != null) children.add(marker(m));
       final nl = text.indexOf('\n', start);
       final end = nl < 0 ? text.length : nl;
-      var i = start;
-      while (i < end) {
-        var j = i + 1;
-        while (j < end && chars[j] == chars[i] && under(j) == under(i)) {
-          j++;
-        }
-        var style = styleFor(data, chars[i], para);
-        if (under(i)) {
-          style = style.copyWith(
-            decoration: TextDecoration.combine([?style.decoration, TextDecoration.underline]),
-          );
-        }
-        children.add(TextSpan(text: text.substring(i, j), style: style));
-        i = j;
+      var from = start;
+      while (w < wraps.length && wraps[w] < end) {
+        final at = wraps[w++];
+        if (at <= from || m == null) continue;
+        lineRuns(data, chars, para, from, at, children, underlined: underlined);
+        // The break hides the line's last style (no highlight or lines).
+        final style = styleFor(data, chars[at - 1], para);
+        children
+          ..add(
+            TextSpan(
+              text: '\n',
+              style: style.copyWith(
+                decoration: TextDecoration.none,
+                background: Paint()..color = const Color(0x00000000),
+              ),
+            ),
+          )
+          ..add(gap(m.size));
+        from = at;
       }
+      lineRuns(data, chars, para, from, end, children, underlined: underlined);
       if (nl >= 0) {
         // The break takes the line's last style, so an empty line is as
         // tall as its paragraph.
@@ -151,6 +169,41 @@ abstract final class TextLayout {
       start = nl < 0 ? text.length : nl + 1;
     }
     return TextSpan(style: baseStyle(data), children: children);
+  }
+
+  /// The placeholder of a hanging indent ([size] is the marker's).
+  static InlineSpan gapSpan(Size size) => WidgetSpan(
+    alignment: PlaceholderAlignment.middle,
+    child: SizedBox.fromSize(size: size),
+  );
+
+  /// Adds the runs of text [start, end) (within one line, formatted as
+  /// [para]) to [out]; [underlined] (model offsets) is underlined.
+  static void lineRuns(
+    TextData data,
+    List<SpanStyle> chars,
+    ParaStyle para,
+    int start,
+    int end,
+    List<InlineSpan> out, {
+    TextRange underlined = TextRange.empty,
+  }) {
+    bool under(int i) => underlined.isValid && i >= underlined.start && i < underlined.end;
+    var i = start;
+    while (i < end) {
+      var j = i + 1;
+      while (j < end && chars[j] == chars[i] && under(j) == under(i)) {
+        j++;
+      }
+      var style = styleFor(data, chars[i], para);
+      if (under(i)) {
+        style = style.copyWith(
+          decoration: TextDecoration.combine([?style.decoration, TextDecoration.underline]),
+        );
+      }
+      out.add(TextSpan(text: data.text.substring(i, j), style: style));
+      i = j;
+    }
   }
 
   /// A laid-out [TextBoxLayout] of [data] wrapped at [width]. The caller
@@ -173,99 +226,4 @@ abstract final class TextLayout {
     final w = (width + autoWidthSlack).ceilToDouble();
     return w < minWidth ? minWidth : w;
   }
-}
-
-/// [TextLayout] of one text box: a laid-out painter plus its list markers.
-class TextBoxLayout {
-  TextBoxLayout(this.data, double width) : markers = TextLayout.markersOf(data) {
-    final span = TextLayout.spanOf(
-      data,
-      // Only the placeholder's size matters here; markers are painted
-      // separately.
-      marker: (m) =>
-          const WidgetSpan(alignment: PlaceholderAlignment.middle, child: SizedBox.shrink()),
-    );
-    painter = TextPainter(
-      // An empty box still has one line's height.
-      text: span.children!.isEmpty ? TextSpan(text: ' ', style: span.style) : span,
-      textAlign: TextLayout.alignOf(data),
-      textDirection: TextDirection.ltr,
-    );
-    painter.setPlaceholderDimensions([
-      for (final m in markers)
-        PlaceholderDimensions(size: m.size, alignment: PlaceholderAlignment.middle),
-    ]);
-    if (width.isFinite) {
-      final w = width < TextLayout.minWidth ? TextLayout.minWidth : width;
-      painter.layout(minWidth: w, maxWidth: w);
-    } else {
-      painter.layout();
-    }
-  }
-
-  final TextData data;
-  late final TextPainter painter;
-  final List<ListMarker> markers;
-
-  double get height => painter.height;
-
-  /// The placeholder box of each of [markers] (local coordinates).
-  List<Rect> get markerBoxes => [
-    for (final b in painter.inlinePlaceholderBoxes ?? const <TextBox>[]) b.toRect(),
-  ];
-
-  /// Paints the text with its top left at [origin].
-  void paint(Canvas canvas, Offset origin) {
-    painter.paint(canvas, origin);
-    final boxes = markerBoxes;
-    for (var i = 0; i < markers.length && i < boxes.length; i++) {
-      markers[i].paint(
-        canvas,
-        boxes[i].shift(origin),
-        number: (label, column) => paintNumber(canvas, markers[i], label, column),
-      );
-    }
-  }
-
-  /// The line of the checkbox at [local] (box coordinates), if any.
-  int? checkboxAt(Offset local) {
-    final boxes = markerBoxes;
-    for (var i = 0; i < markers.length && i < boxes.length; i++) {
-      final m = markers[i];
-      if (m.para.list != ListKind.check) continue;
-      if (m.checkbox(boxes[i]).inflate(m.fontSize * 0.3).contains(local)) return m.line;
-    }
-    return null;
-  }
-
-  /// Paints a numbered item's [label] right-aligned in [column].
-  static void paintNumber(Canvas canvas, ListMarker marker, String label, Rect column) {
-    final p = numberPainter(marker, label);
-    p.paint(canvas, numberOrigin(marker, p, column));
-    p.dispose();
-  }
-
-  /// Lays out a number label (the caller disposes it).
-  static TextPainter numberPainter(ListMarker marker, String label) => TextPainter(
-    text: TextSpan(
-      text: label,
-      style: TextStyle(
-        inherit: false,
-        fontFamily: marker.font.family,
-        fontFamilyFallback: TextLayout.fallback,
-        fontSize: marker.fontSize,
-        height: 1,
-        color: Color(marker.color),
-      ),
-    ),
-    textDirection: TextDirection.ltr,
-  )..layout();
-
-  /// Top left of a number label: right-aligned, vertically centred.
-  static Offset numberOrigin(ListMarker marker, TextPainter label, Rect column) => Offset(
-    column.right - marker.fontSize * 0.35 - label.width,
-    column.center.dy - label.height / 2,
-  );
-
-  void dispose() => painter.dispose();
 }

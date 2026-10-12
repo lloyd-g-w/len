@@ -7,11 +7,13 @@ and subsets them to the scripts Len's text boxes are meant for (Latin,
 Greek, Cyrillic, punctuation, arrows, list glyphs), so the app stays small
 and every platform renders - and wraps - text boxes with the same glyphs.
 
-Usage (from the repo root):
-  nix shell nixpkgs#python3Packages.fonttools -c python3 app/tool/build_fonts.py
+Usage (from the repo root; optionally only the named families, e.g. Kalam):
+  nix shell --impure --expr 'with import (builtins.getFlake "nixpkgs") {};
+    python3.withPackages (p: [p.fonttools])' -c python3 app/tool/build_fonts.py [Prefix ...]
 """
 import io
 import os
+import sys
 import urllib.request
 
 from fontTools import subset
@@ -29,6 +31,9 @@ FAMILIES = [
     ("jetbrainsmono", "JetBrainsMono",
      {"": "JetBrainsMono[wght].ttf", "Italic": "JetBrainsMono-Italic[wght].ttf"}, {}),
     ("caveat", "Caveat", {"": "Caveat[wght].ttf"}, {}),
+    ("nunito", "Nunito", {"": "Nunito[wght].ttf", "Italic": "Nunito-Italic[wght].ttf"}, {}),
+    # Static fonts: one file per weight.
+    ("kalam", "Kalam", {"": {"Regular": "Kalam-Regular.ttf", "Bold": "Kalam-Bold.ttf"}}, {}),
 ]
 WEIGHTS = {"Regular": 400, "Bold": 700}
 
@@ -46,16 +51,23 @@ def fetch(path):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
+    only = set(sys.argv[1:])
     for folder, prefix, sources, axes in FAMILIES:
+        if only and prefix not in only:
+            continue
         with open(os.path.join(OUT, f"{prefix}-OFL.txt"), "wb") as f:
             f.write(fetch(f"{folder}/OFL.txt"))
         for style, source in sources.items():
-            data = fetch(f"{folder}/{source}".replace("[", "%5B").replace("]", "%5D"))
+            if isinstance(source, str):
+                data = fetch(f"{folder}/{source}".replace("[", "%5B").replace("]", "%5D"))
             for weight_name, weight in WEIGHTS.items():
-                font = TTFont(io.BytesIO(data))
-                static = instancer.instantiateVariableFont(
-                    font, {"wght": weight, **axes}, updateFontNames=True
-                )
+                if isinstance(source, dict):
+                    static = TTFont(io.BytesIO(fetch(f"{folder}/{source[weight_name]}")))
+                else:
+                    font = TTFont(io.BytesIO(data))
+                    static = instancer.instantiateVariableFont(
+                        font, {"wght": weight, **axes}, updateFontNames=True
+                    )
                 options = subset.Options()
                 options.name_IDs = ["*"]
                 options.name_languages = ["*"]

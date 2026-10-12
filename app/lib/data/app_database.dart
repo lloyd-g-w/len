@@ -128,7 +128,25 @@ class AppDatabase {
     _templates,
     _recordingWaveforms,
     _organise,
+    _recordingParts,
+    _recordingTrim,
   ];
+
+  /// Version 6: a recording's kept range (`trim_start_ms`, `trim_end_ms`;
+  /// untrimmed = `0` and `duration_ms`).
+  static void _recordingTrim(CommonDatabase db) {
+    db.execute('ALTER TABLE recordings ADD COLUMN trim_start_ms INTEGER NOT NULL DEFAULT 0');
+    db.execute('ALTER TABLE recordings ADD COLUMN trim_end_ms INTEGER NOT NULL DEFAULT 0');
+    db.execute('UPDATE recordings SET trim_end_ms = duration_ms');
+  }
+
+  /// Version 5: a recording's audio is a list of parts (`audio`, JSON
+  /// `[[blob, durationMs], …]`) instead of one `blob`.
+  static void _recordingParts(CommonDatabase db) {
+    db.execute("ALTER TABLE recordings ADD COLUMN audio TEXT NOT NULL DEFAULT '[]'");
+    db.execute('UPDATE recordings SET audio = json_array(json_array(blob, duration_ms))');
+    db.execute('ALTER TABLE recordings DROP COLUMN blob');
+  }
 
   /// Version 4: tags and which notebooks and pages carry them; notebooks'
   /// own outlines; the sticker library.

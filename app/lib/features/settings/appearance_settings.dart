@@ -47,6 +47,7 @@ class AppearanceSettings extends StatelessWidget {
                 itemExtent: 44,
                 minItemExtent: 36,
                 maxSpacing: Gaps.md,
+                touchTargets: true,
                 children: [
                   for (final c in Accents.all)
                     ColorDot(

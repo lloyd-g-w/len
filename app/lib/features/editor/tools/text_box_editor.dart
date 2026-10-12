@@ -69,15 +69,19 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
 
   /// A new box (or another box) started: load its text and focus it.
   void _onSession() {
-    final id = _session.current?.id;
+    final element = _session.current;
+    final id = element?.id;
     if (id == _editingId) {
       // The session may end auto width (box resized or grown to its limit).
       final auto = _session.data.autoWidth;
       if (id != null && _text.box.autoWidth != auto) {
         _text.adoptBox(_text.box.copyWith(autoWidth: auto));
       }
+      // List items wrap with hanging indents at the box width.
+      if (element != null) _text.wrapWidth = element.rect.width;
       return;
     }
+    if (element != null) _text.wrapWidth = element.rect.width;
     _editingId = id;
     if (id == null) return;
     _text.load(_session.data);

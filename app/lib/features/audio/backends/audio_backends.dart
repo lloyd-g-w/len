@@ -3,11 +3,19 @@ import 'dart:async';
 import 'package:cross_file/cross_file.dart';
 
 import '../../../data/blob_store.dart';
+import '../../../data/spool_storage.dart';
 import '../../../domain/recording.dart';
 
-/// A finished capture: the audio file (a temporary file natively, a blob
-/// URL in browsers) and its MIME type.
-typedef CapturedAudio = ({XFile file, String mime});
+/// A finished capture file: the audio (a file natively, a blob URL in
+/// browsers), its MIME type and, when the backend knows it exactly (ADTS
+/// frames counted), its duration.
+typedef CapturedAudio = ({XFile file, String mime, int? durationMs});
+
+/// What an [AudioCapture] writes: MIME type and file extension, and
+/// whether its files are [recoverable] — readable up to the last whole
+/// frame while still being written (raw AAC in ADTS frames), so a capture
+/// cut off by the app being killed can be saved afterwards.
+typedef CaptureFormat = ({String mime, String extension, bool recoverable});
 
 /// Thrown when recording or playback cannot work on this device; the
 /// message is shown to the user.
@@ -27,11 +35,22 @@ abstract interface class AudioCapture {
   /// browsers); false when refused.
   Future<bool> requestPermission();
 
-  /// Starts capturing. Throws [AudioUnavailable] if it cannot.
-  Future<void> start();
+  /// Chooses the format of the next capture. Throws [AudioUnavailable]
+  /// if there is none.
+  Future<CaptureFormat> format();
+
+  /// Starts capturing into file [path] (null: wherever the backend likes,
+  /// e.g. memory in browsers). Throws [AudioUnavailable] if it cannot.
+  Future<void> start(String? path);
 
   Future<void> pause();
   Future<void> resume();
+
+  /// Finishes the current file and goes on capturing into [nextPath]
+  /// with as little audio lost in between as the platform allows (none
+  /// where the recorder streams to Len). Returns the finished file; null
+  /// if nothing was captured.
+  Future<CapturedAudio?> split(String? nextPath);
 
   /// Finishes the capture; null if nothing was captured.
   Future<CapturedAudio?> stop();
@@ -39,7 +58,7 @@ abstract interface class AudioCapture {
   /// Input level from 0 (silence) to 1 while capturing.
   Stream<double> get levels;
 
-  /// Removes the temporary capture once it has been stored as a blob.
+  /// Removes a capture file once it has been stored as a blob.
   Future<void> discard(CapturedAudio audio);
 
   Future<void> dispose();
@@ -105,6 +124,7 @@ class AudioBackends {
     required this.playback,
     this.unavailable,
     this.keepAlive,
+    this.spool,
   });
 
   final AudioCapture Function() capture;
@@ -116,4 +136,9 @@ class AudioBackends {
   /// Keeps recordings alive in the background, where a platform needs it
   /// (Android); null elsewhere.
   final RecordingKeepAlive Function()? keepAlive;
+
+  /// Opens the directory recordings in progress are written to, so they
+  /// can be recovered after the app was killed; null (or returning null)
+  /// where there is none (browsers).
+  final Future<SpoolStorage?> Function()? spool;
 }

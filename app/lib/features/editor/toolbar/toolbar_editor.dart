@@ -10,10 +10,11 @@ import '../editor_tools.dart';
 import '../pen/slot_button.dart';
 import '../toolbar_buttons.dart';
 import 'favourite_pens.dart';
+import 'reorder_start_listener.dart';
 import 'toolbar_config.dart';
 
 /// The toolbar in edit mode ("⋯" → Customise toolbar…): every tool as a
-/// tile — tap to show or hide it, hold and drag to reorder — then the
+/// tile — tap to show or hide it, drag to reorder (hold first on touch) — then the
 /// favourite pens (× removes one, + pins the pen in use), Reset and Done.
 /// Changes apply (and persist) at once through [onChanged].
 class ToolbarEditor extends StatelessWidget {
@@ -136,7 +137,7 @@ class ToolbarEditor extends StatelessWidget {
       onReorderItem: (from, to) => onChanged(config.reorder(shown, from, to)),
       itemBuilder: (context, i) {
         final d = ordered[i];
-        return ReorderableDelayedDragStartListener(
+        return ReorderStartListener(
           key: ValueKey('edit-${d.tool.name}'),
           index: i,
           child: _ToolTile(

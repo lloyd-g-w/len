@@ -53,13 +53,14 @@ class ToolbarMeasure extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// How the chrome lays out in an editor [width] wide, with [tabs] in
-  /// the top bar; [focus] hides it.
+  /// How the chrome lays out in an editor [width] wide, with [tabs] (or
+  /// an empty [band] in their place) in the top bar; [focus] hides it.
   ChromeLayout layout({
     required double width,
     required EdgeInsets safe,
     required OpenNotebooks? tabs,
     required bool focus,
+    bool band = false,
   }) => ChromeLayout(
     placement: resolvePlacement(
       session.services.preferences.toolbarPlacement,
@@ -67,7 +68,7 @@ class ToolbarMeasure extends ChangeNotifier {
       toolbarWidth: oneRowWidth,
     ),
     toolbarHeight: _height,
-    barHeight: EditorTopBar.heightFor(width, tabs),
+    barHeight: EditorTopBar.heightFor(width, tabs, band: band),
     safe: safe,
     hasNavigator: session.doc != null,
     width: width,
@@ -133,6 +134,7 @@ class EditorChromeHost extends StatelessWidget {
     this.subtitle,
     this.tabs,
     this.secondPane = false,
+    this.band = false,
     this.splitButton,
     this.navigatorActivity,
   });
@@ -155,6 +157,9 @@ class EditorChromeHost extends StatelessWidget {
   /// The tab strip's tabs (null: no tab strip).
   final OpenNotebooks? tabs;
   final bool secondPane;
+
+  /// An empty band in place of the tab strip (see [EditorTopBar.band]).
+  final bool band;
   final Widget? splitButton;
 
   /// Pages scrolling, zooming or turning (shows the phone page indicator).
@@ -216,6 +221,7 @@ class EditorChromeHost extends StatelessWidget {
             onPressed: commands.openSearch,
           ),
           secondPane: secondPane,
+          band: band,
           split: splitButton,
         ),
         navigator: editorPageNavigator(context, session, width: layout.width),

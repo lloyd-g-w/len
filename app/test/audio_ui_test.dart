@@ -118,9 +118,9 @@ List<Stroke> _notes(AppServices s, String surface, {Offset origin = const Offset
 }
 
 Recording _recording(AppServices s, String notebookId, {String title = 'Lecture'}) =>
-    s.recordings.create(
+    s.recordings.save(
       notebookId: notebookId,
-      blob: 'cd' * 32,
+      parts: [RecordingPart('cd' * 32, 30000)],
       mime: 'audio/mp4',
       title: title,
       segments: const [RecordingSegment(_t0, 30000)],
@@ -146,6 +146,11 @@ void main() {
 
     await tester.tap(find.byTooltip('Pause recording'));
     await _settleAsync(tester);
+    expect(find.text('Paused'), findsOneWidget);
+    await expectLater(
+      find.byKey(const ValueKey('recording-pill')),
+      matchesGoldenFile('goldens/audio_recording_paused.png'),
+    );
     e.clock.now += 20000; // Paused: does not count.
     await tester.tap(find.byTooltip('Resume recording'));
     await _settleAsync(tester);

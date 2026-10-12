@@ -8,6 +8,7 @@ import 'package:pdf/pdf.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper_pattern.dart';
+import '../../../domain/pdf_page_space.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
 import '../../../ink/elements/element_renderer.dart';
@@ -39,7 +40,7 @@ class ExportPage {
 /// [source] as vectors when possible, else embedded as the image [raster]
 /// renders.
 class ExportBackground {
-  const ExportBackground({required this.pageIndex, required this.raster, this.source});
+  const ExportBackground({required this.pageIndex, required this.raster, this.source, this.links});
 
   /// The parsed source PDF; null when it can only be rasterised.
   final PdfSourceReader? source;
@@ -49,6 +50,10 @@ class ExportBackground {
 
   /// Renders the page as an opaque image (the caller's to dispose).
   final Future<ui.Image?> Function() raster;
+
+  /// Reads the page's links (normalised to the page as shown) when it is
+  /// embedded as an image; a copied page brings its own.
+  final Future<List<PdfLinkArea>> Function()? links;
 }
 
 /// Writes pages to a PDF with vector ink and vector templates.
@@ -103,7 +108,7 @@ abstract final class PdfExporter {
       onPage?.call(i);
       if (!await _addPage(writer, pages[i])) onRasterized?.call(i);
     }
-    PdfLinkWriter.write(doc, pages, writer.written);
+    PdfLinkWriter.write(doc, pages, writer.written, writer.links);
     return doc.save();
   }
 
@@ -116,6 +121,7 @@ abstract final class PdfExporter {
     final format = PdfPageFormat(page.width * k, page.height * k);
     final pdfPage = PdfPage(doc, pageFormat: format);
     writer.written.add(pdfPage);
+    writer.links.add(const []);
     final g = pdfPage.getGraphics();
     final pen = _Pen(g, page.height);
 
@@ -169,14 +175,19 @@ abstract final class PdfExporter {
     final source = background.source;
     if (source != null) {
       try {
-        writer.importer
-            .importPage(source, background.pageIndex)
-            .draw(g, format.width, format.height);
+        final page = writer.importer.importPage(source, background.pageIndex);
+        page.draw(g, format.width, format.height);
+        writer.links.last = page.links;
         return true;
       } catch (e) {
         // Unsupported or malformed page content: fall back to an image.
         debugPrint('PDF page ${background.pageIndex} is exported as an image: $e');
       }
+    }
+    try {
+      writer.links.last = await background.links?.call() ?? const [];
+    } catch (e) {
+      debugPrint('Links of PDF page ${background.pageIndex} are left out: $e');
     }
     final image = await background.raster();
     if (image == null) return false;
@@ -297,6 +308,9 @@ class _Writer {
 
   /// The PDF pages written so far, in order.
   final List<PdfPage> written = [];
+
+  /// The links of each written page's PDF background.
+  final List<List<PdfLinkArea>> links = [];
 }
 
 /// Maps world coordinates (y down) to PDF points (y up).

@@ -8,7 +8,7 @@ import 'blob_store.dart';
 /// collection").
 ///
 /// A blob is referenced by every live (not tombstoned) page background,
-/// image template of a page, element, recording (audio and waveform), user template and
+/// image template of a page, element, recording (audio parts and waveform), user template and
 /// sticker. Pages, elements and recordings of notebooks in
 /// the trash are live rows, so the trash keeps its blobs; "delete forever"
 /// tombstones them and releases the blobs.
@@ -31,8 +31,8 @@ class BlobReferences {
     // app versions are kept with their data, references included.
     for (final row in database.db.select('SELECT data FROM elements WHERE deleted = 0'))
       ...inJson(row['data'] as String),
-    for (final row in database.db.select('SELECT DISTINCT blob FROM recordings WHERE deleted = 0'))
-      row['blob'] as String,
+    for (final row in database.db.select('SELECT audio FROM recordings WHERE deleted = 0'))
+      ...inJson(row['audio'] as String),
     for (final row in database.db.select(
       "SELECT DISTINCT waveform FROM recordings WHERE deleted = 0 AND waveform <> ''",
     ))

@@ -18,6 +18,7 @@ import 'canvas/canvas_navigation.dart';
 import 'document/document_commands.dart';
 import 'document/document_controller.dart';
 import 'document/document_layout.dart';
+import 'document/document_selection.dart';
 import 'document/page_fit.dart';
 import 'document/undo_target.dart';
 import 'double_tap_zoom.dart';
@@ -80,6 +81,8 @@ class EditorSession {
       content = _contentFor(doc.activeModel, doc.pageViewport);
       final pdf = this.pdf = PdfInteraction(doc: doc, tools: tools, info: shared.pdfInfo);
       content.selectText = pdf.tool;
+      // A lasso reaches across pages; selections dropped on a page move there.
+      content.selection.surfaces = DocumentSelection(doc);
       final animator = docAnimator = ViewportAnimator(doc.viewport);
       doc.beforeJump = animator.stop;
       input = doc.input = _inputFor(

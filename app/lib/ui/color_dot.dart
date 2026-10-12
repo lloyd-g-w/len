@@ -12,6 +12,7 @@ class ColorDot extends StatelessWidget {
     required this.onTap,
     this.onLongPress,
     this.size = 32,
+    this.target,
     this.tooltip,
   });
 
@@ -29,6 +30,11 @@ class ColorDot extends StatelessWidget {
   /// Outer diameter, ring included.
   final double size;
 
+  /// Side of the square that takes taps, with the dot centred in it
+  /// (defaults to [size]). A parent's tight constraints (a grid cell)
+  /// override it: then the whole cell takes taps.
+  final double? target;
+
   /// Optional tooltip; also the accessibility label (else the hex code).
   final String? tooltip;
 
@@ -42,39 +48,45 @@ class ColorDot extends StatelessWidget {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: onTap,
           onLongPress: onLongPress,
           onSecondaryTap: onLongPress,
-          child: AnimatedContainer(
-            duration: Motion.fast,
-            width: size,
-            height: size,
-            // Ring and gap scale with the dot (2.5 + 3 at the default size).
-            padding: EdgeInsets.all(size * 0.09),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: selected ? scheme.primary : Colors.transparent,
-                width: size * 0.075,
-              ),
-            ),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Color(color),
-                shape: BoxShape.circle,
-                // Keeps dark swatches visible on dark chrome and light ones on
-                // light: a firmer ring when the swatch is close to the surface.
-                border: Border.all(
-                  color: scheme.outline.withValues(alpha: _nearSurface(scheme) ? 0.9 : 0.35),
-                ),
-              ),
-            ),
+          child: SizedBox.square(
+            dimension: target ?? size,
+            child: Center(child: _dot(scheme)),
           ),
         ),
       ),
     );
     return tooltip == null ? dot : Tooltip(message: tooltip, child: dot);
   }
+
+  Widget _dot(ColorScheme scheme) => AnimatedContainer(
+    duration: Motion.fast,
+    width: size,
+    height: size,
+    // Ring and gap scale with the dot (2.5 + 3 at the default size).
+    padding: EdgeInsets.all(size * 0.09),
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      border: Border.all(
+        color: selected ? scheme.primary : Colors.transparent,
+        width: size * 0.075,
+      ),
+    ),
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color(color),
+        shape: BoxShape.circle,
+        // Keeps dark swatches visible on dark chrome and light ones on
+        // light: a firmer ring when the swatch is close to the surface.
+        border: Border.all(
+          color: scheme.outline.withValues(alpha: _nearSurface(scheme) ? 0.9 : 0.35),
+        ),
+      ),
+    ),
+  );
 
   bool _nearSurface(ColorScheme scheme) =>
       (Color(color).computeLuminance() - scheme.surface.computeLuminance()).abs() < 0.08;

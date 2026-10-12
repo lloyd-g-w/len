@@ -65,9 +65,9 @@ void _recordings(AppServices s, String notebookId, int t0) {
     (1, 'Office hours', 640000),
     (2, 'Lab briefing', 95000),
   ]) {
-    s.recordings.create(
+    s.recordings.save(
       notebookId: notebookId,
-      blob: '$i' * 64,
+      parts: [RecordingPart('$i' * 64, ms)],
       mime: 'audio/mp4',
       title: title,
       segments: [RecordingSegment(t0 - (i + 1) * 86400000, ms)],

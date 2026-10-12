@@ -28,7 +28,7 @@ class ContentLayer extends StatefulWidget {
     required this.content,
     required this.viewport,
     required this.tools,
-    this.page,
+    this.pages,
     this.selectionActions,
   });
 
@@ -39,8 +39,9 @@ class ContentLayer extends StatefulWidget {
   final ViewportController viewport;
   final ToolSettings tools;
 
-  /// The page rectangle (world) for paged notebooks.
-  final Rect? page;
+  /// The page rectangles (world) for paged notebooks: the selection shows
+  /// on pages only.
+  final List<Rect>? pages;
 
   @override
   State<ContentLayer> createState() => _ContentLayerState();
@@ -160,7 +161,7 @@ class _ContentLayerState extends State<ContentLayer> with SingleTickerProviderSt
                 viewport: widget.viewport,
                 accent: scheme.primary,
                 handleFill: scheme.surface,
-                clip: widget.page,
+                clip: widget.pages,
               ),
             ),
           ),

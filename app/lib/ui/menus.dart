@@ -75,3 +75,10 @@ Future<T?> showContextMenuAt<T>(
     items: items,
   );
 }
+
+/// [MenuAnchor.reservedPadding] that keeps a tall menu [Gaps.sm] clear of
+/// the system bars and the screen's top and bottom. (Flutter limits a menu's
+/// size by it but places a menu that meets the left or right edge flush
+/// against it.)
+EdgeInsets menuReservedPadding(BuildContext context) =>
+    MediaQuery.paddingOf(Overlay.of(context).context) + const EdgeInsets.all(Gaps.sm);
