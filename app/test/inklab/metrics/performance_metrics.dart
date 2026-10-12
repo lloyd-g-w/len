@@ -110,7 +110,9 @@ List<Metric> performance(ReplayResult r) {
     Metric(
       'perf.subpaths',
       costs.last.subpaths.toDouble(),
-      limit: 64,
+      // A strong stabiliser makes small loops tight bends, outlined as
+      // capsules (see F10).
+      limit: byStabiliser(r.pen.streamline, 64, 64, 96),
       note: 'sub-paths in the last live outline (the GPU re-tessellates all every frame)',
     ),
   ];

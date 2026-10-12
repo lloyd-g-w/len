@@ -175,7 +175,7 @@ are for stabiliser 0 / 0.4 / 1, linear in between (`byStabiliser`).
 | `perf.flatness` | Median live-outline build time in the last fifth of the longest contact ÷ the first fifth (counted from 5 frames after part of the stroke became final: the first frames, a few points of tail, are cheaper), which is ≈ 1 if per-frame cost is O(1) | 2× |
 | `perf.frameCost` | Median live build in the last fifth (this machine, JIT) | 1000 µs |
 | `perf.commit` | Pen-up handling + committed outline | 8 ms |
-| `perf.subpaths` | Sub-paths (`moveTo`s) in the last live outline; the GPU re-tessellates all of them each frame | 64 |
+| `perf.subpaths` | Sub-paths (`moveTo`s) in the last live outline; the GPU re-tessellates all of them each frame | 64 / 64 / 96 |
 | `overlay.gap` | Low-latency model, Flutter 2 frames behind: pixels the caught-up ink covers that neither Flutter's current ink nor the overlay does (also reported at depths 1 and 3, no limit) | 0 px² |
 | `overlay.ghost` | Overlay pixels where the caught-up ink is not, which shows as a bulge or a pop when the overlay retracts | 2 px² |
 
@@ -442,8 +442,8 @@ pipeline; how far the ink strays from the steady path, RMS (max) in px:
 | stabiliser | committed, before → now | Flutter live (newest 12 px) | overlay (newest 12 px) |
 |---|---|---|---|
 | 0 | 0.58 (1.27) → 0.58 (1.27) | 0.58 (1.27) → 0.58 (1.27) | 0.58 (1.28) → 0.58 (1.27) |
-| 0.5 | 0.57 (1.25) → 0.42 (0.93) | 0.57 (1.26) → 0.40 (0.93) | 0.57 (1.28) → 0.40 (0.93) |
-| 1 | 0.56 (1.20) → 0.21 (0.54) | 0.55 (1.26) → 0.19 (0.54) | 0.55 (1.28) → 0.19 (0.54) |
+| 0.5 | 0.57 (1.25) → 0.44 (0.98) | 0.57 (1.26) → 0.42 (0.98) | 0.57 (1.28) → 0.42 (0.98) |
+| 1 | 0.56 (1.20) → 0.23 (0.60) | 0.55 (1.26) → 0.21 (0.60) | 0.55 (1.28) → 0.21 (0.60) |
 
 Cause: since pen3 the stabiliser only set the position smoothing's σ
 from 0.7 to 1.5 *screen* px (before, up to 2.5 world units, i.e. 4–6
@@ -457,7 +457,9 @@ throughout.
 
 Now σ goes from 0.7 to 4 screen px and the kernel from the flat
 `2G − G∘G` towards the plain Gaussian (`ShapeParams.sigmaFor`,
-`sharpnessFor`): 28 % of the tremor goes at 0.5, 64 % at 1. Smoothing
+`sharpnessFor`; not all the way to the Gaussian, and the ribbon's fold
+rule is stricter, so tiny loops smoothed this much stay exact): 24 % of
+the tremor goes at 0.5, 60 % at 1. Smoothing
 that strong cannot be drawn up to the pen without the tip wagging into
 place, so with the stabiliser on live ink shows only the final line
 (`StrokeShaper.liveLength`): it trails the pen by the smoothing's reach
@@ -472,7 +474,12 @@ The stronger stabiliser shrinks small loops more: at 1, `fidelity` and
 `detail.retraction` reach 2.9 px on the 10 px x-height cursive cases
 (`fidelity.rms` 0.86 px), so their limits at stabiliser 1 are now 3.5 /
 1.0 px (and 1.3 px at 0.4, where `long_stroke` reaches 1.13); at 0 nothing
-changed. Every other metric passes unchanged, real recordings included.
+changed. Loops shrunk that much bend tighter than the pen's radius over a
+long stretch; the ribbon now splits a run where a side runs backwards by
+more than one step per step (was two, which left slivers uncovered:
+`ribbon_exactness_test` found up to 27 px at 8×), so such bends become
+capsules: `perf.subpaths` reaches 84 on the 8 s `long_stroke` at 1 (limit
+there 96; 22–31 at 0 and 0.4). Every other metric passes unchanged, real recordings included.
 
 ### Real S Pen recordings
 
