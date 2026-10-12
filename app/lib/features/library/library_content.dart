@@ -172,6 +172,10 @@ class LibraryContent extends StatelessWidget {
                       inFolder: _c.folderId != null,
                       query: _c.query,
                       onCreate: () => unawaited(actions.createNotebook(context)),
+                      onClearSearch: () {
+                        searchController.clear();
+                        _c.query = '';
+                      },
                     )
                   : null,
             ),

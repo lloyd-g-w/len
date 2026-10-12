@@ -1,5 +1,55 @@
 # Len — UX/UI audit
 
+## Library and settings redesign (`feat/library2`, REDESIGN phases 7 and 8)
+
+Reviewed from the `library_`, `flows_`, `organise_` and `app_surfaces*` suites
+(phone 390, tablet portrait 800, tablet 1280, desktop 1440; light and dark;
+1.3× text) and the `search_library*` goldens.
+
+- ✅ **Navigation:** sidebar (248 dp, `chrome` + hairline) from 840 dp, the same
+  content in a drawer below; `Breakpoints.medium` is 840, so 800-dp tablets in
+  portrait get the drawer and full-height sheets.
+- ✅ **Header:** title (breadcrumbs above it in folders) with a caption; a 280-dp
+  search field when wide, a 🔍 that opens the field over the title when narrow;
+  ⊕▾ (New notebook, New canvas, Import PDF…, New folder…; wide only) and ⇅ View
+  (Last edited / Created / Name, Grid / List, Select…). Both are `MenuIconButton`s
+  (`showMenuBelow`), not `PopupMenuButton`s. Shortcut hints show in menus only
+  where a keyboard is likely.
+- ✅ **Grid:** covers of about 150 dp (columns stretched to the width), `raised`
+  (a shadow in light mode, a hairline in dark), a two-line title and a caption;
+  ⋯ by the title fades in on hover or focus and always shows on touch. Folders
+  are a wrapping row of equal compact tiles (36-dp folder glyph in its colour,
+  name, count). The "New…" tile is a quiet plate with an accent +.
+- ✅ **New notebook:** one column (title; Notebook / Canvas; six recent papers +
+  "All templates…" → the template picker; ten cover colours in one row; page size)
+  with the preview beside it when wide and a 120-dp strip on phones. Recent
+  papers are remembered (`AppPreferences.recentPapers`).
+- ✅ **Desktop:** hover states on cards, folders and rows; right-click menus;
+  Ctrl / ⌘-click toggles a notebook into the selection, Shift-click selects a
+  range, Ctrl+A selects everything shown, Esc ends selection; Select… is also in
+  each card's menu.
+- ✅ **Task sheets:** folder (new / edit) and move are `showDialogOrSheet` task
+  sheets with ✕; the handwriting language is a task sheet instead of a
+  `SimpleDialog`. No `showModalBottomSheet`, `AlertDialog`, `SimpleDialog` or
+  `PopupMenuButton` is left in `features/library`, `features/settings` or
+  `features/search`.
+- ✅ **Search results:** flat rows split by hairlines, page chips `xs` on
+  `surfaceContainerHigh`; an empty result offers Clear search.
+- ✅ **Settings:** one centred column (640 dp): General (theme: System · Light ·
+  Dark), Writing (Draw with: Automatic · Stylus only · Stylus & finger; side
+  button; tap to undo and redo; toolbar), Handwriting (search, language; the
+  model row only until it is downloaded), Sync (with Sync now), Storage (web),
+  About (version: 7 taps open Ink Lab, kept in release builds; licences).
+  Segmented controls trail on wide rows and go below the text on narrow ones.
+- ✅ **Performance:** the grid's columns come from a `SliverGridDelegate`
+  (`CoverGridDelegate`) instead of a `SliverLayoutBuilder`, which rebuilt every
+  card on every scroll frame (75 → 4 card builds a frame with 200 notebooks);
+  covers requested last render first. `test/perf/library_perf_test.dart` pins it.
+- ⬜ Phones create folders only from the drawer (no ⊕▾ there, by the spec); a
+  long-press on the FAB could offer New folder.
+- ⬜ The sidebar shows sync as an icon beside Settings, not yet the "Synced 2m"
+  caption of the spec's sketch.
+
 ## Paper and laser pointer (`feat/paper`)
 
 User feedback: page settings lacked customisation (dot spacing, colours); the

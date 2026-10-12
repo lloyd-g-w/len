@@ -200,7 +200,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
           ButtonSegment(
             value: NotebookKind.canvas,
             icon: Icon(Symbols.all_inclusive_rounded),
-            label: SegmentLabel('Infinite canvas'),
+            label: SegmentLabel('Canvas'),
           ),
         ],
         selected: {_kind},

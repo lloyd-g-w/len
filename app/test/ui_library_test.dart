@@ -51,7 +51,7 @@ Future<void> createNotebook(WidgetTester tester, String title, {bool canvas = fa
   );
   await tester.pumpAndSettle();
   if (canvas) {
-    await tester.tap(find.text('Infinite canvas'));
+    await tester.tap(find.text('Canvas'));
     await tester.pumpAndSettle();
   }
   await tester.enterText(
@@ -117,7 +117,7 @@ void main() {
     expect(find.text('Small grid · White · A4 portrait'), findsOneWidget);
 
     // Canvases have a paper colour but no page size.
-    await tester.tap(find.text('Infinite canvas'));
+    await tester.tap(find.text('Canvas'));
     await tester.pumpAndSettle();
     expect(find.text('Small grid · White · Infinite canvas'), findsOneWidget);
     expect(find.text('Page size'), findsNothing);

@@ -29,7 +29,8 @@ class WritingSettings extends StatelessWidget {
               true => 'Fingers pan and zoom, so a resting palm leaves no marks',
               false => 'Both draw; two fingers pan and zoom',
             },
-            control: ShrinkToFit(
+            // Three long choices: always below the text.
+            below: ShrinkToFit(
               child: SegmentedButton<bool?>(
                 showSelectedIcon: false,
                 segments: const [

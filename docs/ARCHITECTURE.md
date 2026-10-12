@@ -1521,21 +1521,37 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   favourites, trash), open folder and search query, reads the repositories on `reload()`
   and filters/sorts in memory (`LibraryQuery`). `LibraryActions` adds the dialogs and
   confirmations. Layout and sort are preferences (`AppPreferences`).
-- **Shell.** ≥ 720 px wide: sidebar with sections, folder tree (all drop targets), sync
-  status and settings; narrower: the same in a drawer (☰). Notebooks and folders drag with a
-  mouse immediately and with touch after a long press (a long press released in place
-  opens the context menu instead). Shortcuts: Ctrl+N, Ctrl+Shift+N, Ctrl+F, Delete, Esc.
+- **Shell.** From `Breakpoints.medium` (840 dp): a 248-dp sidebar with sections, the folder
+  tree (all drop targets), sync status and settings; narrower: the same in a drawer (☰). The
+  header (`library_header.dart`) has the title with a caption, search (a field when wide, a 🔍
+  that opens it over the title when narrow), ⊕▾ New (wide only) and ⇅ View (sort, grid / list,
+  Select…), both `MenuIconButton`s. Notebooks and folders drag with a mouse immediately and
+  with touch after a long press (a long press released in place opens the context menu
+  instead). Ctrl / ⌘-click toggles a notebook into the selection and Shift-click extends it
+  (`LibraryActions.selectWithModifiers`, `LibrarySelection.extendTo`). Shortcuts: Ctrl+N,
+  Ctrl+Shift+N, Ctrl+F, Ctrl+A, Delete, Esc.
+- **Grid.** `CoverGridDelegate` lays out covers of about 150 dp (at least two columns,
+  stretched to the width) with a fixed caption area (`NotebookCard.captionHeight`: two title
+  lines and a caption), so every cover in a row is as tall. The columns come from the delegate,
+  not a layout builder above the grid: that rebuilt every card on every scroll frame
+  (`test/perf/library_perf_test.dart` builds 200 notebooks and counts card builds). Folders are
+  a wrapping row of equal compact tiles above the notebooks.
 - **New… tile.** On wide screens the notebook grid starts with a cover-sized "New…" tile
   (`NewNotebookTile`, `LibraryContent.showsNewTile`) in the library root and in folders (not
-  in favourites, trash, search, selection or list layout). One primary action per screen:
-  where the tile shows, the "New" FAB doesn't; phones only get the FAB. Folders show the standard folder glyph tinted with the folder
-  colour on tiles, in the sidebar tree and in the move dialog.
+  in favourites, trash, search, selection or list layout); ⊕▾ creates everywhere else. Phones
+  get the FAB instead, hidden while an empty state offers its own button.
+- **New notebook sheet** (`new_notebook_sheet.dart`, `new_notebook/`): one column (title,
+  Notebook / Canvas, `PaperRow` with the recent papers and "All templates…" → the template
+  picker, `CoverRow`, page size) with `NotebookPreview` beside it in the dialog and as a strip
+  on phones. The papers come from `recentPapers` (`AppPreferences.recentPapers`, filled up with
+  defaults; canvases only tiling papers); creating a notebook records its paper.
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
   `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint
   (`SurfaceStats`: live stroke count + latest version, plus the page's paper and size), renders
   lazily in short time-boxed batches (one per event-loop turn, one notification per batch that
-  changed a preview), keeps an LRU of images and is invalidated when an editor closes or sync brings
+  changed a preview; the latest requests first, so covers on screen beat those scrolled past),
+  keeps an LRU of images and is invalidated when an editor closes or sync brings
   strokes. Covers without ink show a plain cover in the notebook's colour (one of
   ten, `Palette.covers`).
 
@@ -1655,7 +1671,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
 `SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
 stylus-only, finger-tap undo and redo (one switch), stylus side-button action
 (`PenButtonAction.eraser|lasso|none`), editor toolbar placement (and floating position) and tool names,
-library layout and sort. Getters always read
+library layout and sort, and the papers of the latest new notebooks. Getters always read
 the store, so values written elsewhere are never stale.
 
 ## UI design system (`ui/`)
@@ -1684,8 +1700,13 @@ and a tinted `DialogIcon` only when destructive or in progress, `DialogBody` wid
 messages (`messages.dart`: `showMessage`). Floating chrome: `floating_panel.dart`
 (`FloatingPanel`, the `raised` surface; `radius: Radii.pill` for pills) and `chrome_fade.dart`
 (`ChromeFade`: fade plus an 8-px slide toward the edge). Also `text_prompt.dart`,
-`sidebar_item.dart` (library sidebar; the selected row carries the accent). Settings: every section in one centred column of readable width, on
-every screen. Documents UI
+`sidebar_item.dart` (library sidebar; the selected row carries the accent). Menus opened from a
+button use `MenuIconButton` / `showMenuBelow` (`menus.dart`; `MenuRow.shortcut` hints show only
+where a keyboard is likely), never `PopupMenuButton`. Settings (`features/settings/`): General,
+Writing, Handwriting, Sync, Storage (web) and About in one centred 640-dp column;
+`SettingsSection` is a quiet `SectionLabel` heading over a rounded plate of `SettingsTile`s
+(18-dp icon, Body title, Caption subtitle; a `control` trails on wide rows and goes below the
+text on narrow ones). Documents UI
 (`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
 dates, week start, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
 with selection mode; `editor/document/page_overview.dart` re-exports it);

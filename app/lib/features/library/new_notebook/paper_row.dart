@@ -40,7 +40,7 @@ class PaperRow extends StatelessWidget {
       builder: (context, constraints) {
         // Every tile fits when it can; on phones the row scrolls.
         final fit = constraints.maxWidth / (entries.length + 1) - _tileChrome;
-        final portrait = fit.clamp(44.0, 64.0);
+        final portrait = fit.clamp(52.0, 64.0);
         return _row(current, entries, listed, landscape ? portrait * 1.3 : portrait);
       },
     );
@@ -114,8 +114,9 @@ class _AllTemplatesTile extends StatelessWidget {
                 width: width,
                 height: height,
                 decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHigh,
+                  color: scheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(Radii.sm),
+                  border: Border.all(color: scheme.outlineVariant),
                 ),
                 child: Icon(
                   Symbols.grid_view_rounded,
