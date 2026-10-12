@@ -201,7 +201,7 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | collection  | data                                                                                   |
 |-------------|----------------------------------------------------------------------------------------|
 | `folders`   | `{name, parentId: string|null, color, icon: string|null, createdAt}` — `icon`: `null` = the default folder icon, or one of `book`, `school`, `work`, `science`, `calculate`, `palette`, `music`, `sports`, `travel`, `home`, `favorite`, `star`, `lightbulb`, `code`, `language`, `receipt`, `event`, `pets`, `restaurant`. |
-| `notebooks` | `{title, kind: "paged"|"canvas", paper, paperColor, coverColor, coverStyle, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
+| `notebooks` | `{title, kind: "paged"|"canvas", paper, paperData: object, paperColor, coverColor, coverStyle, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperData: object, paperColor, bookmarked: bool, background: object|null}` — see [Paper and pages](#paper-and-pages) |
 | `templates` | `{name, blob, width, height, createdAt}` — one of the user's own templates ("My templates"): `blob` is the `<sha256>` of a PNG or JPEG image ([blob](#blobs)), `width` / `height` (> 0) the size in world units (96 per inch) of pages made from it. Pages made from a template copy its blob into their `paperData`, so renaming or deleting (tombstoning) a template never changes existing pages. |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd, u?: unit}` (`u`: world units per screen pixel when the stroke was written, i.e. 1 / zoom; missing → estimated from the points; missing style → per-tool defaults; unknown keys ignored). `createdAt` is the wall time (epoch ms) the stroke was *begun* (pen down), not finished: strokes are painted in this order, and audio replay shows a stroke from the moment writing it started. |
@@ -236,7 +236,8 @@ ints.
   restored. "Delete forever" tombstones the notebook, its pages, strokes, elements, recordings,
   outline entries and the taggings of the notebook and its pages. Duplicating a notebook copies
   its outline (onto the copied pages) and its and its pages' tags.
-- `notebooks.paperColor` is the background of a canvas (same values as on pages).
+- `notebooks.paperColor` is the background of a canvas (same values as on pages);
+  `notebooks.paper` + `paperData` its pattern.
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes
   (favourite, move, trash) only bump `updatedAt`.
 
@@ -291,7 +292,8 @@ Readers ignore waveforms with another version or magic.
 `monthlyCalendar`, `yearlyOverview`, `gridSmall`, `gridLarge`, `graph`, `engineering`, `isometric`, `music`,
 `storyboard`, or `image` (a user's image template). On notebooks (the default for new pages and
 the canvas background) it must be a template without parameters, i.e. not a planner and not
-`image`. On pages, `paperData` holds the template's parameters and must be valid for it:
+`image`, and its `paperData` is just `{"look": look}`. On pages, `paperData` holds the template's
+parameters and its `look`, and must be valid for it:
 
 - planners (`dailyPlanner`, `weeklyPlanner`, `monthlyCalendar`, `yearlyOverview`):
   `{"date": "YYYY-MM-DD", "weekStart": "monday"|"sunday", "locale": "<tag>"}`, all required.
@@ -302,9 +304,23 @@ the canvas background) it must be a template without parameters, i.e. not a plan
   written). Planner links find the page with the same style, date, `weekStart` and `locale`,
   so the date is normalised to the period's start when written;
 - `image`: `{"image": "<sha256>"}`, a PNG or JPEG [blob](#blobs) stretched over the page;
-- every other template: `{}`.
+- every other template: nothing but the look.
 
-`paperColor` is one of `white`, `cream`, `grey`, `dark`.
+Every `paperData` has a `look` (required): how the template is drawn, `{"spacing": mm|null,
+"lineWeight": number, "dotSize": number, "patternColor": int|null, "patternOpacity": number,
+"margin": bool, "header": bool}`, all fields required. `spacing` is the pattern pitch in
+millimetres (line distance, grid cell, dot spacing, staff line distance; `null` = the template's
+own; only ruled, Cornell, to-do and meeting pages, grids, isometric, dotted and music paper use
+it); `lineWeight` and `dotSize` scale the default line thickness and dot size (0.5–3);
+`patternColor` is the ARGB colour of lines and dots (`null` = derived from the paper colour);
+`patternOpacity` (0.1–1) scales its opacity; `margin` whether ruled pages show their margin line;
+`header` whether a page has a header area ruled off at the top (blank, dotted, ruled, grid,
+graph and isometric pages). Readers clamp numbers to these ranges; a missing field or one of the
+wrong type makes the record malformed. Example: `{"look": {"spacing": 5, "lineWeight": 1,
+"dotSize": 1.5, "patternColor": null, "patternOpacity": 0.8, "margin": true, "header": false}}`.
+
+`paperColor` is one of `white`, `cream`, `grey`, `dark`, or a custom colour `#RRGGBB` (six
+upper-case hex digits).
 
 - `bookmarked`: whether the page is bookmarked.
 - `background`: `null`, or `{"type": "pdf", "blob": "<sha256>", "page": <int ≥ 0>}`, which renders
