@@ -87,11 +87,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Custom templates ("My templates", synced): import an image or a PDF page, "Save page as
   template"; rename / delete; usable for new notebooks and pages
 - ✅ Template picker: categories (Basic, Writing, Planners, Paper, My templates), search, live
-  previews
+  previews; a dialog with gallery and options side by side on tablets / desktops, a sheet with
+  full-width columns on phones
 - ✅ Planner options: week starting on Monday or Sunday (US week numbers for Sunday weeks),
   month and day names and dates in 19 languages (intl; default from the device locale, last
   choice remembered), year overview (twelve mini calendars linking to months and days; optional
-  first page of a monthly planner); exported PDF labels in the embedded Inter
+  first page of a monthly planner; month pages link back up from their year label, weeks and
+  days to their month); exported PDF labels in the embedded Inter
 - ✅ Cancel long imports / exports (partial imports clean up after themselves)
 - ✅ Tiled PDF rendering for deep zoom (visible tiles, LRU, smooth while zooming)
 - ✅ PDF text selection (Select text tool, long press / right click): copy, highlight the selection

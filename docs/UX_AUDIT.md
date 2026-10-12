@@ -208,16 +208,18 @@ the second for what is left.
 
 ### Still open after round 3
 
-- 12: the template pickers (Add page, Change template, Canvas background)
+- ✅ 12: the template pickers (Add page, Change template, Canvas background)
   and the cover sheet are bottom sheets with drag handles on tablets and
   desktops. Elsewhere those sizes use centred dialogs (New notebook,
-  Export, Folder).
+  Export, Folder). → All of them go through the shared `showDialogOrSheet`
+  (centred dialog from 720 dp wide, sheet with drag handle on phones).
 - Progress dialogs have no Cancel (also item 17 of round 2).
   Convert-to-text errors only offer Close, with no Try again (it would
   need to re-run recognition).
 - Stacked dialog actions are end-aligned at their own widths, so they
   look ragged (Change template on phones). Full-width stacked buttons
-  would need a custom actions layout.
+  would need a custom actions layout. (✅ for the template picker: full-width
+  buttons on phones, primary on top; other dialogs still open.)
 - New-notebook sheet on phones at 1.3×: the preview takes most of the
   screen, leaving about one row of templates. On phones the preview
   should collapse.
@@ -241,8 +243,11 @@ the second for what is left.
   hint that it scrolls.
 - ✅ The paused recorder shows no "Paused" label, and Resume is a mic icon.
   → "Paused" replaces the level meter; Resume is a play icon.
-- Template grid on phones: 3 fixed columns leave a gutter on the right.
-  Paper-colour chips wrap 3 + 1 (also item 19 of round 2).
+- ✅ Template grid on phones: 3 fixed columns leave a gutter on the right.
+  Paper-colour chips wrap 3 + 1 (also item 19 of round 2). → The gallery
+  picks the column count whose tiles come closest to the preferred size and
+  stretches them to fill the width; paper colours and page formats are
+  `EvenChoices` (one even row, or two even rows when they don't fit).
 
 ### Accessibility (round 3)
 
@@ -383,7 +388,8 @@ settings — at the four sizes, light and dark, and at 1.3× text.
 18. ✅ No export options sheet (page range, PNG resolution, flatten
     template) like GoodNotes' export dialog. → `ExportSheet` (dialog / bottom
     sheet): format, pages or range, templates & PDF backgrounds, PNG resolution.
-19. ⬜ Paper-colour chips wrap to two rows on phones in the template picker.
+19. ✅ Paper-colour chips wrap to two rows on phones in the template picker.
+    → Even rows (`EvenChoices`): four in a row when they fit, else 2 × 2.
 20. ⬜ Typing a search ends selection mode (selection is scoped to the
     place, search included); keep it if the selected notebooks match.
 21. ✅ Template picker had one flat set of 10 templates. → Categories (Basic,
@@ -391,8 +397,13 @@ settings — at the four sizes, light and dark, and at 1.3× text.
     dates ("Add 31 pages"), an Import tile and per-template menu (rename,
     delete) for My templates; image templates fix the page size. Checked in
     `templates_screenshot_test.dart` (phone and tablet).
-22. ⬜ The template picker puts paper colour and size below the (now long)
+22. ✅ The template picker puts paper colour and size below the (now long)
     gallery; a side-by-side layout on wide screens would keep them in view.
+    → On tablets and desktops the picker is a dialog with the gallery on
+    the left and an options column on the right (preview, planner dates,
+    paper colour, size, orientation), each scrolling on its own. Phones keep
+    the stacked sheet. Checked in `templates_screenshot_test.dart` (phone,
+    tablet portrait / landscape, desktop; light and dark).
 
 ## Accessibility notes
 

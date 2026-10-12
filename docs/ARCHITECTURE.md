@@ -430,6 +430,13 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   new-notebook sheet; `templateSections` / `TemplateSelection` (`template_catalog.dart`) hold
   the logic. Planners generate a range when creating or adding ("Add 31 pages"); "Apply to all
   pages" with a planner dates the pages period after period. Image templates fix the page size.
+  The picker opens through `showDialogOrSheet` (`ui/dialog_or_sheet.dart`, shared with New
+  notebook, Export and the cover sheet): a centred dialog from `Breakpoints.medium`, where the
+  chooser is `split` — gallery left, `TemplateOptions` (preview, planner options, paper colour,
+  size) in a 300 dp column right, each scrolling on its own — and a bottom sheet on phones,
+  stacked. `TemplateGallery.fillWidth` picks the column count whose tiles come closest to the
+  preferred width and stretches them to fill the row; paper colours and formats are
+  `EvenChoices` (equal-width chips in one row, or two even rows).
 - Pages carry their paper colour and size; new pages copy the current page's paper and size.
 
 ## Blobs and PDFs
@@ -1351,7 +1358,8 @@ neutral surfaces, a tighter type scale and shared component themes
 `Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
 
 Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width),
-`menus.dart` (`MenuRow`, `showContextMenuAt`), `text_prompt.dart`, `sidebar_item.dart`
+`menus.dart` (`MenuRow`, `showContextMenuAt`), `dialog_or_sheet.dart` (`showDialogOrSheet`:
+centred dialog on tablets / desktops, bottom sheet on phones), `text_prompt.dart`, `sidebar_item.dart`
 (library sidebar and the settings section list). Settings: from `Breakpoints.expanded` a
 two-pane layout (section list + the selected section), a single column below. Documents UI
 (`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
