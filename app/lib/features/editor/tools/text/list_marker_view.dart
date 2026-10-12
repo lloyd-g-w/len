@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../domain/text/text_data.dart';
-import '../../../../ink/elements/list_marker.dart';
 import '../../../../ink/elements/text_layout.dart';
 
 /// A list marker inside the text field of the box being edited: painted

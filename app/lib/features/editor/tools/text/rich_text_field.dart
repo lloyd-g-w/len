@@ -79,6 +79,7 @@ class RichTextField extends StatelessWidget {
           controller: controller,
           focusNode: focusNode,
           maxLines: null,
+          strutStyle: StrutStyle.disabled,
           style: TextLayout.baseStyle(data),
           textAlign: TextLayout.alignOf(data),
           cursorColor: cursorColor,

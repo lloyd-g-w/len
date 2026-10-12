@@ -15,6 +15,7 @@ import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+import 'hanging_indent_test.dart' show leftOf, wrappedList, wrappedListWidth;
 import 'pdf_test.dart' show pdfium;
 
 /// A formatted note: heading, mixed formatting, a bulleted and a
@@ -101,7 +102,7 @@ void main() {
 
       // Each word sits where the app's layout puts it.
       final layout = TextLayout.layout(note, width);
-      final offsets = MarkerOffsets(note);
+      final offsets = layout.offsets;
       for (final word in ['milk', 'eggs', 'grandma']) {
         final m = note.text.indexOf(word);
         final expected = layout.painter
@@ -141,6 +142,73 @@ void main() {
       expect(a.yellow, closeTo(b.yellow, b.yellow * 0.25));
       expect(b.red, greaterThan(50));
       expect(b.yellow, greaterThan(200));
+    },
+  );
+
+  test(
+    'wrapped list items are exported with hanging indents',
+    skip: pdfium == null ? 'PDFium not built yet (run `flutter build linux` once)' : false,
+    () async {
+      final nb = services.notebooks.create(
+        title: 'Lists',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      final page = services.pages.pagesOf(nb.id).single;
+      final box = SurfaceElement(
+        id: 'lists',
+        surfaceId: page.id,
+        type: ElementType.text.name,
+        rect: Rect.fromLTWH(
+          100,
+          100,
+          wrappedListWidth,
+          TextLayout.heightOf(wrappedList, wrappedListWidth),
+        ),
+        z: 1,
+        createdAt: 1,
+        data: wrappedList.toJson(),
+      );
+      services.elements.save([box]);
+      final exporter = NotebookExporter(services);
+      final bytes = await exporter.pdf([page]);
+      await exporter.dispose();
+      final doc = await PdfDocument.openData(bytes);
+      final text = (await doc.pages.single.loadText())!;
+      final layout = TextLayout.layout(wrappedList, wrappedListWidth);
+      final source = wrappedList.text;
+      double pdfLeft(int m) {
+        // The word starting at model offset [m], found in the PDF's text.
+        final word = RegExp(r'\S+').matchAsPrefix(source, m)!.group(0)!;
+        final before = RegExp(r'\S+')
+            .allMatches(source.substring(0, m))
+            .where((w) => w.group(0) == word);
+        var at = -1;
+        for (var k = 0; k <= before.length; k++) {
+          at = text.fullText.indexOf(word, at + 1);
+        }
+        return text.charRects[at].left / 0.75 - box.rect.left;
+      }
+
+      var start = 0;
+      var checked = 0;
+      for (var line = 0; line < wrappedList.paras.length; line++) {
+        final nl = source.indexOf('\n', start);
+        final end = nl < 0 ? source.length : nl;
+        if (wrappedList.paras[line].isList) {
+          final textStart = pdfLeft(start);
+          expect(textStart, closeTo(leftOf(layout, start), 2.5), reason: 'line $line');
+          for (final w in layout.wraps.where((w) => w > start && w < end)) {
+            expect(pdfLeft(w), closeTo(textStart, 2.5), reason: 'wrap at $w');
+            checked++;
+          }
+        }
+        start = end + 1;
+      }
+      expect(checked, greaterThanOrEqualTo(4));
+      layout.dispose();
+      await doc.dispose();
     },
   );
 }

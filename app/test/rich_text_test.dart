@@ -220,7 +220,7 @@ void main() {
       expect(m.toModel(3), 3);
       expect(m.toModel(4), 3);
       expect(m.toModel(9), 8);
-      expect(m.isBeforeMarker(3), isTrue);
+      expect(m.isHidden(3), isTrue);
     });
   });
 

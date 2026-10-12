@@ -8,7 +8,6 @@ import 'package:pdf/pdf.dart';
 
 import '../../../domain/surface_element.dart';
 import '../../../domain/text/text_data.dart';
-import '../../../ink/elements/list_marker.dart';
 import '../../../ink/elements/text_layout.dart';
 
 /// Loads a bundled font file (an asset path, see [TextFont.asset]).
@@ -92,7 +91,6 @@ class PdfTextWriter {
   Future<List<_Run>?> _runs(TextData data, TextBoxLayout layout) async {
     final painter = layout.painter;
     final lines = painter.computeLineMetrics();
-    final offsets = MarkerOffsets(data);
     final chars = data.charStyles();
     final paras = data.paras;
     final text = data.text;
@@ -121,11 +119,11 @@ class PdfTextWriter {
           style: style,
           font: pdfFont,
           slant: span.italic && !font.hasItalic,
-          boxes: _boxes(painter, offsets, i, j),
+          boxes: _boxes(layout, i, j),
         );
         // Each word separately, at its laid-out position.
         for (final m in RegExp(r'\S+').allMatches(text.substring(i, j))) {
-          _place(run, painter, lines, offsets, text, i + m.start, i + m.end);
+          _place(run, layout, lines, text, i + m.start, i + m.end);
         }
         runs.add(run);
         i = j;
@@ -135,26 +133,34 @@ class PdfTextWriter {
     return runs;
   }
 
-  static List<Rect> _boxes(TextPainter p, MarkerOffsets o, int start, int end) => [
-    for (final b in p.getBoxesForSelection(
-      TextSelection(baseOffset: o.toDisplay(start), extentOffset: o.toDisplay(start) + end - start),
-      boxHeightStyle: ui.BoxHeightStyle.includeLineSpacingMiddle,
-    ))
-      b.toRect(),
-  ];
+  /// Laid-out boxes of the text [start, end) (model offsets, one line of
+  /// the box's text), without the breaks and gaps of hanging indents.
+  static List<Rect> _boxes(TextBoxLayout layout, int start, int end) {
+    final cuts = [start, ...layout.wraps.where((w) => w > start && w < end), end];
+    return [
+      for (var k = 0; k + 1 < cuts.length; k++)
+        for (final b in layout.painter.getBoxesForSelection(
+          TextSelection(
+            baseOffset: layout.offsets.toDisplay(cuts[k]),
+            extentOffset: layout.offsets.toDisplay(cuts[k]) + cuts[k + 1] - cuts[k],
+          ),
+          boxHeightStyle: ui.BoxHeightStyle.includeLineSpacingMiddle,
+        ))
+          b.toRect(),
+    ];
+  }
 
   /// Adds the word [start, end) to [run]: whole, or character by character
   /// when the layout broke it across lines.
   static void _place(
     _Run run,
-    TextPainter p,
+    TextBoxLayout layout,
     List<ui.LineMetrics> lines,
-    MarkerOffsets o,
     String text,
     int start,
     int end,
   ) {
-    final boxes = _boxes(p, o, start, end);
+    final boxes = _boxes(layout, start, end);
     if (boxes.isEmpty) return;
     if (boxes.length == 1) {
       run.words.add((
@@ -167,7 +173,7 @@ class PdfTextWriter {
     var i = start;
     while (i < end) {
       final n = i + 1 < end && _isLead(text.codeUnitAt(i)) ? 2 : 1;
-      final b = _boxes(p, o, i, i + n);
+      final b = _boxes(layout, i, i + n);
       if (b.isNotEmpty) {
         run.words.add((text.substring(i, i + n), b.first.left, _baseline(lines, b.first)));
       }
