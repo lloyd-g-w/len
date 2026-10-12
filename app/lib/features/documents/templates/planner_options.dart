@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../app_services.dart';
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/segment_label.dart';
@@ -8,21 +7,18 @@ import 'page_setup.dart';
 import 'template_catalog.dart';
 
 /// The planner calendar new planners start with: the device locale's
-/// language (if offered, else English) and the week start chosen last, else
-/// the language's customary one.
-PlannerCalendar defaultPlannerCalendar(BuildContext context) {
+/// language (if offered, else English) and its customary week start.
+PlannerCalendar defaultPlannerCalendar() {
   final locale = WidgetsBinding.instance.platformDispatcher.locale;
-  final calendar = PlannerCalendar.forLocale(locale.languageCode, locale.countryCode);
-  final weekStart = AppScope.maybeRead(context)?.settings.plannerWeekStart;
-  return weekStart == null ? calendar : calendar.copyWith(weekStart: weekStart);
+  return PlannerCalendar.forLocale(locale.languageCode, locale.countryCode);
 }
 
 /// Dates and calendar of a planner template. When [generate] is set (new
 /// notebooks, adding pages): the first month, how many months, and for
 /// the monthly calendar whether linked week and day pages follow each
 /// month and whether a year overview comes first. Otherwise (changing a
-/// page's template): the one period the page shows. Always: the day weeks
-/// start on (remembered for the next planner). The labels' language
+/// page's template): the one period the page shows. Under "More options":
+/// the day weeks start on (by default the locale's). The labels' language
 /// follows the device.
 class PlannerOptions extends StatelessWidget {
   const PlannerOptions({
@@ -55,8 +51,7 @@ class PlannerOptions extends StatelessWidget {
     ),
   );
 
-  void _setCalendar(BuildContext context, PlannerCalendar calendar) {
-    AppScope.maybeRead(context)?.settings.plannerWeekStart = calendar.weekStart;
+  void _setCalendar(PlannerCalendar calendar) {
     final plan = selection.plan.copyWith(calendar: calendar);
     final date = generate ? plan.start : selection.template.paper.date ?? plan.start;
     onChanged(
@@ -75,9 +70,17 @@ class PlannerOptions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (generate) ..._range(context) else ..._date(),
-        const SizedBox(height: Gaps.md),
-        _CalendarRow(calendar: selection.plan.calendar, onChanged: (c) => _setCalendar(context, c)),
         if (generate && _style.period == PlannerPeriod.month) ..._monthSwitches(context),
+        ExpansionTile(
+          key: const ValueKey('planner-more'),
+          title: const Text('More options'),
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(bottom: Gaps.sm),
+          dense: true,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          children: [_CalendarRow(calendar: selection.plan.calendar, onChanged: _setCalendar)],
+        ),
       ],
     );
   }

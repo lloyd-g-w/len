@@ -433,8 +433,8 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   with `intl` (CLDR); its date symbols are compiled in and initialised synchronously
   (`ensureDateSymbols`) before any label is built. Fixed headings ("Week", "Schedule",
   "Notes" …) stay English. New planners take the device locale's language (if listed,
-  else English UK; there is no language picker) and the week start chosen last
-  (`SettingsRepository.plannerWeekStart`), else the language's CLDR first day of the week. `PlannerPlan` (first month, 1–12 months,
+  else English UK; there is no language picker) and its CLDR first day of the week (changeable
+  under the planner options' collapsed "More options"). `PlannerPlan` (first month, 1–12 months,
   `linked`, `yearOverview`, calendar) generates the papers of a planner: a page per day, per
   week overlapping the range, per month or per year — monthly with `yearOverview`: the year
   overview before the first month and each January; linked: each month followed by its weeks,

@@ -51,7 +51,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   late TemplateSelection _selection = initialSelection(
     PageTemplate.of(PaperStyle.collegeRuled),
     widget.today ?? DateTime.now(),
-    calendar: defaultPlannerCalendar(context),
+    calendar: defaultPlannerCalendar(),
   );
   PageTemplate get _template => _selection.template;
   PaperStyle get _paper => _template.style;

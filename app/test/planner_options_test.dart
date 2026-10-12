@@ -58,12 +58,14 @@ void main() {
   setUp(() => services = AppServices.create(AppDatabase.inMemory()));
   tearDown(() => services.dispose());
 
-  testWidgets('the language follows the device; the week start is chosen and remembered', (
+  testWidgets('the language and week start follow the device; More options changes the week', (
     tester,
   ) async {
     var choice = await _open(tester, services);
     await _tap(tester, find.text('Monthly calendar'));
-    // A US device: Sunday weeks, US English.
+    // A US device: Sunday weeks, US English. The week start is under More options.
+    expect(find.text('Week starts on'), findsNothing);
+    await _tap(tester, find.text('More options'));
     expect(find.text('Week starts on'), findsOneWidget);
     final weekStart = find.byKey(const ValueKey('planner-week-start'));
     expect(tester.widget<SegmentedButton<WeekStart>>(weekStart).selected, {WeekStart.sunday});
@@ -80,9 +82,8 @@ void main() {
       Paper.planner(PaperStyle.yearlyOverview, _today, calendar: usMonday),
       Paper.planner(PaperStyle.monthlyCalendar, _today, calendar: usMonday),
     ]);
-    expect(services.settings.plannerWeekStart, WeekStart.monday);
 
-    // The next planner keeps the week start, in the device's language.
+    // The next planner takes the device's language and week start again.
     choice = await _open(tester, services, locale: const Locale('de', 'DE'));
     await _tap(tester, find.text('Weekly planner'));
     await _tap(tester, find.text('Add 5 pages'));
@@ -108,6 +109,7 @@ void main() {
       ),
     );
     expect(find.text('Week 42 · October 11 – 17, 2026'), findsOneWidget);
+    await _tap(tester, find.text('More options'));
     final weekStart = find.byKey(const ValueKey('planner-week-start'));
     await _tap(tester, find.descendant(of: weekStart, matching: find.text('Monday')));
     expect(find.text('Week 41 · October 5 – 11, 2026'), findsOneWidget);
