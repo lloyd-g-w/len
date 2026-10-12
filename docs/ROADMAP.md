@@ -184,7 +184,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   favourites row; also in the phone tool switcher), edit mode from "⋯" → Toolbar, saved per device
   (in-editor search: ✅ text and PDF, see Library)
 - ✅ Split view (tablets in landscape, desktops): two notebooks — or two places in one — side by
-  side, resizable, each pane a full editor (tools optionally linked); drag a lasso selection across
+  side, resizable, each pane a full editor (tools linked); drag a lasso selection across
   to copy it; from a tab's menu or the top bar
 - ✅ Presenting: F5 is focus mode (no chrome, full screen on web, Linux and Windows,
   immersive on Android) with the laser pointer; Space / ← / → turn pages

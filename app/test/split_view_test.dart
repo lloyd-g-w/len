@@ -179,7 +179,7 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('the same notebook twice: edits show in both; tools can be linked', (tester) async {
+  testWidgets('the same notebook twice: edits show in both; tools are linked', (tester) async {
     final (s, physics, _) = await pumpWorkspace(tester);
     s.openNotebooks.openSplit(physics.id);
     await tester.pumpAndSettle();
@@ -200,13 +200,10 @@ void main() {
     expect(strokesIn(0), 0);
     expect(strokesIn(1), 0);
 
-    // Tools are separate unless linked.
+    // Both panes use the same tools.
     ToolSettings toolsOf(int i) =>
         tester.widgetList<EditorToolbar>(find.byType(EditorToolbar)).elementAt(i).tools;
     toolsOf(0).tool = EditorTool.highlighter;
-    await tester.pump();
-    expect(toolsOf(1).tool, EditorTool.pen);
-    s.openNotebooks.linkTools = true;
     await tester.pump();
     expect(toolsOf(1).tool, EditorTool.highlighter);
     toolsOf(1).selectColor(2);

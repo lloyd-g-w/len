@@ -285,9 +285,9 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
 - **Split view** (`split/`; tablets in landscape and desktops: `SplitView.fits`, ≥ 900 px
   wide and ≥ 560 px on the short side — never phones or portrait tablets): a second pane
   shows another open tab or the active notebook again (two places in one notebook).
-  `OpenNotebooks.splitId` / `splitFraction` / `splitView` / `linkTools` hold it (memory,
+  `OpenNotebooks.splitId` / `splitFraction` / `splitView` hold it (memory,
   like tabs). Opened from the top bar's split button (`SplitViewButton`: this notebook
-  or another tab; while split: *Same tools in both panes*, *Swap panes*, *Close split
+  or another tab; while split: *Swap panes*, *Close split
   view*) or a tab's menu (right click / long press → *Open in split view*). `SplitView`
   lays out the panes in a `Stack` whose first child keeps its place in every layout, so
   opening or closing the split never rebuilds the first editor; a 12 px divider resizes
@@ -314,7 +314,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
     at once, and both undo one history (nothing erased in one comes back through the
     other's undo). While one pane has a selection or edits a text box, those items are
     hidden in the other view too (hiding is per model).
-  - **Linked tools** (optional): `ToolSettings.adopt` copies tool, quick colours and
+  - **Linked tools** (always): `ToolSettings.adopt` copies tool, quick colours and
     widths, eraser, shape and text defaults from the pane that changed them.
   - **Focus mode** in a pane shows that pane alone (`SplitView.solo`; the other stays
     alive offstage); when that editor goes (tab closed or switched, split closed),
