@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/pointer_activity.dart';
 import '../../data/app_database.dart';
 import '../../data/search/ink_text_schema.dart';
 import '../../data/settings_repository.dart';
@@ -25,6 +26,7 @@ class RecognitionService extends ChangeNotifier {
     required AppDatabase database,
     List<Locale> Function()? deviceLocales,
     Duration idleDelay = const Duration(seconds: 3),
+    PointerActivity? activity,
   }) : _database = database,
        _deviceLocales = deviceLocales ?? (() => PlatformDispatcher.instance.locales) {
     indexer = HandwritingIndexer(
@@ -32,6 +34,7 @@ class RecognitionService extends ChangeNotifier {
       recognizer: recognizer,
       language: () => language,
       idleDelay: idleDelay,
+      activity: activity,
     );
   }
 

@@ -607,9 +607,11 @@ plain lines.
 Still above target: writing while a 15 000-stroke canvas loads (pen-up p90
 47 ms for those ≈ 20 s). The trace shows old-generation GC pauses of
 ≈ 45 ms every half second or so on the UI thread, driven by the native memory of the
-per-stroke `Path`s being adopted, plus `len.insertLoaded` frames. And the
-ML Kit recogniser's platform-channel calls run on the merged platform/UI
-thread (≈ 40 ms each, after 3 s without writing).
+per-stroke `Path`s being adopted, plus `len.insertLoaded` frames. (The ML Kit recogniser's platform-channel
+calls, ≈ 40 ms each on the merged platform/UI thread after 3 s without
+writing, now run on a background executor and never start while a pointer
+is down; see ARCHITECTURE, *Handwriting recognition*. Not yet measured on
+the tablet.)
 
 ## Low-latency ink
 

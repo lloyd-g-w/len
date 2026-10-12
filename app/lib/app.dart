@@ -29,10 +29,12 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.services.pointerActivity.attach();
   }
 
   @override
   void dispose() {
+    widget.services.pointerActivity.detach();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

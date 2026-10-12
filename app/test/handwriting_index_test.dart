@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
+import 'package:len/core/pointer_activity.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/search/ink_text_boxes.dart';
 import 'package:len/data/search/search_index.dart';
@@ -125,6 +127,34 @@ void main() {
     model.redo();
     await indexer.run();
     expect(find('delta'), hasLength(1));
+  });
+
+  test('no recognition starts while a pointer is down, nor right after', () async {
+    final activity = PointerActivity();
+    final gated = HandwritingIndexer(
+      s.database,
+      recognizer: fake,
+      language: () => 'en-US',
+      idleDelay: const Duration(milliseconds: 60),
+      pauseBetweenLines: Duration.zero,
+      activity: activity,
+    );
+    addTearDown(gated.dispose);
+    s.strokes.save(twoLines(page));
+    gated.start();
+    // The pen goes down (e.g. a long stroke, or a finger scrolling) before
+    // the quiet time is over: nothing reaches the database meanwhile.
+    activity.handleEvent(const PointerDownEvent(pointer: 7, kind: PointerDeviceKind.stylus));
+    final running = gated.run();
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(fake.requests, isEmpty, reason: 'pen down');
+    expect(gated.isIndexing, isFalse, reason: 'not even clustering');
+
+    activity.handleEvent(const PointerUpEvent(pointer: 7, kind: PointerDeviceKind.stylus));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(fake.requests, isEmpty, reason: 'within the quiet time after pen-up');
+    await running;
+    expect(fake.requests, hasLength(2));
   });
 
   test('a commit wakes a started indexer (no explicit call)', () async {

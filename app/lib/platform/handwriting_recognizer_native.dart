@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui';
+import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_digital_ink_recognition/google_mlkit_digital_ink_recognition.dart'
     as mlkit;
 
@@ -14,10 +15,21 @@ HandwritingRecognizer createHandwritingRecognizer() => Platform.isAndroid
     : UnavailableRecognizer('Handwriting recognition is only available on Android for now.');
 
 /// On-device recognition with Google ML Kit Digital Ink (one model per
-/// language, downloaded on request; recognition runs on ML Kit's threads).
+/// language, downloaded on request).
+///
+/// Models are managed by `google_mlkit_digital_ink_recognition`; recognition
+/// goes through Len's own channel (`HandwritingRecognitionPlugin.kt`), which
+/// decodes, recognises and answers on background threads: the plugin's
+/// channel did all but the recognition itself on the platform thread, which
+/// is the UI thread on Android (≈ 40 ms a line). Points travel packed in
+/// typed arrays (see [pack]).
 class MlKitRecognizer extends HandwritingRecognizer {
+  MlKitRecognizer({this.channel = const MethodChannel('len/handwriting')});
+
+  /// Len's recognition channel (see `HandwritingRecognitionPlugin.kt`).
+  final MethodChannel channel;
   final _models = mlkit.DigitalInkRecognizerModelManager();
-  final _recognizers = <String, mlkit.DigitalInkRecognizer>{};
+  bool _used = false;
 
   /// Milliseconds between synthesised point timestamps (strokes store only
   /// their start time).
@@ -43,38 +55,53 @@ class MlKitRecognizer extends HandwritingRecognizer {
     String preContext = '',
   }) async {
     if (strokes.isEmpty) return const [];
-    final recognizer = _recognizers[language] ??= mlkit.DigitalInkRecognizer(
-      languageCode: language,
-    );
-    final ink = mlkit.Ink();
-    var t = 0;
-    for (final s in strokes) {
-      // Monotonic timestamps: each stroke starts at its creation time, or
-      // right after the previous one if that was synthesised past it.
-      t = math.max(t + _sampleMs, s.createdAt);
-      final stroke = mlkit.Stroke();
-      for (final p in s.points) {
-        stroke.points.add(mlkit.StrokePoint(x: p.x, y: p.y, t: t));
-        t += _sampleMs;
-      }
-      ink.strokes.add(stroke);
-    }
+    _used = true;
     final area = writingArea;
-    final context = mlkit.DigitalInkRecognitionContext(
-      preContext: preContext.isEmpty ? null : preContext,
-      writingArea: area == null || area.isEmpty
-          ? null
-          : mlkit.WritingArea(width: area.width, height: area.height),
-    );
-    final candidates = await recognizer.recognize(ink, context: context);
-    return [for (final c in candidates) RecognitionCandidate(c.text, score: c.score)];
+    final hasArea = area != null && !area.isEmpty;
+    final result = await channel.invokeListMethod<Object?>('recognize', {
+      'language': language,
+      ...pack(strokes),
+      'preContext': preContext,
+      'width': hasArea ? area.width : null,
+      'height': hasArea ? area.height : null,
+    });
+    return [
+      for (final c in result ?? const <Object?>[])
+        if (c case {'text': final String text, 'score': final num score})
+          RecognitionCandidate(text, score: score.toDouble()),
+    ];
+  }
+
+  /// The channel arguments for [strokes]: `xs`, `ys` (float32), `ts`
+  /// (int64, ms; synthesised, monotonic) and `ends` (each stroke's end
+  /// index into the point arrays).
+  static Map<String, Object> pack(List<Stroke> strokes) {
+    final count = strokes.fold(0, (n, s) => n + s.points.length);
+    final xs = Float32List(count);
+    final ys = Float32List(count);
+    final ts = Int64List(count);
+    final ends = Int32List(strokes.length);
+    var t = 0;
+    var i = 0;
+    for (var k = 0; k < strokes.length; k++) {
+      final s = strokes[k];
+      // Each stroke starts at its creation time, or right after the
+      // previous one if that was synthesised past it.
+      t = math.max(t + _sampleMs, s.createdAt);
+      for (final p in s.points) {
+        xs[i] = p.x;
+        ys[i] = p.y;
+        ts[i] = t;
+        t += _sampleMs;
+        i++;
+      }
+      ends[k] = i;
+    }
+    return {'xs': xs, 'ys': ys, 'ts': ts, 'ends': ends};
   }
 
   @override
   void dispose() {
-    for (final r in _recognizers.values) {
-      r.close();
-    }
-    _recognizers.clear();
+    if (_used) channel.invokeMethod<void>('close').ignore();
   }
 }

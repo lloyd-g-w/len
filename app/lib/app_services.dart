@@ -4,6 +4,7 @@ import 'package:cross_file/cross_file.dart';
 import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
+import 'core/pointer_activity.dart';
 import 'data/app_database.dart';
 import 'data/app_preferences.dart';
 import 'data/blob_backend.dart';
@@ -54,6 +55,7 @@ class AppServices {
     required this.sync,
     required this.search,
     required this.recognition,
+    required this.pointerActivity,
     required this.recordings,
     required this.audio,
     required this.incomingFiles,
@@ -111,10 +113,12 @@ class AppServices {
       outline: outline,
     );
     final search = SearchService(database, readBlob: blobs.read);
+    final pointerActivity = PointerActivity();
     final recognition = RecognitionService(
       recognizer: recognizer ?? createHandwritingRecognizer(),
       settings: settings,
       database: database,
+      activity: pointerActivity,
     );
     recognition.indexer.onIndexed = search.contentChanged;
     unawaited(recognition.start());
@@ -134,6 +138,7 @@ class AppServices {
           : SyncController(engine: engine, settings: settings, apiFactory: syncApiFactory),
       search: search,
       recognition: recognition,
+      pointerActivity: pointerActivity,
       recordings: recordings,
       audio: audio ?? platformAudioBackends(),
       incomingFiles: IncomingFiles(incomingFiles),
@@ -165,6 +170,10 @@ class AppServices {
   /// Handwriting recognition: language, model, background indexing for
   /// search, "Convert to text".
   final RecognitionService recognition;
+
+  /// Whether the user is touching the app (background work waits); watches
+  /// pointers once the app widget attaches it.
+  final PointerActivity pointerActivity;
 
   /// Audio recordings of notebooks (their audio is in [blobs]).
   final RecordingRepository recordings;
@@ -217,6 +226,7 @@ class AppServices {
     openNotebooks.dispose();
     clipboard.dispose();
     recognition.dispose();
+    pointerActivity.detach();
     search.dispose();
     sync.dispose();
     closeStrokeReader(strokeReader);

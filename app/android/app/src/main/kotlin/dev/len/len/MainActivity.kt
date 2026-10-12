@@ -22,6 +22,8 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         incoming = IncomingFiles(applicationContext, messenger)
         // Background audio recording (RecordingService.kt).
         flutterEngine.plugins.add(RecordingServicePlugin())
+        // ML Kit handwriting recognition off the UI thread.
+        flutterEngine.plugins.add(HandwritingRecognitionPlugin())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

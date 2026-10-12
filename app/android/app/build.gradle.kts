@@ -80,6 +80,9 @@ dependencies {
     // Low-latency ink (WetInkOverlay.kt): front-buffered rendering and motion prediction.
     implementation("androidx.graphics:graphics-core:1.0.4")
     implementation("androidx.input:input-motionprediction:1.0.0")
+    // Handwriting recognition off the UI thread (HandwritingRecognitionPlugin.kt); the same
+    // version as google_mlkit_digital_ink_recognition's, which keeps the model downloads.
+    implementation("com.google.mlkit:digital-ink-recognition:19.0.0")
     // WetInkModelTest (plain JVM): ./gradlew :app:testDebugUnitTest
     testImplementation("junit:junit:4.13.2")
 }
