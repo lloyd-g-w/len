@@ -97,7 +97,7 @@ void main() {
     await openMenuOf(tester, 'Physics');
     await tester.tap(find.text('Move to folder…'));
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('School')));
+    await tester.tap(find.descendant(of: find.byType(Dialog), matching: find.text('School')));
     await tester.pumpAndSettle();
     expect(services.notebooks.list().every((n) => n.folderId == schoolId), isTrue);
 
