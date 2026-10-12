@@ -1196,6 +1196,7 @@ fetched on demand are cached too (`len-fonts-v1`). `flutter run` / a plain
 Verified in headless Chromium: first visit online, then with the server
 stopped and the browser offline the app starts, shows notebooks created on
 the first visit and opens Settings.
+
 **Storage.** At start the web app requests persistent storage
 (`navigator.storage.persist()`) where browsers decide silently (Chromium,
 Safari; an installed app is usually granted); Firefox would prompt, so there
