@@ -1148,13 +1148,27 @@ the web:
 | SQLite (`sqlite_connection`) | FFI, bundled SQLite, WAL, `<app support>/len.db` | `sqlite3.wasm` + IndexedDB VFS (`len`), no WAL |
 | Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs`                      |
 | App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
-| Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread (`StrokeRepository`)                   |
+| Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread, time-budgeted slices (`SlicedStrokeReader`) |
 | Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
 | Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
 | Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux: command line + forwarding from a second instance; Windows: command line | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
 | Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
+
+**Why web canvas reads are not in a Web Worker.** The IndexedDB VFS keeps
+the database in the main thread's WebAssembly memory and writes changes
+back to IndexedDB asynchronously. A worker would have to open its own copy
+from IndexedDB: it would lag behind unflushed writes (just-drawn ink missing
+from re-read chunks), hold the whole database in memory a second time, and
+need a separately compiled worker entry point. Moving reads off the main
+thread properly means moving *the* database into a worker (e.g. the OPFS VFS
+in a dedicated worker) and making every query asynchronous, while the data
+layer is synchronous by design. Instead `SlicedStrokeReader` keeps reads
+on the UI thread but bounded: up to 32 missing chunks load synchronously as
+before (panning, normal zoom); larger reads load 32 chunks at a time and
+yield to the event loop after each 6 ms, and their result arrives
+asynchronously through `SurfaceLoader`, like a native background read.
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
 (`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
@@ -1443,10 +1457,12 @@ malformed record is skipped. Open screens subscribe to
   when the bar reopens, not live while typing into a text box.
 - Web: the whole SQLite database is held in memory (IndexedDB VFS) and PDFs
   are opened from memory, so very large libraries/PDFs cost browser memory;
-  browsers may evict IndexedDB under storage pressure (no
-  `navigator.storage.persist()` request yet) and quotas vary. Writes reach
+  browsers may evict IndexedDB under storage pressure unless persistent
+  storage is granted (requested at start, except in Firefox, where it
+  waits for Settings → Storage, as it prompts) and quotas vary. Writes reach
   IndexedDB asynchronously, so closing the tab within milliseconds of an edit
-  can lose it. Canvas chunk reads run on the UI thread.
+  can lose it. Canvas chunk reads run on the UI thread (in time-budgeted
+  slices; a single large chunk still decodes in one go).
 - Open with: Windows has no file associations (installer) or single-instance
   forwarding yet; Android shares mixing PDFs and images arrive as `*/*`, which
   Len does not register for; PDFs dropped onto an open editor are ignored (only

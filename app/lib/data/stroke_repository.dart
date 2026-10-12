@@ -30,6 +30,9 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
 
   late final StrokeQueries _queries = StrokeQueries(db);
 
+  /// The read-only queries on this repository's connection.
+  StrokeQueries get queries => _queries;
+
   /// Chunks within [range] that contain at least one live stroke.
   List<ChunkKey> populatedChunks(String surfaceId, ChunkRange range) =>
       _queries.populatedChunks(surfaceId, range);
