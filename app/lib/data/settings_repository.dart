@@ -136,19 +136,11 @@ class SettingsRepository {
   bool get handwritingIndexing => _get('handwriting_indexing') != 'false';
   set handwritingIndexing(bool value) => _set('handwriting_indexing', '$value');
 
-  /// The planner week start and language chosen last (`sunday de`); null
-  /// before the first choice (then they follow the device locale).
-  PlannerCalendar? get plannerCalendar {
-    final parts = _get('planner_calendar')?.split(' ');
-    if (parts == null || parts.length != 2) return null;
-    final weekStart = WeekStart.tryParse(parts[0]), language = PlannerLanguage.tryParse(parts[1]);
-    if (weekStart == null || language == null) return null;
-    return PlannerCalendar(weekStart: weekStart, language: language);
-  }
-
-  set plannerCalendar(PlannerCalendar? value) => value == null
-      ? _remove('planner_calendar')
-      : _set('planner_calendar', '${value.weekStart.name} ${value.language.tag}');
+  /// The planner week start chosen last; null before the first choice
+  /// (then it follows the device locale).
+  WeekStart? get plannerWeekStart => WeekStart.tryParse(_get('planner_week_start'));
+  set plannerWeekStart(WeekStart? value) =>
+      value == null ? _remove('planner_week_start') : _set('planner_week_start', value.name);
 
   /// Where the editor last looked in notebook [notebookId] (an opaque
   /// string owned by the editor), or null.

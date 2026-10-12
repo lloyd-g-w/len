@@ -106,8 +106,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   previews; a dialog with gallery and options side by side on tablets / desktops, a sheet with
   full-width columns on phones
 - ✅ Planner options: week starting on Monday or Sunday (US week numbers for Sunday weeks),
-  month and day names and dates in 19 languages (intl; default from the device locale, last
-  choice remembered), year overview (twelve mini calendars linking to months and days; optional
+  month and day names and dates in 19 languages (intl; the device locale's), week start
+  defaulting to the locale's (last choice remembered), year overview (twelve mini calendars linking to months and days; optional
   first page of a monthly planner; month pages link back up from their year label, weeks and
   days to their month); exported PDF labels in the embedded Inter
 - ✅ Cancel long imports / exports (partial imports clean up after themselves)

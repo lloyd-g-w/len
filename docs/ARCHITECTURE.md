@@ -424,9 +424,9 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   all covered by the bundled Inter). `PlannerLabels` formats month and day names and dates
   with `intl` (CLDR); its date symbols are compiled in and initialised synchronously
   (`ensureDateSymbols`) before any label is built. Fixed headings ("Week", "Schedule",
-  "Notes" …) stay English. New planners default to the calendar chosen last
-  (`SettingsRepository.plannerCalendar`), else the device locale's language (if listed, else
-  English UK) and its CLDR first day of the week. `PlannerPlan` (first month, 1–12 months,
+  "Notes" …) stay English. New planners take the device locale's language (if listed,
+  else English UK; there is no language picker) and the week start chosen last
+  (`SettingsRepository.plannerWeekStart`), else the language's CLDR first day of the week. `PlannerPlan` (first month, 1–12 months,
   `linked`, `yearOverview`, calendar) generates the papers of a planner: a page per day, per
   week overlapping the range, per month or per year — monthly with `yearOverview`: the year
   overview before the first month and each January; linked: each month followed by its weeks,
@@ -1643,7 +1643,7 @@ centred dialog on tablets / desktops, bottom sheet on phones), `text_prompt.dart
 (library sidebar and the settings section list). Settings: from `Breakpoints.expanded` a
 two-pane layout (section list + the selected section), a single column below. Documents UI
 (`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
-dates, week start and language, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
+dates, week start, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
 with selection mode; `editor/document/page_overview.dart` re-exports it);
 `progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n", optional Cancel).
 Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActions`, batch
