@@ -134,10 +134,10 @@ void main() {
           '<p class=MsoNormal><b><span lang=EN-GB>Heading-ish</span></b><o:p></o:p></p>\r\n'
           "<p class=MsoListParagraphCxSpFirst style='text-indent:-18.0pt;mso-list:l0 level1 lfo1'>"
           "<![if !supportLists]><span style='font-family:Symbol'>·<span "
-          "style='font:7.0pt \"Times New Roman\"'>&nbsp;&nbsp;&nbsp; </span></span><![endif]>"
+          'style=\'font:7.0pt "Times New Roman"\'>&nbsp;&nbsp;&nbsp; </span></span><![endif]>'
           "<span lang=EN-GB>First</span></p>\r\n"
           "<p class=MsoListParagraphCxSpLast style='mso-list:l0 level2 lfo1'>"
-          "<![if !supportLists]><span>a.<span>&nbsp;&nbsp; </span></span><![endif]>"
+          '<![if !supportLists]><span>a.<span>&nbsp;&nbsp; </span></span><![endif]>'
           '<i>Second</i></p>\r\n';
       const html =
           'Version:0.9\r\nStartHTML:0000000105\r\nEndHTML:0000000999\r\n'
