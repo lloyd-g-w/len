@@ -8,6 +8,9 @@ enum TextFont {
   /// Inter: the default sans serif.
   inter('Inter', 'Sans'),
 
+  /// Nunito: a friendly rounded sans serif.
+  nunito('Nunito', 'Rounded'),
+
   /// Lora: a calm book serif.
   lora('Lora', 'Serif'),
 
@@ -16,7 +19,10 @@ enum TextFont {
 
   /// Caveat: handwriting style (no italic: Flutter and the PDF export
   /// slant it).
-  caveat('Caveat', 'Handwriting');
+  caveat('Caveat', 'Handwriting'),
+
+  /// Kalam: neat hand lettering (no italic, slanted like [caveat]).
+  kalam('Kalam', 'Hand lettering');
 
   const TextFont(this.family, this.label);
 
@@ -27,7 +33,7 @@ enum TextFont {
   final String label;
 
   /// Whether the font has real italic faces (otherwise italic is slanted).
-  bool get hasItalic => this != caveat;
+  bool get hasItalic => this != caveat && this != kalam;
 
   /// The asset file of one face, e.g. `assets/fonts/Inter-BoldItalic.ttf`.
   String asset({bool bold = false, bool italic = false}) {
@@ -36,6 +42,8 @@ enum TextFont {
       lora => 'Lora',
       mono => 'JetBrainsMono',
       caveat => 'Caveat',
+      nunito => 'Nunito',
+      kalam => 'Kalam',
     };
     final i = italic && hasItalic;
     final face = bold ? (i ? 'BoldItalic' : 'Bold') : (i ? 'Italic' : 'Regular');

@@ -76,6 +76,22 @@ void main() {
     );
   });
 
+  testWidgets('text: font picker shows every bundled font in itself', (tester) async {
+    await richCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(120, 200)]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('font-menu')));
+    await tester.pumpAndSettle();
+    for (final f in TextFont.values) {
+      expect(find.text(f.label), findsWidgets);
+    }
+    await expectLater(
+      find.byType(Directionality).first,
+      matchesGoldenFile('goldens/text_font_picker.png'),
+    );
+  });
+
   testWidgets('lasso: style panel for text boxes and ink', (tester) async {
     await richCanvas(tester);
     await key(tester, LogicalKeyboardKey.keyL);
