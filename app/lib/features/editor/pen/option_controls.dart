@@ -31,7 +31,10 @@ class OptionSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    // Labels fade with a disabled slider, like a disabled switch's.
+    final faded = onChanged == null ? theme.colorScheme.onSurface.withValues(alpha: 0.38) : null;
     return Padding(
       padding: const EdgeInsets.only(top: Gaps.xs),
       child: Column(
@@ -39,8 +42,10 @@ class OptionSlider extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(label, style: text.labelLarge)),
-              Text(display(value), style: text.labelMedium),
+              Expanded(
+                child: Text(label, style: text.labelLarge?.copyWith(color: faded)),
+              ),
+              Text(display(value), style: text.labelMedium?.copyWith(color: faded)),
             ],
           ),
           SliderTheme(
@@ -57,9 +62,7 @@ class OptionSlider extends StatelessWidget {
           if (hint case final hint?)
             Text(
               hint,
-              style: text.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: text.bodySmall?.copyWith(color: faded ?? theme.colorScheme.onSurfaceVariant),
             ),
         ],
       ),
