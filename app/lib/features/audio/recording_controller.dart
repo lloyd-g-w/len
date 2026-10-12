@@ -8,6 +8,7 @@ import '../../data/recording_repository.dart';
 import '../../domain/recording.dart';
 import '../../domain/waveform.dart';
 import 'backends/audio_backends.dart';
+import 'keep_alive_link.dart';
 import 'recording_journal.dart';
 import 'recording_parts.dart';
 
@@ -93,13 +94,18 @@ class RecordingController extends ChangeNotifier {
   RecorderState get state => _state;
 
   AudioCapture? _capture;
-  RecordingKeepAlive? _keepAlive;
-  StreamSubscription<KeepAliveAction>? _keepAliveActions;
-  bool _background = false;
+  late final KeepAliveLink _keepAlive = KeepAliveLink(
+    backends.keepAlive,
+    onAction: (action) => unawaited(switch (action) {
+      KeepAliveAction.pause => pause(),
+      KeepAliveAction.resume => resume(),
+      _ => stop(),
+    }),
+  );
 
   /// Whether the running recording continues while the app is in the
   /// background (Android: its foreground service is up).
-  bool get recordsInBackground => _background;
+  bool get recordsInBackground => _keepAlive.background;
   StreamSubscription<double>? _levels;
   Timer? _ticker;
 
@@ -142,7 +148,7 @@ class RecordingController extends ChangeNotifier {
       if (!await capture.requestPermission()) {
         throw const AudioUnavailable('Microphone access was not allowed.');
       }
-      await _keepAliveOrNull()?.prepare();
+      await _keepAlive.prepare();
       final format = await capture.format();
       final spool = format.recoverable ? await backends.spool?.call() : null;
       if (_disposed) throw const _ShutDown();
@@ -193,41 +199,14 @@ class RecordingController extends ChangeNotifier {
     return true;
   }
 
-  RecordingKeepAlive? _keepAliveOrNull() {
-    final existing = _keepAlive;
-    if (existing != null) return existing;
-    final created = backends.keepAlive?.call();
-    if (created == null) return null;
-    _keepAliveActions = created.actions.listen(_onKeepAliveAction);
-    return _keepAlive = created;
-  }
-
   /// Starts or updates the background keep-alive for the current state.
   Future<void> _showKeepAlive() async {
-    final keepAlive = _keepAliveOrNull();
-    if (keepAlive == null || !_state.isActive) return;
-    try {
-      _background = await keepAlive.show(
-        title: describe?.call() ?? '',
-        paused: _state == RecorderState.paused,
-        elapsedMs: elapsedMs,
-      );
-    } on Object {
-      _background = false;
-    }
-  }
-
-  void _onKeepAliveAction(KeepAliveAction action) {
-    switch (action) {
-      case KeepAliveAction.pause:
-        unawaited(pause());
-      case KeepAliveAction.resume:
-        unawaited(resume());
-      case KeepAliveAction.stop:
-        unawaited(stop());
-      case KeepAliveAction.failed:
-        _background = false;
-    }
+    if (!_state.isActive) return;
+    await _keepAlive.show(
+      title: describe?.call() ?? '',
+      paused: _state == RecorderState.paused,
+      elapsedMs: elapsedMs,
+    );
   }
 
   Future<void> pause() async {
@@ -299,8 +278,7 @@ class RecordingController extends ChangeNotifier {
       // A recording that failed to save stays in the spool, to recover.
       await _closeParts(keepFiles: failed);
       // Saved (or failed): the app may be suspended again from here on.
-      _background = false;
-      await _keepAlive?.hide();
+      await _keepAlive.hide();
       _set(RecorderState.idle);
     }
   }
@@ -391,9 +369,7 @@ class RecordingController extends ChangeNotifier {
     unawaited(_levels?.cancel());
     await _capture?.dispose();
     _capture = null;
-    unawaited(_keepAliveActions?.cancel());
-    await _keepAlive?.dispose();
-    _keepAlive = null;
+    await _keepAlive.dispose();
   }
 
   @override
