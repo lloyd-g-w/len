@@ -428,6 +428,11 @@ class _EditorScreenState extends State<_EditorView> {
             export: _session.commands == null
                 ? null
                 : () => unawaited(_session.commands!.export(context)),
+            goToPage: _session.commands == null
+                ? null
+                : () => unawaited(
+                    _session.commands!.goToPagePrompt(context, backgrounds: _session.backgrounds),
+                  ),
             paste: () => _session.images.paste(context),
             pastePlain: () => _session.images.paste(context, plain: true),
           ),

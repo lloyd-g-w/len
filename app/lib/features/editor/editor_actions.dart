@@ -66,6 +66,6 @@ Widget? editorPageNavigator(BuildContext context, EditorSession session) {
     count: doc.pages.length,
     bookmarked: doc.pages[doc.currentPage].bookmarked,
     onOverview: () => commands.openOverview(context, backgrounds: session.backgrounds),
-    onGoTo: () => commands.goToPagePrompt(context),
+    onGoTo: () => commands.goToPagePrompt(context, backgrounds: session.backgrounds),
   );
 }

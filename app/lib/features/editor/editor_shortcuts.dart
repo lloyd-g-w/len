@@ -100,7 +100,7 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
 /// Everything the editor screen binds: [editorShortcuts] (with tab
 /// switching when it shows [tabs]), F5 [present] (focus mode with the
 /// laser), [turnPage] (Space and Shift+Space, in focus mode), Ctrl/⌘+E
-/// [export], search and PDF text.
+/// [export], Ctrl/⌘+G [goToPage], search and PDF text.
 Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   EditorSession session, {
   required VoidCallback present,
@@ -112,6 +112,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   OpenNotebooks? tabs,
   VoidCallback? closeTab,
   VoidCallback? export,
+  VoidCallback? goToPage,
 }) => {
   ...editorShortcuts(
     session,
@@ -126,6 +127,10 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   if (export != null) ...{
     const SingleActivator(LogicalKeyboardKey.keyE, control: true): export,
     const SingleActivator(LogicalKeyboardKey.keyE, meta: true): export,
+  },
+  if (goToPage != null) ...{
+    const SingleActivator(LogicalKeyboardKey.keyG, control: true): goToPage,
+    const SingleActivator(LogicalKeyboardKey.keyG, meta: true): goToPage,
   },
   if (turnPage != null) ...{
     const SingleActivator(LogicalKeyboardKey.space): () => turnPage(1),

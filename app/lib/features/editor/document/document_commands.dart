@@ -7,7 +7,6 @@ import '../../../data/surface_copier.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
-import '../../../ui/text_prompt.dart';
 import '../../documents/export/export_flow.dart';
 import '../../documents/export/notebook_exporter.dart';
 import '../../documents/pdf/pdf_import_flow.dart';
@@ -15,6 +14,7 @@ import '../../documents/progress_dialog.dart';
 import '../../documents/template_picker.dart';
 import '../../documents/templates/user_templates.dart';
 import 'document_controller.dart';
+import 'go_to_page_dialog.dart';
 import 'page_actions.dart';
 import 'page_backgrounds.dart';
 import 'page_overview.dart';
@@ -231,16 +231,22 @@ class DocumentCommands {
     if (index != null && !_disposed) doc.goToPage(index);
   }
 
-  /// Asks for a page number and shows that page.
-  Future<void> goToPagePrompt(BuildContext context) async {
-    final text = await showTextPrompt(
+  /// Asks which page to show (a number, or a pick from the thumbnail
+  /// strip) and shows it.
+  Future<void> goToPagePrompt(BuildContext context, {PageBackgrounds? backgrounds}) async {
+    final pages = doc.pages;
+    final index = await showGoToPage(
       context,
-      title: 'Go to page (1–${doc.pages.length})',
-      initialValue: '${doc.currentPage + 1}',
-      confirmLabel: 'Go',
+      pages: pages,
+      current: doc.currentPage,
+      copier: SurfaceCopier(services.strokes, elements: services.elements),
+      images: services.images,
+      backgrounds: backgrounds,
     );
-    final number = int.tryParse(text ?? '');
-    if (number != null && !_disposed) doc.goToPage(number.clamp(1, doc.pages.length) - 1);
+    if (index == null || _disposed) return;
+    // Pages may have changed meanwhile (a sync): go to the page picked.
+    final now = doc.pages.indexWhere((p) => p.id == pages[index].id);
+    doc.goToPage(now == -1 ? index.clamp(0, doc.pages.length - 1) : now);
   }
 
   /// Inserts the pages of PDF [file] (picked by the user if null) after

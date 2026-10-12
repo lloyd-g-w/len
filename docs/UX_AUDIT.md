@@ -15,8 +15,13 @@
   pill is hidden at rest, so removing Fit would leave no visible way to
   reach its menu without first zooming. Make that menu discoverable before
   removing the button.
-- ⬜ The Go to page dialog still has only a number field, not the spec's
-  thumbnail strip; the overview supplies the thumbnails.
+- ✅ Go to page (`document/go_to_page_dialog.dart`) has the spec's number
+  field over a thumbnail strip: typing a number rings and scrolls to that
+  page, a thumbnail tap goes there at once, and a number out of range
+  can't be submitted. Ctrl/⌘+G opens it as a keyboard route besides the
+  indicator tap (still one menu home, SIMPLIFY #24). The page is followed
+  by id, so a sync that reorders pages meanwhile still lands on the page
+  picked.
 
 ## Library and settings redesign (`feat/library2`, REDESIGN phases 7 and 8)
 
