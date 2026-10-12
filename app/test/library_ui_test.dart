@@ -312,12 +312,6 @@ void main() {
     expect(app().themeMode, ThemeMode.dark);
     expect(services.preferences.themeMode, ThemePreference.dark);
 
-    final before = app().darkTheme!.colorScheme.primary;
-    await tester.tap(find.byTooltip('Lagoon'));
-    await tester.pumpAndSettle();
-    expect(services.preferences.accentColor, 0xFF0B7285);
-    expect(app().darkTheme!.colorScheme.primary, isNot(before));
-
     // Wide windows show one section at a time, picked on the left.
     expect(find.text('Two-finger tap to undo'), findsNothing);
     await tester.tap(find.widgetWithText(SidebarItem, 'Gestures'));

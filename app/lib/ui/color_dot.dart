@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'design_tokens.dart';
 
 /// A round colour swatch with a selection ring (colour pickers, cover,
-/// folder and accent colours).
+/// folder colours).
 class ColorDot extends StatelessWidget {
   const ColorDot({
     super.key,

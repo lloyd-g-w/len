@@ -154,7 +154,7 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
     menus keep 8 dp; tall chrome menus now clear the system bars by 8 dp
     (`menuReservedPadding`). Open: Flutter's `MenuAnchor` still places a menu
     that meets the left or right edge flush against it (the phone "⋯" menu).
-21. ✅ Accent dots (40 dp), folder icon tiles (35 dp) and selection
+21. ✅ Colour dots (40 dp), folder icon tiles (35 dp) and selection
     checkboxes (28 dp) are under 48 dp on phones. → `EvenGrid(touchTargets:)`
     gives swatch and icon cells 48 dp on phones (visuals unchanged, the whole
     cell takes taps); the checkmark never was a target (the whole cover is).

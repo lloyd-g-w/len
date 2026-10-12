@@ -7,20 +7,20 @@ export 'design_tokens.dart';
 /// Visual language: calm, paper-like neutrals with a single accent colour,
 /// generous rounding, soft elevation and a tight, modern type scale.
 abstract final class AppTheme {
-  /// The default accent: ink blue.
+  /// The accent: ink blue.
   static const Color seed = Color(0xFF3B5BDB);
 
-  /// Light theme; [accent] seeds the colour scheme (default [seed]).
-  static ThemeData light({Color accent = seed}) => _build(Brightness.light, accent);
+  /// The light theme.
+  static ThemeData light() => _build(Brightness.light);
 
-  /// Dark theme; [accent] seeds the colour scheme (default [seed]).
-  static ThemeData dark({Color accent = seed}) => _build(Brightness.dark, accent);
+  /// The dark theme.
+  static ThemeData dark() => _build(Brightness.dark);
 
-  /// The colour scheme for [brightness]: accent roles from [accent], quiet
+  /// The colour scheme for [brightness]: accent roles from [seed], quiet
   /// neutral surfaces so notebook covers carry the colour.
-  static ColorScheme scheme(Brightness brightness, {Color accent = seed}) {
+  static ColorScheme scheme(Brightness brightness) {
     final base = ColorScheme.fromSeed(
-      seedColor: accent,
+      seedColor: seed,
       brightness: brightness,
       dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
     );
@@ -53,8 +53,8 @@ abstract final class AppTheme {
           );
   }
 
-  static ThemeData _build(Brightness brightness, Color accent) {
-    final scheme = AppTheme.scheme(brightness, accent: accent);
+  static ThemeData _build(Brightness brightness) {
+    final scheme = AppTheme.scheme(brightness);
     final base = ThemeData(colorScheme: scheme, useMaterial3: true);
     return base
         .copyWith(

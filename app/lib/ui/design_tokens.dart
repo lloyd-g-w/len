@@ -79,16 +79,3 @@ abstract final class Shadows {
     ),
   ];
 }
-
-/// Accent (seed) colours offered in Settings → Appearance.
-abstract final class Accents {
-  static const List<int> all = [
-    0xFF3B5BDB, // ink blue
-    0xFF0B7285, // lagoon
-    0xFF2B8A3E, // forest
-    0xFFE8590C, // orange
-    0xFFC2255C, // raspberry
-    0xFF7048E8, // violet
-    0xFF495057, // graphite
-  ];
-}

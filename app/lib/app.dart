@@ -19,24 +19,10 @@ class LenApp extends StatefulWidget {
 }
 
 class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
-  /// Themes for the current accent. Building a [ThemeData] is costly, and a
-  /// new instance makes every widget that reads the theme rebuild, so they
-  /// are only rebuilt when the accent changes — not on every preference
-  /// change (library layout, sort, stylus-only, …).
-  ({int accent, ThemeData light, ThemeData dark})? _themes;
-
-  ({ThemeData light, ThemeData dark}) _themesFor(int accent) {
-    final cached = _themes;
-    if (cached != null && cached.accent == accent) return (light: cached.light, dark: cached.dark);
-    final color = Color(accent);
-    final themes = (
-      accent: accent,
-      light: AppTheme.light(accent: color),
-      dark: AppTheme.dark(accent: color),
-    );
-    _themes = themes;
-    return (light: themes.light, dark: themes.dark);
-  }
+  /// The themes, built once: building a [ThemeData] is costly, and a new
+  /// instance makes every widget that reads the theme rebuild.
+  final ThemeData _light = AppTheme.light();
+  final ThemeData _dark = AppTheme.dark();
 
   @override
   void initState() {
@@ -63,16 +49,15 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     final preferences = widget.services.preferences;
     return AppScope(
       services: widget.services,
-      // Theme mode and accent colour rebuild the whole app when changed.
+      // The theme mode rebuilds the whole app when changed.
       child: ListenableBuilder(
         listenable: preferences,
         builder: (context, _) {
-          final themes = _themesFor(preferences.accentColor ?? AppTheme.seed.toARGB32());
           return MaterialApp(
             title: 'Len',
             debugShowCheckedModeBanner: false,
-            theme: themes.light,
-            darkTheme: themes.dark,
+            theme: _light,
+            darkTheme: _dark,
             themeMode: themeModeOf(preferences.themeMode),
             themeAnimationDuration: Motion.medium,
             builder: (context, child) => SystemBars(child: child!),

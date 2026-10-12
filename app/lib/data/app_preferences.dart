@@ -17,10 +17,6 @@ class AppPreferences extends ChangeNotifier {
   ThemePreference get themeMode => _settings.themeMode;
   set themeMode(ThemePreference value) => _update(() => _settings.themeMode = value);
 
-  /// ARGB seed colour of the colour scheme; null means the default accent.
-  int? get accentColor => _settings.accentColor;
-  set accentColor(int? value) => _update(() => _settings.accentColor = value);
-
   /// Only the stylus draws; fingers pan and zoom. Null = not decided yet.
   bool? get stylusOnly => _settings.stylusOnly;
   set stylusOnly(bool? value) => _update(() => _settings.stylusOnly = value);

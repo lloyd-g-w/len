@@ -164,7 +164,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   headless Chromium), canvas reads in time-budgeted slices (a Web Worker cannot share the
   IndexedDB-backed database; see ARCHITECTURE)
 - ⬜ Web: database in a worker (OPFS VFS, asynchronous data layer) to take all reads off the UI thread
-- ✅ Theme mode (system/light/dark), accent colour
+- ✅ Theme mode (system/light/dark)
 - ✅ App shell: sidebar (tablet/desktop), bottom navigation (phone), context menus,
   keyboard shortcuts, redesigned settings
 - ✅ Settings: theme previews, Stylus / Gestures / Editor (toolbar position) sections with

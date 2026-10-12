@@ -1624,7 +1624,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
 ## Preferences
 
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
-`SettingsRepository`: theme mode and accent (the app rebuilds its `ThemeData` from them),
+`SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
 stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
 (`PenButtonAction.eraser|lasso|none`), editor toolbar placement (and floating position) and tool names,
 library layout and sort. Getters always read
@@ -1632,10 +1632,10 @@ the store, so values written elsewhere are never stale.
 
 ## UI design system (`ui/`)
 
-`AppTheme.light/dark({accent})` build a fidelity colour scheme from the accent with quiet
+`AppTheme.light/dark()` build a fidelity colour scheme from the ink-blue seed with quiet
 neutral surfaces, a tighter type scale and shared component themes
 (`theme_components.dart`). Tokens: `Gaps`, `Radii`, `Palette` (`app_theme.dart`) and
-`Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
+`Motion`, `Breakpoints`, `Shadows` (`design_tokens.dart`).
 
 Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width),
 `menus.dart` (`MenuRow`, `showContextMenuAt`), `dialog_or_sheet.dart` (`showDialogOrSheet`:

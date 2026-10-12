@@ -71,7 +71,6 @@ class SettingsRepository {
   // also notifies listeners).
 
   static const _themeMode = 'theme_mode';
-  static const _accentColor = 'accent_color';
   static const _twoFingerTapUndo = 'two_finger_tap_undo';
   static const _threeFingerTapRedo = 'three_finger_tap_redo';
   static const _penButtonAction = 'pen_button_action';
@@ -80,11 +79,6 @@ class SettingsRepository {
 
   ThemePreference get themeMode => ThemePreference.parse(_get(_themeMode));
   set themeMode(ThemePreference value) => _set(_themeMode, value.name);
-
-  /// ARGB accent (seed) colour, or null for the default.
-  int? get accentColor => int.tryParse(_get(_accentColor) ?? '');
-  set accentColor(int? value) =>
-      value == null ? _remove(_accentColor) : _set(_accentColor, '$value');
 
   /// Two-finger tap undoes (default on).
   bool get twoFingerTapUndo => _get(_twoFingerTapUndo) != 'false';
