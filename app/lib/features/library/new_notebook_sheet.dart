@@ -142,6 +142,18 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
     });
   }
 
+  /// "College ruled · White · A4 portrait", with the page count of a
+  /// planner.
+  String get _summary {
+    final chosen = _chosenPapers;
+    if (chosen == null || _canvas || !_paper.isPlanner) {
+      return describeSelection(_selection, canvas: _canvas);
+    }
+    final pages = chosen.length;
+    return '${describeTemplate(_template.copyWith(paper: Paper(_paper)))} · '
+        '$pages ${pages == 1 ? 'page' : 'pages'}';
+  }
+
   void _importPdf() => Navigator.of(context).pop(const NewNotebookRequest.importPdf());
 
   @override
@@ -195,11 +207,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         onSelectionChanged: (s) => _setKind(s.single),
       ),
       const SizedBox(height: Gaps.xl),
-      PickerLabel(
-        'Paper',
-        key: const ValueKey('template-summary'),
-        trailing: describeSelection(_selection, canvas: _canvas),
-      ),
+      PickerLabel('Paper', key: const ValueKey('template-summary'), trailing: _summary),
       PaperRow(
         selection: _canvas
             ? _selection.copyWith(

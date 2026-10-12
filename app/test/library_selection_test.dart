@@ -15,10 +15,10 @@ void main() {
 
     await tester.tap(find.byTooltip('View'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Select notebooks').last);
+    await tester.tap(find.text('Select…').last);
     await tester.pumpAndSettle();
     expect(find.text('Select notebooks'), findsOneWidget);
-    expect(find.text('New'), findsNothing); // No FAB while selecting.
+    expect(find.byTooltip('New notebook'), findsNothing); // No FAB while selecting.
 
     await tester.tap(find.text('Algebra'));
     await tester.tap(find.text('Biology'));
@@ -41,7 +41,7 @@ void main() {
 
     await tester.tap(find.byTooltip('View'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Select notebooks').last);
+    await tester.tap(find.text('Select…').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Select all'));
     await tester.pumpAndSettle();

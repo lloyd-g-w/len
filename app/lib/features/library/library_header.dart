@@ -160,7 +160,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
             const SizedBox(width: Gaps.sm),
           ] else if (!searchOpen)
             IconButton(
-              tooltip: 'Search (Ctrl+F)',
+              tooltip: 'Search',
               icon: const Icon(Symbols.search_rounded),
               onPressed: _openSearch,
             ),
@@ -258,7 +258,7 @@ class _SearchField extends StatelessWidget {
           textInputAction: TextInputAction.search,
           textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
-            hintText: 'Search notebooks and notes',
+            hintText: 'Search',
             contentPadding: EdgeInsets.zero,
             prefixIcon: Icon(
               Symbols.search_rounded,

@@ -135,9 +135,14 @@ void main() {
     final services = await pumpLibrary(tester);
     await tester.tap(find.text('New notebook'));
     await tester.pumpAndSettle();
+    // Planners come from the full chooser.
+    await tester.tap(find.text('All templates…'));
+    await tester.pumpAndSettle();
     final daily = find.text('Daily planner');
     await tester.ensureVisible(daily);
     await tester.tap(daily);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Use template'));
     await tester.pumpAndSettle();
     final now = DateTime.now();
     final days = PlannerDates.daysInMonth(now.year, now.month);

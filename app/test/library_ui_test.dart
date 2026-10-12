@@ -173,7 +173,7 @@ void main() {
     expect(tile, findsOneWidget);
     await tester.tap(find.byTooltip('View'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Select notebooks').last);
+    await tester.tap(find.text('Select…').last);
     await tester.pumpAndSettle();
     expect(tile, findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);

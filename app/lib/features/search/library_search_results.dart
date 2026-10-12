@@ -136,7 +136,9 @@ class _LibrarySearchResultsState extends State<LibrarySearchResults> {
           if (indexing) _indexingNote(theme),
           SliverList.separated(
             itemCount: _groups.length,
-            separatorBuilder: (_, _) => const SizedBox(height: Gaps.md),
+            // Flat rows, groups split by hairlines (REDESIGN §3).
+            separatorBuilder: (_, _) =>
+                Divider(height: Gaps.lg, color: theme.colorScheme.outlineVariant),
             itemBuilder: (context, i) => _NotebookResults(
               key: ValueKey(_groups[i].notebook.id),
               group: _groups[i],
@@ -190,22 +192,20 @@ class _NotebookResultsState extends State<_NotebookResults> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final group = widget.group;
     final notebook = group.notebook;
     final hits = _expanded ? group.content : group.content.take(_collapsed).toList();
     final hidden = group.content.length - hits.length;
     return Material(
-      color: scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(Radii.md),
-      clipBehavior: Clip.antiAlias,
+      type: MaterialType.transparency,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
             onTap: () => widget.onOpen(context, notebook, null),
+            borderRadius: BorderRadius.circular(Radii.sm),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.md, Gaps.lg, Gaps.sm),
+              padding: const EdgeInsets.fromLTRB(Gaps.sm, Gaps.sm, Gaps.sm, Gaps.xs),
               child: Row(
                 children: [
                   SizedBox(width: 28, height: 28 / 0.72, child: NotebookCover.of(notebook)),
@@ -235,16 +235,14 @@ class _NotebookResultsState extends State<_NotebookResults> {
             Align(
               alignment: Alignment.centerLeft,
               child: Padding(
-                padding: const EdgeInsets.only(left: Gaps.sm, bottom: Gaps.xs),
+                padding: const EdgeInsets.only(left: Gaps.xxl + Gaps.xs),
                 child: TextButton.icon(
                   onPressed: () => setState(() => _expanded = true),
                   icon: const Icon(Symbols.expand_more_rounded, size: Glyphs.menu),
                   label: Text('Show $hidden more'),
                 ),
               ),
-            )
-          else
-            const SizedBox(height: Gaps.sm),
+            ),
         ],
       ),
     );
@@ -265,8 +263,9 @@ class _HitRow extends StatelessWidget {
     final scheme = theme.colorScheme;
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(Radii.sm),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.sm),
+        padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.sm),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

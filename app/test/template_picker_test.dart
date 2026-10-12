@@ -110,7 +110,7 @@ void main() {
   });
 
   testWidgets('template picker renders every template (tablet, golden)', (tester) async {
-    tester.view.physicalSize = const Size(760, 1400);
+    tester.view.physicalSize = const Size(900, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     _deviceLocale(tester);
