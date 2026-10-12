@@ -513,6 +513,16 @@ unsupported filter in a split content stream) is embedded as a 150 dpi
 image, so export never fails because of one page. Text boxes are written as
 selectable text in the embedded bundled fonts (`pdf_text.dart`, see *Text
 boxes*). PNG export rasterises a page with the same painters as the editor.
+**Links** (`PdfLinkWriter`) become link annotations after all pages are
+written: link elements and planner links (to the first exported page with
+the target template) as URI or GoTo actions to named destinations
+(`page-N`), and the links of imported PDF pages — read from the source
+`/Annots` by the copier (`vector/pdf_source_links.dart`: `/URI`, `/GoTo`,
+`/Dest`, explicit or named via `/Dests` or the `/Names` tree), or from
+PDFium (`PdfRenderer.links`) for pages embedded as images. Their areas are
+normalised to the page as shown, so `/Rotate` and crop boxes are already
+applied; page links go to the exported page showing the target (the next
+one after the link's page) and are dropped if it is not exported.
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
 indices from a range like "1-3, 5", templates and PDF backgrounds on or off,
 PNG resolution); without templates pages are exported as blank white paper.
@@ -529,7 +539,7 @@ assembly (`PdfDocument.pages = …` + `encodePdf`) moves whole pages between
 documents but cannot draw on top of them. Copying page objects in Dart
 works identically on Android, Linux, Windows and the web, keeps one export
 writer, and PDFium remains the fallback for files the reader declines.
-Trade-offs: link and form-field annotations are not carried over (their
+Trade-offs: form-field annotations are not carried over (their
 appearances are drawn), optional-content groups hidden by default in the
 source may show, and the copied XObjects are drawn via `drawImage` on a unit
 square because package `pdf` 3.13's `drawXObject` writes an invalid resource
@@ -542,6 +552,20 @@ character boxes, links and outlines through `PdfInfoSource`
 (`PdfrxInfoSource`: the documents `PdfBackgroundCache`'s renderer already
 opened, so no second copy of the PDF) into `PdfPageInfoCache` (LRU per page;
 `PdfLayer` preloads the pages in view).
+
+**Rotated pages.** PDFium reports character boxes and link rectangles in the
+page's own space (before `/Rotate`); `pdfRectToDisplay`
+(`domain/pdf_page_space.dart`) normalises them to the page as shown (what
+the import's page size and the renderer use), for every quarter turn.
+`PdfGlyphs.lines` (`data/search/pdf_glyphs.dart`) then groups characters
+into lines from the boxes themselves — consecutive non-space boxes that
+step the same way (left→right, top→bottom, right→left or bottom→top) and
+overlap across the line, broken at line breaks — so text on turned pages,
+or set at an angle, selects along its direction: hit tests measure "along"
+and "across" per line, handles sit at the line's start / end corners
+(`PdfTextLine.startCorner`, knobs beyond the tops / bottoms of the
+letters), highlights run along the line's middle in reading order, and
+search highlights use the same boxes.
 
 - **Select text** — `EditorTool.selectText` (X), offered only when the
   notebook has PDF pages (`ToolSettings.selectTextAvailable`), is a
@@ -1447,10 +1471,10 @@ malformed record is skipped. Open screens subscribe to
 - The sync token is stored in the app's SQLite database; move it to secure
   storage before shipping.
 - PDF: tiles are not persisted (re-rendered after reopening) and stop at
-  65536 px page width; text selection, links and search highlights skip
-  rotated PDF pages; selection is per page (not across pages); exported
-  PDFs drop the source's link annotations and form fields (their looks are
-  kept) — see *Blobs and PDFs*.
+  65536 px page width; selection is per page (not across pages); exported
+  PDFs drop the source's form fields (their looks are kept) and links with
+  other actions than web addresses and pages of the same file — see
+  *Blobs and PDFs*.
 - Audio: a recording is one blob, so it syncs only once finished and a
   recording above the server's blob limit (200 MiB by default, ≈ 7 h at
   64 kbit/s) cannot be uploaded (it stays on the device, reported as too
@@ -1485,7 +1509,7 @@ malformed record is skipped. Open screens subscribe to
   nonsense); no pause while on battery.
 - Search: PDF text is only
   extracted for PDFs present on the device (fetched when a page is viewed);
-  glyph highlights skip rotated PDF pages (the page is still shown); FTS5's
+  FTS5's
   `unicode61` tokenizer does not segment CJK text (prefix matches only from
   the start of a run); the editor's matches refresh on query changes and
   when the bar reopens, not live while typing into a text box.

@@ -105,7 +105,11 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   outline (bookmarks) panel
 - ✅ Export keeps imported PDF pages as vectors (pure-Dart page copier; PDFium rewrite for
   encrypted files; image fallback per page)
-- ⬜ Selection across pages, PDF text on rotated pages, carry links into exported PDFs
+- ✅ PDF text on rotated pages (`/Rotate` 90 / 180 / 270 and text set at an angle): selection along
+  the line's direction, copy, highlights, search highlights and links
+- ✅ Exported PDFs keep links: link elements, planner links, and the links of imported PDF pages
+  (web links as is, page links remapped to the exported page or dropped)
+- ⬜ PDF text selection across pages
 
 ## Infinite canvas & navigation
 - ✅ Level-of-detail chunk rasters when zoomed out (cost bounded by visible chunks)
