@@ -197,7 +197,8 @@ Everything the engine draws or hit-tests therefore lands on the right page.
 `DocumentSurfaces` holds a `SurfaceModel` + `ChunkPictureCache` only for
 visible pages (plus a few recently seen ones, and any with undo history), and
 loads just their visible chunks. It also provides **notebook-wide undo**: the
-most recently edited page is undone first. Painting mirrors `InkSurface`
+most recently edited page is undone first (a step may span pages: see
+*Selections across pages* under *Editing tools*). Painting mirrors `InkSurface`
 (paper → committed ink → live ink layers) across every visible page.
 
 Page management (`PageActions`, `DocumentCommands`, `PageOverview`): insert,
@@ -898,6 +899,27 @@ surface.
   gestures. The clipboard (`InkClipboard`) lives in `AppServices`, so paste
   works across pages and notebooks; paste goes to the screen centre
   (Ctrl+V, menu) or a long-press position.
+- **Selections across pages** (paged notebooks, continuous flow): the
+  selection stays bound to the active page's surface, but
+  `SelectionController.surfaces` (a `SelectionSurfaces`, given by
+  `DocumentSelection` from the document layout) lets it reach the other
+  pages. `SelectionReach.pick` moves the lasso into each overlapping page's
+  coordinates (`Lasso.shifted`) and selects there too; items of other pages
+  are held as copies moved into the active page's coordinates, with a
+  `SelectionSource` (page model, shift, stored original) per id, and are
+  hidden on their own page (a page holding hidden items is never released,
+  `PageSurface.pinned`). Every edit goes through a `SelectionPlan`, which
+  sorts removals and additions by page and converts items back into each
+  page's space; on a move (`commitPreview`), duplicate and paste each item
+  goes to the page under its centre (on no page: where it was), so dropping
+  a selection on the next page moves it there — strokes are re-added,
+  elements keep their id and are re-parented (all removals are committed
+  before any addition, so storage and sync see a re-parent). Edits on
+  several pages run in `PageModels.group`: one notebook-wide undo step that
+  undoes each page's part backwards and redoes it forwards. The selection
+  picture is clipped to all page frames (not just the active page), so it
+  shows on every page it covers and while dragged between pages. With one
+  page laid out (single-page flow) nothing else is reachable.
 - **Text** (`elements/text_edit_session.dart`): tapping with the Text tool
   creates or edits a box; double-tapping a box with the lasso edits it too.
   While editing, the element is hidden and a real `TextField` is laid out

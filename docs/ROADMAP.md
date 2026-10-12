@@ -18,6 +18,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
+- ✅ Selection across pages (continuous scrolling): a lasso drawn across pages selects on each; the
+  selection moves, resizes, recolours, restyles, deletes, copies and duplicates as one; items dropped
+  so their centre lands on another page move to that page (ink re-added, elements re-parented) — one
+  undo step. Single-page flow keeps per-page selections
 - ✅ Shapes: draw-and-hold to snap (line, arrow, rectangle, ellipse, triangle, polygon); Shape tool (line, arrow, rectangle, ellipse, triangle, diamond, star)
 - ✅ Text boxes (synced `elements`): rich text within a box — bold, italic, underline,
   strikethrough, colour, highlight, size and font per character; headings; bulleted, numbered
