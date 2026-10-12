@@ -901,9 +901,10 @@ GoodNotes-style rich text inside a box.
   — inserting, joining and splitting lines (lists continue, headings do not),
   numbering — is pure Dart in `RichTextBuffer`, unit-tested without Flutter.
 - **Fonts** (`TextFont`, `assets/fonts/`, built by `tool/build_fonts.py` from
-  Google Fonts and subset to Latin/Greek/Cyrillic + symbols): Inter (sans),
-  Lora (serif), JetBrains Mono, Caveat (handwriting; italic is slanted), all SIL
-  OFL 1.1 with their licence files, registered in the licence page
+  Google Fonts and subset to Latin/Greek/Cyrillic + symbols; static families
+  like Kalam are only subset): Inter (sans), Nunito (rounded), Lora (serif),
+  JetBrains Mono, Caveat (handwriting) and Kalam (hand lettering; these two
+  have no italic, it is slanted), all SIL OFL 1.1 with their licence files, registered in the licence page
   (`core/font_licenses.dart`). Boxes use only bundled fonts, so they measure and
   wrap the same everywhere and in exported PDFs; characters they lack fall back
   to system fonts.
@@ -912,9 +913,18 @@ GoodNotes-style rich text inside a box.
   line (one U+FFFC each), sized by indent level, so bullets, numbers (1. / a. /
   i. by level) and checkboxes take part in wrapping and alignment identically in
   the canvas (`TextBoxLayout` paints them via `ListMarker`), the editor
-  (`WidgetSpan`s) and PDF export. Wrapped lines of a list item are not indented
-  (no hanging indent in a single paragraph). `MarkerOffsets` maps text offsets
-  to laid-out offsets (`marker_offsets.dart`).
+  (`WidgetSpan`s) and PDF export. **Hanging indents**: a paragraph cannot
+  indent its wrapped lines, so `TextWraps` wraps each list item on its own at
+  the box width minus its marker column; the laid-out text then gets, at each
+  of those offsets, a line break plus a gap placeholder as wide as the marker
+  (`MarkerOffsets.wrapText`), so continuation lines start under the item's
+  text at every level. Canvas, thumbnails, PNG and PDF export (via
+  `TextBoxLayout`) and the editing field (`RichTextController.wrapWidth`, set
+  to the box width; auto-width boxes never wrap) share that layout. The caret
+  steps over the gap; backspace at a continuation line deletes the character
+  before. `MarkerOffsets` maps text offsets to laid-out offsets
+  (`marker_offsets.dart`). The editing field disables the strut, so headings
+  keep their line height while editing.
 - **Editing** (`features/editor/tools/text/`): `RichTextController` (a
   `TextEditingController`) renders the spans and maps the field's edits back
   onto the buffer (common prefix/suffix diff, the caret disambiguating repeated
