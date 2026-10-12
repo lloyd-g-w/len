@@ -1205,9 +1205,10 @@ next start runs the new build. The page also tells the worker which files it
 fetched before the worker controlled it (first visit), so cross-origin fonts
 fetched on demand are cached too (`len-fonts-v1`). `flutter run` / a plain
 `flutter build web` keep an empty precache list (runtime caching only).
-Verified in headless Chromium: first visit online, then with the server
-stopped and the browser offline the app starts, shows notebooks created on
-the first visit and opens Settings.
+Verified in headless Chromium (`app/tool/web_offline_check.py`, Playwright
+from nixpkgs): first visit online, then with the server stopped and the
+browser offline the app starts and lists the notebook drawn in on the first
+visit.
 
 **Storage.** At start the web app requests persistent storage
 (`navigator.storage.persist()`) where browsers decide silently (Chromium,
