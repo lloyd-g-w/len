@@ -37,7 +37,6 @@ class RecordingMeta {
     this.viewScale = 1,
     this.viewOffset = Offset.zero,
     required this.pen,
-    this.lowLatency = false,
     this.stylusOnly = true,
   });
 
@@ -61,9 +60,6 @@ class RecordingMeta {
 
   final PenSettings pen;
 
-  /// Whether the experimental low-latency overlay was on.
-  final bool lowLatency;
-
   /// Palm rejection (stylus only).
   final bool stylusOnly;
 
@@ -76,7 +72,6 @@ class RecordingMeta {
     viewScale: viewScale,
     viewOffset: viewOffset,
     pen: pen ?? this.pen,
-    lowLatency: lowLatency,
     stylusOnly: stylusOnly,
   );
 }

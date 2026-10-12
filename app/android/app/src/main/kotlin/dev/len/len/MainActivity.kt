@@ -31,6 +31,11 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         if (savedInstanceState == null) incoming?.handle(intent)
     }
 
+    override fun onStart() {
+        super.onStart()
+        wetInk?.attach()
+    }
+
     /** Warm start: files opened with / shared to the running app. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -62,6 +67,7 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
                     val dx = -location[0].toFloat()
                     val dy = -location[1].toFloat()
                     capture.capture(ev, dx, dy)
+                    if (ev.actionMasked == MotionEvent.ACTION_DOWN) wetInk?.attach()
                     wetInk?.onTouch(ev, dx, dy, capture)
                 }
             } catch (e: RuntimeException) {

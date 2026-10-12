@@ -17,10 +17,7 @@ import 'perf_notebooks.dart';
 /// and `.leninput` recordings that can be saved, opened and replayed in
 /// real time (see `docs/INK_LAB.md`). Nothing drawn here is persisted.
 class InkLabScreen extends StatefulWidget {
-  const InkLabScreen({super.key, this.lowLatency = false, this.stylusOnly = false});
-
-  /// Use the experimental low-latency overlay (Android).
-  final bool lowLatency;
+  const InkLabScreen({super.key, this.stylusOnly = false});
 
   /// Palm rejection: fingers navigate, only the stylus draws.
   final bool stylusOnly;
@@ -41,7 +38,7 @@ class _InkLabScreenState extends State<InkLabScreen> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    InkLabSession.open(lowLatency: widget.lowLatency, stylusOnly: widget.stylusOnly).then((s) {
+    InkLabSession.open(stylusOnly: widget.stylusOnly).then((s) {
       if (_disposed) {
         s.dispose();
       } else {

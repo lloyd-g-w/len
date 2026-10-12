@@ -66,7 +66,6 @@ abstract final class RecordingCodec {
     'size': [m.viewSize.width, m.viewSize.height],
     'scale': m.viewScale,
     'offset': [m.viewOffset.dx, m.viewOffset.dy],
-    'lowLatency': m.lowLatency,
     'stylusOnly': m.stylusOnly,
     'pen': {
       'tool': m.pen.tool.name,
@@ -91,7 +90,6 @@ abstract final class RecordingCodec {
       viewSize: Size(_num(size[0]), _num(size[1])),
       viewScale: _num(m['scale'], 1),
       viewOffset: Offset(_num(offset[0]), _num(offset[1])),
-      lowLatency: m['lowLatency'] == true,
       stylusOnly: m['stylusOnly'] != false,
       pen: PenSettings(
         tool: InkTool.values.firstWhere(

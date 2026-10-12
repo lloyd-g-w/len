@@ -89,7 +89,6 @@ class _VersionTextState extends State<_VersionText> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => InkLabScreen(
-          lowLatency: prefs?.lowLatencyInk ?? false,
           stylusOnly: prefs?.stylusOnly ?? false,
         ),
       ),

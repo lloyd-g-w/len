@@ -25,7 +25,7 @@ import '../../platform/stylus_samples.dart';
 /// Notifies listeners when the surface is replaced ([clear]) or the pen
 /// changes.
 class InkLabSession extends ChangeNotifier {
-  InkLabSession._(this._db, {required this.lowLatency, required this.stylusOnly})
+  InkLabSession._(this._db, {required this.stylusOnly})
     : _strokes = StrokeRepository(_db, deviceId: 'inklab') {
     model = _newModel();
     tools = ToolSettings(stylusOnly: stylusOnly)..holdToStraighten = false;
@@ -36,26 +36,22 @@ class InkLabSession extends ChangeNotifier {
       tools: tools,
       live: live,
       samples: openStylusSamples(
-        lowLatency: () => lowLatency,
         wetInk: () => WetInkStyle.of(live, viewport.scale),
+        wetInkView: () => WetInkView.of(viewport),
       ),
     );
     recorder.onEntry = (e) => stats.add(e);
   }
 
   /// Opens a session on a fresh in-memory database.
-  static Future<InkLabSession> open({bool lowLatency = false, bool stylusOnly = false}) async =>
+  static Future<InkLabSession> open({bool stylusOnly = false}) async =>
       InkLabSession._(
         AppDatabase.fromConnection(await openSqliteScratch()),
-        lowLatency: lowLatency,
         stylusOnly: stylusOnly,
       );
 
   final AppDatabase _db;
   final StrokeRepository _strokes;
-
-  /// Whether the experimental low-latency overlay is used (Android).
-  final bool lowLatency;
 
   /// Palm rejection: only the stylus draws, fingers navigate.
   final bool stylusOnly;
@@ -131,7 +127,6 @@ class InkLabSession extends ChangeNotifier {
     viewScale: _startScale,
     viewOffset: _startOffset,
     pen: _pen,
-    lowLatency: lowLatency,
     stylusOnly: stylusOnly,
   );
 

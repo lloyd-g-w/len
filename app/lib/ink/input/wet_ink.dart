@@ -1,13 +1,48 @@
 import 'dart:typed_data';
 
+import 'package:flutter/painting.dart';
+
 import '../../domain/stroke.dart';
 import '../pen/pen_profile.dart';
 import '../render/shape_params.dart';
 import '../render/stroke_outline.dart';
 import '../render/stroke_renderer.dart';
+import '../viewport.dart';
 import 'live_ink.dart';
 import 'point_spacing.dart';
 import 'pressure_filter.dart';
+
+/// Where a platform overlay may draw the stroke being written, and the
+/// view it is written in (logical px, in the drawing surface's own
+/// coordinates).
+class WetInkView {
+  const WetInkView({required this.clip, required this.scale, required this.offset});
+
+  /// The writing area of [viewport]: the surface less the [covered] edges
+  /// (toolbars over it), and only the page on a page (its
+  /// `contentBounds`, where committed ink is clipped too).
+  factory WetInkView.of(ViewportController viewport, {EdgeInsets covered = EdgeInsets.zero}) {
+    var clip = covered.deflateRect(Offset.zero & viewport.size);
+    final page = viewport.contentBounds;
+    if (page != null) {
+      clip = clip.intersect(
+        Rect.fromPoints(viewport.toScreen(page.topLeft), viewport.toScreen(page.bottomRight)),
+      );
+    }
+    return WetInkView(clip: clip, scale: viewport.scale, offset: viewport.offset);
+  }
+
+  /// The overlay draws only inside this rectangle.
+  final Rect clip;
+
+  /// The view transform (`screen = world * scale + offset`): the overlay
+  /// stops when it changes during a stroke.
+  final double scale;
+  final Offset offset;
+
+  /// Whether [other] shows the world the same way.
+  bool sameTransform(WetInkView other) => other.scale == scale && other.offset == offset;
+}
 
 /// How a platform overlay should draw the tip of the stroke being written
 /// ("low-latency ink"): it paints the newest samples itself, before Flutter

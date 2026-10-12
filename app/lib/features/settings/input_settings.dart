@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/app_preferences.dart';
@@ -7,14 +6,11 @@ import '../../ui/segment_label.dart';
 import '../editor/pen/eraser_icon.dart';
 import 'settings_section.dart';
 
-/// Stylus preferences: palm rejection, the side button and low-latency ink.
+/// Stylus preferences: palm rejection and the side button.
 class StylusSettings extends StatelessWidget {
   const StylusSettings({super.key, required this.preferences});
 
   final AppPreferences preferences;
-
-  /// Only Android has the front-buffered overlay.
-  static bool get showLowLatencyInk => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   @override
   Widget build(BuildContext context) {
@@ -67,19 +63,6 @@ class StylusSettings extends StatelessWidget {
               ),
             ),
           ),
-          if (showLowLatencyInk)
-            SettingsTile(
-              icon: Icons.speed_rounded,
-              title: 'Low-latency ink (experimental)',
-              subtitle:
-                  'Draws the tip of the pen stroke directly on the display, a frame or two '
-                  'sooner. Turn off if you see flicker or doubled ink.',
-              onTap: () => preferences.lowLatencyInk = !preferences.lowLatencyInk,
-              trailing: Switch(
-                value: preferences.lowLatencyInk,
-                onChanged: (v) => preferences.lowLatencyInk = v,
-              ),
-            ),
         ],
       ),
     );
