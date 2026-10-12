@@ -22,9 +22,6 @@ class LaserPainter extends CustomPainter {
   final LaserTrail trail;
   final ViewportController viewport;
 
-  /// Kept for callers that want the default colour.
-  static const Color red = Color(LaserConfig.defaultColor);
-
   /// Glow width relative to the core.
   static const double glowScale = 2.4;
 
