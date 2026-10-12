@@ -269,5 +269,5 @@ Finder emptyTrashButton() {
 /// the floating button.
 Finder newButton() {
   final tile = find.byKey(const ValueKey('new-notebook-tile'));
-  return tile.evaluate().isNotEmpty ? tile : find.text('New').last;
+  return tile.evaluate().isNotEmpty ? tile : find.byTooltip('New notebook').last;
 }

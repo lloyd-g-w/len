@@ -24,8 +24,8 @@ import 'thumbnails/thumbnail_scope.dart';
 
 /// Home screen: the notebook library with folders, favourites and trash.
 ///
-/// Tablets and desktop get a sidebar; phones a bottom navigation bar.
-/// Shortcuts: Ctrl+N new notebook, Ctrl+Shift+N new folder, Ctrl+F search,
+/// From [Breakpoints.medium] a sidebar; below it the same content in a
+/// drawer (☰). Shortcuts: Ctrl+N new notebook, Ctrl+Shift+N new folder, Ctrl+F search,
 /// Delete moves the focused notebook to the trash, Esc clears the search.
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -192,9 +192,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
               child: LibraryFileDrop(
                 onFiles: (files) => unawaited(_imports.enqueue(context, files, offerInsert: false)),
                 child: LayoutBuilder(
-                  builder: (context, constraints) => constraints.maxWidth < Breakpoints.medium
-                      ? _phone(context)
-                      : _wide(context, constraints.maxWidth),
+                  builder: (context, constraints) =>
+                      constraints.maxWidth < Breakpoints.medium ? _phone(context) : _wide(context),
                 ),
               ),
             ),
@@ -219,34 +218,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
     ),
   );
 
-  /// The "New" button; hidden in the trash, where the grid's "New…" tile
-  /// shows (wide screens) and when the empty state already offers one
+  /// The "New" button (phones only: wide screens have the "New…" tile and
+  /// ⊕▾); hidden in the trash and when the empty state already offers one
   /// (library and folders).
-  Widget? _fab(BuildContext context, {bool compact = false}) =>
+  Widget? _fab(BuildContext context) =>
       _actions.selection.active ||
-          LibraryContent.showsNewTile(_actions, compact: compact) ||
           _controller.section == LibrarySection.trash ||
           (_controller.section == LibrarySection.library &&
               !_controller.isSearching &&
               _controller.visibleFolders.isEmpty &&
               _controller.visibleNotebooks.isEmpty)
       ? null
-      : FloatingActionButton.extended(
+      : FloatingActionButton(
           onPressed: () => unawaited(_actions.createNotebook(context)),
-          tooltip: 'New notebook or canvas (Ctrl+N)',
-          icon: const Icon(Symbols.add_rounded),
-          label: const Text('New'),
+          tooltip: 'New notebook',
+          child: const Icon(Symbols.add_rounded),
         );
 
-  Widget _wide(BuildContext context, double width) {
+  Widget _wide(BuildContext context) {
     return Scaffold(
       body: Row(
         children: [
-          LibrarySidebar(
-            actions: _actions,
-            onOpenSettings: _openSettings,
-            width: width >= Breakpoints.expanded ? 272 : 232,
-          ),
+          LibrarySidebar(actions: _actions, onOpenSettings: _openSettings),
           Expanded(
             // The selection bar floats over the content, not the sidebar.
             child: Stack(
@@ -259,7 +252,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ],
       ),
-      floatingActionButton: _fab(context),
     );
   }
 
@@ -293,7 +285,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ),
       ),
-      floatingActionButton: _fab(context, compact: true),
+      floatingActionButton: _fab(context),
       bottomNavigationBar: _selectionBar(),
     );
   }

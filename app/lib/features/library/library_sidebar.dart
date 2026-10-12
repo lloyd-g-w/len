@@ -21,8 +21,11 @@ class LibrarySidebar extends StatefulWidget {
     required this.actions,
     required this.onOpenSettings,
     this.onNavigate,
-    this.width = 264,
+    this.width = LibrarySidebar.defaultWidth,
   });
+
+  /// The sidebar's width beside the content (REDESIGN §3).
+  static const double defaultWidth = 248;
 
   final LibraryActions actions;
   final VoidCallback onOpenSettings;

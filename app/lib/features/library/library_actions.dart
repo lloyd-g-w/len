@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app_services.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
+import '../../domain/paper.dart';
 import '../../ui/messages.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_import_flow.dart';
@@ -52,10 +54,33 @@ class LibraryActions {
     controller.reload();
   }
 
-  Future<void> createNotebook(BuildContext context) async {
-    final request = await NewNotebookSheet.show(context);
+  /// A click on notebook [id] with Ctrl / ⌘ (toggles it in the selection)
+  /// or Shift (selects the range from the last one toggled), as on a
+  /// desktop; false without those keys.
+  bool selectWithModifiers(String id) {
+    final keys = HardwareKeyboard.instance;
+    if (keys.isShiftPressed) {
+      selection.extendTo(id, [for (final n in controller.visibleNotebooks) n.id]);
+      return true;
+    }
+    if (keys.isControlPressed || keys.isMetaPressed) {
+      selection.toggle(id);
+      return true;
+    }
+    return false;
+  }
+
+  /// Opens the new-notebook sheet (starting as a [kind]) and then the new
+  /// notebook.
+  Future<void> createNotebook(
+    BuildContext context, {
+    NotebookKind kind = NotebookKind.paged,
+  }) async {
+    final request = await NewNotebookSheet.show(context, kind: kind);
     if (request == null || !context.mounted) return;
     if (request.importPdf) return importPdf(context);
+    final style = request.template.style;
+    if (style != PaperStyle.image) controller.services.preferences.notePaperUsed(style.name);
     final notebook = controller.createNotebook(
       title: request.title,
       kind: request.kind,
@@ -150,6 +175,8 @@ class LibraryActions {
           currentFolderId: notebook.folderId,
         );
         if (target != null) controller.moveNotebook(notebook.id, target.folderId);
+      case NotebookAction.select:
+        selection.start(notebook.id);
       case NotebookAction.trash:
         await trash(context, notebook);
       case NotebookAction.restore:

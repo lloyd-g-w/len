@@ -13,10 +13,11 @@ import 'library_menus.dart';
 import 'notebook_cover.dart';
 import 'selection/selection_mark.dart';
 
-/// A notebook in the library grid: its cover (live preview) with the title
-/// and a subtitle below. Lifts on hover, opens on tap, offers its menu on
-/// right-click, long-press or the "More" button, and can be dragged onto
-/// folders.
+/// A notebook in the library grid: its cover (live preview) with a
+/// two-line title and a caption below. Opens on tap (Ctrl / Shift-click
+/// selects, as on a desktop), offers its menu on right-click, long-press or
+/// the ⋯ by the title (shown on hover or focus; always on touch), and can be
+/// dragged onto folders.
 class NotebookCard extends StatefulWidget {
   const NotebookCard({
     super.key,
@@ -29,6 +30,9 @@ class NotebookCard extends StatefulWidget {
   final String subtitle;
   final LibraryActions actions;
 
+  /// Height of everything below the cover: gap, two title lines, caption.
+  static double captionHeight(TextScaler scaler) => Gaps.sm + scaler.scale(20 * 2 + 16) + Gaps.xs;
+
   @override
   State<NotebookCard> createState() => _NotebookCardState();
 }
@@ -36,29 +40,34 @@ class NotebookCard extends StatefulWidget {
 class _NotebookCardState extends State<NotebookCard> {
   bool _hovered = false;
   bool _focused = false;
+  bool _menuOpen = false;
 
   Notebook get _notebook => widget.notebook;
   bool get _selecting => widget.actions.selection.active;
 
   /// Opens the notebook, or toggles it in selection mode.
-  void _tap() => _selecting
-      ? widget.actions.selection.toggle(_notebook.id)
-      : unawaited(
-          widget.actions.openNotebook(
-            context,
-            _notebook,
-            from: widget.actions.covers.originOf(context, _notebook),
-          ),
-        );
+  void _tap() {
+    final actions = widget.actions;
+    if (_selecting) {
+      if (!actions.selectWithModifiers(_notebook.id)) actions.selection.toggle(_notebook.id);
+      return;
+    }
+    if (actions.selectWithModifiers(_notebook.id)) return;
+    unawaited(
+      actions.openNotebook(context, _notebook, from: actions.covers.originOf(context, _notebook)),
+    );
+  }
+
   bool get _selected => widget.actions.selection.contains(_notebook.id);
 
   /// Opens the menu at [at] (global), else under [anchor] or the card.
   Future<void> _showMenu({Offset? at, BuildContext? anchor}) async {
-    final action = await showContextMenuAt(
-      anchor ?? context,
-      items: notebookMenuItems(_notebook),
-      at: at,
-    );
+    setState(() => _menuOpen = true);
+    final items = notebookMenuItems(_notebook);
+    final action = anchor != null && at == null
+        ? await showMenuBelow(anchor, items: items)
+        : await showContextMenuAt(context, items: items, at: at);
+    if (mounted) setState(() => _menuOpen = false);
     if (action != null && mounted) {
       await widget.actions.onNotebookAction(context, _notebook, action);
     }
@@ -67,23 +76,31 @@ class _NotebookCardState extends State<NotebookCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final brightness = theme.brightness;
-    final lifted = _hovered || _focused;
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    final lifted = (_hovered || _focused) && !_selecting;
+    final radius = BorderRadius.circular(Radii.sm);
     final cover = AnimatedContainer(
       duration: Motion.medium,
       curve: Motion.standard,
-      transform: Matrix4.translationValues(0, lifted ? -4 : 0, 0),
+      transform: Matrix4.translationValues(0, lifted ? -2 : 0, 0),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Radii.sm),
-        boxShadow: lifted ? Shadows.high(brightness) : Shadows.low(brightness),
+        borderRadius: radius,
+        // `raised`: a shadow in light mode, a hairline in dark mode.
+        boxShadow: lifted ? Shadows.high(theme.brightness) : Shadows.low(theme.brightness),
       ),
+      foregroundDecoration: dark
+          ? BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(color: scheme.outlineVariant),
+            )
+          : null,
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.sm),
+          borderRadius: radius,
           onTap: _tap,
           onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
-          onHover: (h) => setState(() => _hovered = h),
           onFocusChange: (f) {
             setState(() => _focused = f);
             widget.actions.controller.setNotebookFocused(_notebook.id, f);
@@ -102,77 +119,92 @@ class _NotebookCardState extends State<NotebookCard> {
         ),
       ),
     );
+    final showMore = Targets.touchFirst || _hovered || _focused || _menuOpen;
     return Semantics(
       label: '${_notebook.title}, ${widget.subtitle}',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: LibraryDraggable(
-              item: LibraryDragItem.notebook(_notebook.id),
-              feedback: DragFeedback(
-                width: 110,
-                height: 110 / 0.72,
-                child: NotebookCover.of(_notebook),
-              ),
-              onLongPressMenu: () => unawaited(_showMenu()),
-              child: AnimatedScale(
-                scale: _focused ? 1.02 : 1,
-                duration: Motion.fast,
+      selected: _selecting && _selected,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: LibraryDraggable(
+                item: LibraryDragItem.notebook(_notebook.id),
+                feedback: DragFeedback(
+                  width: 110,
+                  height: 110 / 0.72,
+                  child: NotebookCover.of(_notebook),
+                ),
+                onLongPressMenu: () => unawaited(_showMenu()),
                 // Trashed notebooks look faded but recognisable.
                 child: _notebook.isTrashed ? fadedCover(cover) : cover,
               ),
             ),
-          ),
-          const SizedBox(height: Gaps.sm + 2),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                // The title is part of the target too.
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _tap,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: Gaps.xxs),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _notebook.title,
-                          style: theme.textTheme.labelLarge,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+            // A fixed caption area, so every cover in a row is as tall.
+            SizedBox(
+              height: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
+              child: Padding(
+                padding: const EdgeInsets.only(top: Gaps.sm),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      // The title is part of the target too.
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _tap,
+                        onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: Gaps.xxs),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _notebook.title,
+                                style: theme.textTheme.labelLarge,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                widget.subtitle,
+                                style: theme.textTheme.bodySmall,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: Gaps.xxs),
-                        Text(
-                          widget.subtitle,
-                          style: theme.textTheme.bodySmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    if (!_selecting)
+                      AnimatedOpacity(
+                        opacity: showMore ? 1 : 0,
+                        duration: Motion.fast,
+                        child: SizedBox(
+                          width: Targets.touchFirst ? 40 : 32,
+                          height: Targets.touchFirst ? 36 : 28,
+                          child: Builder(
+                            builder: (anchor) => IconButton(
+                              tooltip: 'More',
+                              padding: EdgeInsets.zero,
+                              iconSize: Glyphs.bar,
+                              color: scheme.onSurfaceVariant,
+                              // Reachable by keyboard and screen readers even
+                              // while hidden.
+                              icon: const Icon(Symbols.more_horiz_rounded),
+                              onPressed: () => unawaited(_showMenu(anchor: anchor)),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              SizedBox(
-                width: 36,
-                height: 36,
-                child: Builder(
-                  builder: (anchor) => IconButton(
-                    tooltip: 'More',
-                    padding: EdgeInsets.zero,
-                    iconSize: Glyphs.bar,
-                    color: theme.colorScheme.onSurfaceVariant,
-                    icon: const Icon(Symbols.more_horiz_rounded),
-                    onPressed: () => unawaited(_showMenu(anchor: anchor)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
