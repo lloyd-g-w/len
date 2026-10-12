@@ -42,11 +42,17 @@ class WetInkShape(v: DoubleArray) {
      */
     val lag = v[17].toInt()
     val startReach = v[18].toInt()
+
+    /** Butt caps instead of round ones. */
+    val flat = v[19] != 0.0
+
+    /** Length over which the start narrows to a point ([Taper]; 0: none). */
+    val taperStart = v[20]
     val kernel: DoubleArray = v.copyOfRange(FIELDS, v.size)
     val kernelK = (kernel.size - 1) / 2
 
     companion object {
-        const val FIELDS = 19
+        const val FIELDS = 21
 
         /** The rules in [v], or null when it is not a valid list. */
         fun of(v: DoubleArray): WetInkShape? =
@@ -83,6 +89,18 @@ class WetInkModel(
     // not trimmed), and the largest radius among its points.
     private var trimmedAtMs = -1L
     private var trimmedRadius = 0.0
+
+    // The end taper of the committed stroke (0 until [commit]).
+    private var endTaper = 0.0
+
+    /**
+     * Ends of the last [segments]: a butt cap at the first point (the
+     * stroke's start) and at the last; a lone point with both is a square.
+     */
+    var flatStart = false
+        private set
+    var flatEnd = false
+        private set
 
     private var pressure = -1.0
     private var hasLast = false
@@ -176,6 +194,11 @@ class WetInkModel(
         while (samples.size > keep) samples.removeAt(samples.size - 1)
         forget(keep)
         if (arcs.size > keep - 1) arcs.size = max(1, keep - 1)
+    }
+
+    /** Flutter has committed the stroke (`end`), with an end taper [taperEnd] long (0: none). */
+    fun commit(taperEnd: Double) {
+        endTaper = taperEnd
     }
 
     fun radiusAt(p: Double): Double {
@@ -285,9 +308,17 @@ class WetInkModel(
      */
     fun segments(from: Int, to: Int): DoubleArray {
         val r = pointRadii()
+        flatStart = shape.flat
+        flatEnd = shape.flat
         if (to - from == 1) {
             val s = samples[from]
-            val radius = if (from == 0 && to == samples.size) max(r[from], trimmedRadius) else r[from]
+            val whole = from == 0 && to == samples.size
+            val last = lifted && to == samples.size
+            val radius = if (whole) {
+                max(r[from], trimmedRadius)
+            } else {
+                r[from] * Taper.factor(arc[from], shape.taperStart) * (if (last && endTaper > 0) Taper.MIN_FACTOR else 1.0)
+            }
             return doubleArrayOf(s.x, s.y, radius)
         }
         val step = shape.step
@@ -299,11 +330,18 @@ class WetInkModel(
             start--
         }
         val shaper: WetShaper
+        // Arc length from the start of the window's first resampled point
+        // and of its second (the others follow a step apart), for the tapers.
+        var arc0 = 0.0
+        var arc1 = step
         if (start == 0) {
             shaper = WetShaper(shape, 0, false, null)
         } else {
             val a = splineArc(start, step)
-            shaper = WetShaper(shape, 1, true, ceil(a / step) * step - a)
+            val phase = ceil(a / step) * step - a
+            shaper = WetShaper(shape, 1, true, phase)
+            arc0 = a
+            arc1 = a + (if (phase > 1e-9) phase else step)
         }
         for (i in max(0, start - 1) until to) shaper.add(samples[i].x, samples[i].y, r[i])
         val ended = lifted && to == samples.size
@@ -327,18 +365,45 @@ class WetInkModel(
             else -> min(shaper.length, max(1, shaper.finalCount))
         }
         if (n == 0) return DoubleArray(0)
+        val rr = tapered(shaper, arc0, arc1, ended)
         if (n - first < 2) {
             val i = min(first, n - 1)
-            return doubleArrayOf(shaper.cx[i], shaper.cy[i], shaper.rr[i])
+            return doubleArrayOf(shaper.cx[i], shaper.cy[i], rr[i])
         }
+        flatStart = shape.flat && start == 0 && first == 0
         val out = DoubleArray((n - first) * 3)
         for (i in first until n) {
             val o = (i - first) * 3
             out[o] = shaper.cx[i]
             out[o + 1] = shaper.cy[i]
-            out[o + 2] = shaper.rr[i]
+            out[o + 2] = rr[i]
         }
         return out
+    }
+
+    /**
+     * The radii of [shaper]'s points with the tapers: the start's by arc
+     * length from the start (the first point at [arc0], the second at
+     * [arc1], then a step apart), once [ended] and committed the end's.
+     */
+    private fun tapered(shaper: WetShaper, arc0: Double, arc1: Double, ended: Boolean): DoubleArray {
+        val n = shaper.length
+        val step = shape.step
+        val r = DoubleArray(n) { shaper.rr[it] }
+        fun arcOf(i: Int) = if (i == 0) arc0 else arc1 + (i - 1) * step
+        if (shape.taperStart > 0) {
+            for (i in 0 until n) r[i] *= Taper.factor(arcOf(i), shape.taperStart)
+        }
+        if (ended && endTaper > 0 && n > 1 && samples.size > 1) {
+            val total = splineArc(samples.size - 1, step)
+            val length = min(endTaper, total * Taper.MAX_END_SHARE)
+            for (i in n - 1 downTo 0) {
+                val along = if (i == n - 1) 0.0 else total - arcOf(i)
+                if (along >= length) break
+                r[i] *= Taper.factor(along, length)
+            }
+        }
+        return r
     }
 
     // Spline length from the first point to point i (as the outline's
@@ -823,4 +888,17 @@ class DoubleList {
     }
 
     fun toArray(n: Int = size): DoubleArray = data.copyOf(n)
+}
+
+/** Dart's `Taper`: the shape of a tapered end. */
+object Taper {
+    const val MIN_FACTOR = 0.03
+    const val MAX_END_SHARE = 0.5
+
+    /** The radius scale [along] (≥ 0) from the end of a taper [length] long. */
+    fun factor(along: Double, length: Double): Double {
+        if (length <= 0 || along >= length) return 1.0
+        val t = along / length
+        return max(MIN_FACTOR, t * (2 - t))
+    }
 }

@@ -35,9 +35,11 @@ void main() {
     };
     Directory(_out).createSync(recursive: true);
     for (final MapEntry(key: name, value: recording) in recordings.entries) {
-      final (events, expected) = wetInkVectors(recording);
-      File('$_out/$name.ev').writeAsStringSync(events);
-      File('$_out/$name.expected').writeAsStringSync(expected);
+      for (final MapEntry(key: variant, value: ends) in endVariants.entries) {
+        final (events, expected) = wetInkVectors(recording, ends: ends);
+        File('$_out/$name$variant.ev').writeAsStringSync(events);
+        File('$_out/$name$variant.expected').writeAsStringSync(expected);
+      }
     }
   }, skip: _out.isEmpty ? 'opt-in: --dart-define=INKLAB_WET_VECTORS=<dir>' : false);
 }

@@ -39,9 +39,18 @@ import kotlin.math.floor
 internal class WetInkLayer(parent: ViewGroup, above: View) {
     /**
      * One stroke's ink: (x, y, radius) triples of the hulls to fill and of
-     * the predicted tip, drawn only inside [clip].
+     * the predicted tip, drawn only inside [clip]; butt caps at the hulls'
+     * start, their end and the tip's end where flagged.
      */
-    class Ink(val color: Int, val clip: RectF, val hulls: FloatArray, val tip: FloatArray)
+    class Ink(
+        val color: Int,
+        val clip: RectF,
+        val hulls: FloatArray,
+        val tip: FloatArray,
+        val flatStart: Boolean = false,
+        val flatEnd: Boolean = false,
+        val flatTipEnd: Boolean = false,
+    )
 
     /**
      * Everything the overlay shows, within [bounds]. [newestNs] is the
@@ -174,8 +183,8 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
                 canvas.clipRect(ink.clip)
                 paint.color = ink.color
                 path.rewind()
-                addHulls(path, ink.hulls)
-                addHulls(path, ink.tip)
+                addHulls(path, ink.hulls, ink.flatStart, ink.flatEnd)
+                addHulls(path, ink.tip, false, ink.flatTipEnd)
                 canvas.drawPath(path, paint)
                 canvas.restore()
             }
@@ -222,12 +231,19 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
          * one triple a dot. Every piece winds the same way, so filling the
          * path (non-zero rule) covers their union once: antialiased edges are
          * not darkened by pieces overlapping, as they would be if each were
-         * filled alone.
+         * filled alone. With [flatStart] / [flatEnd] the first / last point
+         * has a butt cap (its piece ends square, without its circle); a lone
+         * point with either is a square (Flutter's flat dot).
          */
-        fun addHulls(path: Path, xyr: FloatArray) {
+        fun addHulls(path: Path, xyr: FloatArray, flatStart: Boolean = false, flatEnd: Boolean = false) {
             val n = xyr.size / 3
             if (n == 0) return
-            path.addCircle(xyr[0], xyr[1], xyr[2], Path.Direction.CW)
+            if (n == 1 && (flatStart || flatEnd)) {
+                val r = xyr[2]
+                path.addRect(xyr[0] - r, xyr[1] - r, xyr[0] + r, xyr[1] + r, Path.Direction.CW)
+                return
+            }
+            if (!flatStart) path.addCircle(xyr[0], xyr[1], xyr[2], Path.Direction.CW)
             for (i in 1 until n) {
                 val o = i * 3
                 val ax = xyr[o - 3]
@@ -236,10 +252,17 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
                 val bx = xyr[o]
                 val by = xyr[o + 1]
                 val rb = xyr[o + 2]
-                path.addCircle(bx, by, rb, Path.Direction.CW)
+                val squareA = flatStart && i == 1
+                val squareB = flatEnd && i == n - 1
+                if (!squareB) path.addCircle(bx, by, rb, Path.Direction.CW)
                 val dx = bx - ax
                 val dy = by - ay
                 val len = Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+                if (squareA || squareB) {
+                    if (len <= 0f) continue
+                    addButt(path, ax, ay, ra, bx, by, rb, dx / len, dy / len)
+                    continue
+                }
                 if (len <= Math.abs(ra - rb)) continue // One circle holds the other.
                 // The tangents touch where the normal n has n·u = (ra − rb) / len.
                 val ux = dx / len
@@ -258,6 +281,30 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
                 path.lineTo(ax + ra * n1x, ay + ra * n1y)
                 path.close()
             }
+        }
+
+        /**
+         * The quad between the diameters of (a, ra) and (b, rb) square to the
+         * unit direction (ux, uy): a piece with butt ends (a round end is its
+         * circle), wound as the hulls are.
+         */
+        private fun addButt(
+            path: Path,
+            ax: Float,
+            ay: Float,
+            ra: Float,
+            bx: Float,
+            by: Float,
+            rb: Float,
+            ux: Float,
+            uy: Float,
+        ) {
+            // The normal (−uy, ux) is n1 of a hull of equal circles.
+            path.moveTo(ax + ra * uy, ay - ra * ux)
+            path.lineTo(bx + rb * uy, by - rb * ux)
+            path.lineTo(bx - rb * uy, by + rb * ux)
+            path.lineTo(ax - ra * uy, ay + ra * ux)
+            path.close()
         }
 
         /** Grows [out] to hold every circle of [xyr], plus [margin]. */

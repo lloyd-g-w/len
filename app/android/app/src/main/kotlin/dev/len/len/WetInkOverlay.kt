@@ -187,7 +187,10 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 progressAt.addLast(now)
                 progressUpTo.addLast(upTo)
             }
-            "end" -> contacts.find { it.matches(message[1], message[2]) }?.endedAtMs = now
+            "end" -> contacts.find { it.matches(message[1], message[2]) }?.let {
+                it.endedAtMs = now
+                it.commit((message.getOrNull(3) as? Number)?.toDouble() ?: 0.0)
+            }
             "cancel" -> contacts.find { it.matches(message[1], message[2]) }?.let {
                 contacts.remove(it)
                 if (it === current) current = null

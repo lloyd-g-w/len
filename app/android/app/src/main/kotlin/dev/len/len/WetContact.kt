@@ -23,6 +23,15 @@ internal class WetContact(val device: Int, val downMs: Long) {
     /** When Dart said the committed stroke is in a built frame (-1: not yet). */
     var endedAtMs = -1L
 
+    /**
+     * Dart has committed the stroke (`end`), with an end taper [taperEnd]
+     * long (overlay px; 0: none): drawn from now on, as Flutter will show it.
+     */
+    fun commit(taperEnd: Double) {
+        model?.commit(taperEnd)
+        tipVersion++
+    }
+
     /** When the pen was lifted (-1: still down). */
     var liftedAtMs = -1L
         private set
@@ -169,7 +178,18 @@ internal class WetContact(val device: Int, val downMs: Long) {
             return null
         }
         val hulls = toFloats(m.segments(from, n))
-        ink = WetInkLayer.Ink(color, clip, hulls, tipOf(hulls))
+        val tip = tipOf(hulls)
+        // Flat ends: the stroke's start, and the end of what is drawn (the
+        // tip's, when there is one).
+        ink = WetInkLayer.Ink(
+            color,
+            clip,
+            hulls,
+            tip,
+            flatStart = m.flatStart,
+            flatEnd = m.flatEnd && tip.isEmpty(),
+            flatTipEnd = m.flatEnd,
+        )
         return ink
     }
 

@@ -2,31 +2,32 @@
 // `android/.../WetInkModel.kt`: a replay's raw samples fed to the model, the
 // overlay's tail queried after them, and the model's answers.
 
+import 'package:len/domain/stroke.dart';
 import 'package:len/ink/input/wet_ink.dart';
 import 'package:len/ink/lab/input_recording.dart';
 import 'package:len/ink/lab/raw_samples.dart';
 import 'package:len/ink/lab/replay_run.dart';
 import 'package:len/ink/lab/wet_ink_model.dart';
+import 'package:len/ink/render/stroke_renderer.dart';
 
 /// Events (`S` radii, `H` shape, `B` a new contact, `A` sample, `Q`
 /// query; after every [queryEvery]th sample and the last) and the model's
-/// answer to each query (tail start, then the (x, y, r) triples drawn).
-/// [maxContacts] limits the contacts used.
+/// answer to each query (tail start, then the ends — 1: flat start, 2: flat
+/// end — and the (x, y, r) triples drawn). [maxContacts] limits the
+/// contacts used; [ends] replaces the pen's end style (the end taper is the
+/// one a committed stroke carries, `WetInkModel.commit`).
 (String, String) wetInkVectors(
   InputRecording recording, {
   int queryEvery = 1,
   int? maxContacts,
+  StrokeStyle Function(StrokeStyle)? ends,
 }) {
   final r = ReplayResult.run(recording);
   final dpr = recording.meta.devicePixelRatio;
   // An unusual zoom and unit, so scaling mistakes show.
-  final wet = WetInkStyle.forPen(
-    r.pen.tool,
-    r.pen.width,
-    r.style.copyWith(unit: 0.9),
-    color: 0xFF000000,
-    scale: 1.3,
-  )!;
+  final style = (ends ?? (s) => s)(r.style.copyWith(unit: 0.9));
+  final wet = WetInkStyle.forPen(r.pen.tool, r.pen.width, style, color: 0xFF000000, scale: 1.3)!;
+  final taperEnd = StrokeRenderer.specFor(r.pen.tool, r.pen.width, style).taperEnd * 1.3 * dpr;
   final radii = [for (final x in wet.radii) x * dpr];
   final shape = wet.shape.scaled(dpr);
   final ev = StringBuffer()
@@ -51,7 +52,8 @@ import 'package:len/ink/lab/wet_ink_model.dart';
       final now = t + 1.0;
       // Every other contact ends just within the tail's last frames.
       final ended = lift && contact.isEven ? now - 9 : -1.0;
-      ev.writeln('Q $now $shown $ended');
+      ev.writeln('Q $now $shown $ended $taperEnd');
+      if (ended >= 0) m.commit(taperEnd: taperEnd);
       final from = m.tailStart(
         nowMs: now,
         shownUpToMs: shown.toDouble(),
@@ -61,7 +63,8 @@ import 'package:len/ink/lab/wet_ink_model.dart';
       if (from < m.samples.length) {
         final segments = m.segments(from, m.samples.length);
         final first = segments.first;
-        out.write(' ${first.a.dx} ${first.a.dy} ${first.ra}');
+        final flags = (first.flatA ? 1 : 0) + (segments.last.flatB ? 2 : 0);
+        out.write(' $flags ${first.a.dx} ${first.a.dy} ${first.ra}');
         if (first.a != first.b || segments.length > 1) {
           for (final g in segments) {
             out.write(' ${g.b.dx} ${g.b.dy} ${g.rb}');
@@ -74,3 +77,10 @@ import 'package:len/ink/lab/wet_ink_model.dart';
   }
   return (ev.toString(), out.toString());
 }
+
+/// The end styles the vectors are written for (name suffix → style).
+final Map<String, StrokeStyle Function(StrokeStyle)?> endVariants = {
+  '': null,
+  '_flat': (s) => s.copyWith(ends: StrokeEnds.flat),
+  '_tapered': (s) => s.copyWith(ends: StrokeEnds.tapered, taperStart: 3, taperEnd: 5),
+};

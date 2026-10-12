@@ -62,6 +62,9 @@ class InkDrawing {
   final LiftSpeed _liftSpeed = LiftSpeed();
   bool _endFollowsSpeed = false;
 
+  /// The end taper (world units) of the stroke just committed.
+  double _committedTaper = 0;
+
   int? _drawPointer;
   PointerDeviceKind? _drawKind;
   Duration _drawStartTime = Duration.zero;
@@ -231,6 +234,7 @@ class InkDrawing {
       style: stroke.style,
     );
     if (path != null) StrokeRenderer.adopt(stroke, path);
+    _committedTaper = StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style).taperEnd;
     PerfProbe.lift(liftTime);
     developer.Timeline.timeSync('len.commitStroke', () => model.addStroke(stroke));
   }
@@ -267,7 +271,8 @@ class InkDrawing {
 
   void _reset() {
     _straighten.end();
-    samples?.end();
+    samples?.end(taperEnd: _committedTaper);
+    _committedTaper = 0;
     _drawPointer = null;
     _drawKind = null;
     _erasing = false;
