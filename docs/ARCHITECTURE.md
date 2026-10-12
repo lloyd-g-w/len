@@ -323,8 +323,8 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   recording while another records ("Already recording in …").
 - **Presentation mode** (`present/`; "⋯" → *Present*, F5): `Presentation` hides all
   chrome (`ChromeLayout.focus`), goes immersive / full screen (`platform/fullscreen*`: the
-  browser's fullscreen API on the web; Android hides the system bars; desktop windows
-  stay as they are — no window plugin), makes the laser pointer the tool, and shows
+  browser's fullscreen API on the web; Android hides the system bars; Linux and Windows
+  windows go full screen through the runners' `len/window` channel), makes the laser pointer the tool, and shows
   paged notebooks one whole page at a time (single flow, fit page). ← / → / Page Up /
   Page Down / Space / Shift+Space turn pages (swipes too, when fingers navigate); a
   small bar (`PresentationControls`: previous, page n / m, next, *Stop presenting*)
@@ -618,11 +618,23 @@ opened, so no second copy of the PDF) into `PdfPageInfoCache` (LRU per page;
     entry). The GTK runner is single-instance (`G_APPLICATION_HANDLES_OPEN`): a
     second `len file.pdf` forwards the files over D-Bus to the running one,
     whose `open` handler sends them on `len/incoming_files`, and exits.
-    `LEN_MULTI_INSTANCE=1` or a non-default `XDG_DATA_HOME` (screenshots, tests)
-    turn this off.
-  - *Windows:* command-line paths (the runner passes them to `main`). File
-    associations belong to a future installer; a second launch is a second
-    process (no forwarding yet).
+    `LEN_MULTI_INSTANCE=1` or a non-default `XDG_DATA_HOME` (screenshots, tests;
+    Flatpak's own `XDG_DATA_HOME` does not count) turn this off.
+  - *Windows:* command-line paths (the runner passes them to `main`); the
+    installer registers Len in the "Open with" lists of `.pdf`, `.png`,
+    `.jpg`/`.jpeg` and `.webp` (and as a choice in *Default apps*, never
+    taking over a default). The runner is single-instance
+    (`windows/runner/single_instance.cpp`): a named mutex marks the running
+    Len, which serves a named pipe (current user only, local only, created
+    at start-up so launches during start-up queue). A second launch sends
+    its absolute paths (`LEN1` header, one UTF-8 path per line), waits for a
+    one-byte acknowledgement and exits; the server thread queues the paths and
+    posts a registered window message, and the window sends them on
+    `len/incoming_files` once Dart is `ready` (and comes to the front). If the
+    running Len is closing (no acknowledgement), the second launch waits for
+    the mutex and becomes the instance. Explorer starts one process per
+    selected file, so each arrives as its own batch. `LEN_MULTI_INSTANCE`
+    turns it off. Forwarded paths that do not exist are dropped (Linux too).
   - *Web:* the installed PWA's File Handling API (`file_handlers` +
     `launch_handler: focus-existing` in `manifest.json`; `launchQueue`
     consumer), Chromium-based desktop browsers only. Files can also be dropped
@@ -1150,8 +1162,8 @@ the web:
 | App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread, time-budgeted slices (`SlicedStrokeReader`) |
 | Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
-| Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
-| Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux: command line + forwarding from a second instance; Windows: command line | PWA `launchQueue` (File Handling API) |
+| Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock: a second tab waits ("open in another tab") |
+| Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux / Windows: command line + forwarding from a second instance | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
 | Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
@@ -1227,10 +1239,36 @@ below 31 bits, and use `float32`/`int32` in binary formats.
 - **Linux:** application id `dev.len.len` (= GTK app id = `.desktop` name =
   icon name, so Wayland docks match the window). The bundle carries `share/`
   (desktop entry with PDF/image MIME types and `%F`, icons) and
-  `install-desktop-entry.sh`; the runner loads its window icon from there and
-  is single-instance (files opened later are forwarded to the running Len).
+  `install-desktop-entry.sh`, plus AppStream metadata (`share/metainfo`); the
+  runner loads its window icon from there and is single-instance (files
+  opened later are forwarded to the running Len). `runner/window_state.cc`
+  restores the last size, maximised state and (X11 only; Wayland
+  compositors place windows) position from `<data dir>/dev.len.len/window.ini`,
+  clamped to the monitor, saved at shutdown (closing the window quits the
+  application without destroying it); minimum size 360×400. **Flatpak:**
+  `linux/packaging/flatpak/dev.len.len.yml` repackages the release tarball on
+  the GNOME runtime (GTK 3, GStreamer); file access through portals. Audio
+  recording needs `parecord` + `ffmpeg`, which the runtime lacks, so it does
+  not work in the Flatpak yet. No AppImage (the tarball + Flatpak cover it).
 - **Windows:** PerMonitorV2 DPI awareness (manifest), initial window centred
-  and clamped to the work area, minimum size 360×400.
+  and clamped to the work area, minimum size 360×400. The window remembers its
+  placement (`HKCU\Software\Len\WindowPlacement`, saved on close, end of
+  session and destroy; restored before the first frame if its monitor still
+  exists, maximised if it was). Single instance and "Open with": see *Opening
+  files from other apps*. **Installer:** Inno Setup (`windows/installer/len.iss`,
+  built in CI): per-user by default (no administrator rights), Start menu
+  entry, file associations, uninstaller, upgrades in place (closes a running
+  Len). Chosen over MSIX, which only installs when signed with a certificate
+  the machine trusts (a paid code-signing certificate or a manual certificate
+  import); the installer itself is unsigned (SmartScreen warns until it has
+  reputation or a signature).
+- **Desktop full screen:** presentation mode calls `setFullscreen`
+  (`platform/fullscreen*`), served by both runners on `len/window`
+  (`setFullScreen`): GTK `gtk_window_fullscreen`; on Windows a borderless
+  window over the monitor (style and placement restored afterwards). No
+  window plugin (`window_manager`): its Linux plugin rewires the GTK window's
+  delete-event and installs a global button-press emission hook, more than
+  these three features need.
 - **CI / releases:** `.github/workflows/ci.yml` (analyze, tests, all builds,
   server image) and `release.yml` (on `v*` tags; see README *Release*).
 
@@ -1490,8 +1528,7 @@ malformed record is skipped. Open screens subscribe to
   IndexedDB asynchronously, so closing the tab within milliseconds of an edit
   can lose it. Canvas chunk reads run on the UI thread (in time-budgeted
   slices; a single large chunk still decodes in one go).
-- Open with: Windows has no file associations (installer) or single-instance
-  forwarding yet; Android shares mixing PDFs and images arrive as `*/*`, which
+- Open with: Android shares mixing PDFs and images arrive as `*/*`, which
   Len does not register for; PDFs dropped onto an open editor are ignored (only
   images are inserted there; drop onto the library or use "Open with").
 - Page reorders made concurrently on two devices converge (LWW per page) but

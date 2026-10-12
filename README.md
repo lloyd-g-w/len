@@ -17,9 +17,10 @@ Download the latest build from
 | Platform | File | How |
 |----------|------|-----|
 | Android 7+ | `len-X.Y.Z-android-arm64-v8a.apk` (most phones/tablets; `-universal` if unsure) | Open the APK and allow installing from your browser/file manager. |
-| Windows 10/11 (x64) | `len-X.Y.Z-windows-x64.zip` | Unzip anywhere, run `len.exe`. |
+| Windows 10/11 (x64) | `len-X.Y.Z-windows-x64-setup.exe` | Run the installer (no administrator rights needed; it is not code-signed yet, so SmartScreen asks: *More info → Run anyway*). Adds Len to the Start menu and to "Open with" for PDFs and images; uninstall from *Settings → Apps*. Portable alternative: `len-X.Y.Z-windows-x64.zip`, unzip and run `len.exe` (no file associations). |
+| Linux (x64) | `len-X.Y.Z-linux-x64.flatpak` | `flatpak install --user len-X.Y.Z-linux-x64.flatpak` (fetches the GNOME runtime from Flathub). Audio recording does not work in the Flatpak yet. |
 | Linux (x64) | `len-X.Y.Z-linux-x64.tar.gz` | Unpack, run `./len`; `./install-desktop-entry.sh` adds it to your application menu (`--uninstall` removes it). Needs GTK 3 and GStreamer (with the -good and an AAC plugin, for audio playback); recording uses `parecord` and `ffmpeg`. |
-| Web | `len-X.Y.Z-web.zip` | Static site: unzip and serve it with any web server (headers: see *Develop*). |
+| Web | `len-X.Y.Z-web.zip` | Static site: unzip and serve it over HTTPS with any web server (headers: see *Develop*). Install it from the browser (PWA) to use it offline. |
 
 For sync, run the server: [server/README.md](server/README.md) (Docker image
 `ghcr.io/lloyd-g-w/len-sync`). `SHA256SUMS` lists the checksums of all files.
@@ -47,11 +48,16 @@ Without Nix, install Flutter ≥ 3.47 and follow
 | Linux   | Linux           | `flutter build linux`        |
 | Android | Linux / Windows | `flutter build apk`          |
 | Windows | Windows         | `flutter build windows`      |
-| Web     | any             | `flutter build web` (or `--wasm`) |
+| Web     | any             | `tool/build_web.sh` (or `flutter build web`, no offline precache; `--wasm` works with both) |
 
-The web build (`app/build/web`) is a static site (installable as a PWA):
-serve it from any web server, e.g. `python3 -m http.server -d build/web`.
-Data stays in the browser (SQLite in IndexedDB); one tab at a time. To sync,
+The web build is a static site (installable as a PWA). For releases use
+`tool/build_web.sh` (from `app/`; extra arguments go to `flutter build web`):
+it serves CanvasKit from the site itself and writes the offline service
+worker's file list, so the installed app opens without a network after the
+first visit (offline needs HTTPS or `localhost`). Serve `build/web` from any
+web server, e.g. `python3 -m http.server -d build/web`; don't let it cache
+`sw.js` for long. Data stays in the browser (SQLite in IndexedDB; Len asks the
+browser to keep it, see *Settings → Storage*); one tab at a time. To sync,
 the server must allow the site's origin (`LEN_CORS_ORIGINS`, default `*`).
 For `--wasm` builds, serve with `Cross-Origin-Opener-Policy: same-origin` and
 `Cross-Origin-Embedder-Policy: require-corp` to enable multi-threaded
@@ -74,13 +80,53 @@ output.
 2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 
 The [release workflow](.github/workflows/release.yml) checks that the tag
-matches the pubspec, builds the APKs (universal + per ABI), the Linux tarball,
-the Windows zip and the web zip, attaches them to a GitHub release, and
+matches the pubspec, builds the APKs (universal + per ABI), the Linux tarball
+and a Flatpak made from it, the Windows installer and zip, and the web zip,
+attaches them to a GitHub release, and
 pushes the sync server image to `ghcr.io/<owner>/len-sync` (`X.Y.Z`, `X.Y`,
 `latest`; amd64 + arm64). CI ([ci.yml](.github/workflows/ci.yml)) runs on
 every push / PR: analyze + tests (app and server) and all builds. Both pin
 the Flutter version used by `flake.nix` (`FLUTTER_VERSION`); bump them
 together.
+
+### Windows installer
+
+`app/windows/installer/len.iss` (Inno Setup 6.3+) packages
+`flutter build windows --release`. CI runs it on every push (artifact
+`len-windows-x64-setup`); locally on Windows:
+
+```powershell
+cd app; flutter build windows --release
+iscc /DAppVersion=0.1.0 windows\installer\len.iss   # → build\windows\installer\
+```
+
+It installs per user into `%LOCALAPPDATA%\Programs\Len` (the setup offers
+"all users" with administrator rights), registers Len in the "Open with"
+lists of PDF / PNG / JPEG / WebP files and under *Default apps* without taking
+over any default, and upgrades in place (keep `AppId`). Opening files while
+Len runs hands them to the running window (single instance; set
+`LEN_MULTI_INSTANCE=1` to run several, e.g. for testing). Why not MSIX: it
+only installs when signed with a certificate the PC trusts; if Len gets a
+code-signing certificate, sign the setup (`SignTool` in `[Setup]`) and
+consider MSIX / winget then.
+
+### Flatpak
+
+`app/linux/packaging/flatpak/dev.len.len.yml` repackages the Linux release
+tarball (no Flutter inside the Flatpak build) on the GNOME runtime:
+
+```sh
+cp len-X.Y.Z-linux-x64.tar.gz app/linux/packaging/flatpak/len-linux-x64.tar.gz
+flatpak-builder --user --install --install-deps-from=flathub --force-clean \
+  /tmp/len-flatpak app/linux/packaging/flatpak/dev.len.len.yml
+flatpak run dev.len.len
+```
+
+The release workflow's `flatpak` job does this and attaches
+`len-X.Y.Z-linux-x64.flatpak`. For Flathub, point the archive source at the
+release tarball (`url` + `sha256`), add a licence and screenshots to
+`linux/packaging/dev.len.len.metainfo.xml`, and bump `runtime-version` (and
+the CI image `gnome-NN`) with new GNOME releases.
 
 ### Android signing
 
