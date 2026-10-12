@@ -640,6 +640,8 @@ void main() {
           [1, 1000],
         ],
         'waveform': waveform,
+        'trimStartMs': 0,
+        'trimEndMs': 1000,
       };
       server.injected.addAll([
         _record('recordings', 'bad-wave', 10, data: data('xyz')),

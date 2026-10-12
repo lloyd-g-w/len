@@ -8,6 +8,7 @@ import '../../platform/file_export.dart' as platform;
 import '../documents/export/export_flow.dart' show ExportFile, ExportSaver;
 import '../documents/export/export_options.dart' show safeFileName;
 import '../documents/progress_dialog.dart' show showMessage;
+import 'adts.dart';
 
 /// The file extension of audio of [mime] (`m4a` for AAC in MP4, `aac` for
 /// raw AAC in ADTS frames).
@@ -19,6 +20,11 @@ String audioExtension(String mime) => switch (mime) {
   'audio/ogg' => 'ogg',
   _ => 'audio',
 };
+
+/// Whether [r]'s export keeps to its trim: raw AAC is cut at frame
+/// boundaries; other formats (browser recordings, whole MP4 / WebM files)
+/// would need decoding, so they export untrimmed.
+bool exportsTrimmed(Recording r) => r.trimmed && r.mime == Recording.adtsMime;
 
 /// The files a recording exports as: its parts joined into one where they
 /// join by concatenation (see [Recording.joinable]), else one file per part
@@ -78,7 +84,11 @@ Future<void> exportRecordings(
         }
         joined.add(bytes);
       }
-      files.add((bytes: joined.takeBytes(), name: names[files.length]));
+      final audio = joined.takeBytes();
+      files.add((
+        bytes: exportsTrimmed(r) ? AdtsReader.cut(audio, r.trimStartMs, r.trimEndMs) : audio,
+        name: names[files.length],
+      ));
     }
   }
   if (!context.mounted) return;

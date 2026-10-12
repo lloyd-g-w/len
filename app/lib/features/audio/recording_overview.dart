@@ -12,9 +12,10 @@ import '../../domain/waveform.dart';
 class InkActivity {
   InkActivity(List<int> positions) : positions = List.unmodifiable(positions..sort());
 
-  /// Maps content creation [times] (epoch ms) onto [timeline].
-  factory InkActivity.of(RecordingTimeline timeline, Iterable<int> times) =>
-      InkActivity([for (final t in times) ?timeline.positionOf(t)]);
+  /// Maps content creation [times] (epoch ms) onto [recording]'s audio,
+  /// leaving out content made outside its kept (trimmed) range.
+  factory InkActivity.of(Recording recording, Iterable<int> times) =>
+      InkActivity([for (final t in times) ?recording.inkPositionOf(t)]);
 
   static final InkActivity none = InkActivity([]);
 
@@ -32,14 +33,15 @@ class InkActivity {
       if (i == 0 || positions[i] - positions[i - 1] >= burstGapMs) positions[i],
   ];
 
-  /// How much was written in each of [count] equal slices of [durationMs]
-  /// of audio, relative to the busiest slice (0…1).
-  List<double> density(int count, {required int durationMs}) {
+  /// How much was written in each of [count] equal slices of the audio
+  /// [fromMs]…[toMs], relative to the busiest slice (0…1).
+  List<double> density(int count, {int fromMs = 0, required int toMs}) {
     if (count <= 0) return const [];
     final counts = List.filled(count, 0);
-    final total = durationMs <= 0 ? 1 : durationMs;
+    final total = toMs - fromMs <= 0 ? 1 : toMs - fromMs;
     for (final p in positions) {
-      counts[(p * count ~/ total).clamp(0, count - 1)]++;
+      if (p < fromMs || p > toMs) continue;
+      counts[((p - fromMs) * count ~/ total).clamp(0, count - 1)]++;
     }
     final most = counts.fold(0, (a, b) => a > b ? a : b);
     return [for (final c in counts) most == 0 ? 0.0 : c / most];
@@ -94,7 +96,9 @@ class RecordingOverviews extends ChangeNotifier {
   /// The overview of [recording]: its ink at once, the waveform once
   /// loaded (listeners are notified then).
   RecordingOverview of(Recording recording) {
-    final ink = _ink[recording.id] ??= _inkOf(recording);
+    final ink = _ink['${recording.id}/${recording.trimStartMs}/${recording.trimEndMs}'] ??= _inkOf(
+      recording,
+    );
     final sha = recording.waveform;
     if (sha.isEmpty) return RecordingOverview(ink: ink);
     if (!_waveforms.containsKey(sha)) {
@@ -107,7 +111,7 @@ class RecordingOverviews extends ChangeNotifier {
   InkActivity _inkOf(Recording recording) {
     final timeline = recording.timeline;
     return InkActivity.of(
-      timeline,
+      recording,
       contentTimes(timeline.segments.first.startedAt, timeline.segments.last.endedAt),
     );
   }

@@ -111,7 +111,10 @@ class Recording {
     required this.updatedAt,
     this.waveform = '',
     List<RecordingSegment>? segments,
-  }) : segments = List.unmodifiable(
+    this.trimStartMs = 0,
+    int? trimEndMs,
+  }) : trimEndMs = trimEndMs ?? durationMs,
+       segments = List.unmodifiable(
          segments == null || segments.isEmpty
              ? [RecordingSegment(startedAt, durationMs)]
              : segments,
@@ -142,6 +145,34 @@ class Recording {
   /// recording without pauses is one segment from [startedAt].
   final List<RecordingSegment> segments;
 
+  /// Where the kept audio begins and ends (positions in the whole audio;
+  /// `0` and [durationMs] when untrimmed). Trimming is non-destructive:
+  /// the parts keep all the audio, playback, export and the overview keep
+  /// to this range.
+  final int trimStartMs, trimEndMs;
+
+  /// Whether the recording is trimmed.
+  bool get trimmed => trimStartMs > 0 || trimEndMs < durationMs;
+
+  /// Length of the kept audio (what the user hears and is shown).
+  int get lengthMs => trimEndMs - trimStartMs;
+
+  /// The shortest audio a trim keeps.
+  static const int minTrimMs = 1000;
+
+  /// The audio position at which ink made at wall time [epochMs] was heard,
+  /// or null when that lies outside the kept audio (ink made before the
+  /// trim start then counts as written before the recording, ink made after
+  /// its end as written after it).
+  int? inkPositionOf(int epochMs) {
+    final position = timeline.positionOf(epochMs);
+    return position == null || position < trimStartMs || position > trimEndMs ? null : position;
+  }
+
+  /// The wall time at which the kept audio ends when the end is trimmed
+  /// away, else null: ink made after it is not replayed (always shown).
+  int? get keptUntil => trimEndMs < durationMs ? timeline.wallTimeAt(trimEndMs) : null;
+
   /// MIME type of raw AAC in ADTS frames: parts of this type joined byte
   /// by byte are one playable stream.
   static const String adtsMime = 'audio/aac';
@@ -155,18 +186,21 @@ class Recording {
   /// Maps between audio positions and wall-clock times.
   RecordingTimeline get timeline => RecordingTimeline(segments);
 
-  Recording copyWith({String? title, int? updatedAt}) => Recording(
-    id: id,
-    notebookId: notebookId,
-    parts: parts,
-    durationMs: durationMs,
-    startedAt: startedAt,
-    title: title ?? this.title,
-    mime: mime,
-    updatedAt: updatedAt ?? this.updatedAt,
-    waveform: waveform,
-    segments: segments,
-  );
+  Recording copyWith({String? title, int? updatedAt, int? trimStartMs, int? trimEndMs}) =>
+      Recording(
+        id: id,
+        notebookId: notebookId,
+        parts: parts,
+        durationMs: durationMs,
+        startedAt: startedAt,
+        title: title ?? this.title,
+        mime: mime,
+        updatedAt: updatedAt ?? this.updatedAt,
+        waveform: waveform,
+        segments: segments,
+        trimStartMs: trimStartMs ?? this.trimStartMs,
+        trimEndMs: trimEndMs ?? this.trimEndMs,
+      );
 }
 
 /// Maps audio positions of a recording to the wall-clock times (epoch ms)

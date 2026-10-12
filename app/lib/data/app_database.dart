@@ -129,7 +129,16 @@ class AppDatabase {
     _recordingWaveforms,
     _organise,
     _recordingParts,
+    _recordingTrim,
   ];
+
+  /// Version 6: a recording's kept range (`trim_start_ms`, `trim_end_ms`;
+  /// untrimmed = `0` and `duration_ms`).
+  static void _recordingTrim(CommonDatabase db) {
+    db.execute('ALTER TABLE recordings ADD COLUMN trim_start_ms INTEGER NOT NULL DEFAULT 0');
+    db.execute('ALTER TABLE recordings ADD COLUMN trim_end_ms INTEGER NOT NULL DEFAULT 0');
+    db.execute('UPDATE recordings SET trim_end_ms = duration_ms');
+  }
 
   /// Version 5: a recording's audio is a list of parts (`audio`, JSON
   /// `[[blob, durationMs], …]`) instead of one `blob`.

@@ -197,6 +197,8 @@ void main() {
         [2000, 2000],
       ],
       'waveform': '',
+      'trimStartMs': 0,
+      'trimEndMs': 3000,
     };
     for (final key in complete.keys) {
       final missing = {...complete}..remove(key);
@@ -220,6 +222,10 @@ void main() {
       ('segments', ['junk']),
       ('title', null),
       ('waveform', 'nope'),
+      ('trimStartMs', -1),
+      ('trimStartMs', 3001),
+      ('trimEndMs', 3001),
+      ('trimEndMs', 2.5),
     ]) {
       final odd = {...complete, key: value};
       expect(() => s.recordings.applyRemote(record('bad', odd)), throwsFormatException);

@@ -93,6 +93,38 @@ class AdtsReader {
     return (frames: frames, durationMs: reader.durationMs);
   }
 
+  /// The whole frames of [bytes] that overlap audio [fromMs]…[toMs]: the
+  /// audio of a trimmed recording, cut at frame boundaries (a frame is
+  /// ≈ 23 ms at 44.1 kHz). Frame times are summed exactly (samples at the
+  /// current rate), so the cut does not drift in long recordings.
+  static Uint8List cut(Uint8List bytes, int fromMs, int toMs) {
+    final out = BytesBuilder(copy: false);
+    final from = fromMs * 1000, to = toMs * 1000;
+    var micros = 0, samples = 0, rate = 0;
+    var i = 0;
+    while (i + 7 <= bytes.length) {
+      final length = _frameLength(bytes, i);
+      if (length == null) {
+        i++;
+        continue;
+      }
+      if (i + length > bytes.length) break;
+      final frameRate = sampleRates[(bytes[i + 2] >> 2) & 0x0F];
+      if (frameRate != rate) {
+        if (rate != 0) micros += samples * 1000000 ~/ rate;
+        samples = 0;
+        rate = frameRate;
+      }
+      final start = micros + samples * 1000000 ~/ rate;
+      if (start >= to) break;
+      samples += ((bytes[i + 6] & 0x03) + 1) * samplesPerBlock;
+      final end = micros + samples * 1000000 ~/ rate;
+      if (end > from) out.add(Uint8List.sublistView(bytes, i, i + length));
+      i += length;
+    }
+    return out.takeBytes();
+  }
+
   /// The duration of the ADTS audio in [chunks] (e.g. a file being read).
   static Future<int> measure(Stream<List<int>> chunks) async {
     final reader = AdtsReader();

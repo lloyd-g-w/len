@@ -97,6 +97,21 @@ class RecordingRepository extends SyncableTable {
     return updated;
   }
 
+  /// Keeps only audio [startMs]…[endMs] of recording [id] (non-destructive:
+  /// `0` and its duration undo it); returns the updated recording.
+  Recording? trim(String id, int startMs, int endMs) {
+    final current = get(id);
+    if (current == null) return null;
+    assert(0 <= startMs && startMs <= endMs && endMs <= current.durationMs);
+    final updated = current.copyWith(
+      trimStartMs: startMs,
+      trimEndMs: endMs,
+      updatedAt: nextVersion(id),
+    );
+    _write(updated, deviceId: deviceId, dirty: true);
+    return updated;
+  }
+
   /// Tombstones recording [id]. Its blob stays until garbage collection
   /// (see `LocalBlobGc`) finds it unreferenced for long enough.
   void delete(String id) => _tombstone(id);
@@ -141,6 +156,8 @@ class RecordingRepository extends SyncableTable {
               'mime': row['mime'],
               'segments': jsonDecode(row['segments'] as String),
               'waveform': row['waveform'],
+              'trimStartMs': row['trim_start_ms'],
+              'trimEndMs': row['trim_end_ms'],
             },
     );
   }
@@ -173,18 +190,25 @@ class RecordingRepository extends SyncableTable {
     ];
     final waveform = f.string('waveform');
     if (waveform.isNotEmpty && !BlobStore.isValidId(waveform)) f.invalid('waveform');
+    final durationMs = f.integer('durationMs');
+    final trimStart = f.integer('trimStartMs');
+    final trimEnd = f.integer('trimEndMs');
+    if (trimStart < 0 || trimStart > trimEnd) f.invalid('trimStartMs');
+    if (trimEnd > durationMs) f.invalid('trimEndMs');
     _write(
       Recording(
         id: record.id,
         notebookId: f.string('notebookId'),
         parts: parts,
-        durationMs: f.integer('durationMs'),
+        durationMs: durationMs,
         startedAt: f.integer('startedAt'),
         title: f.string('title'),
         mime: f.string('mime'),
         updatedAt: record.updatedAt,
         waveform: waveform,
         segments: segments,
+        trimStartMs: trimStart,
+        trimEndMs: trimEnd,
       ),
       deviceId: record.deviceId,
       dirty: false,
@@ -195,9 +219,9 @@ class RecordingRepository extends SyncableTable {
     db.execute(
       '''
       INSERT OR REPLACE INTO recordings (id, notebook_id, audio, duration_ms, started_at, title,
-                                         mime, segments, waveform, updated_at, device_id,
-                                         deleted, dirty)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
+                                         mime, segments, waveform, trim_start_ms, trim_end_ms,
+                                         updated_at, device_id, deleted, dirty)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
       [
         r.id,
         r.notebookId,
@@ -208,6 +232,8 @@ class RecordingRepository extends SyncableTable {
         r.mime,
         jsonEncode([for (final s in r.segments) s.toJson()]),
         r.waveform,
+        r.trimStartMs,
+        r.trimEndMs,
         r.updatedAt,
         deviceId,
         dirty ? 1 : 0,
@@ -229,6 +255,8 @@ class RecordingRepository extends SyncableTable {
       updatedAt: row['updated_at'] as int,
       waveform: row['waveform'] as String,
       segments: raw is List ? raw.map(RecordingSegment.tryParse).nonNulls.toList() : null,
+      trimStartMs: row['trim_start_ms'] as int,
+      trimEndMs: row['trim_end_ms'] as int,
     );
   }
 }
