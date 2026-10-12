@@ -1,7 +1,7 @@
 # Len: UI overhaul spec
 
-Status: proposal (`docs/redesign`). The cuts this spec assumes are in
-[`SIMPLIFY.md`](SIMPLIFY.md); where it conflicts with `UX_AUDIT.md`, this spec wins.
+Status: phases 1–4 implemented (see §6 *Progress*); the rest is the plan.
+The cuts this spec assumes are in [`SIMPLIFY.md`](SIMPLIFY.md); where it conflicts with `UX_AUDIT.md`, this spec wins.
 
 **Goal.** Paper first, with chrome that recedes (GoodNotes 6, Notewise, Apple Notes): one
 slim bar, one home per control, nothing parked over the page. Principles:
@@ -434,3 +434,26 @@ dark; 1.3× text).
 | 8 | Settings and sweep | single-column settings; grep `features/` for `showModalBottomSheet`, `AlertDialog`, `SimpleDialog`, `PopupMenuButton` until none are left; update `UX_AUDIT.md`, `ARCHITECTURE.md`, `ROADMAP.md` | suite `app_surfaces*` |
 
 Phase 1 comes first because every later phase then gets smaller.
+
+**Progress.** Phases 1 and 2 are in main. Phases 3 and 4 are done on
+`feat/toolbar` (ARCHITECTURE *Toolbar*), with these deviations:
+
+- Quick colour and width slots stay **1–6 each** (3 + 3 by default; user
+  decision), set with − n + in the popover rather than [+] [−].
+- The popover's palette is the existing 20-colour `ColorSwatches.palette`
+  (two rows of ten), then up to six recent colours and Custom.
+- The pen and highlighter panels are hosted unchanged under *Feel* (so the
+  pen's end style from feat/pen5 merges in): "Hold to snap shapes" therefore
+  shows in the pen's Feel as well as in the Shapes popover, and the eraser
+  keeps *Auto-deselect*. The laser's trail length is a slider (0.3–3 s), not
+  Short / Long; `ToolSettings.laser` already existed.
+- The lasso's popover explains the tool instead of being empty, so tapping
+  any active tool behaves the same.
+- Outline stays in ⋯ and *Add page to outline…* in Page ▸ (SIMPLIFY lead
+  decision: user outline kept) until phase 5's overview filter.
+- View ▸ lists *Toolbar docked* / *Toolbar floating* as two choices rather than
+  a nested menu. Audio's ▾ shows once the notebook has recordings (as before).
+- The phone bar's tab switcher button went with this phase (no room in
+  `← title ↶ ↷ ⋯`); *Open notebooks (n)* is in ⋯.
+- Not yet: the page indicator (phase 5) and floating snapping / vertical axis
+  (phase 6); floating keeps today's free placement.

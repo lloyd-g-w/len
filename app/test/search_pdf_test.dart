@@ -122,6 +122,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Search in notebook'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.enterText(find.byType(TextField).last, 'energy');
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('2 matches'), findsOneWidget);
