@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
@@ -41,10 +42,12 @@ void main() {
       testWidgets('e_pages $shot', (tester) async {
         await guardOverflows('e_pages_$shot', () async {
           await pumpEditor(tester, size: screen.size, mode: mode);
-          await tester.tap(find.byTooltip('More ways to add pages'));
+          await tester.tap(find.byTooltip('Insert'));
           await settle(tester);
           await shoot(tester, 'e_navigator_add_menu_$shot');
           await dismiss(tester, screen.size.center(Offset.zero));
+          await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+          await tester.pump(const Duration(milliseconds: 50));
           await tester.tap(find.byTooltip('Go to page'));
           await settle(tester);
           await shoot(tester, 'e_goto_page_$shot');
@@ -74,7 +77,9 @@ void main() {
       await settle(tester);
       await shoot(tester, 'e_page_menu_phone_large_text');
       await dismiss(tester, phone.center(Offset.zero));
-      await tester.tap(find.byTooltip('Go to page'), warnIfMissed: false);
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.byTooltip('Go to page'));
       await settle(tester);
       await shoot(tester, 'e_goto_page_phone_large_text');
     });

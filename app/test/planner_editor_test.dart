@@ -13,6 +13,8 @@ import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ui/app_theme.dart';
 
+import 'support/page_actions.dart';
+
 final _oct = DateTime.utc(2026, 10, 1);
 final _oct12 = Paper.planner(PaperStyle.dailyPlanner, DateTime.utc(2026, 10, 12));
 
@@ -124,10 +126,8 @@ void main() {
     final (s, nb) = await _open(tester, [
       Paper.planner(PaperStyle.dailyPlanner, DateTime.utc(2024, 2, 28)),
     ]);
-    await tester.tap(find.byTooltip('Add page after this one'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Add page after this one'));
-    await tester.pumpAndSettle();
+    await addPageAfter(tester);
+    await addPageAfter(tester);
     expect(s.pages.pagesOf(nb.id).map((p) => p.paper.date), [
       DateTime.utc(2024, 2, 28),
       DateTime.utc(2024, 2, 29),

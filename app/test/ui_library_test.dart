@@ -12,6 +12,7 @@ import 'package:len/sync/sync_api.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'support/fake_server.dart' show FakeServer;
+import 'support/page_actions.dart';
 
 /// Pumps the library with fresh in-memory services. Sync stays unconfigured
 /// and is never started (that would leave a periodic timer running).
@@ -91,8 +92,7 @@ void main() {
     expect(find.text('1 / 1'), findsOneWidget);
 
     await drawStroke(tester);
-    await tester.tap(find.byTooltip('Add page after this one'));
-    await tester.pumpAndSettle();
+    await addPageAfter(tester);
     expect(find.text('2 / 2'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Back'));

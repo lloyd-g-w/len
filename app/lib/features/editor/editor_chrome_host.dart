@@ -203,7 +203,7 @@ class EditorChromeHost extends StatelessWidget {
           secondPane: secondPane,
           band: band,
         ),
-        navigator: editorPageNavigator(context, session, width: layout.width),
+        navigator: editorPageNavigator(context, session),
         navigatorActivity: navigatorActivity,
       ),
     );

@@ -103,7 +103,7 @@ void main() {
 
   testWidgets('editor single-page flow (tablet portrait)', (tester) async {
     await pumpEditor(tester, size: tabletPortrait, before: (s) => s.settings.pageFlow = 'single');
-    await tester.tap(find.byTooltip('Next page'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
     await settle(tester);
     await shoot(tester, 'editor_single_page');
   });
