@@ -195,7 +195,6 @@ class _MenuBar extends StatelessWidget {
       },
     );
   }
-
 }
 
 /// Centres the menu above [target] (screen rect), else below it, else at

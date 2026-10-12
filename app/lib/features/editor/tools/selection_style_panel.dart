@@ -8,6 +8,7 @@ import '../../../ink/tool_settings.dart';
 import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
+import '../../../ui/even_grid.dart';
 import '../pen/option_controls.dart';
 import 'colour_sheet.dart';
 import 'text/text_style_menus.dart';
@@ -64,7 +65,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _colourRow(context),
+            ..._colourSection(context),
             const SizedBox(height: Gaps.md),
             if (texts.isNotEmpty) ..._textSection(context, texts),
             if (texts.isNotEmpty && strokes.isNotEmpty) const SizedBox(height: Gaps.md),
@@ -75,36 +76,54 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
     );
   }
 
-  /// The colour of the first stroke, else of the first text box.
-  int _currentColour() {
-    if (_sel.strokes.isNotEmpty) return _sel.strokes.first.color;
-    final data = _sel.elements.firstOrNull?.data['color'];
-    return data is int ? data : 0xFF000000;
+  /// The colour all strokes and text boxes share, else null.
+  int? _commonColour() => _common([
+    for (final s in _sel.strokes) s.color | 0xFF000000,
+    for (final e in _sel.elements)
+      if (e.knownType == ElementType.text) TextData.fromJson(e.data).color | 0xFF000000,
+  ]);
+
+  /// The pen's quick colours, then the saved favourites; at most two rows.
+  List<int> _swatches() {
+    final tools = widget.tools;
+    return {
+      for (final c in tools.configOf(InkTool.ballpoint).colors) c | 0xFF000000,
+      ...tools.favorites.map((c) => c | 0xFF000000),
+    }.take(_maxSwatches).toList();
   }
 
-  Widget _colourRow(BuildContext context) => Row(
-    children: [
-      Expanded(child: Text('Colour', style: Theme.of(context).textTheme.labelLarge)),
-      Builder(
-        builder: (anchor) => ColorDot(
-          color: _currentColour(),
-          selected: false,
-          size: 28,
-          target: 40,
-          tooltip: 'Colour',
-          onTap: () async {
-            final colour = await pickColour(
-              anchor,
-              title: 'Recolour selection',
-              initial: _currentColour(),
-              tools: widget.tools,
-            );
-            if (colour != null) _sel.recolor(colour);
-          },
-        ),
+  static const int _maxSwatches = 13;
+
+  List<Widget> _colourSection(BuildContext context) {
+    final current = _commonColour();
+    return [
+      const OptionHeader('Colour'),
+      EvenGrid(
+        itemExtent: 32,
+        touchTargets: true,
+        children: [
+          for (final c in _swatches())
+            ColorDot(color: c, selected: c == current, onTap: () => _sel.recolor(c)),
+          Builder(
+            builder: (anchor) => IconButton(
+              tooltip: 'More colours',
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.add_rounded, size: 20),
+              onPressed: () async {
+                final colour = await pickColour(
+                  anchor,
+                  title: 'Recolour selection',
+                  initial: current ?? _sel.strokes.firstOrNull?.color ?? 0xFF000000,
+                  tools: widget.tools,
+                );
+                if (colour != null) _sel.recolor(colour);
+              },
+            ),
+          ),
+        ],
       ),
-    ],
-  );
+    ];
+  }
 
   List<Widget> _textSection(BuildContext context, List<TextData> texts) {
     final label = Theme.of(context).textTheme.labelLarge;

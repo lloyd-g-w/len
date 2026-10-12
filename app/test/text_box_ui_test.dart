@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/ui/color_dot.dart';
 
 import 'content_tools_ui_test.dart';
 
@@ -35,6 +36,25 @@ Future<void> paste(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('lasso Style shows colours: a swatch recolours the selection', (tester) async {
+    final (services, nb) = await openCanvas(
+      tester,
+      seed: (s, nb) => s.strokes.save([seedStroke(nb.id)]),
+    );
+    await key(tester, LogicalKeyboardKey.keyL);
+    await mouseDrag(tester, const [Offset(150, 400)]);
+    expect(find.byTooltip('Colour'), findsNothing); // Folded into Style.
+    await tester.tap(find.byTooltip('Style'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('More colours'), findsOneWidget);
+    final other = find.byWidgetPredicate((w) => w is ColorDot && w.color != 0xFF1F2937).first;
+    final colour = tester.widget<ColorDot>(other).color;
+    await tester.tap(other);
+    await tester.pumpAndSettle();
+    expect(liveStrokes(services, nb.id).single.color, colour);
+    expect(tester.widget<ColorDot>(other).selected, isTrue);
+  });
+
   testWidgets('Ctrl+V pastes plain text as a new, selected text box; copied ink wins after', (
     tester,
   ) async {
