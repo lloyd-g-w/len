@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
+import '../../ui/sheet_parts.dart';
 import 'templates/page_setup.dart';
 import 'templates/planner_options.dart';
 import 'templates/template_catalog.dart';
@@ -162,22 +163,14 @@ class _TemplatePickerState extends State<TemplatePicker> {
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(Gaps.xl, top, Gaps.xl, Gaps.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_title, style: theme.textTheme.titleMedium),
-              const SizedBox(height: Gaps.xxs),
-              Text(
-                describeSelection(
-                  _s,
-                  canvas: widget.mode == TemplatePickerMode.canvas,
-                  generate: _generates,
-                ),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
+          child: SheetHeader(
+            title: _title,
+            subtitle: describeSelection(
+              _s,
+              canvas: widget.mode == TemplatePickerMode.canvas,
+              generate: _generates,
+            ),
+            onClose: () => Navigator.of(context).pop(),
           ),
         ),
         if (split)

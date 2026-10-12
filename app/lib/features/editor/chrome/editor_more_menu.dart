@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/preferences.dart';
+import '../../../ui/app_theme.dart';
 import '../document/document_layout.dart';
 import '../document/page_fit.dart';
 import '../document/page_overview.dart';
@@ -61,6 +62,7 @@ class EditorMoreMenu extends StatelessWidget {
         if (compact) ...compactItems,
         if (a.isPaged) ...[
           SubmenuButton(
+            trailingIcon: const Icon(Symbols.chevron_right_rounded, size: Glyphs.menu),
             leadingIcon: const Icon(Symbols.description_rounded),
             menuChildren: [
               _item(Symbols.note_add_rounded, 'Add page with template…', a.onAddWithTemplate),
@@ -196,6 +198,7 @@ class EditorMoreMenu extends StatelessWidget {
     Map<T, String> hints = const {},
     List<Widget> extra = const [],
   }) => SubmenuButton(
+      trailingIcon: const Icon(Symbols.chevron_right_rounded, size: Glyphs.menu),
     leadingIcon: Icon(icon),
     menuChildren: [
       for (final (option, text) in options)

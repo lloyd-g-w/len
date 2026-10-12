@@ -72,17 +72,15 @@ class _FolderDialogState extends State<_FolderDialog> {
       // Name and colours can outgrow short (landscape phone) screens.
       scrollable: true,
       // The folder as it will look, in its colour.
-      leading: Center(
-        child: AnimatedContainer(
-          duration: Motion.medium,
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14),
-            borderRadius: BorderRadius.circular(Radii.md),
-          ),
-          child: Icon(Symbols.folder_rounded, fill: 1, color: color, size: 36),
+      leading: AnimatedContainer(
+        duration: Motion.medium,
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14),
+          borderRadius: BorderRadius.circular(Radii.md),
         ),
+        child: Icon(Symbols.folder_rounded, fill: 1, color: color, size: 32),
       ),
       title: widget.title,
       content: DialogBody(

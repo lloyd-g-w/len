@@ -84,7 +84,12 @@ class _FolderTileState extends State<FolderTile> {
               : scheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(Radii.sm),
           border: Border.all(
-            color: active ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.6),
+            // No outlines in light mode (REDESIGN §1.1).
+            color: active
+                ? scheme.primary
+                : theme.brightness == Brightness.dark
+                ? scheme.outlineVariant
+                : Colors.transparent,
             width: active ? 1.6 : 1,
           ),
           boxShadow: feedback || highlighted ? Shadows.low(theme.brightness) : null,

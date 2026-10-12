@@ -92,7 +92,7 @@ class AppDialog extends StatelessWidget {
           ? null
           : Align(alignment: AlignmentDirectional.centerStart, child: header),
       iconPadding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.xl, Gaps.xl, Gaps.md),
-      title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
+      title: Text(title, textAlign: TextAlign.start, maxLines: 2, overflow: TextOverflow.ellipsis),
       content: content,
       contentPadding: contentPadding,
       scrollable: scrollable,
