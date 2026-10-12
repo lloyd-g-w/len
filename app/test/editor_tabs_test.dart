@@ -11,6 +11,8 @@ import 'package:len/features/editor/tabs/open_notebooks.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/ui/app_theme.dart';
 
+import 'support/page_actions.dart';
+
 Notebook notebook(String id, {NotebookKind kind = NotebookKind.paged}) => Notebook(
   id: id,
   title: 'Notebook $id',
@@ -114,10 +116,8 @@ void main() {
 
     await openCard(tester, 'Physics');
     expect(find.byType(EditorScreen), findsOneWidget);
-    await tester.tap(find.byTooltip('Next page'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Next page'));
-    await tester.pumpAndSettle();
+    await nextPage(tester);
+    await nextPage(tester);
     expect(find.text('3 / 4'), findsOneWidget);
 
     // Back to the library and open a second notebook: two tabs.

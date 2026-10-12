@@ -250,11 +250,13 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   "⋯" `EditorMoreMenu`; phones keep back, the title, undo/redo and ⋯), the toolbar
   (inside the bar, attached under it, the phone's bottom row, or floating in `ToolbarSlot`
   by a grip; see *Toolbar*), `PageNavigator`, `GestureHud` (counts
-  repeats: "Undo ×3"), `TipBanner` and, in focus mode, only a `FocusHandle`. On phones
-  (< 600 px) the page navigator *peeks* (`chrome/peeking.dart`): it shows when the
-  notebook opens and while the document viewport moves, fades after ~2 s (stays while
-  touched or hovered), lets touches through when hidden, and takes no room in
-  `ChromeLayout.covered` — so it no longer covers the page above the toolbar. `ChromeLayout` says how much of each screen edge
+  repeats: "Undo ×3"), `TipBanner` and, in focus mode, only a `FocusHandle`.
+  The `3 / 12` page indicator peeks on every screen (`chrome/peeking.dart`):
+  it shows when the notebook opens and while the document viewport moves,
+  fades after 1.5 s (stays while touched or hovered), lets touches through
+  and excludes itself from accessibility when hidden, and takes no room in
+  `ChromeLayout.covered`. Tap to go to a page; long-press for the overview.
+  `ChromeLayout` says how much of each screen edge
   the chrome covers; the document pads its scroll bounds by it (in screen pixels, so it
   is re-applied on zoom), and the selection / text menus and the canvas's zoom pill and
   fit button (`CanvasView`) avoid it (passed down as `MediaQuery.padding` / insets).

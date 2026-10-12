@@ -41,10 +41,17 @@ void main() {
       testWidgets('e_pages $shot', (tester) async {
         await guardOverflows('e_pages_$shot', () async {
           await pumpEditor(tester, size: screen.size, mode: mode);
-          await tester.tap(find.byTooltip('More ways to add pages'));
+          await tester.tap(find.byTooltip('Insert'));
           await settle(tester);
           await shoot(tester, 'e_navigator_add_menu_$shot');
           await dismiss(tester, screen.size.center(Offset.zero));
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: screen.size.center(Offset.zero),
+              scrollDelta: const Offset(0, 500),
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 50));
           await tester.tap(find.byTooltip('Go to page'));
           await settle(tester);
           await shoot(tester, 'e_goto_page_$shot');
@@ -74,7 +81,14 @@ void main() {
       await settle(tester);
       await shoot(tester, 'e_page_menu_phone_large_text');
       await dismiss(tester, phone.center(Offset.zero));
-      await tester.tap(find.byTooltip('Go to page'), warnIfMissed: false);
+      await tester.sendEventToBinding(
+        const PointerScrollEvent(
+          position: Offset(180, 480),
+          scrollDelta: Offset(0, 500),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.byTooltip('Go to page'));
       await settle(tester);
       await shoot(tester, 'e_goto_page_phone_large_text');
     });

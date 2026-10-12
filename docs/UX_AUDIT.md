@@ -1,5 +1,21 @@
 # Len — UX/UI audit
 
+## Peeking page indicator (REDESIGN phase 5, in progress)
+
+- ✅ The page control is now a compact `3 / 12` pill on every screen. It
+  appears when the pages move, fades after 1.5 seconds and leaves no
+  permanent bottom inset. Tap it to enter a page number; long-press for
+  the overview. The page commands live in ⋯ → Page, and adding a page
+  with a template or PDF is in Insert ⊕.
+- ✅ Page Up / Page Down and the arrow keys still turn pages in single-page
+  flow; the indicator itself no longer repeats those controls.
+- ⬜ The canvas's persistent Fit button stays for discoverability: the zoom
+  pill is hidden at rest, so removing Fit would leave no visible way to
+  reach its menu without first zooming. Make that menu discoverable before
+  removing the button.
+- ⬜ The Go to page dialog still has only a number field, not the spec's
+  thumbnail strip; the overview supplies the thumbnails.
+
 ## Library and settings redesign (`feat/library2`, REDESIGN phases 7 and 8)
 
 Reviewed from the `library_`, `flows_`, `organise_` and `app_surfaces*` suites

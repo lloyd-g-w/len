@@ -17,6 +17,8 @@ import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ink/render/ink_painters.dart';
 import 'package:len/ui/app_theme.dart';
 
+import 'support/page_actions.dart';
+
 /// A notebook with three differently shaped pages, some with ink.
 Future<(AppServices, Notebook)> pumpEditor(
   WidgetTester tester, {
@@ -163,8 +165,7 @@ void main() {
     await tester.tap(find.text('One page at a time'));
     await tester.pumpAndSettle();
     expect(s.settings.pageFlow, 'single');
-    await tester.tap(find.byTooltip('Next page'));
-    await tester.pumpAndSettle();
+    await nextPage(tester);
     expect(find.text('2 / 3'), findsOneWidget);
     await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/editor_single.png'));
     await drawAt(tester, const Offset(640, 450));
@@ -176,8 +177,7 @@ void main() {
     final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
     List<NotebookPage> pages() => s.pages.pagesOf(nb.id);
 
-    await tester.tap(find.byTooltip('Add page after this one'));
-    await tester.pumpAndSettle();
+    await addPageAfter(tester);
     expect(find.text('2 / 4'), findsOneWidget);
     expect(pages()[1].paper.style, PaperStyle.collegeRuled); // Like the page it follows.
 

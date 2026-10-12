@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'chrome/chrome_metrics.dart';
 import 'chrome/editor_menu_actions.dart';
 import 'document/document_layout.dart';
 import 'document/page_overview.dart';
@@ -57,26 +56,16 @@ EditorMenuActions editorMenuActions(
   );
 }
 
-/// The page navigator for a paged [session] (null for canvases). On phones
-/// it also offers the page overview, which the top bar has no room for.
-Widget? editorPageNavigator(BuildContext context, EditorSession session, {required double width}) {
+/// The peeking page indicator for a paged [session] (null for canvases).
+Widget? editorPageNavigator(BuildContext context, EditorSession session) {
   final doc = session.doc;
   final commands = session.commands;
   if (doc == null || commands == null) return null;
-  final phone = width < ChromeMetrics.compactWidth;
   return PageNavigator(
-    // Phones turn pages by scrolling (or swiping, one page at a time).
-    compact: phone && doc.flow == PageFlow.continuous,
     index: doc.currentPage,
     count: doc.pages.length,
     bookmarked: doc.pages[doc.currentPage].bookmarked,
-    onSelect: doc.scrollToPage,
-    onAddPage: commands.addPage,
-    onOverview: phone
-        ? () => commands.openOverview(context, backgrounds: session.backgrounds)
-        : null,
+    onOverview: () => commands.openOverview(context, backgrounds: session.backgrounds),
     onGoTo: () => commands.goToPagePrompt(context),
-    onAddWithTemplate: () => commands.addPageWithTemplate(context),
-    onInsertPdf: () => commands.insertPdf(context),
   );
 }

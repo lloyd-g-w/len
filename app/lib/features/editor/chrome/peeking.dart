@@ -6,7 +6,7 @@ import '../../../ui/app_theme.dart';
 
 /// Shows [child] while [activity] notifies (e.g. pages scroll or turn) and
 /// for [linger] afterwards, then fades it out of the way — so a floating
-/// control (the phone page indicator) doesn't sit over the page for good.
+/// control (the page indicator) doesn't sit over the page for good.
 /// Touching or hovering it keeps it shown. Without [enabled] it simply
 /// stays.
 class Peeking extends StatefulWidget {
@@ -15,7 +15,7 @@ class Peeking extends StatefulWidget {
     required this.activity,
     required this.child,
     this.enabled = true,
-    this.linger = const Duration(milliseconds: 2200),
+    this.linger = const Duration(milliseconds: 1500),
   });
 
   final Listenable? activity;
@@ -79,9 +79,11 @@ class _PeekingState extends State<Peeking> {
   Widget build(BuildContext context) {
     final visible = !widget.enabled || _shown;
     // Hidden, it lets touches through to the page beneath.
-    return IgnorePointer(
-      ignoring: !visible,
-      child: MouseRegion(
+    return ExcludeSemantics(
+      excluding: !visible,
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: MouseRegion(
         onEnter: (_) => _hold(true),
         onExit: (_) => _hold(false),
         child: Listener(
@@ -94,6 +96,7 @@ class _PeekingState extends State<Peeking> {
             curve: Motion.standard,
             child: widget.child,
           ),
+        ),
         ),
       ),
     );

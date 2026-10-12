@@ -45,10 +45,8 @@ class ChromeLayout {
   /// Height of the phone's bottom tool row, gesture inset excluded.
   double get bottomRowHeight => dock == ToolbarDock.bottom ? ToolbarMetrics.bottomHeight : 0;
 
-  /// Phones: the page navigator only peeks in while pages scroll or turn
-  /// (it would otherwise cover the page above the toolbar), so it takes
-  /// no room.
-  bool get navigatorPeeks => phone;
+  /// The indicator takes no permanent room on any display size.
+  bool get navigatorPeeks => true;
 
   /// Bottom of the top chrome block (status bar, tabs, bar, tool row).
   double get barBottom => safe.top + barHeight + toolRowHeight;
@@ -60,15 +58,14 @@ class ChromeLayout {
   /// floating palette covers no edge.
   EdgeInsets get covered {
     if (focus) return EdgeInsets.only(top: safe.top, bottom: safe.bottom);
-    final navigator = hasNavigator && !navigatorPeeks ? ChromeMetrics.navigatorExtent : 0.0;
-    return EdgeInsets.only(top: barBottom, bottom: safe.bottom + bottomRowHeight + navigator);
+    return EdgeInsets.only(top: barBottom, bottom: safe.bottom + bottomRowHeight);
   }
 
-  /// [covered], plus the spot a peeking navigator appears in (phones):
+  /// [covered], plus the spot a peeking navigator appears in:
   /// floating controls along the bottom (the audio bar) stay clear of it.
   EdgeInsets get floatingInsets {
     final insets = covered;
-    if (focus || !hasNavigator || !navigatorPeeks) return insets;
+    if (focus || !hasNavigator) return insets;
     return insets.copyWith(bottom: insets.bottom + ChromeMetrics.navigatorExtent);
   }
 }
@@ -159,7 +156,7 @@ class EditorChrome extends StatelessWidget {
           AnimatedPositioned(
             duration: Motion.slow,
             curve: Motion.emphasized,
-            right: safe.right + ChromeMetrics.edge,
+            right: layout.phone ? (layout.width - 72) / 2 : safe.right + ChromeMetrics.edge,
             bottom: layout.navigatorBottom,
             child: ChromeFade(
               visible: !focus,

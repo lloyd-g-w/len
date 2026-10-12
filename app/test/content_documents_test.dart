@@ -145,7 +145,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('One page at a time'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Next page'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
     await tester.pumpAndSettle();
 
     await key(tester, LogicalKeyboardKey.keyT);
