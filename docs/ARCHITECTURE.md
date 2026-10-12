@@ -543,8 +543,8 @@ normalised to the page as shown, so `/Rotate` and crop boxes are already
 applied; page links go to the exported page showing the target (the next
 one after the link's page) and are dropped if it is not exported.
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
-indices from a range like "1-3, 5", templates and PDF backgrounds on or off,
-PNG resolution); without templates pages are exported as blank white paper.
+indices from a range like "1-3, 5", templates and PDF backgrounds on or off;
+PNGs are always 288 dpi, `pngScale`); without templates pages are exported as blank white paper.
 Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once

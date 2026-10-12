@@ -88,14 +88,9 @@ void main() {
         '3 pages · PDF',
       );
       expect(
-        const ExportOptions(
-          format: ExportFormat.png,
-          pages: [0],
-          pngResolution: PngResolution.high,
-        ).summary,
-        '1 page · PNG · 384 dpi',
+        const ExportOptions(format: ExportFormat.png, pages: [0]).summary,
+        '1 page · PNG · 288 dpi',
       );
-      expect(PngResolution.standard.dpi, 192);
     });
   });
 }

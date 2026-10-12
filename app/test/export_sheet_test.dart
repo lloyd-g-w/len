@@ -156,10 +156,8 @@ void main() {
     await tester.tap(find.text('Current page'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Page templates'));
-    await tester.scrollUntilVisible(find.text('High 4×'), 100);
-    await tester.tap(find.text('High 4×'));
     await tester.pumpAndSettle();
-    expect(find.text('1 page · PNG · 384 dpi'), findsOneWidget);
+    expect(find.text('1 page · PNG · 288 dpi'), findsOneWidget);
     expect(find.text('PDF backgrounds'), findsNothing); // No imported PDF pages.
     await tester.tap(_exportButton);
     await tester.pumpAndSettle();
@@ -168,7 +166,7 @@ void main() {
     expect(page.id, pages[1].id);
     expect(page.paper.style, PaperStyle.blank);
     expect(page.paperColor, PaperColor.white);
-    expect(scale, 4);
+    expect(scale, 3);
     expect(saved.single.$1, ['Lab p2.png']);
   });
 

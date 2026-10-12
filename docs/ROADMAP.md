@@ -91,7 +91,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   ink) and page to PNG; save dialog on desktop, share sheet on Android
 - ✅ Progress for import / export: stage, file name, "Page x of n" bar
 - ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
-  backgrounds on or off, PNG resolution (192 / 384 dpi); several PNGs shared or saved at once
+  backgrounds on or off, PNGs at 288 dpi; several PNGs shared or saved at once
 - ✅ Planner templates: daily planner, weekly planner (week grid), monthly calendar — date-aware
   (pick the first month and 1–12 months; correct days, leap years, ISO weeks), optionally a linked
   planner (each month followed by its weeks and days) with month → week → day links (finger tap
