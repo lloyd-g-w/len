@@ -978,12 +978,13 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   `MotionEventPredictor` (Android's own predictor where the device has
   one, else a Kalman filter) extrapolates the pen; `WetInkPrediction`
   (pure Kotlin) draws only a short, cautious piece of it, at the tip's
-  radius: points at most 10 ms ahead, no further along them than the recent
-  speed covers in 10 ms, 6 tip radii, or the length over which a straight
-  line leaves the current curvature by a quarter radius; scaled smoothly
-  to nothing while the pen slows down, turns (15–45° between the last two
-  8 ms windows) or lifts (pressure falling or low), and none in the first
-  16 ms. The pen-up's frame has no tip at all (no prediction, and no line
+  radius: points at most 15 ms ahead, no further along them than the recent
+  speed covers in 15 ms, 12 tip radii, or the length over which a straight
+  line leaves the current curvature by 0.4 radius; scaled smoothly to
+  nothing while the pen slows down, turns (15–45° between the last two
+  8 ms windows), lifts (pressure falling or low) or the predictor has just
+  missed (the samples landed 1–3 tip radii from the prediction kept about
+  a frame earlier), and none in the first 16 ms. The pen-up's frame has no tip at all (no prediction, and no line
   to the raw pen-up sample, which could draw a pen-up hook the model cut).
   Predicted points are only drawn, never stored; each event replaces them
   (in reused buffers). With the stabiliser on (`WetInkModel.stabilised`)

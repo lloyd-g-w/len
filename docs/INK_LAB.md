@@ -692,30 +692,66 @@ the real path) the prediction stays within 0.25 W, in steady motion
 
 | p50 / p95 / max (W) | Before (all points ≤ 20 ms) | After (`WetInkPrediction`) |
 |---|---|---|
-| Real: pen-up (702 events) | 2.88 / 15.6 / 55.5 (11.9 / 64.5 / 230 px) | 0.00 / 0.00 / 0.10 (max 0.4 px) |
-| Real: turns (1638) | 0.98 / 4.18 / 20.0 | 0.00 / 0.09 / 0.89 |
-| Real: all events (23 290) | 0.70 / 4.03 / 55.5 | 0.02 / 0.21 / 2.15 |
-| Real: events off by > 0.5 W | 14 087 | 144 |
-| Real: steady lead (mean) | 10.0 ms, 24.1 px | 2.4 ms, 6.0 px |
-| Sim: pen-up (16) | 0.58 / 1.13 / 1.13 | 0.00 / 0.12 / 0.12 |
-| Sim: all events (750) | 0.11 / 0.41 / 1.13 | 0.03 / 0.12 / 0.26 |
-| Sim: steady lead (mean) | 16.2 ms, 6.5 px | 5.2 ms, 2.4 px |
+| Real: pen-up (702 events) | 2.88 / 15.6 / 55.5 (11.9 / 64.5 / 230 px) | 0.00 / 0.00 / 0.35 (max 1.4 px) |
+| Real: turns (1638) | 0.98 / 4.18 / 20.0 | 0.00 / 0.17 / 1.30 |
+| Real: all events (23 290) | 0.70 / 4.03 / 55.5 | 0.03 / 0.31 / 3.76 |
+| Real: events off by > 0.5 W | 14 087 | 337 |
+| Real: steady lead (mean) | 10.0 ms, 24.1 px | 3.9 ms, 7.9 px |
+| Sim: pen-up (16) | 0.58 / 1.13 / 1.13 | 0.00 / 0.00 / 0.00 |
+| Sim: all events (750) | 0.11 / 0.41 / 1.13 | 0.04 / 0.19 / 0.46 |
+| Sim: steady lead (mean) | 16.2 ms, 6.5 px | 8.0 ms, 3.6 px |
 
 - **Why it overshot.** The Kalman filter extrapolates velocity, acceleration
   and jerk; when the pen brakes, turns or lifts (the S Pen often jumps a
   few px while the pressure falls) that runs far off the path, up to
   230 px at 20 ms, and the next event takes it back.
-- **The policy** (constants in `WetInkPrediction`, chosen by sweeping them
-  over the replay; real recordings): a 10 ms horizon (8 or 20 ms change
-  the lead by ≤ 0.1 ms: the distance caps bind first); reach ≤ speed ×
-  10 ms and ≤ 6 tip radii (4 radii: lead 1.9 ms, p95 0.16 W; 12: 3.1 ms,
-  0.28 W); ≤ the length over which a straight line leaves the current
-  curvature by 0.25 radius. The caps alone still leave pen-up p95 at
-  2.25 W and turns at 2.35 W. Then scaled from full to none as pressure
-  falls 0.02–0.08 per 8 ms or drops below 0.15 (none at 0.05): pen-up p95
-  0.01 W; and as the speed over the last 8 ms drops to 0.8 of the 8 ms
-  before (braking precedes cusps and tight turns) or the direction turns
-  15–45°: turns p95 0.70 → 0.09 W, lead 3.3 → 2.4 ms.
+- **The policy** (constants in `WetInkPrediction`, round 5, chosen by
+  sweeping them over the replay for the most steady lead within pen-up
+  p95 ≤ 0.25 W, max ≤ 0.6 W and turns p95 ≤ 0.25 W, real recordings): a
+  15 ms horizon; reach ≤ speed × 15 ms, ≤ 12 tip radii, ≤ the length over
+  which a straight line leaves the current curvature by 0.4 radius; scaled
+  from full to none as the speed over the last 8 ms drops from 0.9 to 0.7
+  of the 8 ms before (braking precedes cusps and tight turns), the
+  direction turns 15–45°, pressure falls 0.005–0.03 per 8 ms or drops
+  from 0.06 to 0.02, or the predictor *misses*: every 8 ms (≈ a frame) the
+  policy keeps the prediction and measures how far the next samples land
+  from it (largest miss, fading over 8 ms); full up to 1 tip radius, none
+  from 3. The caps alone leave pen-up p95 at 2.25 W and turns at 2.35 W.
+  The miss gate is what allows the longer caps and the looser gates: the
+  pen-up max is one fast stroke lifted at speed (≈ 4 px/ms, pressure
+  still 0.37), which only the miss gate or a short cap catch.
+- **Options tried** (real recordings except the last column; regenerate
+  with `LEN_PREDICTION_OPTIONS=1 tool/wet_ink_check/unit_test.sh`, the
+  `options` test). "Round 4" is the previous policy; "chosen, …" changes
+  one thing in the new one. Error is the centre-point metric above (no
+  tip taper: the predicted tip keeps the end's radius). Lead stops rising
+  past ≈ 4–5 ms: beyond, the Kalman port wanders off by more than 0.25 W
+  in fast strokes, which shows in the all-events column (fast, nearly
+  straight strokes; in the ones inspected the pointer events come in
+  bursts, 2 ms apart with 6–8 ms gaps, which upsets the Kalman port and
+  may not be what the device predictor sees).
+
+  | Option | Steady lead ms (px) | Pen-up p95 / max W | Turns p95 W | All p95 / max W (events > 0.5 W) | Sim lead ms, all p95 W |
+  |---|---|---|---|---|---|
+  | round 4 | 2.4 (6.0) | 0.00 / 0.10 | 0.09 | 0.21 / 2.2 (144) | 5.2, 0.12 |
+  | round 4, ≤ 8 radii | 2.8 (7.1) | 0.01 / 0.38 | 0.09 | 0.25 / 2.2 (206) | 5.2, 0.12 |
+  | round 4, ≤ 12 radii | 3.1 (8.3) | 0.01 / **1.36** | 0.09 | 0.28 / 2.8 (284) | 5.2, 0.12 |
+  | round 4, 20 ms, ≤ 10 radii | 3.2 (8.1) | 0.01 / **0.87** | 0.09 | 0.31 / 2.8 (410) | 8.6, 0.23 |
+  | round 4, slow 0.7–0.9 | 2.9 (6.9) | 0.01 / **1.21** | 0.21 | 0.25 / 2.3 (222) | 6.3, 0.14 |
+  | round 4, pressure 0.02–0.06 | 2.9 (6.7) | 0.02 / 0.20 | 0.13 | 0.23 / 2.2 (153) | 5.2, 0.12 |
+  | no miss gate, ≤ 10 radii, slow 0.8–1 | 3.9 (9.1) | 0.00 / 0.26 | 0.16 | 0.35 / 2.9 (508) | 6.6, 0.18 |
+  | no miss gate, ≤ 10 radii | 4.6 (10.6) | 0.00 / **1.89** | **0.30** | 0.42 / 3.2 (736) | 8.0, 0.19 |
+  | no miss gate | 4.8 (11.4) | 0.00 / **2.59** | **0.30** | 0.45 / 3.8 (922) | 8.0, 0.19 |
+  | chosen, ≤ 10 radii | 3.7 (7.4) | 0.00 / 0.34 | 0.17 | 0.29 / 2.7 (244) | 8.0, 0.19 |
+  | chosen, ≤ 18 radii | 4.1 (8.8) | 0.00 / 0.35 | 0.17 | 0.35 / 5.0 (505) | 8.0, 0.19 |
+  | chosen, ≤ 18 radii, 20 ms | 4.3 (9.0) | 0.00 / 0.40 | 0.17 | 0.39 / 5.0 (716) | 9.9, 0.25 |
+  | chosen, miss 0.5–2 radii | 3.1 (6.1) | 0.00 / 0.21 | 0.14 | 0.26 / 3.8 (228) | 8.0, 0.19 |
+  | **chosen** | **3.9 (7.9)** | 0.00 / 0.35 | 0.17 | 0.31 / 3.8 (337) | 8.0, 0.19 |
+
+  18 radii buys 0.2 ms for 50 % more events off by > 0.5 W, a 20 ms
+  horizon another 0.2 ms for 40 % more; turn gates of 20–50° or 25–60°,
+  windows of 6 ms and other lift/pressure ramps changed the lead by
+  ≤ 0.1 ms or broke a limit.
 - **Pen-up.** The ACTION_UP's frame draws no tip: no prediction, and no
   more line from the ink's end to the raw pen-up sample. The model may cut
   a pen-up hook there, and that line drew it until the overlay let go of
