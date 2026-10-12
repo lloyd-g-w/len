@@ -12,7 +12,6 @@ import 'recording_repository.dart';
 import 'stroke_repository.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
-import 'tag_repository.dart';
 
 /// Persists notebooks and orchestrates notebook-level operations that span
 /// pages and strokes (creation with a first page, duplication, trash and
@@ -25,7 +24,6 @@ class NotebookRepository extends SyncableTable {
     required this.strokes,
     this.elements,
     this.recordings,
-    this.tags,
     this.outline,
     super.clock,
   });
@@ -38,10 +36,6 @@ class NotebookRepository extends SyncableTable {
 
   /// Audio recordings are tombstoned with their notebook when set.
   final RecordingRepository? recordings;
-
-  /// Tags are taken off the notebook and its pages when it is deleted, and
-  /// copied when it is duplicated, when set.
-  final TagRepository? tags;
 
   /// The notebook's own outline is deleted and duplicated with it when set.
   final OutlineRepository? outline;
@@ -190,7 +184,6 @@ class NotebookRepository extends SyncableTable {
       strokes.deleteSurfaces([id, ...pageIds]);
       elements?.deleteSurfaces([id, ...pageIds]);
       recordings?.deleteAllOf(id);
-      tags?.taggings.removeTargets([id, ...pageIds]);
       outline?.deleteAllOf(id);
     });
   }

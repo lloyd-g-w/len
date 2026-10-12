@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
-import '../tags/tag_widgets.dart';
 import 'cover_locator.dart';
 import 'library_actions.dart';
 import 'library_drag.dart';
@@ -113,22 +112,11 @@ class _NotebookListTileState extends State<NotebookListTile> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: Gaps.xxs),
-                      Row(
-                        children: [
-                          if (widget.actions.controller.tagsOf(_notebook.id) case final tags
-                              when tags.isNotEmpty) ...[
-                            TagDots(tags, size: 9),
-                            const SizedBox(width: Gaps.xs),
-                          ],
-                          Expanded(
-                            child: Text(
-                              widget.subtitle,
-                              style: theme.textTheme.bodySmall,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        widget.subtitle,
+                        style: theme.textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),

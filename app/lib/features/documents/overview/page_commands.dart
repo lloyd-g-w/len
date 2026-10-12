@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/notebook_page.dart';
-import '../../../domain/tag.dart';
 import '../../../ui/menus.dart';
 
 /// Something the user asked for on one page in the overview.
@@ -27,7 +26,6 @@ class OverviewHandlers {
     required this.command,
     required this.move,
     this.deleteMany,
-    this.pageTags,
   });
 
   /// Current pages in order.
@@ -42,10 +40,6 @@ class OverviewHandlers {
   /// Deletes several pages as one undoable step. Without it, the overview
   /// runs [PageCommand.delete] on each page.
   final Future<void> Function(BuildContext context, List<NotebookPage> pages)? deleteMany;
-
-  /// The tags on the notebook's pages, each with the ids of its pages, for
-  /// the tag filter (none without it).
-  final List<({Tag tag, Set<String> pages})> Function()? pageTags;
 }
 
 /// The options menu of [page].

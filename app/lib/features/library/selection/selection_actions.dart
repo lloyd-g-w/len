@@ -42,12 +42,6 @@ extension SelectionActions on LibraryActions {
     selection.clear();
   }
 
-  /// Tags or untags every selected notebook.
-  Future<void> tagSelected(BuildContext context, LibrarySelection selection) async {
-    final ids = _ids(selection);
-    if (ids.isNotEmpty) await editTags(context, ids);
-  }
-
   void trashSelected(BuildContext context, LibrarySelection selection) {
     final ids = _ids(selection);
     if (ids.isEmpty) return;

@@ -1,45 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:len/app_services.dart';
 import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/link_target.dart';
 import 'package:len/domain/paper.dart';
-import 'package:len/domain/tag.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/tools/content_layer.dart';
-import 'package:len/features/library/library_screen.dart';
-import 'package:len/features/library/notebook_card.dart';
-import 'package:len/ui/app_theme.dart';
 
 import 'screenshot_harness.dart';
 
-/// Organisation features with real fonts: tags in the library (sidebar,
-/// chips, picker, manager), the editor's outline panel and links, on
-/// desktop / tablet and phone, light and dark.
+/// Organisation features with real fonts: the editor's outline panel and
+/// links, on tablet and phone, light and dark.
 void main() {
   setUpAll(loadRealFonts);
 
   const phone = ('phone', Size(390, 844), 2.0);
-  const desktop = ('desktop', Size(1440, 900), 1.0);
   const tablet = ('tablet', Size(1280, 800), 1.0);
-
-  /// The seeded library with tags on a few notebooks.
-  AppServices tagged() {
-    final s = seededServices();
-    final notebooks = {for (final n in s.notebooks.list()) n.title: n.id};
-    final school = s.tags.create(name: 'School', color: Palette.covers[0]);
-    final urgent = s.tags.create(name: 'Urgent', color: Palette.covers[3]);
-    final home = s.tags.create(name: 'Home', color: Palette.covers[1]);
-    void tag(String title, Tag t) =>
-        s.tags.taggings.set(t.id, notebooks[title]!, TagTarget.notebook, on: true);
-    tag('Physics — Mechanics', school);
-    tag('Physics — Mechanics', urgent);
-    tag('Spanish vocabulary', school);
-    tag('Recipes', home);
-    tag('Travel plans', home);
-    tag('Meeting notes', urgent);
-    return s;
-  }
 
   Future<void> tap(WidgetTester tester, Finder finder) async {
     await tester.tap(finder, warnIfMissed: false);
@@ -47,45 +22,6 @@ void main() {
   }
 
   for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-    for (final (name, size, dpr) in [desktop, phone]) {
-      testWidgets('library tags $name ${mode.name}', (tester) async {
-        setWindow(tester, size, dpr: dpr);
-        final s = tagged();
-        addTearDown(s.dispose);
-        await pumpApp(tester, s, const LibraryScreen(), mode: mode);
-        await shoot(tester, 'o_library_tags_${name}_${mode.name}');
-
-        if (name == 'desktop') {
-          await tap(tester, find.byKey(ValueKey('sidebar-tag-${s.tags.byName('school')!.id}')));
-        } else {
-          await tap(tester, find.byKey(ValueKey('tag-chip-${s.tags.byName('school')!.id}')));
-        }
-        await shoot(tester, 'o_library_tag_filter_${name}_${mode.name}');
-
-        await tap(
-          tester,
-          find
-              .descendant(
-                of: find.ancestor(
-                  of: find.text('Physics — Mechanics'),
-                  matching: find.byType(NotebookCard),
-                ),
-                matching: find.byTooltip('More'),
-              )
-              .first,
-        );
-        await tap(tester, find.text('Tags…'));
-        await shoot(tester, 'o_tag_picker_${name}_${mode.name}');
-        await tester.binding.handlePopRoute();
-        await settle(tester);
-
-        await tap(tester, find.byTooltip('Manage tags').first);
-        await shoot(tester, 'o_tag_manager_${name}_${mode.name}');
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox());
-      });
-    }
-
     for (final (name, size, dpr) in [tablet, phone]) {
       testWidgets('editor outline, links $name ${mode.name}', (tester) async {
         setWindow(tester, size, dpr: dpr);

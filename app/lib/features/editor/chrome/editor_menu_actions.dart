@@ -32,8 +32,6 @@ class EditorMenuActions {
     this.onExport,
     this.onOutline,
     this.onAddToOutline,
-    this.onPageTags,
-    this.onTags,
     this.flow,
     this.onFlow,
     this.fit,
@@ -86,12 +84,6 @@ class EditorMenuActions {
 
   /// Adds the current page to the notebook's outline.
   final VoidCallback? onAddToOutline;
-
-  /// Tags the current page.
-  final VoidCallback? onPageTags;
-
-  /// Tags the notebook (every notebook kind).
-  final VoidCallback? onTags;
   final PageFlow? flow;
   final ValueChanged<PageFlow>? onFlow;
 

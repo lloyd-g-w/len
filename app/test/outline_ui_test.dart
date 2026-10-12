@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:len/features/documents/overview/page_tile.dart';
 import 'package:len/features/editor/document/document_controller.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/outline/outline_panel.dart';
@@ -87,42 +86,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(s.outline.entriesOf(nb.id).single.title, 'Details');
     expect(find.text('Start'), findsNothing);
-    await closeEditor(tester);
-  });
-
-  testWidgets('page and notebook tags from the editor menu', (tester) async {
-    final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
-    final page = s.pages.pagesOf(nb.id).first;
-    await _menu(tester, 'Page tags…');
-    await tester.enterText(find.byKey(const ValueKey('tag-picker-field')), 'Exam');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
-    await tester.pumpAndSettle();
-    final exam = s.tags.byName('exam')!;
-    expect(s.tags.taggings.tagsOf(page.id), {exam.id});
-    expect(find.text('Tagged Exam'), findsOneWidget);
-
-    await _menu(tester, 'Notebook tags…', page: false);
-    await tester.tap(find.byKey(ValueKey('tag-picker-${exam.id}')));
-    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
-    await tester.pumpAndSettle();
-    expect(s.tags.taggings.tagsOf(nb.id), {exam.id});
-
-    // The page overview filters by page tag.
-    await tester.tap(find.byTooltip('All pages'));
-    await tester.pumpAndSettle();
-    expect(find.byType(PageTile), findsNWidgets(3));
-    await tester.tap(find.byKey(const ValueKey('overview-tag-filter')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Exam').last);
-    await tester.pumpAndSettle();
-    expect(find.byType(PageTile), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('overview-tag-filter')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('All pages').last);
-    await tester.pumpAndSettle();
-    expect(find.byType(PageTile), findsNWidgets(3));
     await closeEditor(tester);
   });
 }

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/menus.dart';
-import '../tags/tag_widgets.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_drag.dart';
@@ -35,9 +34,6 @@ class LibraryHeader extends StatelessWidget {
   LibraryController get _c => actions.controller;
 
   String get _title => switch (_c.section) {
-    LibrarySection.library when _c.tagFilter.isNotEmpty && !_c.isSearching => [
-      for (final id in _c.tagFilter) ?_c.tagById(id)?.name,
-    ].join(' + '),
     LibrarySection.library => _c.folder?.name ?? 'Library',
     LibrarySection.favorites => 'Favourites',
     LibrarySection.trash => 'Trash',
@@ -49,7 +45,7 @@ class LibraryHeader extends StatelessWidget {
     final count = _c.visibleNotebooks.length;
     final search = _SearchField(controller: searchController, focus: searchFocus, actions: actions);
     final tools = [
-      if (_c.section == LibrarySection.library && !_c.isFiltering)
+      if (_c.section == LibrarySection.library && !_c.isSearching)
         IconButton(
           tooltip: 'New folder',
           icon: const Icon(Icons.create_new_folder_outlined),
@@ -90,10 +86,8 @@ class LibraryHeader extends StatelessWidget {
     final subtitle = switch (_c.section) {
       LibrarySection.trash => 'Restore notebooks or delete them forever',
       // The library also lists matches inside notebooks (features/search).
-      LibrarySection.library when _c.parsedQuery.text.isNotEmpty =>
-        'Titles and contents, across all folders',
-      _ when _c.isFiltering => '${plural(count, 'notebook')} across all folders',
-      _ when _c.isSearching => '${plural(count + folders, 'result')} across all folders',
+      LibrarySection.library when _c.isSearching => 'Titles and contents, across all folders',
+      _ when _c.isSearching => '${plural(count, 'notebook')} across all folders',
       _ when count == 0 && folders == 0 => 'Empty',
       _ => [
         if (folders > 0) plural(folders, 'folder'),
@@ -157,46 +151,6 @@ class LibraryHeader extends StatelessWidget {
                 ...trailing,
               ],
             ),
-          if (_c.section != LibrarySection.trash && _c.tags.isNotEmpty) ...[
-            const SizedBox(height: Gaps.md),
-            _TagChips(actions: actions),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// The tags as filter chips (several narrow down together), then "Manage".
-class _TagChips extends StatelessWidget {
-  const _TagChips({required this.actions});
-
-  final LibraryActions actions;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = actions.controller;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final tag in c.tags) ...[
-            TagFilterChip(
-              tag: tag,
-              selected: c.tagFilter.contains(tag.id),
-              onSelected: (_) => c.toggleTagFilter(tag.id),
-            ),
-            const SizedBox(width: Gaps.xs),
-          ],
-          if (c.tagFilter.isNotEmpty)
-            TextButton(onPressed: c.clearTagFilter, child: const Text('Clear')),
-          IconButton(
-            tooltip: 'Manage tags',
-            iconSize: 18,
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => unawaited(actions.manageTags(context)),
-          ),
         ],
       ),
     );

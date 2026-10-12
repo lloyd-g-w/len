@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../domain/folder.dart';
-import '../../domain/tag.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/section_label.dart';
 import '../../ui/sidebar_item.dart';
@@ -102,34 +101,6 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                       ),
                     ),
                   ..._tree(null, 0),
-                  const SizedBox(height: Gaps.lg),
-                  Padding(
-                    padding: const EdgeInsets.only(left: Gaps.md, bottom: Gaps.xs),
-                    child: Row(
-                      children: [
-                        Expanded(child: SectionLabel('Tags')),
-                        IconButton(
-                          tooltip: 'Manage tags',
-                          iconSize: 18,
-                          visualDensity: VisualDensity.compact,
-                          color: scheme.onSurfaceVariant,
-                          icon: Icon(
-                            c.tags.isEmpty ? Icons.new_label_outlined : Icons.edit_outlined,
-                          ),
-                          onPressed: () => unawaited(widget.actions.manageTags(context)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (c.tags.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(Gaps.md, 0, Gaps.md, Gaps.md),
-                      child: Text(
-                        'Tag notebooks from their menu to find them here.',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                  for (final tag in c.tags) _tagItem(tag),
                 ],
               ),
             ),
@@ -238,26 +209,6 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
         onTap: () => c.openFolder(folder.id),
         onSecondaryTapUp: (d) => unawaited(_folderMenu(context, folder, d.globalPosition)),
         onLongPress: () => unawaited(_folderMenu(context, folder, null)),
-      ),
-    );
-  }
-
-  Widget _tagItem(Tag tag) {
-    final c = _controller;
-    return LibraryDropTarget(
-      key: ValueKey('sidebar-tag-${tag.id}'),
-      canAccept: (item) => !item.isFolder,
-      onAccept: (item) => c.applyTagChanges([item.id], {tag.id: true}),
-      builder: (context, active) => SidebarItem(
-        icon: Icons.sell_outlined,
-        iconColor: Color(tag.color),
-        label: tag.name,
-        count: c.notebookCountOf(tag.id),
-        selected: c.isShowingTag(tag.id),
-        dropActive: active,
-        onTap: () => c.showTag(tag.id),
-        onSecondaryTapUp: (_) => unawaited(widget.actions.manageTags(context)),
-        onLongPress: () => unawaited(widget.actions.manageTags(context)),
       ),
     );
   }

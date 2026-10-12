@@ -47,12 +47,12 @@ class LibraryContent extends StatelessWidget {
     final notebooks = _c.visibleNotebooks;
     final empty = folders.isEmpty && notebooks.isEmpty;
     // Searching the library also lists matches inside notebooks.
-    final fullText = _c.parsedQuery.text.isNotEmpty && _c.section == LibrarySection.library;
+    final fullText = _c.isSearching && _c.section == LibrarySection.library;
     // The grid starts with a "New…" tile where notebooks are created.
     final newTile =
         _c.layout == LibraryLayout.grid &&
         _c.section == LibrarySection.library &&
-        !_c.isFiltering &&
+        !_c.isSearching &&
         !actions.selection.active;
     Widget label(String text) => SliverPadding(
       padding: EdgeInsets.fromLTRB(gutter + Gaps.xxs, Gaps.xl, gutter, Gaps.md),
@@ -84,7 +84,6 @@ class LibraryContent extends StatelessWidget {
               section: _c.section,
               inFolder: _c.folderId != null,
               query: _c.query,
-              tags: [for (final id in _c.tagFilter) ?_c.tagById(id)?.name],
               onCreate: () => unawaited(actions.createNotebook(context)),
               onClearSearch: () {
                 searchController.clear();
@@ -136,8 +135,7 @@ class LibraryContent extends StatelessWidget {
           // Full-text matches in text boxes and PDF pages.
           if (fullText)
             LibrarySearchResults(
-              query: _c.parsedQuery.text,
-              include: _c.isFiltering ? _c.matchesTags : null,
+              query: _c.query.trim(),
               padding: EdgeInsets.symmetric(horizontal: gutter),
               onOpen: (context, notebook, hit) => unawaited(
                 openSearchResult(
@@ -166,7 +164,7 @@ class LibraryContent extends StatelessWidget {
 
   String _subtitle(Notebook n) {
     if (n.isTrashed) return libraryDateAfter('Deleted', n.trashedAt!);
-    if (_c.isFiltering) return _c.locationOf(n);
+    if (_c.isSearching) return _c.locationOf(n);
     final kind = n.kind == NotebookKind.canvas ? 'Canvas' : pageCountLabel(_c.pageCountOf(n.id));
     final date = _c.sort == LibrarySort.created
         ? libraryDateAfter('Created', n.createdAt)

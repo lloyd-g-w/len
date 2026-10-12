@@ -88,14 +88,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
     _remoteChanges = services.sync.remoteChanges.listen((c) {
       if (c.strokeSurfaces.isNotEmpty || c.pagesOfNotebooks.isNotEmpty) _thumbnails.invalidate();
-      if (c.notebooks || c.folders || c.tags) _controller.reload();
+      if (c.notebooks || c.folders) _controller.reload();
     });
   }
 
   /// Where the library is: section, folder and search.
-  String get _scopeKey =>
-      '${_controller.section}/${_controller.folderId}/${_controller.query}/'
-      '${_controller.tagFilter.join(',')}';
+  String get _scopeKey => '${_controller.section}/${_controller.folderId}/${_controller.query}';
   String _scope = '';
 
   /// Opens imported notebooks in editor tabs, the last one shown.
@@ -227,7 +225,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _actions.selection.active ||
           _controller.section == LibrarySection.trash ||
           (_controller.section == LibrarySection.library &&
-              !_controller.isFiltering &&
+              !_controller.isSearching &&
               _controller.visibleFolders.isEmpty &&
               _controller.visibleNotebooks.isEmpty)
       ? null

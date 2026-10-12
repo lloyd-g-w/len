@@ -20,7 +20,6 @@ import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
-import 'data/tag_repository.dart';
 import 'data/template_repository.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
@@ -60,7 +59,6 @@ class AppServices {
     required this.incomingFiles,
     required this.templates,
     required this.outlines,
-    required this.tags,
     required this.outline,
   });
 
@@ -85,7 +83,6 @@ class AppServices {
     final elements = ElementRepository(database, deviceId: deviceId, clock: clock);
     final recordings = RecordingRepository(database, deviceId: deviceId, clock: clock);
     final pages = PageRepository(database, deviceId: deviceId, clock: clock);
-    final tags = TagRepository(database, deviceId: deviceId, clock: clock);
     final outline = OutlineRepository(database, deviceId: deviceId, clock: clock);
     final notebooks = NotebookRepository(
       database,
@@ -94,7 +91,6 @@ class AppServices {
       strokes: strokes,
       elements: elements,
       recordings: recordings,
-      tags: tags,
       outline: outline,
       clock: clock,
     );
@@ -112,7 +108,6 @@ class AppServices {
       elements: elements,
       recordings: recordings,
       templates: templates,
-      tags: tags,
       outline: outline,
     );
     final search = SearchService(database, readBlob: blobs.read);
@@ -144,7 +139,6 @@ class AppServices {
       incomingFiles: IncomingFiles(incomingFiles),
       templates: templates,
       outlines: outlines,
-      tags: tags,
       outline: outline,
     );
   }
@@ -181,9 +175,6 @@ class AppServices {
   /// Builds the outlines of strokes loaded into editors (natively on
   /// worker isolates, see `platform/outline_preparer`).
   final OutlinePreparer outlines;
-
-  /// Tags and which notebooks and pages carry them.
-  final TagRepository tags;
 
   /// Notebooks' own outlines (tables of contents).
   final OutlineRepository outline;
