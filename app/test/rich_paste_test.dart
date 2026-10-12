@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_data.dart';
 
+import 'content_golden_test.dart' show loadFonts;
 import 'content_tools_ui_test.dart';
 import 'text_box_ui_test.dart' show ctrl, mockClipboardText, paste;
 
@@ -93,5 +94,26 @@ void main() {
     await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
     await tester.pump();
     expect(liveElements(services, nb.id), isEmpty);
+  });
+
+  testWidgets('golden: a text box pasted from HTML (heading, bold / italic, nested list)', (
+    tester,
+  ) async {
+    await loadFonts();
+    mockClipboardText('Trip');
+    mockClipboardHtml(
+      '<h1>Weekend trip</h1><p>Pack <b>early</b>, travel <i>light</i> and '
+      '<span style="color:#e03131">book</span> <u>today</u></p>'
+      '<ul><li>Clothes<ul><li>Socks</li><li>Rain jacket</li></ul></li>'
+      '<li><s>Tickets</s></li></ul><ol><li>Pick up keys</li><li>Water plants</li></ol>',
+    );
+    await openCanvas(tester);
+    await paste(tester);
+    await key(tester, LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(Directionality).first,
+      matchesGoldenFile('goldens/text_pasted_html.png'),
+    );
   });
 }
