@@ -99,7 +99,7 @@ tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_t
   --dart-define=INKLAB_TABLE=true --dart-define=INKLAB_REAL=true \
   [--dart-define=INKLAB_ONLY=<regex on entry names>]'
 # the Kotlin overlay model against the Dart one (needs only nix): every case
-# and recording, then the Kotlin unit test on the shared golden
+# and recording, then the Kotlin unit tests (shared golden; prediction replay)
 tool/wet_ink_check/check.sh
 tool/wet_ink_check/unit_test.sh
 ```
@@ -617,3 +617,59 @@ ink. Not checked: zoom on pages and a pan or zoom during a stroke (adb
 cannot inject a pinch or two-finger drag), and fast transients at pen-up
 that screenshots (≈ 150 ms apart) cannot catch; the model checks above
 (gap and ghost 0 at depths 1 and 2) cover those.
+
+### Prediction
+
+User report (Galaxy Tab S8+, S Pen): the predicted tip ran too far and was
+visibly cut off at pen-up. `WetInkPredictionTest` (run by
+`tool/wet_ink_check/unit_test.sh`, ≈ 1 s) replays every recording sample by
+sample, as the overlay gets them with unbuffered dispatch (the last sample
+is the ACTION_UP), through a JVM port of the androidx Kalman predictor
+(`SinglePointerPredictor`, balanced strategy, asked for 20 ms) and compares
+the drawn predicted points with the real path that followed. Real
+recordings use their pointer events (every sample, ≈ 480 Hz, 1 ms times;
+their stylus batches are incomplete), the simulated ones their batches
+(240 Hz). Width W = 2 × the radius at pressure 0.5: 4.14 px (real), 6.5 px
+(sim). Error: largest distance of a drawn predicted point from the real
+remaining path; *pen-up*: events in the 20 ms before the up; *turns*: the
+real path turns > 30° (chord) within 20 ms; *lead*: how far ahead (ms of
+the real path) the prediction stays within 0.25 W, in steady motion
+(≥ 0.1 px/ms, no pen-up or turn ahead).
+
+| p50 / p95 / max (W) | Before (all points ≤ 20 ms) | After (`WetInkPrediction`) |
+|---|---|---|
+| Real: pen-up (702 events) | 2.88 / 15.6 / 55.5 (11.9 / 64.5 / 230 px) | 0.00 / 0.00 / 0.10 (max 0.4 px) |
+| Real: turns (1638) | 0.98 / 4.18 / 20.0 | 0.00 / 0.09 / 0.89 |
+| Real: all events (23 290) | 0.70 / 4.03 / 55.5 | 0.02 / 0.21 / 2.15 |
+| Real: events off by > 0.5 W | 14 087 | 144 |
+| Real: steady lead (mean) | 10.0 ms, 24.1 px | 2.4 ms, 6.0 px |
+| Sim: pen-up (16) | 0.58 / 1.13 / 1.13 | 0.00 / 0.12 / 0.12 |
+| Sim: all events (750) | 0.11 / 0.41 / 1.13 | 0.03 / 0.12 / 0.26 |
+| Sim: steady lead (mean) | 16.2 ms, 6.5 px | 5.2 ms, 2.4 px |
+
+- **Why it overshot.** The Kalman filter extrapolates velocity, acceleration
+  and jerk; when the pen brakes, turns or lifts (the S Pen often jumps a
+  few px while the pressure falls) that runs far off the path, up to
+  230 px at 20 ms, and the next event takes it back.
+- **The policy** (constants in `WetInkPrediction`, chosen by sweeping them
+  over the replay; real recordings): a 10 ms horizon (8 or 20 ms change
+  the lead by ≤ 0.1 ms: the distance caps bind first); reach ≤ speed ×
+  10 ms and ≤ 6 tip radii (4 radii: lead 1.9 ms, p95 0.16 W; 12: 3.1 ms,
+  0.28 W); ≤ the length over which a straight line leaves the current
+  curvature by 0.25 radius. The caps alone still leave pen-up p95 at
+  2.25 W and turns at 2.35 W. Then scaled from full to none as pressure
+  falls 0.02–0.08 per 8 ms or drops below 0.15 (none at 0.05): pen-up p95
+  0.01 W; and as the speed over the last 8 ms drops to 0.8 of the 8 ms
+  before (braking precedes cusps and tight turns) or the direction turns
+  15–45°: turns p95 0.70 → 0.09 W, lead 3.3 → 2.4 ms.
+- **Pen-up.** The ACTION_UP's frame draws no tip: no prediction, and no
+  more line from the ink's end to the raw pen-up sample. The model may cut
+  a pen-up hook there, and that line drew it until the overlay let go of
+  the stroke: up to 3.2 px outside the final ink on `sim_hooks`
+  (`liftedTipAddsNoInk` prints it).
+- **Not measured**: the device's real predictor (Android's own model where
+  present) and its timing (androidx asks for the time to the next frame
+  plus the event's age, up to 32 ms); the replay asks the Kalman port for
+  20 ms, the old cap. What the policy draws depends on the samples, not
+  on the predictor, so a better predictor can only stay closer to the
+  path within the same caps.

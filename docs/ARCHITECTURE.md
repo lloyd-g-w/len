@@ -956,10 +956,21 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   Gradle `:app:testDebugUnitTest`) and
   `tool/wet_ink_check/check.sh` (every Ink Lab case and recording, equal
   to 1e-15).
-- **Prediction** (`WetInkTip`): androidx.input's `MotionEventPredictor`
-  (Android's own predictor where the device has one, else a Kalman
-  filter) extends the tip by at most 20 ms, at the tip's radius. Predicted
-  points are only drawn, never stored; each event replaces them.
+- **Prediction** (`WetInkTip`, `WetInkPrediction`): androidx.input's
+  `MotionEventPredictor` (Android's own predictor where the device has
+  one, else a Kalman filter) extrapolates the pen; `WetInkPrediction`
+  (pure Kotlin) draws only a short, cautious piece of it, at the tip's
+  radius: points at most 10 ms ahead, no further along them than the recent
+  speed covers in 10 ms, 6 tip radii, or the length over which a straight
+  line leaves the current curvature by a quarter radius; scaled smoothly
+  to nothing while the pen slows down, turns (15–45° between the last two
+  8 ms windows) or lifts (pressure falling or low), and none in the first
+  16 ms. The pen-up's frame has no tip at all (no prediction, and no line
+  to the raw pen-up sample, which could draw a pen-up hook the model cut).
+  Predicted points are only drawn, never stored; each event replaces them
+  (in reused buffers). `WetContact.predicts = false` turns the whole tip
+  off (only the model's ink is drawn). Measured by replaying the Ink Lab
+  recordings: `docs/INK_LAB.md`, *Low-latency ink → Prediction*.
 - **Only opaque pen ink** (`WetInkStyle`): the highlighter, translucent
   colours, textured or nib pens, the eraser, lasso, shapes, text and
   straightened strokes stay on the Flutter path, as do fingers and other
