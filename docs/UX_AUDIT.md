@@ -20,7 +20,8 @@ phone; the phone tool switcher with favourites; presentation, light and dark).
   goes away (the new scroll bounds used to nudge the view and skip the re-fit).
 - ✅ The second pane's top bar is shorter than the first's when the first shows
   the tab strip (desktop). → It shows an empty strip-coloured band; the bars line up.
-- ⬜ Reordering in edit mode needs a long press, also with a mouse.
+- ✅ Reordering in edit mode needs a long press, also with a mouse. → A mouse or
+  trackpad drags at once (`ReorderStartListener`); touch and stylus keep the hold.
 
 ### Split view robustness (`fix/split`, QA round 2)
 
