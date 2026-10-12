@@ -57,10 +57,15 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('wide screens keep the page navigator', (tester) async {
+  testWidgets('wide screens also peek the page indicator on scroll', (tester) async {
     await pumpEditor(tester, size: const Size(1280, 900));
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
+    expect(_opacityOf(tester, find.byType(Peeking)), 0);
+    await tester.sendEventToBinding(
+      const PointerScrollEvent(position: Offset(640, 450), scrollDelta: Offset(0, 500)),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
     expect(_opacityOf(tester, find.byType(Peeking)), 1);
     await closeEditor(tester);
   });
