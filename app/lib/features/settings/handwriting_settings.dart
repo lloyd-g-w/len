@@ -7,10 +7,12 @@ import '../../ink/recognition/handwriting_recognizer.dart';
 import '../../ink/recognition/recognition_languages.dart';
 import '../../ink/recognition/recognition_service.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/dialog_or_sheet.dart';
+import '../../ui/sheet_parts.dart';
 import 'settings_section.dart';
 
-/// Handwriting recognition: language, background indexing for search and
-/// the language model (download / delete).
+/// Handwriting recognition: background indexing for search, the language
+/// and, until it is on the device, the language model's download.
 class HandwritingSettings extends StatelessWidget {
   const HandwritingSettings({super.key, required this.recognition});
 
@@ -24,12 +26,15 @@ class HandwritingSettings extends StatelessWidget {
       listenable: Listenable.merge([recognition, recognition.indexer]),
       builder: (context, _) => SettingsSection(
         title: 'Handwriting',
-        icon: Symbols.draw_rounded,
         description:
             'Search your handwriting, and convert it to text: select it with the lasso, '
             'then tap Convert to text. Recognition runs on this device; nothing is sent anywhere.',
         children: recognition.isSupported
-            ? [_language(context), _indexing(context), _model(context)]
+            ? [
+                _indexing(context),
+                _language(context),
+                if (recognition.modelStatus != ModelStatus.downloaded) _model(context),
+              ]
             : [
                 SettingsTile(
                   icon: Symbols.info_rounded,
@@ -54,27 +59,14 @@ class HandwritingSettings extends StatelessWidget {
   Future<void> _pickLanguage(BuildContext context) async {
     const automatic = '';
     final current = recognition.isAutomaticLanguage ? automatic : recognition.language;
-    final picked = await showDialog<String>(
+    final picked = await showDialogOrSheet<String>(
       context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Handwriting language'),
-        children: [
-          RadioGroup<String>(
-            groupValue: current,
-            onChanged: (v) => Navigator.pop(context, v),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                RadioListTile<String>(
-                  value: automatic,
-                  title: Text('Same as the device · ${_name(recognition.automaticLanguage)}'),
-                ),
-                for (final l in RecognitionLanguages.all)
-                  RadioListTile<String>(value: l.tag, title: Text(l.name)),
-              ],
-            ),
-          ),
-        ],
+      maxWidth: 440,
+      maxHeight: 640,
+      builder: (context, wide) => _LanguageSheet(
+        current: current,
+        automaticLabel: 'Same as the device · ${_name(recognition.automaticLanguage)}',
+        wide: wide,
       ),
     );
     if (picked == null || picked == current) return;
@@ -140,6 +132,53 @@ class HandwritingSettings extends StatelessWidget {
               child: LinearProgressIndicator(),
             )
           : null,
+    );
+  }
+}
+
+/// The handwriting language: a task sheet listing the languages; choosing
+/// one closes it.
+class _LanguageSheet extends StatelessWidget {
+  const _LanguageSheet({required this.current, required this.automaticLabel, required this.wide});
+
+  /// The chosen tag; '' = the device's language.
+  final String current;
+  final String automaticLabel;
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: wide ? double.infinity : media.size.height * 0.8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(Gaps.xl, wide ? Gaps.lg : 0, Gaps.md, Gaps.sm),
+            child: SheetHeader(
+              title: 'Handwriting language',
+              onClose: () => Navigator.of(context).pop(),
+            ),
+          ),
+          Flexible(
+            child: RadioGroup<String>(
+              groupValue: current,
+              onChanged: (v) => Navigator.pop(context, v),
+              child: ListView(
+                shrinkWrap: true,
+                padding: EdgeInsets.only(bottom: Gaps.md + media.padding.bottom),
+                children: [
+                  RadioListTile<String>(value: '', title: Text(automaticLabel)),
+                  for (final l in RecognitionLanguages.all)
+                    RadioListTile<String>(value: l.tag, title: Text(l.name)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
