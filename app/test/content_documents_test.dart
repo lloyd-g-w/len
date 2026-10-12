@@ -8,10 +8,10 @@ import 'package:len/data/surface_stats.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
-import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/document/page_actions.dart';
 import 'package:len/features/library/thumbnails/thumbnail_renderer.dart';
 
@@ -44,22 +44,29 @@ Future<void> ctrl(WidgetTester tester, LogicalKeyboardKey k) async {
   await tester.pump();
 }
 
+/// Laid out for a toolbar docked at the top; at 800 px it docks at the
+/// bottom, so the pages sit higher on screen by its extent.
+double _up = 0;
+List<Offset> up(List<Offset> points) => [for (final p in points) p.translate(0, -_up)];
+Future<void> _measure(WidgetTester tester) async =>
+    _up = tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.toolbarExtent;
+
 void main() {
   testWidgets('continuous scrolling: text and lasso work on the page under the pointer, '
       'with notebook-wide undo', (tester) async {
-    // At 800 px the toolbar would sit at the bottom; pin it to the top.
-    final (s, nb) = await pumpEditor(tester, placement: ToolbarPlacement.top);
+    final (s, nb) = await pumpEditor(tester);
+    await _measure(tester);
     final pages = s.pages.pagesOf(nb.id);
 
     // A text box on page 2 (visible below page 1), in page coordinates.
     await key(tester, LogicalKeyboardKey.keyT);
-    await mouseDrag(tester, const [Offset(300, 1150)]);
+    await mouseDrag(tester, up(const [Offset(300, 1150)]));
     await tester.pumpAndSettle();
     final field = find.byKey(const ValueKey('text-box-field'));
     expect(field, findsOneWidget);
     // The editor sits where the pointer was, not where page 1 would put it.
     expect(tester.getTopLeft(field).dx, closeTo(300, 2));
-    expect(tester.getCenter(field).dy, closeTo(1150, 6));
+    expect(tester.getCenter(field).dy, closeTo(1150 - _up, 6));
     await tester.enterText(field, 'Page two');
     await tester.tap(find.byTooltip('Done (Esc)'));
     await tester.pumpAndSettle();
@@ -71,15 +78,18 @@ void main() {
 
     // Lasso the wave on page 1 and move it down.
     await key(tester, LogicalKeyboardKey.keyL);
-    await mouseDrag(tester, const [
-      Offset(170, 224),
-      Offset(580, 224),
-      Offset(580, 324),
-      Offset(170, 324),
-      Offset(170, 234),
-    ]);
+    await mouseDrag(
+      tester,
+      up(const [
+        Offset(170, 224),
+        Offset(580, 224),
+        Offset(580, 324),
+        Offset(170, 324),
+        Offset(170, 234),
+      ]),
+    );
     expect(find.byTooltip('Delete (Del)'), findsOneWidget);
-    await mouseDrag(tester, const [Offset(360, 276), Offset(360, 334), Offset(360, 376)]);
+    await mouseDrag(tester, up(const [Offset(360, 276), Offset(360, 334), Offset(360, 376)]));
     final moved = inkOf(s, pages[0]).single;
     expect(moved.id, isNot('w1'));
     expect(moved.points.first.y, greaterThan(250));
@@ -98,22 +108,26 @@ void main() {
   });
 
   testWidgets('a selection keeps its page when grabbed outside it', (tester) async {
-    final (s, nb) = await pumpEditor(tester, placement: ToolbarPlacement.top);
+    final (s, nb) = await pumpEditor(tester);
+    await _measure(tester);
     final pages = s.pages.pagesOf(nb.id);
-    // Page 1 starts below the top bar and toolbar (~132 px).
+    // Page 1 starts below the top bar and toolbar (~132 px; see [up]).
     await key(tester, LogicalKeyboardKey.keyL);
-    await mouseDrag(tester, const [
-      Offset(170, 224),
-      Offset(580, 224),
-      Offset(580, 324),
-      Offset(170, 324),
-      Offset(170, 234),
-    ]);
+    await mouseDrag(
+      tester,
+      up(const [
+        Offset(170, 224),
+        Offset(580, 224),
+        Offset(580, 324),
+        Offset(170, 324),
+        Offset(170, 234),
+      ]),
+    );
     // Drag it down over the bottom edge of page 1 (~949 px), then grab it
     // below that edge: it is still page 1's selection.
-    await mouseDrag(tester, const [Offset(360, 276), Offset(360, 684), Offset(360, 946)]);
+    await mouseDrag(tester, up(const [Offset(360, 276), Offset(360, 684), Offset(360, 946)]));
     expect(find.byTooltip('Delete (Del)'), findsOneWidget);
-    await mouseDrag(tester, const [Offset(360, 964), Offset(360, 934), Offset(360, 884)]);
+    await mouseDrag(tester, up(const [Offset(360, 964), Offset(360, 934), Offset(360, 884)]));
     expect(find.byTooltip('Delete (Del)'), findsOneWidget);
     final y = inkOf(s, pages[0]).single.points.first.y;
     expect(y, greaterThan(900)); // Moved by both drags, in page 1's coordinates.

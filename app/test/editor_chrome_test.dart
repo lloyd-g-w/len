@@ -124,10 +124,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Toolbar'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Bottom'));
+    expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, lessThan(200)); // Docked at the top.
+    await tester.tap(find.text('Floating'));
     await tester.pumpAndSettle();
-    expect(s.preferences.toolbarPlacement, ToolbarPlacement.bottom);
-    expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, greaterThan(700));
+    expect(s.preferences.toolbarPlacement, ToolbarPlacement.floating);
+    expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, greaterThan(600));
+    s.preferences.toolbarPlacement = ToolbarPlacement.docked;
+    await tester.pumpAndSettle();
 
     // Arrow keys scroll page by page; End goes to the last page.
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
@@ -150,17 +153,15 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('automatic placement: top only from 960 px when the toolbar fits', (tester) async {
+  testWidgets('docked: at the top only from 960 px when the toolbar fits', (tester) async {
+    const docked = ToolbarPlacement.docked;
+    expect(resolvePlacement(docked, 800, toolbarWidth: 600), ToolbarPosition.bottom);
+    expect(resolvePlacement(docked, 1280, toolbarWidth: 700), ToolbarPosition.top);
+    expect(resolvePlacement(docked, 960, toolbarWidth: 950), ToolbarPosition.bottom);
     expect(
-      resolvePlacement(ToolbarPlacement.auto, 800, toolbarWidth: 600),
-      ToolbarPlacement.bottom,
+      resolvePlacement(ToolbarPlacement.floating, 1280, toolbarWidth: 700),
+      ToolbarPosition.floating,
     );
-    expect(resolvePlacement(ToolbarPlacement.auto, 1280, toolbarWidth: 700), ToolbarPlacement.top);
-    expect(
-      resolvePlacement(ToolbarPlacement.auto, 960, toolbarWidth: 950),
-      ToolbarPlacement.bottom,
-    );
-    expect(resolvePlacement(ToolbarPlacement.top, 400, toolbarWidth: 700), ToolbarPlacement.top);
 
     final (_, _) = await pumpEditor(tester, size: const Size(800, 1300));
     expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, greaterThan(1100));

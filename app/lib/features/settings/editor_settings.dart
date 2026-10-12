@@ -23,20 +23,16 @@ class EditorSettings extends StatelessWidget {
             icon: Icons.view_day_outlined,
             title: 'Toolbar position',
             subtitle: switch (preferences.toolbarPlacement) {
-              ToolbarPlacement.auto =>
+              ToolbarPlacement.docked =>
                 'At the top on tablets and computers, at the bottom on phones.',
-              ToolbarPlacement.top => 'Always at the top.',
-              ToolbarPlacement.bottom => 'Always at the bottom, within thumb reach.',
               ToolbarPlacement.floating => 'Floating; drag it anywhere by its grip.',
             },
             below: ShrinkToFit(
               child: SegmentedButton<ToolbarPlacement>(
                 showSelectedIcon: false,
                 segments: const [
-                  ButtonSegment(value: ToolbarPlacement.auto, label: SegmentLabel('Auto')),
-                  ButtonSegment(value: ToolbarPlacement.top, label: SegmentLabel('Top')),
-                  ButtonSegment(value: ToolbarPlacement.bottom, label: SegmentLabel('Bottom')),
-                  ButtonSegment(value: ToolbarPlacement.floating, label: SegmentLabel('Float')),
+                  ButtonSegment(value: ToolbarPlacement.docked, label: SegmentLabel('Docked')),
+                  ButtonSegment(value: ToolbarPlacement.floating, label: SegmentLabel('Floating')),
                 ],
                 selected: {preferences.toolbarPlacement},
                 onSelectionChanged: (s) => preferences.toolbarPlacement = s.single,

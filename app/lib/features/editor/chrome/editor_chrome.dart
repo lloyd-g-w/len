@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../domain/preferences.dart';
 import '../../../ui/app_theme.dart';
 import 'chrome_metrics.dart';
 import 'editor_tips.dart';
@@ -23,8 +22,8 @@ class ChromeLayout {
     this.toolbarHeight,
   });
 
-  /// Resolved toolbar placement (never `auto`).
-  final ToolbarPlacement placement;
+  /// Where the toolbar sits.
+  final ToolbarPosition placement;
 
   /// Height of the top bar without the status bar.
   final double barHeight;
@@ -45,7 +44,7 @@ class ChromeLayout {
   };
 
   /// The navigator sits above a bottom toolbar unless there is room beside it.
-  bool get navigatorAboveToolbar => placement == ToolbarPlacement.bottom && width < 1180;
+  bool get navigatorAboveToolbar => placement == ToolbarPosition.bottom && width < 1180;
 
   /// Phones: the page navigator only peeks in while pages scroll or turn
   /// (it would otherwise cover the page above the toolbar), so it takes
@@ -58,8 +57,8 @@ class ChromeLayout {
   /// Screen space covered by chrome along the top and bottom edges.
   EdgeInsets get covered {
     if (focus) return EdgeInsets.only(top: safe.top, bottom: safe.bottom);
-    final toolbarTop = placement == ToolbarPlacement.top ? toolbarExtent : 0.0;
-    final toolbarBottom = placement == ToolbarPlacement.bottom ? toolbarExtent : 0.0;
+    final toolbarTop = placement == ToolbarPosition.top ? toolbarExtent : 0.0;
+    final toolbarBottom = placement == ToolbarPosition.bottom ? toolbarExtent : 0.0;
     final navigator = hasNavigator && !navigatorPeeks ? ChromeMetrics.navigatorExtent : 0.0;
     final bottom = navigatorAboveToolbar
         ? toolbarBottom + navigator

@@ -436,7 +436,7 @@ class _EditorScreenState extends State<_EditorView> {
             focusNode: _focusNode,
             autofocus: true,
             onKeyEvent: _onKey,
-            // Automatic placement depends on the toolbar's width (its slots);
+            // The docked placement depends on the toolbar's width (its slots);
             // other tool changes don't rebuild the whole editor (the toolbar
             // and chrome listen to the tools themselves).
             child: ListenableBuilder(

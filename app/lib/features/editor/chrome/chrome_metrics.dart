@@ -17,7 +17,7 @@ abstract final class ChromeMetrics {
   /// narrow screens): the panel, the margin to the edge and a small gap.
   static double toolbarExtentFor(double height) => height + edge + Gaps.xs;
 
-  /// From this width the automatic toolbar placement may put the toolbar at
+  /// From this width the docked toolbar may sit at
   /// the top, if it fits there on one row.
   static const double topToolbarWidth = 960;
 

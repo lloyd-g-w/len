@@ -1248,9 +1248,9 @@ Picking a quick colour or width from a tool that draws no ink (lasso, text,
 laser) switches to the pen. Shortcuts: P / H / E / L / S / T / K, 1–6 colour
 slots, [ / ] thinner / thicker (plus the canvas keys `+` `-` `0` Shift+1 Home).
 
-Placement is a preference (`ToolbarPlacement`: automatic / top / bottom /
-floating, in the "⋯" menu and the settings); `ToolbarSlot` hosts it. *Automatic*
-(`resolvePlacement`) puts it under the top bar from 960 px wide if it fits
+Placement is a preference (`ToolbarPlacement`: docked / floating, in the "⋯"
+menu and the settings); `ToolbarSlot` hosts it. *Docked* (`resolvePlacement`
+→ `ToolbarPosition`) puts it under the top bar from 960 px wide if it fits
 there on one row whichever tool is active, otherwise at the bottom. The slot
 measures the toolbar and `ChromeLayout` uses that height for
 the screen edge it covers, so document scrolling, the page navigator and the
@@ -1260,7 +1260,7 @@ canvas overlays (zoom pill, fit button) keep clear of it.
 (`toolbar/toolbar_config.dart`, JSON in the local setting `toolbar_layout`,
 `AppPreferences.toolbarLayout`; null = default) holds the tool order, hidden tools and
 up to 8 **favourite pens** (`FavouritePen`: pen or highlighter + colour + width).
-`EditorToolbar`, `oneRowWidth` (automatic placement) and the phone `ToolSwitcherPanel`
+`EditorToolbar`, `oneRowWidth` (docked placement) and the phone `ToolSwitcherPanel`
 arrange the descriptors with it (`ToolbarConfig.arrange`; the active tool shows even
 when hidden, e.g. picked by its shortcut). Favourites sit in their own group after the
 tools (and under the tools in the switcher panel); one tap draws with one

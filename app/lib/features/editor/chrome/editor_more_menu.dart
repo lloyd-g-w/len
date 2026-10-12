@@ -110,9 +110,7 @@ class EditorMoreMenu extends StatelessWidget {
           label: 'Toolbar',
           value: a.placement,
           options: const [
-            (ToolbarPlacement.auto, 'Automatic position'),
-            (ToolbarPlacement.top, 'Top'),
-            (ToolbarPlacement.bottom, 'Bottom'),
+            (ToolbarPlacement.docked, 'Docked'),
             (ToolbarPlacement.floating, 'Floating'),
           ],
           onSelected: a.onPlacement,

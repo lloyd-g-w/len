@@ -5,19 +5,22 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/measure_size.dart';
 import 'chrome_metrics.dart';
 
-/// Resolves [ToolbarPlacement.auto] for a screen [width]: at the top on
+/// Where the toolbar actually sits on screen.
+enum ToolbarPosition { top, bottom, floating }
+
+/// Resolves a [ToolbarPlacement] for a screen [width]: docked at the top on
 /// wide screens (from [ChromeMetrics.topToolbarWidth]) if the toolbar,
 /// [toolbarWidth] wide on one row, fits there; otherwise at the bottom,
 /// within thumb reach.
-ToolbarPlacement resolvePlacement(
+ToolbarPosition resolvePlacement(
   ToolbarPlacement placement,
   double width, {
   required double toolbarWidth,
 }) {
-  if (placement != ToolbarPlacement.auto) return placement;
+  if (placement == ToolbarPlacement.floating) return ToolbarPosition.floating;
   final fits =
       width >= ChromeMetrics.topToolbarWidth && toolbarWidth + 2 * ChromeMetrics.edge <= width;
-  return fits ? ToolbarPlacement.top : ToolbarPlacement.bottom;
+  return fits ? ToolbarPosition.top : ToolbarPosition.bottom;
 }
 
 /// Hosts the pen toolbar: centred under the top bar, docked at the bottom,
@@ -37,8 +40,8 @@ class ToolbarSlot extends StatefulWidget {
 
   final Widget toolbar;
 
-  /// Where the toolbar sits (already resolved: never `auto`).
-  final ToolbarPlacement placement;
+  /// Where the toolbar sits.
+  final ToolbarPosition placement;
 
   /// Space taken by other chrome (top bar, safe areas) that the toolbar
   /// must stay clear of.
@@ -70,9 +73,9 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
     final dragging = _dragging;
     if (dragging != null) return dragging;
     return switch (widget.placement) {
-      ToolbarPlacement.bottom => Alignment.bottomCenter,
-      ToolbarPlacement.floating => _floatAlignment,
-      ToolbarPlacement.top || ToolbarPlacement.auto => Alignment.topCenter,
+      ToolbarPosition.bottom => Alignment.bottomCenter,
+      ToolbarPosition.floating => _floatAlignment,
+      ToolbarPosition.top => Alignment.topCenter,
     };
   }
 
@@ -105,7 +108,7 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
 
   @override
   Widget build(BuildContext context) {
-    final floating = widget.placement == ToolbarPlacement.floating;
+    final floating = widget.placement == ToolbarPosition.floating;
     final padding = widget.insets + const EdgeInsets.all(ChromeMetrics.edge);
     return Padding(
       padding: padding,

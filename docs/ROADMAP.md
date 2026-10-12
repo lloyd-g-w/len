@@ -171,7 +171,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
   export, focus, more menu), tool-descriptor toolbar with contextual quick controls, toolbar
-  position (automatic / top / bottom / floating, draggable), focus mode (F11 / Ctrl+.) with
+  position (docked / floating, draggable), focus mode (F11 / Ctrl+.) with
   immersive system bars
 - ✅ Open-notebook tabs (up to 8, each keeps its page and zoom; tab strip on tablets/desktops,
   switcher on phones; Ctrl+Tab, Ctrl+W)

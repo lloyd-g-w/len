@@ -19,7 +19,7 @@ import 'toolbar/toolbar_editor.dart';
 
 /// The toolbar's size, which the chrome's layout depends on: its height as
 /// laid out (it wraps on narrow screens) and its width on one row (for
-/// automatic placement; kept current as the tools change). Notifies when
+/// the docked placement; kept current as the tools change). Notifies when
 /// either changes.
 class ToolbarMeasure extends ChangeNotifier {
   ToolbarMeasure(this.session) {

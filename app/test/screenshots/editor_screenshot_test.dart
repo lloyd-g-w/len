@@ -118,7 +118,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final placement in [ToolbarPlacement.bottom, ToolbarPlacement.floating]) {
+  for (final placement in ToolbarPlacement.values) {
     testWidgets('editor toolbar ${placement.name}', (tester) async {
       await pumpEditor(
         tester,
