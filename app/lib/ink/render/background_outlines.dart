@@ -30,6 +30,7 @@ class BackgroundOutlines implements OutlinePreparer {
     this.sliceSize = 96,
     this.stepBudget = const Duration(milliseconds: 3),
     this.buildHere = true,
+    this.hold,
   });
 
   /// Worker isolates to spread the work over.
@@ -44,6 +45,11 @@ class BackgroundOutlines implements OutlinePreparer {
   /// Whether the UI isolate builds outlines too while it has nothing to
   /// convert (off: only the workers build them; tests).
   final bool buildHere;
+
+  /// While this answers true (the user is writing), the UI isolate builds
+  /// no outlines itself — it only adopts the workers' — so pen input and
+  /// pen-up are not queued behind that work.
+  final bool Function()? hold;
 
   /// Strokes the UI isolate takes at a time.
   static const int hereSlice = 8;
@@ -186,7 +192,7 @@ class BackgroundOutlines implements OutlinePreparer {
       final slices = batch.slices;
       if (slices.isEmpty) continue;
       final all = _closed || _workerless;
-      if (!buildHere && !all) return null;
+      if (!all && (!buildHere || (hold?.call() ?? false))) return null;
       var slice = slices.removeFirst();
       if (slice.length > hereSlice && !all) {
         slices.addFirst(slice.sublist(hereSlice));
