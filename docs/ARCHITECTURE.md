@@ -855,7 +855,8 @@ straight into the display's buffer, the way Samsung Notes and Notewise do:
   of two circles. Two checks keep the ports equal: a shared golden
   (`test/inklab/wet_ink_golden_test.dart` writes/compares
   `android/app/src/test/resources/wet_ink/`, `WetInkModelTest.kt` checks
-  the Kotlin model against it; Gradle `:app:testDebugUnitTest`) and
+  the Kotlin model against it: `tool/wet_ink_check/unit_test.sh`, or
+  Gradle `:app:testDebugUnitTest`) and
   `tool/wet_ink_check/check.sh` (every Ink Lab case and recording, equal
   to 1e-15).
 - **Prediction** (`WetInkTip`): androidx.input's `MotionEventPredictor`

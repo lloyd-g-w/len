@@ -98,8 +98,10 @@ Tools for working on the engine (opt-in tests):
 tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_test.dart \
   --dart-define=INKLAB_TABLE=true --dart-define=INKLAB_REAL=true \
   [--dart-define=INKLAB_ONLY=<regex on entry names>]'
-# the Kotlin overlay model against the Dart one (needs only nix)
+# the Kotlin overlay model against the Dart one (needs only nix): every case
+# and recording, then the Kotlin unit test on the shared golden
 tool/wet_ink_check/check.sh
+tool/wet_ink_check/unit_test.sh
 ```
 
 The report has, per entry:

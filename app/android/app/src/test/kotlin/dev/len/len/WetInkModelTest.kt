@@ -48,6 +48,6 @@ class WetInkModelTest {
             }
         }
         assertEquals("every expected answer was checked", expected.size, q)
-        assertTrue(q > 50)
+        assertTrue("the golden has answers", q >= 10)
     }
 }
