@@ -114,6 +114,7 @@ class _FolderDialogState extends State<_FolderDialog> {
             EvenGrid(
               itemExtent: 40,
               minItemExtent: 32,
+              touchTargets: true,
               children: [
                 for (var i = 0; i < Palette.covers.length; i++)
                   ColorDot(

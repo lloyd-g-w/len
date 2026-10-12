@@ -151,8 +151,10 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
 18. ✅ Motion: 26 literal durations in features/ → `Motion` tokens.
 19. ✅ Phone menus show desktop shortcut hints ("Ctrl+F", "F11").
 20. ⬜ Menus sit flush against the screen edge (no 8 dp margin).
-21. 🟡 Accent dots (40 dp), folder icon tiles (35 dp) and selection
-    checkboxes (28 dp) are under 48 dp on phones.
+21. ✅ Accent dots (40 dp), folder icon tiles (35 dp) and selection
+    checkboxes (28 dp) are under 48 dp on phones. → `EvenGrid(touchTargets:)`
+    gives swatch and icon cells 48 dp on phones (visuals unchanged, the whole
+    cell takes taps); the checkmark never was a target (the whole cover is).
 22. 🟡 The playback bar truncates the title (title and time share one row);
     the paused recorder shows no "Paused" label.
 23. ✅ List view shows the favourite star twice (cover badge plus column).
@@ -218,9 +220,10 @@ the second for what is left.
 - The phone library shows both the "New…" tile and the "New" FAB.
 - The FAB still shows over the empty Favourites and empty search states,
   which offer no create action of their own.
-- Selection checkmarks on covers: unselected rings are low-contrast on
+- ✅ Selection checkmarks on covers: unselected rings are low-contrast on
   light covers, the style differs between light and dark, and targets
-  are 28 dp.
+  are 28 dp. → A dark ring on white in both themes; the whole cover is the
+  target.
 - Editor search on phones: stepping to a match pans the page sideways.
 - Lasso selection handles in dark mode are dark and filled on light
   paper. They should follow the paper, as the canvas hint and minimap

@@ -96,6 +96,7 @@ class _TagDialogState extends State<_TagDialog> {
             EvenGrid(
               itemExtent: 40,
               minItemExtent: 32,
+              touchTargets: true,
               children: [
                 for (var i = 0; i < Palette.covers.length; i++)
                   ColorDot(

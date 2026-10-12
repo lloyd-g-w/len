@@ -23,8 +23,11 @@ class FolderIconPicker extends StatelessWidget {
 
   final ValueChanged<String?> onChanged;
 
-  /// Side of one icon tile: two even rows of ten at the dialog width.
+  /// Smallest side of one icon tile: two even rows of ten at the dialog width.
   static const double tileSize = 36;
+
+  /// Largest side of one icon tile (it fills its cell up to this).
+  static const double maxTileSize = 40;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +35,7 @@ class FolderIconPicker extends StatelessWidget {
       itemExtent: 44,
       minItemExtent: tileSize,
       maxSpacing: Gaps.sm,
+      touchTargets: true,
       children: [
         for (final key in <String?>[null, ...Folder.iconKeys])
           _IconTile(
@@ -73,24 +77,33 @@ class _IconTile extends StatelessWidget {
         selected: selected,
         label: '$label icon',
         excludeSemantics: true,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(Radii.sm),
-            onTap: onTap,
-            child: AnimatedContainer(
-              duration: Motion.fast,
-              width: FolderIconPicker.tileSize,
-              height: FolderIconPicker.tileSize,
-              decoration: BoxDecoration(
-                color: selected ? tint : Colors.transparent,
-                borderRadius: BorderRadius.circular(Radii.sm),
-                border: Border.all(
-                  color: selected ? color : scheme.outlineVariant.withValues(alpha: 0.6),
-                  width: selected ? 1.6 : 1,
+        // The whole grid cell takes taps (48 dp on phones); the tile and its
+        // ripple fill it up to [FolderIconPicker.maxTileSize].
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints.tight(const Size.square(FolderIconPicker.maxTileSize)),
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(Radii.sm),
+                  onTap: onTap,
+                  child: AnimatedContainer(
+                    duration: Motion.fast,
+                    decoration: BoxDecoration(
+                      color: selected ? tint : Colors.transparent,
+                      borderRadius: BorderRadius.circular(Radii.sm),
+                      border: Border.all(
+                        color: selected ? color : scheme.outlineVariant.withValues(alpha: 0.6),
+                        width: selected ? 1.6 : 1,
+                      ),
+                    ),
+                    child: Icon(icon, size: 20, color: selected ? color : scheme.onSurfaceVariant),
+                  ),
                 ),
               ),
-              child: Icon(icon, size: 20, color: selected ? color : scheme.onSurfaceVariant),
             ),
           ),
         ),

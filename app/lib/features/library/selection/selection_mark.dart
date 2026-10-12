@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../ui/app_theme.dart';
 
 /// Overlay on a cover in selection mode: a check circle, and a tinted
-/// ring when selected.
+/// ring when selected. It takes no taps: the whole cover (or list row)
+/// toggles the selection, so the target is far larger than the mark.
 class SelectionMark extends StatelessWidget {
   const SelectionMark({super.key, required this.selected, this.compact = false});
 
@@ -22,7 +23,9 @@ class SelectionMark extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: selected ? scheme.primary : Colors.white.withValues(alpha: 0.92),
-        border: Border.all(color: selected ? Colors.white : scheme.outline, width: 2),
+        // The same in light and dark mode: covers don't follow the theme. A
+        // dark ring on white shows on light and dark covers alike.
+        border: Border.all(color: selected ? Colors.white : Colors.black54, width: 2),
         boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 4)],
       ),
       child: selected
