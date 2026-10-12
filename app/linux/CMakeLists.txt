@@ -138,5 +138,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icons/"
   DESTINATION "${CMAKE_INSTALL_PREFIX}/share/icons/hicolor" COMPONENT Runtime)
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/dev.len.len.desktop"
   DESTINATION "${CMAKE_INSTALL_PREFIX}/share/applications" COMPONENT Runtime)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/dev.len.len.metainfo.xml"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/metainfo" COMPONENT Runtime)
 install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/packaging/install-desktop-entry.sh"
   DESTINATION "${CMAKE_INSTALL_PREFIX}" COMPONENT Runtime)

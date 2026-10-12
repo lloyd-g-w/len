@@ -120,6 +120,28 @@ jobs:
           name: linux
           path: dist/*
 
+  flatpak:
+    name: Flatpak (from the Linux tarball)
+    needs: [version, linux]
+    runs-on: ubuntu-latest
+    container:
+      # Keep the GNOME version in step with runtime-version in the manifest.
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: linux-dist
+      - run: cp linux-dist/len-*-linux-x64.tar.gz app/linux/packaging/flatpak/len-linux-x64.tar.gz
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: app/linux/packaging/flatpak/dev.len.len.yml
+          bundle: len-${{ needs.version.outputs.version }}-linux-x64.flatpak
+          artifact-name: flatpak
+          cache: false
+
   windows:
     needs: version
     runs-on: windows-latest
@@ -216,7 +238,7 @@ jobs:
 
   release:
     name: GitHub release
-    needs: [version, android, linux, windows, web]
+    needs: [version, android, linux, flatpak, windows, web]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:

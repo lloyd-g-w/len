@@ -263,14 +263,16 @@ MyApplication* my_application_new() {
 
   // One instance per user (files opened later go to the running one), unless
   // LEN_MULTI_INSTANCE is set or a non-default data directory is used
-  // (XDG_DATA_HOME=$(mktemp -d), e.g. for screenshots and tests).
+  // (XDG_DATA_HOME=$(mktemp -d), e.g. for screenshots and tests). Flatpak
+  // sets its own XDG_DATA_HOME, which does not count.
   GApplicationFlags flags = G_APPLICATION_HANDLES_OPEN;
   g_autofree gchar* default_data =
       g_build_filename(g_get_home_dir(), ".local", "share", nullptr);
   const gchar* data = g_getenv("XDG_DATA_HOME");
-  if (g_getenv("LEN_MULTI_INSTANCE") != nullptr ||
-      (data != nullptr && data[0] != '\0' &&
-       g_strcmp0(data, default_data) != 0)) {
+  const gboolean custom_data = g_getenv("FLATPAK_ID") == nullptr &&
+                               data != nullptr && data[0] != '\0' &&
+                               g_strcmp0(data, default_data) != 0;
+  if (g_getenv("LEN_MULTI_INSTANCE") != nullptr || custom_data) {
     flags = static_cast<GApplicationFlags>(flags | G_APPLICATION_NON_UNIQUE);
   }
   return MY_APPLICATION(g_object_new(my_application_get_type(),
