@@ -133,12 +133,8 @@ abstract final class Palette {
     0xFF7048E8, // violet
     0xFF495057, // graphite
     0xFF2B8A3E, // forest
-    0xFF1B2A41, // midnight
     0xFF0B7285, // lagoon
     0xFFB08968, // sand
-    0xFFD6336C, // rose
-    0xFF5C7CFA, // periwinkle
-    0xFF862E9C, // plum
   ];
 
   /// Names of [covers], in the same order (tooltips, accessibility).
@@ -151,12 +147,8 @@ abstract final class Palette {
     'Violet',
     'Graphite',
     'Forest',
-    'Midnight',
     'Lagoon',
     'Sand',
-    'Rose',
-    'Periwinkle',
-    'Plum',
   ];
 
   /// The name of cover colour [argb], if it is one of [covers].

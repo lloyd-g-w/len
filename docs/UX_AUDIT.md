@@ -357,7 +357,7 @@ settings — at the four sizes, light and dark, and at 1.3× text.
    a button; "No results" offers no way out. → Softer art, "Clear search"
    action; folder-empty offers "New notebook here".
 10. ✅ **Cover sheet** "Apply" floats alone at the bottom right; no Cancel; the
-    preview doesn't show the title. → Uses the same cover gallery and preview
+    preview doesn't show the title. → Uses the same cover colours and preview
     as the create flow, with Cancel / Apply.
 
 ## P2 — refinement

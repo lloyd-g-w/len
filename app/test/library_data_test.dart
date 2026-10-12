@@ -8,7 +8,6 @@ import 'package:len/data/page_repository.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/data/syncable.dart';
 import 'package:len/domain/chunk_grid.dart';
-import 'package:len/domain/cover_style.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
@@ -220,7 +219,6 @@ void main() {
         'paper': 'dotted',
         'paperColor': 'white',
         'coverColor': 7,
-        'coverStyle': 'plain',
         'createdAt': 1,
         'editedAt': 2,
         'folderId': null,
@@ -243,7 +241,6 @@ void main() {
         ('kind', 'scroll'),
         ('paper', 'hexagons'),
         ('paperColor', 'mauve'),
-        ('coverStyle', 'tartan'),
         ('favorite', 1),
       ]) {
         final odd = {...complete, key: value};
@@ -271,7 +268,6 @@ void main() {
             'paper': 'dotted',
             'paperColor': 'cream',
             'coverColor': 1,
-            'coverStyle': 'waves',
             'createdAt': nb.createdAt,
             'editedAt': 42,
             'folderId': null,
@@ -285,7 +281,6 @@ void main() {
       expect(after.favorite, isFalse);
       expect(after.paper, PaperStyle.dotted);
       expect(after.paperColor, PaperColor.cream);
-      expect(after.coverStyle, CoverStyle.waves);
       expect(after.editedAt, 42);
       // And it round-trips through the wire format.
       expect(notebooks.dirtyRecords(10), isEmpty);
@@ -308,7 +303,6 @@ void main() {
       kind: NotebookKind.paged,
       paper: PaperStyle.gridLarge,
       coverColor: 1,
-      coverStyle: CoverStyle.waves,
       folderId: maths.id,
     );
     a.notebooks.setFavorite(nb.id, true);
@@ -320,7 +314,6 @@ void main() {
     final synced = b.notebooks.get(nb.id)!;
     expect(synced.folderId, maths.id);
     expect(synced.favorite, isTrue);
-    expect(synced.coverStyle, CoverStyle.waves);
 
     b.notebooks.trash(nb.id);
     b.folders.delete(school.id);

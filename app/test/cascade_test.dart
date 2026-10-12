@@ -6,7 +6,6 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/search/search_index.dart';
 import 'package:len/data/search/search_query.dart';
 import 'package:len/data/surface_copier.dart';
-import 'package:len/domain/cover_style.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
@@ -85,7 +84,6 @@ class _App {
       paper: PaperStyle.collegeRuled,
       paperColor: PaperColor.cream,
       coverColor: 0xFF445566,
-      coverStyle: CoverStyle.stripes,
       folderId: folder.id,
     );
     final ruled = s.pages.pagesOf(paged.id).single;
@@ -162,7 +160,6 @@ void main() {
     expect(copy.paper, original.paper);
     expect(copy.paperColor, original.paperColor);
     expect(copy.coverColor, original.coverColor);
-    expect(copy.coverStyle, original.coverStyle);
     expect(copy.folderId, original.folderId);
     expect(copy.editedAt, 5000);
     expect(app.state('notebooks', copy.id).dirty, isTrue);

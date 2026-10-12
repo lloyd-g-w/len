@@ -148,9 +148,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Lasso "Convert to text": recognised text with alternatives, editable; replace the ink with a
   text box (same place, colour, size; one undo) or copy
 - ⬜ Handwriting recognition on Windows (WinRT ink analysis) / Linux / web; sync recognised text
-- ✅ Live cover thumbnails, more cover colours + patterns
+- ✅ Live cover thumbnails, ten cover colours
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
-- ✅ Create sheet with a live cover + first-page preview, Paper / Cover galleries, size and paper
+- ✅ Create sheet with a live cover + first-page preview, Paper gallery and Cover colours, size and paper
   colour (dialog on wide screens, tall sheet on phones); grouped template gallery
 - ✅ Selection mode: favourite, move, trash (undo), restore, delete forever for many notebooks
 - ✅ Cards show page count and short dates; consistent dialogs; empty states with actions

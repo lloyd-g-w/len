@@ -13,7 +13,6 @@ import 'package:len/data/stroke_codec.dart';
 import 'package:len/data/surface_copier.dart';
 import 'package:len/data/syncable.dart';
 import 'package:len/domain/chunk_grid.dart';
-import 'package:len/domain/cover_style.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
@@ -125,7 +124,6 @@ Map<String, Object?> _notebookData(String title, {String kind = 'canvas'}) => {
   'paper': 'blank',
   'paperColor': 'white',
   'coverColor': 0,
-  'coverStyle': 'plain',
   'createdAt': 1,
   'editedAt': 1,
   'folderId': null,
@@ -270,7 +268,6 @@ void main() {
         paper: PaperStyle.isometric,
         coverColor: 0xFF112233,
         paperColor: PaperColor.dark,
-        coverStyle: CoverStyle.waves,
         folderId: folder.id,
       );
       time.tick();
@@ -288,7 +285,6 @@ void main() {
         expect(got.paper, want.paper);
         expect(got.paperColor, want.paperColor);
         expect(got.coverColor, want.coverColor);
-        expect(got.coverStyle, want.coverStyle);
         expect(got.createdAt, want.createdAt);
         expect(got.updatedAt, want.updatedAt);
         expect(got.editedAt, want.editedAt);
@@ -328,7 +324,6 @@ void main() {
             .copyWith(
               folderId: null,
               favorite: false,
-              coverStyle: CoverStyle.dots,
               paperColor: PaperColor.cream,
               paper: PaperStyle.music,
             ),

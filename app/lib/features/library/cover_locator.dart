@@ -33,7 +33,6 @@ class CoverLocator {
       rect: rect,
       cover: NotebookCover(
         color: notebook.coverColor,
-        style: notebook.coverStyle,
         kind: notebook.kind,
         favorite: notebook.favorite,
         preview: preview,

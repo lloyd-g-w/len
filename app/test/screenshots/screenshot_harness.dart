@@ -9,7 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/core/clock.dart';
 import 'package:len/data/app_database.dart';
-import 'package:len/domain/cover_style.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
@@ -151,8 +150,7 @@ AppServices seededServices() {
 
   Notebook nb(
     String title,
-    int color,
-    CoverStyle style, {
+    int color, {
     NotebookKind kind = NotebookKind.paged,
     PaperStyle paper = PaperStyle.wideRuled,
     String? folder,
@@ -163,7 +161,6 @@ AppServices seededServices() {
       kind: kind,
       paper: paper,
       coverColor: Palette.covers[color],
-      coverStyle: style,
       folderId: folder,
     );
     if (ink > 0) {
@@ -173,22 +170,15 @@ AppServices seededServices() {
     return n;
   }
 
-  nb('Physics — Mechanics', 0, CoverStyle.plain, ink: 9);
-  final journal = nb('Journal 2026', 4, CoverStyle.linen);
-  nb(
-    'Whiteboard',
-    9,
-    CoverStyle.plain,
-    kind: NotebookKind.canvas,
-    paper: PaperStyle.dotted,
-    ink: 5,
-  );
-  nb('Meeting notes', 1, CoverStyle.plain, paper: PaperStyle.gridLarge, folder: work.id, ink: 6);
-  nb('Recipes', 2, CoverStyle.waves);
-  nb('Ideas', 5, CoverStyle.dots, ink: 4, paper: PaperStyle.dotted);
-  nb('Spanish vocabulary', 8, CoverStyle.stripes);
-  nb('Travel plans', 10, CoverStyle.grid);
-  final old = nb('Old drafts', 6, CoverStyle.plain);
+  nb('Physics — Mechanics', 0, ink: 9);
+  final journal = nb('Journal 2026', 4);
+  nb('Whiteboard', 8, kind: NotebookKind.canvas, paper: PaperStyle.dotted, ink: 5);
+  nb('Meeting notes', 1, paper: PaperStyle.gridLarge, folder: work.id, ink: 6);
+  nb('Recipes', 2);
+  nb('Ideas', 5, ink: 4, paper: PaperStyle.dotted);
+  nb('Spanish vocabulary', 7);
+  nb('Travel plans', 9);
+  final old = nb('Old drafts', 6);
   s.notebooks.setFavorite(journal.id, true);
   s.notebooks.trash(old.id);
   return s;

@@ -226,7 +226,6 @@ class AppDatabase {
         paper       TEXT NOT NULL,
         paper_color TEXT NOT NULL DEFAULT 'white',
         cover_color INTEGER NOT NULL,
-        cover_style TEXT NOT NULL DEFAULT 'plain',
         folder_id   TEXT,
         favorite    INTEGER NOT NULL DEFAULT 0,
         trashed_at  INTEGER,

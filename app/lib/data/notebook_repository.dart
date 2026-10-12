@@ -1,6 +1,5 @@
 import 'package:sqlite3/common.dart';
 
-import '../domain/cover_style.dart';
 import '../domain/notebook.dart';
 import '../domain/paper.dart';
 import 'element_repository.dart';
@@ -81,7 +80,6 @@ class NotebookRepository extends SyncableTable {
     required PaperStyle paper,
     required int coverColor,
     PaperColor paperColor = PaperColor.white,
-    CoverStyle coverStyle = CoverStyle.plain,
     String? folderId,
     PageTemplate? firstPage,
     List<Paper> papers = const [],
@@ -95,7 +93,6 @@ class NotebookRepository extends SyncableTable {
       paper: paper,
       paperColor: paperColor,
       coverColor: coverColor,
-      coverStyle: coverStyle,
       folderId: folderId,
       createdAt: now,
       updatedAt: now,
@@ -213,7 +210,6 @@ class NotebookRepository extends SyncableTable {
               'paper': row['paper'],
               'paperColor': row['paper_color'],
               'coverColor': row['cover_color'],
-              'coverStyle': row['cover_style'],
               'createdAt': row['created_at'],
               'editedAt': row['edited_at'],
               'folderId': row['folder_id'],
@@ -252,7 +248,6 @@ class NotebookRepository extends SyncableTable {
       paper: paper,
       paperColor: f.choice('paperColor', PaperColor.values),
       coverColor: f.integer('coverColor'),
-      coverStyle: f.choice('coverStyle', CoverStyle.values),
       createdAt: f.integer('createdAt'),
       updatedAt: record.updatedAt,
       editedAt: f.integer('editedAt'),
@@ -268,9 +263,9 @@ class NotebookRepository extends SyncableTable {
       INSERT OR REPLACE INTO notebooks (id, title, kind, paper, cover_color,
                                         created_at, updated_at, device_id,
                                         deleted, dirty, folder_id, favorite,
-                                        trashed_at, cover_style, edited_at,
+                                        trashed_at, edited_at,
                                         paper_color)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)''',
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)''',
       [
         n.id,
         n.title,
@@ -284,7 +279,6 @@ class NotebookRepository extends SyncableTable {
         n.folderId,
         n.favorite ? 1 : 0,
         n.trashedAt,
-        n.coverStyle.name,
         n.editedAt,
         n.paperColor.name,
       ],
@@ -298,7 +292,6 @@ class NotebookRepository extends SyncableTable {
     paper: PaperStyle.parse(row['paper'] as String),
     paperColor: PaperColor.parse(row['paper_color'] as String?),
     coverColor: row['cover_color'] as int,
-    coverStyle: CoverStyle.parse(row['cover_style'] as String?),
     createdAt: row['created_at'] as int,
     updatedAt: row['updated_at'] as int,
     editedAt: row['edited_at'] as int,

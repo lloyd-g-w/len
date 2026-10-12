@@ -1484,7 +1484,7 @@ below 31 bits, and use `float32`/`int32` in binary formats.
 ## Library (`features/library/`)
 
 - **Data.** Folders are a synced collection (`FolderRepository`, nested via `parentId`).
-  Notebooks carry `folderId`, `favorite`, `trashedAt`, `coverStyle` and `editedAt`
+  Notebooks carry `folderId`, `favorite`, `trashedAt` and `editedAt`
   (content/title edits only, so organising never reorders "last edited"). Readers are
   defensive: a missing parent folder means "root", and folders caught in a parent cycle
   (possible after concurrent moves) are shown at the top level. Deleting a folder
@@ -1508,7 +1508,8 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   (`SurfaceStats`: live stroke count + latest version, plus the page's paper and size), renders
   lazily in short time-boxed batches (one per event-loop turn, one notification per batch that
   changed a preview), keeps an LRU of images and is invalidated when an editor closes or sync brings
-  strokes. Covers without ink show the coloured, patterned cover.
+  strokes. Covers without ink show a plain cover in the notebook's colour (one of
+  ten, `Palette.covers`).
 
 ## Search (`data/search/`, `features/search/`)
 

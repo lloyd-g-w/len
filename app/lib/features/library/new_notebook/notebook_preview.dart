@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../domain/cover_style.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
@@ -14,14 +13,12 @@ class NotebookPreview extends StatelessWidget {
     super.key,
     required this.kind,
     required this.coverColor,
-    required this.coverStyle,
     required this.template,
     required this.height,
   });
 
   final NotebookKind kind;
   final int coverColor;
-  final CoverStyle coverStyle;
   final PageTemplate template;
 
   /// Height of the cover and page; less if the width does not allow it.
@@ -68,7 +65,7 @@ class NotebookPreview extends StatelessWidget {
               curve: Motion.standard,
               width: coverWidth,
               height: height,
-              child: NotebookCover(color: coverColor, style: coverStyle, kind: kind),
+              child: NotebookCover(color: coverColor, kind: kind),
             ),
           ),
           SizedBox(width: height * 0.08),

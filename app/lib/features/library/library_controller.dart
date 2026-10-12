@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import '../../app_services.dart';
 import '../../data/folder_repository.dart';
 import '../../data/surface_stats.dart';
-import '../../domain/cover_style.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
@@ -244,7 +243,6 @@ class LibraryController extends ChangeNotifier {
     required PaperStyle paper,
     required int coverColor,
     PaperColor paperColor = PaperColor.white,
-    CoverStyle coverStyle = CoverStyle.plain,
     PageTemplate? firstPage,
     List<Paper> papers = const [],
   }) {
@@ -254,7 +252,6 @@ class LibraryController extends ChangeNotifier {
       paper: paper,
       paperColor: paperColor,
       coverColor: coverColor,
-      coverStyle: coverStyle,
       folderId: _section == LibrarySection.library ? _folderId : null,
       firstPage: firstPage,
       papers: papers,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/cover_style.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
 import 'library_controller.dart';
@@ -136,7 +135,7 @@ class _CoverFan extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    Widget cover(int color, CoverStyle style, double angle, Offset offset) => Transform.translate(
+    Widget cover(int color, double angle, Offset offset) => Transform.translate(
       offset: offset,
       child: Transform.rotate(
         angle: angle,
@@ -147,7 +146,7 @@ class _CoverFan extends StatelessWidget {
             borderRadius: BorderRadius.circular(Radii.cover),
             boxShadow: Shadows.low(brightness),
           ),
-          child: NotebookCover(color: color, style: style, kind: NotebookKind.paged),
+          child: NotebookCover(color: color, kind: NotebookKind.paged),
         ),
       ),
     );
@@ -157,9 +156,9 @@ class _CoverFan extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          cover(Palette.covers[1], CoverStyle.dots, -0.22, const Offset(-48, 8)),
-          cover(Palette.covers[2], CoverStyle.waves, 0.22, const Offset(48, 8)),
-          cover(Palette.covers[0], CoverStyle.linen, 0, Offset.zero),
+          cover(Palette.covers[1], -0.22, const Offset(-48, 8)),
+          cover(Palette.covers[2], 0.22, const Offset(48, 8)),
+          cover(Palette.covers[0], 0, Offset.zero),
         ],
       ),
     );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/cover_style.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
@@ -57,7 +56,6 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   PageTemplate get _template => _selection.template;
   PaperStyle get _paper => _template.style;
   int _cover = Palette.covers.first;
-  CoverStyle _coverStyle = CoverStyle.plain;
 
   bool get _canvas => _kind == NotebookKind.canvas;
 
@@ -75,7 +73,6 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         kind: _kind,
         paper: _paper.needsParams ? PaperStyle.blank : _paper,
         coverColor: _cover,
-        coverStyle: _coverStyle,
         template: _template,
         papers: !_canvas && _paper.isPlanner ? _selection.pagesToCreate() : const [],
       ),
@@ -131,13 +128,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   }
 
   Widget _preview(double height) => Center(
-    child: NotebookPreview(
-      kind: _kind,
-      coverColor: _cover,
-      coverStyle: _coverStyle,
-      template: _template,
-      height: height,
-    ),
+    child: NotebookPreview(kind: _kind, coverColor: _cover, template: _template, height: height),
   );
 
   Widget _titleField({required bool autofocus}) => TextField(
@@ -176,13 +167,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
       ),
       SingleChildScrollView(
         padding: padding,
-        child: CoverPicker(
-          color: _cover,
-          style: _coverStyle,
-          kind: _kind,
-          onColor: (c) => setState(() => _cover = c),
-          onStyle: (s) => setState(() => _coverStyle = s),
-        ),
+        child: CoverPicker(color: _cover, onColor: (c) => setState(() => _cover = c)),
       ),
     ],
   );

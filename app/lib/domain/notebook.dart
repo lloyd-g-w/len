@@ -1,4 +1,3 @@
-import 'cover_style.dart';
 import 'paper.dart';
 
 /// Whether a notebook is a sequence of fixed-size pages or a single
@@ -26,7 +25,6 @@ class Notebook {
     required this.createdAt,
     required this.updatedAt,
     this.paperColor = PaperColor.white,
-    this.coverStyle = CoverStyle.plain,
     this.folderId,
     this.favorite = false,
     this.trashedAt,
@@ -46,9 +44,6 @@ class Notebook {
 
   /// ARGB colour of the cover in the library.
   final int coverColor;
-
-  /// Pattern printed on the cover.
-  final CoverStyle coverStyle;
 
   /// Milliseconds since epoch.
   final int createdAt;
@@ -82,7 +77,6 @@ class Notebook {
     PaperStyle? paper,
     PaperColor? paperColor,
     int? coverColor,
-    CoverStyle? coverStyle,
     int? updatedAt,
     int? editedAt,
     Object? folderId = _keep,
@@ -96,7 +90,6 @@ class Notebook {
       paper: paper ?? this.paper,
       paperColor: paperColor ?? this.paperColor,
       coverColor: coverColor ?? this.coverColor,
-      coverStyle: coverStyle ?? this.coverStyle,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       editedAt: editedAt ?? this.editedAt,

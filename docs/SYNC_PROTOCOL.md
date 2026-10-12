@@ -201,7 +201,7 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | collection  | data                                                                                   |
 |-------------|----------------------------------------------------------------------------------------|
 | `folders`   | `{name, parentId: string|null, color, createdAt}` |
-| `notebooks` | `{title, kind: "paged"|"canvas", paper, paperColor, coverColor, coverStyle, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
+| `notebooks` | `{title, kind: "paged"|"canvas", paper, paperColor, coverColor, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperData: object, paperColor, bookmarked: bool, background: object|null}` — see [Paper and pages](#paper-and-pages) |
 | `templates` | `{name, blob, width, height, createdAt}` — one of the user's own templates ("My templates"): `blob` is the `<sha256>` of a PNG or JPEG image ([blob](#blobs)), `width` / `height` (> 0) the size in world units (96 per inch) of pages made from it. Pages made from a template copy its blob into their `paperData`, so renaming or deleting (tombstoning) a template never changes existing pages. |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd, u?: unit}` (`u`: world units per screen pixel when the stroke was written, i.e. 1 / zoom; missing → estimated from the points; missing style → per-tool defaults; unknown keys ignored). `createdAt` is the wall time (epoch ms) the stroke was *begun* (pen down), not finished: strokes are painted in this order, and audio replay shows a stroke from the moment writing it started. |
@@ -221,8 +221,7 @@ it (see [Client algorithm](#client-algorithm)). Unknown extra fields are ignored
 element's `type` and the contents of its `data` are open (see its row), and `strokes` (see its row).
 
 Enumerated values: `kind` as above (notebooks); `paper` and `paperColor` see [Paper and pages](#paper-and-pages);
-`coverStyle` ∈ `plain`, `linen`, `dots`, `grid`, `waves`, `stripes`; `color`, `coverColor` are ARGB
-ints.
+`color`, `coverColor` are ARGB ints.
 
 **Library semantics.**
 - `folders.parentId` is null for top-level folders. A folder whose parent is missing/deleted is shown

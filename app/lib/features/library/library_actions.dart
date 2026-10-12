@@ -62,7 +62,6 @@ class LibraryActions {
       paper: request.paper,
       paperColor: request.template.color,
       coverColor: request.coverColor,
-      coverStyle: request.coverStyle,
       firstPage: request.template,
       papers: request.papers,
     );
@@ -135,12 +134,10 @@ class LibraryActions {
       case NotebookAction.favorite:
         controller.setFavorite(notebook.id, !notebook.favorite);
       case NotebookAction.cover:
-        final choice = await showCoverSheet(context, notebook);
+        final color = await showCoverSheet(context, notebook);
         final current = controller.services.notebooks.get(notebook.id);
-        if (choice == null || current == null) return;
-        controller.updateNotebook(
-          current.copyWith(coverColor: choice.color, coverStyle: choice.style),
-        );
+        if (color == null || current == null) return;
+        controller.updateNotebook(current.copyWith(coverColor: color));
       case NotebookAction.duplicate:
         final copy = controller.duplicate(notebook.id);
         if (copy != null && context.mounted) _toast(context, 'Duplicated as “${copy.title}”');
