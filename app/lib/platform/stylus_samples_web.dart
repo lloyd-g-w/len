@@ -6,6 +6,7 @@ import '../ink/input/wet_ink.dart';
 /// is no low-latency overlay.
 SampleSource? openStylusSamples({
   WetInkStyle? Function()? wetInk,
+  WetInkStyle? Function()? wetInkNext,
   WetInkView Function()? wetInkView,
 }) => null;
 

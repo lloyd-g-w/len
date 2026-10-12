@@ -213,6 +213,9 @@ class EditorSession {
     kinetic: kinetic,
     samples: openStylusSamples(
       wetInk: () => WetInkStyle.of(live, viewport.scale),
+      // Pressing on a selection moves it rather than drawing.
+      wetInkNext: () =>
+          content.selection.isEmpty ? WetInkStyle.forNextStroke(tools, viewport.scale) : null,
       wetInkView: () => WetInkView.of(viewport, covered: _chromeInsets),
     ),
     penButtonAction: () => services.preferences.penButtonAction,

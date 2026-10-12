@@ -824,46 +824,78 @@ today's one-sample-per-frame input. Other platforms get no source (web
 browsers and desktop embedders already deliver every sample). Tilt and
 orientation are carried but not used yet.
 
-### Low-latency ink (Android, experimental; `WetInkOverlay.kt`)
+### Low-latency ink (Android; `WetInk*.kt`, `platform/low_latency_ink_native.dart`)
 
-Setting *Low-latency ink (experimental)*, default off (see `docs/INK_LAB.md`,
-"Low-latency ink"). A translucent `SurfaceView` (media-overlay z-order) sits
-above the Flutter view, rendered with androidx.graphics'
-`CanvasFrontBufferedRenderer` (API 29+): the newest samples of the contact are
-drawn into the **front buffer** as each `MotionEvent` arrives, so the tip
-appears a frame or two before Flutter's frame shows it.
+Flutter shows a pen sample about 36 ms after the digitiser took it (Galaxy
+Tab S8+, 120 Hz; `docs/INK_LAB.md`, *Low-latency ink*): input waits for the
+next frame, the frame is built on the UI thread (merged with the platform
+thread), rasterised, queued and latched by SurfaceFlinger. So on Android
+(10+) the newest part of each pen stroke is also drawn by the platform,
+straight into the display's buffer, the way Samsung Notes and Notewise do:
 
-The overlay draws **the same ink Flutter will**: `WetInkModel.kt` is a
-line-for-line port of the Dart model the Ink Lab measures
-(`ink/lab/wet_ink_model.dart`), which applies the outline's own rules —
-point thinning (`PointSpacing`), the pressure filter, the causal radius
-smoothing in steps along the line, the start and tip end rules, the
-pen-down and pen-up hooks (`HookFinder`; the model decides the pen-down hook
-itself, at the same sample as Flutter's outline), the dot rule (a line
-shorter than half its width is a dot), and the shaper's position smoothing
-(resampling, corners, low-pass with end fit) over the points from a little
-before the tail, in step with the whole line's samples. Each piece is the hull of two
-circles (a tapered capsule). `tool/wet_ink_check/check.sh` runs both models
-on vectors from every Ink Lab case and recording and compares them (equal to
-1e-15).
+- **Input**: `MainActivity.dispatchTouchEvent` hands every event to
+  `WetInkOverlay` before Flutter. At a stylus down it asks for
+  *unbuffered dispatch*, so each S Pen sample arrives on its own (240 Hz)
+  instead of in one batch per frame.
+- **Rendering** (`WetInkLayer`): a translucent `SurfaceView` (media-overlay
+  z-order, same bounds as the Flutter view) drawn only through the **front
+  buffer** of androidx.graphics' `CanvasFrontBufferedRenderer`: no buffer
+  swap, no vsync wait. Each frame clears what the previous one covered and
+  redraws the whole wet ink (a few millimetres), so ink can also be taken
+  away. At most one frame is queued; newer input replaces a waiting one.
+  The hull pieces of a stroke are filled as **one path** (they wind the same
+  way), so their antialiased edges are not darkened where they overlap.
+- **Same ink as Flutter**: `WetInkModel.kt` is a line-for-line port of the
+  Dart model the Ink Lab measures (`ink/lab/wet_ink_model.dart`), which
+  applies the outline's own rules — point thinning (`PointSpacing`), the
+  pressure filter, the causal radius smoothing, the start and tip rules,
+  the pen-down and pen-up hooks (`HookFinder`), the dot rule and the
+  shaper's position smoothing — in screen pixels (a view is a translation
+  and a uniform scale, so the rules scale with it). Each piece is the hull
+  of two circles. Two checks keep the ports equal: a shared golden
+  (`test/inklab/wet_ink_golden_test.dart` writes/compares
+  `android/app/src/test/resources/wet_ink/`, `WetInkModelTest.kt` checks
+  the Kotlin model against it; Gradle `:app:testDebugUnitTest`) and
+  `tool/wet_ink_check/check.sh` (every Ink Lab case and recording, equal
+  to 1e-15).
+- **Prediction** (`WetInkTip`): androidx.input's `MotionEventPredictor`
+  (Android's own predictor where the device has one, else a Kalman
+  filter) extends the tip by at most 20 ms, at the tip's radius. Predicted
+  points are only drawn, never stored; each event replaces them.
+- **Only opaque pen ink** (`WetInkStyle`): the highlighter, translucent
+  colours, textured or nib pens, the eraser, lasso, shapes, text and
+  straightened strokes stay on the Flutter path, as do fingers and other
+  platforms. Overlay and Flutter ink overlap, so only opaque ink can look
+  the same where they do.
+- **Hand-over**: Flutter keeps drawing the live stroke as before; the
+  overlay only adds the part Flutter may not show yet. Dart reports after
+  each built frame the newest input it contains (`progress`); the overlay
+  keeps every point until 50 ms after that report (`SHOWN_AFTER_MS`;
+  report to present measured 25 ms median, 43 ms p99), and the whole tail
+  until 50 ms after `end` (sent after the frame with the committed
+  stroke). Retracting earlier would open a gap; later only means more
+  opaque ink lying exactly on Flutter's. Nothing is left behind: when no
+  stroke needs it, the front buffer is cleared and hidden.
+- **Pen-down**: while the S Pen hovers over a surface with the pen tool,
+  Dart sends `arm` (how a stroke starting now would look, re-sent every
+  150 ms), so the overlay draws from the first sample; `begin` (sent when
+  the input controller starts the live stroke) confirms or restyles it,
+  `skip` takes it back (a down that is not ink — another tool, a
+  selection, a menu over the canvas: a global pointer route answers every
+  stylus down no surface took). Unconfirmed after 150 ms, it is dropped.
+- **Clip and transform**: `WetInkView` (Dart) gives the writing area — the
+  surface less the chrome insets (toolbars), and on a page only the page,
+  where committed ink is clipped too — and the view transform. A pan or
+  zoom during a stroke (or straightening it) sends `cancel`: the overlay
+  drops its ink at once and Flutter draws the stroke.
+- **Lifecycle**: the layer is created at `onStart` (or the next touch) and
+  follows the Flutter view; the renderer rebuilds its buffers on surface
+  changes (rotation, split screen, resume). A pen-up Dart never ends is
+  dropped after 1 s.
 
-Dart (`_LowLatencySource`, a `SampleSource` decorator) sends `begin`
-(contact, colour, radius table, the rules as `WetInkShape.toList`) at
-pen-down, when Flutter's live stroke begins too, `progress`
-(the newest event a built frame contains) after each frame, and `end` after
-the frame showing the committed stroke. On each `progress` the overlay
-*commits*: the front buffer is cleared and only the points newer than the
-progress reported **two messages before the latest** (Flutter presents a
-frame about two frames after building it) are redrawn in the multi-buffered
-layer, in one SurfaceControl transaction (and the whole start while
-Flutter's frame still shows a pen-down hook the model has trimmed); after
-`end` the tail stays 3 frames. So the overlay never shows more than the last few millimetres of
-ink, on top of identical Flutter ink. Only opaque, round, untextured pens
-qualify (`WetInkStyle`): highlighter, legacy pencil/fountain, translucent
-colours, erasing, tools and straightened strokes are left to Flutter alone.
-Known gaps: the overlay is not clipped to the canvas (a stroke dragged under
-a toolbar shows its tip above it for a few frames), and the first stroke
-after switching it on is not accelerated (the surface is created then).
+Markers for system traces (`--ez trace-systrace true`, atrace app
+`dev.len.len`): `len.wet <eventTimeNs>` (recording a frame),
+`len.wetDone <eventTimeNs>` (frame rendered), `len.progress <eventTimeNs>`.
 
 Resting the pen for 600 ms at the end of a stroke snaps it
 (`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`): open
@@ -1187,7 +1219,7 @@ the web:
 | Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock: a second tab waits ("open in another tab") |
 | Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux / Windows: command line + forwarding from a second instance | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
-| Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
+| Stylus samples (`stylus_samples`, `low_latency_ink`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
 | Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
 
 **Why web canvas reads are not in a Web Worker.** The IndexedDB VFS keeps
@@ -1440,7 +1472,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
 `SettingsRepository`: theme mode and accent (the app rebuilds its `ThemeData` from them),
 stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
-(`PenButtonAction.eraser|lasso|none`), low-latency ink (Android, experimental), editor toolbar placement (and floating position) and tool names,
+(`PenButtonAction.eraser|lasso|none`), editor toolbar placement (and floating position) and tool names,
 library layout and sort. Getters always read
 the store, so values written elsewhere are never stale.
 
@@ -1495,9 +1527,12 @@ malformed record is skipped. Open screens subscribe to
   box edge); text pasted from other apps is plain; PDF export places glyphs
   word by word without kerning; boxes with characters outside the bundled
   fonts' subsets export as images.
-- Android: historical stylus samples are merged from a platform channel and
-  the low-latency overlay is experimental (see *Input*); it has not been
-  tuned on every device. Stylus tilt/orientation are received but unused.
+- Android: historical stylus samples are merged from a platform channel;
+  the low-latency overlay is tuned on a Galaxy Tab S8+ only (see *Input*;
+  its hand-over delay assumes a Flutter pipeline like that tablet's).
+  Small floating panels over the canvas (audio player, stickers, search)
+  are not cut out of its clip. Stylus tilt/orientation are received but
+  unused.
 - The sync token is stored in the app's SQLite database; move it to secure
   storage before shipping.
 - PDF: tiles are not persisted (re-rendered after reopening) and stop at

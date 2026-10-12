@@ -183,6 +183,7 @@ class InkInputController {
   void handleHover(PointerHoverEvent e) {
     gestures?.hover(e);
     if (_drawPointer != null) return; // Don't fight the active pointer.
+    samples?.hover(e);
     _showEraser(_wantsErase(e) ? e.localPosition : null);
   }
 

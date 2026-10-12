@@ -7,6 +7,7 @@ import '../pen/pen_profile.dart';
 import '../render/shape_params.dart';
 import '../render/stroke_outline.dart';
 import '../render/stroke_renderer.dart';
+import '../tool_settings.dart';
 import '../viewport.dart';
 import 'live_ink.dart';
 import 'point_spacing.dart';
@@ -72,6 +73,22 @@ class WetInkStyle {
   static WetInkStyle? of(LiveInk live, double scale) {
     if (!live.isDrawing || live.straightened) return null;
     return forPen(live.tool, live.width, live.style, color: live.color, scale: scale);
+  }
+
+  /// The style the next stroke on a surface seen at viewport [scale] will
+  /// have, if the stylus touches down now and draws ink (the pen tool),
+  /// else null.
+  static WetInkStyle? forNextStroke(ToolSettings tools, double scale) {
+    if (tools.tool != EditorTool.pen) return null;
+    final ink = tools.activeInk;
+    final config = tools.configOf(ink);
+    return forPen(
+      ink,
+      config.width,
+      tools.styleFor(ink).copyWith(unit: 1 / scale),
+      color: config.color,
+      scale: scale,
+    );
   }
 
   /// The style of ink drawn with [tool], [width] and [style] (with the

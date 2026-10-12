@@ -93,6 +93,7 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
      * thread), or once the frame being rendered is done.
      */
     fun draw(frame: Frame) {
+        main.removeCallbacks(hide)
         val now = SystemClock.uptimeMillis()
         // Frames sent while the surface was gone never complete.
         if (now - sentAtMs > STUCK_MS) inFlight.set(0)
@@ -125,8 +126,22 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
         }
     }
 
-    /** Removes all ink. */
+    /**
+     * Removes all ink: clears what the buffer holds now, and hides the
+     * layer once nothing was drawn for [HIDE_AFTER_MS]. Hiding sooner would
+     * slow down the next stroke's first frame: the renderer then waits
+     * until SurfaceFlinger lets go of the buffer (about a frame).
+     */
+    fun clearSoon() {
+        draw(Frame(RectF(), emptyList(), 0))
+        main.postDelayed(hide, HIDE_AFTER_MS)
+    }
+
+    private val hide = Runnable { clear() }
+
+    /** Removes all ink and hides the layer now. */
     fun clear() {
+        main.removeCallbacks(hide)
         generation++
         inFlight.set(0)
         waiting = null
@@ -136,6 +151,7 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
     }
 
     fun release() {
+        main.removeCallbacks(hide)
         renderer.release(true)
         (view.parent as? ViewGroup)?.removeView(view)
     }
@@ -193,6 +209,9 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
     companion object {
         /** Frames queued for the renderer before newer ones replace each other. */
         private const val MAX_IN_FLIGHT = 1
+
+        /** An empty overlay is hidden after this long (ms). */
+        private const val HIDE_AFTER_MS = 2000L
 
         /** A frame not rendered after this long (ms) never will be. */
         private const val STUCK_MS = 250L

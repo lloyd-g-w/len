@@ -23,8 +23,8 @@ draws. It has three parts:
    The Ink Lab opens. It is a scratch surface: nothing is saved to your
    notebooks or synced.
 2. Choose the pen with the pen menu in the app bar: stabiliser 0 / 0.4 / 1 and
-   width 1.5 / 2.5 / 4. Low-latency ink and stylus-only follow the app's
-   settings.
+   width 1.5 / 2.5 / 4. Stylus-only follows the app's setting; the
+   low-latency overlay is on, as in the editor (Android).
 3. Write. The bar at the bottom shows:
    - the digitiser rate (Hz) and samples per frame of the latest contact;
    - mean and maximum frame build and raster times (ms);

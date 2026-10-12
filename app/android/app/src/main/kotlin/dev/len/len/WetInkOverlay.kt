@@ -55,6 +55,11 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
     private val progressAt = ArrayDeque<Long>()
     private val progressUpTo = ArrayDeque<Double>()
 
+    // How a stroke starting now would look (Dart's `arm`, sent while the
+    // stylus hovers over a surface) and when it came.
+    private var armed: Style? = null
+    private var armedAtMs = 0L
+
     private var shown = false
     private var ticking = false
 
@@ -114,6 +119,17 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 latest = contact
                 tip?.start(event)
                 contact.add(event, p, dx, dy)
+                // Hovering just now with the pen tool: draw from the first
+                // sample; Dart confirms (`begin`) or takes it back (`skip`).
+                val style = armed
+                val now = SystemClock.uptimeMillis()
+                if (style != null && now - armedAtMs <= ARM_FRESH_MS && event.buttonState == 0) {
+                    contact.begin(style.color, WetInkModel(style.radii, style.shape, frameMs()), style.clip)
+                    contact.provisionalSinceMs = now
+                    contacts.add(contact)
+                    render()
+                    startTicking()
+                }
             }
             MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
                 val contact = current ?: return
@@ -138,19 +154,22 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
     private fun handle(message: List<*>?) {
         val now = SystemClock.uptimeMillis()
         when (message?.getOrNull(0)) {
+            "arm" -> {
+                armed = if (message.size > 1) Style.of(message, 1) else null
+                armedAtMs = now
+            }
             "begin" -> {
                 val contact = latest ?: return
-                if (contact.began || !contact.matches(message[1], message[2])) return
-                val radii = message[4] as DoubleArray
-                val shape = WetInkShape.of(message[5] as DoubleArray) ?: return
-                val clip = message[6] as DoubleArray
-                if (radii.isEmpty() || clip.size != 4) return
-                contact.begin(
-                    color = (message[3] as Number).toLong().toInt(),
-                    model = WetInkModel(radii, shape, frameMs()),
-                    clip = RectF(clip[0].toFloat(), clip[1].toFloat(), clip[2].toFloat(), clip[3].toFloat()),
-                )
-                contacts.add(contact)
+                if (!contact.matches(message[1], message[2])) return
+                if (contact.began && contact.provisionalSinceMs < 0) return
+                val style = Style.of(message, 3) ?: return
+                contact.begin(style.color, WetInkModel(style.radii, style.shape, frameMs()), style.clip)
+                contact.provisionalSinceMs = -1
+                if (contact !in contacts) contacts.add(contact)
+                render()
+            }
+            "skip" -> contacts.find { it.matches(message[1], message[2]) }?.let {
+                contacts.remove(it)
                 render()
             }
             "progress" -> {
@@ -197,9 +216,10 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
 
     /** Drops the contacts Flutter surely shows by [now]; whether there were any. */
     private fun prune(now: Long): Boolean = contacts.removeAll {
-        // Shown by Flutter for sure (or never ended: Dart went away).
+        // Shown by Flutter for sure, or not confirmed by Dart (it went away).
         (it.endedAtMs >= 0 && now - it.endedAtMs >= SHOWN_AFTER_MS) ||
-            (it.liftedAtMs >= 0 && now - it.liftedAtMs >= LOST_AFTER_MS)
+            (it.liftedAtMs >= 0 && now - it.liftedAtMs >= LOST_AFTER_MS) ||
+            (it.provisionalSinceMs >= 0 && now - it.provisionalSinceMs >= UNCONFIRMED_MS)
     }
 
     private fun startTicking() {
@@ -227,7 +247,7 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
         if (inks.size == lastDrawn.size && inks.indices.all { inks[it] === lastDrawn[it] }) return
         lastDrawn = inks
         if (inks.isEmpty()) {
-            if (shown) layer.clear()
+            if (shown) layer.clearSoon()
             shown = false
             return
         }
@@ -242,6 +262,20 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
         return 1000.0 / rate.coerceIn(30f, 240f)
     }
 
+    /** A stroke's look, as `arm` and `begin` carry it (from index [from]). */
+    private class Style(val color: Int, val radii: DoubleArray, val shape: WetInkShape, val clip: RectF) {
+        companion object {
+            fun of(message: List<*>, from: Int): Style? {
+                val radii = message[from + 1] as DoubleArray
+                val shape = WetInkShape.of(message[from + 2] as DoubleArray) ?: return null
+                val c = message[from + 3] as DoubleArray
+                if (radii.isEmpty() || c.size != 4) return null
+                val clip = RectF(c[0].toFloat(), c[1].toFloat(), c[2].toFloat(), c[3].toFloat())
+                return Style((message[from] as Number).toLong().toInt(), radii, shape, clip)
+            }
+        }
+    }
+
     companion object {
         const val CHANNEL = "len/low_latency_ink"
         private const val TAG = "LenWetInk"
@@ -253,6 +287,12 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
          * 40 ms p99 (docs/INK_LAB.md, "Low-latency ink").
          */
         const val SHOWN_AFTER_MS = 50L
+
+        /** An `arm` older than this (ms) is not trusted at pen-down. */
+        private const val ARM_FRESH_MS = 400L
+
+        /** A contact drawn from `arm` that Dart has not confirmed by then is dropped (ms). */
+        private const val UNCONFIRMED_MS = 150L
 
         /** A lifted contact Dart has not ended by then is dropped (ms). */
         private const val LOST_AFTER_MS = 1000L

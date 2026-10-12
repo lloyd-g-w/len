@@ -43,6 +43,9 @@ abstract interface class SampleSource {
 
   /// Stops tracking; later samples of the contact are ignored.
   void end();
+
+  /// A pointer hovers over the surface (no contact tracked).
+  void hover(PointerHoverEvent event);
 }
 
 /// Recent stylus batches as they arrive from the platform, bounded.
@@ -88,6 +91,9 @@ class StylusSampleMerger implements SampleSource {
   int _downUs = 0;
   int _lastUs = 0;
   double _lastSampleUs = 0;
+
+  @override
+  void hover(PointerHoverEvent event) {}
 
   @override
   void begin(PointerDownEvent down) {

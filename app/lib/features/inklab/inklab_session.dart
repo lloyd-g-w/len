@@ -37,6 +37,7 @@ class InkLabSession extends ChangeNotifier {
       live: live,
       samples: openStylusSamples(
         wetInk: () => WetInkStyle.of(live, viewport.scale),
+        wetInkNext: () => WetInkStyle.forNextStroke(tools, viewport.scale),
         wetInkView: () => WetInkView.of(viewport),
       ),
     );

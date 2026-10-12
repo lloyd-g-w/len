@@ -86,10 +86,20 @@ internal class WetContact(val device: Int, val downMs: Long) {
         model?.add(x, y, pressure, timeMs, lift)
     }
 
-    /** Starts drawing: replays the samples so far into [model]. */
+    /**
+     * Drawn from the style the stylus was armed with, until Dart's `begin`
+     * confirms it (or `skip` says it is no ink); since when.
+     */
+    var provisionalSinceMs = -1L
+
+    /**
+     * Starts drawing (or restyles: Dart's style replaces the armed one):
+     * replays the samples so far into [model].
+     */
     fun begin(color: Int, model: WetInkModel, clip: RectF) {
         this.color = color
         this.clip = clip
+        inkFrom = -1
         for (i in 0 until samples.size) {
             val lift = liftedAtMs >= 0 && i == samples.size - 1
             model.add(samples.x(i), samples.y(i), samples.pressure(i), samples.time(i), lift)
