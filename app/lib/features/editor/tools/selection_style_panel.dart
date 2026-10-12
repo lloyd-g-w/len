@@ -7,12 +7,15 @@ import '../../../ink/selection/selection_controller.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/color_dot.dart';
 import '../pen/option_controls.dart';
+import 'colour_sheet.dart';
 import 'text/text_style_menus.dart';
 import 'text_format_bar.dart';
 
-/// Opens the style panel of a lasso selection: font and size of the
-/// selected text boxes, pen type and width of the selected ink.
+/// Opens the style panel of a lasso selection: the colour of its ink and
+/// text, then font and size of the selected text boxes, pen type and width
+/// of the selected ink.
 Future<void> showSelectionStyle(
   BuildContext context, {
   required SelectionController selection,
@@ -61,6 +64,8 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _colourRow(context),
+            const SizedBox(height: Gaps.md),
             if (texts.isNotEmpty) ..._textSection(context, texts),
             if (texts.isNotEmpty && strokes.isNotEmpty) const SizedBox(height: Gaps.md),
             if (strokes.isNotEmpty) ..._inkSection(context, strokes),
@@ -69,6 +74,37 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
       },
     );
   }
+
+  /// The colour of the first stroke, else of the first text box.
+  int _currentColour() {
+    if (_sel.strokes.isNotEmpty) return _sel.strokes.first.color;
+    final data = _sel.elements.firstOrNull?.data['color'];
+    return data is int ? data : 0xFF000000;
+  }
+
+  Widget _colourRow(BuildContext context) => Row(
+    children: [
+      Expanded(child: Text('Colour', style: Theme.of(context).textTheme.labelLarge)),
+      Builder(
+        builder: (anchor) => ColorDot(
+          color: _currentColour(),
+          selected: false,
+          size: 28,
+          target: 40,
+          tooltip: 'Colour',
+          onTap: () async {
+            final colour = await pickColour(
+              anchor,
+              title: 'Recolour selection',
+              initial: _currentColour(),
+              tools: widget.tools,
+            );
+            if (colour != null) _sel.recolor(colour);
+          },
+        ),
+      ),
+    ],
+  );
 
   List<Widget> _textSection(BuildContext context, List<TextData> texts) {
     final label = Theme.of(context).textTheme.labelLarge;
