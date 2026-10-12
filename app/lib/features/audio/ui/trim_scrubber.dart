@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -44,8 +45,9 @@ class _TrimScrubberState extends State<TrimScrubber> {
   final _startFocus = FocusNode(debugLabel: 'trim start');
   final _endFocus = FocusNode(debugLabel: 'trim end');
 
-  /// Track x of the handle being dragged.
+  /// Track x of the handle being dragged, and the range it made.
   double? _dragX;
+  TrimRange? _dragged;
 
   @override
   void initState() {
@@ -69,10 +71,9 @@ class _TrimScrubberState extends State<TrimScrubber> {
 
   int _edge(bool start, TrimRange range) => start ? range.start : range.end;
 
-  /// After a handle moved, preview from the new start, or the last
-  /// seconds before the new end.
-  void _previewEdge(bool start) {
-    final range = widget.range;
+  /// After a handle moved (to [range]), preview from the new start, or the
+  /// last seconds before the new end.
+  void _previewEdge(bool start, TrimRange range) {
     widget.onSeek(start ? range.start : (range.end - 2000).clamp(range.start, range.end));
   }
 
@@ -113,16 +114,24 @@ class _TrimScrubberState extends State<TrimScrubber> {
             child: GestureDetector(
               key: ValueKey(start ? 'trim-start' : 'trim-end'),
               behavior: HitTestBehavior.opaque,
+              // Movement from the touch point on counts, not just from where
+              // the drag was recognised.
+              dragStartBehavior: DragStartBehavior.down,
               onTapDown: (_) => (start ? _startFocus : _endFocus).requestFocus(),
-              onHorizontalDragStart: (_) => _dragX = track.xOf(at),
+              onHorizontalDragStart: (_) {
+                _dragX = track.xOf(at);
+                _dragged = null;
+              },
               onHorizontalDragUpdate: (d) {
                 final dragX = (_dragX ?? track.xOf(at)) + d.delta.dx;
                 _dragX = dragX;
-                widget.onChanged(_moved(start, track.msAt(dragX)));
+                final range = _dragged = _moved(start, track.msAt(dragX));
+                widget.onChanged(range);
               },
               onHorizontalDragEnd: (_) {
-                _dragX = null;
-                _previewEdge(start);
+                final range = _dragged;
+                _dragX = _dragged = null;
+                if (range != null) _previewEdge(start, range);
               },
               onHorizontalDragCancel: () => _dragX = null,
             ),
@@ -205,12 +214,13 @@ class TrimFramePainter extends CustomPainter {
     const tab = TrimScrubber.tab;
     const r = Radius.circular(6);
     final fill = Paint()..color = color;
-    final h = size.height;
+    // The frame surrounds the waveform; the ink strip below stays clear.
+    const top = -1.0, bottom = WaveformScrubber.waveHeight + 1;
     canvas
-      ..drawRect(Rect.fromLTRB(startX, 0, endX, 2), fill)
-      ..drawRect(Rect.fromLTRB(startX, h - 2, endX, h), fill);
-    final left = Rect.fromLTWH(startX - tab, 0, tab, h);
-    final right = Rect.fromLTWH(endX, 0, tab, h);
+      ..drawRect(Rect.fromLTRB(startX, top, endX, top + 2), fill)
+      ..drawRect(Rect.fromLTRB(startX, bottom - 2, endX, bottom), fill);
+    final left = Rect.fromLTRB(startX - tab, top, startX, bottom);
+    final right = Rect.fromLTRB(endX, top, endX + tab, bottom);
     canvas
       ..drawRRect(RRect.fromRectAndCorners(left, topLeft: r, bottomLeft: r), fill)
       ..drawRRect(RRect.fromRectAndCorners(right, topRight: r, bottomRight: r), fill);

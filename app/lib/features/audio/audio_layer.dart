@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/messages.dart';
 import '../editor/chrome/chrome_metrics.dart';
 import '../editor/editor_session.dart';
 import 'notebook_audio.dart';
@@ -39,6 +42,27 @@ class _AudioLayerState extends State<AudioLayer> {
   late ReplayTarget _target = _targetFor();
   PaperColor? _paper;
 
+  /// Messages shown from the player or the replay (a trim saved, ink not
+  /// recorded) appear above the player instead of covering it.
+  final _messages = ValueNotifier<double>(0);
+  final _barKey = GlobalKey();
+
+  @override
+  void dispose() {
+    _messages.dispose();
+    super.dispose();
+  }
+
+  void _measure() {
+    if (!mounted) return;
+    final box = _barKey.currentContext?.findRenderObject() as RenderBox?;
+    final height = box != null && box.hasSize ? box.size.height : 0.0;
+    final below = MessageInsets.of(context);
+    _messages.value = height == 0
+        ? below
+        : math.max(below, widget.chromeInsets.bottom + Gaps.md + height);
+  }
+
   ReplayTarget _targetFor() {
     final session = widget.session;
     _paper = widget.canvasPaper;
@@ -59,42 +83,49 @@ class _AudioLayerState extends State<AudioLayer> {
     final playback = widget.audio.playback;
     final insets = widget.chromeInsets;
     final compact = MediaQuery.sizeOf(context).width < ChromeMetrics.compactWidth;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        InkReplayLayer(audio: widget.audio, target: _target),
-        Positioned(
-          left: insets.left + Gaps.md,
-          right: insets.right + Gaps.md,
-          bottom: insets.bottom + Gaps.sm,
-          child: Align(
-            heightFactor: 1,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: ListenableBuilder(
-                listenable: Listenable.merge([playback, widget.audio.recorder]),
-                builder: (context, _) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (compact && widget.audio.recorder.state.isActive)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: Gaps.sm),
-                        child: Material(
-                          elevation: 3,
-                          shadowColor: Colors.black26,
-                          borderRadius: BorderRadius.circular(Radii.pill),
-                          color: Colors.transparent,
-                          child: RecordingPill(recorder: widget.audio.recorder),
-                        ),
-                      ),
-                    PlaybackBar(audio: widget.audio),
-                  ],
+    return MessageInsets(
+      bottom: _messages,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          InkReplayLayer(audio: widget.audio, target: _target),
+          Positioned(
+            left: insets.left + Gaps.md,
+            right: insets.right + Gaps.md,
+            bottom: insets.bottom + Gaps.sm,
+            child: Align(
+              heightFactor: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: ListenableBuilder(
+                  listenable: Listenable.merge([playback, widget.audio.recorder]),
+                  builder: (context, _) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+                    return Column(
+                      key: _barKey,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (compact && widget.audio.recorder.state.isActive)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: Gaps.sm),
+                            child: Material(
+                              elevation: 3,
+                              shadowColor: Colors.black26,
+                              borderRadius: BorderRadius.circular(Radii.pill),
+                              color: Colors.transparent,
+                              child: RecordingPill(recorder: widget.audio.recorder),
+                            ),
+                          ),
+                        PlaybackBar(audio: widget.audio),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
