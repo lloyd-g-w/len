@@ -1,0 +1,42 @@
+# Flatpak of Len, repackaging the Linux release bundle (no Flutter in the
+# sandbox build). See README "Release" → Flatpak.
+#
+#   cp len-X.Y.Z-linux-x64.tar.gz app/linux/packaging/flatpak/len-linux-x64.tar.gz
+#   flatpak-builder --user --install --force-clean build-dir app/linux/packaging/flatpak/dev.len.len.yml
+#
+# CI (.github/workflows/release.yml, job "flatpak") does the same and attaches
+# len-X.Y.Z-linux-x64.flatpak to the release. For Flathub, replace the
+# archive's `path` with the release tarball's `url` + `sha256`.
+id: dev.len.len
+runtime: org.gnome.Platform # GTK 3 (the Flutter embedder) and GStreamer
+runtime-version: '51'
+sdk: org.gnome.Sdk
+command: len
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri # GPU rendering, stylus / tablet input
+  - --socket=pulseaudio # audio recording and playback
+  - --share=network # sync with a self-hosted server
+  # Files: the file chooser and "Open with" go through portals; no
+  # --filesystem access is needed.
+modules:
+  - name: len
+    buildsystem: simple
+    sources:
+      - type: archive
+        path: len-linux-x64.tar.gz # one top-level directory, stripped
+      - type: file
+        path: ../dev.len.len.metainfo.xml
+    build-commands:
+      # The bundle stays together (the runner finds lib/ and data/ next to
+      # its executable); bin/len links to it.
+      - mkdir -p /app/lib/len /app/bin
+      - cp -a len lib data /app/lib/len/
+      - ln -s /app/lib/len/len /app/bin/len
+      # The runner's window icon (share/icons next to the executable).
+      - cp -a share /app/lib/len/
+      - install -Dm644 share/applications/dev.len.len.desktop -t /app/share/applications
+      - cp -a share/icons /app/share/
+      - install -Dm644 dev.len.len.metainfo.xml -t /app/share/metainfo

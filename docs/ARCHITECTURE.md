@@ -323,8 +323,8 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   recording while another records ("Already recording in …").
 - **Presentation mode** (`present/`; "⋯" → *Present*, F5): `Presentation` hides all
   chrome (`ChromeLayout.focus`), goes immersive / full screen (`platform/fullscreen*`: the
-  browser's fullscreen API on the web; Android hides the system bars; desktop windows
-  stay as they are — no window plugin), makes the laser pointer the tool, and shows
+  browser's fullscreen API on the web; Android hides the system bars; Linux and Windows
+  windows go full screen through the runners' `len/window` channel), makes the laser pointer the tool, and shows
   paged notebooks one whole page at a time (single flow, fit page). ← / → / Page Up /
   Page Down / Space / Shift+Space turn pages (swipes too, when fingers navigate); a
   small bar (`PresentationControls`: previous, page n / m, next, *Stop presenting*)
@@ -618,11 +618,23 @@ opened, so no second copy of the PDF) into `PdfPageInfoCache` (LRU per page;
     entry). The GTK runner is single-instance (`G_APPLICATION_HANDLES_OPEN`): a
     second `len file.pdf` forwards the files over D-Bus to the running one,
     whose `open` handler sends them on `len/incoming_files`, and exits.
-    `LEN_MULTI_INSTANCE=1` or a non-default `XDG_DATA_HOME` (screenshots, tests)
-    turn this off.
-  - *Windows:* command-line paths (the runner passes them to `main`). File
-    associations belong to a future installer; a second launch is a second
-    process (no forwarding yet).
+    `LEN_MULTI_INSTANCE=1` or a non-default `XDG_DATA_HOME` (screenshots, tests;
+    Flatpak's own `XDG_DATA_HOME` does not count) turn this off.
+  - *Windows:* command-line paths (the runner passes them to `main`); the
+    installer registers Len in the "Open with" lists of `.pdf`, `.png`,
+    `.jpg`/`.jpeg` and `.webp` (and as a choice in *Default apps*, never
+    taking over a default). The runner is single-instance
+    (`windows/runner/single_instance.cpp`): a named mutex marks the running
+    Len, which serves a named pipe (current user only, local only, created
+    at start-up so launches during start-up queue). A second launch sends
+    its absolute paths (`LEN1` header, one UTF-8 path per line), waits for a
+    one-byte acknowledgement and exits; the server thread queues the paths and
+    posts a registered window message, and the window sends them on
+    `len/incoming_files` once Dart is `ready` (and comes to the front). If the
+    running Len is closing (no acknowledgement), the second launch waits for
+    the mutex and becomes the instance. Explorer starts one process per
+    selected file, so each arrives as its own batch. `LEN_MULTI_INSTANCE`
+    turns it off. Forwarded paths that do not exist are dropped (Linux too).
   - *Web:* the installed PWA's File Handling API (`file_handlers` +
     `launch_handler: focus-existing` in `manifest.json`; `launchQueue`
     consumer), Chromium-based desktop browsers only. Files can also be dropped
@@ -1148,19 +1160,61 @@ the web:
 | SQLite (`sqlite_connection`) | FFI, bundled SQLite, WAL, `<app support>/len.db` | `sqlite3.wasm` + IndexedDB VFS (`len`), no WAL |
 | Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs`                      |
 | App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
-| Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread (`StrokeRepository`)                   |
+| Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread, time-budgeted slices (`SlicedStrokeReader`) |
 | Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
-| Single instance (`single_instance`) | one process                  | Web Lock: a second tab waits ("open in another tab") |
-| Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux: command line + forwarding from a second instance; Windows: command line | PWA `launchQueue` (File Handling API) |
+| Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock: a second tab waits ("open in another tab") |
+| Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux / Windows: command line + forwarding from a second instance | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
 | Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
+
+**Why web canvas reads are not in a Web Worker.** The IndexedDB VFS keeps
+the database in the main thread's WebAssembly memory and writes changes
+back to IndexedDB asynchronously. A worker would have to open its own copy
+from IndexedDB: it would lag behind unflushed writes (just-drawn ink missing
+from re-read chunks), hold the whole database in memory a second time, and
+need a separately compiled worker entry point. Moving reads off the main
+thread properly means moving *the* database into a worker (e.g. the OPFS VFS
+in a dedicated worker) and making every query asynchronous, while the data
+layer is synchronous by design. Instead `SlicedStrokeReader` keeps reads
+on the UI thread but bounded: up to 32 missing chunks load synchronously as
+before (panning, normal zoom); larger reads load 32 chunks at a time and
+yield to the event loop after each 6 ms, and their result arrives
+asynchronously through `SurfaceLoader`, like a native background read.
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
 (`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
 database in memory and writes changes back asynchronously, hence the
 one-tab lock. The sync server must allow the app's origin (CORS,
 `LEN_CORS_ORIGINS`, default `*`).
+
+**Offline (installed PWA).** `web/flutter_bootstrap.js` (our own; it loads
+Flutter without the deprecated `flutter_service_worker.js`) registers
+`web/sw.js`. Release builds run `app/tool/build_web.sh`: `flutter build web
+--no-web-resources-cdn` (CanvasKit and the fallback Roboto from the app's
+origin, no gstatic) and `tool/web_precache.dart`, which writes the build's
+file list and a content hash into `sw.js`. The worker precaches it (app
+shell, `main.dart.js`, CanvasKit full + Chromium variants, `sqlite3.wasm`,
+PDFium wasm + worker, bundled fonts, icons; ≈ 40 MB; never the renderers
+the build cannot use), serves the app's static files cache-first and
+navigations from the cached `index.html`; anything else on the origin (e.g.
+a sync server behind the same host) goes to the network untouched. A new
+build changes `sw.js`, so the browser installs the new worker, which takes
+over at once and drops the old cache: the running tab keeps its code, the
+next start runs the new build. The page also tells the worker which files it
+fetched before the worker controlled it (first visit), so cross-origin fonts
+fetched on demand are cached too (`len-fonts-v1`). `flutter run` / a plain
+`flutter build web` keep an empty precache list (runtime caching only).
+Verified in headless Chromium (`app/tool/web_offline_check.py`, Playwright
+from nixpkgs): first visit online, then with the server stopped and the
+browser offline the app starts and lists the notebook drawn in on the first
+visit.
+
+**Storage.** At start the web app requests persistent storage
+(`navigator.storage.persist()`) where browsers decide silently (Chromium,
+Safari; an installed app is usually granted); Firefox would prompt, so there
+it waits for *Settings → Storage* (web only: status, "Turn on", usage /
+quota from `storage.estimate()`, which includes the offline copy).
 
 Web pitfall: dart2js integers are JavaScript numbers — bitwise operators
 yield **unsigned 32-bit** values (`-1 << 22` is positive, `1 << 40` is 0) and
@@ -1186,10 +1240,36 @@ below 31 bits, and use `float32`/`int32` in binary formats.
 - **Linux:** application id `dev.len.len` (= GTK app id = `.desktop` name =
   icon name, so Wayland docks match the window). The bundle carries `share/`
   (desktop entry with PDF/image MIME types and `%F`, icons) and
-  `install-desktop-entry.sh`; the runner loads its window icon from there and
-  is single-instance (files opened later are forwarded to the running Len).
+  `install-desktop-entry.sh`, plus AppStream metadata (`share/metainfo`); the
+  runner loads its window icon from there and is single-instance (files
+  opened later are forwarded to the running Len). `runner/window_state.cc`
+  restores the last size, maximised state and (X11 only; Wayland
+  compositors place windows) position from `<data dir>/dev.len.len/window.ini`,
+  clamped to the monitor, saved at shutdown (closing the window quits the
+  application without destroying it); minimum size 360×400. **Flatpak:**
+  `linux/packaging/flatpak/dev.len.len.yml` repackages the release tarball on
+  the GNOME runtime (GTK 3, GStreamer); file access through portals. Audio
+  recording needs `parecord` + `ffmpeg`, which the runtime lacks, so it does
+  not work in the Flatpak yet. No AppImage (the tarball + Flatpak cover it).
 - **Windows:** PerMonitorV2 DPI awareness (manifest), initial window centred
-  and clamped to the work area, minimum size 360×400.
+  and clamped to the work area, minimum size 360×400. The window remembers its
+  placement (`HKCU\Software\Len\WindowPlacement`, saved on close, end of
+  session and destroy; restored before the first frame if its monitor still
+  exists, maximised if it was). Single instance and "Open with": see *Opening
+  files from other apps*. **Installer:** Inno Setup (`windows/installer/len.iss`,
+  built in CI): per-user by default (no administrator rights), Start menu
+  entry, file associations, uninstaller, upgrades in place (closes a running
+  Len). Chosen over MSIX, which only installs when signed with a certificate
+  the machine trusts (a paid code-signing certificate or a manual certificate
+  import); the installer itself is unsigned (SmartScreen warns until it has
+  reputation or a signature).
+- **Desktop full screen:** presentation mode calls `setFullscreen`
+  (`platform/fullscreen*`), served by both runners on `len/window`
+  (`setFullScreen`): GTK `gtk_window_fullscreen`; on Windows a borderless
+  window over the monitor (style and placement restored afterwards). No
+  window plugin (`window_manager`): its Linux plugin rewires the GTK window's
+  delete-event and installs a global button-press emission hook, more than
+  these three features need.
 - **CI / releases:** `.github/workflows/ci.yml` (analyze, tests, all builds,
   server image) and `release.yml` (on `v*` tags; see README *Release*).
 
@@ -1443,12 +1523,13 @@ malformed record is skipped. Open screens subscribe to
   when the bar reopens, not live while typing into a text box.
 - Web: the whole SQLite database is held in memory (IndexedDB VFS) and PDFs
   are opened from memory, so very large libraries/PDFs cost browser memory;
-  browsers may evict IndexedDB under storage pressure (no
-  `navigator.storage.persist()` request yet) and quotas vary. Writes reach
+  browsers may evict IndexedDB under storage pressure unless persistent
+  storage is granted (requested at start, except in Firefox, where it
+  waits for Settings → Storage, as it prompts) and quotas vary. Writes reach
   IndexedDB asynchronously, so closing the tab within milliseconds of an edit
-  can lose it. Canvas chunk reads run on the UI thread.
-- Open with: Windows has no file associations (installer) or single-instance
-  forwarding yet; Android shares mixing PDFs and images arrive as `*/*`, which
+  can lose it. Canvas chunk reads run on the UI thread (in time-budgeted
+  slices; a single large chunk still decodes in one go).
+- Open with: Android shares mixing PDFs and images arrive as `*/*`, which
   Len does not register for; PDFs dropped onto an open editor are ignored (only
   images are inserted there; drop onto the library or use "Open with").
 - Page reorders made concurrently on two devices converge (LWW per page) but

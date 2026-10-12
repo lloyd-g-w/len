@@ -9,6 +9,7 @@ import 'data/app_database.dart';
 import 'ink/lab/perf_probe.dart';
 import 'platform/app_directory.dart';
 import 'platform/blob_backend.dart';
+import 'platform/browser_storage.dart';
 import 'platform/incoming_files.dart';
 import 'platform/outline_preparer.dart';
 import 'platform/single_instance.dart';
@@ -21,6 +22,8 @@ Future<void> main(List<String> args) async {
   await claimSingleInstance(onWaiting: () => runApp(const _OpenElsewhere()));
   // Natively: files in the app-support directory. Web: IndexedDB.
   final dir = await appDataDirectory();
+  // Web: ask the browser not to evict the IndexedDB data (where silent).
+  unawaited(requestPersistentStorageOnStartup());
   final database = await AppDatabase.openDefault(dir);
   final services = AppServices.create(
     database,

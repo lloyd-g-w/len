@@ -2,7 +2,8 @@ name: Release
 
 # Push a tag `vX.Y.Z` matching `version: X.Y.Z+N` in app/pubspec.yaml:
 #   git tag v0.2.0 && git push origin v0.2.0
-# Builds the apps, attaches them to a GitHub release and pushes the sync
+# Builds the apps (APKs, Linux tarball + Flatpak, Windows zip + installer,
+# web zip), attaches them to a GitHub release and pushes the sync
 # server image to ghcr.io/<owner>/len-sync. See README "Release".
 #
 # Secrets (Settings → Secrets and variables → Actions), all optional:
@@ -119,6 +120,28 @@ jobs:
           name: linux
           path: dist/*
 
+  flatpak:
+    name: Flatpak (from the Linux tarball)
+    needs: [version, linux]
+    runs-on: ubuntu-latest
+    container:
+      # Keep the GNOME version in step with runtime-version in the manifest.
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: linux-dist
+      - run: cp linux-dist/len-*-linux-x64.tar.gz app/linux/packaging/flatpak/len-linux-x64.tar.gz
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: app/linux/packaging/flatpak/dev.len.len.yml
+          bundle: len-${{ needs.version.outputs.version }}-linux-x64.flatpak
+          artifact-name: flatpak
+          cache: false
+
   windows:
     needs: version
     runs-on: windows-latest
@@ -138,6 +161,15 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item -Recurse app/build/windows/x64/runner/Release "len-$v"
           Compress-Archive -Path "len-$v" -DestinationPath "dist/len-$v-windows-x64.zip"
+      - name: Installer (Inno Setup; see app/windows/installer/len.iss)
+        shell: pwsh
+        run: |
+          $v = "${{ needs.version.outputs.version }}"
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          # x64compatible needs Inno Setup ≥ 6.3: install or upgrade.
+          choco upgrade innosetup --no-progress -y
+          & $iscc "/DAppVersion=$v" "/DSourceDir=$PWD\app\build\windows\x64\runner\Release" "/DOutputDir=$PWD\dist" app\windows\installer\len.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -153,7 +185,8 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - run: flutter build web --release
+      # Same-origin CanvasKit + the service worker's precache list (offline PWA).
+      - run: tool/build_web.sh
         working-directory: app
       - name: Zip
         run: |
@@ -205,7 +238,7 @@ jobs:
 
   release:
     name: GitHub release
-    needs: [version, android, linux, windows, web]
+    needs: [version, android, linux, flatpak, windows, web]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:

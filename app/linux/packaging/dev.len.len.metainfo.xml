@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata (software centres, Flathub). Installed to
+     share/metainfo/ in the Linux bundle and the Flatpak.
+     TODO before publishing: add <project_license> once the repository has a
+     licence, and <screenshots>. -->
+<component type="desktop-application">
+  <id>dev.len.len</id>
+  <name>Len</name>
+  <summary>Handwriting-first notes with an infinite canvas</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <developer id="dev.len">
+    <name>Len</name>
+  </developer>
+  <description>
+    <p>
+      Len is a note-taking app for writing by hand with a stylus, pen tablet,
+      touch screen or mouse.
+    </p>
+    <ul>
+      <li>Paged notebooks with paper templates, planners and imported PDFs</li>
+      <li>A truly infinite canvas that stays fast however much you draw</li>
+      <li>Text boxes, images, audio recordings and a laser pointer</li>
+      <li>Search, export to PDF and PNG, and presentation mode</li>
+      <li>Optional sync through a small server you host yourself</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">dev.len.len.desktop</launchable>
+  <url type="homepage">https://github.com/lloyd-g-w/len</url>
+  <url type="bugtracker">https://github.com/lloyd-g-w/len/issues</url>
+  <provides>
+    <binary>len</binary>
+    <mediatype>application/pdf</mediatype>
+    <mediatype>image/png</mediatype>
+    <mediatype>image/jpeg</mediatype>
+    <mediatype>image/webp</mediatype>
+  </provides>
+  <recommends>
+    <control>pointing</control>
+    <control>touch</control>
+    <control>tablet</control>
+  </recommends>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <categories>
+    <category>Office</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-10-12"/>
+  </releases>
+</component>

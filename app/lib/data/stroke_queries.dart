@@ -92,17 +92,24 @@ class StrokeQueries implements StrokeReader {
     return byId.values.toList();
   }
 
+  /// Chunks within [range] holding a stroke or an element, except [skip].
+  List<ChunkKey> missingChunks(
+    String surfaceId,
+    ChunkRange range, {
+    Set<ChunkKey> skip = const {},
+  }) => [
+    for (final key in {
+      ...populatedChunks(surfaceId, range),
+      ...populatedElementChunks(surfaceId, range),
+    })
+      if (!skip.contains(key)) key,
+  ];
+
   /// Reads strokes and elements alike: a chunk is populated if either kind
   /// is indexed in it.
   @override
   ChunkLoad read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) {
-    final missing = [
-      for (final key in {
-        ...populatedChunks(surfaceId, range),
-        ...populatedElementChunks(surfaceId, range),
-      })
-        if (!skip.contains(key)) key,
-    ];
+    final missing = missingChunks(surfaceId, range, skip: skip);
     if (missing.isEmpty) return ChunkLoad.empty;
     return ChunkLoad(
       chunks: missing,
