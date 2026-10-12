@@ -138,6 +138,10 @@ class ToolGlyph extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = descriptor.inkColor?.call();
+    // Dark inks on dark chrome (and white on light) get a firmer edge.
+    final nearSurface =
+        color != null &&
+        (Color(color).computeLuminance() - scheme.surface.computeLuminance()).abs() < 0.1;
     return SizedBox.square(
       dimension: 26,
       child: Stack(
@@ -156,7 +160,12 @@ class ToolGlyph extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Color(color),
                   borderRadius: BorderRadius.circular(1.5),
-                  border: Border.all(color: scheme.outline.withValues(alpha: 0.6), width: 0.5),
+                  border: Border.all(
+                    color: nearSurface
+                        ? scheme.onSurfaceVariant
+                        : scheme.outline.withValues(alpha: 0.6),
+                    width: nearSurface ? 1 : 0.5,
+                  ),
                 ),
               ),
             ),

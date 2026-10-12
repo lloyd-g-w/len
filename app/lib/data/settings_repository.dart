@@ -88,7 +88,7 @@ class SettingsRepository {
   String? get pageFlow => _get('page_flow');
   set pageFlow(String? value) => value == null ? _remove('page_flow') : _set('page_flow', value);
 
-  /// Where the editor toolbar sits (default: automatic).
+  /// Where the editor toolbar sits (default: docked).
   ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
   set toolbarPlacement(ToolbarPlacement value) => _set('toolbar_placement', value.name);
 

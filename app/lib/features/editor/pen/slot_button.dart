@@ -93,13 +93,18 @@ class SlotSwatch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final nearSurface =
+        (Color(color).computeLuminance() - scheme.surface.computeLuminance()).abs() < 0.1;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         color: Color(color),
         shape: BoxShape.circle,
-        border: Border.all(color: scheme.outline.withValues(alpha: 0.5), width: 0.5),
+        border: Border.all(
+          color: nearSurface ? scheme.onSurfaceVariant : scheme.outline.withValues(alpha: 0.5),
+          width: nearSurface ? 1 : 0.5,
+        ),
       ),
     );
   }

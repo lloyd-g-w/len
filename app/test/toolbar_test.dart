@@ -67,6 +67,22 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('Esc closes the options popover, and the keyboard returns to the editor', (
+    tester,
+  ) async {
+    await pumpEditor(tester, size: const Size(1280, 900));
+    await tester.tap(find.byTooltip('Pen (P)'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ToolOptionsPopover), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(ToolOptionsPopover), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+    await tester.pumpAndSettle();
+    expect(toolsOf(tester).tool, EditorTool.eraser);
+    await closeEditor(tester);
+  });
+
   testWidgets('Insert ⊕ offers images, PDF pages and template pages in notebooks', (tester) async {
     await pumpEditor(tester, size: const Size(1280, 900));
     await tester.tap(find.byTooltip('Insert'));

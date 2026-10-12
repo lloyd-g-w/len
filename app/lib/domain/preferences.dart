@@ -23,8 +23,8 @@ enum PenButtonAction {
 
 /// Where the editor's tool palette sits.
 enum ToolbarPlacement {
-  /// Docked at the top on wide screens (≥ 960 px) when the toolbar fits
-  /// there on one row; otherwise at the bottom, within thumb reach.
+  /// Docked: inside the top bar when it fits there on one row, else a row
+  /// attached under it; at the bottom on phones (panes under 600 dp).
   docked,
 
   /// Free-floating; dragged anywhere by its grip.
