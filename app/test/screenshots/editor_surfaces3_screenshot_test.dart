@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
@@ -46,7 +45,12 @@ void main() {
           await settle(tester);
           await shoot(tester, 'e_navigator_add_menu_$shot');
           await dismiss(tester, screen.size.center(Offset.zero));
-          await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: screen.size.center(Offset.zero),
+              scrollDelta: const Offset(0, 500),
+            ),
+          );
           await tester.pump(const Duration(milliseconds: 50));
           await tester.tap(find.byTooltip('Go to page'));
           await settle(tester);
@@ -77,7 +81,12 @@ void main() {
       await settle(tester);
       await shoot(tester, 'e_page_menu_phone_large_text');
       await dismiss(tester, phone.center(Offset.zero));
-      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.sendEventToBinding(
+        const PointerScrollEvent(
+          position: Offset(180, 480),
+          scrollDelta: Offset(0, 500),
+        ),
+      );
       await tester.pump(const Duration(milliseconds: 50));
       await tester.tap(find.byTooltip('Go to page'));
       await settle(tester);
