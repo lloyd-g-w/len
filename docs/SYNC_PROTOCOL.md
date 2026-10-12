@@ -200,7 +200,7 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 
 | collection  | data                                                                                   |
 |-------------|----------------------------------------------------------------------------------------|
-| `folders`   | `{name, parentId: string|null, color, icon: string|null, createdAt}` — `icon`: `null` = the default folder icon, or one of `book`, `school`, `work`, `science`, `calculate`, `palette`, `music`, `sports`, `travel`, `home`, `favorite`, `star`, `lightbulb`, `code`, `language`, `receipt`, `event`, `pets`, `restaurant`. |
+| `folders`   | `{name, parentId: string|null, color, createdAt}` |
 | `notebooks` | `{title, kind: "paged"|"canvas", paper, paperColor, coverColor, coverStyle, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperData: object, paperColor, bookmarked: bool, background: object|null}` — see [Paper and pages](#paper-and-pages) |
 | `templates` | `{name, blob, width, height, createdAt}` — one of the user's own templates ("My templates"): `blob` is the `<sha256>` of a PNG or JPEG image ([blob](#blobs)), `width` / `height` (> 0) the size in world units (96 per inch) of pages made from it. Pages made from a template copy its blob into their `paperData`, so renaming or deleting (tombstoning) a template never changes existing pages. |

@@ -275,9 +275,9 @@ class LibraryController extends ChangeNotifier {
     return services.notebooks.get(notebook.id) ?? notebook;
   }
 
-  Folder createFolder(String name, {required int color, String? icon}) {
+  Folder createFolder(String name, {required int color}) {
     final parent = _section == LibrarySection.library && !isSearching ? _folderId : null;
-    final folder = services.folders.create(name: name, parentId: parent, color: color, icon: icon);
+    final folder = services.folders.create(name: name, parentId: parent, color: color);
     _changed();
     return folder;
   }

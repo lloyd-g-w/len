@@ -154,7 +154,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   colour (dialog on wide screens, tall sheet on phones); grouped template gallery
 - ✅ Selection mode: favourite, move, trash (undo), restore, delete forever for many notebooks
 - ✅ Cards show page count and short dates; consistent dialogs; empty states with actions
-- ✅ "New…" tile in the grid; folder icons (synced, picked in the folder dialog)
+- ✅ "New…" tile in the grid
 
 ## App
 - ✅ Web target (PWA): SQLite wasm + IndexedDB, blobs in IndexedDB, PDF import/render (PDFium wasm),

@@ -177,10 +177,9 @@ class AppDatabase {
   }
 
   /// Version 2: template parameters on pages (`paper_data`, JSON, see
-  /// `Paper.toData`), the user's own templates, and folder icons.
+  /// `Paper.toData`), and the user's own templates.
   static void _templates(CommonDatabase db) {
     db.execute("ALTER TABLE pages ADD COLUMN paper_data TEXT NOT NULL DEFAULT '{}'");
-    db.execute('ALTER TABLE folders ADD COLUMN icon TEXT');
     // A user's template: an image blob and the page size it suggests.
     db.execute('''
       CREATE TABLE templates (

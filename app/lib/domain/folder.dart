@@ -5,34 +5,9 @@ class Folder {
     required this.name,
     required this.parentId,
     required this.color,
-    this.icon,
     required this.createdAt,
     required this.updatedAt,
   });
-
-  /// Keys of the icons a folder may show besides the default folder icon
-  /// (null); the UI maps them to glyphs (`features/library/folder_icons.dart`).
-  static const List<String> iconKeys = [
-    'book',
-    'school',
-    'work',
-    'science',
-    'calculate',
-    'palette',
-    'music',
-    'sports',
-    'travel',
-    'home',
-    'favorite',
-    'star',
-    'lightbulb',
-    'code',
-    'language',
-    'receipt',
-    'event',
-    'pets',
-    'restaurant',
-  ];
 
   final String id;
   final String name;
@@ -43,9 +18,6 @@ class Folder {
   /// ARGB accent colour of the folder icon.
   final int color;
 
-  /// One of [iconKeys], or null for the default folder icon.
-  final String? icon;
-
   /// Milliseconds since epoch.
   final int createdAt;
   final int updatedAt;
@@ -53,20 +25,13 @@ class Folder {
   static const Object _keep = Object();
 
   /// A copy with the given fields replaced; pass `parentId: null` to move
-  /// the folder to the top level and `icon: null` for the default icon.
-  Folder copyWith({
-    String? name,
-    Object? parentId = _keep,
-    int? color,
-    Object? icon = _keep,
-    int? updatedAt,
-  }) {
+  /// the folder to the top level.
+  Folder copyWith({String? name, Object? parentId = _keep, int? color, int? updatedAt}) {
     return Folder(
       id: id,
       name: name ?? this.name,
       parentId: identical(parentId, _keep) ? this.parentId : parentId as String?,
       color: color ?? this.color,
-      icon: identical(icon, _keep) ? this.icon : icon as String?,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -154,9 +154,9 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
     menus keep 8 dp; tall chrome menus now clear the system bars by 8 dp
     (`menuReservedPadding`). Open: Flutter's `MenuAnchor` still places a menu
     that meets the left or right edge flush against it (the phone "⋯" menu).
-21. ✅ Colour dots (40 dp), folder icon tiles (35 dp) and selection
+21. ✅ Colour dots (40 dp) and selection
     checkboxes (28 dp) are under 48 dp on phones. → `EvenGrid(touchTargets:)`
-    gives swatch and icon cells 48 dp on phones (visuals unchanged, the whole
+    gives swatch cells 48 dp on phones (visuals unchanged, the whole
     cell takes taps); the checkmark never was a target (the whole cover is).
 22. 🟡 The playback bar truncates the title (title and time share one row);
     ✅ the paused recorder shows "Paused" in place of the level meter and
@@ -380,9 +380,8 @@ settings — at the four sizes, light and dark, and at 1.3× text.
     "opens" the notebook). → `NotebookOpenRoute`: the tapped cover grows
     into the screen, fades into the paper and the editor fades in; back
     shrinks it into the cover (wherever it is now), else fades.
-16. ✅ Folder colours only; GoodNotes allows folder icons/emoji. → 19 icons
-    (synced) picked in the folder dialog, tinted with the folder colour on
-    tiles, in the sidebar and in the move dialog.
+16. ✅ Folder colours only; GoodNotes allows folder icons/emoji. → Won't do:
+    folders keep colour only (icons were added, then removed in SIMPLIFY #43).
 17. ⬜ Long PDF imports/exports can't be cancelled (the progress dialog has
     no Cancel; needs cancellation in `PdfImporter` / `NotebookExporter`).
 18. ✅ No export options sheet (page range, PNG resolution, flatten

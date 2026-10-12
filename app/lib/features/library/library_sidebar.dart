@@ -7,7 +7,6 @@ import '../../ui/app_theme.dart';
 import '../../ui/section_label.dart';
 import '../../ui/sidebar_item.dart';
 import '../../ui/sync_status_button.dart';
-import 'folder_icons.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_drag.dart';
@@ -201,7 +200,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                 )
               : null,
         ),
-        icon: iconOfFolder(folder),
+        icon: Icons.folder_rounded,
         iconColor: Color(folder.color),
         label: folder.name,
         selected: c.section == LibrarySection.library && c.folderId == folder.id,

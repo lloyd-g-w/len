@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../domain/folder.dart';
 import '../../ui/app_theme.dart';
-import 'folder_icons.dart';
 import 'library_actions.dart';
 import 'library_drag.dart';
 import 'library_draggable.dart';
@@ -114,7 +113,7 @@ class _FolderTileState extends State<FolderTile> {
                       ),
                       borderRadius: BorderRadius.circular(Radii.sm),
                     ),
-                    child: Icon(iconOfFolder(_folder), color: color, size: narrow ? 20 : 22),
+                    child: Icon(Icons.folder_rounded, color: color, size: narrow ? 20 : 22),
                   ),
                   SizedBox(width: narrow ? Gaps.sm : Gaps.md),
                   Expanded(

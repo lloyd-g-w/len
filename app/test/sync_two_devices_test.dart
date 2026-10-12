@@ -864,13 +864,7 @@ void main() {
       final (_, server, _, b) = _twoDevices();
       const nb = 'ghost-nb';
       final live = {
-        'folders': {
-          'name': 'Ghost folder',
-          'parentId': null,
-          'color': 1,
-          'icon': null,
-          'createdAt': 1,
-        },
+        'folders': {'name': 'Ghost folder', 'parentId': null, 'color': 1, 'createdAt': 1},
         'notebooks': _notebookData('Ghost notebook'),
         'pages': _pageData(nb, background: {'type': 'pdf', 'blob': _sha, 'page': 0}),
         'strokes': {

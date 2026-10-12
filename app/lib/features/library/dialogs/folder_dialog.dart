@@ -4,21 +4,17 @@ import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
 import '../../../ui/even_grid.dart';
-import '../folder_icons.dart';
-import 'folder_icon_picker.dart';
 
-/// Name, colour and icon key (null = default) of a folder, as entered in
-/// [showFolderDialog].
-typedef FolderDetails = ({String name, int color, String? icon});
+/// Name and colour of a folder, as entered in [showFolderDialog].
+typedef FolderDetails = ({String name, int color});
 
-/// Creates or edits a folder's name, colour and icon.
+/// Creates or edits a folder's name and colour.
 Future<FolderDetails?> showFolderDialog(
   BuildContext context, {
   required String title,
   required String confirmLabel,
   String initialName = '',
   int? initialColor,
-  String? initialIcon,
 }) {
   return showDialog<FolderDetails>(
     context: context,
@@ -27,7 +23,6 @@ Future<FolderDetails?> showFolderDialog(
       confirmLabel: confirmLabel,
       initialName: initialName,
       initialColor: initialColor ?? Palette.covers.first,
-      initialIcon: initialIcon,
     ),
   );
 }
@@ -38,14 +33,12 @@ class _FolderDialog extends StatefulWidget {
     required this.confirmLabel,
     required this.initialName,
     required this.initialColor,
-    required this.initialIcon,
   });
 
   final String title;
   final String confirmLabel;
   final String initialName;
   final int initialColor;
-  final String? initialIcon;
 
   @override
   State<_FolderDialog> createState() => _FolderDialogState();
@@ -55,7 +48,6 @@ class _FolderDialogState extends State<_FolderDialog> {
   late final _name = TextEditingController(text: widget.initialName)
     ..selection = TextSelection(baseOffset: 0, extentOffset: widget.initialName.length);
   late int _color = widget.initialColor;
-  late String? _icon = widget.initialIcon;
 
   @override
   void dispose() {
@@ -68,7 +60,6 @@ class _FolderDialogState extends State<_FolderDialog> {
     Navigator.pop<FolderDetails>(context, (
       name: name.isEmpty ? 'Untitled folder' : name,
       color: _color,
-      icon: _icon,
     ));
   }
 
@@ -77,7 +68,7 @@ class _FolderDialogState extends State<_FolderDialog> {
     final theme = Theme.of(context);
     final color = Color(_color);
     return AppDialog(
-      // Name, colours and icons can outgrow short (landscape phone) screens.
+      // Name and colours can outgrow short (landscape phone) screens.
       scrollable: true,
       // The folder as it will look, in its colour.
       leading: Center(
@@ -89,10 +80,7 @@ class _FolderDialogState extends State<_FolderDialog> {
             color: color.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14),
             borderRadius: BorderRadius.circular(Radii.control + 4),
           ),
-          child: AnimatedSwitcher(
-            duration: Motion.fast,
-            child: Icon(folderIconData(_icon), key: ValueKey(_icon), color: color, size: 36),
-          ),
+          child: Icon(Icons.folder_rounded, color: color, size: 36),
         ),
       ),
       title: widget.title,
@@ -125,14 +113,6 @@ class _FolderDialogState extends State<_FolderDialog> {
                     onTap: () => setState(() => _color = Palette.covers[i]),
                   ),
               ],
-            ),
-            const SizedBox(height: Gaps.xl),
-            Text('Icon', style: theme.textTheme.titleSmall),
-            const SizedBox(height: Gaps.sm),
-            FolderIconPicker(
-              selected: _icon,
-              color: color,
-              onChanged: (icon) => setState(() => _icon = icon),
             ),
           ],
         ),
