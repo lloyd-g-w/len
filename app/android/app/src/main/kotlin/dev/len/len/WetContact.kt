@@ -27,8 +27,35 @@ internal class WetContact(val device: Int, val downMs: Long) {
     var liftedAtMs = -1L
         private set
 
-    /** The predicted tip, (x, y) pairs after the newest sample, or null. */
-    var prediction: FloatArray? = null
+    /**
+     * Whether to draw the tip: the line from the end of the ink to the newest
+     * sample and the predicted points after it. False draws only the
+     * model's ink (e.g. a mode that smooths heavily, where the raw sample
+     * and its extrapolation would stick out).
+     */
+    var predicts = true
+        set(value) {
+            if (field != value) tipVersion++
+            field = value
+        }
+
+    /**
+     * The predictor's points after the newest sample, as (x, y, ms after it)
+     * triples: [WetInkTip.predict] fills it, then [predicted] says how many.
+     * Reused for every event.
+     */
+    val rawPrediction = FloatArray(3 * WetInkPrediction.MAX_POINTS)
+    private var rawCount = 0
+
+    /** How far ahead (ms) [rawPrediction] needs to reach. */
+    val predictionMs get() = policy.horizonMs
+
+    // What of the prediction to draw, from the samples so far; its output.
+    private val policy = WetInkPrediction()
+    private val drawn = FloatArray(2 * WetInkPrediction.MAX_POINTS)
+
+    // Changes whenever the tip may (prediction, [predicts]).
+    private var tipVersion = 0
 
     /** The newest sample's time (ns). */
     var newestNs = 0L
@@ -38,7 +65,7 @@ internal class WetContact(val device: Int, val downMs: Long) {
     private var ink: WetInkLayer.Ink? = null
     private var inkFrom = -1
     private var inkSize = -1
-    private var inkPrediction: FloatArray? = null
+    private var inkTipVersion = -1
 
     fun matches(device: Any?, downUs: Any?): Boolean =
         (device as? Number)?.toInt() == this.device &&
@@ -78,11 +105,25 @@ internal class WetContact(val device: Int, val downMs: Long) {
             lift,
         )
         newestNs = if (Build.VERSION.SDK_INT >= 34) event.eventTimeNanos else event.eventTime * 1_000_000
-        if (lift) liftedAtMs = event.eventTime
+        if (lift) {
+            liftedAtMs = event.eventTime
+            tipVersion++ // No tip from now on.
+        }
+    }
+
+    /**
+     * Takes the first [count] triples of [rawPrediction] as the prediction
+     * after the newest sample (0: none, as at the pen-up).
+     */
+    fun predicted(count: Int) {
+        if (count == 0 && rawCount == 0) return
+        rawCount = count
+        tipVersion++
     }
 
     private fun add(x: Double, y: Double, pressure: Double, timeMs: Long, lift: Boolean) {
         samples.add(x, y, pressure, timeMs)
+        policy.add(x, y, pressure, timeMs.toDouble())
         model?.add(x, y, pressure, timeMs, lift)
     }
 
@@ -116,48 +157,53 @@ internal class WetContact(val device: Int, val downMs: Long) {
         val m = model ?: return null
         val n = m.samples.size
         val from = m.tailStart(0.0, shownUpToMs, -1.0)
-        val predicted = prediction
-        if (from == inkFrom && n == inkSize && predicted === inkPrediction) return ink
+        if (from == inkFrom && n == inkSize && tipVersion == inkTipVersion) return ink
         inkFrom = from
         inkSize = n
-        inkPrediction = predicted
+        inkTipVersion = tipVersion
         if (from >= n) {
             ink = null
             return null
         }
         val hulls = toFloats(m.segments(from, n))
-        ink = WetInkLayer.Ink(color, clip, hulls, tipOf(hulls, predicted))
+        ink = WetInkLayer.Ink(color, clip, hulls, tipOf(hulls))
         return ink
     }
 
     /**
-     * The predicted tip: from the end of the ink through the newest sample
-     * (not yet a point if it is very close) to the [predicted] points, at
-     * the end's radius.
+     * The tip, as (x, y, radius) triples at the end's radius: from the end of
+     * the ink through the newest sample (not yet a point if it is very close)
+     * to the predicted points [WetInkPrediction] keeps. None once lifted (the
+     * ink is then complete: the pen-up hook may have been cut, and the line
+     * to the raw sample would draw it) or when not [predicts].
      */
-    private fun tipOf(hulls: FloatArray, predicted: FloatArray?): FloatArray {
-        if (hulls.size < 3 || samples.size == 0) return FloatArray(0)
+    private fun tipOf(hulls: FloatArray): FloatArray {
+        if (!predicts || liftedAtMs >= 0 || hulls.size < 3 || samples.size == 0) return NO_TIP
         val end = hulls.size - 3
         val r = hulls[end + 2]
-        val points = ArrayList<Float>(12)
-        points.add(hulls[end])
-        points.add(hulls[end + 1])
-        points.add(r)
+        val m = policy.filter(rawPrediction, rawCount, r.toDouble(), drawn)
+        // A new array: the renderer reads it on its own thread.
+        val tip = FloatArray(3 * (2 + m))
+        tip[0] = hulls[end]
+        tip[1] = hulls[end + 1]
+        tip[2] = r
         val last = samples.size - 1
-        points.add(samples.x(last).toFloat())
-        points.add(samples.y(last).toFloat())
-        points.add(r)
-        if (predicted != null && liftedAtMs < 0) {
-            for (i in 0 until predicted.size / 2) {
-                points.add(predicted[i * 2])
-                points.add(predicted[i * 2 + 1])
-                points.add(r)
-            }
+        tip[3] = samples.x(last).toFloat()
+        tip[4] = samples.y(last).toFloat()
+        tip[5] = r
+        for (i in 0 until m) {
+            tip[6 + i * 3] = drawn[i * 2]
+            tip[7 + i * 3] = drawn[i * 2 + 1]
+            tip[8 + i * 3] = r
         }
-        return points.toFloatArray()
+        return tip
     }
 
     private fun toFloats(v: DoubleArray) = FloatArray(v.size) { v[it].toFloat() }
+
+    private companion object {
+        val NO_TIP = FloatArray(0)
+    }
 
     /** Growable (x, y, normalised pressure, time) storage of the raw samples. */
     private class Samples {

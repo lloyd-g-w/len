@@ -9,7 +9,7 @@ import androidx.input.motionprediction.MotionEventPredictor
  * Motion prediction for the overlay's tip (androidx.input: Android's own
  * predictor where the device has one, a Kalman filter otherwise). The
  * predicted points are only ever drawn, never stored: each event replaces
- * them.
+ * them, and [WetInkPrediction] decides how much of them to draw.
  */
 internal class WetInkTip(private val view: View) {
     private var predictor: MotionEventPredictor? = null
@@ -33,31 +33,34 @@ internal class WetInkTip(private val view: View) {
     }
 
     /**
-     * Where pointer [pointerId] is predicted to be over the next few
-     * milliseconds, as (x, y) pairs in Flutter view pixels (window
-     * coordinates shifted by [dx], [dy]), at most [MAX_MS] after [nowMs]
-     * (the newest event's time).
+     * Where pointer [pointerId] is predicted to be over the next [maxMs]
+     * milliseconds after [nowMs] (the newest event's time): writes (x, y, ms
+     * after [nowMs]) triples into [out], in Flutter view pixels (window
+     * coordinates shifted by [dx], [dy]), at most `out.size / 3` of them, and
+     * returns how many. [WetInkPrediction] decides how much of it to draw.
      */
-    fun predict(pointerId: Int, nowMs: Long, dx: Float, dy: Float): FloatArray? {
+    fun predict(pointerId: Int, nowMs: Long, dx: Float, dy: Float, maxMs: Double, out: FloatArray): Int {
         val predicted = try {
             predictor?.predict()
         } catch (e: RuntimeException) {
             null
-        } ?: return null
+        } ?: return 0
         try {
             val p = predicted.findPointerIndex(pointerId)
-            if (p < 0) return null
-            val out = ArrayList<Float>(8)
-            for (h in 0 until predicted.historySize) {
-                if (predicted.getHistoricalEventTime(h) - nowMs > MAX_MS) break
-                out.add(predicted.getHistoricalX(p, h) + dx)
-                out.add(predicted.getHistoricalY(p, h) + dy)
+            if (p < 0) return 0
+            val max = out.size / 3
+            var n = 0
+            for (h in 0..predicted.historySize) {
+                if (n == max) break
+                val current = h == predicted.historySize
+                val ms = (if (current) predicted.eventTime else predicted.getHistoricalEventTime(h)) - nowMs
+                if (ms > maxMs) break
+                out[n * 3] = (if (current) predicted.getX(p) else predicted.getHistoricalX(p, h)) + dx
+                out[n * 3 + 1] = (if (current) predicted.getY(p) else predicted.getHistoricalY(p, h)) + dy
+                out[n * 3 + 2] = ms.toFloat()
+                n++
             }
-            if (predicted.eventTime - nowMs <= MAX_MS) {
-                out.add(predicted.getX(p) + dx)
-                out.add(predicted.getY(p) + dy)
-            }
-            return out.toFloatArray()
+            return n
         } finally {
             predicted.recycle()
         }
@@ -65,8 +68,5 @@ internal class WetInkTip(private val view: View) {
 
     companion object {
         private const val TAG = "LenWetInk"
-
-        /** The furthest ahead a predicted point may be (ms). */
-        const val MAX_MS = 20L
     }
 }

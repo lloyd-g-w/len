@@ -17,7 +17,7 @@ import io.flutter.plugin.common.StandardMessageCodec
  * Low-latency ink: draws the newest part of the stroke being written into a
  * front-buffered overlay ([WetInkLayer]) above the Flutter view as soon as
  * each `MotionEvent` arrives, a few frames before Flutter's own frame shows
- * it, with a short predicted tip.
+ * it, with a short predicted tip ([WetInkTip], [WetInkPrediction]).
  *
  * Dart decides what is ink (`lib/platform/stylus_samples_native.dart`):
  * `begin` names the stylus contact, its colour, radius per pressure, the
@@ -138,8 +138,14 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 if (p < 0) return
                 val up = event.actionMasked != MotionEvent.ACTION_MOVE && event.actionIndex == p
                 contact.add(event, p, dx, dy, lift = up)
-                contact.prediction =
-                    if (up) null else tip?.predict(event.getPointerId(p), event.eventTime, dx, dy)
+                // The pen-up's frame draws no tip at all (see WetContact.tipOf).
+                contact.predicted(
+                    if (up || !contact.predicts) 0
+                    else tip?.predict(
+                        event.getPointerId(p), event.eventTime, dx, dy,
+                        contact.predictionMs, contact.rawPrediction,
+                    ) ?: 0,
+                )
                 if (up) current = null
                 if (contact.began) render()
             }
