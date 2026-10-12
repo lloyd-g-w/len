@@ -159,7 +159,8 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
     gives swatch and icon cells 48 dp on phones (visuals unchanged, the whole
     cell takes taps); the checkmark never was a target (the whole cover is).
 22. 🟡 The playback bar truncates the title (title and time share one row);
-    the paused recorder shows no "Paused" label.
+    ✅ the paused recorder shows "Paused" in place of the level meter and
+    Resume is a play icon.
 23. ✅ List view shows the favourite star twice (cover badge plus column).
 24. ⬜ A missing PDF background renders as a silently blank page (should be
     a placeholder with a "Relink…" action).
@@ -238,7 +239,8 @@ the second for what is left.
   would suit phones better).
 - The handwriting language picker is a `SimpleDialog`: no Cancel, and no
   hint that it scrolls.
-- The paused recorder shows no "Paused" label, and Resume is a mic icon.
+- ✅ The paused recorder shows no "Paused" label, and Resume is a mic icon.
+  → "Paused" replaces the level meter; Resume is a play icon.
 - Template grid on phones: 3 fixed columns leave a gutter on the right.
   Paper-colour chips wrap 3 + 1 (also item 19 of round 2).
 

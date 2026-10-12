@@ -146,6 +146,11 @@ void main() {
 
     await tester.tap(find.byTooltip('Pause recording'));
     await _settleAsync(tester);
+    expect(find.text('Paused'), findsOneWidget);
+    await expectLater(
+      find.byKey(const ValueKey('recording-pill')),
+      matchesGoldenFile('goldens/audio_recording_paused.png'),
+    );
     e.clock.now += 20000; // Paused: does not count.
     await tester.tap(find.byTooltip('Resume recording'));
     await _settleAsync(tester);
