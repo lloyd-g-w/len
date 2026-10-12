@@ -11,8 +11,8 @@ import 'audio_format.dart';
 import 'level_meter.dart';
 import 'recordings_sheet.dart';
 
-/// The top bar's audio slot (tablets and desktops): a microphone that
-/// starts recording (plus the recordings list once the notebook has any),
+/// The top bar's audio slot (tablets and desktops): a split button whose
+/// microphone starts recording and whose ▾ lists the recordings,
 /// and while recording a pill with the time, the input level, pause /
 /// resume and stop.
 class AudioBarButton extends StatelessWidget {
@@ -37,6 +37,8 @@ class AudioBarButton extends StatelessWidget {
     );
   }
 
+  /// One split button: 🎙 records; ▾ (once the notebook has recordings)
+  /// opens the recordings.
   Widget _idle(BuildContext context) {
     final record = BarButton(
       tooltip: 'Record audio',
@@ -44,10 +46,17 @@ class AudioBarButton extends StatelessWidget {
       onPressed: () => unawaited(startRecording(context, audio)),
     );
     if (audio.recordings.isEmpty) return record;
-    final list = BarButton(
+    final list = IconButton(
       tooltip: 'Recordings',
-      icon: Icons.graphic_eq_rounded,
       onPressed: () => unawaited(showRecordingsSheet(context, audio)),
+      iconSize: 20,
+      style: IconButton.styleFrom(
+        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        minimumSize: const Size(20, 40),
+        fixedSize: const Size(20, 40),
+        padding: EdgeInsets.zero,
+      ),
+      icon: const Icon(Icons.arrow_drop_down_rounded),
     );
     return Row(mainAxisSize: MainAxisSize.min, children: [record, list]);
   }
