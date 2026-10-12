@@ -63,10 +63,32 @@ class EditorToolbar extends StatelessWidget {
   /// The tools centred in the row and the strip after them; when the strip
   /// has no room beside centred tools, the group (with the strip's widest
   /// width reserved) is centred instead. Either way nothing moves as the
-  /// tool changes.
+  /// tool changes. Short of room (split panes on touch), the cells shrink
+  /// to their visuals; shorter still, the strip scrolls.
   Widget _row(BuildContext context, BoxConstraints constraints) {
-    final cluster = ToolCluster.widthFor(insert: insert != null);
-    final reserve = ToolbarMetrics.strip(tools);
+    final width = constraints.maxWidth - 2 * Gaps.xs;
+    if (ToolbarMetrics.group(tools) <= width) return _rowOf(constraints, compact: false);
+    final compact = ToolbarMetrics.group(tools, compact: true) <= width
+        ? _rowOf(constraints, compact: true)
+        : Row(
+            children: [
+              const SizedBox(width: Gaps.xs),
+              _cluster(),
+              const ToolbarDivider(),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ToolStrip(tools: tools),
+                ),
+              ),
+            ],
+          );
+    return ToolbarDensity(compact: true, child: compact);
+  }
+
+  Widget _rowOf(BoxConstraints constraints, {required bool compact}) {
+    final cluster = ToolCluster.widthFor(insert: insert != null, compact: compact);
+    final reserve = ToolbarMetrics.strip(tools, compact: compact);
     final side = (constraints.maxWidth - cluster) / 2;
     if (side >= ToolbarMetrics.divider + reserve) {
       return Row(
@@ -84,12 +106,7 @@ class EditorToolbar extends StatelessWidget {
         ],
       );
     }
-    return Center(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: _group(reserve: reserve),
-      ),
-    );
+    return Center(child: _group(reserve: reserve));
   }
 
   /// Phones: the tool switcher, then the quick controls (scrolling when

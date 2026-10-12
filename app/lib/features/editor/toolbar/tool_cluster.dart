@@ -20,13 +20,14 @@ class ToolCluster extends StatelessWidget {
   /// Height of the cluster: the tool cells' hit size.
   static double get height => Targets.touchFirst ? Targets.touch : Targets.bar;
 
-  /// Width of the cluster, with or without Insert ⊕.
-  static double widthFor({required bool insert}) =>
-      (EditorTool.values.length + (insert ? 1 : 0)) * ToolbarMetrics.tool;
+  /// Width of the cluster, with or without Insert ⊕, [compact] or not.
+  static double widthFor({required bool insert, bool compact = false}) =>
+      (EditorTool.values.length + (insert ? 1 : 0)) * ToolbarMetrics.toolCell(compact: compact);
 
   @override
   Widget build(BuildContext context) {
-    final cell = ToolbarMetrics.tool;
+    final compact = ToolbarDensity.compactOf(context);
+    final cell = ToolbarMetrics.toolCell(compact: compact);
     final height = ToolCluster.height;
     final reduced = Motion.reduced(context);
     final scheme = Theme.of(context).colorScheme;
@@ -36,7 +37,7 @@ class ToolCluster extends StatelessWidget {
         final descriptors = editorTools(tools);
         final index = descriptors.indexWhere((d) => d.tool == tools.tool);
         return SizedBox(
-          width: widthFor(insert: insert != null),
+          width: widthFor(insert: insert != null, compact: compact),
           height: height,
           child: Stack(
             children: [

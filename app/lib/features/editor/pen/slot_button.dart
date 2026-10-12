@@ -55,7 +55,7 @@ class SlotButton extends StatelessWidget {
             onLongPress: edit == null ? null : () => edit(context),
             onSecondaryTap: edit == null ? null : () => edit(context),
             child: SizedBox.square(
-              dimension: ToolbarMetrics.slot,
+              dimension: ToolbarMetrics.slotOf(context),
               child: Center(
                 child: AnimatedContainer(
                   duration: Motion.fast,

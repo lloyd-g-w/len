@@ -144,6 +144,38 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('a narrow tool row (a split pane on touch) shrinks its cells; everything shows', (
+    tester,
+  ) async {
+    final tools = ToolSettings();
+    addTearDown(tools.dispose);
+    for (final width in [634.0, 700.0, 900.0]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: width,
+                child: EditorToolbar(tools: tools, dock: ToolbarDock.row),
+              ),
+            ),
+          ),
+        ),
+      );
+      final row = tester.getRect(find.byType(EditorToolbar));
+      for (final key in ['color-0', 'width-2']) {
+        final slot = tester.getRect(find.byKey(ValueKey(key)));
+        expect(
+          row.contains(slot.topLeft) && row.contains(slot.bottomRight),
+          isTrue,
+          reason: '$key',
+        );
+      }
+      expect(tester.getRect(find.byTooltip('Pen (P)')).left, greaterThanOrEqualTo(row.left));
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the laser has three colour slots; picking one sets its colour', (tester) async {
     await pumpEditor(tester, size: const Size(1280, 900));
     await tester.tap(find.byTooltip('Laser pointer (K)'));

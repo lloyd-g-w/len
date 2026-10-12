@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../chrome/bar_button.dart';
@@ -8,7 +10,9 @@ import '../editor_tools.dart';
 /// anything out) whether the tools fit inside the top bar on one row.
 ///
 /// Cells are wider on touch-first devices (48-dp tool and 44-dp slot hit
-/// areas, [Targets]); visuals stay 40 and 36.
+/// areas, [Targets]); visuals stay 40 and 36. Inside a [ToolbarDensity]
+/// marked compact (a tool row short of room, e.g. a split pane) cells
+/// shrink to the visuals.
 abstract final class ToolbarMetrics {
   /// One tool button's cell: the 40-dp visual plus the 4-dp gap, or the
   /// 48-dp touch target.
@@ -19,6 +23,20 @@ abstract final class ToolbarMetrics {
 
   /// One quick slot's cell.
   static double get slot => Targets.touchFirst ? Targets.slotTouch : Targets.slot;
+
+  /// A tool cell, [compact] or not.
+  static double toolCell({bool compact = false}) => compact ? Targets.bar : tool;
+
+  /// A slot cell, [compact] or not.
+  static double slotCell({bool compact = false}) => compact ? Targets.slot : slot;
+
+  /// The slot cell where [context] is.
+  static double slotOf(BuildContext context) =>
+      slotCell(compact: ToolbarDensity.compactOf(context));
+
+  /// The tool cell where [context] is.
+  static double toolOf(BuildContext context) =>
+      toolCell(compact: ToolbarDensity.compactOf(context));
 
   /// The gap between two groups of slots (colours, widths).
   static const double groupGap = Gaps.md;
@@ -33,14 +51,16 @@ abstract final class ToolbarMetrics {
   static const double bottomHeight = 56;
 
   /// Width of the tool cluster: every tool plus Insert ⊕.
-  static double get cluster => (EditorTool.values.length + 1) * tool;
+  static double cluster({bool compact = false}) =>
+      (EditorTool.values.length + 1) * toolCell(compact: compact);
 
   /// Width of the widest quick-control strip any tool shows, so the strip
   /// keeps one place (and the tools never move) as tools change.
-  static double strip(ToolSettings tools) {
+  static double strip(ToolSettings tools, {bool compact = false}) {
+    final slot = slotCell(compact: compact);
     var widest = 0.0;
     for (final d in editorTools(tools)) {
-      final w = d.stripWidth?.call() ?? 0;
+      final w = d.stripWidth?.call(slot) ?? 0;
       if (w > widest) widest = w;
     }
     return widest;
@@ -48,7 +68,8 @@ abstract final class ToolbarMetrics {
 
   /// Tools, a divider and the reserved strip: the group shown in the bar,
   /// the attached row or the floating palette.
-  static double group(ToolSettings tools) => cluster + divider + strip(tools);
+  static double group(ToolSettings tools, {bool compact = false}) =>
+      cluster(compact: compact) + divider + strip(tools, compact: compact);
 
   /// The narrowest the title may get before the bar becomes two rows.
   static const double minTitle = 120;
@@ -66,4 +87,19 @@ abstract final class ToolbarMetrics {
   /// Whether a pane [width] wide shows the tools inside the top bar.
   static bool fitsOneRow(double width, ToolSettings tools, {required bool paged}) =>
       width >= ChromeMetrics.compactWidth && oneRow(tools, paged: paged) <= width;
+}
+
+/// Marks a toolbar laid out with compact cells (40-dp tools, 36-dp slots)
+/// because its row is short of room.
+class ToolbarDensity extends InheritedWidget {
+  const ToolbarDensity({super.key, required this.compact, required super.child});
+
+  final bool compact;
+
+  /// Whether the toolbar at [context] is compact.
+  static bool compactOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ToolbarDensity>()?.compact ?? false;
+
+  @override
+  bool updateShouldNotify(ToolbarDensity oldWidget) => oldWidget.compact != compact;
 }

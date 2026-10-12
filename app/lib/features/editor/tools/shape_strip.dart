@@ -22,11 +22,9 @@ class ShapeStrip extends StatelessWidget {
   /// Opens the pen's options on one of its slots.
   final SlotEdit onEditInk;
 
-  /// Width of the strip for the pen's current slots.
-  static double widthFor(ToolSettings tools) =>
-      ToolbarMetrics.slot +
-      ToolbarMetrics.groupGap +
-      InkStrip.widthFor(tools.configOf(InkTool.ballpoint));
+  /// Width of the strip for the pen's current slots, with [slot] cells.
+  static double widthFor(ToolSettings tools, double slot) =>
+      slot + ToolbarMetrics.groupGap + InkStrip.widthFor(tools.configOf(InkTool.ballpoint), slot);
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +36,7 @@ class ShapeStrip extends StatelessWidget {
           builder: (anchor) => IconButton(
             key: const ValueKey('shape-kind'),
             tooltip: '${tools.shape.label}: choose a shape',
-            constraints: BoxConstraints.tight(Size.square(ToolbarMetrics.slot)),
+            constraints: BoxConstraints.tight(Size.square(ToolbarMetrics.slotOf(context))),
             padding: EdgeInsets.zero,
             style: IconButton.styleFrom(
               foregroundColor: scheme.onSurface,

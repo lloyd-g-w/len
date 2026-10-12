@@ -17,9 +17,9 @@ class InkStrip extends StatelessWidget {
   /// Opens the tool's options anchored to a slot.
   final SlotEdit onEdit;
 
-  /// Width the strip needs for [config].
-  static double widthFor(PenConfig config) =>
-      (config.colors.length + config.widths.length) * ToolbarMetrics.slot + ToolbarMetrics.groupGap;
+  /// Width the strip needs for [config] with [slot] cells.
+  static double widthFor(PenConfig config, double slot) =>
+      (config.colors.length + config.widths.length) * slot + ToolbarMetrics.groupGap;
 
   @override
   Widget build(BuildContext context) {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../ink/tool_settings.dart';
-import '../toolbar/toolbar_metrics.dart';
 import 'ink_slots.dart';
 import 'slot_button.dart';
 
@@ -15,8 +14,8 @@ class EraserStrip extends StatelessWidget {
   /// Opens the eraser's options anchored to a slot.
   final SlotEdit onEdit;
 
-  /// Width of the strip in logical pixels.
-  static double get width => EraserConfig.quickSizes.length * ToolbarMetrics.slot;
+  /// Width of the strip for a [slot] cell.
+  static double widthFor(double slot) => EraserConfig.quickSizes.length * slot;
 
   @override
   Widget build(BuildContext context) {

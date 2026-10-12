@@ -66,8 +66,8 @@ class ToolDescriptor {
   /// Quick controls shown in the toolbar while the tool is active.
   final StripBuilder? strip;
 
-  /// The [strip]'s width in logical pixels, which the toolbar reserves.
-  final double Function()? stripWidth;
+  /// The [strip]'s width for a given slot cell, which the toolbar reserves.
+  final double Function(double slot)? stripWidth;
 
   /// The tool's section of the options popover (tap the active tool).
   final WidgetBuilder options;
@@ -89,7 +89,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
     shortcut: 'P',
     inkColor: () => tools.configOf(InkTool.ballpoint).color,
     strip: (_, open) => InkStrip(tools: tools, ink: InkTool.ballpoint, onEdit: open),
-    stripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.ballpoint)),
+    stripWidth: (slot) => InkStrip.widthFor(tools.configOf(InkTool.ballpoint), slot),
     options: (_) => InkOptions(
       tools: tools,
       ink: InkTool.ballpoint,
@@ -108,7 +108,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       shortcut: 'H',
       inkColor: () => tools.configOf(InkTool.highlighter).color,
       strip: (_, open) => InkStrip(tools: tools, ink: InkTool.highlighter, onEdit: open),
-      stripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.highlighter)),
+      stripWidth: (slot) => InkStrip.widthFor(tools.configOf(InkTool.highlighter), slot),
       options: (_) => InkOptions(
         tools: tools,
         ink: InkTool.highlighter,
@@ -124,7 +124,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       label: 'Eraser',
       shortcut: 'E',
       strip: (_, open) => EraserStrip(tools: tools, onEdit: open),
-      stripWidth: () => EraserStrip.width,
+      stripWidth: EraserStrip.widthFor,
       options: (_) => EraserOptionsPanel(tools: tools),
     ),
     ToolDescriptor(
@@ -144,7 +144,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       // Shapes are drawn with the pen's quick colour and width.
       inkColor: () => tools.configOf(InkTool.ballpoint).color,
       strip: (_, open) => ShapeStrip(tools: tools, onEdit: open, onEditInk: pen.openOptions),
-      stripWidth: () => ShapeStrip.widthFor(tools),
+      stripWidth: (slot) => ShapeStrip.widthFor(tools, slot),
       options: (_) => ListenableBuilder(
         listenable: tools,
         builder: (context, _) => Column(
@@ -175,7 +175,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       shortcut: 'K',
       inkColor: () => tools.laser.color,
       strip: (_, open) => LaserStrip(tools: tools, onEdit: open),
-      stripWidth: () => LaserStrip.width,
+      stripWidth: LaserStrip.widthFor,
       options: (_) => LaserOptionsPanel(tools: tools),
     ),
   ];

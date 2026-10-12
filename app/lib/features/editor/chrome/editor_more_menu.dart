@@ -196,11 +196,8 @@ class EditorMoreMenu extends StatelessWidget {
         child: Text(label),
       );
 
-  static Widget _submenu(IconData icon, String label, List<Widget> children) => SubmenuButton(
-    leadingIcon: Icon(icon),
-    menuChildren: children,
-    child: Text(label),
-  );
+  static Widget _submenu(IconData icon, String label, List<Widget> children) =>
+      SubmenuButton(leadingIcon: Icon(icon), menuChildren: children, child: Text(label));
 }
 
 /// A switch shown in a menu row; the row itself toggles it.
