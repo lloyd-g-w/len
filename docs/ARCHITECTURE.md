@@ -1640,8 +1640,8 @@ neutral surfaces, a tighter type scale and shared component themes
 Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width),
 `menus.dart` (`MenuRow`, `showContextMenuAt`), `dialog_or_sheet.dart` (`showDialogOrSheet`:
 centred dialog on tablets / desktops, bottom sheet on phones), `text_prompt.dart`, `sidebar_item.dart`
-(library sidebar and the settings section list). Settings: from `Breakpoints.expanded` a
-two-pane layout (section list + the selected section), a single column below. Documents UI
+(library sidebar). Settings: every section in one centred column of readable width, on
+every screen. Documents UI
 (`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
 dates, week start, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
 with selection mode; `editor/document/page_overview.dart` re-exports it);

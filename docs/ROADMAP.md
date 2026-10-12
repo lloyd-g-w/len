@@ -169,7 +169,6 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   keyboard shortcuts, redesigned settings
 - ✅ Settings: theme previews, Stylus / Gestures / Editor (toolbar position) sections with
   descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
-- ✅ Two-pane settings on wide screens
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
   export, focus, more menu), tool-descriptor toolbar with contextual quick controls, toolbar
   position (automatic / top / bottom / floating, draggable), focus mode (F11 / Ctrl+.) with

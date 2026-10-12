@@ -289,11 +289,10 @@ void main() {
     expect(app().themeMode, ThemeMode.dark);
     expect(services.preferences.themeMode, ThemePreference.dark);
 
-    // Wide windows show one section at a time, picked on the left.
-    expect(find.text('Finger taps to undo and redo'), findsNothing);
-    await tester.tap(find.widgetWithText(SidebarItem, 'Gestures'));
+    // Every section in one column, wide windows too.
+    expect(find.byType(SidebarItem), findsNothing);
+    await tester.ensureVisible(find.text('Finger taps to undo and redo'));
     await tester.pumpAndSettle();
-    expect(find.text('Theme'), findsNothing);
     await tester.tap(find.text('Finger taps to undo and redo'));
     await tester.pumpAndSettle();
     expect(services.preferences.fingerTapUndo, isFalse);
