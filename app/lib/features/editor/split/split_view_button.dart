@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook.dart';
 import '../chrome/bar_button.dart';
@@ -23,8 +24,8 @@ class SplitViewButton extends StatelessWidget {
       menuChildren: split ? _splitItems() : _openItems(),
       builder: (context, menu, _) => BarButton(
         tooltip: split ? 'Split view' : 'Open in split view',
-        icon: Icons.vertical_split_outlined,
-        selectedIcon: Icons.vertical_split_rounded,
+        icon: Symbols.vertical_split_rounded,
+        selectedIcon: Symbols.vertical_split_rounded,
         selected: split,
         onPressed: () => menu.isOpen ? menu.close() : menu.open(),
       ),
@@ -33,7 +34,7 @@ class SplitViewButton extends StatelessWidget {
 
   List<Widget> _openItems() => [
     MenuItemButton(
-      leadingIcon: const Icon(Icons.auto_stories_outlined),
+      leadingIcon: const Icon(Symbols.auto_stories_rounded),
       onPressed: () => tabs.openSplit(notebookId),
       child: const Text('This notebook, side by side'),
     ),
@@ -42,7 +43,7 @@ class SplitViewButton extends StatelessWidget {
       if (tab.id != notebookId)
         MenuItemButton(
           leadingIcon: Icon(
-            tab.kind == NotebookKind.canvas ? Icons.gesture_rounded : Icons.menu_book_rounded,
+            tab.kind == NotebookKind.canvas ? Symbols.gesture_rounded : Symbols.menu_book_rounded,
           ),
           onPressed: () => tabs.openSplit(tab.id),
           child: ConstrainedBox(
@@ -55,12 +56,12 @@ class SplitViewButton extends StatelessWidget {
   List<Widget> _splitItems() => [
     if (tabs.splitId != tabs.activeId)
       MenuItemButton(
-        leadingIcon: const Icon(Icons.swap_horiz_rounded),
+        leadingIcon: const Icon(Symbols.swap_horiz_rounded),
         onPressed: tabs.swapSplit,
         child: const Text('Swap panes'),
       ),
     MenuItemButton(
-      leadingIcon: const Icon(Icons.close_rounded),
+      leadingIcon: const Icon(Symbols.close_rounded),
       onPressed: tabs.closeSplit,
       child: const Text('Close split view'),
     ),

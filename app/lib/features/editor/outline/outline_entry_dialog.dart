@@ -67,7 +67,6 @@ class _OutlineEntryDialogState extends State<_OutlineEntryDialog> {
   Widget build(BuildContext context) {
     final parents = widget.parents;
     return AppDialog(
-      icon: Icons.toc_rounded,
       title: widget.title,
       content: DialogBody(
         child: Column(

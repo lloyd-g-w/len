@@ -49,11 +49,11 @@ class SettingsSection extends StatelessWidget {
               color: theme.brightness == Brightness.dark
                   ? scheme.surfaceContainerLow
                   : scheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(Radii.card),
+              borderRadius: BorderRadius.circular(Radii.md),
               border: Border.all(color: scheme.outlineVariant),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(Radii.card),
+              borderRadius: BorderRadius.circular(Radii.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

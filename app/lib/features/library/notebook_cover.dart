@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
@@ -44,10 +45,10 @@ class NotebookCover extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = Color(color);
     final preview = this.preview;
-    const outer = Radius.circular(Radii.cover);
+    const outer = Radius.circular(Radii.sm);
     final radius = _paged
         ? const BorderRadius.horizontal(left: Radius.circular(Radii.xs - 2), right: outer)
-        : BorderRadius.circular(Radii.cover);
+        : BorderRadius.circular(Radii.sm);
     return ClipRRect(
       borderRadius: radius,
       child: Stack(
@@ -73,7 +74,7 @@ class NotebookCover extends StatelessWidget {
               right: 10,
               bottom: 10,
               child: Icon(
-                Icons.all_inclusive_rounded,
+                Symbols.all_inclusive_rounded,
                 color: Colors.white.withValues(alpha: 0.9),
                 size: 20,
               ),
@@ -184,7 +185,7 @@ class _CanvasTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.pill),
         boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))],
       ),
-      child: const Icon(Icons.all_inclusive_rounded, size: 14, color: Colors.white),
+      child: const Icon(Symbols.all_inclusive_rounded, size: 14, color: Colors.white),
     );
   }
 }
@@ -202,7 +203,7 @@ class _FavoriteBadge extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: const [BoxShadow(color: Color(0x29000000), blurRadius: 4, offset: Offset(0, 1))],
       ),
-      child: const Icon(Icons.star_rounded, size: 16, color: Color(0xFFF5A524)),
+      child: const Icon(Symbols.star_rounded, fill: 1, size: 16, color: Color(0xFFF5A524)),
     );
   }
 }

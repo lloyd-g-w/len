@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
@@ -73,13 +74,13 @@ class _NotebookCardState extends State<NotebookCard> {
       curve: Motion.standard,
       transform: Matrix4.translationValues(0, lifted ? -4 : 0, 0),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Radii.cover),
+        borderRadius: BorderRadius.circular(Radii.sm),
         boxShadow: lifted ? Shadows.high(brightness) : Shadows.low(brightness),
       ),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.cover),
+          borderRadius: BorderRadius.circular(Radii.sm),
           onTap: _tap,
           onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
           onHover: (h) => setState(() => _hovered = h),
@@ -164,7 +165,7 @@ class _NotebookCardState extends State<NotebookCard> {
                     padding: EdgeInsets.zero,
                     iconSize: 20,
                     color: theme.colorScheme.onSurfaceVariant,
-                    icon: const Icon(Icons.more_horiz_rounded),
+                    icon: const Icon(Symbols.more_horiz_rounded),
                     onPressed: () => unawaited(_showMenu(anchor: anchor)),
                   ),
                 ),

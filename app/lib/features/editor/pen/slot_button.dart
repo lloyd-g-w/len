@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/design_tokens.dart';
 
@@ -100,7 +101,7 @@ class AddSlotButton extends StatelessWidget {
           padding: EdgeInsets.zero,
           style: IconButton.styleFrom(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           onPressed: () => onAdd(context),
-          icon: Icon(Icons.add_rounded, size: 18, color: scheme.onSurfaceVariant),
+          icon: Icon(Symbols.add_rounded, size: 18, color: scheme.onSurfaceVariant),
         ),
       ),
     );

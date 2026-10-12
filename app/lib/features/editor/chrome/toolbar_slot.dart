@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/preferences.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/floating_panel.dart';
 import '../../../ui/measure_size.dart';
 import 'chrome_metrics.dart';
 
@@ -166,15 +168,13 @@ class _Grip extends StatelessWidget {
           onPanUpdate: onDrag,
           onPanEnd: (_) => onEnd(),
           onPanCancel: onEnd,
-          child: Material(
-            color: scheme.surfaceContainer,
-            elevation: 3,
-            shadowColor: Colors.black26,
-            borderRadius: BorderRadius.circular(Radii.pill),
+          child: FloatingPanel(
+            radius: Radii.pill,
+            padding: EdgeInsets.zero,
             child: SizedBox(
               width: 28,
               height: 48,
-              child: Icon(Icons.drag_indicator_rounded, size: 20, color: scheme.onSurfaceVariant),
+              child: Icon(Symbols.drag_indicator_rounded, size: 20, color: scheme.onSurfaceVariant),
             ),
           ),
         ),

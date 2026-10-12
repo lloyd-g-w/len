@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/outline/outline_tree.dart';
 import '../../../ui/app_theme.dart';
@@ -106,7 +107,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
                   Expanded(child: Text('Outline', style: theme.textTheme.titleLarge)),
                   FilledButton.tonalIcon(
                     onPressed: () => _outline.addCurrentPage(context),
-                    icon: const Icon(Icons.add_rounded),
+                    icon: const Icon(Symbols.add_rounded),
                     label: Text('Add page ${current + 1}'),
                   ),
                 ],
@@ -155,7 +156,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
       leading: row.hasChildren
           ? IconButton(
               tooltip: collapsed ? 'Expand' : 'Collapse',
-              icon: Icon(collapsed ? Icons.chevron_right_rounded : Icons.expand_more_rounded),
+              icon: Icon(collapsed ? Symbols.chevron_right_rounded : Symbols.expand_more_rounded),
               onPressed: () => setState(
                 () => collapsed ? _collapsed.remove(entry.id) : _collapsed.add(entry.id),
               ),
@@ -182,7 +183,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
           ),
           PopupMenuButton<_EntryAction>(
             tooltip: 'Entry options',
-            icon: const Icon(Icons.more_vert_rounded, size: 20),
+            icon: const Icon(Symbols.more_vert_rounded, size: 20),
             onSelected: (a) => switch (a) {
               _EntryAction.rename => _outline.rename(context, entry),
               _EntryAction.indent => _outline.indent(entry),
@@ -193,31 +194,31 @@ class _OutlinePanelState extends State<OutlinePanel> {
             itemBuilder: (_) => [
               const MenuRow(
                 value: _EntryAction.rename,
-                icon: Icons.edit_outlined,
+                icon: Symbols.edit_rounded,
                 label: 'Rename…',
               ),
               MenuRow(
                 value: _EntryAction.indent,
-                icon: Icons.format_indent_increase_rounded,
+                icon: Symbols.format_indent_increase_rounded,
                 label: 'Nest under previous',
                 enabled: tree.indentTarget(entry) != null,
               ),
               MenuRow(
                 value: _EntryAction.outdent,
-                icon: Icons.format_indent_decrease_rounded,
+                icon: Symbols.format_indent_decrease_rounded,
                 label: 'Move out a level',
                 enabled: tree.isNested(entry),
               ),
               MenuRow(
                 value: _EntryAction.repoint,
-                icon: Icons.my_location_rounded,
+                icon: Symbols.my_location_rounded,
                 label: 'Link to page ${current + 1}',
                 enabled: page != current,
               ),
               const PopupMenuDivider(),
               const MenuRow(
                 value: _EntryAction.delete,
-                icon: Icons.delete_outline_rounded,
+                icon: Symbols.delete_rounded,
                 label: 'Delete',
                 destructive: true,
               ),

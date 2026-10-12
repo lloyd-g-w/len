@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
@@ -86,7 +87,7 @@ class _ThemeCard extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(Radii.control),
+        borderRadius: BorderRadius.circular(Radii.sm),
         child: Column(
           children: [
             AnimatedContainer(
@@ -94,14 +95,14 @@ class _ThemeCard extends StatelessWidget {
               height: 76,
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(Radii.control),
+                borderRadius: BorderRadius.circular(Radii.sm),
                 border: Border.all(
                   color: selected ? scheme.primary : scheme.outlineVariant,
                   width: selected ? 2.5 : 1,
                 ),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(Radii.control - 3),
+                borderRadius: BorderRadius.circular(Radii.sm - 3),
                 child: preview,
               ),
             ),
@@ -110,7 +111,7 @@ class _ThemeCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (selected) ...[
-                  Icon(Icons.check_circle_rounded, size: 16, color: scheme.primary),
+                  Icon(Symbols.check_circle_rounded, fill: 1, size: 16, color: scheme.primary),
                   const SizedBox(width: Gaps.xs),
                 ],
                 Flexible(

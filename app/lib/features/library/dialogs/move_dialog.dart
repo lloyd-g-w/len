@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/folder.dart';
 import '../../../ui/app_dialogs.dart';
@@ -95,7 +96,8 @@ class _FolderRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(Radii.sm),
         ),
         child: Icon(
-          folder == null ? Icons.auto_stories_rounded : Icons.folder_rounded,
+          folder == null ? Symbols.auto_stories_rounded : Symbols.folder_rounded,
+          fill: folder == null ? 0 : 1,
           color: color,
           size: 20,
         ),

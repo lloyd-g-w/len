@@ -40,7 +40,7 @@ class _CoverSheetState extends State<_CoverSheet> {
       width: compact ? 96 : 128,
       height: compact ? 132 : 176,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Radii.cover),
+        borderRadius: BorderRadius.circular(Radii.sm),
         boxShadow: Shadows.high(theme.brightness),
       ),
       child: NotebookCover(color: _color, kind: widget.notebook.kind),

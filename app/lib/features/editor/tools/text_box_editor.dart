@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/surface_element.dart';
 import '../../../domain/text/text_data.dart';
@@ -157,7 +158,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                       accent,
                       pad: pad,
                       alignment: Alignment.topLeft,
-                      icon: Icons.open_with_rounded,
+                      icon: Symbols.open_with_rounded,
                       tooltip: 'Move',
                       onDrag: (d) => _session.setRect(_session.current!.rect.shift(d)),
                     ),
@@ -167,7 +168,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                         accent,
                         pad: pad,
                         alignment: side,
-                        icon: Icons.drag_indicator_rounded,
+                        icon: Symbols.drag_indicator_rounded,
                         tooltip: 'Width',
                         onDrag: (d) => _resize(side.x, d),
                       ),

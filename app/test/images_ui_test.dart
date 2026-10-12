@@ -16,6 +16,7 @@ import 'package:len/features/documents/export/pdf_export.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/thumbnails/thumbnail_renderer.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'content_documents_test.dart' show elementsOf;
 import 'content_golden_test.dart' show loadFonts;
@@ -208,7 +209,7 @@ void main() {
     await mouseDrag(tester, const [Offset(100, 400), Offset(150, 400), Offset(200, 400)]);
     await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/images_crop.png'));
     final reset = tester.widget<IconButton>(
-      find.ancestor(of: find.byIcon(Icons.crop_free_rounded), matching: find.byType(IconButton)),
+      find.ancestor(of: find.byIcon(Symbols.crop_free_rounded), matching: find.byType(IconButton)),
     );
     expect(reset.onPressed, isNotNull);
     await tester.tap(find.text('Done'));

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
@@ -78,9 +79,9 @@ class _FolderDialogState extends State<_FolderDialog> {
           height: 64,
           decoration: BoxDecoration(
             color: color.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14),
-            borderRadius: BorderRadius.circular(Radii.control + 4),
+            borderRadius: BorderRadius.circular(Radii.sm + 4),
           ),
-          child: Icon(Icons.folder_rounded, color: color, size: 36),
+          child: Icon(Symbols.folder_rounded, fill: 1, color: color, size: 36),
         ),
       ),
       title: widget.title,

@@ -108,11 +108,11 @@ class _AudioLayerState extends State<AudioLayer> {
                         if (compact && widget.audio.recorder.state.isActive)
                           Padding(
                             padding: const EdgeInsets.only(bottom: Gaps.sm),
-                            child: Material(
-                              elevation: 3,
-                              shadowColor: Colors.black26,
-                              borderRadius: BorderRadius.circular(Radii.pill),
-                              color: Colors.transparent,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(Radii.pill),
+                                boxShadow: Shadows.low(Theme.of(context).brightness),
+                              ),
                               child: RecordingPill(recorder: widget.audio.recorder),
                             ),
                           ),

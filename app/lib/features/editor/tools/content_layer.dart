@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../app_services.dart';
 import '../../../domain/surface_element.dart';
@@ -183,7 +184,7 @@ class _ContentLayerState extends State<ContentLayer> {
                   setState(() => _pasteAt = null);
                   _content.selection.paste(pasteAt.world);
                 },
-                icon: const Icon(Icons.content_paste_rounded, size: 18),
+                icon: const Icon(Symbols.content_paste_rounded, size: 18),
                 label: const Text('Paste'),
               ),
             ),

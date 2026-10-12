@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/text/text_data.dart';
 import '../../../ink/tool_settings.dart';
@@ -74,12 +75,12 @@ class TextFormatBar extends StatelessWidget {
           IconButton(
             tooltip: 'Delete text box',
             onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline_rounded, size: 20),
+            icon: const Icon(Symbols.delete_rounded, size: 20),
           ),
           IconButton(
             tooltip: 'Done (Esc)',
             onPressed: onDone,
-            icon: const Icon(Icons.check_rounded, size: 20),
+            icon: const Icon(Symbols.check_rounded, size: 20),
           ),
         ],
       ),
@@ -121,7 +122,7 @@ class TextFormatBar extends StatelessWidget {
         IconButton(
           tooltip: 'Smaller',
           onPressed: () => _setSize(step(size, -1)),
-          icon: const Icon(Icons.text_decrease_rounded, size: 20),
+          icon: const Icon(Symbols.text_decrease_rounded, size: 20),
         ),
         SizedBox(
           width: 28,
@@ -135,20 +136,20 @@ class TextFormatBar extends StatelessWidget {
         IconButton(
           tooltip: 'Larger',
           onPressed: () => _setSize(step(size, 1)),
-          icon: const Icon(Icons.text_increase_rounded, size: 20),
+          icon: const Icon(Symbols.text_increase_rounded, size: 20),
         ),
         divider(),
-        toggle('Bold (Ctrl+B)', Icons.format_bold_rounded, style.bold, c.toggleBold),
-        toggle('Italic (Ctrl+I)', Icons.format_italic_rounded, style.italic, c.toggleItalic),
+        toggle('Bold (Ctrl+B)', Symbols.format_bold_rounded, style.bold, c.toggleBold),
+        toggle('Italic (Ctrl+I)', Symbols.format_italic_rounded, style.italic, c.toggleItalic),
         toggle(
           'Underline (Ctrl+U)',
-          Icons.format_underlined_rounded,
+          Symbols.format_underlined_rounded,
           style.underline,
           c.toggleUnderline,
         ),
         toggle(
           'Strikethrough (Ctrl+Shift+X)',
-          Icons.format_strikethrough_rounded,
+          Symbols.format_strikethrough_rounded,
           style.strike,
           c.toggleStrike,
         ),
@@ -197,19 +198,19 @@ class TextFormatBar extends StatelessWidget {
         ),
         toggle(
           'Bulleted list (Ctrl+Shift+8)',
-          Icons.format_list_bulleted_rounded,
+          Symbols.format_list_bulleted_rounded,
           para.list == ListKind.bullet,
           () => c.toggleList(ListKind.bullet),
         ),
         toggle(
           'Numbered list (Ctrl+Shift+7)',
-          Icons.format_list_numbered_rounded,
+          Symbols.format_list_numbered_rounded,
           para.list == ListKind.number,
           () => c.toggleList(ListKind.number),
         ),
         toggle(
           'Checklist (Ctrl+Shift+9)',
-          Icons.checklist_rounded,
+          Symbols.checklist_rounded,
           para.list == ListKind.check,
           () => c.toggleList(ListKind.check),
         ),
@@ -217,9 +218,9 @@ class TextFormatBar extends StatelessWidget {
           tooltip: 'Align ${nextAlign.name}',
           onPressed: () => _box(box.copyWith(align: nextAlign)),
           icon: Icon(switch (box.align) {
-            TextAlignment.left => Icons.format_align_left_rounded,
-            TextAlignment.center => Icons.format_align_center_rounded,
-            TextAlignment.right => Icons.format_align_right_rounded,
+            TextAlignment.left => Symbols.format_align_left_rounded,
+            TextAlignment.center => Symbols.format_align_center_rounded,
+            TextAlignment.right => Symbols.format_align_right_rounded,
           }, size: 20),
         ),
       ],

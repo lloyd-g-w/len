@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
@@ -108,7 +109,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
             builder: (anchor) => IconButton(
               tooltip: 'More colours',
               padding: EdgeInsets.zero,
-              icon: const Icon(Icons.add_rounded, size: 20),
+              icon: const Icon(Symbols.add_rounded, size: 20),
               onPressed: () async {
                 final colour = await pickColour(
                   anchor,
@@ -145,7 +146,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           IconButton(
             tooltip: 'Smaller',
             onPressed: () => step(-1),
-            icon: const Icon(Icons.text_decrease_rounded, size: 20),
+            icon: const Icon(Symbols.text_decrease_rounded, size: 20),
           ),
           SizedBox(
             width: 40,
@@ -154,7 +155,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           IconButton(
             tooltip: 'Larger',
             onPressed: () => step(1),
-            icon: const Icon(Icons.text_increase_rounded, size: 20),
+            icon: const Icon(Symbols.text_increase_rounded, size: 20),
           ),
         ],
       ),
@@ -171,11 +172,11 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
       OptionHeader(strokes.length == 1 ? 'Ink' : '${strokes.length} strokes'),
       SegmentedButton<bool>(
         segments: const [
-          ButtonSegment(value: false, label: Text('Pen'), icon: Icon(Icons.edit_rounded)),
+          ButtonSegment(value: false, label: Text('Pen'), icon: Icon(Symbols.edit_rounded)),
           ButtonSegment(
             value: true,
             label: Text('Highlighter'),
-            icon: Icon(Icons.border_color_rounded),
+            icon: Icon(Symbols.border_color_rounded),
           ),
         ],
         selected: {?tool},

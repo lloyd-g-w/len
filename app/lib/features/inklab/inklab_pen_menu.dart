@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../ink/lab/input_recording.dart';
 
@@ -19,7 +20,7 @@ class InkLabPenMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<PenSettings>(
       tooltip: 'Pen',
-      icon: const Icon(Icons.edit_rounded),
+      icon: const Icon(Symbols.edit_rounded),
       onSelected: onChanged,
       itemBuilder: (context) => [
         const PopupMenuItem(enabled: false, height: 32, child: Text('Stabiliser')),

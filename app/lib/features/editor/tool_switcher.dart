@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../ink/tool_settings.dart';
 import '../../ui/adaptive_popover.dart';
@@ -57,7 +58,7 @@ class ToolSwitcherButton extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ToolGlyph(descriptor: active),
-                    const Icon(Icons.expand_more_rounded, size: 16),
+                    const Icon(Symbols.expand_more_rounded, size: 16),
                   ],
                 ),
               ),
@@ -161,9 +162,9 @@ class ToolSwitcherPanel extends StatelessWidget {
               ListTile(
                 dense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
-                leading: const Icon(Icons.tune_rounded),
+                leading: const Icon(Symbols.tune_rounded),
                 title: Text('${active.label} settings'),
-                trailing: const Icon(Icons.chevron_right_rounded),
+                trailing: const Icon(Symbols.chevron_right_rounded),
                 onTap: () {
                   Navigator.of(context).pop();
                   active.openOptions(anchor);
@@ -172,7 +173,7 @@ class ToolSwitcherPanel extends StatelessWidget {
             SwitchListTile(
               dense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
-              secondary: Icon(stylusOnly ? Icons.do_not_touch_outlined : Icons.touch_app_outlined),
+              secondary: Icon(stylusOnly ? Symbols.do_not_touch_rounded : Symbols.touch_app_rounded),
               title: const Text('Draw with stylus only'),
               subtitle: const Text('Fingers pan and zoom'),
               value: stylusOnly,
@@ -202,9 +203,9 @@ class _ToolTile extends StatelessWidget {
       button: true,
       child: Material(
         color: selected ? scheme.secondaryContainer : Colors.transparent,
-        borderRadius: BorderRadius.circular(Radii.control),
+        borderRadius: BorderRadius.circular(Radii.sm),
         child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.control),
+          borderRadius: BorderRadius.circular(Radii.sm),
           onTap: onTap,
           child: SizedBox(
             width: 72,

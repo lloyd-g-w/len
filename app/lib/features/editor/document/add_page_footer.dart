@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 import 'document_controller.dart';
@@ -58,9 +59,9 @@ class _AddButton extends StatelessWidget {
         foregroundColor: scheme.onSurfaceVariant,
         backgroundColor: scheme.surface.withValues(alpha: 0.6),
         side: BorderSide(color: scheme.outline.withValues(alpha: 0.6)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.control)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
       ),
-      icon: const Icon(Icons.add_rounded),
+      icon: const Icon(Symbols.add_rounded),
       label: const Text('Add page'),
     );
   }

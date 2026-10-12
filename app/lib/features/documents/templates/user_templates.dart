@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../app_services.dart';
 import '../../../domain/paper.dart';
@@ -121,7 +122,7 @@ abstract final class UserTemplates {
       label: 'Name',
       initialValue: name,
       confirmLabel: 'Save',
-      icon: Icons.dashboard_customize_outlined,
+      icon: Symbols.dashboard_customize_rounded,
     );
     if (chosen == null || chosen.isEmpty || !context.mounted) return null;
     final blob = await services.blobs.putBytes(png, mime: 'image/png');
@@ -137,10 +138,10 @@ abstract final class UserTemplates {
       context,
       at: at,
       items: const [
-        MenuRow(value: 'rename', icon: Icons.edit_outlined, label: 'Rename…'),
+        MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),
         MenuRow(
           value: 'delete',
-          icon: Icons.delete_outline_rounded,
+          icon: Symbols.delete_rounded,
           label: 'Delete…',
           destructive: true,
         ),

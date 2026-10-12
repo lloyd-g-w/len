@@ -202,7 +202,7 @@ class _OpenTransitionState extends State<_OpenTransition> {
           final flying = from != null && !status.isCompleted;
           final p = _flight.value;
           final rect = from == null ? full : Rect.lerp(from, full, p)!;
-          final radius = Radius.circular(flying ? Radii.cover * (1 - p * p) : 0);
+          final radius = Radius.circular(flying ? Radii.sm * (1 - p * p) : 0);
           final double editorOpacity;
           final double scale;
           if (from != null) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 import 'pdf_interaction.dart';
@@ -131,7 +132,7 @@ class _PdfOutlineSectionState extends State<PdfOutlineSection> {
       leading: hasChildren
           ? IconButton(
               tooltip: collapsed ? 'Expand' : 'Collapse',
-              icon: Icon(collapsed ? Icons.chevron_right_rounded : Icons.expand_more_rounded),
+              icon: Icon(collapsed ? Symbols.chevron_right_rounded : Symbols.expand_more_rounded),
               onPressed: () =>
                   setState(() => collapsed ? _collapsed.remove(key) : _collapsed.add(key)),
             )

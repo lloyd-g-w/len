@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/folder.dart';
 import '../../ui/app_theme.dart';
@@ -81,7 +82,7 @@ class _FolderTileState extends State<FolderTile> {
               : highlighted
               ? scheme.surfaceContainer
               : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(Radii.control + 2),
+          borderRadius: BorderRadius.circular(Radii.sm + 2),
           border: Border.all(
             color: active ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.6),
             width: active ? 1.6 : 1,
@@ -91,7 +92,7 @@ class _FolderTileState extends State<FolderTile> {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            borderRadius: BorderRadius.circular(Radii.control + 2),
+            borderRadius: BorderRadius.circular(Radii.sm + 2),
             onTap: () => widget.actions.controller.openFolder(_folder.id),
             onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
             onHover: (h) => setState(() => _hovered = h),
@@ -113,7 +114,7 @@ class _FolderTileState extends State<FolderTile> {
                       ),
                       borderRadius: BorderRadius.circular(Radii.sm),
                     ),
-                    child: Icon(Icons.folder_rounded, color: color, size: narrow ? 20 : 22),
+                    child: Icon(Symbols.folder_rounded, fill: 1, color: color, size: narrow ? 20 : 22),
                   ),
                   SizedBox(width: narrow ? Gaps.sm : Gaps.md),
                   Expanded(
@@ -143,7 +144,7 @@ class _FolderTileState extends State<FolderTile> {
                             : null,
                         padding: narrow ? EdgeInsets.zero : null,
                         color: scheme.onSurfaceVariant,
-                        icon: const Icon(Icons.more_horiz_rounded),
+                        icon: const Icon(Symbols.more_horiz_rounded),
                         onPressed: () => unawaited(_showMenu(anchor: anchor)),
                       ),
                     ),

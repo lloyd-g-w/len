@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../sync/sync_controller.dart';
 
@@ -19,10 +20,10 @@ class SyncStatusButton extends StatelessWidget {
       builder: (context, _) {
         final tooLarge = sync.state == SyncState.disabled ? null : sync.tooLargeSummary;
         final (icon, status) = switch (sync.state) {
-          SyncState.disabled => (Icons.cloud_off_outlined, 'Set up sync'),
-          SyncState.idle => (Icons.cloud_done_outlined, 'Synced — tap to sync now'),
-          SyncState.syncing => (Icons.cloud_sync_outlined, 'Syncing…'),
-          SyncState.error => (Icons.cloud_off_rounded, 'Sync failed: ${sync.lastError}'),
+          SyncState.disabled => (Symbols.cloud_off_rounded, 'Set up sync'),
+          SyncState.idle => (Symbols.cloud_done_rounded, 'Synced — tap to sync now'),
+          SyncState.syncing => (Symbols.cloud_sync_rounded, 'Syncing…'),
+          SyncState.error => (Symbols.cloud_off_rounded, 'Sync failed: ${sync.lastError}'),
         };
         final scheme = Theme.of(context).colorScheme;
         final color = sync.state == SyncState.error ? scheme.error : null;

@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../data/app_preferences.dart';
 import '../../../domain/preferences.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/floating_panel.dart';
 
 /// One-time hints about input that has no visible affordance.
 enum EditorTip {
@@ -47,12 +49,12 @@ class TipsController extends ValueNotifier<TipMessage?> {
       EditorTip.penButton => switch (penButton) {
         PenButtonAction.eraser => TipMessage(
           tip,
-          Icons.draw_outlined,
+          Symbols.draw_rounded,
           'Hold the pen’s side button to erase',
         ),
         PenButtonAction.lasso => TipMessage(
           tip,
-          Icons.highlight_alt_rounded,
+          Symbols.highlight_alt_rounded,
           'Hold the pen’s side button to select with the lasso',
         ),
         PenButtonAction.none => null,
@@ -107,11 +109,9 @@ class TipBanner extends StatelessWidget {
                 liveRegion: true,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
-                  child: Material(
-                    color: scheme.surfaceContainerHigh,
-                    elevation: 2,
-                    shadowColor: Colors.black26,
-                    borderRadius: BorderRadius.circular(Radii.pill),
+                  child: FloatingPanel(
+                    radius: Radii.pill,
+                    padding: EdgeInsets.zero,
                     child: Padding(
                       padding: const EdgeInsets.only(left: Gaps.md, right: Gaps.xxs),
                       child: Row(
@@ -132,7 +132,7 @@ class TipBanner extends StatelessWidget {
                             iconSize: 18,
                             visualDensity: VisualDensity.compact,
                             onPressed: controller.dismiss,
-                            icon: const Icon(Icons.close_rounded),
+                            icon: const Icon(Symbols.close_rounded),
                           ),
                         ],
                       ),

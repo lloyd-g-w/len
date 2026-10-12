@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/surface_element.dart';
 import '../../../ink/selection/selection_chrome.dart';
@@ -122,36 +123,36 @@ class _MenuBar extends StatelessWidget {
     // In order of importance: what doesn't fit goes into "More", except
     // Delete, which always stays last in the bar.
     final actions = <_Action>[
-      if (singleText) _Action('Edit text', Icons.edit_outlined, () => onEditText(elements.single)),
+      if (singleText) _Action('Edit text', Symbols.edit_rounded, () => onEditText(elements.single)),
       if (singleImage && onCrop != null)
-        _Action('Crop', Icons.crop_rounded, () => onCrop!(elements.single)),
+        _Action('Crop', Symbols.crop_rounded, () => onCrop!(elements.single)),
       if (convertible)
         _Action(
           'Convert to text',
-          Icons.spellcheck_rounded,
+          Symbols.spellcheck_rounded,
           convertUnavailable == null ? onConvertToText : null,
           tooltip: convertUnavailable,
         ),
-      _Action('Cut', Icons.content_cut_rounded, selection.cut, shortcut: 'Ctrl+X'),
-      _Action('Copy', Icons.content_copy_rounded, selection.copy, shortcut: 'Ctrl+C'),
-      _Action('Duplicate', Icons.library_add_outlined, selection.duplicate, shortcut: 'Ctrl+D'),
+      _Action('Cut', Symbols.content_cut_rounded, selection.cut, shortcut: 'Ctrl+X'),
+      _Action('Copy', Symbols.content_copy_rounded, selection.copy, shortcut: 'Ctrl+C'),
+      _Action('Duplicate', Symbols.library_add_rounded, selection.duplicate, shortcut: 'Ctrl+D'),
       if (!selection.clipboard.isEmpty)
-        _Action('Paste', Icons.content_paste_rounded, onPaste, shortcut: 'Ctrl+V'),
+        _Action('Paste', Symbols.content_paste_rounded, onPaste, shortcut: 'Ctrl+V'),
       if (styleable)
         _Action.anchored(
           'Style',
-          Icons.palette_outlined,
+          Symbols.palette_rounded,
           (anchor) => showSelectionStyle(anchor, selection: selection, tools: tools),
         ),
       for (final x in extras) _Action.anchored(x.label, x.icon, x.run),
       if (elements.isNotEmpty) ...[
-        _Action('Bring to front', Icons.flip_to_front_rounded, selection.bringToFront),
-        _Action('Send to back', Icons.flip_to_back_rounded, selection.sendToBack),
+        _Action('Bring to front', Symbols.flip_to_front_rounded, selection.bringToFront),
+        _Action('Send to back', Symbols.flip_to_back_rounded, selection.sendToBack),
       ],
     ];
     final delete = _Action(
       'Delete',
-      Icons.delete_outline_rounded,
+      Symbols.delete_rounded,
       selection.delete,
       shortcut: 'Del',
     );
@@ -175,7 +176,7 @@ class _MenuBar extends StatelessWidget {
                 Builder(
                   builder: (anchor) => PopupMenuButton<_Action>(
                     tooltip: 'More',
-                    icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                    icon: const Icon(Symbols.more_horiz_rounded, size: 20),
                     onSelected: (a) => a.run(anchor),
                     itemBuilder: (_) => [
                       for (final a in more)

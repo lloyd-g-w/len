@@ -4,14 +4,17 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 
-/// Shows [builder]'s content as a bottom sheet on phones and as a popover
-/// anchored to [context]'s widget (e.g. the button that opened it) on
-/// tablets and desktops — or everywhere, without [sheetOnPhones] (small,
-/// quick menus such as the tool switcher).
+/// The popover primitive (REDESIGN §5), for live settings: shows
+/// [builder]'s content as a bottom sheet with a handle on phones and as an
+/// `overlay` surface ([Radii.md], [Shadows.high]) anchored to [context]'s
+/// widget (e.g. the button that opened it) on tablets and desktops — or
+/// everywhere, without [sheetOnPhones] (small, quick menus such as the tool
+/// switcher). Popovers have no buttons: changes apply live, and an outside
+/// tap or Esc closes them.
 Future<T?> showAdaptivePopover<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  double width = 340,
+  double width = popoverWidth,
   bool sheetOnPhones = true,
 }) {
   final media = MediaQuery.of(context);
@@ -43,6 +46,9 @@ Future<T?> showAdaptivePopover<T>({
     ),
   );
 }
+
+/// The width of an anchored popover.
+const double popoverWidth = 320;
 
 class _PopoverRoute<T> extends PopupRoute<T> {
   _PopoverRoute({
@@ -83,16 +89,19 @@ class _PopoverRoute<T> extends PopupRoute<T> {
           width: width,
           padding: media.padding + EdgeInsets.only(bottom: media.viewInsets.bottom),
         ),
-        child: Material(
-          color: scheme.surfaceContainerHigh,
-          elevation: 6,
-          shadowColor: Colors.black38,
-          surfaceTintColor: Colors.transparent,
-          borderRadius: BorderRadius.circular(Radii.card),
-          clipBehavior: Clip.antiAlias,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(Gaps.lg),
-            child: Builder(builder: builder),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(Radii.md),
+            boxShadow: Shadows.high(scheme.brightness),
+          ),
+          child: Material(
+            color: Surfaces.overlay(scheme.brightness),
+            shape: Surfaces.shape(scheme, Radii.md),
+            clipBehavior: Clip.antiAlias,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(Gaps.lg),
+              child: Builder(builder: builder),
+            ),
           ),
         ),
       ),
@@ -107,10 +116,12 @@ class _PopoverRoute<T> extends PopupRoute<T> {
     Widget child,
   ) {
     final curved = CurvedAnimation(parent: animation, curve: Motion.standard);
+    final fade = FadeTransition(opacity: curved, child: child);
+    if (Motion.reduced(context)) return fade;
     return FadeTransition(
       opacity: curved,
       child: ScaleTransition(
-        scale: Tween(begin: 0.96, end: 1.0).animate(curved),
+        scale: Tween(begin: Motion.popoverScale, end: 1.0).animate(curved),
         alignment: Alignment.topCenter,
         child: child,
       ),

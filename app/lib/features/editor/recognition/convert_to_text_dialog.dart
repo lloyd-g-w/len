@@ -98,16 +98,15 @@ class _DownloadDialog extends StatelessWidget {
       final downloading = recognition.modelStatus == ModelStatus.downloading;
       final error = recognition.downloadError;
       return AppDialog(
-        icon: Icons.download_rounded,
         title: 'Download handwriting model?',
         content: DialogBody(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Recognising $languageName handwriting needs its model on this device '
                 '(${RecognitionService.modelSize}). Recognition then works offline.',
-                textAlign: TextAlign.center,
               ),
               if (downloading) ...[
                 const SizedBox(height: Gaps.lg),
@@ -117,7 +116,6 @@ class _DownloadDialog extends StatelessWidget {
                 const SizedBox(height: Gaps.md),
                 Text(
                   'The download failed. Check the connection and try again.',
-                  textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ],

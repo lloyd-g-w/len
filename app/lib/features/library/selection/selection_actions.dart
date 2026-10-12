@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/messages.dart';
@@ -79,7 +80,7 @@ extension SelectionActions on LibraryActions {
       message: 'They will be removed from all synced devices. This can’t be undone.',
       confirmLabel: 'Delete forever',
       destructive: true,
-      icon: Icons.delete_forever_outlined,
+      icon: Symbols.delete_forever_rounded,
     );
     if (!ok) return;
     for (final id in ids) {

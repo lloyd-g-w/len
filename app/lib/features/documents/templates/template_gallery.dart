@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../domain/templates/user_template.dart';
@@ -130,7 +131,7 @@ class _ImportTile extends StatelessWidget {
       child: InkWell(
         key: const ValueKey('import-template'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(Radii.control),
+        borderRadius: BorderRadius.circular(Radii.sm),
         child: Padding(
           padding: const EdgeInsets.all(Gaps.xs),
           child: Column(
@@ -144,7 +145,7 @@ class _ImportTile extends StatelessWidget {
                   border: Border.all(color: scheme.outline.withValues(alpha: 0.6)),
                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
                 ),
-                child: Icon(Icons.add_photo_alternate_outlined, color: scheme.primary),
+                child: Icon(Symbols.add_photo_alternate_rounded, color: scheme.primary),
               ),
               const SizedBox(height: Gaps.xs),
               SizedBox(
@@ -198,7 +199,7 @@ class TemplateTile extends StatelessWidget {
         onTap: onTap,
         onLongPress: onMenu == null ? null : () => onMenu!(_center(context)),
         onSecondaryTapUp: onMenu == null ? null : (d) => onMenu!(d.globalPosition),
-        borderRadius: BorderRadius.circular(Radii.control),
+        borderRadius: BorderRadius.circular(Radii.sm),
         child: Padding(
           padding: const EdgeInsets.all(Gaps.xs),
           child: Column(
@@ -274,7 +275,7 @@ class _CheckBadge extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
       ),
-      child: Icon(Icons.check_rounded, size: 12, color: Theme.of(context).colorScheme.onPrimary),
+      child: Icon(Symbols.check_rounded, size: 12, color: Theme.of(context).colorScheme.onPrimary),
     );
   }
 }

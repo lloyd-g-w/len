@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../data/search/search_query.dart';
 import '../../../ui/app_theme.dart';
@@ -129,7 +130,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
     return Row(
       children: [
         const SizedBox(width: Gaps.sm),
-        Icon(Icons.search_rounded, size: 20, color: theme.colorScheme.onSurfaceVariant),
+        Icon(Symbols.search_rounded, size: 20, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: Gaps.sm),
         Expanded(
           child: TextField(
@@ -161,26 +162,26 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
           tooltip: 'Previous (Shift+Enter)',
           visualDensity: density,
           onPressed: hasMatches ? _c.previous : null,
-          icon: const Icon(Icons.keyboard_arrow_up_rounded),
+          icon: const Icon(Symbols.keyboard_arrow_up_rounded),
         ),
         IconButton(
           tooltip: 'Next (Enter)',
           visualDensity: density,
           onPressed: hasMatches ? _c.next : null,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+          icon: const Icon(Symbols.keyboard_arrow_down_rounded),
         ),
         IconButton(
           tooltip: showList ? 'Hide results' : 'Show results',
           visualDensity: density,
           isSelected: showList,
           onPressed: () => setState(() => _showList = !showList),
-          icon: const Icon(Icons.list_rounded),
+          icon: const Icon(Symbols.list_rounded),
         ),
         IconButton(
           tooltip: 'Close (Esc)',
           visualDensity: density,
           onPressed: _close,
-          icon: const Icon(Icons.close_rounded),
+          icon: const Icon(Symbols.close_rounded),
         ),
       ],
     );

@@ -72,7 +72,7 @@ class _SquarePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(Radii.cover));
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(Radii.sm));
     final pure = HSVColor.fromAHSV(1, hsv.hue, 1, 1).toColor();
     canvas
       ..save()

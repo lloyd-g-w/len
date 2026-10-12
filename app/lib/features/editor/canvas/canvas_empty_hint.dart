@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../data/stroke_reader.dart';
 import '../../../ui/app_theme.dart';
@@ -79,7 +80,7 @@ class _CanvasEmptyHintState extends State<CanvasEmptyHint> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.gesture_rounded, size: 40, color: colour),
+                Icon(Symbols.gesture_rounded, size: 40, color: colour),
                 const SizedBox(height: Gaps.sm),
                 Text('Draw anywhere', style: theme.textTheme.titleMedium?.copyWith(color: colour)),
                 const SizedBox(height: Gaps.xs),

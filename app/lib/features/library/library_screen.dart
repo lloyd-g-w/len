@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
 import '../../data/surface_stats.dart';
@@ -233,7 +234,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       : FloatingActionButton.extended(
           onPressed: () => unawaited(_actions.createNotebook(context)),
           tooltip: 'New notebook or canvas (Ctrl+N)',
-          icon: const Icon(Icons.add_rounded),
+          icon: const Icon(Symbols.add_rounded),
           label: const Text('New'),
         );
 
@@ -287,7 +288,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         headerLeading: Builder(
           builder: (context) => IconButton(
             tooltip: 'Menu',
-            icon: const Icon(Icons.menu_rounded),
+            icon: const Icon(Symbols.menu_rounded),
             onPressed: Scaffold.of(context).openDrawer,
           ),
         ),

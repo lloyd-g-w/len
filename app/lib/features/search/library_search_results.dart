@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
 import '../../data/search/search_index.dart';
@@ -196,7 +197,7 @@ class _NotebookResultsState extends State<_NotebookResults> {
     final hidden = group.content.length - hits.length;
     return Material(
       color: scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(Radii.card),
+      borderRadius: BorderRadius.circular(Radii.md),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -237,7 +238,7 @@ class _NotebookResultsState extends State<_NotebookResults> {
                 padding: const EdgeInsets.only(left: Gaps.sm, bottom: Gaps.xs),
                 child: TextButton.icon(
                   onPressed: () => setState(() => _expanded = true),
-                  icon: const Icon(Icons.expand_more_rounded, size: 18),
+                  icon: const Icon(Symbols.expand_more_rounded, size: 18),
                   label: Text('Show $hidden more'),
                 ),
               ),
@@ -311,9 +312,9 @@ class SearchHitIcon extends StatelessWidget {
     },
     child: Icon(
       switch (hit.kind) {
-        SearchHitKind.pdf => Icons.picture_as_pdf_outlined,
-        SearchHitKind.handwriting => Icons.draw_outlined,
-        _ => Icons.text_fields_rounded,
+        SearchHitKind.pdf => Symbols.picture_as_pdf_rounded,
+        SearchHitKind.handwriting => Symbols.draw_rounded,
+        _ => Symbols.text_fields_rounded,
       },
       size: 18,
       color: Theme.of(context).colorScheme.onSurfaceVariant,

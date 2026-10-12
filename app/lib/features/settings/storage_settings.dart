@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/format.dart';
 import '../../platform/browser_storage_api.dart';
@@ -55,14 +56,14 @@ class _StorageSettingsState extends State<StorageSettings> {
     final persisted = _persisted;
     return SettingsSection(
       title: 'Storage',
-      icon: Icons.storage_outlined,
+      icon: Symbols.storage_rounded,
       description:
           'Your notebooks are stored in this browser. Browsers may clear site data when the '
           'device runs low on space, unless the site may keep its data. Clearing site data '
           'yourself still deletes it, so use sync for a backup.',
       children: [
         SettingsTile(
-          icon: Icons.verified_user_outlined,
+          icon: Symbols.verified_user_rounded,
           title: 'Keep data on this device',
           subtitle: switch (persisted) {
             null => 'Checking…',
@@ -75,7 +76,7 @@ class _StorageSettingsState extends State<StorageSettings> {
                   child: const Text('Turn on'),
                 )
               : persisted == true
-              ? Icon(Icons.check_circle_rounded, color: Theme.of(context).colorScheme.primary)
+              ? Icon(Symbols.check_circle_rounded, fill: 1, color: Theme.of(context).colorScheme.primary)
               : null,
         ),
         if (_usage case final usage?) _UsageTile(usage: usage),
@@ -93,7 +94,7 @@ class _UsageTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final fraction = usage.quota <= 0 ? 0.0 : (usage.usage / usage.quota).clamp(0.0, 1.0);
     return SettingsTile(
-      icon: Icons.pie_chart_outline_rounded,
+      icon: Symbols.pie_chart_rounded,
       title: 'Space used',
       // Includes the app's own offline copy (service worker cache).
       subtitle:

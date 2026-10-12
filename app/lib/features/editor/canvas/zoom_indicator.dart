@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/viewport.dart';
 import '../../../ui/app_theme.dart';
@@ -112,20 +113,20 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
             for (final preset in ZoomIndicator.presets)
               MenuItemButton(
                 leadingIcon: (_scale - preset).abs() < 0.005
-                    ? const Icon(Icons.check_rounded)
+                    ? const Icon(Symbols.check_rounded)
                     : const SizedBox(width: 24),
                 onPressed: () => widget.onZoomTo(preset),
                 child: Text(_label(preset)),
               ),
             const Divider(),
             MenuItemButton(
-              leadingIcon: const Icon(Icons.fit_screen_outlined),
+              leadingIcon: const Icon(Symbols.fit_screen_rounded),
               onPressed: widget.onFit,
               shortcut: const SingleActivator(LogicalKeyboardKey.digit1, shift: true),
               child: const Text('Fit content'),
             ),
             MenuItemButton(
-              leadingIcon: const Icon(Icons.home_outlined),
+              leadingIcon: const Icon(Symbols.home_rounded),
               onPressed: widget.onBackToStart,
               shortcut: const SingleActivator(LogicalKeyboardKey.home),
               child: const Text('Back to start'),
@@ -134,7 +135,7 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
           child: FloatingPanel(
             padding: EdgeInsets.zero,
             child: InkWell(
-              borderRadius: BorderRadius.circular(Radii.toolbar),
+              borderRadius: BorderRadius.circular(Radii.md),
               onTap: () => _menu.isOpen ? _menu.close() : _menu.open(),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.sm),

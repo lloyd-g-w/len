@@ -14,6 +14,7 @@ class SidebarItem extends StatefulWidget {
     this.dropActive = false,
     this.count,
     this.iconColor,
+    this.filled = false,
     this.indent = 0,
     this.leading,
     this.onSecondaryTapUp,
@@ -29,6 +30,9 @@ class SidebarItem extends StatefulWidget {
   final bool dropActive;
   final int? count;
   final Color? iconColor;
+
+  /// Draws the icon filled even when not [selected] (folder glyphs).
+  final bool filled;
   final double indent;
 
   /// Optional widget before the icon (e.g. an expand chevron).
@@ -84,6 +88,7 @@ class _SidebarItemState extends State<SidebarItem> {
                   Icon(
                     widget.icon,
                     size: 20,
+                    fill: selected || widget.filled ? 1 : 0,
                     color: widget.iconColor ?? (selected ? foreground : scheme.onSurfaceVariant),
                   ),
                   const SizedBox(width: Gaps.md),

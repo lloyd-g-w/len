@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
@@ -120,7 +121,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         ),
         IconButton(
           tooltip: 'Close',
-          icon: const Icon(Icons.close_rounded),
+          icon: const Icon(Symbols.close_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],

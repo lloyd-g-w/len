@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
@@ -16,7 +17,7 @@ class KindSelector extends StatelessWidget {
       children: [
         Expanded(
           child: _KindCard(
-            icon: Icons.menu_book_rounded,
+            icon: Symbols.menu_book_rounded,
             label: 'Notebook',
             description: 'Page by page',
             selected: kind == NotebookKind.paged,
@@ -26,7 +27,7 @@ class KindSelector extends StatelessWidget {
         const SizedBox(width: Gaps.sm),
         Expanded(
           child: _KindCard(
-            icon: Icons.all_inclusive_rounded,
+            icon: Symbols.all_inclusive_rounded,
             label: 'Infinite canvas',
             description: 'Endless board',
             selected: kind == NotebookKind.canvas,
@@ -57,7 +58,7 @@ class _KindCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final radius = BorderRadius.circular(Radii.control);
+    final radius = BorderRadius.circular(Radii.sm);
     return Semantics(
       selected: selected,
       button: true,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../color_dot.dart';
 
@@ -29,7 +30,7 @@ class CustomColorSwatch extends StatelessWidget {
         padding: EdgeInsets.zero,
         iconSize: 18,
         onPressed: () => onTap(context),
-        icon: const Icon(Icons.palette_outlined),
+        icon: const Icon(Symbols.palette_rounded),
       ),
     );
   }

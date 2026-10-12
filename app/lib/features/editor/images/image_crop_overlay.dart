@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/images/image_crop_session.dart';
@@ -172,7 +173,7 @@ class _CropBar extends StatelessWidget {
           IconButton(
             tooltip: 'Show whole image',
             onPressed: cropped ? onReset : null,
-            icon: const Icon(Icons.crop_free_rounded, size: 20),
+            icon: const Icon(Symbols.crop_free_rounded, size: 20),
           ),
           TextButton(onPressed: onCancel, child: const Text('Cancel')),
           FilledButton(onPressed: onDone, child: const Text('Done')),

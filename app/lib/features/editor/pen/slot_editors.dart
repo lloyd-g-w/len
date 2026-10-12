@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
@@ -145,7 +146,7 @@ class _EditorHeader extends StatelessWidget {
                 onRemove();
               }
             : null,
-        icon: const Icon(Icons.delete_outline_rounded),
+        icon: const Icon(Symbols.delete_rounded),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
 import '../../core/format.dart';
@@ -87,7 +88,7 @@ class _SyncSettingsState extends State<SyncSettings> {
     final scheme = theme.colorScheme;
     return SettingsSection(
       title: 'Sync',
-      icon: Icons.cloud_outlined,
+      icon: Symbols.cloud_rounded,
       description:
           'Keep your notebooks in sync across devices through your own Len server '
           '(self-hosted; it runs with Docker in a couple of minutes).',
@@ -110,7 +111,7 @@ class _SyncSettingsState extends State<SyncSettings> {
                 decoration: InputDecoration(
                   labelText: 'Server URL',
                   hintText: 'https://len.example.com',
-                  prefixIcon: const Icon(Icons.dns_outlined),
+                  prefixIcon: const Icon(Symbols.dns_rounded),
                   errorText: _urlError,
                   errorMaxLines: 3,
                 ),
@@ -126,12 +127,12 @@ class _SyncSettingsState extends State<SyncSettings> {
                 },
                 decoration: InputDecoration(
                   labelText: 'Access token',
-                  prefixIcon: const Icon(Icons.key_outlined),
+                  prefixIcon: const Icon(Symbols.key_rounded),
                   suffixIcon: IconButton(
                     tooltip: _obscureToken ? 'Show' : 'Hide',
                     onPressed: () => setState(() => _obscureToken = !_obscureToken),
                     icon: Icon(
-                      _obscureToken ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      _obscureToken ? Symbols.visibility_rounded : Symbols.visibility_off_rounded,
                     ),
                   ),
                 ),
@@ -184,15 +185,15 @@ class _SyncStatusLine extends StatelessWidget {
       builder: (context, _) {
         final last = sync.lastSuccess;
         final (icon, color, text) = switch (sync.state) {
-          SyncState.disabled => (Icons.cloud_off_outlined, scheme.onSurfaceVariant, 'Sync is off'),
-          SyncState.syncing => (Icons.cloud_sync_outlined, scheme.primary, 'Syncing…'),
+          SyncState.disabled => (Symbols.cloud_off_rounded, scheme.onSurfaceVariant, 'Sync is off'),
+          SyncState.syncing => (Symbols.cloud_sync_rounded, scheme.primary, 'Syncing…'),
           SyncState.error => (
-            Icons.error_outline_rounded,
+            Symbols.error_rounded,
             scheme.error,
             'Last sync failed: ${sync.lastError}',
           ),
           SyncState.idle => (
-            Icons.cloud_done_outlined,
+            Symbols.cloud_done_rounded,
             scheme.primary,
             last == null ? 'Ready' : 'Last synced ${formatEdited(last.millisecondsSinceEpoch)}',
           ),
@@ -250,7 +251,7 @@ class _TooLargeNotice extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(Icons.cloud_upload_outlined, size: 18, color: scheme.tertiary),
+            child: Icon(Symbols.cloud_upload_rounded, size: 18, color: scheme.tertiary),
           ),
           const SizedBox(width: Gaps.sm),
           Expanded(

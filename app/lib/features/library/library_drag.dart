@@ -52,7 +52,7 @@ class DragFeedback extends StatelessWidget {
           width: width,
           height: height,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(Radii.cover),
+            borderRadius: BorderRadius.circular(Radii.sm),
             boxShadow: Shadows.high(Theme.of(context).brightness),
           ),
           // Feedback lives in the overlay, outside any Material.

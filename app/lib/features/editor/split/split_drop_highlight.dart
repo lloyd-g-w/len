@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/selection/selection_controller.dart';
 import '../../../ui/app_theme.dart';
@@ -50,7 +51,7 @@ class SplitDropHighlight extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    Icons.content_copy_rounded,
+                                    Symbols.content_copy_rounded,
                                     size: 18,
                                     color: scheme.onPrimary,
                                   ),

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+import 'design_tokens.dart';
+import 'surfaces.dart';
 import 'theme_components.dart';
 
 export 'design_tokens.dart';
+export 'surfaces.dart';
 
-/// Visual language: calm, paper-like neutrals with a single accent colour,
-/// generous rounding, soft elevation and a tight, modern type scale.
+/// Visual language (REDESIGN §1): calm, paper-like neutrals with one fixed
+/// ink-blue accent, Inter in a six-role type scale, Material Symbols
+/// Rounded, flat chrome and shadows only from [Shadows].
 abstract final class AppTheme {
   /// The accent: ink blue.
   static const Color seed = Color(0xFF3B5BDB);
@@ -53,14 +57,31 @@ abstract final class AppTheme {
           );
   }
 
+  /// The UI font on every platform (bundled; see `pubspec.yaml`).
+  static const String fontFamily = 'Inter';
+
   static ThemeData _build(Brightness brightness) {
     final scheme = AppTheme.scheme(brightness);
-    final base = ThemeData(colorScheme: scheme, useMaterial3: true);
+    final base = ThemeData(colorScheme: scheme, useMaterial3: true, fontFamily: fontFamily);
+    final pressed = Surfaces.pressed(scheme);
     return base
         .copyWith(
           scaffoldBackgroundColor: scheme.surface,
           textTheme: _textTheme(base.textTheme, scheme),
-          splashFactory: InkSparkle.splashFactory,
+          // Taps: no ripple or sparkle, a calm onSurface highlight instead.
+          splashFactory: NoSplash.splashFactory,
+          splashColor: Colors.transparent,
+          highlightColor: pressed,
+          hoverColor: Surfaces.hovered(scheme),
+          focusColor: pressed,
+          iconTheme: IconThemeData(
+            color: scheme.onSurface,
+            size: Glyphs.bar,
+            weight: Glyphs.weight,
+            fill: 0,
+            grade: 0,
+            opticalSize: 20,
+          ),
           visualDensity: VisualDensity.standard,
           pageTransitionsTheme: const PageTransitionsTheme(
             builders: {
@@ -74,24 +95,50 @@ abstract final class AppTheme {
         .applyComponentThemes(scheme);
   }
 
-  /// A tighter, more editorial type scale: heavier headlines with negative
-  /// tracking, semibold titles and labels.
+  /// The type scale (REDESIGN §1.2): six roles, all Inter. Title
+  /// (`titleLarge`), Heading (`titleMedium`), Body (`bodyMedium`), Label
+  /// (`labelLarge`), Caption (`bodySmall`) and Overline (`labelSmall`).
+  /// Material's other slots alias onto them, so built-in widgets match.
   static TextTheme _textTheme(TextTheme t, ColorScheme scheme) {
-    TextStyle? tight(TextStyle? s, FontWeight w, double tracking) =>
-        s?.copyWith(fontWeight: w, letterSpacing: tracking);
-    return t.copyWith(
-      displaySmall: tight(t.displaySmall, FontWeight.w700, -1),
-      headlineLarge: tight(t.headlineLarge, FontWeight.w700, -0.8),
-      headlineMedium: tight(t.headlineMedium, FontWeight.w700, -0.6),
-      headlineSmall: tight(t.headlineSmall, FontWeight.w600, -0.4),
-      titleLarge: tight(t.titleLarge, FontWeight.w600, -0.2),
-      titleMedium: tight(t.titleMedium, FontWeight.w600, -0.1),
-      titleSmall: tight(t.titleSmall, FontWeight.w600, 0),
-      labelLarge: tight(t.labelLarge, FontWeight.w600, 0.1),
-      labelMedium: tight(t.labelMedium, FontWeight.w500, 0.2),
-      bodySmall: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+    TextStyle style(double size, double line, FontWeight weight, [double tracking = 0]) =>
+        TextStyle(
+          fontFamily: fontFamily,
+          fontSize: size,
+          height: line / size,
+          fontWeight: weight,
+          letterSpacing: tracking,
+          color: scheme.onSurface,
+          leadingDistribution: TextLeadingDistribution.even,
+        );
+    final title = style(20, 26, FontWeight.w600, -0.2);
+    final heading = style(16, 22, FontWeight.w600);
+    final body = style(14, 20, FontWeight.w400);
+    final label = style(14, 20, FontWeight.w500);
+    final caption = style(12, 16, FontWeight.w400).copyWith(color: scheme.onSurfaceVariant);
+    final overline = style(11, 14, FontWeight.w600, 0.3);
+    return t.merge(
+      TextTheme(
+        displayLarge: title,
+        displayMedium: title,
+        displaySmall: title,
+        headlineLarge: title,
+        headlineMedium: title,
+        headlineSmall: title,
+        titleLarge: title,
+        titleMedium: heading,
+        titleSmall: label,
+        bodyLarge: body,
+        bodyMedium: body,
+        bodySmall: caption,
+        labelLarge: label,
+        labelMedium: caption.copyWith(fontWeight: FontWeight.w500),
+        labelSmall: overline,
+      ),
     );
   }
+
+  /// Tabular figures, for page numbers, times and zoom percentages.
+  static const List<FontFeature> tabularFigures = [FontFeature.tabularFigures()];
 }
 
 /// Spacing scale used for padding and gaps.
@@ -108,13 +155,19 @@ abstract final class Gaps {
 
 /// Corner radii used across the app.
 abstract final class Radii {
+  /// Chips, badges, the plate behind the selected tool.
   static const double xs = 6;
+
+  /// Buttons, fields, quick slots, covers, page thumbnails.
   static const double sm = 10;
-  static const double cover = 12;
-  static const double control = 14;
-  static const double card = 20;
-  static const double toolbar = 28;
-  static const double sheet = 28;
+
+  /// Menus, popovers, the floating palette, snack bars.
+  static const double md = 14;
+
+  /// Dialogs and bottom sheets.
+  static const double lg = 20;
+
+  /// The page indicator, zoom pill and focus puck.
   static const double pill = 999;
 }
 

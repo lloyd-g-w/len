@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_theme.dart';
@@ -152,7 +153,7 @@ class _Thumb extends StatelessWidget {
                 Positioned(
                   top: 0,
                   right: 14,
-                  child: Icon(Icons.bookmark_rounded, size: 26, color: scheme.tertiary),
+                  child: Icon(Symbols.bookmark_rounded, fill: 1, size: 26, color: scheme.tertiary),
                 ),
               if (tile.selecting)
                 Positioned(top: 10, left: 10, child: _Check(selected: tile.selected)),
@@ -196,7 +197,7 @@ class _Check extends StatelessWidget {
         border: Border.all(color: selected ? scheme.primary : scheme.outline, width: 1.5),
         boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
       ),
-      child: selected ? Icon(Icons.check_rounded, size: 18, color: scheme.onPrimary) : null,
+      child: selected ? Icon(Symbols.check_rounded, size: 18, color: scheme.onPrimary) : null,
     );
   }
 }
@@ -236,7 +237,7 @@ class _Footer extends StatelessWidget {
               right: 0,
               child: PopupMenuButton<PageCommand>(
                 tooltip: 'Page ${tile.index + 1} options',
-                icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                icon: const Icon(Symbols.more_horiz_rounded, size: 20),
                 iconColor: scheme.onSurfaceVariant,
                 onSelected: tile.onCommand,
                 itemBuilder: (context) => pageMenuItems(tile.page),

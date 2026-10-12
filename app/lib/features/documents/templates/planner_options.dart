@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
@@ -122,8 +123,8 @@ class PlannerOptions extends StatelessWidget {
           _Stepper(
             key: const ValueKey('planner-months'),
             label: plan.months == 1 ? '1 month' : '${plan.months} months',
-            previousIcon: Icons.remove_rounded,
-            nextIcon: Icons.add_rounded,
+            previousIcon: Symbols.remove_rounded,
+            nextIcon: Symbols.add_rounded,
             previousTooltip: 'Fewer months',
             nextTooltip: 'More months',
             onPrevious: plan.months > 1
@@ -224,8 +225,8 @@ class _Stepper extends StatelessWidget {
     required this.label,
     required this.onPrevious,
     required this.onNext,
-    this.previousIcon = Icons.chevron_left_rounded,
-    this.nextIcon = Icons.chevron_right_rounded,
+    this.previousIcon = Symbols.chevron_left_rounded,
+    this.nextIcon = Symbols.chevron_right_rounded,
     this.previousTooltip = 'Previous',
     this.nextTooltip = 'Next',
   });
@@ -243,7 +244,7 @@ class _Stepper extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Radii.control),
+        borderRadius: BorderRadius.circular(Radii.sm),
         border: Border.all(color: scheme.outlineVariant),
       ),
       child: Row(

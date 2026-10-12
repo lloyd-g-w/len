@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/floating_panel.dart';
 
 /// The only chrome left in focus mode: a small, translucent button that
 /// brings the toolbar and top bar back.
@@ -17,17 +19,15 @@ class FocusHandle extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Tooltip(
       message: 'Show toolbars (F11)',
-      child: Material(
-        color: scheme.surfaceContainer.withValues(alpha: 0.82),
-        shape: StadiumBorder(side: BorderSide(color: scheme.outlineVariant)),
-        elevation: 2,
-        shadowColor: Colors.black26,
+      child: FloatingPanel(
+        radius: Radii.pill,
+        padding: EdgeInsets.zero,
         child: InkWell(
           customBorder: const StadiumBorder(),
           onTap: onExit,
           child: Padding(
             padding: const EdgeInsets.all(Gaps.sm + 2),
-            child: Icon(Icons.fullscreen_exit_rounded, size: 22, color: scheme.onSurfaceVariant),
+            child: Icon(Symbols.fullscreen_exit_rounded, size: 22, color: scheme.onSurfaceVariant),
           ),
         ),
       ),

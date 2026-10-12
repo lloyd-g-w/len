@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/stroke.dart';
 import '../../ink/tool_settings.dart';
@@ -79,7 +80,7 @@ class ToolDescriptor {
 List<ToolDescriptor> editorTools(ToolSettings tools) => [
   ToolDescriptor(
     tool: EditorTool.pen,
-    icon: const Icon(Icons.edit_rounded),
+    icon: const Icon(Symbols.edit_rounded),
     label: 'Pen',
     shortcut: 'P',
     inkColor: () => tools.configOf(InkTool.ballpoint).color,
@@ -91,7 +92,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) => [
   ),
   ToolDescriptor(
     tool: EditorTool.highlighter,
-    icon: const Icon(Icons.border_color_rounded),
+    icon: const Icon(Symbols.border_color_rounded),
     label: 'Highlighter',
     shortcut: 'H',
     inkColor: () => tools.configOf(InkTool.highlighter).color,

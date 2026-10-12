@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
 import '../../domain/paper.dart';
@@ -134,25 +135,25 @@ class _InkLabScreenState extends State<InkLabScreen> with TickerProviderStateMix
       listenable: session,
       builder: (context, _) => InkLabPenMenu(pen: session.pen, onChanged: (p) => session.pen = p),
     ),
-    IconButton(tooltip: 'Clear', icon: const Icon(Icons.delete_sweep_outlined), onPressed: _clear),
+    IconButton(tooltip: 'Clear', icon: const Icon(Symbols.delete_sweep_rounded), onPressed: _clear),
     IconButton(
       tooltip: _replaying ? 'Stop replay' : 'Replay',
-      icon: Icon(_replaying ? Icons.stop_rounded : Icons.replay_rounded),
+      icon: Icon(_replaying ? Symbols.stop_rounded : Symbols.replay_rounded),
       onPressed: _replaying ? _stopReplay : _replayLatest,
     ),
     IconButton(
       tooltip: 'Open recording',
-      icon: const Icon(Icons.file_open_outlined),
+      icon: const Icon(Symbols.file_open_rounded),
       onPressed: _open,
     ),
     IconButton(
       tooltip: 'Save recording',
-      icon: const Icon(Icons.ios_share_rounded),
+      icon: const Icon(Symbols.ios_share_rounded),
       onPressed: _replaying ? null : _save,
     ),
     PopupMenuButton<bool>(
       tooltip: 'Perf test notebooks',
-      icon: const Icon(Icons.speed_rounded),
+      icon: const Icon(Symbols.speed_rounded),
       onSelected: _perfNotebooks,
       itemBuilder: (context) => const [
         PopupMenuItem(value: true, child: Text('Create perf test notebooks')),

@@ -33,7 +33,7 @@ class BarButton extends StatelessWidget {
         padding: EdgeInsets.zero,
       ),
       icon: Icon(icon),
-      selectedIcon: Icon(selectedIcon ?? icon),
+      selectedIcon: Icon(selectedIcon ?? icon, fill: 1),
     );
   }
 }

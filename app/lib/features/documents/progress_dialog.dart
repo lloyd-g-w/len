@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/cancellation.dart';
 import '../../ui/app_dialogs.dart';
@@ -152,7 +153,7 @@ class ProgressDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AppDialog(
-      icon: Icons.hourglass_top_rounded,
+      icon: Symbols.hourglass_top_rounded,
       title: title,
       content: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 280, maxWidth: 360),
@@ -171,7 +172,6 @@ class ProgressDialog extends StatelessWidget {
                   if (subject != null) ...[
                     Text(
                       subject!,
-                      textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 import '../chrome/bar_button.dart';
@@ -20,7 +21,7 @@ class InsertImageButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const icon = Icons.add_photo_alternate_outlined;
+    const icon = Symbols.add_photo_alternate_rounded;
     if (!EditorImages.canUseCamera) {
       return BarButton(
         tooltip: tooltip,
@@ -31,12 +32,12 @@ class InsertImageButton extends StatelessWidget {
     return ChromeMenuAnchor(
       menuChildren: [
         MenuItemButton(
-          leadingIcon: const Icon(Icons.photo_library_outlined),
+          leadingIcon: const Icon(Symbols.photo_library_rounded),
           onPressed: () => unawaited(images.pickFiles(context)),
           child: const Text('Choose image…'),
         ),
         MenuItemButton(
-          leadingIcon: const Icon(Icons.photo_camera_outlined),
+          leadingIcon: const Icon(Symbols.photo_camera_rounded),
           onPressed: () => unawaited(images.takePhoto(context)),
           child: const Text('Take photo'),
         ),

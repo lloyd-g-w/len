@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
@@ -31,12 +32,12 @@ class LibraryEmptyState extends StatelessWidget {
     final searching = query.trim().isNotEmpty;
     final (Widget art, String title, String message) = switch (section) {
       _ when searching => (
-        const _IconArt(Icons.search_off_rounded),
+        const _IconArt(Symbols.search_off_rounded),
         'No results',
         'Nothing matches “${query.trim()}”.',
       ),
       LibrarySection.library when inFolder => (
-        const _IconArt(Icons.folder_open_rounded),
+        const _IconArt(Symbols.folder_open_rounded),
         'This folder is empty',
         'Create a notebook here, or drag notebooks onto this folder.',
       ),
@@ -46,12 +47,12 @@ class LibraryEmptyState extends StatelessWidget {
         'Create a notebook or an infinite canvas to start writing.',
       ),
       LibrarySection.favorites => (
-        const _IconArt(Icons.star_outline_rounded),
+        const _IconArt(Symbols.star_rounded),
         'No favourites yet',
         'Star notebooks you use often to find them here.',
       ),
       LibrarySection.trash => (
-        const _IconArt(Icons.delete_outline_rounded),
+        const _IconArt(Symbols.delete_rounded),
         'Trash is empty',
         'Deleted notebooks stay here until you delete them forever.',
       ),
@@ -86,7 +87,7 @@ class LibraryEmptyState extends StatelessWidget {
                   const SizedBox(height: Gaps.xl),
                   FilledButton.icon(
                     onPressed: onCreate,
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(Symbols.add_rounded),
                     label: Text(inFolder ? 'New notebook here' : 'New notebook'),
                   ),
                 ],
@@ -94,7 +95,7 @@ class LibraryEmptyState extends StatelessWidget {
                   const SizedBox(height: Gaps.xl),
                   OutlinedButton.icon(
                     onPressed: onClearSearch,
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(Symbols.close_rounded),
                     label: const Text('Clear search'),
                   ),
                 ],
@@ -143,7 +144,7 @@ class _CoverFan extends StatelessWidget {
           width: 72,
           height: 100,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(Radii.cover),
+            borderRadius: BorderRadius.circular(Radii.sm),
             boxShadow: Shadows.low(brightness),
           ),
           child: NotebookCover(color: color, kind: NotebookKind.paged),

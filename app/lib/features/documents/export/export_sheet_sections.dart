@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 import 'export_options.dart';
@@ -31,7 +32,7 @@ class ExportSection extends StatelessWidget {
         ),
         Material(
           color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(Radii.control),
+          borderRadius: BorderRadius.circular(Radii.sm),
           clipBehavior: Clip.antiAlias,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: Gaps.xs),
@@ -61,12 +62,12 @@ class ExportFormatPicker extends StatelessWidget {
           segments: const [
             ButtonSegment(
               value: ExportFormat.pdf,
-              icon: Icon(Icons.picture_as_pdf_outlined),
+              icon: Icon(Symbols.picture_as_pdf_rounded),
               label: Text('PDF'),
             ),
             ButtonSegment(
               value: ExportFormat.png,
-              icon: Icon(Icons.image_outlined),
+              icon: Icon(Symbols.image_rounded),
               label: Text('PNG'),
             ),
           ],
@@ -159,7 +160,7 @@ class ExportPagesPicker extends StatelessWidget {
         hintText: 'e.g. 1-3, 5',
         helperText: 'Pages 1–$pageCount, separated by commas',
         errorText: rangeError,
-        prefixIcon: const Icon(Icons.format_list_numbered_rounded),
+        prefixIcon: const Icon(Symbols.format_list_numbered_rounded),
       ),
     ),
   );
@@ -200,7 +201,7 @@ class ExportSheetFooter extends StatelessWidget {
     final export = FilledButton.icon(
       key: const ValueKey('export-button'),
       onPressed: onExport,
-      icon: const Icon(Icons.ios_share_rounded, size: 20),
+      icon: const Icon(Symbols.ios_share_rounded, size: 20),
       label: const Text('Export'),
     );
     return DecoratedBox(

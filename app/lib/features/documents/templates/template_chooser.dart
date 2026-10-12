@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../app_services.dart';
 import '../../../domain/paper.dart';
@@ -193,12 +194,12 @@ class _TemplateChooserState extends State<TemplateChooser> {
     decoration: InputDecoration(
       isDense: true,
       hintText: 'Search templates',
-      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+      prefixIcon: const Icon(Symbols.search_rounded, size: 20),
       suffixIcon: _query.text.isEmpty
           ? null
           : IconButton(
               tooltip: 'Clear search',
-              icon: const Icon(Icons.close_rounded, size: 18),
+              icon: const Icon(Symbols.close_rounded, size: 18),
               onPressed: () => setState(_query.clear),
             ),
     ),

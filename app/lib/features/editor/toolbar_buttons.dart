@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../ui/app_theme.dart';
 import 'editor_tools.dart';
@@ -71,7 +72,7 @@ class ToolButton extends StatelessWidget {
           backgroundColor: selected ? scheme.secondaryContainer : null,
           foregroundColor: fg,
           shape: showLabel
-              ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.control))
+              ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm))
               : null,
         ),
         icon: glyph,
@@ -129,7 +130,7 @@ class SettingsButton extends StatelessWidget {
       constraints: const BoxConstraints.tightFor(width: 40, height: 40),
       padding: EdgeInsets.zero,
       onPressed: () => descriptor.openOptions(context),
-      icon: const Icon(Icons.tune_rounded, size: 20),
+      icon: const Icon(Symbols.tune_rounded, size: 20),
     );
   }
 }
@@ -152,8 +153,8 @@ class PalmRejectionButton extends StatelessWidget {
       constraints: const BoxConstraints.tightFor(width: 40, height: 40),
       padding: EdgeInsets.zero,
       onPressed: () => onChanged(!enabled),
-      icon: const Icon(Icons.touch_app_outlined, size: 20),
-      selectedIcon: const Icon(Icons.do_not_touch_outlined, size: 20),
+      icon: const Icon(Symbols.touch_app_rounded, size: 20),
+      selectedIcon: const Icon(Symbols.do_not_touch_rounded, size: 20, fill: 1),
     );
   }
 }

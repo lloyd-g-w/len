@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/menus.dart';
 
@@ -13,13 +14,13 @@ Future<LinkChoice?> showLinkMenu(
 }) => showContextMenuAt<LinkChoice>(
   anchor,
   items: [
-    const MenuRow(value: LinkChoice.page, icon: Icons.description_outlined, label: 'Link to page…'),
-    const MenuRow(value: LinkChoice.url, icon: Icons.public_rounded, label: 'Link to web address…'),
+    const MenuRow(value: LinkChoice.page, icon: Symbols.description_rounded, label: 'Link to page…'),
+    const MenuRow(value: LinkChoice.url, icon: Symbols.public_rounded, label: 'Link to web address…'),
     if (canRemove) ...[
       const PopupMenuDivider(),
       const MenuRow(
         value: LinkChoice.remove,
-        icon: Icons.link_off_rounded,
+        icon: Symbols.link_off_rounded,
         label: 'Remove link',
         destructive: true,
       ),
