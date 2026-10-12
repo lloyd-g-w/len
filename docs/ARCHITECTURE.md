@@ -375,7 +375,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
   flow fits the whole page and slides it in.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
-  P / H / E / L / S / T / K (X: Select PDF text, with PDF pages); 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 present;
+  P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 present;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
   Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
@@ -588,23 +588,22 @@ and "across" per line, handles sit at the line's start / end corners
 letters), highlights run along the line's middle in reading order, and
 search highlights use the same boxes.
 
-- **Select text** — `EditorTool.selectText` (X), offered only when the
-  notebook has PDF pages (`ToolSettings.selectTextAvailable`), is a
-  `PointerTool` (`PdfTextTool`, plugged into `ContentTools.selectText`):
-  drag across text (or a handle of the selection) to select, tap a word to
-  select it, tap a link to follow it. A finger long press or right click on
-  PDF text with any tool selects the word instead of opening the canvas
-  menu. `PdfLayer` paints the selection (one box per line, handles with the
-  tool) and a menu: **Copy** (also Ctrl/⌘+C), **Highlight**, select all on
-  the page.
+- **Select text** — there is no text tool: a finger long press or right
+  click on PDF text with any tool selects the word instead of opening the
+  canvas menu, and dragging the selection's handles (`PdfSelectionHandles`,
+  touch targets over the painted knobs that keep the press from the canvas)
+  extends it. `PdfLayer` paints the selection (one box per line, with
+  handles) and a menu: **Copy** (also Ctrl/⌘+C), **Highlight**, select all
+  on the page.
 - **Highlight** turns each selected line (`PdfGlyphs.rectsFor`) into one
   highlighter stroke along its middle, 1.1 × the line's height, with the
   highlighter's colour and opacity (no pressure thinning, stabiliser or
   tapers), committed to the page's `SurfaceModel` as one `InkEdit` — so it
   is ordinary ink: undoable, erasable, selectable, synced and exported.
-- **Links** (`loadLinks`, incl. URLs detected in the text): tapped with the
-  tool, or with a finger while fingers navigate (stylus only). Internal
-  links scroll to the notebook page showing the target PDF page (the next
+- **Links** (`loadLinks`, incl. URLs detected in the text): tapped with a
+  finger while fingers navigate (stylus only), or, with any tool, from the
+  menu of a selection made on them (long press or right click: **Open
+  link**). Internal links scroll to the notebook page showing the target PDF page (the next
   one after the link's page if the PDF appears twice); web links ask first
   ("Open link?") and open in the browser (`url_launcher`).
 - **Outline** — "⋯" → *PDF outline* (`PdfOutlinePanel`, a draggable bottom
@@ -1207,7 +1206,7 @@ More tools slot in by adding an `EditorTool` value and a descriptor. The
 tools are Pen (P), Highlighter (H), Eraser (E), Lasso (L), Shapes (S; its
 icon is the current shape, settings = shape picker, strip = the pen's slots,
 since shapes are drawn with the pen's colour and width), Text (T; settings =
-defaults for new boxes) and Laser pointer (K), plus Select PDF text (X) in notebooks with PDF pages. For inks the strip is a row of
+defaults for new boxes) and Laser pointer (K). For inks the strip is a row of
 colour slots beside a row of width slots (dots at scaled real size, in a recessed track) — one tap
 picks either; the selected slot sits on a tonal disc; every target is ≥ 40 px.
 Tapping the selected slot (or long-pressing / right-clicking any) edits it

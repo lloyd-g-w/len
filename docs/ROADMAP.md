@@ -112,7 +112,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   days to their month); exported PDF labels in the embedded Inter
 - ✅ Cancel long imports / exports (partial imports clean up after themselves)
 - ✅ Tiled PDF rendering for deep zoom (visible tiles, LRU, smooth while zooming)
-- ✅ PDF text selection (Select text tool, long press / right click): copy, highlight the selection
+- ✅ PDF text selection (long press / right click, then drag the handles): copy, highlight the selection
   with highlighter strokes snapped to the lines; links (jump to page, web links after a prompt);
   outline (bookmarks) panel
 - ✅ Export keeps imported PDF pages as vectors (pure-Dart page copier; PDFium rewrite for

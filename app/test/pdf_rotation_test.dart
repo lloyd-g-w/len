@@ -18,8 +18,6 @@ import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/pdf/pdf_interaction.dart';
 import 'package:len/features/editor/pdf/pdf_layer.dart';
 import 'package:len/features/editor/pdf/pdf_text_selection.dart';
-import 'package:len/features/editor/pdf/pdf_text_tool.dart';
-import 'package:len/ink/tool_settings.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:pdf/pdf.dart' as pw;
@@ -225,13 +223,17 @@ void main() {
         frame.topLeft + Offset(n.dx * frame.width, n.dy * frame.height),
       );
       final start = glyphs.text.indexOf('Second'), end = glyphs.text.indexOf('text') + 3;
-      // The line runs down the screen: drag from its first letter to its last.
-      pdf.tools.tool = EditorTool.selectText;
-      await tester.pump();
-      final from = screenOf(glyphs.boxes[start].center);
+      // The line runs down the screen: long press its first word, then drag
+      // the end handle to its last letter.
+      final word = screenOf(glyphs.boxes[start].center);
       final to = screenOf(glyphs.boxes[end].center);
-      expect(to.dy - from.dy, greaterThan(100));
-      final gesture = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
+      expect(to.dy - word.dy, greaterThan(100));
+      pdf.tools.stylusOnly = true; // Fingers navigate: a long press selects.
+      await tester.longPressAt(word, kind: PointerDeviceKind.touch);
+      await tester.pumpAndSettle();
+      expect(pdf.selection.text, 'Second');
+      final from = pdf.handleEnds!.$2;
+      final gesture = await tester.startGesture(from, kind: PointerDeviceKind.touch);
       for (var t = 0.1; t <= 1.0; t += 0.1) {
         await gesture.moveTo(Offset.lerp(from, to, t)!);
         await tester.pump();
@@ -239,7 +241,7 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
       expect(pdf.selection.text, 'Second line of text');
-      final ends = PdfTextTool.handleEnds(pdf)!;
+      final ends = pdf.handleEnds!;
       expect(ends.$1.dy, lessThan(ends.$2.dy)); // Start at the top, end at the bottom.
       expect(ends.$1.dx, greaterThan(ends.$2.dx)); // Letters' tops face right.
       await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/pdf_select_90.png'));

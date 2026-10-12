@@ -76,8 +76,7 @@ class EditorSession {
       shared.attachDocument(doc, commands.reload);
       backgrounds = shared.backgrounds;
       content = _contentFor(doc.activeModel, doc.pageViewport);
-      final pdf = this.pdf = PdfInteraction(doc: doc, tools: tools, info: shared.pdfInfo);
-      content.selectText = pdf.tool;
+      pdf = PdfInteraction(doc: doc, tools: tools, info: shared.pdfInfo);
       // A lasso reaches across pages; selections dropped on a page move there.
       content.selection.surfaces = DocumentSelection(doc);
       final animator = docAnimator = ViewportAnimator(doc.viewport);
