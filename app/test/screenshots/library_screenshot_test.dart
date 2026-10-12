@@ -53,10 +53,14 @@ void main() {
 
     await tester.tap(find.text('Library').first);
     await settle(tester);
-    await tester.tap(find.byTooltip('Show as list'));
+    await tester.tap(find.byTooltip('View'));
+    await settle(tester);
+    await tester.tap(find.text('List').last);
     await settle(tester);
     await shoot(tester, 'desktop_list');
-    await tester.tap(find.byTooltip('Show as grid'));
+    await tester.tap(find.byTooltip('View'));
+    await settle(tester);
+    await tester.tap(find.text('Grid').last);
     await settle(tester);
 
     await tester.tap(find.byTooltip('More').first);

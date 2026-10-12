@@ -171,13 +171,17 @@ void main() {
     await tester.enterText(find.byType(TextField), '');
     await tester.pumpAndSettle();
     expect(tile, findsOneWidget);
-    await tester.tap(find.byTooltip('Select notebooks'));
+    await tester.tap(find.byTooltip('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select notebooks').last);
     await tester.pumpAndSettle();
     expect(tile, findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(tile, findsOneWidget);
-    await tester.tap(find.byTooltip('Show as list'));
+    await tester.tap(find.byTooltip('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('List').last);
     await tester.pumpAndSettle();
     expect(tile, findsNothing);
     semantics.dispose();
@@ -189,14 +193,16 @@ void main() {
       addNotebook(s, 'apple');
       addNotebook(s, 'Cherry');
     });
-    await tester.tap(find.byTooltip('Show as list'));
+    await tester.tap(find.byTooltip('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('List').last);
     await tester.pumpAndSettle();
     expect(find.byType(NotebookListTile), findsNWidgets(3));
     expect(services.preferences.libraryLayout, LibraryLayout.list);
 
-    await tester.tap(find.byIcon(Icons.sort_rounded));
+    await tester.tap(find.byTooltip('View'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(MenuRow<LibrarySort>, 'Name'));
+    await tester.tap(find.byWidgetPredicate((w) => w is MenuRow && w.label == 'Name'));
     await tester.pumpAndSettle();
     expect(services.preferences.librarySort, LibrarySort.name);
     final titles = tester

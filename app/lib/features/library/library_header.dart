@@ -9,7 +9,7 @@ import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_drag.dart';
 
-/// Title, breadcrumbs and tools (search, sort, view) above the library
+/// Title, breadcrumbs and tools (search, new folder, ⇅ view) above the library
 /// content.
 class LibraryHeader extends StatelessWidget {
   const LibraryHeader({
@@ -51,17 +51,7 @@ class LibraryHeader extends StatelessWidget {
           icon: const Icon(Icons.create_new_folder_outlined),
           onPressed: () => unawaited(actions.createFolder(context)),
         ),
-      if (_c.section != LibrarySection.trash) _SortButton(controller: _c),
-      if (_c.visibleNotebooks.isNotEmpty)
-        IconButton(
-          tooltip: 'Select notebooks',
-          isSelected: actions.selection.active,
-          icon: const Icon(Icons.check_circle_outline_rounded),
-          selectedIcon: const Icon(Icons.check_circle_rounded),
-          onPressed: () =>
-              actions.selection.active ? actions.selection.clear() : actions.selection.start(),
-        ),
-      _LayoutToggle(controller: _c),
+      _ViewMenu(actions: actions),
       if (_c.section == LibrarySection.trash && _c.trash.isNotEmpty)
         if (compact)
           IconButton(
@@ -199,12 +189,32 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-class _SortButton extends StatelessWidget {
-  const _SortButton({required this.controller});
+/// What the ⇅ View menu changes.
+sealed class _ViewChoice {
+  const _ViewChoice();
+}
 
-  final LibraryController controller;
+class _Sort extends _ViewChoice {
+  const _Sort(this.sort);
+  final LibrarySort sort;
+}
 
-  static String label(LibrarySort s) => switch (s) {
+class _Layout extends _ViewChoice {
+  const _Layout(this.layout);
+  final LibraryLayout layout;
+}
+
+class _Select extends _ViewChoice {
+  const _Select();
+}
+
+/// ⇅ View: sort (not in the trash), grid or list, and Select….
+class _ViewMenu extends StatelessWidget {
+  const _ViewMenu({required this.actions});
+
+  final LibraryActions actions;
+
+  static String _label(LibrarySort s) => switch (s) {
     LibrarySort.edited => 'Last edited',
     LibrarySort.created => 'Date created',
     LibrarySort.name => 'Name',
@@ -212,36 +222,42 @@ class _SortButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<LibrarySort>(
-      tooltip: 'Sort: ${label(controller.sort)}',
-      icon: const Icon(Icons.sort_rounded),
-      onSelected: (s) => controller.sort = s,
+    final c = actions.controller;
+    return PopupMenuButton<_ViewChoice>(
+      tooltip: 'View',
+      icon: const Icon(Icons.swap_vert_rounded),
+      onSelected: (choice) => switch (choice) {
+        _Sort(:final sort) => c.sort = sort,
+        _Layout(:final layout) => c.layout = layout,
+        _Select() => actions.selection.start(),
+      },
       itemBuilder: (_) => [
-        for (final s in LibrarySort.values)
-          MenuRow(value: s, label: label(s), checked: s == controller.sort),
-      ],
-    );
-  }
-}
-
-class _LayoutToggle extends StatelessWidget {
-  const _LayoutToggle({required this.controller});
-
-  final LibraryController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final grid = controller.layout == LibraryLayout.grid;
-    return IconButton(
-      tooltip: grid ? 'Show as list' : 'Show as grid',
-      icon: AnimatedSwitcher(
-        duration: Motion.fast,
-        child: Icon(
-          grid ? Icons.view_agenda_outlined : Icons.grid_view_outlined,
-          key: ValueKey(grid),
+        if (c.section != LibrarySection.trash) ...[
+          for (final s in LibrarySort.values)
+            MenuRow(value: _Sort(s), label: _label(s), checked: s == c.sort),
+          const PopupMenuDivider(),
+        ],
+        MenuRow(
+          value: const _Layout(LibraryLayout.grid),
+          icon: Icons.grid_view_outlined,
+          label: 'Grid',
+          checked: c.layout == LibraryLayout.grid,
         ),
-      ),
-      onPressed: () => controller.layout = grid ? LibraryLayout.list : LibraryLayout.grid,
+        MenuRow(
+          value: const _Layout(LibraryLayout.list),
+          icon: Icons.view_agenda_outlined,
+          label: 'List',
+          checked: c.layout == LibraryLayout.list,
+        ),
+        if (c.visibleNotebooks.isNotEmpty && !actions.selection.active) ...[
+          const PopupMenuDivider(),
+          const MenuRow(
+            value: _Select(),
+            icon: Icons.check_circle_outline_rounded,
+            label: 'Select notebooks',
+          ),
+        ],
+      ],
     );
   }
 }

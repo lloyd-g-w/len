@@ -127,7 +127,9 @@ void main() {
       final services = seededServices();
       addTearDown(services.dispose);
       await pumpApp(tester, services, const LibraryScreen());
-      await tester.tap(find.byTooltip('Select notebooks'));
+      await tester.tap(find.byTooltip('View'));
+      await settle(tester);
+      await tester.tap(find.text('Select notebooks').last);
       await settle(tester);
       await tester.tap(find.text('Travel plans'));
       await tester.tap(find.text('Spanish vocabulary'));
