@@ -9,6 +9,8 @@ import 'package:pdf/pdf.dart' as pw;
 // ignore: implementation_imports
 import 'package:pdf/src/priv.dart' as pw;
 
+import '../../../../domain/pdf_page_space.dart';
+
 /// Creates a Form XObject in [document] from the dictionary entries [values]
 /// (keys with a leading slash) and the raw stream bytes [data] (already encoded
 /// when [values] has a `/Filter`; deflated here otherwise).
@@ -67,6 +69,7 @@ class ImportedPdfPage {
   ImportedPdfPage({
     required this.content,
     required this.annotations,
+    this.links = const [],
     required this.cropBox,
     required this.rotate,
   });
@@ -76,6 +79,10 @@ class ImportedPdfPage {
 
   /// Flattened annotation appearances, drawn above [content] in order.
   final List<AnnotationAppearance> annotations;
+
+  /// The page's links (web and page links), normalised to the page as
+  /// shown: carried into the export as link annotations.
+  final List<PdfLinkArea> links;
 
   /// The visible region `[x0, y0, x1, y1]` in source page space.
   final List<double> cropBox;

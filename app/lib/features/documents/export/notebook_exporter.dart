@@ -74,6 +74,7 @@ class NotebookExporter {
       source: await sources.sourceOf(bg.blob),
       pageIndex: bg.pageIndex,
       raster: () => _background(page, page.width / 96 * backgroundDpi),
+      links: () => _renderer.links(bg.blob, bg.pageIndex),
     );
   }
 
