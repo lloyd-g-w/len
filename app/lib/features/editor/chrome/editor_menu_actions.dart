@@ -35,9 +35,6 @@ class EditorMenuActions {
     this.fit,
     this.onFit,
     this.onBackground,
-    this.onFitContent,
-    this.onActualSize,
-    this.onBackToStart,
   });
 
   final VoidCallback onBack;
@@ -87,9 +84,6 @@ class EditorMenuActions {
   // Infinite canvases.
   /// Opens the background picker (template and paper colour).
   final VoidCallback? onBackground;
-  final VoidCallback? onFitContent;
-  final VoidCallback? onActualSize;
-  final VoidCallback? onBackToStart;
 
   bool get isPaged => onPageCommand != null;
 }

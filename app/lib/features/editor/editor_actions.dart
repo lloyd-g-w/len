@@ -59,9 +59,6 @@ EditorMenuActions editorMenuActions(
     fit: doc?.fit,
     onFit: paged ? doc.setFit : null,
     onBackground: nav == null ? null : onBackground,
-    onFitContent: nav?.fitContent,
-    onActualSize: nav == null ? null : () => nav.zoomTo(1),
-    onBackToStart: nav?.goToOrigin,
   );
 }
 

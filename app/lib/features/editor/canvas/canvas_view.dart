@@ -63,6 +63,7 @@ class CanvasView extends StatelessWidget {
                     viewport: nav.viewport,
                     onZoomTo: nav.zoomTo,
                     onFit: nav.fitContent,
+                    onBackToStart: nav.goToOrigin,
                     quiet: () => nav.opening,
                   ),
                 ),

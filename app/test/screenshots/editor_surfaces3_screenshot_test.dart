@@ -96,6 +96,7 @@ void main() {
           await shoot(tester, 'e_zoom_indicator_$shot');
           await tester.tap(find.textContaining(RegExp(r'^\d+%$')));
           await settle(tester);
+          expect(find.text('Back to start'), findsOneWidget);
           await shoot(tester, 'e_zoom_menu_$shot');
           await tester.tap(find.text('Fit content').last);
           await settle(tester);

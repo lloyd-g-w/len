@@ -163,8 +163,8 @@ void main() {
     await pumpEditor(tester, size: tablet, canvas: true);
     await tester.tap(find.byTooltip('More options'));
     await settle(tester);
-    expect(find.text('Fit content'), findsOneWidget);
-    expect(find.text('Back to start'), findsOneWidget);
+    expect(find.text('Background…'), findsOneWidget);
+    expect(find.text('Fit content'), findsNothing); // In the zoom pill.
     await shoot(tester, 'editor_canvas_more_menu');
   });
 

@@ -189,8 +189,8 @@ trackpad, middle-button drag) and `ViewportAnimator` glides on after a fling
 (iOS-like deceleration; no glide after a pause or a pinch). The input controller
 only reports begin / track / release. `ViewportAnimator` also animates zooms
 (geometric scale, focal point fixed) and fits. Canvases add a zoom indicator
-(shown while zooming; tap for 50 / 100 / 200 % or fit), "fit content" (exact
-bounds from the outermost chunks), "back to start", keyboard zoom (`+` `-` `0` Shift+1 Home) and a background: template and
+(shown while zooming; tap for 50 / 100 / 200 %, "fit content" (exact
+bounds from the outermost chunks) or "back to start": their only menu), keyboard zoom (`+` `-` `0` Shift+1 Home) and a background: template and
 paper colour (`notebooks.paper_color`). Continuous paged documents glide too.
 
 World coordinates are stored as `float32`, which stays sub-unit precise to
@@ -258,8 +258,8 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   the chrome covers; the document pads its scroll bounds by it (in screen pixels, so it
   is re-applied on zoom), and the selection / text menus and the canvas's zoom pill and
   fit button (`CanvasView`) avoid it (passed down as `MediaQuery.padding` / insets).
-  On canvases the "⋯" menu also holds the canvas entries: background (template and paper
-  colour), fit content, actual size, back to start, show / hide overview. Chrome menus are
+  On canvases the "⋯" menu also holds the background (template and paper colour); the
+  navigation commands live in the zoom pill. Chrome menus are
   `ChromeMenuAnchor`s: they report to a `CanvasGuard`, which blocks the surface while one is
   open (the tap that closes a menu never draws) and closes them on Escape (a menu opened
   by tap leaves keyboard focus on the editor, where Escape would otherwise clear the

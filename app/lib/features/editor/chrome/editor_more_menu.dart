@@ -99,10 +99,6 @@ class EditorMoreMenu extends StatelessWidget {
           // Infinite canvas: background and navigation.
           _item(Icons.wallpaper_outlined, 'Background…', a.onBackground),
           const Divider(),
-          _item(Icons.fit_screen_outlined, 'Fit content', a.onFitContent, hint: hint('Shift+1')),
-          _item(Icons.zoom_in_rounded, 'Actual size (100%)', a.onActualSize, hint: hint('0')),
-          _item(Icons.home_outlined, 'Back to start', a.onBackToStart, hint: hint('Home')),
-          const Divider(),
         ],
         _radioSubmenu<ToolbarPlacement>(
           icon: Icons.space_dashboard_outlined,
