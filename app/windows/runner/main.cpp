@@ -49,8 +49,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // one and exits.
   SingleInstance single_instance;
   if (!single_instance.Claim()) {
-    return SingleInstance::Forward(CommandLinePaths()) ? EXIT_SUCCESS
-                                                       : EXIT_FAILURE;
+    if (SingleInstance::Forward(CommandLinePaths())) return EXIT_SUCCESS;
+    // Not acknowledged: the running Len was closing. Take over once it has
+    // (this process's files reach Dart through its own arguments).
+    if (!single_instance.ClaimWithin(10000)) return EXIT_FAILURE;
   }
 
   // Initialize COM, so that it is available for use in the library and/or
@@ -80,6 +82,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::TranslateMessage(&msg);
     ::DispatchMessage(&msg);
   }
+  // The window is gone: launches from now on start a new Len.
+  single_instance.Release();
 
   ::CoUninitialize();
   return EXIT_SUCCESS;

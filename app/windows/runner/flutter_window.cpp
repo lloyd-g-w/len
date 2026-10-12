@@ -120,6 +120,9 @@ void FlutterWindow::RestorePlacement() {
   // Only the normal rectangle now; the first frame shows the window.
   placement.showCmd = SW_HIDE;
   placement.flags = 0;
+  // Twice: moving onto a monitor with another DPI rescales the window
+  // (WM_DPICHANGED); the second call applies the exact size at that DPI.
+  ::SetWindowPlacement(GetHandle(), &placement);
   ::SetWindowPlacement(GetHandle(), &placement);
 }
 
@@ -148,13 +151,17 @@ void FlutterWindow::SetFullScreen(bool full_screen) {
       return;
     }
     saved_style_ = ::GetWindowLong(hwnd, GWL_STYLE);
+    // Without WS_MAXIMIZE too, so leaving full screen really maximises a
+    // window that was maximised (SetWindowPlacement below).
     ::SetWindowLong(hwnd, GWL_STYLE,
-                    saved_style_ & ~static_cast<LONG>(WS_OVERLAPPEDWINDOW));
+                    saved_style_ & ~static_cast<LONG>(WS_OVERLAPPEDWINDOW |
+                                                      WS_MAXIMIZE));
     const RECT& r = monitor.rcMonitor;
     ::SetWindowPos(hwnd, HWND_TOP, r.left, r.top, r.right - r.left,
                    r.bottom - r.top, SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
   } else {
-    ::SetWindowLong(hwnd, GWL_STYLE, saved_style_);
+    ::SetWindowLong(hwnd, GWL_STYLE,
+                    saved_style_ & ~static_cast<LONG>(WS_MAXIMIZE));
     ::SetWindowPlacement(hwnd, &saved_placement_);
     ::SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
@@ -181,19 +188,25 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
-  switch (message) {
-    case kForwardedFilesMessage: {
-      std::unique_ptr<std::vector<std::string>> paths(
-          reinterpret_cast<std::vector<std::string>*>(lparam));
-      if (::IsIconic(hwnd)) ::ShowWindow(hwnd, SW_RESTORE);
-      ::SetForegroundWindow(hwnd);
-      for (std::string& path : *paths) pending_files_.push_back(std::move(path));
-      SendPendingFiles();
-      return 0;
+  if (message == ForwardedFilesMessage()) {
+    if (::IsIconic(hwnd)) ::ShowWindow(hwnd, SW_RESTORE);
+    ::SetForegroundWindow(hwnd);
+    for (std::string& path : TakeForwardedPaths()) {
+      pending_files_.push_back(std::move(path));
     }
+    SendPendingFiles();
+    return 0;
+  }
+  switch (message) {
     case WM_CLOSE:
       // Before Flutter, which may turn the close into an exit request.
       SavePlacement();
+      break;
+    case WM_ENDSESSION:
+      if (wparam) SavePlacement();  // Logoff, shutdown, installer upgrade.
+      break;
+    case WM_DESTROY:
+      SavePlacement();  // Also when Dart exits the app (no WM_CLOSE).
       break;
   }
 

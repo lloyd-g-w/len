@@ -36,11 +36,13 @@ void _listen(StreamController<List<XFile>> controller) {
     if (call.method != 'files') return;
     final files = [
       for (final entry in (call.arguments as List<Object?>).cast<Map<Object?, Object?>>())
-        XFile(
-          entry['path']! as String,
-          name: entry['name'] as String?,
-          mimeType: entry['mime'] as String?,
-        ),
+        // Desktop launches forward whatever was typed after `len`.
+        if (Platform.isAndroid || File(entry['path']! as String).existsSync())
+          XFile(
+            entry['path']! as String,
+            name: entry['name'] as String?,
+            mimeType: entry['mime'] as String?,
+          ),
     ];
     controller.add(files);
   });

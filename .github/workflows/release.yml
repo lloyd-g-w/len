@@ -144,7 +144,8 @@ jobs:
         run: |
           $v = "${{ needs.version.outputs.version }}"
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y }
+          # x64compatible needs Inno Setup ≥ 6.3: install or upgrade.
+          choco upgrade innosetup --no-progress -y
           & $iscc "/DAppVersion=$v" "/DSourceDir=$PWD\app\build\windows\x64\runner\Release" "/DOutputDir=$PWD\dist" app\windows\installer\len.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4

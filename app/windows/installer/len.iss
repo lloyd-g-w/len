@@ -11,10 +11,10 @@
   #define AppVersion "0.0.0"
 #endif
 #ifndef SourceDir
-  #define SourceDir "..\build\windows\x64\runner\Release"
+  #define SourceDir "..\..\build\windows\x64\runner\Release"
 #endif
 #ifndef OutputDir
-  #define OutputDir "..\build\windows\installer"
+  #define OutputDir "..\..\build\windows\installer"
 #endif
 
 #define AppName "Len"
@@ -64,7 +64,9 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Registry]
-; HKA = HKCU for per-user installs, HKLM for all users.
+; HKA = HKCU for per-user installs, HKLM for all users. (Len itself keeps
+; its window placement in HKCU\Software\Len.)
+Root: HKA; Subkey: "Software\Len"; Flags: uninsdeletekeyifempty
 ; The document type Len opens.
 Root: HKA; Subkey: "Software\Classes\{#ProgId}"; ValueType: string; ValueName: ""; ValueData: "Len document"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\{#ProgId}\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#AppExe},0"

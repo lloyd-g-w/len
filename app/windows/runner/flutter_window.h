@@ -17,7 +17,8 @@
 //    (HKCU\Software\Len, value WindowPlacement);
 //  * serves "len/window" (`setFullScreen(bool)`, presentation mode);
 //  * serves "len/incoming_files": files forwarded by a second launch
-//    (single_instance.h) reach Dart once it says it is `ready`.
+//    (single_instance.h, ForwardedFilesMessage) reach Dart once it says it
+//    is `ready`.
 class FlutterWindow : public Win32Window {
  public:
   // Creates a new FlutterWindow hosting a Flutter view running |project|.
