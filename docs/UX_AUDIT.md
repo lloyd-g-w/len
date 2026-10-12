@@ -364,6 +364,8 @@ settings — at the four sizes, light and dark, and at 1.3× text.
 14. ✅ Settings on wide screens could use a two-pane layout (category list +
     detail) like GoodNotes on iPad. → From 1040 px: section list with icons
     on the left, the selected section on the right; one column below.
+    ✅ The detail pane no longer repeats the section's title and icon (the
+    selected entry names it; `SettingsSection.untitled`).
 15. ✅ Motion: shared-element transition from cover to editor (GoodNotes
     "opens" the notebook). → `NotebookOpenRoute`: the tapped cover grows
     into the screen, fades into the paper and the editor fades in; back

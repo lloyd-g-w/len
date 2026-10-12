@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../ui/app_theme.dart';
 
-/// A titled group of settings rendered as one rounded card.
+/// A titled group of settings rendered as one rounded card. Under
+/// [SettingsSection.untitled] the title row is left out (the two-pane
+/// layout's selected list entry names the section already).
 class SettingsSection extends StatelessWidget {
   const SettingsSection({
     super.key,
@@ -17,25 +19,30 @@ class SettingsSection extends StatelessWidget {
   final String? description;
   final List<Widget> children;
 
+  /// Sections in [child] show no title row.
+  static Widget untitled({required Widget child}) => _UntitledScope(child: child);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final titled = context.dependOnInheritedWidgetOfExactType<_UntitledScope>() == null;
     return Padding(
       padding: const EdgeInsets.only(bottom: Gaps.xxl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: Gaps.xs, bottom: Gaps.md),
-            child: Row(
-              children: [
-                Icon(icon, size: 20, color: scheme.primary),
-                const SizedBox(width: Gaps.sm),
-                Text(title, style: theme.textTheme.titleMedium),
-              ],
+          if (titled)
+            Padding(
+              padding: const EdgeInsets.only(left: Gaps.xs, bottom: Gaps.md),
+              child: Row(
+                children: [
+                  Icon(icon, size: 20, color: scheme.primary),
+                  const SizedBox(width: Gaps.sm),
+                  Text(title, style: theme.textTheme.titleMedium),
+                ],
+              ),
             ),
-          ),
           if (description != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(Gaps.xs, 0, Gaps.xs, Gaps.md),
@@ -69,6 +76,13 @@ class SettingsSection extends StatelessWidget {
       ),
     );
   }
+}
+
+class _UntitledScope extends InheritedWidget {
+  const _UntitledScope({required super.child});
+
+  @override
+  bool updateShouldNotify(_UntitledScope old) => false;
 }
 
 /// A settings row with a title, optional subtitle and a trailing control,

@@ -8,6 +8,7 @@ import 'appearance_settings.dart';
 import 'editor_settings.dart';
 import 'handwriting_settings.dart';
 import 'input_settings.dart';
+import 'settings_section.dart';
 import 'sync_settings.dart';
 
 /// One settings section: its name and icon in the two-pane list, and its card.
@@ -171,7 +172,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: ConstrainedBox(
                     // Readable line length on wide desktop windows.
                     constraints: const BoxConstraints(maxWidth: 680),
-                    child: pages[selected].build(context),
+                    // The selected list entry names the section.
+                    child: SettingsSection.untitled(child: pages[selected].build(context)),
                   ),
                 ),
               ],
