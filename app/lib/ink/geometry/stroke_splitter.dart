@@ -53,7 +53,13 @@ abstract final class StrokeSplitter {
       if (kept && start < 0) start = i;
       if (!kept && start >= 0) {
         if (i - start >= 2) {
-          fragments.add(stroke.withPoints(points.sublist(start, i), id: newId()));
+          // A taper only stays at an end of the original stroke (a cut
+          // end is a cap).
+          final style = stroke.style.copyWith(
+            taperStart: start == 0 ? null : 0,
+            taperEnd: i == points.length ? null : 0,
+          );
+          fragments.add(stroke.withPoints(points.sublist(start, i), id: newId(), style: style));
         }
         start = -1;
       }

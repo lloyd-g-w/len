@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/ink/geometry/stroke_splitter.dart';
 import 'package:len/ink/pen/pen_config.dart';
 import 'package:len/ink/render/live_stroke.dart';
 import 'package:len/ink/render/stroke_outline.dart';
@@ -171,5 +172,29 @@ void main() {
       final path = StrokeOutline.build(tap, s);
       expect(path.contains(const Offset(0, 1.0)), isTrue);
     }
+  });
+
+  test('pixel-erasing a tapered stroke keeps its tapers only at its own ends', () {
+    final stroke = Stroke(
+      id: 'o',
+      surfaceId: 's',
+      tool: InkTool.ballpoint,
+      color: 0xFF000000,
+      width: 2,
+      points: [for (var x = 0.0; x <= 100; x += 1) StrokePoint(x, 0, 0.5)],
+      createdAt: 1,
+      style: const StrokeStyle(ends: StrokeEnds.tapered, taperStart: 3, taperEnd: 5, unit: 1),
+    );
+    final parts = StrokeSplitter.erase(
+      stroke,
+      const Offset(50, -9),
+      const Offset(50, 9),
+      3,
+      newId: () => 'f',
+    )!;
+    expect(
+      [for (final p in parts) (p.style.taperStart, p.style.taperEnd)],
+      [(3.0, 0.0), (0.0, 5.0)],
+    );
   });
 }
