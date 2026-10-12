@@ -63,7 +63,6 @@ class EditorMoreMenu extends StatelessWidget {
             leadingIcon: const Icon(Icons.description_outlined),
             menuChildren: [
               _item(Icons.numbers_rounded, 'Go to page…', a.onGoTo),
-              _command(PageCommand.insertBefore, 'Add page before'),
               _item(Icons.note_add_outlined, 'Add page with template…', a.onAddWithTemplate),
               _command(PageCommand.duplicate, 'Duplicate page'),
               _command(PageCommand.template, 'Change template…'),

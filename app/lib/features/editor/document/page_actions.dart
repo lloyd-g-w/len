@@ -29,24 +29,18 @@ class PageActions {
   /// Pages in order.
   List<NotebookPage> get pages => services.pages.pagesOf(notebookId);
 
-  /// Adds a page after [after] (or before [before]; at the end if both are
-  /// null).
-  NotebookPage add(PageSpec spec, {NotebookPage? after, NotebookPage? before}) =>
-      services.pages.insertPages(notebookId, [spec], after: after, before: before).single;
+  /// Adds a page after [after] (at the end if null).
+  NotebookPage add(PageSpec spec, {NotebookPage? after}) =>
+      services.pages.insertPages(notebookId, [spec], after: after).single;
 
   /// Adds pages in order after [after] (at the end if null).
   List<NotebookPage> addAll(List<PageSpec> specs, {NotebookPage? after}) =>
       services.pages.insertPages(notebookId, specs, after: after);
 
-  /// A blank page with [page]'s paper and exact size (also for PDF pages).
-  /// With [next], a planner page is for the following period (the page to
-  /// add after [page]).
-  static PageSpec blankLike(NotebookPage page, {bool next = false}) => (
-    size: page.size,
-    paper: next ? page.paper.next : page.paper,
-    color: page.paperColor,
-    background: null,
-  );
+  /// A blank page to add after [page]: its paper and exact size (also for
+  /// PDF pages); a planner page is for the following period.
+  static PageSpec blankAfter(NotebookPage page) =>
+      (size: page.size, paper: page.paper.next, color: page.paperColor, background: null);
 
   /// Inserts a copy of [page] (paper, background, ink and text) right after it.
   NotebookPage duplicate(NotebookPage page) {

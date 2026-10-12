@@ -5,7 +5,6 @@ import '../../../ui/menus.dart';
 
 /// Something the user asked for on one page in the overview.
 enum PageCommand {
-  insertBefore('Add page before', Icons.vertical_align_top_rounded),
   insertAfter('Add page after', Icons.vertical_align_bottom_rounded),
   duplicate('Duplicate', Icons.library_add_outlined),
   template('Change template…', Icons.grid_on_rounded),
