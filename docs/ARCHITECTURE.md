@@ -1176,6 +1176,32 @@ database in memory and writes changes back asynchronously, hence the
 one-tab lock. The sync server must allow the app's origin (CORS,
 `LEN_CORS_ORIGINS`, default `*`).
 
+**Offline (installed PWA).** `web/flutter_bootstrap.js` (our own; it loads
+Flutter without the deprecated `flutter_service_worker.js`) registers
+`web/sw.js`. Release builds run `app/tool/build_web.sh`: `flutter build web
+--no-web-resources-cdn` (CanvasKit and the fallback Roboto from the app's
+origin, no gstatic) and `tool/web_precache.dart`, which writes the build's
+file list and a content hash into `sw.js`. The worker precaches it (app
+shell, `main.dart.js`, CanvasKit full + Chromium variants, `sqlite3.wasm`,
+PDFium wasm + worker, bundled fonts, icons; ≈ 40 MB; never the renderers
+the build cannot use), serves the app's static files cache-first and
+navigations from the cached `index.html`; anything else on the origin (e.g.
+a sync server behind the same host) goes to the network untouched. A new
+build changes `sw.js`, so the browser installs the new worker, which takes
+over at once and drops the old cache: the running tab keeps its code, the
+next start runs the new build. The page also tells the worker which files it
+fetched before the worker controlled it (first visit), so cross-origin fonts
+fetched on demand are cached too (`len-fonts-v1`). `flutter run` / a plain
+`flutter build web` keep an empty precache list (runtime caching only).
+Verified in headless Chromium: first visit online, then with the server
+stopped and the browser offline the app starts, shows notebooks created on
+the first visit and opens Settings.
+**Storage.** At start the web app requests persistent storage
+(`navigator.storage.persist()`) where browsers decide silently (Chromium,
+Safari; an installed app is usually granted); Firefox would prompt, so there
+it waits for *Settings → Storage* (web only: status, "Turn on", usage /
+quota from `storage.estimate()`, which includes the offline copy).
+
 Web pitfall: dart2js integers are JavaScript numbers — bitwise operators
 yield **unsigned 32-bit** values (`-1 << 22` is positive, `1 << 40` is 0) and
 `ByteData.get/setInt64` is unsupported. Write `-(1 << 22)`, keep shifts
