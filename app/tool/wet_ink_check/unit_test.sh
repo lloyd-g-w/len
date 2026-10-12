@@ -12,7 +12,7 @@ done
 cp="$jars/junit-4.13.2.jar:$jars/hamcrest-core-1.3.jar"
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
-tool/light.sh nix shell nixpkgs#kotlin -c bash -c "
+tool/light.sh nix shell nixpkgs#kotlin nixpkgs#jdk -c bash -c "
   stdlib=\$(dirname \$(dirname \$(readlink -f \$(which kotlinc))))/lib/kotlin-stdlib.jar
   kotlinc -nowarn -cp '$cp' android/app/src/main/kotlin/dev/len/len/WetInkModel.kt \
     android/app/src/test/kotlin/dev/len/len/WetInkModelTest.kt -d '$out' &&
