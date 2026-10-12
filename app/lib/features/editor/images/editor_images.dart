@@ -43,6 +43,7 @@ class EditorImages {
   }) : _readClipboard = readClipboard ?? _systemClipboardImage,
        _readHtml = readHtml ?? readClipboardHtml {
     services.clipboard.addListener(_onInkCopied);
+    watchClipboardPastes();
   }
 
   final AppServices services;
