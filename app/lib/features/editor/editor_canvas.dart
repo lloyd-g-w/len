@@ -40,7 +40,7 @@ class EditorCanvas extends StatelessWidget {
   final CanvasGuard guard;
 
   /// Screen edges covered by chrome; menus over the content and the
-  /// canvas's zoom pill and minimap avoid them.
+  /// canvas's zoom pill and fit button avoid them.
   final EdgeInsets chromeInsets;
 
   /// Follows a planner link to its page.

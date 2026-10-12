@@ -108,10 +108,6 @@ class SettingsRepository {
   String? get pageFlow => _get('page_flow');
   set pageFlow(String? value) => value == null ? _remove('page_flow') : _set('page_flow', value);
 
-  /// Whether infinite canvases show the minimap.
-  bool get canvasMinimap => _get('canvas_minimap') == 'true';
-  set canvasMinimap(bool value) => _set('canvas_minimap', '$value');
-
   /// Where the editor toolbar sits (default: automatic).
   ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
   set toolbarPlacement(ToolbarPlacement value) => _set('toolbar_placement', value.name);

@@ -65,8 +65,6 @@ EditorMenuActions editorMenuActions(
     onFitContent: nav?.fitContent,
     onActualSize: nav == null ? null : () => nav.zoomTo(1),
     onBackToStart: nav?.goToOrigin,
-    showMinimap: nav?.showMinimap ?? false,
-    onToggleMinimap: nav?.toggleMinimap,
   );
 }
 

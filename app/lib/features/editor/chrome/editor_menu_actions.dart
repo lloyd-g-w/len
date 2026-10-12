@@ -40,8 +40,6 @@ class EditorMenuActions {
     this.onFitContent,
     this.onActualSize,
     this.onBackToStart,
-    this.showMinimap = false,
-    this.onToggleMinimap,
   });
 
   final VoidCallback onBack;
@@ -97,8 +95,6 @@ class EditorMenuActions {
   final VoidCallback? onFitContent;
   final VoidCallback? onActualSize;
   final VoidCallback? onBackToStart;
-  final bool showMinimap;
-  final VoidCallback? onToggleMinimap;
 
   bool get isPaged => onPageCommand != null;
 }

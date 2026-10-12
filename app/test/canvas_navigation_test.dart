@@ -9,10 +9,8 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
-import 'package:len/features/editor/canvas/canvas_minimap.dart';
 import 'package:len/features/editor/canvas/canvas_navigation.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
-import 'package:len/features/editor/canvas/minimap_painter.dart';
 import 'package:len/features/editor/canvas/zoom_indicator.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ink/navigation/kinetic_pan.dart';
@@ -36,14 +34,13 @@ Stroke _wave(String id, String surface, Offset at, {int color = 0xFF1F2937}) => 
 );
 
 /// A canvas with ink in three far-apart places.
-Future<(AppServices, Notebook)> _pumpCanvas(WidgetTester tester, {bool minimap = false}) async {
+Future<(AppServices, Notebook)> _pumpCanvas(WidgetTester tester) async {
   tester.view
     ..physicalSize = const Size(1000, 700)
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final services = AppServices.create(AppDatabase.inMemory());
   addTearDown(services.dispose);
-  services.settings.canvasMinimap = minimap;
   final nb = services.notebooks.create(
     title: 'Board',
     kind: NotebookKind.canvas,
@@ -250,39 +247,6 @@ void main() {
     final insets = tester.widget<CanvasView>(find.byType(CanvasView)).insets;
     expect((viewport.offset - Offset(insets.left, insets.top)).distance, lessThan(0.5));
     expect(insets.top, greaterThan(0));
-    await _close(tester);
-  });
-
-  testWidgets('minimap: toggle, golden, tap to glide there', (tester) async {
-    final (services, _) = await _pumpCanvas(tester);
-    final viewport = _viewportOf(tester);
-    expect(find.byType(CanvasMinimap), findsNothing);
-    await tester.tap(find.byTooltip('Show overview'));
-    await tester.pumpAndSettle();
-    expect(find.byType(CanvasMinimap), findsOneWidget);
-    expect(services.settings.canvasMinimap, isTrue);
-    // Zoom out one step (75 %) so the map shows a larger view.
-    await tester.sendKeyEvent(LogicalKeyboardKey.minus);
-    await tester.pumpAndSettle();
-    await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/canvas_minimap.png'));
-
-    // Tap where the blue wave is on the map: the view glides to it.
-    final box = tester.getRect(find.byType(CanvasMinimap));
-    final paint = tester.widget<CustomPaint>(
-      find.descendant(of: find.byType(CanvasMinimap), matching: find.byType(CustomPaint)).last,
-    );
-    final painter = paint.painter! as MinimapPainter;
-    final map = MinimapProjection(
-      MinimapProjection.extentOf(painter.density.keys, viewport.visibleWorld),
-      CanvasMinimap.defaultSize,
-    );
-    final mapRect = tester.getRect(
-      find.descendant(of: find.byType(CanvasMinimap), matching: find.byType(CustomPaint)).last,
-    );
-    expect(box.contains(mapRect.center), isTrue);
-    await tester.tapAt(mapRect.topLeft + map.toMap(const Offset(3200, 1500)));
-    await tester.pumpAndSettle();
-    expect((viewport.visibleWorld.center - const Offset(3200, 1500)).distance, lessThan(60));
     await _close(tester);
   });
 

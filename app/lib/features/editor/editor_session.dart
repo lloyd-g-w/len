@@ -60,8 +60,6 @@ class EditorSession {
         viewport: viewport,
         reader: services.strokeReader,
         surfaceId: current.id,
-        showMinimap: services.settings.canvasMinimap,
-        onMinimapChanged: (show) => services.settings.canvasMinimap = show,
       );
       nav.open(initialView);
       content = _contentFor(model, viewport);
@@ -137,7 +135,7 @@ class EditorSession {
   SurfaceModel? canvas;
   ViewportController? canvasViewport;
 
-  /// Inertial panning, zoom steps, fit, minimap of the canvas.
+  /// Inertial panning, zoom steps and fit of the canvas.
   CanvasNavigation? canvasNav;
 
   // Paged notebook: pages laid out as a document.

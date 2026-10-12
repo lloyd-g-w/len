@@ -234,11 +234,9 @@ the second for what is left.
   target.
 - Editor search on phones: stepping to a match pans the page sideways.
 - Lasso selection handles in dark mode are dark and filled on light
-  paper. They should follow the paper, as the canvas hint and minimap
-  now do.
-- The image crop bar overlaps the fit / minimap cluster on phones.
-- The minimap draws one grey cell per populated chunk, which says little
-  about the content.
+  paper. They should follow the paper, as the canvas hint now
+  does.
+- The image crop bar overlaps the fit button on phones.
 - The page submenu opens over its parent on phones (a drill-in or a sheet
   would suit phones better).
 - The handwriting language picker is a `SimpleDialog`: no Cancel, and no

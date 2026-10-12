@@ -128,7 +128,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Chunk loading in a background isolate; strokes indexed only along their path
 - ✅ Kinetic (inertial) panning — canvases and continuous pages
 - ✅ Animated zoom: keyboard `+` `-` `0`, Shift+1 fit; zoom indicator with 50/100/200 %/fit
-- ✅ Minimap (populated chunks + viewport, tap/drag to move), fit content, back to start
+- ✅ Fit content, back to start
 - ✅ Canvas background: template + paper colour
 - ✅ Double-tap zoom (finger, when fingers navigate): page fit / 100 % ⇄ 2× or the last zoom, about
   the tap; palm-safe, never confused with two-finger undo

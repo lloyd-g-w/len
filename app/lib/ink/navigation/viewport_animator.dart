@@ -92,12 +92,6 @@ class ViewportAnimator {
     animateTo(scale: view.scale, offset: view.offset);
   }
 
-  /// Animates so world point [world] is centred (zoom unchanged).
-  void centreOn(Offset world) {
-    final offset = viewport.size.center(Offset.zero) - world * viewport.scale;
-    animateTo(scale: viewport.scale, offset: offset);
-  }
-
   void stop() {
     _step = null;
     if (_ticker.isActive) _ticker.stop();

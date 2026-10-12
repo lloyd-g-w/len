@@ -189,10 +189,8 @@ trackpad, middle-button drag) and `ViewportAnimator` glides on after a fling
 (iOS-like deceleration; no glide after a pause or a pinch). The input controller
 only reports begin / track / release. `ViewportAnimator` also animates zooms
 (geometric scale, focal point fixed) and fits. Canvases add a zoom indicator
-(shown while zooming; tap for 50 / 100 / 200 % or fit), a minimap of populated
-chunks (from storage, via the reader) with the visible area (tap to glide, drag
-to move), "fit content" (exact bounds from the outermost chunks), "back to
-start", keyboard zoom (`+` `-` `0` Shift+1 Home) and a background: template and
+(shown while zooming; tap for 50 / 100 / 200 % or fit), "fit content" (exact
+bounds from the outermost chunks), "back to start", keyboard zoom (`+` `-` `0` Shift+1 Home) and a background: template and
 paper colour (`notebooks.paper_color`). Continuous paged documents glide too.
 
 World coordinates are stored as `float32`, which stays sub-unit precise to
@@ -259,7 +257,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   `ChromeLayout.covered` — so it no longer covers the page above the toolbar. `ChromeLayout` says how much of each screen edge
   the chrome covers; the document pads its scroll bounds by it (in screen pixels, so it
   is re-applied on zoom), and the selection / text menus and the canvas's zoom pill and
-  minimap (`CanvasView`) avoid it (passed down as `MediaQuery.padding` / insets).
+  fit button (`CanvasView`) avoid it (passed down as `MediaQuery.padding` / insets).
   On canvases the "⋯" menu also holds the canvas entries: background (template and paper
   colour), fit content, actual size, back to start, show / hide overview. Chrome menus are
   `ChromeMenuAnchor`s: they report to a `CanvasGuard`, which blocks the surface while one is
@@ -1233,7 +1231,7 @@ floating, in the "⋯" menu and the settings); `ToolbarSlot` hosts it. *Automati
 there on one row whichever tool is active, otherwise at the bottom. The slot
 measures the toolbar and `ChromeLayout` uses that height for
 the screen edge it covers, so document scrolling, the page navigator and the
-canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
+canvas overlays (zoom pill, fit button) keep clear of it.
 
 **Customising** ("⋯" → Toolbar → *Customise toolbar…*): `ToolbarConfig`
 (`toolbar/toolbar_config.dart`, JSON in the local setting `toolbar_layout`,

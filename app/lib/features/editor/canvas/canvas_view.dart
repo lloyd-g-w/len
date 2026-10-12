@@ -7,13 +7,11 @@ import '../../../ink/input/live_ink.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
-import 'canvas_minimap.dart';
 import 'canvas_navigation.dart';
 import 'zoom_indicator.dart';
 
 /// An infinite canvas with its navigation overlays: the zoom indicator
-/// (shown while zooming), the minimap (optional) and buttons to fit the
-/// content and toggle the minimap.
+/// (shown while zooming) and a button to fit the content.
 class CanvasView extends StatelessWidget {
   const CanvasView({
     super.key,
@@ -70,18 +68,11 @@ class CanvasView extends StatelessWidget {
                 ),
                 Align(
                   alignment: Alignment.bottomRight,
-                  child: ListenableBuilder(
-                    listenable: nav,
-                    builder: (context, _) => Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (nav.showMinimap) ...[
-                          CanvasMinimap(navigation: nav, model: model, paperColor: paperColor),
-                          const SizedBox(height: Gaps.sm),
-                        ],
-                        _Buttons(navigation: nav),
-                      ],
+                  child: FloatingPanel(
+                    child: IconButton(
+                      tooltip: 'Fit content (Shift+1)',
+                      onPressed: nav.fitContent,
+                      icon: const Icon(Icons.fit_screen_outlined),
                     ),
                   ),
                 ),
@@ -90,36 +81,6 @@ class CanvasView extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _Buttons extends StatelessWidget {
-  const _Buttons({required this.navigation});
-
-  final CanvasNavigation navigation;
-
-  @override
-  Widget build(BuildContext context) {
-    final nav = navigation;
-    return FloatingPanel(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: 'Fit content (Shift+1)',
-            onPressed: nav.fitContent,
-            icon: const Icon(Icons.fit_screen_outlined),
-          ),
-          IconButton(
-            tooltip: nav.showMinimap ? 'Hide overview' : 'Show overview',
-            isSelected: nav.showMinimap,
-            onPressed: nav.toggleMinimap,
-            icon: const Icon(Icons.map_outlined),
-            selectedIcon: const Icon(Icons.map_rounded),
-          ),
-        ],
-      ),
     );
   }
 }

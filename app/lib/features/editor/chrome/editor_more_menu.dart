@@ -104,11 +104,6 @@ class EditorMoreMenu extends StatelessWidget {
           _item(Icons.fit_screen_outlined, 'Fit content', a.onFitContent, hint: hint('Shift+1')),
           _item(Icons.zoom_in_rounded, 'Actual size (100%)', a.onActualSize, hint: hint('0')),
           _item(Icons.home_outlined, 'Back to start', a.onBackToStart, hint: hint('Home')),
-          _item(
-            a.showMinimap ? Icons.map_rounded : Icons.map_outlined,
-            a.showMinimap ? 'Hide overview' : 'Show overview',
-            a.onToggleMinimap,
-          ),
           const Divider(),
         ],
         _radioSubmenu<ToolbarPlacement>(

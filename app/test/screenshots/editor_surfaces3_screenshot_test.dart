@@ -13,7 +13,7 @@ import 'editor_surfaces_common.dart';
 import 'screenshot_harness.dart';
 
 // Editor surfaces with real fonts, part 3: the page navigator, go to page,
-// page zoom, the zoom indicator, the minimap, tabs and the Ink Lab.
+// page zoom, the zoom indicator, tabs and the Ink Lab.
 
 /// Draws a few strokes in the Ink Lab with a stylus.
 Future<void> _scribble(WidgetTester tester, Offset start) async {
@@ -79,12 +79,12 @@ void main() {
     });
   });
 
-  // 6. Zoom indicator and minimap (canvas).
+  // 6. Zoom indicator (canvas).
   for (final screen in [phoneScreen, tabletScreen]) {
     for (final mode in modes) {
       final shot = '${screen.name}_${mode.name}';
-      testWidgets('e_zoom_minimap $shot', (tester) async {
-        await guardOverflows('e_zoom_minimap_$shot', () async {
+      testWidgets('e_zoom $shot', (tester) async {
+        await guardOverflows('e_zoom_$shot', () async {
           final s = bareServices();
           await pumpNotebook(tester, s, whiteboard(s), screen: screen, mode: mode);
           final nav = tester.widget<CanvasView>(find.byType(CanvasView)).navigation;
@@ -98,9 +98,6 @@ void main() {
           await shoot(tester, 'e_zoom_menu_$shot');
           await tester.tap(find.text('Fit content').last);
           await settle(tester);
-          await tester.tap(find.byTooltip('Show overview'));
-          await settle(tester);
-          await shoot(tester, 'e_minimap_$shot');
         });
       });
     }
