@@ -84,15 +84,32 @@ class NotebookAudio extends ChangeNotifier {
 
   void reload() {
     if (_disposed) return;
-    _recordings = services.recordings.listOf(notebookId);
+    // The recording being made is saved part by part; it is listed once
+    // it is finished.
+    final recording = recorder.recordingId;
+    _recordings = [
+      for (final r in services.recordings.listOf(notebookId))
+        if (r.id != recording) r,
+    ];
     final open = playback.recording;
-    if (open != null && !_recordings.any((r) => r.id == open.id)) playback.close();
+    if (open != null) {
+      final current = _recordings.where((r) => r.id == open.id).firstOrNull;
+      current == null ? playback.close() : playback.update(current);
+    }
     notifyListeners();
   }
 
   /// Renames recording [id].
   void rename(String id, String title) {
     services.recordings.rename(id, title);
+    reload();
+  }
+
+  /// Keeps only audio [startMs]…[endMs] of recording [id] (`0` and its
+  /// duration keep all of it). Not in the editor's undo history (like
+  /// renaming): the trim is undone by trimming back (see `TrimActions`).
+  void trim(String id, int startMs, int endMs) {
+    services.recordings.trim(id, startMs, endMs);
     reload();
   }
 
@@ -124,7 +141,15 @@ class NotebookAudio extends ChangeNotifier {
   );
 
   /// Size of [recording]'s audio on this device (null while not here).
-  int? sizeOf(Recording recording) => services.blobs.sizeOf(recording.blob);
+  int? sizeOf(Recording recording) {
+    var total = 0;
+    for (final sha in recording.blobs) {
+      final size = services.blobs.sizeOf(sha);
+      if (size == null) return null;
+      total += size;
+    }
+    return total;
+  }
 
   /// Opens [recording] in the player and plays it.
   Future<bool> play(Recording recording) => playback.open(recording);
@@ -134,8 +159,8 @@ class NotebookAudio extends ChangeNotifier {
   /// recording of this notebook that does. False if none does.
   Future<bool> playInk(int createdAt) async {
     final open = playback.recording;
-    if (open != null && open.timeline.covers(createdAt)) return playback.seekToInk(createdAt);
-    final other = _recordings.reversed.where((r) => r.timeline.covers(createdAt)).firstOrNull;
+    if (open != null && open.inkPositionOf(createdAt) != null) return playback.seekToInk(createdAt);
+    final other = _recordings.reversed.where((r) => r.inkPositionOf(createdAt) != null).firstOrNull;
     if (other == null) return false;
     if (!await playback.open(other, autoplay: false)) return false;
     return playback.seekToInk(createdAt);

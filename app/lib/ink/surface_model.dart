@@ -176,6 +176,9 @@ class SurfaceModel extends ChangeNotifier {
 
   bool isHidden(String id) => _hidden.contains(id);
 
+  /// Whether some owner (a selection, a text editor) hides items here.
+  bool get hasHidden => _hiddenBy.isNotEmpty;
+
   /// Replaces the stroke / element ids hidden by [owner] (e.g. a selection
   /// or a text editor). An item is hidden while any owner hides it, so two
   /// owners never un-hide each other's items.

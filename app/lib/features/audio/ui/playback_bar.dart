@@ -9,6 +9,7 @@ import '../notebook_audio.dart';
 import '../playback_controller.dart';
 import 'audio_format.dart';
 import 'recordings_sheet.dart';
+import 'trim_panel.dart';
 import 'waveform_scrubber.dart';
 
 /// Floating player for the open recording: title and time, a waveform
@@ -26,6 +27,13 @@ class PlaybackBar extends StatelessWidget {
     final playback = audio.playback;
     final recording = playback.recording;
     if (recording == null) return const SizedBox.shrink();
+    if (playback.trimDraft != null) {
+      return FloatingPanel(
+        key: const ValueKey('playback-bar'),
+        padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.xs, Gaps.xxs),
+        child: TrimPanel(audio: audio),
+      );
+    }
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final small = theme.textTheme.labelSmall?.copyWith(
@@ -40,7 +48,7 @@ class PlaybackBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: Gaps.xxs, right: Gaps.sm),
+            padding: const EdgeInsets.only(left: Gaps.xxs),
             child: Row(
               children: [
                 Expanded(
@@ -53,8 +61,18 @@ class PlaybackBar extends StatelessWidget {
                 ),
                 const SizedBox(width: Gaps.sm),
                 Text(
-                  '${formatClock(playback.positionMs)} / ${formatClock(recording.durationMs)}',
+                  '${formatClock(playback.positionMs - playback.startMs)} / '
+                  '${formatClock(recording.lengthMs)}',
                   style: small,
+                ),
+                IconButton(
+                  tooltip: 'Trim…',
+                  iconSize: 18,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(width: 36, height: 28),
+                  color: scheme.onSurfaceVariant,
+                  onPressed: playback.loading ? null : playback.beginTrim,
+                  icon: const Icon(Icons.content_cut_rounded),
                 ),
               ],
             ),
@@ -64,7 +82,8 @@ class PlaybackBar extends StatelessWidget {
             child: ListenableBuilder(
               listenable: audio.overviews,
               builder: (context, _) => WaveformScrubber(
-                durationMs: recording.durationMs,
+                fromMs: recording.trimStartMs,
+                toMs: recording.trimEndMs,
                 positionMs: playback.positionMs,
                 overview: audio.overviews.of(recording),
                 onSeek: (ms) => unawaited(playback.seek(ms)),

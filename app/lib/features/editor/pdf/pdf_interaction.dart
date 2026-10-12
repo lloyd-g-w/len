@@ -164,14 +164,18 @@ class PdfInteraction extends ChangeNotifier {
         .copyWith(thinning: 0, streamline: 0, taperStart: 0, taperEnd: 0);
     final now = clock.nowMs();
     final strokes = [
-      for (final r in selection.rects)
-        if (highlightPoints(r, page.size) case final points?)
+      for (final line in selection.lines)
+        if (highlightPoints(line.rect, page.size, direction: line.direction) case final points?)
           Stroke(
             id: clock.newId(),
             surfaceId: page.id,
             tool: InkTool.highlighter,
             color: config.color,
-            width: (r.height * page.height * highlightHeight).clamp(2.0, 200.0),
+            width:
+                (line.thickness *
+                        (line.direction.vertical ? page.width : page.height) *
+                        highlightHeight)
+                    .clamp(2.0, 200.0),
             style: style,
             points: points,
             createdAt: now,
@@ -187,10 +191,14 @@ class PdfInteraction extends ChangeNotifier {
   static const double highlightHeight = 1.1;
 
   /// The points of a highlighter stroke across line [normalized] of a page
-  /// of [size] units: along its middle, end to end (the highlighter's flat
-  /// ends add nothing), one point every 2 units.
+  /// of [size] units: along its middle in reading [direction], end to end
+  /// (the highlighter's flat ends add nothing), one point every 2 units.
   @visibleForTesting
-  static List<StrokePoint>? highlightPoints(Rect normalized, Size size) {
+  static List<StrokePoint>? highlightPoints(
+    Rect normalized,
+    Size size, {
+    PdfTextDirection direction = PdfTextDirection.ltr,
+  }) {
     final r = Rect.fromLTRB(
       normalized.left * size.width,
       normalized.top * size.height,
@@ -198,8 +206,17 @@ class PdfInteraction extends ChangeNotifier {
       normalized.bottom * size.height,
     );
     if (r.width <= 0 || r.height <= 0) return null;
-    final n = (r.width / 2).ceil().clamp(1, 2000);
-    return [for (var i = 0; i <= n; i++) StrokePoint(r.left + r.width * i / n, r.center.dy, 0.5)];
+    final (from, to) = switch (direction) {
+      PdfTextDirection.ltr => (r.centerLeft, r.centerRight),
+      PdfTextDirection.rtl => (r.centerRight, r.centerLeft),
+      PdfTextDirection.ttb => (r.topCenter, r.bottomCenter),
+      PdfTextDirection.btt => (r.bottomCenter, r.topCenter),
+    };
+    final n = ((to - from).distance / 2).ceil().clamp(1, 2000);
+    return [
+      for (var i = 0; i <= n; i++)
+        if (Offset.lerp(from, to, i / n) case final p?) StrokePoint(p.dx, p.dy, 0.5),
+    ];
   }
 
   @override

@@ -9,7 +9,7 @@ import 'syncable.dart';
 import 'syncable_table.dart';
 
 /// Persists audio recordings (collection `recordings`): one row per
-/// recording of a notebook, referencing its audio blob.
+/// recording of a notebook, referencing its audio blobs.
 class RecordingRepository extends SyncableTable {
   RecordingRepository(super.database, {required super.deviceId, super.clock});
 
@@ -57,25 +57,30 @@ class RecordingRepository extends SyncableTable {
         .toList();
   }
 
-  /// Adds a recording of [notebookId] whose audio is blob [blob].
-  Recording create({
+  /// Adds a recording of [notebookId] whose audio is [parts] — or, given
+  /// [id], replaces that recording's audio, keeping its title (a recording
+  /// still being made gains parts as they are finished).
+  Recording save({
+    String? id,
     required String notebookId,
-    required String blob,
+    required List<RecordingPart> parts,
     required String mime,
     required String title,
     required List<RecordingSegment> segments,
     String waveform = '',
   }) {
-    assert(segments.isNotEmpty);
+    assert(segments.isNotEmpty && parts.isNotEmpty);
+    final existing = id == null ? null : get(id);
+    final recordingId = id ?? clock.newId();
     final recording = Recording(
-      id: clock.newId(),
+      id: recordingId,
       notebookId: notebookId,
-      blob: blob,
-      durationMs: segments.fold(0, (sum, s) => sum + s.durationMs),
+      parts: parts,
+      durationMs: parts.fold(0, (sum, p) => sum + p.durationMs),
       startedAt: segments.first.startedAt,
-      title: title,
+      title: existing?.title ?? title,
       mime: mime,
-      updatedAt: clock.nowMs(),
+      updatedAt: id == null ? clock.nowMs() : nextVersion(recordingId),
       waveform: waveform,
       segments: segments,
     );
@@ -88,6 +93,21 @@ class RecordingRepository extends SyncableTable {
     final current = get(id);
     if (current == null) return null;
     final updated = current.copyWith(title: title, updatedAt: nextVersion(id));
+    _write(updated, deviceId: deviceId, dirty: true);
+    return updated;
+  }
+
+  /// Keeps only audio [startMs]…[endMs] of recording [id] (non-destructive:
+  /// `0` and its duration undo it); returns the updated recording.
+  Recording? trim(String id, int startMs, int endMs) {
+    final current = get(id);
+    if (current == null) return null;
+    assert(0 <= startMs && startMs <= endMs && endMs <= current.durationMs);
+    final updated = current.copyWith(
+      trimStartMs: startMs,
+      trimEndMs: endMs,
+      updatedAt: nextVersion(id),
+    );
     _write(updated, deviceId: deviceId, dirty: true);
     return updated;
   }
@@ -129,13 +149,15 @@ class RecordingRepository extends SyncableTable {
           ? null
           : {
               'notebookId': row['notebook_id'],
-              'blob': row['blob'],
+              'audio': jsonDecode(row['audio'] as String),
               'durationMs': row['duration_ms'],
               'startedAt': row['started_at'],
               'title': row['title'],
               'mime': row['mime'],
               'segments': jsonDecode(row['segments'] as String),
               'waveform': row['waveform'],
+              'trimStartMs': row['trim_start_ms'],
+              'trimEndMs': row['trim_end_ms'],
             },
     );
   }
@@ -145,9 +167,9 @@ class RecordingRepository extends SyncableTable {
     if (record.deleted) {
       db.execute(
         '''
-        INSERT INTO recordings (id, notebook_id, blob, duration_ms, started_at, title, mime,
+        INSERT INTO recordings (id, notebook_id, audio, duration_ms, started_at, title, mime,
                                 segments, updated_at, device_id, deleted, dirty)
-        VALUES (?, '', '', 0, 0, '', '', '[]', ?, ?, 1, 0)
+        VALUES (?, '', '[]', 0, 0, '', '', '[]', ?, ?, 1, 0)
         ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at,
           device_id = excluded.device_id, deleted = 1, dirty = 0''',
         [record.id, record.updatedAt, record.deviceId],
@@ -155,25 +177,38 @@ class RecordingRepository extends SyncableTable {
       return;
     }
     final f = RecordFields(record);
-    final blob = f.string('blob');
-    if (!BlobStore.isValidId(blob)) f.invalid('blob');
+    final parts = [
+      for (final p in f.list('audio'))
+        switch (RecordingPart.tryParse(p)) {
+          final part? when BlobStore.isValidId(part.blob) => part,
+          _ => f.invalid('audio'),
+        },
+    ];
+    if (parts.isEmpty) f.invalid('audio');
     final segments = [
       for (final s in f.list('segments')) RecordingSegment.tryParse(s) ?? f.invalid('segments'),
     ];
     final waveform = f.string('waveform');
     if (waveform.isNotEmpty && !BlobStore.isValidId(waveform)) f.invalid('waveform');
+    final durationMs = f.integer('durationMs');
+    final trimStart = f.integer('trimStartMs');
+    final trimEnd = f.integer('trimEndMs');
+    if (trimStart < 0 || trimStart > trimEnd) f.invalid('trimStartMs');
+    if (trimEnd > durationMs) f.invalid('trimEndMs');
     _write(
       Recording(
         id: record.id,
         notebookId: f.string('notebookId'),
-        blob: blob,
-        durationMs: f.integer('durationMs'),
+        parts: parts,
+        durationMs: durationMs,
         startedAt: f.integer('startedAt'),
         title: f.string('title'),
         mime: f.string('mime'),
         updatedAt: record.updatedAt,
         waveform: waveform,
         segments: segments,
+        trimStartMs: trimStart,
+        trimEndMs: trimEnd,
       ),
       deviceId: record.deviceId,
       dirty: false,
@@ -183,20 +218,22 @@ class RecordingRepository extends SyncableTable {
   void _write(Recording r, {required String deviceId, required bool dirty}) {
     db.execute(
       '''
-      INSERT OR REPLACE INTO recordings (id, notebook_id, blob, duration_ms, started_at, title,
-                                         mime, segments, waveform, updated_at, device_id,
-                                         deleted, dirty)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
+      INSERT OR REPLACE INTO recordings (id, notebook_id, audio, duration_ms, started_at, title,
+                                         mime, segments, waveform, trim_start_ms, trim_end_ms,
+                                         updated_at, device_id, deleted, dirty)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
       [
         r.id,
         r.notebookId,
-        r.blob,
+        jsonEncode([for (final p in r.parts) p.toJson()]),
         r.durationMs,
         r.startedAt,
         r.title,
         r.mime,
         jsonEncode([for (final s in r.segments) s.toJson()]),
         r.waveform,
+        r.trimStartMs,
+        r.trimEndMs,
         r.updatedAt,
         deviceId,
         dirty ? 1 : 0,
@@ -206,10 +243,11 @@ class RecordingRepository extends SyncableTable {
 
   static Recording _rowToRecording(Row row) {
     final raw = jsonDecode(row['segments'] as String);
+    final audio = jsonDecode(row['audio'] as String) as List;
     return Recording(
       id: row['id'] as String,
       notebookId: row['notebook_id'] as String,
-      blob: row['blob'] as String,
+      parts: audio.map(RecordingPart.tryParse).nonNulls.toList(),
       durationMs: row['duration_ms'] as int,
       startedAt: row['started_at'] as int,
       title: row['title'] as String,
@@ -217,6 +255,8 @@ class RecordingRepository extends SyncableTable {
       updatedAt: row['updated_at'] as int,
       waveform: row['waveform'] as String,
       segments: raw is List ? raw.map(RecordingSegment.tryParse).nonNulls.toList() : null,
+      trimStartMs: row['trim_start_ms'] as int,
+      trimEndMs: row['trim_end_ms'] as int,
     );
   }
 }

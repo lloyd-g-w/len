@@ -12,9 +12,10 @@ import '../../../ui/text_prompt.dart';
 import '../notebook_audio.dart';
 import 'audio_bar_button.dart';
 import 'audio_format.dart';
+import 'trim_panel.dart';
 
-/// Lists the notebook's recordings: tap to play, ⋯ to rename, export or
-/// delete, long press (or "Select") to export or delete several, and a
+/// Lists the notebook's recordings: tap to play, ⋯ to rename, trim (or
+/// reset the trim), export or delete, long press (or "Select") to export or delete several, and a
 /// button to record a new one.
 Future<void> showRecordingsSheet(BuildContext context, NotebookAudio audio) {
   return showModalBottomSheet<void>(
@@ -122,7 +123,7 @@ class _RecordingsListState extends State<RecordingsList> {
 
   /// "3 recordings · 1:02:03 · 28 MB".
   String _summary(List<Recording> recordings) {
-    final duration = recordings.fold(0, (sum, r) => sum + r.durationMs);
+    final duration = recordings.fold(0, (sum, r) => sum + r.lengthMs);
     final sizes = [for (final r in recordings) audio.sizeOf(r)];
     final known = sizes.nonNulls.fold(0, (sum, s) => sum + s);
     final count = recordings.length == 1 ? '1 recording' : '${recordings.length} recordings';
@@ -228,7 +229,7 @@ class _RecordingTile extends StatelessWidget {
     final size = audio.sizeOf(recording);
     final details = [
       formatRecordedAt(recording.startedAt),
-      formatClock(recording.durationMs),
+      formatClock(recording.lengthMs),
       if (size != null) formatBytes(size),
     ].join(' · ');
     final selecting = selected != null;
@@ -255,10 +256,13 @@ class _RecordingTile extends StatelessWidget {
               tooltip: 'More',
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (action) => unawaited(_run(context, action)),
-              itemBuilder: (_) => const [
-                MenuRow(value: 'rename', icon: Icons.edit_outlined, label: 'Rename…'),
-                MenuRow(value: 'export', icon: Icons.ios_share_rounded, label: 'Export…'),
-                MenuRow(
+              itemBuilder: (_) => [
+                const MenuRow(value: 'rename', icon: Icons.edit_outlined, label: 'Rename…'),
+                const MenuRow(value: 'trim', icon: Icons.content_cut_rounded, label: 'Trim…'),
+                if (recording.trimmed)
+                  const MenuRow(value: 'untrim', icon: Icons.restore_rounded, label: 'Reset trim'),
+                const MenuRow(value: 'export', icon: Icons.ios_share_rounded, label: 'Export…'),
+                const MenuRow(
                   value: 'delete',
                   icon: Icons.delete_outline_rounded,
                   label: 'Delete…',
@@ -286,6 +290,11 @@ class _RecordingTile extends StatelessWidget {
           confirmLabel: 'Rename',
         );
         if (title != null && title.isNotEmpty) audio.rename(recording.id, title);
+      case 'trim':
+        Navigator.of(context).pop();
+        await trimRecording(context, audio, recording);
+      case 'untrim':
+        audio.trim(recording.id, 0, recording.durationMs);
       case 'export':
         await audio.export(context, [recording]);
       case 'delete':

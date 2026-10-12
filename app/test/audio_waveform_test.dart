@@ -34,12 +34,14 @@ void main() {
 
     test('bars take the loudest bucket they cover', () {
       final w = Waveform(Uint8List.fromList([0, 51, 255, 102, 0, 0, 204, 0]));
-      expect(w.bars(4, durationMs: 800), [0.2, 1.0, 0.0, 0.8]);
+      expect(w.bars(4, toMs: 800), [0.2, 1.0, 0.0, 0.8]);
       // More bars than buckets: each bucket fills several.
-      expect(w.bars(16, durationMs: 800).take(4), [0.0, 0.0, 0.2, 0.2]);
+      expect(w.bars(16, toMs: 800).take(4), [0.0, 0.0, 0.2, 0.2]);
       // Audio longer than the waveform: the rest is silent.
-      expect(w.bars(2, durationMs: 1600), [1.0, 0.0]);
-      expect(w.bars(0, durationMs: 800), isEmpty);
+      expect(w.bars(2, toMs: 1600), [1.0, 0.0]);
+      expect(w.bars(0, toMs: 800), isEmpty);
+      // A range (a trimmed recording's kept audio).
+      expect(w.bars(2, fromMs: 300, toMs: 700), [0.4, 0.8]);
     });
 
     test('the builder keeps peaks per bucket and fills gaps', () {
@@ -61,8 +63,9 @@ void main() {
     });
 
     test('density is relative to the busiest slice', () {
-      expect(ink.density(4, durationMs: 40000), [1.0, 0.0, 0.0, 0.4]);
-      expect(InkActivity.none.density(3, durationMs: 1000), [0.0, 0.0, 0.0]);
+      expect(ink.density(4, toMs: 40000), [1.0, 0.0, 0.0, 0.4]);
+      expect(InkActivity.none.density(3, toMs: 1000), [0.0, 0.0, 0.0]);
+      expect(ink.density(2, fromMs: 20000, toMs: 40000), [0.0, 1.0]);
     });
 
     test('next / previous marker', () {
@@ -75,15 +78,25 @@ void main() {
     });
 
     test('maps wall times through pauses; times outside are dropped', () {
-      final timeline = RecordingTimeline(const [
-        RecordingSegment(10000, 5000),
-        RecordingSegment(20000, 3000),
-      ]);
-      expect(InkActivity.of(timeline, [9000, 12000, 17000, 21000, 30000]).positions, [
+      final recording = Recording(
+        id: 'r',
+        notebookId: 'n',
+        parts: [RecordingPart('ab' * 32, 8000)],
+        durationMs: 8000,
+        startedAt: 10000,
+        title: 'Lecture',
+        mime: Recording.adtsMime,
+        updatedAt: 1,
+        segments: const [RecordingSegment(10000, 5000), RecordingSegment(20000, 3000)],
+      );
+      expect(InkActivity.of(recording, [9000, 12000, 17000, 21000, 30000]).positions, [
         2000,
         5000, // Written in the pause: where recording resumed.
         6000,
       ]);
+      // Trimmed to 3…5.5 s: ink outside the kept audio is left out.
+      final trimmed = recording.copyWith(trimStartMs: 3000, trimEndMs: 5500);
+      expect(InkActivity.of(trimmed, [9000, 12000, 17000, 21000, 30000]).positions, [5000]);
     });
   });
 
@@ -118,7 +131,7 @@ void main() {
     expect(saved.waveform, hasLength(64));
     final waveform = Waveform.decode((await s.blobs.read(saved.waveform))!)!;
     expect(waveform.levels, [128, 128, 255, 255, 255, 255]);
-    expect(BlobReferences(s.database).all(), containsAll([saved.blob, saved.waveform]));
+    expect(BlobReferences(s.database).all(), containsAll([...saved.blobs, saved.waveform]));
     final record = s.recordings.rowToRecord(
       s.database.db.select('SELECT * FROM recordings WHERE id = ?', [saved.id]).first,
     );
@@ -137,7 +150,7 @@ void main() {
     Recording r(String title, String mime) => Recording(
       id: title,
       notebookId: 'n',
-      blob: 'ab' * 32,
+      parts: [RecordingPart('ab' * 32, 1)],
       durationMs: 1,
       startedAt: 0,
       title: title,

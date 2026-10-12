@@ -18,17 +18,25 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
+- ✅ Selection across pages (continuous scrolling): a lasso drawn across pages selects on each; the
+  selection moves, resizes, recolours, restyles, deletes, copies and duplicates as one; items dropped
+  so their centre lands on another page move to that page (ink re-added, elements re-parented) — one
+  undo step. Single-page flow keeps per-page selections
 - ✅ Shapes: draw-and-hold to snap (line, arrow, rectangle, ellipse, triangle, polygon); Shape tool (line, arrow, rectangle, ellipse, triangle, diamond, star)
 - ✅ Text boxes (synced `elements`): rich text within a box — bold, italic, underline,
   strikethrough, colour, highlight, size and font per character; headings; bulleted, numbered
-  and checklist items (tap to tick, Tab to indent); bundled open-licence fonts (Inter, Lora,
-  JetBrains Mono, Caveat) with a font picker and default text style; auto-width boxes that wrap
+  and checklist items (tap to tick, Tab to indent) with hanging indents when they wrap (canvas,
+  editing field and PDF alike); bundled open-licence fonts (Inter, Nunito, Lora, JetBrains Mono,
+  Caveat, Kalam) with a font picker and default text style; auto-width boxes that wrap
   once resized; Ctrl+B / I / U and list shortcuts; copy / cut / paste keep formatting between
   boxes; Ctrl+V of plain text adds a text box; exported to PDF as selectable text in embedded
   fonts
+- ✅ Text: rich paste from other apps — HTML (browsers, Google Docs, Word, LibreOffice) keeps bold,
+  italic, underline, strikethrough, colours, headings and nested lists / checklists, in a box being
+  edited or as a new box on the canvas (Windows, Linux, Android, web); Ctrl+Shift+V pastes plain
+  text
 - ✅ Lasso *Style*: font and size of selected text boxes, pen type and width of selected ink
-- ⬜ Text: hanging indents for wrapped list items, rich paste from other apps, more fonts / font
-  import, paragraph spacing, tables
+- ⬜ Text: RTF-only paste (WordPad), font import, paragraph spacing, tables
 - ✅ Images: insert from files (top bar), the system clipboard (Ctrl+V), drag and drop (desktop) and
   the camera (Android); downscaled to 4096 px on import; beneath the ink by default with bring to
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
@@ -51,9 +59,17 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   and a marker per burst of writing (tap to play from it), skip ±10 s, speed 0.75–2×, keys (Space,
   ← / →, Shift+← / → between bursts of writing)
 - ✅ Recordings list: date, duration and size of each, total; select several to export or delete;
-  export / share a recording's audio (m4a) through the save / share path
-- ⬜ Trimming, upload while recording (chunked blobs), recovering a recording cut off by a killed
-  process, playback in the background (media notification)
+  export / share a recording's audio (AAC) through the save / share path
+- ✅ Upload while recording: recordings are stored in 5-minute parts (raw AAC natively), each a
+  blob synced as soon as it is finished; played and exported as one
+- ✅ Recovering a recording cut off by a killed app (native: journal + spool files, "Recover
+  recording?" on the next start; browsers keep the parts finished before)
+- ✅ Trimming (GoodNotes-style handles on the player's waveform, preview, Cancel / Save, "Reset
+  trim"): non-destructive, synced (`trimStartMs` / `trimEndMs`); playback, list durations, ink
+  replay, markers and export (raw AAC cut at frame boundaries) keep to the kept audio
+- ⬜ Playback in the background (media notification)
+- ⬜ Trimming that frees storage (drop parts wholly outside the trim) and trimmed export of
+  browser recordings (MP4 / WebM would need decoding; exported untrimmed)
 
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,
@@ -87,11 +103,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Custom templates ("My templates", synced): import an image or a PDF page, "Save page as
   template"; rename / delete; usable for new notebooks and pages
 - ✅ Template picker: categories (Basic, Writing, Planners, Paper, My templates), search, live
-  previews
+  previews; a dialog with gallery and options side by side on tablets / desktops, a sheet with
+  full-width columns on phones
 - ✅ Planner options: week starting on Monday or Sunday (US week numbers for Sunday weeks),
   month and day names and dates in 19 languages (intl; default from the device locale, last
   choice remembered), year overview (twelve mini calendars linking to months and days; optional
-  first page of a monthly planner); exported PDF labels in the embedded Inter
+  first page of a monthly planner; month pages link back up from their year label, weeks and
+  days to their month); exported PDF labels in the embedded Inter
 - ✅ Cancel long imports / exports (partial imports clean up after themselves)
 - ✅ Tiled PDF rendering for deep zoom (visible tiles, LRU, smooth while zooming)
 - ✅ PDF text selection (Select text tool, long press / right click): copy, highlight the selection
@@ -99,7 +117,11 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   outline (bookmarks) panel
 - ✅ Export keeps imported PDF pages as vectors (pure-Dart page copier; PDFium rewrite for
   encrypted files; image fallback per page)
-- ⬜ Selection across pages, PDF text on rotated pages, carry links into exported PDFs
+- ✅ PDF text on rotated pages (`/Rotate` 90 / 180 / 270 and text set at an angle): selection along
+  the line's direction, copy, highlights, search highlights and links
+- ✅ Exported PDFs keep links: link elements, planner links, and the links of imported PDF pages
+  (web links as is, page links remapped to the exported page or dropped)
+- ⬜ PDF text selection across pages
 
 ## Infinite canvas & navigation
 - ✅ Level-of-detail chunk rasters when zoomed out (cost bounded by visible chunks)

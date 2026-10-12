@@ -88,7 +88,7 @@ Future<void> stopRecording(BuildContext context, RecordingController recorder) a
   }
 }
 
-/// Red dot, elapsed time, level meter, pause / resume and stop.
+/// Red dot, elapsed time, level meter (or "Paused"), pause / resume and stop.
 class RecordingPill extends StatelessWidget {
   const RecordingPill({super.key, required this.recorder});
 
@@ -125,11 +125,14 @@ class RecordingPill extends StatelessWidget {
           const SizedBox(width: Gaps.sm),
           Text(formatClock(recorder.elapsedMs), style: text),
           const SizedBox(width: Gaps.sm),
-          LevelMeter(level: paused ? 0 : recorder.level, color: scheme.error),
+          if (paused)
+            Text('Paused', style: text?.copyWith(fontWeight: FontWeight.w400))
+          else
+            LevelMeter(level: recorder.level, color: scheme.error),
           const SizedBox(width: Gaps.xxs),
           _PillButton(
             tooltip: paused ? 'Resume recording' : 'Pause recording',
-            icon: paused ? Icons.mic_rounded : Icons.pause_rounded,
+            icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
             onPressed: () => unawaited(paused ? recorder.resume() : recorder.pause()),
           ),
           _PillButton(

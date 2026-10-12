@@ -1,12 +1,14 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../../../domain/text/html_text.dart';
 import '../../../../domain/text/rich_text_buffer.dart';
 import '../../../../domain/text/text_data.dart';
-import '../../../../ink/elements/list_marker.dart';
 import '../../../../ink/elements/text_layout.dart';
+import '../../../../platform/clipboard_html.dart';
 
 /// The text field controller of a text box being edited: keeps the
 /// formatted text in a [RichTextBuffer] and renders it with
@@ -14,17 +16,21 @@ import '../../../../ink/elements/text_layout.dart';
 ///
 /// The field's text is the *display* text: the box's text with one
 /// placeholder character before each list line, where the marker widget
-/// sits (see [MarkerOffsets]). Edits the field makes are mapped back onto
+/// sits, and a break plus an indent gap where a list item wraps at
+/// [wrapWidth] (hanging indents, see [MarkerOffsets] and [TextWraps]). Edits the field makes are mapped back onto
 /// the buffer; formatting commands act on the selection (or, with a
 /// collapsed caret, on what is typed next).
 class RichTextController extends TextEditingController {
   RichTextController(TextData data) : _box = data, _buffer = RichTextBuffer(data) {
+    watchClipboardPastes();
     _sync(const TextSelection.collapsed(offset: 0));
   }
 
   TextData _box;
   RichTextBuffer _buffer;
   late MarkerOffsets _offsets;
+  List<int> _wraps = const [];
+  double _wrapWidth = double.infinity;
   TextData? _data;
 
   /// Style for the next typed text at [_pendingAt] (a toggled format with a
@@ -43,10 +49,16 @@ class RichTextController extends TextEditingController {
   /// plain text keeps the formatting.
   static ({String text, List<SpanStyle> styles})? _richClip;
 
+  /// Whether [text] was last copied from a box here (pasting it keeps
+  /// that formatting, so it wins over the clipboard's HTML).
+  static bool isOwnClip(String text) => _richClip?.text == _clean(text);
+
+  static String _clean(String text) => text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n');
+
   /// [text] from the clipboard as a new box formatted like [box]; text
   /// last copied from a box here keeps its formatting.
   static TextData pasted(String text, TextData box) {
-    final clean = text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n');
+    final clean = _clean(text);
     final clip = _richClip;
     final base = box.copyWith(text: clean);
     if (clip == null || clip.text != clean) return base;
@@ -57,6 +69,30 @@ class RichTextController extends TextEditingController {
   TextData get data => _data ??= _buffer.toData(_box);
 
   bool get isEmpty => _buffer.length == 0;
+
+  /// The width the box wraps at (its world width), for hanging indents.
+  double get wrapWidth => _wrapWidth;
+  set wrapWidth(double width) {
+    _wrapWidth = width;
+    if (listEquals(_wrapsOf(data), _wraps)) return;
+    _sync(
+      selection.isValid ? _modelSelection(selection) : const TextSelection.collapsed(offset: 0),
+    );
+  }
+
+  TextSelection _modelSelection(TextSelection s) => s.copyWith(
+    baseOffset: _offsets.toModel(s.baseOffset),
+    extentOffset: _offsets.toModel(s.extentOffset),
+  );
+
+  /// The display offsets of [data] at [wrapWidth].
+  MarkerOffsets _offsetsOf(TextData data) {
+    _wraps = _wrapsOf(data);
+    return MarkerOffsets(data, _wraps);
+  }
+
+  /// Auto-width boxes grow instead of wrapping.
+  List<int> _wrapsOf(TextData data) => data.autoWidth ? const [] : TextWraps.of(data, _wrapWidth);
 
   /// Replaces everything (a new box started).
   void load(TextData data) {
@@ -79,7 +115,7 @@ class RichTextController extends TextEditingController {
   /// Rebuilds the display text and selects [model] (box-text offsets).
   void _sync(TextSelection model, {bool changed = false}) {
     _data = null;
-    _offsets = MarkerOffsets(data);
+    _offsets = _offsetsOf(data);
     super.value = TextEditingValue(
       text: _offsets.display(_buffer.text),
       selection: model.copyWith(
@@ -105,12 +141,12 @@ class RichTextController extends TextEditingController {
     _applyEdit(old, next);
   }
 
-  /// Keeps the caret off the spot before a list marker: it steps over it
-  /// in the direction it was moving.
+  /// Keeps the caret off the spot before a list marker (and inside a wrap's
+  /// insert): it steps over it in the direction it was moving.
   TextSelection _normalize(TextSelection s, TextSelection old) {
     if (!s.isValid || _offsets.isEmpty) return s;
     int fix(int d, int was) {
-      if (!_offsets.isBeforeMarker(d)) return d;
+      if (!_offsets.isHidden(d)) return d;
       return was == d + 1 && d > 0 ? d - 1 : d + 1;
     }
 
@@ -139,15 +175,24 @@ class RichTextController extends TextEditingController {
       s++;
     }
     final removedEnd = o.length - s;
-    final inserted = n.substring(p, n.length - s).replaceAll('\uFFFC', '');
-    final start = _offsets.toModel(p), end = _offsets.toModel(removedEnd);
+    var inserted = n.substring(p, n.length - s).replaceAll('\uFFFC', '');
+    var start = _offsets.toModel(p), end = _offsets.toModel(removedEnd);
+    final composing = _composing(next.composing, p, n.length - s, start);
     final line = _buffer.lineOf(start);
     // Markers deleted on their own (backspace at a list line's start).
     final unlisted = <int>{
       for (var d = p; d < removedEnd; d++)
-        if (o.codeUnitAt(d) == PlaceholderSpan.placeholderCodeUnit && _offsets.toModel(d) == start)
-          line,
+        if (_offsets.isMarker(d) && _offsets.toModel(d) == start) line,
     };
+    if (inserted.isEmpty && start == end && removedEnd > p && _offsets.isWrap(p)) {
+      // Only a wrap's break or gap deleted: delete the character before
+      // (backspace at a continuation line's start) or after it.
+      if (o.codeUnitAt(removedEnd - 1) == PlaceholderSpan.placeholderCodeUnit) {
+        if (start > 0) start--;
+      } else if (end < _buffer.length) {
+        end++;
+      }
+    }
     final para = _buffer.para(line);
     if (inserted == '\n' &&
         start == end &&
@@ -165,7 +210,14 @@ class RichTextController extends TextEditingController {
         : end > start && _buffer.text.codeUnitAt(start) != 0x0A
         ? _buffer.charStyle(start)
         : _buffer.styleAt(start);
-    _buffer.replace(start, end, inserted, style);
+    // A browser paste (web) of HTML from another app: formatted.
+    final rich = inserted.isEmpty || clip?.text == inserted ? null : _pastedHtml(inserted);
+    if (rich != null) {
+      _buffer.insertRich(start, end, rich, style);
+      inserted = rich.text;
+    } else {
+      _buffer.replace(start, end, inserted, style);
+    }
     if (clip != null && clip.text == inserted && inserted.isNotEmpty) {
       for (var i = 0; i < inserted.length; i++) {
         _buffer.updateChars(start + i, start + i + 1, (_) => clip.styles[i]);
@@ -176,7 +228,7 @@ class RichTextController extends TextEditingController {
     }
     _pending = null;
     _data = null;
-    final offsets = MarkerOffsets(data);
+    final offsets = _offsetsOf(data);
     final display = offsets.display(_buffer.text);
     _offsets = offsets;
     if (display == n) {
@@ -186,9 +238,23 @@ class RichTextController extends TextEditingController {
       super.value = TextEditingValue(
         text: display,
         selection: TextSelection.collapsed(offset: at),
+        composing: composing == null
+            ? TextRange.empty
+            : TextRange(
+                start: offsets.toDisplay(composing.start),
+                end: offsets.toDisplay(composing.end),
+              ),
       );
     }
     onDataChanged?.call();
+  }
+
+  /// The IME composing range [c] of an edit (field text replaced in
+  /// [p, editEnd), starting at model offset [start]) in model offsets, so
+  /// it survives a re-layout of the display text (e.g. a new wrap).
+  TextRange? _composing(TextRange c, int p, int editEnd, int start) {
+    if (!c.isValid || c.isCollapsed || c.start > p || c.end < p || c.end > editEnd) return null;
+    return TextRange(start: _offsets.toModel(c.start), end: start + c.end - p);
   }
 
   @override
@@ -205,6 +271,7 @@ class RichTextController extends TextEditingController {
     return TextLayout.spanOf(
       data,
       underlined: composing,
+      wraps: _wraps,
       marker: (m) => WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: build == null ? SizedBox.fromSize(size: m.size) : build(m),
@@ -228,6 +295,29 @@ class RichTextController extends TextEditingController {
       _pending = null;
       _changedKeeping(TextRange.collapsed(r.start));
     }
+  }
+
+  TextData? _pastedHtml(String inserted) {
+    final html = htmlPastedAs(inserted);
+    return html == null ? null : textFromHtml(html, _box);
+  }
+
+  /// Pastes formatted text from another app over the selection.
+  void pasteRich(TextData fragment) {
+    final r = modelSelection;
+    _buffer.insertRich(r.start, r.end, fragment, _buffer.styleAt(r.start));
+    _pending = null;
+    _changedKeeping(TextRange.collapsed(r.start + fragment.text.length));
+  }
+
+  /// Pastes [text] without formatting over the selection (it takes the
+  /// caret's style).
+  void pastePlain(String text) {
+    final r = modelSelection;
+    final clean = _clean(text);
+    _buffer.replace(r.start, r.end, clean, currentStyle);
+    _pending = null;
+    _changedKeeping(TextRange.collapsed(r.start + clean.length));
   }
 
   // ---------------------------------------------------------------------

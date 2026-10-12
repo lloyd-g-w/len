@@ -3,28 +3,30 @@ import 'package:flutter/material.dart';
 import '../../../domain/cover_style.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/dialog_or_sheet.dart';
 import '../cover_picker.dart';
 import '../notebook_cover.dart';
 
 /// A chosen cover.
 typedef CoverChoice = ({int color, CoverStyle style});
 
-/// Bottom sheet to restyle a notebook's cover: live preview, colours and
-/// patterns, Cancel / Apply.
+/// Restyles a notebook's cover: live preview, colours and patterns,
+/// Cancel / Apply. A dialog on wide screens, a bottom sheet on phones.
 Future<CoverChoice?> showCoverSheet(BuildContext context, Notebook notebook) {
-  return showModalBottomSheet<CoverChoice>(
+  return showDialogOrSheet<CoverChoice>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    constraints: const BoxConstraints(maxWidth: 720),
-    builder: (context) => _CoverSheet(notebook: notebook),
+    maxWidth: 640,
+    builder: (context, wide) => _CoverSheet(notebook: notebook, wide: wide),
   );
 }
 
 class _CoverSheet extends StatefulWidget {
-  const _CoverSheet({required this.notebook});
+  const _CoverSheet({required this.notebook, required this.wide});
 
   final Notebook notebook;
+
+  /// In a dialog (no drag handle above).
+  final bool wide;
 
   @override
   State<_CoverSheet> createState() => _CoverSheetState();
@@ -57,7 +59,7 @@ class _CoverSheetState extends State<_CoverSheet> {
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         Gaps.xl,
-        0,
+        widget.wide ? Gaps.xl : 0,
         Gaps.xl,
         Gaps.lg + MediaQuery.paddingOf(context).bottom,
       ),

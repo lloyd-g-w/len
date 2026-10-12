@@ -78,9 +78,9 @@ void main() {
     return e;
   }
 
-  Recording recording(Notebook n, String sha) => s.recordings.create(
+  Recording recording(Notebook n, String sha) => s.recordings.save(
     notebookId: n.id,
-    blob: sha,
+    parts: [RecordingPart(sha, 1000)],
     mime: 'audio/mp4',
     title: 'R',
     segments: [RecordingSegment(clock.nowMs(), 1000)],

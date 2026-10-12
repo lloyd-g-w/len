@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/dialog_or_sheet.dart';
 import 'templates/page_setup.dart';
 import 'templates/planner_options.dart';
 import 'templates/template_catalog.dart';
@@ -49,18 +50,18 @@ class TemplateChoice {
   }
 }
 
-/// Opens the template picker as a bottom sheet.
+/// Opens the template picker: a dialog with the gallery and the options
+/// side by side on tablets and desktops, a bottom sheet on phones.
 Future<TemplateChoice?> showTemplatePicker(
   BuildContext context, {
   required PageTemplate initial,
   TemplatePickerMode mode = TemplatePickerMode.create,
   DateTime? today,
-}) => showModalBottomSheet<TemplateChoice>(
+}) => showDialogOrSheet<TemplateChoice>(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  constraints: const BoxConstraints(maxWidth: 720),
-  builder: (_) => TemplatePicker(initial: initial, mode: mode, today: today),
+  maxWidth: 960,
+  maxHeight: 900,
+  builder: (_, wide) => TemplatePicker(initial: initial, mode: mode, today: today, wide: wide),
 );
 
 /// The selection a chooser starts from: [initial], with planners dated
@@ -78,12 +79,23 @@ TemplateSelection initialSelection(
 }
 
 /// Template gallery with live miniatures, paper colours, size and
-/// orientation; the actions stay pinned below the scrolling gallery.
+/// orientation; the actions stay pinned below the scrolling gallery. In a
+/// dialog ([wide]) wide enough, the options sit in a column beside the
+/// gallery.
 class TemplatePicker extends StatefulWidget {
-  const TemplatePicker({super.key, required this.initial, required this.mode, this.today});
+  const TemplatePicker({
+    super.key,
+    required this.initial,
+    required this.mode,
+    this.today,
+    this.wide = false,
+  });
 
   final PageTemplate initial;
   final TemplatePickerMode mode;
+
+  /// Shown in a dialog (else a bottom sheet with a drag handle above).
+  final bool wide;
 
   /// Today's date, the default start of planners (tests fix it).
   final DateTime? today;
@@ -109,66 +121,92 @@ class _TemplatePickerState extends State<TemplatePicker> {
   void _done({bool allPages = false}) => Navigator.of(context)
       .pop(TemplateChoice(_t, allPages: allPages, papers: _generates ? _s.pagesToCreate() : null));
 
+  /// The narrowest dialog that gets the side-by-side layout.
+  static const double _splitWidth = 680;
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final media = MediaQuery.of(context);
-    final compact = media.size.width < Breakpoints.medium;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: media.size.height * 0.9),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Gaps.xl, 0, Gaps.xl, Gaps.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_title, style: theme.textTheme.headlineSmall),
-                const SizedBox(height: Gaps.xxs),
-                Text(
-                  describeSelection(
-                    _s,
-                    canvas: widget.mode == TemplatePickerMode.canvas,
-                    generate: _generates,
-                  ),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+    if (!widget.wide) {
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: media.size.height * 0.9),
+        child: _layout(context, split: false, top: 0, bottomInset: media.padding.bottom),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          _layout(context, split: constraints.maxWidth >= _splitWidth, top: Gaps.xl),
+    );
+  }
+
+  Widget _layout(
+    BuildContext context, {
+    required bool split,
+    required double top,
+    double bottomInset = 0,
+  }) {
+    final theme = Theme.of(context);
+    final compact = MediaQuery.sizeOf(context).width < Breakpoints.medium;
+    final chooser = TemplateChooser(
+      selection: _s,
+      onChanged: _set,
+      canvas: widget.mode == TemplatePickerMode.canvas,
+      sizeEditable: _generates,
+      generate: _generates,
+      tileWidth: compact ? 72 : 80,
+      split: split,
+    );
+    return Column(
+      mainAxisSize: widget.wide ? MainAxisSize.max : MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(Gaps.xl, top, Gaps.xl, Gaps.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_title, style: theme.textTheme.headlineSmall),
+              const SizedBox(height: Gaps.xxs),
+              Text(
+                describeSelection(
+                  _s,
+                  canvas: widget.mode == TemplatePickerMode.canvas,
+                  generate: _generates,
                 ),
-              ],
-            ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
+        ),
+        if (split)
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
+              ),
+              child: chooser,
+            ),
+          )
+        else
           Flexible(
+            fit: widget.wide ? FlexFit.tight : FlexFit.loose,
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.xs, Gaps.xl, Gaps.lg),
-              child: TemplateChooser(
-                selection: _s,
-                onChanged: _set,
-                canvas: widget.mode == TemplatePickerMode.canvas,
-                sizeEditable: _generates,
-                generate: _generates,
-                tileWidth: compact ? 72 : 80,
-              ),
+              child: chooser,
             ),
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
-            ),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                Gaps.xl,
-                Gaps.md,
-                Gaps.xl,
-                Gaps.md + media.padding.bottom,
-              ),
-              child: _actions(),
-            ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
           ),
-        ],
-      ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(Gaps.xl, Gaps.md, Gaps.xl, Gaps.md + bottomInset),
+            child: _actions(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -180,7 +218,8 @@ class _TemplatePickerState extends State<TemplatePicker> {
   };
 
   /// Cancel, then the choices with the primary (filled) last; stacked,
-  /// primary on top, when they don't fit in a row (large text, phones).
+  /// primary on top, when they don't fit in a row (large text) — full
+  /// width on phones.
   Widget _actions() {
     final cancel = TextButton(
       onPressed: () => Navigator.of(context).pop(),
@@ -206,6 +245,14 @@ class _TemplatePickerState extends State<TemplatePicker> {
           }),
         ),
       ];
+    }
+    if (choices.length > 1 && MediaQuery.sizeOf(context).width < Breakpoints.medium) {
+      // Phones: full-width buttons, primary on top, so they line up.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Gaps.xs,
+        children: [...choices.reversed, cancel],
+      );
     }
     return OverflowBar(
       alignment: MainAxisAlignment.end,

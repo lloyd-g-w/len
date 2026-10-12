@@ -1,14 +1,20 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
 import '../../data/blob_store.dart';
 import '../../domain/recording.dart';
 import 'backends/audio_backends.dart';
+import 'trim_range.dart';
 
 /// Plays one recording at a time and relates the playback position to the
 /// ink: [wallTime] is the moment being heard, so strokes written after it
 /// can be dimmed, and [seekToInk] jumps to when a stroke was written.
+///
+/// Positions are in the whole audio of the recording; playback keeps to
+/// its kept range ([startMs]…[endMs]: the trim, or the [trimDraft] being
+/// edited).
 class PlaybackController extends ChangeNotifier {
   PlaybackController({required this.backends, required this.blobs, required this.fetch});
 
@@ -77,6 +83,58 @@ class PlaybackController extends ChangeNotifier {
   /// The wall time (epoch ms) being heard, or null without a recording.
   int? get wallTime => _timeline?.wallTimeAt(_positionMs);
 
+  /// The trim being edited (start and end in the whole audio), or null.
+  TrimRange? get trimDraft => _trimDraft;
+  TrimRange? _trimDraft;
+
+  /// Where the kept audio begins (0 without a recording).
+  int get startMs => _trimDraft?.start ?? _recording?.trimStartMs ?? 0;
+
+  /// Where the kept audio ends (0 without a recording).
+  int get endMs => _trimDraft?.end ?? _recording?.trimEndMs ?? 0;
+
+  /// The wall time after which ink was made after the kept audio (it is
+  /// not veiled), or null when the audio is kept to its end.
+  int? get veilUntil {
+    final recording = _recording;
+    if (recording == null || endMs >= recording.durationMs) return null;
+    return _timeline?.wallTimeAt(endMs);
+  }
+
+  /// Starts editing the trim of the open recording (from its current one).
+  void beginTrim() {
+    final recording = _recording;
+    if (recording == null) return;
+    _trimDraft = (start: recording.trimStartMs, end: recording.trimEndMs);
+    notifyListeners();
+  }
+
+  /// Moves the edited trim to [range] (see [TrimEditing]); the position
+  /// follows into it.
+  void setTrimDraft(TrimRange range) {
+    if (_trimDraft == null || _trimDraft == range) return;
+    _trimDraft = range;
+    notifyListeners();
+    if (_positionMs < range.start || _positionMs > range.end) unawaited(seek(_positionMs));
+  }
+
+  /// Leaves trim editing (after saving it or not).
+  void endTrim() {
+    if (_trimDraft == null) return;
+    _trimDraft = null;
+    notifyListeners();
+    if (_positionMs < startMs || _positionMs > endMs) unawaited(seek(_positionMs));
+  }
+
+  /// Takes over a newer version of the open recording (renamed, trimmed).
+  void update(Recording recording) {
+    if (recording.id != _recording?.id || identical(recording, _recording)) return;
+    _recording = recording;
+    _timeline = recording.timeline;
+    notifyListeners();
+    if (_positionMs < startMs || _positionMs > endMs) unawaited(seek(_positionMs));
+  }
+
   /// Opens [recording] and starts playing it. Returns false (with
   /// [lastError]) if it cannot be played.
   Future<bool> open(Recording recording, {bool autoplay = true}) async {
@@ -86,6 +144,7 @@ class PlaybackController extends ChangeNotifier {
     _timeline = recording.timeline;
     _positionMs = 0;
     _playing = false;
+    _trimDraft = null;
     notifyListeners();
     final player = _player ??= _createPlayer();
     try {
@@ -98,6 +157,7 @@ class PlaybackController extends ChangeNotifier {
     }
     _loading = false;
     if (_rate != 1 && _recording == recording) await player.setRate(_rate);
+    if (recording.trimStartMs > 0 && _recording == recording) await seek(recording.trimStartMs);
     if (autoplay && _recording == recording) await play();
     notifyListeners();
     return true;
@@ -107,11 +167,17 @@ class PlaybackController extends ChangeNotifier {
     final player = backends.playback();
     _positions = player.positions.listen((p) {
       _positionMs = p.inMilliseconds;
+      // The kept audio ends here: stop as if the recording did.
+      if (_playing && _recording != null && _positionMs >= endMs) {
+        _positionMs = endMs;
+        _playing = false;
+        unawaited(player.pause());
+      }
       notifyListeners();
     });
     _completed = player.completed.listen((_) {
       _playing = false;
-      _positionMs = _recording?.durationMs ?? _positionMs;
+      if (_recording != null) _positionMs = endMs;
       notifyListeners();
     });
     return player;
@@ -121,7 +187,7 @@ class PlaybackController extends ChangeNotifier {
     final recording = _recording;
     if (recording == null || _loading) return;
     // Replaying from the end starts again.
-    if (_positionMs >= recording.durationMs - 50) await seek(0);
+    if (_positionMs < startMs || _positionMs >= endMs - 50) await seek(startMs);
     _playing = true;
     notifyListeners();
     await _player?.play();
@@ -139,7 +205,7 @@ class PlaybackController extends ChangeNotifier {
   Future<void> seek(int positionMs) async {
     final recording = _recording;
     if (recording == null) return;
-    _positionMs = positionMs.clamp(0, recording.durationMs);
+    _positionMs = positionMs.clamp(startMs, math.max(startMs, endMs));
     notifyListeners();
     await _player?.seek(Duration(milliseconds: _positionMs));
   }
@@ -148,7 +214,7 @@ class PlaybackController extends ChangeNotifier {
   /// Returns false when it was not written during the open recording.
   Future<bool> seekToInk(int createdAt) async {
     final position = _timeline?.positionOf(createdAt);
-    if (position == null) return false;
+    if (position == null || position < startMs || position > endMs) return false;
     await seek(position - leadMs);
     if (!_playing) await play();
     return true;
@@ -159,6 +225,7 @@ class PlaybackController extends ChangeNotifier {
     final player = _player;
     _recording = null;
     _timeline = null;
+    _trimDraft = null;
     _playing = false;
     _positionMs = 0;
     if (player != null) unawaited(player.pause().catchError((Object _) {}));

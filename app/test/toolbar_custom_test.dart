@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -152,6 +153,39 @@ void main() {
     await tester.tap(find.text('Reset'));
     await tester.pumpAndSettle();
     expect(s.preferences.toolbarLayout, isNull);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
+  testWidgets('customise the toolbar: a mouse drags at once, touch needs a hold', (tester) async {
+    final (s, _) = await pumpEditor(tester, size: const Size(1280, 900));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Toolbar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Customise toolbar…'));
+    await tester.pumpAndSettle();
+    final first = EditorTool.values.first;
+    final tile = find.byKey(ValueKey('edit-${first.name}'));
+
+    Future<void> drag(PointerDeviceKind kind) async {
+      final from = tester.getCenter(tile);
+      final gesture = await tester.startGesture(from, kind: kind);
+      for (var i = 1; i <= 10; i++) {
+        await gesture.moveTo(from + Offset(i * 16.0, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    // A quick touch drag doesn't reorder (it would scroll).
+    await drag(PointerDeviceKind.touch);
+    expect(s.preferences.toolbarConfig.order.first, first);
+    // A mouse drag reorders without a long press.
+    await drag(PointerDeviceKind.mouse);
+    expect(s.preferences.toolbarConfig.order.first, isNot(first));
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     await closeEditor(tester);

@@ -1,14 +1,17 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_layout.dart';
+import 'rich_paste.dart';
 import 'rich_text_controller.dart';
 
 /// The text field of the box being edited, laid out in world units exactly
 /// as the box renders, with formatting shortcuts:
 ///
 /// Ctrl/⌘+B / I / U bold, italic, underline; Ctrl+Shift+X strikethrough;
+/// Ctrl+V pastes HTML from other apps formatted, Ctrl+Shift+V as plain text;
 /// Ctrl+Shift+7 / 8 / 9 numbered list, bullets, checklist; Ctrl+Alt+1 / 2
 /// headings, Ctrl+Alt+0 body text; Tab / Shift+Tab indent list items;
 /// Ctrl+Enter ticks a checklist item; Esc finishes.
@@ -47,6 +50,8 @@ class RichTextField extends StatelessWidget {
         key(LogicalKeyboardKey.keyI): c.toggleItalic,
         key(LogicalKeyboardKey.keyU): c.toggleUnderline,
         key(LogicalKeyboardKey.keyX, shift: true): c.toggleStrike,
+        // (Browsers paste plain text on their own.)
+        if (!kIsWeb) key(LogicalKeyboardKey.keyV, shift: true): () => pasteClipboardPlain(c),
         key(LogicalKeyboardKey.digit7, shift: true): () => c.toggleList(ListKind.number),
         key(LogicalKeyboardKey.digit8, shift: true): () => c.toggleList(ListKind.bullet),
         key(LogicalKeyboardKey.digit9, shift: true): () => c.toggleList(ListKind.check),
@@ -71,6 +76,8 @@ class RichTextField extends StatelessWidget {
         CopySelectionTextIntent: CallbackAction<CopySelectionTextIntent>(
           onInvoke: (intent) => controller.copySelection(cut: intent.collapseSelection),
         ),
+        // HTML from other apps pastes formatted.
+        PasteTextIntent: RichPasteAction(controller),
       },
       child: CallbackShortcuts(
         bindings: _bindings,
@@ -79,6 +86,7 @@ class RichTextField extends StatelessWidget {
           controller: controller,
           focusNode: focusNode,
           maxLines: null,
+          strutStyle: StrutStyle.disabled,
           style: TextLayout.baseStyle(data),
           textAlign: TextLayout.alignOf(data),
           cursorColor: cursorColor,
@@ -92,6 +100,15 @@ class RichTextField extends StatelessWidget {
                     onPressed: () {
                       controller.copySelection();
                       state.hideToolbar();
+                    },
+                  ),
+                  ContextMenuButtonType.paste => item.copyWith(
+                    onPressed: () async {
+                      if (await pasteClipboardHtml(controller)) {
+                        state.hideToolbar();
+                      } else {
+                        item.onPressed?.call();
+                      }
                     },
                   ),
                   ContextMenuButtonType.cut => item.copyWith(

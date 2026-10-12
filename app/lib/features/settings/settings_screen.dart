@@ -9,6 +9,7 @@ import 'appearance_settings.dart';
 import 'editor_settings.dart';
 import 'handwriting_settings.dart';
 import 'input_settings.dart';
+import 'settings_section.dart';
 import 'storage_settings.dart';
 import 'sync_settings.dart';
 
@@ -180,7 +181,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: ConstrainedBox(
                     // Readable line length on wide desktop windows.
                     constraints: const BoxConstraints(maxWidth: 680),
-                    child: pages[selected].build(context),
+                    // The selected list entry names the section.
+                    child: SettingsSection.untitled(child: pages[selected].build(context)),
                   ),
                 ),
               ],

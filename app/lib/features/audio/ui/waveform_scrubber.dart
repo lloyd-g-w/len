@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../playback_controller.dart';
 import '../recording_overview.dart';
+import '../trim_range.dart';
 import 'audio_format.dart';
 
 /// The player's position control: the recording's waveform (the part
@@ -12,17 +13,25 @@ import 'audio_format.dart';
 ///
 /// Tap or drag to seek; a tap on (or near) an ink dot plays from just
 /// before that writing began.
+///
+/// Shows audio [fromMs]…[toMs] (positions in the whole recording): the
+/// kept part of a trimmed recording, or all of it while trimming.
 class WaveformScrubber extends StatefulWidget {
   const WaveformScrubber({
     super.key,
-    required this.durationMs,
+    this.fromMs = 0,
+    required this.toMs,
     required this.positionMs,
     required this.overview,
     required this.onSeek,
+    this.kept,
   });
 
-  final int durationMs;
+  final int fromMs, toMs;
   final int positionMs;
+
+  /// While trimming: the range kept (audio outside it is drawn faint).
+  final TrimRange? kept;
   final RecordingOverview overview;
 
   /// Called with the position (ms) to play from.
@@ -45,16 +54,18 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
   /// Position while dragging (seeks on release).
   int? _dragging;
 
+  int get _span => math.max(1, widget.toMs - widget.fromMs);
+
   int _positionAt(double dx, double width) =>
-      (dx / math.max(1, width) * widget.durationMs).round().clamp(0, widget.durationMs);
+      (widget.fromMs + dx / math.max(1, width) * _span).round().clamp(widget.fromMs, widget.toMs);
 
   void _tap(Offset local, double width) {
     final ink = widget.overview.ink;
-    final duration = math.max(1, widget.durationMs);
     int? snapped;
     var best = WaveformScrubber.snapDistance;
     for (final m in ink.markers) {
-      final distance = (m / duration * width - local.dx).abs();
+      if (m < widget.fromMs || m > widget.toMs) continue;
+      final distance = ((m - widget.fromMs) / _span * width - local.dx).abs();
       if (distance <= best) {
         best = distance;
         snapped = m;
@@ -63,7 +74,7 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
     widget.onSeek(
       snapped == null
           ? _positionAt(local.dx, width)
-          : math.max(0, snapped - PlaybackController.leadMs),
+          : math.max(widget.fromMs, snapped - PlaybackController.leadMs),
     );
   }
 
@@ -71,15 +82,16 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final position = _dragging ?? widget.positionMs;
-    final step = (widget.durationMs / 20).round().clamp(1000, PlaybackController.skipMs);
+    final step = (_span / 20).round().clamp(1000, PlaybackController.skipMs);
+    final shown = position - widget.fromMs;
     return Semantics(
       slider: true,
       label: 'Playback position',
-      value: formatClock(position),
-      increasedValue: formatClock(position + step),
-      decreasedValue: formatClock(position - step),
-      onIncrease: () => widget.onSeek(math.min(widget.durationMs, position + step)),
-      onDecrease: () => widget.onSeek(math.max(0, position - step)),
+      value: formatClock(shown),
+      increasedValue: formatClock(shown + step),
+      decreasedValue: formatClock(shown - step),
+      onIncrease: () => widget.onSeek(math.min(widget.toMs, position + step)),
+      onDecrease: () => widget.onSeek(math.max(widget.fromMs, position - step)),
       textDirection: TextDirection.ltr,
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -102,7 +114,9 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
               size: Size(width, WaveformScrubber.waveHeight + WaveformScrubber.inkHeight),
               painter: WaveformPainter(
                 overview: widget.overview,
-                durationMs: widget.durationMs,
+                fromMs: widget.fromMs,
+                toMs: widget.toMs,
+                kept: widget.kept,
                 positionMs: position,
                 played: scheme.primary,
                 unplayed: scheme.onSurfaceVariant.withValues(alpha: 0.32),
@@ -121,7 +135,9 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
 class WaveformPainter extends CustomPainter {
   WaveformPainter({
     required this.overview,
-    required this.durationMs,
+    this.fromMs = 0,
+    required this.toMs,
+    this.kept,
     required this.positionMs,
     required this.played,
     required this.unplayed,
@@ -130,9 +146,12 @@ class WaveformPainter extends CustomPainter {
   });
 
   final RecordingOverview overview;
-  final int durationMs;
+  final int fromMs, toMs;
+  final TrimRange? kept;
   final int positionMs;
   final Color played, unplayed, ink, head;
+
+  int get _span => math.max(1, toMs - fromMs);
 
   /// Bar heights are memoised per waveform and bar count (they are
   /// recomputed only when the width or the waveform changes).
@@ -142,7 +161,7 @@ class WaveformPainter extends CustomPainter {
     final waveform = overview.waveform;
     if (waveform == null) return List.filled(count, 0);
     final byCount = _bars[waveform] ??= {};
-    return byCount['$count/$durationMs'] ??= waveform.bars(count, durationMs: durationMs);
+    return byCount['$count/$fromMs/$toMs'] ??= waveform.bars(count, fromMs: fromMs, toMs: toMs);
   }
 
   @override
@@ -150,13 +169,15 @@ class WaveformPainter extends CustomPainter {
     const pitch = WaveformScrubber.barWidth + WaveformScrubber.barGap;
     final count = math.max(1, ((size.width + WaveformScrubber.barGap) / pitch).floor());
     final bars = _barsFor(count);
-    final duration = math.max(1, durationMs);
-    final headX = (positionMs / duration).clamp(0.0, 1.0) * size.width;
+    final headX = ((positionMs - fromMs) / _span).clamp(0.0, 1.0) * size.width;
     const mid = WaveformScrubber.waveHeight / 2;
     final playedPaint = Paint()..color = played;
     final unplayedPaint = Paint()..color = unplayed;
+    final cutPaint = Paint()..color = unplayed.withValues(alpha: unplayed.a * 0.4);
+    final kept = this.kept;
     for (var i = 0; i < count; i++) {
       final x = i * pitch;
+      final at = fromMs + (x + WaveformScrubber.barWidth / 2) / size.width * _span;
       // Silence still shows as a thin line, so the track is visible.
       final h = math.max(2.0, bars[i] * (WaveformScrubber.waveHeight - 2));
       canvas.drawRRect(
@@ -164,7 +185,11 @@ class WaveformPainter extends CustomPainter {
           Rect.fromLTWH(x, mid - h / 2, WaveformScrubber.barWidth, h),
           const Radius.circular(WaveformScrubber.barWidth / 2),
         ),
-        x + WaveformScrubber.barWidth / 2 <= headX ? playedPaint : unplayedPaint,
+        kept != null && (at < kept.start || at > kept.end)
+            ? cutPaint
+            : x + WaveformScrubber.barWidth / 2 <= headX
+            ? playedPaint
+            : unplayedPaint,
       );
     }
     _paintInk(canvas, size);
@@ -183,7 +208,7 @@ class WaveformPainter extends CustomPainter {
     const top = WaveformScrubber.waveHeight + 2;
     const stripHeight = 3.0;
     final slices = math.max(1, (size.width / 3).floor());
-    final density = activity.density(slices, durationMs: durationMs);
+    final density = activity.density(slices, fromMs: fromMs, toMs: toMs);
     final sliceWidth = size.width / slices;
     for (var i = 0; i < slices; i++) {
       if (density[i] == 0) continue;
@@ -192,17 +217,19 @@ class WaveformPainter extends CustomPainter {
         Paint()..color = ink.withValues(alpha: 0.25 + 0.75 * density[i]),
       );
     }
-    final duration = math.max(1, durationMs);
     final dot = Paint()..color = ink;
     for (final m in activity.markers) {
-      canvas.drawCircle(Offset(m / duration * size.width, top + 7.5), 3, dot);
+      if (m < fromMs || m > toMs) continue;
+      canvas.drawCircle(Offset((m - fromMs) / _span * size.width, top + 7.5), 3, dot);
     }
   }
 
   @override
   bool shouldRepaint(WaveformPainter old) =>
       old.overview != overview ||
-      old.durationMs != durationMs ||
+      old.fromMs != fromMs ||
+      old.toMs != toMs ||
+      old.kept != kept ||
       old.positionMs != positionMs ||
       old.played != played ||
       old.unplayed != unplayed ||

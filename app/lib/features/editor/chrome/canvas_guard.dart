@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../ui/menus.dart';
 import 'chrome_metrics.dart';
 
 /// Keeps the canvas from reacting while a chrome menu is open.
@@ -94,6 +95,7 @@ class _ChromeMenuAnchorState extends State<ChromeMenuAnchor> {
     final guard = CanvasGuardScope.maybeOf(context);
     return MenuAnchor(
       controller: _controller,
+      reservedPadding: menuReservedPadding(context),
       consumeOutsideTap: true,
       onOpen: () => guard?.opened(_controller),
       onClose: () => guard?.closed(_controller),

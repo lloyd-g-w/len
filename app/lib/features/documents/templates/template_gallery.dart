@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../domain/paper.dart';
@@ -34,42 +36,58 @@ class TemplateGallery extends StatelessWidget {
   /// Opens the menu of one of the user's templates at a global position.
   final void Function(UserTemplate template, Offset position)? onTemplateMenu;
 
+  /// Space a tile takes beyond its miniature's width (padding, selection
+  /// ring, label overhang), and the gap between tiles.
+  static const double _tileChrome = 2 * Gaps.xs + 10, _spacing = Gaps.xxs;
+
+  /// The miniature width that fills [available] with whole columns of
+  /// tiles: the column count whose tiles come closest to [preferred].
+  static double fillWidth(double available, double preferred) {
+    if (!available.isFinite) return preferred;
+    final columns = math.max(
+      1,
+      ((available + _spacing) / (preferred + _tileChrome + _spacing)).round(),
+    );
+    final width = (available - (columns - 1) * _spacing) / columns - _tileChrome;
+    return math.max(width, preferred * 0.75);
+  }
+
   @override
   Widget build(BuildContext context) {
     final landscape = selection.template.orientation == PageOrientation.landscape;
-    final width = landscape ? tileWidth * 1.3 : tileWidth;
-    // Groups flow side by side when there is room, one under the other
-    // on narrow screens.
+    // Every section shares one column grid that fills the width, so no
+    // gutter is left at the end of the rows.
     return LayoutBuilder(
-      builder: (context, constraints) => Wrap(
-        spacing: Gaps.xl,
-        runSpacing: Gaps.md,
-        children: [
-          for (final (category, entries) in sections)
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: constraints.maxWidth),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Gaps.xs, left: Gaps.xs),
-                    child: SectionLabel(category.label),
-                  ),
-                  Wrap(
-                    spacing: Gaps.xxs,
-                    runSpacing: Gaps.xs,
-                    children: [
-                      for (final entry in entries) _tile(entry, width),
-                      if (category == TemplateCategory.mine && onImport != null)
-                        _ImportTile(width: width, height: width * 1.414, onTap: onImport!),
-                    ],
-                  ),
-                ],
+      builder: (context, constraints) {
+        final width = fillWidth(constraints.maxWidth, landscape ? tileWidth * 1.3 : tileWidth);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, (category, entries)) in sections.indexed)
+              Padding(
+                padding: EdgeInsets.only(top: i == 0 ? 0 : Gaps.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Gaps.xs, left: Gaps.xs),
+                      child: SectionLabel(category.label),
+                    ),
+                    Wrap(
+                      spacing: _spacing,
+                      runSpacing: Gaps.xs,
+                      children: [
+                        for (final entry in entries) _tile(entry, width),
+                        if (category == TemplateCategory.mine && onImport != null)
+                          _ImportTile(width: width, height: width * 1.414, onTap: onImport!),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 

@@ -94,20 +94,22 @@ class PdfTextTool implements PointerTool {
     return null;
   }
 
-  /// Where the selection's start and end handles are on screen: the
-  /// top-left of its first line and the bottom-right of its last.
+  /// Where the selection's start and end handles are on screen: where its
+  /// first line starts (at the top of its letters: the top-left for
+  /// upright text, the top-right on a page turned clockwise, …) and where
+  /// its last line ends.
   static (Offset, Offset)? handleEnds(PdfInteraction interaction) {
     final selection = interaction.selection;
     final page = selection.page;
     if (page == null || selection.isEmpty) return null;
-    final rects = selection.rects;
-    if (rects.isEmpty) return null;
+    final lines = selection.lines;
+    if (lines.isEmpty) return null;
     final doc = interaction.doc;
     final index = doc.pages.indexWhere((p) => p.id == page.id);
     final frame = index < 0 ? null : doc.layout.frameOf(index);
     if (frame == null) return null;
     Offset screen(Offset n) =>
         doc.viewport.toScreen(frame.topLeft + Offset(n.dx * frame.width, n.dy * frame.height));
-    return (screen(rects.first.topLeft), screen(rects.last.bottomRight));
+    return (screen(lines.first.startCorner), screen(lines.last.endCorner));
   }
 }

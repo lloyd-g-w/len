@@ -106,6 +106,25 @@ static void clipboard_request_image_callback(
 
 }
 
+static void clipboard_request_html_callback(
+    GtkClipboard *clipboard,
+    GtkSelectionData *selection_data,
+    gpointer user_data) {
+  g_autoptr(FlMethodCall) method_call = static_cast<FlMethodCall *>(user_data);
+  gint length = 0;
+  const guchar *data = selection_data == nullptr
+      ? nullptr
+      : gtk_selection_data_get_data_with_length(selection_data, &length);
+  if (data == nullptr || length <= 0) {
+    fl_method_call_respond_success(method_call, nullptr, nullptr);
+    return;
+  }
+  // Raw bytes: some apps (Firefox) offer UTF-16, decoded on the Dart side.
+  fl_method_call_respond_success(method_call,
+                                 fl_value_new_uint8_list(data, length),
+                                 nullptr);
+}
+
 // Called when a method call is received from Flutter.
 static void pasteboard_plugin_handle_method_call(
     PasteboardPlugin *self,
@@ -152,6 +171,10 @@ static void pasteboard_plugin_handle_method_call(
 
     gtk_clipboard_request_image(clipboard, clipboard_request_image_callback, g_object_ref(method_call));
 
+  } else if (strcmp(method, "html") == 0) {
+    auto *clipboard = gtk_clipboard_get_default(gdk_display_get_default());
+    gtk_clipboard_request_contents(clipboard, gdk_atom_intern_static_string("text/html"),
+                                   clipboard_request_html_callback, g_object_ref(method_call));
   } else {
     fl_method_call_respond_not_implemented(method_call, nullptr);
   }

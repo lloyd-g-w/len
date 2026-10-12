@@ -1,12 +1,24 @@
 import '../../domain/text/text_data.dart';
 
 /// Maps offsets between a text box's text (model offsets) and the laid-out
-/// text, which has one placeholder character before each list line.
+/// (display) text, which inserts
+///
+/// - one placeholder character (U+FFFC) before each list line, where its
+///   marker sits, and
+/// - at each *wrap* of a list item (see `TextWraps`) a line break plus a
+///   placeholder as wide as the marker column ([wrapText]), so the
+///   continuation line hangs under the item's text.
+///
+/// The model offset at a wrap maps to the start of the continuation line.
 class MarkerOffsets {
-  MarkerOffsets(TextData data) : _starts = _listStarts(data);
+  MarkerOffsets(TextData data, [List<int> wraps = const []])
+    : _inserts = _merge(_listStarts(data), wraps);
 
-  /// Model offsets of the starts of list lines, ascending.
-  final List<int> _starts;
+  /// What is inserted at a wrap.
+  static const String wrapText = '\n\uFFFC';
+
+  /// Model offsets of the inserts, ascending; `wrap` false = a marker.
+  final List<({int at, bool wrap})> _inserts;
 
   static List<int> _listStarts(TextData data) {
     final out = <int>[];
@@ -20,44 +32,84 @@ class MarkerOffsets {
     return out;
   }
 
-  bool get isEmpty => _starts.isEmpty;
+  static List<({int at, bool wrap})> _merge(List<int> markers, List<int> wraps) {
+    final out = [
+      for (final m in markers) (at: m, wrap: false),
+      for (final w in wraps) (at: w, wrap: true),
+    ];
+    // A wrap is never at a line start, so offsets are unique.
+    out.sort((a, b) => a.at.compareTo(b.at));
+    return out;
+  }
 
-  /// Display offset of model offset [m]: after the marker of its line.
+  static int _length(({int at, bool wrap}) i) => i.wrap ? wrapText.length : 1;
+
+  bool get isEmpty => _inserts.isEmpty;
+
+  /// Display offset of model offset [m]: after the marker of its line, and
+  /// at a wrap at the start of the continuation line.
   int toDisplay(int m) {
-    var n = 0;
-    while (n < _starts.length && _starts[n] <= m) {
-      n++;
+    var d = m;
+    for (final i in _inserts) {
+      if (i.at > m) break;
+      d += _length(i);
     }
-    return m + n;
+    return d;
   }
 
-  /// Model offset of display offset [d] (a marker maps to its line start).
+  /// Model offset of display offset [d] (inside an insert: its offset).
   int toModel(int d) {
-    var n = 0;
-    while (n < _starts.length && _starts[n] + n < d) {
-      n++;
+    var shift = 0;
+    for (final i in _inserts) {
+      final start = i.at + shift;
+      if (d <= start) break;
+      if (d < start + _length(i)) return i.at;
+      shift += _length(i);
     }
-    return d - n;
+    return d - shift;
   }
 
-  /// Whether display offset [d] is just before a marker.
-  bool isBeforeMarker(int d) {
-    for (var n = 0; n < _starts.length; n++) {
-      if (_starts[n] + n == d) return true;
+  /// The insert covering display character [d], if any.
+  ({int at, bool wrap})? _insertAt(int d) {
+    var shift = 0;
+    for (final i in _inserts) {
+      final start = i.at + shift;
+      if (d < start) return null;
+      if (d < start + _length(i)) return i;
+      shift += _length(i);
+    }
+    return null;
+  }
+
+  /// Whether display character [d] is a list marker.
+  bool isMarker(int d) => _insertAt(d)?.wrap == false;
+
+  /// Whether display character [d] belongs to a wrap.
+  bool isWrap(int d) => _insertAt(d)?.wrap == true;
+
+  /// Whether the caret must not rest at display offset [d]: just before a
+  /// marker, or between a wrap's break and its indent.
+  bool isHidden(int d) {
+    var shift = 0;
+    for (final i in _inserts) {
+      final start = i.at + shift;
+      if (d < start) return false;
+      if (d == (i.wrap ? start + 1 : start)) return true;
+      shift += _length(i);
     }
     return false;
   }
 
   /// The laid-out text of [text].
   String display(String text) {
-    if (_starts.isEmpty) return text;
+    if (_inserts.isEmpty) return text;
     final out = StringBuffer();
     var last = 0;
-    for (final s in _starts) {
+    for (final i in _inserts) {
       out
-        ..write(text.substring(last, s))
-        ..write('\uFFFC');
-      last = s;
+        ..write(text.substring(last, i.at))
+        ..write(i.wrap ? wrapText : '\uFFFC');
+      last = i.at;
     }
     out.write(text.substring(last));
     return out.toString();

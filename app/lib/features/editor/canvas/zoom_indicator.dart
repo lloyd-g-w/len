@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../ink/viewport.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
+import '../../../ui/menus.dart';
 
 /// The zoom percentage, shown briefly whenever the zoom changes. Tapping
 /// it (while shown) offers 50 %, 100 %, 200 % and "Fit content".
@@ -99,6 +100,7 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
         curve: Motion.standard,
         child: MenuAnchor(
           controller: _menu,
+          reservedPadding: menuReservedPadding(context),
           onClose: _scheduleHide,
           menuChildren: [
             // A leading slot on every row keeps the labels aligned; the

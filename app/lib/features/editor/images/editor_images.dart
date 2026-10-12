@@ -12,8 +12,10 @@ import '../../../app_services.dart';
 import '../../../core/clock.dart';
 import '../../../domain/image_data.dart';
 import '../../../domain/surface_element.dart';
+import '../../../domain/text/html_text.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/tools/content_tools.dart';
+import '../../../platform/clipboard_html.dart';
 import '../../documents/progress_dialog.dart';
 import '../tools/text/rich_text_controller.dart';
 import 'image_import.dart';
@@ -36,9 +38,12 @@ class EditorImages {
     required this.tools,
     this.activateAt,
     ClipboardImageReader? readClipboard,
+    Future<String?> Function()? readHtml,
     this.clock = const Clock(),
-  }) : _readClipboard = readClipboard ?? _systemClipboardImage {
+  }) : _readClipboard = readClipboard ?? _systemClipboardImage,
+       _readHtml = readHtml ?? readClipboardHtml {
     services.clipboard.addListener(_onInkCopied);
+    watchClipboardPastes();
   }
 
   final AppServices services;
@@ -50,6 +55,9 @@ class EditorImages {
   final void Function(Offset screen)? activateAt;
 
   final ClipboardImageReader _readClipboard;
+
+  /// Reads HTML from the system clipboard (null if it holds none).
+  final Future<String?> Function() _readHtml;
 
   /// Hash of the system clipboard's image when ink was last copied in the
   /// app: that image is older than the ink, so Ctrl+V pastes the ink.
@@ -111,9 +119,10 @@ class EditorImages {
 
   /// Ctrl+V: pastes an image from the system clipboard if it holds one
   /// that is newer than the ink last copied in the app; otherwise pastes
-  /// the app's own clipboard.
-  Future<void> paste(BuildContext context) async {
-    final bytes = await _clipboardImage();
+  /// the app's own clipboard. Text becomes a text box, formatted when the
+  /// clipboard has HTML (unless [plain], Ctrl+Shift+V).
+  Future<void> paste(BuildContext context, {bool plain = false}) async {
+    final bytes = plain ? null : await _clipboardImage();
     if (!context.mounted) return;
     if (bytes != null && _hash(bytes) != _imageBeforeInkCopy) {
       await insertBytes(context, bytes);
@@ -122,7 +131,9 @@ class EditorImages {
     // Plain text newer than the copied ink becomes a new text box.
     final text = await _clipboardText();
     if (text != null && (services.clipboard.isEmpty || text != _textBeforeInkCopy)) {
-      content.pasteText(RichTextController.pasted(text, tools.textStyle));
+      final html = plain || RichTextController.isOwnClip(text) ? null : await _readHtml();
+      final rich = html == null ? null : textFromHtml(html, tools.textStyle);
+      content.pasteText(rich ?? RichTextController.pasted(text, tools.textStyle));
     } else {
       content.pasteAtCentre();
     }

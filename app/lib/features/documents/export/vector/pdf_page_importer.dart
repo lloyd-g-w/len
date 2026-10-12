@@ -3,13 +3,16 @@ library;
 
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:pdf/pdf.dart' as pw;
 // ignore: implementation_imports
 import 'package:pdf/src/priv.dart' as pw;
 
+import '../../../../domain/pdf_page_space.dart';
 import 'cos.dart';
 import 'imported_pdf_page.dart';
 import 'pdf_filters.dart';
+import 'pdf_source_links.dart';
 import 'pdf_source_reader.dart';
 
 /// Imports pages of [PdfSourceReader]s into [target] as Form XObjects.
@@ -92,9 +95,21 @@ class PdfPageImporter {
     return ImportedPdfPage(
       content: rawFormXObject(target, values, data),
       annotations: _annotations(source, page),
+      links: _links(source, pageIndex, crop),
       cropBox: crop,
       rotate: page.rotate,
     );
+  }
+
+  /// The page's links (none if they cannot be read: they are not worth
+  /// losing the vector copy over).
+  static List<PdfLinkArea> _links(PdfSourceReader source, int pageIndex, List<double> crop) {
+    try {
+      return readSourceLinks(source, pageIndex, crop);
+    } on Object catch (e) {
+      debugPrint('Links of PDF page $pageIndex are left out: $e');
+      return const [];
+    }
   }
 
   static List<double>? _intersect(List<double> a, List<double> b) {

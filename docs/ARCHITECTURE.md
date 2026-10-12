@@ -219,7 +219,8 @@ Everything the engine draws or hit-tests therefore lands on the right page.
 `DocumentSurfaces` holds a `SurfaceModel` + `ChunkPictureCache` only for
 visible pages (plus a few recently seen ones, and any with undo history), and
 loads just their visible chunks. It also provides **notebook-wide undo**: the
-most recently edited page is undone first. Painting mirrors `InkSurface`
+most recently edited page is undone first (a step may span pages: see
+*Selections across pages* under *Editing tools*). Painting mirrors `InkSurface`
 (paper → committed ink → live ink layers) across every visible page.
 
 Page management (`PageActions`, `DocumentCommands`, `PageOverview`): insert,
@@ -294,7 +295,8 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   opening or closing the split never rebuilds the first editor; a 12 px divider resizes
   (drag, ← / → when focused, double tap: halves; panes ≥ 320 px). Each pane is a full
   `EditorScreen` with its own `EditorSession` (viewport, tools, chrome); the
-  second has no tab strip, its back button closes it, Ctrl+W closes it, it keeps its
+  second has no tab strip (an empty strip-coloured band in its place while the first
+  shows one, via `SplitView.primaryWidthOf`, so the bars line up), its back button closes it, Ctrl+W closes it, it keeps its
   view in `OpenNotebooks.splitView` only, and it has its own `ScaffoldMessenger`
   (messages show in the pane they belong to). When the screen gets too small for two
   (a tablet turned to portrait) the second pane is **parked**, not closed: it stays
@@ -451,6 +453,13 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   new-notebook sheet; `templateSections` / `TemplateSelection` (`template_catalog.dart`) hold
   the logic. Planners generate a range when creating or adding ("Add 31 pages"); "Apply to all
   pages" with a planner dates the pages period after period. Image templates fix the page size.
+  The picker opens through `showDialogOrSheet` (`ui/dialog_or_sheet.dart`, shared with New
+  notebook, Export and the cover sheet): a centred dialog from `Breakpoints.medium`, where the
+  chooser is `split` — gallery left, `TemplateOptions` (preview, planner options, paper colour,
+  size) in a 300 dp column right, each scrolling on its own — and a bottom sheet on phones,
+  stacked. `TemplateGallery.fillWidth` picks the column count whose tiles come closest to the
+  preferred width and stretches them to fill the row; paper colours and formats are
+  `EvenChoices` (equal-width chips in one row, or two even rows).
 - Pages carry their paper colour and size; new pages copy the current page's paper and size.
 
 ## Blobs and PDFs
@@ -527,6 +536,16 @@ unsupported filter in a split content stream) is embedded as a 150 dpi
 image, so export never fails because of one page. Text boxes are written as
 selectable text in the embedded bundled fonts (`pdf_text.dart`, see *Text
 boxes*). PNG export rasterises a page with the same painters as the editor.
+**Links** (`PdfLinkWriter`) become link annotations after all pages are
+written: link elements and planner links (to the first exported page with
+the target template) as URI or GoTo actions to named destinations
+(`page-N`), and the links of imported PDF pages — read from the source
+`/Annots` by the copier (`vector/pdf_source_links.dart`: `/URI`, `/GoTo`,
+`/Dest`, explicit or named via `/Dests` or the `/Names` tree), or from
+PDFium (`PdfRenderer.links`) for pages embedded as images. Their areas are
+normalised to the page as shown, so `/Rotate` and crop boxes are already
+applied; page links go to the exported page showing the target (the next
+one after the link's page) and are dropped if it is not exported.
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
 indices from a range like "1-3, 5", templates and PDF backgrounds on or off,
 PNG resolution); without templates pages are exported as blank white paper.
@@ -543,7 +562,7 @@ assembly (`PdfDocument.pages = …` + `encodePdf`) moves whole pages between
 documents but cannot draw on top of them. Copying page objects in Dart
 works identically on Android, Linux, Windows and the web, keeps one export
 writer, and PDFium remains the fallback for files the reader declines.
-Trade-offs: link and form-field annotations are not carried over (their
+Trade-offs: form-field annotations are not carried over (their
 appearances are drawn), optional-content groups hidden by default in the
 source may show, and the copied XObjects are drawn via `drawImage` on a unit
 square because package `pdf` 3.13's `drawXObject` writes an invalid resource
@@ -556,6 +575,20 @@ character boxes, links and outlines through `PdfInfoSource`
 (`PdfrxInfoSource`: the documents `PdfBackgroundCache`'s renderer already
 opened, so no second copy of the PDF) into `PdfPageInfoCache` (LRU per page;
 `PdfLayer` preloads the pages in view).
+
+**Rotated pages.** PDFium reports character boxes and link rectangles in the
+page's own space (before `/Rotate`); `pdfRectToDisplay`
+(`domain/pdf_page_space.dart`) normalises them to the page as shown (what
+the import's page size and the renderer use), for every quarter turn.
+`PdfGlyphs.lines` (`data/search/pdf_glyphs.dart`) then groups characters
+into lines from the boxes themselves — consecutive non-space boxes that
+step the same way (left→right, top→bottom, right→left or bottom→top) and
+overlap across the line, broken at line breaks — so text on turned pages,
+or set at an angle, selects along its direction: hit tests measure "along"
+and "across" per line, handles sit at the line's start / end corners
+(`PdfTextLine.startCorner`, knobs beyond the tops / bottoms of the
+letters), highlights run along the line's middle in reading order, and
+search highlights use the same boxes.
 
 - **Select text** — `EditorTool.selectText` (X), offered only when the
   notebook has PDF pages (`ToolSettings.selectTextAvailable`), is a
@@ -683,7 +716,8 @@ GoodNotes-style lecture recording: audio is captured while writing and
 replayed in step with the ink.
 
 - **Data.** A recording is a synced `recordings` row (`RecordingRepository`)
-  of a notebook whose audio is a content-addressed blob, like PDFs and images.
+  of a notebook whose audio is an ordered list of **parts** (`RecordingPart`:
+  a content-addressed blob and its duration), like PDFs and images.
   Its `segments` (`[startedAt, durationMs]` per stretch between pauses) map
   audio positions to wall time and back (`RecordingTimeline`; ink written
   during a pause belongs to the moment recording resumed). Strokes carry
@@ -695,13 +729,41 @@ replayed in step with the ink.
   so no platform ever has to decode audio. Deleting a notebook tombstones its
   recordings; duplicating copies them (same blobs).
 - **Recording** (`RecordingController`): start / pause / resume / stop with
-  elapsed time and an input level meter. `package:record` writes AAC in MP4
-  (`audio/mp4`, mono, 64 kbit/s ≈ 29 MB per hour) where the platform has an
-  AAC encoder, Opus in WebM in browsers without one (Chrome, Firefox), WAV as
-  a last resort. On stop the file becomes a blob (`BlobStore.putFile`,
-  streamed, never loaded whole), the waveform another, plus the row; captures
-  under 0.5 s are discarded. Closing the editor stops and saves a running
-  recording.
+  elapsed time and an input level meter. Natively `package:record` captures
+  **raw AAC in ADTS frames** (`audio/aac`, mono, 64 kbit/s ≈ 29 MB per hour):
+  every frame carries its own header, so files join by concatenation, can be
+  cut between any two frames, and stay playable when cut off mid-frame
+  (`adts.dart`: `AdtsReader` finds whole frames and counts their audio). On
+  Android and Windows the recorder streams the frames to Len (`startStream`;
+  its file mode would write MP4 there), which writes them itself; on Linux
+  `ffmpeg` writes the `.aac` file. Browsers record AAC in MP4 (Safari) or
+  Opus in WebM, held in memory until the recorder stops; WAV is a last
+  resort. Captures under 0.5 s are discarded. Closing the editor stops and
+  saves a running recording.
+- **Parts: upload while recording** (`RecordingParts`). Every
+  `RecordingController.partMs` (5 min) of audio the capture moves on to a
+  new file (`AudioCapture.split`): where frames are streamed to Len the cut
+  falls between two frames and no audio is lost; elsewhere (Linux, browsers)
+  the recorder restarts — a gap of roughly 0.1–0.3 s every 5 minutes. The
+  finished file becomes a blob at once (`BlobStore.putFile`, streamed) and
+  the `recordings` row is saved with the parts so far (plus the waveform so
+  far), so the blob is referenced — uploaded by the next sync, kept by
+  garbage collection — while recording continues. The row being made is
+  left out of its own device's recordings list until stopped; other devices
+  see it grow part by part. Stop stores the last part.
+- **Recovery** (`recording_journal.dart`, `recording_recovery.dart`).
+  Natively the capture files live in a spool directory,
+  `<app support>/recording` (`SpoolStorage`, `platform/spool_storage*`),
+  next to a small JSON journal per recording (`RecordingJournal`: notebook,
+  title, MIME type, stored parts, pause stretches and the running one's
+  start, files not stored yet), rewritten at start, each part, pause and
+  resume. A clean stop deletes both. On the next start the library looks for
+  journals of recordings not being made (`offerRecordingRecovery`, once per
+  run) and asks "Recover recording?": Recover stores the leftover files'
+  whole frames as further parts (durations from frame counts) and saves the
+  row with a timeline fitted to the audio (`RecordingJournal.timelineFor`);
+  Discard deletes the files (parts stored before stay either way). Browsers
+  have no spool: a killed tab keeps only the parts finished before.
 - **Background recording** (`RecordingKeepAlive`, `AudioBackends.keepAlive`):
   Android hands backgrounded apps silence, so while recording a foreground
   service of type `microphone` runs (`RecordingService.kt`, driven by
@@ -720,12 +782,43 @@ replayed in step with the ink.
   the engine detaches). Other platforms have no keep-alive (desktop apps keep
   the microphone; browsers keep recording in a background tab).
 - **Playback** (`PlaybackController`, `package:audioplayers`): plays one
-  recording at a time from its blob file (natively streamed; browsers get a
-  blob URL), fetching a missing blob from the server first; speed 0.75–2×
+  recording at a time, fetching missing blobs from the server first. Raw AAC
+  parts are joined into one source (natively a temporary file streamed from
+  the blobs, a single part is played from its blob file; browsers get a blob
+  URL), so playback and seeking across parts are seamless; parts that don't
+  join (browser recordings) play one after the other with positions mapped
+  across them (`RecordingPartsMap.partAt`) — a short gap at each joint; speed 0.75–2×
   (kept across recordings while the editor is open), skip ±10 s. The backends
   are created only when the user records or plays, so platforms and tests
   that never do never touch the audio plugins (`AudioBackends`; tests use
   fakes).
+- **Trimming** (non-destructive). A recording's row keeps the audio range
+  it plays, `trimStartMs`…`trimEndMs` (positions in the whole audio; `0`
+  and the duration when untrimmed), synced with it. Positions stay those of
+  the whole audio everywhere; `PlaybackController.startMs` / `endMs` (the
+  trim, or `trimDraft` while it is edited) clamp seeking and skipping,
+  opening seeks to the start and reaching the end pauses as the end of the
+  recording would. The list and the player show the kept length
+  (`Recording.lengthMs`), the scrubber shows only the kept audio
+  (`WaveformScrubber` `fromMs` / `toMs`; waveform bars and ink density take
+  a range). Ink is related to the kept audio only
+  (`Recording.inkPositionOf`): ink made before the start counts as written
+  before the recording, ink made after the end as written after it — never
+  veiled (`veilUntil` → `ReplayVeils.pictureFor(until:)`), not tappable to
+  play, no markers. Trim mode (`trim_panel.dart`, `trim_scrubber.dart`;
+  from the scissors in the player's title row or "Trim…" in a recording's
+  menu) shows the whole waveform framed by two handles (drag; focus and ← /
+  → by 1 s, Shift 0.1 s; at least `Recording.minTrimMs` = 1 s apart,
+  `TrimEditing` in `trim_range.dart`), audio outside drawn faint; preview
+  plays only the kept audio (after moving the end it plays the last 2 s);
+  "Keep all", Cancel, Save. Saving is not an editor undo step (recordings
+  are not part of a surface, like renaming): its message offers Undo, and
+  "Reset trim" in the list restores the whole recording at any time.
+  Export of raw AAC keeps the whole frames overlapping the range
+  (`AdtsReader.cut`, ≈ 23 ms at 44.1 kHz, exact sample counting); browser
+  recordings (MP4 / WebM) export untrimmed. Storage is not freed: parts
+  outside the trim stay (dropping them would need the timeline and
+  waveform rewritten and would make trimming one-way).
 - **Overview** (`recording_overview.dart`): per recording the waveform (loaded
   once, fetched when missing) and the `InkActivity` — the audio positions at
   which the notebook's strokes and elements were made
@@ -753,9 +846,10 @@ replayed in step with the ink.
   (`playback_keys.dart`, ahead of the editor's shortcuts, never while typing):
   Space play / pause, ← / → ±10 s (instead of turning pages), Shift+← / → the
   previous / next burst of writing. The recordings sheet shows each
-  recording's date, duration and size and the total; tap plays, ⋯ renames,
-  exports or deletes; long press or "Select" picks several to export or
-  delete at once. Export hands the audio file (`.m4a`, `.webm`, `.wav`)
+  recording's date, (kept) duration and size and the total; tap plays, ⋯
+  renames, trims (or resets the trim), exports or deletes; long press or "Select" picks several to export or
+  delete at once. Export hands the audio file (`.aac` with the parts
+  joined; browser recordings in parts as one `.webm` / `.m4a` per part)
   to the existing save / share path (`platform/file_export`: save dialog on
   desktop, share sheet on Android, download on the web). `NotebookAudio`
   owns all of it per open notebook (one per notebook, shared by its editors
@@ -900,6 +994,27 @@ surface.
   gestures. The clipboard (`InkClipboard`) lives in `AppServices`, so paste
   works across pages and notebooks; paste goes to the screen centre
   (Ctrl+V, menu) or a long-press position.
+- **Selections across pages** (paged notebooks, continuous flow): the
+  selection stays bound to the active page's surface, but
+  `SelectionController.surfaces` (a `SelectionSurfaces`, given by
+  `DocumentSelection` from the document layout) lets it reach the other
+  pages. `SelectionReach.pick` moves the lasso into each overlapping page's
+  coordinates (`Lasso.shifted`) and selects there too; items of other pages
+  are held as copies moved into the active page's coordinates, with a
+  `SelectionSource` (page model, shift, stored original) per id, and are
+  hidden on their own page (a page holding hidden items is never released,
+  `PageSurface.pinned`). Every edit goes through a `SelectionPlan`, which
+  sorts removals and additions by page and converts items back into each
+  page's space; on a move (`commitPreview`), duplicate and paste each item
+  goes to the page under its centre (on no page: where it was), so dropping
+  a selection on the next page moves it there — strokes are re-added,
+  elements keep their id and are re-parented (all removals are committed
+  before any addition, so storage and sync see a re-parent). Edits on
+  several pages run in `PageModels.group`: one notebook-wide undo step that
+  undoes each page's part backwards and redoes it forwards. The selection
+  picture is clipped to all page frames (not just the active page), so it
+  shows on every page it covers and while dragged between pages. With one
+  page laid out (single-page flow) nothing else is reachable.
 - **Text** (`elements/text_edit_session.dart`): tapping with the Text tool
   creates or edits a box; double-tapping a box with the lasso edits it too.
   While editing, the element is hidden and a real `TextField` is laid out
@@ -927,9 +1042,10 @@ GoodNotes-style rich text inside a box.
   — inserting, joining and splitting lines (lists continue, headings do not),
   numbering — is pure Dart in `RichTextBuffer`, unit-tested without Flutter.
 - **Fonts** (`TextFont`, `assets/fonts/`, built by `tool/build_fonts.py` from
-  Google Fonts and subset to Latin/Greek/Cyrillic + symbols): Inter (sans),
-  Lora (serif), JetBrains Mono, Caveat (handwriting; italic is slanted), all SIL
-  OFL 1.1 with their licence files, registered in the licence page
+  Google Fonts and subset to Latin/Greek/Cyrillic + symbols; static families
+  like Kalam are only subset): Inter (sans), Nunito (rounded), Lora (serif),
+  JetBrains Mono, Caveat (handwriting) and Kalam (hand lettering; these two
+  have no italic, it is slanted), all SIL OFL 1.1 with their licence files, registered in the licence page
   (`core/font_licenses.dart`). Boxes use only bundled fonts, so they measure and
   wrap the same everywhere and in exported PDFs; characters they lack fall back
   to system fonts.
@@ -938,9 +1054,18 @@ GoodNotes-style rich text inside a box.
   line (one U+FFFC each), sized by indent level, so bullets, numbers (1. / a. /
   i. by level) and checkboxes take part in wrapping and alignment identically in
   the canvas (`TextBoxLayout` paints them via `ListMarker`), the editor
-  (`WidgetSpan`s) and PDF export. Wrapped lines of a list item are not indented
-  (no hanging indent in a single paragraph). `MarkerOffsets` maps text offsets
-  to laid-out offsets (`marker_offsets.dart`).
+  (`WidgetSpan`s) and PDF export. **Hanging indents**: a paragraph cannot
+  indent its wrapped lines, so `TextWraps` wraps each list item on its own at
+  the box width minus its marker column; the laid-out text then gets, at each
+  of those offsets, a line break plus a gap placeholder as wide as the marker
+  (`MarkerOffsets.wrapText`), so continuation lines start under the item's
+  text at every level. Canvas, thumbnails, PNG and PDF export (via
+  `TextBoxLayout`) and the editing field (`RichTextController.wrapWidth`, set
+  to the box width; auto-width boxes never wrap) share that layout. The caret
+  steps over the gap; backspace at a continuation line deletes the character
+  before. `MarkerOffsets` maps text offsets to laid-out offsets
+  (`marker_offsets.dart`). The editing field disables the strut, so headings
+  keep their line height while editing.
 - **Editing** (`features/editor/tools/text/`): `RichTextController` (a
   `TextEditingController`) renders the spans and maps the field's edits back
   onto the buffer (common prefix/suffix diff, the caret disambiguating repeated
@@ -967,6 +1092,35 @@ GoodNotes-style rich text inside a box.
   .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.
 - **Paste**: Ctrl+V on the canvas with plain text on the system clipboard (newer
   than ink copied in the app) adds a selected text box at the screen centre.
+- **Rich paste from other apps**: `textFromHtml` (`domain/text/html_text.dart`,
+  pure Dart over a small tolerant tokenizer, `html_tokens.dart`, and inline-CSS
+  reading, `html_css.dart`) turns clipboard HTML into a box's `TextData`: b /
+  strong / i / em / u / s / del and `font-weight` / `font-style` /
+  `text-decoration` styles (the style wins, so Google Docs' wrapping
+  `<b style="font-weight:normal">` is not bold), colours and highlights that are
+  not grey (so a web page's own black / white / theme colours are dropped),
+  code / pre as mono, h1 → heading 1, h2 / h3 → heading 2, ul / ol / li nested
+  → list indent (or Google Docs' flat `aria-level`, Word's `mso-list … levelN`
+  paragraphs with their `<![if !supportLists]>` marker deciding bullet or
+  number), checkbox inputs / ARIA checkboxes → checklist, one line per block,
+  browser whitespace collapsing, entities; `<head>`, style and script are
+  skipped and the Windows CF_HTML header / `StartFragment` markers cut. Sizes
+  and fonts stay the box's. `RichTextBuffer.insertRich` inserts it at the caret
+  (the caret's font, size and colour where the fragment sets none; the first
+  line keeps its paragraph style unless the paste fills it). Ctrl+V in the
+  editing field (`RichPasteAction` overriding `PasteTextIntent`, and the
+  context menu's Paste) and on the canvas (`EditorImages.paste`) use it when the
+  clipboard has HTML and its text is not what was last copied from a box here
+  (that keeps its remembered formatting); otherwise plain text as before. Undo
+  is the box edit's / new element's. Ctrl+Shift+V pastes plain text.
+  HTML comes from `platform/clipboard_html*`: **Windows** CF_HTML, **Android**
+  `ClipData` HTML text (both via `pasteboard`), **Linux** `text/html` (added to
+  our vendored `pasteboard`; UTF-16 from Firefox decoded), **web** the
+  capturing `paste` event's `text/html` (a browser paste into the editing field
+  is matched by its plain text in `RichTextController._applyEdit`; Ctrl+Shift+V
+  there is the browser's plain paste) or else the async Clipboard API (may ask
+  for permission). macOS / iOS are not targets (`pasteboard` returns no HTML
+  there). RTF-only clipboards (WordPad) paste as plain text.
 - **Export**: `PdfTextWriter` writes boxes as real text in the embedded
   (subsetted) fonts, each word at the position the app's layout gives it, with
   vector highlights, decorations and markers; boxes with characters the bundled
@@ -1452,7 +1606,8 @@ neutral surfaces, a tighter type scale and shared component themes
 `Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
 
 Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width),
-`menus.dart` (`MenuRow`, `showContextMenuAt`), `text_prompt.dart`, `sidebar_item.dart`
+`menus.dart` (`MenuRow`, `showContextMenuAt`), `dialog_or_sheet.dart` (`showDialogOrSheet`:
+centred dialog on tablets / desktops, bottom sheet on phones), `text_prompt.dart`, `sidebar_item.dart`
 (library sidebar and the settings section list). Settings: from `Breakpoints.expanded` a
 two-pane layout (section list + the selected section), a single column below. Documents UI
 (`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
@@ -1501,10 +1656,10 @@ malformed record is skipped. Open screens subscribe to
 - The sync token is stored in the app's SQLite database; move it to secure
   storage before shipping.
 - PDF: tiles are not persisted (re-rendered after reopening) and stop at
-  65536 px page width; text selection, links and search highlights skip
-  rotated PDF pages; selection is per page (not across pages); exported
-  PDFs drop the source's link annotations and form fields (their looks are
-  kept) — see *Blobs and PDFs*.
+  65536 px page width; selection is per page (not across pages); exported
+  PDFs drop the source's form fields (their looks are kept) and links with
+  other actions than web addresses and pages of the same file — see
+  *Blobs and PDFs*.
 - Audio: a recording is one blob, so it syncs only once finished and a
   recording above the server's blob limit (200 MiB by default, ≈ 7 h at
   64 kbit/s) cannot be uploaded (it stays on the device, reported as too
@@ -1539,7 +1694,7 @@ malformed record is skipped. Open screens subscribe to
   nonsense); no pause while on battery.
 - Search: PDF text is only
   extracted for PDFs present on the device (fetched when a page is viewed);
-  glyph highlights skip rotated PDF pages (the page is still shown); FTS5's
+  FTS5's
   `unicode61` tokenizer does not segment CJK text (prefix matches only from
   the start of a run); the editor's matches refresh on query changes and
   when the bar reopens, not live while typing into a text box.

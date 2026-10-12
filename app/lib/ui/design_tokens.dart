@@ -37,6 +37,18 @@ abstract final class Breakpoints {
   static const double expanded = 1040;
 }
 
+/// Touch target sizes.
+abstract final class Targets {
+  /// The smallest comfortable touch target (Material's minimum).
+  static const double touch = 48;
+
+  /// The hit area for a control drawn [visual] wide: at least [touch] on
+  /// phones (windows narrower than [Breakpoints.medium]); larger screens
+  /// keep the compact size.
+  static double of(BuildContext context, double visual) =>
+      MediaQuery.sizeOf(context).width < Breakpoints.medium && visual < touch ? touch : visual;
+}
+
 /// Soft, layered shadows (key + ambient light).
 abstract final class Shadows {
   /// Resting cards and covers.

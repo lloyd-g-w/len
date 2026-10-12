@@ -28,6 +28,10 @@ class PageSurface {
 
   bool get hasHistory => model.history.canUndo || model.history.canRedo;
 
+  /// Whether the surface must stay while off screen: it has undo history,
+  /// or holds items of a selection made on another page.
+  bool get pinned => hasHistory || model.hasHidden;
+
   /// Disposes the cache; the model is released to [PageModels].
   void dispose() {
     tiles.dispose();
@@ -123,7 +127,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     }
     final idle = [
       for (final id in _recency)
-        if (!visible.containsKey(id) && id != active && !(_surfaces[id]?.hasHistory ?? false)) id,
+        if (!visible.containsKey(id) && id != active && !(_surfaces[id]?.pinned ?? false)) id,
     ];
     for (final id in idle.take(math.max(0, idle.length - keepIdle))) {
       _release(id);

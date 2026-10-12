@@ -109,6 +109,7 @@ class _InkReplayLayerState extends State<InkReplayLayer> {
                   painter: InkReplayPainter(
                     target: widget.target,
                     wallTime: _wallTime,
+                    until: playback.veilUntil,
                     veils: _veils,
                   ),
                 ),

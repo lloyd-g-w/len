@@ -40,9 +40,9 @@ Future<({String sha, Recording recording})> _recording(AppServices s, int size, 
     paper: PaperStyle.blank,
     coverColor: 0,
   );
-  final recording = s.recordings.create(
+  final recording = s.recordings.save(
     notebookId: notebook.id,
-    blob: sha,
+    parts: [RecordingPart(sha, 1000)],
     mime: 'audio/mp4',
     title: 'R$seed',
     segments: [RecordingSegment(1, 1000)],

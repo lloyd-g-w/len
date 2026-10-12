@@ -44,6 +44,7 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
   VoidCallback? previousTab,
   VoidCallback? closeTab,
   VoidCallback? paste,
+  VoidCallback? pastePlain,
 }) {
   final undo = session.undo;
   final tools = session.tools;
@@ -72,7 +73,7 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
       SingleActivator(key): unlessTyping(() => tools.selectColor(i)),
     const SingleActivator(LogicalKeyboardKey.bracketLeft): unlessTyping(() => tools.stepWidth(-1)),
     const SingleActivator(LogicalKeyboardKey.bracketRight): unlessTyping(() => tools.stepWidth(1)),
-    ...contentShortcuts(session.content, tools, unlessTyping, paste: paste),
+    ...contentShortcuts(session.content, tools, unlessTyping, paste: paste, pastePlain: pastePlain),
     if (session.canvasNav case final nav?) ...canvasShortcuts(nav, unlessTyping),
     if (session.doc case final doc?) ...{
       for (final key in [LogicalKeyboardKey.pageDown, LogicalKeyboardKey.arrowRight])
@@ -106,6 +107,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   required EditorSearchController search,
   required VoidCallback toggleFocus,
   required VoidCallback paste,
+  VoidCallback? pastePlain,
   OpenNotebooks? tabs,
   VoidCallback? closeTab,
 }) => {
@@ -116,6 +118,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
     previousTab: tabs == null ? null : () => tabs.cycle(backwards: true),
     closeTab: closeTab,
     paste: paste,
+    pastePlain: pastePlain,
   ),
   const SingleActivator(LogicalKeyboardKey.f5): presentation.toggle,
   if (presentation.active) ...{

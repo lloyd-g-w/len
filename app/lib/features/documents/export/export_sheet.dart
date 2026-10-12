@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/dialog_or_sheet.dart';
 import 'export_options.dart';
 import 'export_sheet_sections.dart';
 
@@ -22,25 +23,10 @@ Future<ExportOptions?> showExportSheet(
     initialRange: initialRange,
     wide: wide,
   );
-  final size = MediaQuery.sizeOf(context);
-  if (size.width >= Breakpoints.medium && size.height >= 520) {
-    return showDialog<ExportOptions>(
-      context: context,
-      builder: (_) => Dialog(
-        clipBehavior: Clip.antiAlias,
-        insetPadding: const EdgeInsets.all(Gaps.xl),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: sheet(wide: true),
-        ),
-      ),
-    );
-  }
-  return showModalBottomSheet<ExportOptions>(
+  return showDialogOrSheet<ExportOptions>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (_) => sheet(wide: false),
+    maxWidth: 460,
+    builder: (_, wide) => sheet(wide: wide),
   );
 }
 

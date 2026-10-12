@@ -1,5 +1,5 @@
 /// Files for audio recording and playback (`newCaptureTarget`,
-/// `deleteCapture`, `recordingUnavailableReason`, `audioUriFor`,
+/// `deleteCapture`, `openCaptureSink`, `recordingUnavailableReason`, `audioUriFor`,
 /// `releaseAudioUri`): temporary files and blob paths natively, blob URLs
 /// in browsers.
 library;

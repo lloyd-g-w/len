@@ -8,6 +8,7 @@ import 'package:len/data/search/search_query.dart';
 import 'package:len/data/search/search_schema.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/domain/recording.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/common.dart';
@@ -70,10 +71,16 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 4);
-    expect(AppDatabase.latestVersion, 4);
+    expect(schema['version'], 6);
+    expect(AppDatabase.latestVersion, 6);
     // Version 3: recording waveforms, stroke times per surface.
     expect(schema['recordings'], contains("waveform TEXT 1 '' 0"));
+    // Version 5: recordings in parts.
+    expect(schema['recordings'], contains("audio TEXT 1 '[]' 0"));
+    expect(schema['recordings'], isNot(contains('blob ')));
+    // Version 6: trimmed recordings.
+    expect(schema['recordings'], contains('trim_start_ms INTEGER 1 0 0'));
+    expect(schema['recordings'], contains('trim_end_ms INTEGER 1 0 0'));
     expect(
       schema.keys,
       containsAll([
@@ -154,6 +161,28 @@ void main() {
     expect(hits.map((h) => (h.kind, h.refId)), contains((SearchHitKind.notebookTitle, nb.id)));
     final queued = services.database.db.select('SELECT surface_id FROM ink_text_queue');
     expect(queued.map((r) => r['surface_id']), [page.id]);
+  });
+
+  test('version 5 turns a recording\'s blob into its one part', () {
+    final path = p.join(dir.path, 'len.db');
+    final db = AppDatabase.open(path);
+    // Back to version 4's recordings table.
+    db.db.execute("ALTER TABLE recordings ADD COLUMN blob TEXT NOT NULL DEFAULT ''");
+    db.db.execute('ALTER TABLE recordings DROP COLUMN audio');
+    db.db.execute('ALTER TABLE recordings DROP COLUMN trim_start_ms');
+    db.db.execute('ALTER TABLE recordings DROP COLUMN trim_end_ms');
+    db.db.execute('''
+      INSERT INTO recordings (id, notebook_id, blob, duration_ms, started_at, title, mime,
+                              updated_at, device_id)
+      VALUES ('r', 'n', '${'ab' * 32}', 1234, 5, 'Talk', 'audio/mp4', 1, 'd')''');
+    db.db.execute('PRAGMA user_version = 4');
+    db.close();
+    final s = AppServices.create(AppDatabase.open(path));
+    addTearDown(s.dispose);
+    expect(s.recordings.get('r')!.parts, [RecordingPart('ab' * 32, 1234)]);
+    // Version 6 keeps all of it.
+    final r = s.recordings.get('r')!;
+    expect((r.trimStartMs, r.trimEndMs, r.trimmed), (0, 1234, false));
   });
 
   test('reopening a database is a no-op', () {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/domain/notebook.dart';
+import 'package:len/features/editor/chrome/editor_top_bar.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
@@ -60,6 +61,9 @@ void main() {
         await settle(tester);
         expect(find.byType(EditorScreen), findsNWidgets(2));
         expect(tester.takeException(), isNull);
+        // The top bars line up (the second has a band where the first has tabs).
+        final bars = find.byType(EditorTopBar);
+        expect(tester.getSize(bars.at(1)).height, tester.getSize(bars.at(0)).height);
         await shoot(tester, 'split_${name}_${mode.name}');
 
         // Dragging a lasso selection over the other pane.
