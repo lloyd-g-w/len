@@ -7,13 +7,14 @@ import 'package:flutter/services.dart';
 
 import 'incoming_args.dart';
 
-/// Channel to `IncomingFiles.kt` (Android) and the Linux runner
-/// (`my_application.cc`: files a second `len <file>` forwarded).
+/// Channel to `IncomingFiles.kt` (Android) and the desktop runners (files a
+/// second `len <file>` forwarded: Linux `my_application.cc`, Windows
+/// `flutter_window.cpp` + `single_instance.cpp`).
 const String incomingFilesChannel = 'len/incoming_files';
 
 /// Batches of files handed to the app: on Android from intents; on
-/// desktops from the command-line [args] (existing files only) and, on
-/// Linux, files opened while Len runs.
+/// desktops from the command-line [args] (existing files only) and files
+/// opened while Len runs.
 Stream<List<XFile>> openIncomingFiles(List<String> args) {
   final controller = StreamController<List<XFile>>();
   if (!Platform.isAndroid) {
@@ -23,7 +24,7 @@ Stream<List<XFile>> openIncomingFiles(List<String> args) {
     ];
     if (files.isNotEmpty) controller.add(files);
   }
-  if (Platform.isAndroid || Platform.isLinux) _listen(controller);
+  _listen(controller);
   return controller.stream;
 }
 

@@ -2,7 +2,8 @@ name: Release
 
 # Push a tag `vX.Y.Z` matching `version: X.Y.Z+N` in app/pubspec.yaml:
 #   git tag v0.2.0 && git push origin v0.2.0
-# Builds the apps, attaches them to a GitHub release and pushes the sync
+# Builds the apps (APKs, Linux tarball + Flatpak, Windows zip + installer,
+# web zip), attaches them to a GitHub release and pushes the sync
 # server image to ghcr.io/<owner>/len-sync. See README "Release".
 #
 # Secrets (Settings → Secrets and variables → Actions), all optional:
@@ -138,6 +139,14 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item -Recurse app/build/windows/x64/runner/Release "len-$v"
           Compress-Archive -Path "len-$v" -DestinationPath "dist/len-$v-windows-x64.zip"
+      - name: Installer (Inno Setup; see app/windows/installer/len.iss)
+        shell: pwsh
+        run: |
+          $v = "${{ needs.version.outputs.version }}"
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y }
+          & $iscc "/DAppVersion=$v" "/DSourceDir=$PWD\app\build\windows\x64\runner\Release" "/DOutputDir=$PWD\dist" app\windows\installer\len.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
           name: windows
