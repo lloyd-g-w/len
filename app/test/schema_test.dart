@@ -71,13 +71,16 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 5);
-    expect(AppDatabase.latestVersion, 5);
+    expect(schema['version'], 6);
+    expect(AppDatabase.latestVersion, 6);
     // Version 3: recording waveforms, stroke times per surface.
     expect(schema['recordings'], contains("waveform TEXT 1 '' 0"));
     // Version 5: recordings in parts.
     expect(schema['recordings'], contains("audio TEXT 1 '[]' 0"));
     expect(schema['recordings'], isNot(contains('blob ')));
+    // Version 6: trimmed recordings.
+    expect(schema['recordings'], contains('trim_start_ms INTEGER 1 0 0'));
+    expect(schema['recordings'], contains('trim_end_ms INTEGER 1 0 0'));
     expect(
       schema.keys,
       containsAll([
@@ -166,6 +169,8 @@ void main() {
     // Back to version 4's recordings table.
     db.db.execute("ALTER TABLE recordings ADD COLUMN blob TEXT NOT NULL DEFAULT ''");
     db.db.execute('ALTER TABLE recordings DROP COLUMN audio');
+    db.db.execute('ALTER TABLE recordings DROP COLUMN trim_start_ms');
+    db.db.execute('ALTER TABLE recordings DROP COLUMN trim_end_ms');
     db.db.execute('''
       INSERT INTO recordings (id, notebook_id, blob, duration_ms, started_at, title, mime,
                               updated_at, device_id)
@@ -175,6 +180,9 @@ void main() {
     final s = AppServices.create(AppDatabase.open(path));
     addTearDown(s.dispose);
     expect(s.recordings.get('r')!.parts, [RecordingPart('ab' * 32, 1234)]);
+    // Version 6 keeps all of it.
+    final r = s.recordings.get('r')!;
+    expect((r.trimStartMs, r.trimEndMs, r.trimmed), (0, 1234, false));
   });
 
   test('reopening a database is a no-op', () {
