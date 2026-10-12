@@ -135,7 +135,7 @@ void main() {
           "<p class=MsoListParagraphCxSpFirst style='text-indent:-18.0pt;mso-list:l0 level1 lfo1'>"
           "<![if !supportLists]><span style='font-family:Symbol'>·<span "
           'style=\'font:7.0pt "Times New Roman"\'>&nbsp;&nbsp;&nbsp; </span></span><![endif]>'
-          "<span lang=EN-GB>First</span></p>\r\n"
+          '<span lang=EN-GB>First</span></p>\r\n'
           "<p class=MsoListParagraphCxSpLast style='mso-list:l0 level2 lfo1'>"
           '<![if !supportLists]><span>a.<span>&nbsp;&nbsp; </span></span><![endif]>'
           '<i>Second</i></p>\r\n';
