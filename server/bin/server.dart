@@ -21,8 +21,10 @@ Future<void> main(List<String> args) async {
 
   final store = RecordStore.open(config.dbPath);
   final blobs = BlobStore.open(config.blobDir);
+  final requests = RequestTracker();
   final handler = const Pipeline()
       .addMiddleware(logRequests())
+      .addMiddleware(requests.middleware)
       .addHandler(
         buildHandler(
           store: store,
@@ -42,10 +44,20 @@ Future<void> main(List<String> args) async {
 
   await _waitForShutdownSignal();
   stdout.writeln('len-sync: shutting down');
-  await server.close();
-  store.close();
+  // Stop accepting connections, let requests in flight finish (a push
+  // commits, an upload completes) and only then close the database; give
+  // up after a grace period that fits Docker's default stop timeout (10 s).
+  final closing = server.close();
+  if (!await requests.drain(_shutdownGrace)) {
+    stderr.writeln('len-sync: ${requests.inFlight} request(s) still running, closing anyway');
+    await server.close(force: true);
+  }
+  await closing;
+  store.close(); // checkpoints the WAL
   exit(0);
 }
+
+const _shutdownGrace = Duration(seconds: 8);
 
 /// Completes on the first SIGINT or SIGTERM.
 Future<void> _waitForShutdownSignal() {

@@ -115,6 +115,10 @@ interrupted uploads and are removed at startup). Alternatively stop the containe
 whole volume, including any `len.db-wal` file. Records reference blobs by
 sha256, so a backup without the blob directory loses attachments.
 
+**Stopping:** on SIGTERM or SIGINT (`docker stop`) the server stops accepting
+connections, lets requests in flight finish for up to 8 s (within Docker's
+default 10 s stop timeout), then closes the database.
+
 ## Blob garbage collection
 
 Blobs that no record references anymore (deleted PDFs, images, recordings)

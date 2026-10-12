@@ -47,6 +47,29 @@ void main() {
     expect(tmpFiles(), isEmpty);
   });
 
+  test('put syncs the new shard directory and the renamed entry to disk', () async {
+    final synced = <String>[];
+    final store = BlobStore.open(
+      '${dir.path}/synced',
+      syncDirectory: (path) {
+        // Each sync happens once the entry it makes durable exists.
+        if (path.endsWith('/${sha.substring(0, 2)}')) {
+          expect(File('$path/$sha').existsSync(), isTrue);
+        }
+        synced.add(path);
+      },
+    );
+    await store.put(sha, chunks(data), maxBytes: 100);
+    final shard = '${store.root}/${sha.substring(0, 2)}';
+    expect(synced, [store.root, shard]);
+    expect(File(store.pathFor(sha)).readAsBytesSync(), data);
+  });
+
+  test('syncDirectory flushes a real directory and rejects a missing one', () {
+    syncDirectory(dir.path);
+    expect(() => syncDirectory('${dir.path}/missing'), throwsA(isA<FileSystemException>()));
+  });
+
   test('put of an existing blob is a no-op', () async {
     await blobs.put(sha, chunks(data), maxBytes: 100);
     final size = await blobs.put(sha, Stream.error(StateError('not read')), maxBytes: 100);

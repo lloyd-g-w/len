@@ -152,6 +152,19 @@ void main() {
       expect(rest.hasMore, isFalse);
     });
 
+    test('the payload cap counts UTF-8 bytes, not UTF-16 code units', () {
+      final wide = RecordStore.inMemory();
+      addTearDown(wide.close);
+      // '€' is one UTF-16 code unit but three UTF-8 bytes: each payload is
+      // {"t":"€€€€€€€€€€"} = 38 bytes (18 code units).
+      wide.push([
+        for (var i = 0; i < 3; i++) rec('$i', data: {'t': '€' * 10}),
+      ]);
+      final page = wide.pull(since: 0, limit: 5, maxDataBytes: 60);
+      expect(page.records.map((r) => r.seq), [1, 2]);
+      expect(page.hasMore, isTrue);
+    });
+
     test('since beyond end returns since', () {
       final page = store.pull(since: 42, limit: 5);
       expect(page.records, isEmpty);
