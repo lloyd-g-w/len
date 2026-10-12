@@ -83,6 +83,17 @@ class InkTileCache extends ChangeNotifier {
   bool _notifyScheduled = false;
   bool _disposed = false;
 
+  /// Time since [paint] last ran: a cache not painted lately (its view is
+  /// zoomed out to level-of-detail images, or gone) renders nothing on
+  /// edits — it keeps their strokes as overlays until painted again —
+  /// so it never competes with the raster thread for what is on screen.
+  final Stopwatch _sincePaint = Stopwatch();
+
+  /// How recently the cache must have been painted to render on edits.
+  static const Duration inUseFor = Duration(milliseconds: 500);
+
+  bool get _inUse => _sincePaint.isRunning && _sincePaint.elapsed < inUseFor;
+
   /// What the last [paint] drew (tests and the perf probe).
   final TilePaintStats lastPaint = TilePaintStats();
 
@@ -96,6 +107,9 @@ class InkTileCache extends ChangeNotifier {
   /// pixels (the view's origin relative to it).
   void paint(ui.Canvas canvas, TileView view, VectorFallback fallback) {
     lastPaint.reset();
+    _sincePaint
+      ..reset()
+      ..start();
     if (view.clip != _clip) {
       _dropAll();
       _clip = view.clip;
@@ -260,7 +274,7 @@ class InkTileCache extends ChangeNotifier {
           tile
             ..overlay.add(stroke)
             ..blank = false;
-          _request(index, 0);
+          if (_inUse) _request(index, 0);
         }
       }
       _dropTouching(_old, chunks, all: true);
@@ -289,7 +303,7 @@ class InkTileCache extends ChangeNotifier {
         tile
           ..version += 1
           ..stale = true;
-        _request(tile.index, 1);
+        if (_inUse) _request(tile.index, 1);
       }
     }
   }
