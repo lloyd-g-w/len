@@ -95,7 +95,10 @@ class _UsageTile extends StatelessWidget {
     return SettingsTile(
       icon: Icons.pie_chart_outline_rounded,
       title: 'Space used',
-      subtitle: '${formatBytes(usage.usage)} of ${formatBytes(usage.quota)} available to Len',
+      // Includes the app's own offline copy (service worker cache).
+      subtitle:
+          '${formatBytes(usage.usage)} of ${formatBytes(usage.quota)}, '
+          'including the app itself for offline use',
       below: LinearProgressIndicator(value: fraction),
     );
   }
