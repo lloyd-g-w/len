@@ -48,11 +48,11 @@ class _NotebookCardState extends State<NotebookCard> {
   /// Opens the notebook, or toggles it in selection mode.
   void _tap() {
     final actions = widget.actions;
+    if (actions.selectWithModifiers(_notebook.id)) return;
     if (_selecting) {
-      if (!actions.selectWithModifiers(_notebook.id)) actions.selection.toggle(_notebook.id);
+      actions.selection.toggle(_notebook.id);
       return;
     }
-    if (actions.selectWithModifiers(_notebook.id)) return;
     unawaited(
       actions.openNotebook(context, _notebook, from: actions.covers.originOf(context, _notebook)),
     );

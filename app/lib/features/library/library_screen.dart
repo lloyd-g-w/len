@@ -25,8 +25,10 @@ import 'thumbnails/thumbnail_scope.dart';
 /// Home screen: the notebook library with folders, favourites and trash.
 ///
 /// From [Breakpoints.medium] a sidebar; below it the same content in a
-/// drawer (☰). Shortcuts: Ctrl+N new notebook, Ctrl+Shift+N new folder, Ctrl+F search,
-/// Delete moves the focused notebook to the trash, Esc clears the search.
+/// drawer (☰). Shortcuts: Ctrl+N new notebook, Ctrl+Shift+N new folder,
+/// Ctrl+F search, Ctrl+A select all, Delete moves the focused (or selected)
+/// notebooks to the trash, Esc ends selection or clears the search. Ctrl-
+/// and Shift-click select notebooks.
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
 
@@ -143,6 +145,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _searchFocus.unfocus();
   }
 
+  /// Ctrl+A: selects every notebook shown (a focused text field keeps its
+  /// own Ctrl+A).
+  void _selectAll() {
+    final ids = [for (final n in _controller.visibleNotebooks) n.id];
+    if (ids.isNotEmpty) _actions.selection.selectAll(ids);
+  }
+
   void _trashFocused() {
     if (_actions.selection.active && _controller.section != LibrarySection.trash) {
       _actions.trashSelected(context, _actions.selection);
@@ -162,6 +171,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
         unawaited(_actions.createFolder(context)),
     const SingleActivator(LogicalKeyboardKey.keyF, control: true): _focusSearch,
     const SingleActivator(LogicalKeyboardKey.delete): _trashFocused,
+    const SingleActivator(LogicalKeyboardKey.keyA, control: true): _selectAll,
+    const SingleActivator(LogicalKeyboardKey.keyA, meta: true): _selectAll,
     const SingleActivator(LogicalKeyboardKey.escape): _clearSearch,
   };
 
