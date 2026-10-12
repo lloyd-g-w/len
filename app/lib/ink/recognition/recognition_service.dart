@@ -158,21 +158,6 @@ class RecognitionService extends ChangeNotifier {
     return _model == ModelStatus.downloaded;
   }
 
-  /// Deletes [language]'s model; indexing pauses until it is downloaded
-  /// again (recognised text stays searchable).
-  Future<void> deleteModel() async {
-    if (!isSupported) return;
-    indexer.stop();
-    try {
-      await recognizer.deleteModel(language);
-    } on Object catch (e) {
-      debugPrint('Cannot delete the handwriting model: $e');
-    }
-    if (_disposed) return;
-    _model = ModelStatus.unknown;
-    await refreshModel();
-  }
-
   /// Readings of [strokes] (e.g. a lasso selection), best first. Throws if
   /// recognition is unsupported or the model is missing.
   Future<List<RecognitionCandidate>> recognize(List<Stroke> strokes, {Size? writingArea}) {

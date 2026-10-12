@@ -36,12 +36,6 @@ class MlKitRecognizer extends HandwritingRecognizer {
   }
 
   @override
-  Future<void> deleteModel(String language) async {
-    await _recognizers.remove(language)?.close();
-    await _models.deleteModel(language);
-  }
-
-  @override
   Future<List<RecognitionCandidate>> recognize(
     List<Stroke> strokes, {
     required String language,

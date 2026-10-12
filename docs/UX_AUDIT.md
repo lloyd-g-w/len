@@ -117,7 +117,7 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
    selected row and different padding from every other menu. → `MenuRow`
    with a check.
 10. ✅ **Destructive items are not red**: "Delete page" in the Page menu,
-    "Empty Trash" (primary blue), and the language model "Delete".
+    "Empty Trash" (primary blue).
 11. ✅ **Dark-mode contrast.**
     - Dark dialogs use `surfaceContainerHigh`, the same colour as the text
       field fill, so fields have no edge (Search templates, Recognised

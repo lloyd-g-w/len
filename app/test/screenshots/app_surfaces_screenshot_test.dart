@@ -112,13 +112,6 @@ void main() {
         await shoot(tester, 's_settings_handwriting_language_${name}_${mode.name}');
         await tester.tapAt(const Offset(4, 4));
         await settle(tester);
-
-        await tester.tap(find.text('Delete…'));
-        await settle(tester);
-        expect(find.textContaining('model?'), findsOneWidget);
-        await shoot(tester, 's_settings_handwriting_delete_${name}_${mode.name}');
-        await tester.tap(find.text('Cancel'));
-        await settle(tester);
         expect(tester.takeException(), isNull);
       });
     }

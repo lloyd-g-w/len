@@ -1565,7 +1565,7 @@ boxes, the text of imported PDF pages and recognised handwriting (see
 GoodNotes-style handwriting search and lasso "Convert to text", on-device.
 
 - **Recogniser.** `HandwritingRecognizer` (strokes in writing order →
-  candidates, best first; per-language model download / delete) behind a
+  candidates, best first; per-language model download) behind a
   conditional export: **Android** uses Google ML Kit Digital Ink
   (`google_mlkit_digital_ink_recognition`, already on AGP 9 / built-in Kotlin;
   `MlKitRecognizer` synthesises point timestamps from the stroke's start time
@@ -1578,8 +1578,8 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   downloaded over Wi-Fi; the settings and "Convert to text" download on
   demand with a progress bar — ML Kit reports no byte progress) and the
   `HandwritingIndexer`. Settings: language, "Search handwriting" (off
-  forgets recognised text, on re-recognises everything), model download /
-  delete.
+  forgets recognised text, on re-recognises everything) and model download
+  (Android manages removing models).
 - **Clustering** (`InkClustering`): a surface's strokes (highlighter
   excluded) become lines and words. The unit is the median stroke height;
   a stroke joins a line whose letter band it overlaps vertically (small

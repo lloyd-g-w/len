@@ -34,7 +34,7 @@ Future<AppServices> pumpSettings(WidgetTester tester, FakeRecognizer recognizer)
 }
 
 void main() {
-  testWidgets('language, indexing switch and model download / delete', (tester) async {
+  testWidgets('language, indexing switch and model download', (tester) async {
     final recognizer = FakeRecognizer(downloaded: false);
     final services = await pumpSettings(tester, recognizer);
     final recognition = services.recognition;
@@ -49,21 +49,20 @@ void main() {
     expect(recognition.language, 'de-DE');
     expect(find.text('Deutsch'), findsOneWidget); // the tile's subtitle
 
-    await tester.tap(find.text('Delete…'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-    await tester.pumpAndSettle();
-    expect(recognition.modelStatus, ModelStatus.missing);
-    expect(find.text('Download'), findsOneWidget);
-    await tester.tap(find.text('Download'));
-    await tester.pumpAndSettle();
-    expect(recognition.modelStatus, ModelStatus.downloaded);
-
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
     expect(recognition.indexingEnabled, isFalse);
     expect(recognition.indexer.isActive, isFalse);
     expect(find.textContaining('Off: search finds'), findsOneWidget);
+
+    // Missing (e.g. removed by Android): offered for download.
+    recognizer.downloaded = false;
+    await tester.runAsync(recognition.refreshModel);
+    await tester.pumpAndSettle();
+    expect(recognition.modelStatus, ModelStatus.missing);
+    await tester.tap(find.text('Download'));
+    await tester.pumpAndSettle();
+    expect(recognition.modelStatus, ModelStatus.downloaded);
   });
 
   testWidgets('unsupported platforms explain why', (tester) async {

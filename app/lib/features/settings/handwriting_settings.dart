@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../ink/recognition/handwriting_recognizer.dart';
 import '../../ink/recognition/recognition_languages.dart';
 import '../../ink/recognition/recognition_service.dart';
-import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 import 'settings_section.dart';
 
@@ -128,11 +127,6 @@ class HandwritingSettings extends StatelessWidget {
         ModelStatus.unknown => 'Checking…',
       },
       trailing: switch (status) {
-        ModelStatus.downloaded => TextButton(
-          style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-          onPressed: () => unawaited(_delete(context, name)),
-          child: const Text('Delete…'),
-        ),
         ModelStatus.missing => FilledButton.tonal(
           onPressed: () => unawaited(recognition.download()),
           child: Text(failed ? 'Try again' : 'Download'),
@@ -146,18 +140,5 @@ class HandwritingSettings extends StatelessWidget {
             )
           : null,
     );
-  }
-
-  Future<void> _delete(BuildContext context, String name) async {
-    final ok = await confirmAction(
-      context,
-      title: 'Delete the $name model?',
-      message:
-          'Handwriting stays searchable as recognised so far; new writing is not '
-          'recognised until the model is downloaded again.',
-      confirmLabel: 'Delete',
-      destructive: true,
-    );
-    if (ok) await recognition.deleteModel();
   }
 }
