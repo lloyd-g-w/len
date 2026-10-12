@@ -186,8 +186,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Split view (tablets in landscape, desktops): two notebooks — or two places in one — side by
   side, resizable, each pane a full editor (tools optionally linked); drag a lasso selection across
   to copy it; from a tab's menu or the top bar
-- ✅ Presentation mode: no chrome, full screen (web, Linux, Windows) / immersive (Android), laser pointer, one page at
-  a time with ← / → / Space, controls that fade away
+- ✅ Presenting: F5 is focus mode (no chrome, full screen on web, Linux and Windows,
+  immersive on Android) with the laser pointer; Space / ← / → turn pages
 - ⬜ Presentation on a second display as a separate audience view (Android Presentation API,
   desktop multi-window once Flutter supports it); synced favourite pens
 - ✅ App identity: one icon design for all platforms (Android adaptive + themed icon), splash

@@ -19,7 +19,7 @@ void main() {
     messenger.setMockMethodCallHandler(incoming, null);
   });
 
-  test('presentation asks the runner for full screen', () async {
+  test('focus mode asks the runner for full screen', () async {
     final calls = <MethodCall>[];
     messenger.setMockMethodCallHandler(window, (call) async {
       calls.add(call);

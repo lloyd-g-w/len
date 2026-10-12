@@ -87,17 +87,17 @@ class SplitController extends ChangeNotifier {
   Offset get dragCentre => _dragCentre;
   Offset _dragCentre = Offset.zero;
 
-  /// The pane shown alone while it presents (the other stays alive).
-  SplitPane? get presenting => _presenting;
-  SplitPane? _presenting;
+  /// The pane shown alone while in focus mode (the other stays alive).
+  SplitPane? get soloPane => _solo;
+  SplitPane? _solo;
 
   bool get isSplit => available && tabs.splitId != null;
 
-  /// Whether [pane] is on screen: the presenting pane alone, else the
+  /// Whether [pane] is on screen: the pane in focus mode alone, else the
   /// first pane, and the second while there is room for it.
   bool isShown(SplitPane pane) {
-    final presenting = _presenting;
-    if (presenting != null) return pane == presenting;
+    final solo = _solo;
+    if (solo != null) return pane == solo;
     return available || !pane.secondary;
   }
 
@@ -120,11 +120,11 @@ class SplitController extends ChangeNotifier {
     if (listener != null) pane.session.tools.removeListener(listener);
     if (_dropTarget == pane) _dropTarget = null;
     if (_dragSource == pane) _dragSource = null;
-    if (_presenting == pane) {
-      // The presenting editor went (its tab closed or switched, the split
+    if (_solo == pane) {
+      // The editor in focus mode went (its tab closed or switched, the split
       // closed): show the other pane again. Deferred, as editors detach
       // while the tree is locked (dispose).
-      _presenting = null;
+      _solo = null;
       scheduleMicrotask(() {
         if (!_disposed) notifyListeners();
       });
@@ -153,10 +153,10 @@ class SplitController extends ChangeNotifier {
     return true;
   }
 
-  /// Shows [pane] alone (presentation), or both again with null.
-  void present(SplitPane? pane) {
-    if (_presenting == pane) return;
-    _presenting = pane;
+  /// Shows [pane] alone (focus mode), or both again with null.
+  void solo(SplitPane? pane) {
+    if (_solo == pane) return;
+    _solo = pane;
     notifyListeners();
   }
 

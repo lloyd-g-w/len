@@ -23,7 +23,6 @@ EditorMenuActions editorMenuActions(
   required VoidCallback onBackground,
   VoidCallback? onSearch,
   VoidCallback? onCustomiseToolbar,
-  VoidCallback? onPresent,
 }) {
   final prefs = session.services.preferences;
   final doc = session.doc;
@@ -42,7 +41,6 @@ EditorMenuActions editorMenuActions(
     toolLabels: prefs.toolbarLabels,
     onToolLabels: (show) => prefs.toolbarLabels = show,
     onCustomiseToolbar: onCustomiseToolbar,
-    onPresent: onPresent,
     onSettings: onSettings,
     onSearch: onSearch,
     bookmarked: page?.bookmarked ?? false,

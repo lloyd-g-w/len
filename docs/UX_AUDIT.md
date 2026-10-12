@@ -16,8 +16,8 @@ phone; the phone tool switcher with favourites; presentation, light and dark).
   and a preview of the copy at the target's zoom (the source clips at its edge).
 - ✅ Edit mode reads on phones (tools on their own row; favourites, Reset and
   Done below) and favourite glyphs are outlined, so dark inks show in dark mode.
-- ✅ Presentation fits the whole page: fitted pages now re-fit when the chrome
-  goes away (the new scroll bounds used to nudge the view and skip the re-fit).
+- ✅ Fitted pages re-fit when the chrome goes away in focus mode (the new
+  scroll bounds used to nudge the view and skip the re-fit).
 - ✅ The second pane's top bar is shorter than the first's when the first shows
   the tab strip (desktop). → It shows an empty strip-coloured band; the bars line up.
 - ✅ Reordering in edit mode needs a long press, also with a mouse. → A mouse or

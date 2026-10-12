@@ -19,7 +19,6 @@ class EditorMenuActions {
     this.toolLabels = false,
     this.onToolLabels,
     this.onCustomiseToolbar,
-    this.onPresent,
     required this.onSettings,
     this.onSearch,
     this.bookmarked = false,
@@ -57,8 +56,6 @@ class EditorMenuActions {
   /// Puts the toolbar into edit mode (order, hidden tools, favourites).
   final VoidCallback? onCustomiseToolbar;
 
-  /// Starts presentation mode (no chrome, laser pointer, page navigation).
-  final VoidCallback? onPresent;
   final VoidCallback onSettings;
 
   /// Opens in-notebook search (a menu item on phones, where the bar has

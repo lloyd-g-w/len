@@ -316,8 +316,8 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
     hidden in the other view too (hiding is per model).
   - **Linked tools** (optional): `ToolSettings.adopt` copies tool, quick colours and
     widths, eraser, shape and text defaults from the pane that changed them.
-  - **Presentation** in a pane shows that pane alone (`SplitView.solo`; the other stays
-    alive offstage); when the presenting editor goes (tab closed or switched, split closed),
+  - **Focus mode** in a pane shows that pane alone (`SplitView.solo`; the other stays
+    alive offstage); when that editor goes (tab closed or switched, split closed),
     the other pane shows again.
   - **Views across layout changes**: before tabs change, `OpenNotebooks.captureViews`
     (set by the controller) records where both panes look, so swapping panes keeps each
@@ -343,18 +343,16 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   its editors (notebook record, page lists, surfaces, PDFs) and sets `gone` when the
   notebook is deleted or trashed elsewhere. One microphone: a notebook can't start
   recording while another records ("Already recording in …").
-- **Presentation mode** (`present/`; "⋯" → *Present*, F5): `Presentation` hides all
-  chrome (`ChromeLayout.focus`), goes immersive / full screen (`platform/fullscreen*`: the
-  browser's fullscreen API on the web; Android hides the system bars; Linux and Windows
-  windows go full screen through the runners' `len/window` channel), makes the laser pointer the tool, and shows
-  paged notebooks one whole page at a time (single flow, fit page). ← / → / Page Up /
-  Page Down / Space / Shift+Space turn pages (swipes too, when fingers navigate); a
-  small bar (`PresentationControls`: previous, page n / m, next, *Stop presenting*)
-  peeks in near the bottom (pointer near it, a touch, a page turn) and fades after 3 s.
-  Esc, back or F5 stop; the tool, page layout and zoom are put back (never saved as the
-  user's choice). **External displays**: Android mirrors the screen by default, which
-  shows the presentation; a separate audience window (Android `Presentation` API,
-  desktop multi-window) is out of scope — Flutter's multi-window API is not stable yet.
+- **Focus mode** (`EditorScreen._setFocus`; "⋯" → *Focus mode*, F11, Ctrl/⌘+.) hides
+  all chrome (`ChromeLayout.focus`) but the `FocusHandle`, and goes immersive / full
+  screen (`platform/fullscreen*`: the browser's fullscreen API on the web; Android hides
+  the system bars; Linux and Windows windows go full screen through the runners'
+  `len/window` channel). It is also the way to present: **F5** enters it with the laser
+  pointer as the tool (put back on leaving). Space / Shift+Space turn pages in it, next
+  to the usual ← / → / Page Up / Page Down. Esc, back, F11 or F5 leave it. **External
+  displays**: Android mirrors the screen by default; a separate audience window
+  (Android `Presentation` API, desktop multi-window) is out of scope — Flutter's
+  multi-window API is not stable yet.
 - **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
   pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
   in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).
@@ -375,7 +373,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
   flow fits the whole page and slides it in.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
-  P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 present;
+  P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
   Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
@@ -1473,7 +1471,7 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   the machine trusts (a paid code-signing certificate or a manual certificate
   import); the installer itself is unsigned (SmartScreen warns until it has
   reputation or a signature).
-- **Desktop full screen:** presentation mode calls `setFullscreen`
+- **Desktop full screen:** focus mode calls `setFullscreen`
   (`platform/fullscreen*`), served by both runners on `len/window`
   (`setFullScreen`): GTK `gtk_window_fullscreen`; on Windows a borderless
   window over the monitor (style and placement restored afterwards). No

@@ -139,13 +139,6 @@ class EditorMoreMenu extends StatelessWidget {
           onPressed: a.onFocusMode,
           child: const Text('Focus mode'),
         ),
-        if (a.onPresent case final onPresent?)
-          MenuItemButton(
-            leadingIcon: const Icon(Icons.slideshow_rounded),
-            shortcut: compact ? null : const SingleActivator(LogicalKeyboardKey.f5),
-            onPressed: onPresent,
-            child: const Text('Present'),
-          ),
         const Divider(),
         MenuItemButton(
           leadingIcon: const Icon(Icons.draw_outlined),
