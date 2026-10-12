@@ -7,7 +7,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Focused line-up: Pen (ballpoint) + Highlighter + Eraser (older pen types still render)
 - ✅ Smooth ink at any zoom: arc-length filtering, Bézier envelope outlines, tangent round caps
 - ✅ Independent quick colours and quick widths per ink (1–6 slots each, GoodNotes-style editing)
-- ✅ Pen settings: pressure sensitivity, stabiliser, tapered ends (stored per stroke);
+- ✅ Pen settings: pressure sensitivity, stabiliser (stored per stroke);
   highlighter opacity
 - ✅ Full colour picker (HSV + hex), saved favourite colours
 - ✅ Highlighter renders behind ink; hold to straighten

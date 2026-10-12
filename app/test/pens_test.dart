@@ -6,11 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/ink/geometry/straighten.dart';
 import 'package:len/ink/geometry/stroke_splitter.dart';
-import 'package:len/ink/pen/pen_profile.dart';
-import 'package:len/ink/render/nib.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
 import 'package:len/ink/stroke_hit_test.dart';
-import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/undo_history.dart';
 import 'package:len/ui/color_picker/color_hex.dart';
 
@@ -33,42 +30,43 @@ Stroke line(
 
 void main() {
   group('InkTool & StrokeStyle', () {
-    test('unknown tools fall back to the legacy pen', () {
-      expect(InkTool.parse('crayon'), InkTool.pen);
-      expect(InkTool.parse('fountain'), InkTool.fountain);
+    test('tools parse strictly', () {
+      expect(InkTool.parse('ballpoint'), InkTool.ballpoint);
+      expect(InkTool.parse('highlighter'), InkTool.highlighter);
+      expect(() => InkTool.parse('fountain'), throwsFormatException);
     });
 
-    test('strokes without a style render like v0.1', () {
-      expect(
-        StrokeStyle.defaultsFor(InkTool.pen),
-        const StrokeStyle(thinning: 0.6, streamline: 0.35),
-      );
+    test('strokes created without a style get the defaults of their tool', () {
+      expect(line('a').style, const StrokeStyle());
       expect(StrokeStyle.defaultsFor(InkTool.highlighter).opacity, 0.35);
       expect(line('a', tool: InkTool.highlighter).style.thinning, 0);
     });
 
-    test('JSON round-trips and parses leniently', () {
-      const style = StrokeStyle(opacity: 0.8, thinning: 0.7, streamline: 0.2, taperStart: 9);
+    test('JSON round-trips and parses strictly', () {
+      const style = StrokeStyle(opacity: 0.8, thinning: 0.7, streamline: 0.2, unit: 0.5);
       final json = jsonDecode(jsonEncode(style.toJson()));
-      expect(StrokeStyle.fromJson(json, fallback: const StrokeStyle()), style);
+      expect(StrokeStyle.fromJson(json), style);
+      expect(StrokeStyle.fromJson({'o': 1, 'th': 0.5, 'sl': 0.4, 'future': true}).unit, 0);
 
-      const fallback = StrokeStyle(opacity: 0.5);
-      final odd = StrokeStyle.fromJson({'o': 'x', 'th': 4, 'future': true}, fallback: fallback);
-      expect(odd.opacity, 0.5); // mistyped → fallback
-      expect(odd.thinning, 1); // out of range → clamped
-      expect(StrokeStyle.fromJson(null, fallback: fallback), fallback);
+      for (final bad in [
+        null,
+        {'o': 1, 'th': 0.5}, // missing
+        {'o': 'x', 'th': 0.5, 'sl': 0.4}, // mistyped
+        {'o': 1, 'th': 4, 'sl': 0.4}, // out of range
+      ]) {
+        expect(() => StrokeStyle.fromJson(bad), throwsFormatException, reason: '$bad');
+      }
     });
   });
 
   group('pen options', () {
-    test('profiles map to outline specs', () {
-      const style = StrokeStyle(thinning: 0.3, streamline: 0.4, taperStart: 5);
+    test('styles map to outline specs', () {
+      const style = StrokeStyle(thinning: 0.3, streamline: 0.4, unit: 0.5);
       final o = StrokeRenderer.specFor(InkTool.ballpoint, 3, style);
       expect(o.width, 3);
       expect(o.thinning, 0.3);
       expect(o.streamline, 0.4);
-      expect(o.taperStart, 5);
-      expect(o.taperEnd, 0);
+      expect(o.unit, 0.5);
       expect(o.flatCaps, isFalse);
 
       final h = StrokeRenderer.specFor(
@@ -79,34 +77,12 @@ void main() {
       expect(h.flatCaps, isTrue, reason: 'highlighters have flat chisel ends');
     });
 
-    test('legacy pen types keep their render profiles', () {
-      for (final tool in InkTool.values) {
-        expect(PenProfile.of(tool).tool, tool);
-      }
-      expect(PenProfile.of(InkTool.fountain).nibVariation, greaterThan(0));
-      expect(PenProfile.of(InkTool.pencil).textured, isTrue);
-      expect(PenProfile.of(InkTool.highlighter).flatCaps, isTrue);
-    });
-
-    test('taper length scales with width; off means none', () {
-      final config = PenConfig.defaultsFor(InkTool.ballpoint).copyWith(taper: true);
-      final style = config.styleFor(InkTool.ballpoint, 10);
-      expect(style.taperStart, 10 * PenDefaults.pen.taperFactor);
-      expect(config.copyWith(taper: false).styleFor(InkTool.ballpoint, 10).taperEnd, 0);
-    });
-
-    test('the fountain nib thins strokes running along the nib', () {
-      List<StrokePoint> dir(double dx, double dy) => [
-        for (var i = 0; i < 10; i++) StrokePoint(i * dx, i * dy, 0.8),
-      ];
-      const thinning = 0.6;
-      double radius(double p) => 0.5 - thinning * (0.5 - p);
-      double mid(List<StrokePoint> pts) =>
-          Nib.pressures(pts, variation: 0.5, angle: PenProfile.nibAngle, thinning: thinning)[5];
-      final alongNib = mid(dir(1, -1)); // up and to the right
-      final acrossNib = mid(dir(1, 1)); // down and to the right
-      expect(acrossNib, closeTo(0.8, 1e-9));
-      expect(radius(alongNib), closeTo(radius(0.8) / 2, 1e-9));
+    test('pen strokes end in round caps at their full width', () {
+      final bounds = StrokeRenderer.pathOf(line('a')).getBounds();
+      // Width 2 at medium pressure: radius 1 beyond both end points.
+      expect(bounds.left, closeTo(-1, 0.05));
+      expect(bounds.right, closeTo(101, 0.05));
+      expect(bounds.height, closeTo(2, 0.05));
     });
   });
 
@@ -115,8 +91,8 @@ void main() {
     String newId() => 'f${ids++}';
 
     test('cutting through the middle leaves two fragments', () {
-      const tapered = StrokeStyle(taperStart: 4, taperEnd: 4);
-      final s = line('a', style: tapered);
+      const style = StrokeStyle(thinning: 0.7, unit: 0.5);
+      final s = line('a', style: style);
       final parts = StrokeSplitter.erase(
         s,
         const Offset(50, -10),
@@ -129,11 +105,7 @@ void main() {
       expect(parts[0].points.last.x, lessThanOrEqualTo(44));
       expect(parts[1].points.first.x, greaterThanOrEqualTo(56));
       expect(parts[1].points.last.x, 100);
-      // Only original ends keep their taper.
-      expect(parts[0].style.taperStart, 4);
-      expect(parts[0].style.taperEnd, 0);
-      expect(parts[1].style.taperStart, 0);
-      expect(parts[1].style.taperEnd, 4);
+      expect(parts.every((p) => p.style == style), isTrue);
       expect(parts.every((p) => p.createdAt == s.createdAt && p.id != s.id), isTrue);
     });
 
@@ -150,11 +122,11 @@ void main() {
     });
 
     test('cuts follow the pressure-dependent ink edge, not the nominal width', () {
-      // A full-pressure brush stroke is about twice its nominal half width.
+      // A full-pressure stroke is about twice its nominal half width.
       final heavy = Stroke(
         id: 'b',
         surfaceId: 's',
-        tool: InkTool.brush,
+        tool: InkTool.ballpoint,
         color: 0xFF000000,
         width: 20,
         points: [for (var x = 0.0; x <= 200; x += 10) StrokePoint(x, 0, 1)],

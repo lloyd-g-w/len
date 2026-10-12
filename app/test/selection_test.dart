@@ -330,11 +330,7 @@ void main() {
       expect(text.rect.height, greaterThan(box.rect.height)); // laid out again
       expect(selection.strokes.single.id, 'a'); // ink untouched
 
-      selection.restyleInk(
-        width: 9,
-        tool: InkTool.highlighter,
-        styleFor: (tool, width) => StrokeStyle.defaultsFor(tool),
-      );
+      selection.restyleInk(width: 9, tool: InkTool.highlighter, styleFor: StrokeStyle.defaultsFor);
       final ink = selection.strokes.single;
       expect(ink.tool, InkTool.highlighter);
       expect(ink.width, 9);

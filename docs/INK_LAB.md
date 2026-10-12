@@ -98,8 +98,12 @@ Tools for working on the engine (opt-in tests):
 tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_test.dart \
   --dart-define=INKLAB_TABLE=true --dart-define=INKLAB_REAL=true \
   [--dart-define=INKLAB_ONLY=<regex on entry names>]'
+# the stabiliser against a shaky hand (F10): committed, live and overlay ink
+# at stabiliser 0 / 0.5 / 1, as a table
+nix develop ..# -c bash -c 'flutter test test/inklab/stabiliser_test.dart \
+  --dart-define=INKLAB_TABLE=true'
 # the Kotlin overlay model against the Dart one (needs only nix): every case
-# and recording, then the Kotlin unit test on the shared golden
+# and recording, then the Kotlin unit tests (shared golden; prediction replay)
 tool/wet_ink_check/check.sh
 tool/wet_ink_check/unit_test.sh
 ```
@@ -153,10 +157,10 @@ are for stabiliser 0 / 0.4 / 1, linear in between (`byStabiliser`).
 
 | Metric | What it measures | Limit |
 |---|---|---|
-| `fidelity.hausdorff` | Farthest distance between the committed centre line and the true path, both ways, so shrunken loops count too | 0.5 / 1.0 / 2.0 px (+0.3 for recordings) |
-| `fidelity.rms` | RMS distance from centre line to true path | 0.2 / 0.4 / 0.8 px (+0.3) |
+| `fidelity.hausdorff` | Farthest distance between the committed centre line and the true path, both ways, so shrunken loops count too | 0.5 / 1.3 / 3.5 px (+0.3 for recordings) |
+| `fidelity.rms` | RMS distance from centre line to true path | 0.2 / 0.4 / 1.0 px (+0.3) |
 | `fidelity.width` | Worst relative error of the ink radius against the radius the true pressure gives, away from the ends | 15 / 25 / 40 % |
-| `detail.retraction` | How far cusp tips and tight bends (radius < 6 px) of the true path lie from the centre line, i.e. over-smoothing | 0.5 / 1.2 / 2.5 px |
+| `detail.retraction` | How far cusp tips and tight bends (radius < 6 px) of the true path lie from the centre line, i.e. over-smoothing | 0.5 / 1.3 / 3.5 px |
 | `smooth.edgeBump16x` | Edge bumps as seen at 16x: residual of a local parabola fit (±1.5 px) of each edge, × 16. Cusps, ends and too-tight bends are skipped | 1 px |
 | `smooth.widthBump16x` | The same for the width | 1 px |
 | `smooth.facet` | Kinks: residual of the turn per centre-line sample against its neighbours | 5° |
@@ -175,7 +179,7 @@ are for stabiliser 0 / 0.4 / 1, linear in between (`byStabiliser`).
 | `perf.flatness` | Median live-outline build time in the last fifth of the longest contact ÷ the first fifth (counted from 5 frames after part of the stroke became final: the first frames, a few points of tail, are cheaper), which is ≈ 1 if per-frame cost is O(1) | 2× |
 | `perf.frameCost` | Median live build in the last fifth (this machine, JIT) | 1000 µs |
 | `perf.commit` | Pen-up handling + committed outline | 8 ms |
-| `perf.subpaths` | Sub-paths (`moveTo`s) in the last live outline; the GPU re-tessellates all of them each frame | 64 |
+| `perf.subpaths` | Sub-paths (`moveTo`s) in the last live outline; the GPU re-tessellates all of them each frame | 64 / 64 / 96 |
 | `overlay.gap` | Low-latency model, Flutter 2 frames behind: pixels the caught-up ink covers that neither Flutter's current ink nor the overlay does (also reported at depths 1 and 3, no limit) | 0 px² |
 | `overlay.ghost` | Overlay pixels where the caught-up ink is not, which shows as a bulge or a pop when the overlay retracts | 2 px² |
 
@@ -431,6 +435,56 @@ frame.
 dot at the end of the stroke just lifted for three frames (25 ms) and are
 gone after their lift; the intended strokes below start at once.
 
+### F10 (resolved): the stabiliser did nothing visible
+
+User report (S Pen): "the stabiliser seems to not work now". Measured
+with `test/inklab/stabiliser_test.dart` (added for it): a slow, gently
+bowed 300 px line written in 4 s with hand tremor across it (±1.2 px at
+5.3 and 8.7 Hz, plus the digitiser's jitter), replayed through the input
+pipeline; how far the ink strays from the steady path, RMS (max) in px:
+
+| stabiliser | committed, before → now | Flutter live (newest 12 px) | overlay (newest 12 px) |
+|---|---|---|---|
+| 0 | 0.58 (1.27) → 0.58 (1.27) | 0.58 (1.27) → 0.58 (1.27) | 0.58 (1.28) → 0.58 (1.27) |
+| 0.5 | 0.57 (1.25) → 0.44 (0.98) | 0.57 (1.26) → 0.42 (0.98) | 0.57 (1.28) → 0.42 (0.98) |
+| 1 | 0.56 (1.20) → 0.23 (0.60) | 0.55 (1.26) → 0.21 (0.60) | 0.55 (1.28) → 0.21 (0.60) |
+
+Cause: since pen3 the stabiliser only set the position smoothing's σ
+from 0.7 to 1.5 *screen* px (before, up to 2.5 world units, i.e. 4–6
+screen px when writing zoomed in), with a kernel whose flat response
+keeps everything much larger than σ: tremor at writing speed has
+wavelengths of 10–60 px, so even at 1 it removed 4 % of it. And the
+overlay drew a line from the smoothed ink to the raw newest sample plus
+the raw prediction (its max is the raw samples' 1.28 px at every
+setting). Not a broken port: the Kotlin model matched Dart's to 1e-15
+throughout.
+
+Now σ goes from 0.7 to 4 screen px and the kernel from the flat
+`2G − G∘G` towards the plain Gaussian (`ShapeParams.sigmaFor`,
+`sharpnessFor`; not all the way to the Gaussian, and the ribbon's fold
+rule is stricter, so tiny loops smoothed this much stay exact): 24 % of
+the tremor goes at 0.5, 60 % at 1. Smoothing
+that strong cannot be drawn up to the pen without the tip wagging into
+place, so with the stabiliser on live ink shows only the final line
+(`StrokeShaper.liveLength`): it trails the pen by the smoothing's reach
+(≈ 10 px at 0.4, 15 px at 1) and never changes once drawn; the overlay
+draws exactly that (its model ports the shaper's `finalCount`), without
+prediction. `temporal.*` and `pop.*` then measure from the end of the
+drawn line (what is new is the line drawn since, and at pen-up the part
+not drawn yet). The pen's default stabiliser is now 0: ink under the
+nib, as fast as possible; the highlighter's stays 0.5.
+
+The stronger stabiliser shrinks small loops more: at 1, `fidelity` and
+`detail.retraction` reach 2.9 px on the 10 px x-height cursive cases
+(`fidelity.rms` 0.86 px), so their limits at stabiliser 1 are now 3.5 /
+1.0 px (and 1.3 px at 0.4, where `long_stroke` reaches 1.13); at 0 nothing
+changed. Loops shrunk that much bend tighter than the pen's radius over a
+long stretch; the ribbon now splits a run where a side runs backwards by
+more than one step per step (was two, which left slivers uncovered:
+`ribbon_exactness_test` found up to 27 px at 8×), so such bends become
+capsules: `perf.subpaths` reaches 84 on the 8 s `long_stroke` at 1 (limit
+there 96; 22–31 at 0 and 0.4). Every other metric passes unchanged, real recordings included.
+
 ### Real S Pen recordings
 
 ![real_spen_01 at stabiliser 0, 16x](inklab/rec_real_spen_01_0.0-16x.png)
@@ -617,3 +671,59 @@ ink. Not checked: zoom on pages and a pan or zoom during a stroke (adb
 cannot inject a pinch or two-finger drag), and fast transients at pen-up
 that screenshots (≈ 150 ms apart) cannot catch; the model checks above
 (gap and ghost 0 at depths 1 and 2) cover those.
+
+### Prediction
+
+User report (Galaxy Tab S8+, S Pen): the predicted tip ran too far and was
+visibly cut off at pen-up. `WetInkPredictionTest` (run by
+`tool/wet_ink_check/unit_test.sh`, ≈ 1 s) replays every recording sample by
+sample, as the overlay gets them with unbuffered dispatch (the last sample
+is the ACTION_UP), through a JVM port of the androidx Kalman predictor
+(`SinglePointerPredictor`, balanced strategy, asked for 20 ms) and compares
+the drawn predicted points with the real path that followed. Real
+recordings use their pointer events (every sample, ≈ 480 Hz, 1 ms times;
+their stylus batches are incomplete), the simulated ones their batches
+(240 Hz). Width W = 2 × the radius at pressure 0.5: 4.14 px (real), 6.5 px
+(sim). Error: largest distance of a drawn predicted point from the real
+remaining path; *pen-up*: events in the 20 ms before the up; *turns*: the
+real path turns > 30° (chord) within 20 ms; *lead*: how far ahead (ms of
+the real path) the prediction stays within 0.25 W, in steady motion
+(≥ 0.1 px/ms, no pen-up or turn ahead).
+
+| p50 / p95 / max (W) | Before (all points ≤ 20 ms) | After (`WetInkPrediction`) |
+|---|---|---|
+| Real: pen-up (702 events) | 2.88 / 15.6 / 55.5 (11.9 / 64.5 / 230 px) | 0.00 / 0.00 / 0.10 (max 0.4 px) |
+| Real: turns (1638) | 0.98 / 4.18 / 20.0 | 0.00 / 0.09 / 0.89 |
+| Real: all events (23 290) | 0.70 / 4.03 / 55.5 | 0.02 / 0.21 / 2.15 |
+| Real: events off by > 0.5 W | 14 087 | 144 |
+| Real: steady lead (mean) | 10.0 ms, 24.1 px | 2.4 ms, 6.0 px |
+| Sim: pen-up (16) | 0.58 / 1.13 / 1.13 | 0.00 / 0.12 / 0.12 |
+| Sim: all events (750) | 0.11 / 0.41 / 1.13 | 0.03 / 0.12 / 0.26 |
+| Sim: steady lead (mean) | 16.2 ms, 6.5 px | 5.2 ms, 2.4 px |
+
+- **Why it overshot.** The Kalman filter extrapolates velocity, acceleration
+  and jerk; when the pen brakes, turns or lifts (the S Pen often jumps a
+  few px while the pressure falls) that runs far off the path, up to
+  230 px at 20 ms, and the next event takes it back.
+- **The policy** (constants in `WetInkPrediction`, chosen by sweeping them
+  over the replay; real recordings): a 10 ms horizon (8 or 20 ms change
+  the lead by ≤ 0.1 ms: the distance caps bind first); reach ≤ speed ×
+  10 ms and ≤ 6 tip radii (4 radii: lead 1.9 ms, p95 0.16 W; 12: 3.1 ms,
+  0.28 W); ≤ the length over which a straight line leaves the current
+  curvature by 0.25 radius. The caps alone still leave pen-up p95 at
+  2.25 W and turns at 2.35 W. Then scaled from full to none as pressure
+  falls 0.02–0.08 per 8 ms or drops below 0.15 (none at 0.05): pen-up p95
+  0.01 W; and as the speed over the last 8 ms drops to 0.8 of the 8 ms
+  before (braking precedes cusps and tight turns) or the direction turns
+  15–45°: turns p95 0.70 → 0.09 W, lead 3.3 → 2.4 ms.
+- **Pen-up.** The ACTION_UP's frame draws no tip: no prediction, and no
+  more line from the ink's end to the raw pen-up sample. The model may cut
+  a pen-up hook there, and that line drew it until the overlay let go of
+  the stroke: up to 3.2 px outside the final ink on `sim_hooks`
+  (`liftedTipAddsNoInk` prints it).
+- **Not measured**: the device's real predictor (Android's own model where
+  present) and its timing (androidx asks for the time to the next frame
+  plus the event's age, up to 32 ms); the replay asks the Kalman port for
+  20 ms, the old cap. What the policy draws depends on the samples, not
+  on the predictor, so a better predictor can only stay closer to the
+  path within the same caps.

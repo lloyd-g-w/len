@@ -251,7 +251,7 @@ void main() {
       Stroke(
         id: 'a',
         surfaceId: page.id,
-        tool: InkTool.pen,
+        tool: InkTool.ballpoint,
         color: 0xFF000000,
         width: 2,
         points: const [StrokePoint(1, 1, 0.5), StrokePoint(9, 9, 0.5)],

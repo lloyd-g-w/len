@@ -102,6 +102,17 @@ class StrokeShaper implements RibbonLine {
   /// Samples of the last [update] that are final (position and radius).
   int finalCount = 0;
 
+  bool _ended = false;
+
+  /// The samples live ink shows: all of them, or with the stabiliser on
+  /// ([ShapeParams.lag]) only the final ones ([finalCount]: positions and
+  /// radii; at least the first sample, so ink shows from pen-down), and all
+  /// of them once the stroke has ended.
+  int get liveLength {
+    if (p.lag == 0 || _ended || length == 0) return length;
+    return math.max(1, finalCount);
+  }
+
   /// Whether the pen-down decision has been made (otherwise the line is
   /// provisional: from the first sample, nothing final).
   bool get started => _start != null;
@@ -239,6 +250,7 @@ class StrokeShaper implements RibbonLine {
   /// [keep] input samples (the pen-up hook removed, see [endKeep]) are used.
   void update({bool ended = false, int? keep}) {
     if (_provisional) _restart();
+    _ended = ended;
     final n = keep ?? _sx.length;
     _start ??= _hooks.startCut(_sx, _sy, n, ended: ended);
     if (n == 0) {
@@ -253,7 +265,7 @@ class StrokeShaper implements RibbonLine {
     _radii(count);
     _findCorners(count);
     _smooth(count);
-    _endRules(count, ended: ended);
+    _endRules(count);
     length = count;
     finalCount = _provisional ? 0 : math.min(_posFinal, _roDone);
   }
@@ -511,7 +523,7 @@ class StrokeShaper implements RibbonLine {
   // ---------------------------------------------------------------------------
   // 6b. End rules
 
-  void _endRules(int count, {required bool ended}) {
+  void _endRules(int count) {
     _ro.length = count;
     final from = _roDone;
     for (var i = from; i < count; i++) {
@@ -542,26 +554,8 @@ class StrokeShaper implements RibbonLine {
         _ro[i] = math.max(_ro[i], level);
       }
     }
-    _taper(count, from, ended: ended);
     final settled = _resFinal - p.endReach;
     if (settled > p.startReach && settled > _roDone) _roDone = settled;
-  }
-
-  void _taper(int count, int from, {required bool ended}) {
-    final total = p.step * (count - 1);
-    var start = from == 0 ? p.taperStart : 0.0;
-    var end = ended ? p.taperEnd : 0.0;
-    if (ended) {
-      start = math.min(start, total / 2);
-      end = math.min(end, total / 2);
-    }
-    if (start <= 0 && end <= 0) return;
-    double ease(double t) => t * (2 - t);
-    for (var i = 0; i < count; i++) {
-      final s = i * p.step;
-      if (start > 0 && s < start) _ro[i] = math.max(0.02, _ro[i] * ease(s / start));
-      if (end > 0 && total - s < end) _ro[i] = math.max(0.02, _ro[i] * ease((total - s) / end));
-    }
   }
 
   /// A copy of the line's samples (for measurements).

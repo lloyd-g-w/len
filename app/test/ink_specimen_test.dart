@@ -11,9 +11,7 @@ import 'support/handwriting.dart';
 int _ids = 0;
 
 Stroke make(InkTool tool, List<StrokePoint> points, {required int color, required double width}) {
-  final style = tool == InkTool.ballpoint || tool == InkTool.highlighter
-      ? PenConfig.defaultsFor(tool).styleFor(tool, width)
-      : StrokeStyle.defaultsFor(tool);
+  final style = PenConfig.defaultsFor(tool).styleFor(tool);
   return Stroke(
     id: 's${_ids++}',
     surfaceId: 's',
@@ -44,8 +42,8 @@ List<Stroke> writingLine(Handwriting hw, double y, double width, int color) => [
   make(InkTool.ballpoint, hw.line(Offset(135, y), Offset(175, y - 14)), color: color, width: width),
 ];
 
-/// The specimen page: three pen widths, a highlighter behind the middle
-/// line, and one row of legacy pen types that must still render.
+/// The specimen page: three pen widths and a highlighter behind the middle
+/// line.
 List<Stroke> specimen() {
   final hw = Handwriting();
   return [
@@ -58,14 +56,6 @@ List<Stroke> specimen() {
     ...writingLine(hw, 26, 1.5, ink),
     ...writingLine(hw, 58, 2.5, ink),
     ...writingLine(hw, 92, 4, blue),
-    for (final (i, tool) in [
-      InkTool.pen,
-      InkTool.fountain,
-      InkTool.brush,
-      InkTool.pencil,
-      InkTool.marker,
-    ].indexed)
-      make(tool, hw.cursive(Offset(12 + i * 34.0, 124), [e, l, e]), color: ink, width: 3),
   ];
 }
 

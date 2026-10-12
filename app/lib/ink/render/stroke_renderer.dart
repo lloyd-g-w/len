@@ -1,17 +1,15 @@
 import 'dart:ui';
 
 import '../../domain/stroke.dart';
-import '../pen/pen_profile.dart';
-import 'nib.dart';
 import 'outline_sink.dart';
-import 'pencil_texture.dart';
 import 'stroke_outline.dart';
 
 /// Turns stroke points into filled outline paths and paints them.
 ///
-/// Outlines come from [StrokeOutline]; the pen's [PenProfile] and the
-/// stroke's [StrokeStyle] decide their shape. Committed strokes are immutable, so their paths are memoised per
-/// [Stroke] instance (and garbage-collected with it).
+/// Outlines come from [StrokeOutline]; the stroke's tool, width and
+/// [StrokeStyle] decide their shape. Committed strokes are immutable, so
+/// their paths are memoised per [Stroke] instance (and garbage-collected
+/// with it).
 abstract final class StrokeRenderer {
   static final Expando<Path> _paths = Expando('stroke paths');
 
@@ -57,63 +55,31 @@ abstract final class StrokeRenderer {
     required bool complete,
   }) {
     if (points.isEmpty) return;
-    StrokeOutline.emit(
-      sink,
-      points,
-      specFor(tool, width, style),
-      pressures: _nibPressures(points, tool, style),
-      complete: complete,
-    );
+    StrokeOutline.emit(sink, points, specFor(tool, width, style), complete: complete);
   }
 
-  static List<double>? _nibPressures(List<StrokePoint> points, InkTool tool, StrokeStyle style) {
-    final profile = PenProfile.of(tool);
-    if (profile.nibVariation <= 0) return null;
-    return Nib.pressures(
-      points,
-      variation: profile.nibVariation,
-      angle: PenProfile.nibAngle,
-      thinning: style.thinning,
-    );
-  }
+  /// The outline shape parameters for a stroke; the highlighter has flat
+  /// ends, the pen round caps.
+  static OutlineSpec specFor(InkTool tool, double width, StrokeStyle style) => OutlineSpec(
+    width: width,
+    thinning: style.thinning,
+    streamline: style.streamline,
+    flatCaps: tool.isHighlighter,
+    unit: style.unit,
+  );
 
-  /// Outline radius for a given [pressure].
-  static double radiusAt(PenProfile profile, double width, StrokeStyle style, double pressure) =>
-      specFor(profile.tool, width, style).radiusFor(pressure);
-
-  /// The outline shape parameters for a stroke.
-  static OutlineSpec specFor(InkTool tool, double width, StrokeStyle style) {
-    final profile = PenProfile.of(tool);
-    return OutlineSpec(
-      width: width,
-      thinning: style.thinning,
-      streamline: style.streamline,
-      easing: profile.easing,
-      taperStart: style.taperStart,
-      taperEnd: style.taperEnd,
-      flatCaps: profile.flatCaps,
-      unit: style.unit,
-    );
-  }
-
-  /// The fill paint for ink of [tool] in colour [argb] with [style].
-  static Paint paintFor(InkTool tool, int argb, StrokeStyle style) {
+  /// The fill paint for ink in colour [argb] with [style].
+  static Paint paintFor(int argb, StrokeStyle style) {
     final color = Color(argb);
-    final ink = color.withValues(alpha: color.a * style.opacity);
-    final paint = Paint()
+    return Paint()
       ..isAntiAlias = true
-      ..style = PaintingStyle.fill;
-    if (PenProfile.of(tool).textured) {
-      return paint
-        ..shader = PencilTexture.shader()
-        ..colorFilter = ColorFilter.mode(ink, BlendMode.srcIn);
-    }
-    return paint..color = ink;
+      ..style = PaintingStyle.fill
+      ..color = color.withValues(alpha: color.a * style.opacity);
   }
 
   /// Paints committed [stroke] onto [canvas] (in world coordinates).
   static void draw(Canvas canvas, Stroke stroke) =>
-      canvas.drawPath(pathOf(stroke), paintFor(stroke.tool, stroke.color, stroke.style));
+      canvas.drawPath(pathOf(stroke), paintFor(stroke.color, stroke.style));
 
   /// Paints [stroke] as a plain line along its points, [stroke.width]
   /// wide, unless its outline is already built: for ink far too small to
@@ -128,7 +94,7 @@ abstract final class StrokeRenderer {
     }
     canvas.drawPath(
       path,
-      paintFor(stroke.tool, stroke.color, stroke.style)
+      paintFor(stroke.color, stroke.style)
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke.width
         ..strokeCap = StrokeCap.round

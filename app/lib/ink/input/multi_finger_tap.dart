@@ -33,9 +33,6 @@ class MultiFingerTapDetector {
   Duration? _lastStylus;
   bool _stylusDown = false;
 
-  /// Whether fingers are currently being tracked.
-  bool get isTracking => _starts.isNotEmpty;
-
   /// A stylus touched down (or hovered, [down] false) at [time].
   void noteStylus(Duration time, {bool down = false}) {
     _lastStylus = time;

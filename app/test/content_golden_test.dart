@@ -64,7 +64,7 @@ Stroke shape(String id, ShapeKind kind, Offset a, Offset b, int color) {
     width: 3,
     points: ShapeBuilder.points(ShapeBuilder.outline(kind, a, b)),
     createdAt: 2,
-    style: ShapeBuilder.styleFor(config.styleFor(InkTool.ballpoint, 3)),
+    style: ShapeBuilder.styleFor(config.styleFor(InkTool.ballpoint)),
   );
 }
 

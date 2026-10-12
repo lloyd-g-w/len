@@ -189,12 +189,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(PenOptionsPanel), findsOneWidget);
       expect(find.byType(BottomSheet), findsOneWidget);
-      for (final removed in ['Fountain', 'Brush', 'Pencil', 'Marker']) {
-        expect(find.text(removed), findsNothing);
-      }
-      await tester.tap(find.text('Tapered ends'));
+      expect(find.text('Tapered ends'), findsNothing);
+      await tester.tap(find.text('Hold to snap shapes'));
       await tester.pump();
-      expect(tools.configOf(InkTool.ballpoint).taper, isTrue);
+      expect(tools.holdToStraighten, isFalse);
       expect(tester.takeException(), isNull);
     });
 

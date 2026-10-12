@@ -11,7 +11,7 @@ class LiveInk extends ChangeNotifier {
   final List<StrokePoint> _points = [];
   int _revision = 0;
 
-  InkTool tool = InkTool.pen;
+  InkTool tool = InkTool.ballpoint;
   int color = 0xFF000000;
   double width = 2;
   StrokeStyle style = const StrokeStyle();

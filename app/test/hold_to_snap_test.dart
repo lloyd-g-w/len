@@ -71,7 +71,6 @@ void main() {
       expect(onSide, isTrue);
     }
     expect(stroke.style.streamline, 0);
-    expect(stroke.style.taperStart, 0);
     // Moving after the snap did not distort it.
     expect(right, lessThan(320));
   });

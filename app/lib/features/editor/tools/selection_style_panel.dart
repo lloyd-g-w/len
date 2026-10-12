@@ -189,7 +189,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
             tool: ink,
             // Highlighters are much wider than pens: take the tool's width.
             width: tools.configOf(ink).width,
-            styleFor: (t, w) => tools.configOf(t).styleFor(t, w),
+            styleFor: tools.styleFor,
           );
         },
       ),

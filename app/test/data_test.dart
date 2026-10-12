@@ -28,7 +28,7 @@ class FakeClock extends Clock {
 Stroke stroke(String id, Offset at, {String surface = 's'}) => Stroke(
   id: id,
   surfaceId: surface,
-  tool: InkTool.pen,
+  tool: InkTool.ballpoint,
   color: 0xFF000000,
   width: 2,
   points: [StrokePoint(at.dx, at.dy, 0.5), StrokePoint(at.dx + 10, at.dy, 0.5)],

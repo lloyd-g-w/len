@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/settings_repository.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/ink/pen/recent_colors.dart';
 import 'package:len/ink/tool_settings.dart';
 
 ToolSettings restored(Object prefs, {List<int>? favorites}) {
@@ -53,9 +54,9 @@ void main() {
     });
 
     test('the pen is opaque; the highlighter keeps its opacity', () {
-      expect(pen.copyWith(opacity: 0.3).styleFor(InkTool.ballpoint, 2).opacity, 1);
+      expect(pen.copyWith(opacity: 0.3).styleFor(InkTool.ballpoint).opacity, 1);
       final h = PenConfig.defaultsFor(InkTool.highlighter);
-      expect(h.styleFor(InkTool.highlighter, 10).opacity, h.opacity);
+      expect(h.styleFor(InkTool.highlighter).opacity, h.opacity);
     });
   });
 
@@ -69,7 +70,14 @@ void main() {
         ..selectWidth(0)
         ..tool = EditorTool.highlighter
         ..updateConfig(InkTool.highlighter, (c) => c.copyWith(opacity: 0.5))
-        ..eraser = const EraserConfig(mode: EraserMode.pixel, radius: 20, highlighterOnly: true)
+        ..updateConfig(InkTool.highlighter, (c) => c.copyWith(streamline: 0.8, straight: true))
+        ..eraser = const EraserConfig(
+          mode: EraserMode.pixel,
+          radius: 20,
+          highlighterOnly: true,
+          autoDeselect: true,
+        )
+        ..addRecentColor(0xFF00AA00)
         ..holdToStraighten = false
         ..addFavorite(0xFFABCDEF);
       a.dispose(); // flushes the debounced save
@@ -79,9 +87,14 @@ void main() {
       expect(pen.colors.last, 0xFF123456);
       expect(pen.color, 0xFF123456);
       expect(pen.width, 7);
-      expect(b.configOf(InkTool.highlighter).opacity, 0.5);
+      final highlighter = b.configOf(InkTool.highlighter);
+      expect(highlighter.opacity, 0.5);
+      expect(highlighter.streamline, 0.8);
+      expect(highlighter.straight, isTrue);
       expect(b.eraser.mode, EraserMode.pixel);
       expect(b.eraser.highlighterOnly, isTrue);
+      expect(b.eraser.autoDeselect, isTrue);
+      expect(b.recentColors, [0xFF00AA00]);
       expect(b.holdToStraighten, isFalse);
       expect(b.favorites, [0xFFABCDEF]);
       b.dispose();
@@ -100,91 +113,54 @@ void main() {
       expect(ToolSettings(store: store).activeConfig, PenConfig.defaultsFor(InkTool.ballpoint));
     });
 
-    test('out-of-range values are clamped; favourites deduplicated', () {
+    test('stored configs are parsed strictly: an invalid one keeps its defaults', () {
+      final valid = PenConfig.defaultsFor(InkTool.highlighter).copyWith(straight: true).toJson();
       final t = restored(
         {
           'pens': {
             'ballpoint': {
-              'colors': [0x00FF0000, 'x', 0xFF00FF00],
-              'widths': [1e6, 0.001, -1],
-              'color': 9,
-              'width': 1,
+              ...PenConfig.defaultsFor(InkTool.ballpoint).toJson(),
+              'widths': [1e6],
             },
-            'highlighter': {'opacity': 0},
+            'highlighter': valid,
           },
+          'eraser': {...const EraserConfig().toJson(), 'autoDeselect': 'yes'},
+          'recent': [0x00FF0000],
         },
         favorites: [1, 2, 1, for (var i = 0; i < 40; i++) 100 + i],
       );
-      final pen = t.configOf(InkTool.ballpoint);
-      expect(pen.colors, [0xFFFF0000, 0xFF00FF00]);
-      expect(pen.widths, [PenDefaults.pen.maxWidth, PenDefaults.pen.minWidth]);
-      expect(pen.colorIndex, 0);
-      expect(pen.width, PenDefaults.pen.minWidth);
-      expect(t.configOf(InkTool.highlighter).opacity, PenConfig.minOpacity);
+      expect(t.configOf(InkTool.ballpoint), PenConfig.defaultsFor(InkTool.ballpoint));
+      expect(t.configOf(InkTool.highlighter).straight, isTrue);
+      expect(t.eraser, const EraserConfig());
+      expect(t.recentColors, isEmpty);
       expect(t.favorites.take(3), [1, 2, 100]);
       expect(t.favorites, hasLength(ToolSettings.maxFavorites));
       t.selectColor(5); // Out of range: ignored.
       expect(t.activeConfig.colorIndex, 0);
     });
 
-    test('old combined presets migrate to colour and width slots', () {
-      final t = restored({
-        'penType': 'ballpoint',
-        'pens': {
-          'ballpoint': {
-            'presets': [
-              {'c': 0xFF111111, 'w': 2},
-              {'c': 0xFF2222AA, 'w': 2},
-              {'c': 0xFFAA2222, 'w': 5},
-            ],
-            'selected': 2,
-            'thinning': 0.7,
-          },
-          'highlighter': {
-            'presets': [
-              {'c': 0xFFFACC15, 'w': 18},
-              {'c': 0xFFFACC15, 'w': 18},
-              {'c': 0xFF69DB7C, 'w': 18},
-            ],
-            'selected': 0,
-          },
-        },
-      });
-      final pen = t.configOf(InkTool.ballpoint);
-      expect(pen.colors, [0xFF111111, 0xFF2222AA, 0xFFAA2222]);
-      expect(pen.widths, hasLength(3));
-      expect(pen.widths, containsAll([2.0, 5.0]));
-      expect(pen.color, 0xFFAA2222);
-      expect(pen.width, 5);
-      expect(pen.thinning, 0.7);
-      final hl = t.configOf(InkTool.highlighter);
-      expect(hl.colors.take(2), [0xFFFACC15, 0xFF69DB7C]);
-      expect(hl.colors, hasLength(3), reason: 'topped up from the defaults');
-      expect(hl.widths, contains(18.0));
-      expect(hl.width, 18);
-    });
-
-    test('a removed pen type in use hands its colours and widths to the pen', () {
-      final t = restored({
-        'penType': 'fountain',
-        'pens': {
-          'ballpoint': {'thinning': 0.3},
-          'fountain': {
-            'presets': [
-              {'c': 0xFF0000AA, 'w': 4.5},
-              {'c': 0xFF00AA00, 'w': 30},
-            ],
-            'selected': 1,
-          },
-        },
-      });
-      expect(t.tool, EditorTool.pen);
-      final pen = t.configOf(InkTool.ballpoint);
-      expect(pen.colors.take(2), [0xFF0000AA, 0xFF00AA00]);
-      expect(pen.color, 0xFF00AA00);
-      expect(pen.width, PenDefaults.pen.maxWidth, reason: 'clamped to the pen range');
-      expect(pen.thinning, 0.3);
-      expect(t.activeInk, InkTool.ballpoint);
+    test('PenConfig JSON requires every field, in range', () {
+      const tool = InkTool.highlighter;
+      final json = PenConfig.defaultsFor(tool).copyWith(straight: true, streamline: 1).toJson();
+      expect(
+        PenConfig.fromJson(json, tool: tool),
+        PenConfig.defaultsFor(tool).copyWith(straight: true, streamline: 1),
+      );
+      for (final key in json.keys) {
+        expect(PenConfig.fromJson({...json}..remove(key), tool: tool), isNull, reason: key);
+      }
+      for (final (key, bad) in [
+        ('colors', <int>[]),
+        ('colors', [0x7FFF0000]),
+        ('widths', [1]),
+        ('color', 3),
+        ('opacity', 0.05),
+        ('thinning', 1.5),
+        ('streamline', -0.1),
+        ('straight', 1),
+      ]) {
+        expect(PenConfig.fromJson({...json, key: bad}, tool: tool), isNull, reason: '$key $bad');
+      }
     });
 
     test('selecting a slot leaves the eraser; widths step within range', () {
@@ -200,6 +176,49 @@ void main() {
       t.selectColor(1);
       expect(t.configOf(InkTool.highlighter).colorIndex, 1);
       expect(t.configOf(InkTool.ballpoint).colorIndex, 2);
+    });
+  });
+
+  group('ToolSettings extras', () {
+    test('recent colours: distinct, opaque, most recent first, at most eight', () {
+      final t = ToolSettings();
+      for (var i = 0; i < 10; i++) {
+        t.addRecentColor(0x000000 + i);
+      }
+      t.addRecentColor(0x05);
+      expect(t.recentColors.first, 0xFF000005);
+      expect(t.recentColors, hasLength(RecentColors.max));
+      expect(t.recentColors.toSet(), hasLength(RecentColors.max));
+      expect(t.recentColors.take(3), [0xFF000005, 0xFF000009, 0xFF000008]);
+    });
+
+    test('auto-deselect returns to the ink used before the eraser', () {
+      final t = ToolSettings()..tool = EditorTool.highlighter;
+      t.tool = EditorTool.lasso;
+      t.tool = EditorTool.eraser;
+      expect(t.eraserStrokeEnded(), isFalse, reason: 'off by default');
+      expect(t.tool, EditorTool.eraser);
+      t.eraser = t.eraser.copyWith(autoDeselect: true);
+      expect(t.eraserStrokeEnded(), isTrue);
+      expect(t.tool, EditorTool.highlighter);
+      t.tool = EditorTool.pen;
+      t.tool = EditorTool.eraser;
+      t.eraserStrokeEnded();
+      expect(t.tool, EditorTool.pen);
+    });
+
+    test('Reset restores the feel settings and keeps the slots', () {
+      final h = PenConfig.defaultsFor(InkTool.highlighter);
+      final custom = h.addColor(0xFF123456).copyWith(opacity: 0.8, streamline: 1, straight: true);
+      final reset = custom.withFeelDefaults(InkTool.highlighter);
+      expect(reset.colors, custom.colors);
+      expect(reset, h.addColor(0xFF123456));
+    });
+
+    test('straight strokes need no stabiliser', () {
+      final h = PenConfig.defaultsFor(InkTool.highlighter);
+      expect(h.styleFor(InkTool.highlighter).streamline, h.streamline);
+      expect(h.copyWith(straight: true).styleFor(InkTool.highlighter).streamline, 0);
     });
   });
 }

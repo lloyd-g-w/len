@@ -115,6 +115,21 @@ double _segDist(Offset p, Offset a, Offset b) {
   return (p - (a + ab * t)).distance;
 }
 
+/// The part of the line of [points] live ink shows (screen px), with the
+/// stabiliser on all of it final (`StrokeShaper.liveLength`).
+List<Offset>? _drawn(List<StrokePoint> points, OutlineSpec spec, Offset Function(Offset) toPx) {
+  final c = StrokeOutline.centerline(points, spec, complete: false);
+  if (c == null) return null;
+  return [for (var i = 0; i < c.live; i++) toPx(Offset(c.x[i], c.y[i]))];
+}
+
+/// The rest of that line: what live ink does not show yet.
+List<Offset>? _undrawn(List<StrokePoint> points, OutlineSpec spec, Offset Function(Offset) toPx) {
+  final c = StrokeOutline.centerline(points, spec, complete: false);
+  if (c == null) return null;
+  return [for (var i = math.max(0, c.live - 1); i < c.length; i++) toPx(Offset(c.x[i], c.y[i]))];
+}
+
 /// (d) Temporal stability: between consecutive live frames, ink more than
 /// a tip zone (one stroke width + 1 px) behind the pen tip must not change.
 /// Reports changed pixels (> 20 % coverage) outside the zone and new
@@ -149,15 +164,25 @@ List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
     final step = math.max(1, (frames.length / maxFramesPerRun).ceil());
     final spec = StrokeRenderer.specFor(r.pen.tool, r.pen.width, view.style);
     var startMoved = false;
+    final lags = spec.paramsFor(StrokeOutline.unitOf(view.points, spec)).lag > 0;
+    List<Offset>? prevLine;
     Coverage? prev;
     List<StrokePoint>? prevPoints;
     for (var i = 0; i < frames.length; i += step) {
       final points = frames[i].points;
       final contours = _outline(r, points, toPx, complete: false, style: view.style);
       final cov = rasterize(contours, boundsOf(contours), subRows: _subRows);
+      final drawn = lags ? _drawn(points, spec, toPx) : null;
       if (prev != null && prevPoints != null) {
-        final tip = toPx(Offset(prevPoints.last.x, prevPoints.last.y));
-        final fresh = [for (final p in points.skip(prevPoints.length - 1)) toPx(Offset(p.x, p.y))];
+        // With the stabiliser on, live ink ends behind the pen: its tip is
+        // where the drawn line ends, and what is new is the line drawn since.
+        final prevDrawn = prevLine;
+        final tip = prevDrawn != null && prevDrawn.isNotEmpty
+            ? prevDrawn.last
+            : toPx(Offset(prevPoints.last.x, prevPoints.last.y));
+        final fresh = prevDrawn != null && drawn != null
+            ? drawn.skip(math.max(0, prevDrawn.length - 1)).toList()
+            : [for (final p in points.skip(prevPoints.length - 1)) toPx(Offset(p.x, p.y))];
         var allowed = nearPolyline(fresh, reach);
         // The pen-down hook trimmed (decided within the first few px).
         if (!startMoved && _screenLength(prevPoints, view.viewScale) < 20) {
@@ -179,6 +204,7 @@ List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
       }
       prev = cov;
       prevPoints = points;
+      prevLine = drawn;
     }
     final stroke = run.committed;
     if (stroke == null) {
@@ -200,6 +226,8 @@ List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
     final a = rasterize(liveOutline, boundsOf(liveOutline), subRows: _subRows);
     final b = rasterize(done, boundsOf(done), subRows: _subRows);
     final tail = [
+      // With the stabiliser on, the line live ink did not show yet.
+      if (lags) ...?_undrawn(last, spec, toPx),
       for (final p in stroke.points.skip(math.max(0, last.length - 1))) toPx(Offset(p.x, p.y)),
     ];
     final changed = changedPixels(a, b, nearPolyline(tail, reach), 0.25);

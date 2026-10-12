@@ -15,9 +15,6 @@ class OutlineSpec {
     required this.width,
     required this.thinning,
     required this.streamline,
-    this.easing = _linear,
-    this.taperStart = 0,
-    this.taperEnd = 0,
     this.flatCaps = false,
     this.unit = 0,
   });
@@ -31,13 +28,6 @@ class OutlineSpec {
   /// Stabiliser strength, 0..1: how much positional jitter is smoothed away.
   final double streamline;
 
-  /// Maps the pressure-derived size factor (0..1) to a radius factor.
-  final double Function(double) easing;
-
-  /// Lengths (world units) over which the ends taper to a point; 0 = none.
-  final double taperStart;
-  final double taperEnd;
-
   /// Square ends (highlighter) instead of round caps.
   final bool flatCaps;
 
@@ -46,16 +36,11 @@ class OutlineSpec {
   /// ([StrokeOutline.unitOf]).
   final double unit;
 
-  static double _linear(double t) => t;
-
   /// Whether [other] draws the same outline for the same points.
   bool sameShape(OutlineSpec other) =>
       width == other.width &&
       thinning == other.thinning &&
       streamline == other.streamline &&
-      easing == other.easing &&
-      taperStart == other.taperStart &&
-      taperEnd == other.taperEnd &&
       flatCaps == other.flatCaps &&
       unit == other.unit;
 
@@ -63,7 +48,7 @@ class OutlineSpec {
   /// thinner/thicker with lighter/harder pressure as [thinning] allows.
   double radiusFor(double pressure) {
     final t = (0.5 - thinning * (0.5 - pressure)).clamp(0.0, 1.0);
-    return (width * easing(t)).clamp(math.min(0.25, width / 2), width);
+    return (width * t).clamp(math.min(0.25, width / 2), width);
   }
 
   // The stabiliser ([streamline], 0..1) is the single control for all
@@ -97,8 +82,6 @@ class OutlineSpec {
     settleReach: settleReach,
     levelReach: levelReach,
     tipReach: tipReach,
-    taperStart: taperStart,
-    taperEnd: taperEnd,
   );
 
   static final Expando<Map<double, ShapeParams>> _params = Expando('outline params');
@@ -114,18 +97,11 @@ class OutlineSpec {
 /// the tip of a stroke in progress never changes, and the committed
 /// stroke equals the last live frame except at its very end.
 abstract final class StrokeOutline {
-  /// Builds the outline of [points]. [pressures], when given, overrides the
-  /// per-point pressure (used for direction-dependent nibs). [complete] is
-  /// false while the stroke is still being drawn: the pen-up hook and the
-  /// end taper are then left alone.
-  static Path build(
-    List<StrokePoint> points,
-    OutlineSpec spec, {
-    List<double>? pressures,
-    bool complete = true,
-  }) {
+  /// Builds the outline of [points]. [complete] is false while the stroke
+  /// is still being drawn: the pen-up hook is then left alone.
+  static Path build(List<StrokePoint> points, OutlineSpec spec, {bool complete = true}) {
     final path = Path();
-    emit(PathSink(path), points, spec, pressures: pressures, complete: complete);
+    emit(PathSink(path), points, spec, complete: complete);
     return path;
   }
 
@@ -134,19 +110,26 @@ abstract final class StrokeOutline {
     OutlineSink sink,
     List<StrokePoint> points,
     OutlineSpec spec, {
-    List<double>? pressures,
     bool complete = true,
   }) {
-    final shaper = _shape(points, spec, pressures, complete);
+    final shaper = _shape(points, spec, complete);
     if (shaper.inputCount == 0) return;
-    emitLine(sink, shaper, spec);
+    emitLine(sink, shaper, spec, live: !complete);
   }
 
-  /// Emits the outline of an [update]d [shaper] (a dot when too short).
-  static void emitLine(OutlineSink sink, StrokeShaper shaper, OutlineSpec spec) {
+  /// Emits the outline of an [update]d [shaper] (a dot when too short);
+  /// with [live], only what live ink shows ([StrokeShaper.liveLength]).
+  static void emitLine(
+    OutlineSink sink,
+    StrokeShaper shaper,
+    OutlineSpec spec, {
+    bool live = false,
+  }) {
     if (isDot(shaper)) return dot(sink, shaper, spec);
+    final n = live ? shaper.liveLength : shaper.length;
+    if (n == 1) return _dotAt(sink, shaper.x[0], shaper.y[0], shaper.r[0], spec.flatCaps);
     RibbonEmitter(
-      shaper,
+      n < shaper.length ? RibbonPrefix(shaper, n) : shaper,
       flatCaps: spec.flatCaps,
       width: spec.width,
       step: shaper.p.step,
@@ -168,7 +151,11 @@ abstract final class StrokeOutline {
   static void dot(OutlineSink sink, StrokeShaper s, OutlineSpec spec) {
     final r = math.max(s.maxInputRadius, 0.25);
     final x = s.length > 0 ? s.x[0] : s.inputX(0), y = s.length > 0 ? s.y[0] : s.inputY(0);
-    if (!spec.flatCaps) return addCircle(sink, x, y, r);
+    _dotAt(sink, x, y, r, spec.flatCaps);
+  }
+
+  static void _dotAt(OutlineSink sink, double x, double y, double r, bool square) {
+    if (!square) return addCircle(sink, x, y, r);
     sink
       ..moveTo(x - r, y - r)
       ..lineTo(x + r, y - r)
@@ -182,19 +169,25 @@ abstract final class StrokeOutline {
   static Centerline? centerline(
     List<StrokePoint> points,
     OutlineSpec spec, {
-    List<double>? pressures,
     bool complete = true,
   }) {
-    final shaper = _shape(points, spec, pressures, complete);
+    final shaper = _shape(points, spec, complete);
     if (shaper.length == 0) return null;
     final s = shaper.snapshot();
-    return Centerline(s.x, s.y, s.r, shaper.p.step, corners: List.of(shaper.corners));
+    return Centerline(
+      s.x,
+      s.y,
+      s.r,
+      shaper.p.step,
+      corners: List.of(shaper.corners),
+      live: shaper.liveLength,
+    );
   }
 
   /// The index of the first point that is ink in a stroke of [points]
   /// (after the pen-down hook), deciding with whatever there is.
   static int startIndex(List<StrokePoint> points, OutlineSpec spec) {
-    final shaper = _shape(points, spec, null, false);
+    final shaper = _shape(points, spec, false);
     return shaper.started ? _pointIndex(points, shaper) : 0;
   }
 
@@ -240,13 +233,8 @@ abstract final class StrokeOutline {
   static ShapeParams paramsOf(List<StrokePoint> points, OutlineSpec spec) =>
       spec.paramsFor(unitOf(points, spec));
 
-  static StrokeShaper _shape(
-    List<StrokePoint> points,
-    OutlineSpec spec,
-    List<double>? pressures,
-    bool complete,
-  ) {
-    final shaper = feed(StrokeShaper(paramsOf(points, spec)), points, spec, pressures);
+  static StrokeShaper _shape(List<StrokePoint> points, OutlineSpec spec, bool complete) {
+    final shaper = feed(StrokeShaper(paramsOf(points, spec)), points, spec);
     if (complete) {
       shaper.update(ended: true, keep: shaper.endKeep());
     } else {
@@ -260,13 +248,12 @@ abstract final class StrokeOutline {
   static StrokeShaper feed(
     StrokeShaper shaper,
     List<StrokePoint> points,
-    OutlineSpec spec,
-    List<double>? pressures, {
+    OutlineSpec spec, {
     int from = 0,
   }) {
     for (var i = from; i < points.length; i++) {
       final p = points[i];
-      shaper.add(p.x, p.y, spec.radiusFor(pressures?[i] ?? p.pressure));
+      shaper.add(p.x, p.y, spec.radiusFor(p.pressure));
     }
     return shaper;
   }

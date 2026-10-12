@@ -49,12 +49,12 @@ class MemoryStrokeReader implements StrokeReader {
 }
 
 /// [count] short handwriting-like scribbles scattered over [area], with
-/// every pen type and some highlighter.
+/// pen ink and some highlighter.
 List<Stroke> scribbles(int count, Rect area, {int seed = 1, int points = 10}) {
   final random = math.Random(seed);
   final strokes = <Stroke>[];
   for (var n = 0; n < count; n++) {
-    final tool = n % 9 == 0 ? InkTool.highlighter : _legacyPens[n % _legacyPens.length];
+    final tool = n % 9 == 0 ? InkTool.highlighter : InkTool.ballpoint;
     final config = PenConfig.defaultsFor(tool);
     final width = config.width;
     var x = area.left + random.nextDouble() * area.width;
@@ -73,7 +73,7 @@ List<Stroke> scribbles(int count, Rect area, {int seed = 1, int points = 10}) {
         width: width,
         points: pts,
         createdAt: n,
-        style: config.styleFor(tool, width),
+        style: config.styleFor(tool),
       ),
     );
   }
@@ -88,12 +88,3 @@ Future<void> settle(bool Function() done, {Duration limit = const Duration(secon
     await Future<void>.delayed(const Duration(milliseconds: 2));
   }
 }
-
-/// Every pen type strokes may carry (current and legacy).
-const _legacyPens = [
-  InkTool.ballpoint,
-  InkTool.fountain,
-  InkTool.brush,
-  InkTool.pencil,
-  InkTool.marker,
-];

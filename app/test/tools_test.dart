@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -323,31 +322,6 @@ void main() {
     expect(restored.shape, ShapeKind.star);
     expect(restored.textStyle, const TextData(fontSize: 40, font: TextFont.lora));
     restored.dispose();
-  });
-
-  test('preset-era settings keep their shape and text defaults and gain slots', () {
-    final store = SettingsRepository(db)
-      ..toolPrefs = jsonEncode({
-        'penType': 'fountain',
-        'pens': {
-          'fountain': {
-            'presets': [
-              {'c': 0xFF112233, 'w': 2.0},
-              {'c': 0xFF445566, 'w': 4.0},
-            ],
-            'selected': 1,
-          },
-        },
-        'shape': 'triangle',
-        'text': const TextData(fontSize: 30, font: TextFont.mono).toJson(),
-      });
-    final tools = ToolSettings(store: store);
-    expect(tools.shape, ShapeKind.triangle);
-    expect(tools.textStyle, const TextData(fontSize: 30, font: TextFont.mono));
-    final pen = tools.configOf(InkTool.ballpoint);
-    expect(pen.color, 0xFF445566);
-    expect(pen.colors, containsAll([0xFF112233, 0xFF445566]));
-    tools.dispose();
   });
 
   test('tools without ink switch to the pen when a quick colour or width is picked', () {

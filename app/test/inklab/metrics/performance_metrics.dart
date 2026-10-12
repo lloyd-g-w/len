@@ -49,7 +49,7 @@ bool _settled(ReplayResult r, ReplayFrame f) {
   if (f.points.length < StrokeOutline.unitPoints) return false;
   final spec = StrokeRenderer.specFor(r.pen.tool, r.pen.width, f.style);
   final shaper = StrokeShaper(StrokeOutline.paramsOf(f.points, spec));
-  StrokeOutline.feed(shaper, f.points, spec, null).update();
+  StrokeOutline.feed(shaper, f.points, spec).update();
   return shaper.finalCount > 0;
 }
 
@@ -110,7 +110,9 @@ List<Metric> performance(ReplayResult r) {
     Metric(
       'perf.subpaths',
       costs.last.subpaths.toDouble(),
-      limit: 64,
+      // A strong stabiliser makes small loops tight bends, outlined as
+      // capsules (see F10).
+      limit: byStabiliser(r.pen.streamline, 64, 64, 96),
       note: 'sub-paths in the last live outline (the GPU re-tessellates all every frame)',
     ),
   ];

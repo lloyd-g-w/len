@@ -219,17 +219,15 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
     if (!WorldLimits.accepts(Stroke.computeBounds(decoded, width.toDouble()))) {
       throw FormatException('Stroke $id is out of bounds');
     }
-    final inkTool = InkTool.parse(tool);
     return Stroke(
       id: id,
       surfaceId: surfaceId,
-      tool: inkTool,
+      tool: InkTool.parse(tool),
       color: color,
       width: width.toDouble(),
       points: decoded,
       createdAt: createdAt,
-      // Older clients send no style; newer ones may add unknown fields.
-      style: StrokeStyle.fromJson(data['style'], fallback: StrokeStyle.defaultsFor(inkTool)),
+      style: StrokeStyle.fromJson(data['style']),
     );
   }
 }

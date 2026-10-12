@@ -70,12 +70,19 @@ class _PreviewPainter extends CustomPainter {
     ];
   }
 
+  /// A gently rising straight line, as an ink with straight lines draws.
+  static List<StrokePoint> straightPoints(Size size, double inset) => [
+    StrokePoint(inset, size.height * 0.65, 0.5),
+    StrokePoint(size.width - inset, size.height * 0.35, 0.5),
+  ];
+
   @override
   void paint(Canvas canvas, Size size) {
     // Keep thick pens inside the preview.
     final shown = math.min(width, size.height * 0.4);
-    final points = samplePoints(size, shown / 2 + 4);
-    final style = config.styleFor(tool, shown);
+    final inset = shown / 2 + 4;
+    final points = config.straight ? straightPoints(size, inset) : samplePoints(size, inset);
+    final style = config.styleFor(tool);
     final path = StrokeRenderer.buildPath(
       points,
       tool: tool,
@@ -83,7 +90,7 @@ class _PreviewPainter extends CustomPainter {
       style: style,
       complete: true,
     );
-    canvas.drawPath(path, StrokeRenderer.paintFor(tool, color, style));
+    canvas.drawPath(path, StrokeRenderer.paintFor(color, style));
   }
 
   @override

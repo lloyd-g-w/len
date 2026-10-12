@@ -6,33 +6,19 @@ import 'package:flutter/foundation.dart';
 import '../data/settings_repository.dart';
 import '../domain/stroke.dart';
 import '../domain/text/text_data.dart';
+import 'editor_tool.dart';
 import 'pen/eraser_config.dart';
 import 'pen/pen_config.dart';
+import 'pen/recent_colors.dart';
 import 'shapes/shape_kind.dart';
 import 'tools/laser_config.dart';
 
+export 'editor_tool.dart';
 export 'pen/eraser_config.dart';
 export 'pen/pen_config.dart';
 export 'pen/pen_defaults.dart';
 export 'shapes/shape_kind.dart';
 export 'tools/laser_config.dart';
-
-/// The tools selectable in the editor toolbar.
-enum EditorTool {
-  pen,
-  highlighter,
-  eraser,
-  lasso,
-  shape,
-  text,
-  laser,
-
-  /// Selects the text of imported PDF pages (offered when there are any).
-  selectText;
-
-  /// Whether the tool draws ink with the active ink's quick colour and width.
-  bool get usesInk => this == pen || this == highlighter || this == shape;
-}
 
 /// Current tool selection, per-pen customisation and input preferences.
 ///
@@ -58,6 +44,8 @@ class ToolSettings extends ChangeNotifier {
   TextData _text = const TextData();
   bool _holdToStraighten = true;
   List<int> _favorites = const [];
+  List<int> _recent = const [];
+  EditorTool _lastInk = EditorTool.pen;
   bool? _stylusOnly;
 
   static const int maxFavorites = 16;
@@ -68,8 +56,13 @@ class ToolSettings extends ChangeNotifier {
   EditorTool get tool => _tool;
   set tool(EditorTool value) {
     if (value == _tool || (value == EditorTool.selectText && !_selectTextAvailable)) return;
-    _tool = value;
+    _select(value);
     notifyListeners();
+  }
+
+  void _select(EditorTool value) {
+    _tool = value;
+    if (value == EditorTool.pen || value == EditorTool.highlighter) _lastInk = value;
   }
 
   bool _selectTextAvailable = false;
@@ -89,26 +82,20 @@ class ToolSettings extends ChangeNotifier {
   InkTool get activeInk =>
       _tool == EditorTool.highlighter ? InkTool.highlighter : InkTool.ballpoint;
 
-  /// The customisation of [tool] (the pen's for any non-highlighter ink).
-  PenConfig configOf(InkTool tool) => _configs[_inkOf(tool)]!;
+  /// The customisation of [tool].
+  PenConfig configOf(InkTool tool) => _configs[tool]!;
 
   /// The customisation of [activeInk].
   PenConfig get activeConfig => configOf(activeInk);
 
   /// Replaces the configuration of [tool].
   void updateConfig(InkTool tool, PenConfig Function(PenConfig) update) {
-    _configs[_inkOf(tool)] = update(configOf(tool));
+    _configs[tool] = update(configOf(tool));
     _changed();
   }
 
   /// The style a new stroke with [tool] gets.
-  StrokeStyle styleFor(InkTool tool) {
-    final config = configOf(tool);
-    return config.styleFor(_inkOf(tool), config.width);
-  }
-
-  static InkTool _inkOf(InkTool tool) =>
-      tool.isHighlighter ? InkTool.highlighter : InkTool.ballpoint;
+  StrokeStyle styleFor(InkTool tool) => configOf(tool).styleFor(tool);
 
   /// Selects colour slot [index] of the active ink (switching to the pen
   /// from tools that draw no ink).
@@ -137,7 +124,7 @@ class ToolSettings extends ChangeNotifier {
   /// them, or puts them into the selected slots, as picking a colour does.
   void usePreset(EditorTool tool, {required int color, required double width}) {
     final ink = tool == EditorTool.highlighter ? InkTool.highlighter : InkTool.ballpoint;
-    _tool = tool == EditorTool.highlighter ? tool : EditorTool.pen;
+    _select(tool == EditorTool.highlighter ? tool : EditorTool.pen);
     updateConfig(ink, (c) {
       final ci = c.colors.indexOf(color);
       c = ci == -1 ? c.withColor(c.colorIndex, color) : c.copyWith(colorIndex: ci);
@@ -147,7 +134,7 @@ class ToolSettings extends ChangeNotifier {
   }
 
   void _leaveNonInk() {
-    if (!_tool.usesInk) _tool = EditorTool.pen;
+    if (!_tool.usesInk) _select(EditorTool.pen);
   }
 
   /// The shape the Shape tool draws.
@@ -179,6 +166,15 @@ class ToolSettings extends ChangeNotifier {
     _changed();
   }
 
+  /// An erase stroke made with the eraser tool ended. With
+  /// [EraserConfig.autoDeselect] the ink used before it (pen or
+  /// highlighter) becomes the tool again; returns whether it did.
+  bool eraserStrokeEnded() {
+    if (_tool != EditorTool.eraser || !_eraser.autoDeselect) return false;
+    tool = _lastInk;
+    return true;
+  }
+
   /// Eraser radius in screen pixels (independent of zoom).
   double get eraserRadius => _eraser.radius;
 
@@ -207,6 +203,18 @@ class ToolSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Colours recently picked for quick colour slots (opaque ARGB), most
+  /// recent first, at most [RecentColors.max].
+  List<int> get recentColors => _recent;
+
+  /// Notes [argb] as the most recently picked ink colour.
+  void addRecentColor(int argb) {
+    final recent = RecentColors.add(_recent, argb);
+    if (identical(recent, _recent)) return;
+    _recent = recent;
+    _changed();
+  }
+
   /// Palm rejection: only the stylus draws; fingers navigate. `null` means
   /// undecided — it turns on automatically when a stylus is first used.
   bool? get stylusOnly => _stylusOnly;
@@ -229,15 +237,18 @@ class ToolSettings extends ChangeNotifier {
         _laser == other._laser &&
         identical(_text, other._text) &&
         _holdToStraighten == other._holdToStraighten &&
+        identical(_recent, other._recent) &&
         inks.every((t) => identical(_configs[t], other._configs[t]));
     if (same) return;
     _tool = tool;
+    _lastInk = other._lastInk;
     _configs.addAll(other._configs);
     _eraser = other._eraser;
     _shape = other._shape;
     _laser = other._laser;
     _text = other._text;
     _holdToStraighten = other._holdToStraighten;
+    _recent = other._recent;
     notifyListeners();
   }
 
@@ -249,6 +260,7 @@ class ToolSettings extends ChangeNotifier {
     'pens': {for (final e in _configs.entries) e.key.name: e.value.toJson()},
     'eraser': _eraser.toJson(),
     'straighten': _holdToStraighten,
+    'recent': _recent,
     'shape': _shape.name,
     'laser': _laser.toJson(),
     'text': _text.toJson(),
@@ -262,36 +274,20 @@ class ToolSettings extends ChangeNotifier {
       return;
     }
     if (data is! Map) return;
-    final pens = data['pens'];
-    if (pens is Map) {
+    // Strict: a part that is missing or invalid keeps its defaults.
+    if (data['pens'] case final Map<String, Object?> pens) {
       for (final tool in inks) {
-        _configs[tool] = PenConfig.fromJson(
-          _saved(pens, tool, data['penType']),
-          _configs[tool]!,
-          tool: tool,
-        );
+        if (PenConfig.fromJson(pens[tool.name], tool: tool) case final config?) {
+          _configs[tool] = config;
+        }
       }
     }
-    _eraser = EraserConfig.fromJson(data['eraser']);
+    if (EraserConfig.fromJson(data['eraser']) case final eraser?) _eraser = eraser;
     if (data['straighten'] case final bool straighten) _holdToStraighten = straighten;
+    if (RecentColors.parse(data['recent']) case final recent?) _recent = recent;
     _shape = ShapeKind.parse(data['shape']);
     _laser = LaserConfig.fromJson(data['laser']);
     if (data['text'] case final Map<String, Object?> text) _text = TextData.fromJson(text);
-  }
-
-  /// The saved config of [tool]. Settings from before the pen line-up was
-  /// reduced to one pen take the quick colours and widths of the pen type
-  /// that was in use ([penType]: fountain, brush, …) for the pen.
-  static Object? _saved(Map<Object?, Object?> pens, InkTool tool, Object? penType) {
-    final own = pens[tool.name];
-    if (tool.isHighlighter || penType is! String || penType == tool.name) return own;
-    final used = pens[penType];
-    if (used is! Map || (own is Map && own.containsKey('colors'))) return own;
-    return {
-      ...?(own is Map ? own : null),
-      'presets': used['presets'],
-      'selected': used['selected'],
-    };
   }
 
   /// Distinct colours, first occurrence first, at most [maxFavorites].

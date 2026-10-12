@@ -124,6 +124,9 @@ class InkInputController {
   double _drawTravel = 0;
   bool _erasing = false;
   bool _eraseStarted = false;
+
+  /// The eraser tool (not the side button or eraser end) is erasing.
+  bool _erasingWithTool = false;
   Offset? _lastScreen;
 
   final Map<int, Offset> _navPointers = {};
@@ -242,9 +245,11 @@ class InkInputController {
     // Fingers resting on the screen are the palm now; stop them panning.
     _navPointers.clear();
     final route = routeStylus(e.kind, e.buttons, penButtonAction);
+    final eraserTool = route == StylusRoute.tool && tools.tool == EditorTool.eraser;
     _startDraw(
       e,
-      erase: route == StylusRoute.eraser || (route == StylusRoute.tool && _wantsErase(e)),
+      erase: route == StylusRoute.eraser || eraserTool,
+      eraserTool: eraserTool,
       lasso: route == StylusRoute.lasso,
     );
   }
@@ -273,7 +278,9 @@ class InkInputController {
     _navPointers[e.pointer] = e.localPosition;
   }
 
-  void _startDraw(PointerDownEvent e, {required bool erase, bool lasso = false}) {
+  /// Starts a contact; [eraserTool] (default: [erase]) says whether the
+  /// eraser tool rather than a stylus button or end erases.
+  void _startDraw(PointerDownEvent e, {required bool erase, bool? eraserTool, bool lasso = false}) {
     _drawPointer = e.pointer;
     _drawKind = e.kind;
     _drawStartTime = e.timeStamp;
@@ -282,6 +289,7 @@ class InkInputController {
     _drawTravel = 0;
     _pressure.reset();
     _erasing = erase;
+    _erasingWithTool = eraserTool ?? erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
     final tool = erase ? null : content?.toolAt(tools.tool, e.localPosition, lasso: lasso);
@@ -303,7 +311,12 @@ class InkInputController {
       );
       _dropped.clear();
       live.add(_pointOf(e));
-      _straighten.begin(e.localPosition, enabled: tools.holdToStraighten, scale: viewport.scale);
+      _straighten.begin(
+        e.localPosition,
+        enabled: tools.holdToStraighten,
+        scale: viewport.scale,
+        straight: config.straight,
+      );
     }
     // After the live stroke began: a low-latency overlay can start with it.
     samples?.begin(e);
@@ -396,7 +409,8 @@ class InkInputController {
       _tool = null;
       tool.up();
     } else if (_erasing) {
-      _showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
+      final deselected = _erasingWithTool && tools.eraserStrokeEnded();
+      _showEraser(_drawKind == PointerDeviceKind.touch || deselected ? null : _lastScreen);
     } else {
       final points = _settleEnd(live.finish());
       // A bounce was shown while it touched (under the nib, where the pen

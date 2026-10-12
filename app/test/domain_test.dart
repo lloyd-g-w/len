@@ -12,7 +12,7 @@ import 'package:len/ink/viewport.dart';
 Stroke stroke(String id, List<Offset> pts, {double width = 2, int createdAt = 0}) => Stroke(
   id: id,
   surfaceId: 's',
-  tool: InkTool.pen,
+  tool: InkTool.ballpoint,
   color: 0xFF000000,
   width: width,
   points: [for (final p in pts) StrokePoint(p.dx, p.dy, 0.5)],

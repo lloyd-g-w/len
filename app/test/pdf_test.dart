@@ -110,7 +110,7 @@ void main() {
         Stroke(
           id: 'ink',
           surfaceId: pages[0].id,
-          tool: InkTool.pen,
+          tool: InkTool.ballpoint,
           color: 0xFF0000FF,
           width: 12,
           points: [for (var i = 0; i < 50; i++) StrokePoint(400 + i * 4.0, 600, 0.8)],

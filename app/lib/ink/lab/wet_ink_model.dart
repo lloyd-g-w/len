@@ -41,7 +41,8 @@ import '../render/stroke_shaper.dart';
 ///    is trimmed with the outline's rules ([HookFinder]; the pen-down hook
 ///    is decided now if it was not yet).
 ///  * **Shape**: the hull of the circles of consecutive smoothed points (a
-///    tapered capsule: two circles and the quad between their tangents);
+///    capsule of two circles, of their own radii, and the quad between their
+///    tangents);
 ///    one point is a dot, and so is a whole line shorter than half its
 ///    width, with the contact's largest radius (as Flutter draws it).
 ///  * **Tail**: on every commit (after each Flutter frame's `progress`,
@@ -292,7 +293,31 @@ class WetInkModel {
     final trimmed = _trimmedAtMs;
     if (trimmed != null && trimmed > cutoff && samples.isNotEmpty) return 0;
     if (from == samples.length) return from;
-    return math.max(0, from - 1);
+    from = math.max(0, from - 1);
+    // With the stabiliser on, Flutter's ink ends further back than its
+    // newest input (as far as the line was final then): draw from there.
+    if (shape.lag > 0) from = _back(from, _lagReach);
+    return from;
+  }
+
+  /// How far (arc length) behind its newest input Flutter's live ink ends
+  /// at most with the stabiliser on: the resampling's last final segments
+  /// (three points, see [_back]), the corner test, the kernel and the tip
+  /// rules.
+  double get _lagReach {
+    final p = shape;
+    return (p.kernel.length ~/ 2 + p.cornerK + p.lag + 2) * p.step;
+  }
+
+  /// The point [reach] (arc length) and three more points before point [i].
+  int _back(int i, double reach) {
+    var at = math.max(0, i - 3);
+    var back = 0.0;
+    while (at > 0 && back < reach) {
+      back += (samples[at].position - samples[at - 1].position).distance;
+      at--;
+    }
+    return at;
   }
 
   /// The overlay's pieces from point [from] to [to] (exclusive): the hull
@@ -330,7 +355,8 @@ class WetInkModel {
       final s = samples[i].position;
       shaper.add(s.dx, s.dy, r[i]);
     }
-    shaper.update(ended: _lifted && to == samples.length);
+    final ended = _lifted && to == samples.length;
+    shaper.update(ended: ended);
     // A line shorter than half its width is a dot, as Flutter draws it
     // (`StrokeOutline.isDot`): the largest radius, at the first point.
     if (start == 0 && to == samples.length && _isDot(shaper)) {
@@ -348,7 +374,13 @@ class WetInkModel {
     }
     final first = math.max(0, (skip / p.step).floor() - 1);
     final x = shaper.x, y = shaper.y, rr = shaper.r;
-    final n = shaper.length;
+    // With the stabiliser on, as far as Flutter's live ink reaches (its
+    // final line); from pen-down until the hook is decided, its first point.
+    final n = shape.lag == 0 || ended
+        ? shaper.length
+        : _start == null
+        ? 1
+        : math.max(1, shaper.finalCount);
     if (n - first < 2) {
       final i = math.min(first, n - 1);
       return [WetSegment(Offset(x[i], y[i]), Offset(x[i], y[i]), rr[i], rr[i])];

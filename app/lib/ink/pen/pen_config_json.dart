@@ -2,94 +2,67 @@ import '../../domain/stroke.dart';
 import 'pen_config.dart';
 import 'pen_defaults.dart';
 
-/// Lenient parsing of saved [PenConfig]s, including the migration of the
-/// older format that bundled a colour and a width into each of three
-/// presets (`{"presets": [{"c": argb, "w": width}, …], "selected": i}`).
+/// Strict parsing of saved [PenConfig]s: every field must be present and
+/// valid (opaque colours, widths in the ink's range, selections in range,
+/// feel settings in theirs), else the whole config is rejected.
 abstract final class PenConfigJson {
-  static PenConfig parse(Object? json, PenConfig fallback, {required InkTool tool}) {
-    if (json is! Map) return fallback;
-    double unit(String key, double orElse, {double min = 0}) {
-      final v = json[key];
-      return v is num && v.isFinite ? v.toDouble().clamp(min, 1.0) : orElse;
-    }
-
+  static PenConfig? parse(Object? json, {required InkTool tool}) {
+    if (json is! Map<String, Object?>) return null;
     final defaults = PenDefaults.of(tool);
-    final slots = json.containsKey('colors') || json.containsKey('widths')
-        ? _slots(json, fallback, defaults)
-        : _migratePresets(json['presets'], json['selected'], fallback, defaults);
-    final taper = json['taper'];
-    return slots.copyWith(
-      opacity: tool.isHighlighter
-          ? unit('opacity', fallback.opacity, min: PenConfig.minOpacity)
-          : fallback.opacity,
-      thinning: unit('thinning', fallback.thinning),
-      streamline: unit('streamline', fallback.streamline),
-      taper: taper is bool ? taper : fallback.taper,
-    );
-  }
-
-  /// The current format: separate colour and width rows.
-  static PenConfig _slots(Map<Object?, Object?> json, PenConfig fallback, PenDefaults defaults) {
-    final colors = _colors(json['colors']);
-    final widths = _widths(json['widths'], defaults);
-    final c = colors.isEmpty ? fallback.colors : colors;
-    final w = widths.isEmpty ? fallback.widths : widths;
-    return fallback.copyWith(
-      colors: c,
-      widths: w,
-      colorIndex: _index(json['color'], c.length, colors.isEmpty ? fallback.colorIndex : 0),
-      widthIndex: _index(json['width'], w.length, widths.isEmpty ? fallback.widthIndex : 0),
-    );
-  }
-
-  /// Old presets: their colours become colour slots and their widths width
-  /// slots (duplicates dropped), topped up from the defaults to three each.
-  static PenConfig _migratePresets(
-    Object? presets,
-    Object? selected,
-    PenConfig fallback,
-    PenDefaults defaults,
-  ) {
-    if (presets is! List) return fallback;
-    final valid = [
-      for (final p in presets)
-        if (p case {'c': final int c, 'w': final num w} when w.isFinite && w > 0)
-          (color: (c & 0xFFFFFF) | 0xFF000000, width: defaults.clampWidth(w.toDouble())),
-    ];
-    if (valid.isEmpty) return fallback;
-    final chosen =
-        valid[selected is int && selected >= 0 && selected < valid.length ? selected : 0];
-    final colors = valid.map((p) => p.color).toSet().toList();
-    for (final c in defaults.colors) {
-      if (colors.length >= 3) break;
-      if (!colors.contains(c)) colors.add(c);
+    final colors = _list(json['colors'], (c) => c is int && c >>> 24 == 0xFF ? c : null);
+    final widths = _list(json['widths'], (w) {
+      final v = _number(w);
+      return v != null && v >= defaults.minWidth && v <= defaults.maxWidth ? v : null;
+    });
+    final color = _index(json['color'], colors);
+    final width = _index(json['width'], widths);
+    final opacity = _unit(json['opacity'], min: PenConfig.minOpacity);
+    final thinning = _unit(json['thinning']);
+    final streamline = _unit(json['streamline']);
+    final straight = json['straight'];
+    if (colors == null ||
+        widths == null ||
+        color == null ||
+        width == null ||
+        opacity == null ||
+        thinning == null ||
+        streamline == null ||
+        straight is! bool) {
+      return null;
     }
-    final widths = valid.map((p) => p.width).toSet().toList();
-    for (final w in defaults.widths) {
-      if (widths.length >= 3) break;
-      if (widths.every((x) => (x - w).abs() > 0.05)) widths.add(w);
-    }
-    widths.sort();
-    return fallback.copyWith(
+    return PenConfig(
       colors: colors,
       widths: widths,
-      colorIndex: colors.indexOf(chosen.color),
-      widthIndex: widths.indexOf(chosen.width),
+      colorIndex: color,
+      widthIndex: width,
+      opacity: opacity,
+      thinning: thinning,
+      streamline: streamline,
+      straight: straight,
     );
   }
 
-  static List<int> _colors(Object? raw) => [
-    if (raw is List)
-      for (final c in raw.take(PenConfig.maxSlots))
-        if (c is int) (c & 0xFFFFFF) | 0xFF000000,
-  ];
+  /// A list of [PenConfig.minSlots]..[PenConfig.maxSlots] valid items.
+  static List<T>? _list<T>(Object? raw, T? Function(Object?) item) {
+    if (raw is! List || raw.length < PenConfig.minSlots || raw.length > PenConfig.maxSlots) {
+      return null;
+    }
+    final items = <T>[];
+    for (final r in raw) {
+      final v = item(r);
+      if (v == null) return null;
+      items.add(v);
+    }
+    return items;
+  }
 
-  static List<double> _widths(Object? raw, PenDefaults defaults) => [
-    if (raw is List)
-      for (final w in raw.take(PenConfig.maxSlots))
-        if (w is num && w.isFinite && w > 0) defaults.clampWidth(w.toDouble()),
-  ];
+  static int? _index(Object? raw, List<Object?>? list) =>
+      list != null && raw is int && raw >= 0 && raw < list.length ? raw : null;
 
-  static int _index(Object? raw, int length, int orElse) =>
-      raw is int && raw >= 0 && raw < length ? raw : orElse.clamp(0, length - 1);
+  static double? _number(Object? raw) => raw is num && raw.isFinite ? raw.toDouble() : null;
+
+  static double? _unit(Object? raw, {double min = 0}) {
+    final v = _number(raw);
+    return v != null && v >= min && v <= 1 ? v : null;
+  }
 }

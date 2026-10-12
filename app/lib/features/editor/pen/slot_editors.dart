@@ -10,12 +10,24 @@ import 'option_controls.dart';
 import 'stroke_preview.dart';
 
 /// Selects colour slot [index] of [ink] and opens its editor at [anchor].
-Future<void> openColorSlotEditor(BuildContext anchor, ToolSettings tools, InkTool ink, int index) {
+/// A colour picked for the slot becomes a recent colour when it closes.
+Future<void> openColorSlotEditor(
+  BuildContext anchor,
+  ToolSettings tools,
+  InkTool ink,
+  int index,
+) async {
   tools.selectColor(index);
-  return showAdaptivePopover<void>(
+  final before = tools.configOf(ink).colors;
+  await showAdaptivePopover<void>(
     context: anchor,
     builder: (_) => ColorSlotEditor(tools: tools, ink: ink, index: index),
   );
+  final after = tools.configOf(ink).colors;
+  // Unless the slot was removed, which shifts the others.
+  if (after.length == before.length && after[index] != before[index]) {
+    tools.addRecentColor(after[index]);
+  }
 }
 
 /// Selects width slot [index] of [ink] and opens its editor at [anchor].
@@ -57,6 +69,7 @@ class ColorSlotEditor extends StatelessWidget {
             ColorPicker(
               color: config.colors[index],
               showOpacity: false,
+              recent: tools.recentColors,
               favorites: tools.favorites,
               onAddFavorite: tools.addFavorite,
               onRemoveFavorite: tools.removeFavorite,

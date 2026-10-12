@@ -9,7 +9,7 @@ import 'package:len/domain/stroke.dart';
 Stroke _stroke(String id, Offset from, Offset to) => Stroke(
   id: id,
   surfaceId: 's',
-  tool: InkTool.pen,
+  tool: InkTool.ballpoint,
   color: 0xFF000000,
   width: 2,
   points: [StrokePoint(from.dx, from.dy, 0.5), StrokePoint(to.dx, to.dy, 0.5)],

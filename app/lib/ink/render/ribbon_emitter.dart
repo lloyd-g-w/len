@@ -14,6 +14,28 @@ abstract interface class RibbonLine {
   List<int> get corners;
 }
 
+/// The first [length] samples of [line] (live ink with the stabiliser on
+/// shows only the final part of its line, `StrokeShaper.liveLength`).
+class RibbonPrefix implements RibbonLine {
+  RibbonPrefix(this.line, this.length)
+    : corners = [
+        for (final c in line.corners)
+          if (c < length - 1) c,
+      ];
+
+  final RibbonLine line;
+  @override
+  final int length;
+  @override
+  final List<int> corners;
+  @override
+  DoubleBuffer get x => line.x;
+  @override
+  DoubleBuffer get y => line.y;
+  @override
+  DoubleBuffer get r => line.r;
+}
+
 /// Where the live outline's frozen part ends: the sample, and whether the
 /// outline continues there with a straight cut (inside a run) rather than
 /// a new run's cap.
@@ -65,8 +87,10 @@ class RibbonEmitter {
   /// Within a run, a side may not run backwards by more than this many
   /// centre-line steps per step (a mild fold of the inner side, at a bend
   /// tighter than the radius, is fine: the non-zero fill still covers
-  /// exactly the union of the circles, see test/ribbon_exactness_test.dart).
-  static double foldAdvance = -2;
+  /// exactly the union of the circles, see test/ribbon_exactness_test.dart;
+  /// at 2 the long, smooth tight bends a strong stabiliser makes of small
+  /// loops left slivers uncovered).
+  static double foldAdvance = -1;
 
   /// Cosine of the largest tangent turn per sample within a run.
   static double foldCos = -0.5;

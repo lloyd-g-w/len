@@ -34,11 +34,19 @@ class WetInkShape(v: DoubleArray) {
     val dedupe = v[14]
     val fit = v[15].toInt()
     val cornerK = v[16].toInt()
+
+    /**
+     * With the stabiliser on, live ink shows only the final line
+     * (`ShapeParams.lag`): the samples the tip rules keep back (0: stabiliser
+     * off), and the start rules' reach (samples).
+     */
+    val lag = v[17].toInt()
+    val startReach = v[18].toInt()
     val kernel: DoubleArray = v.copyOfRange(FIELDS, v.size)
     val kernelK = (kernel.size - 1) / 2
 
     companion object {
-        const val FIELDS = 17
+        const val FIELDS = 19
 
         /** The rules in [v], or null when it is not a valid list. */
         fun of(v: DoubleArray): WetInkShape? =
@@ -59,6 +67,9 @@ class WetInkModel(
     private val shape: WetInkShape,
     private val frameMs: Double,
 ) {
+    /** Whether the stabiliser is on: the ink shows only the final, smoothed line. */
+    val stabilised get() = shape.lag > 0
+
     /** The points drawn: from the end of the pen-down hook, or from pen-down while that is undecided. */
     val samples = ArrayList<WetSample>()
 
@@ -250,7 +261,21 @@ class WetInkModel(
         // Flutter still shows the start from pen-down: draw the trimmed start.
         if (trimmedAtMs >= 0 && trimmedAtMs > shownUpToMs && samples.isNotEmpty()) return 0
         if (from == samples.size) return from
-        return max(0, from - 1)
+        from = max(0, from - 1)
+        // Stabiliser on: Flutter's ink ends further back than its newest input.
+        if (shape.lag > 0) from = back(from, (shape.kernelK + shape.cornerK + shape.lag + 2) * shape.step)
+        return from
+    }
+
+    /** The point [reach] (arc length) and three more points before point [i]. */
+    private fun back(i: Int, reach: Double): Int {
+        var at = max(0, i - 3)
+        var back = 0.0
+        while (at > 0 && back < reach) {
+            back += dist(samples[at].x - samples[at - 1].x, samples[at].y - samples[at - 1].y)
+            at--
+        }
+        return at
     }
 
     /**
@@ -281,7 +306,8 @@ class WetInkModel(
             shaper = WetShaper(shape, 1, true, ceil(a / step) * step - a)
         }
         for (i in max(0, start - 1) until to) shaper.add(samples[i].x, samples[i].y, r[i])
-        shaper.update()
+        val ended = lifted && to == samples.size
+        shaper.update(ended)
         // A whole line shorter than half its width is a dot (`StrokeOutline.isDot`).
         if (start == 0 && to == samples.size && shaper.isDot()) {
             var radius = trimmedRadius
@@ -293,7 +319,13 @@ class WetInkModel(
             skip += dist(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y)
         }
         val first = max(0, floor(skip / step).toInt() - 1)
-        val n = shaper.length
+        // Stabiliser on: as far as Flutter's live ink reaches (its final
+        // line); until the pen-down hook is decided, its first point.
+        val n = when {
+            shape.lag == 0 || ended -> shaper.length
+            this.start < 0 -> min(1, shaper.length)
+            else -> min(shaper.length, max(1, shaper.finalCount))
+        }
         if (n == 0) return DoubleArray(0)
         if (n - first < 2) {
             val i = min(first, n - 1)
@@ -451,6 +483,21 @@ class WetShaper(
     var length = 0
         private set
 
+    /**
+     * Samples whose position and radius are final as the outline's shaper
+     * decides it incrementally (`StrokeShaper.finalCount`, with the base's
+     * end rules: [WetInkShape.lag], [WetInkShape.startReach]).
+     */
+    var finalCount = 0
+        private set
+
+    // Resampled samples from final segments (`StrokeShaper._resFinal`) and
+    // the corner scan over them: where it stopped, and the run of sharp
+    // turns it is in (its best sample, -1: none).
+    private var resFinal = 0
+    private var scan = 0
+    private var runBest = -1
+
     /** Whether the line is shorter than half its largest radius (`StrokeOutline.isDot`). */
     fun isDot(): Boolean {
         if (length < 2) return true
@@ -474,23 +521,35 @@ class WetShaper(
         sr.add(radius)
     }
 
-    fun update() {
+    fun update(ended: Boolean = false) {
         val n = sx.size
         if (n <= start) {
             length = 0
+            finalCount = 0
             return
         }
-        resample(n)
+        resample(n, ended)
         val count = rx.size
         val corners = findCorners(count)
         smooth(count, corners)
         length = count
+        val known = if (runBest >= 0) runBest else scan
+        val posFinal = max(0, min(known, resFinal) - p.kernelK - 1)
+        val settled = resFinal - max(1, p.lag)
+        val roDone = if (settled > max(1, p.startReach)) settled else 0
+        finalCount = min(posFinal, roDone)
     }
 
-    private fun resample(n: Int) {
+    private fun resample(n: Int, ended: Boolean) {
         push(sx[start], sy[start], sr[start])
+        resFinal = 1
         var next = if (phase != null && phase > 1e-9) phase else p.step
-        for (k in start until n - 1) next = segment(k, n, next)
+        for (k in start until n - 1) {
+            next = segment(k, n, next)
+            // Final: the sample after the segment's end is (not the last
+            // input sample), and the input is still growing.
+            if (k + 2 <= n - 2 && !ended) resFinal = rx.size
+        }
         val along = next - p.step
         if (n - 1 > start && along < -p.step * 1e-3) push(sx[n - 1], sy[n - 1], sr[n - 1])
     }
@@ -570,7 +629,13 @@ class WetShaper(
         var best = -1
         var score = 0.0
         var i = k
+        scan = -1
         while (i + k < count) {
+            // Where the outline's scan of final samples stops, and its run.
+            if (scan < 0 && i + k >= resFinal) {
+                scan = i
+                runBest = best
+            }
             if (turnAt(i) > MIN_TURN) {
                 if (first < 0) {
                     first = i
@@ -587,6 +652,10 @@ class WetShaper(
                 score = 0.0
             }
             i++
+        }
+        if (scan < 0) {
+            scan = i
+            runBest = best
         }
         if (best >= 0) found.add(best)
         return found.toIntArray()

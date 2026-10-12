@@ -6,16 +6,19 @@ import 'growable.dart';
 /// One-dimensional filters for uniformly spaced samples (the stroke
 /// pipeline, `StrokeShaper`).
 abstract final class LineFilters {
-  /// The kernel of the low-pass filter `2G − G∘G` (G a Gaussian with
-  /// standard deviation [sigma] samples), centred: `kernel[K + j]` is the
-  /// weight of the sample `j` away, `K = (kernel.length − 1) / 2`.
+  /// The kernel of the low-pass filter `(1 + a)G − aG∘G` (G a Gaussian
+  /// with standard deviation [sigma] samples, a the [sharpness]), centred:
+  /// `kernel[K + j]` is the weight of the sample `j` away,
+  /// `K = (kernel.length − 1) / 2`.
   ///
-  /// Its response `1 − (1 − g)²` is flat for features much larger than the
-  /// filter, so curves barely shrink, while jitter much smaller than it is
-  /// removed. The kernel is finite: an output depends on nothing more than
-  /// K samples away, so smoothed ink becomes *final* a fixed distance
-  /// behind the pen tip.
-  static Float64List lowPassKernel(double sigma) {
+  /// At sharpness 1 its response `1 − (1 − g)²` is flat for features much
+  /// larger than the filter, so curves barely shrink, while jitter much
+  /// smaller than it is removed. At 0 it is the plain Gaussian: it smooths
+  /// mid-sized wobble more for its reach (and shrinks curves more), and
+  /// reaches less far (G∘G is twice as wide). The kernel is finite: an
+  /// output depends on nothing more than K samples away, so smoothed ink
+  /// becomes *final* a fixed distance behind the pen tip.
+  static Float64List lowPassKernel(double sigma, {double sharpness = 1}) {
     if (sigma <= 0.05) return Float64List.fromList([1]);
     final m = (3 * sigma).ceil();
     final g = Float64List(2 * m + 1);
@@ -36,7 +39,7 @@ abstract final class LineFilters {
     final w = Float64List(4 * m + 1);
     for (var j = 0; j < w.length; j++) {
       final gj = j - m >= 0 && j - m < g.length ? g[j - m] : 0.0;
-      w[j] = 2 * gj - gg[j];
+      w[j] = (1 + sharpness) * gj - sharpness * gg[j];
     }
     // Drop negligible tails (they only widen the not-yet-final zone).
     var k = 2 * m;

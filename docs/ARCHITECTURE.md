@@ -610,8 +610,8 @@ search highlights use the same boxes.
   on the page.
 - **Highlight** turns each selected line (`PdfGlyphs.rectsFor`) into one
   highlighter stroke along its middle, 1.1 × the line's height, with the
-  highlighter's colour and opacity (no pressure thinning, stabiliser or
-  tapers), committed to the page's `SurfaceModel` as one `InkEdit` — so it
+  highlighter's colour and opacity (no pressure thinning or stabiliser),
+  committed to the page's `SurfaceModel` as one `InkEdit` — so it
   is ordinary ink: undoable, erasable, selectable, synced and exported.
 - **Links** (`loadLinks`, incl. URLs detected in the text): tapped with a
   finger while fingers navigate (stylus only), or, with any tool, from the
@@ -959,19 +959,36 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   the pen-down and pen-up hooks (`HookFinder`), the dot rule and the
   shaper's position smoothing — in screen pixels (a view is a translation
   and a uniform scale, so the rules scale with it). Each piece is the hull
-  of two circles. Two checks keep the ports equal: a shared golden
+  of two circles. With the stabiliser on, it draws what Flutter's live
+  ink does: only the final, smoothed line (the shaper's `finalCount`,
+  ported), from where Flutter's shown frame ends (the lag reach before
+  its newest input), and no predicted tip or line to the raw sample
+  (`WetContact.predicts`) — the smoothed line, as soon as the smoothing
+  allows. Two checks keep the ports equal: a shared golden
   (`test/inklab/wet_ink_golden_test.dart` writes/compares
   `android/app/src/test/resources/wet_ink/`, `WetInkModelTest.kt` checks
   the Kotlin model against it: `tool/wet_ink_check/unit_test.sh`, or
   Gradle `:app:testDebugUnitTest`) and
   `tool/wet_ink_check/check.sh` (every Ink Lab case and recording, equal
   to 1e-15).
-- **Prediction** (`WetInkTip`): androidx.input's `MotionEventPredictor`
-  (Android's own predictor where the device has one, else a Kalman
-  filter) extends the tip by at most 20 ms, at the tip's radius. Predicted
-  points are only drawn, never stored; each event replaces them.
+- **Prediction** (`WetInkTip`, `WetInkPrediction`): androidx.input's
+  `MotionEventPredictor` (Android's own predictor where the device has
+  one, else a Kalman filter) extrapolates the pen; `WetInkPrediction`
+  (pure Kotlin) draws only a short, cautious piece of it, at the tip's
+  radius: points at most 10 ms ahead, no further along them than the recent
+  speed covers in 10 ms, 6 tip radii, or the length over which a straight
+  line leaves the current curvature by a quarter radius; scaled smoothly
+  to nothing while the pen slows down, turns (15–45° between the last two
+  8 ms windows) or lifts (pressure falling or low), and none in the first
+  16 ms. The pen-up's frame has no tip at all (no prediction, and no line
+  to the raw pen-up sample, which could draw a pen-up hook the model cut).
+  Predicted points are only drawn, never stored; each event replaces them
+  (in reused buffers). With the stabiliser on (`WetInkModel.stabilised`)
+  `WetContact.predicts` is false: the whole tip is off (only the model's
+  ink is drawn). Measured by replaying the Ink Lab
+  recordings: `docs/INK_LAB.md`, *Low-latency ink → Prediction*.
 - **Only opaque pen ink** (`WetInkStyle`): the highlighter, translucent
-  colours, textured or nib pens, the eraser, lasso, shapes, text and
+  colours, the eraser, lasso, shapes, text and
   straightened strokes stay on the Flutter path, as do fingers and other
   platforms. Overlay and Flutter ink overlap, so only opaque ink can look
   the same where they do.
@@ -1023,7 +1040,7 @@ surface.
 ## Editing tools
 
 - **Shapes** are ordinary strokes whose points trace a clean outline at
-  constant pressure, with no stabiliser or tapers
+  constant pressure, with no stabiliser
   (`shapes/shape_builder.dart`), so they render, erase, select and sync
   like ink. The Shape tool drags out a box (Shift: square / 15° lines).
 - **Lasso** (`selection/`): a stroke is selected when at least half of its
@@ -1192,35 +1209,42 @@ The toolbar offers exactly two inks — the **pen** (`InkTool.ballpoint`) and th
 **highlighter** — plus the eraser. A stroke's look = its `InkTool` + its
 `StrokeStyle`:
 
-- **`PenProfile`** (per tool, in code): pressure easing, nib, texture and
-  flat highlighter caps. It also covers the tools earlier versions offered
-  (`pen` (v0.1), `fountain`, `brush`, `pencil`, `marker`), so their strokes
-  keep rendering; nothing creates them any more. Render constants must stay
-  stable.
-- **`PenDefaults`** (pen, highlighter): default colours, widths, feel settings,
-  width range and taper factor offered in the UI.
+- **`PenDefaults`** (pen, highlighter): default colours, widths, feel settings
+  and the width range offered in the UI.
 - **`StrokeStyle`** (per stroke, stored in `strokes.style` and synced as
   `data.style`): opacity, thinning (pressure sensitivity), streamline
-  (stabiliser) and start/end taper lengths. Missing → `StrokeStyle.defaultsFor`,
-  which reproduces how v0.1 strokes looked. So a stroke renders identically on
-  every device, whatever the local tool settings.
+  (stabiliser) and the zoom it was written at (`unit`); required and parsed
+  strictly (as is the tool: an unknown one makes the stroke malformed). So
+  a stroke renders identically on every device, whatever the local tool
+  settings.
 
-The legacy **fountain** nib adjusts per-point pressure so the radius shrinks
-where the pen travels along a 45° nib (`render/nib.dart`); the legacy
-**pencil** fills its outline with a world-anchored grain texture
-(`render/pencil_texture.dart`). **Highlighter** strokes are translucent with
-flat chisel ends, drawn before other ink in each chunk picture, and the live
+**Highlighter** strokes are translucent with flat chisel ends (the pen has
+round caps), drawn before other ink in each chunk picture, and the live
 highlighter stroke is painted on a layer beneath committed ink.
 
 User customisation lives in `ToolSettings`, persisted as JSON in the local
 `settings` table: per ink a `PenConfig` with **independent quick colours and
 quick widths** (1–6 slots each, one of each selected) and feel settings
-(pressure sensitivity, stabiliser, tapered ends; opacity for the highlighter —
-the pen is always opaque), plus eraser options, hold-to-straighten and
-favourite colours. Older settings with combined colour+width presets migrate:
-preset colours become colour slots, preset widths width slots (topped up from
-the defaults to three each); if a removed pen type was in use, its slots go to
-the pen (`PenConfigJson`).
+(pressure sensitivity, stabiliser, straight lines; opacity for the
+highlighter — the pen is always opaque), plus eraser options,
+hold-to-straighten, the 8 **recent colours** (`RecentColors`: picked for a
+quick colour slot, noted when its editor closes; shown in that colour
+picker) and favourite colours. Parsing is strict (`PenConfigJson`,
+`EraserConfig.fromJson`): a part with a missing or invalid field keeps its
+defaults as a whole.
+
+The settings popovers (`features/editor/pen/`) are self-contained:
+`PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, hold to
+snap) and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
+lines, hold to snap); Reset restores the feel settings, not the slots. The
+stabiliser shows "Off" at 0 (the pen's default: ink under the nib) and up to
+100 % (the live ink then trails the pen by ~6–15 px). **Straight lines**
+(`PenConfig.straight`, offered for the highlighter): every stroke is the line
+from pen-down to the pen — `HoldToStraighten.begin(straight: true)` makes
+the live stroke straight from its first point, like a held line, so it
+stays on the Flutter path (no low-latency overlay) and is committed with
+stabiliser 0 (`PenConfig.styleFor`); the stabiliser and hold to snap are
+greyed out meanwhile.
 
 ### Toolbar (`features/editor/`)
 
@@ -1313,15 +1337,20 @@ does not grow with the stroke's length.
      (cusps of `n`, `v`); the corner is the run's tip (the sample furthest
      along the direction the line came in from, not the sharpest turn,
      which can lie a sample past it); smoothing never crosses them;
-   - **positions**: the finite low-pass `2G − G∘G` (`LineFilters`) per
-     stretch between corners, each stretch continued beyond its ends by a
-     local quadratic fit (no lag, tips stay put). σ = (0.7 + 0.8 ×
-     stabiliser) screen px, a little more for wide pens: never 0, so at
-     stabiliser 0 the digitiser's sub-pixel jitter is still removed;
+   - **positions**: the finite low-pass `(1 + a)G − aG∘G` (`LineFilters`)
+     per stretch between corners, each stretch continued beyond its ends
+     by a local quadratic fit (no lag, tips stay put). σ grows from 0.7
+     screen px at stabiliser 0 to 4 px at 1 (`ShapeParams.sigmaFor`; a
+     little more for wide pens): never 0, so at stabiliser 0 the
+     digitiser's sub-pixel jitter is still removed. The sharpness a goes
+     from 1 (flat response: curves barely shrink) at stabiliser 0 to 0.25
+     (nearly the plain Gaussian, which takes out more of a shaky hand's
+     wobble for the lag it costs) at 1 (`sharpnessFor`);
    - **radii**: causal (two cascaded exponential passes over the resampled
      line, then a slope limit), so final as soon as their sample is; the
      start does not swell and is levelled; the moving tip follows the same
-     end rules within a short reach; tapers.
+     end rules within a short reach. Ends are round caps at the width
+     the pressure gives (flat for the highlighter).
 4. **`RibbonEmitter`**: the outline is the envelope of the circles along
    the line. A *run* of samples becomes **one closed contour** — left side
    forward, a cap, right side back, a cap — whose sides are cubic Béziers
@@ -1339,7 +1368,14 @@ does not grow with the stroke's length.
    rebuilt (≈ 20 µs per frame on desktop, flat with length). The tail
    starts with a round cap inside the frozen part, so opaque ink fills
    the two without a seam (`LiveInkPainter`); translucent ink fills one
-   combined path.
+   combined path. **With the stabiliser on** (> 0) live ink shows only
+   the final line (`StrokeShaper.liveLength`, `ShapeParams.lag`): it
+   trails the pen by the reach of the smoothing (kernel, corner test and
+   resampling: ≈ 6 px at 0.2, 10 px at 0.4, 15 px at 1) — the least the
+   smoothing needs — instead of drawing a
+   provisional tip that wags into place; the first sample shows as a dot
+   from pen-down, and at pen-up the end catches up with the pen. At 0 the
+   live line reaches the pen, as below.
 6. **Commit** (`LiveStrokeBuilder.finishLive`): at pen-up the shaper rolls
    back to a recent **checkpoint** that does not depend on the last
    samples, and completes from there with the pen-up hook trimmed and the
@@ -1371,7 +1407,11 @@ cuts the ink under the eraser out (`geometry/stroke_splitter.dart`): the stroke
 is removed and its surviving fragments are added as new strokes (keeping the
 original `createdAt`, so paint order is unchanged). One drag is one undoable
 `InkEdit`; fragments cut and erased again within the drag cancel out.
-Optionally only highlighter ink is erased. Both modes test against the ink as
+Optionally only highlighter ink is erased. With *auto-deselect*
+(`EraserConfig.autoDeselect`, off by default) an erase stroke made with the
+Eraser tool switches back to the ink used before it, pen or highlighter
+(`ToolSettings.eraserStrokeEnded`); the S Pen side button and the eraser end
+are temporary anyway and leave the tool alone. Both modes test against the ink as
 rendered: its radius at each point depends on pressure, thinning and the pen's
 easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 

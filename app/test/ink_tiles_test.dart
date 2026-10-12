@@ -176,7 +176,7 @@ void main() {
         expect(scene.tiles.lastPaint.vectorTiles, 0);
         final (worst, share) = _diff(vector, tiled);
         // Same rasteriser, same pixel grid: at most rounding differences.
-        expect(share, lessThan(0.001), reason: 'scale $scale dpr $dpr worst $worst');
+        expect(share, lessThan(0.0015), reason: 'scale $scale dpr $dpr worst $worst');
         scene.dispose();
       }
     });

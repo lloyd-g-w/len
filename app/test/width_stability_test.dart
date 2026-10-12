@@ -63,10 +63,11 @@ void main() {
 
   test('the width behind the pen tip does not change as the stroke grows', () {
     final points = noisyLine(length: 300);
-    // Width at x = 100 while the pen is at x = 106, 112, 120, 160.
+    // Width at x = 80 while the pen is at x = 106, 112, 120, 160 (the
+    // stabilised live line trails the pen by 10–20 px).
     final widths = [
       for (final end in [53, 56, 60, 80])
-        thicknessAt(StrokeOutline.build(points.sublist(0, end + 1), spec, complete: false), 100),
+        thicknessAt(StrokeOutline.build(points.sublist(0, end + 1), spec, complete: false), 80),
     ];
     final spread = widths.reduce(math.max) - widths.reduce(math.min);
     expect(spread, lessThan(0.08), reason: 'live stroke width must not pulse ($widths)');
@@ -98,7 +99,7 @@ void main() {
       final points = denseNoisyLine(length: 300);
       final widths = [
         for (final end in [212, 224, 240, 320])
-          thicknessAt(StrokeOutline.build(points.sublist(0, end + 1), spec, complete: false), 100),
+          thicknessAt(StrokeOutline.build(points.sublist(0, end + 1), spec, complete: false), 90),
       ];
       final spread = widths.reduce(math.max) - widths.reduce(math.min);
       expect(spread, lessThan(0.08), reason: '$widths');
@@ -122,7 +123,8 @@ void main() {
       // A wavy line (like small handwriting) sampled at 240 Hz.
       double wave(double x) => 50 + 4 * math.sin(x / 4);
       final points = [for (var x = 0.0; x <= 200; x += 0.5) StrokePoint(x, wave(x), 0.5)];
-      final path = StrokeOutline.build(points, spec);
+      // The pen as shipped (stabiliser off).
+      final path = StrokeOutline.build(points, raw);
       var worst = 0.0;
       for (var x = 20.0; x <= 180; x += 7) {
         double edge(double outside) {

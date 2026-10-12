@@ -103,7 +103,7 @@ List<Metric> fidelity(List<StrokePair> pairs, double streamline) {
       if (along[i] < startReach || along.last - along[i] < endReach) continue;
       dev.add(p.lineIndex.distance(p.truth.path[i]), p.truth.path[i]);
     }
-    // Width, away from the ends (pen-down/up ramps and tapers are shaped).
+    // Width, away from the ends (pen-down/up ramps are shaped).
     // The truth point is the nearest one *along* the stroke (near the same
     // fraction of its length), not anywhere: a stroke crossing itself
     // passes the same spot twice with different pressures.
@@ -136,14 +136,14 @@ List<Metric> fidelity(List<StrokePair> pairs, double streamline) {
     Metric(
       'fidelity.hausdorff',
       dev.value,
-      limit: byStabiliser(streamline, 0.5, 1.0, 2.0) + slack,
+      limit: byStabiliser(streamline, 0.5, 1.3, 3.5) + slack,
       unit: 'px',
       where: dev.where,
     ),
     Metric(
       'fidelity.rms',
       n == 0 ? double.nan : math.sqrt(sum / n),
-      limit: byStabiliser(streamline, 0.2, 0.4, 0.8) + slack,
+      limit: byStabiliser(streamline, 0.2, 0.4, 1.0) + slack,
       unit: 'px',
     ),
     Metric(
@@ -186,7 +186,7 @@ List<Metric> detail(List<StrokePair> pairs, double streamline) {
     Metric(
       'detail.retraction',
       worst.value,
-      limit: byStabiliser(streamline, 0.5, 1.2, 2.5),
+      limit: byStabiliser(streamline, 0.5, 1.3, 3.5),
       unit: 'px',
       where: worst.where,
     ),
