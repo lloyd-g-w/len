@@ -1625,7 +1625,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
 
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
 `SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
-stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
+stylus-only, finger-tap undo and redo (one switch), stylus side-button action
 (`PenButtonAction.eraser|lasso|none`), editor toolbar placement (and floating position) and tool names,
 library layout and sort. Getters always read
 the store, so values written elsewhere are never stale.

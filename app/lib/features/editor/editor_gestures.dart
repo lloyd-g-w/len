@@ -90,16 +90,16 @@ List<CanvasAction> canvasActions(
   ];
 }
 
-/// Two-finger tap undoes, three-finger tap redoes (each if enabled in the
+/// Two-finger tap undoes, three-finger tap redoes (if enabled in the
 /// settings), with a brief HUD saying what happened.
 void runMultiFingerTap(EditorSession session, int fingers, HudController hud) {
-  final prefs = session.services.preferences;
+  if (!session.services.preferences.fingerTapUndo) return;
   final undo = session.undo;
-  if (fingers == 2 && prefs.twoFingerTapUndo) {
+  if (fingers == 2) {
     final could = undo.canUndo;
     if (could) undo.undo();
     hud.show(Icons.undo_rounded, could ? 'Undo' : 'Nothing to undo', counts: could);
-  } else if (fingers == 3 && prefs.threeFingerTapRedo) {
+  } else if (fingers == 3) {
     final could = undo.canRedo;
     if (could) undo.redo();
     hud.show(Icons.redo_rounded, could ? 'Redo' : 'Nothing to redo', counts: could);

@@ -12,8 +12,7 @@ void main() {
     addTearDown(prefs.dispose);
 
     expect(prefs.themeMode, ThemePreference.system);
-    expect(prefs.twoFingerTapUndo, isTrue);
-    expect(prefs.threeFingerTapRedo, isTrue);
+    expect(prefs.fingerTapUndo, isTrue);
     expect(prefs.penButtonAction, PenButtonAction.eraser);
     expect(prefs.libraryLayout, LibraryLayout.grid);
     expect(prefs.librarySort, LibrarySort.edited);
@@ -22,7 +21,7 @@ void main() {
     prefs.addListener(() => notified++);
     prefs
       ..themeMode = ThemePreference.dark
-      ..twoFingerTapUndo = false
+      ..fingerTapUndo = false
       ..penButtonAction = PenButtonAction.lasso
       ..libraryLayout = LibraryLayout.list
       ..librarySort = LibrarySort.name;
@@ -31,7 +30,7 @@ void main() {
     // A fresh view over the same database sees the stored values.
     final reread = SettingsRepository(db);
     expect(reread.themeMode, ThemePreference.dark);
-    expect(reread.twoFingerTapUndo, isFalse);
+    expect(reread.fingerTapUndo, isFalse);
     expect(reread.penButtonAction, PenButtonAction.lasso);
     expect(reread.libraryLayout, LibraryLayout.list);
     expect(reread.librarySort, LibrarySort.name);

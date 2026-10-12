@@ -40,7 +40,7 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 1));
 
     // Switched off in the settings: nothing happens.
-    s.preferences.twoFingerTapUndo = false;
+    s.preferences.fingerTapUndo = false;
     await fingerTap(tester, 2);
     expect(inkOf(s, page), hasLength(2));
     await tester.pumpAndSettle(const Duration(seconds: 1));

@@ -71,8 +71,7 @@ class SettingsRepository {
   // also notifies listeners).
 
   static const _themeMode = 'theme_mode';
-  static const _twoFingerTapUndo = 'two_finger_tap_undo';
-  static const _threeFingerTapRedo = 'three_finger_tap_redo';
+  static const _fingerTapUndo = 'finger_tap_undo';
   static const _penButtonAction = 'pen_button_action';
   static const _libraryLayout = 'library_layout';
   static const _librarySort = 'library_sort';
@@ -80,13 +79,9 @@ class SettingsRepository {
   ThemePreference get themeMode => ThemePreference.parse(_get(_themeMode));
   set themeMode(ThemePreference value) => _set(_themeMode, value.name);
 
-  /// Two-finger tap undoes (default on).
-  bool get twoFingerTapUndo => _get(_twoFingerTapUndo) != 'false';
-  set twoFingerTapUndo(bool value) => _set(_twoFingerTapUndo, '$value');
-
-  /// Three-finger tap redoes (default on).
-  bool get threeFingerTapRedo => _get(_threeFingerTapRedo) != 'false';
-  set threeFingerTapRedo(bool value) => _set(_threeFingerTapRedo, '$value');
+  /// Two-finger tap undoes, three-finger tap redoes (default on).
+  bool get fingerTapUndo => _get(_fingerTapUndo) != 'false';
+  set fingerTapUndo(bool value) => _set(_fingerTapUndo, '$value');
 
   /// What holding the stylus side button does (default: eraser).
   PenButtonAction get penButtonAction => PenButtonAction.parse(_get(_penButtonAction));

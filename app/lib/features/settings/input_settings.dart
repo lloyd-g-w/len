@@ -85,22 +85,12 @@ class GestureSettings extends StatelessWidget {
         children: [
           SettingsTile(
             icon: Icons.undo_rounded,
-            title: 'Two-finger tap to undo',
-            subtitle: 'Tap the page with two fingers to undo the last change.',
-            onTap: () => preferences.twoFingerTapUndo = !preferences.twoFingerTapUndo,
+            title: 'Finger taps to undo and redo',
+            subtitle: 'Tap the page with two fingers to undo, with three to redo.',
+            onTap: () => preferences.fingerTapUndo = !preferences.fingerTapUndo,
             trailing: Switch(
-              value: preferences.twoFingerTapUndo,
-              onChanged: (v) => preferences.twoFingerTapUndo = v,
-            ),
-          ),
-          SettingsTile(
-            icon: Icons.redo_rounded,
-            title: 'Three-finger tap to redo',
-            subtitle: 'Tap with three fingers to bring it back.',
-            onTap: () => preferences.threeFingerTapRedo = !preferences.threeFingerTapRedo,
-            trailing: Switch(
-              value: preferences.threeFingerTapRedo,
-              onChanged: (v) => preferences.threeFingerTapRedo = v,
+              value: preferences.fingerTapUndo,
+              onChanged: (v) => preferences.fingerTapUndo = v,
             ),
           ),
         ],

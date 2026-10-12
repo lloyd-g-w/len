@@ -290,13 +290,13 @@ void main() {
     expect(services.preferences.themeMode, ThemePreference.dark);
 
     // Wide windows show one section at a time, picked on the left.
-    expect(find.text('Two-finger tap to undo'), findsNothing);
+    expect(find.text('Finger taps to undo and redo'), findsNothing);
     await tester.tap(find.widgetWithText(SidebarItem, 'Gestures'));
     await tester.pumpAndSettle();
     expect(find.text('Theme'), findsNothing);
-    await tester.tap(find.text('Two-finger tap to undo'));
+    await tester.tap(find.text('Finger taps to undo and redo'));
     await tester.pumpAndSettle();
-    expect(services.preferences.twoFingerTapUndo, isFalse);
+    expect(services.preferences.fingerTapUndo, isFalse);
   });
 
   testWidgets('narrow settings list every section in one column', (tester) async {
@@ -312,7 +312,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(SidebarItem), findsNothing);
     expect(find.text('Theme'), findsOneWidget);
-    expect(find.text('Two-finger tap to undo'), findsOneWidget);
+    expect(find.text('Finger taps to undo and redo'), findsOneWidget);
   });
 
   testWidgets('long-press on touch opens the context menu; right-click too', (tester) async {
