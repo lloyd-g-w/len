@@ -486,7 +486,13 @@ nix develop ..#android -c adb install -r build/app/outputs/flutter-apk/app-profi
 
 Timeline markers for Perfetto / DevTools: `len.commitStroke`,
 `len.persistStrokes`, `len.renderTile`, `len.recordChunk`,
-`len.handwritingCluster`.
+`len.handwritingCluster`, `len.outlineStep`, `len.insertLoaded`,
+`len.thumbnail`. To see them (and the engine's) in a system trace, start
+the app with `adb shell am start -n dev.len.len/.MainActivity --ez
+trace-systrace true` and record with `atrace_apps: "dev.len.len"`; the UI
+thread is the main thread (`dev.len.len`). Summarise traces with
+`trace_processor` SQL (`nix shell nixpkgs#perfetto`) rather than opening
+them whole.
 
 **Before tiles** (Galaxy Tab S8+, Android 16, Impeller/Vulkan, profile;
 main at ae78426 + probe; 40 scripted strokes), ms as p50/p90/p99/max:
@@ -507,14 +513,47 @@ every frame (no raster cache), so the cost of each frame of writing grew
 with the ink already on the page; and loaded strokes' outlines were built
 on the UI thread in the first frame that drew them.
 
-**After** (tiles, write-behind, outlines on worker isolates; see
-ARCHITECTURE, *Committed ink: tiles*): not yet measured on the tablet — it
-dropped off the network for the whole session. Expected from the design and
-the tests (`test/ink_tiles_test.dart`: a settled frame of 5 000 strokes
-draws ≤ 9 images and no vectors; pen-up draws only the new stroke over the
-tiles): heavy-content frames close to the light page's, `liftToShown` about
-one frame, and no first-show frame of seconds. Fill in this table with the
-procedure above when the tablet is back.
+**After** (same tablet and procedure, 2026-10-12; fresh perf notebooks per
+build). *Tiles* = main at 7928d8f (tiles, write-behind, outlines on
+workers); *round 2* = perf/round2 (below). Total frame p50/p90/p99/max and
+`liftToShown` p50/p90/max, ms:
+
+| Content | before | tiles | round 2 |
+| --- | --- | --- | --- |
+| light page | 9.1/12.3/15.8/24.6 · 15.9/18.8/21.3 | 4.9/5.9/7.9/11.0 · 11.0/14.4/15.4 | 4.8/6.0/7.7/12.0 · 10.5/13.2/16.3 |
+| heavy page 1 | 39.8/43.7/56.9/61.5 · 47.4/61.9/71.3 | 5.1/6.3/8.0/14.2 · 11.4/13.9/21.0 | 4.7/6.1/8.1/51.5 · 11.1/14.0/15.1 |
+| heavy page 2 | 87.9/117.8/119.9/120.4 · 121.7/171.4/172.6 | 5.0/6.3/8.4/66.7 · 11.0/14.4/17.3 | 5.2/6.4/9.1/42.7 · 11.2/14.3/15.4 |
+| canvas 100 % | 107.6/145.9/151.4/151.6 · 144/203/217 \* | 5.1/109.2/126.5/133.9 · 73/141/166 \* | 5.0/6.1/8.2/14.4 · 11.6/14.2/15.4 |
+| canvas fitted (LOD), 5 s after zooming out | 5.6/28.6/115.4/178 · 42/80/91 \* | 6.9/9.6/46.6/59.4 · 13.2/56.1/59.4 \* | 6.9/8.6/12.9/52.3 · 12.8/15.6/17.4 |
+| writing on the canvas while it loads (cold open, fitted) | p90 2 400, max 5 100 | 98.7/368 (p90/max) | 16.9/46.8/80.2 |
+
+\* The perf notebooks were stamped up to 40 min in the future then, so new
+ink painted *under* the canvas's and every pen-up there took the non-append
+path (tiles dropped and re-rendered). Now they are written a day ago.
+
+First show (longest frame, ms): turning to heavy page 2 — before 1 631,
+tiles 152, round 2 86. Opening the canvas cold — before 2 832 (then nothing
+for seconds), tiles: no long frame but only part of the ink after 15 s;
+round 2: the middle 4 × 4 chunks show within 1.5 s, all of it after
+≈ 20 s, longest frame 69. Back in the library after writing on the canvas,
+its preview took 2.3 s on the UI thread (2 800 outlines built for a
+320-pixel image); round 2: 151.
+
+Round 2 (see ARCHITECTURE, *Committed ink: tiles*): loaded strokes are
+added chunk by chunk as their outlines arrive, nearest the view first; large
+ranges are read in 4 × 4-chunk blocks, middle first; loads keep the stale
+tile and LOD images instead of dropping to vectors; the UI isolate builds
+outlines between frames (up to three workers too) but not while a pointer
+is down or was lifted < 400 ms ago; a tile cache not painted lately (view
+zoomed out to LOD) does not render on edits; previews draw sub-pixel ink as
+plain lines.
+
+Still above target: writing while a 15 000-stroke canvas loads (pen-up p90
+47 ms for those ≈ 20 s). The trace shows old-generation GC pauses of
+≈ 45 ms every half second or so on the UI thread, driven by the native memory of the
+per-stroke `Path`s being adopted, plus `len.insertLoaded` frames. And the
+ML Kit recogniser's platform-channel calls run on the merged platform/UI
+thread (≈ 40 ms each, after 3 s without writing).
 
 ## Low-latency ink: default
 
