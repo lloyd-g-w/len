@@ -99,7 +99,6 @@ class _ImageCropOverlayState extends State<ImageCropOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.enter): widget.onDone,
@@ -119,8 +118,8 @@ class _ImageCropOverlayState extends State<ImageCropOverlay> {
                 painter: _CropPainter(
                   session: _session,
                   viewport: _viewport,
-                  accent: scheme.primary,
-                  handleFill: scheme.surface,
+                  accent: AppTheme.seed, // handles sit on the paper, not the chrome
+                  handleFill: Palette.paper,
                   devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
                 ),
               ),

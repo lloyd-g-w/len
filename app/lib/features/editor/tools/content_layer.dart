@@ -131,7 +131,6 @@ class _ContentLayerState extends State<ContentLayer> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final recognition = AppScope.of(context).recognition;
     final pasteAt = _pasteAt;
     return Stack(
@@ -144,8 +143,8 @@ class _ContentLayerState extends State<ContentLayer> {
                 selection: _content.selection,
                 lasso: _content.lassoPath,
                 viewport: widget.viewport,
-                accent: scheme.primary,
-                handleFill: scheme.surface,
+                accent: AppTheme.seed, // handles sit on the paper, not the chrome
+                handleFill: Palette.paper,
                 clip: widget.pages,
               ),
             ),
