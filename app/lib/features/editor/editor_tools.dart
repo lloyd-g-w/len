@@ -8,6 +8,7 @@ import 'pen/eraser_options_panel.dart';
 import 'pen/eraser_strip.dart';
 import 'pen/ink_strip.dart';
 import 'pen/pen_options_panel.dart';
+import 'tools/laser_options_panel.dart';
 import 'tools/shape_options_panel.dart';
 import 'tools/text_options_panel.dart';
 import 'tools/tool_icons.dart';
@@ -143,7 +144,8 @@ List<ToolDescriptor> editorTools(ToolSettings tools) => [
     label: 'Laser pointer',
     shortLabel: 'Laser',
     shortcut: 'K',
-    inkColor: () => 0xFFFF2D2D,
+    inkColor: () => tools.laser.color,
+    options: (_) => LaserOptionsPanel(tools: tools),
   ),
   if (tools.selectTextAvailable)
     const ToolDescriptor(

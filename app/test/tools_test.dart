@@ -227,20 +227,88 @@ void main() {
 
   test('LaserTrail stamps points on the next frame, fades and expires them', () {
     final trail = LaserTrail()
-      ..add(Offset.zero, startsSegment: true)
-      ..add(const Offset(10, 0));
-    expect(LaserTrail.fade(trail.points.first.time, 0), 1);
+      ..down(Offset.zero)
+      ..move(const Offset(10, 0));
+    expect(trail.alphaAt(0), 1);
     trail.tick(10000); // first frame after a long idle: points are fresh
-    expect(trail.points, hasLength(2));
-    trail.add(const Offset(20, 0));
+    expect(trail.length, 2);
+    trail.move(const Offset(20, 0));
     trail.tick(10500);
-    expect(LaserTrail.fade(trail.points.first.time, trail.now), closeTo(0.5, 1e-9));
+    expect(trail.alphaAt(0), closeTo(0.5, 1e-9));
     trail.tick(11200);
-    expect(trail.points, hasLength(1));
-    expect(trail.points.single.startsSegment, isTrue);
+    expect(trail.length, 1);
+    expect(trail.startsAt(0), isTrue);
+    expect(trail.pointAt(0), const Offset(20, 0));
+    trail.up();
     trail.tick(11600);
     expect(trail.isEmpty, isTrue);
+    expect(trail.isVisible, isTrue, reason: 'the dot fades with the trail');
+    trail.tick(12700);
+    expect(trail.isVisible, isFalse);
     trail.dispose();
+  });
+
+  test('LaserTrail is a fixed-size ring buffer', () {
+    final trail = LaserTrail(capacity: 4)..down(Offset.zero);
+    for (var i = 1; i < 10; i++) {
+      trail.move(Offset(i.toDouble(), 0));
+    }
+    expect(trail.length, 4);
+    expect([for (var i = 0; i < 4; i++) trail.pointAt(i).dx], [6, 7, 8, 9]);
+    trail.down(const Offset(50, 0)); // a new stroke overwrites the oldest point
+    expect(trail.pointAt(3), const Offset(50, 0));
+    expect(trail.startsAt(3), isTrue);
+    expect(trail.startsAt(2), isFalse);
+    trail.dispose();
+  });
+
+  test('laser dot mode keeps no trail; the dot fades after lifting', () {
+    final trail = LaserTrail()..config = const LaserConfig(mode: LaserMode.dot);
+    trail
+      ..down(Offset.zero)
+      ..move(const Offset(30, 0))
+      ..tick(1000);
+    expect(trail.isEmpty, isTrue);
+    expect(trail.head, const Offset(30, 0));
+    expect(trail.headAlpha, 1);
+    trail
+      ..up()
+      ..tick(2000);
+    expect(trail.headAlpha, 1, reason: 'stamped on the first frame after lifting');
+    trail.tick(2000 + LaserTrail.dotFade.inMilliseconds / 2);
+    expect(trail.headAlpha, closeTo(0.5, 1e-9));
+    trail.tick(3000);
+    expect(trail.isVisible, isFalse);
+    expect(trail.head, isNull);
+    trail.dispose();
+  });
+
+  test('the laser tool records samples a few pixels apart; the dot follows all', () {
+    final trail = LaserTrail();
+    final tool = LaserTool(trail, config: () => const LaserConfig(size: 9))
+      ..down(const ToolPointer(screen: Offset.zero, world: Offset.zero))
+      ..move(const ToolPointer(screen: Offset(0.5, 0), world: Offset(0.5, 0)))
+      ..move(const ToolPointer(screen: Offset(3, 0), world: Offset(3, 0)));
+    expect(trail.config.size, 9);
+    expect(trail.length, 2);
+    expect(trail.head, const Offset(3, 0));
+    tool.up();
+    trail.dispose();
+  });
+
+  test('laser settings persist with the tool settings', () {
+    final store = SettingsRepository(db);
+    const config = LaserConfig(
+      mode: LaserMode.dot,
+      color: 0xFF2F8BFF,
+      size: 10,
+      duration: Duration(milliseconds: 2500),
+    );
+    final tools = ToolSettings(store: store)..laser = config;
+    tools.dispose();
+    final restored = ToolSettings(store: store);
+    expect(restored.laser, config);
+    restored.dispose();
   });
 
   test('shape and text defaults persist with the tool settings', () {
