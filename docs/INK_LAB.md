@@ -98,6 +98,10 @@ Tools for working on the engine (opt-in tests):
 tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_test.dart \
   --dart-define=INKLAB_TABLE=true --dart-define=INKLAB_REAL=true \
   [--dart-define=INKLAB_ONLY=<regex on entry names>]'
+# the stabiliser against a shaky hand (F10): committed, live and overlay ink
+# at stabiliser 0 / 0.5 / 1, as a table
+nix develop ..# -c bash -c 'flutter test test/inklab/stabiliser_test.dart \
+  --dart-define=INKLAB_TABLE=true'
 # the Kotlin overlay model against the Dart one (needs only nix): every case
 # and recording, then the Kotlin unit tests (shared golden; prediction replay)
 tool/wet_ink_check/check.sh
