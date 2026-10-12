@@ -372,7 +372,8 @@ settings — at the four sizes, light and dark, and at 1.3× text.
    theme is a plain segmented control. → Sections "Appearance", "Stylus",
    "Gestures", "Editor" (toolbar position), "Sync", "About"; rows with
    leading icons and descriptions; theme as live light/dark/system
-   previews; segmented control for the side button.
+   previews; segmented control for the side button. (Since merged: Stylus,
+   Gestures and Editor are one "Writing" section.)
 9. ✅ **Empty states**: search-empty art is a saturated blue disc that reads as
    a button; "No results" offers no way out. → Softer art, "Clear search"
    action; folder-empty offers "New notebook here".

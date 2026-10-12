@@ -17,7 +17,7 @@ void main() {
   const phone = ('phone', Size(390, 844), 2.0);
   const tablet = ('tablet', Size(1280, 800), 1.0);
   const desktop = ('desktop', Size(1440, 900), 1.0);
-  const sections = ['Appearance', 'Stylus', 'Gestures', 'Editor', 'Handwriting', 'Sync', 'About'];
+  const sections = ['Appearance', 'Writing', 'Handwriting', 'Sync', 'About'];
   const modes = [ThemeMode.light, ThemeMode.dark];
 
   /// Settings services; with [handwriting], recognition is supported and

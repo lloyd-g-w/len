@@ -6,9 +6,11 @@ import '../../ui/segment_label.dart';
 import '../editor/pen/eraser_icon.dart';
 import 'settings_section.dart';
 
-/// Stylus preferences: palm rejection and the side button.
-class StylusSettings extends StatelessWidget {
-  const StylusSettings({super.key, required this.preferences});
+/// Writing preferences: palm rejection, the side button, finger taps to
+/// undo and redo, and where the editor's toolbar sits (also changeable
+/// from the editor menu).
+class WritingSettings extends StatelessWidget {
+  const WritingSettings({super.key, required this.preferences});
 
   final AppPreferences preferences;
 
@@ -19,7 +21,7 @@ class StylusSettings extends StatelessWidget {
     return ListenableBuilder(
       listenable: preferences,
       builder: (context, _) => SettingsSection(
-        title: 'Stylus',
+        title: 'Writing',
         icon: Icons.edit_outlined,
         children: [
           SettingsTile(
@@ -63,26 +65,6 @@ class StylusSettings extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Touch gesture preferences (undo/redo taps).
-class GestureSettings extends StatelessWidget {
-  const GestureSettings({super.key, required this.preferences});
-
-  final AppPreferences preferences;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: preferences,
-      builder: (context, _) => SettingsSection(
-        title: 'Gestures',
-        icon: Icons.touch_app_outlined,
-        children: [
           SettingsTile(
             icon: Icons.undo_rounded,
             title: 'Finger taps to undo and redo',
@@ -91,6 +73,26 @@ class GestureSettings extends StatelessWidget {
             trailing: Switch(
               value: preferences.fingerTapUndo,
               onChanged: (v) => preferences.fingerTapUndo = v,
+            ),
+          ),
+          SettingsTile(
+            icon: Icons.view_day_outlined,
+            title: 'Toolbar',
+            subtitle: switch (preferences.toolbarPlacement) {
+              ToolbarPlacement.docked =>
+                'At the top on tablets and computers, at the bottom on phones.',
+              ToolbarPlacement.floating => 'Floating; drag it anywhere by its grip.',
+            },
+            below: ShrinkToFit(
+              child: SegmentedButton<ToolbarPlacement>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: ToolbarPlacement.docked, label: SegmentLabel('Docked')),
+                  ButtonSegment(value: ToolbarPlacement.floating, label: SegmentLabel('Floating')),
+                ],
+                selected: {preferences.toolbarPlacement},
+                onSelectionChanged: (s) => preferences.toolbarPlacement = s.single,
+              ),
             ),
           ),
         ],

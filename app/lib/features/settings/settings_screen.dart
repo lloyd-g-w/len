@@ -5,13 +5,12 @@ import '../../platform/browser_storage.dart';
 import '../../ui/app_theme.dart';
 import 'about_settings.dart';
 import 'appearance_settings.dart';
-import 'editor_settings.dart';
 import 'handwriting_settings.dart';
-import 'input_settings.dart';
 import 'storage_settings.dart';
 import 'sync_settings.dart';
+import 'writing_settings.dart';
 
-/// Settings: appearance, stylus, gestures, editor, handwriting, sync, storage
+/// Settings: appearance, writing, handwriting, sync, storage
 /// (web only) and about, as grouped cards in one readable, centred column.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -22,9 +21,7 @@ class SettingsScreen extends StatelessWidget {
     final preferences = services.preferences;
     return [
       AppearanceSettings(preferences: preferences),
-      StylusSettings(preferences: preferences),
-      GestureSettings(preferences: preferences),
-      EditorSettings(preferences: preferences),
+      WritingSettings(preferences: preferences),
       HandwritingSettings(recognition: services.recognition),
       const SyncSettings(),
       if (browserStorage case final storage?) StorageSettings(storage: storage),

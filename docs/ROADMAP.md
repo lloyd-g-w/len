@@ -167,7 +167,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Theme mode (system/light/dark)
 - ✅ App shell: sidebar (tablet/desktop), drawer (phone), context menus,
   keyboard shortcuts, redesigned settings
-- ✅ Settings: theme previews, Stylus / Gestures / Editor (toolbar position) sections with
+- ✅ Settings: theme previews, a Writing section (stylus, gestures, toolbar position) with
   descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
   export, focus, more menu), tool-descriptor toolbar with contextual quick controls, toolbar
