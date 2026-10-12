@@ -226,6 +226,24 @@ void main() {
     });
   });
 
+  testWidgets('tiles not painted lately render nothing on pen-up until shown again', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final scene = _Scene(scribbles(200, const Rect.fromLTWH(0, 0, 600, 400), seed: 3));
+      await scene.warm();
+      // The view went to level-of-detail images (or away): no paints.
+      await Future<void>.delayed(InkTileCache.inUseFor + const Duration(milliseconds: 100));
+      scene.model.addStroke(_line('new', const Offset(40, 300), const Offset(560, 330)));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      scene.painter().paint(_CountingCanvas(), scene.size);
+      expect(scene.tiles.lastPaint.overlayStrokes, greaterThan(0), reason: 'not rendered yet');
+      await scene.warm();
+      expect(scene.tiles.lastPaint.overlayStrokes, 0);
+      scene.dispose();
+    });
+  });
+
   testWidgets('erase and undo re-render only the affected tiles, correctly', (tester) async {
     await tester.runAsync(() async {
       final strokes = scribbles(300, const Rect.fromLTWH(0, 0, 1500, 1000), seed: 4);

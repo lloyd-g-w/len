@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "flutter_window.h"
+#include "single_instance.h"
 #include "utils.h"
 
 namespace {
@@ -44,6 +45,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     CreateAndAttachConsole();
   }
 
+  // One Len per session: a second launch hands its files to the running
+  // one and exits.
+  SingleInstance single_instance;
+  if (!single_instance.Claim()) {
+    if (SingleInstance::Forward(CommandLinePaths())) return EXIT_SUCCESS;
+    // Not acknowledged: the running Len was closing. Take over once it has
+    // (this process's files reach Dart through its own arguments).
+    if (!single_instance.ClaimWithin(10000)) return EXIT_FAILURE;
+  }
+
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
@@ -62,13 +73,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   if (!window.Create(L"Len", origin, size)) {
     return EXIT_FAILURE;
   }
+  window.RestorePlacement();
   window.SetQuitOnClose(true);
+  single_instance.Listen(window.GetHandle());
 
   ::MSG msg;
   while (::GetMessage(&msg, nullptr, 0, 0)) {
     ::TranslateMessage(&msg);
     ::DispatchMessage(&msg);
   }
+  // The window is gone: launches from now on start a new Len.
+  single_instance.Release();
 
   ::CoUninitialize();
   return EXIT_SUCCESS;

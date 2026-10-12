@@ -15,7 +15,13 @@ import 'stroke_renderer.dart';
 /// [StrokeRenderer.adopt].
 abstract class OutlinePreparer {
   /// Completes once every stroke in [strokes] has its outline memoised.
-  Future<void> prepare(List<Stroke> strokes);
+  ///
+  /// [onReady], if given, is told about the strokes as their outlines are
+  /// memoised, a slice at a time and roughly in the order given (so a
+  /// caller can show the first ones while the rest are still being
+  /// built); every stroke is reported exactly once, before the future
+  /// completes.
+  Future<void> prepare(List<Stroke> strokes, {void Function(List<Stroke> ready)? onReady});
 
   /// Stops any workers.
   void close() {}
@@ -27,10 +33,11 @@ class InlineOutlinePreparer implements OutlinePreparer {
   const InlineOutlinePreparer();
 
   @override
-  Future<void> prepare(List<Stroke> strokes) {
+  Future<void> prepare(List<Stroke> strokes, {void Function(List<Stroke> ready)? onReady}) {
     for (final stroke in strokes) {
       StrokeRenderer.pathOf(stroke);
     }
+    if (strokes.isNotEmpty) onReady?.call(strokes);
     return SynchronousFuture(null);
   }
 
@@ -46,18 +53,29 @@ class OutlineCommands implements OutlineSink {
   static const double _move = 0, _line = 1, _cubic = 2, _arc = 3, _close = 4;
 
   /// The outline of [stroke], recorded.
-  static Float64List of(Stroke stroke) {
+  static Float64List of(Stroke stroke) => (OutlineCommands()..add(stroke))._data.toList();
+
+  /// The outlines of [strokes], recorded one after another into one list,
+  /// and where each one ends in it.
+  static (Float64List, Int32List) ofAll(List<Stroke> strokes) {
     final commands = OutlineCommands();
-    StrokeRenderer.emitOutline(
-      commands,
-      stroke.points,
-      tool: stroke.tool,
-      width: stroke.width,
-      style: stroke.style,
-      complete: true,
-    );
-    return commands._data.toList();
+    final ends = Int32List(strokes.length);
+    for (var i = 0; i < strokes.length; i++) {
+      commands.add(strokes[i]);
+      ends[i] = commands._data.length;
+    }
+    return (commands._data.toList(), ends);
   }
+
+  /// Appends the outline of [stroke].
+  void add(Stroke stroke) => StrokeRenderer.emitOutline(
+    this,
+    stroke.points,
+    tool: stroke.tool,
+    width: stroke.width,
+    style: stroke.style,
+    complete: true,
+  );
 
   @override
   void moveTo(double x, double y) => _data

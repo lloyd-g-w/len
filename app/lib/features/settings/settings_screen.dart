@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app_services.dart';
+import '../../platform/browser_storage.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/sidebar_item.dart';
 import 'about_settings.dart';
@@ -9,12 +10,14 @@ import 'editor_settings.dart';
 import 'handwriting_settings.dart';
 import 'input_settings.dart';
 import 'settings_section.dart';
+import 'storage_settings.dart';
 import 'sync_settings.dart';
 
 /// One settings section: its name and icon in the two-pane list, and its card.
 typedef _Page = ({String title, IconData icon, WidgetBuilder build});
 
-/// Settings: appearance, stylus, gestures, editor, handwriting, sync and about.
+/// Settings: appearance, stylus, gestures, editor, handwriting, sync, storage
+/// (web only) and about.
 ///
 /// Narrow windows show the sections as grouped cards in one readable column;
 /// from [Breakpoints.expanded] a list of sections on the left picks the one
@@ -61,6 +64,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         build: (_) => HandwritingSettings(recognition: services.recognition),
       ),
       (title: 'Sync', icon: Icons.cloud_outlined, build: (_) => const SyncSettings()),
+      if (browserStorage case final storage?)
+        (
+          title: 'Storage',
+          icon: Icons.storage_outlined,
+          build: (_) => StorageSettings(storage: storage),
+        ),
       (title: 'About', icon: Icons.info_outline_rounded, build: (_) => const AboutSettings()),
     ];
   }

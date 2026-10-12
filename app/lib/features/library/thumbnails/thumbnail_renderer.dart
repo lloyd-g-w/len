@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -64,6 +65,15 @@ class ThumbnailRenderer {
   /// nothing drawn yet (the library then shows the plain cover). Pass the
   /// [source] when already known, to skip looking it up again.
   ui.Image? render(Notebook notebook, {required int width, PreviewSource? source}) {
+    developer.Timeline.startSync('len.thumbnail');
+    try {
+      return _render(notebook, width: width, source: source);
+    } finally {
+      developer.Timeline.finishSync();
+    }
+  }
+
+  ui.Image? _render(Notebook notebook, {required int width, PreviewSource? source}) {
     _pending = const {};
     final height = (width / aspect).round();
     final size = Size(width.toDouble(), height.toDouble());
@@ -120,7 +130,12 @@ class ThumbnailRenderer {
     final keys = (among ?? strokes.populatedChunks(surfaceId, range))
         .where(range.contains)
         .toList();
-    return strokes.loadChunks(surfaceId, keys)..sort(Stroke.paintOrder);
+    developer.Timeline.startSync('len.thumbnailLoad');
+    try {
+      return strokes.loadChunks(surfaceId, keys)..sort(Stroke.paintOrder);
+    } finally {
+      developer.Timeline.finishSync();
+    }
   }
 
   List<SurfaceElement> _elementsIn(String surfaceId, ChunkRange range, {List<ChunkKey>? among}) {
@@ -197,7 +212,14 @@ class ThumbnailRenderer {
       ..scale(viewport.scale);
     if (page != null) canvas.clipRect(page);
     final pixelScale = viewport.scale;
-    ContentPainter.paint(canvas, ink, items, images: images, pixelScale: pixelScale);
+    ContentPainter.paint(
+      canvas,
+      ink,
+      items,
+      images: images,
+      pixelScale: pixelScale,
+      sketchThin: true,
+    );
     canvas.restore();
     _pending = {..._stillDecoding(items, pixelScale), ..._paperPending};
     _paperPending.clear();

@@ -16,13 +16,22 @@ import 'stroke_renderer.dart';
 ///
 /// Within each layer strokes keep their paint order and elements their
 /// stacking order.
+///
+/// With `sketchThin`, strokes narrower than [sketchBelow] pixels (at
+/// `pixelScale` pixels per unit) are drawn as plain lines
+/// ([StrokeRenderer.drawSketch]): previews of a page or a canvas need no
+/// outlines for ink that thin.
 abstract final class ContentPainter {
+  /// Pixel width under which `sketchThin` draws strokes as plain lines.
+  static const double sketchBelow = 1.5;
+
   static void paint(
     Canvas canvas,
     Iterable<Stroke> strokes,
     Iterable<SurfaceElement> elements, {
     ElementImages? images,
     double pixelScale = 1,
+    bool sketchThin = false,
   }) {
     final ink = strokes.toList()..sort(Stroke.drawOrder);
     final items = elements.toList()..sort(SurfaceElement.paintOrder);
@@ -36,7 +45,11 @@ abstract final class ContentPainter {
 
     drawElements(true);
     for (final s in ink) {
-      StrokeRenderer.draw(canvas, s);
+      if (sketchThin && s.width * pixelScale < sketchBelow) {
+        StrokeRenderer.drawSketch(canvas, s);
+      } else {
+        StrokeRenderer.draw(canvas, s);
+      }
     }
     drawElements(false);
   }

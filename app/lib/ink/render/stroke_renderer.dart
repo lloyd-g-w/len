@@ -114,4 +114,25 @@ abstract final class StrokeRenderer {
   /// Paints committed [stroke] onto [canvas] (in world coordinates).
   static void draw(Canvas canvas, Stroke stroke) =>
       canvas.drawPath(pathOf(stroke), paintFor(stroke.tool, stroke.color, stroke.style));
+
+  /// Paints [stroke] as a plain line along its points, [stroke.width]
+  /// wide, unless its outline is already built: for ink far too small to
+  /// show its shape (a library preview), where building outlines would
+  /// cost most of the time.
+  static void drawSketch(Canvas canvas, Stroke stroke) {
+    if (hasPath(stroke) || stroke.points.length < 2) return draw(canvas, stroke);
+    final points = stroke.points;
+    final path = Path()..moveTo(points.first.x, points.first.y);
+    for (var i = 1; i < points.length; i++) {
+      path.lineTo(points[i].x, points[i].y);
+    }
+    canvas.drawPath(
+      path,
+      paintFor(stroke.tool, stroke.color, stroke.style)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke.width
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
 }

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
@@ -5,10 +7,13 @@ import 'package:len/data/surface_stats.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
+import 'package:len/domain/stroke.dart';
 import 'package:len/features/library/library_controller.dart';
 import 'package:len/features/library/library_query.dart';
 import 'package:len/features/library/thumbnails/thumbnail_cache.dart';
 import 'package:len/features/library/thumbnails/thumbnail_renderer.dart';
+import 'package:len/ink/render/content_painter.dart';
+import 'package:len/ink/render/stroke_renderer.dart';
 
 import 'data_test.dart' show FakeClock, stroke;
 
@@ -155,6 +160,22 @@ void main() {
       expect(image.width, 60);
       expect(image.height, (60 / ThumbnailRenderer.aspect).round());
       expect(renderer.render(canvas, width: 60), isNotNull);
+    });
+
+    test('previews draw thin ink as plain lines, without building outlines', () {
+      void paint(Stroke s, double scale) => ContentPainter.paint(
+        Canvas(PictureRecorder()),
+        [s],
+        const [],
+        pixelScale: scale,
+        sketchThin: true,
+      );
+      final thin = stroke('thin', const Offset(10, 10));
+      paint(thin, 0.1);
+      expect(StrokeRenderer.hasPath(thin), isFalse);
+      final wide = stroke('wide', const Offset(10, 10));
+      paint(wide, 10);
+      expect(StrokeRenderer.hasPath(wide), isTrue);
     });
 
     testWidgets('the cache renders lazily and refreshes when content changes', (tester) async {

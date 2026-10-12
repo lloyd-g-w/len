@@ -159,7 +159,11 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 ## App
 - ✅ Web target (PWA): SQLite wasm + IndexedDB, blobs in IndexedDB, PDF import/render (PDFium wasm),
   export downloads, sync via CORS, one tab at a time; `--wasm` build works
-- ⬜ Web: request persistent storage, offline service-worker caching review, background reads in a web worker
+- ✅ Web: persistent storage requested (Settings → Storage: status, usage / quota), own offline
+  service worker (precached app shell, CanvasKit, SQLite / PDFium wasm, fonts; verified offline in
+  headless Chromium), canvas reads in time-budgeted slices (a Web Worker cannot share the
+  IndexedDB-backed database; see ARCHITECTURE)
+- ⬜ Web: database in a worker (OPFS VFS, asynchronous data layer) to take all reads off the UI thread
 - ✅ Theme mode (system/light/dark), accent colour
 - ✅ App shell: sidebar (tablet/desktop), bottom navigation (phone), context menus,
   keyboard shortcuts, redesigned settings
@@ -182,7 +186,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Split view (tablets in landscape, desktops): two notebooks — or two places in one — side by
   side, resizable, each pane a full editor (tools optionally linked); drag a lasso selection across
   to copy it; from a tab's menu or the top bar
-- ✅ Presentation mode: no chrome, full screen (web) / immersive (Android), laser pointer, one page at
+- ✅ Presentation mode: no chrome, full screen (web, Linux, Windows) / immersive (Android), laser pointer, one page at
   a time with ← / → / Space, controls that fade away
 - ⬜ Presentation on a second display as a separate audience view (Android Presentation API,
   desktop multi-window once Flutter supports it); synced favourite pens
@@ -194,8 +198,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   images → new canvas (or onto the open page / canvas), asked when an editor is open; Android
   intents (cold + warm start), Linux command line + desktop-entry MIME types + single instance,
   Windows command line, PWA file handlers, drag and drop onto the library (desktop + web)
-- ⬜ Windows file associations (installer) and single-instance forwarding; store listings
-  (Play / F-Droid / Flathub / winget)
+- ✅ Windows: Inno Setup installer (per user, file associations, uninstaller; CI + releases),
+  single-instance forwarding over a named pipe, remembered window placement
+- ✅ Linux: Flatpak manifest from the release tarball (release job), AppStream metadata, remembered
+  window size / position / maximised state
+- ⬜ Store listings (Play / F-Droid / Flathub / winget), signed Windows installer, AppImage, audio
+  recording inside the Flatpak
 
 ## Sync
 - ✅ Self-hosted LWW record sync

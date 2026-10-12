@@ -64,6 +64,31 @@ void main() {
   tearDown(() => db.close());
 
   group('asynchronous loading', () {
+    test('a large range is read in blocks, the middle first', () async {
+      // One stroke in each chunk of a 12 × 12 chunk area.
+      repo.save([
+        for (var x = 0; x < 12; x++)
+          for (var y = 0; y < 12; y++) _stroke('s$x.$y', Offset(x * 512.0 + 100, y * 512.0 + 100)),
+      ]);
+      final reader = _ManualReader(repo);
+      final model = SurfaceModel(surfaceId: 's', repository: repo, reader: reader);
+      model.ensureLoaded(const Rect.fromLTWH(0, 0, 12 * 512, 12 * 512));
+      final first = reader.calls.single.range;
+      expect(first.count, lessThanOrEqualTo(16));
+      expect(first.contains((x: 6, y: 6)), isTrue);
+      await reader.answer(0);
+      expect(model.strokeById('s6.6'), isNotNull);
+      expect(model.strokeById('s0.0'), isNull);
+      expect(model.isLoading, isTrue);
+      for (var i = 1; i < reader.calls.length; i++) {
+        await reader.answer(i);
+      }
+      expect(reader.calls.length, greaterThan(4));
+      expect(model.loadedStrokeCount, 144);
+      expect(model.isLoading, isFalse);
+      model.dispose();
+    });
+
     test('results arrive later; only the newest queued range is read next', () async {
       repo.save([for (var i = 0; i < 5; i++) _stroke('s$i', Offset(i * 5000.0, 0))]);
       final reader = _ManualReader(repo);
