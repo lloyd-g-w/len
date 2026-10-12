@@ -130,7 +130,7 @@ void main() {
         try {
           final s = bareServices();
           await pumpNotebook(tester, s, whiteboard(s), screen: tabletScreen, mode: mode);
-          await tester.tap(find.byTooltip('Insert image'));
+          await tester.tap(find.byTooltip('Insert'));
           await settle(tester);
           expect(find.text('Take photo'), findsOneWidget);
           await shoot(tester, 'e_image_insert_menu_tablet_${mode.name}');

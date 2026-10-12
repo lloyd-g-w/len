@@ -1,57 +1,54 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
+import '../../domain/preferences.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/audio_bar_button.dart';
-import 'chrome/bar_button.dart';
+import 'chrome/chrome_metrics.dart';
 import 'chrome/editor_chrome.dart';
 import 'chrome/editor_tips.dart';
 import 'chrome/editor_top_bar.dart';
 import 'chrome/gesture_hud.dart';
-import 'chrome/toolbar_slot.dart';
 import 'document/document_layout.dart';
 import 'editor_actions.dart';
 import 'editor_session.dart';
 import 'editor_toolbar.dart';
-import 'images/image_entry_points.dart';
+import 'images/editor_images.dart';
 import 'tabs/open_notebooks.dart';
-import 'toolbar/toolbar_config.dart';
-import 'toolbar/toolbar_editor.dart';
+import 'toolbar/insert_menu.dart';
+import 'toolbar/toolbar_metrics.dart';
 
-/// The toolbar's size, which the chrome's layout depends on: its height as
-/// laid out (it wraps on narrow screens) and its width on one row (for
-/// the docked placement; kept current as the tools change). Notifies when
-/// either changes.
+/// Decides where the toolbar goes in a pane of a given width — inside the
+/// top bar when the bar fits it on one row (measured from the tools and
+/// slot counts), else as a row under the bar, at the bottom on phones, or
+/// floating — and notifies when that may change (slots added or removed).
+/// Switching tools never notifies: the reserved strip is the widest any
+/// tool needs.
 class ToolbarMeasure extends ChangeNotifier {
   ToolbarMeasure(this.session) {
-    _width = oneRowWidth;
+    _strip = ToolbarMetrics.strip(session.tools);
     session.tools.addListener(_onTools);
   }
 
   final EditorSession session;
-  late double _width;
+  late double _strip;
 
-  /// The toolbar's measured height (null until laid out).
-  double? get height => _height;
-  double? _height;
-  set height(double? value) {
-    if (value == _height) return;
-    _height = value;
+  void _onTools() {
+    final strip = ToolbarMetrics.strip(session.tools);
+    if (strip == _strip) return;
+    _strip = strip;
     notifyListeners();
   }
 
-  /// The toolbar's width on one row.
-  double get oneRowWidth => EditorToolbar.oneRowWidth(
-    session.tools,
-    labels: session.services.preferences.toolbarLabels,
-    config: session.services.preferences.toolbarConfig,
-  );
-
-  void _onTools() {
-    final width = oneRowWidth;
-    if (width == _width) return;
-    _width = width;
-    notifyListeners();
+  /// Where the toolbar sits in a pane [width] wide.
+  ToolbarDock dockFor(double width) {
+    if (session.services.preferences.toolbarPlacement == ToolbarPlacement.floating) {
+      return ToolbarDock.floating;
+    }
+    if (width < ChromeMetrics.compactWidth) return ToolbarDock.bottom;
+    final paged = session.doc != null;
+    return ToolbarMetrics.fitsOneRow(width, session.tools, paged: paged)
+        ? ToolbarDock.inline
+        : ToolbarDock.row;
   }
 
   /// How the chrome lays out in an editor [width] wide, with [tabs] (or
@@ -63,12 +60,7 @@ class ToolbarMeasure extends ChangeNotifier {
     required bool focus,
     bool band = false,
   }) => ChromeLayout(
-    placement: resolvePlacement(
-      session.services.preferences.toolbarPlacement,
-      width,
-      toolbarWidth: oneRowWidth,
-    ),
-    toolbarHeight: _height,
+    dock: dockFor(width),
     barHeight: EditorTopBar.heightFor(width, tabs, band: band),
     safe: safe,
     hasNavigator: session.doc != null,
@@ -95,7 +87,6 @@ class EditorScreenCommands {
     required this.setFlow,
     required this.pickBackground,
     required this.openSearch,
-    required this.customiseToolbar,
   });
 
   final VoidCallback back;
@@ -106,15 +97,12 @@ class EditorScreenCommands {
   final ValueChanged<PageFlow> setFlow;
   final VoidCallback pickBackground;
   final VoidCallback openSearch;
-
-  /// Enters (true) or leaves (false) the toolbar's edit mode.
-  final ValueChanged<bool> customiseToolbar;
 }
 
-/// The chrome around the surface, wired to one editor: the pen toolbar
-/// (or its editor while customising), the top bar with its menus and
-/// buttons, and the page navigator. Rebuilds with the document, the canvas
-/// navigation and the tools.
+/// The chrome around the surface, wired to one editor: the toolbar, the
+/// top bar with its menus and buttons, and the page navigator. Rebuilds
+/// with the document and the canvas navigation, never with the tools (the
+/// toolbar's parts listen to them).
 ///
 /// A feature that adds a top bar button or menu entry wires it here (and
 /// in `editorMenuActions`).
@@ -128,13 +116,11 @@ class EditorChromeHost extends StatelessWidget {
     required this.audio,
     required this.hud,
     required this.tips,
-    required this.customising,
-    required this.onToolbarHeight,
     this.subtitle,
     this.tabs,
     this.secondPane = false,
     this.band = false,
-    this.splitButton,
+    this.splitMenu,
     this.navigatorActivity,
   });
 
@@ -149,40 +135,40 @@ class EditorChromeHost extends StatelessWidget {
   final HudController hud;
   final TipsController tips;
 
-  /// The toolbar is in edit mode ("Customise toolbar…").
-  final bool customising;
-  final ValueChanged<double> onToolbarHeight;
-
   /// The tab strip's tabs (null: no tab strip).
   final OpenNotebooks? tabs;
   final bool secondPane;
 
   /// An empty band in place of the tab strip (see [EditorTopBar.band]).
   final bool band;
-  final Widget? splitButton;
+
+  /// The "⋯" menu's split view entry (null where split view is not offered).
+  final Widget? splitMenu;
 
   /// Pages scrolling, zooming or turning (shows the phone page indicator).
   final Listenable? navigatorActivity;
+
+  /// What Insert ⊕ offers in this editor.
+  InsertActions _insert(BuildContext context) {
+    final images = session.images;
+    final commands = session.commands;
+    return InsertActions(
+      image: () => images.pickFiles(context),
+      photo: EditorImages.canUseCamera ? () => images.takePhoto(context) : null,
+      pdfPages: commands == null ? null : () => commands.insertPdf(context),
+      templatePage: commands == null ? null : () => commands.addPageWithTemplate(context),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final doc = session.doc;
     final prefs = session.services.preferences;
-    final toolbar = customising
-        ? ToolbarEditor(
-            tools: session.tools,
-            config: prefs.toolbarConfig,
-            onChanged: (config) => prefs.toolbarConfig = config,
-            onDone: () => commands.customiseToolbar(false),
-          )
-        : EditorToolbar(
-            tools: session.tools,
-            onStylusOnlyChanged: commands.setStylusOnly,
-            showLabels: prefs.toolbarLabels,
-            config: prefs.toolbarConfig,
-          );
+    final dock = layout.dock;
+    final toolbar = EditorToolbar(tools: session.tools, dock: dock, insert: _insert(context));
+    final inBar = dock == ToolbarDock.inline || dock == ToolbarDock.row;
     return ListenableBuilder(
-      listenable: Listenable.merge([?doc, ?session.canvasNav, session.tools]),
+      listenable: Listenable.merge([?doc, ?session.canvasNav]),
       builder: (context, _) => EditorChrome(
         layout: layout,
         hud: hud,
@@ -190,7 +176,6 @@ class EditorChromeHost extends StatelessWidget {
         onExitFocus: commands.toggleFocus,
         floatAt: prefs.toolbarFloat,
         onFloatMoved: (at) => prefs.toolbarFloat = at,
-        onToolbarHeight: onToolbarHeight,
         toolbar: toolbar,
         topBar: EditorTopBar(
           title: title,
@@ -206,21 +191,17 @@ class EditorChromeHost extends StatelessWidget {
             onFlow: commands.setFlow,
             onBackground: commands.pickBackground,
             onSearch: commands.openSearch,
-            onCustomiseToolbar: () => commands.customiseToolbar(true),
           ),
           undo: session.undo,
           tabs: tabs,
           audio: AudioBarButton(audio: audio),
           compactMenuItems: audioMenuItems(context, audio),
-          insert: InsertImageButton(images: session.images),
-          search: BarButton(
-            tooltip: 'Search (Ctrl+F)',
-            icon: Symbols.search_rounded,
-            onPressed: commands.openSearch,
-          ),
+          toolbar: inBar ? toolbar : null,
+          dock: dock,
+          toolbarWidth: ToolbarMetrics.group(session.tools),
+          splitMenu: splitMenu,
           secondPane: secondPane,
           band: band,
-          split: splitButton,
         ),
         navigator: editorPageNavigator(context, session, width: layout.width),
         navigatorActivity: navigatorActivity,

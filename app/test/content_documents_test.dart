@@ -44,12 +44,13 @@ Future<void> ctrl(WidgetTester tester, LogicalKeyboardKey k) async {
   await tester.pump();
 }
 
-/// Laid out for a toolbar docked at the top; at 800 px it docks at the
-/// bottom, so the pages sit higher on screen by its extent.
+/// Laid out for a toolbar docked at the top in a 72-dp band; at 800 px
+/// it is a 48-dp row under the bar, so the pages sit higher on screen by
+/// the difference.
 double _up = 0;
 List<Offset> up(List<Offset> points) => [for (final p in points) p.translate(0, -_up)];
 Future<void> _measure(WidgetTester tester) async =>
-    _up = tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.toolbarExtent;
+    _up = 72 - tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.toolRowHeight;
 
 void main() {
   testWidgets('continuous scrolling: text and lasso work on the page under the pointer, '
@@ -140,7 +141,7 @@ void main() {
     final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Page layout'));
+    await tester.tap(find.text('View'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('One page at a time'));
     await tester.pumpAndSettle();

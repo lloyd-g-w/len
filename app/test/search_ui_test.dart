@@ -186,7 +186,9 @@ void main() {
     final viewport = tester.widget<CanvasView>(find.byType(CanvasView)).navigation.viewport;
     expect(viewport.visibleWorld.contains(const Offset(3180, 2020)), isFalse);
 
-    await tester.tap(find.byTooltip('Search (Ctrl+F)'));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Search in notebook'));
     await tester.pumpAndSettle();
     await typeSearch(tester, 'bulb');
     await tester.tap(find.byTooltip('Next (Enter)'));

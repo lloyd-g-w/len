@@ -21,8 +21,7 @@ EditorMenuActions editorMenuActions(
   required VoidCallback onSettings,
   required ValueChanged<PageFlow> onFlow,
   required VoidCallback onBackground,
-  VoidCallback? onSearch,
-  VoidCallback? onCustomiseToolbar,
+  required VoidCallback onSearch,
 }) {
   final prefs = session.services.preferences;
   final doc = session.doc;
@@ -34,13 +33,10 @@ EditorMenuActions editorMenuActions(
     onBack: onBack,
     onRename: onRename,
     onFocusMode: onFocusMode,
-    stylusOnly: session.tools.stylusOnly ?? false,
+    stylusOnly: session.tools.stylusOnly,
     onStylusOnly: onStylusOnly,
     placement: prefs.toolbarPlacement,
     onPlacement: (p) => prefs.toolbarPlacement = p,
-    toolLabels: prefs.toolbarLabels,
-    onToolLabels: (show) => prefs.toolbarLabels = show,
-    onCustomiseToolbar: onCustomiseToolbar,
     onSettings: onSettings,
     onSearch: onSearch,
     bookmarked: page?.bookmarked ?? false,
@@ -50,7 +46,6 @@ EditorMenuActions editorMenuActions(
         : null,
     onPageCommand: paged ? (c) => commands.run(context, c, page) : null,
     onAddWithTemplate: paged ? () => commands.addPageWithTemplate(context) : null,
-    onInsertPdf: paged ? () => commands.insertPdf(context) : null,
     onExport: paged ? () => commands.export(context) : null,
     onOutline: paged ? () => showOutline(context, session) : null,
     onAddToOutline: paged ? () => addPageToOutline(context, session) : null,

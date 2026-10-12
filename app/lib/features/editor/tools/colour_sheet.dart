@@ -6,8 +6,8 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/color_picker/color_picker.dart';
 import '../pen/option_controls.dart';
 
-/// Asks for a colour (opaque ARGB) with the full picker and the user's
-/// favourites; null if dismissed. [live] previews every change as it is
+/// Asks for a colour (opaque ARGB) with the full picker and the recent
+/// colours; null if dismissed. [live] previews every change as it is
 /// made (for edits that are only committed later, like text formatting).
 Future<int?> pickColour(
   BuildContext context, {
@@ -54,9 +54,7 @@ class _ColourSheetState extends State<_ColourSheet> {
           ColorPicker(
             color: _colour,
             showOpacity: false,
-            favorites: widget.tools.favorites,
-            onAddFavorite: widget.tools.addFavorite,
-            onRemoveFavorite: widget.tools.removeFavorite,
+            recent: widget.tools.recentColors,
             onChanged: (c) {
               setState(() => _colour = c | 0xFF000000);
               widget.live?.call(_colour);

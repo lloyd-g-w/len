@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/editor/editor_tools.dart';
 import 'package:len/features/editor/pen/eraser_options_panel.dart';
 import 'package:len/features/editor/pen/highlighter_options_panel.dart';
 import 'package:len/features/editor/pen/pen_options_panel.dart';
-import 'package:len/features/editor/pen/slot_editors.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ui/app_theme.dart';
-import 'package:len/ui/color_picker/color_rows.dart';
 
 import 'content_golden_test.dart' show loadFonts;
 
 /// The pen, highlighter and eraser settings panels and the recent colours
-/// of the colour slot editor.
+/// of the tool options popover.
 void main() {
   late ToolSettings tools;
 
@@ -90,7 +89,10 @@ void main() {
       tester,
       Builder(
         builder: (context) => TextButton(
-          onPressed: () => openColorSlotEditor(context, tools, InkTool.ballpoint, 1),
+          onPressed: () {
+            tools.selectColor(1);
+            editorTools(tools).first.openOptions(context);
+          },
           child: const Text('Edit'),
         ),
       ),
@@ -98,11 +100,11 @@ void main() {
     tools.addRecentColor(0xFF00AA00);
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
-    expect(find.byType(RecentColorsRow), findsOneWidget);
+    expect(find.text('Recent'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel('#00aa00').first);
     await tester.pump();
     expect(tools.configOf(InkTool.ballpoint).colors[1], 0xFF00AA00);
-    expect(tools.recentColors, [0xFF00AA00], reason: 'noted when the editor closes');
+    expect(tools.recentColors, [0xFF00AA00], reason: 'noted when the popover closes');
 
     tools.updateConfig(InkTool.ballpoint, (c) => c.withColor(1, 0xFF0000FF));
     await tester.tapAt(const Offset(790, 590)); // Closes the popover.

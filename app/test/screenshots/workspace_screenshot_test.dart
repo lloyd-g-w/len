@@ -9,25 +9,15 @@ import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/tabs/editor_workspace.dart';
-import 'package:len/features/editor/toolbar/toolbar_config.dart';
-import 'package:len/features/editor/toolbar/toolbar_editor.dart';
-import 'package:len/ink/tool_settings.dart';
 
 import 'screenshot_harness.dart';
 import 'toolbar_screenshot_test.dart' show writtenNotebook;
 
-// Screenshots of the workspace features: split view, the toolbar in edit
-// mode with favourite pens, focus mode with the laser (F5).
+// Screenshots of the workspace features: split view (each pane lays its
+// toolbar out by its own width), focus mode with the laser (F5).
 
 const tablet = Size(1280, 800);
 const desktop = Size(1440, 900);
-const phone = Size(390, 844);
-
-const favourites = [
-  FavouritePen(tool: EditorTool.pen, color: 0xFF1A2233, width: 1.5),
-  FavouritePen(tool: EditorTool.pen, color: 0xFFDC2626, width: 2.5),
-  FavouritePen(tool: EditorTool.highlighter, color: 0xFFFACC15, width: 16),
-];
 
 /// The seeded library with "Lecture notes" and "Whiteboard" open in tabs.
 Future<AppServices> openTabs(WidgetTester tester, Size size, ThemeMode mode) async {
@@ -55,7 +45,9 @@ void main() {
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
       testWidgets('split view $name ${mode.name}', (tester) async {
         final s = await openTabs(tester, size, mode);
-        await tester.tap(find.byTooltip('Open in split view'));
+        await tester.tap(find.byTooltip('More options'));
+        await settle(tester);
+        await tester.tap(find.text('Open in split view'));
         await settle(tester);
         await shoot(tester, 'split_menu_${name}_${mode.name}');
         await tester.tap(find.text('Whiteboard').last);
@@ -112,46 +104,22 @@ void main() {
     });
   }
 
-  for (final (name, size, dpr) in [('tablet', tablet, 1.0), ('phone', phone, 2.0)]) {
-    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-      testWidgets('toolbar edit mode $name ${mode.name}', (tester) async {
-        setWindow(tester, size, dpr: dpr);
-        final s = seededServices();
-        addTearDown(s.dispose);
-        var config = const ToolbarConfig().toggle(EditorTool.laser);
-        for (final f in favourites) {
-          config = config.addFavourite(f);
-        }
-        s.preferences.toolbarConfig = config;
-        await pumpApp(tester, s, EditorScreen(notebook: writtenNotebook(s)), mode: mode);
-        Rect toolbar() => tester.getRect(find.byType(EditorToolbar)).inflate(8);
-        await shoot(tester, 'toolbar_favourites_${name}_${mode.name}', crop: toolbar());
-        if (name == 'phone') {
-          await tester.tap(find.bySemanticsLabel(RegExp('Switch tools')));
-          await settle(tester);
-          await shoot(tester, 'toolbar_switcher_favourites_${mode.name}');
-          await tester.tapAt(const Offset(200, 300));
-          await settle(tester);
-        }
-        await tester.tap(find.byTooltip('More options'));
-        await settle(tester);
-        await tester.tap(find.text('Toolbar'));
-        await settle(tester);
-        if (name == 'tablet') await shoot(tester, 'toolbar_menu_${mode.name}');
-        await tester.tap(find.text('Customise toolbar…'));
-        await settle(tester);
-        expect(find.byType(ToolbarEditor), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        await shoot(tester, 'toolbar_edit_${name}_${mode.name}');
-        await shoot(
-          tester,
-          'toolbar_edit_crop_${name}_${mode.name}',
-          crop: tester.getRect(find.byType(ToolbarEditor)).inflate(8),
-        );
-        await close(tester);
-      });
+  testWidgets('split view: each pane docks its toolbar by its own width', (tester) async {
+    final s = await openTabs(tester, desktop, ThemeMode.light);
+    s.openNotebooks.openSplit(s.openNotebooks.activeId!);
+    await settle(tester);
+    final toolbars = find.byType(EditorToolbar);
+    expect(toolbars, findsNWidgets(2));
+    for (var i = 0; i < 2; i++) {
+      expect(tester.widget<EditorToolbar>(toolbars.at(i)).dock, ToolbarDock.row);
     }
-  }
+    expect(tester.takeException(), isNull);
+    await shoot(tester, 'split_toolbars_desktop');
+    s.openNotebooks.closeSplit();
+    await settle(tester);
+    expect(tester.widget<EditorToolbar>(toolbars).dock, ToolbarDock.inline);
+    await close(tester);
+  });
 
   for (final mode in [ThemeMode.light, ThemeMode.dark]) {
     testWidgets('focus with the laser ${mode.name}', (tester) async {

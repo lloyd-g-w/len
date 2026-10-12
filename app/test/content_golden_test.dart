@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
-import 'package:len/features/editor/tool_switcher.dart';
+import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ink/pen/pen_config.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
@@ -253,9 +253,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Shapes'));
     await tester.pumpAndSettle();
+    // Tapping the active tool again opens its options.
     await tester.tap(find.byType(ToolSwitcherButton));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Shapes settings'));
+    await tester.tap(find.text('Shapes'));
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(Directionality).first,

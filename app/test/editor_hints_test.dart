@@ -7,7 +7,7 @@ import 'package:len/features/editor/canvas/canvas_empty_hint.dart';
 import 'package:len/features/editor/chrome/editor_tips.dart';
 import 'package:len/features/editor/chrome/peeking.dart';
 import 'package:len/features/editor/editor_screen.dart';
-import 'package:len/features/editor/tool_switcher.dart';
+import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/ink/tool_settings.dart';
 
 import 'content_tools_ui_test.dart' show liveStrokes, mouseDrag, openCanvas, seedStroke;
@@ -154,7 +154,7 @@ void main() {
     expect(_activeTool(tester), EditorTool.eraser);
 
     // The phone tool switcher, closed by picking a tool.
-    expect(find.byTooltip('Eraser — tap to switch tools'), findsOneWidget);
+    expect(find.byTooltip('Eraser: tap to switch tools'), findsOneWidget);
     await tester.tap(find.byType(ToolSwitcherButton));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Highlighter'));
@@ -175,5 +175,5 @@ EditorTool? _activeTool(WidgetTester tester) {
     'Pen': EditorTool.pen,
     'Eraser': EditorTool.eraser,
     'Highlighter': EditorTool.highlighter,
-  }[label.split(' — ').first];
+  }[label.split(':').first];
 }

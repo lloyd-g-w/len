@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/features/editor/chrome/canvas_context_menu.dart';
-import 'package:len/features/editor/chrome/toolbar_slot.dart';
+import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/editor/editor_toolbar.dart';
+import 'package:len/features/editor/toolbar/tool_switcher.dart';
 
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
 
@@ -98,7 +100,11 @@ void main() {
         tester.getTopLeft(find.byTooltip('Undo (Ctrl+Z)')).dy >= 0 &&
         find.byTooltip('Undo (Ctrl+Z)').hitTestable().evaluate().isNotEmpty;
     expect(barVisible(), isTrue);
-    await tester.tap(find.byTooltip('Focus mode (F11)'));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Focus mode'));
     await tester.pumpAndSettle();
     expect(barVisible(), isFalse);
     await tester.tap(find.byTooltip('Show toolbars (F11)'));
@@ -122,10 +128,10 @@ void main() {
     final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Toolbar'));
+    await tester.tap(find.text('View'));
     await tester.pumpAndSettle();
-    expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, lessThan(200)); // Docked at the top.
-    await tester.tap(find.text('Floating'));
+    expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, lessThan(100)); // In the top bar.
+    await tester.tap(find.text('Toolbar floating'));
     await tester.pumpAndSettle();
     expect(s.preferences.toolbarPlacement, ToolbarPlacement.floating);
     expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, greaterThan(600));
@@ -153,18 +159,26 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('docked: at the top only from 960 px when the toolbar fits', (tester) async {
-    const docked = ToolbarPlacement.docked;
-    expect(resolvePlacement(docked, 800, toolbarWidth: 600), ToolbarPosition.bottom);
-    expect(resolvePlacement(docked, 1280, toolbarWidth: 700), ToolbarPosition.top);
-    expect(resolvePlacement(docked, 960, toolbarWidth: 950), ToolbarPosition.bottom);
-    expect(
-      resolvePlacement(ToolbarPlacement.floating, 1280, toolbarWidth: 700),
-      ToolbarPosition.floating,
-    );
+  testWidgets('docked: in the bar when it fits, else a row under it; phones at the bottom', (
+    tester,
+  ) async {
+    ToolbarDock dock() => tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.dock;
+    await pumpEditor(tester, size: const Size(1280, 900));
+    expect(dock(), ToolbarDock.inline);
+    expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, lessThan(60));
+    await closeEditor(tester);
 
-    final (_, _) = await pumpEditor(tester, size: const Size(800, 1300));
-    expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, greaterThan(1100));
+    await pumpEditor(tester, size: const Size(800, 1300));
+    expect(dock(), ToolbarDock.row);
+    final bar = tester.getRect(find.byTooltip('Undo (Ctrl+Z)'));
+    expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, greaterThan(bar.bottom));
+    expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, lessThan(120));
+    await closeEditor(tester);
+
+    await pumpEditor(tester, size: const Size(390, 844));
+    expect(dock(), ToolbarDock.bottom);
+    expect(find.byTooltip('Pen (P)'), findsNothing); // The switcher shows the tool.
+    expect(tester.getCenter(find.byType(ToolSwitcherButton)).dy, greaterThan(760));
     await closeEditor(tester);
   });
 

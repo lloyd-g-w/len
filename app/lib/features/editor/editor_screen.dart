@@ -32,7 +32,7 @@ import 'links/link_actions.dart';
 import 'shared/shared_notebooks.dart';
 import 'split/split_controller.dart';
 import 'split/split_view.dart';
-import 'split/split_view_button.dart';
+import 'split/split_view_menu.dart';
 import 'tabs/open_notebooks.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
@@ -162,9 +162,6 @@ class _EditorScreenState extends State<_EditorView> {
   /// The tool to put back on leaving focus mode entered with the laser (F5).
   EditorTool? _toolBeforeLaser;
 
-  /// The toolbar is in edit mode ("Customise toolbar…").
-  bool _customising = false;
-
   /// Where the canvas context menu is open, if it is.
   EditorMenu? _menu;
 
@@ -191,7 +188,6 @@ class _EditorScreenState extends State<_EditorView> {
     setFlow: _setFlow,
     pickBackground: () => unawaited(pickCanvasBackground(context, _shared)),
     openSearch: _search.open,
-    customiseToolbar: (on) => setState(() => _customising = on),
   );
 
   @override
@@ -429,6 +425,9 @@ class _EditorScreenState extends State<_EditorView> {
                 : tabs == null
                 ? null
                 : () => tabs.close(_notebook.id),
+            export: _session.commands == null
+                ? null
+                : () => unawaited(_session.commands!.export(context)),
             paste: () => _session.images.paste(context),
             pastePlain: () => _session.images.paste(context, plain: true),
           ),
@@ -436,9 +435,9 @@ class _EditorScreenState extends State<_EditorView> {
             focusNode: _focusNode,
             autofocus: true,
             onKeyEvent: _onKey,
-            // The docked placement depends on the toolbar's width (its slots);
-            // other tool changes don't rebuild the whole editor (the toolbar
-            // and chrome listen to the tools themselves).
+            // Where the toolbar docks depends on its width (the slot counts);
+            // other tool changes never rebuild the editor (the toolbar's
+            // parts listen to the tools themselves).
             child: ListenableBuilder(
               listenable: _toolbar,
               builder: (context, _) => LayoutBuilder(
@@ -516,15 +515,11 @@ class _EditorScreenState extends State<_EditorView> {
     audio: _audio,
     hud: _hud,
     tips: _tips,
-    customising: _customising,
-    onToolbarHeight: (height) {
-      if (mounted) _toolbar.height = height;
-    },
     tabs: tabs,
     secondPane: widget.secondPane,
     band: band,
-    splitButton: (widget.split?.available ?? false) && !widget.secondPane
-        ? SplitViewButton(tabs: _services.openNotebooks, notebookId: _notebook.id)
+    splitMenu: (widget.split?.available ?? false) && !widget.secondPane
+        ? SplitViewMenu(tabs: _services.openNotebooks, notebookId: _notebook.id)
         : null,
     navigatorActivity: _session.doc?.viewport,
   );

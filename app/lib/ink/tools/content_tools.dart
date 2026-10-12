@@ -86,14 +86,14 @@ class ContentTools {
     laser.clear();
   }
 
-  /// The pointer tool for [tool], or null for inking tools ([EditorTool.selectText]
-  /// is never offered: PDF text is selected with a long press).
+  /// The pointer tool for [tool], or null for inking tools (PDF text is
+  /// selected with a long press).
   PointerTool? toolFor(EditorTool tool) => switch (tool) {
     EditorTool.lasso => lasso,
     EditorTool.shape => shape,
     EditorTool.text => textTool,
     EditorTool.laser => laserTool,
-    EditorTool.pen || EditorTool.highlighter || EditorTool.eraser || EditorTool.selectText => null,
+    EditorTool.pen || EditorTool.highlighter || EditorTool.eraser => null,
   };
 
   /// The pointer tool for a press at [screen] with [tool] selected. [lasso]

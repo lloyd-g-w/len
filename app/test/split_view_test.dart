@@ -123,7 +123,9 @@ void main() {
   ) async {
     final (s, physics, chemistry) = await pumpWorkspace(tester);
     final firstEditor = tester.state(find.byType(EditorScreen));
-    await tester.tap(find.byTooltip('Open in split view'));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open in split view'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Chemistry').last); // The menu's, not the tab's.
     await tester.pumpAndSettle();
@@ -215,9 +217,13 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('phones and portrait tablets show one pane, no split button', (tester) async {
+  testWidgets('phones and portrait tablets show one pane, no split entry', (tester) async {
     final (s, physics, _) = await pumpWorkspace(tester, size: const Size(800, 1280));
-    expect(find.byTooltip('Open in split view'), findsNothing);
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open in split view'), findsNothing);
+    await tester.tapAt(const Offset(20, 600));
+    await tester.pumpAndSettle();
     s.openNotebooks.openSplit(physics.id);
     await tester.pumpAndSettle();
     expect(find.byType(EditorScreen), findsOneWidget);
@@ -269,6 +275,8 @@ void main() {
     s.openNotebooks.openSplit(chemistry.id);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('More options').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Focus mode'));
     await tester.pumpAndSettle();

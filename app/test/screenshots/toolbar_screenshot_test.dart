@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/editor/chrome/editor_top_bar.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
-import 'package:len/features/editor/tool_switcher.dart';
+import 'package:len/features/editor/toolbar/tool_switcher.dart';
 
 import '../support/handwriting.dart';
 import 'screenshot_harness.dart';
@@ -17,6 +20,7 @@ import 'screenshot_harness.dart';
 const phone = Size(390, 844);
 const tabletPortrait = Size(800, 1280);
 const tablet = Size(1280, 800);
+const desktop = Size(1440, 900);
 
 /// A notebook whose first page carries realistic handwriting.
 Notebook writtenNotebook(AppServices s) {
@@ -63,15 +67,41 @@ Notebook writtenNotebook(AppServices s) {
   return n;
 }
 
-Future<void> openEditor(WidgetTester tester, Size size, double dpr, ThemeMode mode) async {
+Future<AppServices> openEditor(
+  WidgetTester tester,
+  Size size,
+  double dpr,
+  ThemeMode mode, {
+  double textScale = 1,
+  void Function(AppServices)? setUp,
+}) async {
   setWindow(tester, size, dpr: dpr);
   final services = seededServices();
   addTearDown(services.dispose);
+  setUp?.call(services);
   final notebook = writtenNotebook(services);
-  await pumpApp(tester, services, EditorScreen(notebook: notebook), mode: mode);
+  await pumpApp(
+    tester,
+    services,
+    EditorScreen(notebook: notebook),
+    mode: mode,
+    textScale: textScale,
+  );
+  return services;
 }
 
 Rect toolbarRect(WidgetTester tester) => tester.getRect(find.byType(EditorToolbar)).inflate(8);
+
+/// The top chrome block (bar and attached tool row).
+Rect topRect(WidgetTester tester) {
+  final bar = tester.getRect(find.byType(EditorTopBar));
+  return Rect.fromLTRB(bar.left, bar.top, bar.right, bar.bottom + 8);
+}
+
+Future<void> closePopover(WidgetTester tester) async {
+  await tester.tapAt(const Offset(4, 400));
+  await settle(tester);
+}
 
 void main() {
   setUpAll(loadRealFonts);
@@ -80,6 +110,7 @@ void main() {
     ('phone', phone, 2.0),
     ('tablet_portrait', tabletPortrait, 2.0),
     ('tablet', tablet, 2.0),
+    ('desktop', desktop, 1.5),
   ]) {
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
       testWidgets('toolbar in editor $name ${mode.name}', (tester) async {
@@ -91,49 +122,100 @@ void main() {
     }
   }
 
+  testWidgets('toolbar at 1.3x text (tablet portrait and phone)', (tester) async {
+    await openEditor(tester, tabletPortrait, 2, ThemeMode.light, textScale: 1.3);
+    expect(tester.takeException(), isNull);
+    await shoot(tester, 'toolbar_text13_tablet', crop: topRect(tester));
+    await openEditor(tester, phone, 2, ThemeMode.dark, textScale: 1.3);
+    expect(tester.takeException(), isNull);
+    await shoot(tester, 'toolbar_text13_phone');
+  });
+
   for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-    testWidgets('toolbar popovers ${mode.name}', (tester) async {
+    testWidgets('tool options popovers ${mode.name}', (tester) async {
       await openEditor(tester, tablet, 2, mode);
       final m = mode.name;
-      // Colour editor: tap the selected colour.
-      await tester.tap(find.byKey(const ValueKey('color-0')));
-      await settle(tester);
-      await shoot(tester, 'popover_color_$m');
-      await tester.tapAt(const Offset(640, 700));
-      await settle(tester);
-      // Width editor.
-      await tester.tap(find.byKey(const ValueKey('width-1')));
-      await settle(tester);
-      await shoot(tester, 'popover_width_$m');
-      await tester.tapAt(const Offset(640, 700));
-      await settle(tester);
-      // Pen settings.
-      await tester.tap(find.byTooltip('Pen settings'));
+      // Pen: tap the active tool.
+      await tester.tap(find.byTooltip('Pen (P)'));
       await settle(tester);
       await shoot(tester, 'popover_pen_$m');
-      await tester.tapAt(const Offset(640, 700));
+      await tester.tap(find.text('Feel'));
       await settle(tester);
-      // Highlighter strip and settings.
-      await tester.tap(find.byTooltip('Highlighter (H)'));
+      await shoot(tester, 'popover_pen_feel_$m');
+      await closePopover(tester);
+      // From a slot: tap the selected width (the second).
+      await tester.tap(find.byKey(const ValueKey('width-1')));
       await settle(tester);
-      await shoot(tester, 'toolbar_highlighter_$m', crop: toolbarRect(tester));
-      await tester.tap(find.byTooltip('Highlighter settings'));
-      await settle(tester);
-      await shoot(tester, 'popover_highlighter_$m');
-      await tester.tapAt(const Offset(640, 700));
-      await settle(tester);
-      await tester.tap(find.byTooltip('Eraser (E)'));
-      await settle(tester);
-      await shoot(tester, 'toolbar_eraser_$m', crop: toolbarRect(tester));
+      await shoot(tester, 'popover_from_slot_$m');
+      await closePopover(tester);
+      for (final (tooltip, shot) in [
+        ('Highlighter (H)', 'highlighter'),
+        ('Eraser (E)', 'eraser'),
+        ('Lasso (L)', 'lasso'),
+        ('Shapes (S)', 'shapes'),
+        ('Text (T)', 'text'),
+        ('Laser pointer (K)', 'laser'),
+      ]) {
+        await tester.tap(find.byTooltip(tooltip));
+        await settle(tester);
+        await shoot(tester, 'toolbar_${shot}_$m', crop: topRect(tester));
+        await tester.tap(find.byTooltip(tooltip));
+        await settle(tester);
+        await shoot(tester, 'popover_${shot}_$m');
+        await closePopover(tester);
+      }
       expect(tester.takeException(), isNull);
     });
   }
 
-  testWidgets('toolbar phone: colour editor as a sheet', (tester) async {
+  testWidgets('pen options: custom colour and more slots', (tester) async {
+    await openEditor(tester, tablet, 2, ThemeMode.light);
+    await tester.tap(find.byTooltip('Pen (P)'));
+    await settle(tester);
+    await tester.tap(find.byTooltip('More quick colours'));
+    await tester.tap(find.byTooltip('More quick widths'));
+    await settle(tester);
+    await tester.tap(find.text('Custom'));
+    await settle(tester);
+    await shoot(tester, 'popover_pen_custom');
+    await closePopover(tester);
+    await shoot(tester, 'toolbar_pen_more_slots', crop: topRect(tester));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('insert and more menus', (tester) async {
+    await openEditor(tester, tablet, 2, ThemeMode.light);
+    await tester.tap(find.byTooltip('Insert'));
+    await settle(tester);
+    await shoot(tester, 'menu_insert');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    await tester.tap(find.byTooltip('More options'));
+    await settle(tester);
+    await shoot(tester, 'menu_more');
+    await tester.tap(find.text('View'));
+    await settle(tester);
+    await shoot(tester, 'menu_more_view');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('floating toolbar', (tester) async {
+    await openEditor(
+      tester,
+      tablet,
+      2,
+      ThemeMode.dark,
+      setUp: (s) => s.preferences.toolbarPlacement = ToolbarPlacement.floating,
+    );
+    await shoot(tester, 'editor_floating_dark');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('toolbar phone: pen options as a sheet', (tester) async {
     await openEditor(tester, phone, 2, ThemeMode.light);
     await tester.tap(find.byKey(const ValueKey('color-0')));
     await settle(tester);
-    await shoot(tester, 'phone_color_sheet');
+    await shoot(tester, 'phone_pen_sheet');
     expect(tester.takeException(), isNull);
   });
 
@@ -146,21 +228,9 @@ void main() {
       await tester.tap(find.text('Eraser'));
       await settle(tester);
       await shoot(tester, 'toolbar_phone_eraser_${mode.name}', crop: toolbarRect(tester));
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('toolbar with tool names ${mode.name}', (tester) async {
-      setWindow(tester, tablet, dpr: 2);
-      final services = seededServices();
-      addTearDown(services.dispose);
-      services.preferences.toolbarLabels = true;
-      await pumpApp(
-        tester,
-        services,
-        EditorScreen(notebook: writtenNotebook(services)),
-        mode: mode,
-      );
-      await shoot(tester, 'toolbar_labels_${mode.name}', crop: toolbarRect(tester));
+      await tester.tap(find.byTooltip('More options'));
+      await settle(tester);
+      await shoot(tester, 'phone_more_menu_${mode.name}');
       expect(tester.takeException(), isNull);
     });
   }

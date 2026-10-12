@@ -6,9 +6,9 @@ import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/pen/pen_options_panel.dart';
-import 'package:len/features/editor/pen/slot_editors.dart';
 import 'package:len/features/editor/pen/stroke_preview.dart';
-import 'package:len/features/editor/tool_switcher.dart';
+import 'package:len/features/editor/toolbar/tool_options_popover.dart';
+import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/ink/input/hold_to_straighten.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
@@ -16,7 +16,6 @@ import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/viewport.dart';
 import 'package:len/ui/app_theme.dart';
-import 'package:len/ui/color_picker/color_picker.dart';
 
 void main() {
   group('hold to straighten', () {
@@ -97,13 +96,19 @@ void main() {
           home: Scaffold(
             body: Align(
               alignment: Alignment.topCenter,
-              child: EditorToolbar(tools: tools, onStylusOnlyChanged: (_) {}),
+              child: EditorToolbar(
+                tools: tools,
+                dock: size.width < 600 ? ToolbarDock.bottom : ToolbarDock.row,
+              ),
             ),
           ),
         ),
       );
       return tools;
     }
+
+    /// The options popover's copy of a slot (the toolbar's is first).
+    Finder inPopover(Finder f) => find.descendant(of: find.byType(ToolOptionsPopover), matching: f);
 
     testWidgets('colours and widths are chosen independently with one tap', (tester) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
@@ -113,48 +118,75 @@ void main() {
       await tester.pump();
       expect(tools.activeConfig.colorIndex, 1);
       expect(tools.activeConfig.widthIndex, 2);
-      expect(find.byType(ColorPicker), findsNothing);
+      expect(find.byType(ToolOptionsPopover), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('tapping the selected colour opens the picker for that slot', (tester) async {
+    testWidgets('tapping the selected colour opens the options on that slot; '
+        'a new colour becomes a recent one', (tester) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
       await tester.tap(find.byKey(const ValueKey('color-2')));
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('color-2')));
       await tester.pumpAndSettle();
-      expect(find.byType(ColorPicker), findsOneWidget);
+      expect(find.byType(ToolOptionsPopover), findsOneWidget);
       expect(find.byType(BottomSheet), findsNothing, reason: 'a popover on tablets');
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'FF0000');
       await tester.pump();
       expect(tools.activeConfig.colors[2], 0xFFFF0000);
       expect(tools.activeConfig.color, 0xFFFF0000);
       expect(tools.activeConfig.colors[0], PenDefaults.pen.colors[0]);
+      expect(tools.recentColors, isEmpty, reason: 'noted when the popover closes');
+      await tester.tapAt(const Offset(1200, 700));
+      await tester.pumpAndSettle();
+      expect(tools.recentColors, [0xFFFF0000]);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('long-press a width to edit it with a live preview, or remove it', (tester) async {
+    testWidgets('long-press a width for the options: its slider, with a live preview', (
+      tester,
+    ) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
       await tester.longPress(find.byKey(const ValueKey('width-0')));
       await tester.pumpAndSettle();
-      expect(find.byType(WidthSlotEditor), findsOneWidget);
+      expect(tools.activeConfig.widthIndex, 0);
       expect(find.byType(StrokePreview), findsOneWidget);
       await tester.drag(find.byType(Slider), const Offset(60, 0));
       await tester.pump();
       expect(tools.activeConfig.widths[0], greaterThan(PenDefaults.pen.widths[0]));
-      await tester.tap(find.byTooltip('Remove width'));
-      await tester.pumpAndSettle();
-      expect(tools.activeConfig.widths, hasLength(2));
-      expect(find.byType(WidthSlotEditor), findsNothing);
     });
 
-    testWidgets('"+" adds a colour slot and opens its picker', (tester) async {
+    testWidgets('quick colours and widths: 3 each by default, 1 to 6, independent', (tester) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
-      await tester.tap(find.byTooltip('Add colour'));
+      expect(tools.activeConfig.colors, hasLength(3));
+      expect(tools.activeConfig.widths, hasLength(3));
+      await tester.tap(find.byTooltip('Pen (P)'));
       await tester.pumpAndSettle();
-      expect(tools.activeConfig.colors, hasLength(4));
-      expect(tools.activeConfig.colorIndex, 3);
-      expect(find.byType(ColorPicker), findsOneWidget);
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.byTooltip('More quick colours'));
+        await tester.pump();
+      }
+      expect(tools.activeConfig.colors, hasLength(6));
+      expect(tools.activeConfig.colors.toSet(), hasLength(6), reason: 'new colours differ');
+      expect(tools.activeConfig.widths, hasLength(3));
+      final more = tester.widget<IconButton>(
+        find.ancestor(of: find.byTooltip('More quick colours'), matching: find.byType(IconButton)),
+      );
+      expect(more.onPressed, isNull);
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(find.byTooltip('Fewer quick widths'));
+        await tester.pump();
+      }
+      expect(tools.activeConfig.widths, hasLength(1));
+      expect(tools.activeConfig.colors, hasLength(6));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('width-1')), findsNothing);
+      expect(find.byKey(const ValueKey('color-5')), findsNWidgets(2)); // Toolbar and popover.
+      await tester.tap(inPopover(find.byKey(const ValueKey('color-4'))));
+      await tester.pump();
+      expect(tools.activeConfig.colorIndex, 4);
     });
 
     testWidgets('the highlighter has its own slots', (tester) async {
@@ -167,7 +199,7 @@ void main() {
       expect(tools.configOf(InkTool.ballpoint).colorIndex, 0);
     });
 
-    testWidgets('phones: the tool switcher changes tools and opens settings (sheet)', (
+    testWidgets('phones: the tool switcher changes tools; the active one opens its options', (
       tester,
     ) async {
       final tools = await pumpToolbar(tester, const Size(390, 800));
@@ -185,72 +217,73 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byType(ToolSwitcherButton));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Pen settings'));
+      await tester.tap(find.text('Pen'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ToolOptionsPopover), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      await tester.tap(find.text('Feel'));
       await tester.pumpAndSettle();
       expect(find.byType(PenOptionsPanel), findsOneWidget);
-      expect(find.byType(BottomSheet), findsOneWidget);
-      expect(find.text('Tapered ends'), findsNothing);
+      await tester.ensureVisible(find.text('Hold to snap shapes'));
       await tester.tap(find.text('Hold to snap shapes'));
       await tester.pump();
       expect(tools.holdToStraighten, isFalse);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('tapping the active pen opens its settings', (tester) async {
-      await pumpToolbar(tester, const Size(1280, 800));
-      await tester.tap(find.byTooltip('Pen (P)'));
-      await tester.pumpAndSettle();
-      expect(find.byType(PenOptionsPanel), findsOneWidget);
+    testWidgets('tapping the active tool opens its options, for every tool', (tester) async {
+      final tools = await pumpToolbar(tester, const Size(1280, 800));
+      for (final (tooltip, title) in [
+        ('Highlighter (H)', 'Highlighter'),
+        ('Eraser (E)', 'Eraser'),
+        ('Lasso (L)', 'Lasso'),
+        ('Shapes (S)', 'Shapes'),
+        ('Text (T)', 'Text'),
+        ('Laser pointer (K)', 'Laser pointer'),
+        ('Pen (P)', 'Pen'),
+      ]) {
+        await tester.tap(find.byTooltip(tooltip));
+        await tester.pumpAndSettle();
+        expect(find.byType(ToolOptionsPopover), findsNothing, reason: '$title: first selects');
+        await tester.tap(find.byTooltip(tooltip));
+        await tester.pumpAndSettle();
+        expect(inPopover(find.text(title)), findsOneWidget, reason: title);
+        await tester.tapAt(const Offset(1200, 700));
+        await tester.pumpAndSettle();
+      }
+      expect(tools.tool, EditorTool.pen);
+      expect(tester.takeException(), isNull);
     });
 
-    testWidgets('one compact row on phones, the full row on tablets', (tester) async {
+    testWidgets('one compact row on phones, tools and slots in a row on tablets', (tester) async {
       await pumpToolbar(tester, const Size(390, 800));
       final phone = tester.getSize(find.byType(EditorToolbar));
       expect(phone.width, lessThanOrEqualTo(390));
-      expect(phone.height, lessThan(60), reason: 'one row');
+      expect(phone.height, lessThanOrEqualTo(56), reason: 'one row');
       expect(find.byType(ToolSwitcherButton), findsOneWidget);
       expect(find.byKey(const ValueKey('color-2')), findsOneWidget);
       expect(find.byKey(const ValueKey('width-2')), findsOneWidget);
-      // Every target stays finger- and S Pen-sized.
+      // Every target stays S Pen-sized (44 on touch-first devices).
       for (final key in ['color-0', 'width-0']) {
         final size = tester.getSize(find.byKey(ValueKey(key)));
-        expect(size.width, greaterThanOrEqualTo(40));
-        expect(size.height, greaterThanOrEqualTo(40));
+        expect(size.width, greaterThanOrEqualTo(36));
+        expect(size.height, greaterThanOrEqualTo(36));
       }
       await pumpToolbar(tester, const Size(1194, 834));
-      expect(tester.getSize(find.byType(EditorToolbar)).height, lessThan(60), reason: 'one row');
+      expect(tester.getSize(find.byType(EditorToolbar)).height, 48, reason: 'one row');
       expect(find.byType(ToolSwitcherButton), findsNothing);
       expect(find.byTooltip('Lasso (L)'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('tool names under the icons when they fit', (tester) async {
-      tester.view
-        ..physicalSize = const Size(1280, 800)
-        ..devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final tools = ToolSettings();
-      addTearDown(tools.dispose);
-      Future<void> pump(Size size) async {
-        tester.view.physicalSize = size;
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: Align(
-                alignment: Alignment.topCenter,
-                child: EditorToolbar(tools: tools, onStylusOnlyChanged: (_) {}, showLabels: true),
-              ),
-            ),
-          ),
-        );
+    testWidgets('switching tools keeps the tools in place', (tester) async {
+      final tools = await pumpToolbar(tester, const Size(800, 800));
+      final pen = tester.getCenter(find.byTooltip('Pen (P)'));
+      for (final tool in EditorTool.values) {
+        tools.tool = tool;
+        await tester.pumpAndSettle();
+        expect(tester.getCenter(find.byTooltip('Pen (P)')), pen, reason: tool.name);
       }
-
-      await pump(const Size(1280, 800));
-      expect(find.text('Laser'), findsOneWidget);
-      expect(find.text('Highlighter'), findsOneWidget);
-      await pump(const Size(700, 800)); // No room: icons only.
-      expect(find.text('Laser'), findsNothing);
-      expect(tester.takeException(), isNull);
     });
 
     testWidgets('eraser options switch to the partial eraser', (tester) async {

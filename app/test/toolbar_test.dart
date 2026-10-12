@@ -1,0 +1,140 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:len/features/documents/export/export_sheet.dart';
+import 'package:len/features/editor/chrome/editor_chrome.dart';
+import 'package:len/features/editor/chrome/editor_top_bar.dart';
+import 'package:len/features/editor/document/paged_document_view.dart';
+import 'package:len/features/editor/editor_canvas.dart';
+import 'package:len/features/editor/editor_layers.dart';
+import 'package:len/features/editor/editor_toolbar.dart';
+import 'package:len/features/editor/toolbar/tool_options_popover.dart';
+import 'package:len/features/editor/tools/laser_strip.dart';
+import 'package:len/ink/tool_settings.dart';
+
+import 'content_tools_ui_test.dart' show openCanvas;
+import 'document_editor_test.dart' show closeEditor, pumpEditor;
+
+/// The editor toolbar in the editor: it never rebuilds the canvas, Insert ⊕,
+/// the "⋯" menu and its shortcuts.
+void main() {
+  ToolSettings toolsOf(WidgetTester tester) =>
+      tester.widget<EditorToolbar>(find.byType(EditorToolbar)).tools;
+
+  testWidgets('switching tools, picking slots and opening the options rebuild only the toolbar', (
+    tester,
+  ) async {
+    await pumpEditor(tester, size: const Size(1280, 900));
+    final builds = <Type, int>{};
+    debugOnRebuildDirtyWidget = (element, _) =>
+        builds.update(element.widget.runtimeType, (n) => n + 1, ifAbsent: () => 1);
+    addTearDown(() => debugOnRebuildDirtyWidget = null);
+
+    for (final tool in [
+      'Highlighter (H)',
+      'Eraser (E)',
+      'Lasso (L)',
+      'Shapes (S)',
+      'Text (T)',
+      'Laser pointer (K)',
+      'Pen (P)',
+    ]) {
+      await tester.tap(find.byTooltip(tool));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.byKey(const ValueKey('color-1')));
+    await tester.tap(find.byKey(const ValueKey('width-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Pen (P)'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ToolOptionsPopover), findsOneWidget);
+    await tester.tapAt(const Offset(1200, 800));
+    await tester.pumpAndSettle();
+    debugOnRebuildDirtyWidget = null;
+
+    expect(toolsOf(tester).activeConfig.colorIndex, 1);
+    for (final type in [
+      EditorLayers,
+      EditorCanvas,
+      PagedDocumentView,
+      EditorChrome,
+      EditorTopBar,
+      EditorToolbar,
+    ]) {
+      expect(builds[type], isNull, reason: '$type rebuilt ${builds[type]} times');
+    }
+    expect(builds[ListenableBuilder], greaterThan(0), reason: 'the toolbar parts did');
+    await closeEditor(tester);
+  });
+
+  testWidgets('Insert ⊕ offers images, PDF pages and template pages in notebooks', (tester) async {
+    await pumpEditor(tester, size: const Size(1280, 900));
+    await tester.tap(find.byTooltip('Insert'));
+    await tester.pumpAndSettle();
+    expect(find.text('Image…'), findsOneWidget);
+    expect(find.text('Pages from PDF…'), findsOneWidget);
+    expect(find.text('Page with template…'), findsOneWidget);
+    await tester.tap(find.text('Page with template…'));
+    await tester.pumpAndSettle();
+    expect(find.text('Music staff'), findsWidgets, reason: 'the template chooser');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
+  testWidgets('Insert ⊕ on a canvas offers images only', (tester) async {
+    await openCanvas(tester);
+    await tester.tap(find.byTooltip('Insert'));
+    await tester.pumpAndSettle();
+    expect(find.text('Image…'), findsOneWidget);
+    expect(find.text('Pages from PDF…'), findsNothing);
+    expect(find.text('Page with template…'), findsNothing);
+  });
+
+  testWidgets('the ⋯ menu: search, export, page, view, settings; draw with finger once a '
+      'stylus was seen; Ctrl+E exports', (tester) async {
+    final (s, _) = await pumpEditor(tester, size: const Size(1280, 900));
+    Future<void> openMenu() async {
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+    }
+
+    await openMenu();
+    for (final item in ['Search in notebook', 'Export…', 'Page', 'Outline', 'View', 'Settings…']) {
+      expect(find.text(item), findsOneWidget, reason: item);
+    }
+    for (final gone in ['Rename notebook…', 'Show tool names', 'Customise toolbar…', 'Present']) {
+      expect(find.text(gone), findsNothing, reason: gone);
+    }
+    expect(find.text('Draw with finger'), findsNothing, reason: 'no stylus seen yet');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    // A stylus was seen: palm rejection is on, and fingers can be let draw.
+    s.preferences.stylusOnly = true;
+    await tester.pumpAndSettle();
+    await openMenu();
+    await tester.tap(find.text('Draw with finger'));
+    await tester.pumpAndSettle();
+    expect(toolsOf(tester).stylusOnly, isFalse);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(find.byType(ExportSheet), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
+  testWidgets('the laser has three colour slots; picking one sets its colour', (tester) async {
+    await pumpEditor(tester, size: const Size(1280, 900));
+    await tester.tap(find.byTooltip('Laser pointer (K)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('laser-slot-1')));
+    await tester.pumpAndSettle();
+    expect(toolsOf(tester).laser.color, LaserStrip.colors[1]);
+    await closeEditor(tester);
+  });
+}

@@ -7,11 +7,10 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/ink/pen/recent_colors.dart';
 import 'package:len/ink/tool_settings.dart';
 
-ToolSettings restored(Object prefs, {List<int>? favorites}) {
+ToolSettings restored(Object prefs) {
   final db = AppDatabase.inMemory();
   addTearDown(db.close);
   final store = SettingsRepository(db)..toolPrefs = jsonEncode(prefs);
-  if (favorites != null) store.favoriteColors = favorites;
   final tools = ToolSettings(store: store);
   addTearDown(tools.dispose);
   return tools;
@@ -78,8 +77,7 @@ void main() {
           autoDeselect: true,
         )
         ..addRecentColor(0xFF00AA00)
-        ..holdToStraighten = false
-        ..addFavorite(0xFFABCDEF);
+        ..holdToStraighten = false;
       a.dispose(); // flushes the debounced save
 
       final b = ToolSettings(store: store);
@@ -96,7 +94,6 @@ void main() {
       expect(b.eraser.autoDeselect, isTrue);
       expect(b.recentColors, [0xFF00AA00]);
       expect(b.holdToStraighten, isFalse);
-      expect(b.favorites, [0xFFABCDEF]);
       b.dispose();
     });
 
@@ -115,26 +112,21 @@ void main() {
 
     test('stored configs are parsed strictly: an invalid one keeps its defaults', () {
       final valid = PenConfig.defaultsFor(InkTool.highlighter).copyWith(straight: true).toJson();
-      final t = restored(
-        {
-          'pens': {
-            'ballpoint': {
-              ...PenConfig.defaultsFor(InkTool.ballpoint).toJson(),
-              'widths': [1e6],
-            },
-            'highlighter': valid,
+      final t = restored({
+        'pens': {
+          'ballpoint': {
+            ...PenConfig.defaultsFor(InkTool.ballpoint).toJson(),
+            'widths': [1e6],
           },
-          'eraser': {...const EraserConfig().toJson(), 'autoDeselect': 'yes'},
-          'recent': [0x00FF0000],
+          'highlighter': valid,
         },
-        favorites: [1, 2, 1, for (var i = 0; i < 40; i++) 100 + i],
-      );
+        'eraser': {...const EraserConfig().toJson(), 'autoDeselect': 'yes'},
+        'recent': [0x00FF0000],
+      });
       expect(t.configOf(InkTool.ballpoint), PenConfig.defaultsFor(InkTool.ballpoint));
       expect(t.configOf(InkTool.highlighter).straight, isTrue);
       expect(t.eraser, const EraserConfig());
       expect(t.recentColors, isEmpty);
-      expect(t.favorites.take(3), [1, 2, 100]);
-      expect(t.favorites, hasLength(ToolSettings.maxFavorites));
       t.selectColor(5); // Out of range: ignored.
       expect(t.activeConfig.colorIndex, 0);
     });

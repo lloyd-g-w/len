@@ -127,7 +127,7 @@ void main() {
 
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Page zoom'));
+    await tester.tap(find.text('View'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Fit page'));
     await tester.pumpAndSettle();

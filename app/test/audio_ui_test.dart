@@ -10,7 +10,6 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/stroke.dart';
-import 'package:len/features/editor/chrome/chrome_metrics.dart';
 import 'package:len/features/editor/chrome/editor_top_bar.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -308,7 +307,14 @@ void main() {
     await _close(tester);
   });
 
-  for (final size in const [Size(640, 900), Size(700, 900), Size(844, 390), Size(800, 1280)]) {
+  for (final size in const [
+    Size(640, 900),
+    Size(700, 900),
+    Size(844, 390),
+    Size(800, 1280),
+    Size(1100, 800),
+    Size(1280, 800),
+  ]) {
     testWidgets('the top bar fits a recording paged notebook at ${size.width.toInt()} dp', (
       tester,
     ) async {
@@ -319,18 +325,7 @@ void main() {
         seed: (s, nb) => _recording(s, nb.id),
       );
       expect(find.byTooltip('Recordings'), findsOneWidget);
-      if (size.width < ChromeMetrics.roomyBarWidth) {
-        // All pages and the bookmark move into the "⋯" menu.
-        expect(find.byTooltip('All pages'), findsNothing);
-        await tester.tap(find.byTooltip('More options'));
-        await tester.pumpAndSettle();
-        expect(find.text('All pages'), findsOneWidget);
-        expect(find.text('Bookmark page'), findsOneWidget);
-        await tester.tapAt(const Offset(20, 300));
-        await tester.pumpAndSettle();
-      } else {
-        expect(find.byTooltip('All pages'), findsOneWidget);
-      }
+      expect(find.byTooltip('All pages'), findsOneWidget);
       await tester.tap(find.byTooltip('Record audio'));
       await _settleAsync(tester);
       expect(find.byKey(const ValueKey('recording-pill')), findsOneWidget);

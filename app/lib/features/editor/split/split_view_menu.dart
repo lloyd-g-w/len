@@ -2,33 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook.dart';
-import '../chrome/bar_button.dart';
-import '../chrome/canvas_guard.dart';
 import '../tabs/open_notebooks.dart';
 
-/// The top bar's split view button (large screens): opens a second pane
-/// with this notebook (another place in it) or another open notebook;
-/// while split, offers linked tools, swapping and closing.
-class SplitViewButton extends StatelessWidget {
-  const SplitViewButton({super.key, required this.tabs, required this.notebookId});
+/// The "⋯" menu's split view entry (large panes): opens a second pane with
+/// this notebook (another place in it) or another open notebook; while
+/// split, offers swapping and closing.
+class SplitViewMenu extends StatelessWidget {
+  const SplitViewMenu({super.key, required this.tabs, required this.notebookId});
 
   final OpenNotebooks tabs;
 
-  /// The notebook of the editor showing the button.
+  /// The notebook of the editor showing the menu.
   final String notebookId;
 
   @override
   Widget build(BuildContext context) {
     final split = tabs.splitId != null;
-    return ChromeMenuAnchor(
+    return SubmenuButton(
+      leadingIcon: const Icon(Symbols.vertical_split_rounded),
       menuChildren: split ? _splitItems() : _openItems(),
-      builder: (context, menu, _) => BarButton(
-        tooltip: split ? 'Split view' : 'Open in split view',
-        icon: Symbols.vertical_split_rounded,
-        selectedIcon: Symbols.vertical_split_rounded,
-        selected: split,
-        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-      ),
+      child: Text(split ? 'Split view' : 'Open in split view'),
     );
   }
 

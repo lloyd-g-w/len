@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
 import '../../../ui/chrome_fade.dart';
+import '../editor_toolbar.dart';
+import '../toolbar/toolbar_metrics.dart';
 import 'chrome_metrics.dart';
 import 'editor_tips.dart';
 import 'focus_handle.dart';
@@ -9,24 +11,23 @@ import 'gesture_hud.dart';
 import 'peeking.dart';
 import 'toolbar_slot.dart';
 
-/// Where the chrome sits for a given screen, and how much of the screen it
+/// Where the chrome sits for a given pane, and how much of it the chrome
 /// covers (so content can be kept clear of it).
 @immutable
 class ChromeLayout {
   const ChromeLayout({
-    required this.placement,
+    required this.dock,
     required this.barHeight,
     required this.safe,
     required this.hasNavigator,
     required this.width,
     required this.focus,
-    this.toolbarHeight,
   });
 
-  /// Where the toolbar sits.
-  final ToolbarPosition placement;
+  /// Where the toolbar is.
+  final ToolbarDock dock;
 
-  /// Height of the top bar without the status bar.
+  /// Height of the top bar (tab strip included) without the status bar.
   final double barHeight;
 
   /// System insets (status bar, gesture bar, notches).
@@ -35,36 +36,32 @@ class ChromeLayout {
   final double width;
   final bool focus;
 
-  /// Measured height of the toolbar panel; null until known.
-  final double? toolbarHeight;
+  /// Whether the editor is laid out for a phone.
+  bool get phone => width < ChromeMetrics.compactWidth;
 
-  /// Room the toolbar takes at the top or bottom edge.
-  double get toolbarExtent => switch (toolbarHeight) {
-    final h? => ChromeMetrics.toolbarExtentFor(h),
-    null => ChromeMetrics.toolbarExtent,
-  };
+  /// Height of the tool row attached under the top bar (0 without one).
+  double get toolRowHeight => dock == ToolbarDock.row ? ToolbarMetrics.rowHeight : 0;
 
-  /// The navigator sits above a bottom toolbar unless there is room beside it.
-  bool get navigatorAboveToolbar => placement == ToolbarPosition.bottom && width < 1180;
+  /// Height of the phone's bottom tool row, gesture inset excluded.
+  double get bottomRowHeight => dock == ToolbarDock.bottom ? ToolbarMetrics.bottomHeight : 0;
 
   /// Phones: the page navigator only peeks in while pages scroll or turn
   /// (it would otherwise cover the page above the toolbar), so it takes
   /// no room.
-  bool get navigatorPeeks => width < ChromeMetrics.compactWidth;
+  bool get navigatorPeeks => phone;
 
-  /// Bottom of the top bar.
-  double get barBottom => safe.top + barHeight;
+  /// Bottom of the top chrome block (status bar, tabs, bar, tool row).
+  double get barBottom => safe.top + barHeight + toolRowHeight;
 
-  /// Screen space covered by chrome along the top and bottom edges.
+  /// Where the page navigator's bottom edge sits.
+  double get navigatorBottom => safe.bottom + bottomRowHeight + ChromeMetrics.edge;
+
+  /// Screen space covered by chrome along the top and bottom edges. A
+  /// floating palette covers no edge.
   EdgeInsets get covered {
     if (focus) return EdgeInsets.only(top: safe.top, bottom: safe.bottom);
-    final toolbarTop = placement == ToolbarPosition.top ? toolbarExtent : 0.0;
-    final toolbarBottom = placement == ToolbarPosition.bottom ? toolbarExtent : 0.0;
     final navigator = hasNavigator && !navigatorPeeks ? ChromeMetrics.navigatorExtent : 0.0;
-    final bottom = navigatorAboveToolbar
-        ? toolbarBottom + navigator
-        : (toolbarBottom > navigator ? toolbarBottom : navigator);
-    return EdgeInsets.only(top: barBottom + toolbarTop, bottom: safe.bottom + bottom);
+    return EdgeInsets.only(top: barBottom, bottom: safe.bottom + bottomRowHeight + navigator);
   }
 
   /// [covered], plus the spot a peeking navigator appears in (phones):
@@ -76,9 +73,10 @@ class ChromeLayout {
   }
 }
 
-/// Lays the editor chrome over the canvas — top bar, toolbar slot, page
-/// navigator, gesture HUD — and animates it away in focus mode, leaving
-/// only a small [FocusHandle].
+/// Lays the editor chrome over the canvas — the top bar (with the docked
+/// tools inside or under it), the phone's bottom tool row or the floating
+/// palette, the page navigator, the gesture HUD — and fades it away in
+/// focus mode, leaving only a small [FocusHandle].
 class EditorChrome extends StatelessWidget {
   const EditorChrome({
     super.key,
@@ -92,11 +90,15 @@ class EditorChrome extends StatelessWidget {
     this.navigatorActivity,
     this.floatAt,
     this.onFloatMoved,
-    this.onToolbarHeight,
   });
 
   final ChromeLayout layout;
+
+  /// The top bar; it carries the toolbar when docked inline or as a row.
   final Widget topBar;
+
+  /// The toolbar for the bottom row or the floating palette (unused when
+  /// the top bar carries it).
   final Widget toolbar;
   final Widget? navigator;
 
@@ -110,43 +112,58 @@ class EditorChrome extends StatelessWidget {
   final VoidCallback onExitFocus;
   final (double, double)? floatAt;
   final ValueChanged<(double, double)>? onFloatMoved;
-  final ValueChanged<double>? onToolbarHeight;
 
   @override
   Widget build(BuildContext context) {
     final focus = layout.focus;
     final safe = layout.safe;
-    final navigatorBottom =
-        safe.bottom +
-        ChromeMetrics.edge +
-        (layout.navigatorAboveToolbar ? layout.toolbarExtent : 0);
+    final scheme = Theme.of(context).colorScheme;
     return Stack(
       children: [
-        Positioned.fill(
-          child: ToolbarSlot(
-            toolbar: toolbar,
-            placement: layout.placement,
-            insets: EdgeInsets.only(
-              top: layout.barBottom,
-              bottom: safe.bottom,
-              left: safe.left,
-              right: safe.right,
+        if (layout.dock == ToolbarDock.floating)
+          Positioned.fill(
+            child: ToolbarSlot(
+              toolbar: toolbar,
+              insets: EdgeInsets.only(
+                top: layout.barBottom,
+                bottom: safe.bottom,
+                left: safe.left,
+                right: safe.right,
+              ),
+              floatAt: floatAt,
+              onFloatMoved: onFloatMoved,
+              visible: !focus,
             ),
-            floatAt: floatAt,
-            onFloatMoved: onFloatMoved,
-            onHeight: onToolbarHeight,
-            visible: !focus,
           ),
-        ),
+        if (layout.dock == ToolbarDock.bottom)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: ChromeFade(
+              visible: !focus,
+              edge: const Offset(0, 1),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Surfaces.chrome(scheme),
+                  border: Border(top: Surfaces.chromeEdge(scheme)),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: safe.bottom, left: safe.left, right: safe.right),
+                  child: toolbar,
+                ),
+              ),
+            ),
+          ),
         if (navigator case final navigator?)
           AnimatedPositioned(
             duration: Motion.slow,
             curve: Motion.emphasized,
             right: safe.right + ChromeMetrics.edge,
-            bottom: navigatorBottom,
-            child: _Hideable(
+            bottom: layout.navigatorBottom,
+            child: ChromeFade(
               visible: !focus,
-              offset: const Offset(0, 1),
+              edge: const Offset(0, 1),
               child: Peeking(
                 enabled: layout.navigatorPeeks,
                 activity: navigatorActivity,
@@ -158,7 +175,7 @@ class EditorChrome extends StatelessWidget {
           top: 0,
           left: 0,
           right: 0,
-          child: _Hideable(visible: !focus, offset: const Offset(0, -1), child: topBar),
+          child: ChromeFade(visible: !focus, edge: const Offset(0, -1), child: topBar),
         ),
         Positioned(
           top: layout.covered.top + Gaps.xl,
@@ -179,28 +196,13 @@ class EditorChrome extends StatelessWidget {
         Positioned(
           top: safe.top + Gaps.sm,
           right: safe.right + Gaps.sm,
-          child: _Hideable(
+          child: ChromeFade(
             visible: focus,
-            offset: const Offset(0, -1),
+            edge: const Offset(0, -1),
             child: FocusHandle(onExit: onExitFocus),
           ),
         ),
       ],
     );
   }
-}
-
-/// Fades [child] away, sliding it a little toward [offset]'s edge, when
-/// not [visible] (and ignores input).
-class _Hideable extends StatelessWidget {
-  const _Hideable({required this.visible, required this.offset, required this.child});
-
-  final bool visible;
-
-  /// The direction it leaves in.
-  final Offset offset;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => ChromeFade(visible: visible, edge: offset, child: child);
 }

@@ -9,23 +9,20 @@ import 'gradient_slider.dart';
 import 'hsv_square.dart';
 
 /// A full colour picker: saturation/value square, hue and opacity sliders,
-/// hex input, a preset palette, recently picked colours and the user's
-/// favourite colours.
+/// hex input, a preset palette and recently picked colours.
 ///
 /// Reports every change through [onChanged] as ARGB (alpha = opacity).
-/// Favourites are owned by the caller ([favorites], [onAddFavorite],
-/// [onRemoveFavorite]); without [onAddFavorite] that row is hidden. So are
-/// the caller's [recent] colours while there are none.
+/// The caller's [recent] colours show once there are any. Without
+/// [showSwatches] only the square, sliders and hex field show (the
+/// "Custom" part of a popover that lists swatches itself).
 class ColorPicker extends StatefulWidget {
   const ColorPicker({
     super.key,
     required this.color,
     required this.onChanged,
     this.recent = const [],
-    this.favorites = const [],
-    this.onAddFavorite,
-    this.onRemoveFavorite,
     this.showOpacity = true,
+    this.showSwatches = true,
   });
 
   /// The colour shown (ARGB).
@@ -37,17 +34,11 @@ class ColorPicker extends StatefulWidget {
   /// Colours the user picked recently (ARGB), most recent first.
   final List<int> recent;
 
-  /// The user's favourite colours (ARGB), most recent first.
-  final List<int> favorites;
-
-  /// Saves the current colour as a favourite; null hides the favourites row.
-  final ValueChanged<int>? onAddFavorite;
-
-  /// Forgets a favourite; null makes favourites read-only.
-  final ValueChanged<int>? onRemoveFavorite;
-
   /// Whether the opacity slider is shown (otherwise colours are opaque).
   final bool showOpacity;
+
+  /// Whether the preset palette and [recent] colours are shown.
+  final bool showSwatches;
 
   @override
   State<ColorPicker> createState() => _ColorPickerState();
@@ -132,29 +123,21 @@ class _ColorPickerState extends State<ColorPicker> {
           alpha: widget.showOpacity ? _hsv.alpha : null,
           onChanged: _onHex,
         ),
-        const SizedBox(height: Gaps.md),
-        _SwatchGrid(
-          colors: ColorSwatches.palette,
-          selected: _argb | 0xFF000000,
-          onTap: _pickSwatch,
-        ),
-        if (widget.recent.isNotEmpty) ...[
+        if (widget.showSwatches) ...[
           const SizedBox(height: Gaps.md),
-          RecentColorsRow(
-            colors: widget.recent,
-            selected: _argb,
-            onTap: (c) => _setHsv(HSVColor.fromColor(Color(c))),
+          _SwatchGrid(
+            colors: ColorSwatches.palette,
+            selected: _argb | 0xFF000000,
+            onTap: _pickSwatch,
           ),
-        ],
-        if (widget.onAddFavorite != null) ...[
-          const SizedBox(height: Gaps.md),
-          FavoritesRow(
-            favorites: widget.favorites,
-            selected: _argb,
-            onTap: (c) => _setHsv(HSVColor.fromColor(Color(c))),
-            onAdd: () => widget.onAddFavorite!(_argb),
-            onRemove: widget.onRemoveFavorite,
-          ),
+          if (widget.recent.isNotEmpty) ...[
+            const SizedBox(height: Gaps.md),
+            RecentColorsRow(
+              colors: widget.recent,
+              selected: _argb,
+              onTap: (c) => _setHsv(HSVColor.fromColor(Color(c))),
+            ),
+          ],
         ],
       ],
     );
