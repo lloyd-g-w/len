@@ -283,10 +283,12 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
         /**
          * How long after Dart reports building a frame it is surely on
          * screen: raster, queued buffers, SurfaceFlinger's latch and the
-         * present. Measured on a Galaxy Tab S8+ (120 Hz): 25 ms median,
-         * 40 ms p99 (docs/INK_LAB.md, "Low-latency ink").
+         * present. Measured on a Galaxy Tab S8+ (120 Hz): 21 ms median,
+         * 41 ms p99, 48 ms at most (docs/INK_LAB.md, "Low-latency ink").
+         * Too short opens a gap; longer only keeps opaque ink lying on
+         * Flutter's a little longer.
          */
-        const val SHOWN_AFTER_MS = 50L
+        const val SHOWN_AFTER_MS = 70L
 
         /** An `arm` older than this (ms) is not trusted at pen-down. */
         private const val ARM_FRESH_MS = 400L
