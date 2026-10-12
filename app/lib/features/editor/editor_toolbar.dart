@@ -109,23 +109,36 @@ class EditorToolbar extends StatelessWidget {
     return Center(child: _group(reserve: reserve));
   }
 
-  /// Phones: the tool switcher, then the quick controls (scrolling when
-  /// six colours and six widths don't fit).
+  /// Phones: the tool switcher, then the quick controls; on narrow phones
+  /// with compact cells when that makes them fit, and scrolling when six
+  /// colours and six widths still don't.
   Widget _bottom(BuildContext context) => SizedBox(
     height: ToolbarMetrics.bottomHeight,
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
-      child: Row(
-        children: [
-          ToolSwitcherButton(tools: tools, insert: insert),
-          const ToolbarDivider(),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ToolStrip(tools: tools),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final room = constraints.maxWidth - ToolSwitcherButton.width - ToolbarMetrics.divider;
+          final compact =
+              ToolbarMetrics.inkStrip(tools) > room &&
+              ToolbarMetrics.inkStrip(tools, compact: true) <= room;
+          return ToolbarDensity(
+            compact: compact,
+            minimal: true,
+            child: Row(
+              children: [
+                ToolSwitcherButton(tools: tools, insert: insert),
+                const ToolbarDivider(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ToolStrip(tools: tools),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     ),
   );

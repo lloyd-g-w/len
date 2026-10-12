@@ -172,6 +172,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('phones: the bottom row fits 3 + 3 slots down to 320 dp, touch-sized when it can', (
+    tester,
+  ) async {
+    final tools = ToolSettings();
+    addTearDown(tools.dispose);
+    for (final (width, cell) in [(390.0, 44.0), (320.0, 36.0)]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(
+                width: width,
+                child: EditorToolbar(tools: tools, dock: ToolbarDock.bottom),
+              ),
+            ),
+          ),
+        ),
+      );
+      for (final tool in [EditorTool.pen, EditorTool.shape]) {
+        tools.tool = tool;
+        await tester.pumpAndSettle();
+        final slot = tester.getRect(find.byKey(const ValueKey('width-2')));
+        final row = tester.getRect(find.byType(EditorToolbar));
+        expect(slot.right, lessThanOrEqualTo(row.right), reason: '$width ${tool.name}');
+        expect(slot.width, cell, reason: '$width ${tool.name}');
+      }
+    }
+  });
+
   testWidgets('the laser has three colour slots; picking one sets its colour', (tester) async {
     await pumpEditor(tester, size: const Size(1280, 900));
     await tester.tap(find.byTooltip('Laser pointer (K)'));

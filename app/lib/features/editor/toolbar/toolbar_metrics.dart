@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../chrome/bar_button.dart';
@@ -66,6 +67,16 @@ abstract final class ToolbarMetrics {
     return widest;
   }
 
+  /// The widest ink strip (pen or highlighter slots): what a minimal
+  /// strip needs at most.
+  static double inkStrip(ToolSettings tools, {bool compact = false}) {
+    final slot = slotCell(compact: compact);
+    double of(InkTool ink) =>
+        (tools.configOf(ink).colors.length + tools.configOf(ink).widths.length) * slot + groupGap;
+    final pen = of(InkTool.ballpoint), highlighter = of(InkTool.highlighter);
+    return pen > highlighter ? pen : highlighter;
+  }
+
   /// Tools, a divider and the reserved strip: the group shown in the bar,
   /// the attached row or the floating palette.
   static double group(ToolSettings tools, {bool compact = false}) =>
@@ -90,16 +101,29 @@ abstract final class ToolbarMetrics {
 }
 
 /// Marks a toolbar laid out with compact cells (40-dp tools, 36-dp slots)
-/// because its row is short of room.
+/// because its row is short of room, and a [minimal] one (the phone's
+/// bottom row) that leaves out secondary controls (the shape kind button:
+/// the switcher shows the kind, and its options list them).
 class ToolbarDensity extends InheritedWidget {
-  const ToolbarDensity({super.key, required this.compact, required super.child});
+  const ToolbarDensity({
+    super.key,
+    required this.compact,
+    this.minimal = false,
+    required super.child,
+  });
 
   final bool compact;
+  final bool minimal;
 
   /// Whether the toolbar at [context] is compact.
   static bool compactOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<ToolbarDensity>()?.compact ?? false;
 
+  /// Whether the toolbar at [context] is minimal.
+  static bool minimalOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ToolbarDensity>()?.minimal ?? false;
+
   @override
-  bool updateShouldNotify(ToolbarDensity oldWidget) => oldWidget.compact != compact;
+  bool updateShouldNotify(ToolbarDensity oldWidget) =>
+      oldWidget.compact != compact || oldWidget.minimal != minimal;
 }
