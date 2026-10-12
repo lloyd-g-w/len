@@ -920,12 +920,15 @@ orientation are carried but not used yet.
 
 ### Low-latency ink (Android; `WetInk*.kt`, `platform/low_latency_ink_native.dart`)
 
-Flutter shows a pen sample about 36 ms after the digitiser took it (Galaxy
-Tab S8+, 120 Hz; `docs/INK_LAB.md`, *Low-latency ink*): input waits for the
-next frame, the frame is built on the UI thread (merged with the platform
-thread), rasterised, queued and latched by SurfaceFlinger. So on Android
-(10+) the newest part of each pen stroke is also drawn by the platform,
-straight into the display's buffer, the way Samsung Notes and Notewise do:
+Flutter shows a pen sample about 30 ms after the digitiser took it (p50;
+40 ms p90; Galaxy Tab S8+, 120 Hz; `docs/INK_LAB.md`, *Low-latency ink*):
+input waits for the next frame, the frame is built on the UI thread (merged
+with the platform thread), rasterised, queued and latched by
+SurfaceFlinger. So on Android (10+) the newest part of each pen stroke is
+also drawn by the platform, straight into the buffer the display scans
+out, the way Samsung Notes and Notewise do: there it shows about 5.5 ms
+after the digitiser event (4 ms after it reaches the app; p99 under one
+120 Hz frame), measured the same way.
 
 - **Input**: `MainActivity.dispatchTouchEvent` hands every event to
   `WetInkOverlay` before Flutter. At a stylus down it asks for
@@ -965,9 +968,9 @@ straight into the display's buffer, the way Samsung Notes and Notewise do:
 - **Hand-over**: Flutter keeps drawing the live stroke as before; the
   overlay only adds the part Flutter may not show yet. Dart reports after
   each built frame the newest input it contains (`progress`); the overlay
-  keeps every point until 50 ms after that report (`SHOWN_AFTER_MS`;
-  report to present measured 25 ms median, 43 ms p99), and the whole tail
-  until 50 ms after `end` (sent after the frame with the committed
+  keeps every point until 70 ms after that report (`SHOWN_AFTER_MS`;
+  report to present measured 21 ms median, 41 ms p99, 48 ms at most), and
+  the whole tail until 70 ms after `end` (sent after the frame with the committed
   stroke). Retracting earlier would open a gap; later only means more
   opaque ink lying exactly on Flutter's. Nothing is left behind: when no
   stroke needs it, the front buffer is cleared and hidden.
@@ -988,9 +991,11 @@ straight into the display's buffer, the way Samsung Notes and Notewise do:
   changes (rotation, split screen, resume). A pen-up Dart never ends is
   dropped after 1 s.
 
-Markers for system traces (`--ez trace-systrace true`, atrace app
-`dev.len.len`): `len.wet <eventTimeNs>` (recording a frame),
+Markers for system traces (atrace app `dev.len.len`; event times are
+`CLOCK_MONOTONIC`): `len.wet <eventTimeNs>` (recording a frame),
 `len.wetDone <eventTimeNs>` (frame rendered), `len.progress <eventTimeNs>`.
+`tool/wet_ink_check/latency_trace.cfg` (Perfetto) and `latency.sql`
+(trace_processor) turn a trace into the latency table of `docs/INK_LAB.md`.
 
 Resting the pen for 600 ms at the end of a stroke snaps it
 (`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`): open
