@@ -83,6 +83,21 @@ Future<void> settle(WidgetTester tester) async {
   }
 }
 
+/// Opens the library section or folder [label]: from the sidebar, or on
+/// phones from the drawer.
+Future<void> openLibrarySection(WidgetTester tester, String label) async {
+  // (The drawer's button may have scrolled away with the header.)
+  for (final scaffold in tester.stateList<ScaffoldState>(find.byType(Scaffold))) {
+    if (scaffold.hasDrawer) {
+      scaffold.openDrawer();
+      await settle(tester);
+      break;
+    }
+  }
+  await tester.tap(find.text(label).first);
+  await settle(tester);
+}
+
 /// Writes the current frame to `build/screenshots/<name>.png`, optionally
 /// only the [crop] rectangle (logical pixels).
 Future<void> shoot(WidgetTester tester, String name, {Rect? crop}) async {

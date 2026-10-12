@@ -12,18 +12,23 @@ import 'library_controller.dart';
 import 'library_drag.dart';
 import 'library_menus.dart';
 
-/// Navigation sidebar for tablets and desktop: sections, the folder tree
-/// (all drop targets), sync status and settings.
+/// Navigation sidebar for tablets and desktop (the drawer on phones):
+/// sections, the folder tree (all drop targets), sync status and settings.
 class LibrarySidebar extends StatefulWidget {
   const LibrarySidebar({
     super.key,
     required this.actions,
     required this.onOpenSettings,
+    this.onNavigate,
     this.width = 264,
   });
 
   final LibraryActions actions;
   final VoidCallback onOpenSettings;
+
+  /// Called after a section or folder is opened from here (the drawer
+  /// closes).
+  final VoidCallback? onNavigate;
   final double width;
 
   @override
@@ -145,7 +150,10 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
         count: count,
         selected: selected,
         dropActive: active,
-        onTap: () => c.showSection(section),
+        onTap: () {
+          c.showSection(section);
+          widget.onNavigate?.call();
+        },
       ),
     );
   }
@@ -205,7 +213,10 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
         label: folder.name,
         selected: c.section == LibrarySection.library && c.folderId == folder.id,
         dropActive: active,
-        onTap: () => c.openFolder(folder.id),
+        onTap: () {
+          c.openFolder(folder.id);
+          widget.onNavigate?.call();
+        },
         onSecondaryTapUp: (d) => unawaited(_folderMenu(context, folder, d.globalPosition)),
         onLongPress: () => unawaited(_folderMenu(context, folder, null)),
       ),

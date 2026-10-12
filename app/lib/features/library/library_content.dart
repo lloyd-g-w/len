@@ -26,13 +26,15 @@ class LibraryContent extends StatelessWidget {
     required this.actions,
     required this.searchController,
     required this.searchFocus,
-    this.headerTrailing = const [],
+    this.headerLeading,
   });
 
   final LibraryActions actions;
   final TextEditingController searchController;
   final FocusNode searchFocus;
-  final List<Widget> headerTrailing;
+
+  /// Before the title (phone: the drawer button).
+  final Widget? headerLeading;
 
   LibraryController get _c => actions.controller;
 
@@ -72,7 +74,7 @@ class LibraryContent extends StatelessWidget {
                 searchController: searchController,
                 searchFocus: searchFocus,
                 compact: compact,
-                trailing: headerTrailing,
+                leading: headerLeading,
               ),
             ),
           ),

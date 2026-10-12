@@ -1495,7 +1495,7 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   and filters/sorts in memory (`LibraryQuery`). `LibraryActions` adds the dialogs and
   confirmations. Layout and sort are preferences (`AppPreferences`).
 - **Shell.** ≥ 720 px wide: sidebar with sections, folder tree (all drop targets), sync
-  status and settings; narrower: bottom navigation. Notebooks and folders drag with a
+  status and settings; narrower: the same in a drawer (☰). Notebooks and folders drag with a
   mouse immediately and with touch after a long press (a long press released in place
   opens the context menu instead). Shortcuts: Ctrl+N, Ctrl+Shift+N, Ctrl+F, Delete, Esc.
 - **New… tile.** The notebook grid starts with a cover-sized "New…" tile

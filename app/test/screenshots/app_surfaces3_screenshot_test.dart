@@ -93,7 +93,7 @@ void main() {
       await capture('rename', () => notebookMenu('Rename…'));
       await capture('move', () => notebookMenu('Move to folder…'));
       await capture('cover', () => notebookMenu('Change cover…'));
-      await tap(tester, find.text('Trash').first);
+      await openLibrarySection(tester, 'Trash');
       await capture('delete_forever', () async {
         await tester.ensureVisible(moreOf('Old drafts'));
         await settle(tester);

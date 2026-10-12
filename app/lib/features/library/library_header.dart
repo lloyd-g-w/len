@@ -18,7 +18,7 @@ class LibraryHeader extends StatelessWidget {
     required this.searchController,
     required this.searchFocus,
     required this.compact,
-    this.trailing = const [],
+    this.leading,
   });
 
   final LibraryActions actions;
@@ -28,8 +28,8 @@ class LibraryHeader extends StatelessWidget {
   /// Phone layout: search goes on its own row.
   final bool compact;
 
-  /// Extra actions at the end of the title row (phone: sync).
-  final List<Widget> trailing;
+  /// Before the title (phone: the drawer button).
+  final Widget? leading;
 
   LibraryController get _c => actions.controller;
 
@@ -128,8 +128,8 @@ class LibraryHeader extends StatelessWidget {
           if (compact || constraints.maxWidth < 680) ...[
             Row(
               children: [
+                if (leading case final leading?) ...[leading, const SizedBox(width: Gaps.xs)],
                 Expanded(child: titleBlock),
-                ...trailing,
               ],
             ),
             const SizedBox(height: Gaps.lg),
@@ -143,12 +143,12 @@ class LibraryHeader extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (leading case final leading?) ...[leading, const SizedBox(width: Gaps.xs)],
                 Expanded(child: titleBlock),
                 const SizedBox(width: Gaps.lg),
                 SizedBox(width: 280, child: search),
                 const SizedBox(width: Gaps.sm),
                 ...tools,
-                ...trailing,
               ],
             ),
         ],

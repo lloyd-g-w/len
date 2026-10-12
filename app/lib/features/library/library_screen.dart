@@ -7,7 +7,6 @@ import '../../app_services.dart';
 import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
-import '../../ui/sync_status_button.dart';
 import '../audio/ui/recover_recording_dialog.dart';
 import '../documents/import/import_flow.dart';
 import '../settings/settings_screen.dart';
@@ -204,7 +203,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _content({List<Widget> headerTrailing = const []}) => AnimatedSwitcher(
+  Widget _content({Widget? headerLeading}) => AnimatedSwitcher(
     duration: Motion.medium,
     switchInCurve: Motion.standard,
     transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
@@ -214,7 +213,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         actions: _actions,
         searchController: _search,
         searchFocus: _searchFocus,
-        headerTrailing: headerTrailing,
+        headerLeading: headerLeading,
       ),
     ),
   );
@@ -265,38 +264,34 @@ class _LibraryScreenState extends State<LibraryScreen> {
       ? LibrarySelectionBar(actions: _actions, selection: _actions.selection)
       : null;
 
+  /// Phones: the sidebar's content in a drawer, opened from ☰.
   Widget _phone(BuildContext context) {
-    const sections = LibrarySection.values;
     return Scaffold(
+      drawer: Drawer(
+        width: 288,
+        child: Builder(
+          builder: (context) => LibrarySidebar(
+            actions: _actions,
+            width: 288,
+            onNavigate: Navigator.of(context).pop,
+            onOpenSettings: () {
+              Navigator.of(context).pop();
+              _openSettings();
+            },
+          ),
+        ),
+      ),
       body: _content(
-        headerTrailing: [SyncStatusButton(sync: _services!.sync, onConfigure: _openSettings)],
+        headerLeading: Builder(
+          builder: (context) => IconButton(
+            tooltip: 'Menu',
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: Scaffold.of(context).openDrawer,
+          ),
+        ),
       ),
       floatingActionButton: _fab(context),
-      bottomNavigationBar:
-          _selectionBar() ??
-          NavigationBar(
-            selectedIndex: sections.indexOf(_controller.section),
-            onDestinationSelected: (i) =>
-                i == sections.length ? _openSettings() : _controller.showSection(sections[i]),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.auto_stories_outlined),
-                selectedIcon: Icon(Icons.auto_stories_rounded),
-                label: 'Library',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.star_outline_rounded),
-                selectedIcon: Icon(Icons.star_rounded),
-                label: 'Favourites',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.delete_outline_rounded),
-                selectedIcon: Icon(Icons.delete_rounded),
-                label: 'Trash',
-              ),
-              NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
-            ],
-          ),
+      bottomNavigationBar: _selectionBar(),
     );
   }
 }

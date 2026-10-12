@@ -165,7 +165,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   IndexedDB-backed database; see ARCHITECTURE)
 - ⬜ Web: database in a worker (OPFS VFS, asynchronous data layer) to take all reads off the UI thread
 - ✅ Theme mode (system/light/dark)
-- ✅ App shell: sidebar (tablet/desktop), bottom navigation (phone), context menus,
+- ✅ App shell: sidebar (tablet/desktop), drawer (phone), context menus,
   keyboard shortcuts, redesigned settings
 - ✅ Settings: theme previews, Stylus / Gestures / Editor (toolbar position) sections with
   descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)

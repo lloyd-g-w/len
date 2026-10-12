@@ -9,6 +9,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/features/library/folder_tile.dart';
+import 'package:len/features/library/library_sidebar.dart';
 import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/features/library/new_notebook_tile.dart';
 import 'package:len/features/library/notebook_card.dart';
@@ -253,19 +254,24 @@ void main() {
     expect(find.text('1'), findsWidgets); // Trash count in the sidebar.
   });
 
-  testWidgets('phone layout: bottom navigation between sections', (tester) async {
+  testWidgets('phone layout: the drawer goes between sections', (tester) async {
     await pumpSeeded(tester, (s) => addNotebook(s, 'Pocket'), size: const Size(390, 844));
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(LibrarySidebar), findsNothing);
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Favourites'));
     await tester.pumpAndSettle();
+    expect(find.byType(LibrarySidebar), findsNothing, reason: 'the drawer closes');
     expect(find.text('No favourites yet'), findsOneWidget);
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Trash'));
     await tester.pumpAndSettle();
     expect(find.text('Trash is empty'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('settings change theme mode and accent colour app-wide', (tester) async {
+  testWidgets('settings change the theme mode app-wide', (tester) async {
     tester.view
       ..physicalSize = const Size(1280, 1600)
       ..devicePixelRatio = 1;

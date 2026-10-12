@@ -164,14 +164,14 @@ void main() {
         await shoot(tester, 's_library_list_${name}_$m');
         await tap(tester, find.byTooltip('Show as grid'));
 
-        await tap(tester, find.text('Favourites').first);
+        await openLibrarySection(tester, 'Favourites');
         expect(find.text('Journal 2026'), findsOneWidget);
         await shoot(tester, 's_library_favourites_${name}_$m');
         await tap(tester, moreOf('Journal 2026'));
         await tap(tester, find.text('Remove from favourites'));
         await shoot(tester, 's_library_favourites_empty_${name}_$m');
 
-        await tap(tester, find.text('Trash').first);
+        await openLibrarySection(tester, 'Trash');
         await tap(tester, moreOf('Old drafts'));
         expect(find.text('Delete forever…'), findsOneWidget);
         await shoot(tester, 's_library_trash_menu_${name}_$m');
@@ -183,7 +183,7 @@ void main() {
         expect(find.text('Old drafts'), findsNothing);
         await shoot(tester, 's_library_trash_empty_${name}_$m');
 
-        await tap(tester, find.text('Library').first);
+        await openLibrarySection(tester, 'Library');
         await tap(tester, find.byTooltip('Select notebooks'));
         for (final title in ['Ideas', 'Recipes', 'Travel plans']) {
           await reveal(tester, find.text(title));
@@ -215,7 +215,7 @@ void main() {
     final services = library();
     services.notebooks.trash(byTitle(services, 'Recipes').id);
     await pumpApp(tester, services, const LibraryScreen(), mode: ThemeMode.dark);
-    await tap(tester, find.text('Trash').first);
+    await openLibrarySection(tester, 'Trash');
     await tap(tester, find.byTooltip('Select notebooks'));
     await tap(tester, find.text('Recipes'));
     expect(find.text('1 selected'), findsOneWidget);
