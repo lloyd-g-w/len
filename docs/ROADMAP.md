@@ -27,8 +27,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   once resized; Ctrl+B / I / U and list shortcuts; copy / cut / paste keep formatting between
   boxes; Ctrl+V of plain text adds a text box; exported to PDF as selectable text in embedded
   fonts
+- ✅ Text: rich paste from other apps — HTML (browsers, Google Docs, Word, LibreOffice) keeps bold,
+  italic, underline, strikethrough, colours, headings and nested lists / checklists, in a box being
+  edited or as a new box on the canvas (Windows, Linux, Android, web); Ctrl+Shift+V pastes plain
+  text
 - ✅ Lasso *Style*: font and size of selected text boxes, pen type and width of selected ink
-- ⬜ Text: rich paste from other apps, font import, paragraph spacing, tables
+- ⬜ Text: RTF-only paste (WordPad), font import, paragraph spacing, tables
 - ✅ Images: insert from files (top bar), the system clipboard (Ctrl+V), drag and drop (desktop) and
   the camera (Android); downscaled to 4096 px on import; beneath the ink by default with bring to
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;

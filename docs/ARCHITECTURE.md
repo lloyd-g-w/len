@@ -951,6 +951,35 @@ GoodNotes-style rich text inside a box.
   .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.
 - **Paste**: Ctrl+V on the canvas with plain text on the system clipboard (newer
   than ink copied in the app) adds a selected text box at the screen centre.
+- **Rich paste from other apps**: `textFromHtml` (`domain/text/html_text.dart`,
+  pure Dart over a small tolerant tokenizer, `html_tokens.dart`, and inline-CSS
+  reading, `html_css.dart`) turns clipboard HTML into a box's `TextData`: b /
+  strong / i / em / u / s / del and `font-weight` / `font-style` /
+  `text-decoration` styles (the style wins, so Google Docs' wrapping
+  `<b style="font-weight:normal">` is not bold), colours and highlights that are
+  not grey (so a web page's own black / white / theme colours are dropped),
+  code / pre as mono, h1 → heading 1, h2 / h3 → heading 2, ul / ol / li nested
+  → list indent (or Google Docs' flat `aria-level`, Word's `mso-list … levelN`
+  paragraphs with their `<![if !supportLists]>` marker deciding bullet or
+  number), checkbox inputs / ARIA checkboxes → checklist, one line per block,
+  browser whitespace collapsing, entities; `<head>`, style and script are
+  skipped and the Windows CF_HTML header / `StartFragment` markers cut. Sizes
+  and fonts stay the box's. `RichTextBuffer.insertRich` inserts it at the caret
+  (the caret's font, size and colour where the fragment sets none; the first
+  line keeps its paragraph style unless the paste fills it). Ctrl+V in the
+  editing field (`RichPasteAction` overriding `PasteTextIntent`, and the
+  context menu's Paste) and on the canvas (`EditorImages.paste`) use it when the
+  clipboard has HTML and its text is not what was last copied from a box here
+  (that keeps its remembered formatting); otherwise plain text as before. Undo
+  is the box edit's / new element's. Ctrl+Shift+V pastes plain text.
+  HTML comes from `platform/clipboard_html*`: **Windows** CF_HTML, **Android**
+  `ClipData` HTML text (both via `pasteboard`), **Linux** `text/html` (added to
+  our vendored `pasteboard`; UTF-16 from Firefox decoded), **web** the
+  capturing `paste` event's `text/html` (a browser paste into the editing field
+  is matched by its plain text in `RichTextController._applyEdit`; Ctrl+Shift+V
+  there is the browser's plain paste) or else the async Clipboard API (may ask
+  for permission). macOS / iOS are not targets (`pasteboard` returns no HTML
+  there). RTF-only clipboards (WordPad) paste as plain text.
 - **Export**: `PdfTextWriter` writes boxes as real text in the embedded
   (subsetted) fonts, each word at the position the app's layout gives it, with
   vector highlights, decorations and markers; boxes with characters the bundled
