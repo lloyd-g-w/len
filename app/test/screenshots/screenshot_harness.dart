@@ -264,3 +264,10 @@ Finder emptyTrashButton() {
   final icon = find.byTooltip('Empty trash');
   return icon.evaluate().isNotEmpty ? icon : find.text('Empty trash');
 }
+
+/// The library's "New" button: the grid's "New…" tile on wide screens, else
+/// the floating button.
+Finder newButton() {
+  final tile = find.byKey(const ValueKey('new-notebook-tile'));
+  return tile.evaluate().isNotEmpty ? tile : find.text('New').last;
+}

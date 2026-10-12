@@ -45,7 +45,10 @@ Future<AppServices> pumpLibrary(
 /// Creates a notebook through the "New" sheet; ends inside the editor.
 Future<void> createNotebook(WidgetTester tester, String title, {bool canvas = false}) async {
   final empty = find.text('New notebook');
-  await tester.tap(empty.evaluate().isNotEmpty ? empty : find.text('New'));
+  final tile = find.byKey(const ValueKey('new-notebook-tile'));
+  await tester.tap(
+    empty.evaluate().isNotEmpty ? empty : (tile.evaluate().isNotEmpty ? tile : find.text('New')),
+  );
   await tester.pumpAndSettle();
   if (canvas) {
     await tester.tap(find.text('Infinite canvas'));

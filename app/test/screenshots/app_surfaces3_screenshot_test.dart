@@ -77,7 +77,7 @@ void main() {
       await capture('new_folder', () => tap(tester, find.byTooltip('New folder')));
       await capture('edit_folder', () => folderMenu('Edit folder…'));
       await capture('delete_folder', () => folderMenu('Delete folder…'));
-      await capture('new_notebook', () => tap(tester, find.text('New').last));
+      await capture('new_notebook', () => tap(tester, newButton()));
       await capture('template_picker', () async {
         unawaited(
           showTemplatePicker(

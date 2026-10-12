@@ -245,7 +245,8 @@ the second for what is left.
 - New-notebook sheet on phones at 1.3×: the preview takes most of the
   screen, leaving about one row of templates. On phones the preview
   should collapse.
-- The phone library shows both the "New…" tile and the "New" FAB.
+- ✅ The phone library shows both the "New…" tile and the "New" FAB. → Tile on wide
+  screens, FAB on phones (never both).
 - The FAB still shows over the empty Favourites and empty search states,
   which offer no create action of their own.
 - ✅ Selection checkmarks on covers: unselected rings are low-contrast on

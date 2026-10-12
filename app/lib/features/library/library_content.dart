@@ -36,6 +36,18 @@ class LibraryContent extends StatelessWidget {
   /// Before the title (phone: the drawer button).
   final Widget? headerLeading;
 
+  /// Whether the grid starts with a "New…" tile: on wide screens, in the
+  /// library's grid. Elsewhere the "New" button floats instead (one primary
+  /// action per screen).
+  static bool showsNewTile(LibraryActions actions, {required bool compact}) {
+    final c = actions.controller;
+    return !compact &&
+        c.layout == LibraryLayout.grid &&
+        c.section == LibrarySection.library &&
+        !c.isSearching &&
+        !actions.selection.active;
+  }
+
   LibraryController get _c => actions.controller;
 
   @override
@@ -50,12 +62,7 @@ class LibraryContent extends StatelessWidget {
     final empty = folders.isEmpty && notebooks.isEmpty;
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
-    // The grid starts with a "New…" tile where notebooks are created.
-    final newTile =
-        _c.layout == LibraryLayout.grid &&
-        _c.section == LibrarySection.library &&
-        !_c.isSearching &&
-        !actions.selection.active;
+    final newTile = showsNewTile(actions, compact: compact);
     Widget label(String text) => SliverPadding(
       padding: EdgeInsets.fromLTRB(gutter + Gaps.xxs, Gaps.xl, gutter, Gaps.md),
       sliver: SliverToBoxAdapter(child: SectionLabel(text)),

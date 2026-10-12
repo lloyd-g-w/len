@@ -1525,9 +1525,10 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   status and settings; narrower: the same in a drawer (☰). Notebooks and folders drag with a
   mouse immediately and with touch after a long press (a long press released in place
   opens the context menu instead). Shortcuts: Ctrl+N, Ctrl+Shift+N, Ctrl+F, Delete, Esc.
-- **New… tile.** The notebook grid starts with a cover-sized "New…" tile
-  (`NewNotebookTile`) in the library root and in folders (not in favourites, trash, search,
-  selection or list layout). Folders show the standard folder glyph tinted with the folder
+- **New… tile.** On wide screens the notebook grid starts with a cover-sized "New…" tile
+  (`NewNotebookTile`, `LibraryContent.showsNewTile`) in the library root and in folders (not
+  in favourites, trash, search, selection or list layout). One primary action per screen:
+  where the tile shows, the "New" FAB doesn't; phones only get the FAB. Folders show the standard folder glyph tinted with the folder
   colour on tiles, in the sidebar tree and in the move dialog.
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
