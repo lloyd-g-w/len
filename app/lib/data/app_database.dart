@@ -131,7 +131,23 @@ class AppDatabase {
     _recordingParts,
     _recordingTrim,
     _notebookPaperData,
+    _strokeEndStyles,
   ];
+
+  /// Version 8: make the pen's end shape explicit on stored strokes. Upgrade
+  /// the on-disk JSON once rather than keeping a legacy read path in the
+  /// renderer; bump the record version so already-synced strokes are sent
+  /// again with the now-complete style.
+  static void _strokeEndStyles(CommonDatabase db) {
+    db.execute('''
+      UPDATE strokes
+      SET style = json_set(style, '\$.e', 'round'),
+          updated_at = updated_at + 1,
+          dirty = 1
+      WHERE style IS NOT NULL AND json_valid(style) AND json_type(style) = 'object'
+        AND json_extract(style, '\$.e') IS NULL
+    ''');
+  }
 
   /// Version 7: a notebook's paper look (`paper_data`, JSON, `Paper.toData`
   /// of its default paper: the canvas background and new pages).

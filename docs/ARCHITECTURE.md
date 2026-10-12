@@ -1217,13 +1217,15 @@ The toolbar offers exactly two inks — the **pen** (`InkTool.ballpoint`) and th
   and the width range offered in the UI.
 - **`StrokeStyle`** (per stroke, stored in `strokes.style` and synced as
   `data.style`): opacity, thinning (pressure sensitivity), streamline
-  (stabiliser) and the zoom it was written at (`unit`); required and parsed
+  (stabiliser), the zoom it was written at (`unit`), and end shape (round,
+  flat or tapered, with independent start/end lengths in stroke widths);
+  required and parsed
   strictly (as is the tool: an unknown one makes the stroke malformed). So
   a stroke renders identically on every device, whatever the local tool
   settings.
 
-**Highlighter** strokes are translucent with flat chisel ends (the pen has
-round caps), drawn before other ink in each chunk picture, and the live
+**Highlighter** strokes are translucent with flat chisel ends (pen caps are
+configurable), drawn before other ink in each chunk picture, and the live
 highlighter stroke is painted on a layer beneath committed ink.
 
 User customisation lives in `ToolSettings`, persisted as JSON in the local

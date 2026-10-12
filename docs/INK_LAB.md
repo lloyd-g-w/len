@@ -763,3 +763,21 @@ the real path) the prediction stays within 0.25 W, in steady motion
   20 ms, the old cap. What the policy draws depends on the samples, not
   on the predictor, so a better predictor can only stay closer to the
   path within the same caps.
+
+## Pen end styles
+
+The pen defaults to round ends. **Ends** in its options switches to flat
+(butt caps) or tapered. Tapered offers start, end or both, length in stroke
+widths and an optional end length that follows lift speed. The start is
+causal and never changes behind the tip; the end is finalised at pen-up.
+Highlighter caps remain flat. The chosen lengths are saved with every
+stroke and synced, so changing the pen's options does not change old ink.
+
+`test/stroke_ends_test.dart` checks round, flat and tapered outlines,
+start stability, the pen-up transition, and eraser fragments.
+`test/inklab/wet_ink_golden_test.dart` and the Kotlin unit tests share
+goldens for each style on the simulated hooks and real S Pen writing.
+The vector check compares the overlay's Dart and Kotlin geometry across
+the complete Ink Lab suite and both recordings. No device check was
+possible in the container; the Android front buffer and pen-up handover
+still need a visual check on a real tablet.

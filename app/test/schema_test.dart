@@ -71,8 +71,8 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 7);
-    expect(AppDatabase.latestVersion, 7);
+    expect(schema['version'], 8);
+    expect(AppDatabase.latestVersion, 8);
     // Version 7: a notebook's paper look.
     expect(schema['notebooks'], contains("paper_data TEXT 1 '{}' 0"));
     // Version 3: recording waveforms, stroke times per surface.
@@ -228,6 +228,49 @@ void main() {
     addTearDown(third.dispose);
     expect(_contentsOf(third.database.db), contents);
     expect(third.notebooks.get(nb.id)!.folderId, folder.id);
+  });
+
+  test('upgrading stored pen strokes keeps their ink and syncs the end style', () {
+    final path = p.join(dir.path, 'len.db');
+    final old = AppDatabase.open(path);
+    final services = AppServices.create(old);
+    final notebook = services.notebooks.create(
+      title: 'Old ink',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 1,
+    );
+    final page = services.pages.pagesOf(notebook.id).single;
+    services.strokes.save([
+      Stroke(
+        id: 'before-ends',
+        surfaceId: page.id,
+        tool: InkTool.ballpoint,
+        color: 0xFF000000,
+        width: 2,
+        points: const [StrokePoint(1, 1, 0.5), StrokePoint(10, 1, 0.5)],
+        createdAt: 1,
+      ),
+    ]);
+    old.db.execute(
+      "UPDATE strokes SET style = '{\"o\":1,\"th\":0.5,\"sl\":0}', "
+      "updated_at = 100, dirty = 0 WHERE id = 'before-ends'",
+    );
+    old.db.execute('PRAGMA user_version = 7');
+    services.dispose();
+
+    final upgraded = AppDatabase.open(path);
+    final row = upgraded.db.select("SELECT * FROM strokes WHERE id = 'before-ends'").single;
+    expect(row['updated_at'], 101);
+    expect(row['dirty'], 1);
+    expect(row['style'], contains('"e":"round"'));
+    final restored = AppServices.create(upgraded);
+    addTearDown(restored.dispose);
+    expect(
+      restored.strokes.loadChunks(page.id, [(x: 0, y: 0)]).single.style.ends,
+      StrokeEnds.round,
+    );
+    expect(restored.strokes.dirtyRecords(10).single.id, 'before-ends');
   });
 
   test('a database with an unknown (pre-squash or newer) schema is backed up and reset', () {
