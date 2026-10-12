@@ -6,6 +6,7 @@ import '../../ui/adaptive_popover.dart';
 import 'pen/eraser_icon.dart';
 import 'pen/eraser_options_panel.dart';
 import 'pen/eraser_strip.dart';
+import 'pen/highlighter_options_panel.dart';
 import 'pen/ink_strip.dart';
 import 'pen/pen_options_panel.dart';
 import 'tools/shape_options_panel.dart';
@@ -87,7 +88,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) => [
     stripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.ballpoint)),
     compactStrip: (_) => InkStrip(tools: tools, ink: InkTool.ballpoint, showAdd: false),
     compactStripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.ballpoint), showAdd: false),
-    options: (_) => PenOptionsPanel(tools: tools, ink: InkTool.ballpoint),
+    options: (_) => PenOptionsPanel(tools: tools),
   ),
   ToolDescriptor(
     tool: EditorTool.highlighter,
@@ -99,7 +100,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) => [
     stripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.highlighter)),
     compactStrip: (_) => InkStrip(tools: tools, ink: InkTool.highlighter, showAdd: false),
     compactStripWidth: () => InkStrip.widthFor(tools.configOf(InkTool.highlighter), showAdd: false),
-    options: (_) => PenOptionsPanel(tools: tools, ink: InkTool.highlighter),
+    options: (_) => HighlighterOptionsPanel(tools: tools),
   ),
   ToolDescriptor(
     tool: EditorTool.eraser,

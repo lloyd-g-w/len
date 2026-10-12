@@ -3,21 +3,25 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../color_dot.dart';
 import 'color_hex.dart';
+import 'color_rows.dart';
 import 'color_swatches.dart';
 import 'gradient_slider.dart';
 import 'hsv_square.dart';
 
 /// A full colour picker: saturation/value square, hue and opacity sliders,
-/// hex input, a preset palette and the user's favourite colours.
+/// hex input, a preset palette, recently picked colours and the user's
+/// favourite colours.
 ///
 /// Reports every change through [onChanged] as ARGB (alpha = opacity).
 /// Favourites are owned by the caller ([favorites], [onAddFavorite],
-/// [onRemoveFavorite]); without [onAddFavorite] that row is hidden.
+/// [onRemoveFavorite]); without [onAddFavorite] that row is hidden. So are
+/// the caller's [recent] colours while there are none.
 class ColorPicker extends StatefulWidget {
   const ColorPicker({
     super.key,
     required this.color,
     required this.onChanged,
+    this.recent = const [],
     this.favorites = const [],
     this.onAddFavorite,
     this.onRemoveFavorite,
@@ -29,6 +33,9 @@ class ColorPicker extends StatefulWidget {
 
   /// Called with the new ARGB colour on every change.
   final ValueChanged<int> onChanged;
+
+  /// Colours the user picked recently (ARGB), most recent first.
+  final List<int> recent;
 
   /// The user's favourite colours (ARGB), most recent first.
   final List<int> favorites;
@@ -131,9 +138,17 @@ class _ColorPickerState extends State<ColorPicker> {
           selected: _argb | 0xFF000000,
           onTap: _pickSwatch,
         ),
+        if (widget.recent.isNotEmpty) ...[
+          const SizedBox(height: Gaps.md),
+          RecentColorsRow(
+            colors: widget.recent,
+            selected: _argb,
+            onTap: (c) => _setHsv(HSVColor.fromColor(Color(c))),
+          ),
+        ],
         if (widget.onAddFavorite != null) ...[
           const SizedBox(height: Gaps.md),
-          _FavoritesRow(
+          FavoritesRow(
             favorites: widget.favorites,
             selected: _argb,
             onTap: (c) => _setHsv(HSVColor.fromColor(Color(c))),
@@ -231,67 +246,6 @@ class _SwatchGrid extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-const double _favoriteSize = 30;
-
-class _FavoritesRow extends StatelessWidget {
-  const _FavoritesRow({
-    required this.favorites,
-    required this.selected,
-    required this.onTap,
-    required this.onAdd,
-    required this.onRemove,
-  });
-
-  final List<int> favorites;
-  final int selected;
-  final ValueChanged<int> onTap;
-  final VoidCallback onAdd;
-  final ValueChanged<int>? onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Favourites', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: Gaps.xs),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final c in favorites)
-              ColorDot(
-                color: c,
-                size: _favoriteSize,
-                selected: c == selected,
-                onTap: () => onTap(c),
-                onLongPress: onRemove == null ? null : () => onRemove!(c),
-                tooltip: 'Long-press to remove',
-              ),
-            Tooltip(
-              message: 'Add current colour to favourites',
-              child: InkResponse(
-                onTap: onAdd,
-                radius: 18,
-                child: Container(
-                  width: _favoriteSize,
-                  height: _favoriteSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: scheme.outline),
-                  ),
-                  child: Icon(Icons.add_rounded, size: 18, color: scheme.onSurfaceVariant),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }
