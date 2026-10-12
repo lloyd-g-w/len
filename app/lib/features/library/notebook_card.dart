@@ -140,7 +140,7 @@ class _NotebookCardState extends State<NotebookCard> {
                       children: [
                         Text(
                           _notebook.title,
-                          style: theme.textTheme.titleSmall,
+                          style: theme.textTheme.labelLarge,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

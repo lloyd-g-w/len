@@ -35,7 +35,7 @@ class ShapeOptionsPanel extends StatelessWidget {
                     isSelected: tools.shape == kind,
                     style: IconButton.styleFrom(
                       backgroundColor: tools.shape == kind
-                          ? scheme.secondaryContainer
+                          ? Surfaces.pressed(scheme)
                           : scheme.surfaceContainerHighest,
                       fixedSize: const Size.square(44),
                     ),

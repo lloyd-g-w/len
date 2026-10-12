@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/chrome_fade.dart';
 import 'chrome_metrics.dart';
 import 'editor_tips.dart';
 import 'focus_handle.dart';
@@ -145,7 +146,7 @@ class EditorChrome extends StatelessWidget {
             bottom: navigatorBottom,
             child: _Hideable(
               visible: !focus,
-              offset: const Offset(0, 0.4),
+              offset: const Offset(0, 1),
               child: Peeking(
                 enabled: layout.navigatorPeeks,
                 activity: navigatorActivity,
@@ -180,7 +181,7 @@ class EditorChrome extends StatelessWidget {
           right: safe.right + Gaps.sm,
           child: _Hideable(
             visible: focus,
-            offset: const Offset(0, -0.5),
+            offset: const Offset(0, -1),
             child: FocusHandle(onExit: onExitFocus),
           ),
         ),
@@ -189,26 +190,17 @@ class EditorChrome extends StatelessWidget {
   }
 }
 
-/// Slides and fades [child] away when not [visible] (and ignores input).
+/// Fades [child] away, sliding it a little toward [offset]'s edge, when
+/// not [visible] (and ignores input).
 class _Hideable extends StatelessWidget {
   const _Hideable({required this.visible, required this.offset, required this.child});
 
   final bool visible;
 
-  /// Where it slides to when hidden, in multiples of its size.
+  /// The direction it leaves in.
   final Offset offset;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      ignoring: !visible,
-      child: AnimatedSlide(
-        offset: visible ? Offset.zero : offset,
-        duration: Motion.slow,
-        curve: Motion.emphasized,
-        child: AnimatedOpacity(opacity: visible ? 1 : 0, duration: Motion.medium, child: child),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ChromeFade(visible: visible, edge: offset, child: child);
 }

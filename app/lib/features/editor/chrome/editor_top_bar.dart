@@ -82,7 +82,7 @@ class EditorTopBar extends StatelessWidget {
         final strip = showsStrip(width, tabs);
         // With tabs, the status bar area takes the strip's colour.
         return Material(
-          color: strip || band ? scheme.surfaceContainer : scheme.surface,
+          color: strip || band ? Surfaces.canvasBackdrop(scheme.brightness) : Surfaces.chrome(scheme),
           child: SafeArea(
             bottom: false,
             child: Column(
@@ -101,8 +101,8 @@ class EditorTopBar extends StatelessWidget {
                   const SizedBox(height: ChromeMetrics.tabHeight),
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    color: scheme.surface,
-                    border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
+                    color: Surfaces.chrome(scheme),
+                    border: Border(bottom: Surfaces.chromeEdge(scheme)),
                   ),
                   child: SizedBox(
                     height: ChromeMetrics.barHeight,

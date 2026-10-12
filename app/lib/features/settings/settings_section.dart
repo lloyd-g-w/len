@@ -101,10 +101,7 @@ class SettingsTile extends StatelessWidget {
       children: [
         Text(
           title,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.1,
-          ),
+          style: theme.textTheme.bodyMedium,
         ),
         if (subtitle != null) ...[
           const SizedBox(height: Gaps.xxs),

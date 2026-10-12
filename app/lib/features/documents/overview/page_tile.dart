@@ -153,7 +153,7 @@ class _Thumb extends StatelessWidget {
                 Positioned(
                   top: 0,
                   right: 14,
-                  child: Icon(Symbols.bookmark_rounded, fill: 1, size: 26, color: scheme.tertiary),
+                  child: Icon(Symbols.bookmark_rounded, fill: 1, size: 26, color: Palette.bookmark),
                 ),
               if (tile.selecting)
                 Positioned(top: 10, left: 10, child: _Check(selected: tile.selected)),
@@ -195,7 +195,7 @@ class _Check extends StatelessWidget {
         shape: BoxShape.circle,
         color: selected ? scheme.primary : Colors.white.withValues(alpha: 0.9),
         border: Border.all(color: selected ? scheme.primary : scheme.outline, width: 1.5),
-        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
+        boxShadow: Shadows.low(Brightness.light),
       ),
       child: selected ? Icon(Symbols.check_rounded, size: 18, color: scheme.onPrimary) : null,
     );

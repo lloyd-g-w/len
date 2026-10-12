@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/text/text_data.dart';
 import '../../../ink/tool_settings.dart';
+import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import 'colour_sheet.dart';
 import 'text/rich_text_controller.dart';
@@ -102,7 +103,7 @@ class TextFormatBar extends StatelessWidget {
       tooltip: label,
       isSelected: on,
       onPressed: onPressed,
-      style: IconButton.styleFrom(backgroundColor: on ? scheme.secondaryContainer : null),
+      style: IconButton.styleFrom(backgroundColor: on ? Surfaces.pressed(scheme) : null),
       icon: Icon(icon, size: 20),
     );
     Widget divider() => const SizedBox(height: 24, child: VerticalDivider(width: 9));

@@ -174,7 +174,7 @@ class ProgressDialog extends StatelessWidget {
                       subject!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                      style: theme.textTheme.labelLarge,
                     ),
                     const SizedBox(height: Gaps.lg),
                   ],

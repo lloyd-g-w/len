@@ -154,7 +154,7 @@ class _ImportTile extends StatelessWidget {
                   'Import…',
                   textAlign: TextAlign.center,
                   maxLines: 2,
-                  style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ),
             ],
@@ -241,7 +241,7 @@ class TemplateTile extends StatelessWidget {
                   label,
                   textAlign: TextAlign.center,
                   maxLines: 2,
-                  style: theme.textTheme.labelMedium?.copyWith(
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: selected ? scheme.primary : scheme.onSurfaceVariant,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   ),

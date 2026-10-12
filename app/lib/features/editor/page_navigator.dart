@@ -83,7 +83,7 @@ class PageNavigator extends StatelessWidget {
                     if (bookmarked)
                       Padding(
                         padding: const EdgeInsets.only(right: Gaps.xxs),
-                        child: Icon(Symbols.bookmark_rounded, fill: 1, size: 16, color: scheme.tertiary),
+                        child: Icon(Symbols.bookmark_rounded, fill: 1, size: 16, color: Palette.bookmark),
                       ),
                     Text(
                       '${index + 1} / $count',

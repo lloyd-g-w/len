@@ -98,7 +98,7 @@ class _FolderDialogState extends State<_FolderDialog> {
               onSubmitted: (_) => _submit(),
             ),
             const SizedBox(height: Gaps.xl),
-            Text('Colour', style: theme.textTheme.titleSmall),
+            Text('Colour', style: theme.textTheme.labelLarge),
             const SizedBox(height: Gaps.sm),
             EvenGrid(
               itemExtent: 40,

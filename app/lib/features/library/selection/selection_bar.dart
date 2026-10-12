@@ -66,7 +66,7 @@ class LibrarySelectionBar extends StatelessWidget {
                     Expanded(
                       child: Text(
                         count == 0 ? 'Select notebooks' : '$count selected',
-                        style: theme.textTheme.titleSmall,
+                        style: theme.textTheme.labelLarge,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

@@ -57,7 +57,7 @@ class _CoverSheetState extends State<_CoverSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Cover', style: theme.textTheme.headlineSmall),
+          Text('Cover', style: theme.textTheme.titleMedium),
           Text(
             widget.notebook.title,
             maxLines: 1,

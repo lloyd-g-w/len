@@ -127,7 +127,7 @@ class _LibrarySearchResultsState extends State<LibrarySearchResults> {
               padding: const EdgeInsets.fromLTRB(Gaps.xxs, Gaps.xl, 0, Gaps.md),
               child: Text(
                 'In notebooks · ${count == 1 ? '1 match' : '$count matches'}',
-                style: theme.textTheme.titleSmall?.copyWith(
+                style: theme.textTheme.labelLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -214,7 +214,7 @@ class _NotebookResultsState extends State<_NotebookResults> {
                     child: HighlightedText.of(
                       notebook.title,
                       group.titleMatches ? widget.query : SearchQuery(''),
-                      style: theme.textTheme.titleSmall,
+                      style: theme.textTheme.labelLarge,
                     ),
                   ),
                   Text(
@@ -275,12 +275,12 @@ class _HitRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: 1),
               decoration: BoxDecoration(
-                color: scheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(Radii.pill),
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(Radii.xs),
               ),
               child: Text(
                 hitLocation(hit),
-                style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSecondaryContainer),
+                style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ),
             const SizedBox(width: Gaps.sm),

@@ -195,7 +195,7 @@ class _Divider extends StatelessWidget {
               onHorizontalDragEnd: (_) => onEnd?.call(),
               onDoubleTap: onReset,
               child: ColoredBox(
-                color: scheme.surfaceContainerHigh,
+                color: Surfaces.canvasBackdrop(scheme.brightness),
                 child: Center(
                   child: Container(
                     width: 4,

@@ -85,8 +85,8 @@ class SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
     final scheme = Theme.of(context).colorScheme;
     return AppBar(
       toolbarHeight: kToolbarHeight + 8,
-      backgroundColor: scheme.secondaryContainer,
-      foregroundColor: scheme.onSecondaryContainer,
+      backgroundColor: scheme.surfaceContainerHigh,
+      foregroundColor: scheme.onSurface,
       leading: IconButton(
         tooltip: 'Done',
         icon: const Icon(Symbols.close_rounded),

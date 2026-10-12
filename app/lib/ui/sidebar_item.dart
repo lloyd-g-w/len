@@ -54,14 +54,15 @@ class _SidebarItemState extends State<SidebarItem> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final selected = widget.selected;
+    // The selected row carries the accent (REDESIGN §1.3).
     final background = widget.dropActive
-        ? scheme.primaryContainer
+        ? scheme.primary.withValues(alpha: 0.12)
         : selected
-        ? scheme.secondaryContainer
+        ? scheme.primary.withValues(alpha: theme.brightness == Brightness.dark ? 0.18 : 0.10)
         : _hovered
-        ? scheme.onSurface.withValues(alpha: 0.05)
+        ? Surfaces.hovered(scheme)
         : Colors.transparent;
-    final foreground = selected ? scheme.onSecondaryContainer : scheme.onSurface;
+    final foreground = selected ? scheme.primary : scheme.onSurface;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: AnimatedContainer(
@@ -106,7 +107,7 @@ class _SidebarItemState extends State<SidebarItem> {
                   if (widget.count != null && widget.count! > 0)
                     Text(
                       '${widget.count}',
-                      style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                     ),
                 ],
               ),

@@ -97,7 +97,7 @@ class LibraryHeader extends StatelessWidget {
             key: ValueKey(_title),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: compact ? theme.textTheme.headlineSmall : theme.textTheme.headlineMedium,
+            style: compact ? theme.textTheme.titleLarge : theme.textTheme.titleLarge,
           ),
         ),
         const SizedBox(height: Gaps.xxs),
@@ -290,7 +290,7 @@ class _Breadcrumbs extends StatelessWidget {
               builder: (context, active) => AnimatedContainer(
                 duration: Motion.fast,
                 decoration: BoxDecoration(
-                  color: active ? scheme.primaryContainer : Colors.transparent,
+                  color: active ? scheme.primary.withValues(alpha: 0.12) : Colors.transparent,
                   borderRadius: BorderRadius.circular(Radii.xs),
                 ),
                 child: TextButton(

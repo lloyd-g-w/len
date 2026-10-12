@@ -20,7 +20,7 @@ class PickerLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: Gaps.sm),
       child: Row(
         children: [
-          Text(text, style: theme.textTheme.titleSmall),
+          Text(text, style: theme.textTheme.labelLarge),
           if (trailing != null) ...[
             const SizedBox(width: Gaps.sm),
             Flexible(

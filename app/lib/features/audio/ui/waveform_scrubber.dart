@@ -120,7 +120,7 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
                 positionMs: position,
                 played: scheme.primary,
                 unplayed: scheme.onSurfaceVariant.withValues(alpha: 0.32),
-                ink: scheme.tertiary,
+                ink: scheme.primary,
                 head: scheme.primary,
               ),
             ),

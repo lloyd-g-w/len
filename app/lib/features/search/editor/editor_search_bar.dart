@@ -236,7 +236,7 @@ class _MatchTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Material(
-      color: selected ? scheme.secondaryContainer : Colors.transparent,
+      color: selected ? Surfaces.pressed(scheme) : Colors.transparent,
       borderRadius: BorderRadius.circular(Radii.sm),
       child: InkWell(
         borderRadius: BorderRadius.circular(Radii.sm),

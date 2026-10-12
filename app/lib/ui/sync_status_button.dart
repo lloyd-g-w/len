@@ -33,7 +33,7 @@ class SyncStatusButton extends StatelessWidget {
           icon: Badge(
             isLabelVisible: tooLarge != null,
             smallSize: 8,
-            backgroundColor: scheme.tertiary,
+            backgroundColor: scheme.primary,
             child: Icon(icon, color: color),
           ),
           onPressed: switch (sync.state) {

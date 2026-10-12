@@ -183,7 +183,7 @@ class _CanvasTag extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(Radii.pill),
-        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))],
+        boxShadow: Shadows.low(Brightness.light),
       ),
       child: const Icon(Symbols.all_inclusive_rounded, size: 14, color: Colors.white),
     );
@@ -201,9 +201,9 @@ class _FavoriteBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.94),
         shape: BoxShape.circle,
-        boxShadow: const [BoxShadow(color: Color(0x29000000), blurRadius: 4, offset: Offset(0, 1))],
+        boxShadow: Shadows.low(Brightness.light),
       ),
-      child: const Icon(Symbols.star_rounded, fill: 1, size: 16, color: Color(0xFFF5A524)),
+      child: const Icon(Symbols.star_rounded, fill: 1, size: 16, color: Palette.favourite),
     );
   }
 }

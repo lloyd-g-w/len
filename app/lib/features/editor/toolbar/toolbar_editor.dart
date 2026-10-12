@@ -171,7 +171,7 @@ class ToolbarEditor extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
           child: Text(
             'Favourites',
-            style: Theme.of(context).textTheme.labelMedium
+            style: Theme.of(context).textTheme.bodySmall
                 ?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ),

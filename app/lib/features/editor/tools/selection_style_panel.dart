@@ -197,7 +197,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
       Row(
         children: [
           Expanded(child: Text('Width', style: Theme.of(context).textTheme.labelLarge)),
-          Text(width.toStringAsFixed(1), style: Theme.of(context).textTheme.labelMedium),
+          Text(width.toStringAsFixed(1), style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
       Slider(

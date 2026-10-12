@@ -99,7 +99,7 @@ class _KindCard extends StatelessWidget {
                         children: [
                           Text(
                             label,
-                            style: theme.textTheme.titleSmall?.copyWith(
+                            style: theme.textTheme.labelLarge?.copyWith(
                               color: selected ? scheme.primary : null,
                             ),
                             maxLines: 2,

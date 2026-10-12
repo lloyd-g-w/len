@@ -165,7 +165,7 @@ class _TemplatePickerState extends State<TemplatePicker> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_title, style: theme.textTheme.headlineSmall),
+              Text(_title, style: theme.textTheme.titleMedium),
               const SizedBox(height: Gaps.xxs),
               Text(
                 describeSelection(

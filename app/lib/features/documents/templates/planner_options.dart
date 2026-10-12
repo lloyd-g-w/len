@@ -214,7 +214,7 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: Gaps.sm),
-    child: Text(text, style: Theme.of(context).textTheme.titleSmall),
+    child: Text(text, style: Theme.of(context).textTheme.labelLarge),
   );
 }
 

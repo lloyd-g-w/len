@@ -243,7 +243,7 @@ class _TooLargeNotice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm + 2, Gaps.sm, Gaps.sm),
       decoration: BoxDecoration(
-        color: scheme.tertiary.withValues(alpha: 0.08),
+        color: scheme.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(Radii.sm),
       ),
       child: Row(
@@ -251,7 +251,7 @@ class _TooLargeNotice extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(Symbols.cloud_upload_rounded, size: 18, color: scheme.tertiary),
+            child: Icon(Symbols.cloud_upload_rounded, size: 18, color: scheme.primary),
           ),
           const SizedBox(width: Gaps.sm),
           Expanded(

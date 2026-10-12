@@ -259,7 +259,7 @@ class _FavoritesRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Favourites', style: Theme.of(context).textTheme.labelMedium),
+        Text('Favourites', style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: Gaps.xs),
         Wrap(
           spacing: 6,

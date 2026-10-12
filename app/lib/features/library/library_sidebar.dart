@@ -54,8 +54,8 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     return Container(
       width: widget.width,
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        border: Border(right: BorderSide(color: scheme.outlineVariant)),
+        color: Surfaces.chrome(scheme),
+        border: Border(right: Surfaces.chromeEdge(scheme)),
       ),
       child: SafeArea(
         right: false,
@@ -253,7 +253,7 @@ class _Brand extends StatelessWidget {
             child: Icon(Symbols.gesture_rounded, size: 20, color: scheme.onPrimary),
           ),
           const SizedBox(width: Gaps.md),
-          Text('Len', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          Text('Len', style: theme.textTheme.titleMedium),
         ],
       ),
     );

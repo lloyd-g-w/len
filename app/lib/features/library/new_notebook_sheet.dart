@@ -97,9 +97,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: widget.wide
-          ? theme.dialogTheme.backgroundColor
-          : theme.colorScheme.surfaceContainerLow,
+      color: Surfaces.overlay(theme.brightness),
       child: DefaultTabController(
         length: 2,
         child: widget.wide ? _wideLayout(context) : _phoneLayout(context),

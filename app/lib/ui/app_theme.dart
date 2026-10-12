@@ -177,6 +177,13 @@ abstract final class Palette {
   /// paper outside the editor (pen previews, notebook covers).
   static const Color paper = Color(0xFFFFFDF8);
 
+  /// Bookmark ribbons on pages and thumbnails (a marker, like ink: not
+  /// themed).
+  static const Color bookmark = Color(0xFFE8590C);
+
+  /// The star of favourite notebooks.
+  static const Color favourite = Color(0xFFF5A524);
+
   static const List<int> covers = [
     0xFF3B5BDB, // ink blue
     0xFF0CA678, // teal

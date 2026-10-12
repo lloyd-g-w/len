@@ -148,7 +148,7 @@ class _ExportSheetState extends State<ExportSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Export', style: theme.textTheme.headlineSmall),
+              Text('Export', style: theme.textTheme.titleMedium),
               const SizedBox(height: Gaps.xxs),
               Text(
                 widget.title,

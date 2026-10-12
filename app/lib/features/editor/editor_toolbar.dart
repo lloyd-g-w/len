@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../ink/tool_settings.dart';
+import '../../ui/app_theme.dart';
 import '../../ui/floating_panel.dart';
 import 'editor_tools.dart';
 import 'tool_switcher.dart';
@@ -109,7 +110,7 @@ class EditorToolbar extends StatelessWidget {
   }
 
   Widget _switching(ToolDescriptor active, Widget child) => AnimatedSwitcher(
-    duration: const Duration(milliseconds: 150),
+    duration: Motion.fast,
     child: KeyedSubtree(key: ValueKey(active.tool), child: child),
   );
 

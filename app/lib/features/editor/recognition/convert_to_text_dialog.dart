@@ -218,7 +218,7 @@ class _ConvertDialogState extends State<_ConvertDialog> {
               ),
               if (r.alternatives.isNotEmpty) ...[
                 const SizedBox(height: Gaps.md),
-                Text('Alternatives', style: theme.textTheme.labelMedium),
+                Text('Alternatives', style: theme.textTheme.bodySmall),
                 const SizedBox(height: Gaps.xs),
                 Wrap(
                   spacing: Gaps.sm,

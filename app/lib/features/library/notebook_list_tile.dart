@@ -108,7 +108,7 @@ class _NotebookListTileState extends State<NotebookListTile> {
                     children: [
                       Text(
                         _notebook.title,
-                        style: theme.textTheme.titleSmall,
+                        style: theme.textTheme.labelLarge,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -128,7 +128,7 @@ class _NotebookListTileState extends State<NotebookListTile> {
                     icon: Icon(
                       Symbols.star_rounded,
                       fill: _notebook.favorite ? 1 : 0,
-                      color: _notebook.favorite ? const Color(0xFFF5A524) : scheme.onSurfaceVariant,
+                      color: _notebook.favorite ? Palette.favourite : scheme.onSurfaceVariant,
                     ),
                     onPressed: () =>
                         widget.actions.controller.setFavorite(_notebook.id, !_notebook.favorite),

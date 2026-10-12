@@ -61,7 +61,7 @@ class EraserStrip extends StatelessWidget {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: eraser.radius == size ? scheme.secondaryContainer : null,
+                              color: eraser.radius == size ? Surfaces.pressed(scheme) : null,
                             ),
                             child: Container(
                               width: 6 + size * 0.6,
@@ -70,7 +70,7 @@ class EraserStrip extends StatelessWidget {
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: eraser.radius == size
-                                      ? scheme.onSecondaryContainer
+                                      ? scheme.onSurface
                                       : scheme.onSurfaceVariant.withValues(alpha: 0.75),
                                   width: 1.5,
                                 ),

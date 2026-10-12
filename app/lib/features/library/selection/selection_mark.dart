@@ -27,7 +27,7 @@ class SelectionMark extends StatelessWidget {
         // The same in light and dark mode: covers don't follow the theme. A
         // dark ring on white shows on light and dark covers alike.
         border: Border.all(color: selected ? Colors.white : Colors.black54, width: 2),
-        boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 4)],
+        boxShadow: Shadows.low(Brightness.light),
       ),
       child: selected
           ? Icon(Symbols.check_rounded, size: compact ? 14 : 18, color: scheme.onPrimary)

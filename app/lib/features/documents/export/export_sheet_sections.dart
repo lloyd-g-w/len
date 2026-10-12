@@ -25,7 +25,7 @@ class ExportSection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(Gaps.xs, 0, Gaps.xs, Gaps.sm),
           child: Row(
             children: [
-              Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
+              Expanded(child: Text(title, style: theme.textTheme.labelLarge)),
               if (trailing != null) Text(trailing!, style: muted),
             ],
           ),

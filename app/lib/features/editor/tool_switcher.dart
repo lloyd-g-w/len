@@ -43,7 +43,7 @@ class ToolSwitcherButton extends StatelessWidget {
         button: true,
         label: 'Tool: ${active.label}. Switch tools',
         child: Material(
-          color: scheme.secondaryContainer,
+          color: Surfaces.pressed(scheme),
           borderRadius: BorderRadius.circular(Radii.pill),
           child: InkWell(
             borderRadius: BorderRadius.circular(Radii.pill),
@@ -53,7 +53,7 @@ class ToolSwitcherButton extends StatelessWidget {
               width: width,
               height: 40,
               child: IconTheme.merge(
-                data: IconThemeData(color: scheme.onSecondaryContainer),
+                data: IconThemeData(color: scheme.onSurface),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -197,12 +197,12 @@ class _ToolTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final fg = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
+    final fg = selected ? scheme.onSurface : scheme.onSurfaceVariant;
     return Semantics(
       selected: selected,
       button: true,
       child: Material(
-        color: selected ? scheme.secondaryContainer : Colors.transparent,
+        color: selected ? Surfaces.pressed(scheme) : Colors.transparent,
         borderRadius: BorderRadius.circular(Radii.sm),
         child: InkWell(
           borderRadius: BorderRadius.circular(Radii.sm),

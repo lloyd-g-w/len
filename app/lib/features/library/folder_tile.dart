@@ -78,7 +78,7 @@ class _FolderTileState extends State<FolderTile> {
         curve: Motion.standard,
         decoration: BoxDecoration(
           color: active
-              ? scheme.primaryContainer
+              ? scheme.primary.withValues(alpha: 0.12)
               : highlighted
               ? scheme.surfaceContainer
               : scheme.surfaceContainerLow,
@@ -124,7 +124,7 @@ class _FolderTileState extends State<FolderTile> {
                       children: [
                         Text(
                           _folder.name,
-                          style: theme.textTheme.titleSmall,
+                          style: theme.textTheme.labelLarge,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

@@ -119,7 +119,7 @@ class _Tab extends StatelessWidget {
           if (e.buttons == 4) onClose();
         },
         child: Material(
-          color: active ? scheme.surface : Colors.transparent,
+          color: active ? Surfaces.chrome(scheme) : Colors.transparent,
           borderRadius: _shape,
           child: InkWell(
             onTap: onTap,

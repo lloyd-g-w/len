@@ -177,7 +177,7 @@ class _TrimScrubberState extends State<TrimScrubber> {
                       grip: scheme.onPrimary,
                       focusedStart: _startFocus.hasFocus,
                       focusedEnd: _endFocus.hasFocus,
-                      focus: scheme.tertiary,
+                      focus: scheme.primary,
                     ),
                   ),
                 ),

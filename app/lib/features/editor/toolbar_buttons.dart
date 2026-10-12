@@ -38,7 +38,7 @@ class ToolButton extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     void openOptions() => descriptor.openOptions(context);
-    final fg = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
+    final fg = selected ? scheme.onSurface : scheme.onSurfaceVariant;
     final glyph = showLabel
         ? Column(
             mainAxisSize: MainAxisSize.min,
@@ -69,7 +69,7 @@ class ToolButton extends StatelessWidget {
         onPressed: () => selected ? openOptions() : onSelect(),
         style: IconButton.styleFrom(
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          backgroundColor: selected ? scheme.secondaryContainer : null,
+          backgroundColor: selected ? Surfaces.pressed(scheme) : null,
           foregroundColor: fg,
           shape: showLabel
               ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm))

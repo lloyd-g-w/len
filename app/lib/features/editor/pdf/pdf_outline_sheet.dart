@@ -141,7 +141,7 @@ class _PdfOutlineSectionState extends State<PdfOutlineSection> {
         row.item.title.isEmpty ? 'Untitled' : row.item.title,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: row.depth == 0 ? theme.textTheme.bodyLarge : theme.textTheme.bodyMedium,
+        style: row.depth == 0 ? theme.textTheme.labelLarge : theme.textTheme.bodyMedium,
       ),
       trailing: Text(
         page == null ? '—' : '${page + 1}',
