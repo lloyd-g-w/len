@@ -271,3 +271,11 @@ Finder newButton() {
   final tile = find.byKey(const ValueKey('new-notebook-tile'));
   return tile.evaluate().isNotEmpty ? tile : find.byTooltip('New notebook').last;
 }
+
+/// Opens the library's search field: on phones it hides behind 🔍.
+Future<void> openSearch(WidgetTester tester) async {
+  final button = find.byTooltip('Search');
+  if (button.evaluate().isEmpty) return;
+  await tester.tap(button);
+  await settle(tester);
+}

@@ -78,7 +78,9 @@ void main() {
         await tester.tap(find.text(item));
         await settle(tester);
         await shoot(tester, '${shot}_${mode.name}');
-        await tester.tap(find.text('Cancel').last);
+        // Task sheets without a footer close with ✕.
+        final cancel = find.text('Cancel');
+        await tester.tap(cancel.evaluate().isEmpty ? find.byTooltip('Close').last : cancel.last);
         await settle(tester);
       }
 
@@ -129,7 +131,7 @@ void main() {
       await pumpApp(tester, services, const LibraryScreen());
       await tester.tap(find.byTooltip('View'));
       await settle(tester);
-      await tester.tap(find.text('Select notebooks').last);
+      await tester.tap(find.text('Select…').last);
       await settle(tester);
       await tester.tap(find.text('Travel plans'));
       await tester.tap(find.text('Spanish vocabulary'));
@@ -149,6 +151,7 @@ void main() {
     await shoot(tester, 'empty_folder_phone');
     await tester.tap(find.text('Library').last);
     await settle(tester);
+    await openSearch(tester);
     await tester.enterText(find.byType(TextField), 'zzz');
     await settle(tester);
     await shoot(tester, 'empty_search_phone');

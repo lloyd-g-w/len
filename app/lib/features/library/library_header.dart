@@ -176,8 +176,8 @@ class _LibraryHeaderState extends State<LibraryHeader> {
               _Breadcrumbs(actions: _actions),
               const SizedBox(height: Gaps.xxs),
             ],
-            SizedBox(
-              height: 52,
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 52),
               child: Row(
                 children: [
                   if (widget.leading case final leading? when !searchOpen) ...[
