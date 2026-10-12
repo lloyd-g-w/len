@@ -6,7 +6,9 @@
   appears when the pages move, fades after 1.5 seconds and leaves no
   permanent bottom inset. Tap it to enter a page number; long-press for
   the overview. The page commands live in ⋯ → Page, and adding a page
-  with a template or PDF is in Insert ⊕.
+  with a template or PDF is in Insert ⊕. The freed strip goes to the
+  page, so pages on wide screens re-fit slightly (their goldens were
+  refreshed); phones centre the pill, wider screens tuck it bottom-right.
 - ✅ Page Up / Page Down and the arrow keys still turn pages in single-page
   flow; the indicator itself no longer repeats those controls.
 - ⬜ The canvas's persistent Fit button stays for discoverability: the zoom

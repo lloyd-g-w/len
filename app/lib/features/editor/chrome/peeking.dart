@@ -84,19 +84,19 @@ class _PeekingState extends State<Peeking> {
       child: IgnorePointer(
         ignoring: !visible,
         child: MouseRegion(
-        onEnter: (_) => _hold(true),
-        onExit: (_) => _hold(false),
-        child: Listener(
-          onPointerDown: (_) => _hold(true),
-          onPointerUp: (_) => _hold(false),
-          onPointerCancel: (_) => _hold(false),
-          child: AnimatedOpacity(
-            opacity: visible ? 1 : 0,
-            duration: visible ? Motion.fast : Motion.slow,
-            curve: Motion.standard,
-            child: widget.child,
+          onEnter: (_) => _hold(true),
+          onExit: (_) => _hold(false),
+          child: Listener(
+            onPointerDown: (_) => _hold(true),
+            onPointerUp: (_) => _hold(false),
+            onPointerCancel: (_) => _hold(false),
+            child: AnimatedOpacity(
+              opacity: visible ? 1 : 0,
+              duration: visible ? Motion.fast : Motion.slow,
+              curve: Motion.standard,
+              child: widget.child,
+            ),
           ),
-        ),
         ),
       ),
     );

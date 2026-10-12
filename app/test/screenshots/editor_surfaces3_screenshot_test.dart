@@ -82,10 +82,7 @@ void main() {
       await shoot(tester, 'e_page_menu_phone_large_text');
       await dismiss(tester, phone.center(Offset.zero));
       await tester.sendEventToBinding(
-        const PointerScrollEvent(
-          position: Offset(180, 480),
-          scrollDelta: Offset(0, 500),
-        ),
+        const PointerScrollEvent(position: Offset(180, 480), scrollDelta: Offset(0, 500)),
       );
       await tester.pump(const Duration(milliseconds: 50));
       await tester.tap(find.byTooltip('Go to page'));

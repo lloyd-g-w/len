@@ -156,15 +156,27 @@ class EditorChrome extends StatelessWidget {
           AnimatedPositioned(
             duration: Motion.slow,
             curve: Motion.emphasized,
-            right: layout.phone ? (layout.width - 72) / 2 : safe.right + ChromeMetrics.edge,
+            left: 0,
+            right: 0,
             bottom: layout.navigatorBottom,
-            child: ChromeFade(
-              visible: !focus,
-              edge: const Offset(0, 1),
-              child: Peeking(
-                enabled: layout.navigatorPeeks,
-                activity: navigatorActivity,
-                child: navigator,
+            child: Align(
+              // Phones centre the indicator under the page; wider screens
+              // tuck it into the bottom-right corner. Aligning (rather than
+              // guessing a width) keeps it centred at any text scale.
+              alignment: layout.phone ? Alignment.center : Alignment.centerRight,
+              child: Padding(
+                padding: layout.phone
+                    ? EdgeInsets.only(left: safe.left, right: safe.right)
+                    : EdgeInsets.only(right: safe.right + ChromeMetrics.edge),
+                child: ChromeFade(
+                  visible: !focus,
+                  edge: const Offset(0, 1),
+                  child: Peeking(
+                    enabled: layout.navigatorPeeks,
+                    activity: navigatorActivity,
+                    child: navigator,
+                  ),
+                ),
               ),
             ),
           ),
