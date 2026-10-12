@@ -2,54 +2,10 @@ import 'dart:async';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
-import '../chrome/bar_button.dart';
-import '../chrome/canvas_guard.dart';
 import 'editor_images.dart';
 import 'image_import.dart';
-
-/// The top bar's "Insert image" button: opens the file picker, or on
-/// Android offers the camera too.
-class InsertImageButton extends StatelessWidget {
-  const InsertImageButton({super.key, required this.images});
-
-  final EditorImages images;
-
-  static const String tooltip = 'Insert image';
-
-  @override
-  Widget build(BuildContext context) {
-    const icon = Symbols.add_photo_alternate_rounded;
-    if (!EditorImages.canUseCamera) {
-      return BarButton(
-        tooltip: tooltip,
-        icon: icon,
-        onPressed: () => unawaited(images.pickFiles(context)),
-      );
-    }
-    return ChromeMenuAnchor(
-      menuChildren: [
-        MenuItemButton(
-          leadingIcon: const Icon(Symbols.photo_library_rounded),
-          onPressed: () => unawaited(images.pickFiles(context)),
-          child: const Text('Choose image…'),
-        ),
-        MenuItemButton(
-          leadingIcon: const Icon(Symbols.photo_camera_rounded),
-          onPressed: () => unawaited(images.takePhoto(context)),
-          child: const Text('Take photo'),
-        ),
-      ],
-      builder: (context, menu, _) => BarButton(
-        tooltip: tooltip,
-        icon: icon,
-        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-      ),
-    );
-  }
-}
 
 /// Accepts image files dragged onto the editor (desktop), inserting them
 /// where they are dropped, and highlights the area while they hover.

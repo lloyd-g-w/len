@@ -1295,7 +1295,9 @@ Page with template…).
   it on one row (`ToolbarMetrics.oneRow`: navigation with a 120-dp title,
   the tools, the reserved strip, the actions; about 1 040 dp), centred when
   the clusters beside it have room; else in a **48-dp row attached under the
-  bar** (tools centred, the strip after them); in panes under 600 dp in a
+  bar** (tools centred, the strip after them; short of room, as in a split
+  pane on touch, its cells shrink to the 40 / 36-dp visuals through
+  `ToolbarDensity`, and shorter still the strip scrolls); in panes under 600 dp in a
   **56-dp bottom row** (`ToolSwitcherButton` `[✎▾]`, whose popover is a 4 × 2
   grid of the tools and Insert, then the strip, scrolling if needed). With
   `ToolbarPlacement.floating` (⋯ → View, or Settings → Writing) it is a

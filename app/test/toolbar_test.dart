@@ -165,11 +165,7 @@ void main() {
       final row = tester.getRect(find.byType(EditorToolbar));
       for (final key in ['color-0', 'width-2']) {
         final slot = tester.getRect(find.byKey(ValueKey(key)));
-        expect(
-          row.contains(slot.topLeft) && row.contains(slot.bottomRight),
-          isTrue,
-          reason: '$key',
-        );
+        expect(row.contains(slot.topLeft) && row.contains(slot.bottomRight), isTrue, reason: key);
       }
       expect(tester.getRect(find.byTooltip('Pen (P)')).left, greaterThanOrEqualTo(row.left));
     }
