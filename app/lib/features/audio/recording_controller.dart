@@ -86,9 +86,10 @@ class RecordingController extends ChangeNotifier {
   /// Audio position at which the current capture file began.
   int _fileStartMs = 0;
 
-  /// Stores parts one after the other.
-  Future<void> _work = Future.value();
-  bool _splitting = false;
+  /// The part being stored, or null: none (so no future outlives the zone
+  /// it was made in, e.g. a widget test's fake time — awaiting a completed
+  /// future made there never resumes outside it).
+  Future<void>? _work;
 
   RecorderState _state = RecorderState.idle;
   RecorderState get state => _state;
@@ -304,18 +305,22 @@ class RecordingController extends ChangeNotifier {
 
   /// Moves on to the next part once the current one holds [partMs] of
   /// audio (checked by the ticker; tests call it directly).
-  Future<void> nextPartIfDue() {
-    if (_state == RecorderState.recording && !_splitting && elapsedMs - _fileStartMs >= partMs) {
-      _work = _split();
+  Future<void> nextPartIfDue() async {
+    if (_state == RecorderState.recording && _work == null && elapsedMs - _fileStartMs >= partMs) {
+      try {
+        await (_work = _split());
+      } finally {
+        _work = null;
+      }
+    } else {
+      await _work;
     }
-    return _work;
   }
 
   /// Moves the capture on to a new file and stores the finished one.
   Future<void> _split() async {
     final parts = _parts, capture = _capture;
     if (parts == null || capture == null) return;
-    _splitting = true;
     try {
       final at = elapsedMs;
       final audio = await capture.split(await parts.nextFile());
@@ -325,8 +330,6 @@ class RecordingController extends ChangeNotifier {
     } on Object catch (e) {
       // The audio stays in its file; stop stores what it can.
       lastError = 'Part of the recording could not be stored ($e).';
-    } finally {
-      _splitting = false;
     }
   }
 
