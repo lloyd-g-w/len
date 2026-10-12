@@ -201,7 +201,7 @@ class ExportSheetFooter extends StatelessWidget {
     final export = FilledButton.icon(
       key: const ValueKey('export-button'),
       onPressed: onExport,
-      icon: const Icon(Symbols.ios_share_rounded, size: 20),
+      icon: const Icon(Symbols.ios_share_rounded, size: Glyphs.bar),
       label: const Text('Export'),
     );
     return DecoratedBox(

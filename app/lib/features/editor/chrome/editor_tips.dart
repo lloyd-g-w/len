@@ -117,7 +117,7 @@ class TipBanner extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(message.icon, size: 18, color: scheme.primary),
+                          Icon(message.icon, size: Glyphs.menu, color: scheme.primary),
                           const SizedBox(width: Gaps.sm),
                           Flexible(
                             child: Text(
@@ -129,7 +129,7 @@ class TipBanner extends StatelessWidget {
                           ),
                           IconButton(
                             tooltip: 'Dismiss tip',
-                            iconSize: 18,
+                            iconSize: Glyphs.menu,
                             visualDensity: VisualDensity.compact,
                             onPressed: controller.dismiss,
                             icon: const Icon(Symbols.close_rounded),

@@ -163,7 +163,7 @@ class _NotebookCardState extends State<NotebookCard> {
                   builder: (anchor) => IconButton(
                     tooltip: 'More',
                     padding: EdgeInsets.zero,
-                    iconSize: 20,
+                    iconSize: Glyphs.bar,
                     color: theme.colorScheme.onSurfaceVariant,
                     icon: const Icon(Symbols.more_horiz_rounded),
                     onPressed: () => unawaited(_showMenu(anchor: anchor)),

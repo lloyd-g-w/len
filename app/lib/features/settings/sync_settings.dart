@@ -207,7 +207,7 @@ class _SyncStatusLine extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: color),
+              Icon(icon, size: Glyphs.menu, color: color),
               const SizedBox(width: Gaps.sm),
               Expanded(child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
             ],
@@ -251,7 +251,7 @@ class _TooLargeNotice extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(Symbols.cloud_upload_rounded, size: 18, color: scheme.primary),
+            child: Icon(Symbols.cloud_upload_rounded, size: Glyphs.menu, color: scheme.primary),
           ),
           const SizedBox(width: Gaps.sm),
           Expanded(

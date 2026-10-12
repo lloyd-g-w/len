@@ -67,7 +67,7 @@ class LibraryHeader extends StatelessWidget {
             child: TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
               onPressed: () => unawaited(actions.emptyTrash(context)),
-              icon: const Icon(Symbols.delete_sweep_rounded, size: 18),
+              icon: const Icon(Symbols.delete_sweep_rounded, size: Glyphs.menu),
               label: const Text('Empty trash'),
             ),
           ),
@@ -171,12 +171,16 @@ class _SearchField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: 'Search',
             contentPadding: EdgeInsets.zero,
-            prefixIcon: Icon(Symbols.search_rounded, color: scheme.onSurfaceVariant, size: 20),
+            prefixIcon: Icon(
+              Symbols.search_rounded,
+              color: scheme.onSurfaceVariant,
+              size: Glyphs.bar,
+            ),
             suffixIcon: controller.text.isEmpty
                 ? null
                 : IconButton(
                     tooltip: 'Clear search',
-                    iconSize: 18,
+                    iconSize: Glyphs.menu,
                     icon: const Icon(Symbols.close_rounded),
                     onPressed: () {
                       controller.clear();
@@ -305,7 +309,7 @@ class _Breadcrumbs extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Symbols.chevron_right_rounded, size: 18, color: scheme.outline),
+            Icon(Symbols.chevron_right_rounded, size: Glyphs.menu, color: scheme.outline),
           ],
         ],
       ),

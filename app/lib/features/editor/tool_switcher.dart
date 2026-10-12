@@ -44,20 +44,20 @@ class ToolSwitcherButton extends StatelessWidget {
         label: 'Tool: ${active.label}. Switch tools',
         child: Material(
           color: Surfaces.pressed(scheme),
-          borderRadius: BorderRadius.circular(Radii.pill),
+          borderRadius: BorderRadius.circular(Radii.xs),
           child: InkWell(
-            borderRadius: BorderRadius.circular(Radii.pill),
+            borderRadius: BorderRadius.circular(Radii.xs),
             onTap: () => _open(context),
             onLongPress: () => active.openOptions(context),
             child: SizedBox(
               width: width,
-              height: 40,
+              height: Targets.bar,
               child: IconTheme.merge(
                 data: IconThemeData(color: scheme.onSurface),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ToolGlyph(descriptor: active),
+                    ToolGlyph(descriptor: active, filled: true),
                     const Icon(Symbols.expand_more_rounded, size: 16),
                   ],
                 ),
@@ -71,7 +71,7 @@ class ToolSwitcherButton extends StatelessWidget {
 
   void _open(BuildContext context) => showAdaptivePopover<void>(
     context: context,
-    width: 344,
+    width: popoverWidth + 24,
     sheetOnPhones: false,
     builder: (popover) => ToolSwitcherPanel(
       descriptors: descriptors,
@@ -173,7 +173,9 @@ class ToolSwitcherPanel extends StatelessWidget {
             SwitchListTile(
               dense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
-              secondary: Icon(stylusOnly ? Symbols.do_not_touch_rounded : Symbols.touch_app_rounded),
+              secondary: Icon(
+                stylusOnly ? Symbols.do_not_touch_rounded : Symbols.touch_app_rounded,
+              ),
               title: const Text('Draw with stylus only'),
               subtitle: const Text('Fingers pan and zoom'),
               value: stylusOnly,
@@ -215,7 +217,7 @@ class _ToolTile extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ToolGlyph(descriptor: descriptor),
+                  ToolGlyph(descriptor: descriptor, filled: selected),
                   const SizedBox(height: Gaps.xs),
                   Text(
                     descriptor.shortLabel,

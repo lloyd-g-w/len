@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../domain/text/text_data.dart';
+import '../../../../ui/app_theme.dart';
 
 /// Picks one of the bundled fonts; each entry is shown in its own font.
 class FontMenuButton extends StatelessWidget {
@@ -42,7 +43,7 @@ class FontMenuButton extends StatelessWidget {
                 style: current == null ? null : sample(current),
               ),
             ),
-            const Icon(Symbols.arrow_drop_down_rounded, size: 20),
+            const Icon(Symbols.arrow_drop_down_rounded, size: Glyphs.bar),
           ],
         ),
       ),
@@ -101,7 +102,7 @@ class HighlightMenuButton extends StatelessWidget {
       icon: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          const Icon(Symbols.border_color_rounded, size: 20),
+          const Icon(Symbols.border_color_rounded, size: Glyphs.bar),
           Container(
             width: 20,
             height: 4,

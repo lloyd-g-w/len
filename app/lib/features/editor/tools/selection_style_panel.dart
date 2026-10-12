@@ -109,7 +109,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
             builder: (anchor) => IconButton(
               tooltip: 'More colours',
               padding: EdgeInsets.zero,
-              icon: const Icon(Symbols.add_rounded, size: 20),
+              icon: const Icon(Symbols.add_rounded, size: Glyphs.bar),
               onPressed: () async {
                 final colour = await pickColour(
                   anchor,
@@ -146,7 +146,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           IconButton(
             tooltip: 'Smaller',
             onPressed: () => step(-1),
-            icon: const Icon(Symbols.text_decrease_rounded, size: 20),
+            icon: const Icon(Symbols.text_decrease_rounded, size: Glyphs.bar),
           ),
           SizedBox(
             width: 40,
@@ -155,7 +155,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           IconButton(
             tooltip: 'Larger',
             onPressed: () => step(1),
-            icon: const Icon(Symbols.text_increase_rounded, size: 20),
+            icon: const Icon(Symbols.text_increase_rounded, size: Glyphs.bar),
           ),
         ],
       ),

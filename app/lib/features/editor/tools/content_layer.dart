@@ -8,6 +8,7 @@ import '../../../ink/selection/selection_painter.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/tools/content_tools.dart';
 import '../../../ink/viewport.dart';
+import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../images/image_crop_overlay.dart';
 import '../recognition/convert_to_text_dialog.dart';
@@ -184,7 +185,7 @@ class _ContentLayerState extends State<ContentLayer> {
                   setState(() => _pasteAt = null);
                   _content.selection.paste(pasteAt.world);
                 },
-                icon: const Icon(Symbols.content_paste_rounded, size: 18),
+                icon: const Icon(Symbols.content_paste_rounded, size: Glyphs.menu),
                 label: const Text('Paste'),
               ),
             ),

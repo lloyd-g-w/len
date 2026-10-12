@@ -172,7 +172,7 @@ class _HexRow extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(Radii.sm - 4),
+            borderRadius: BorderRadius.circular(Radii.xs),
             border: Border.all(color: scheme.outlineVariant),
           ),
         ),
@@ -286,7 +286,11 @@ class _FavoritesRow extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: scheme.outline),
                   ),
-                  child: Icon(Symbols.add_rounded, size: 18, color: scheme.onSurfaceVariant),
+                  child: Icon(
+                    Symbols.add_rounded,
+                    size: Glyphs.menu,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ),

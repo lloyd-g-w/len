@@ -238,7 +238,7 @@ class _NotebookResultsState extends State<_NotebookResults> {
                 padding: const EdgeInsets.only(left: Gaps.sm, bottom: Gaps.xs),
                 child: TextButton.icon(
                   onPressed: () => setState(() => _expanded = true),
-                  icon: const Icon(Symbols.expand_more_rounded, size: 18),
+                  icon: const Icon(Symbols.expand_more_rounded, size: Glyphs.menu),
                   label: Text('Show $hidden more'),
                 ),
               ),

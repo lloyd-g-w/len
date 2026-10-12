@@ -49,7 +49,7 @@ class PageNavigator extends StatelessWidget {
     Widget button(String tooltip, IconData icon, VoidCallback? onPressed) => IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      iconSize: 22,
+      iconSize: Glyphs.bar,
       style: IconButton.styleFrom(
         foregroundColor: scheme.onSurfaceVariant,
         fixedSize: const Size(40, 40),
@@ -83,7 +83,12 @@ class PageNavigator extends StatelessWidget {
                     if (bookmarked)
                       Padding(
                         padding: const EdgeInsets.only(right: Gaps.xxs),
-                        child: Icon(Symbols.bookmark_rounded, fill: 1, size: 16, color: Palette.bookmark),
+                        child: Icon(
+                          Symbols.bookmark_rounded,
+                          fill: 1,
+                          size: 16,
+                          color: Palette.bookmark,
+                        ),
                       ),
                     Text(
                       '${index + 1} / $count',
@@ -141,7 +146,7 @@ class PageNavigator extends StatelessWidget {
         padding: EdgeInsets.zero,
       ),
       onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-      icon: const Icon(Symbols.expand_more_rounded, size: 20),
+      icon: const Icon(Symbols.expand_more_rounded, size: Glyphs.bar),
     ),
   );
 }

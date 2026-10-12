@@ -44,11 +44,7 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: [
         FilterChip(
-          avatar: Icon(
-            Symbols.bookmark_rounded,
-            size: 18,
-            fill: bookmarksOnly ? 1 : 0,
-          ),
+          avatar: Icon(Symbols.bookmark_rounded, size: 18, fill: bookmarksOnly ? 1 : 0),
           showCheckmark: false,
           label: const Text('Bookmarks'),
           selected: bookmarksOnly,
@@ -251,7 +247,7 @@ class NoBookmarks extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.bookmark_rounded, size: 48, color: theme.colorScheme.outline),
+            Icon(Symbols.bookmark_rounded, size: Glyphs.empty, color: theme.colorScheme.outline),
             const SizedBox(height: Gaps.lg),
             Text('No bookmarked pages yet', style: theme.textTheme.titleMedium),
             const SizedBox(height: Gaps.xs),

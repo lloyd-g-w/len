@@ -158,7 +158,9 @@ class _PagePickerState extends State<_PagePicker> {
                           dense: true,
                           selected: i == current,
                           leading: Icon(
-                            page.bookmarked ? Symbols.bookmark_rounded : Symbols.description_rounded,
+                            page.bookmarked
+                                ? Symbols.bookmark_rounded
+                                : Symbols.description_rounded,
                             fill: page.bookmarked ? 1 : 0,
                             size: 20,
                           ),

@@ -68,7 +68,7 @@ class PlaybackBar extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Trim…',
-                  iconSize: 18,
+                  iconSize: Glyphs.menu,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(width: 36, height: 28),
                   color: scheme.onSurfaceVariant,

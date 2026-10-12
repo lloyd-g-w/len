@@ -50,7 +50,7 @@ class AudioBarButton extends StatelessWidget {
     final list = IconButton(
       tooltip: 'Recordings',
       onPressed: () => unawaited(showRecordingsSheet(context, audio)),
-      iconSize: 20,
+      iconSize: Glyphs.bar,
       style: IconButton.styleFrom(
         foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
         minimumSize: const Size(20, 40),
@@ -167,7 +167,7 @@ class _PillButton extends StatelessWidget {
   Widget build(BuildContext context) => IconButton(
     tooltip: tooltip,
     onPressed: onPressed,
-    iconSize: 20,
+    iconSize: Glyphs.bar,
     style: IconButton.styleFrom(
       foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
       fixedSize: const Size(32, 32),

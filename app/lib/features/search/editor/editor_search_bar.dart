@@ -130,7 +130,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
     return Row(
       children: [
         const SizedBox(width: Gaps.sm),
-        Icon(Symbols.search_rounded, size: 20, color: theme.colorScheme.onSurfaceVariant),
+        Icon(Symbols.search_rounded, size: Glyphs.bar, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: Gaps.sm),
         Expanded(
           child: TextField(

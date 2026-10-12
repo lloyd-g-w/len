@@ -101,10 +101,7 @@ class _ThemeCard extends StatelessWidget {
                   width: selected ? 2.5 : 1,
                 ),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(Radii.sm - 3),
-                child: preview,
-              ),
+              child: ClipRRect(borderRadius: BorderRadius.circular(Radii.xs), child: preview),
             ),
             const SizedBox(height: Gaps.sm),
             Row(

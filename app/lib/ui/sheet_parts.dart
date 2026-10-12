@@ -46,11 +46,7 @@ class SheetHeader extends StatelessWidget {
         ),
         ?trailing,
         if (onClose != null)
-          IconButton(
-            tooltip: 'Close',
-            icon: const Icon(Symbols.close_rounded),
-            onPressed: onClose,
-          ),
+          IconButton(tooltip: 'Close', icon: const Icon(Symbols.close_rounded), onPressed: onClose),
       ],
     );
   }

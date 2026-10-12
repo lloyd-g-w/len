@@ -178,7 +178,11 @@ class _Grip extends StatelessWidget {
             child: SizedBox(
               width: 28,
               height: 48,
-              child: Icon(Symbols.drag_indicator_rounded, size: 20, color: scheme.onSurfaceVariant),
+              child: Icon(
+                Symbols.drag_indicator_rounded,
+                size: Glyphs.bar,
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ),
         ),

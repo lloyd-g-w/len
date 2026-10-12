@@ -79,7 +79,7 @@ class _FolderDialogState extends State<_FolderDialog> {
           height: 64,
           decoration: BoxDecoration(
             color: color.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14),
-            borderRadius: BorderRadius.circular(Radii.sm + 4),
+            borderRadius: BorderRadius.circular(Radii.md),
           ),
           child: Icon(Symbols.folder_rounded, fill: 1, color: color, size: 36),
         ),

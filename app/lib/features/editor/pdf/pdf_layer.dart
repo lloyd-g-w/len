@@ -228,7 +228,7 @@ class _PdfLayerState extends State<PdfLayer> {
         TextButton.icon(
           key: ValueKey(key),
           onPressed: onPressed,
-          icon: Icon(icon, size: 18),
+          icon: Icon(icon, size: Glyphs.menu),
           label: Text(label),
         );
     return Positioned.fill(
@@ -250,7 +250,7 @@ class _PdfLayerState extends State<PdfLayer> {
                     IconButton(
                       key: const ValueKey('pdf-open-link'),
                       tooltip: 'Open link',
-                      icon: const Icon(Symbols.open_in_new_rounded, size: 20),
+                      icon: const Icon(Symbols.open_in_new_rounded, size: Glyphs.bar),
                       onPressed: _pdf.openSelectedLink,
                     ),
                   if (_pdf.onLinkSelection case final link?)
@@ -258,7 +258,7 @@ class _PdfLayerState extends State<PdfLayer> {
                       builder: (anchor) => IconButton(
                         key: const ValueKey('pdf-link'),
                         tooltip: 'Link…',
-                        icon: const Icon(Symbols.link_rounded, size: 20),
+                        icon: const Icon(Symbols.link_rounded, size: Glyphs.bar),
                         onPressed: () async {
                           final choice = await showLinkMenu(anchor);
                           if (choice != null) link(url: choice == LinkChoice.url);
@@ -268,7 +268,7 @@ class _PdfLayerState extends State<PdfLayer> {
                   IconButton(
                     key: const ValueKey('pdf-select-all'),
                     tooltip: 'Select all on page',
-                    icon: const Icon(Symbols.select_all_rounded, size: 20),
+                    icon: const Icon(Symbols.select_all_rounded, size: Glyphs.bar),
                     onPressed: _pdf.selectAll,
                   ),
                 ],

@@ -43,6 +43,8 @@ Future<void> loadTextFonts() async {
     await loader.load();
   }
   final symbols = FontLoader('packages/material_symbols_icons/MaterialSymbolsRounded')
-    ..addFont(rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf'));
+    ..addFont(
+      rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf'),
+    );
   await symbols.load();
 }

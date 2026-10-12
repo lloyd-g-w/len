@@ -30,7 +30,7 @@ class SettingsSection extends StatelessWidget {
             padding: const EdgeInsets.only(left: Gaps.xs, bottom: Gaps.md),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: scheme.primary),
+                Icon(icon, size: Glyphs.bar, color: scheme.primary),
                 const SizedBox(width: Gaps.sm),
                 Text(title, style: theme.textTheme.titleMedium),
               ],
@@ -99,10 +99,7 @@ class SettingsTile extends StatelessWidget {
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: theme.textTheme.bodyMedium,
-        ),
+        Text(title, style: theme.textTheme.bodyMedium),
         if (subtitle != null) ...[
           const SizedBox(height: Gaps.xxs),
           Text(subtitle!, style: theme.textTheme.bodySmall),
@@ -119,7 +116,7 @@ class SettingsTile extends StatelessWidget {
             Row(
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 22, color: theme.colorScheme.onSurfaceVariant),
+                  Icon(icon, size: Glyphs.menu, color: theme.colorScheme.onSurfaceVariant),
                   const SizedBox(width: Gaps.lg),
                 ],
                 Expanded(child: text),

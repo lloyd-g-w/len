@@ -76,12 +76,12 @@ class TextFormatBar extends StatelessWidget {
           IconButton(
             tooltip: 'Delete text box',
             onPressed: onDelete,
-            icon: const Icon(Symbols.delete_rounded, size: 20),
+            icon: const Icon(Symbols.delete_rounded, size: Glyphs.bar),
           ),
           IconButton(
             tooltip: 'Done (Esc)',
             onPressed: onDone,
-            icon: const Icon(Symbols.check_rounded, size: 20),
+            icon: const Icon(Symbols.check_rounded, size: Glyphs.bar),
           ),
         ],
       ),
@@ -104,7 +104,7 @@ class TextFormatBar extends StatelessWidget {
       isSelected: on,
       onPressed: onPressed,
       style: IconButton.styleFrom(backgroundColor: on ? Surfaces.pressed(scheme) : null),
-      icon: Icon(icon, size: 20),
+      icon: Icon(icon, size: Glyphs.bar),
     );
     Widget divider() => const SizedBox(height: 24, child: VerticalDivider(width: 9));
     final nextAlign = TextAlignment.values[(box.align.index + 1) % TextAlignment.values.length];
@@ -123,7 +123,7 @@ class TextFormatBar extends StatelessWidget {
         IconButton(
           tooltip: 'Smaller',
           onPressed: () => _setSize(step(size, -1)),
-          icon: const Icon(Symbols.text_decrease_rounded, size: 20),
+          icon: const Icon(Symbols.text_decrease_rounded, size: Glyphs.bar),
         ),
         SizedBox(
           width: 28,
@@ -137,7 +137,7 @@ class TextFormatBar extends StatelessWidget {
         IconButton(
           tooltip: 'Larger',
           onPressed: () => _setSize(step(size, 1)),
-          icon: const Icon(Symbols.text_increase_rounded, size: 20),
+          icon: const Icon(Symbols.text_increase_rounded, size: Glyphs.bar),
         ),
         divider(),
         toggle('Bold (Ctrl+B)', Symbols.format_bold_rounded, style.bold, c.toggleBold),

@@ -82,7 +82,9 @@ class EditorTopBar extends StatelessWidget {
         final strip = showsStrip(width, tabs);
         // With tabs, the status bar area takes the strip's colour.
         return Material(
-          color: strip || band ? Surfaces.canvasBackdrop(scheme.brightness) : Surfaces.chrome(scheme),
+          color: strip || band
+              ? Surfaces.canvasBackdrop(scheme.brightness)
+              : Surfaces.chrome(scheme),
           child: SafeArea(
             bottom: false,
             child: Column(
@@ -123,7 +125,11 @@ class EditorTopBar extends StatelessWidget {
   }
 
   Widget _back() => secondPane
-      ? BarButton(tooltip: 'Close this pane', icon: Symbols.close_rounded, onPressed: actions.onBack)
+      ? BarButton(
+          tooltip: 'Close this pane',
+          icon: Symbols.close_rounded,
+          onPressed: actions.onBack,
+        )
       : BarButton(tooltip: 'Back', icon: Symbols.arrow_back_rounded, onPressed: actions.onBack);
 
   Widget _title() => TitleButton(title: title, subtitle: subtitle, onRename: actions.onRename);

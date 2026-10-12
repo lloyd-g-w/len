@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/images/image_crop_session.dart';
 import '../../../ink/viewport.dart';
+import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 
 /// Crop mode for one image: shows the whole image with the kept part
@@ -173,7 +174,7 @@ class _CropBar extends StatelessWidget {
           IconButton(
             tooltip: 'Show whole image',
             onPressed: cropped ? onReset : null,
-            icon: const Icon(Symbols.crop_free_rounded, size: 20),
+            icon: const Icon(Symbols.crop_free_rounded, size: Glyphs.bar),
           ),
           TextButton(onPressed: onCancel, child: const Text('Cancel')),
           FilledButton(onPressed: onDone, child: const Text('Done')),

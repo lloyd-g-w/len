@@ -76,7 +76,11 @@ class _StorageSettingsState extends State<StorageSettings> {
                   child: const Text('Turn on'),
                 )
               : persisted == true
-              ? Icon(Symbols.check_circle_rounded, fill: 1, color: Theme.of(context).colorScheme.primary)
+              ? Icon(
+                  Symbols.check_circle_rounded,
+                  fill: 1,
+                  color: Theme.of(context).colorScheme.primary,
+                )
               : null,
         ),
         if (_usage case final usage?) _UsageTile(usage: usage),

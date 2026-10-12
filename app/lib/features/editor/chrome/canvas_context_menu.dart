@@ -53,7 +53,10 @@ class CanvasContextMenu extends StatelessWidget {
             curve: Motion.standard,
             builder: (context, t, child) => Opacity(
               opacity: t,
-              child: Transform.scale(scale: Motion.popoverScale + (1 - Motion.popoverScale) * t, child: child),
+              child: Transform.scale(
+                scale: Motion.popoverScale + (1 - Motion.popoverScale) * t,
+                child: child,
+              ),
             ),
             child: OverlaySurface(
               child: ConstrainedBox(

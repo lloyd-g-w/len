@@ -88,7 +88,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                         Expanded(child: SectionLabel('Folders')),
                         IconButton(
                           tooltip: 'New folder',
-                          iconSize: 18,
+                          iconSize: Glyphs.menu,
                           visualDensity: VisualDensity.compact,
                           color: scheme.onSurfaceVariant,
                           icon: const Icon(Symbols.create_new_folder_rounded),
@@ -250,7 +250,7 @@ class _Brand extends StatelessWidget {
               ),
               boxShadow: Shadows.low(theme.brightness),
             ),
-            child: Icon(Symbols.gesture_rounded, size: 20, color: scheme.onPrimary),
+            child: Icon(Symbols.gesture_rounded, size: Glyphs.bar, color: scheme.onPrimary),
           ),
           const SizedBox(width: Gaps.md),
           Text('Len', style: theme.textTheme.titleMedium),

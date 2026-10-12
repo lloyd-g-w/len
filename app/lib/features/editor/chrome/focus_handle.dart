@@ -27,7 +27,11 @@ class FocusHandle extends StatelessWidget {
           onTap: onExit,
           child: Padding(
             padding: const EdgeInsets.all(Gaps.sm + 2),
-            child: Icon(Symbols.fullscreen_exit_rounded, size: 22, color: scheme.onSurfaceVariant),
+            child: Icon(
+              Symbols.fullscreen_exit_rounded,
+              size: Glyphs.bar,
+              color: scheme.onSurfaceVariant,
+            ),
           ),
         ),
       ),

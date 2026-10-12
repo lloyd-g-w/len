@@ -139,12 +139,7 @@ abstract final class UserTemplates {
       at: at,
       items: const [
         MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),
-        MenuRow(
-          value: 'delete',
-          icon: Symbols.delete_rounded,
-          label: 'Delete…',
-          destructive: true,
-        ),
+        MenuRow(value: 'delete', icon: Symbols.delete_rounded, label: 'Delete…', destructive: true),
       ],
     );
     if (action == null || !context.mounted) return false;

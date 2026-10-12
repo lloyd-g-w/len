@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// An icon button of the editor's top bar: quiet by default, tinted when
-/// [selected].
+import '../../../ui/app_theme.dart';
+
+/// An icon button of the editor's top bar: a 20-dp glyph on a 40-dp
+/// button (48-dp hit area on touch), quiet by default, on the neutral
+/// plate and filled when [selected].
 class BarButton extends StatelessWidget {
   const BarButton({
     super.key,
@@ -25,12 +28,17 @@ class BarButton extends StatelessWidget {
       tooltip: tooltip,
       onPressed: onPressed,
       isSelected: selected,
-      iconSize: 22,
+      iconSize: Glyphs.bar,
       style: IconButton.styleFrom(
-        foregroundColor: selected ? scheme.primary : scheme.onSurfaceVariant,
-        minimumSize: const Size(40, 40),
-        fixedSize: const Size(40, 40),
+        foregroundColor: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+        backgroundColor: selected ? Surfaces.pressed(scheme) : null,
+        minimumSize: const Size.square(Targets.bar),
+        fixedSize: const Size.square(Targets.bar),
         padding: EdgeInsets.zero,
+        // A 48-dp hit area on touch, the 40-dp visual with a pointer.
+        tapTargetSize: Targets.touchFirst
+            ? MaterialTapTargetSize.padded
+            : MaterialTapTargetSize.shrinkWrap,
       ),
       icon: Icon(icon),
       selectedIcon: Icon(selectedIcon ?? icon, fill: 1),

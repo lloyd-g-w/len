@@ -183,7 +183,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
           ),
           PopupMenuButton<_EntryAction>(
             tooltip: 'Entry options',
-            icon: const Icon(Symbols.more_vert_rounded, size: 20),
+            icon: const Icon(Symbols.more_vert_rounded, size: Glyphs.bar),
             onSelected: (a) => switch (a) {
               _EntryAction.rename => _outline.rename(context, entry),
               _EntryAction.indent => _outline.indent(entry),

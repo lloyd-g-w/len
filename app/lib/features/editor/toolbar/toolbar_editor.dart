@@ -171,8 +171,7 @@ class ToolbarEditor extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
           child: Text(
             'Favourites',
-            style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(color: scheme.onSurfaceVariant),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ),
         for (final (i, pen) in config.favourites.indexed)
@@ -195,7 +194,11 @@ class ToolbarEditor extends StatelessWidget {
                       child: CircleAvatar(
                         radius: 7,
                         backgroundColor: scheme.inverseSurface,
-                        child: Icon(Symbols.close_rounded, size: 12, color: scheme.onInverseSurface),
+                        child: Icon(
+                          Symbols.close_rounded,
+                          size: 12,
+                          color: scheme.onInverseSurface,
+                        ),
                       ),
                     ),
                   ),
@@ -214,7 +217,7 @@ class ToolbarEditor extends StatelessWidget {
                 : 'Already a favourite',
             padding: EdgeInsets.zero,
             onPressed: canAdd ? () => onChanged(config.addFavourite(current)) : null,
-            icon: const Icon(Symbols.star_rounded, size: 20),
+            icon: const Icon(Symbols.star_rounded, size: Glyphs.bar),
           ),
         ),
       ],

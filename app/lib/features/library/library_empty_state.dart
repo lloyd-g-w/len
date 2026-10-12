@@ -124,7 +124,7 @@ class _IconArt extends StatelessWidget {
         color: scheme.surfaceContainerHigh,
         border: Border.all(color: scheme.outlineVariant),
       ),
-      child: Icon(icon, size: 40, color: scheme.onSurfaceVariant),
+      child: Icon(icon, size: Glyphs.empty, color: scheme.onSurfaceVariant),
     );
   }
 }

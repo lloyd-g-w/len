@@ -8,6 +8,7 @@ import '../../../ink/selection/selection_chrome.dart';
 import '../../../ink/selection/selection_controller.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/viewport.dart';
+import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
 import 'selection_style_panel.dart';
@@ -150,12 +151,7 @@ class _MenuBar extends StatelessWidget {
         _Action('Send to back', Symbols.flip_to_back_rounded, selection.sendToBack),
       ],
     ];
-    final delete = _Action(
-      'Delete',
-      Symbols.delete_rounded,
-      selection.delete,
-      shortcut: 'Del',
-    );
+    final delete = _Action('Delete', Symbols.delete_rounded, selection.delete, shortcut: 'Del');
     return LayoutBuilder(
       builder: (context, constraints) {
         // Buttons are 48 dp; the panel adds 6 dp on each side.
@@ -176,7 +172,7 @@ class _MenuBar extends StatelessWidget {
                 Builder(
                   builder: (anchor) => PopupMenuButton<_Action>(
                     tooltip: 'More',
-                    icon: const Icon(Symbols.more_horiz_rounded, size: 20),
+                    icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
                     onSelected: (a) => a.run(anchor),
                     itemBuilder: (_) => [
                       for (final a in more)
@@ -264,8 +260,10 @@ class _Action {
     return Tooltip(
       message: hint,
       child: Builder(
-        builder: (anchor) =>
-            IconButton(onPressed: enabled ? () => run(anchor) : null, icon: Icon(icon, size: 20)),
+        builder: (anchor) => IconButton(
+          onPressed: enabled ? () => run(anchor) : null,
+          icon: Icon(icon, size: Glyphs.bar),
+        ),
       ),
     );
   }

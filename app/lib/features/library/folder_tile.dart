@@ -82,7 +82,7 @@ class _FolderTileState extends State<FolderTile> {
               : highlighted
               ? scheme.surfaceContainer
               : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(Radii.sm + 2),
+          borderRadius: BorderRadius.circular(Radii.sm),
           border: Border.all(
             color: active ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.6),
             width: active ? 1.6 : 1,
@@ -92,7 +92,7 @@ class _FolderTileState extends State<FolderTile> {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            borderRadius: BorderRadius.circular(Radii.sm + 2),
+            borderRadius: BorderRadius.circular(Radii.sm),
             onTap: () => widget.actions.controller.openFolder(_folder.id),
             onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
             onHover: (h) => setState(() => _hovered = h),
@@ -114,7 +114,12 @@ class _FolderTileState extends State<FolderTile> {
                       ),
                       borderRadius: BorderRadius.circular(Radii.sm),
                     ),
-                    child: Icon(Symbols.folder_rounded, fill: 1, color: color, size: narrow ? 20 : 22),
+                    child: Icon(
+                      Symbols.folder_rounded,
+                      fill: 1,
+                      color: color,
+                      size: narrow ? 20 : 22,
+                    ),
                   ),
                   SizedBox(width: narrow ? Gaps.sm : Gaps.md),
                   Expanded(
@@ -138,7 +143,7 @@ class _FolderTileState extends State<FolderTile> {
                     Builder(
                       builder: (anchor) => IconButton(
                         tooltip: 'Folder options',
-                        iconSize: 18,
+                        iconSize: Glyphs.menu,
                         constraints: narrow
                             ? const BoxConstraints(minWidth: 32, minHeight: 48)
                             : null,

@@ -240,7 +240,9 @@ class _RecordingTile extends StatelessWidget {
       leading: selecting
           ? Checkbox(value: selected, onChanged: (_) => onSelect())
           : Icon(
-              open && audio.playback.playing ? Symbols.graphic_eq_rounded : Symbols.play_circle_rounded,
+              open && audio.playback.playing
+                  ? Symbols.graphic_eq_rounded
+                  : Symbols.play_circle_rounded,
             ),
       title: Text(recording.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(details, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -261,7 +263,11 @@ class _RecordingTile extends StatelessWidget {
                 const MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),
                 const MenuRow(value: 'trim', icon: Symbols.content_cut_rounded, label: 'Trim…'),
                 if (recording.trimmed)
-                  const MenuRow(value: 'untrim', icon: Symbols.restore_rounded, label: 'Reset trim'),
+                  const MenuRow(
+                    value: 'untrim',
+                    icon: Symbols.restore_rounded,
+                    label: 'Reset trim',
+                  ),
                 const MenuRow(value: 'export', icon: Symbols.ios_share_rounded, label: 'Export…'),
                 const MenuRow(
                   value: 'delete',

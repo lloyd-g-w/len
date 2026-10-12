@@ -88,7 +88,9 @@ class AppDialog extends StatelessWidget {
             ? null
             : DialogIcon(icon!, color: iconColor ?? Theme.of(context).colorScheme.primary));
     return AlertDialog(
-      icon: header == null ? null : Align(alignment: AlignmentDirectional.centerStart, child: header),
+      icon: header == null
+          ? null
+          : Align(alignment: AlignmentDirectional.centerStart, child: header),
       iconPadding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.xl, Gaps.xl, Gaps.md),
       title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
       content: content,

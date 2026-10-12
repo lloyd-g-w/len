@@ -220,12 +220,12 @@ class TemplateTile extends StatelessWidget {
                     ),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(Radii.xs - 2),
+                        borderRadius: BorderRadius.circular(Radii.sm),
                         border: Border.all(color: scheme.outlineVariant),
                         boxShadow: Shadows.low(theme.brightness),
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(Radii.xs - 2),
+                        borderRadius: BorderRadius.circular(Radii.sm),
                         child: TemplatePreview(template: template, width: width),
                       ),
                     ),

@@ -73,7 +73,11 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
 const List<PopupMenuEntry<FolderAction>> folderMenuItems = [
   MenuRow(value: FolderAction.open, icon: Symbols.folder_open_rounded, label: 'Open'),
   MenuRow(value: FolderAction.edit, icon: Symbols.edit_rounded, label: 'Edit folder…'),
-  MenuRow(value: FolderAction.move, icon: Symbols.drive_file_move_rounded, label: 'Move to folder…'),
+  MenuRow(
+    value: FolderAction.move,
+    icon: Symbols.drive_file_move_rounded,
+    label: 'Move to folder…',
+  ),
   PopupMenuDivider(),
   MenuRow(
     value: FolderAction.delete,

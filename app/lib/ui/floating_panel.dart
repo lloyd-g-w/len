@@ -28,7 +28,8 @@ class FloatingPanel extends StatelessWidget {
         shape: Surfaces.shape(scheme, radius),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: padding ?? const EdgeInsets.symmetric(horizontal: Gaps.xs + 2, vertical: Gaps.xs),
+          padding:
+              padding ?? const EdgeInsets.symmetric(horizontal: Gaps.xs + 2, vertical: Gaps.xs),
           child: child,
         ),
       ),
