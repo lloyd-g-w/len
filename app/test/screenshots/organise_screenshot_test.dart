@@ -9,14 +9,13 @@ import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/tools/content_layer.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/features/library/notebook_card.dart';
-import 'package:len/features/stickers/builtin_stickers.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'screenshot_harness.dart';
 
 /// Organisation features with real fonts: tags in the library (sidebar,
-/// chips, picker, manager), the editor's outline panel, links and the
-/// sticker panel, on desktop / tablet and phone, light and dark.
+/// chips, picker, manager), the editor's outline panel and links, on
+/// desktop / tablet and phone, light and dark.
 void main() {
   setUpAll(loadRealFonts);
 
@@ -88,7 +87,7 @@ void main() {
     }
 
     for (final (name, size, dpr) in [tablet, phone]) {
-      testWidgets('editor outline, links, stickers $name ${mode.name}', (tester) async {
+      testWidgets('editor outline, links $name ${mode.name}', (tester) async {
         setWindow(tester, size, dpr: dpr);
         final s = seededServices();
         addTearDown(s.dispose);
@@ -122,11 +121,6 @@ void main() {
             z: -1,
           ),
         ]);
-        s.stickers.create(
-          name: 'Heart',
-          category: 'Favourites',
-          content: BuiltinStickers.all.firstWhere((x) => x.name == 'Heart').content,
-        );
         await pumpApp(tester, s, EditorScreen(notebook: nb), mode: mode);
         await shoot(tester, 'o_editor_link_${name}_${mode.name}');
 
@@ -136,26 +130,12 @@ void main() {
         await tester.binding.handlePopRoute();
         await settle(tester);
 
-        await tap(tester, find.byTooltip('More options'));
-        await tap(tester, find.text('Stickers'));
-        await shoot(tester, 'o_sticker_panel_${name}_${mode.name}');
-        await tap(tester, find.byKey(const ValueKey('sticker-category-Callouts')));
-        await shoot(tester, 'o_sticker_callouts_${name}_${mode.name}');
-        await tap(tester, find.byTooltip('Close stickers'));
-
-        // A lasso selection's menu with Link… and Save as sticker….
+        // A lasso selection's menu with Link….
         final content = tester.widget<ContentLayer>(find.byType(ContentLayer)).content;
         final model = content.selection.model;
         content.selection.select([for (final x in ink.take(4)) ?model.strokeById(x.id)], const []);
         await settle(tester);
         await shoot(tester, 'o_selection_menu_${name}_${mode.name}');
-        if (find.byTooltip('Save as sticker…').evaluate().isNotEmpty) {
-          await tap(tester, find.byTooltip('Save as sticker…'));
-        } else {
-          await tap(tester, find.byTooltip('More'));
-          await tap(tester, find.text('Save as sticker…'));
-        }
-        await shoot(tester, 'o_save_sticker_${name}_${mode.name}');
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
       });

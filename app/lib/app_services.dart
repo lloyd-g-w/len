@@ -18,7 +18,6 @@ import 'data/page_repository.dart';
 import 'data/recording_repository.dart';
 import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
-import 'data/sticker_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
 import 'data/tag_repository.dart';
@@ -63,7 +62,6 @@ class AppServices {
     required this.outlines,
     required this.tags,
     required this.outline,
-    required this.stickers,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -89,7 +87,6 @@ class AppServices {
     final pages = PageRepository(database, deviceId: deviceId, clock: clock);
     final tags = TagRepository(database, deviceId: deviceId, clock: clock);
     final outline = OutlineRepository(database, deviceId: deviceId, clock: clock);
-    final stickers = StickerRepository(database, deviceId: deviceId, clock: clock);
     final notebooks = NotebookRepository(
       database,
       deviceId: deviceId,
@@ -117,7 +114,6 @@ class AppServices {
       templates: templates,
       tags: tags,
       outline: outline,
-      stickers: stickers,
     );
     final search = SearchService(database, readBlob: blobs.read);
     final recognition = RecognitionService(
@@ -150,7 +146,6 @@ class AppServices {
       outlines: outlines,
       tags: tags,
       outline: outline,
-      stickers: stickers,
     );
   }
 
@@ -192,9 +187,6 @@ class AppServices {
 
   /// Notebooks' own outlines (tables of contents).
   final OutlineRepository outline;
-
-  /// The user's sticker library.
-  final StickerRepository stickers;
 
   /// Makes recorders and players (created only when used).
   final AudioBackends audio;

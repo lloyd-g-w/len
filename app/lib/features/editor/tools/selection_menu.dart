@@ -12,7 +12,7 @@ import '../../../ui/menus.dart';
 import 'colour_sheet.dart';
 import 'selection_style_panel.dart';
 
-/// A command the editor adds to the selection menu (links, stickers):
+/// A command the editor adds to the selection menu (links):
 /// [run] gets the control it was started from, to anchor a popover.
 class SelectionExtraAction {
   const SelectionExtraAction(this.label, this.icon, this.run);

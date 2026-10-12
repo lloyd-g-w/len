@@ -20,11 +20,10 @@ import 'present/presentation.dart';
 import 'present/presentation_controls.dart';
 import 'split/split_controller.dart';
 import 'split/split_drop_highlight.dart';
-import 'stickers/sticker_layer.dart';
 
 /// The editor's layers, bottom to top: the surface, PDF text, the empty
 /// canvas hint, image drops, audio, then either the presentation controls
-/// or the chrome, stickers and search, and on top the split view's drop
+/// or the chrome and search, and on top the split view's drop
 /// highlight and the canvas context menu.
 ///
 /// A feature that shows something over the surface adds its layer here.
@@ -83,10 +82,7 @@ class EditorLayers extends StatelessWidget {
             guard: guard,
             chromeInsets: layout.covered,
             onFollowLink: onFollowLink,
-            selectionActions: () => [
-              linkSelectionAction(context, session),
-              session.stickers.saveAction(context),
-            ],
+            selectionActions: () => [linkSelectionAction(context, session)],
           ),
         ),
         if (session.pdf case final pdf?) Positioned.fill(child: PdfLayer(interaction: pdf)),
@@ -121,9 +117,6 @@ class EditorLayers extends StatelessWidget {
           )
         else ...[
           Positioned.fill(child: chrome),
-          Positioned.fill(
-            child: StickerLayer(stickers: session.stickers, insets: layout.floatingInsets),
-          ),
           Positioned.fill(
             child: EditorSearchLayer(
               controller: search,

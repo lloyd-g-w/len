@@ -171,8 +171,8 @@ its "uploaded" marks, so the next upload phase re-checks (`HEAD`) the blobs its 
 reference and uploads any the server lost.
 
 **Client** (local, never visible to the server): a locally stored blob is deleted from the device
-once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio parts and waveform), the user's
-templates and images inside stickers; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. The app
+once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio parts and waveform) and the user's
+templates; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. The app
 checks this at startup at most once a day. A blob collected locally is fetched again lazily if a
 record referencing it arrives later.
 
@@ -210,7 +210,6 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 | `tags`      | `{name, color, createdAt}` — a tag the user puts on notebooks and pages: `name` (non-empty; shown as is, matched ignoring case — clients avoid creating two tags of the same name but must cope with duplicates from concurrent edits), `color` an ARGB int. Deleting a tag tombstones it and its taggings. |
 | `taggings`  | `{tagId, targetId, kind}` — tag `tagId` is on `targetId`, a notebook (`kind` = `notebook`) or a page (`page`). The record id is **derived**: the name-based (v5) UUID of `len:tagging/<tagId>/<targetId>` in the URL namespace (`6ba7b811-9dad-11d1-80b4-00c04fd430c8`); a record whose id does not match its fields is malformed. So tagging the same notebook with the same tag on two devices yields one record, untagging is a tombstone that a later re-tag revives, and edits to different tags or targets never conflict. Taggings of a missing or deleted tag or target are ignored by readers. |
 | `outline`   | `{notebookId, pageId, parentId: string|null, title, createdAt}` — an entry of a notebook's own outline (table of contents) leading to page `pageId`. Entries nest by `parentId` (null = top level). There is no stored order: siblings are shown in the order of their pages in the notebook (then by `createdAt`), so reordering pages reorders the outline and concurrent additions never conflict. An entry whose parent is missing, or that is part of a parent cycle, is shown at the top level; one whose page was deleted is shown as such (deleting a page keeps its entries, so undoing the deletion restores them). Deleting an entry moves its children to its parent. |
-| `stickers`  | `{name, category, content, createdAt}` — a sticker of the user's library: reusable content saved from a lasso selection. `category` (non-empty) is a free-text section of the library. `content` = `{strokes: [stroke, …], elements: [element, …]}` laid out from the origin: `stroke` = `{tool, color, width, points, style}` as in `strokes` (paint order = list order), `element` = `{type, x, y, w, h, rotation, z, data}` as in `elements` (image data references blobs, which are uploaded and kept like those of pages). Content without strokes and elements, or with a malformed stroke or element, makes the record malformed. Built-in stickers ship with the app and are never synced. |
 
 **Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
 cache `pdf_text`) is derived on each device from the collections above and the PDF blobs, and is

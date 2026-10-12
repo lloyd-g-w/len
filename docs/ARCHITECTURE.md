@@ -1691,7 +1691,7 @@ malformed record is skipped. Open screens subscribe to
 - Android: historical stylus samples are merged from a platform channel;
   the low-latency overlay is tuned on a Galaxy Tab S8+ only (see *Input*;
   its hand-over delay assumes a Flutter pipeline like that tablet's).
-  Small floating panels over the canvas (audio player, stickers, search)
+  Small floating panels over the canvas (audio player, search)
   are not cut out of its clip. Stylus tilt/orientation are received but
   unused.
 - The sync token is stored in the app's SQLite database; move it to secure

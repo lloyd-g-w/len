@@ -34,7 +34,7 @@ class ContentLayer extends StatefulWidget {
 
   final ContentTools content;
 
-  /// Commands the editor adds to the selection menu (links, stickers).
+  /// Commands the editor adds to the selection menu (links).
   final List<SelectionExtraAction> Function()? selectionActions;
   final ViewportController viewport;
   final ToolSettings tools;

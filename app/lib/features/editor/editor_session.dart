@@ -26,7 +26,6 @@ import 'images/editor_images.dart';
 import 'links/editor_links.dart';
 import 'pdf/pdf_interaction.dart';
 import 'shared/shared_notebook.dart';
-import 'stickers/editor_stickers.dart';
 import 'tabs/open_notebooks.dart';
 
 /// The engine side of one open editor: tool settings, input routing, the
@@ -133,9 +132,6 @@ class EditorSession {
 
   /// Page and web links: finding, following and making them.
   late final EditorLinks links = EditorLinks(this);
-
-  /// The sticker panel, inserting stickers and saving new ones.
-  late final EditorStickers stickers = EditorStickers(this);
 
   // Infinite canvas: one surface (the shared notebook's).
   SurfaceModel? canvas;
@@ -253,7 +249,6 @@ class EditorSession {
     _disposed = true;
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     images.dispose();
-    stickers.dispose();
     content.dispose();
     gestures.dispose();
     canvasNav?.dispose();

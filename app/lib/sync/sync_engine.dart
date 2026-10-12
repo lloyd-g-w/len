@@ -10,7 +10,6 @@ import '../data/outline_repository.dart';
 import '../data/page_repository.dart';
 import '../data/recording_repository.dart';
 import '../data/settings_repository.dart';
-import '../data/sticker_repository.dart';
 import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
 import '../data/tag_repository.dart';
@@ -34,9 +33,6 @@ class RemoteChanges {
   /// Whether any tag, or which notebooks and pages carry them, changed.
   bool tags = false;
 
-  /// Whether the sticker library changed.
-  bool stickers = false;
-
   /// Notebooks whose page list changed.
   final Set<String> pagesOfNotebooks = {};
 
@@ -54,7 +50,6 @@ class RemoteChanges {
       !folders &&
       !templates &&
       !tags &&
-      !stickers &&
       pagesOfNotebooks.isEmpty &&
       strokeSurfaces.isEmpty &&
       recordingsOfNotebooks.isEmpty &&
@@ -83,7 +78,6 @@ class SyncEngine {
     required this.templates,
     required this.tags,
     required this.outline,
-    required this.stickers,
   });
 
   final AppDatabase database;
@@ -108,9 +102,6 @@ class SyncEngine {
 
   /// Notebooks' own outlines.
   final OutlineRepository outline;
-
-  /// The sticker library (images in stickers travel as blobs).
-  final StickerRepository stickers;
 
   /// Which blobs live rows reference.
   late final BlobReferences blobReferences = BlobReferences(database);
@@ -142,7 +133,6 @@ class SyncEngine {
     for (final s in <SyncableStore>[
       folders,
       templates,
-      stickers,
       tags,
       tags.taggings,
       notebooks,
@@ -290,8 +280,6 @@ class SyncEngine {
           changes.templates = true;
         case TagRepository() || TaggingRepository():
           changes.tags = true;
-        case StickerRepository():
-          changes.stickers = true;
         case NotebookRepository():
           changes.notebooks = true;
         case PageRepository():
