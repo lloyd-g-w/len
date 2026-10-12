@@ -126,7 +126,7 @@ class SettingsTile extends StatelessWidget {
             if (below != null) ...[
               const SizedBox(height: Gaps.md),
               Padding(
-                padding: EdgeInsets.only(left: icon == null ? 0 : 22 + Gaps.lg),
+                padding: EdgeInsets.only(left: icon == null ? 0 : Glyphs.menu + Gaps.lg),
                 child: below,
               ),
             ],
