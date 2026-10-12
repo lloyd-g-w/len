@@ -589,9 +589,9 @@ void main() {
         coverColor: 0,
       );
       final wave = 'b' * 64;
-      final r = a.s.recordings.create(
+      final r = a.s.recordings.save(
         notebookId: nb.id,
-        blob: _sha,
+        parts: [RecordingPart(_sha, 2000)],
         mime: 'audio/webm',
         title: 'Talk',
         segments: const [RecordingSegment(5000, 1200), RecordingSegment(9000, 800)],
@@ -604,7 +604,7 @@ void main() {
       expect(changes.recordingsOfNotebooks, {nb.id});
       final got = b.s.recordings.get(r.id)!;
       expect(
-        (got.notebookId, got.blob, got.mime, got.title, got.waveform, got.durationMs),
+        (got.notebookId, got.blobs.single, got.mime, got.title, got.waveform, got.durationMs),
         (nb.id, _sha, 'audio/webm', 'Talk', wave, 2000),
       );
       expect(got.startedAt, 5000);
@@ -629,7 +629,9 @@ void main() {
       // A malformed waveform id is skipped; one without a waveform is fine.
       Map<String, Object?> data(String waveform) => {
         'notebookId': nb.id,
-        'blob': _sha,
+        'audio': [
+          [_sha, 1000],
+        ],
         'durationMs': 1000,
         'startedAt': 1,
         'title': 'x',

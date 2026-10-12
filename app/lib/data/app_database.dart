@@ -128,7 +128,16 @@ class AppDatabase {
     _templates,
     _recordingWaveforms,
     _organise,
+    _recordingParts,
   ];
+
+  /// Version 5: a recording's audio is a list of parts (`audio`, JSON
+  /// `[[blob, durationMs], …]`) instead of one `blob`.
+  static void _recordingParts(CommonDatabase db) {
+    db.execute("ALTER TABLE recordings ADD COLUMN audio TEXT NOT NULL DEFAULT '[]'");
+    db.execute('UPDATE recordings SET audio = json_array(json_array(blob, duration_ms))');
+    db.execute('ALTER TABLE recordings DROP COLUMN blob');
+  }
 
   /// Version 4: tags and which notebooks and pages carry them; notebooks'
   /// own outlines; the sticker library.

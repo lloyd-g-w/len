@@ -3,20 +3,47 @@ import 'dart:typed_data';
 
 import 'package:cross_file/cross_file.dart';
 import 'package:len/data/blob_store.dart';
+import 'package:len/data/spool_storage.dart';
 import 'package:len/domain/recording.dart';
+import 'package:len/features/audio/adts.dart';
 import 'package:len/features/audio/backends/audio_backends.dart';
 
-/// Records "audio" without a microphone: [stop] returns [bytes].
+/// Raw AAC: [count] ADTS frames of silence at [sampleRate] (16 kHz: 64 ms
+/// per frame).
+Uint8List adtsFrames(int count, {int sampleRate = 16000, int payload = 9}) {
+  final index = AdtsReader.sampleRates.indexOf(sampleRate);
+  final length = 7 + payload;
+  final frame = [
+    0xFF, 0xF1, (1 << 6) | (index << 2), (1 << 6) | (length >> 11), (length >> 3) & 0xFF, //
+    ((length & 7) << 5) | 0x1F, 0xFC, ...List.filled(payload, 0),
+  ];
+  return Uint8List.fromList([for (var i = 0; i < count; i++) ...frame]);
+}
+
+/// Records "audio" without a microphone: [stop] returns [bytes] — or,
+/// with an [adts] format and a [spool], what the test [write]s into the
+/// spool file being captured (like the real recorder writing raw AAC).
 class FakeCapture implements AudioCapture {
-  FakeCapture(this.log, {this.allow = true, this.bytes});
+  FakeCapture(this.log, {this.allow = true, this.bytes, this.adts = false, this.spool});
 
   final List<String> log;
   final bool allow;
   final Uint8List? bytes;
+  final bool adts;
+  final MemorySpoolStorage? spool;
   final StreamController<double> _levels = StreamController.broadcast(sync: true);
   final List<CapturedAudio> discarded = [];
 
+  /// The files captured into, in order.
+  final List<String?> paths = [];
+
   void emitLevel(double level) => _levels.add(level);
+
+  /// Appends [data] to the file being captured (spool files only).
+  void write(Uint8List data) {
+    final name = paths.last!.substring('spool/'.length);
+    spool!.files[name] = Uint8List.fromList([...?spool!.files[name], ...data]);
+  }
 
   @override
   Stream<double> get levels => _levels.stream;
@@ -28,7 +55,15 @@ class FakeCapture implements AudioCapture {
   }
 
   @override
-  Future<void> start() async => log.add('start');
+  Future<CaptureFormat> format() async => adts
+      ? (mime: Recording.adtsMime, extension: 'aac', recoverable: true)
+      : (mime: 'audio/mp4', extension: 'm4a', recoverable: false);
+
+  @override
+  Future<void> start(String? path) async {
+    log.add('start');
+    paths.add(path);
+  }
 
   @override
   Future<void> pause() async => log.add('pause');
@@ -37,10 +72,33 @@ class FakeCapture implements AudioCapture {
   Future<void> resume() async => log.add('resume');
 
   @override
+  Future<CapturedAudio?> split(String? nextPath) async {
+    log.add('split');
+    final finished = _finish();
+    paths.add(nextPath);
+    return finished;
+  }
+
+  @override
   Future<CapturedAudio?> stop() async {
     log.add('stop');
+    return _finish();
+  }
+
+  CapturedAudio _finish() {
+    final path = paths.lastOrNull;
+    if (path != null && spool != null) {
+      final data = spool!.files[path.substring('spool/'.length)] ?? Uint8List(0);
+      final frames = AdtsReader.readAll(data);
+      return (
+        file: XFile.fromData(frames.frames, mimeType: Recording.adtsMime, path: path),
+        mime: Recording.adtsMime,
+        durationMs: frames.durationMs,
+      );
+    }
     final data = bytes ?? Uint8List.fromList(List.generate(64, (i) => i));
-    return (file: XFile.fromData(data, mimeType: 'audio/mp4'), mime: 'audio/mp4');
+    final mime = adts ? Recording.adtsMime : 'audio/mp4';
+    return (file: XFile.fromData(data, mimeType: mime), mime: mime, durationMs: null);
   }
 
   @override
@@ -134,7 +192,21 @@ class FakeKeepAlive implements RecordingKeepAlive {
 /// Fake backends sharing one [log]; [captures] / [players] are the
 /// instances handed out.
 class FakeAudio {
-  FakeAudio({this.allow = true, this.unavailable, this.background = false, this.canShow = true});
+  FakeAudio({
+    this.allow = true,
+    this.unavailable,
+    this.background = false,
+    this.canShow = true,
+    this.adts = false,
+    this.spool,
+  });
+
+  /// Whether captures record raw AAC (as natively) rather than MP4.
+  final bool adts;
+
+  /// Where captures of recoverable audio are written (null: nowhere, as
+  /// in browsers).
+  final MemorySpoolStorage? spool;
 
   final bool allow;
   final String? unavailable;
@@ -155,7 +227,7 @@ class FakeAudio {
 
   late final AudioBackends backends = AudioBackends(
     capture: () {
-      final capture = FakeCapture(log, allow: allow);
+      final capture = FakeCapture(log, allow: allow, adts: adts, spool: spool);
       captures.add(capture);
       return capture;
     },
@@ -172,5 +244,6 @@ class FakeAudio {
             return keepAlive;
           }
         : null,
+    spool: () async => spool,
   );
 }

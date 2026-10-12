@@ -36,14 +36,74 @@ class RecordingSegment {
   String toString() => 'RecordingSegment($startedAt, $durationMs)';
 }
 
+/// One file of a [Recording]'s audio: content-addressed blob [blob] holding
+/// [durationMs] of audio. Long recordings are captured in parts (see
+/// `RecordingController.partMs`) so finished parts can sync while
+/// recording continues; played one after the other they are the
+/// recording.
+@immutable
+class RecordingPart {
+  const RecordingPart(this.blob, this.durationMs);
+
+  /// SHA-256 of the part's audio bytes (see `BlobStore`).
+  final String blob;
+  final int durationMs;
+
+  /// `[blob, durationMs]`, as stored and synced.
+  List<Object> toJson() => [blob, durationMs];
+
+  /// Parses `[blob, durationMs]`; null when malformed (the blob id is
+  /// checked by the caller).
+  static RecordingPart? tryParse(Object? json) {
+    if (json is! List || json.length != 2) return null;
+    final blob = json[0], duration = json[1];
+    if (blob is! String || duration is! int || duration < 0) return null;
+    return RecordingPart(blob, duration);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is RecordingPart && other.blob == blob && other.durationMs == durationMs;
+
+  @override
+  int get hashCode => Object.hash(blob, durationMs);
+
+  @override
+  String toString() => 'RecordingPart($blob, $durationMs)';
+}
+
+/// Where audio position [positionMs] of a recording lies: part [index],
+/// [offsetMs] into it.
+typedef PartPosition = ({int index, int offsetMs});
+
+/// Maps positions of a recording to its [RecordingPart]s and back.
+extension RecordingPartsMap on List<RecordingPart> {
+  /// The position in the whole recording at which part [index] begins.
+  int startOf(int index) => take(index).fold(0, (sum, p) => sum + p.durationMs);
+
+  /// The part playing at [positionMs] (clamped to the recording; a
+  /// position on a boundary belongs to the later part).
+  PartPosition partAt(int positionMs) {
+    var start = 0;
+    for (var i = 0; i < length - 1; i++) {
+      if (positionMs < start + this[i].durationMs) {
+        return (index: i, offsetMs: (positionMs - start).clamp(0, this[i].durationMs));
+      }
+      start += this[i].durationMs;
+    }
+    return (index: length - 1, offsetMs: (positionMs - start).clamp(0, last.durationMs));
+  }
+}
+
 /// An audio recording made while taking notes in a notebook (synced
-/// collection `recordings`). The audio itself is a content-addressed blob.
+/// collection `recordings`). The audio itself is one or more
+/// content-addressed blobs ([parts]).
 @immutable
 class Recording {
   Recording({
     required this.id,
     required this.notebookId,
-    required this.blob,
+    required List<RecordingPart> parts,
     required this.durationMs,
     required this.startedAt,
     required this.title,
@@ -55,13 +115,16 @@ class Recording {
          segments == null || segments.isEmpty
              ? [RecordingSegment(startedAt, durationMs)]
              : segments,
-       );
+       ),
+       parts = List.unmodifiable(parts);
 
   final String id;
   final String notebookId;
 
-  /// SHA-256 of the audio bytes (see `BlobStore`).
-  final String blob;
+  /// The audio, in order (never empty).
+  final List<RecordingPart> parts;
+
+  /// Audio length (the sum of the [parts]).
   final int durationMs;
 
   /// Wall time (epoch ms) recording began.
@@ -79,13 +142,23 @@ class Recording {
   /// recording without pauses is one segment from [startedAt].
   final List<RecordingSegment> segments;
 
+  /// MIME type of raw AAC in ADTS frames: parts of this type joined byte
+  /// by byte are one playable stream.
+  static const String adtsMime = 'audio/aac';
+
+  /// Whether the parts can be joined into one file by concatenation.
+  bool get joinable => parts.length == 1 || mime == adtsMime;
+
+  /// The blobs of the audio, in order.
+  Iterable<String> get blobs => parts.map((p) => p.blob);
+
   /// Maps between audio positions and wall-clock times.
   RecordingTimeline get timeline => RecordingTimeline(segments);
 
   Recording copyWith({String? title, int? updatedAt}) => Recording(
     id: id,
     notebookId: notebookId,
-    blob: blob,
+    parts: parts,
     durationMs: durationMs,
     startedAt: startedAt,
     title: title ?? this.title,

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cross_file/cross_file.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../core/clock.dart';
@@ -9,6 +8,8 @@ import '../../data/recording_repository.dart';
 import '../../domain/recording.dart';
 import '../../domain/waveform.dart';
 import 'backends/audio_backends.dart';
+import 'recording_journal.dart';
+import 'recording_parts.dart';
 
 /// Where a [RecordingController] is.
 enum RecorderState {
@@ -27,9 +28,11 @@ enum RecorderState {
 }
 
 /// Records audio for one notebook: start / pause / resume / stop, the
-/// elapsed time and the input level, and on stop stores the audio as a
-/// blob plus a `recordings` row whose segments map audio time to wall time
-/// (see [RecordingTimeline]).
+/// elapsed time and the input level. The audio is stored in parts of
+/// [partMs] (see [RecordingParts]): each finished part becomes a blob and
+/// the `recordings` row — whose segments map audio time to wall time (see
+/// [RecordingTimeline]) — is saved with the parts so far, so they sync
+/// while recording continues; stop stores the last part.
 class RecordingController extends ChangeNotifier {
   RecordingController({
     required this.notebookId,
@@ -40,6 +43,7 @@ class RecordingController extends ChangeNotifier {
     this.onSaved,
     this.describe,
     this.busy,
+    this.partMs = defaultPartMs,
   }) : clock = clock ?? repository.clock;
 
   final String notebookId;
@@ -61,6 +65,29 @@ class RecordingController extends ChangeNotifier {
 
   /// Recordings shorter than this are discarded (an accidental tap).
   static const int minimumMs = 500;
+
+  /// How much audio goes into one part.
+  static const int defaultPartMs = 5 * 60 * 1000;
+
+  /// Audio per part: once the current capture file holds this much, the
+  /// capture moves on to a new file and the finished one is stored.
+  final int partMs;
+
+  /// Ids of recordings being made in this app (not interrupted ones).
+  static final Set<String> active = {};
+
+  RecordingParts? _parts;
+
+  /// The id of the recording being made (its row exists once a part is
+  /// stored), or null — also once it is being saved.
+  String? get recordingId => _state == RecorderState.saving ? null : _parts?.journal.recordingId;
+
+  /// Audio position at which the current capture file began.
+  int _fileStartMs = 0;
+
+  /// Stores parts one after the other.
+  Future<void> _work = Future.value();
+  bool _splitting = false;
 
   RecorderState _state = RecorderState.idle;
   RecorderState get state => _state;
@@ -116,8 +143,25 @@ class RecordingController extends ChangeNotifier {
         throw const AudioUnavailable('Microphone access was not allowed.');
       }
       await _keepAliveOrNull()?.prepare();
+      final format = await capture.format();
+      final spool = format.recoverable ? await backends.spool?.call() : null;
       if (_disposed) throw const _ShutDown();
-      await capture.start();
+      final now = clock.nowMs();
+      final parts = _parts = RecordingParts(
+        RecordingJournal(
+          recordingId: clock.newId(),
+          notebookId: notebookId,
+          title: defaultTitle(now),
+          mime: format.mime,
+          openSince: now,
+        ),
+        blobs: blobs,
+        repository: repository,
+        spool: spool,
+        extension: format.extension,
+      );
+      active.add(parts.journal.recordingId);
+      await capture.start(await parts.nextFile());
       if (_disposed) {
         // Shut down while starting (the editor closed during the
         // permission prompt): don't leave the microphone running.
@@ -128,19 +172,22 @@ class RecordingController extends ChangeNotifier {
       if (e is! _ShutDown) {
         lastError = e is AudioUnavailable ? e.message : 'Could not start recording ($e).';
       }
+      await _closeParts();
       _set(RecorderState.idle);
       return false;
     }
     _segments.clear();
     _waveform.clear();
+    _fileStartMs = 0;
     _segmentStart = clock.nowMs();
+    await _journalTimeline();
     _levels = capture.levels.listen((l) {
       if (_state != RecorderState.recording) return;
       _level = l;
       _waveform.add(elapsedMs, l);
       notifyListeners();
     });
-    _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) => notifyListeners());
+    _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) => _tick());
     _set(RecorderState.recording);
     await _showKeepAlive();
     return true;
@@ -188,6 +235,7 @@ class RecordingController extends ChangeNotifier {
     _closeSegment();
     _level = 0;
     _set(RecorderState.paused);
+    unawaited(_journalTimeline());
     try {
       await _capture?.pause();
     } on Object catch (e) {
@@ -210,6 +258,7 @@ class RecordingController extends ChangeNotifier {
     if (_state != RecorderState.paused) return; // Stopped meanwhile.
     _segmentStart = clock.nowMs();
     _set(RecorderState.recording);
+    unawaited(_journalTimeline());
     await _showKeepAlive();
   }
 
@@ -225,40 +274,83 @@ class RecordingController extends ChangeNotifier {
     _set(RecorderState.saving);
     final segments = List.of(_segments);
     _segments.clear();
+    final parts = _parts;
+    var failed = false;
     try {
+      await _work;
       final audio = await _capture?.stop();
-      if (audio == null) return null;
-      final duration = segments.fold(0, (sum, s) => sum + s.durationMs);
-      if (duration < minimumMs) {
-        await _capture?.discard(audio);
+      if (parts == null) return null;
+      final measured = segments.fold(0, (sum, s) => sum + s.durationMs) - _fileStartMs;
+      if (!parts.saved && (audio?.durationMs ?? measured) < minimumMs) {
+        if (audio != null) await _capture?.discard(audio);
         return null;
       }
-      // Streamed into the blob store (no full copy in memory natively).
-      final sha = await blobs.putFile(audio.file, mime: audio.mime);
-      await _capture?.discard(audio);
-      // Small (≈ 36 KB per hour): hashed in place, no isolate.
-      final waveform = await blobs.putFile(
-        XFile.fromData(_waveform.build(duration).encode(), mimeType: Waveform.mime),
-        mime: Waveform.mime,
-      );
-      final recording = repository.create(
-        notebookId: notebookId,
-        blob: sha,
-        mime: audio.mime,
-        title: defaultTitle(segments.first.startedAt),
-        segments: segments,
-        waveform: waveform,
-      );
-      onSaved?.call(recording);
+      await parts.timeline(segments, null);
+      await parts.store(audio, measured, waveform: _waveform.build, capture: _capture!);
+      if (!parts.saved) return null;
+      final recording = repository.get(parts.journal.recordingId);
+      if (recording != null) onSaved?.call(recording);
       return recording;
     } on Object catch (e) {
       lastError = 'The recording could not be saved ($e).';
+      failed = true;
       return null;
     } finally {
+      // A recording that failed to save stays in the spool, to recover.
+      await _closeParts(keepFiles: failed);
       // Saved (or failed): the app may be suspended again from here on.
       _background = false;
       await _keepAlive?.hide();
       _set(RecorderState.idle);
+    }
+  }
+
+  /// Forgets the recording's spool files (stored, or not worth keeping).
+  Future<void> _closeParts({bool keepFiles = false}) async {
+    final parts = _parts;
+    _parts = null;
+    if (parts == null) return;
+    active.remove(parts.journal.recordingId);
+    if (keepFiles) return;
+    try {
+      await parts.close();
+    } on Object {
+      // Left for the next start's recovery check to clean up.
+    }
+  }
+
+  void _tick() {
+    if (_state == RecorderState.recording && !_splitting && elapsedMs - _fileStartMs >= partMs) {
+      _work = _split();
+    }
+    notifyListeners();
+  }
+
+  /// Moves the capture on to a new file and stores the finished one.
+  Future<void> _split() async {
+    final parts = _parts, capture = _capture;
+    if (parts == null || capture == null) return;
+    _splitting = true;
+    try {
+      final at = elapsedMs;
+      final audio = await capture.split(await parts.nextFile());
+      final measured = at - _fileStartMs;
+      _fileStartMs = at;
+      await parts.store(audio, measured, waveform: _waveform.build, capture: capture);
+    } on Object catch (e) {
+      // The audio stays in its file; stop stores what it can.
+      lastError = 'Part of the recording could not be stored ($e).';
+    } finally {
+      _splitting = false;
+    }
+  }
+
+  /// Journals the capture's stretches (for recovery).
+  Future<void> _journalTimeline() async {
+    try {
+      await _parts?.timeline(List.of(_segments), _segmentStart);
+    } on Object {
+      // Recovery only: never stop a recording over it.
     }
   }
 

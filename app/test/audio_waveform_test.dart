@@ -118,7 +118,7 @@ void main() {
     expect(saved.waveform, hasLength(64));
     final waveform = Waveform.decode((await s.blobs.read(saved.waveform))!)!;
     expect(waveform.levels, [128, 128, 255, 255, 255, 255]);
-    expect(BlobReferences(s.database).all(), containsAll([saved.blob, saved.waveform]));
+    expect(BlobReferences(s.database).all(), containsAll([...saved.blobs, saved.waveform]));
     final record = s.recordings.rowToRecord(
       s.database.db.select('SELECT * FROM recordings WHERE id = ?', [saved.id]).first,
     );
@@ -137,7 +137,7 @@ void main() {
     Recording r(String title, String mime) => Recording(
       id: title,
       notebookId: 'n',
-      blob: 'ab' * 32,
+      parts: [RecordingPart('ab' * 32, 1)],
       durationMs: 1,
       startedAt: 0,
       title: title,

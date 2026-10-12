@@ -118,9 +118,9 @@ List<Stroke> _notes(AppServices s, String surface, {Offset origin = const Offset
 }
 
 Recording _recording(AppServices s, String notebookId, {String title = 'Lecture'}) =>
-    s.recordings.create(
+    s.recordings.save(
       notebookId: notebookId,
-      blob: 'cd' * 32,
+      parts: [RecordingPart('cd' * 32, 30000)],
       mime: 'audio/mp4',
       title: title,
       segments: const [RecordingSegment(_t0, 30000)],

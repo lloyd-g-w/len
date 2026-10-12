@@ -84,7 +84,13 @@ class NotebookAudio extends ChangeNotifier {
 
   void reload() {
     if (_disposed) return;
-    _recordings = services.recordings.listOf(notebookId);
+    // The recording being made is saved part by part; it is listed once
+    // it is finished.
+    final recording = recorder.recordingId;
+    _recordings = [
+      for (final r in services.recordings.listOf(notebookId))
+        if (r.id != recording) r,
+    ];
     final open = playback.recording;
     if (open != null && !_recordings.any((r) => r.id == open.id)) playback.close();
     notifyListeners();
@@ -124,7 +130,15 @@ class NotebookAudio extends ChangeNotifier {
   );
 
   /// Size of [recording]'s audio on this device (null while not here).
-  int? sizeOf(Recording recording) => services.blobs.sizeOf(recording.blob);
+  int? sizeOf(Recording recording) {
+    var total = 0;
+    for (final sha in recording.blobs) {
+      final size = services.blobs.sizeOf(sha);
+      if (size == null) return null;
+      total += size;
+    }
+    return total;
+  }
 
   /// Opens [recording] in the player and plays it.
   Future<bool> play(Recording recording) => playback.open(recording);

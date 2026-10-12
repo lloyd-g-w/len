@@ -120,9 +120,9 @@ Future<void> _lecture(AppServices s, Notebook nb) async {
     XFile.fromData(Waveform(levels).encode()),
     mime: Waveform.mime,
   );
-  s.recordings.create(
+  s.recordings.save(
     notebookId: nb.id,
-    blob: 'cd' * 32,
+    parts: [RecordingPart('cd' * 32, 30000)],
     mime: 'audio/mp4',
     title: 'Mitosis',
     segments: const [RecordingSegment(_t0, 30000)],
@@ -236,9 +236,9 @@ void main() {
             XFile.fromData(Uint8List(1536 * (i + 1))),
             mime: 'audio/mp4',
           );
-          s.recordings.create(
+          s.recordings.save(
             notebookId: nb.id,
-            blob: blob,
+            parts: [RecordingPart(blob, 125000 * (i + 1))],
             mime: 'audio/mp4',
             title: title,
             // Local times in a past year: the same labels in every time zone.
