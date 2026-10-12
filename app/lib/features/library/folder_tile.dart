@@ -10,8 +10,11 @@ import 'library_drag.dart';
 import 'library_draggable.dart';
 import 'library_menus.dart';
 
-/// A folder in the library content area. Opens on tap, accepts dropped
-/// notebooks and folders, and can itself be dragged into another folder.
+/// A folder in the library's folder row: a compact tile with the folder
+/// glyph in its colour, the name and a count. Opens on tap, accepts
+/// dropped notebooks and folders, can itself be dragged into another
+/// folder, and offers its menu on right-click, long-press or the ⋯ (shown
+/// on hover; always on touch).
 class FolderTile extends StatefulWidget {
   const FolderTile({
     super.key,
@@ -24,17 +27,25 @@ class FolderTile extends StatefulWidget {
   final String subtitle;
   final LibraryActions actions;
 
+  /// About how wide tiles are; the row stretches them to fill it.
+  static const double width = 200;
+
   @override
   State<FolderTile> createState() => _FolderTileState();
 }
 
 class _FolderTileState extends State<FolderTile> {
   bool _hovered = false;
+  bool _menuOpen = false;
 
   Folder get _folder => widget.folder;
 
   Future<void> _showMenu({Offset? at, BuildContext? anchor}) async {
-    final action = await showContextMenuAt(anchor ?? context, items: folderMenuItems, at: at);
+    setState(() => _menuOpen = true);
+    final action = anchor != null
+        ? await showMenuBelow(anchor, items: folderMenuItems)
+        : await showContextMenuAt(context, items: folderMenuItems, at: at);
+    if (mounted) setState(() => _menuOpen = false);
     if (action != null && mounted) await widget.actions.onFolderAction(context, _folder, action);
   }
 
@@ -46,87 +57,55 @@ class _FolderTileState extends State<FolderTile> {
       onAccept: (item) => actions.drop(context, item, _folder.id),
       builder: (context, active) => LibraryDraggable(
         item: LibraryDragItem.folder(_folder.id),
-        feedback: DragFeedback(width: 220, child: _body(context, active: false, feedback: true)),
+        feedback: DragFeedback(width: 200, child: _tile(context, active: false, feedback: true)),
         onLongPressMenu: () => unawaited(_showMenu()),
-        child: _body(context, active: active),
+        child: _tile(context, active: active),
       ),
     );
   }
 
-  Widget _body(BuildContext context, {required bool active, bool feedback = false}) =>
-      LayoutBuilder(
-        // Narrow tiles (phones) drop the menu button; long-press still works.
-        builder: (context, constraints) =>
-            _tile(context, active: active, feedback: feedback, narrow: constraints.maxWidth < 200),
-      );
-
-  Widget _tile(
-    BuildContext context, {
-    required bool active,
-    required bool feedback,
-    required bool narrow,
-  }) {
+  Widget _tile(BuildContext context, {required bool active, bool feedback = false}) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final color = Color(_folder.color);
-    final highlighted = active || _hovered;
+    final dark = theme.brightness == Brightness.dark;
+    final radius = BorderRadius.circular(Radii.sm);
+    final showMore = !feedback && (Targets.touchFirst || _hovered || _menuOpen);
     return AnimatedScale(
-      scale: active ? 1.04 : 1,
+      scale: active ? 1.03 : 1,
       duration: Motion.fast,
       child: AnimatedContainer(
-        duration: Motion.medium,
-        curve: Motion.standard,
+        duration: Motion.fast,
+        height: 56,
         decoration: BoxDecoration(
           color: active
               ? scheme.primary.withValues(alpha: 0.12)
-              : highlighted
+              : feedback
+              ? Surfaces.raised(theme.brightness)
+              : _hovered
               ? scheme.surfaceContainer
               : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(Radii.sm),
-          border: Border.all(
-            // No outlines in light mode (REDESIGN §1.1).
-            color: active
-                ? scheme.primary
-                : theme.brightness == Brightness.dark
-                ? scheme.outlineVariant
-                : Colors.transparent,
-            width: active ? 1.6 : 1,
-          ),
-          boxShadow: feedback || highlighted ? Shadows.low(theme.brightness) : null,
+          borderRadius: radius,
+          // No outlines in light mode (REDESIGN §1.1).
+          border: active
+              ? Border.all(color: scheme.primary, width: 1.5)
+              : dark
+              ? Border.all(color: scheme.outlineVariant)
+              : null,
+          boxShadow: feedback ? Shadows.high(theme.brightness) : null,
         ),
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            borderRadius: BorderRadius.circular(Radii.sm),
+            borderRadius: radius,
             onTap: () => widget.actions.controller.openFolder(_folder.id),
             onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
             onHover: (h) => setState(() => _hovered = h),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                narrow ? Gaps.sm : Gaps.md,
-                Gaps.sm,
-                narrow ? 0 : Gaps.xs,
-                Gaps.sm,
-              ),
+              padding: const EdgeInsets.only(left: Gaps.sm + Gaps.xxs, right: Gaps.xxs),
               child: Row(
                 children: [
-                  Container(
-                    width: narrow ? 34 : 40,
-                    height: narrow ? 34 : 40,
-                    decoration: BoxDecoration(
-                      color: color.withValues(
-                        alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14,
-                      ),
-                      borderRadius: BorderRadius.circular(Radii.sm),
-                    ),
-                    child: Icon(
-                      Symbols.folder_rounded,
-                      fill: 1,
-                      color: color,
-                      size: narrow ? 20 : 22,
-                    ),
-                  ),
-                  SizedBox(width: narrow ? Gaps.sm : Gaps.md),
+                  Icon(Symbols.folder_rounded, fill: 1, color: Color(_folder.color), size: 36),
+                  const SizedBox(width: Gaps.sm + Gaps.xxs),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -142,20 +121,20 @@ class _FolderTileState extends State<FolderTile> {
                       ],
                     ),
                   ),
-                  // Narrow (phone) tiles: a slimmer button, still a 48 dp target
-                  // in height.
                   if (!feedback)
-                    Builder(
-                      builder: (anchor) => IconButton(
-                        tooltip: 'Folder options',
-                        iconSize: Glyphs.menu,
-                        constraints: narrow
-                            ? const BoxConstraints(minWidth: 32, minHeight: 48)
-                            : null,
-                        padding: narrow ? EdgeInsets.zero : null,
-                        color: scheme.onSurfaceVariant,
-                        icon: const Icon(Symbols.more_horiz_rounded),
-                        onPressed: () => unawaited(_showMenu(anchor: anchor)),
+                    AnimatedOpacity(
+                      opacity: showMore ? 1 : 0,
+                      duration: Motion.fast,
+                      child: Builder(
+                        builder: (anchor) => IconButton(
+                          tooltip: 'Folder options',
+                          iconSize: Glyphs.bar,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 48),
+                          padding: EdgeInsets.zero,
+                          color: scheme.onSurfaceVariant,
+                          icon: const Icon(Symbols.more_horiz_rounded),
+                          onPressed: () => unawaited(_showMenu(anchor: anchor)),
+                        ),
                       ),
                     ),
                 ],

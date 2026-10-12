@@ -36,14 +36,27 @@ class _NotebookListTileState extends State<NotebookListTile> {
   Notebook get _notebook => widget.notebook;
 
   Future<void> _showMenu({Offset? at, BuildContext? anchor}) async {
-    final action = await showContextMenuAt(
-      anchor ?? context,
-      items: notebookMenuItems(_notebook),
-      at: at,
-    );
+    final items = notebookMenuItems(_notebook);
+    final action = anchor != null
+        ? await showMenuBelow(anchor, items: items)
+        : await showContextMenuAt(context, items: items, at: at);
     if (action != null && mounted) {
       await widget.actions.onNotebookAction(context, _notebook, action);
     }
+  }
+
+  /// Opens the notebook; toggles it in selection mode; Ctrl / Shift-click
+  /// selects.
+  void _tap() {
+    final actions = widget.actions;
+    if (actions.selectWithModifiers(_notebook.id)) return;
+    if (actions.selection.active) {
+      actions.selection.toggle(_notebook.id);
+      return;
+    }
+    unawaited(
+      actions.openNotebook(context, _notebook, from: actions.covers.originOf(context, _notebook)),
+    );
   }
 
   @override
@@ -53,22 +66,14 @@ class _NotebookListTileState extends State<NotebookListTile> {
     final row = AnimatedContainer(
       duration: Motion.fast,
       decoration: BoxDecoration(
-        color: _hovered ? scheme.surfaceContainerLow : Colors.transparent,
+        color: _hovered ? Surfaces.hovered(scheme) : Colors.transparent,
         borderRadius: BorderRadius.circular(Radii.sm),
       ),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
           borderRadius: BorderRadius.circular(Radii.sm),
-          onTap: widget.actions.selection.active
-              ? () => widget.actions.selection.toggle(_notebook.id)
-              : () => unawaited(
-                  widget.actions.openNotebook(
-                    context,
-                    _notebook,
-                    from: widget.actions.covers.originOf(context, _notebook),
-                  ),
-                ),
+          onTap: _tap,
           onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
           onHover: (h) => setState(() => _hovered = h),
           onFocusChange: (f) => widget.actions.controller.setNotebookFocused(_notebook.id, f),

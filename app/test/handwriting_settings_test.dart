@@ -40,7 +40,8 @@ void main() {
     final recognition = services.recognition;
     // Indexing is on by default, so the model came over "Wi-Fi" at start.
     expect(recognizer.downloads, 1);
-    expect(find.textContaining('is on this device'), findsOneWidget);
+    // Once on the device, the model needs no row of its own.
+    expect(find.text('Language model'), findsNothing);
 
     await tester.tap(find.text('Language'));
     await tester.pumpAndSettle();
@@ -60,6 +61,7 @@ void main() {
     await tester.runAsync(recognition.refreshModel);
     await tester.pumpAndSettle();
     expect(recognition.modelStatus, ModelStatus.missing);
+    expect(find.text('Language model'), findsOneWidget);
     await tester.tap(find.text('Download'));
     await tester.pumpAndSettle();
     expect(recognition.modelStatus, ModelStatus.downloaded);

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/folder.dart';
-import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/dialog_or_sheet.dart';
+import '../../../ui/sheet_parts.dart';
 import '../library_controller.dart';
 
 /// The destination chosen in [showMoveDialog]; `folderId` null = root.
@@ -39,27 +40,41 @@ Future<MoveTarget?> showMoveDialog(
   }
 
   addChildren(null, 1);
-  return showDialog<MoveTarget>(
+  return showDialogOrSheet<MoveTarget>(
     context: context,
-    builder: (context) => AppDialog(
-      title: title,
-      contentPadding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.lg, Gaps.md, 0),
-      content: SizedBox(
-        width: 420,
-        height: (rows.length * 52.0).clamp(120.0, 380.0),
-        child: ListView(
-          children: [
-            for (final row in rows)
-              _FolderRow(
-                folder: row.folder,
-                depth: row.depth,
-                current: row.folder?.id == currentFolderId,
-                onTap: () => Navigator.pop<MoveTarget>(context, (folderId: row.folder?.id)),
-              ),
-          ],
+    maxWidth: 480,
+    maxHeight: 560,
+    minHeight: 420,
+    builder: (context, wide) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(Gaps.xl, wide ? Gaps.lg : 0, Gaps.md, Gaps.sm),
+          child: SheetHeader(title: title, onClose: () => Navigator.pop(context)),
         ),
-      ),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))],
+        // Choosing a folder moves there at once: no footer.
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            padding: EdgeInsets.fromLTRB(
+              Gaps.sm,
+              0,
+              Gaps.sm,
+              Gaps.md + (wide ? 0 : MediaQuery.paddingOf(context).bottom),
+            ),
+            children: [
+              for (final row in rows)
+                _FolderRow(
+                  folder: row.folder,
+                  depth: row.depth,
+                  current: row.folder?.id == currentFolderId,
+                  onTap: () => Navigator.pop<MoveTarget>(context, (folderId: row.folder?.id)),
+                ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -84,23 +99,16 @@ class _FolderRow extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final folder = this.folder;
-    final color = folder == null ? scheme.primary : Color(folder.color);
+
     return ListTile(
       minTileHeight: 52,
       contentPadding: EdgeInsets.only(left: Gaps.md + depth * 24.0, right: Gaps.md),
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14),
-          borderRadius: BorderRadius.circular(Radii.sm),
-        ),
-        child: Icon(
-          folder == null ? Symbols.auto_stories_rounded : Symbols.folder_rounded,
-          fill: folder == null ? 0 : 1,
-          color: color,
-          size: 20,
-        ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
+      leading: Icon(
+        folder == null ? Symbols.auto_stories_rounded : Symbols.folder_rounded,
+        fill: folder == null ? 0 : 1,
+        color: folder == null ? scheme.onSurfaceVariant : Color(folder.color),
+        size: 28,
       ),
       title: Text(folder?.name ?? 'Library', maxLines: 1, overflow: TextOverflow.ellipsis),
       enabled: !current,

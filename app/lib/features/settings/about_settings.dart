@@ -16,48 +16,19 @@ class AboutSettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     return SettingsSection(
       title: 'About',
-      icon: Symbols.info_rounded,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(Gaps.lg + 2),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(Radii.sm),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color.lerp(AppTheme.seed, Colors.white, 0.15)!, AppTheme.seed],
-                  ),
-                ),
-                child: Icon(Symbols.gesture_rounded, color: Colors.white, size: 28),
-              ),
-              const SizedBox(width: Gaps.lg),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const _VersionText(),
-                    Text(
-                      'Handwriting-first notes with an infinite canvas and self-hosted sync.',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        const _VersionTile(),
         SettingsTile(
+          icon: Symbols.license_rounded,
           title: 'Open-source licences',
-          trailing: Icon(Symbols.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          trailing: Icon(
+            Symbols.chevron_right_rounded,
+            size: Glyphs.bar,
+            color: scheme.onSurfaceVariant,
+          ),
           onTap: () => showLicensePage(
             context: context,
             applicationName: 'Len',
@@ -69,21 +40,22 @@ class AboutSettings extends StatelessWidget {
   }
 }
 
-/// "Len `version`"; tapping it seven times opens the hidden Ink Lab.
-class _VersionText extends StatefulWidget {
-  const _VersionText();
+/// "Len `version`"; tapping it seven times opens the hidden Ink Lab (kept
+/// in release builds: the user records real stylus input with it).
+class _VersionTile extends StatefulWidget {
+  const _VersionTile();
 
   static const int taps = 7;
 
   @override
-  State<_VersionText> createState() => _VersionTextState();
+  State<_VersionTile> createState() => _VersionTileState();
 }
 
-class _VersionTextState extends State<_VersionText> {
+class _VersionTileState extends State<_VersionTile> {
   int _taps = 0;
 
   void _onTap() {
-    if (++_taps < _VersionText.taps) return;
+    if (++_taps < _VersionTile.taps) return;
     _taps = 0;
     showMessage(context, 'Ink Lab', duration: const Duration(seconds: 1));
     final prefs = context.getInheritedWidgetOfExactType<AppScope>()?.services.preferences;
@@ -93,8 +65,10 @@ class _VersionTextState extends State<_VersionText> {
   }
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => SettingsTile(
+    icon: Symbols.info_rounded,
+    title: 'Len ${AboutSettings.version}',
+    subtitle: 'Handwriting-first notes with an infinite canvas and self-hosted sync',
     onTap: _onTap,
-    child: Text('Len ${AboutSettings.version}', style: Theme.of(context).textTheme.titleMedium),
   );
 }

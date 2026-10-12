@@ -238,6 +238,9 @@ void main() {
       size: const Size(390, 844),
       themeMode: ThemeMode.dark,
     );
+    // Phones: 🔍 opens the field over the title.
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, 'Search'), 'cell');
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();

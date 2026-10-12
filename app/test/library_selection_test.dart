@@ -1,4 +1,6 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/domain/preferences.dart';
 
 import 'library_ui_test.dart' show addNotebook, pumpSeeded;
 
@@ -15,10 +17,10 @@ void main() {
 
     await tester.tap(find.byTooltip('View'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Select notebooks').last);
+    await tester.tap(find.text('Select…').last);
     await tester.pumpAndSettle();
     expect(find.text('Select notebooks'), findsOneWidget);
-    expect(find.text('New'), findsNothing); // No FAB while selecting.
+    expect(find.byTooltip('New notebook'), findsNothing); // No FAB while selecting.
 
     await tester.tap(find.text('Algebra'));
     await tester.tap(find.text('Biology'));
@@ -41,7 +43,7 @@ void main() {
 
     await tester.tap(find.byTooltip('View'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Select notebooks').last);
+    await tester.tap(find.text('Select…').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Select all'));
     await tester.pumpAndSettle();
@@ -53,5 +55,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(s.notebooks.get(id('Chemistry'))!.isTrashed, isFalse);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('desktop: Ctrl-click, Shift-click and Ctrl+A select', (tester) async {
+    await pumpSeeded(tester, (s) {
+      for (final t in ['Algebra', 'Biology', 'Chemistry', 'Drawing']) {
+        addNotebook(s, t);
+      }
+      s.preferences.librarySort = LibrarySort.name;
+    });
+    Future<void> click(String title, LogicalKeyboardKey key) async {
+      await tester.sendKeyDownEvent(key);
+      await tester.tap(find.text(title));
+      await tester.sendKeyUpEvent(key);
+      await tester.pumpAndSettle();
+    }
+
+    await click('Algebra', LogicalKeyboardKey.controlLeft);
+    expect(find.text('1 selected'), findsOneWidget);
+    await click('Chemistry', LogicalKeyboardKey.shiftLeft);
+    expect(find.text('3 selected'), findsOneWidget);
+    await click('Biology', LogicalKeyboardKey.controlLeft);
+    expect(find.text('2 selected'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('2 selected'), findsNothing);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(find.text('4 selected'), findsOneWidget);
   });
 }

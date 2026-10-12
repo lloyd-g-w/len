@@ -17,7 +17,7 @@ void main() {
   const phone = ('phone', Size(390, 844), 2.0);
   const tablet = ('tablet', Size(1280, 800), 1.0);
   const desktop = ('desktop', Size(1440, 900), 1.0);
-  const sections = ['Appearance', 'Writing', 'Handwriting', 'Sync', 'About'];
+  const sections = ['General', 'Writing', 'Handwriting', 'Sync', 'About'];
   const modes = [ThemeMode.light, ThemeMode.dark];
 
   /// Settings services; with [handwriting], recognition is supported and
@@ -91,7 +91,7 @@ void main() {
         setWindow(tester, size, dpr: dpr);
         await pumpApp(tester, services(handwriting: true), const SettingsScreen(), mode: mode);
         await scrollTo(tester, 'Handwriting');
-        expect(find.text('Language model'), findsOneWidget);
+        expect(find.text('Search handwriting'), findsOneWidget);
         await shoot(tester, 's_settings_handwriting_on_${name}_${mode.name}');
 
         await tester.tap(find.text('Language'));

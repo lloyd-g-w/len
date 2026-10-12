@@ -9,6 +9,7 @@ import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/tabs/editor_workspace.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/ink/render/paper_painter.dart';
+import 'package:len/ui/app_theme.dart';
 
 import 'screenshot_harness.dart';
 
@@ -206,7 +207,7 @@ void main() {
       await settle(tester);
       await shoot(tester, 'templates_picker_${name}_search');
       // Dialogs on wide screens, sheets (with a drag handle) on phones.
-      expect(find.byType(Dialog), size.width >= 720 ? findsOneWidget : findsNothing);
+      expect(find.byType(Dialog), size.width >= Breakpoints.medium ? findsOneWidget : findsNothing);
     });
   }
 

@@ -4,23 +4,26 @@ import '../../app_services.dart';
 import '../../platform/browser_storage.dart';
 import '../../ui/app_theme.dart';
 import 'about_settings.dart';
-import 'appearance_settings.dart';
+import 'general_settings.dart';
 import 'handwriting_settings.dart';
 import 'storage_settings.dart';
 import 'sync_settings.dart';
 import 'writing_settings.dart';
 
-/// Settings: appearance, writing, handwriting, sync, storage
-/// (web only) and about, as grouped cards in one readable, centred column.
+/// Settings (REDESIGN §4): General, Writing, Handwriting, Sync, Storage
+/// (web only) and About, in one centred column at most [maxWidth] wide.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  /// The column's widest.
+  static const double maxWidth = 640;
 
   /// The sections, in order.
   List<Widget> _sections(BuildContext context) {
     final services = AppScope.of(context);
     final preferences = services.preferences;
     return [
-      AppearanceSettings(preferences: preferences),
+      GeneralSettings(preferences: preferences),
       WritingSettings(preferences: preferences),
       HandwritingSettings(recognition: services.recognition),
       const SyncSettings(),
@@ -49,7 +52,7 @@ class SettingsScreen extends StatelessWidget {
     final content = Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680),
+        constraints: const BoxConstraints(maxWidth: maxWidth),
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: compact ? Gaps.lg : Gaps.xl),
           child: Column(

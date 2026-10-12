@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../ui/app_theme.dart';
+import '../../ui/section_label.dart';
 
-/// A titled group of settings rendered as one rounded card.
+/// A titled group of settings (REDESIGN §4): a quiet heading, the rows on
+/// one rounded plate separated by hairlines, then an optional description.
 class SettingsSection extends StatelessWidget {
-  const SettingsSection({
-    super.key,
-    required this.title,
-    required this.icon,
-    required this.children,
-    this.description,
-  });
+  const SettingsSection({super.key, required this.title, required this.children, this.description});
 
   final String title;
-  final IconData icon;
   final String? description;
   final List<Widget> children;
 
@@ -21,68 +16,77 @@ class SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.only(bottom: Gaps.xxl),
+      padding: const EdgeInsets.only(bottom: Gaps.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: Gaps.xs, bottom: Gaps.md),
-            child: Row(
-              children: [
-                Icon(icon, size: Glyphs.bar, color: scheme.primary),
-                const SizedBox(width: Gaps.sm),
-                Text(title, style: theme.textTheme.titleMedium),
-              ],
-            ),
+            padding: const EdgeInsets.fromLTRB(Gaps.lg, 0, Gaps.lg, Gaps.sm),
+            child: SectionLabel(title),
           ),
-          if (description != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Gaps.xs, 0, Gaps.xs, Gaps.md),
-              child: Text(
-                description!,
-                style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-            ),
           DecoratedBox(
             decoration: BoxDecoration(
-              color: theme.brightness == Brightness.dark
-                  ? scheme.surfaceContainerLow
-                  : scheme.surfaceContainerLowest,
+              color: dark ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(Radii.md),
-              border: Border.all(color: scheme.outlineVariant),
+              // No outlines in light mode (REDESIGN §1.1): a soft raise instead.
+              border: dark ? Border.all(color: scheme.outlineVariant) : null,
+              boxShadow: dark ? null : Shadows.low(theme.brightness),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(Radii.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < children.length; i++) ...[
-                    if (i > 0) const Divider(indent: Gaps.lg, endIndent: Gaps.lg),
-                    children[i],
+              child: Material(
+                type: MaterialType.transparency,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < children.length; i++) ...[
+                      if (i > 0)
+                        Divider(
+                          height: 1,
+                          indent: SettingsTile.textInset,
+                          color: scheme.outlineVariant.withValues(alpha: 0.6),
+                        ),
+                      children[i],
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
+          if (description case final text?)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.sm, Gaps.lg, 0),
+              child: Text(text, style: theme.textTheme.bodySmall),
+            ),
         ],
       ),
     );
   }
 }
 
-/// A settings row with a title, optional subtitle and a trailing control,
-/// or with a control below the text when [below] is set.
+/// A settings row (REDESIGN §4): an 18-dp leading icon, a Body title and a
+/// Caption subtitle. Its [control] (a segmented button, a switch) trails on
+/// wide rows and goes below the text on narrow ones; [trailing] always
+/// trails and [below] always goes below.
 class SettingsTile extends StatelessWidget {
   const SettingsTile({
     super.key,
     required this.title,
     this.subtitle,
     this.trailing,
+    this.control,
     this.below,
     this.onTap,
     this.icon,
   });
+
+  /// Where the text starts (after the icon), for hairlines.
+  static const double textInset = Gaps.lg + Glyphs.menu + Gaps.lg;
+
+  /// The narrowest row whose [control] trails.
+  static const double controlTrailsFrom = 560;
 
   /// Leading symbol, aligned with the title.
   final IconData? icon;
@@ -90,6 +94,7 @@ class SettingsTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Widget? trailing;
+  final Widget? control;
   final Widget? below;
   final VoidCallback? onTap;
 
@@ -106,33 +111,50 @@ class SettingsTile extends StatelessWidget {
         ],
       ],
     );
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Gaps.lg + 2, vertical: Gaps.md + 2),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final controlTrails = constraints.maxWidth >= controlTrailsFrom;
+        final trailing = this.trailing ?? (controlTrails ? control : null);
+        final below = this.below ?? (controlTrails ? null : control);
+        return InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (icon != null) ...[
-                  Icon(icon, size: Glyphs.menu, color: theme.colorScheme.onSurfaceVariant),
-                  const SizedBox(width: Gaps.lg),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: Targets.bar - Gaps.xs),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: Glyphs.menu,
+                        child: icon == null
+                            ? null
+                            : Icon(
+                                icon,
+                                size: Glyphs.menu,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                      ),
+                      const SizedBox(width: Gaps.lg),
+                      Expanded(child: text),
+                      if (trailing != null) ...[const SizedBox(width: Gaps.lg), trailing],
+                    ],
+                  ),
+                ),
+                if (below != null) ...[
+                  const SizedBox(height: Gaps.md),
+                  Padding(
+                    padding: const EdgeInsets.only(left: Glyphs.menu + Gaps.lg),
+                    child: below,
+                  ),
                 ],
-                Expanded(child: text),
-                if (trailing != null) ...[const SizedBox(width: Gaps.lg), trailing!],
               ],
             ),
-            if (below != null) ...[
-              const SizedBox(height: Gaps.md),
-              Padding(
-                padding: EdgeInsets.only(left: icon == null ? 0 : Glyphs.menu + Gaps.lg),
-                child: below,
-              ),
-            ],
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

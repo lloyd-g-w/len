@@ -126,6 +126,13 @@ class SettingsRepository {
   set toolbarFloat((double, double)? value) =>
       value == null ? _remove('toolbar_float') : _set('toolbar_float', '${value.$1},${value.$2}');
 
+  /// Paper styles (by name) of the latest new notebooks, most recent first.
+  List<String> get recentPapers => [
+    for (final part in (_get('recent_papers') ?? '').split(','))
+      if (part.isNotEmpty) part,
+  ];
+  set recentPapers(List<String> names) => _set('recent_papers', names.join(','));
+
   /// Handwriting recognition language (BCP 47); null = from the device locale.
   String? get handwritingLanguage => _get('handwriting_language');
   set handwritingLanguage(String? value) =>

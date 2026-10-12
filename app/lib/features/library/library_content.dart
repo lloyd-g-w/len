@@ -2,11 +2,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
+import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
-import '../../ui/section_label.dart';
 import '../search/library_search_results.dart';
 import 'folder_tile.dart';
 import 'library_actions.dart';
@@ -50,31 +51,65 @@ class LibraryContent extends StatelessWidget {
 
   LibraryController get _c => actions.controller;
 
+  /// About how wide notebook covers are in the grid (REDESIGN §3).
+  static const double coverWidth = 150;
+
+  /// Folders as a wrapping row of compact tiles of equal width.
+  Widget _folderRow(List<Folder> folders) => LayoutBuilder(
+    builder: (context, constraints) {
+      const spacing = Gaps.md;
+      final width = constraints.maxWidth;
+      final columns = math.max(2, ((width + spacing) / (FolderTile.width + spacing)).floor());
+      final tile = (width - spacing * (columns - 1)) / columns;
+      return Wrap(
+        spacing: spacing,
+        runSpacing: spacing,
+        children: [
+          for (final f in folders)
+            SizedBox(
+              width: tile,
+              child: FolderTile(
+                key: ValueKey('folder-${f.id}'),
+                folder: f,
+                subtitle: _folderCaption(f),
+                actions: actions,
+              ),
+            ),
+        ],
+      );
+    },
+  );
+
+  String _folderCaption(Folder f) {
+    final n = _c.itemCountIn(f.id);
+    return n == 0 ? 'Empty' : '$n ${n == 1 ? 'item' : 'items'}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < Breakpoints.medium;
-    final gutter = compact
-        ? Gaps.lg + 4
-        : (width >= Breakpoints.expanded ? Gaps.xxl + 8 : Gaps.xxl);
+    final gutter = compact ? Gaps.lg + Gaps.xs : Gaps.xxl;
     final folders = _c.visibleFolders;
     final notebooks = _c.visibleNotebooks;
     final empty = folders.isEmpty && notebooks.isEmpty;
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
     final newTile = showsNewTile(actions, compact: compact);
-    Widget label(String text) => SliverPadding(
-      padding: EdgeInsets.fromLTRB(gutter + Gaps.xxs, Gaps.xl, gutter, Gaps.md),
-      sliver: SliverToBoxAdapter(child: SectionLabel(text)),
-    );
-
     return CustomScrollView(
       key: PageStorageKey('library-${_c.section.name}-${_c.folderId}'),
+      // Builds half a screen ahead, so covers render before they scroll in.
+      scrollCacheExtent: const ScrollCacheExtent.viewport(0.5),
       slivers: [
         SliverSafeArea(
           bottom: false,
           sliver: SliverPadding(
-            padding: EdgeInsets.fromLTRB(gutter, compact ? Gaps.lg : Gaps.xxl, gutter, Gaps.sm),
+            padding: EdgeInsets.fromLTRB(
+              compact ? Gaps.sm : gutter,
+              compact ? Gaps.sm : Gaps.xl,
+              compact ? Gaps.sm : gutter,
+              Gaps.sm,
+            ),
             sliver: SliverToBoxAdapter(
               child: LibraryHeader(
                 actions: actions,
@@ -101,37 +136,13 @@ class LibraryContent extends StatelessWidget {
             ),
           )
         else ...[
-          if (folders.isNotEmpty) ...[
-            label('Folders'),
+          if (folders.isNotEmpty)
             SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: gutter),
-              sliver: SliverGrid.builder(
-                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 300,
-                  // Two lines of text grow with the text scale.
-                  mainAxisExtent: 28 + MediaQuery.textScalerOf(context).scale(38),
-                  mainAxisSpacing: Gaps.md,
-                  crossAxisSpacing: Gaps.md,
-                ),
-                itemCount: folders.length,
-                itemBuilder: (context, i) {
-                  final f = folders[i];
-                  final n = _c.itemCountIn(f.id);
-                  return FolderTile(
-                    key: ValueKey('folder-${f.id}'),
-                    folder: f,
-                    subtitle: n == 0 ? 'Empty' : '$n ${n == 1 ? 'item' : 'items'}',
-                    actions: actions,
-                  );
-                },
-              ),
+              padding: EdgeInsets.fromLTRB(gutter, Gaps.md, gutter, 0),
+              sliver: SliverToBoxAdapter(child: _folderRow(folders)),
             ),
-          ],
           if (notebooks.isNotEmpty || newTile) ...[
-            if (folders.isNotEmpty)
-              label('Notebooks')
-            else
-              const SliverToBoxAdapter(child: SizedBox(height: Gaps.lg)),
+            SliverToBoxAdapter(child: SizedBox(height: folders.isEmpty ? Gaps.lg : Gaps.xl)),
             SliverPadding(
               // Bottom padding keeps the last row clear of the FAB.
               padding: EdgeInsets.fromLTRB(gutter, 0, gutter, fullText ? 0 : 120),
@@ -161,6 +172,10 @@ class LibraryContent extends StatelessWidget {
                       inFolder: _c.folderId != null,
                       query: _c.query,
                       onCreate: () => unawaited(actions.createNotebook(context)),
+                      onClearSearch: () {
+                        searchController.clear();
+                        _c.query = '';
+                      },
                     )
                   : null,
             ),
@@ -188,37 +203,28 @@ class LibraryContent extends StatelessWidget {
     required bool newTile,
   }) {
     final offset = newTile ? 1 : 0;
-    final maxTile = compact ? 172.0 : 184.0;
-    final spacing = compact ? Gaps.lg : Gaps.xl + 4;
-    return SliverLayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.crossAxisExtent;
-        final columns = math.max(2, ((width + spacing) / (maxTile + spacing)).ceil());
-        final tile = (width - spacing * (columns - 1)) / columns;
-        return SliverGrid.builder(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: spacing,
-            mainAxisSpacing: spacing + Gaps.xs,
-            mainAxisExtent:
-                tile / ThumbnailRenderer.aspect + 18 + MediaQuery.textScalerOf(context).scale(36),
-          ),
-          itemCount: notebooks.length + offset,
-          itemBuilder: (context, i) {
-            if (i < offset) {
-              return NewNotebookTile(
-                key: const ValueKey('new-notebook-tile'),
-                onPressed: () => unawaited(actions.createNotebook(context)),
-              );
-            }
-            final notebook = notebooks[i - offset];
-            return NotebookCard(
-              key: ValueKey(notebook.id),
-              notebook: notebook,
-              subtitle: _subtitle(notebook),
-              actions: actions,
-            );
-          },
+    return SliverGrid.builder(
+      // Columns from the width in the delegate, not a layout builder: a
+      // builder above the grid would rebuild every card on every scroll frame.
+      gridDelegate: CoverGridDelegate(
+        coverWidth: coverWidth,
+        spacing: compact ? Gaps.lg : Gaps.xl,
+        captionHeight: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
+      ),
+      itemCount: notebooks.length + offset,
+      itemBuilder: (context, i) {
+        if (i < offset) {
+          return NewNotebookTile(
+            key: const ValueKey('new-notebook-tile'),
+            onPressed: () => unawaited(actions.createNotebook(context)),
+          );
+        }
+        final notebook = notebooks[i - offset];
+        return NotebookCard(
+          key: ValueKey(notebook.id),
+          notebook: notebook,
+          subtitle: _subtitle(notebook),
+          actions: actions,
         );
       },
     );
@@ -236,4 +242,39 @@ class LibraryContent extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The notebook grid's layout: covers of about [coverWidth] (at least two
+/// columns, stretched to the width) at [ThumbnailRenderer.aspect], with
+/// [captionHeight] below each for the title and caption.
+class CoverGridDelegate extends SliverGridDelegate {
+  const CoverGridDelegate({
+    required this.coverWidth,
+    required this.spacing,
+    required this.captionHeight,
+  });
+
+  final double coverWidth;
+  final double spacing;
+  final double captionHeight;
+
+  @override
+  SliverGridLayout getLayout(SliverConstraints constraints) {
+    final width = constraints.crossAxisExtent;
+    final columns = math.max(2, ((width + spacing) / (coverWidth + spacing)).floor());
+    final tile = (width - spacing * (columns - 1)) / columns;
+    final height = tile / ThumbnailRenderer.aspect + captionHeight;
+    return SliverGridRegularTileLayout(
+      crossAxisCount: columns,
+      mainAxisStride: height + Gaps.lg,
+      crossAxisStride: tile + spacing,
+      childMainAxisExtent: height,
+      childCrossAxisExtent: tile,
+      reverseCrossAxis: axisDirectionIsReversed(constraints.crossAxisDirection),
+    );
+  }
+
+  @override
+  bool shouldRelayout(CoverGridDelegate old) =>
+      old.coverWidth != coverWidth || old.spacing != spacing || old.captionHeight != captionHeight;
 }

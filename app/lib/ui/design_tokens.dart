@@ -44,8 +44,9 @@ abstract final class Motion {
 
 /// Responsive breakpoints (logical pixels of window width).
 abstract final class Breakpoints {
-  /// Below this: phone layout (bottom navigation, single column).
-  static const double medium = 720;
+  /// Below this: phone layout (the library's drawer, sheets instead of
+  /// dialogs, a single column).
+  static const double medium = 840;
 
   /// From here: full sidebar with labels.
   static const double expanded = 1040;

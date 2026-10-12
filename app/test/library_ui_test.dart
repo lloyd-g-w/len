@@ -97,7 +97,7 @@ void main() {
     await openMenuOf(tester, 'Physics');
     await tester.tap(find.text('Move to folder…'));
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('School')));
+    await tester.tap(find.descendant(of: find.byType(Dialog), matching: find.text('School')));
     await tester.pumpAndSettle();
     expect(services.notebooks.list().every((n) => n.folderId == schoolId), isTrue);
 
@@ -173,7 +173,7 @@ void main() {
     expect(tile, findsOneWidget);
     await tester.tap(find.byTooltip('View'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Select notebooks').last);
+    await tester.tap(find.text('Select…').last);
     await tester.pumpAndSettle();
     expect(tile, findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -297,9 +297,9 @@ void main() {
 
     // Every section in one column, wide windows too.
     expect(find.byType(SidebarItem), findsNothing);
-    await tester.ensureVisible(find.text('Finger taps to undo and redo'));
+    await tester.ensureVisible(find.text('Tap to undo and redo'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Finger taps to undo and redo'));
+    await tester.tap(find.text('Tap to undo and redo'));
     await tester.pumpAndSettle();
     expect(services.preferences.fingerTapUndo, isFalse);
   });
@@ -313,11 +313,14 @@ void main() {
     addTearDown(services.dispose);
     await tester.pumpWidget(LenApp(services: services));
     await tester.pumpAndSettle();
+    // Below 840 dp the sidebar is a drawer.
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     expect(find.byType(SidebarItem), findsNothing);
     expect(find.text('Theme'), findsOneWidget);
-    expect(find.text('Finger taps to undo and redo'), findsOneWidget);
+    expect(find.text('Tap to undo and redo'), findsOneWidget);
   });
 
   testWidgets('long-press on touch opens the context menu; right-click too', (tester) async {

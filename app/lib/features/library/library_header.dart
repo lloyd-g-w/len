@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/menus.dart';
@@ -10,9 +11,10 @@ import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_drag.dart';
 
-/// Title, breadcrumbs and tools (search, new folder, ⇅ view) above the library
-/// content.
-class LibraryHeader extends StatelessWidget {
+/// Title (or breadcrumbs) with a caption, and the tools beside it: search
+/// (a 280-dp field when wide, a 🔍 that opens a field over the title when
+/// narrow), ⊕▾ New (wide only), ⇅ View and, in the trash, Empty trash.
+class LibraryHeader extends StatefulWidget {
   const LibraryHeader({
     super.key,
     required this.actions,
@@ -26,13 +28,64 @@ class LibraryHeader extends StatelessWidget {
   final TextEditingController searchController;
   final FocusNode searchFocus;
 
-  /// Phone layout: search goes on its own row.
+  /// Phone layout: no ⊕▾ (the FAB creates), search behind 🔍.
   final bool compact;
 
   /// Before the title (phone: the drawer button).
   final Widget? leading;
 
-  LibraryController get _c => actions.controller;
+  /// The narrowest header with a search field always shown.
+  static const double searchFieldMinWidth = 560;
+
+  @override
+  State<LibraryHeader> createState() => _LibraryHeaderState();
+}
+
+class _LibraryHeaderState extends State<LibraryHeader> {
+  /// Narrow layouts: the search field is open over the title.
+  bool _searchOpen = false;
+
+  LibraryActions get _actions => widget.actions;
+  LibraryController get _c => _actions.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.searchFocus.addListener(_onFocus);
+  }
+
+  @override
+  void didUpdateWidget(LibraryHeader old) {
+    super.didUpdateWidget(old);
+    if (old.searchFocus != widget.searchFocus) {
+      old.searchFocus.removeListener(_onFocus);
+      widget.searchFocus.addListener(_onFocus);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.searchFocus.removeListener(_onFocus);
+    super.dispose();
+  }
+
+  /// Ctrl+F (or a tap) focusing the field opens it; leaving it empty closes it.
+  void _onFocus() {
+    final open = widget.searchFocus.hasFocus || _c.isSearching;
+    if (open != _searchOpen) setState(() => _searchOpen = open);
+  }
+
+  void _openSearch() {
+    setState(() => _searchOpen = true);
+    widget.searchFocus.requestFocus();
+  }
+
+  void _closeSearch() {
+    widget.searchController.clear();
+    _c.query = '';
+    widget.searchFocus.unfocus();
+    setState(() => _searchOpen = false);
+  }
 
   String get _title => switch (_c.section) {
     LibrarySection.library => _c.folder?.name ?? 'Library',
@@ -40,126 +93,162 @@ class LibraryHeader extends StatelessWidget {
     LibrarySection.trash => 'Trash',
   };
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  String get _caption {
     final count = _c.visibleNotebooks.length;
-    final search = _SearchField(controller: searchController, focus: searchFocus, actions: actions);
-    final tools = [
-      if (_c.section == LibrarySection.library && !_c.isSearching)
-        IconButton(
-          tooltip: 'New folder',
-          icon: const Icon(Symbols.create_new_folder_rounded),
-          onPressed: () => unawaited(actions.createFolder(context)),
-        ),
-      _ViewMenu(actions: actions),
-      if (_c.section == LibrarySection.trash && _c.trash.isNotEmpty)
-        if (compact)
-          IconButton(
-            tooltip: 'Empty trash',
-            color: theme.colorScheme.error,
-            icon: const Icon(Symbols.delete_sweep_rounded),
-            onPressed: () => unawaited(actions.emptyTrash(context)),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(left: Gaps.sm),
-            child: TextButton.icon(
-              style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
-              onPressed: () => unawaited(actions.emptyTrash(context)),
-              icon: const Icon(Symbols.delete_sweep_rounded, size: Glyphs.menu),
-              label: const Text('Empty trash'),
-            ),
-          ),
-    ];
     final folders = _c.visibleFolders.length;
     String plural(int n, String one) => '$n ${n == 1 ? one : '${one}s'}';
-    final subtitle = switch (_c.section) {
-      LibrarySection.trash => 'Restore notebooks or delete them forever',
+    return switch (_c.section) {
       // The library also lists matches inside notebooks (features/search).
       LibrarySection.library when _c.isSearching => 'Titles and contents, across all folders',
       _ when _c.isSearching => '${plural(count, 'notebook')} across all folders',
+      LibrarySection.trash when count > 0 =>
+        '${plural(count, 'notebook')} · deleted forever '
+            'when you empty the trash',
       _ when count == 0 && folders == 0 => 'Empty',
       _ => [
         if (folders > 0) plural(folders, 'folder'),
         if (count > 0 || folders == 0) plural(count, 'notebook'),
       ].join(' · '),
     };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         AnimatedSwitcher(
           duration: Motion.medium,
           layoutBuilder: (current, previous) =>
               Stack(alignment: Alignment.centerLeft, children: [...previous, ?current]),
-          child: Text(
-            _title,
+          child: Semantics(
             key: ValueKey(_title),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: compact ? theme.textTheme.titleLarge : theme.textTheme.titleLarge,
+            header: true,
+            child: Text(
+              _title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleLarge,
+            ),
           ),
         ),
         const SizedBox(height: Gaps.xxs),
         Text(
-          subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          _caption,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall,
         ),
       ],
     );
     return LayoutBuilder(
-      builder: (context, constraints) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_c.section == LibrarySection.library && _c.folderId != null) ...[
-            _Breadcrumbs(actions: actions),
-            const SizedBox(height: Gaps.xs),
+      builder: (context, constraints) {
+        final wideSearch =
+            !widget.compact && constraints.maxWidth >= LibraryHeader.searchFieldMinWidth;
+        final search = _SearchField(
+          controller: widget.searchController,
+          focus: widget.searchFocus,
+          actions: _actions,
+          onClose: wideSearch ? null : _closeSearch,
+        );
+        final searchOpen = !wideSearch && (_searchOpen || _c.isSearching);
+        final tools = <Widget>[
+          if (wideSearch) ...[
+            SizedBox(width: 280, child: search),
+            const SizedBox(width: Gaps.sm),
+          ] else if (!searchOpen)
+            IconButton(
+              tooltip: 'Search',
+              icon: const Icon(Symbols.search_rounded),
+              onPressed: _openSearch,
+            ),
+          if (!widget.compact && _c.section == LibrarySection.library) _NewMenu(actions: _actions),
+          _ViewMenu(actions: _actions),
+          if (_c.section == LibrarySection.trash && _c.trash.isNotEmpty)
+            _emptyTrash(theme, wideSearch),
+        ];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_c.section == LibrarySection.library && _c.folderId != null && !searchOpen) ...[
+              _Breadcrumbs(actions: _actions),
+              const SizedBox(height: Gaps.xxs),
+            ],
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 52),
+              child: Row(
+                children: [
+                  if (widget.leading case final leading? when !searchOpen) ...[
+                    leading,
+                    const SizedBox(width: Gaps.xs),
+                  ],
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: Motion.fast,
+                      transitionBuilder: (child, animation) =>
+                          FadeTransition(opacity: animation, child: child),
+                      layoutBuilder: (current, previous) =>
+                          Stack(alignment: Alignment.centerLeft, children: [...previous, ?current]),
+                      child: searchOpen
+                          ? KeyedSubtree(key: const ValueKey('search'), child: search)
+                          : KeyedSubtree(key: const ValueKey('title'), child: titleBlock),
+                    ),
+                  ),
+                  const SizedBox(width: Gaps.md),
+                  ...tools,
+                ],
+              ),
+            ),
           ],
-          // Search on its own row when the title would get squeezed.
-          if (compact || constraints.maxWidth < 680) ...[
-            Row(
-              children: [
-                if (leading case final leading?) ...[leading, const SizedBox(width: Gaps.xs)],
-                Expanded(child: titleBlock),
-              ],
-            ),
-            const SizedBox(height: Gaps.lg),
-            Row(
-              children: [
-                Expanded(child: search),
-                ...tools,
-              ],
-            ),
-          ] else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (leading case final leading?) ...[leading, const SizedBox(width: Gaps.xs)],
-                Expanded(child: titleBlock),
-                const SizedBox(width: Gaps.lg),
-                SizedBox(width: 280, child: search),
-                const SizedBox(width: Gaps.sm),
-                ...tools,
-              ],
-            ),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _emptyTrash(ThemeData theme, bool wide) {
+    void empty() => unawaited(_actions.emptyTrash(context));
+    if (!wide) {
+      return IconButton(
+        tooltip: 'Empty trash',
+        color: theme.colorScheme.error,
+        icon: const Icon(Symbols.delete_sweep_rounded),
+        onPressed: empty,
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(left: Gaps.xs),
+      child: TextButton.icon(
+        style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+        onPressed: empty,
+        icon: const Icon(Symbols.delete_sweep_rounded, size: Glyphs.menu),
+        label: const Text('Empty trash'),
       ),
     );
   }
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller, required this.focus, required this.actions});
+  const _SearchField({
+    required this.controller,
+    required this.focus,
+    required this.actions,
+    this.onClose,
+  });
 
   final TextEditingController controller;
   final FocusNode focus;
   final LibraryActions actions;
 
+  /// Narrow layouts: ✕ closes the field (else it only clears it).
+  final VoidCallback? onClose;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 44,
+      height: 40,
       child: ListenableBuilder(
         listenable: controller,
         builder: (context, _) => TextField(
@@ -176,13 +265,19 @@ class _SearchField extends StatelessWidget {
               color: scheme.onSurfaceVariant,
               size: Glyphs.bar,
             ),
-            suffixIcon: controller.text.isEmpty
+            suffixIcon: controller.text.isEmpty && onClose == null
                 ? null
                 : IconButton(
-                    tooltip: 'Clear search',
+                    tooltip: onClose == null || controller.text.isNotEmpty
+                        ? 'Clear search'
+                        : 'Close search',
                     iconSize: Glyphs.menu,
                     icon: const Icon(Symbols.close_rounded),
                     onPressed: () {
+                      if (controller.text.isEmpty) {
+                        onClose?.call();
+                        return;
+                      }
                       controller.clear();
                       actions.controller.query = '';
                     },
@@ -190,6 +285,53 @@ class _SearchField extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// What ⊕▾ creates.
+enum _NewChoice { notebook, canvas, pdf, folder }
+
+/// ⊕▾ (wide screens): New notebook, New canvas, Import PDF…, New folder.
+class _NewMenu extends StatelessWidget {
+  const _NewMenu({required this.actions});
+
+  final LibraryActions actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return MenuIconButton<_NewChoice>(
+      tooltip: 'New',
+      icon: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Symbols.add_circle_rounded),
+          Icon(Symbols.arrow_drop_down_rounded, size: Glyphs.menu),
+        ],
+      ),
+      items: () => const [
+        MenuRow(
+          value: _NewChoice.notebook,
+          icon: Symbols.menu_book_rounded,
+          label: 'New notebook',
+          shortcut: 'Ctrl+N',
+        ),
+        MenuRow(value: _NewChoice.canvas, icon: Symbols.all_inclusive_rounded, label: 'New canvas'),
+        MenuRow(value: _NewChoice.pdf, icon: Symbols.picture_as_pdf_rounded, label: 'Import PDF…'),
+        PopupMenuDivider(),
+        MenuRow(
+          value: _NewChoice.folder,
+          icon: Symbols.create_new_folder_rounded,
+          label: 'New folder…',
+          shortcut: 'Ctrl+Shift+N',
+        ),
+      ],
+      onSelected: (choice) => unawaited(switch (choice) {
+        _NewChoice.notebook => actions.createNotebook(context),
+        _NewChoice.canvas => actions.createNotebook(context, kind: NotebookKind.canvas),
+        _NewChoice.pdf => actions.importPdf(context),
+        _NewChoice.folder => actions.createFolder(context),
+      }),
     );
   }
 }
@@ -221,14 +363,14 @@ class _ViewMenu extends StatelessWidget {
 
   static String _label(LibrarySort s) => switch (s) {
     LibrarySort.edited => 'Last edited',
-    LibrarySort.created => 'Date created',
+    LibrarySort.created => 'Created',
     LibrarySort.name => 'Name',
   };
 
   @override
   Widget build(BuildContext context) {
     final c = actions.controller;
-    return PopupMenuButton<_ViewChoice>(
+    return MenuIconButton<_ViewChoice>(
       tooltip: 'View',
       icon: const Icon(Symbols.swap_vert_rounded),
       onSelected: (choice) => switch (choice) {
@@ -236,7 +378,7 @@ class _ViewMenu extends StatelessWidget {
         _Layout(:final layout) => c.layout = layout,
         _Select() => actions.selection.start(),
       },
-      itemBuilder: (_) => [
+      items: () => [
         if (c.section != LibrarySection.trash) ...[
           for (final s in LibrarySort.values)
             MenuRow(value: _Sort(s), label: _label(s), checked: s == c.sort),
@@ -256,11 +398,7 @@ class _ViewMenu extends StatelessWidget {
         ),
         if (c.visibleNotebooks.isNotEmpty && !actions.selection.active) ...[
           const PopupMenuDivider(),
-          const MenuRow(
-            value: _Select(),
-            icon: Symbols.check_circle_rounded,
-            label: 'Select notebooks',
-          ),
+          const MenuRow(value: _Select(), icon: Symbols.check_circle_rounded, label: 'Select…'),
         ],
       ],
     );

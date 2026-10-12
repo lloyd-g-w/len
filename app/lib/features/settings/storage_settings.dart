@@ -56,7 +56,6 @@ class _StorageSettingsState extends State<StorageSettings> {
     final persisted = _persisted;
     return SettingsSection(
       title: 'Storage',
-      icon: Symbols.storage_rounded,
       description:
           'Your notebooks are stored in this browser. Browsers may clear site data when the '
           'device runs low on space, unless the site may keep its data. Clearing site data '

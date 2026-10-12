@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
-import '../../../ui/color_dot.dart';
-import '../../../ui/even_grid.dart';
+import '../../../ui/dialog_or_sheet.dart';
+import '../../../ui/sheet_parts.dart';
+import '../../documents/templates/page_setup.dart';
+import '../new_notebook/cover_row.dart';
 
 /// Name and colour of a folder, as entered in [showFolderDialog].
 typedef FolderDetails = ({String name, int color});
 
-/// Creates or edits a folder's name and colour.
+/// Creates or edits a folder's name and colour: a task sheet (a dialog on
+/// wide screens, a bottom sheet on phones).
 Future<FolderDetails?> showFolderDialog(
   BuildContext context, {
   required String title,
@@ -17,13 +19,16 @@ Future<FolderDetails?> showFolderDialog(
   String initialName = '',
   int? initialColor,
 }) {
-  return showDialog<FolderDetails>(
+  return showDialogOrSheet<FolderDetails>(
     context: context,
-    builder: (_) => _FolderDialog(
+    maxWidth: 440,
+    minHeight: 420,
+    builder: (_, wide) => _FolderDialog(
       title: title,
       confirmLabel: confirmLabel,
       initialName: initialName,
       initialColor: initialColor ?? Palette.covers.first,
+      wide: wide,
     ),
   );
 }
@@ -34,9 +39,13 @@ class _FolderDialog extends StatefulWidget {
     required this.confirmLabel,
     required this.initialName,
     required this.initialColor,
+    required this.wide,
   });
 
   final String title;
+
+  /// In a dialog (else a sheet with a drag handle above).
+  final bool wide;
   final String confirmLabel;
   final String initialName;
   final int initialColor;
@@ -66,60 +75,57 @@ class _FolderDialogState extends State<_FolderDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final color = Color(_color);
-    return AppDialog(
-      // Name and colours can outgrow short (landscape phone) screens.
-      scrollable: true,
-      // The folder as it will look, in its colour.
-      leading: AnimatedContainer(
-        duration: Motion.medium,
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14),
-          borderRadius: BorderRadius.circular(Radii.md),
-        ),
-        child: Icon(Symbols.folder_rounded, fill: 1, color: color, size: 32),
+    final media = MediaQuery.of(context);
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        Gaps.xl,
+        widget.wide ? Gaps.lg : 0,
+        Gaps.xl,
+        Gaps.lg + media.viewInsets.bottom + (widget.wide ? 0 : media.padding.bottom),
       ),
-      title: widget.title,
-      content: DialogBody(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _name,
-              autofocus: true,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Name', hintText: 'Untitled folder'),
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: Gaps.xl),
-            Text('Colour', style: theme.textTheme.labelLarge),
-            const SizedBox(height: Gaps.sm),
-            EvenGrid(
-              itemExtent: 40,
-              minItemExtent: 32,
-              touchTargets: true,
-              children: [
-                for (var i = 0; i < Palette.covers.length; i++)
-                  ColorDot(
-                    color: Palette.covers[i],
-                    size: 40,
-                    tooltip: Palette.coverNames[i],
-                    selected: Palette.covers[i] == _color,
-                    onTap: () => setState(() => _color = Palette.covers[i]),
-                  ),
-              ],
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SheetHeader(title: widget.title, onClose: () => Navigator.pop(context)),
+          const SizedBox(height: Gaps.lg),
+          Row(
+            children: [
+              // The folder as it will look, in its colour.
+              AnimatedSwitcher(
+                duration: Motion.fast,
+                child: Icon(
+                  Symbols.folder_rounded,
+                  key: ValueKey(_color),
+                  fill: 1,
+                  color: color,
+                  size: 44,
+                ),
+              ),
+              const SizedBox(width: Gaps.md),
+              Expanded(
+                child: TextField(
+                  controller: _name,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(labelText: 'Name', hintText: 'Untitled folder'),
+                  onSubmitted: (_) => _submit(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Gaps.xl),
+          PickerLabel('Colour', trailing: Palette.coverName(_color)),
+          CoverRow(color: _color, onColor: (c) => setState(() => _color = c)),
+          const SizedBox(height: Gaps.xl),
+          SheetActions(
+            stacked: !widget.wide,
+            onCancel: widget.wide ? () => Navigator.pop(context) : null,
+            primary: FilledButton(onPressed: _submit, child: Text(widget.confirmLabel)),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: _submit, child: Text(widget.confirmLabel)),
-      ],
     );
   }
 }

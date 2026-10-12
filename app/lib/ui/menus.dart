@@ -16,6 +16,7 @@ class MenuRow<T> extends PopupMenuItem<T> {
     this.destructive = false,
     this.checked = false,
     this.filledIcon = false,
+    this.shortcut,
     super.enabled,
   }) : super(child: null, height: Targets.menuRow);
 
@@ -28,6 +29,10 @@ class MenuRow<T> extends PopupMenuItem<T> {
 
   /// Draws [icon] filled (an active state, e.g. a favourite).
   final bool filledIcon;
+
+  /// A keyboard shortcut hint ("Ctrl+N") after the label, shown only where
+  /// a keyboard is likely (not on touch-first devices).
+  final String? shortcut;
 
   @override
   PopupMenuItemState<T, MenuRow<T>> createState() => _MenuRowState<T>();
@@ -63,6 +68,10 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (widget.shortcut case final shortcut? when !Targets.touchFirst) ...[
+            const SizedBox(width: Gaps.xl),
+            Text(shortcut, style: Theme.of(context).textTheme.bodySmall),
+          ],
           if (widget.checked) ...[
             const SizedBox(width: Gaps.md),
             Icon(Symbols.check_rounded, size: Glyphs.menu, color: scheme.primary),
@@ -87,6 +96,54 @@ Future<T?> showContextMenuAt<T>(
     context: context,
     position: RelativeRect.fromRect(origin & Size.zero, Offset.zero & overlay.size),
     items: items,
+  );
+}
+
+/// Shows a menu anchored under the widget of [anchor] (a button), aligned
+/// with its start edge or, near the right edge of the screen, its end edge,
+/// and returns the chosen value. Like a [PopupMenuButton], without its
+/// Material button.
+Future<T?> showMenuBelow<T>(BuildContext anchor, {required List<PopupMenuEntry<T>> items}) {
+  final button = anchor.findRenderObject()! as RenderBox;
+  final overlay = Navigator.of(anchor).overlay!.context.findRenderObject()! as RenderBox;
+  final below = Offset(0, button.size.height + Gaps.xxs);
+  final rect = Rect.fromPoints(
+    button.localToGlobal(below, ancestor: overlay),
+    button.localToGlobal(button.size.bottomRight(Offset.zero) + below, ancestor: overlay),
+  );
+  return showMenu<T>(
+    context: anchor,
+    position: RelativeRect.fromRect(rect, Offset.zero & overlay.size),
+    items: items,
+  );
+}
+
+/// An icon button that opens a menu of [items] below itself
+/// ([showMenuBelow]); the shared replacement for [PopupMenuButton].
+class MenuIconButton<T> extends StatelessWidget {
+  const MenuIconButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.items,
+    required this.onSelected,
+  });
+
+  final Widget icon;
+  final String tooltip;
+
+  /// Built when the menu opens, so it reflects the current state.
+  final List<PopupMenuEntry<T>> Function() items;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    icon: icon,
+    onPressed: () async {
+      final value = await showMenuBelow<T>(context, items: items());
+      if (value != null) onSelected(value);
+    },
   );
 }
 

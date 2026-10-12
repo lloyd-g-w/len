@@ -52,6 +52,14 @@ class AppPreferences extends ChangeNotifier {
   LibrarySort get librarySort => _settings.librarySort;
   set librarySort(LibrarySort value) => _update(() => _settings.librarySort = value);
 
+  /// Paper styles (by name) of the latest new notebooks, most recent first
+  /// (the new-notebook sheet offers them).
+  List<String> get recentPapers => _settings.recentPapers;
+
+  /// Puts [name] first in [recentPapers] (keeping a few).
+  void notePaperUsed(String name) =>
+      _settings.recentPapers = [name, ...recentPapers.where((n) => n != name)].take(12).toList();
+
   void _update(VoidCallback write) {
     write();
     notifyListeners();

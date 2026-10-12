@@ -116,6 +116,7 @@ void main() {
         final services = library();
         await seedSearch(services);
         await pumpApp(tester, services, const LibraryScreen(), mode: mode);
+        await openSearch(tester);
         await tester.enterText(find.byType(TextField).first, 'plan');
         await settle(tester);
         expect(find.text('Lecture notes'), findsWidgets);
@@ -135,7 +136,7 @@ void main() {
         final wide = name != 'phone';
 
         await tap(tester, find.byTooltip('View'));
-        expect(find.text('Date created'), findsOneWidget);
+        expect(find.text('Created'), findsOneWidget);
         await shoot(tester, 's_library_view_menu_${name}_$m');
         await tap(tester, find.text('Name'));
         await shoot(tester, 's_library_sorted_by_name_${name}_$m');
@@ -187,7 +188,7 @@ void main() {
 
         await openLibrarySection(tester, 'Library');
         await tap(tester, find.byTooltip('View'));
-        await tap(tester, find.text('Select notebooks').last);
+        await tap(tester, find.text('Select…').last);
         for (final title in ['Ideas', 'Recipes', 'Travel plans']) {
           await reveal(tester, find.text(title));
           await tap(tester, find.text(title));
@@ -220,7 +221,7 @@ void main() {
     await pumpApp(tester, services, const LibraryScreen(), mode: ThemeMode.dark);
     await openLibrarySection(tester, 'Trash');
     await tap(tester, find.byTooltip('View'));
-    await tap(tester, find.text('Select notebooks').last);
+    await tap(tester, find.text('Select…').last);
     await tap(tester, find.text('Recipes'));
     expect(find.text('1 selected'), findsOneWidget);
     expect(tester.takeException(), isNull);

@@ -74,7 +74,12 @@ void main() {
         await tap(tester, find.text(item));
       }
 
-      await capture('new_folder', () => tap(tester, find.byTooltip('New folder')));
+      // Phones create folders from the drawer.
+      await capture('new_folder', () async {
+        await tap(tester, find.byTooltip('Menu'));
+        await tap(tester, find.byTooltip('New folder'));
+      });
+      await back(tester); // Closes the drawer.
       await capture('edit_folder', () => folderMenu('Edit folder…'));
       await capture('delete_folder', () => folderMenu('Delete folder…'));
       await capture('new_notebook', () => tap(tester, newButton()));

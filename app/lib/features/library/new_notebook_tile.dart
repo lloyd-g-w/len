@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../ui/app_theme.dart';
+import 'notebook_card.dart';
 
-/// The "New…" tile that starts the library grid (GoodNotes style): an
-/// outlined, cover-sized card with a "+", and the label where a notebook's
+/// The "New…" tile that starts the library grid (GoodNotes style): a
+/// quiet, cover-sized plate with a "+", and the label where a notebook's
 /// title goes. Sized by the grid like a [NotebookCard].
 class NewNotebookTile extends StatefulWidget {
   const NewNotebookTile({super.key, required this.onPressed});
@@ -38,15 +39,13 @@ class _NewNotebookTileState extends State<NewNotebookTile> {
             child: AnimatedContainer(
               duration: Motion.medium,
               curve: Motion.standard,
-              transform: Matrix4.translationValues(0, lifted ? -4 : 0, 0),
               decoration: BoxDecoration(
-                color: lifted ? scheme.surfaceContainer : scheme.surfaceContainerLow,
+                color: lifted ? scheme.surfaceContainerHigh : scheme.surfaceContainer,
                 borderRadius: radius,
-                border: Border.all(
-                  color: lifted ? scheme.primary : scheme.outlineVariant,
-                  width: lifted ? 1.6 : 1,
-                ),
-                boxShadow: lifted ? Shadows.low(theme.brightness) : null,
+                // No outlines in light mode (REDESIGN §1.1).
+                border: theme.brightness == Brightness.dark
+                    ? Border.all(color: scheme.outlineVariant)
+                    : null,
               ),
               child: Material(
                 type: MaterialType.transparency,
@@ -56,49 +55,27 @@ class _NewNotebookTileState extends State<NewNotebookTile> {
                   onHover: (h) => setState(() => _hovered = h),
                   onFocusChange: (f) => setState(() => _focused = f),
                   child: Center(
-                    child: Container(
-                      width: Gaps.xxxl,
-                      height: Gaps.xxxl,
-                      decoration: BoxDecoration(
-                        color: scheme.primary.withValues(alpha: 0.10),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Symbols.add_rounded, size: 28, color: scheme.primary),
+                    child: AnimatedScale(
+                      scale: lifted ? 1.1 : 1,
+                      duration: Motion.fast,
+                      child: Icon(Symbols.add_rounded, size: Glyphs.empty, color: scheme.primary),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: Gaps.sm + 2),
-          // Same layout as a card's title row (title, subtitle line, "More"
-          // button), so the tile's cover matches the covers next to it.
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: widget.onPressed,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: Gaps.xxs),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'New…',
-                          style: theme.textTheme.labelLarge,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: Gaps.xxs),
-                        Text(' ', style: theme.textTheme.bodySmall),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 36, height: 36),
-              ],
+          // The card's caption area (NotebookCard.captionHeight), so the
+          // tile's cover matches the covers next to it.
+          SizedBox(
+            height: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onPressed,
+              child: Padding(
+                padding: const EdgeInsets.only(left: Gaps.xxs, top: Gaps.sm),
+                child: Text('New…', style: theme.textTheme.labelLarge, maxLines: 1),
+              ),
             ),
           ),
         ],

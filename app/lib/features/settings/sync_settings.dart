@@ -88,13 +88,12 @@ class _SyncSettingsState extends State<SyncSettings> {
     final scheme = theme.colorScheme;
     return SettingsSection(
       title: 'Sync',
-      icon: Symbols.cloud_rounded,
       description:
           'Keep your notebooks in sync across devices through your own Len server '
           '(self-hosted; it runs with Docker in a couple of minutes).',
       children: [
         Padding(
-          padding: const EdgeInsets.all(Gaps.lg + 2),
+          padding: const EdgeInsets.all(Gaps.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -151,6 +150,18 @@ class _SyncSettingsState extends State<SyncSettings> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Text('Connect & save'),
+                  ),
+                  ListenableBuilder(
+                    listenable: _services.sync,
+                    builder: (context, _) => _services.sync.isConfigured
+                        ? OutlinedButton.icon(
+                            onPressed: _services.sync.state == SyncState.syncing
+                                ? null
+                                : () => unawaited(_services.sync.syncNow()),
+                            icon: const Icon(Symbols.sync_rounded, size: Glyphs.menu),
+                            label: const Text('Sync now'),
+                          )
+                        : const SizedBox.shrink(),
                   ),
                   AnimatedSwitcher(
                     duration: Motion.medium,
