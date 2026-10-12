@@ -721,9 +721,9 @@ void main() {
       a.s.elements.save([box]);
       a.s.elements.save([
         SurfaceElement(
-          id: 'sticker',
+          id: 'chart',
           surfaceId: nb.id,
-          type: 'sticker',
+          type: 'chart',
           rect: const Rect.fromLTWH(0, 0, 10, 10),
           z: 1,
           createdAt: 1,
@@ -735,7 +735,7 @@ void main() {
       expect(changes.strokeSurfaces, {nb.id});
 
       final got = {for (final e in b.content.loadAllElements(nb.id)) e.id: e};
-      expect(got.keys, unorderedEquals(['tb', 'sticker']));
+      expect(got.keys, unorderedEquals(['tb', 'chart']));
       expect(got['tb']!.type, 'text');
       expect(got['tb']!.rect, box.rect);
       expect(got['tb']!.rotation, box.rotation);
@@ -749,8 +749,8 @@ void main() {
         (synced.isRich, synced.font, synced.paras.single.checked),
         (true, TextFont.caveat, true),
       );
-      expect(got['sticker']!.type, 'sticker', reason: 'unknown types are kept');
-      expect(got['sticker']!.data, {'emoji': 'x'});
+      expect(got['chart']!.type, 'chart', reason: 'unknown types are kept');
+      expect(got['chart']!.data, {'emoji': 'x'});
       final hello = b.search('hello').single;
       expect((hello.kind, hello.refId, hello.surfaceId), (SearchHitKind.text, 'tb', nb.id));
 
@@ -774,7 +774,7 @@ void main() {
       final far = ChunkGrid.rangeFor(moved.inflate(200));
       expect(
         b.s.elements.loadChunks(nb.id, b.s.elements.populatedChunks(nb.id, near)).map((e) => e.id),
-        ['sticker'],
+        ['chart'],
       );
       expect(
         b.s.elements.loadChunks(nb.id, b.s.elements.populatedChunks(nb.id, far)).single.rect,
@@ -786,7 +786,7 @@ void main() {
       time.tick();
       b.s.elements.delete(['tb']);
       await _send(b, a);
-      expect(a.content.loadAllElements(nb.id).map((e) => e.id), ['sticker']);
+      expect(a.content.loadAllElements(nb.id).map((e) => e.id), ['chart']);
       expect(a.search('goodbye'), isEmpty);
       expect(a.searchDocs.keys, isNot(contains('text:tb')));
     });
