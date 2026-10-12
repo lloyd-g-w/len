@@ -170,15 +170,18 @@ void main() {
     });
   }
 
-  for (final (name, size, dpr) in const [
-    ('phone', Size(390, 844), 2.0),
-    ('tablet', Size(800, 1280), 1.0),
+  for (final (name, size, dpr, theme) in const [
+    ('phone', Size(390, 844), 2.0, ThemeMode.light),
+    ('phone_dark', Size(390, 844), 2.0, ThemeMode.dark),
+    ('tablet', Size(800, 1280), 1.0, ThemeMode.light),
+    ('tablet_landscape', Size(1280, 800), 1.0, ThemeMode.light),
+    ('desktop_dark', Size(1440, 900), 1.0, ThemeMode.dark),
   ]) {
     testWidgets('template picker with planners $name', (tester) async {
       setWindow(tester, size, dpr: dpr);
       final services = seededServices();
       addTearDown(services.dispose);
-      await pumpApp(tester, services, const LibraryScreen());
+      await pumpApp(tester, services, const LibraryScreen(), mode: theme);
       unawaited(
         showTemplatePicker(
           tester.element(find.byType(LibraryScreen)),
@@ -202,6 +205,36 @@ void main() {
       await tester.enterText(find.byKey(const ValueKey('template-search')), 'grid');
       await settle(tester);
       await shoot(tester, 'templates_picker_${name}_search');
+      // Dialogs on wide screens, sheets (with a drag handle) on phones.
+      expect(find.byType(Dialog), size.width >= 720 ? findsOneWidget : findsNothing);
+    });
+  }
+
+  for (final (name, size, dpr, theme) in const [
+    ('phone', Size(390, 844), 2.0, ThemeMode.light),
+    ('tablet_landscape_dark', Size(1280, 800), 1.0, ThemeMode.dark),
+  ]) {
+    testWidgets('change template and canvas background $name', (tester) async {
+      setWindow(tester, size, dpr: dpr);
+      final services = seededServices();
+      addTearDown(services.dispose);
+      await pumpApp(tester, services, const LibraryScreen(), mode: theme);
+      final context = tester.element(find.byType(LibraryScreen));
+      for (final mode in [TemplatePickerMode.change, TemplatePickerMode.canvas]) {
+        unawaited(
+          showTemplatePicker(
+            context,
+            initial: const PageTemplate(paper: Paper(PaperStyle.dotted), color: PaperColor.cream),
+            mode: mode,
+            today: _today,
+          ),
+        );
+        await settle(tester);
+        expect(tester.takeException(), isNull);
+        await shoot(tester, 'templates_${mode.name}_$name');
+        await tester.tap(find.text('Cancel'));
+        await settle(tester);
+      }
     });
   }
 }

@@ -6,16 +6,17 @@ import '../../../app_services.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/templates/user_template.dart';
 import '../../../ui/app_theme.dart';
-import 'page_setup.dart';
-import 'planner_options.dart';
 import 'template_catalog.dart';
 import 'template_gallery.dart';
+import 'template_options.dart';
 import 'user_templates.dart';
 
 /// Everything about the paper of new or existing pages, shared by the
 /// template picker and the new-notebook sheet: search and category
 /// filters, the gallery (with My templates), planner dates, paper colour
-/// and page size.
+/// and page size — stacked (scrolled by the parent), or [split]: the
+/// gallery left and the options (with a preview) in a column on the
+/// right, each scrolling on its own so the options stay in view.
 class TemplateChooser extends StatefulWidget {
   const TemplateChooser({
     super.key,
@@ -25,6 +26,7 @@ class TemplateChooser extends StatefulWidget {
     this.sizeEditable = true,
     this.generate = true,
     this.tileWidth = 80,
+    this.split = false,
   });
 
   final TemplateSelection selection;
@@ -39,6 +41,12 @@ class TemplateChooser extends StatefulWidget {
   /// Whether planners generate a range of pages (else one date).
   final bool generate;
   final double tileWidth;
+
+  /// Side-by-side layout (needs a bounded height).
+  final bool split;
+
+  /// Width of the options column in the [split] layout.
+  static const double optionsWidth = 300;
 
   @override
   State<TemplateChooser> createState() => _TemplateChooserState();
@@ -72,7 +80,8 @@ class _TemplateChooserState extends State<TemplateChooser> {
     final wasPlanner = _s.style.isPlanner;
     widget.onChanged(_s.select(entry));
     if (!wasPlanner && entry is BuiltInTemplate && entry.style.isPlanner) {
-      // Bring the dates into view (they appear below the gallery).
+      // Bring the dates into view (they appear below the gallery or at
+      // the top of the options column).
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final options = _optionsKey.currentContext;
         if (options != null && options.mounted) {
@@ -114,72 +123,64 @@ class _TemplateChooserState extends State<TemplateChooser> {
         // Without the app's services (standalone use) there is no My templates.
         if (_services != null || section.$1 != TemplateCategory.mine) section,
     ];
-    final custom = _s.template.customSize != null;
-    return Column(
+    final gallery = <Widget>[
+      _searchField(theme),
+      const SizedBox(height: Gaps.sm),
+      _categoryChips(),
+      const SizedBox(height: Gaps.lg),
+      if (sections.isEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: Gaps.xl),
+          child: Text(
+            'No templates match “${_query.text.trim()}”',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        )
+      else
+        TemplateGallery(
+          sections: sections,
+          selection: widget.canvas
+              ? _s.copyWith(template: _s.template.copyWith(orientation: PageOrientation.portrait))
+              : _s,
+          tileWidth: widget.tileWidth,
+          onSelect: _select,
+          onImport: _services == null || widget.canvas ? null : _import,
+          onTemplateMenu: _services == null ? null : _menu,
+        ),
+    ];
+    final options = TemplateOptions(
+      selection: _s,
+      onChanged: widget.onChanged,
+      canvas: widget.canvas,
+      sizeEditable: widget.sizeEditable,
+      generate: widget.generate,
+      preview: widget.split,
+      plannerKey: _optionsKey,
+    );
+    if (!widget.split) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [...gallery, options],
+      );
+    }
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _searchField(theme),
-        const SizedBox(height: Gaps.sm),
-        _categoryChips(),
-        const SizedBox(height: Gaps.lg),
-        if (sections.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: Gaps.xl),
-            child: Text(
-              'No templates match “${_query.text.trim()}”',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          )
-        else
-          TemplateGallery(
-            sections: sections,
-            selection: widget.canvas
-                ? _s.copyWith(template: _s.template.copyWith(orientation: PageOrientation.portrait))
-                : _s,
-            tileWidth: widget.tileWidth,
-            onSelect: _select,
-            onImport: _services == null || widget.canvas ? null : _import,
-            onTemplateMenu: _services == null ? null : _menu,
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.lg, Gaps.lg, Gaps.lg),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: gallery),
           ),
-        AnimatedSize(
-          duration: Motion.medium,
-          curve: Motion.standard,
-          alignment: Alignment.topCenter,
-          child: _s.style.isPlanner && !widget.canvas
-              ? Padding(
-                  key: _optionsKey,
-                  padding: const EdgeInsets.only(top: Gaps.lg),
-                  child: PlannerOptions(
-                    selection: _s,
-                    generate: widget.generate,
-                    onChanged: widget.onChanged,
-                  ),
-                )
-              : const SizedBox(width: double.infinity),
         ),
-        const SizedBox(height: Gaps.lg),
-        PickerLabel(widget.canvas ? 'Background colour' : 'Paper colour'),
-        PaperColorRow(
-          template: _s.template,
-          onChanged: (t) => widget.onChanged(_s.copyWith(template: t)),
-        ),
-        if (widget.sizeEditable && !widget.canvas) ...[
-          const SizedBox(height: Gaps.lg),
-          PickerLabel('Page size', trailing: custom ? 'Set by the template' : null),
-          IgnorePointer(
-            ignoring: custom,
-            child: Opacity(
-              opacity: custom ? 0.45 : 1,
-              child: PageSizeRow(
-                template: _s.template,
-                onChanged: (t) => widget.onChanged(_s.copyWith(template: t)),
-              ),
-            ),
+        VerticalDivider(width: 1, color: theme.colorScheme.outlineVariant),
+        SizedBox(
+          width: TemplateChooser.optionsWidth,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.lg, Gaps.xl, Gaps.lg),
+            child: options,
           ),
-        ],
+        ),
       ],
     );
   }
