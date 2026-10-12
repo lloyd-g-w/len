@@ -29,6 +29,9 @@ abstract final class StrokeRenderer {
   /// committing does not rebuild it from scratch.
   static void adopt(Stroke stroke, Path path) => _paths[stroke] = path;
 
+  /// Whether [stroke]'s outline is memoised already.
+  static bool hasPath(Stroke stroke) => _paths[stroke] != null;
+
   /// Builds an outline path. [complete] is false while the stroke is still
   /// being drawn (its moving end is not trimmed).
   static Path buildPath(

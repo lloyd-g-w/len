@@ -51,6 +51,8 @@ class EditorSession {
           elementRepository: services.elements,
           images: services.images,
           reader: services.strokeReader,
+          writeBehind: true,
+          outlines: services.outlines,
         ),
       );
       final viewport = canvasViewport = ViewportController();
@@ -174,6 +176,7 @@ class EditorSession {
       strokes: services.strokes,
       elements: services.elements,
       images: services.images,
+      outlines: services.outlines,
       flow: PageFlow.parse(services.settings.pageFlow),
       initialPage: view?.page ?? 0,
       initialView: view,

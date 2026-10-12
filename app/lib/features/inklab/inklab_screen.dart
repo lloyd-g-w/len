@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app_services.dart';
 import '../../domain/paper.dart';
 import '../../ink/ink_surface.dart';
 import '../../ink/lab/input_recording.dart';
@@ -9,6 +10,7 @@ import 'inklab_pen_menu.dart';
 import 'inklab_replay.dart';
 import 'inklab_session.dart';
 import 'inklab_stats_bar.dart';
+import 'perf_notebooks.dart';
 
 /// The hidden developer screen for measuring and recording handwriting
 /// input: a scratch surface on the real drawing pipeline, live statistics,
@@ -151,7 +153,27 @@ class _InkLabScreenState extends State<InkLabScreen> with TickerProviderStateMix
       icon: const Icon(Icons.ios_share_rounded),
       onPressed: _replaying ? null : _save,
     ),
+    PopupMenuButton<bool>(
+      tooltip: 'Perf test notebooks',
+      icon: const Icon(Icons.speed_rounded),
+      onSelected: _perfNotebooks,
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: true, child: Text('Create perf test notebooks')),
+        PopupMenuItem(value: false, child: Text('Delete perf test notebooks')),
+      ],
+    ),
   ];
+
+  /// Creates or deletes the "Perf test …" scratch notebooks.
+  void _perfNotebooks(bool create) {
+    final services = AppScope.of(context);
+    if (create) {
+      final strokes = PerfNotebooks.create(services);
+      _message('Created perf test notebooks ($strokes strokes)');
+    } else {
+      _message('Deleted ${PerfNotebooks.deleteAll(services)} perf test notebooks');
+    }
+  }
 
   /// The surface, wrapped in a `Listener` of exactly its size that records
   /// every pointer event without taking part in hit testing.

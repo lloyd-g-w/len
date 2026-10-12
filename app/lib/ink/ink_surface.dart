@@ -8,6 +8,7 @@ import 'render/chunk_picture_cache.dart';
 import 'render/chunk_raster_cache.dart';
 import 'render/ink_painters.dart';
 import 'render/paper_painter.dart';
+import 'render/tiles/ink_tile_cache.dart';
 import 'surface_model.dart';
 import 'viewport.dart';
 
@@ -43,12 +44,14 @@ class InkSurface extends StatefulWidget {
 class _InkSurfaceState extends State<InkSurface> {
   late ChunkPictureCache _cache;
   late ChunkRasterCache _rasters;
+  late InkTileCache _tiles;
 
   @override
   void initState() {
     super.initState();
     _cache = ChunkPictureCache(widget.model);
     _rasters = ChunkRasterCache(_cache);
+    _tiles = InkTileCache(_cache);
     widget.viewport.addListener(_loadVisible);
     _loadVisibleAfterFrame();
   }
@@ -57,10 +60,12 @@ class _InkSurfaceState extends State<InkSurface> {
   void didUpdateWidget(InkSurface old) {
     super.didUpdateWidget(old);
     if (old.model != widget.model) {
+      _tiles.dispose();
       _rasters.dispose();
       _cache.dispose();
       _cache = ChunkPictureCache(widget.model);
       _rasters = ChunkRasterCache(_cache);
+      _tiles = InkTileCache(_cache);
       _loadVisibleAfterFrame();
     }
     if (old.viewport != widget.viewport) {
@@ -72,6 +77,7 @@ class _InkSurfaceState extends State<InkSurface> {
   @override
   void dispose() {
     widget.viewport.removeListener(_loadVisible);
+    _tiles.dispose();
     _rasters.dispose();
     _cache.dispose();
     super.dispose();
@@ -148,6 +154,7 @@ class _InkSurfaceState extends State<InkSurface> {
                       viewport: widget.viewport,
                       clip: widget.page,
                       rasters: _rasters,
+                      tiles: _tiles,
                       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
                     ),
                   ),

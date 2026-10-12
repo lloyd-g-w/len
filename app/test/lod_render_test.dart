@@ -21,6 +21,10 @@ import 'support/canvas_fixtures.dart';
 class _CountingCanvas implements Canvas {
   int pictures = 0;
   int images = 0;
+  int paths = 0;
+
+  @override
+  void drawPath(Path path, Paint paint) => paths++;
 
   @override
   void drawPicture(ui.Picture picture) => pictures++;
@@ -280,6 +284,37 @@ void main() {
       );
       expect(small.imageFor(chunk, 64), isNull);
       small.dispose();
+      scene.dispose();
+    });
+  });
+
+  testWidgets('far zoom: a new stroke is drawn over the stale raster until it is redone', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final strokes = scribbles(600, const Rect.fromLTWH(0, 0, 2048, 2048));
+      final scene = _Scene(strokes, scale: 0.1, size: const Size(800, 600));
+      await scene.warmRasters();
+      final stroke = Stroke(
+        id: 'new',
+        surfaceId: 's',
+        tool: InkTool.ballpoint,
+        color: 0xFFC62828,
+        width: 6,
+        points: [for (var i = 0; i < 20; i++) StrokePoint(100 + i * 20.0, 300, .5)],
+        createdAt: 1 << 40,
+      );
+      scene.model.addStroke(stroke);
+      final canvas = _CountingCanvas();
+      scene.painter(lod: true).paint(canvas, scene.viewport.size);
+      // No chunk falls back to its vectors: images plus the one stroke.
+      expect(canvas.pictures, 0);
+      expect(canvas.paths, greaterThan(0));
+      await scene.warmRasters();
+      final after = _CountingCanvas();
+      scene.painter(lod: true).paint(after, scene.viewport.size);
+      expect(after.pictures, 0);
+      expect(after.paths, 0, reason: 'baked into the fresh rasters');
       scene.dispose();
     });
   });

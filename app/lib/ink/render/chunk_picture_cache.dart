@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import '../../domain/chunk_grid.dart';
 import '../../domain/surface_element.dart';
+import '../lab/perf_probe.dart';
 import '../surface_model.dart';
 import 'content_painter.dart';
 
@@ -65,6 +67,8 @@ class ChunkPictureCache {
   }
 
   ui.Picture _record(ChunkKey key) {
+    developer.Timeline.startSync('len.recordChunk');
+    PerfProbe.count('chunkRecords');
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder)..clipRect(ChunkGrid.rectOf(key), doAntiAlias: false);
     final elements = [
@@ -86,7 +90,9 @@ class ChunkPictureCache {
         if (e.knownType == ElementType.image && e.data['blob'] is String) e.data['blob']! as String,
     };
     if (blobs.isNotEmpty) _blobs[key] = blobs;
-    return recorder.endRecording();
+    final picture = recorder.endRecording();
+    developer.Timeline.finishSync();
+    return picture;
   }
 
   void _onImage(String blob) => model.refresh({

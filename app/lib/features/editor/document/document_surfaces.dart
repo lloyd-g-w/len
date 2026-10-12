@@ -7,6 +7,8 @@ import '../../../data/element_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/chunk_picture_cache.dart';
+import '../../../ink/render/outline_preparer.dart';
+import '../../../ink/render/tiles/ink_tile_cache.dart';
 import '../../../ink/surface_model.dart';
 import 'page_models.dart';
 import 'undo_target.dart';
@@ -14,15 +16,21 @@ import 'undo_target.dart';
 /// One page's in-memory surface (shared by the notebook's views, see
 /// [PageModels]) and this view's render cache of it.
 class PageSurface {
-  PageSurface(this.model) : cache = ChunkPictureCache(model);
+  PageSurface(this.model) : cache = ChunkPictureCache(model) {
+    tiles = InkTileCache(cache);
+  }
 
   final SurfaceModel model;
   final ChunkPictureCache cache;
+
+  /// Rendered tiles of the page's ink.
+  late final InkTileCache tiles;
 
   bool get hasHistory => model.history.canUndo || model.history.canRedo;
 
   /// Disposes the cache; the model is released to [PageModels].
   void dispose() {
+    tiles.dispose();
     cache.dispose();
   }
 }
@@ -42,6 +50,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     this.repository, {
     this.elements,
     this.images,
+    this.outlines,
     this.keepIdle = 6,
     PageModels? models,
   }) : models = models ?? PageModels(),
@@ -61,10 +70,17 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
   /// Decoded bitmaps for image elements.
   final ElementImages? images;
 
+  /// Builds loaded strokes' outlines off the UI thread (optional).
+  final OutlinePreparer? outlines;
+
   /// Off-screen surfaces without history kept around for quick returns.
   final int keepIdle;
 
   final Map<String, PageSurface> _surfaces = {};
+
+  /// Notifies when a page's ink tiles were rendered (repaint only).
+  Listenable get rendered => _rendered;
+  final _rendered = ChangeNotifier();
 
   /// Least recently visible first.
   final List<String> _recency = [];
@@ -80,9 +96,11 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
         repository: repository,
         elementRepository: elements,
         images: images,
+        writeBehind: true,
+        outlines: outlines,
       ),
     )..addListener(notifyListeners);
-    return _surfaces[pageId] = PageSurface(model);
+    return _surfaces[pageId] = PageSurface(model)..tiles.addListener(_rendered.notifyListeners);
   }
 
   /// The page receiving input; its surface is never released while idle
@@ -128,6 +146,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     final s = _surfaces.remove(id);
     if (s == null) return;
     s.model.removeListener(notifyListeners);
+    s.tiles.removeListener(_rendered.notifyListeners);
     s.dispose();
     models.release(id);
   }
@@ -153,6 +172,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     for (final id in [..._surfaces.keys]) {
       _release(id);
     }
+    _rendered.dispose();
     models.removeListener(notifyListeners);
     if (_ownsModels) models.dispose();
     super.dispose();

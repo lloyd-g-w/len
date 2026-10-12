@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,7 @@ import 'package:sqlite3/common.dart';
 import '../../data/app_database.dart';
 import '../../data/search/ink_text_boxes.dart';
 import '../../data/stroke_queries.dart';
+import '../lab/perf_probe.dart';
 import 'handwriting_recognizer.dart';
 import 'ink_clustering.dart';
 
@@ -141,11 +143,15 @@ class HandwritingIndexer extends ChangeNotifier {
   /// [version] (a change made meanwhile keeps it queued).
   Future<void> indexSurface(String surfaceId, {int? version}) async {
     final lang = language();
+    developer.Timeline.startSync('len.handwritingCluster');
     final strokes = _db
         .select('SELECT * FROM strokes WHERE surface_id = ? AND deleted = 0', [surfaceId])
         .map(StrokeQueries.rowToStroke)
         .nonNulls;
+    final watch = Stopwatch()..start();
     final lines = InkClustering.lines(strokes);
+    PerfProbe.count('handwritingClusterMs', watch.elapsedMilliseconds);
+    developer.Timeline.finishSync();
     final existing = <String, ({int id, String text})>{
       for (final r in _db.select(
         'SELECT id, stroke_key, text FROM ink_text WHERE surface_id = ? AND language = ?',

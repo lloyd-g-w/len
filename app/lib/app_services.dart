@@ -31,6 +31,7 @@ import 'features/editor/tabs/open_notebooks.dart';
 import 'ink/images/element_images.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
 import 'ink/recognition/recognition_service.dart';
+import 'ink/render/outline_preparer.dart';
 import 'ink/selection/ink_clipboard.dart';
 import 'platform/handwriting_recognizer.dart';
 import 'platform/stroke_reader.dart';
@@ -59,6 +60,7 @@ class AppServices {
     required this.audio,
     required this.incomingFiles,
     required this.templates,
+    required this.outlines,
     required this.tags,
     required this.outline,
     required this.stickers,
@@ -77,6 +79,7 @@ class AppServices {
     SyncApi Function(String url, String token)? syncApiFactory,
     HandwritingRecognizer? recognizer,
     Stream<List<XFile>>? incomingFiles,
+    OutlinePreparer outlines = const InlineOutlinePreparer(),
   }) {
     final settings = SettingsRepository(database);
     final deviceId = settings.deviceId(clock);
@@ -144,6 +147,7 @@ class AppServices {
       audio: audio ?? platformAudioBackends(),
       incomingFiles: IncomingFiles(incomingFiles),
       templates: templates,
+      outlines: outlines,
       tags: tags,
       outline: outline,
       stickers: stickers,
@@ -178,6 +182,10 @@ class AppServices {
 
   /// The user's own templates (images as blobs).
   final TemplateRepository templates;
+
+  /// Builds the outlines of strokes loaded into editors (natively on
+  /// worker isolates, see `platform/outline_preparer`).
+  final OutlinePreparer outlines;
 
   /// Tags and which notebooks and pages carry them.
   final TagRepository tags;
@@ -229,6 +237,7 @@ class AppServices {
     search.dispose();
     sync.dispose();
     closeStrokeReader(strokeReader);
+    outlines.close();
     preferences.dispose();
     database.close();
   }

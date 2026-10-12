@@ -3,16 +3,49 @@ import 'package:flutter/rendering.dart';
 
 import '../../domain/chunk_grid.dart';
 import '../input/live_ink.dart';
+import '../lab/perf_probe.dart';
 import '../surface_model.dart';
 import '../viewport.dart';
 import 'chunk_picture_cache.dart';
 import 'chunk_raster_cache.dart';
 import 'live_stroke.dart';
 import 'stroke_renderer.dart';
+import 'tiles/ink_tile_cache.dart';
+import 'tiles/tile_space.dart';
 
-/// Paints committed strokes: only the populated chunks that intersect the
-/// visible area, each from its cached picture — or, when zoomed out far
-/// enough and [rasters] is given, from a level-of-detail raster.
+/// Paints [tiles] in [view] onto [canvas] (logical pixels), drawing the
+/// areas without tile images from the chunk pictures.
+void paintTiled(Canvas canvas, InkTileCache tiles, TileView view, double devicePixelRatio) {
+  canvas
+    ..save()
+    ..scale(1 / devicePixelRatio);
+  tiles.paint(canvas, view, (canvas, rects) {
+    final clip = Path();
+    final chunks = <ChunkKey>{};
+    for (final rect in rects) {
+      final area = view.clip == null ? rect : rect.intersect(view.clip!);
+      if (area.isEmpty) continue;
+      clip.addRect(area);
+      chunks.addAll(tiles.model.chunksIn(ChunkGrid.rangeFor(area)));
+    }
+    canvas
+      ..save()
+      ..translate(view.origin.dx, view.origin.dy)
+      ..scale(view.k)
+      ..clipPath(clip, doAntiAlias: false);
+    for (final key in chunks) {
+      canvas.drawPicture(tiles.pictures.pictureFor(key));
+    }
+    PerfProbe.count('chunkDraws', chunks.length);
+    canvas.restore();
+  });
+  canvas.restore();
+}
+
+/// Paints committed strokes: from [tiles] (images of the ink at the
+/// current zoom) when given, or else from the cached pictures of the
+/// populated chunks that intersect the visible area — and, when zoomed out
+/// far enough and [rasters] is given, from level-of-detail chunk rasters.
 class CommittedInkPainter extends CustomPainter {
   CommittedInkPainter({
     required this.model,
@@ -20,8 +53,9 @@ class CommittedInkPainter extends CustomPainter {
     required this.viewport,
     this.clip,
     this.rasters,
+    this.tiles,
     this.devicePixelRatio = 1,
-  }) : super(repaint: Listenable.merge([model, viewport, rasters]));
+  }) : super(repaint: Listenable.merge([model, viewport, rasters, tiles]));
 
   final SurfaceModel model;
   final ChunkPictureCache cache;
@@ -32,6 +66,9 @@ class CommittedInkPainter extends CustomPainter {
 
   /// Level-of-detail rasters for zoomed-out views; null = always vectors.
   final ChunkRasterCache? rasters;
+
+  /// Tile raster cache; null = chunk pictures (and LOD rasters) only.
+  final InkTileCache? tiles;
 
   /// Device pixels per logical pixel (picks the raster resolution).
   final double devicePixelRatio;
@@ -51,6 +88,20 @@ class CommittedInkPainter extends CustomPainter {
     final visible = viewport.visibleWorldFor(size);
     final chunks = model.chunksIn(ChunkGrid.rangeFor(visible));
     if (chunks.isEmpty) return;
+    final k = viewport.scale * devicePixelRatio;
+    final tiles = this.tiles;
+    // Far out, LOD chunk rasters (one image per chunk) are cheaper.
+    if (tiles != null &&
+        (rasters == null || ChunkRasterCache.levelFor(ChunkGrid.size * k) == null)) {
+      cache.setScale(viewport.scale); // Image resolution.
+      paintTiled(
+        canvas,
+        tiles,
+        TileView(k: k, origin: viewport.offset * devicePixelRatio, visible: visible, clip: clip),
+        devicePixelRatio,
+      );
+      return;
+    }
 
     canvas
       ..save()
@@ -66,7 +117,19 @@ class CommittedInkPainter extends CustomPainter {
       final image = level == null ? null : rasters!.imageFor(key, level);
       if (image != null) {
         final source = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
-        canvas.drawImageRect(image, source, ChunkGrid.rectOf(key), _imagePaint);
+        final rect = ChunkGrid.rectOf(key);
+        canvas.drawImageRect(image, source, rect, _imagePaint);
+        final overlay = rasters!.overlayOf(key, image);
+        if (overlay.isNotEmpty) {
+          // Strokes committed since the raster was made, until it is redone.
+          canvas
+            ..save()
+            ..clipRect(rect);
+          for (final stroke in overlay) {
+            StrokeRenderer.draw(canvas, stroke);
+          }
+          canvas.restore();
+        }
         continue;
       }
       final picture = level == null
@@ -74,6 +137,7 @@ class CommittedInkPainter extends CustomPainter {
           : cache.peek(key) ?? (fresh-- > 0 ? cache.pictureFor(key) : null);
       if (picture != null) canvas.drawPicture(picture);
     }
+    PerfProbe.count('chunkDraws', chunks.length);
     canvas.restore();
   }
 
@@ -84,6 +148,7 @@ class CommittedInkPainter extends CustomPainter {
       old.viewport != viewport ||
       old.clip != clip ||
       old.rasters != rasters ||
+      old.tiles != tiles ||
       old.devicePixelRatio != devicePixelRatio;
 }
 

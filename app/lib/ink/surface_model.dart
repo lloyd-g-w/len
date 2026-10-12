@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../core/clock.dart';
 import '../data/element_repository.dart';
@@ -15,6 +17,7 @@ import 'content_index.dart';
 import 'geometry/stroke_splitter.dart';
 import 'images/element_images.dart';
 import 'pen/eraser_config.dart';
+import 'render/outline_preparer.dart';
 import 'stroke_hit_test.dart';
 import 'surface_loader.dart';
 import 'undo_history.dart';
@@ -35,6 +38,8 @@ class SurfaceModel extends ChangeNotifier {
     StrokeReader? reader,
     this.maxLoadedChunks = 1024,
     this.clock = const Clock(),
+    this.writeBehind = false,
+    this.outlines,
   }) {
     _loading = SurfaceLoader(
       reader: reader ?? _repository,
@@ -59,6 +64,21 @@ class SurfaceModel extends ChangeNotifier {
   /// Soft cap on loaded chunks before far-away ones are evicted.
   final int maxLoadedChunks;
 
+  /// Whether stroke edits are written to storage right after the frame
+  /// that shows them instead of during the edit, so committing a stroke
+  /// stays cheap. Reads, [reload] and [dispose] [flush] first.
+  final bool writeBehind;
+
+  final List<InkEdit> _unsaved = [];
+
+  /// Builds loaded strokes' outlines before they are added (off the UI
+  /// thread), so the first frame drawing a page does not build thousands
+  /// of them; null: built when first drawn.
+  final OutlinePreparer? outlines;
+
+  /// Bumped by [reload]: loads prepared before are dropped.
+  int _generation = 0;
+
   // Indexed with the same chunk functions as storage (path-based for ink).
   final _strokes = ContentIndex<Stroke>(idOf: (s) => s.id, chunksOf: StrokeChunks.of);
   final _elements = ContentIndex<SurfaceElement>(idOf: (e) => e.id, chunksOf: ElementChunks.of);
@@ -76,7 +96,7 @@ class SurfaceModel extends ChangeNotifier {
   /// undo knows which page changed last.
   VoidCallback? onCommit;
 
-  final _invalidations = StreamController<Set<ChunkKey>?>.broadcast(sync: true);
+  final _changes = StreamController<SurfaceChange>.broadcast(sync: true);
 
   late final SurfaceLoader _loading;
   bool _disposed = false;
@@ -85,7 +105,12 @@ class SurfaceModel extends ChangeNotifier {
   Rect? _lastVisible;
 
   /// Emits chunks whose rendering is stale; `null` means "everything".
-  Stream<Set<ChunkKey>?> get invalidations => _invalidations.stream;
+  Stream<Set<ChunkKey>?> get invalidations => _changes.stream.map((c) => c.chunks);
+
+  /// Like [invalidations], but tells appended strokes apart (see
+  /// [SurfaceChange.appended]), so raster caches can add them to what they
+  /// already rendered instead of rendering again.
+  Stream<SurfaceChange> get changes => _changes.stream;
 
   int get loadedStrokeCount => _strokes.length;
   int get loadedElementCount => _elements.length;
@@ -191,14 +216,26 @@ class SurfaceModel extends ChangeNotifier {
     final range = ChunkGrid.rangeFor(visibleWorld.inflate(ChunkGrid.size));
     if (range == _lastRange) return;
     _lastRange = range;
+    flush(); // Reads must see every edit.
     _loading.request(range);
   }
 
-  /// Whether chunks are still being read in the background.
-  bool get isLoading => _loading.isLoading;
+  /// Whether chunks are still being read (or their outlines built).
+  bool get isLoading => _loading.isLoading || _preparing > 0;
 
   /// Completes when no background read is pending.
-  Future<void> get loaded => _loading.idle;
+  Future<void> get loaded async {
+    await _loading.idle;
+    while (_preparing > 0 && !_disposed) {
+      await Future<void>.delayed(const Duration(milliseconds: 4));
+    }
+  }
+
+  int _preparing = 0;
+
+  /// Ids removed while loads were being prepared: those loads must not
+  /// bring them back.
+  final Set<String> _removedWhilePreparing = {};
 
   Set<ChunkKey> _loadedWithin(ChunkRange range) => {
     for (final key in _loaded)
@@ -207,6 +244,36 @@ class SurfaceModel extends ChangeNotifier {
 
   void _onLoad(ChunkLoad load) {
     if (_disposed) return;
+    final outlines = this.outlines;
+    if (outlines == null || load.strokes.isEmpty) return _insertLoad(load);
+    final generation = _generation;
+    _preparing++;
+    // Synchronous when the outlines are built inline.
+    outlines.prepare(load.strokes).then((_) {
+      _preparing--;
+      if (!_disposed && generation == _generation) {
+        final removed = _removedWhilePreparing;
+        _insertLoad(
+          removed.isEmpty
+              ? load
+              : ChunkLoad(
+                  chunks: load.chunks,
+                  strokes: [
+                    for (final s in load.strokes)
+                      if (!removed.contains(s.id)) s,
+                  ],
+                  elements: [
+                    for (final e in load.elements)
+                      if (!removed.contains(e.id)) e,
+                  ],
+                ),
+        );
+      }
+      if (_preparing == 0) _removedWhilePreparing.clear();
+    });
+  }
+
+  void _insertLoad(ChunkLoad load) {
     if (load.chunks.isNotEmpty) {
       final changed = <ChunkKey>{};
       for (final stroke in load.strokes) {
@@ -232,12 +299,14 @@ class SurfaceModel extends ChangeNotifier {
   /// Drops everything in memory and reloads from storage (e.g. after a sync
   /// brought in remote changes).
   void reload() {
+    flush();
+    _generation++;
     _strokes.clear();
     _elements.clear();
     _loaded.clear();
     _lastRange = null;
     _loading.reset();
-    _invalidations.add(null);
+    _changes.add(const SurfaceChange(null));
     final visible = _lastVisible;
     if (visible != null) ensureLoaded(visible);
     notifyListeners();
@@ -270,7 +339,7 @@ class SurfaceModel extends ChangeNotifier {
       evicted.addAll(keys);
     }
     // Nothing visible changed, so listeners need not be notified.
-    if (evicted.isNotEmpty) _invalidations.add(evicted);
+    if (evicted.isNotEmpty) _changes.add(SurfaceChange(evicted));
   }
 
   // ---------------------------------------------------------------------------
@@ -339,13 +408,31 @@ class SurfaceModel extends ChangeNotifier {
   void _apply(InkEdit edit) {
     final changed = <ChunkKey>{};
 
-    if (edit.removed.isNotEmpty) _repository.delete(edit.removed.map((s) => s.id));
-    if (edit.added.isNotEmpty) _repository.save(edit.added);
+    if (edit.removed.isNotEmpty || edit.added.isNotEmpty) {
+      if (writeBehind) {
+        _unsaved.add(edit);
+        if (_withUnsaved.add(this)) {
+          // After the frame that shows the edit is handed to the raster
+          // thread, so the write runs alongside its rasterisation.
+          SchedulerBinding.instance
+            ..addPostFrameCallback((_) => flush())
+            ..ensureVisualUpdate();
+        }
+      } else {
+        _write(edit);
+      }
+    }
+    if (_preparing > 0) {
+      _removedWhilePreparing
+        ..addAll(edit.removed.map((s) => s.id))
+        ..addAll(edit.removedElements.map((e) => e.id));
+    }
     for (final s in edit.removed) {
       final current = _strokes[s.id];
       if (current != null) _removeStroke(current);
       changed.addAll(StrokeChunks.of(s));
     }
+    final appended = _isAppend(edit);
     for (final s in edit.added) {
       _strokes.insert(s);
       changed.addAll(StrokeChunks.of(s));
@@ -372,7 +459,55 @@ class SurfaceModel extends ChangeNotifier {
       _elements.insert(e);
       changed.addAll(ElementChunks.of(e));
     }
-    _changed(changed);
+    _changed(changed, appended: appended ? edit.added : null);
+  }
+
+  /// Whether [edit] only adds pen strokes painted over everything already
+  /// in their chunks (nothing above the ink there, nothing hidden), so
+  /// drawing them over a rendering of the chunks before the edit gives the
+  /// rendering after it. Checked before the strokes are inserted.
+  bool _isAppend(InkEdit edit) {
+    if (edit.added.isEmpty || edit.removed.isNotEmpty) return false;
+    if (edit.addedElements.isNotEmpty || edit.removedElements.isNotEmpty) return false;
+    for (final s in edit.added) {
+      if (s.tool.isHighlighter || _strokes.containsId(s.id) || _hidden.contains(s.id)) {
+        return false;
+      }
+      for (final key in StrokeChunks.of(s)) {
+        for (final other in _strokes.inChunk(key)) {
+          if (Stroke.paintOrder(other, s) > 0) return false;
+        }
+        if (_elements.inChunk(key).any((e) => !e.belowInk)) return false;
+      }
+    }
+    return true;
+  }
+
+  /// Models with edits waiting for [writeBehind].
+  static final Set<SurfaceModel> _withUnsaved = {};
+
+  /// [flush]es every surface, before code that reads or rewrites stored
+  /// strokes directly (page copies and deletions, exports).
+  static void flushAll() {
+    for (final model in List.of(_withUnsaved)) {
+      model.flush();
+    }
+  }
+
+  /// Writes stroke edits still waiting for [writeBehind] to storage.
+  void flush() {
+    _withUnsaved.remove(this);
+    if (_unsaved.isEmpty) return;
+    final edits = List.of(_unsaved);
+    _unsaved.clear();
+    edits.forEach(_write);
+  }
+
+  void _write(InkEdit edit) {
+    developer.Timeline.startSync('len.persistStrokes');
+    if (edit.removed.isNotEmpty) _repository.delete(edit.removed.map((s) => s.id));
+    if (edit.added.isNotEmpty) _repository.save(edit.added);
+    developer.Timeline.finishSync();
   }
 
   /// Marks [chunks] for re-rendering although no content changed (e.g. an
@@ -396,16 +531,30 @@ class SurfaceModel extends ChangeNotifier {
     _loading.noteRemoved(element.id);
   }
 
-  void _changed(Set<ChunkKey> chunks) {
-    _invalidations.add(chunks);
+  void _changed(Set<ChunkKey> chunks, {List<Stroke>? appended}) {
+    _changes.add(SurfaceChange(chunks, appended: appended));
     notifyListeners();
   }
 
   @override
   void dispose() {
+    flush();
     _disposed = true;
     _loading.dispose();
-    _invalidations.close();
+    _changes.close();
     super.dispose();
   }
+}
+
+/// A change of what a surface renders: the [chunks] whose rendering is
+/// stale (null: everything).
+class SurfaceChange {
+  const SurfaceChange(this.chunks, {this.appended});
+
+  final Set<ChunkKey>? chunks;
+
+  /// Set when the change only appends these strokes on top of everything
+  /// in [chunks] (pen ink, nothing above it there): a rendering of the
+  /// chunks from before plus these strokes, in order, is up to date.
+  final List<Stroke>? appended;
 }

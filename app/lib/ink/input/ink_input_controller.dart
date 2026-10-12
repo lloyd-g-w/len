@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../core/clock.dart';
 import '../../domain/preferences.dart';
 import '../../domain/stroke.dart';
+import '../lab/perf_probe.dart';
 import '../navigation/kinetic_pan.dart';
 import '../render/live_stroke.dart';
 import '../render/stroke_renderer.dart';
@@ -418,7 +420,8 @@ class InkInputController {
           style: stroke.style,
         );
         if (path != null) StrokeRenderer.adopt(stroke, path);
-        model.addStroke(stroke);
+        PerfProbe.lift(liftTime);
+        developer.Timeline.timeSync('len.commitStroke', () => model.addStroke(stroke));
       }
       _recordLift(liftTime);
     }

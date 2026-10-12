@@ -6,6 +6,7 @@ import '../../../data/surface_copier.dart';
 import '../../../domain/image_data.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/surface_element.dart';
+import '../../../ink/surface_model.dart';
 import '../../editor/document/page_painting.dart';
 import '../pdf/pdf_renderer.dart';
 import 'pdf_export.dart';
@@ -43,6 +44,7 @@ class NotebookExporter {
     bool backgrounds = true,
     void Function(int index)? onRasterized,
   }) async {
+    SurfaceModel.flushAll(); // Ink drawn a moment ago.
     final sources = PdfPageSources(read: _readBlob, normalize: _renderer.normalized);
     final export = <ExportPage>[];
     for (final page in pages) {
@@ -79,6 +81,7 @@ class NotebookExporter {
   /// without [backgrounds], an imported PDF page is left out (an image
   /// template stays: it is the page's paper).
   Future<Uint8List> png(NotebookPage page, {double scale = 2, bool backgrounds = true}) async {
+    SurfaceModel.flushAll(); // Ink drawn a moment ago.
     final paperOnly = page.background == null && page.paper.image != null;
     final background = backgrounds || paperOnly
         ? await _background(page, page.width * scale)
