@@ -198,7 +198,7 @@ class EditorMoreMenu extends StatelessWidget {
     Map<T, String> hints = const {},
     List<Widget> extra = const [],
   }) => SubmenuButton(
-      trailingIcon: const Icon(Symbols.chevron_right_rounded, size: Glyphs.menu),
+    trailingIcon: const Icon(Symbols.chevron_right_rounded, size: Glyphs.menu),
     leadingIcon: Icon(icon),
     menuChildren: [
       for (final (option, text) in options)
