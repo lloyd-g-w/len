@@ -37,37 +37,6 @@ class PickerLabel extends StatelessWidget {
   }
 }
 
-/// Paper colours as labelled chips with a swatch, in even rows.
-class PaperColorRow extends StatelessWidget {
-  const PaperColorRow({super.key, required this.template, required this.onChanged});
-
-  final PageTemplate template;
-  final ValueChanged<PageTemplate> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return EvenChoices(
-      choices: [
-        for (final c in PaperColor.presets)
-          EvenChoice(
-            key: ValueKey('paper-${c.name}'),
-            label: c.label,
-            selected: template.color == c,
-            onTap: () => onChanged(template.copyWith(color: c)),
-            leading: DecoratedBox(
-              decoration: BoxDecoration(
-                color: c.paper,
-                shape: BoxShape.circle,
-                border: Border.all(color: scheme.outline.withValues(alpha: 0.6)),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 /// Page format chips (even rows) above a portrait / landscape toggle.
 class PageSizeRow extends StatelessWidget {
   const PageSizeRow({super.key, required this.template, required this.onChanged});

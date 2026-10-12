@@ -110,16 +110,23 @@ class TemplateSelection {
   };
 
   /// [style] with the selected date and calendar (planners keep a date
-  /// they already have when the style stays a planner).
+  /// they already have when the style stays a planner) and look (but the
+  /// style's own spacing).
   Paper paperFor(PaperStyle style) {
-    if (!style.isPlanner) return Paper(style);
     final current = template.paper;
+    final look = current.look.copyWith(clearSpacing: true);
+    if (!style.isPlanner) return Paper(style, look: look);
     final date = current.style.isPlanner && current.date != null ? current.date! : plan.start;
-    return Paper.planner(style, date, calendar: plan.calendar);
+    return Paper.planner(style, date, calendar: plan.calendar, look: look);
   }
 
-  /// Selects [entry].
-  TemplateSelection select(TemplateEntry entry) => copyWith(template: templateFor(entry));
+  /// Selects [entry] (selecting it again keeps its settings).
+  TemplateSelection select(TemplateEntry entry) =>
+      isSelected(entry) ? this : copyWith(template: templateFor(entry));
+
+  /// The template [entry]'s tile shows: the selection itself when selected.
+  PageTemplate tileTemplate(TemplateEntry entry) =>
+      isSelected(entry) ? template : templateFor(entry);
 
   /// The papers of the pages to create: a generated planner, or one page.
   List<Paper> pagesToCreate() =>

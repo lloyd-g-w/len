@@ -6,6 +6,7 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/documents/template_picker.dart';
+import 'package:len/features/documents/templates/paper_options.dart';
 import 'package:len/features/documents/templates/template_catalog.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -173,12 +174,45 @@ void main() {
     final choice = await _open(tester, mode: TemplatePickerMode.change);
     expect(find.text('Page size'), findsNothing); // Size is fixed when changing.
     await _tapText(tester, 'Dotted');
-    await _tapText(tester, 'Dark');
+    await _tapKey(tester, 'paper-dark');
     await tester.tap(find.text('Apply to all pages'));
     await tester.pumpAndSettle();
     expect(choice()!.template.style, PaperStyle.dotted);
     expect(choice()!.template.color, PaperColor.dark);
     expect(choice()!.allPages, isTrue);
+  });
+
+  testWidgets('the Paper options customise spacing, colours and extras', (tester) async {
+    final choice = await _open(tester, mode: TemplatePickerMode.change);
+    await _tapText(tester, 'Dotted');
+    expect(find.byKey(const ValueKey('paper-margin')), findsNothing); // Dots have no margin.
+    await _tapKey(tester, 'spacing-5 mm');
+    await _tapKey(tester, 'pattern-${PaperOptions.patternColors[1]}');
+    await _tapKey(tester, 'paper-header');
+    expect(find.text('5.0 mm'), findsOneWidget);
+    await _tapText(tester, 'Wide ruled'); // Another template keeps the look, not the spacing.
+    expect(find.text('8.5 mm'), findsOneWidget);
+    await _tapKey(tester, 'paper-margin');
+    await tester.tap(find.text('Apply to this page'));
+    await tester.pumpAndSettle();
+    final paper = choice()!.template.paper;
+    expect(paper.style, PaperStyle.wideRuled);
+    expect(
+      paper.look,
+      PaperLook(patternColor: PaperOptions.patternColors[1], margin: false, header: true),
+    );
+  });
+
+  testWidgets('Reset brings back the standard look', (tester) async {
+    final choice = await _open(tester, mode: TemplatePickerMode.change);
+    await _tapText(tester, 'Small grid');
+    expect(find.text('Reset'), findsNothing);
+    await _tapKey(tester, 'spacing-1 cm');
+    await _tapText(tester, 'Reset');
+    expect(find.text('Reset'), findsNothing);
+    await tester.tap(find.text('Apply to this page'));
+    await tester.pumpAndSettle();
+    expect(choice()!.template.paper, const Paper(PaperStyle.gridSmall));
   });
 
   testWidgets('a planner added from the picker generates its pages', (tester) async {

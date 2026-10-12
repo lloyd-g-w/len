@@ -8,6 +8,7 @@ import '../../../ink/render/laser_ribbon.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
+import '../../../ui/color_picker/custom_color_swatch.dart';
 import '../pen/option_controls.dart';
 import 'colour_sheet.dart';
 
@@ -64,9 +65,9 @@ class LaserOptionsPanel extends StatelessWidget {
                     selected: laser.color == c,
                     onTap: () => update(laser.copyWith(color: c)),
                   ),
-                _CustomColourButton(
+                CustomColorSwatch(
                   color: custom ? laser.color : null,
-                  onTap: () async {
+                  onTap: (context) async {
                     final colour = await pickColour(
                       context,
                       title: 'Laser colour',
@@ -100,39 +101,6 @@ class LaserOptionsPanel extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-/// The last swatch: opens the full colour picker; shows the custom colour
-/// (selected) once one is chosen.
-class _CustomColourButton extends StatelessWidget {
-  const _CustomColourButton({required this.color, required this.onTap});
-
-  final int? color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colour = color;
-    if (colour != null) {
-      return ColorDot(
-        color: colour,
-        size: 28,
-        selected: true,
-        onTap: onTap,
-        tooltip: 'Custom colour…',
-      );
-    }
-    return SizedBox.square(
-      dimension: 28,
-      child: IconButton(
-        tooltip: 'Custom colour…',
-        padding: EdgeInsets.zero,
-        iconSize: 18,
-        onPressed: onTap,
-        icon: const Icon(Icons.palette_outlined),
-      ),
     );
   }
 }
