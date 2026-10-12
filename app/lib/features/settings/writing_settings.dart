@@ -6,9 +6,11 @@ import '../../ui/segment_label.dart';
 import '../editor/pen/eraser_icon.dart';
 import 'settings_section.dart';
 
-/// Stylus preferences: palm rejection and the side button.
-class StylusSettings extends StatelessWidget {
-  const StylusSettings({super.key, required this.preferences});
+/// Writing preferences: palm rejection, the side button, finger taps to
+/// undo and redo, and where the editor's toolbar sits (also changeable
+/// from the editor menu).
+class WritingSettings extends StatelessWidget {
+  const WritingSettings({super.key, required this.preferences});
 
   final AppPreferences preferences;
 
@@ -19,7 +21,7 @@ class StylusSettings extends StatelessWidget {
     return ListenableBuilder(
       listenable: preferences,
       builder: (context, _) => SettingsSection(
-        title: 'Stylus',
+        title: 'Writing',
         icon: Icons.edit_outlined,
         children: [
           SettingsTile(
@@ -63,44 +65,34 @@ class StylusSettings extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Touch gesture preferences (undo/redo taps).
-class GestureSettings extends StatelessWidget {
-  const GestureSettings({super.key, required this.preferences});
-
-  final AppPreferences preferences;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: preferences,
-      builder: (context, _) => SettingsSection(
-        title: 'Gestures',
-        icon: Icons.touch_app_outlined,
-        children: [
           SettingsTile(
             icon: Icons.undo_rounded,
-            title: 'Two-finger tap to undo',
-            subtitle: 'Tap the page with two fingers to undo the last change.',
-            onTap: () => preferences.twoFingerTapUndo = !preferences.twoFingerTapUndo,
+            title: 'Finger taps to undo and redo',
+            subtitle: 'Tap the page with two fingers to undo, with three to redo.',
+            onTap: () => preferences.fingerTapUndo = !preferences.fingerTapUndo,
             trailing: Switch(
-              value: preferences.twoFingerTapUndo,
-              onChanged: (v) => preferences.twoFingerTapUndo = v,
+              value: preferences.fingerTapUndo,
+              onChanged: (v) => preferences.fingerTapUndo = v,
             ),
           ),
           SettingsTile(
-            icon: Icons.redo_rounded,
-            title: 'Three-finger tap to redo',
-            subtitle: 'Tap with three fingers to bring it back.',
-            onTap: () => preferences.threeFingerTapRedo = !preferences.threeFingerTapRedo,
-            trailing: Switch(
-              value: preferences.threeFingerTapRedo,
-              onChanged: (v) => preferences.threeFingerTapRedo = v,
+            icon: Icons.view_day_outlined,
+            title: 'Toolbar',
+            subtitle: switch (preferences.toolbarPlacement) {
+              ToolbarPlacement.docked =>
+                'At the top on tablets and computers, at the bottom on phones.',
+              ToolbarPlacement.floating => 'Floating; drag it anywhere by its grip.',
+            },
+            below: ShrinkToFit(
+              child: SegmentedButton<ToolbarPlacement>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: ToolbarPlacement.docked, label: SegmentLabel('Docked')),
+                  ButtonSegment(value: ToolbarPlacement.floating, label: SegmentLabel('Floating')),
+                ],
+                selected: {preferences.toolbarPlacement},
+                onSelectionChanged: (s) => preferences.toolbarPlacement = s.single,
+              ),
             ),
           ),
         ],

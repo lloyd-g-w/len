@@ -7,7 +7,6 @@ import '../../app_services.dart';
 import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
-import '../../ui/sync_status_button.dart';
 import '../audio/ui/recover_recording_dialog.dart';
 import '../documents/import/import_flow.dart';
 import '../settings/settings_screen.dart';
@@ -88,14 +87,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
     _remoteChanges = services.sync.remoteChanges.listen((c) {
       if (c.strokeSurfaces.isNotEmpty || c.pagesOfNotebooks.isNotEmpty) _thumbnails.invalidate();
-      if (c.notebooks || c.folders || c.tags) _controller.reload();
+      if (c.notebooks || c.folders) _controller.reload();
     });
   }
 
   /// Where the library is: section, folder and search.
-  String get _scopeKey =>
-      '${_controller.section}/${_controller.folderId}/${_controller.query}/'
-      '${_controller.tagFilter.join(',')}';
+  String get _scopeKey => '${_controller.section}/${_controller.folderId}/${_controller.query}';
   String _scope = '';
 
   /// Opens imported notebooks in editor tabs, the last one shown.
@@ -206,7 +203,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _content({List<Widget> headerTrailing = const []}) => AnimatedSwitcher(
+  Widget _content({Widget? headerLeading}) => AnimatedSwitcher(
     duration: Motion.medium,
     switchInCurve: Motion.standard,
     transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
@@ -216,18 +213,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
         actions: _actions,
         searchController: _search,
         searchFocus: _searchFocus,
-        headerTrailing: headerTrailing,
+        headerLeading: headerLeading,
       ),
     ),
   );
 
-  /// The "New" button; hidden in the trash and when the empty state
-  /// already offers one (library and folders).
-  Widget? _fab(BuildContext context) =>
+  /// The "New" button; hidden in the trash, where the grid's "New…" tile
+  /// shows (wide screens) and when the empty state already offers one
+  /// (library and folders).
+  Widget? _fab(BuildContext context, {bool compact = false}) =>
       _actions.selection.active ||
+          LibraryContent.showsNewTile(_actions, compact: compact) ||
           _controller.section == LibrarySection.trash ||
           (_controller.section == LibrarySection.library &&
-              !_controller.isFiltering &&
+              !_controller.isSearching &&
               _controller.visibleFolders.isEmpty &&
               _controller.visibleNotebooks.isEmpty)
       ? null
@@ -267,38 +266,34 @@ class _LibraryScreenState extends State<LibraryScreen> {
       ? LibrarySelectionBar(actions: _actions, selection: _actions.selection)
       : null;
 
+  /// Phones: the sidebar's content in a drawer, opened from ☰.
   Widget _phone(BuildContext context) {
-    const sections = LibrarySection.values;
     return Scaffold(
-      body: _content(
-        headerTrailing: [SyncStatusButton(sync: _services!.sync, onConfigure: _openSettings)],
-      ),
-      floatingActionButton: _fab(context),
-      bottomNavigationBar:
-          _selectionBar() ??
-          NavigationBar(
-            selectedIndex: sections.indexOf(_controller.section),
-            onDestinationSelected: (i) =>
-                i == sections.length ? _openSettings() : _controller.showSection(sections[i]),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.auto_stories_outlined),
-                selectedIcon: Icon(Icons.auto_stories_rounded),
-                label: 'Library',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.star_outline_rounded),
-                selectedIcon: Icon(Icons.star_rounded),
-                label: 'Favourites',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.delete_outline_rounded),
-                selectedIcon: Icon(Icons.delete_rounded),
-                label: 'Trash',
-              ),
-              NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
-            ],
+      drawer: Drawer(
+        width: 288,
+        child: Builder(
+          builder: (context) => LibrarySidebar(
+            actions: _actions,
+            width: 288,
+            onNavigate: Navigator.of(context).pop,
+            onOpenSettings: () {
+              Navigator.of(context).pop();
+              _openSettings();
+            },
           ),
+        ),
+      ),
+      body: _content(
+        headerLeading: Builder(
+          builder: (context) => IconButton(
+            tooltip: 'Menu',
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: Scaffold.of(context).openDrawer,
+          ),
+        ),
+      ),
+      floatingActionButton: _fab(context, compact: true),
+      bottomNavigationBar: _selectionBar(),
     );
   }
 }

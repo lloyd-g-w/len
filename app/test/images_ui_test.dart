@@ -154,7 +154,7 @@ void main() {
     // Selected with the lasso, with image actions.
     expect(find.byTooltip('Crop'), findsOneWidget);
     expect(find.byTooltip('Send to back'), findsOneWidget);
-    expect(find.byTooltip('Colour'), findsNothing);
+    expect(find.byTooltip('Style'), findsNothing);
     await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
     await tester.pump();
     expect(liveElements(services, nb.id), isEmpty);
@@ -197,7 +197,7 @@ void main() {
     await key(tester, LogicalKeyboardKey.keyL);
     await mouseDrag(tester, const [Offset(150, 400)]);
     expect(find.byTooltip('Crop'), findsNothing); // The ink.
-    expect(find.byTooltip('Colour'), findsOneWidget);
+    expect(find.byTooltip('Style'), findsOneWidget);
 
     await mouseDrag(tester, const [Offset(400, 450)]);
     expect(find.byTooltip('Crop'), findsOneWidget);

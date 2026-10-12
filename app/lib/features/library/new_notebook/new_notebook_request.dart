@@ -1,4 +1,3 @@
-import '../../../domain/cover_style.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/paper.dart';
 
@@ -9,7 +8,6 @@ class NewNotebookRequest {
     required this.kind,
     required this.paper,
     required this.coverColor,
-    this.coverStyle = CoverStyle.plain,
     this.template = const PageTemplate(),
     this.papers = const [],
     this.importPdf = false,
@@ -30,7 +28,6 @@ class NewNotebookRequest {
   final NotebookKind kind;
   final PaperStyle paper;
   final int coverColor;
-  final CoverStyle coverStyle;
 
   /// First page of a paged notebook (its style equals [paper] unless that
   /// style needs parameters; [paper] is then blank).

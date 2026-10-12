@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../app_services.dart';
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/segment_label.dart';
 import 'page_setup.dart';
 import 'template_catalog.dart';
 
-/// The planner calendar new planners start with: the one chosen last, else
-/// the device locale's language (if offered, else English) and its
-/// customary week start.
-PlannerCalendar defaultPlannerCalendar(BuildContext context) {
-  final remembered = AppScope.maybeRead(context)?.settings.plannerCalendar;
-  if (remembered != null) return remembered;
+/// The planner calendar new planners start with: the device locale's
+/// language (if offered, else English) and its customary week start.
+PlannerCalendar defaultPlannerCalendar() {
   final locale = WidgetsBinding.instance.platformDispatcher.locale;
   return PlannerCalendar.forLocale(locale.languageCode, locale.countryCode);
 }
@@ -21,8 +17,9 @@ PlannerCalendar defaultPlannerCalendar(BuildContext context) {
 /// notebooks, adding pages): the first month, how many months, and for
 /// the monthly calendar whether linked week and day pages follow each
 /// month and whether a year overview comes first. Otherwise (changing a
-/// page's template): the one period the page shows. Always: the day weeks
-/// start on and the language (remembered for the next planner).
+/// page's template): the one period the page shows. Under "More options":
+/// the day weeks start on (by default the locale's). The labels' language
+/// follows the device.
 class PlannerOptions extends StatelessWidget {
   const PlannerOptions({
     super.key,
@@ -54,8 +51,7 @@ class PlannerOptions extends StatelessWidget {
     ),
   );
 
-  void _setCalendar(BuildContext context, PlannerCalendar calendar) {
-    AppScope.maybeRead(context)?.settings.plannerCalendar = calendar;
+  void _setCalendar(PlannerCalendar calendar) {
     final plan = selection.plan.copyWith(calendar: calendar);
     final date = generate ? plan.start : selection.template.paper.date ?? plan.start;
     onChanged(
@@ -74,9 +70,17 @@ class PlannerOptions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (generate) ..._range(context) else ..._date(),
-        const SizedBox(height: Gaps.md),
-        _CalendarRow(calendar: selection.plan.calendar, onChanged: (c) => _setCalendar(context, c)),
         if (generate && _style.period == PlannerPeriod.month) ..._monthSwitches(context),
+        ExpansionTile(
+          key: const ValueKey('planner-more'),
+          title: const Text('More options'),
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(bottom: Gaps.sm),
+          dense: true,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          children: [_CalendarRow(calendar: selection.plan.calendar, onChanged: _setCalendar)],
+        ),
       ],
     );
   }
@@ -162,85 +166,40 @@ class PlannerOptions extends StatelessWidget {
   }
 }
 
-/// "Week starts on" (Monday / Sunday) and "Language", side by side when
-/// there is room.
+/// "Week starts on": Monday or Sunday.
 class _CalendarRow extends StatelessWidget {
   const _CalendarRow({required this.calendar, required this.onChanged});
 
   final PlannerCalendar calendar;
   final ValueChanged<PlannerCalendar> onChanged;
 
-  /// Room for each control (labels stretch to it).
-  static const double _width = 240;
-
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: Gaps.xl,
-      runSpacing: Gaps.md,
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _width),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _Label('Week starts on'),
-              ShrinkToFit(
-                child: SegmentedButton<WeekStart>(
-                  key: const ValueKey('planner-week-start'),
-                  showSelectedIcon: false,
-                  style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                  segments: const [
-                    ButtonSegment(value: WeekStart.monday, label: SegmentLabel('Monday')),
-                    ButtonSegment(value: WeekStart.sunday, label: SegmentLabel('Sunday')),
-                  ],
-                  selected: {calendar.weekStart},
-                  onSelectionChanged: (s) => onChanged(calendar.copyWith(weekStart: s.single)),
-                ),
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 240),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _Label('Week starts on'),
+            ShrinkToFit(
+              child: SegmentedButton<WeekStart>(
+                key: const ValueKey('planner-week-start'),
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: WeekStart.monday, label: SegmentLabel('Monday')),
+                  ButtonSegment(value: WeekStart.sunday, label: SegmentLabel('Sunday')),
+                ],
+                selected: {calendar.weekStart},
+                onSelectionChanged: (s) => onChanged(calendar.copyWith(weekStart: s.single)),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _width),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _Label('Language'),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(Radii.control),
-                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.sm, Gaps.sm),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<PlannerLanguage>(
-                      key: const ValueKey('planner-language'),
-                      value: calendar.language,
-                      isExpanded: true,
-                      isDense: true,
-                      borderRadius: BorderRadius.circular(Radii.control),
-                      items: [
-                        for (final l in PlannerLanguage.values)
-                          DropdownMenuItem(
-                            value: l,
-                            child: Text(l.nativeName, overflow: TextOverflow.ellipsis),
-                          ),
-                      ],
-                      onChanged: (l) {
-                        if (l != null) onChanged(calendar.copyWith(language: l));
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

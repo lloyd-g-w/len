@@ -178,15 +178,6 @@ class OpenNotebooks extends ChangeNotifier {
   double _splitFraction = 0.5;
   set splitFraction(double value) => _splitFraction = value.clamp(0.25, 0.75);
 
-  /// Whether both panes use the same tool, colours and widths.
-  bool get linkTools => _linkTools;
-  bool _linkTools = false;
-  set linkTools(bool value) {
-    if (value == _linkTools) return;
-    _linkTools = value;
-    notifyListeners();
-  }
-
   /// Shows tab [id] in the second pane.
   void openSplit(String id) {
     if (!contains(id) || id == _splitId) return;

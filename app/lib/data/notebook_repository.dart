@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:sqlite3/common.dart';
 
-import '../domain/cover_style.dart';
 import '../domain/notebook.dart';
 import '../domain/paper.dart';
 import 'element_repository.dart';
@@ -14,7 +13,6 @@ import 'recording_repository.dart';
 import 'stroke_repository.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
-import 'tag_repository.dart';
 
 /// Persists notebooks and orchestrates notebook-level operations that span
 /// pages and strokes (creation with a first page, duplication, trash and
@@ -27,7 +25,6 @@ class NotebookRepository extends SyncableTable {
     required this.strokes,
     this.elements,
     this.recordings,
-    this.tags,
     this.outline,
     super.clock,
   });
@@ -40,10 +37,6 @@ class NotebookRepository extends SyncableTable {
 
   /// Audio recordings are tombstoned with their notebook when set.
   final RecordingRepository? recordings;
-
-  /// Tags are taken off the notebook and its pages when it is deleted, and
-  /// copied when it is duplicated, when set.
-  final TagRepository? tags;
 
   /// The notebook's own outline is deleted and duplicated with it when set.
   final OutlineRepository? outline;
@@ -90,7 +83,6 @@ class NotebookRepository extends SyncableTable {
     PaperLook look = PaperLook.standard,
     required int coverColor,
     PaperColor paperColor = PaperColor.white,
-    CoverStyle coverStyle = CoverStyle.plain,
     String? folderId,
     PageTemplate? firstPage,
     List<Paper> papers = const [],
@@ -104,7 +96,6 @@ class NotebookRepository extends SyncableTable {
       paper: Paper(paper, look: look),
       paperColor: paperColor,
       coverColor: coverColor,
-      coverStyle: coverStyle,
       folderId: folderId,
       createdAt: now,
       updatedAt: now,
@@ -193,7 +184,6 @@ class NotebookRepository extends SyncableTable {
       strokes.deleteSurfaces([id, ...pageIds]);
       elements?.deleteSurfaces([id, ...pageIds]);
       recordings?.deleteAllOf(id);
-      tags?.taggings.removeTargets([id, ...pageIds]);
       outline?.deleteAllOf(id);
     });
   }
@@ -224,7 +214,6 @@ class NotebookRepository extends SyncableTable {
               'paperData': jsonDecode(row['paper_data'] as String),
               'paperColor': row['paper_color'],
               'coverColor': row['cover_color'],
-              'coverStyle': row['cover_style'],
               'createdAt': row['created_at'],
               'editedAt': row['edited_at'],
               'folderId': row['folder_id'],
@@ -264,7 +253,6 @@ class NotebookRepository extends SyncableTable {
       paper: paper,
       paperColor: PaperColor.tryParse(f.string('paperColor')) ?? f.invalid('paperColor'),
       coverColor: f.integer('coverColor'),
-      coverStyle: f.choice('coverStyle', CoverStyle.values),
       createdAt: f.integer('createdAt'),
       updatedAt: record.updatedAt,
       editedAt: f.integer('editedAt'),
@@ -280,9 +268,9 @@ class NotebookRepository extends SyncableTable {
       INSERT OR REPLACE INTO notebooks (id, title, kind, paper, cover_color,
                                         created_at, updated_at, device_id,
                                         deleted, dirty, folder_id, favorite,
-                                        trashed_at, cover_style, edited_at,
+                                        trashed_at, edited_at,
                                         paper_color, paper_data)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)''',
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)''',
       [
         n.id,
         n.title,
@@ -296,7 +284,6 @@ class NotebookRepository extends SyncableTable {
         n.folderId,
         n.favorite ? 1 : 0,
         n.trashedAt,
-        n.coverStyle.name,
         n.editedAt,
         n.paperColor.name,
         jsonEncode(n.paper.toData()),
@@ -311,7 +298,6 @@ class NotebookRepository extends SyncableTable {
     paper: _decodePaper(row['paper'] as String, row['paper_data'] as String),
     paperColor: PaperColor.parse(row['paper_color'] as String?),
     coverColor: row['cover_color'] as int,
-    coverStyle: CoverStyle.parse(row['cover_style'] as String?),
     createdAt: row['created_at'] as int,
     updatedAt: row['updated_at'] as int,
     editedAt: row['edited_at'] as int,

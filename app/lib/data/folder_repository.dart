@@ -86,14 +86,13 @@ class FolderRepository extends SyncableTable {
   }
 
   /// Creates a folder inside [parentId] (null = top level).
-  Folder create({required String name, String? parentId, required int color, String? icon}) {
+  Folder create({required String name, String? parentId, required int color}) {
     final now = clock.nowMs();
     final folder = Folder(
       id: clock.newId(),
       name: name,
       parentId: parentId,
       color: color,
-      icon: icon,
       createdAt: now,
       updatedAt: now,
     );
@@ -101,7 +100,7 @@ class FolderRepository extends SyncableTable {
     return folder;
   }
 
-  /// Saves name/colour/icon/parent changes.
+  /// Saves name/colour/parent changes.
   Folder update(Folder folder) {
     final updated = folder.copyWith(updatedAt: nextVersion(folder.id));
     _write(updated, deviceId: deviceId, dirty: true);
@@ -156,7 +155,6 @@ class FolderRepository extends SyncableTable {
               'name': row['name'],
               'parentId': row['parent_id'],
               'color': row['color'],
-              'icon': row['icon'],
               'createdAt': row['created_at'],
             },
     );
@@ -177,15 +175,12 @@ class FolderRepository extends SyncableTable {
       return;
     }
     final f = RecordFields(record);
-    final icon = f.stringOrNull('icon');
-    if (icon != null && !Folder.iconKeys.contains(icon)) f.invalid('icon');
     _write(
       Folder(
         id: record.id,
         name: f.string('name'),
         parentId: f.stringOrNull('parentId'),
         color: f.integer('color'),
-        icon: icon,
         createdAt: f.integer('createdAt'),
         updatedAt: record.updatedAt,
       ),
@@ -197,20 +192,10 @@ class FolderRepository extends SyncableTable {
   void _write(Folder f, {required String deviceId, required bool dirty}) {
     db.execute(
       '''
-      INSERT OR REPLACE INTO folders (id, name, parent_id, color, icon, created_at,
+      INSERT OR REPLACE INTO folders (id, name, parent_id, color, created_at,
                                       updated_at, device_id, deleted, dirty)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
-      [
-        f.id,
-        f.name,
-        f.parentId,
-        f.color,
-        f.icon,
-        f.createdAt,
-        f.updatedAt,
-        deviceId,
-        dirty ? 1 : 0,
-      ],
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)''',
+      [f.id, f.name, f.parentId, f.color, f.createdAt, f.updatedAt, deviceId, dirty ? 1 : 0],
     );
   }
 
@@ -219,7 +204,6 @@ class FolderRepository extends SyncableTable {
     name: row['name'] as String,
     parentId: row['parent_id'] as String?,
     color: row['color'] as int,
-    icon: row['icon'] as String?,
     createdAt: row['created_at'] as int,
     updatedAt: row['updated_at'] as int,
   );

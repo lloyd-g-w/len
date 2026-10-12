@@ -9,7 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/core/clock.dart';
 import 'package:len/data/app_database.dart';
-import 'package:len/domain/cover_style.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
@@ -84,6 +83,21 @@ Future<void> settle(WidgetTester tester) async {
   }
 }
 
+/// Opens the library section or folder [label]: from the sidebar, or on
+/// phones from the drawer.
+Future<void> openLibrarySection(WidgetTester tester, String label) async {
+  // (The drawer's button may have scrolled away with the header.)
+  for (final scaffold in tester.stateList<ScaffoldState>(find.byType(Scaffold))) {
+    if (scaffold.hasDrawer) {
+      scaffold.openDrawer();
+      await settle(tester);
+      break;
+    }
+  }
+  await tester.tap(find.text(label).first);
+  await settle(tester);
+}
+
 /// Writes the current frame to `build/screenshots/<name>.png`, optionally
 /// only the [crop] rectangle (logical pixels).
 Future<void> shoot(WidgetTester tester, String name, {Rect? crop}) async {
@@ -144,15 +158,14 @@ class ShotClock extends Clock {
 AppServices seededServices() {
   final clock = ShotClock();
   final s = AppServices.create(AppDatabase.inMemory(), clock: clock);
-  final school = s.folders.create(name: 'School', color: Palette.covers[0], icon: 'school');
-  s.folders.create(name: 'Maths', parentId: school.id, color: Palette.covers[5], icon: 'calculate');
-  final work = s.folders.create(name: 'Work', color: Palette.covers[1], icon: 'work');
+  final school = s.folders.create(name: 'School', color: Palette.covers[0]);
+  s.folders.create(name: 'Maths', parentId: school.id, color: Palette.covers[5]);
+  final work = s.folders.create(name: 'Work', color: Palette.covers[1]);
   s.folders.create(name: 'Sketches', color: Palette.covers[2]);
 
   Notebook nb(
     String title,
-    int color,
-    CoverStyle style, {
+    int color, {
     NotebookKind kind = NotebookKind.paged,
     PaperStyle paper = PaperStyle.wideRuled,
     String? folder,
@@ -163,7 +176,6 @@ AppServices seededServices() {
       kind: kind,
       paper: paper,
       coverColor: Palette.covers[color],
-      coverStyle: style,
       folderId: folder,
     );
     if (ink > 0) {
@@ -173,22 +185,15 @@ AppServices seededServices() {
     return n;
   }
 
-  nb('Physics — Mechanics', 0, CoverStyle.plain, ink: 9);
-  final journal = nb('Journal 2026', 4, CoverStyle.linen);
-  nb(
-    'Whiteboard',
-    9,
-    CoverStyle.plain,
-    kind: NotebookKind.canvas,
-    paper: PaperStyle.dotted,
-    ink: 5,
-  );
-  nb('Meeting notes', 1, CoverStyle.plain, paper: PaperStyle.gridLarge, folder: work.id, ink: 6);
-  nb('Recipes', 2, CoverStyle.waves);
-  nb('Ideas', 5, CoverStyle.dots, ink: 4, paper: PaperStyle.dotted);
-  nb('Spanish vocabulary', 8, CoverStyle.stripes);
-  nb('Travel plans', 10, CoverStyle.grid);
-  final old = nb('Old drafts', 6, CoverStyle.plain);
+  nb('Physics — Mechanics', 0, ink: 9);
+  final journal = nb('Journal 2026', 4);
+  nb('Whiteboard', 8, kind: NotebookKind.canvas, paper: PaperStyle.dotted, ink: 5);
+  nb('Meeting notes', 1, paper: PaperStyle.gridLarge, folder: work.id, ink: 6);
+  nb('Recipes', 2);
+  nb('Ideas', 5, ink: 4, paper: PaperStyle.dotted);
+  nb('Spanish vocabulary', 7);
+  nb('Travel plans', 9);
+  final old = nb('Old drafts', 6);
   s.notebooks.setFavorite(journal.id, true);
   s.notebooks.trash(old.id);
   return s;
@@ -258,4 +263,11 @@ List<Stroke> handwriting(String surface, Clock clock, {required int lines, requi
 Finder emptyTrashButton() {
   final icon = find.byTooltip('Empty trash');
   return icon.evaluate().isNotEmpty ? icon : find.text('Empty trash');
+}
+
+/// The library's "New" button: the grid's "New…" tile on wide screens, else
+/// the floating button.
+Finder newButton() {
+  final tile = find.byKey(const ValueKey('new-notebook-tile'));
+  return tile.evaluate().isNotEmpty ? tile : find.text('New').last;
 }

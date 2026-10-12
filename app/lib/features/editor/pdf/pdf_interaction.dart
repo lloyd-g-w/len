@@ -11,13 +11,12 @@ import '../document/document_controller.dart';
 import 'pdf_page_info.dart';
 import 'pdf_page_info_cache.dart';
 import 'pdf_text_selection.dart';
-import 'pdf_text_tool.dart';
 
 /// A point on a PDF page of the document.
 typedef PdfPagePoint = ({int index, NotebookPage page, PageBackground pdf, Offset normalized});
 
 /// The interactive side of imported PDF pages in one paged editor: text
-/// selection (the Select text tool or a long press), copying, highlighting
+/// selection (a long press or right click, then the handles), copying, highlighting
 /// the selection with highlighter strokes, links and the outline.
 class PdfInteraction extends ChangeNotifier {
   PdfInteraction({
@@ -38,9 +37,6 @@ class PdfInteraction extends ChangeNotifier {
   /// not disposed here).
   final PdfPageInfoCache info;
   final PdfSelection selection = PdfSelection();
-
-  /// The pointer tool behind [EditorTool.selectText].
-  late final PdfTextTool tool = PdfTextTool(this);
 
   /// Follows a link (set by the editor: jump to a page, or confirm and
   /// open a web address).
@@ -77,7 +73,6 @@ class PdfInteraction extends ChangeNotifier {
   void _onDocument() {
     if (identical(doc.pages, _pages)) return;
     _pages = doc.pages;
-    tools.selectTextAvailable = hasPdf;
     final page = selection.page;
     if (page != null && !doc.pages.any((p) => p.id == page.id)) selection.clear();
   }
@@ -117,6 +112,44 @@ class PdfInteraction extends ChangeNotifier {
     if (link == null || at == null) return false;
     onLink?.call(link, at.pdf);
     return true;
+  }
+
+  /// Where the selection's start and end handles are on screen: where its
+  /// first line starts (at the top of its letters: the top-left for
+  /// upright text, the top-right on a page turned clockwise, …) and where
+  /// its last line ends.
+  (Offset, Offset)? get handleEnds {
+    final page = selection.page;
+    if (page == null || selection.isEmpty) return null;
+    final lines = selection.lines;
+    if (lines.isEmpty) return null;
+    final index = doc.pages.indexWhere((p) => p.id == page.id);
+    final frame = index < 0 ? null : doc.layout.frameOf(index);
+    if (frame == null) return null;
+    Offset screen(Offset n) =>
+        doc.viewport.toScreen(frame.topLeft + Offset(n.dx * frame.width, n.dy * frame.height));
+    return (screen(lines.first.startCorner), screen(lines.last.endCorner));
+  }
+
+  /// The link under the start of the selection, if any (its menu offers to
+  /// open it: a long press on a link selects its text).
+  PdfLinkArea? get selectedLink {
+    final bg = selection.page?.background;
+    if (bg == null || selection.isEmpty) return null;
+    final at = selection.rects.first.center;
+    for (final link in info.links(bg.blob, bg.pageIndex)) {
+      if (link.contains(at)) return link;
+    }
+    return null;
+  }
+
+  /// Follows [selectedLink] and drops the selection.
+  void openSelectedLink() {
+    final link = selectedLink;
+    final bg = selection.page?.background;
+    if (link == null || bg == null) return;
+    selection.clear();
+    onLink?.call(link, bg);
   }
 
   /// Selects the word under [screen] and offers the menu (long press);

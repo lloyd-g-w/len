@@ -26,7 +26,6 @@ import 'images/editor_images.dart';
 import 'links/editor_links.dart';
 import 'pdf/pdf_interaction.dart';
 import 'shared/shared_notebook.dart';
-import 'stickers/editor_stickers.dart';
 import 'tabs/open_notebooks.dart';
 
 /// The engine side of one open editor: tool settings, input routing, the
@@ -61,8 +60,6 @@ class EditorSession {
         viewport: viewport,
         reader: services.strokeReader,
         surfaceId: current.id,
-        showMinimap: services.settings.canvasMinimap,
-        onMinimapChanged: (show) => services.settings.canvasMinimap = show,
       );
       nav.open(initialView);
       content = _contentFor(model, viewport);
@@ -79,8 +76,7 @@ class EditorSession {
       shared.attachDocument(doc, commands.reload);
       backgrounds = shared.backgrounds;
       content = _contentFor(doc.activeModel, doc.pageViewport);
-      final pdf = this.pdf = PdfInteraction(doc: doc, tools: tools, info: shared.pdfInfo);
-      content.selectText = pdf.tool;
+      pdf = PdfInteraction(doc: doc, tools: tools, info: shared.pdfInfo);
       // A lasso reaches across pages; selections dropped on a page move there.
       content.selection.surfaces = DocumentSelection(doc);
       final animator = docAnimator = ViewportAnimator(doc.viewport);
@@ -134,14 +130,11 @@ class EditorSession {
   /// Page and web links: finding, following and making them.
   late final EditorLinks links = EditorLinks(this);
 
-  /// The sticker panel, inserting stickers and saving new ones.
-  late final EditorStickers stickers = EditorStickers(this);
-
   // Infinite canvas: one surface (the shared notebook's).
   SurfaceModel? canvas;
   ViewportController? canvasViewport;
 
-  /// Inertial panning, zoom steps, fit, minimap of the canvas.
+  /// Inertial panning, zoom steps and fit of the canvas.
   CanvasNavigation? canvasNav;
 
   // Paged notebook: pages laid out as a document.
@@ -253,7 +246,6 @@ class EditorSession {
     _disposed = true;
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     images.dispose();
-    stickers.dispose();
     content.dispose();
     gestures.dispose();
     canvasNav?.dispose();

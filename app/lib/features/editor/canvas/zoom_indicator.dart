@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../ink/viewport.dart';
 import '../../../ui/app_theme.dart';
@@ -8,19 +9,22 @@ import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
 
 /// The zoom percentage, shown briefly whenever the zoom changes. Tapping
-/// it (while shown) offers 50 %, 100 %, 200 % and "Fit content".
+/// it (while shown) offers 50 %, 100 %, 200 %, "Fit content" and "Back to
+/// start": the one home of the canvas's navigation commands.
 class ZoomIndicator extends StatefulWidget {
   const ZoomIndicator({
     super.key,
     required this.viewport,
     required this.onZoomTo,
     required this.onFit,
+    required this.onBackToStart,
     this.quiet,
   });
 
   final ViewportController viewport;
   final ValueChanged<double> onZoomTo;
   final VoidCallback onFit;
+  final VoidCallback onBackToStart;
 
   /// While this returns true, zoom changes are not announced (e.g. the
   /// view a canvas opens with).
@@ -117,7 +121,14 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
             MenuItemButton(
               leadingIcon: const Icon(Icons.fit_screen_outlined),
               onPressed: widget.onFit,
+              shortcut: const SingleActivator(LogicalKeyboardKey.digit1, shift: true),
               child: const Text('Fit content'),
+            ),
+            MenuItemButton(
+              leadingIcon: const Icon(Icons.home_outlined),
+              onPressed: widget.onBackToStart,
+              shortcut: const SingleActivator(LogicalKeyboardKey.home),
+              child: const Text('Back to start'),
             ),
           ],
           child: FloatingPanel(

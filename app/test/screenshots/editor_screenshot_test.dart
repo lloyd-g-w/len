@@ -118,7 +118,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final placement in [ToolbarPlacement.bottom, ToolbarPlacement.floating]) {
+  for (final placement in ToolbarPlacement.values) {
     testWidgets('editor toolbar ${placement.name}', (tester) async {
       await pumpEditor(
         tester,
@@ -163,8 +163,8 @@ void main() {
     await pumpEditor(tester, size: tablet, canvas: true);
     await tester.tap(find.byTooltip('More options'));
     await settle(tester);
-    expect(find.text('Fit content'), findsOneWidget);
-    expect(find.text('Back to start'), findsOneWidget);
+    expect(find.text('Background…'), findsOneWidget);
+    expect(find.text('Fit content'), findsNothing); // In the zoom pill.
     await shoot(tester, 'editor_canvas_more_menu');
   });
 
@@ -200,9 +200,6 @@ void main() {
     await pen.up();
     await settle(tester);
     await shoot(tester, 'editor_phone_tip');
-    await tester.tap(find.byTooltip('Dismiss tip'));
-    await settle(tester);
-    await shoot(tester, 'editor_phone_tip_gestures');
     await tester.pump(const Duration(seconds: 11));
     await settle(tester);
   });

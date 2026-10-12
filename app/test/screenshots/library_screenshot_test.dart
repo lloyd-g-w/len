@@ -53,10 +53,14 @@ void main() {
 
     await tester.tap(find.text('Library').first);
     await settle(tester);
-    await tester.tap(find.byTooltip('Show as list'));
+    await tester.tap(find.byTooltip('View'));
+    await settle(tester);
+    await tester.tap(find.text('List').last);
     await settle(tester);
     await shoot(tester, 'desktop_list');
-    await tester.tap(find.byTooltip('Show as grid'));
+    await tester.tap(find.byTooltip('View'));
+    await settle(tester);
+    await tester.tap(find.text('Grid').last);
     await settle(tester);
 
     await tester.tap(find.byTooltip('More').first);
@@ -81,7 +85,7 @@ void main() {
 
     await tester.tap(find.text('Library').first);
     await settle(tester);
-    await tester.tap(find.text('New'));
+    await tester.tap(newButton());
     await settle(tester);
     await shoot(tester, 'desktop_new_sheet');
     expect(tester.takeException(), isNull);
@@ -107,7 +111,7 @@ void main() {
     final services = seededServices();
     addTearDown(services.dispose);
     await pumpApp(tester, services, const LibraryScreen(), mode: ThemeMode.dark);
-    await tester.tap(find.text('New'));
+    await tester.tap(newButton());
     await settle(tester);
     await shoot(tester, 'phone_new_sheet_dark');
     expect(tester.takeException(), isNull);

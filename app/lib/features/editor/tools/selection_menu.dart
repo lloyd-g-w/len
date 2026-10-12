@@ -9,10 +9,9 @@ import '../../../ink/tool_settings.dart';
 import '../../../ink/viewport.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
-import 'colour_sheet.dart';
 import 'selection_style_panel.dart';
 
-/// A command the editor adds to the selection menu (links, stickers):
+/// A command the editor adds to the selection menu (links):
 /// [run] gets the control it was started from, to anchor a popover.
 class SelectionExtraAction {
   const SelectionExtraAction(this.label, this.icon, this.run);
@@ -115,21 +114,11 @@ class _MenuBar extends StatelessWidget {
     final single = selection.strokes.isEmpty && elements.length == 1 ? elements.single : null;
     final singleText = single?.knownType == ElementType.text;
     final singleImage = single?.knownType == ElementType.image;
-    // Only ink and text have a colour.
-    final colourable =
+    // Only ink and text have a colour and a style.
+    final styleable =
         selection.strokes.isNotEmpty || elements.any((e) => e.knownType == ElementType.text);
     final convertible =
         onConvertToText != null && selection.strokes.any((s) => !s.tool.isHighlighter);
-    Future<void> recolour(BuildContext anchor) async {
-      final colour = await pickColour(
-        anchor,
-        title: 'Recolour selection',
-        initial: _currentColour(),
-        tools: tools,
-      );
-      if (colour != null) selection.recolor(colour);
-    }
-
     // In order of importance: what doesn't fit goes into "More", except
     // Delete, which always stays last in the bar.
     final actions = <_Action>[
@@ -148,14 +137,12 @@ class _MenuBar extends StatelessWidget {
       _Action('Duplicate', Icons.library_add_outlined, selection.duplicate, shortcut: 'Ctrl+D'),
       if (!selection.clipboard.isEmpty)
         _Action('Paste', Icons.content_paste_rounded, onPaste, shortcut: 'Ctrl+V'),
-      if (colourable) ...[
-        _Action.anchored('Colour', Icons.palette_outlined, recolour),
+      if (styleable)
         _Action.anchored(
           'Style',
-          Icons.tune_rounded,
+          Icons.palette_outlined,
           (anchor) => showSelectionStyle(anchor, selection: selection, tools: tools),
         ),
-      ],
       for (final x in extras) _Action.anchored(x.label, x.icon, x.run),
       if (elements.isNotEmpty) ...[
         _Action('Bring to front', Icons.flip_to_front_rounded, selection.bringToFront),
@@ -207,12 +194,6 @@ class _MenuBar extends StatelessWidget {
         );
       },
     );
-  }
-
-  int _currentColour() {
-    if (selection.strokes.isNotEmpty) return selection.strokes.first.color;
-    final data = selection.elements.firstOrNull?.data['color'];
-    return data is int ? data : 0xFF000000;
   }
 }
 

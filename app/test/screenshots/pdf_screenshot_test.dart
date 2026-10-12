@@ -1,16 +1,13 @@
 import 'dart:io';
 
 import 'package:cross_file/cross_file.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/features/editor/editor_screen.dart';
-import 'package:len/features/editor/pdf/pdf_interaction.dart';
 import 'package:len/features/editor/pdf/pdf_layer.dart';
-import 'package:len/ink/tool_settings.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:pdfrx/pdfrx.dart' show Pdfrx;
 
@@ -64,7 +61,6 @@ void main() {
         await pumpApp(tester, services, EditorScreen(notebook: nb!), mode: mode);
         await wait(tester);
         final pdf = tester.widget<PdfLayer>(find.byType(PdfLayer)).interaction;
-        pdf.tools.tool = EditorTool.selectText;
         final page = pdf.doc.pages.first;
         final glyphs = pdf.info.glyphs(page.background!.blob, 0)!;
         final start = glyphs.text.indexOf('PDF');
@@ -72,7 +68,7 @@ void main() {
         await settle(tester);
         await shoot(tester, 'pdf_selection_${name}_${mode.name}');
 
-        await tester.tapAt(_screen(pdf, glyphs.boxes[start].center), kind: PointerDeviceKind.mouse);
+        pdf.selection.clear();
         await settle(tester);
         await tester.tap(find.byTooltip('More options'));
         await settle(tester);
@@ -85,11 +81,4 @@ void main() {
       });
     }
   }
-}
-
-Offset _screen(PdfInteraction pdf, Offset normalized) {
-  final frame = pdf.doc.layout.frameOf(0)!;
-  return pdf.doc.viewport.toScreen(
-    frame.topLeft + Offset(normalized.dx * frame.width, normalized.dy * frame.height),
-  );
 }

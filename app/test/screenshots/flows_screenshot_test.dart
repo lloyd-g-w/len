@@ -31,7 +31,7 @@ void main() {
         final services = seededServices();
         addTearDown(services.dispose);
         await pumpApp(tester, services, const LibraryScreen(), mode: mode);
-        await tester.tap(find.text('New').last);
+        await tester.tap(newButton());
         await settle(tester);
         expect(tester.takeException(), isNull);
         await shoot(tester, 'new_${name}_${mode.name}');
@@ -127,7 +127,9 @@ void main() {
       final services = seededServices();
       addTearDown(services.dispose);
       await pumpApp(tester, services, const LibraryScreen());
-      await tester.tap(find.byTooltip('Select notebooks'));
+      await tester.tap(find.byTooltip('View'));
+      await settle(tester);
+      await tester.tap(find.text('Select notebooks').last);
       await settle(tester);
       await tester.tap(find.text('Travel plans'));
       await tester.tap(find.text('Spanish vocabulary'));
@@ -168,7 +170,7 @@ void main() {
       await pumpApp(tester, services, const LibraryScreen(), textScale: 1.3);
       expect(tester.takeException(), isNull);
       await shoot(tester, 'large_library_$name');
-      await tester.tap(find.text('New').last);
+      await tester.tap(newButton());
       await settle(tester);
       expect(tester.takeException(), isNull);
       await shoot(tester, 'large_new_$name');

@@ -36,8 +36,8 @@ phone; the phone tool switcher with favourites; presentation, light and dark).
   and a preview of the copy at the target's zoom (the source clips at its edge).
 - ✅ Edit mode reads on phones (tools on their own row; favourites, Reset and
   Done below) and favourite glyphs are outlined, so dark inks show in dark mode.
-- ✅ Presentation fits the whole page: fitted pages now re-fit when the chrome
-  goes away (the new scroll bounds used to nudge the view and skip the re-fit).
+- ✅ Fitted pages re-fit when the chrome goes away in focus mode (the new
+  scroll bounds used to nudge the view and skip the re-fit).
 - ✅ The second pane's top bar is shorter than the first's when the first shows
   the tab strip (desktop). → It shows an empty strip-coloured band; the bars line up.
 - ✅ Reordering in edit mode needs a long press, also with a mouse. → A mouse or
@@ -137,7 +137,7 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
    selected row and different padding from every other menu. → `MenuRow`
    with a check.
 10. ✅ **Destructive items are not red**: "Delete page" in the Page menu,
-    "Empty Trash" (primary blue), and the language model "Delete".
+    "Empty Trash" (primary blue).
 11. ✅ **Dark-mode contrast.**
     - Dark dialogs use `surfaceContainerHigh`, the same colour as the text
       field fill, so fields have no edge (Search templates, Recognised
@@ -174,9 +174,9 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
     menus keep 8 dp; tall chrome menus now clear the system bars by 8 dp
     (`menuReservedPadding`). Open: Flutter's `MenuAnchor` still places a menu
     that meets the left or right edge flush against it (the phone "⋯" menu).
-21. ✅ Accent dots (40 dp), folder icon tiles (35 dp) and selection
+21. ✅ Colour dots (40 dp) and selection
     checkboxes (28 dp) are under 48 dp on phones. → `EvenGrid(touchTargets:)`
-    gives swatch and icon cells 48 dp on phones (visuals unchanged, the whole
+    gives swatch cells 48 dp on phones (visuals unchanged, the whole
     cell takes taps); the checkmark never was a target (the whole cover is).
 22. 🟡 The playback bar truncates the title (title and time share one row);
     ✅ the paused recorder shows "Paused" in place of the level meter and
@@ -245,7 +245,8 @@ the second for what is left.
 - New-notebook sheet on phones at 1.3×: the preview takes most of the
   screen, leaving about one row of templates. On phones the preview
   should collapse.
-- The phone library shows both the "New…" tile and the "New" FAB.
+- ✅ The phone library shows both the "New…" tile and the "New" FAB. → Tile on wide
+  screens, FAB on phones (never both).
 - The FAB still shows over the empty Favourites and empty search states,
   which offer no create action of their own.
 - ✅ Selection checkmarks on covers: unselected rings are low-contrast on
@@ -254,11 +255,9 @@ the second for what is left.
   target.
 - Editor search on phones: stepping to a match pans the page sideways.
 - Lasso selection handles in dark mode are dark and filled on light
-  paper. They should follow the paper, as the canvas hint and minimap
-  now do.
-- The image crop bar overlaps the fit / minimap cluster on phones.
-- The minimap draws one grey cell per populated chunk, which says little
-  about the content.
+  paper. They should follow the paper, as the canvas hint now
+  does.
+- The image crop bar overlaps the fit button on phones.
 - The page submenu opens over its parent on phones (a drill-in or a sheet
   would suit phones better).
 - The handwriting language picker is a `SimpleDialog`: no Cancel, and no
@@ -374,12 +373,13 @@ settings — at the four sizes, light and dark, and at 1.3× text.
    theme is a plain segmented control. → Sections "Appearance", "Stylus",
    "Gestures", "Editor" (toolbar position), "Sync", "About"; rows with
    leading icons and descriptions; theme as live light/dark/system
-   previews; segmented control for the side button.
+   previews; segmented control for the side button. (Since merged: Stylus,
+   Gestures and Editor are one "Writing" section.)
 9. ✅ **Empty states**: search-empty art is a saturated blue disc that reads as
    a button; "No results" offers no way out. → Softer art, "Clear search"
    action; folder-empty offers "New notebook here".
 10. ✅ **Cover sheet** "Apply" floats alone at the bottom right; no Cancel; the
-    preview doesn't show the title. → Uses the same cover gallery and preview
+    preview doesn't show the title. → Uses the same cover colours and preview
     as the create flow, with Cancel / Apply.
 
 ## P2 — refinement
@@ -394,22 +394,19 @@ settings — at the four sizes, light and dark, and at 1.3× text.
     grid of the library root and folders (not in favourites, trash, search,
     selection mode or list layout); the FAB stays.
 14. ✅ Settings on wide screens could use a two-pane layout (category list +
-    detail) like GoodNotes on iPad. → From 1040 px: section list with icons
-    on the left, the selected section on the right; one column below.
-    ✅ The detail pane no longer repeats the section's title and icon (the
-    selected entry names it; `SettingsSection.untitled`).
+    detail) like GoodNotes on iPad. → Dropped: five short sections read
+    better in one centred column on every screen.
 15. ✅ Motion: shared-element transition from cover to editor (GoodNotes
     "opens" the notebook). → `NotebookOpenRoute`: the tapped cover grows
     into the screen, fades into the paper and the editor fades in; back
     shrinks it into the cover (wherever it is now), else fades.
-16. ✅ Folder colours only; GoodNotes allows folder icons/emoji. → 19 icons
-    (synced) picked in the folder dialog, tinted with the folder colour on
-    tiles, in the sidebar and in the move dialog.
+16. ✅ Folder colours only; GoodNotes allows folder icons/emoji. → Won't do:
+    folders keep colour only (icons were added, then removed in SIMPLIFY #43).
 17. ⬜ Long PDF imports/exports can't be cancelled (the progress dialog has
     no Cancel; needs cancellation in `PdfImporter` / `NotebookExporter`).
 18. ✅ No export options sheet (page range, PNG resolution, flatten
     template) like GoodNotes' export dialog. → `ExportSheet` (dialog / bottom
-    sheet): format, pages or range, templates & PDF backgrounds, PNG resolution.
+    sheet): format, pages or range, templates & PDF backgrounds (PNGs at 288 dpi).
 19. ✅ Paper-colour chips wrap to two rows on phones in the template picker.
     → Even rows (`EvenChoices`): four in a row when they fit, else 2 × 2.
 20. ⬜ Typing a search ends selection mode (selection is scoped to the
@@ -460,8 +457,8 @@ Status of these in `feat/editorux2` (✅ done there):
   the active tool opens a tool switcher next to its quick controls.
 - ✅ **Phone page pill** covered part of the page above the toolbar: it now
   peeks in while pages move and fades away.
-- ✅ **Discoverability**: empty-canvas hint, one-time tips (pen side button,
-  two/three-finger taps), repeated undos counted in the HUD, Escape closes
+- ✅ **Discoverability**: empty-canvas hint, a one-time pen side-button
+  tip, repeated undos counted in the HUD, Escape closes
   chrome menus.
 - ⬜ Keyboard: chrome buttons are reachable with Tab but there is no
   "skip to canvas" or toolbar arrow-key navigation yet.

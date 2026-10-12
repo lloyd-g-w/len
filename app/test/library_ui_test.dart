@@ -9,6 +9,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/features/library/folder_tile.dart';
+import 'package:len/features/library/library_sidebar.dart';
 import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/features/library/new_notebook_tile.dart';
 import 'package:len/features/library/notebook_card.dart';
@@ -83,35 +84,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FolderTile), findsOneWidget);
     expect(find.text('Algebra'), findsNothing);
-  });
-
-  testWidgets('the folder dialog sets and changes the folder icon', (tester) async {
-    final services = await pumpSeeded(tester, (_) {});
-
-    await tester.tap(find.byTooltip('New folder').first);
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).last, 'School');
-    await tester.tap(find.bySemanticsLabel('School icon'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
-    await tester.pumpAndSettle();
-    expect(services.folders.list().single.icon, 'school');
-    final tile = find.byType(FolderTile);
-    expect(find.descendant(of: tile, matching: find.byIcon(Icons.school_rounded)), findsOneWidget);
-    // The sidebar tree shows it too.
-    expect(find.byIcon(Icons.school_rounded), findsNWidgets(2));
-
-    // Edit: back to the plain folder icon.
-    await tester.tap(find.byTooltip('Folder options'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit folder…'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.bySemanticsLabel('Folder icon'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-    await tester.pumpAndSettle();
-    expect(services.folders.list().single.icon, isNull);
-    expect(find.byIcon(Icons.school_rounded), findsNothing);
   });
 
   testWidgets('move via menu, favourite, duplicate, search across folders', (tester) async {
@@ -199,13 +171,17 @@ void main() {
     await tester.enterText(find.byType(TextField), '');
     await tester.pumpAndSettle();
     expect(tile, findsOneWidget);
-    await tester.tap(find.byTooltip('Select notebooks'));
+    await tester.tap(find.byTooltip('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select notebooks').last);
     await tester.pumpAndSettle();
     expect(tile, findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(tile, findsOneWidget);
-    await tester.tap(find.byTooltip('Show as list'));
+    await tester.tap(find.byTooltip('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('List').last);
     await tester.pumpAndSettle();
     expect(tile, findsNothing);
     semantics.dispose();
@@ -217,14 +193,16 @@ void main() {
       addNotebook(s, 'apple');
       addNotebook(s, 'Cherry');
     });
-    await tester.tap(find.byTooltip('Show as list'));
+    await tester.tap(find.byTooltip('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('List').last);
     await tester.pumpAndSettle();
     expect(find.byType(NotebookListTile), findsNWidgets(3));
     expect(services.preferences.libraryLayout, LibraryLayout.list);
 
-    await tester.tap(find.byIcon(Icons.sort_rounded));
+    await tester.tap(find.byTooltip('View'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(MenuRow<LibrarySort>, 'Name'));
+    await tester.tap(find.byWidgetPredicate((w) => w is MenuRow && w.label == 'Name'));
     await tester.pumpAndSettle();
     expect(services.preferences.librarySort, LibrarySort.name);
     final titles = tester
@@ -282,19 +260,24 @@ void main() {
     expect(find.text('1'), findsWidgets); // Trash count in the sidebar.
   });
 
-  testWidgets('phone layout: bottom navigation between sections', (tester) async {
+  testWidgets('phone layout: the drawer goes between sections', (tester) async {
     await pumpSeeded(tester, (s) => addNotebook(s, 'Pocket'), size: const Size(390, 844));
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(LibrarySidebar), findsNothing);
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Favourites'));
     await tester.pumpAndSettle();
+    expect(find.byType(LibrarySidebar), findsNothing, reason: 'the drawer closes');
     expect(find.text('No favourites yet'), findsOneWidget);
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Trash'));
     await tester.pumpAndSettle();
     expect(find.text('Trash is empty'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('settings change theme mode and accent colour app-wide', (tester) async {
+  testWidgets('settings change the theme mode app-wide', (tester) async {
     tester.view
       ..physicalSize = const Size(1280, 1600)
       ..devicePixelRatio = 1;
@@ -312,20 +295,13 @@ void main() {
     expect(app().themeMode, ThemeMode.dark);
     expect(services.preferences.themeMode, ThemePreference.dark);
 
-    final before = app().darkTheme!.colorScheme.primary;
-    await tester.tap(find.byTooltip('Lagoon'));
+    // Every section in one column, wide windows too.
+    expect(find.byType(SidebarItem), findsNothing);
+    await tester.ensureVisible(find.text('Finger taps to undo and redo'));
     await tester.pumpAndSettle();
-    expect(services.preferences.accentColor, 0xFF0B7285);
-    expect(app().darkTheme!.colorScheme.primary, isNot(before));
-
-    // Wide windows show one section at a time, picked on the left.
-    expect(find.text('Two-finger tap to undo'), findsNothing);
-    await tester.tap(find.widgetWithText(SidebarItem, 'Gestures'));
+    await tester.tap(find.text('Finger taps to undo and redo'));
     await tester.pumpAndSettle();
-    expect(find.text('Theme'), findsNothing);
-    await tester.tap(find.text('Two-finger tap to undo'));
-    await tester.pumpAndSettle();
-    expect(services.preferences.twoFingerTapUndo, isFalse);
+    expect(services.preferences.fingerTapUndo, isFalse);
   });
 
   testWidgets('narrow settings list every section in one column', (tester) async {
@@ -341,7 +317,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(SidebarItem), findsNothing);
     expect(find.text('Theme'), findsOneWidget);
-    expect(find.text('Two-finger tap to undo'), findsOneWidget);
+    expect(find.text('Finger taps to undo and redo'), findsOneWidget);
   });
 
   testWidgets('long-press on touch opens the context menu; right-click too', (tester) async {

@@ -13,7 +13,9 @@ void main() {
     final ids = {for (final n in s.notebooks.list()) n.title: n.id};
     String id(String title) => ids[title]!;
 
-    await tester.tap(find.byTooltip('Select notebooks'));
+    await tester.tap(find.byTooltip('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select notebooks').last);
     await tester.pumpAndSettle();
     expect(find.text('Select notebooks'), findsOneWidget);
     expect(find.text('New'), findsNothing); // No FAB while selecting.
@@ -37,7 +39,9 @@ void main() {
     expect(s.notebooks.get(id('Algebra'))!.folderId, school);
     expect(find.text('2 selected'), findsNothing); // Done after moving.
 
-    await tester.tap(find.byTooltip('Select notebooks'));
+    await tester.tap(find.byTooltip('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select notebooks').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Select all'));
     await tester.pumpAndSettle();

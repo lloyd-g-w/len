@@ -5,7 +5,7 @@ import '../../../ui/app_theme.dart';
 
 /// Lays out the workspace's editors: [primary] alone, or beside
 /// [secondary] with a draggable divider ([fraction] of the width for the
-/// primary). [solo] shows one of them alone (presentation, or the screen
+/// primary). [solo] shows one of them alone (focus mode, or the screen
 /// too small for two) while the other stays alive offstage — without
 /// focus or tickers. The primary keeps its place in the tree in every
 /// layout, so opening or closing the split never rebuilds its editor.

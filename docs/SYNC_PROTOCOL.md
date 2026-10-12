@@ -171,8 +171,8 @@ its "uploaded" marks, so the next upload phase re-checks (`HEAD`) the blobs its 
 reference and uploads any the server lost.
 
 **Client** (local, never visible to the server): a locally stored blob is deleted from the device
-once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio parts and waveform), the user's
-templates and images inside stickers; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. The app
+once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio parts and waveform) and the user's
+templates; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. The app
 checks this at startup at most once a day. A blob collected locally is fetched again lazily if a
 record referencing it arrives later.
 
@@ -200,17 +200,14 @@ every row (tombstones included) dirty, so the new server receives a complete cop
 
 | collection  | data                                                                                   |
 |-------------|----------------------------------------------------------------------------------------|
-| `folders`   | `{name, parentId: string|null, color, icon: string|null, createdAt}` — `icon`: `null` = the default folder icon, or one of `book`, `school`, `work`, `science`, `calculate`, `palette`, `music`, `sports`, `travel`, `home`, `favorite`, `star`, `lightbulb`, `code`, `language`, `receipt`, `event`, `pets`, `restaurant`. |
-| `notebooks` | `{title, kind: "paged"|"canvas", paper, paperData: object, paperColor, coverColor, coverStyle, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
+| `folders`   | `{name, parentId: string|null, color, createdAt}` |
+| `notebooks` | `{title, kind: "paged"|"canvas", paper, paperData: object, paperColor, coverColor, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperData: object, paperColor, bookmarked: bool, background: object|null}` — see [Paper and pages](#paper-and-pages) |
 | `templates` | `{name, blob, width, height, createdAt}` — one of the user's own templates ("My templates"): `blob` is the `<sha256>` of a PNG or JPEG image ([blob](#blobs)), `width` / `height` (> 0) the size in world units (96 per inch) of pages made from it. Pages made from a template copy its blob into their `paperData`, so renaming or deleting (tombstoning) a template never changes existing pages. |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style?}` — `tool` ∈ `pen` (legacy), `ballpoint`, `fountain`, `brush`, `pencil`, `marker`, `highlighter` (current clients create only `ballpoint` and `highlighter`; the rest are kept for older strokes); unknown tools render as `pen`. Optional `style` = `{o: opacity, th: thinning, sl: streamline, ts?: taperStart, te?: taperEnd, u?: unit}` (`u`: world units per screen pixel when the stroke was written, i.e. 1 / zoom; missing → estimated from the points; missing style → per-tool defaults; unknown keys ignored). `createdAt` is the wall time (epoch ms) the stroke was *begun* (pen down), not finished: strokes are painted in this order, and audio replay shows a stroke from the moment writing it started. |
 | `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth}`, see [Text boxes](#text-boxes)), `image` (`data` = `{blob, width, height, crop?}`, see below) or `link` (`data` = `{target}`, see [Links](#links)). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
 | `recordings` | `{notebookId, audio, durationMs, startedAt, title, mime, segments, waveform, trimStartMs, trimEndMs}` — an audio recording of a notebook. `audio` = `[[<sha256>, durationMs], …]` (never empty) are the parts of the audio in order, each a [blob](#blobs) of `mime`: `audio/aac` (raw AAC in ADTS frames; parts join by concatenation into one stream), `audio/mp4` AAC or `audio/webm` Opus (recorded in browsers; each part a complete file, played one after the other). A recording being made gains a part every few minutes, so the record is updated (and its finished parts uploaded) while recording continues. `durationMs` is the audio length (the sum of the parts); `startedAt` is the wall time (epoch ms) recording began; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (empty → one segment `[startedAt, durationMs]`); ink and elements are replayed from their `createdAt`. `waveform` is `""` (none) or the `<sha256>` of the recording's [waveform](#waveforms) blob. `trimStartMs` / `trimEndMs` (ints, `0 ≤ trimStartMs ≤ trimEndMs ≤ durationMs`, else malformed) are the audio kept by a non-destructive trim, positions in the whole audio: `0` and `durationMs` when untrimmed (a recording being made stays untrimmed). Clients play, list, replay and export only the kept range; the parts keep all the audio, so trimming back restores it. Deleting a notebook tombstones its recordings. |
-| `tags`      | `{name, color, createdAt}` — a tag the user puts on notebooks and pages: `name` (non-empty; shown as is, matched ignoring case — clients avoid creating two tags of the same name but must cope with duplicates from concurrent edits), `color` an ARGB int. Deleting a tag tombstones it and its taggings. |
-| `taggings`  | `{tagId, targetId, kind}` — tag `tagId` is on `targetId`, a notebook (`kind` = `notebook`) or a page (`page`). The record id is **derived**: the name-based (v5) UUID of `len:tagging/<tagId>/<targetId>` in the URL namespace (`6ba7b811-9dad-11d1-80b4-00c04fd430c8`); a record whose id does not match its fields is malformed. So tagging the same notebook with the same tag on two devices yields one record, untagging is a tombstone that a later re-tag revives, and edits to different tags or targets never conflict. Taggings of a missing or deleted tag or target are ignored by readers. |
 | `outline`   | `{notebookId, pageId, parentId: string|null, title, createdAt}` — an entry of a notebook's own outline (table of contents) leading to page `pageId`. Entries nest by `parentId` (null = top level). There is no stored order: siblings are shown in the order of their pages in the notebook (then by `createdAt`), so reordering pages reorders the outline and concurrent additions never conflict. An entry whose parent is missing, or that is part of a parent cycle, is shown at the top level; one whose page was deleted is shown as such (deleting a page keeps its entries, so undoing the deletion restores them). Deleting an entry moves its children to its parent. |
-| `stickers`  | `{name, category, content, createdAt}` — a sticker of the user's library: reusable content saved from a lasso selection. `category` (non-empty) is a free-text section of the library. `content` = `{strokes: [stroke, …], elements: [element, …]}` laid out from the origin: `stroke` = `{tool, color, width, points, style}` as in `strokes` (paint order = list order), `element` = `{type, x, y, w, h, rotation, z, data}` as in `elements` (image data references blobs, which are uploaded and kept like those of pages). Content without strokes and elements, or with a malformed stroke or element, makes the record malformed. Built-in stickers ship with the app and are never synced. |
 
 **Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
 cache `pdf_text`) is derived on each device from the collections above and the PDF blobs, and is
@@ -223,9 +220,8 @@ a field, has a value of the wrong type or an unknown enumerated value is malform
 it (see [Client algorithm](#client-algorithm)). Unknown extra fields are ignored. Exceptions: an
 element's `type` and the contents of its `data` are open (see its row), and `strokes` (see its row).
 
-Enumerated values: `kind` as above (notebooks), `taggings.kind` ∈ `notebook`, `page`; `paper` and `paperColor` see [Paper and pages](#paper-and-pages);
-`coverStyle` ∈ `plain`, `linen`, `dots`, `grid`, `waves`, `stripes`; `color`, `coverColor` are ARGB
-ints.
+Enumerated values: `kind` as above (notebooks); `paper` and `paperColor` see [Paper and pages](#paper-and-pages);
+`color`, `coverColor` are ARGB ints.
 
 **Library semantics.**
 - `folders.parentId` is null for top-level folders. A folder whose parent is missing/deleted is shown
@@ -233,9 +229,8 @@ ints.
   devices). Deleting a folder tombstones its whole subtree and moves the notebooks inside to the trash.
 - `notebooks.folderId` pointing at a missing folder means "library root".
 - `notebooks.trashedAt` (ms) puts a notebook in the trash; it stays a live record so it can be
-  restored. "Delete forever" tombstones the notebook, its pages, strokes, elements, recordings,
-  outline entries and the taggings of the notebook and its pages. Duplicating a notebook copies
-  its outline (onto the copied pages) and its and its pages' tags.
+  restored. "Delete forever" tombstones the notebook, its pages, strokes, elements, recordings and
+  outline entries. Duplicating a notebook copies its outline (onto the copied pages).
 - `notebooks.paperColor` is the background of a canvas (same values as on pages);
   `notebooks.paper` + `paperData` its pattern.
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes

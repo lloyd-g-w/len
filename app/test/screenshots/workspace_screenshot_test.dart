@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/domain/notebook.dart';
@@ -16,7 +17,7 @@ import 'screenshot_harness.dart';
 import 'toolbar_screenshot_test.dart' show writtenNotebook;
 
 // Screenshots of the workspace features: split view, the toolbar in edit
-// mode with favourite pens, presentation mode.
+// mode with favourite pens, focus mode with the laser (F5).
 
 const tablet = Size(1280, 800);
 const desktop = Size(1440, 900);
@@ -153,14 +154,12 @@ void main() {
   }
 
   for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-    testWidgets('presentation ${mode.name}', (tester) async {
+    testWidgets('focus with the laser ${mode.name}', (tester) async {
       setWindow(tester, tablet);
       final s = seededServices();
       addTearDown(s.dispose);
       await pumpApp(tester, s, EditorScreen(notebook: writtenNotebook(s)), mode: mode);
-      await tester.tap(find.byTooltip('More options'));
-      await settle(tester);
-      await tester.tap(find.text('Present'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
       await settle(tester);
       // A laser stroke over the page.
       final laser = await tester.startGesture(

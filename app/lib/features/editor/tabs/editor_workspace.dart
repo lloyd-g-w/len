@@ -86,7 +86,7 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
   }
 
   void _onSplit() {
-    if (mounted) setState(() {}); // A pane presents (alone) or stops.
+    if (mounted) setState(() {}); // A pane enters focus mode (alone) or leaves it.
   }
 
   void _onTabs() {
@@ -128,7 +128,7 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
     final available = _split.available = SplitView.fits(MediaQuery.sizeOf(context));
     final second = _tabs.splitId == null ? null : _services.notebooks.get(_tabs.splitId!);
     final hasSecond = second != null && !second.isTrashed;
-    final presenting = _split.presenting;
+    final solo = _split.soloPane;
     // Too small for two panes (e.g. a tablet turned to portrait): the
     // second pane is parked, alive, until there is room again.
     final secondary = hasSecond
@@ -156,8 +156,8 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
         solo: !hasSecond
             ? null
             : available
-            ? presenting?.secondary
-            : presenting?.secondary ?? false,
+            ? solo?.secondary
+            : solo?.secondary ?? false,
       ),
     );
   }

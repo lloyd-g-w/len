@@ -16,15 +16,11 @@ import 'editor_session.dart';
 import 'images/image_entry_points.dart';
 import 'links/link_actions.dart';
 import 'pdf/pdf_layer.dart';
-import 'present/presentation.dart';
-import 'present/presentation_controls.dart';
 import 'split/split_controller.dart';
 import 'split/split_drop_highlight.dart';
-import 'stickers/sticker_layer.dart';
 
 /// The editor's layers, bottom to top: the surface, PDF text, the empty
-/// canvas hint, image drops, audio, then either the presentation controls
-/// or the chrome, stickers and search, and on top the split view's drop
+/// canvas hint, image drops, audio, the chrome and search, and on top the split view's drop
 /// highlight and the canvas context menu.
 ///
 /// A feature that shows something over the surface adds its layer here.
@@ -38,8 +34,6 @@ class EditorLayers extends StatelessWidget {
     required this.guard,
     required this.audio,
     required this.search,
-    required this.presentation,
-    required this.presentActivity,
     required this.chrome,
     required this.onFollowLink,
     required this.onCloseMenu,
@@ -54,12 +48,8 @@ class EditorLayers extends StatelessWidget {
   final CanvasGuard guard;
   final NotebookAudio audio;
   final EditorSearchController search;
-  final Presentation presentation;
 
-  /// Pointer activity that shows the presentation controls.
-  final ValueNotifier<int> presentActivity;
-
-  /// The top bar, toolbar and page navigator (hidden while presenting).
+  /// The top bar, toolbar and page navigator (or the focus mode handle).
   final Widget chrome;
   final ValueChanged<Paper> onFollowLink;
 
@@ -71,7 +61,6 @@ class EditorLayers extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final presenting = presentation.active;
     return Stack(
       children: [
         Positioned.fill(
@@ -83,14 +72,11 @@ class EditorLayers extends StatelessWidget {
             guard: guard,
             chromeInsets: layout.covered,
             onFollowLink: onFollowLink,
-            selectionActions: () => [
-              linkSelectionAction(context, session),
-              session.stickers.saveAction(context),
-            ],
+            selectionActions: () => [linkSelectionAction(context, session)],
           ),
         ),
         if (session.pdf case final pdf?) Positioned.fill(child: PdfLayer(interaction: pdf)),
-        if (session.canvas != null && !presenting)
+        if (session.canvas != null)
           Positioned.fill(
             child: Padding(
               padding: layout.covered,
@@ -111,27 +97,14 @@ class EditorLayers extends StatelessWidget {
             canvasPaper: notebook.paperColor,
           ),
         ),
-        if (presenting)
-          Positioned.fill(
-            child: PresentationControls(
-              presentation: presentation,
-              activity: presentActivity,
-              doc: session.doc,
-            ),
-          )
-        else ...[
-          Positioned.fill(child: chrome),
-          Positioned.fill(
-            child: StickerLayer(stickers: session.stickers, insets: layout.floatingInsets),
+        Positioned.fill(child: chrome),
+        Positioned.fill(
+          child: EditorSearchLayer(
+            controller: search,
+            top: layout.covered.top,
+            onClose: focusNode.requestFocus,
           ),
-          Positioned.fill(
-            child: EditorSearchLayer(
-              controller: search,
-              top: layout.covered.top,
-              onClose: focusNode.requestFocus,
-            ),
-          ),
-        ],
+        ),
         if (split case final split?)
           Positioned.fill(
             child: SplitDropHighlight(split: split.controller, pane: split.pane),

@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../../domain/cover_style.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_or_sheet.dart';
 import '../cover_picker.dart';
 import '../notebook_cover.dart';
 
-/// A chosen cover.
-typedef CoverChoice = ({int color, CoverStyle style});
-
-/// Restyles a notebook's cover: live preview, colours and patterns,
+/// Recolours a notebook's cover: live preview, colours,
 /// Cancel / Apply. A dialog on wide screens, a bottom sheet on phones.
-Future<CoverChoice?> showCoverSheet(BuildContext context, Notebook notebook) {
-  return showDialogOrSheet<CoverChoice>(
+/// Returns the chosen ARGB colour.
+Future<int?> showCoverSheet(BuildContext context, Notebook notebook) {
+  return showDialogOrSheet<int>(
     context: context,
     maxWidth: 640,
     builder: (context, wide) => _CoverSheet(notebook: notebook, wide: wide),
@@ -34,7 +31,6 @@ class _CoverSheet extends StatefulWidget {
 
 class _CoverSheetState extends State<_CoverSheet> {
   late int _color = widget.notebook.coverColor;
-  late CoverStyle _style = widget.notebook.coverStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -47,15 +43,9 @@ class _CoverSheetState extends State<_CoverSheet> {
         borderRadius: BorderRadius.circular(Radii.cover),
         boxShadow: Shadows.high(theme.brightness),
       ),
-      child: NotebookCover(color: _color, style: _style, kind: widget.notebook.kind),
+      child: NotebookCover(color: _color, kind: widget.notebook.kind),
     );
-    final picker = CoverPicker(
-      color: _color,
-      style: _style,
-      kind: widget.notebook.kind,
-      onColor: (c) => setState(() => _color = c),
-      onStyle: (s) => setState(() => _style = s),
-    );
+    final picker = CoverPicker(color: _color, onColor: (c) => setState(() => _color = c));
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         Gaps.xl,
@@ -95,8 +85,7 @@ class _CoverSheetState extends State<_CoverSheet> {
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
               const SizedBox(width: Gaps.sm),
               FilledButton(
-                onPressed: () =>
-                    Navigator.pop<CoverChoice>(context, (color: _color, style: _style)),
+                onPressed: () => Navigator.pop<int>(context, _color),
                 child: const Text('Apply'),
               ),
             ],

@@ -7,12 +7,16 @@ import '../../../ink/selection/selection_controller.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/color_dot.dart';
+import '../../../ui/even_grid.dart';
 import '../pen/option_controls.dart';
+import 'colour_sheet.dart';
 import 'text/text_style_menus.dart';
 import 'text_format_bar.dart';
 
-/// Opens the style panel of a lasso selection: font and size of the
-/// selected text boxes, pen type and width of the selected ink.
+/// Opens the style panel of a lasso selection: the colour of its ink and
+/// text, then font and size of the selected text boxes, pen type and width
+/// of the selected ink.
 Future<void> showSelectionStyle(
   BuildContext context, {
   required SelectionController selection,
@@ -61,6 +65,8 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            ..._colourSection(context),
+            const SizedBox(height: Gaps.md),
             if (texts.isNotEmpty) ..._textSection(context, texts),
             if (texts.isNotEmpty && strokes.isNotEmpty) const SizedBox(height: Gaps.md),
             if (strokes.isNotEmpty) ..._inkSection(context, strokes),
@@ -68,6 +74,55 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
         );
       },
     );
+  }
+
+  /// The colour all strokes and text boxes share, else null.
+  int? _commonColour() => _common([
+    for (final s in _sel.strokes) s.color | 0xFF000000,
+    for (final e in _sel.elements)
+      if (e.knownType == ElementType.text) TextData.fromJson(e.data).color | 0xFF000000,
+  ]);
+
+  /// The pen's quick colours, then the saved favourites; at most two rows.
+  List<int> _swatches() {
+    final tools = widget.tools;
+    return {
+      for (final c in tools.configOf(InkTool.ballpoint).colors) c | 0xFF000000,
+      ...tools.favorites.map((c) => c | 0xFF000000),
+    }.take(_maxSwatches).toList();
+  }
+
+  static const int _maxSwatches = 13;
+
+  List<Widget> _colourSection(BuildContext context) {
+    final current = _commonColour();
+    return [
+      const OptionHeader('Colour'),
+      EvenGrid(
+        itemExtent: 32,
+        touchTargets: true,
+        children: [
+          for (final c in _swatches())
+            ColorDot(color: c, selected: c == current, onTap: () => _sel.recolor(c)),
+          Builder(
+            builder: (anchor) => IconButton(
+              tooltip: 'More colours',
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.add_rounded, size: 20),
+              onPressed: () async {
+                final colour = await pickColour(
+                  anchor,
+                  title: 'Recolour selection',
+                  initial: current ?? _sel.strokes.firstOrNull?.color ?? 0xFF000000,
+                  tools: widget.tools,
+                );
+                if (colour != null) _sel.recolor(colour);
+              },
+            ),
+          ),
+        ],
+      ),
+    ];
   }
 
   List<Widget> _textSection(BuildContext context, List<TextData> texts) {

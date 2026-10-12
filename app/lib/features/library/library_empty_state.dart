@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/cover_style.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
 import 'library_controller.dart';
@@ -13,7 +12,6 @@ class LibraryEmptyState extends StatelessWidget {
     required this.section,
     required this.inFolder,
     required this.query,
-    this.tags = const [],
     this.onCreate,
     this.onClearSearch,
   });
@@ -21,9 +19,6 @@ class LibraryEmptyState extends StatelessWidget {
   final LibrarySection section;
   final bool inFolder;
   final String query;
-
-  /// Names of the tags filtered by (sidebar or chips).
-  final List<String> tags;
   final VoidCallback? onCreate;
 
   /// Offered when a search found nothing.
@@ -35,12 +30,6 @@ class LibraryEmptyState extends StatelessWidget {
     final scheme = theme.colorScheme;
     final searching = query.trim().isNotEmpty;
     final (Widget art, String title, String message) = switch (section) {
-      _ when tags.isNotEmpty && !searching => (
-        const _IconArt(Icons.sell_outlined),
-        'No tagged notebooks',
-        'No notebook here is tagged ${tags.map((t) => '“$t”').join(' and ')}. Tag notebooks '
-            'from their menu.',
-      ),
       _ when searching => (
         const _IconArt(Icons.search_off_rounded),
         'No results',
@@ -67,8 +56,7 @@ class LibraryEmptyState extends StatelessWidget {
         'Deleted notebooks stay here until you delete them forever.',
       ),
     };
-    final showCreate =
-        onCreate != null && !searching && tags.isEmpty && section == LibrarySection.library;
+    final showCreate = onCreate != null && !searching && section == LibrarySection.library;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(Gaps.xxl),
@@ -147,7 +135,7 @@ class _CoverFan extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    Widget cover(int color, CoverStyle style, double angle, Offset offset) => Transform.translate(
+    Widget cover(int color, double angle, Offset offset) => Transform.translate(
       offset: offset,
       child: Transform.rotate(
         angle: angle,
@@ -158,7 +146,7 @@ class _CoverFan extends StatelessWidget {
             borderRadius: BorderRadius.circular(Radii.cover),
             boxShadow: Shadows.low(brightness),
           ),
-          child: NotebookCover(color: color, style: style, kind: NotebookKind.paged),
+          child: NotebookCover(color: color, kind: NotebookKind.paged),
         ),
       ),
     );
@@ -168,9 +156,9 @@ class _CoverFan extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          cover(Palette.covers[1], CoverStyle.dots, -0.22, const Offset(-48, 8)),
-          cover(Palette.covers[2], CoverStyle.waves, 0.22, const Offset(48, 8)),
-          cover(Palette.covers[0], CoverStyle.linen, 0, Offset.zero),
+          cover(Palette.covers[1], -0.22, const Offset(-48, 8)),
+          cover(Palette.covers[2], 0.22, const Offset(48, 8)),
+          cover(Palette.covers[0], 0, Offset.zero),
         ],
       ),
     );

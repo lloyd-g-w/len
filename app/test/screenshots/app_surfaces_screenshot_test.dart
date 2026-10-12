@@ -4,13 +4,12 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/features/settings/settings_section.dart';
-import 'package:len/ui/sidebar_item.dart';
 
 import '../support/fake_recognizer.dart';
 import 'screenshot_harness.dart';
 
-/// Settings, section by section: the two-pane layout on tablets and
-/// desktop, the phone column scrolled to each section (also at 1.3× text),
+/// Settings, section by section: the column on tablets, desktop and phones
+/// scrolled to each section (phones also at 1.3× text),
 /// plus the sync and handwriting states and dialogs.
 void main() {
   setUpAll(loadRealFonts);
@@ -18,7 +17,7 @@ void main() {
   const phone = ('phone', Size(390, 844), 2.0);
   const tablet = ('tablet', Size(1280, 800), 1.0);
   const desktop = ('desktop', Size(1440, 900), 1.0);
-  const sections = ['Appearance', 'Stylus', 'Gestures', 'Editor', 'Handwriting', 'Sync', 'About'];
+  const sections = ['Appearance', 'Writing', 'Handwriting', 'Sync', 'About'];
   const modes = [ThemeMode.light, ThemeMode.dark];
 
   /// Settings services; with [handwriting], recognition is supported and
@@ -35,7 +34,7 @@ void main() {
   Finder section(String title) =>
       find.byWidgetPredicate((w) => w is SettingsSection && w.title == title);
 
-  /// Scrolls the phone column so [title]'s section is at the top.
+  /// Scrolls the column so [title]'s section is at the top.
   Future<void> scrollTo(WidgetTester tester, String title) async {
     await tester.ensureVisible(section(title));
     await settle(tester);
@@ -47,8 +46,7 @@ void main() {
         setWindow(tester, size, dpr: dpr);
         await pumpApp(tester, services(), const SettingsScreen(), mode: mode);
         for (final title in sections) {
-          await tester.tap(find.widgetWithText(SidebarItem, title));
-          await settle(tester);
+          await scrollTo(tester, title);
           expect(section(title), findsOneWidget);
           expect(tester.takeException(), isNull);
           await shoot(tester, 's_settings_${title.toLowerCase()}_${name}_${mode.name}');
@@ -78,12 +76,7 @@ void main() {
       testWidgets('sync URL error $name ${mode.name}', (tester) async {
         setWindow(tester, size, dpr: dpr);
         await pumpApp(tester, services(), const SettingsScreen(), mode: mode);
-        if (name == 'desktop') {
-          await tester.tap(find.widgetWithText(SidebarItem, 'Sync'));
-          await settle(tester);
-        } else {
-          await scrollTo(tester, 'Sync');
-        }
+        await scrollTo(tester, 'Sync');
         await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'len.example');
         await tester.enterText(find.widgetWithText(TextField, 'Access token'), 'secret-token');
         await tester.tap(find.byTooltip('Show'));
@@ -97,12 +90,7 @@ void main() {
       testWidgets('handwriting supported $name ${mode.name}', (tester) async {
         setWindow(tester, size, dpr: dpr);
         await pumpApp(tester, services(handwriting: true), const SettingsScreen(), mode: mode);
-        if (name == 'desktop') {
-          await tester.tap(find.widgetWithText(SidebarItem, 'Handwriting'));
-          await settle(tester);
-        } else {
-          await scrollTo(tester, 'Handwriting');
-        }
+        await scrollTo(tester, 'Handwriting');
         expect(find.text('Language model'), findsOneWidget);
         await shoot(tester, 's_settings_handwriting_on_${name}_${mode.name}');
 
@@ -111,13 +99,6 @@ void main() {
         expect(find.text('Handwriting language'), findsOneWidget);
         await shoot(tester, 's_settings_handwriting_language_${name}_${mode.name}');
         await tester.tapAt(const Offset(4, 4));
-        await settle(tester);
-
-        await tester.tap(find.text('Delete…'));
-        await settle(tester);
-        expect(find.textContaining('model?'), findsOneWidget);
-        await shoot(tester, 's_settings_handwriting_delete_${name}_${mode.name}');
-        await tester.tap(find.text('Cancel'));
         await settle(tester);
         expect(tester.takeException(), isNull);
       });

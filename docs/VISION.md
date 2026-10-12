@@ -63,5 +63,5 @@ backwards-compatibility code is wanted until the first release.
 - Pixel / partial-stroke eraser, lasso select + move/resize, shapes, text boxes, images.
 - PDF import and annotation, export to PDF/PNG.
 - Level-of-detail rendering for extreme zoom-out on the infinite canvas.
-- Folders / tags, search (handwriting recognition).
+- Folders, search (handwriting recognition).
 - Per-user accounts on the server, end-to-end encryption.

@@ -26,8 +26,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Text boxes (synced `elements`): rich text within a box — bold, italic, underline,
   strikethrough, colour, highlight, size and font per character; headings; bulleted, numbered
   and checklist items (tap to tick, Tab to indent) with hanging indents when they wrap (canvas,
-  editing field and PDF alike); bundled open-licence fonts (Inter, Nunito, Lora, JetBrains Mono,
-  Caveat, Kalam) with a font picker and default text style; auto-width boxes that wrap
+  editing field and PDF alike); bundled open-licence fonts (Inter, Lora, JetBrains Mono,
+  Caveat) with a font picker and default text style; auto-width boxes that wrap
   once resized; Ctrl+B / I / U and list shortcuts; copy / cut / paste keep formatting between
   boxes; Ctrl+V of plain text adds a text box; exported to PDF as selectable text in embedded
   fonts
@@ -91,7 +91,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   ink) and page to PNG; save dialog on desktop, share sheet on Android
 - ✅ Progress for import / export: stage, file name, "Page x of n" bar
 - ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
-  backgrounds on or off, PNG resolution (192 / 384 dpi); several PNGs shared or saved at once
+  backgrounds on or off, PNGs at 288 dpi; several PNGs shared or saved at once
 - ✅ Planner templates: daily planner, weekly planner (week grid), monthly calendar — date-aware
   (pick the first month and 1–12 months; correct days, leap years, ISO weeks), optionally a linked
   planner (each month followed by its weeks and days) with month → week → day links (finger tap
@@ -106,13 +106,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   previews; a dialog with gallery and options side by side on tablets / desktops, a sheet with
   full-width columns on phones
 - ✅ Planner options: week starting on Monday or Sunday (US week numbers for Sunday weeks),
-  month and day names and dates in 19 languages (intl; default from the device locale, last
-  choice remembered), year overview (twelve mini calendars linking to months and days; optional
+  month and day names and dates in 19 languages (intl; the device locale's), week start
+  defaulting to the locale's (last choice remembered), year overview (twelve mini calendars linking to months and days; optional
   first page of a monthly planner; month pages link back up from their year label, weeks and
   days to their month); exported PDF labels in the embedded Inter
 - ✅ Cancel long imports / exports (partial imports clean up after themselves)
 - ✅ Tiled PDF rendering for deep zoom (visible tiles, LRU, smooth while zooming)
-- ✅ PDF text selection (Select text tool, long press / right click): copy, highlight the selection
+- ✅ PDF text selection (long press / right click, then drag the handles): copy, highlight the selection
   with highlighter strokes snapped to the lines; links (jump to page, web links after a prompt);
   outline (bookmarks) panel
 - ✅ Export keeps imported PDF pages as vectors (pure-Dart page copier; PDFium rewrite for
@@ -128,7 +128,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Chunk loading in a background isolate; strokes indexed only along their path
 - ✅ Kinetic (inertial) panning — canvases and continuous pages
 - ✅ Animated zoom: keyboard `+` `-` `0`, Shift+1 fit; zoom indicator with 50/100/200 %/fit
-- ✅ Minimap (populated chunks + viewport, tap/drag to move), fit content, back to start
+- ✅ Fit content, back to start
 - ✅ Canvas background: template + paper colour
 - ✅ Double-tap zoom (finger, when fingers navigate): page fit / 100 % ⇄ 2× or the last zoom, about
   the tap; palm-safe, never confused with two-finger undo
@@ -148,13 +148,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Lasso "Convert to text": recognised text with alternatives, editable; replace the ink with a
   text box (same place, colour, size; one undo) or copy
 - ⬜ Handwriting recognition on Windows (WinRT ink analysis) / Linux / web; sync recognised text
-- ✅ Live cover thumbnails, more cover colours + patterns
+- ✅ Live cover thumbnails, ten cover colours
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
-- ✅ Create sheet with a live cover + first-page preview, Paper / Cover galleries, size and paper
+- ✅ Create sheet with a live cover + first-page preview, Paper gallery and Cover colours, size and paper
   colour (dialog on wide screens, tall sheet on phones); grouped template gallery
 - ✅ Selection mode: favourite, move, trash (undo), restore, delete forever for many notebooks
 - ✅ Cards show page count and short dates; consistent dialogs; empty states with actions
-- ✅ "New…" tile in the grid; folder icons (synced, picked in the folder dialog)
+- ✅ "New…" tile in the grid
 
 ## App
 - ✅ Web target (PWA): SQLite wasm + IndexedDB, blobs in IndexedDB, PDF import/render (PDFium wasm),
@@ -164,30 +164,29 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   headless Chromium), canvas reads in time-budgeted slices (a Web Worker cannot share the
   IndexedDB-backed database; see ARCHITECTURE)
 - ⬜ Web: database in a worker (OPFS VFS, asynchronous data layer) to take all reads off the UI thread
-- ✅ Theme mode (system/light/dark), accent colour
-- ✅ App shell: sidebar (tablet/desktop), bottom navigation (phone), context menus,
+- ✅ Theme mode (system/light/dark)
+- ✅ App shell: sidebar (tablet/desktop), drawer (phone), context menus,
   keyboard shortcuts, redesigned settings
-- ✅ Settings: theme previews, Stylus / Gestures / Editor (toolbar position) sections with
+- ✅ Settings: theme previews, a Writing section (stylus, gestures, toolbar position) with
   descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
-- ✅ Two-pane settings on wide screens
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
   export, focus, more menu), tool-descriptor toolbar with contextual quick controls, toolbar
-  position (automatic / top / bottom / floating, draggable), focus mode (F11 / Ctrl+.) with
+  position (docked / floating, draggable), focus mode (F11 / Ctrl+.) with
   immersive system bars
 - ✅ Open-notebook tabs (up to 8, each keeps its page and zoom; tab strip on tablets/desktops,
   switcher on phones; Ctrl+Tab, Ctrl+W)
 - ✅ Editor UX round 2: toolbar in groups (≥ 40 px targets, optional tool names), one-row phone
   toolbar with a tool switcher, title left-aligned with the folder on every size, open-notebook
-  transition from the cover, export options, one-time tips (pen side button, multi-finger taps),
+  transition from the cover, export options, a one-time pen side-button tip,
   empty-canvas hint, Escape closes chrome menus
 - ✅ Customisable toolbar: reorder and hide tools, favourite pens (tool + colour + width, GoodNotes
   favourites row; also in the phone tool switcher), edit mode from "⋯" → Toolbar, saved per device
   (in-editor search: ✅ text and PDF, see Library)
 - ✅ Split view (tablets in landscape, desktops): two notebooks — or two places in one — side by
-  side, resizable, each pane a full editor (tools optionally linked); drag a lasso selection across
+  side, resizable, each pane a full editor (tools linked); drag a lasso selection across
   to copy it; from a tab's menu or the top bar
-- ✅ Presentation mode: no chrome, full screen (web, Linux, Windows) / immersive (Android), laser pointer, one page at
-  a time with ← / → / Space, controls that fade away
+- ✅ Presenting: F5 is focus mode (no chrome, full screen on web, Linux and Windows,
+  immersive on Android) with the laser pointer; Space / ← / → turn pages
 - ⬜ Presentation on a second display as a separate audience view (Android Presentation API,
   desktop multi-window once Flutter supports it); synced favourite pens
 - ✅ App identity: one icon design for all platforms (Android adaptive + themed icon), splash

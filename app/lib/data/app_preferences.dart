@@ -17,21 +17,13 @@ class AppPreferences extends ChangeNotifier {
   ThemePreference get themeMode => _settings.themeMode;
   set themeMode(ThemePreference value) => _update(() => _settings.themeMode = value);
 
-  /// ARGB seed colour of the colour scheme; null means the default accent.
-  int? get accentColor => _settings.accentColor;
-  set accentColor(int? value) => _update(() => _settings.accentColor = value);
-
   /// Only the stylus draws; fingers pan and zoom. Null = not decided yet.
   bool? get stylusOnly => _settings.stylusOnly;
   set stylusOnly(bool? value) => _update(() => _settings.stylusOnly = value);
 
-  /// Two-finger tap on the canvas undoes.
-  bool get twoFingerTapUndo => _settings.twoFingerTapUndo;
-  set twoFingerTapUndo(bool value) => _update(() => _settings.twoFingerTapUndo = value);
-
-  /// Three-finger tap on the canvas redoes.
-  bool get threeFingerTapRedo => _settings.threeFingerTapRedo;
-  set threeFingerTapRedo(bool value) => _update(() => _settings.threeFingerTapRedo = value);
+  /// Two-finger tap on the canvas undoes, three-finger tap redoes.
+  bool get fingerTapUndo => _settings.fingerTapUndo;
+  set fingerTapUndo(bool value) => _update(() => _settings.fingerTapUndo = value);
 
   /// What holding the stylus side button does.
   PenButtonAction get penButtonAction => _settings.penButtonAction;

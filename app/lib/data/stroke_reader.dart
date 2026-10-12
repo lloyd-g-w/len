@@ -18,7 +18,7 @@ class ChunkLoad {
 }
 
 /// Read-only access to a surface's stored strokes and elements, used for lazy loading and for
-/// overviews of a whole surface (minimap, "fit to content").
+/// overviews of a whole surface ("fit to content").
 ///
 /// Results may arrive synchronously (a reader on the UI isolate's
 /// connection, as in tests) or asynchronously (a background isolate), so

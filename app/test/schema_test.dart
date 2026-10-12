@@ -96,8 +96,6 @@ void main() {
         'element_chunks',
         'recordings',
         'templates',
-        'tags',
-        'taggings',
         'outline',
         'blobs',
         'search_docs',

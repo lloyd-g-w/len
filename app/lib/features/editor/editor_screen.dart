@@ -1,12 +1,13 @@
 import 'dart:async';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
+import '../../ink/tool_settings.dart';
+import '../../platform/fullscreen.dart';
 import '../../ui/messages.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/playback_keys.dart';
@@ -28,7 +29,6 @@ import 'editor_lifecycle.dart';
 import 'editor_session.dart';
 import 'editor_shortcuts.dart';
 import 'links/link_actions.dart';
-import 'present/presentation.dart';
 import 'shared/shared_notebooks.dart';
 import 'split/split_controller.dart';
 import 'split/split_view.dart';
@@ -137,11 +137,6 @@ class _EditorScreenState extends State<_EditorView> {
         );
   final GlobalKey _areaKey = GlobalKey(debugLabel: 'editor area');
 
-  /// Presentation mode (no chrome, laser pointer, page navigation).
-  late final Presentation _presentation = Presentation(_session)..addListener(_onPresentation);
-
-  /// Pointer activity that shows the presentation controls.
-  final ValueNotifier<int> _presentActivity = ValueNotifier(0);
   final HudController _hud = HudController();
 
   /// Audio recording and ink replay (features/audio), shared by the
@@ -154,9 +149,6 @@ class _EditorScreenState extends State<_EditorView> {
     markSeen: _services.settings.markTipSeen,
   );
 
-  /// Whether the last pointer down in the editor was a finger or a pen.
-  bool _touchInput = false;
-
   /// In-notebook search, Ctrl+F (features/search).
   late final EditorSearchController _search;
   final CanvasGuard _guard = CanvasGuard();
@@ -164,8 +156,11 @@ class _EditorScreenState extends State<_EditorView> {
   /// The toolbar's size, which the chrome's layout depends on.
   late final ToolbarMeasure _toolbar = ToolbarMeasure(_session);
 
-  /// Focus mode: all chrome hidden.
+  /// Focus mode: all chrome hidden, full screen.
   bool _focus = false;
+
+  /// The tool to put back on leaving focus mode entered with the laser (F5).
+  EditorTool? _toolBeforeLaser;
 
   /// The toolbar is in edit mode ("Customise toolbar…").
   bool _customising = false;
@@ -197,7 +192,6 @@ class _EditorScreenState extends State<_EditorView> {
     pickBackground: () => unawaited(pickCanvasBackground(context, _shared)),
     openSearch: _search.open,
     customiseToolbar: (on) => setState(() => _customising = on),
-    present: _presentation.start,
   );
 
   @override
@@ -211,7 +205,6 @@ class _EditorScreenState extends State<_EditorView> {
     _search = EditorSearchController.forSession(_services, _session, notebookId: _notebook.id);
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
-    _session.undo.addListener(_onEdit);
     _audio.onNotice = _onAudioNotice;
     _services.incomingFiles.targets.add(_importTarget);
     // Of two editors (split view), files go to the one used last.
@@ -228,24 +221,18 @@ class _EditorScreenState extends State<_EditorView> {
   @override
   void dispose() {
     // A text box still being typed is committed while the split view
-    // still mirrors this editor's edits into the other pane, and the
-    // presentation puts back the tool (shared, with linked tools) and page
-    // layout before the view is saved.
+    // still mirrors this editor's edits into the other pane, and focus
+    // mode puts back the tool (shared, with linked tools) before the view
+    // is saved.
     if (!_closing) _session.content.text.end(); // Counts as an edit below.
-    _presentation
-      ..removeListener(_onPresentation)
-      ..stop()
-      ..dispose();
+    if (_focus) _setFocus(false, disposing: true); // (`detach` shows the other pane.)
     if (_pane case final pane?) widget.split!.detach(pane);
-    _presentActivity.dispose();
     _focusNode.removeListener(_onFocus);
     _services.incomingFiles.targets.remove(_importTarget);
     _services.routeOwners.forget(this);
     _services.openNotebooks.removeListener(_onTabs);
     _lifecycle.dispose();
     _services.preferences.removeListener(_onPreferences);
-    _session.undo.removeListener(_onEdit);
-    if (_focus) setImmersive(false);
     final edited = _session.edited;
     _search.dispose();
     if (_audio.onNotice == _onAudioNotice) _audio.onNotice = null;
@@ -324,12 +311,6 @@ class _EditorScreenState extends State<_EditorView> {
 
   void _offerTip(EditorTip tip) => _tips.offerFor(tip, _services.preferences);
 
-  /// After the first edit by finger or pen: how to undo without reaching
-  /// for the top bar.
-  void _onEdit() {
-    if (_touchInput && _session.undo.canUndo) _offerTip(EditorTip.gestures);
-  }
-
   void _onStylusDetected() {
     _offerTip(EditorTip.penButton);
     if (_session.tools.stylusOnly != null) return;
@@ -357,15 +338,6 @@ class _EditorScreenState extends State<_EditorView> {
     if (_menu != null) setState(() => _menu = null);
   }
 
-  void _onPresentation() {
-    if (!mounted) return;
-    final active = _presentation.active;
-    if (!active && _focus) setImmersive(true); // Back to focus mode.
-    if (_pane case final pane?) widget.split!.present(active ? pane : null);
-    if (active) _focusNode.requestFocus();
-    setState(() {});
-  }
-
   // ---------------------------------------------------------------------------
   // Commands
 
@@ -379,9 +351,43 @@ class _EditorScreenState extends State<_EditorView> {
     _session.doc?.setFlow(flow);
   }
 
-  void _toggleFocus() {
-    setState(() => _focus = !_focus);
-    setImmersive(_focus);
+  void _toggleFocus() => _setFocus(!_focus);
+
+  /// Enters focus mode with the laser pointer (F5: presenting), or leaves
+  /// focus mode.
+  void _present() {
+    if (_focus) return _setFocus(false);
+    final tools = _session.tools;
+    _toolBeforeLaser = tools.tool;
+    tools.tool = EditorTool.laser;
+    _session.content.selection.clear();
+    _session.content.text.end();
+    _setFocus(true);
+  }
+
+  /// Focus mode: no chrome, full screen (immersive on Android), this pane
+  /// alone in the split view. Leaving it puts back the tool the laser
+  /// replaced (F5).
+  void _setFocus(bool on, {bool disposing = false}) {
+    if (on == _focus) return;
+    _focus = on;
+    if (!on) {
+      final tool = _toolBeforeLaser;
+      _toolBeforeLaser = null;
+      if (tool != null && _session.tools.tool == EditorTool.laser) _session.tools.tool = tool;
+    }
+    setImmersive(on);
+    unawaited(setFullscreen(on));
+    if (disposing) return;
+    if (_pane case final pane?) widget.split!.solo(on ? pane : null);
+    if (on) _focusNode.requestFocus();
+    setState(() {});
+  }
+
+  /// Turns [delta] pages on (Space / Shift+Space in focus mode).
+  void _turn(int delta) {
+    final doc = _session.doc;
+    if (doc != null) doc.goToPage(doc.currentPage + delta);
   }
 
   /// Leaves this pane of the split view.
@@ -403,22 +409,20 @@ class _EditorScreenState extends State<_EditorView> {
     // The second pane's bar lines up with the first's tab strip.
     final primaryWidth = widget.secondPane ? SplitView.primaryWidthOf(context) : null;
     final band = primaryWidth != null && EditorTopBar.showsStrip(primaryWidth, open);
-    final presenting = _presentation.active;
-    // Back (e.g. Android's) leaves presentation and focus mode before
-    // leaving the editor.
+    // Back (e.g. Android's) leaves focus mode before leaving the editor.
     return PopScope(
-      canPop: !_focus && !presenting,
+      canPop: !_focus,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        presenting ? _presentation.stop() : _toggleFocus();
+        if (!didPop) _setFocus(false);
       },
       child: Scaffold(
         body: CallbackShortcuts(
           bindings: editorScreenShortcuts(
             _session,
-            presentation: _presentation,
             search: _search,
             toggleFocus: _toggleFocus,
+            present: _present,
+            turnPage: _focus && _session.doc != null ? _turn : null,
             tabs: tabs,
             closeTab: widget.secondPane
                 ? _closePane
@@ -432,7 +436,7 @@ class _EditorScreenState extends State<_EditorView> {
             focusNode: _focusNode,
             autofocus: true,
             onKeyEvent: _onKey,
-            // Automatic placement depends on the toolbar's width (its slots);
+            // The docked placement depends on the toolbar's width (its slots);
             // other tool changes don't rebuild the whole editor (the toolbar
             // and chrome listen to the tools themselves).
             child: ListenableBuilder(
@@ -447,13 +451,13 @@ class _EditorScreenState extends State<_EditorView> {
     );
   }
 
-  /// Escape first leaves presentation, then closes a chrome menu opened
+  /// Escape first leaves focus mode, then closes a chrome menu opened
   /// with a tap (focus stayed here, out of the menu's reach). The audio
   /// player's keys (Space, ← / →) come before the editor's shortcuts.
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     final escape = event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape;
-    if (escape && _presentation.active) {
-      _presentation.stop();
+    if (escape && _focus) {
+      _setFocus(false);
       return KeyEventResult.handled;
     }
     return escape && _guard.closeMenus()
@@ -467,12 +471,11 @@ class _EditorScreenState extends State<_EditorView> {
     OpenNotebooks? tabs,
     bool band,
   ) {
-    final presenting = _presentation.active;
     final layout = _toolbar.layout(
       width: constraints.maxWidth,
       safe: MediaQuery.paddingOf(context),
       tabs: tabs,
-      focus: _focus || presenting,
+      focus: _focus,
       band: band,
     );
     _session.setChromeInsets(layout.covered);
@@ -484,14 +487,6 @@ class _EditorScreenState extends State<_EditorView> {
         onPointerDown: (e) {
           // What opens from here (dialogs, sheets) belongs to this editor.
           _services.routeOwners.current = this;
-          _touchInput = e.kind != PointerDeviceKind.mouse;
-          if (presenting && _touchInput) _presentActivity.value++;
-        },
-        onPointerHover: (e) {
-          // The pointer near the bottom shows the controls.
-          if (presenting && e.localPosition.dy > constraints.maxHeight * 0.75) {
-            _presentActivity.value++;
-          }
         },
         child: EditorLayers(
           key: _areaKey,
@@ -502,8 +497,6 @@ class _EditorScreenState extends State<_EditorView> {
           guard: _guard,
           audio: _audio,
           search: _search,
-          presentation: _presentation,
-          presentActivity: _presentActivity,
           chrome: _buildChrome(layout, tabs, band),
           onFollowLink: _followLink,
           split: _pane == null ? null : (controller: widget.split!, pane: _pane),

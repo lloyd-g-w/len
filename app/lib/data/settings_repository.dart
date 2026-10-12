@@ -1,6 +1,5 @@
 import '../core/clock.dart';
 import '../domain/preferences.dart';
-import '../domain/templates/planner_calendar.dart';
 import 'app_database.dart';
 
 /// Small key/value store for local, non-synced settings.
@@ -71,9 +70,7 @@ class SettingsRepository {
   // also notifies listeners).
 
   static const _themeMode = 'theme_mode';
-  static const _accentColor = 'accent_color';
-  static const _twoFingerTapUndo = 'two_finger_tap_undo';
-  static const _threeFingerTapRedo = 'three_finger_tap_redo';
+  static const _fingerTapUndo = 'finger_tap_undo';
   static const _penButtonAction = 'pen_button_action';
   static const _libraryLayout = 'library_layout';
   static const _librarySort = 'library_sort';
@@ -81,18 +78,9 @@ class SettingsRepository {
   ThemePreference get themeMode => ThemePreference.parse(_get(_themeMode));
   set themeMode(ThemePreference value) => _set(_themeMode, value.name);
 
-  /// ARGB accent (seed) colour, or null for the default.
-  int? get accentColor => int.tryParse(_get(_accentColor) ?? '');
-  set accentColor(int? value) =>
-      value == null ? _remove(_accentColor) : _set(_accentColor, '$value');
-
-  /// Two-finger tap undoes (default on).
-  bool get twoFingerTapUndo => _get(_twoFingerTapUndo) != 'false';
-  set twoFingerTapUndo(bool value) => _set(_twoFingerTapUndo, '$value');
-
-  /// Three-finger tap redoes (default on).
-  bool get threeFingerTapRedo => _get(_threeFingerTapRedo) != 'false';
-  set threeFingerTapRedo(bool value) => _set(_threeFingerTapRedo, '$value');
+  /// Two-finger tap undoes, three-finger tap redoes (default on).
+  bool get fingerTapUndo => _get(_fingerTapUndo) != 'false';
+  set fingerTapUndo(bool value) => _set(_fingerTapUndo, '$value');
 
   /// What holding the stylus side button does (default: eraser).
   PenButtonAction get penButtonAction => PenButtonAction.parse(_get(_penButtonAction));
@@ -107,10 +95,6 @@ class SettingsRepository {
   /// How paged notebooks are shown (`continuous` / `single`); null = default.
   String? get pageFlow => _get('page_flow');
   set pageFlow(String? value) => value == null ? _remove('page_flow') : _set('page_flow', value);
-
-  /// Whether infinite canvases show the minimap.
-  bool get canvasMinimap => _get('canvas_minimap') == 'true';
-  set canvasMinimap(bool value) => _set('canvas_minimap', '$value');
 
   /// Where the editor toolbar sits (default: automatic).
   ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
@@ -150,20 +134,6 @@ class SettingsRepository {
   /// Whether handwriting is recognised in the background for search.
   bool get handwritingIndexing => _get('handwriting_indexing') != 'false';
   set handwritingIndexing(bool value) => _set('handwriting_indexing', '$value');
-
-  /// The planner week start and language chosen last (`sunday de`); null
-  /// before the first choice (then they follow the device locale).
-  PlannerCalendar? get plannerCalendar {
-    final parts = _get('planner_calendar')?.split(' ');
-    if (parts == null || parts.length != 2) return null;
-    final weekStart = WeekStart.tryParse(parts[0]), language = PlannerLanguage.tryParse(parts[1]);
-    if (weekStart == null || language == null) return null;
-    return PlannerCalendar(weekStart: weekStart, language: language);
-  }
-
-  set plannerCalendar(PlannerCalendar? value) => value == null
-      ? _remove('planner_calendar')
-      : _set('planner_calendar', '${value.weekStart.name} ${value.language.tag}');
 
   /// Where the editor last looked in notebook [notebookId] (an opaque
   /// string owned by the editor), or null.

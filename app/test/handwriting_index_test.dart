@@ -243,7 +243,7 @@ void main() {
       expect(find('beta'), hasLength(1));
     });
 
-    test('a missing model is downloaded (Wi-Fi) before indexing; deleting pauses', () async {
+    test('a missing model is downloaded (Wi-Fi) before indexing', () async {
       fake.downloaded = false;
       final r = service(fake);
       await r.start();
@@ -251,10 +251,6 @@ void main() {
       expect(fake.downloads, 1);
       expect(r.modelStatus, ModelStatus.downloaded);
       expect(r.indexer.isActive, isTrue);
-
-      await r.deleteModel();
-      expect(r.modelStatus, ModelStatus.missing);
-      expect(r.indexer.isActive, isFalse);
     });
 
     test('unsupported platforms never index', () async {

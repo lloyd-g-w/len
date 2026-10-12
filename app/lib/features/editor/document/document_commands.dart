@@ -14,7 +14,6 @@ import '../../documents/pdf/pdf_import_flow.dart';
 import '../../documents/progress_dialog.dart';
 import '../../documents/template_picker.dart';
 import '../../documents/templates/user_templates.dart';
-import '../tags/editor_tags.dart';
 import 'document_controller.dart';
 import 'page_actions.dart';
 import 'page_backgrounds.dart';
@@ -60,8 +59,7 @@ class DocumentCommands {
 
   /// Adds a page like the current one (same paper and size; a planner's
   /// next day, week or month) after it.
-  void addPage() =>
-      _changedAndShow(actions.add(PageActions.blankLike(_current, next: true), after: _current));
+  void addPage() => _changedAndShow(actions.add(PageActions.blankAfter(_current), after: _current));
 
   /// Lets the user choose a template, then adds a page after the current.
   Future<void> addPageWithTemplate(BuildContext context) async {
@@ -108,10 +106,8 @@ class DocumentCommands {
   /// Runs [command] on [page] (from the menu or the overview).
   Future<void> run(BuildContext context, PageCommand command, NotebookPage page) async {
     switch (command) {
-      case PageCommand.insertBefore:
-        _changedAndShow(actions.add(PageActions.blankLike(page), before: page));
       case PageCommand.insertAfter:
-        _changedAndShow(actions.add(PageActions.blankLike(page, next: true), after: page));
+        _changedAndShow(actions.add(PageActions.blankAfter(page), after: page));
       case PageCommand.duplicate:
         _changedAndShow(actions.duplicate(page));
       case PageCommand.template:
@@ -227,7 +223,6 @@ class DocumentCommands {
               changed = true;
             },
             deleteMany: deleteMany,
-            pageTags: () => pageTagsOf(services, doc.pages),
           ),
         ),
       ),

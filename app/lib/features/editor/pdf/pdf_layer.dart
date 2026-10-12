@@ -4,15 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../domain/notebook_page.dart';
-import '../../../ink/tool_settings.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../../documents/progress_dialog.dart' show showMessage;
 import '../links/link_menu.dart';
 import 'pdf_interaction.dart';
 import 'pdf_page_info.dart';
+import 'pdf_selection_handles.dart';
 import 'pdf_selection_paint.dart';
-import 'pdf_text_tool.dart';
 
 /// Ctrl/⌘+C copies selected PDF text, Escape drops the selection (both
 /// do nothing without one; the lasso's shortcuts run alongside).
@@ -38,8 +37,8 @@ Future<bool> _launch(Uri url) => launchUrl(url, mode: LaunchMode.externalApplica
 /// highlight, select all) over the document, follows links tapped with a
 /// navigating finger, and keeps the visible pages' text and links loaded.
 ///
-/// Pointer events pass through to the canvas beneath (the Select text
-/// tool itself is a pointer tool of the canvas).
+/// Pointer events pass through to the canvas beneath, except on the
+/// selection's handles and menu.
 class PdfLayer extends StatefulWidget {
   const PdfLayer({super.key, required this.interaction, this.openUrl = _launch});
 
@@ -55,11 +54,14 @@ class PdfLayer extends StatefulWidget {
 class _PdfLayerState extends State<PdfLayer> {
   PdfInteraction get _pdf => widget.interaction;
 
+  /// Movement (logical pixels) below which a press is a tap.
+  static const double _tapSlop = 6;
+
   int? _tapPointer;
 
-  /// Set while a press goes to the selection menu (seen first, by its own
-  /// listener), so it doesn't drop the selection.
-  bool _onMenu = false;
+  /// Set while a press goes to the selection menu or a handle (seen first,
+  /// by their own listener), so it doesn't drop the selection.
+  bool _onSelection = false;
   Offset _tapAt = Offset.zero;
   Duration _tapTime = Duration.zero;
 
@@ -107,12 +109,11 @@ class _PdfLayerState extends State<PdfLayer> {
   /// Follows links tapped by a finger that navigates (stylus-only on);
   /// any press elsewhere drops a selection made with a long press.
   void _onDown(PointerDownEvent e) {
-    final selectTool = _pdf.tools.tool == EditorTool.selectText;
-    if (_onMenu) {
-      _onMenu = false;
+    if (_onSelection) {
+      _onSelection = false;
       return;
     }
-    if (!selectTool && !_pdf.selection.isEmpty) _pdf.selection.clear();
+    if (!_pdf.selection.isEmpty) _pdf.selection.clear();
     final navigating = e.kind == PointerDeviceKind.touch && (_pdf.tools.stylusOnly ?? false);
     _tapPointer = navigating && _tapPointer == null ? e.pointer : null;
     _tapAt = e.localPosition;
@@ -123,13 +124,13 @@ class _PdfLayerState extends State<PdfLayer> {
     if (e.pointer != _tapPointer) return;
     _tapPointer = null;
     final quick = e.timeStamp - _tapTime < const Duration(milliseconds: 300);
-    if (quick && (e.localPosition - _tapAt).distance < PdfTextTool.tapSlop) {
+    if (quick && (e.localPosition - _tapAt).distance < _tapSlop) {
       _pdf.followLinkAt(e.localPosition);
     }
   }
 
   void _onMove(PointerMoveEvent e) {
-    if (e.pointer == _tapPointer && (e.localPosition - _tapAt).distance >= PdfTextTool.tapSlop) {
+    if (e.pointer == _tapPointer && (e.localPosition - _tapAt).distance >= _tapSlop) {
       _tapPointer = null;
     }
   }
@@ -157,11 +158,10 @@ class _PdfLayerState extends State<PdfLayer> {
       onPointerUp: _onUp,
       onPointerCancel: (_) => _tapPointer = null,
       child: ListenableBuilder(
-        // (The tools: handles show with the Select PDF text tool.)
-        listenable: Listenable.merge([_pdf.selection, doc.viewport, _pdf.info, _pdf.tools]),
+        listenable: Listenable.merge([_pdf.selection, doc.viewport, _pdf.info]),
         builder: (context, _) {
           _preload();
-          final ends = PdfTextTool.handleEnds(_pdf);
+          final ends = _pdf.handleEnds;
           return Stack(
             children: [
               Positioned.fill(
@@ -173,11 +173,18 @@ class _PdfLayerState extends State<PdfLayer> {
                       HSLColor.fromColor(Theme.of(context).colorScheme.primary)
                           .withLightness(0.45)
                           .toColor(),
-                      handles: _pdf.tools.tool == EditorTool.selectText,
                     ),
                   ),
                 ),
               ),
+              if (ends != null)
+                Positioned.fill(
+                  child: Listener(
+                    behavior: HitTestBehavior.deferToChild,
+                    onPointerDown: (_) => _onSelection = true,
+                    child: PdfSelectionHandles(interaction: _pdf, ends: ends),
+                  ),
+                ),
               if (_pdf.selection.showsMenu && ends != null) _menu(context, _selectionOnScreen()),
             ],
           );
@@ -227,7 +234,7 @@ class _PdfLayerState extends State<PdfLayer> {
       child: CustomSingleChildLayout(
         delegate: PdfMenuPlacement(selected, roomAbove: roomAbove),
         child: Listener(
-          onPointerDown: (_) => _onMenu = true,
+          onPointerDown: (_) => _onSelection = true,
           child: Material(
             elevation: 6,
             color: scheme.surfaceContainerHigh,
@@ -239,6 +246,13 @@ class _PdfLayerState extends State<PdfLayer> {
                 children: [
                   button('Copy', Icons.copy_rounded, _copy, 'pdf-copy'),
                   button('Highlight', Icons.border_color_rounded, _highlight, 'pdf-highlight'),
+                  if (_pdf.selectedLink != null)
+                    IconButton(
+                      key: const ValueKey('pdf-open-link'),
+                      tooltip: 'Open link',
+                      icon: const Icon(Icons.open_in_new_rounded, size: 20),
+                      onPressed: _pdf.openSelectedLink,
+                    ),
                   if (_pdf.onLinkSelection case final link?)
                     Builder(
                       builder: (anchor) => IconButton(

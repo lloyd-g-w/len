@@ -5,12 +5,11 @@ import 'package:flutter/material.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/menus.dart';
-import '../tags/tag_widgets.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_drag.dart';
 
-/// Title, breadcrumbs and tools (search, sort, view) above the library
+/// Title, breadcrumbs and tools (search, new folder, ⇅ view) above the library
 /// content.
 class LibraryHeader extends StatelessWidget {
   const LibraryHeader({
@@ -19,7 +18,7 @@ class LibraryHeader extends StatelessWidget {
     required this.searchController,
     required this.searchFocus,
     required this.compact,
-    this.trailing = const [],
+    this.leading,
   });
 
   final LibraryActions actions;
@@ -29,15 +28,12 @@ class LibraryHeader extends StatelessWidget {
   /// Phone layout: search goes on its own row.
   final bool compact;
 
-  /// Extra actions at the end of the title row (phone: sync).
-  final List<Widget> trailing;
+  /// Before the title (phone: the drawer button).
+  final Widget? leading;
 
   LibraryController get _c => actions.controller;
 
   String get _title => switch (_c.section) {
-    LibrarySection.library when _c.tagFilter.isNotEmpty && !_c.isSearching => [
-      for (final id in _c.tagFilter) ?_c.tagById(id)?.name,
-    ].join(' + '),
     LibrarySection.library => _c.folder?.name ?? 'Library',
     LibrarySection.favorites => 'Favourites',
     LibrarySection.trash => 'Trash',
@@ -49,23 +45,13 @@ class LibraryHeader extends StatelessWidget {
     final count = _c.visibleNotebooks.length;
     final search = _SearchField(controller: searchController, focus: searchFocus, actions: actions);
     final tools = [
-      if (_c.section == LibrarySection.library && !_c.isFiltering)
+      if (_c.section == LibrarySection.library && !_c.isSearching)
         IconButton(
           tooltip: 'New folder',
           icon: const Icon(Icons.create_new_folder_outlined),
           onPressed: () => unawaited(actions.createFolder(context)),
         ),
-      if (_c.section != LibrarySection.trash) _SortButton(controller: _c),
-      if (_c.visibleNotebooks.isNotEmpty)
-        IconButton(
-          tooltip: 'Select notebooks',
-          isSelected: actions.selection.active,
-          icon: const Icon(Icons.check_circle_outline_rounded),
-          selectedIcon: const Icon(Icons.check_circle_rounded),
-          onPressed: () =>
-              actions.selection.active ? actions.selection.clear() : actions.selection.start(),
-        ),
-      _LayoutToggle(controller: _c),
+      _ViewMenu(actions: actions),
       if (_c.section == LibrarySection.trash && _c.trash.isNotEmpty)
         if (compact)
           IconButton(
@@ -90,10 +76,8 @@ class LibraryHeader extends StatelessWidget {
     final subtitle = switch (_c.section) {
       LibrarySection.trash => 'Restore notebooks or delete them forever',
       // The library also lists matches inside notebooks (features/search).
-      LibrarySection.library when _c.parsedQuery.text.isNotEmpty =>
-        'Titles and contents, across all folders',
-      _ when _c.isFiltering => '${plural(count, 'notebook')} across all folders',
-      _ when _c.isSearching => '${plural(count + folders, 'result')} across all folders',
+      LibrarySection.library when _c.isSearching => 'Titles and contents, across all folders',
+      _ when _c.isSearching => '${plural(count, 'notebook')} across all folders',
       _ when count == 0 && folders == 0 => 'Empty',
       _ => [
         if (folders > 0) plural(folders, 'folder'),
@@ -134,8 +118,8 @@ class LibraryHeader extends StatelessWidget {
           if (compact || constraints.maxWidth < 680) ...[
             Row(
               children: [
+                if (leading case final leading?) ...[leading, const SizedBox(width: Gaps.xs)],
                 Expanded(child: titleBlock),
-                ...trailing,
               ],
             ),
             const SizedBox(height: Gaps.lg),
@@ -149,54 +133,14 @@ class LibraryHeader extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (leading case final leading?) ...[leading, const SizedBox(width: Gaps.xs)],
                 Expanded(child: titleBlock),
                 const SizedBox(width: Gaps.lg),
                 SizedBox(width: 280, child: search),
                 const SizedBox(width: Gaps.sm),
                 ...tools,
-                ...trailing,
               ],
             ),
-          if (_c.section != LibrarySection.trash && _c.tags.isNotEmpty) ...[
-            const SizedBox(height: Gaps.md),
-            _TagChips(actions: actions),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// The tags as filter chips (several narrow down together), then "Manage".
-class _TagChips extends StatelessWidget {
-  const _TagChips({required this.actions});
-
-  final LibraryActions actions;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = actions.controller;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final tag in c.tags) ...[
-            TagFilterChip(
-              tag: tag,
-              selected: c.tagFilter.contains(tag.id),
-              onSelected: (_) => c.toggleTagFilter(tag.id),
-            ),
-            const SizedBox(width: Gaps.xs),
-          ],
-          if (c.tagFilter.isNotEmpty)
-            TextButton(onPressed: c.clearTagFilter, child: const Text('Clear')),
-          IconButton(
-            tooltip: 'Manage tags',
-            iconSize: 18,
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => unawaited(actions.manageTags(context)),
-          ),
         ],
       ),
     );
@@ -245,12 +189,32 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-class _SortButton extends StatelessWidget {
-  const _SortButton({required this.controller});
+/// What the ⇅ View menu changes.
+sealed class _ViewChoice {
+  const _ViewChoice();
+}
 
-  final LibraryController controller;
+class _Sort extends _ViewChoice {
+  const _Sort(this.sort);
+  final LibrarySort sort;
+}
 
-  static String label(LibrarySort s) => switch (s) {
+class _Layout extends _ViewChoice {
+  const _Layout(this.layout);
+  final LibraryLayout layout;
+}
+
+class _Select extends _ViewChoice {
+  const _Select();
+}
+
+/// ⇅ View: sort (not in the trash), grid or list, and Select….
+class _ViewMenu extends StatelessWidget {
+  const _ViewMenu({required this.actions});
+
+  final LibraryActions actions;
+
+  static String _label(LibrarySort s) => switch (s) {
     LibrarySort.edited => 'Last edited',
     LibrarySort.created => 'Date created',
     LibrarySort.name => 'Name',
@@ -258,36 +222,42 @@ class _SortButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<LibrarySort>(
-      tooltip: 'Sort: ${label(controller.sort)}',
-      icon: const Icon(Icons.sort_rounded),
-      onSelected: (s) => controller.sort = s,
+    final c = actions.controller;
+    return PopupMenuButton<_ViewChoice>(
+      tooltip: 'View',
+      icon: const Icon(Icons.swap_vert_rounded),
+      onSelected: (choice) => switch (choice) {
+        _Sort(:final sort) => c.sort = sort,
+        _Layout(:final layout) => c.layout = layout,
+        _Select() => actions.selection.start(),
+      },
       itemBuilder: (_) => [
-        for (final s in LibrarySort.values)
-          MenuRow(value: s, label: label(s), checked: s == controller.sort),
-      ],
-    );
-  }
-}
-
-class _LayoutToggle extends StatelessWidget {
-  const _LayoutToggle({required this.controller});
-
-  final LibraryController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final grid = controller.layout == LibraryLayout.grid;
-    return IconButton(
-      tooltip: grid ? 'Show as list' : 'Show as grid',
-      icon: AnimatedSwitcher(
-        duration: Motion.fast,
-        child: Icon(
-          grid ? Icons.view_agenda_outlined : Icons.grid_view_outlined,
-          key: ValueKey(grid),
+        if (c.section != LibrarySection.trash) ...[
+          for (final s in LibrarySort.values)
+            MenuRow(value: _Sort(s), label: _label(s), checked: s == c.sort),
+          const PopupMenuDivider(),
+        ],
+        MenuRow(
+          value: const _Layout(LibraryLayout.grid),
+          icon: Icons.grid_view_outlined,
+          label: 'Grid',
+          checked: c.layout == LibraryLayout.grid,
         ),
-      ),
-      onPressed: () => controller.layout = grid ? LibraryLayout.list : LibraryLayout.grid,
+        MenuRow(
+          value: const _Layout(LibraryLayout.list),
+          icon: Icons.view_agenda_outlined,
+          label: 'List',
+          checked: c.layout == LibraryLayout.list,
+        ),
+        if (c.visibleNotebooks.isNotEmpty && !actions.selection.active) ...[
+          const PopupMenuDivider(),
+          const MenuRow(
+            value: _Select(),
+            icon: Icons.check_circle_outline_rounded,
+            label: 'Select notebooks',
+          ),
+        ],
+      ],
     );
   }
 }

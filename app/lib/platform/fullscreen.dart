@@ -1,4 +1,4 @@
-/// Full screen for presentation mode (`setFullscreen`): the browser's
+/// Full screen for focus mode (`setFullscreen`): the browser's
 /// fullscreen API on the web; the window itself on Linux and Windows (the
 /// runners' `len/window` channel); on Android the editor's immersive mode
 /// hides the system bars instead.

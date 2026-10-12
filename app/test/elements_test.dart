@@ -102,7 +102,7 @@ void main() {
         deleted: false,
         data: {
           'surfaceId': 's',
-          'type': 'sticker',
+          'type': 'chart',
           'x': 1,
           'y': 2,
           'w': 3,
@@ -116,7 +116,7 @@ void main() {
       );
       expect(elements.applyRemote(remote), isTrue);
       final loaded = elements.loadChunks('s', [(x: 0, y: 0)]).single;
-      expect(loaded.type, 'sticker');
+      expect(loaded.type, 'chart');
       expect(loaded.knownType, isNull);
       expect(loaded.data, {'blob': 'abc'});
       expect(loaded.rotation, 0.5);

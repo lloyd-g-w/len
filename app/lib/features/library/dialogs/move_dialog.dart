@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../domain/folder.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
-import '../folder_icons.dart';
 import '../library_controller.dart';
 
 /// The destination chosen in [showMoveDialog]; `folderId` null = root.
@@ -96,7 +95,7 @@ class _FolderRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(Radii.sm),
         ),
         child: Icon(
-          folder == null ? Icons.auto_stories_rounded : iconOfFolder(folder),
+          folder == null ? Icons.auto_stories_rounded : Icons.folder_rounded,
           color: color,
           size: 20,
         ),

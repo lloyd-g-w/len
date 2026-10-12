@@ -82,12 +82,11 @@ void main() {
       expect(page.template.orientation, PageOrientation.landscape);
     });
 
-    test('insert before and after', () {
+    test('insert after', () {
       final first = pages.pagesOf(nb.id).single;
-      final after = pages.addPage(nb.id, template: const PageTemplate(), after: first);
-      final before = pages.addPage(nb.id, template: const PageTemplate(), before: first);
-      final middle = pages.addPage(nb.id, template: const PageTemplate(), before: after);
-      expect(ids(), [before.id, first.id, middle.id, after.id]);
+      final last = pages.addPage(nb.id, template: const PageTemplate(), after: first);
+      final middle = pages.addPage(nb.id, template: const PageTemplate(), after: first);
+      expect(ids(), [first.id, middle.id, last.id]);
     });
 
     test('move reorders and renumbers when keys run out', () {

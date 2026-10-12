@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../ui/app_theme.dart';
 import 'pdf_interaction.dart';
 import 'pdf_page_info.dart';
-import 'pdf_text_tool.dart';
 
 /// Places the selection's menu above the [selected] lines (screen box),
 /// below them if the top of the screen (above [roomAbove]) is too close,
@@ -32,13 +31,12 @@ class PdfMenuPlacement extends SingleChildLayoutDelegate {
       old.selected != selected || old.roomAbove != roomAbove;
 }
 
-/// Paints the selected lines (and, with the Select text tool, the handles).
+/// Paints the selected lines and their handles.
 class PdfSelectionPainter extends CustomPainter {
-  PdfSelectionPainter(this.pdf, this.color, {required this.handles});
+  PdfSelectionPainter(this.pdf, this.color);
 
   final PdfInteraction pdf;
   final Color color;
-  final bool handles;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -59,8 +57,8 @@ class PdfSelectionPainter extends CustomPainter {
       );
       canvas.drawRect(Rect.fromPoints(a, b), fill);
     }
-    final ends = PdfTextTool.handleEnds(pdf);
-    if (!handles || ends == null) return;
+    final ends = pdf.handleEnds;
+    if (ends == null) return;
     final solid = Paint()
       ..color = color
       ..strokeWidth = 2;

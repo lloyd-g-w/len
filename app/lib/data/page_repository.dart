@@ -42,35 +42,28 @@ class PageRepository extends SyncableTable {
     return rows.isEmpty ? null : _rowToPage(rows.first);
   }
 
-  /// Adds a blank page after [after] (or before [before]; at the end when
-  /// both are null). Uses [template], or an A4 page of [paper] (blank for
+  /// Adds a blank page after [after] (at the end when null). Uses [template], or an A4 page of [paper] (blank for
   /// styles that need parameters).
   NotebookPage addPage(
     String notebookId, {
     Paper? paper,
     PageTemplate? template,
     NotebookPage? after,
-    NotebookPage? before,
   }) {
     final t =
         template ??
         PageTemplate(paper: paper == null || paper.style.needsParams ? Paper.blank : paper);
-    return insertPages(notebookId, [specOf(t)], after: after, before: before).single;
+    return insertPages(notebookId, [specOf(t)], after: after).single;
   }
 
-  /// Inserts pages in order after [after] / before [before] (at the end when
-  /// both are null) in one transaction.
-  List<NotebookPage> insertPages(
-    String notebookId,
-    List<PageSpec> specs, {
-    NotebookPage? after,
-    NotebookPage? before,
-  }) {
+  /// Inserts pages in order after [after] (at the end when null) in one
+  /// transaction.
+  List<NotebookPage> insertPages(String notebookId, List<PageSpec> specs, {NotebookPage? after}) {
     return database.transaction(() {
-      var keys = _keysFor(notebookId, specs.length, after: after, before: before);
+      var keys = _keysFor(notebookId, specs.length, after: after);
       if (keys == null) {
         _renumber(notebookId);
-        keys = _keysFor(notebookId, specs.length, after: after, before: before)!;
+        keys = _keysFor(notebookId, specs.length, after: after)!;
       }
       final now = clock.nowMs();
       final created = <NotebookPage>[];
@@ -93,17 +86,10 @@ class PageRepository extends SyncableTable {
     });
   }
 
-  List<double>? _keysFor(
-    String notebookId,
-    int count, {
-    NotebookPage? after,
-    NotebookPage? before,
-  }) {
+  List<double>? _keysFor(String notebookId, int count, {NotebookPage? after}) {
     final keys = pagesOf(notebookId).map((p) => p.sortKey).toList();
-    final anchor = after ?? before;
-    var index = anchor == null ? -1 : _indexOfKey(keys, anchor.sortKey);
+    final index = after == null ? -1 : _indexOfKey(keys, after.sortKey);
     if (index == -1) return PageOrder.spread(keys.isEmpty ? null : keys.last, null, count);
-    if (before != null) index--; // Insert between index and index + 1.
     return PageOrder.spread(
       index >= 0 ? keys[index] : null,
       index + 1 < keys.length ? keys[index + 1] : null,

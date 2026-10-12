@@ -19,7 +19,7 @@ import 'toolbar/toolbar_editor.dart';
 
 /// The toolbar's size, which the chrome's layout depends on: its height as
 /// laid out (it wraps on narrow screens) and its width on one row (for
-/// automatic placement; kept current as the tools change). Notifies when
+/// the docked placement; kept current as the tools change). Notifies when
 /// either changes.
 class ToolbarMeasure extends ChangeNotifier {
   ToolbarMeasure(this.session) {
@@ -95,7 +95,6 @@ class EditorScreenCommands {
     required this.pickBackground,
     required this.openSearch,
     required this.customiseToolbar,
-    required this.present,
   });
 
   final VoidCallback back;
@@ -109,7 +108,6 @@ class EditorScreenCommands {
 
   /// Enters (true) or leaves (false) the toolbar's edit mode.
   final ValueChanged<bool> customiseToolbar;
-  final VoidCallback present;
 }
 
 /// The chrome around the surface, wired to one editor: the pen toolbar
@@ -208,7 +206,6 @@ class EditorChromeHost extends StatelessWidget {
             onBackground: commands.pickBackground,
             onSearch: commands.openSearch,
             onCustomiseToolbar: () => commands.customiseToolbar(true),
-            onPresent: commands.present,
           ),
           undo: session.undo,
           tabs: tabs,

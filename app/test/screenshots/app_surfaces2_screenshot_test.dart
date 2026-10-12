@@ -134,9 +134,9 @@ void main() {
         await pumpApp(tester, services, const LibraryScreen(), mode: mode);
         final wide = name != 'phone';
 
-        await tap(tester, find.byTooltip('Sort: Last edited'));
+        await tap(tester, find.byTooltip('View'));
         expect(find.text('Date created'), findsOneWidget);
-        await shoot(tester, 's_library_sort_menu_${name}_$m');
+        await shoot(tester, 's_library_view_menu_${name}_$m');
         await tap(tester, find.text('Name'));
         await shoot(tester, 's_library_sorted_by_name_${name}_$m');
 
@@ -160,18 +160,20 @@ void main() {
           await dismiss(tester);
         }
 
-        await tap(tester, find.byTooltip('Show as list'));
+        await tap(tester, find.byTooltip('View'));
+        await tap(tester, find.text('List').last);
         await shoot(tester, 's_library_list_${name}_$m');
-        await tap(tester, find.byTooltip('Show as grid'));
+        await tap(tester, find.byTooltip('View'));
+        await tap(tester, find.text('Grid').last);
 
-        await tap(tester, find.text('Favourites').first);
+        await openLibrarySection(tester, 'Favourites');
         expect(find.text('Journal 2026'), findsOneWidget);
         await shoot(tester, 's_library_favourites_${name}_$m');
         await tap(tester, moreOf('Journal 2026'));
         await tap(tester, find.text('Remove from favourites'));
         await shoot(tester, 's_library_favourites_empty_${name}_$m');
 
-        await tap(tester, find.text('Trash').first);
+        await openLibrarySection(tester, 'Trash');
         await tap(tester, moreOf('Old drafts'));
         expect(find.text('Delete forever…'), findsOneWidget);
         await shoot(tester, 's_library_trash_menu_${name}_$m');
@@ -183,8 +185,9 @@ void main() {
         expect(find.text('Old drafts'), findsNothing);
         await shoot(tester, 's_library_trash_empty_${name}_$m');
 
-        await tap(tester, find.text('Library').first);
-        await tap(tester, find.byTooltip('Select notebooks'));
+        await openLibrarySection(tester, 'Library');
+        await tap(tester, find.byTooltip('View'));
+        await tap(tester, find.text('Select notebooks').last);
         for (final title in ['Ideas', 'Recipes', 'Travel plans']) {
           await reveal(tester, find.text(title));
           await tap(tester, find.text(title));
@@ -215,8 +218,9 @@ void main() {
     final services = library();
     services.notebooks.trash(byTitle(services, 'Recipes').id);
     await pumpApp(tester, services, const LibraryScreen(), mode: ThemeMode.dark);
-    await tap(tester, find.text('Trash').first);
-    await tap(tester, find.byTooltip('Select notebooks'));
+    await openLibrarySection(tester, 'Trash');
+    await tap(tester, find.byTooltip('View'));
+    await tap(tester, find.text('Select notebooks').last);
     await tap(tester, find.text('Recipes'));
     expect(find.text('1 selected'), findsOneWidget);
     expect(tester.takeException(), isNull);

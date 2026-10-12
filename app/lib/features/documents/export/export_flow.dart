@@ -117,9 +117,5 @@ Future<Uint8List> _png(
   VoidCallback started,
 ) {
   started();
-  return exporter.png(
-    page,
-    scale: options.pngResolution.scale,
-    backgrounds: options.includeBackgrounds,
-  );
+  return exporter.png(page, scale: pngScale, backgrounds: options.includeBackgrounds);
 }

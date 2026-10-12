@@ -2,14 +2,12 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
-import '../../domain/cover_style.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
-import 'cover_pattern_painter.dart';
 import 'thumbnails/thumbnail_scope.dart';
 
 /// The visual cover of a notebook: a live preview of its content when
-/// something is drawn, otherwise a coloured, patterned cover.
+/// something is drawn, otherwise a plain cover in its colour.
 ///
 /// Paged notebooks get a bound spine in the cover colour; canvases a small
 /// "∞" tag. Use [NotebookCover.of] to pick up the cached live preview.
@@ -17,7 +15,6 @@ class NotebookCover extends StatelessWidget {
   const NotebookCover({
     super.key,
     required this.color,
-    required this.style,
     required this.kind,
     this.preview,
     this.favorite = false,
@@ -30,7 +27,6 @@ class NotebookCover extends StatelessWidget {
     key: key,
     builder: (context) => NotebookCover(
       color: notebook.coverColor,
-      style: notebook.coverStyle,
       kind: notebook.kind,
       favorite: showFavorite && notebook.favorite,
       preview: ThumbnailScope.previewOf(context, notebook),
@@ -38,7 +34,6 @@ class NotebookCover extends StatelessWidget {
   );
 
   final int color;
-  final CoverStyle style;
   final NotebookKind kind;
   final ui.Image? preview;
   final bool favorite;
@@ -63,12 +58,7 @@ class NotebookCover extends StatelessWidget {
             layoutBuilder: (current, previous) =>
                 Stack(fit: StackFit.expand, children: [...previous, ?current]),
             child: preview == null
-                ? _PlainCover(
-                    key: const ValueKey('plain'),
-                    color: base,
-                    style: style,
-                    paged: _paged,
-                  )
+                ? _PlainCover(key: const ValueKey('plain'), color: base)
                 : ColoredBox(
                     key: const ValueKey('preview'),
                     color: Palette.paper,
@@ -103,16 +93,12 @@ class NotebookCover extends StatelessWidget {
 }
 
 class _PlainCover extends StatelessWidget {
-  const _PlainCover({super.key, required this.color, required this.style, required this.paged});
+  const _PlainCover({super.key, required this.color});
 
   final Color color;
-  final CoverStyle style;
-  final bool paged;
 
   @override
   Widget build(BuildContext context) {
-    // Canvases without a chosen pattern hint at an endless dot grid.
-    final pattern = !paged && style == CoverStyle.plain ? CoverStyle.dots : style;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -121,16 +107,13 @@ class _PlainCover extends StatelessWidget {
           colors: [Color.lerp(color, Colors.white, 0.14)!, Color.lerp(color, Colors.black, 0.16)!],
         ),
       ),
-      child: CustomPaint(
-        painter: CoverPatternPainter(pattern, opacity: pattern == style ? 0.16 : 0.12),
-        // A soft sheen from the top, like light on a laminated cover.
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.center,
-              colors: [Colors.white.withValues(alpha: 0.10), Colors.white.withValues(alpha: 0)],
-            ),
+      // A soft sheen from the top, like light on a laminated cover.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.center,
+            colors: [Colors.white.withValues(alpha: 0.10), Colors.white.withValues(alpha: 0)],
           ),
         ),
       ),

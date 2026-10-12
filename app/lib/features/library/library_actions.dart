@@ -9,8 +9,6 @@ import '../../ui/messages.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_import_flow.dart';
 import '../editor/tabs/editor_workspace.dart' as editor;
-import '../tags/tag_manager.dart';
-import '../tags/tag_picker.dart';
 import 'cover_locator.dart';
 import 'library_controller.dart';
 import 'library_dialogs.dart';
@@ -65,7 +63,6 @@ class LibraryActions {
       look: request.template.paper.look,
       paperColor: request.template.color,
       coverColor: request.coverColor,
-      coverStyle: request.coverStyle,
       firstPage: request.template,
       papers: request.papers,
     );
@@ -84,7 +81,7 @@ class LibraryActions {
   Future<void> createFolder(BuildContext context) async {
     final details = await showFolderDialog(context, title: 'New folder', confirmLabel: 'Create');
     if (details == null) return;
-    controller.createFolder(details.name, color: details.color, icon: details.icon);
+    controller.createFolder(details.name, color: details.color);
   }
 
   /// Handles a dragged item dropped on folder [folderId] (null = root).
@@ -138,14 +135,10 @@ class LibraryActions {
       case NotebookAction.favorite:
         controller.setFavorite(notebook.id, !notebook.favorite);
       case NotebookAction.cover:
-        final choice = await showCoverSheet(context, notebook);
+        final color = await showCoverSheet(context, notebook);
         final current = controller.services.notebooks.get(notebook.id);
-        if (choice == null || current == null) return;
-        controller.updateNotebook(
-          current.copyWith(coverColor: choice.color, coverStyle: choice.style),
-        );
-      case NotebookAction.tags:
-        await editTags(context, [notebook.id]);
+        if (color == null || current == null) return;
+        controller.updateNotebook(current.copyWith(coverColor: color));
       case NotebookAction.duplicate:
         final copy = controller.duplicate(notebook.id);
         if (copy != null && context.mounted) _toast(context, 'Duplicated as “${copy.title}”');
@@ -184,13 +177,10 @@ class LibraryActions {
           confirmLabel: 'Save',
           initialName: folder.name,
           initialColor: folder.color,
-          initialIcon: folder.icon,
         );
         final current = controller.folderById(folder.id);
         if (details == null || current == null) return;
-        controller.updateFolder(
-          current.copyWith(name: details.name, color: details.color, icon: details.icon),
-        );
+        controller.updateFolder(current.copyWith(name: details.name, color: details.color));
       case FolderAction.move:
         final target = await showMoveDialog(
           context,
@@ -213,28 +203,6 @@ class LibraryActions {
         if (ok) controller.deleteFolder(folder.id);
     }
   }
-
-  /// Lets the user choose the tags of notebooks [ids].
-  Future<void> editTags(BuildContext context, List<String> ids) async {
-    final c = controller;
-    final changes = await showTagPicker(
-      context,
-      tags: c.services.tags,
-      title: ids.length == 1 ? 'Tags' : 'Tag ${ids.length} notebooks',
-      current: [for (final id in ids) c.tagsOf(id).map((t) => t.id).toSet()],
-    );
-    // The picker may have created tags even when cancelled.
-    if (changes == null) return c.reload();
-    c.applyTagChanges(ids, changes);
-  }
-
-  /// Opens the tag manager.
-  Future<void> manageTags(BuildContext context) => showTagManager(
-    context,
-    tags: controller.services.tags,
-    countOf: controller.notebookCountOf,
-    onChanged: controller.reload,
-  );
 
   Future<void> emptyTrash(BuildContext context) async {
     final count = controller.trash.length;

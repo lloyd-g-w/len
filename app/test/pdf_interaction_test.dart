@@ -15,7 +15,6 @@ import 'package:len/features/editor/pdf/pdf_interaction.dart';
 import 'package:len/features/editor/pdf/pdf_layer.dart';
 import 'package:len/features/editor/pdf/pdf_page_info.dart';
 import 'package:len/features/editor/pdf/pdf_text_selection.dart';
-import 'package:len/ink/tool_settings.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:pdf/pdf.dart' as pw;
@@ -188,8 +187,6 @@ void main() {
       tester,
     ) async {
       final pdf = await open(tester);
-      expect(pdf.tools.selectTextAvailable, isTrue);
-      expect(find.byTooltip('Select PDF text (X)'), findsOneWidget);
       await tester.tapAt(
         at(pdf, 'Hello', i: 1),
         kind: PointerDeviceKind.mouse,
@@ -205,12 +202,16 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('select text with the tool and highlight it', skip: pdfium == null, (tester) async {
+    testWidgets('long press a word, drag its end handle, highlight', skip: pdfium == null, (
+      tester,
+    ) async {
       final pdf = await open(tester);
-      pdf.tools.tool = EditorTool.selectText;
-      await tester.pump();
-      final from = at(pdf, 'Second'), to = at(pdf, 'text', i: 3, right: true);
-      final gesture = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
+      pdf.tools.stylusOnly = true; // Fingers navigate: a long press selects.
+      await tester.longPressAt(at(pdf, 'Second'), kind: PointerDeviceKind.touch);
+      await tester.pumpAndSettle();
+      expect(pdf.selection.text, 'Second');
+      final from = pdf.handleEnds!.$2, to = at(pdf, 'text', i: 3, right: true);
+      final gesture = await tester.startGesture(from, kind: PointerDeviceKind.touch);
       for (var t = 0.1; t <= 1.0; t += 0.1) {
         await gesture.moveTo(Offset.lerp(from, to, t)!);
         await tester.pump();
@@ -251,6 +252,21 @@ void main() {
         await tester.tapAt(at(pdf, 'Go to'), kind: PointerDeviceKind.touch);
         await tester.pumpAndSettle();
         expect(pdf.doc.currentPage, 1);
+        // A right click selects the link's text; its menu opens the link.
+        pdf.doc.scrollToPage(0);
+        await tester.pumpAndSettle();
+        await tester.tapAt(
+          at(pdf, 'Visit'),
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('pdf-open-link')));
+        await tester.pumpAndSettle();
+        expect(find.text('Open link?'), findsOneWidget);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(pdf.selection.isEmpty, isTrue);
         await tester.pumpWidget(const SizedBox());
       },
     );

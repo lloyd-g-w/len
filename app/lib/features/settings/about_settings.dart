@@ -87,11 +87,7 @@ class _VersionTextState extends State<_VersionText> {
     showMessage(context, 'Ink Lab', duration: const Duration(seconds: 1));
     final prefs = context.getInheritedWidgetOfExactType<AppScope>()?.services.preferences;
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => InkLabScreen(
-          stylusOnly: prefs?.stylusOnly ?? false,
-        ),
-      ),
+      MaterialPageRoute<void>(builder: (_) => InkLabScreen(stylusOnly: prefs?.stylusOnly ?? false)),
     );
   }
 

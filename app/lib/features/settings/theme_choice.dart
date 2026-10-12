@@ -51,8 +51,8 @@ class _ThemeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final light = AppTheme.scheme(Brightness.light, accent: scheme.primary);
-    final dark = AppTheme.scheme(Brightness.dark, accent: scheme.primary);
+    final light = AppTheme.scheme(Brightness.light);
+    final dark = AppTheme.scheme(Brightness.dark);
     final preview = switch (mode) {
       ThemePreference.light => _Mock(scheme: light),
       ThemePreference.dark => _Mock(scheme: dark),

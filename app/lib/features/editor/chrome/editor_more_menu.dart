@@ -58,25 +58,16 @@ class EditorMoreMenu extends StatelessWidget {
         if (compact && a.isPaged)
           if (a.onExport case final onExport?) exportMenuItem(onExport),
         if (compact) ...compactItems,
-        if (a.onStickers case final onStickers?)
-          _item(
-            Icons.interests_outlined,
-            a.stickersOpen ? 'Hide stickers' : 'Stickers',
-            onStickers,
-          ),
         if (a.isPaged) ...[
           SubmenuButton(
             leadingIcon: const Icon(Icons.description_outlined),
             menuChildren: [
-              _item(Icons.numbers_rounded, 'Go to page…', a.onGoTo),
-              _command(PageCommand.insertBefore, 'Add page before'),
               _item(Icons.note_add_outlined, 'Add page with template…', a.onAddWithTemplate),
               _command(PageCommand.duplicate, 'Duplicate page'),
               _command(PageCommand.template, 'Change template…'),
               _command(PageCommand.saveAsTemplate, 'Save page as template…'),
               _item(Icons.picture_as_pdf_outlined, 'Add pages from PDF…', a.onInsertPdf),
               _item(Icons.playlist_add_rounded, 'Add page to outline…', a.onAddToOutline),
-              _item(Icons.sell_outlined, 'Page tags…', a.onPageTags),
               const Divider(),
               _command(PageCommand.delete, 'Delete page', destructive: true),
             ],
@@ -108,24 +99,13 @@ class EditorMoreMenu extends StatelessWidget {
           // Infinite canvas: background and navigation.
           _item(Icons.wallpaper_outlined, 'Background…', a.onBackground),
           const Divider(),
-          _item(Icons.fit_screen_outlined, 'Fit content', a.onFitContent, hint: hint('Shift+1')),
-          _item(Icons.zoom_in_rounded, 'Actual size (100%)', a.onActualSize, hint: hint('0')),
-          _item(Icons.home_outlined, 'Back to start', a.onBackToStart, hint: hint('Home')),
-          _item(
-            a.showMinimap ? Icons.map_rounded : Icons.map_outlined,
-            a.showMinimap ? 'Hide overview' : 'Show overview',
-            a.onToggleMinimap,
-          ),
-          const Divider(),
         ],
         _radioSubmenu<ToolbarPlacement>(
           icon: Icons.space_dashboard_outlined,
           label: 'Toolbar',
           value: a.placement,
           options: const [
-            (ToolbarPlacement.auto, 'Automatic position'),
-            (ToolbarPlacement.top, 'Top'),
-            (ToolbarPlacement.bottom, 'Bottom'),
+            (ToolbarPlacement.docked, 'Docked'),
             (ToolbarPlacement.floating, 'Floating'),
           ],
           onSelected: a.onPlacement,
@@ -152,13 +132,6 @@ class EditorMoreMenu extends StatelessWidget {
           onPressed: a.onFocusMode,
           child: const Text('Focus mode'),
         ),
-        if (a.onPresent case final onPresent?)
-          MenuItemButton(
-            leadingIcon: const Icon(Icons.slideshow_rounded),
-            shortcut: compact ? null : const SingleActivator(LogicalKeyboardKey.f5),
-            onPressed: onPresent,
-            child: const Text('Present'),
-          ),
         const Divider(),
         MenuItemButton(
           leadingIcon: const Icon(Icons.draw_outlined),
@@ -167,7 +140,6 @@ class EditorMoreMenu extends StatelessWidget {
           child: const Text('Draw with stylus only'),
         ),
         _item(Icons.edit_outlined, 'Rename notebook…', a.onRename),
-        if (a.onTags case final onTags?) _item(Icons.sell_outlined, 'Notebook tags…', onTags),
         _item(Icons.tune_rounded, 'Stylus & gesture settings…', a.onSettings),
       ],
       builder: (context, menu, _) => BarButton(

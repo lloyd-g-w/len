@@ -189,10 +189,8 @@ trackpad, middle-button drag) and `ViewportAnimator` glides on after a fling
 (iOS-like deceleration; no glide after a pause or a pinch). The input controller
 only reports begin / track / release. `ViewportAnimator` also animates zooms
 (geometric scale, focal point fixed) and fits. Canvases add a zoom indicator
-(shown while zooming; tap for 50 / 100 / 200 % or fit), a minimap of populated
-chunks (from storage, via the reader) with the visible area (tap to glide, drag
-to move), "fit content" (exact bounds from the outermost chunks), "back to
-start", keyboard zoom (`+` `-` `0` Shift+1 Home) and a background: template and
+(shown while zooming; tap for 50 / 100 / 200 %, "fit content" (exact
+bounds from the outermost chunks) or "back to start": their only menu), keyboard zoom (`+` `-` `0` Shift+1 Home) and a background: template and
 paper colour (`notebooks.paper_color`). Continuous paged documents glide too.
 
 World coordinates are stored as `float32`, which stays sub-unit precise to
@@ -259,20 +257,20 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   `ChromeLayout.covered` — so it no longer covers the page above the toolbar. `ChromeLayout` says how much of each screen edge
   the chrome covers; the document pads its scroll bounds by it (in screen pixels, so it
   is re-applied on zoom), and the selection / text menus and the canvas's zoom pill and
-  minimap (`CanvasView`) avoid it (passed down as `MediaQuery.padding` / insets).
-  On canvases the "⋯" menu also holds the canvas entries: background (template and paper
-  colour), fit content, actual size, back to start, show / hide overview. Chrome menus are
+  fit button (`CanvasView`) avoid it (passed down as `MediaQuery.padding` / insets).
+  On canvases the "⋯" menu also holds the background (template and paper colour); the
+  navigation commands live in the zoom pill. Chrome menus are
   `ChromeMenuAnchor`s: they report to a `CanvasGuard`, which blocks the surface while one is
   open (the tap that closes a menu never draws) and closes them on Escape (a menu opened
   by tap leaves keyboard focus on the editor, where Escape would otherwise clear the
   selection instead).
 - **Hints** (shown sparingly, never blocking): an empty infinite canvas shows a quiet
   "Draw anywhere" note with how to move around (`canvas/canvas_empty_hint.dart`; gone at
-  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows one-time tips under
-  the top bar, one at a time, for 10 s or until dismissed, remembered per device
+  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows a one-time tip under
+  the top bar, for 10 s or until dismissed, remembered per device
   (`SettingsRepository.seenTips`): the stylus side button (after the first pen contact,
-  phrased for `PenButtonAction`; none if it does nothing) and two/three-finger taps
-  (after the first edit made by finger or pen; skipped if both gestures are off).
+  phrased for `PenButtonAction`; none if it does nothing). Multi-finger taps get no
+  tip: the gesture HUD names them when they happen.
 - **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
   the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
@@ -287,9 +285,9 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
 - **Split view** (`split/`; tablets in landscape and desktops: `SplitView.fits`, ≥ 900 px
   wide and ≥ 560 px on the short side — never phones or portrait tablets): a second pane
   shows another open tab or the active notebook again (two places in one notebook).
-  `OpenNotebooks.splitId` / `splitFraction` / `splitView` / `linkTools` hold it (memory,
+  `OpenNotebooks.splitId` / `splitFraction` / `splitView` hold it (memory,
   like tabs). Opened from the top bar's split button (`SplitViewButton`: this notebook
-  or another tab; while split: *Same tools in both panes*, *Swap panes*, *Close split
+  or another tab; while split: *Swap panes*, *Close split
   view*) or a tab's menu (right click / long press → *Open in split view*). `SplitView`
   lays out the panes in a `Stack` whose first child keeps its place in every layout, so
   opening or closing the split never rebuilds the first editor; a 12 px divider resizes
@@ -316,10 +314,10 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
     at once, and both undo one history (nothing erased in one comes back through the
     other's undo). While one pane has a selection or edits a text box, those items are
     hidden in the other view too (hiding is per model).
-  - **Linked tools** (optional): `ToolSettings.adopt` copies tool, quick colours and
+  - **Linked tools** (always): `ToolSettings.adopt` copies tool, quick colours and
     widths, eraser, shape and text defaults from the pane that changed them.
-  - **Presentation** in a pane shows that pane alone (`SplitView.solo`; the other stays
-    alive offstage); when the presenting editor goes (tab closed or switched, split closed),
+  - **Focus mode** in a pane shows that pane alone (`SplitView.solo`; the other stays
+    alive offstage); when that editor goes (tab closed or switched, split closed),
     the other pane shows again.
   - **Views across layout changes**: before tabs change, `OpenNotebooks.captureViews`
     (set by the controller) records where both panes look, so swapping panes keeps each
@@ -345,18 +343,16 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   its editors (notebook record, page lists, surfaces, PDFs) and sets `gone` when the
   notebook is deleted or trashed elsewhere. One microphone: a notebook can't start
   recording while another records ("Already recording in …").
-- **Presentation mode** (`present/`; "⋯" → *Present*, F5): `Presentation` hides all
-  chrome (`ChromeLayout.focus`), goes immersive / full screen (`platform/fullscreen*`: the
-  browser's fullscreen API on the web; Android hides the system bars; Linux and Windows
-  windows go full screen through the runners' `len/window` channel), makes the laser pointer the tool, and shows
-  paged notebooks one whole page at a time (single flow, fit page). ← / → / Page Up /
-  Page Down / Space / Shift+Space turn pages (swipes too, when fingers navigate); a
-  small bar (`PresentationControls`: previous, page n / m, next, *Stop presenting*)
-  peeks in near the bottom (pointer near it, a touch, a page turn) and fades after 3 s.
-  Esc, back or F5 stop; the tool, page layout and zoom are put back (never saved as the
-  user's choice). **External displays**: Android mirrors the screen by default, which
-  shows the presentation; a separate audience window (Android `Presentation` API,
-  desktop multi-window) is out of scope — Flutter's multi-window API is not stable yet.
+- **Focus mode** (`EditorScreen._setFocus`; "⋯" → *Focus mode*, F11, Ctrl/⌘+.) hides
+  all chrome (`ChromeLayout.focus`) but the `FocusHandle`, and goes immersive / full
+  screen (`platform/fullscreen*`: the browser's fullscreen API on the web; Android hides
+  the system bars; Linux and Windows windows go full screen through the runners'
+  `len/window` channel). It is also the way to present: **F5** enters it with the laser
+  pointer as the tool (put back on leaving). Space / Shift+Space turn pages in it, next
+  to the usual ← / → / Page Up / Page Down. Esc, back, F11 or F5 leave it. **External
+  displays**: Android mirrors the screen by default; a separate audience window
+  (Android `Presentation` API, desktop multi-window) is out of scope — Flutter's
+  multi-window API is not stable yet.
 - **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
   pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
   in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).
@@ -377,7 +373,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
   flow fits the whole page and slides it in.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
-  P / H / E / L / S / T / K (X: Select PDF text, with PDF pages); 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 present;
+  P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
   Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
@@ -436,9 +432,9 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   all covered by the bundled Inter). `PlannerLabels` formats month and day names and dates
   with `intl` (CLDR); its date symbols are compiled in and initialised synchronously
   (`ensureDateSymbols`) before any label is built. Fixed headings ("Week", "Schedule",
-  "Notes" …) stay English. New planners default to the calendar chosen last
-  (`SettingsRepository.plannerCalendar`), else the device locale's language (if listed, else
-  English UK) and its CLDR first day of the week. `PlannerPlan` (first month, 1–12 months,
+  "Notes" …) stay English. New planners take the device locale's language (if listed,
+  else English UK; there is no language picker) and its CLDR first day of the week (changeable
+  under the planner options' collapsed "More options"). `PlannerPlan` (first month, 1–12 months,
   `linked`, `yearOverview`, calendar) generates the papers of a planner: a page per day, per
   week overlapping the range, per month or per year — monthly with `yearOverview`: the year
   overview before the first month and each January; linked: each month followed by its weeks,
@@ -562,8 +558,8 @@ normalised to the page as shown, so `/Rotate` and crop boxes are already
 applied; page links go to the exported page showing the target (the next
 one after the link's page) and are dropped if it is not exported.
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
-indices from a range like "1-3, 5", templates and PDF backgrounds on or off,
-PNG resolution); without templates pages are exported as blank white paper.
+indices from a range like "1-3, 5", templates and PDF backgrounds on or off;
+PNGs are always 288 dpi, `pngScale`); without templates pages are exported as blank white paper.
 Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
@@ -605,23 +601,22 @@ and "across" per line, handles sit at the line's start / end corners
 letters), highlights run along the line's middle in reading order, and
 search highlights use the same boxes.
 
-- **Select text** — `EditorTool.selectText` (X), offered only when the
-  notebook has PDF pages (`ToolSettings.selectTextAvailable`), is a
-  `PointerTool` (`PdfTextTool`, plugged into `ContentTools.selectText`):
-  drag across text (or a handle of the selection) to select, tap a word to
-  select it, tap a link to follow it. A finger long press or right click on
-  PDF text with any tool selects the word instead of opening the canvas
-  menu. `PdfLayer` paints the selection (one box per line, handles with the
-  tool) and a menu: **Copy** (also Ctrl/⌘+C), **Highlight**, select all on
-  the page.
+- **Select text** — there is no text tool: a finger long press or right
+  click on PDF text with any tool selects the word instead of opening the
+  canvas menu, and dragging the selection's handles (`PdfSelectionHandles`,
+  touch targets over the painted knobs that keep the press from the canvas)
+  extends it. `PdfLayer` paints the selection (one box per line, with
+  handles) and a menu: **Copy** (also Ctrl/⌘+C), **Highlight**, select all
+  on the page.
 - **Highlight** turns each selected line (`PdfGlyphs.rectsFor`) into one
   highlighter stroke along its middle, 1.1 × the line's height, with the
   highlighter's colour and opacity (no pressure thinning, stabiliser or
   tapers), committed to the page's `SurfaceModel` as one `InkEdit` — so it
   is ordinary ink: undoable, erasable, selectable, synced and exported.
-- **Links** (`loadLinks`, incl. URLs detected in the text): tapped with the
-  tool, or with a finger while fingers navigate (stylus only). Internal
-  links scroll to the notebook page showing the target PDF page (the next
+- **Links** (`loadLinks`, incl. URLs detected in the text): tapped with a
+  finger while fingers navigate (stylus only), or, with any tool, from the
+  menu of a selection made on them (long press or right click: **Open
+  link**). Internal links scroll to the notebook page showing the target PDF page (the next
   one after the link's page if the PDF appears twice); web links ask first
   ("Open link?") and open in the browser (`url_launcher`).
 - **Outline** — "⋯" → *PDF outline* (`PdfOutlinePanel`, a draggable bottom
@@ -1107,10 +1102,9 @@ GoodNotes-style rich text inside a box.
   — inserting, joining and splitting lines (lists continue, headings do not),
   numbering — is pure Dart in `RichTextBuffer`, unit-tested without Flutter.
 - **Fonts** (`TextFont`, `assets/fonts/`, built by `tool/build_fonts.py` from
-  Google Fonts and subset to Latin/Greek/Cyrillic + symbols; static families
-  like Kalam are only subset): Inter (sans), Nunito (rounded), Lora (serif),
-  JetBrains Mono, Caveat (handwriting) and Kalam (hand lettering; these two
-  have no italic, it is slanted), all SIL OFL 1.1 with their licence files, registered in the licence page
+  Google Fonts and subset to Latin/Greek/Cyrillic + symbols): Inter (sans),
+  Lora (serif), JetBrains Mono and Caveat (handwriting; no italic, it is
+  slanted), all SIL OFL 1.1 with their licence files, registered in the licence page
   (`core/font_licenses.dart`). Boxes use only bundled fonts, so they measure and
   wrap the same everywhere and in exported PDFs; characters they lack fall back
   to system fonts.
@@ -1236,7 +1230,7 @@ More tools slot in by adding an `EditorTool` value and a descriptor. The
 tools are Pen (P), Highlighter (H), Eraser (E), Lasso (L), Shapes (S; its
 icon is the current shape, settings = shape picker, strip = the pen's slots,
 since shapes are drawn with the pen's colour and width), Text (T; settings =
-defaults for new boxes) and Laser pointer (K), plus Select PDF text (X) in notebooks with PDF pages. For inks the strip is a row of
+defaults for new boxes) and Laser pointer (K). For inks the strip is a row of
 colour slots beside a row of width slots (dots at scaled real size, in a recessed track) — one tap
 picks either; the selected slot sits on a tonal disc; every target is ≥ 40 px.
 Tapping the selected slot (or long-pressing / right-clicking any) edits it
@@ -1254,19 +1248,19 @@ Picking a quick colour or width from a tool that draws no ink (lasso, text,
 laser) switches to the pen. Shortcuts: P / H / E / L / S / T / K, 1–6 colour
 slots, [ / ] thinner / thicker (plus the canvas keys `+` `-` `0` Shift+1 Home).
 
-Placement is a preference (`ToolbarPlacement`: automatic / top / bottom /
-floating, in the "⋯" menu and the settings); `ToolbarSlot` hosts it. *Automatic*
-(`resolvePlacement`) puts it under the top bar from 960 px wide if it fits
+Placement is a preference (`ToolbarPlacement`: docked / floating, in the "⋯"
+menu and the settings); `ToolbarSlot` hosts it. *Docked* (`resolvePlacement`
+→ `ToolbarPosition`) puts it under the top bar from 960 px wide if it fits
 there on one row whichever tool is active, otherwise at the bottom. The slot
 measures the toolbar and `ChromeLayout` uses that height for
 the screen edge it covers, so document scrolling, the page navigator and the
-canvas overlays (zoom pill, minimap, fit / overview buttons) keep clear of it.
+canvas overlays (zoom pill, fit button) keep clear of it.
 
 **Customising** ("⋯" → Toolbar → *Customise toolbar…*): `ToolbarConfig`
 (`toolbar/toolbar_config.dart`, JSON in the local setting `toolbar_layout`,
 `AppPreferences.toolbarLayout`; null = default) holds the tool order, hidden tools and
 up to 8 **favourite pens** (`FavouritePen`: pen or highlighter + colour + width).
-`EditorToolbar`, `oneRowWidth` (automatic placement) and the phone `ToolSwitcherPanel`
+`EditorToolbar`, `oneRowWidth` (docked placement) and the phone `ToolSwitcherPanel`
 arrange the descriptors with it (`ToolbarConfig.arrange`; the active tool shows even
 when hidden, e.g. picked by its shortcut). Favourites sit in their own group after the
 tools (and under the tools in the switcher panel); one tap draws with one
@@ -1504,7 +1498,7 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   the machine trusts (a paid code-signing certificate or a manual certificate
   import); the installer itself is unsigned (SmartScreen warns until it has
   reputation or a signature).
-- **Desktop full screen:** presentation mode calls `setFullscreen`
+- **Desktop full screen:** focus mode calls `setFullscreen`
   (`platform/fullscreen*`), served by both runners on `len/window`
   (`setFullScreen`): GTK `gtk_window_fullscreen`; on Windows a borderless
   window over the monitor (style and placement restored afterwards). No
@@ -1517,7 +1511,7 @@ below 31 bits, and use `float32`/`int32` in binary formats.
 ## Library (`features/library/`)
 
 - **Data.** Folders are a synced collection (`FolderRepository`, nested via `parentId`).
-  Notebooks carry `folderId`, `favorite`, `trashedAt`, `coverStyle` and `editedAt`
+  Notebooks carry `folderId`, `favorite`, `trashedAt` and `editedAt`
   (content/title edits only, so organising never reorders "last edited"). Readers are
   defensive: a missing parent folder means "root", and folders caught in a parent cycle
   (possible after concurrent moves) are shown at the top level. Deleting a folder
@@ -1528,21 +1522,22 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   and filters/sorts in memory (`LibraryQuery`). `LibraryActions` adds the dialogs and
   confirmations. Layout and sort are preferences (`AppPreferences`).
 - **Shell.** ≥ 720 px wide: sidebar with sections, folder tree (all drop targets), sync
-  status and settings; narrower: bottom navigation. Notebooks and folders drag with a
+  status and settings; narrower: the same in a drawer (☰). Notebooks and folders drag with a
   mouse immediately and with touch after a long press (a long press released in place
   opens the context menu instead). Shortcuts: Ctrl+N, Ctrl+Shift+N, Ctrl+F, Delete, Esc.
-- **New… tile and folder icons.** The notebook grid starts with a cover-sized "New…" tile
-  (`NewNotebookTile`) in the library root and in folders (not in favourites, trash, search,
-  selection or list layout). Folders have an optional icon (`Folder.icon`, a key from
-  `Folder.iconKeys`; glyphs in `folder_icons.dart`), picked in the folder dialog and shown,
-  tinted with the folder colour, on tiles, in the sidebar tree and in the move dialog.
+- **New… tile.** On wide screens the notebook grid starts with a cover-sized "New…" tile
+  (`NewNotebookTile`, `LibraryContent.showsNewTile`) in the library root and in folders (not
+  in favourites, trash, search, selection or list layout). One primary action per screen:
+  where the tile shows, the "New" FAB doesn't; phones only get the FAB. Folders show the standard folder glyph tinted with the folder
+  colour on tiles, in the sidebar tree and in the move dialog.
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
   `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint
   (`SurfaceStats`: live stroke count + latest version, plus the page's paper and size), renders
   lazily in short time-boxed batches (one per event-loop turn, one notification per batch that
   changed a preview), keeps an LRU of images and is invalidated when an editor closes or sync brings
-  strokes. Covers without ink show the coloured, patterned cover.
+  strokes. Covers without ink show a plain cover in the notebook's colour (one of
+  ten, `Palette.covers`).
 
 ## Search (`data/search/`, `features/search/`)
 
@@ -1598,7 +1593,7 @@ boxes, the text of imported PDF pages and recognised handwriting (see
 GoodNotes-style handwriting search and lasso "Convert to text", on-device.
 
 - **Recogniser.** `HandwritingRecognizer` (strokes in writing order →
-  candidates, best first; per-language model download / delete) behind a
+  candidates, best first; per-language model download) behind a
   conditional export: **Android** uses Google ML Kit Digital Ink
   (`google_mlkit_digital_ink_recognition`, already on AGP 9 / built-in Kotlin;
   `MlKitRecognizer` synthesises point timestamps from the stroke's start time
@@ -1611,8 +1606,8 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   downloaded over Wi-Fi; the settings and "Convert to text" download on
   demand with a progress bar — ML Kit reports no byte progress) and the
   `HandwritingIndexer`. Settings: language, "Search handwriting" (off
-  forgets recognised text, on re-recognises everything), model download /
-  delete.
+  forgets recognised text, on re-recognises everything) and model download
+  (Android manages removing models).
 - **Clustering** (`InkClustering`): a surface's strokes (highlighter
   excluded) become lines and words. The unit is the median stroke height;
   a stroke joins a line whose letter band it overlaps vertically (small
@@ -1657,26 +1652,26 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
 ## Preferences
 
 `AppPreferences` (in `AppServices.preferences`) is a `ChangeNotifier` over
-`SettingsRepository`: theme mode and accent (the app rebuilds its `ThemeData` from them),
-stylus-only, two-finger-tap undo, three-finger-tap redo, stylus side-button action
+`SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
+stylus-only, finger-tap undo and redo (one switch), stylus side-button action
 (`PenButtonAction.eraser|lasso|none`), editor toolbar placement (and floating position) and tool names,
 library layout and sort. Getters always read
 the store, so values written elsewhere are never stale.
 
 ## UI design system (`ui/`)
 
-`AppTheme.light/dark({accent})` build a fidelity colour scheme from the accent with quiet
+`AppTheme.light/dark()` build a fidelity colour scheme from the ink-blue seed with quiet
 neutral surfaces, a tighter type scale and shared component themes
 (`theme_components.dart`). Tokens: `Gaps`, `Radii`, `Palette` (`app_theme.dart`) and
-`Motion`, `Breakpoints`, `Shadows`, `Accents` (`design_tokens.dart`).
+`Motion`, `Breakpoints`, `Shadows` (`design_tokens.dart`).
 
 Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width),
 `menus.dart` (`MenuRow`, `showContextMenuAt`), `dialog_or_sheet.dart` (`showDialogOrSheet`:
 centred dialog on tablets / desktops, bottom sheet on phones), `text_prompt.dart`, `sidebar_item.dart`
-(library sidebar and the settings section list). Settings: from `Breakpoints.expanded` a
-two-pane layout (section list + the selected section), a single column below. Documents UI
+(library sidebar). Settings: every section in one centred column of readable width, on
+every screen. Documents UI
 (`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
-dates, week start and language, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
+dates, week start, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview
 with selection mode; `editor/document/page_overview.dart` re-exports it);
 `progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n", optional Cancel).
 Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActions`, batch
@@ -1718,7 +1713,7 @@ malformed record is skipped. Open screens subscribe to
 - Android: historical stylus samples are merged from a platform channel;
   the low-latency overlay is tuned on a Galaxy Tab S8+ only (see *Input*;
   its hand-over delay assumes a Flutter pipeline like that tablet's).
-  Small floating panels over the canvas (audio player, stickers, search)
+  Small floating panels over the canvas (audio player, search)
   are not cut out of its clip. Stylus tilt/orientation are received but
   unused.
 - The sync token is stored in the app's SQLite database; move it to secure

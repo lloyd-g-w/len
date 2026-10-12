@@ -24,7 +24,6 @@ Map<ShortcutActivator, VoidCallback> contentShortcuts(
       (LogicalKeyboardKey.keyS, EditorTool.shape),
       (LogicalKeyboardKey.keyT, EditorTool.text),
       (LogicalKeyboardKey.keyK, EditorTool.laser),
-      (LogicalKeyboardKey.keyX, EditorTool.selectText), // Only with PDF pages.
     ])
       SingleActivator(key): unlessTyping(() => setTool(tool)),
     const SingleActivator(LogicalKeyboardKey.delete): unlessTyping(selection.delete),

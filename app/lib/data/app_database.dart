@@ -155,34 +155,8 @@ class AppDatabase {
     db.execute('ALTER TABLE recordings DROP COLUMN blob');
   }
 
-  /// Version 4: tags and which notebooks and pages carry them; notebooks'
-  /// own outlines; the sticker library.
+  /// Version 4: notebooks' own outlines.
   static void _organise(CommonDatabase db) {
-    db.execute('''
-      CREATE TABLE tags (
-        id          TEXT PRIMARY KEY NOT NULL,
-        name        TEXT NOT NULL,
-        color       INTEGER NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-    // `kind`: `notebook` or `page`; the id is derived from tag and target.
-    db.execute('''
-      CREATE TABLE taggings (
-        id          TEXT PRIMARY KEY NOT NULL,
-        tag_id      TEXT NOT NULL,
-        target_id   TEXT NOT NULL,
-        kind        TEXT NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-    db.execute('CREATE INDEX taggings_by_target ON taggings(target_id)');
-    db.execute('CREATE INDEX taggings_by_tag ON taggings(tag_id)');
     // A notebook's own table of contents; siblings follow page order.
     db.execute('''
       CREATE TABLE outline (
@@ -198,19 +172,6 @@ class AppDatabase {
         dirty       INTEGER NOT NULL DEFAULT 1
       )''');
     db.execute('CREATE INDEX outline_by_notebook ON outline(notebook_id)');
-    // Saved stickers: `content` is JSON (see `StickerCodec`).
-    db.execute('''
-      CREATE TABLE stickers (
-        id          TEXT PRIMARY KEY NOT NULL,
-        name        TEXT NOT NULL,
-        category    TEXT NOT NULL,
-        content     TEXT NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
   }
 
   /// Version 3: a recording's waveform blob (`''` = none), and stroke
@@ -223,10 +184,9 @@ class AppDatabase {
   }
 
   /// Version 2: template parameters on pages (`paper_data`, JSON, see
-  /// `Paper.toData`), the user's own templates, and folder icons.
+  /// `Paper.toData`), and the user's own templates.
   static void _templates(CommonDatabase db) {
     db.execute("ALTER TABLE pages ADD COLUMN paper_data TEXT NOT NULL DEFAULT '{}'");
-    db.execute('ALTER TABLE folders ADD COLUMN icon TEXT');
     // A user's template: an image blob and the page size it suggests.
     db.execute('''
       CREATE TABLE templates (
@@ -273,7 +233,6 @@ class AppDatabase {
         paper       TEXT NOT NULL,
         paper_color TEXT NOT NULL DEFAULT 'white',
         cover_color INTEGER NOT NULL,
-        cover_style TEXT NOT NULL DEFAULT 'plain',
         folder_id   TEXT,
         favorite    INTEGER NOT NULL DEFAULT 0,
         trashed_at  INTEGER,

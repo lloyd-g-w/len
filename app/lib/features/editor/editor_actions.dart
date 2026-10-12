@@ -7,7 +7,6 @@ import 'document/page_overview.dart';
 import 'editor_session.dart';
 import 'outline/outline_panel.dart';
 import 'page_navigator.dart';
-import 'tags/editor_tags.dart';
 
 /// Builds what the top bar and menus offer for [session]; page commands
 /// act on the current page. The editor screen supplies the actions that
@@ -24,7 +23,6 @@ EditorMenuActions editorMenuActions(
   required VoidCallback onBackground,
   VoidCallback? onSearch,
   VoidCallback? onCustomiseToolbar,
-  VoidCallback? onPresent,
 }) {
   final prefs = session.services.preferences;
   final doc = session.doc;
@@ -43,7 +41,6 @@ EditorMenuActions editorMenuActions(
     toolLabels: prefs.toolbarLabels,
     onToolLabels: (show) => prefs.toolbarLabels = show,
     onCustomiseToolbar: onCustomiseToolbar,
-    onPresent: onPresent,
     onSettings: onSettings,
     onSearch: onSearch,
     bookmarked: page?.bookmarked ?? false,
@@ -52,26 +49,16 @@ EditorMenuActions editorMenuActions(
         ? () => commands.openOverview(context, backgrounds: session.backgrounds)
         : null,
     onPageCommand: paged ? (c) => commands.run(context, c, page) : null,
-    onGoTo: paged ? () => commands.goToPagePrompt(context) : null,
     onAddWithTemplate: paged ? () => commands.addPageWithTemplate(context) : null,
     onInsertPdf: paged ? () => commands.insertPdf(context) : null,
     onExport: paged ? () => commands.export(context) : null,
     onOutline: paged ? () => showOutline(context, session) : null,
     onAddToOutline: paged ? () => addPageToOutline(context, session) : null,
-    onPageTags: paged ? () => editPageTags(context, session, page) : null,
-    onTags: () => editNotebookTags(context, session),
-    onStickers: session.stickers.toggle,
-    stickersOpen: session.stickers.open.value,
     flow: doc?.flow,
     onFlow: paged ? onFlow : null,
     fit: doc?.fit,
     onFit: paged ? doc.setFit : null,
     onBackground: nav == null ? null : onBackground,
-    onFitContent: nav?.fitContent,
-    onActualSize: nav == null ? null : () => nav.zoomTo(1),
-    onBackToStart: nav?.goToOrigin,
-    showMinimap: nav?.showMinimap ?? false,
-    onToggleMinimap: nav?.toggleMinimap,
   );
 }
 

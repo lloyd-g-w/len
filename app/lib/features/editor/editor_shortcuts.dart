@@ -8,7 +8,6 @@ import 'canvas/canvas_shortcuts.dart';
 import 'document/page_fit.dart';
 import 'editor_session.dart';
 import 'pdf/pdf_layer.dart';
-import 'present/presentation.dart';
 import 'tabs/open_notebooks.dart';
 import 'tools/content_shortcuts.dart';
 
@@ -99,11 +98,13 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
 }
 
 /// Everything the editor screen binds: [editorShortcuts] (with tab
-/// switching when it shows [tabs]), presentation (F5; Space and
-/// Shift+Space turn pages while presenting), search and PDF text.
+/// switching when it shows [tabs]), F5 [present] (focus mode with the
+/// laser), [turnPage] (Space and Shift+Space, in focus mode), search and
+/// PDF text.
 Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   EditorSession session, {
-  required Presentation presentation,
+  required VoidCallback present,
+  ValueChanged<int>? turnPage,
   required EditorSearchController search,
   required VoidCallback toggleFocus,
   required VoidCallback paste,
@@ -120,10 +121,10 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
     paste: paste,
     pastePlain: pastePlain,
   ),
-  const SingleActivator(LogicalKeyboardKey.f5): presentation.toggle,
-  if (presentation.active) ...{
-    const SingleActivator(LogicalKeyboardKey.space): () => presentation.turn(1),
-    const SingleActivator(LogicalKeyboardKey.space, shift: true): () => presentation.turn(-1),
+  const SingleActivator(LogicalKeyboardKey.f5): present,
+  if (turnPage != null) ...{
+    const SingleActivator(LogicalKeyboardKey.space): () => turnPage(1),
+    const SingleActivator(LogicalKeyboardKey.space, shift: true): () => turnPage(-1),
   },
   ...EditorSearchLayer.shortcuts(search),
   ...?session.pdf == null ? null : pdfShortcuts(session.pdf!),

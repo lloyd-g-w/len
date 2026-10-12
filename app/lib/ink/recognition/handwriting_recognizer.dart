@@ -45,9 +45,6 @@ abstract class HandwritingRecognizer {
   /// if the download fails.
   Future<void> downloadModel(String language, {required bool wifiOnly});
 
-  /// Deletes the downloaded model for [language].
-  Future<void> deleteModel(String language);
-
   /// Candidate readings of [strokes] (in writing order), best first.
   /// [writingArea] (the size of the area written in) and [preContext] (the
   /// text just before) improve accuracy. Throws if the model is missing.
@@ -81,9 +78,6 @@ class UnavailableRecognizer extends HandwritingRecognizer {
   @override
   Future<void> downloadModel(String language, {required bool wifiOnly}) =>
       Future.error(UnsupportedError(unsupportedReason));
-
-  @override
-  Future<void> deleteModel(String language) async {}
 
   @override
   Future<List<RecognitionCandidate>> recognize(

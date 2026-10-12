@@ -26,13 +26,27 @@ class LibraryContent extends StatelessWidget {
     required this.actions,
     required this.searchController,
     required this.searchFocus,
-    this.headerTrailing = const [],
+    this.headerLeading,
   });
 
   final LibraryActions actions;
   final TextEditingController searchController;
   final FocusNode searchFocus;
-  final List<Widget> headerTrailing;
+
+  /// Before the title (phone: the drawer button).
+  final Widget? headerLeading;
+
+  /// Whether the grid starts with a "New…" tile: on wide screens, in the
+  /// library's grid. Elsewhere the "New" button floats instead (one primary
+  /// action per screen).
+  static bool showsNewTile(LibraryActions actions, {required bool compact}) {
+    final c = actions.controller;
+    return !compact &&
+        c.layout == LibraryLayout.grid &&
+        c.section == LibrarySection.library &&
+        !c.isSearching &&
+        !actions.selection.active;
+  }
 
   LibraryController get _c => actions.controller;
 
@@ -47,13 +61,8 @@ class LibraryContent extends StatelessWidget {
     final notebooks = _c.visibleNotebooks;
     final empty = folders.isEmpty && notebooks.isEmpty;
     // Searching the library also lists matches inside notebooks.
-    final fullText = _c.parsedQuery.text.isNotEmpty && _c.section == LibrarySection.library;
-    // The grid starts with a "New…" tile where notebooks are created.
-    final newTile =
-        _c.layout == LibraryLayout.grid &&
-        _c.section == LibrarySection.library &&
-        !_c.isFiltering &&
-        !actions.selection.active;
+    final fullText = _c.isSearching && _c.section == LibrarySection.library;
+    final newTile = showsNewTile(actions, compact: compact);
     Widget label(String text) => SliverPadding(
       padding: EdgeInsets.fromLTRB(gutter + Gaps.xxs, Gaps.xl, gutter, Gaps.md),
       sliver: SliverToBoxAdapter(child: SectionLabel(text)),
@@ -72,7 +81,7 @@ class LibraryContent extends StatelessWidget {
                 searchController: searchController,
                 searchFocus: searchFocus,
                 compact: compact,
-                trailing: headerTrailing,
+                leading: headerLeading,
               ),
             ),
           ),
@@ -84,7 +93,6 @@ class LibraryContent extends StatelessWidget {
               section: _c.section,
               inFolder: _c.folderId != null,
               query: _c.query,
-              tags: [for (final id in _c.tagFilter) ?_c.tagById(id)?.name],
               onCreate: () => unawaited(actions.createNotebook(context)),
               onClearSearch: () {
                 searchController.clear();
@@ -136,8 +144,7 @@ class LibraryContent extends StatelessWidget {
           // Full-text matches in text boxes and PDF pages.
           if (fullText)
             LibrarySearchResults(
-              query: _c.parsedQuery.text,
-              include: _c.isFiltering ? _c.matchesTags : null,
+              query: _c.query.trim(),
               padding: EdgeInsets.symmetric(horizontal: gutter),
               onOpen: (context, notebook, hit) => unawaited(
                 openSearchResult(
@@ -166,7 +173,7 @@ class LibraryContent extends StatelessWidget {
 
   String _subtitle(Notebook n) {
     if (n.isTrashed) return libraryDateAfter('Deleted', n.trashedAt!);
-    if (_c.isFiltering) return _c.locationOf(n);
+    if (_c.isSearching) return _c.locationOf(n);
     final kind = n.kind == NotebookKind.canvas ? 'Canvas' : pageCountLabel(_c.pageCountOf(n.id));
     final date = _c.sort == LibrarySort.created
         ? libraryDateAfter('Created', n.createdAt)

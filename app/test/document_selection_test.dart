@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/editor_screen.dart';
 
 import 'content_documents_test.dart' show ctrl, elementsOf;
@@ -12,8 +12,16 @@ import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
 /// Lasso selections spanning the pages of a paged notebook in continuous
 /// scrolling, and selections moved from one page onto another.
 ///
-/// With the toolbar on top at 800 × 1300, page 1 ends at ~949 px on screen
-/// and page 2 starts just below it (~966 px).
+/// The coordinates are for a toolbar docked at the top at 800 × 1300 (page 1
+/// ends at ~949 px on screen, page 2 starts just below it, ~966 px); [up]
+/// moves them to where the pages are with the toolbar at the bottom.
+/// Laid out for a toolbar docked at the top; at 800 px it docks at the
+/// bottom, so the pages sit higher on screen by its extent.
+double _up = 0;
+List<Offset> up(List<Offset> points) => [for (final p in points) p.translate(0, -_up)];
+Future<void> _measure(WidgetTester tester) async =>
+    _up = tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.toolbarExtent;
+
 void main() {
   Future<void> lasso(WidgetTester tester, Rect r) => mouseDrag(tester, [
     r.topLeft,
@@ -28,15 +36,16 @@ void main() {
   testWidgets('a lasso across the page gap selects on both pages; move, delete, undo', (
     tester,
   ) async {
-    final (s, nb) = await pumpEditor(tester, placement: ToolbarPlacement.top);
+    final (s, nb) = await pumpEditor(tester);
+    await _measure(tester);
     final pages = s.pages.pagesOf(nb.id);
-    await drawAt(tester, const Offset(300, 880)); // Page 1, near its bottom.
-    await drawAt(tester, const Offset(300, 1010)); // Page 2, near its top.
+    await drawAt(tester, up(const [Offset(300, 880)]).single); // Page 1, near its bottom.
+    await drawAt(tester, up(const [Offset(300, 1010)]).single); // Page 2, near its top.
     final before1 = inkOf(s, pages[0]).where((st) => st.id != 'w1').single;
     final before2 = inkOf(s, pages[1]).where((st) => st.id != 'w2').single;
 
     await key(tester, LogicalKeyboardKey.keyL);
-    await lasso(tester, const Rect.fromLTRB(250, 850, 440, 1060));
+    await lasso(tester, const Rect.fromLTRB(250, 850, 440, 1060).translate(0, -_up));
     expect(find.byTooltip('Delete (Del)'), findsOneWidget);
     await expectLater(
       find.byType(EditorScreen),
@@ -44,7 +53,7 @@ void main() {
     );
 
     // Move both by 40 px to the right: each stays on its page.
-    await mouseDrag(tester, const [Offset(330, 960), Offset(350, 960), Offset(370, 960)]);
+    await mouseDrag(tester, up(const [Offset(330, 960), Offset(350, 960), Offset(370, 960)]));
     final moved1 = inkOf(s, pages[0]).where((st) => st.id != 'w1').single;
     final moved2 = inkOf(s, pages[1]).where((st) => st.id != 'w2').single;
     expect(moved1.id, isNot(before1.id));
@@ -59,7 +68,7 @@ void main() {
     expect(ids(inkOf(s, pages[1])), {'w2', before2.id});
 
     // Delete across both pages, one undo.
-    await lasso(tester, const Rect.fromLTRB(250, 850, 440, 1060));
+    await lasso(tester, const Rect.fromLTRB(250, 850, 440, 1060).translate(0, -_up));
     await tester.tap(find.byTooltip('Delete (Del)'));
     await tester.pump();
     expect(ids(inkOf(s, pages[0])), {'w1'});
@@ -72,17 +81,18 @@ void main() {
   });
 
   testWidgets('a selection dropped onto the next page moves there (one undo step)', (tester) async {
-    final (s, nb) = await pumpEditor(tester, placement: ToolbarPlacement.top);
+    final (s, nb) = await pumpEditor(tester);
+    await _measure(tester);
     final pages = s.pages.pagesOf(nb.id);
-    await drawAt(tester, const Offset(300, 880)); // Page 1.
+    await drawAt(tester, up(const [Offset(300, 880)]).single); // Page 1.
     // Where the stroke should land on page 2, drawn there for reference.
-    await drawAt(tester, const Offset(300, 1030));
+    await drawAt(tester, up(const [Offset(300, 1030)]).single);
     final original = inkOf(s, pages[0]).where((st) => st.id != 'w1').single;
     final reference = inkOf(s, pages[1]).where((st) => st.id != 'w2').single;
 
     // A text box on page 1 too, moved along with the ink.
     await key(tester, LogicalKeyboardKey.keyT);
-    await mouseDrag(tester, const [Offset(400, 860)]);
+    await mouseDrag(tester, up(const [Offset(400, 860)]));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('text-box-field')), 'Moves');
     await tester.tap(find.byTooltip('Done (Esc)'));
@@ -90,9 +100,9 @@ void main() {
     final box = elementsOf(s, pages[0].id).single;
 
     await key(tester, LogicalKeyboardKey.keyL);
-    await lasso(tester, const Rect.fromLTRB(250, 840, 600, 930));
+    await lasso(tester, const Rect.fromLTRB(250, 840, 600, 930).translate(0, -_up));
     expect(find.byTooltip('Delete (Del)'), findsOneWidget);
-    await mouseDrag(tester, const [Offset(330, 890), Offset(330, 960), Offset(330, 1040)]);
+    await mouseDrag(tester, up(const [Offset(330, 890), Offset(330, 960), Offset(330, 1040)]));
 
     expect(ids(inkOf(s, pages[0])), {'w1'});
     final moved = inkOf(s, pages[1]).where((st) => st.id != 'w2' && st.id != reference.id).single;

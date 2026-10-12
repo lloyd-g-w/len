@@ -53,13 +53,6 @@ class SplitViewButton extends StatelessWidget {
   ];
 
   List<Widget> _splitItems() => [
-    MenuItemButton(
-      leadingIcon: Icon(
-        tabs.linkTools ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-      ),
-      onPressed: () => tabs.linkTools = !tabs.linkTools,
-      child: const Text('Same tools in both panes'),
-    ),
     if (tabs.splitId != tabs.activeId)
       MenuItemButton(
         leadingIcon: const Icon(Icons.swap_horiz_rounded),

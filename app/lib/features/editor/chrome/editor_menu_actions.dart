@@ -19,33 +19,22 @@ class EditorMenuActions {
     this.toolLabels = false,
     this.onToolLabels,
     this.onCustomiseToolbar,
-    this.onPresent,
     required this.onSettings,
     this.onSearch,
     this.bookmarked = false,
     this.onToggleBookmark,
     this.onOverview,
     this.onPageCommand,
-    this.onGoTo,
     this.onAddWithTemplate,
     this.onInsertPdf,
     this.onExport,
     this.onOutline,
     this.onAddToOutline,
-    this.onPageTags,
-    this.onTags,
-    this.onStickers,
-    this.stickersOpen = false,
     this.flow,
     this.onFlow,
     this.fit,
     this.onFit,
     this.onBackground,
-    this.onFitContent,
-    this.onActualSize,
-    this.onBackToStart,
-    this.showMinimap = false,
-    this.onToggleMinimap,
   });
 
   final VoidCallback onBack;
@@ -63,8 +52,6 @@ class EditorMenuActions {
   /// Puts the toolbar into edit mode (order, hidden tools, favourites).
   final VoidCallback? onCustomiseToolbar;
 
-  /// Starts presentation mode (no chrome, laser pointer, page navigation).
-  final VoidCallback? onPresent;
   final VoidCallback onSettings;
 
   /// Opens in-notebook search (a menu item on phones, where the bar has
@@ -76,7 +63,6 @@ class EditorMenuActions {
   final VoidCallback? onToggleBookmark;
   final VoidCallback? onOverview;
   final ValueChanged<PageCommand>? onPageCommand;
-  final VoidCallback? onGoTo;
   final VoidCallback? onAddWithTemplate;
   final VoidCallback? onInsertPdf;
 
@@ -88,16 +74,6 @@ class EditorMenuActions {
 
   /// Adds the current page to the notebook's outline.
   final VoidCallback? onAddToOutline;
-
-  /// Tags the current page.
-  final VoidCallback? onPageTags;
-
-  /// Tags the notebook (every notebook kind).
-  final VoidCallback? onTags;
-
-  /// Shows or hides the sticker panel.
-  final VoidCallback? onStickers;
-  final bool stickersOpen;
   final PageFlow? flow;
   final ValueChanged<PageFlow>? onFlow;
 
@@ -108,11 +84,6 @@ class EditorMenuActions {
   // Infinite canvases.
   /// Opens the background picker (template and paper colour).
   final VoidCallback? onBackground;
-  final VoidCallback? onFitContent;
-  final VoidCallback? onActualSize;
-  final VoidCallback? onBackToStart;
-  final bool showMinimap;
-  final VoidCallback? onToggleMinimap;
 
   bool get isPaged => onPageCommand != null;
 }

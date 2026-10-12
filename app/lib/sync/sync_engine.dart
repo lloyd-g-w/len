@@ -10,11 +10,8 @@ import '../data/outline_repository.dart';
 import '../data/page_repository.dart';
 import '../data/recording_repository.dart';
 import '../data/settings_repository.dart';
-import '../data/sticker_repository.dart';
 import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
-import '../data/tag_repository.dart';
-import '../data/tagging_repository.dart';
 import '../data/template_repository.dart';
 import 'blob_sync.dart';
 import 'sync_api.dart';
@@ -30,12 +27,6 @@ class RemoteChanges {
 
   /// Whether any of the user's templates changed.
   bool templates = false;
-
-  /// Whether any tag, or which notebooks and pages carry them, changed.
-  bool tags = false;
-
-  /// Whether the sticker library changed.
-  bool stickers = false;
 
   /// Notebooks whose page list changed.
   final Set<String> pagesOfNotebooks = {};
@@ -53,8 +44,6 @@ class RemoteChanges {
       !notebooks &&
       !folders &&
       !templates &&
-      !tags &&
-      !stickers &&
       pagesOfNotebooks.isEmpty &&
       strokeSurfaces.isEmpty &&
       recordingsOfNotebooks.isEmpty &&
@@ -81,9 +70,7 @@ class SyncEngine {
     required this.elements,
     required this.recordings,
     required this.templates,
-    required this.tags,
     required this.outline,
-    required this.stickers,
   });
 
   final AppDatabase database;
@@ -103,14 +90,8 @@ class SyncEngine {
   /// The user's own templates (their images travel as blobs).
   final TemplateRepository templates;
 
-  /// Tags; their assignments sync through [TagRepository.taggings].
-  final TagRepository tags;
-
   /// Notebooks' own outlines.
   final OutlineRepository outline;
-
-  /// The sticker library (images in stickers travel as blobs).
-  final StickerRepository stickers;
 
   /// Which blobs live rows reference.
   late final BlobReferences blobReferences = BlobReferences(database);
@@ -142,9 +123,6 @@ class SyncEngine {
     for (final s in <SyncableStore>[
       folders,
       templates,
-      stickers,
-      tags,
-      tags.taggings,
       notebooks,
       pages,
       outline,
@@ -288,10 +266,6 @@ class SyncEngine {
           changes.folders = true;
         case TemplateRepository():
           changes.templates = true;
-        case TagRepository() || TaggingRepository():
-          changes.tags = true;
-        case StickerRepository():
-          changes.stickers = true;
         case NotebookRepository():
           changes.notebooks = true;
         case PageRepository():

@@ -16,20 +16,12 @@ enum ExportFormat {
 /// Which pages the export sheet offers to export.
 enum ExportRange { current, all, custom }
 
-/// PNG resolutions offered by the export sheet (pixels per page unit;
-/// a page unit is 1/96 in).
-enum PngResolution {
-  standard('Standard', 2),
-  high('High', 4);
+/// Pixels per page unit of exported PNGs (a page unit is 1/96 in):
+/// 288 dpi, sharp enough to print.
+const double pngScale = 3;
 
-  const PngResolution(this.label, this.scale);
-
-  final String label;
-  final double scale;
-
-  /// Dots per inch of an image at this resolution.
-  int get dpi => (scale * 96).round();
-}
+/// Dots per inch of exported PNGs.
+final int pngDpi = (pngScale * 96).round();
 
 /// What to export: the format, which pages (zero-based indices into the
 /// notebook, ascending) and what to draw under the ink.
@@ -39,7 +31,6 @@ class ExportOptions {
     required this.pages,
     this.includeTemplates = true,
     this.includeBackgrounds = true,
-    this.pngResolution = PngResolution.standard,
   });
 
   final ExportFormat format;
@@ -50,7 +41,6 @@ class ExportOptions {
 
   /// Imported PDF pages under the ink.
   final bool includeBackgrounds;
-  final PngResolution pngResolution;
 
   /// The notebook pages to export, as they should be drawn.
   List<NotebookPage> resolve(List<NotebookPage> all) => [
@@ -58,12 +48,12 @@ class ExportOptions {
       if (i >= 0 && i < all.length) exportedPage(all[i], includeTemplate: includeTemplates),
   ];
 
-  /// "3 pages · PDF", "1 page · PNG · 192 dpi".
+  /// "3 pages · PDF", "1 page · PNG · 288 dpi".
   String get summary {
     final count = '${pages.length} ${pages.length == 1 ? 'page' : 'pages'}';
     return switch (format) {
       ExportFormat.pdf => '$count · PDF',
-      ExportFormat.png => '$count · PNG · ${pngResolution.dpi} dpi',
+      ExportFormat.png => '$count · PNG · $pngDpi dpi',
     };
   }
 }

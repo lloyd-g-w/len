@@ -7,7 +7,7 @@ import 'export_options.dart';
 import 'export_sheet_sections.dart';
 
 /// Asks what to export from [pages] (format, pages, templates, PDF
-/// backgrounds, PNG resolution): a dialog on wide screens, a bottom sheet
+/// backgrounds): a dialog on wide screens, a bottom sheet
 /// on phones. Null if cancelled.
 Future<ExportOptions?> showExportSheet(
   BuildContext context, {
@@ -64,7 +64,6 @@ class _ExportSheetState extends State<ExportSheet> {
   final _rangeFocus = FocusNode();
   bool _templates = true;
   bool _backgrounds = true;
-  PngResolution _resolution = PngResolution.standard;
 
   @override
   void dispose() {
@@ -90,7 +89,6 @@ class _ExportSheetState extends State<ExportSheet> {
       pages: pages,
       includeTemplates: _templates,
       includeBackgrounds: _backgrounds,
-      pngResolution: _resolution,
     );
   }
 
@@ -138,14 +136,6 @@ class _ExportSheetState extends State<ExportSheet> {
           ],
           const SizedBox(height: Gaps.xl),
           ExportSection(title: 'Include', children: _includes(hasBackground)),
-          if (_format == ExportFormat.png) ...[
-            const SizedBox(height: Gaps.xl),
-            ExportSection(
-              title: 'Resolution',
-              trailing: '${_resolution.dpi} dpi',
-              children: [_resolutionPicker()],
-            ),
-          ],
         ],
       ),
     );
@@ -213,17 +203,4 @@ class _ExportSheetState extends State<ExportSheet> {
         value: value,
         onChanged: (v) => setState(() => set(v)),
       );
-
-  Widget _resolutionPicker() => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.sm),
-    child: SegmentedButton<PngResolution>(
-      showSelectedIcon: false,
-      segments: [
-        for (final r in PngResolution.values)
-          ButtonSegment(value: r, label: Text('${r.label} ${r.scale.round()}×')),
-      ],
-      selected: {_resolution},
-      onSelectionChanged: (s) => setState(() => _resolution = s.single),
-    ),
-  );
 }

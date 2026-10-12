@@ -91,9 +91,6 @@ class ShotRecognizer extends HandwritingRecognizer {
   }
 
   @override
-  Future<void> deleteModel(String language) async => downloaded = false;
-
-  @override
   Future<List<RecognitionCandidate>> recognize(
     List<Stroke> strokes, {
     required String language,

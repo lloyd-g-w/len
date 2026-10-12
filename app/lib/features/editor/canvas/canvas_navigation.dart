@@ -12,23 +12,13 @@ import '../../../ink/viewport.dart';
 import '../tabs/open_notebooks.dart';
 
 /// Navigation of an infinite canvas: inertial panning, animated zoom
-/// steps, "fit content", "back to the origin", jumps from the minimap, and
-/// whether the minimap is shown.
+/// steps, "fit content" and "back to the origin".
 class CanvasNavigation extends ChangeNotifier {
-  CanvasNavigation({
-    required this.viewport,
-    required this.reader,
-    required this.surfaceId,
-    this._showMinimap = false,
-    this.onMinimapChanged,
-  });
+  CanvasNavigation({required this.viewport, required this.reader, required this.surfaceId});
 
   final ViewportController viewport;
   final StrokeReader reader;
   final String surfaceId;
-
-  /// Persists the minimap choice.
-  final ValueChanged<bool>? onMinimapChanged;
 
   late final ViewportAnimator animator = ViewportAnimator(viewport);
   late final KineticPan kinetic = KineticPan(animator);
@@ -61,15 +51,6 @@ class CanvasNavigation extends ChangeNotifier {
   bool get waitingForInsets => _waitingForInsets || _waitingForSize;
   bool _disposed = false;
   bool _hasInsets = false;
-
-  bool _showMinimap;
-  bool get showMinimap => _showMinimap;
-
-  void toggleMinimap() {
-    _showMinimap = !_showMinimap;
-    onMinimapChanged?.call(_showMinimap);
-    notifyListeners();
-  }
 
   /// Zooms in to the next step, about [focal] (default: the centre).
   void zoomIn({Offset? focal}) => animator.zoomTo(
@@ -178,18 +159,6 @@ class CanvasNavigation extends ChangeNotifier {
   /// Back to where a new canvas starts: the origin at the top left (below
   /// the chrome), 100 %.
   void goToOrigin() => animator.animateTo(scale: 1, offset: Offset(_insets.left, _insets.top));
-
-  /// Glides so that [world] is centred.
-  void glideTo(Offset world) => animator.centreOn(world);
-
-  /// Centres [world] immediately (dragging on the minimap).
-  void jumpTo(Offset world) {
-    animator.stop();
-    viewport.setView(
-      scale: viewport.scale,
-      offset: viewport.size.center(Offset.zero) - world * viewport.scale,
-    );
-  }
 
   @override
   void dispose() {

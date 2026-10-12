@@ -9,7 +9,6 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/audio/backends/audio_backends.dart';
-import 'package:len/features/editor/document/document_layout.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
@@ -180,7 +179,7 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('the same notebook twice: edits show in both; tools can be linked', (tester) async {
+  testWidgets('the same notebook twice: edits show in both; tools are linked', (tester) async {
     final (s, physics, _) = await pumpWorkspace(tester);
     s.openNotebooks.openSplit(physics.id);
     await tester.pumpAndSettle();
@@ -201,13 +200,10 @@ void main() {
     expect(strokesIn(0), 0);
     expect(strokesIn(1), 0);
 
-    // Tools are separate unless linked.
+    // Both panes use the same tools.
     ToolSettings toolsOf(int i) =>
         tester.widgetList<EditorToolbar>(find.byType(EditorToolbar)).elementAt(i).tools;
     toolsOf(0).tool = EditorTool.highlighter;
-    await tester.pump();
-    expect(toolsOf(1).tool, EditorTool.pen);
-    s.openNotebooks.linkTools = true;
     await tester.pump();
     expect(toolsOf(1).tool, EditorTool.highlighter);
     toolsOf(1).selectColor(2);
@@ -266,7 +262,7 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('the second pane presenting, then closed: the first pane shows again', (
+  testWidgets('the second pane in focus mode, then closed: the first pane shows again', (
     tester,
   ) async {
     final (s, _, chemistry) = await pumpWorkspace(tester);
@@ -274,9 +270,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('More options').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Present'));
+    await tester.tap(find.text('Focus mode'));
     await tester.pumpAndSettle();
-    expect(paneOf(0), findsOneWidget, reason: 'only the presenting pane is shown');
+    expect(paneOf(0), findsOneWidget, reason: 'only the pane in focus mode is shown');
     s.openNotebooks.closeSplit();
     await tester.pumpAndSettle();
     expect(paneOf(0), findsOneWidget);
@@ -285,19 +281,15 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('presentation: no chrome, laser, page by page; Esc restores', (tester) async {
+  testWidgets('F5: focus mode with the laser; Space turns pages; Esc restores', (tester) async {
     final (s, _) = await pumpEditor(tester, size: const Size(1280, 900));
     final tools = tester.widget<EditorToolbar>(find.byType(EditorToolbar)).tools;
     final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
-    await tester.tap(find.byTooltip('More options'));
+    bool chrome() => find.byTooltip('Undo (Ctrl+Z)').hitTestable().evaluate().isNotEmpty;
+    await tester.sendKeyEvent(LogicalKeyboardKey.f5);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Present'));
-    await tester.pumpAndSettle();
-    expect(find.byTooltip('Undo (Ctrl+Z)'), findsNothing);
-    expect(find.byType(EditorToolbar), findsNothing);
+    expect(chrome(), isFalse);
     expect(tools.tool, EditorTool.laser);
-    expect(doc.flow, PageFlow.single);
-    expect(find.text('Stop presenting'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
@@ -305,25 +297,27 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pumpAndSettle();
     expect(doc.currentPage, 2);
-    // The controls fade away, and come back near the bottom.
-    await tester.pump(const Duration(seconds: 4));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Previous page (←)'), warnIfMissed: false);
-    await tester.pumpAndSettle();
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Undo (Ctrl+Z)'), findsOneWidget);
+    expect(chrome(), isTrue);
     expect(tools.tool, EditorTool.pen);
-    expect(doc.flow, PageFlow.continuous);
-    expect(s.settings.pageFlow, isNull); // Never saved as the user's choice.
-    // F5 starts it again.
+    // F5 again enters and leaves it; F11 focus mode keeps the tool.
     await tester.sendKeyEvent(LogicalKeyboardKey.f5);
     await tester.pumpAndSettle();
     expect(tools.tool, EditorTool.laser);
-    await tester.tap(find.text('Stop presenting'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.f5);
     await tester.pumpAndSettle();
     expect(tools.tool, EditorTool.pen);
+    expect(chrome(), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+    await tester.pumpAndSettle();
+    expect(chrome(), isFalse);
+    expect(tools.tool, EditorTool.pen);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(chrome(), isTrue);
+    expect(s.settings.pageFlow, isNull);
     await closeEditor(tester);
   });
 

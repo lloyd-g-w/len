@@ -23,17 +23,15 @@ enum PenButtonAction {
 
 /// Where the editor's tool palette sits.
 enum ToolbarPlacement {
-  /// Top on wide screens (≥ 960 px) when the toolbar fits there on one row;
-  /// otherwise at the bottom, within thumb reach.
-  auto,
-  top,
-  bottom,
+  /// Docked at the top on wide screens (≥ 960 px) when the toolbar fits
+  /// there on one row; otherwise at the bottom, within thumb reach.
+  docked,
 
   /// Free-floating; dragged anywhere by its grip.
   floating;
 
   static ToolbarPlacement parse(String? value) =>
-      values.firstWhere((v) => v.name == value, orElse: () => auto);
+      values.firstWhere((v) => v.name == value, orElse: () => docked);
 }
 
 /// How the library lays out notebooks.

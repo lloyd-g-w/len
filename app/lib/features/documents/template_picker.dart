@@ -108,7 +108,7 @@ class _TemplatePickerState extends State<TemplatePicker> {
   late TemplateSelection _s = initialSelection(
     widget.initial,
     widget.today ?? DateTime.now(),
-    calendar: defaultPlannerCalendar(context),
+    calendar: defaultPlannerCalendar(),
   );
 
   PageTemplate get _t => _s.template;
