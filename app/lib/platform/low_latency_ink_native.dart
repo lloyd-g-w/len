@@ -153,17 +153,23 @@ class LowLatencySource implements SampleSource {
   }
 
   @override
-  void end() {
+  void end({double taperEnd = 0}) {
     _inner.end();
-    _finish();
+    _finish(taperEnd);
     _contact = null;
   }
 
-  void _finish() {
+  /// `end`, with the committed stroke's end taper in the overlay's pixels.
+  void _finish(double taperEnd) {
     final contact = _contact;
     if (!_drawing || contact == null) return;
     _drawing = false;
-    final message = ['end', contact.device, contact.timeStamp.inMicroseconds.toDouble()];
+    final message = [
+      'end',
+      contact.device,
+      contact.timeStamp.inMicroseconds.toDouble(),
+      taperEnd * _started!.scale * _dpr(),
+    ];
     SchedulerBinding.instance
       ..addPostFrameCallback((_) => _send(message))
       ..ensureVisualUpdate();

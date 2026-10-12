@@ -4,6 +4,7 @@ import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import 'option_controls.dart';
+import 'pen_ends_options.dart';
 import 'stroke_preview.dart';
 
 /// The pen's settings popover: a live preview, pressure sensitivity,
@@ -41,6 +42,10 @@ class PenOptionsPanel extends StatelessWidget {
             StabiliserSlider(
               value: config.streamline,
               onChanged: (v) => update((c) => c.copyWith(streamline: v)),
+            ),
+            PenEndsOptions(
+              config: config,
+              onChanged: (ends) => update((c) => c.copyWith(ends: ends)),
             ),
             HoldToSnapSwitch(tools: tools),
           ],

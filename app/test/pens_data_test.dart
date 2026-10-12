@@ -52,7 +52,7 @@ void main() {
     final points = StrokeCodec.encode(const [StrokePoint(1, 1, 0.5), StrokePoint(9, 1, 0.5)]);
     for (final (id, tool, style) in [
       ('no-style', 'highlighter', null),
-      ('odd-tool', 'fountain', '{"o":1,"th":0.5,"sl":0.4}'),
+      ('odd-tool', 'fountain', '{"o":1,"th":0.5,"sl":0.4,"e":"round"}'),
     ]) {
       db.db.execute(
         'INSERT INTO strokes (id, surface_id, tool, color, width, points, created_at, '

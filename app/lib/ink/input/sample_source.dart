@@ -41,8 +41,10 @@ abstract interface class SampleSource {
   /// simply means fewer samples).
   List<PointerSample> between(PointerEvent event);
 
-  /// Stops tracking; later samples of the contact are ignored.
-  void end();
+  /// Stops tracking; later samples of the contact are ignored. [taperEnd]
+  /// is the end taper (world units) the stroke was committed with, for a
+  /// platform overlay drawing it (0: none, or not committed).
+  void end({double taperEnd = 0});
 
   /// A pointer hovers over the surface (no contact tracked).
   void hover(PointerHoverEvent event);
@@ -135,7 +137,7 @@ class StylusSampleMerger implements SampleSource {
   }
 
   @override
-  void end() => _device = null;
+  void end({double taperEnd = 0}) => _device = null;
 
   static bool _sameUs(double a, int b) => (a - b).abs() < 0.5;
 

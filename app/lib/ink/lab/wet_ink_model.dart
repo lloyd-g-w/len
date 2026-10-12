@@ -5,6 +5,7 @@ import '../input/wet_ink.dart';
 import '../render/growable.dart';
 import '../render/hooks.dart';
 import '../render/stroke_shaper.dart';
+import '../render/taper.dart';
 
 /// A Dart model of what the experimental low-latency overlay
 /// (`android/.../WetInkOverlay.kt`) draws, so its geometry and timing can
@@ -45,6 +46,15 @@ import '../render/stroke_shaper.dart';
 ///    tangents);
 ///    one point is a dot, and so is a whole line shorter than half its
 ///    width, with the contact's largest radius (as Flutter draws it).
+///  * **Ends**: with [WetInkShape.flat], the stroke's start and the drawn
+///    end are butt caps (a lone point a square, as Flutter's flat dot); a
+///    start taper ([WetInkShape.taperStart]) scales the smoothed points'
+///    radii by their arc length from the start (`Taper.factor`), and once
+///    Flutter has committed the stroke ([commit]) the end taper it was
+///    committed with does the same from the end. Not at the lift: Flutter's
+///    live frames built before the lift, still to be shown, draw the end
+///    untapered, so a taper drawn sooner would show, vanish under them and
+///    show again.
 ///  * **Tail**: on every commit (after each Flutter frame's `progress`,
 ///    and every frame while a tail remains) the front buffer is cleared
 ///    and only points newer than the `progress` reported two messages
@@ -101,6 +111,9 @@ class WetInkModel {
   // largest radius of the whole contact, as Flutter draws it).
   int? _trimmedAtMs;
   double _trimmedRadius = 0;
+
+  // The end taper of the committed stroke (0 until [commit]).
+  double _endTaper = 0;
 
   double _pressure = -1;
   Offset? _last;
@@ -198,6 +211,10 @@ class WetInkModel {
     // Spline lengths that used a removed point.
     if (_arcs.length > keep - 1) _arcs.removeRange(math.max(1, keep - 1), _arcs.length);
   }
+
+  /// Flutter has committed the stroke (the overlay's `end`), with an end
+  /// taper [taperEnd] long (0: none; in the units of the positions).
+  void commit({double taperEnd = 0}) => _endTaper = taperEnd;
 
   double radiusAt(double p) {
     if (radii.length == 1) return radii[0];
@@ -325,11 +342,17 @@ class WetInkModel {
   /// one point is a dot (a == b).
   List<WetSegment> segments(int from, int to) {
     final r = pointRadii();
+    final flat = shape.flat;
     if (to - from == 1) {
       final s = samples[from];
       final whole = from == 0 && to == samples.length;
-      final radius = whole ? math.max(r[from], _trimmedRadius) : r[from];
-      return [WetSegment(s.position, s.position, radius, radius)];
+      final last = _lifted && to == samples.length;
+      final radius = whole
+          ? math.max(r[from], _trimmedRadius)
+          : r[from] *
+                Taper.factor(_arc[from], shape.taperStart) *
+                (last && _endTaper > 0 ? Taper.minFactor : 1);
+      return [WetSegment(s.position, s.position, radius, radius, flatA: flat, flatB: flat)];
     }
     // Smooth from a little before [from]: the kernel, its end fit and the
     // corner test reach that far back.
@@ -345,11 +368,17 @@ class WetInkModel {
     // the window's first point, with the point before it as the spline's
     // lead-in.
     final StrokeShaper shaper;
+    // Arc length from the start of the window's first resampled point and
+    // of its second (the others follow a step apart), for the tapers.
+    var arc0 = 0.0, arc1 = p.step;
     if (start == 0) {
       shaper = StrokeShaper(p);
     } else {
       final arc = _splineArc(start, p.step);
-      shaper = StrokeShaper(p, start: 1, phase: (arc / p.step).ceil() * p.step - arc);
+      final phase = (arc / p.step).ceil() * p.step - arc;
+      shaper = StrokeShaper(p, start: 1, phase: phase);
+      arc0 = arc;
+      arc1 = arc + (phase > 1e-9 ? phase : p.step);
     }
     for (var i = math.max(0, start - 1); i < to; i++) {
       final s = samples[i].position;
@@ -365,7 +394,7 @@ class WetInkModel {
         r = math.max(r, radiusAt(s.pressure));
       }
       final c = samples[0].position;
-      return [WetSegment(c, c, r, r)];
+      return [WetSegment(c, c, r, r, flatA: flat, flatB: flat)];
     }
     // The smoothed points from about where point [from] is.
     var skip = 0.0;
@@ -373,7 +402,8 @@ class WetInkModel {
       skip += (samples[i].position - samples[i - 1].position).distance;
     }
     final first = math.max(0, (skip / p.step).floor() - 1);
-    final x = shaper.x, y = shaper.y, rr = shaper.r;
+    final x = shaper.x, y = shaper.y;
+    final rr = _tapered(shaper, arc0, arc1, ended: ended);
     // With the stabiliser on, as far as Flutter's live ink reaches (its
     // final line); from pen-down until the hook is decided, its first point.
     final n = shape.lag == 0 || ended
@@ -383,12 +413,44 @@ class WetInkModel {
         : math.max(1, shaper.finalCount);
     if (n - first < 2) {
       final i = math.min(first, n - 1);
-      return [WetSegment(Offset(x[i], y[i]), Offset(x[i], y[i]), rr[i], rr[i])];
+      final c = Offset(x[i], y[i]);
+      return [WetSegment(c, c, rr[i], rr[i], flatA: flat, flatB: flat)];
     }
     return [
       for (var i = first + 1; i < n; i++)
-        WetSegment(Offset(x[i - 1], y[i - 1]), Offset(x[i], y[i]), rr[i - 1], rr[i]),
+        WetSegment(
+          Offset(x[i - 1], y[i - 1]),
+          Offset(x[i], y[i]),
+          rr[i - 1],
+          rr[i],
+          flatA: flat && start == 0 && i == 1,
+          flatB: flat && i == n - 1,
+        ),
     ];
+  }
+
+  /// The radii of [shaper]'s points with the tapers: the start's by arc
+  /// length from the start (the first point at [arc0], the second at
+  /// [arc1], then a step apart), once [ended] and committed the end's.
+  List<double> _tapered(StrokeShaper shaper, double arc0, double arc1, {required bool ended}) {
+    final n = shaper.length, step = shaper.p.step;
+    final r = [for (var i = 0; i < n; i++) shaper.r[i]];
+    double arcOf(int i) => i == 0 ? arc0 : arc1 + (i - 1) * step;
+    if (shape.taperStart > 0) {
+      for (var i = 0; i < n; i++) {
+        r[i] *= Taper.factor(arcOf(i), shape.taperStart);
+      }
+    }
+    if (ended && _endTaper > 0 && n > 1 && samples.length > 1) {
+      final total = _splineArc(samples.length - 1, step);
+      final length = math.min(_endTaper, total * Taper.maxEndShare);
+      for (var i = n - 1; i >= 0; i--) {
+        final along = i == n - 1 ? 0.0 : total - arcOf(i);
+        if (along >= length) break;
+        r[i] *= Taper.factor(along, length);
+      }
+    }
+    return r;
   }
 
   /// `StrokeOutline.isDot` for the whole line in [s].
@@ -449,7 +511,11 @@ class WetSample {
 
 /// One piece the overlay draws: the hull of two circles.
 class WetSegment {
-  const WetSegment(this.a, this.b, this.ra, this.rb);
+  const WetSegment(this.a, this.b, this.ra, this.rb, {this.flatA = false, this.flatB = false});
   final Offset a, b;
   final double ra, rb;
+
+  /// A butt cap at [a] / [b] (square to the piece) instead of the round
+  /// one; a dot (a == b) with both is a square.
+  final bool flatA, flatB;
 }

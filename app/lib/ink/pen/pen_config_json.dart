@@ -20,6 +20,7 @@ abstract final class PenConfigJson {
     final thinning = _unit(json['thinning']);
     final streamline = _unit(json['streamline']);
     final straight = json['straight'];
+    final ends = PenEnds.fromJson(json['ends']);
     if (colors == null ||
         widths == null ||
         color == null ||
@@ -27,7 +28,8 @@ abstract final class PenConfigJson {
         opacity == null ||
         thinning == null ||
         streamline == null ||
-        straight is! bool) {
+        straight is! bool ||
+        ends == null) {
       return null;
     }
     return PenConfig(
@@ -39,6 +41,7 @@ abstract final class PenConfigJson {
       thinning: thinning,
       streamline: streamline,
       straight: straight,
+      ends: ends,
     );
   }
 

@@ -65,11 +65,71 @@ class WetInkPredictionTest {
         for (g in groups.keys) {
             val a = results["$g.after"]!!
             val b = results["$g.before"]!!
-            assertTrue("$g: pen-up overshoot p95 ${a.penUp.q(0.95)} W", a.penUp.q(0.95) <= 0.35)
-            assertTrue("$g: turn overshoot p95 ${a.turn.q(0.95)} W", a.turn.q(0.95) <= 0.6)
+            // The overshoot limits (docs/INK_LAB.md, "Prediction").
+            assertTrue("$g: pen-up overshoot p95 ${a.penUp.q(0.95)} W", a.penUp.q(0.95) <= 0.25)
+            assertTrue("$g: pen-up overshoot max ${a.penUp.max()} W", a.penUp.max() <= 0.6)
+            assertTrue("$g: turn overshoot p95 ${a.turn.q(0.95)} W", a.turn.q(0.95) <= 0.25)
+            // The chosen policy's numbers, with a small margin.
             assertTrue("$g: overall p95 ${a.all.q(0.95)} W", a.all.q(0.95) <= 0.35)
+            assertTrue("$g: events off by > 0.5 W: ${a.flicks}", a.flicks <= 0.02 * a.all.size)
             assertTrue("$g: pen-up max not worse", a.penUp.max() <= b.penUp.max())
-            assertTrue("$g: keeps a lead (${a.leadMs.mean()} ms)", a.leadMs.mean() >= 2.0)
+            assertTrue("$g: keeps a lead (${a.leadMs.mean()} ms)", a.leadMs.mean() >= 3.5)
+        }
+    }
+
+    /**
+     * The options tried for the policy's constants (docs/INK_LAB.md,
+     * "Prediction"), real recordings: prints the table there. Off by default
+     * (≈ 1 s per row): `LEN_PREDICTION_OPTIONS=1 tool/wet_ink_check/unit_test.sh`.
+     */
+    @Test
+    fun options() {
+        if (System.getenv("LEN_PREDICTION_OPTIONS") == null) return
+        val real = recordings.filterKeys { it.startsWith("real") }.values.flatten()
+        val sim = recordings.filterKeys { it.startsWith("sim") }.values.flatten()
+        val r4 = WetInkPrediction(
+            horizonMs = 10.0, maxRadii = 6.0, bendRadii = 0.25, slowNone = 0.8, slowFull = 1.0, liftFull = 0.02, liftNone = 0.08,
+            pressureNone = 0.05, pressureFull = 0.15, missFull = 1e9, missNone = 2e9,
+        )
+        fun WetInkPrediction.copy(
+            horizonMs: Double = this.horizonMs, maxRadii: Double = this.maxRadii, bendRadii: Double = this.bendRadii,
+            slowNone: Double = this.slowNone, slowFull: Double = this.slowFull, liftFull: Double = this.liftFull,
+            liftNone: Double = this.liftNone, pressureNone: Double = this.pressureNone, pressureFull: Double = this.pressureFull,
+            missFull: Double = this.missFull, missNone: Double = this.missNone,
+        ) = WetInkPrediction(
+            horizonMs = horizonMs, maxRadii = maxRadii, bendRadii = bendRadii, slowNone = slowNone, slowFull = slowFull,
+            liftFull = liftFull, liftNone = liftNone, pressureNone = pressureNone, pressureFull = pressureFull,
+            missFull = missFull, missNone = missNone,
+        )
+        val noMiss = WetInkPrediction(missFull = 1e9, missNone = 2e9)
+        val options = listOf(
+            "round 4" to r4,
+            "round 4, ≤ 8 radii" to r4.copy(maxRadii = 8.0),
+            "round 4, ≤ 12 radii" to r4.copy(maxRadii = 12.0),
+            "round 4, 20 ms, ≤ 10 radii" to r4.copy(horizonMs = 20.0, maxRadii = 10.0),
+            "round 4, slow 0.7–0.9" to r4.copy(slowNone = 0.7, slowFull = 0.9),
+            "round 4, pressure 0.02–0.06" to r4.copy(pressureNone = 0.02, pressureFull = 0.06),
+            "no miss gate, ≤ 10 radii, slow 0.8–1" to noMiss.copy(maxRadii = 10.0, slowNone = 0.8, slowFull = 1.0),
+            "no miss gate, ≤ 10 radii" to noMiss.copy(maxRadii = 10.0),
+            "no miss gate" to noMiss,
+            "chosen, ≤ 10 radii" to WetInkPrediction(maxRadii = 10.0),
+            "chosen, ≤ 18 radii" to WetInkPrediction(maxRadii = 18.0),
+            "chosen, ≤ 18 radii, 20 ms" to WetInkPrediction(maxRadii = 18.0, horizonMs = 20.0),
+            "chosen, miss 0.5–2" to WetInkPrediction(missFull = 0.5, missNone = 2.0),
+            "**chosen**" to WetInkPrediction(),
+        )
+        println("| Option | Steady lead ms (px) | Pen-up p95 / max W | Turns p95 W | All p95 / max W (> 0.5 W) | Sim lead ms, all p95 W |")
+        println("|---|---|---|---|---|---|")
+        for ((name, p) in options) {
+            val policy = Policy(name, p) { raw, n, r, _, out -> p.filter(raw, n, r, out) }
+            val a = replay(real, policy)
+            val s = replay(sim, policy)
+            println(
+                "| $name | %.1f (%.1f) | %.2f / %.2f | %.2f | %.2f / %.1f (%d) | %.1f, %.2f |".format(
+                    a.leadMs.mean(), a.leadPx.mean(), a.penUp.q(0.95), a.penUp.max(), a.turn.q(0.95), a.all.q(0.95), a.all.max(), a.flicks,
+                    s.leadMs.mean(), s.all.q(0.95),
+                ),
+            )
         }
     }
 

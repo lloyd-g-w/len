@@ -6,6 +6,7 @@ import 'package:len/ink/input/wet_ink.dart';
 import 'package:len/ink/lab/raw_samples.dart';
 import 'package:len/ink/lab/replay_run.dart';
 import 'package:len/ink/lab/wet_ink_model.dart';
+import 'package:len/ink/render/stroke_renderer.dart';
 
 import 'metric.dart';
 import 'outline_geometry.dart';
@@ -31,6 +32,25 @@ Contour hullPolygon(Offset a, Offset b, double ra, double rb, {int n = 16}) {
     for (var i = 0; i <= n; i++) b + Offset.fromDirection(angle - t + 2 * t * i / n, rb),
     for (var i = 0; i <= n; i++)
       a + Offset.fromDirection(angle + t + (2 * math.pi - 2 * t) * i / n, ra),
+  ];
+}
+
+/// The overlay's piece [g] as a polygon: [hullPolygon], or with its butt
+/// caps (square to the piece; a dot with them is a square).
+Contour segmentPolygon(WetSegment g, {int n = 16}) {
+  if (!g.flatA && !g.flatB) return hullPolygon(g.a, g.b, g.ra, g.rb, n: n);
+  final d = g.b - g.a;
+  if (d.distance < 1e-9) {
+    final r = g.ra;
+    return [g.a + Offset(-r, -r), g.a + Offset(r, -r), g.a + Offset(r, r), g.a + Offset(-r, r)];
+  }
+  final angle = math.atan2(d.dy, d.dx);
+  Iterable<Offset> end(Offset c, double r, double from, bool flat) => flat
+      ? [c + Offset.fromDirection(from, r), c + Offset.fromDirection(from + math.pi, r)]
+      : [for (var i = 0; i <= n; i++) c + Offset.fromDirection(from + math.pi * i / n, r)];
+  return [
+    ...end(g.b, g.rb, angle - math.pi / 2, g.flatB),
+    ...end(g.a, g.ra, angle + math.pi / 2, g.flatA),
   ];
 }
 
@@ -100,6 +120,11 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
     )!;
     final radii = [for (final x in wet.radii) x * dpr];
     final shape = wet.shape.scaled(dpr);
+    // The end taper `end` carries (overlay px).
+    final taperEnd =
+        StrokeRenderer.specFor(r.pen.tool, r.pen.width, stroke.style).taperEnd *
+        view.viewScale *
+        dpr;
     final first = view.toScreen(run.frames.first.points.first.x, run.frames.first.points.first.y);
     final contact = contacts
         .where((c) => (c.samples.first.position - first).distance < 1)
@@ -114,6 +139,14 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
     List<(Rect, Contour)> shownAt(int k) => outlines[k] ??= k <= end
         ? ink(r.frames[k].points, false, toPx, stroke.style)
         : ink(stroke.points, true, toPx, stroke.style);
+    // The committed stroke without its end taper: what the overlay stands
+    // in for until Flutter has committed the stroke (the taper forms then,
+    // measured by the end metrics).
+    List<(Rect, Contour)>? untapered;
+    List<(Rect, Contour)> referenceAt(int k, {required bool committed}) =>
+        committed || k <= end || taperEnd <= 0
+        ? shownAt(k)
+        : untapered ??= ink(stroke.points, true, toPx, stroke.style.copyWith(taperEnd: 0));
     for (var k = start; k <= end + 2; k++) {
       outlines.remove(k - 1);
       for (final depth in depths) {
@@ -134,6 +167,7 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
         }
         delivered[depth] = n;
         if (model.samples.isEmpty) continue;
+        if (ended) model.commit(taperEnd: taperEnd);
         // Frame k is on screen `depth` − 1 frame intervals after it was
         // built (in time: after a lift the app idles and the next recorded
         // frames come much later, but the commit frame is shown on time).
@@ -148,10 +182,7 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
         );
         final overlay = from >= model.samples.length
             ? <Contour>[]
-            : [
-                for (final g in model.segments(from, model.samples.length))
-                  hullPolygon(g.a, g.b, g.ra, g.rb),
-              ];
+            : [for (final g in model.segments(from, model.samples.length)) segmentPolygon(g)];
         final tip = model.samples.last.position;
         final reach = radii.last * 2 + 2;
         var window = Rect.fromCircle(center: tip, radius: reach);
@@ -160,7 +191,7 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
           OverlayMoment(
             _clip(shownAt(k), window),
             overlay,
-            _clip(shownAt(k + depth), window),
+            _clip(referenceAt(k + depth, committed: ended), window),
             window,
           ),
         );

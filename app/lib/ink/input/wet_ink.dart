@@ -49,8 +49,8 @@ class WetInkView {
 /// can, until Flutter's own rendering of the live stroke catches up.
 ///
 /// Only opaque pen ink qualifies — anywhere the overlay and Flutter's ink
-/// overlap must look the same, which translucent (or flat-capped
-/// highlighter) ink would not.
+/// overlap must look the same, which translucent (highlighter) ink would
+/// not.
 class WetInkStyle {
   const WetInkStyle({required this.color, required this.radii, required this.shape});
 
@@ -138,6 +138,8 @@ class WetInkShape {
     required this.cornerK,
     required this.lag,
     required this.startReach,
+    required this.flat,
+    required this.taperStart,
   });
 
   /// The rules of [spec] for a stroke of [unit] (`StrokeOutline.unitOf`)
@@ -166,6 +168,8 @@ class WetInkShape {
       cornerK: params.cornerK,
       lag: params.lag,
       startReach: params.startReach,
+      flat: spec.flatCaps,
+      taperStart: spec.taperStart * scale,
     );
   }
 
@@ -195,6 +199,14 @@ class WetInkShape {
   /// `ShapeParams.lag`): how many samples the tip rules keep back, and the
   /// start rules' reach (samples); [lag] is 0 with the stabiliser off.
   final int lag, startReach;
+
+  /// Butt caps instead of round ones.
+  final bool flat;
+
+  /// Length over which the start narrows to a point (`Taper`; 0: none).
+  /// The end's is known only once Flutter has committed the stroke (the
+  /// overlay's `end`).
+  final double taperStart;
 
   /// The outline's position rules for points in these units.
   ShapeParams get positions => ShapeParams.positionsOf(
@@ -233,6 +245,8 @@ class WetInkShape {
     cornerK: cornerK,
     lag: lag,
     startReach: startReach,
+    flat: flat,
+    taperStart: taperStart * f,
   );
 
   /// The values in the order the overlay's `begin` message carries them
@@ -257,6 +271,8 @@ class WetInkShape {
     cornerK.toDouble(),
     lag.toDouble(),
     startReach.toDouble(),
+    flat ? 1 : 0,
+    taperStart,
     ...kernel,
   ]);
 }

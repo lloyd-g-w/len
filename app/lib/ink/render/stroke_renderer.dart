@@ -59,14 +59,19 @@ abstract final class StrokeRenderer {
   }
 
   /// The outline shape parameters for a stroke; the highlighter has flat
-  /// ends, the pen round caps.
-  static OutlineSpec specFor(InkTool tool, double width, StrokeStyle style) => OutlineSpec(
-    width: width,
-    thinning: style.thinning,
-    streamline: style.streamline,
-    flatCaps: tool.isHighlighter,
-    unit: style.unit,
-  );
+  /// ends, the pen those of its style ([StrokeStyle.ends]).
+  static OutlineSpec specFor(InkTool tool, double width, StrokeStyle style) {
+    final tapered = !tool.isHighlighter && style.ends == StrokeEnds.tapered;
+    return OutlineSpec(
+      width: width,
+      thinning: style.thinning,
+      streamline: style.streamline,
+      flatCaps: tool.isHighlighter || style.ends == StrokeEnds.flat,
+      unit: style.unit,
+      taperStart: tapered ? style.taperStart * width : 0,
+      taperEnd: tapered ? style.taperEnd * width : 0,
+    );
+  }
 
   /// The fill paint for ink in colour [argb] with [style].
   static Paint paintFor(int argb, StrokeStyle style) {

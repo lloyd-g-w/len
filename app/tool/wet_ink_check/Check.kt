@@ -26,9 +26,14 @@ fun main(args: Array<String>) {
                 "A" -> model!!.add(f[1].toDouble(), f[2].toDouble(), f[3].toDouble(), f[4].toLong(), f[5] == "1")
                 "Q" -> {
                     val m = model!!
+                    if (f[3].toDouble() >= 0) m.commit(f[4].toDouble())
                     val from = m.tailStart(f[1].toDouble(), f[2].toDouble(), f[3].toDouble())
                     val got = mutableListOf(from.toDouble())
-                    if (from < m.samples.size) got.addAll(m.segments(from, m.samples.size).toList())
+                    if (from < m.samples.size) {
+                        val segments = m.segments(from, m.samples.size)
+                        got.add((if (m.flatStart) 1.0 else 0.0) + (if (m.flatEnd) 2.0 else 0.0))
+                        got.addAll(segments.toList())
+                    }
                     val want = expected[q++].split(' ').map { it.toDouble() }
                     queries++
                     if (got.size != want.size || got[0] != want[0]) {

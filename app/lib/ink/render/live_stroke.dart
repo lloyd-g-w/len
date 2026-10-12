@@ -124,8 +124,11 @@ class LiveStrokeBuilder {
   /// The committed outline of the finished stroke [points] (the live
   /// points, possibly with a few more and the last pressures settled):
   /// what `StrokeOutline.build(points, spec)` builds, reusing the frozen
-  /// part.
-  Path finish(List<StrokePoint> points) {
+  /// part. [taperEnd] is the end taper of the committed stroke (world
+  /// units; by default the spec's), which may follow the pen's speed at
+  /// the lift; the pieces it reaches are emitted again.
+  Path finish(List<StrokePoint> points, {double? taperEnd}) {
+    final spec = this.spec.withTaperEnd(taperEnd ?? this.spec.taperEnd);
     if (_shaperOrNull == null || !_shaper.started || points.isEmpty) {
       return StrokeOutline.build(points, spec);
     }
@@ -150,13 +153,7 @@ class LiveStrokeBuilder {
       final (_, cursor, pieces) = _checkpoints[at];
       _checkpoints.removeRange(at + 1, _checkpoints.length);
       _cursor = cursor;
-      if (pieces < _pieces.length) {
-        _pieces.removeRange(pieces, _pieces.length);
-        _frozen = Path();
-        for (final p in _pieces) {
-          _frozen.addPath(p, Offset.zero);
-        }
-      }
+      _setPieces(pieces);
       _fed.removeRange(_shaper.pointCount, _fed.length);
       _feed(points);
       // The pen-up hook may reach back further than the change.
@@ -166,12 +163,15 @@ class LiveStrokeBuilder {
           debugFallback?.call('keep $keep < sample $sample');
           return StrokeOutline.build(points, spec);
         }
-        _shaper.update(ended: true, keep: keep);
+        _shaper
+          ..taperEnd = spec.taperEnd
+          ..update(ended: true, keep: keep);
         final out = Path();
         if (StrokeOutline.isDot(_shaper)) {
           StrokeOutline.dot(PathSink(out), _shaper, spec);
           return out;
         }
+        if (!_unfreeze(_shaper.taperedFrom)) return StrokeOutline.build(points, spec);
         out.addPath(_frozen, Offset.zero);
         _emitter.emit(PathSink(out), from: _cursor);
         return out;
@@ -179,6 +179,41 @@ class LiveStrokeBuilder {
       sample = keep - 1;
     }
     return StrokeOutline.build(points, spec);
+  }
+
+  /// Drops the frozen pieces that depend on samples from [sample] on (the
+  /// end taper's), back to the latest checkpoint before them; false when
+  /// there is none.
+  bool _unfreeze(int sample) {
+    // A piece up to sample q depends on samples up to q + 2 (the tangent
+    // and fold tests look one and two ahead).
+    if (_cursor.at + 3 <= sample) return true;
+    var k = _checkpoints.length - 1;
+    while (k >= 0 && _checkpoints[k].$2.at + 3 > sample) {
+      k--;
+    }
+    if (k < 0) {
+      if (sample >= 3) {
+        debugFallback?.call('no checkpoint before the end taper at $sample');
+        return false;
+      }
+      _cursor = (at: 0, cut: false);
+      _setPieces(0);
+      return true;
+    }
+    final (_, cursor, pieces) = _checkpoints[k];
+    _cursor = cursor;
+    _setPieces(pieces);
+    return true;
+  }
+
+  void _setPieces(int count) {
+    if (count >= _pieces.length) return;
+    _pieces.removeRange(count, _pieces.length);
+    _frozen = Path();
+    for (final p in _pieces) {
+      _frozen.addPath(p, Offset.zero);
+    }
   }
 
   bool _ready(List<StrokePoint> points) {
@@ -232,8 +267,9 @@ class LiveStrokeBuilder {
     final builder = _builders[live];
     _builders[live] = null;
     if (builder == null || points.isEmpty || points.first != builder._fed.firstOrNull) return null;
-    if (!builder.spec.sameShape(StrokeRenderer.specFor(tool, width, style))) return null;
-    return builder.finish(points);
+    final spec = StrokeRenderer.specFor(tool, width, style);
+    if (!builder.spec.sameLiveShape(spec)) return null;
+    return builder.finish(points, taperEnd: spec.taperEnd);
   }
 
   /// The live outline of [points] drawn with [tool], [width] and [style]:

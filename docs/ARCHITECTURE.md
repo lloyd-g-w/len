@@ -870,7 +870,10 @@ replayed in step with the ink.
 
 ## Input (`ink/input/ink_input_controller.dart`)
 
-Raw `Listener` pointer events (no gesture arena → no latency, full pressure data):
+Raw `Listener` pointer events (no gesture arena → no latency, full pressure data).
+The controller only routes: the drawing contact (ink, erasing, pointer tools, commit
+and bounce) is `input/ink_drawing.dart`, point thinning and pressure
+`input/stroke_sampler.dart`, pan/zoom, wheel and trackpad `input/pointer_navigation.dart`.
 
 - **Stylus** draws; the **eraser end** erases; the **side button held** (S Pen) does
   the user's `PenButtonAction` (`input/stylus_buttons.dart`): erase, lasso (a selection
@@ -976,12 +979,13 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   `MotionEventPredictor` (Android's own predictor where the device has
   one, else a Kalman filter) extrapolates the pen; `WetInkPrediction`
   (pure Kotlin) draws only a short, cautious piece of it, at the tip's
-  radius: points at most 10 ms ahead, no further along them than the recent
-  speed covers in 10 ms, 6 tip radii, or the length over which a straight
-  line leaves the current curvature by a quarter radius; scaled smoothly
-  to nothing while the pen slows down, turns (15–45° between the last two
-  8 ms windows) or lifts (pressure falling or low), and none in the first
-  16 ms. The pen-up's frame has no tip at all (no prediction, and no line
+  radius: points at most 15 ms ahead, no further along them than the recent
+  speed covers in 15 ms, 12 tip radii, or the length over which a straight
+  line leaves the current curvature by 0.4 radius; scaled smoothly to
+  nothing while the pen slows down, turns (15–45° between the last two
+  8 ms windows), lifts (pressure falling or low) or the predictor has just
+  missed (the samples landed 1–3 tip radii from the prediction kept about
+  a frame earlier), and none in the first 16 ms. The pen-up's frame has no tip at all (no prediction, and no line
   to the raw pen-up sample, which could draw a pen-up hook the model cut).
   Predicted points are only drawn, never stored; each event replaces them
   (in reused buffers). With the stabiliser on (`WetInkModel.stabilised`)
@@ -1214,13 +1218,15 @@ The toolbar offers exactly two inks — the **pen** (`InkTool.ballpoint`) and th
   and the width range offered in the UI.
 - **`StrokeStyle`** (per stroke, stored in `strokes.style` and synced as
   `data.style`): opacity, thinning (pressure sensitivity), streamline
-  (stabiliser) and the zoom it was written at (`unit`); required and parsed
+  (stabiliser), the zoom it was written at (`unit`), and end shape (round,
+  flat or tapered, with independent start/end lengths in stroke widths);
+  required and parsed
   strictly (as is the tool: an unknown one makes the stroke malformed). So
   a stroke renders identically on every device, whatever the local tool
   settings.
 
-**Highlighter** strokes are translucent with flat chisel ends (the pen has
-round caps), drawn before other ink in each chunk picture, and the live
+**Highlighter** strokes are translucent with flat chisel ends (pen caps are
+configurable), drawn before other ink in each chunk picture, and the live
 highlighter stroke is painted on a layer beneath committed ink.
 
 User customisation lives in `ToolSettings`, persisted as JSON in the local
