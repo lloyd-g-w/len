@@ -37,7 +37,7 @@ class _EraserPainter extends CustomPainter {
     final stroke = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 1.5 / s; // 1.5 px on screen, like the symbols
     canvas
       ..drawRRect(body, stroke)
       ..save()

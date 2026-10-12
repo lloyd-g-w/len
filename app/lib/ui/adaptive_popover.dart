@@ -122,7 +122,10 @@ class _PopoverRoute<T> extends PopupRoute<T> {
       opacity: curved,
       child: ScaleTransition(
         scale: Tween(begin: Motion.popoverScale, end: 1.0).animate(curved),
-        alignment: Alignment.topCenter,
+        // Grows from the anchor: down from below it, up from above it.
+        alignment: anchor.center.dy < MediaQuery.sizeOf(context).height / 2
+            ? Alignment.topCenter
+            : Alignment.bottomCenter,
         child: child,
       ),
     );

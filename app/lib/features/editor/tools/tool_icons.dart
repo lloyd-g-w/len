@@ -45,7 +45,8 @@ class _ShapeGlyphPainter extends CustomPainter {
       Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width / 11
+        // 1.5 px, matching the Symbols at weight 300.
+        ..strokeWidth = 1.5
         ..strokeJoin = StrokeJoin.round
         ..strokeCap = StrokeCap.round,
     );
