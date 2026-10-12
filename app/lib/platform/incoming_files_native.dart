@@ -44,7 +44,7 @@ void _listen(StreamController<List<XFile>> controller) {
             mimeType: entry['mime'] as String?,
           ),
     ];
-    controller.add(files);
+    if (files.isNotEmpty) controller.add(files);
   });
   channel.invokeMethod<void>('ready').catchError((Object e) {
     debugPrint('Incoming files unavailable: $e');
