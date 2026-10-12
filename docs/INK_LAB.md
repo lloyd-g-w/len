@@ -581,6 +581,10 @@ starting after the next `setBuffer` of Flutter's `SurfaceView`.
 | Flutter: sample's event → frame presented | 30.5 / 39.9 / 51.4 / 67.3 | 31.2 / 39.6 / 46.3 / 49.5 | 29.5 / 37.9 / 41.9 / 47.6 |
 | Flutter: frame built (`progress`) → presented | 20.8 / 29.2 / 40.7 / 48.2 | 21.3 / 29.5 / 37.3 / 42.8 | 21.0 / 29.0 / 30.5 / 37.8 |
 
+The release build (R8) measures the same on a page: overlay 5.4 / 7.3 /
+11.0 / 20.8 ms from the event (3.9 / 5.5 / 7.6 / 10.0 from arrival),
+Flutter 31.3 / 39.8 / 42.9 / 51.7.
+
 - **≈ 25 ms sooner.** The overlay shows a sample about 5.5 ms after the
   digitiser event (4 ms after it reaches the app; 1.5 ms is Android's input
   dispatch), Flutter about 30 ms. Both then wait for the scan-out to reach
