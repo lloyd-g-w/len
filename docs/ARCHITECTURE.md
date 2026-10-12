@@ -158,7 +158,8 @@ Two more things keep pen-up and first show off the frame:
 Measuring: profile builds with `--dart-define=LEN_PERF=true` log frame and
 pen-up latency summaries (`PerfProbe`, see docs/INK_LAB.md, *Rendering
 performance*); timeline markers `len.renderTile`, `len.commitStroke`,
-`len.persistStrokes`, `len.recordChunk`, `len.handwritingCluster` show up in Perfetto / DevTools.
+`len.persistStrokes`, `len.recordChunk`, `len.handwritingCluster` show up in
+Perfetto / DevTools.
 
 **Navigation** (`ink/navigation/`, `features/editor/canvas/`): `KineticPan`
 measures the viewport's own motion during a navigation gesture (fingers,

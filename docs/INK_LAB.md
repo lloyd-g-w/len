@@ -458,6 +458,64 @@ made at the bottom of a sharp turn.
   numbers that matter are the shape: per-frame cost flat with length, and
   pen-up no more than a few frames' work.
 
+## Rendering performance (committed ink)
+
+Ink quality is measured above; the cost of *showing* committed ink is
+measured on the tablet with the perf probe (`ink/lab/perf_probe.dart`):
+
+```sh
+# from app/: a profile build with the probe (logs LENPERF lines)
+tool/heavy.sh nix develop ..#android -c flutter build apk --profile \
+  --target-platform android-arm64 --dart-define=LEN_PERF=true
+nix develop ..#android -c adb install -r build/app/outputs/flutter-apk/app-profile.apk
+```
+
+1. Ink Lab → speedometer → *Create perf test notebooks*: "Perf test · light
+   page" (4 lines of writing), "· heavy page" (page 1 ≈ 1 100 strokes, page 2
+   ≈ 2 300), "· canvas" (3 000 × 4 200 units of writing).
+   Delete them with the same menu.
+2. Open one, then write scripted S Pen strokes into its empty area, e.g. 40
+   strokes of 250 ms in a grid:
+   `adb shell input stylus swipe X Y X+140 Y+25 250` (device pixels).
+3. `adb logcat -s flutter | grep LENPERF`: after each burst of frames (1.5 s
+   without one) a line with build / raster / total frame times
+   (p50/p90/p99/max ms), frames over 16 ms, `liftToShown` (pen-up event →
+   end of rasterising the first frame that shows the committed stroke) and
+   counters (`tileImages`, `tileVector`, `tileOverlays`, `tileRenders`,
+   `tileAppends`, `chunkDraws`).
+
+Timeline markers for Perfetto / DevTools: `len.commitStroke`,
+`len.persistStrokes`, `len.renderTile`, `len.recordChunk`,
+`len.handwritingCluster`.
+
+**Before tiles** (Galaxy Tab S8+, Android 16, Impeller/Vulkan, profile;
+main at ae78426 + probe; 40 scripted strokes), ms as p50/p90/p99/max:
+
+| Content | raster | total frame | liftToShown |
+| --- | --- | --- | --- |
+| light page | 6.4/9.0/10.0/10.8 | 9.1/12.3/15.8/24.6 (7 of 899 > 16 ms) | 15.9/18.8/21.3/21.3 |
+| heavy page 1 (≈ 1 100 strokes) | 21.8/23.0/30.3/32.7 | 39.8/43.7/56.9/61.5 (all > 16 ms) | 47.4/61.9/71.3/71.3 |
+| heavy page 2 (≈ 2 300 strokes) | 44.7/59.8/60.2/61.5 | 87.9/117.8/119.9/120.4 (all) | 121.7/171.4/172.6/172.6 |
+| canvas at 100 %, screen full of writing | 54.5/73.9/83.6/124.3 | 107.6/145.9/151.4/151.6 | 144/203/217/217 |
+| canvas fitted (LOD), steady | 2.5/14.6/47.4/62.5 | 5.6/28.6/115.4/178 | 42/80/91/91 |
+
+First show: turning to heavy page 2 built one frame for 1.6 s; opening the
+canvas fitted, 2.8 s, and strokes written while it warmed up took up to 5 s
+to appear (p90 2.4 s) — the "sometimes it takes a second" of the bug
+report. Cause: Impeller re-tessellates every committed outline on screen in
+every frame (no raster cache), so the cost of each frame of writing grew
+with the ink already on the page; and loaded strokes' outlines were built
+on the UI thread in the first frame that drew them.
+
+**After** (tiles, write-behind, outlines on worker isolates; see
+ARCHITECTURE, *Committed ink: tiles*): not yet measured on the tablet — it
+dropped off the network for the whole session. Expected from the design and
+the tests (`test/ink_tiles_test.dart`: a settled frame of 5 000 strokes
+draws ≤ 9 images and no vectors; pen-up draws only the new stroke over the
+tiles): heavy-content frames close to the light page's, `liftToShown` about
+one frame, and no first-show frame of seconds. Fill in this table with the
+procedure above when the tablet is back.
+
 ## Low-latency ink: default
 
 **Off by default, for now.** The model says the overlay is right: no gap or
