@@ -49,7 +49,6 @@ EditorMenuActions editorMenuActions(
         ? () => commands.openOverview(context, backgrounds: session.backgrounds)
         : null,
     onPageCommand: paged ? (c) => commands.run(context, c, page) : null,
-    onGoTo: paged ? () => commands.goToPagePrompt(context) : null,
     onAddWithTemplate: paged ? () => commands.addPageWithTemplate(context) : null,
     onInsertPdf: paged ? () => commands.insertPdf(context) : null,
     onExport: paged ? () => commands.export(context) : null,

@@ -73,7 +73,8 @@ void main() {
       await tester.tap(find.text('Page'));
       await settle(tester);
       await shoot(tester, 'e_page_menu_phone_large_text');
-      await tester.tap(find.text('Go to page…'));
+      await dismiss(tester, phone.center(Offset.zero));
+      await tester.tap(find.byTooltip('Go to page'), warnIfMissed: false);
       await settle(tester);
       await shoot(tester, 'e_goto_page_phone_large_text');
     });

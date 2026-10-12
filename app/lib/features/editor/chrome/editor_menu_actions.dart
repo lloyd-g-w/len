@@ -25,7 +25,6 @@ class EditorMenuActions {
     this.onToggleBookmark,
     this.onOverview,
     this.onPageCommand,
-    this.onGoTo,
     this.onAddWithTemplate,
     this.onInsertPdf,
     this.onExport,
@@ -67,7 +66,6 @@ class EditorMenuActions {
   final VoidCallback? onToggleBookmark;
   final VoidCallback? onOverview;
   final ValueChanged<PageCommand>? onPageCommand;
-  final VoidCallback? onGoTo;
   final VoidCallback? onAddWithTemplate;
   final VoidCallback? onInsertPdf;
 
