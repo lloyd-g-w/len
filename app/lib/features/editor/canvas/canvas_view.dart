@@ -71,6 +71,7 @@ class CanvasView extends StatelessWidget {
                 Align(
                   alignment: Alignment.bottomRight,
                   child: FloatingPanel(
+                    radius: Radii.pill,
                     child: IconButton(
                       tooltip: 'Fit content (Shift+1)',
                       onPressed: nav.fitContent,

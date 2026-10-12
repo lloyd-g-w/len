@@ -20,7 +20,6 @@ class FontMenuButton extends StatelessWidget {
     return PopupMenuButton<TextFont>(
       key: const ValueKey('font-menu'),
       tooltip: 'Font',
-      initialValue: current,
       onSelected: onSelected,
       itemBuilder: (_) => [
         for (final f in TextFont.values)
@@ -129,7 +128,6 @@ class HeadingMenuButton extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return PopupMenuButton<int>(
       tooltip: 'Paragraph style',
-      initialValue: heading,
       onSelected: onSelected,
       itemBuilder: (_) => [
         CheckedPopupMenuItem(value: 0, checked: heading == 0, child: const Text('Body text')),

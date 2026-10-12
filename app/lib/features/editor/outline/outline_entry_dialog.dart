@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/outline/outline_tree.dart';
 import '../../../ui/app_dialogs.dart';
@@ -84,6 +85,7 @@ class _OutlineEntryDialogState extends State<_OutlineEntryDialog> {
             if (parents != null && parents.isNotEmpty) ...[
               const SizedBox(height: Gaps.lg),
               DropdownButtonFormField<String?>(
+                icon: const Icon(Symbols.expand_more_rounded),
                 key: const ValueKey('outline-parent-field'),
                 initialValue: _parent,
                 isExpanded: true,

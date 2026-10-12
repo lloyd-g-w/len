@@ -20,11 +20,17 @@ Future<void> pumpAt(WidgetTester tester, Size size, Widget child) async {
 }
 
 void main() {
-  for (final (name, size, phone) in [
-    ('phone', const Size(360, 740), true),
-    ('desktop', const Size(1280, 800), false),
+  // Targets are decided by input (touch-first or pointer), not width.
+  for (final (name, size, touch) in [
+    ('touch', const Size(360, 740), true),
+    ('pointer', const Size(1280, 800), false),
+    ('wide touch', const Size(1280, 800), true),
   ]) {
-    testWidgets('swatch grids: 48 dp cells on phones, compact elsewhere ($name)', (tester) async {
+    testWidgets('swatch grids: 48 dp cells on touch, compact with a pointer ($name)', (
+      tester,
+    ) async {
+      Targets.debugTouchFirst = touch;
+      addTearDown(() => Targets.debugTouchFirst = null);
       int? tapped;
       await pumpAt(
         tester,
@@ -40,7 +46,7 @@ void main() {
         ),
       );
       final cell = tester.getRect(find.byType(ColorDot).first);
-      expect(cell.width, phone ? greaterThanOrEqualTo(48) : lessThan(48));
+      expect(cell.width, touch ? greaterThanOrEqualTo(48) : lessThan(48));
       // A tap in the cell's corner, outside the round dot, still counts.
       await tester.tapAt(cell.topLeft + const Offset(2, 2));
       expect(tapped, 0);

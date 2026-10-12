@@ -87,6 +87,8 @@ extension ThemeComponents on ThemeData {
           side: BorderSide(color: scheme.outlineVariant),
           selectedBackgroundColor: Surfaces.pressed(scheme),
           selectedForegroundColor: scheme.onSurface,
+          foregroundColor: scheme.onSurfaceVariant,
+          disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.38),
           splashFactory: NoSplash.splashFactory,
         ).copyWith(overlayColor: calm),
       ),
@@ -214,6 +216,13 @@ extension ThemeComponents on ThemeData {
         textStyle: textTheme.bodySmall?.copyWith(color: dark ? scheme.onSurface : Colors.white),
       ),
       scrollbarTheme: const ScrollbarThemeData(radius: Radius.circular(Radii.pill)),
+      // Flutter's own back, close and drawer buttons use Symbols too.
+      actionIconTheme: ActionIconThemeData(
+        backButtonIconBuilder: (_) => const Icon(Symbols.arrow_back_rounded),
+        closeButtonIconBuilder: (_) => const Icon(Symbols.close_rounded),
+        drawerButtonIconBuilder: (_) => const Icon(Symbols.menu_rounded),
+        endDrawerButtonIconBuilder: (_) => const Icon(Symbols.menu_rounded),
+      ),
     );
   }
 

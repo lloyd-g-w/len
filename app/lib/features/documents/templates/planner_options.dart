@@ -78,6 +78,7 @@ class PlannerOptions extends StatelessWidget {
           tilePadding: EdgeInsets.zero,
           childrenPadding: const EdgeInsets.only(bottom: Gaps.sm),
           dense: true,
+          trailing: const Icon(Symbols.expand_more_rounded, size: Glyphs.bar),
           shape: const Border(),
           collapsedShape: const Border(),
           children: [_CalendarRow(calendar: selection.plan.calendar, onChanged: _setCalendar)],

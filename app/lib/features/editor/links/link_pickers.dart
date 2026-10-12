@@ -126,6 +126,7 @@ class _PagePickerState extends State<_PagePicker> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
+                    icon: const Icon(Symbols.expand_more_rounded),
                     key: const ValueKey('link-notebook-field'),
                     initialValue: _notebookId,
                     isExpanded: true,

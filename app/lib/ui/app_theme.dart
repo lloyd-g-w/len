@@ -40,6 +40,9 @@ abstract final class AppTheme {
             surfaceContainerHighest: const Color(0xFFE0E0DD),
             outline: const Color(0xFFADADB4),
             outlineVariant: const Color(0xFFE1E1DE),
+            // Tonal roles stay neutral: the accent is kept for primary actions.
+            secondaryContainer: const Color(0xFFE7E7E4),
+            onSecondaryContainer: const Color(0xFF1B1B1F),
             surfaceTint: Colors.transparent,
           )
         : base.copyWith(
@@ -53,6 +56,8 @@ abstract final class AppTheme {
             surfaceContainerHighest: const Color(0xFF2F2F35),
             outline: const Color(0xFF5C5C66),
             outlineVariant: const Color(0xFF2C2C32),
+            secondaryContainer: const Color(0xFF2F2F35),
+            onSecondaryContainer: const Color(0xFFECECF0),
             surfaceTint: Colors.transparent,
           );
   }

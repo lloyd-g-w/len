@@ -59,6 +59,7 @@ class PageNavigator extends StatelessWidget {
       icon: Icon(icon),
     );
     return FloatingPanel(
+      radius: Radii.pill,
       padding: const EdgeInsets.symmetric(horizontal: Gaps.xs, vertical: Gaps.xxs),
       child: Row(
         mainAxisSize: MainAxisSize.min,
