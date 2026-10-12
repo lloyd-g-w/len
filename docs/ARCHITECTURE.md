@@ -869,7 +869,10 @@ replayed in step with the ink.
 
 ## Input (`ink/input/ink_input_controller.dart`)
 
-Raw `Listener` pointer events (no gesture arena → no latency, full pressure data):
+Raw `Listener` pointer events (no gesture arena → no latency, full pressure data).
+The controller only routes: the drawing contact (ink, erasing, pointer tools, commit
+and bounce) is `input/ink_drawing.dart`, point thinning and pressure
+`input/stroke_sampler.dart`, pan/zoom, wheel and trackpad `input/pointer_navigation.dart`.
 
 - **Stylus** draws; the **eraser end** erases; the **side button held** (S Pen) does
   the user's `PenButtonAction` (`input/stylus_buttons.dart`): erase, lasso (a selection

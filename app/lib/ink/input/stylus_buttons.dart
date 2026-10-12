@@ -20,6 +20,10 @@ enum StylusRoute {
 /// button as primary and the eraser flag as [kSecondaryStylusButton].
 const int stylusSideButtons = kPrimaryStylusButton | kSecondaryStylusButton;
 
+/// Whether [kind] is a stylus (either end).
+bool isStylusKind(PointerDeviceKind? kind) =>
+    kind == PointerDeviceKind.stylus || kind == PointerDeviceKind.invertedStylus;
+
 /// Routes a stylus event by its device kind and held buttons: the eraser end
 /// (an inverted stylus) always erases; a held side button does [action].
 StylusRoute routeStylus(PointerDeviceKind kind, int buttons, PenButtonAction action) {
