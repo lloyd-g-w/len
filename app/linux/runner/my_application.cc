@@ -6,6 +6,7 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "window_state.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -122,8 +123,8 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 800);
-  // Smallest usable window (toolbar + a bit of canvas).
-  gtk_widget_set_size_request(GTK_WIDGET(window), 360, 400);
+  gtk_widget_set_size_request(GTK_WIDGET(window), kMinWindowWidth,
+                              kMinWindowHeight);
   set_window_icon(window);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
@@ -138,6 +139,8 @@ static void my_application_activate(GApplication* application) {
   fl_view_set_background_color(view, &background_color);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
+  // Last size / position / maximised state; "len/window" (full screen).
+  window_state_attach(window, view);
 
   // Show the window when Flutter renders.
   // Requires the view to be realized so we can start rendering.
@@ -222,9 +225,8 @@ static void my_application_startup(GApplication* application) {
 
 // Implements GApplication::shutdown.
 static void my_application_shutdown(GApplication* application) {
-  // MyApplication* self = MY_APPLICATION(object);
-
-  // Perform any actions required at application shutdown.
+  MyApplication* self = MY_APPLICATION(application);
+  if (self->window != nullptr) window_state_save(self->window);
 
   G_APPLICATION_CLASS(my_application_parent_class)->shutdown(application);
 }
