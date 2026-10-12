@@ -138,3 +138,11 @@ canvas.
 8. The accent colour picker (#63).
 9. Cover patterns and folder icons (#43, #51).
 10. Ink Lab in release builds (#72); the phone bottom navigation goes too (#49).
+
+## Lead decisions (overrides the table above)
+
+- **Approved** as written, except the rows below.
+- **Outline (row 29): keep** user outline entries and the outline panel (GoodNotes parity); restyle only.
+- **Ink Lab (row 72): keep in release builds,** still behind 7 taps on the version. The user records real S Pen input with it on the tablet.
+- **Material Symbols Rounded (`material_symbols_icons`): approved.**
+- **Pen tip ends:** pens get an end style (round / tapered / flat) with per-style settings (taper length; start, end or both). This replaces the old fixed taper and lives in the tool options popover.
