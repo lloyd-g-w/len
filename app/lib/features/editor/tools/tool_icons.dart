@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/shapes/shape_builder.dart';
 import '../../../ink/tool_settings.dart';
 
-const IconData lassoIcon = Icons.highlight_alt_rounded;
-const IconData textIcon = Icons.text_fields_rounded;
-const IconData laserIcon = Icons.ads_click_rounded;
+const IconData lassoIcon = Symbols.highlight_alt_rounded;
+const IconData textIcon = Symbols.text_fields_rounded;
+const IconData laserIcon = Symbols.ads_click_rounded;
 
 /// A shape drawn with the same outline the Shape tool produces, in the
 /// ambient icon colour.
@@ -44,7 +45,8 @@ class _ShapeGlyphPainter extends CustomPainter {
       Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width / 11
+        // 1.5 px, matching the Symbols at weight 300.
+        ..strokeWidth = 1.5
         ..strokeJoin = StrokeJoin.round
         ..strokeCap = StrokeCap.round,
     );

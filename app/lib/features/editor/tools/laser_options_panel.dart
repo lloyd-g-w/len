@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/render/catmull_rom.dart';
 import '../../../ink/render/laser_painter.dart';
@@ -40,12 +41,12 @@ class LaserOptionsPanel extends StatelessWidget {
               segments: const [
                 ButtonSegment(
                   value: LaserMode.dot,
-                  icon: Icon(Icons.circle, size: 12),
+                  icon: Icon(Symbols.circle_rounded, fill: 1, size: 12),
                   label: Text('Dot'),
                 ),
                 ButtonSegment(
                   value: LaserMode.trail,
-                  icon: Icon(Icons.gesture_rounded),
+                  icon: Icon(Symbols.gesture_rounded),
                   label: Text('Trail'),
                 ),
               ],

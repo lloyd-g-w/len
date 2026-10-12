@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/preferences.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/chrome_fade.dart';
+import '../../../ui/floating_panel.dart';
 import '../../../ui/measure_size.dart';
 import 'chrome_metrics.dart';
 
@@ -117,9 +120,12 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
           alignment: _alignment,
           duration: _dragging != null ? Duration.zero : Motion.slow,
           curve: Motion.emphasized,
-          child: AnimatedOpacity(
-            opacity: widget.visible ? 1 : 0,
-            duration: Motion.medium,
+          child: ChromeFade(
+            visible: widget.visible,
+            edge: switch (widget.placement) {
+              ToolbarPosition.top => const Offset(0, -1),
+              ToolbarPosition.bottom || ToolbarPosition.floating => const Offset(0, 1),
+            },
             child: IgnorePointer(
               ignoring: !widget.visible,
               child: MeasureSize(
@@ -166,15 +172,17 @@ class _Grip extends StatelessWidget {
           onPanUpdate: onDrag,
           onPanEnd: (_) => onEnd(),
           onPanCancel: onEnd,
-          child: Material(
-            color: scheme.surfaceContainer,
-            elevation: 3,
-            shadowColor: Colors.black26,
-            borderRadius: BorderRadius.circular(Radii.pill),
+          child: FloatingPanel(
+            radius: Radii.pill,
+            padding: EdgeInsets.zero,
             child: SizedBox(
               width: 28,
               height: 48,
-              child: Icon(Icons.drag_indicator_rounded, size: 20, color: scheme.onSurfaceVariant),
+              child: Icon(
+                Symbols.drag_indicator_rounded,
+                size: Glyphs.bar,
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ),
         ),

@@ -81,7 +81,7 @@ class GestureHud extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(message.icon, size: 18, color: scheme.onInverseSurface),
+                      Icon(message.icon, size: Glyphs.menu, color: scheme.onInverseSurface),
                       const SizedBox(width: Gaps.sm),
                       Text(message.label, style: text?.copyWith(color: scheme.onInverseSurface)),
                       if (message.count > 1)

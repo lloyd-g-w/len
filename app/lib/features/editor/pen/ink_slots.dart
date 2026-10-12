@@ -105,13 +105,13 @@ class WidthSlots extends StatelessWidget {
               onSelect: () => tools.selectWidth(i),
               onEdit: (anchor) => openWidthSlotEditor(anchor, tools, ink, i),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
+                duration: Motion.fast,
                 width: dotSize(ink, config.widths[i]),
                 height: dotSize(ink, config.widths[i]),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: active && i == config.widthIndex
-                      ? scheme.onSecondaryContainer
+                      ? scheme.onSurface
                       : scheme.onSurfaceVariant.withValues(alpha: 0.75),
                 ),
               ),

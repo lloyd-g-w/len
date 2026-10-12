@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
@@ -77,6 +78,7 @@ class PlannerOptions extends StatelessWidget {
           tilePadding: EdgeInsets.zero,
           childrenPadding: const EdgeInsets.only(bottom: Gaps.sm),
           dense: true,
+          trailing: const Icon(Symbols.expand_more_rounded, size: Glyphs.bar),
           shape: const Border(),
           collapsedShape: const Border(),
           children: [_CalendarRow(calendar: selection.plan.calendar, onChanged: _setCalendar)],
@@ -122,8 +124,8 @@ class PlannerOptions extends StatelessWidget {
           _Stepper(
             key: const ValueKey('planner-months'),
             label: plan.months == 1 ? '1 month' : '${plan.months} months',
-            previousIcon: Icons.remove_rounded,
-            nextIcon: Icons.add_rounded,
+            previousIcon: Symbols.remove_rounded,
+            nextIcon: Symbols.add_rounded,
             previousTooltip: 'Fewer months',
             nextTooltip: 'More months',
             onPrevious: plan.months > 1
@@ -213,7 +215,7 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: Gaps.sm),
-    child: Text(text, style: Theme.of(context).textTheme.titleSmall),
+    child: Text(text, style: Theme.of(context).textTheme.labelLarge),
   );
 }
 
@@ -224,8 +226,8 @@ class _Stepper extends StatelessWidget {
     required this.label,
     required this.onPrevious,
     required this.onNext,
-    this.previousIcon = Icons.chevron_left_rounded,
-    this.nextIcon = Icons.chevron_right_rounded,
+    this.previousIcon = Symbols.chevron_left_rounded,
+    this.nextIcon = Symbols.chevron_right_rounded,
     this.previousTooltip = 'Previous',
     this.nextTooltip = 'Next',
   });
@@ -243,7 +245,7 @@ class _Stepper extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Radii.control),
+        borderRadius: BorderRadius.circular(Radii.sm),
         border: Border.all(color: scheme.outlineVariant),
       ),
       child: Row(

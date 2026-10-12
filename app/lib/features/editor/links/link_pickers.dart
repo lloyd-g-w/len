@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/link_target.dart';
 import '../../../domain/notebook.dart';
@@ -44,7 +45,6 @@ class _UrlDialogState extends State<_UrlDialog> {
     builder: (context, _) {
       final valid = UrlLinkTarget.parse(_text.text) != null;
       return AppDialog(
-        icon: Icons.link_rounded,
         title: 'Link to a web address',
         content: DialogBody(
           child: TextField(
@@ -117,7 +117,6 @@ class _PagePickerState extends State<_PagePicker> {
       }
     }
     return AppDialog(
-      icon: Icons.link_rounded,
       title: 'Link to a page',
       content: DialogBody(
         child: _notebooks.isEmpty
@@ -127,6 +126,7 @@ class _PagePickerState extends State<_PagePicker> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
+                    icon: const Icon(Symbols.expand_more_rounded),
                     key: const ValueKey('link-notebook-field'),
                     initialValue: _notebookId,
                     isExpanded: true,
@@ -159,7 +159,10 @@ class _PagePickerState extends State<_PagePicker> {
                           dense: true,
                           selected: i == current,
                           leading: Icon(
-                            page.bookmarked ? Icons.bookmark_rounded : Icons.description_outlined,
+                            page.bookmarked
+                                ? Symbols.bookmark_rounded
+                                : Symbols.description_rounded,
+                            fill: page.bookmarked ? 1 : 0,
                             size: 20,
                           ),
                           title: Text(i == current ? 'Page ${i + 1} (this page)' : 'Page ${i + 1}'),

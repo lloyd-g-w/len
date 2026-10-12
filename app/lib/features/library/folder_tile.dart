@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/folder.dart';
 import '../../ui/app_theme.dart';
@@ -77,13 +78,18 @@ class _FolderTileState extends State<FolderTile> {
         curve: Motion.standard,
         decoration: BoxDecoration(
           color: active
-              ? scheme.primaryContainer
+              ? scheme.primary.withValues(alpha: 0.12)
               : highlighted
               ? scheme.surfaceContainer
               : scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(Radii.control + 2),
+          borderRadius: BorderRadius.circular(Radii.sm),
           border: Border.all(
-            color: active ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.6),
+            // No outlines in light mode (REDESIGN §1.1).
+            color: active
+                ? scheme.primary
+                : theme.brightness == Brightness.dark
+                ? scheme.outlineVariant
+                : Colors.transparent,
             width: active ? 1.6 : 1,
           ),
           boxShadow: feedback || highlighted ? Shadows.low(theme.brightness) : null,
@@ -91,7 +97,7 @@ class _FolderTileState extends State<FolderTile> {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            borderRadius: BorderRadius.circular(Radii.control + 2),
+            borderRadius: BorderRadius.circular(Radii.sm),
             onTap: () => widget.actions.controller.openFolder(_folder.id),
             onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
             onHover: (h) => setState(() => _hovered = h),
@@ -113,7 +119,12 @@ class _FolderTileState extends State<FolderTile> {
                       ),
                       borderRadius: BorderRadius.circular(Radii.sm),
                     ),
-                    child: Icon(Icons.folder_rounded, color: color, size: narrow ? 20 : 22),
+                    child: Icon(
+                      Symbols.folder_rounded,
+                      fill: 1,
+                      color: color,
+                      size: narrow ? 20 : 22,
+                    ),
                   ),
                   SizedBox(width: narrow ? Gaps.sm : Gaps.md),
                   Expanded(
@@ -123,7 +134,7 @@ class _FolderTileState extends State<FolderTile> {
                       children: [
                         Text(
                           _folder.name,
-                          style: theme.textTheme.titleSmall,
+                          style: theme.textTheme.labelLarge,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -137,13 +148,13 @@ class _FolderTileState extends State<FolderTile> {
                     Builder(
                       builder: (anchor) => IconButton(
                         tooltip: 'Folder options',
-                        iconSize: 18,
+                        iconSize: Glyphs.menu,
                         constraints: narrow
                             ? const BoxConstraints(minWidth: 32, minHeight: 48)
                             : null,
                         padding: narrow ? EdgeInsets.zero : null,
                         color: scheme.onSurfaceVariant,
-                        icon: const Icon(Icons.more_horiz_rounded),
+                        icon: const Icon(Symbols.more_horiz_rounded),
                         onPressed: () => unawaited(_showMenu(anchor: anchor)),
                       ),
                     ),

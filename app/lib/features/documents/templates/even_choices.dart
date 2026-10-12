@@ -92,7 +92,7 @@ class _Chip extends StatelessWidget {
       selected: selected,
       child: Material(
         key: choice.key,
-        color: selected ? scheme.secondaryContainer : Colors.transparent,
+        color: selected ? Surfaces.pressed(scheme) : Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: radius,
           side: BorderSide(color: selected ? Colors.transparent : scheme.outlineVariant),
@@ -117,7 +117,7 @@ class _Chip extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelLarge?.copyWith(
-                        color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
+                        color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
                       ),
                     ),
                   ),

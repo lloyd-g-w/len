@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../domain/templates/user_template.dart';
@@ -130,7 +131,7 @@ class _ImportTile extends StatelessWidget {
       child: InkWell(
         key: const ValueKey('import-template'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(Radii.control),
+        borderRadius: BorderRadius.circular(Radii.sm),
         child: Padding(
           padding: const EdgeInsets.all(Gaps.xs),
           child: Column(
@@ -144,7 +145,7 @@ class _ImportTile extends StatelessWidget {
                   border: Border.all(color: scheme.outline.withValues(alpha: 0.6)),
                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
                 ),
-                child: Icon(Icons.add_photo_alternate_outlined, color: scheme.primary),
+                child: Icon(Symbols.add_photo_alternate_rounded, color: scheme.primary),
               ),
               const SizedBox(height: Gaps.xs),
               SizedBox(
@@ -153,7 +154,7 @@ class _ImportTile extends StatelessWidget {
                   'Import…',
                   textAlign: TextAlign.center,
                   maxLines: 2,
-                  style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ),
             ],
@@ -198,7 +199,7 @@ class TemplateTile extends StatelessWidget {
         onTap: onTap,
         onLongPress: onMenu == null ? null : () => onMenu!(_center(context)),
         onSecondaryTapUp: onMenu == null ? null : (d) => onMenu!(d.globalPosition),
-        borderRadius: BorderRadius.circular(Radii.control),
+        borderRadius: BorderRadius.circular(Radii.sm),
         child: Padding(
           padding: const EdgeInsets.all(Gaps.xs),
           child: Column(
@@ -219,12 +220,12 @@ class TemplateTile extends StatelessWidget {
                     ),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(Radii.xs - 2),
+                        borderRadius: BorderRadius.circular(Radii.sm),
                         border: Border.all(color: scheme.outlineVariant),
                         boxShadow: Shadows.low(theme.brightness),
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(Radii.xs - 2),
+                        borderRadius: BorderRadius.circular(Radii.sm),
                         child: TemplatePreview(template: template, width: width),
                       ),
                     ),
@@ -240,7 +241,7 @@ class TemplateTile extends StatelessWidget {
                   label,
                   textAlign: TextAlign.center,
                   maxLines: 2,
-                  style: theme.textTheme.labelMedium?.copyWith(
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: selected ? scheme.primary : scheme.onSurfaceVariant,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   ),
@@ -274,7 +275,7 @@ class _CheckBadge extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
       ),
-      child: Icon(Icons.check_rounded, size: 12, color: Theme.of(context).colorScheme.onPrimary),
+      child: Icon(Symbols.check_rounded, size: 12, color: Theme.of(context).colorScheme.onPrimary),
     );
   }
 }

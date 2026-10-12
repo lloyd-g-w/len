@@ -1660,15 +1660,31 @@ the store, so values written elsewhere are never stale.
 
 ## UI design system (`ui/`)
 
-`AppTheme.light/dark()` build a fidelity colour scheme from the ink-blue seed with quiet
-neutral surfaces, a tighter type scale and shared component themes
-(`theme_components.dart`). Tokens: `Gaps`, `Radii`, `Palette` (`app_theme.dart`) and
-`Motion`, `Breakpoints`, `Shadows` (`design_tokens.dart`).
+`AppTheme.light/dark()` build a fidelity colour scheme from the fixed ink-blue seed
+(`#3B5BDB`) with quiet neutral surfaces (tonal `secondaryContainer` roles are neutral too, so
+the accent stays for primary actions), Inter on every platform in a six-role type scale
+(Title, Heading, Body, Label, Caption, Overline; Material's other slots alias onto them), Material
+Symbols Rounded at weight 300 (`iconTheme`), no ripples (`NoSplash` plus a calm `onSurface`
+highlight) and shared component themes (`theme_components.dart`: radii, overlay surfaces, no
+Material elevation except menus, Symbols for Flutter's own back / close / drawer icons).
+Tokens (how to use them: CONVENTIONS "Design tokens"): `Gaps`, `Radii`, `Palette`
+(`app_theme.dart`); `Motion`, `Breakpoints`, `Targets` (by input: `touchFirst` is Android or a
+coarse web pointer, `platform/coarse_pointer*`), `Glyphs`, `Shadows` (`design_tokens.dart`);
+`Surfaces` (the canvasBackdrop / chrome / raised / overlay roles, the scrim and the calm
+overlays) and `OverlaySurface` (`surfaces.dart`).
 
-Shared UI: `app_dialogs.dart` (`confirmAction`, `DialogIcon`, `DialogBody` width),
-`menus.dart` (`MenuRow`, `showContextMenuAt`), `dialog_or_sheet.dart` (`showDialogOrSheet`:
-centred dialog on tablets / desktops, bottom sheet on phones), `text_prompt.dart`, `sidebar_item.dart`
-(library sidebar). Settings: every section in one centred column of readable width, on
+Shared UI, one primitive per kind of surface (REDESIGN §5): menus (`menus.dart`: `MenuRow`,
+18-dp icons in an always-reserved slot, 44 / 48-dp rows; `showContextMenuAt`), popovers
+(`adaptive_popover.dart`: `showAdaptivePopover`, an `overlay` 320 dp wide anchored on wide
+screens, a sheet on phones), task sheets (`dialog_or_sheet.dart`: `showDialogOrSheet`, centred
+dialog on tablets / desktops, bottom sheet on phones; `sheet_parts.dart`: `SheetHeader` with a
+left-aligned Heading and ✕, `SheetActions` with Cancel and one filled primary, stacked on
+phones), confirms (`app_dialogs.dart`: `confirmAction`, `AppDialog` with a left-aligned title
+and a tinted `DialogIcon` only when destructive or in progress, `DialogBody` width) and
+messages (`messages.dart`: `showMessage`). Floating chrome: `floating_panel.dart`
+(`FloatingPanel`, the `raised` surface; `radius: Radii.pill` for pills) and `chrome_fade.dart`
+(`ChromeFade`: fade plus an 8-px slide toward the edge). Also `text_prompt.dart`,
+`sidebar_item.dart` (library sidebar; the selected row carries the accent). Settings: every section in one centred column of readable width, on
 every screen. Documents UI
 (`features/documents/`): `templates/` (`TemplateChooser`: search, categories, gallery, planner
 dates, week start, paper colour and page size) used by the template picker and the new-notebook sheet; `overview/` (the page overview

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../ui/app_theme.dart';
 
@@ -24,7 +25,7 @@ class _NewNotebookTileState extends State<NewNotebookTile> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final lifted = _hovered || _focused;
-    final radius = BorderRadius.circular(Radii.cover);
+    final radius = BorderRadius.circular(Radii.sm);
     return Semantics(
       button: true,
       label: 'New notebook',
@@ -59,10 +60,10 @@ class _NewNotebookTileState extends State<NewNotebookTile> {
                       width: Gaps.xxxl,
                       height: Gaps.xxxl,
                       decoration: BoxDecoration(
-                        color: scheme.primaryContainer,
+                        color: scheme.primary.withValues(alpha: 0.10),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.add_rounded, size: 28, color: scheme.onPrimaryContainer),
+                      child: Icon(Symbols.add_rounded, size: 28, color: scheme.primary),
                     ),
                   ),
                 ),
@@ -86,7 +87,7 @@ class _NewNotebookTileState extends State<NewNotebookTile> {
                       children: [
                         Text(
                           'New…',
-                          style: theme.textTheme.titleSmall,
+                          style: theme.textTheme.labelLarge,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

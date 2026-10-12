@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/folder.dart';
 import '../../ui/app_theme.dart';
@@ -53,8 +54,8 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     return Container(
       width: widget.width,
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        border: Border(right: BorderSide(color: scheme.outlineVariant)),
+        color: Surfaces.chrome(scheme),
+        border: Border(right: Surfaces.chromeEdge(scheme)),
       ),
       child: SafeArea(
         right: false,
@@ -66,16 +67,16 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: Gaps.md),
                 children: [
-                  _sectionItem(LibrarySection.library, Icons.auto_stories_outlined, 'Library'),
+                  _sectionItem(LibrarySection.library, Symbols.auto_stories_rounded, 'Library'),
                   _sectionItem(
                     LibrarySection.favorites,
-                    Icons.star_outline_rounded,
+                    Symbols.star_rounded,
                     'Favourites',
                     count: c.favoriteCount,
                   ),
                   _sectionItem(
                     LibrarySection.trash,
-                    Icons.delete_outline_rounded,
+                    Symbols.delete_rounded,
                     'Trash',
                     count: c.trash.length,
                   ),
@@ -87,10 +88,10 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                         Expanded(child: SectionLabel('Folders')),
                         IconButton(
                           tooltip: 'New folder',
-                          iconSize: 18,
+                          iconSize: Glyphs.menu,
                           visualDensity: VisualDensity.compact,
                           color: scheme.onSurfaceVariant,
-                          icon: const Icon(Icons.create_new_folder_outlined),
+                          icon: const Icon(Symbols.create_new_folder_rounded),
                           onPressed: () => unawaited(widget.actions.createFolder(context)),
                         ),
                       ],
@@ -115,7 +116,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                 children: [
                   Expanded(
                     child: SidebarItem(
-                      icon: Icons.settings_outlined,
+                      icon: Symbols.settings_rounded,
                       label: 'Settings',
                       onTap: widget.onOpenSettings,
                     ),
@@ -145,7 +146,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
         LibrarySection.trash => _trash(item.id),
       },
       builder: (context, active) => SidebarItem(
-        icon: selected ? _filled(icon) : icon,
+        icon: icon,
         label: label,
         count: count,
         selected: selected,
@@ -162,13 +163,6 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     final notebook = _controller.services.notebooks.get(notebookId);
     if (notebook != null) unawaited(widget.actions.trash(context, notebook));
   }
-
-  static IconData _filled(IconData icon) => switch (icon) {
-    Icons.auto_stories_outlined => Icons.auto_stories_rounded,
-    Icons.star_outline_rounded => Icons.star_rounded,
-    Icons.delete_outline_rounded => Icons.delete_rounded,
-    _ => icon,
-  };
 
   Iterable<Widget> _tree(String? parentId, int depth) sync* {
     for (final folder in _controller.childrenOf(parentId)) {
@@ -200,7 +194,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                     turns: expanded ? 0.25 : 0,
                     duration: Motion.fast,
                     child: Icon(
-                      Icons.chevron_right_rounded,
+                      Symbols.chevron_right_rounded,
                       size: 18,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -208,7 +202,8 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                 )
               : null,
         ),
-        icon: Icons.folder_rounded,
+        icon: Symbols.folder_rounded,
+        filled: true,
         iconColor: Color(folder.color),
         label: folder.name,
         selected: c.section == LibrarySection.library && c.folderId == folder.id,
@@ -238,7 +233,6 @@ class _Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(Gaps.xl - 2, Gaps.xl, Gaps.lg, Gaps.lg),
       child: Row(
@@ -251,14 +245,14 @@ class _Brand extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color.lerp(scheme.primary, Colors.white, 0.15)!, scheme.primary],
+                colors: [Color.lerp(AppTheme.seed, Colors.white, 0.15)!, AppTheme.seed],
               ),
               boxShadow: Shadows.low(theme.brightness),
             ),
-            child: Icon(Icons.gesture_rounded, size: 20, color: scheme.onPrimary),
+            child: Icon(Symbols.gesture_rounded, size: Glyphs.bar, color: Colors.white),
           ),
           const SizedBox(width: Gaps.md),
-          Text('Len', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          Text('Len', style: theme.textTheme.titleMedium),
         ],
       ),
     );

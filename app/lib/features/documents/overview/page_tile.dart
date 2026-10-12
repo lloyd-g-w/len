@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_theme.dart';
@@ -133,13 +134,13 @@ class _Thumb extends StatelessWidget {
                   duration: Motion.fast,
                   transform: Matrix4.translationValues(0, hovered && !tile.selecting ? -2 : 0, 0),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(Radii.xs - 2),
+                    borderRadius: BorderRadius.circular(Radii.sm),
                     boxShadow: hovered
                         ? Shadows.high(theme.brightness)
                         : Shadows.low(theme.brightness),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(Radii.xs - 2),
+                    borderRadius: BorderRadius.circular(Radii.sm),
                     child: PageThumbnail(
                       page: tile.page,
                       cache: tile.cache,
@@ -152,7 +153,7 @@ class _Thumb extends StatelessWidget {
                 Positioned(
                   top: 0,
                   right: 14,
-                  child: Icon(Icons.bookmark_rounded, size: 26, color: scheme.tertiary),
+                  child: Icon(Symbols.bookmark_rounded, fill: 1, size: 26, color: Palette.bookmark),
                 ),
               if (tile.selecting)
                 Positioned(top: 10, left: 10, child: _Check(selected: tile.selected)),
@@ -194,9 +195,11 @@ class _Check extends StatelessWidget {
         shape: BoxShape.circle,
         color: selected ? scheme.primary : Colors.white.withValues(alpha: 0.9),
         border: Border.all(color: selected ? scheme.primary : scheme.outline, width: 1.5),
-        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
+        boxShadow: Shadows.low(Brightness.light),
       ),
-      child: selected ? Icon(Icons.check_rounded, size: 18, color: scheme.onPrimary) : null,
+      child: selected
+          ? Icon(Symbols.check_rounded, size: Glyphs.menu, color: scheme.onPrimary)
+          : null,
     );
   }
 }
@@ -236,7 +239,7 @@ class _Footer extends StatelessWidget {
               right: 0,
               child: PopupMenuButton<PageCommand>(
                 tooltip: 'Page ${tile.index + 1} options',
-                icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
                 iconColor: scheme.onSurfaceVariant,
                 onSelected: tile.onCommand,
                 itemBuilder: (context) => pageMenuItems(tile.page),

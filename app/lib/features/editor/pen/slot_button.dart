@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/design_tokens.dart';
+import '../../../ui/surfaces.dart';
 
 /// One quick-pick slot in the toolbar (a colour or a width): tap to select;
 /// tap again when selected, long-press or right-click to edit.
@@ -64,7 +66,7 @@ class SlotButton extends StatelessWidget {
                   height: 34,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: tonal && selected ? scheme.secondaryContainer : null,
+                    color: tonal && selected ? Surfaces.pressed(scheme) : null,
                     border: Border.all(
                       color: selected && !tonal ? scheme.primary : Colors.transparent,
                       width: 2,
@@ -100,7 +102,7 @@ class AddSlotButton extends StatelessWidget {
           padding: EdgeInsets.zero,
           style: IconButton.styleFrom(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           onPressed: () => onAdd(context),
-          icon: Icon(Icons.add_rounded, size: 18, color: scheme.onSurfaceVariant),
+          icon: Icon(Symbols.add_rounded, size: 18, color: scheme.onSurfaceVariant),
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
 import '../../ui/app_theme.dart';
@@ -19,7 +20,7 @@ class AboutSettings extends StatelessWidget {
     final scheme = theme.colorScheme;
     return SettingsSection(
       title: 'About',
-      icon: Icons.info_outline_rounded,
+      icon: Symbols.info_rounded,
       children: [
         Padding(
           padding: const EdgeInsets.all(Gaps.lg + 2),
@@ -29,14 +30,14 @@ class AboutSettings extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(Radii.control),
+                  borderRadius: BorderRadius.circular(Radii.sm),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color.lerp(scheme.primary, Colors.white, 0.15)!, scheme.primary],
+                    colors: [Color.lerp(AppTheme.seed, Colors.white, 0.15)!, AppTheme.seed],
                   ),
                 ),
-                child: Icon(Icons.gesture_rounded, color: scheme.onPrimary, size: 28),
+                child: Icon(Symbols.gesture_rounded, color: Colors.white, size: 28),
               ),
               const SizedBox(width: Gaps.lg),
               Expanded(
@@ -56,7 +57,7 @@ class AboutSettings extends StatelessWidget {
         ),
         SettingsTile(
           title: 'Open-source licences',
-          trailing: Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          trailing: Icon(Symbols.chevron_right_rounded, color: scheme.onSurfaceVariant),
           onTap: () => showLicensePage(
             context: context,
             applicationName: 'Len',

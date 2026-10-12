@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 import '../document/undo_target.dart';
@@ -81,7 +82,9 @@ class EditorTopBar extends StatelessWidget {
         final strip = showsStrip(width, tabs);
         // With tabs, the status bar area takes the strip's colour.
         return Material(
-          color: strip || band ? scheme.surfaceContainer : scheme.surface,
+          color: strip || band
+              ? Surfaces.canvasBackdrop(scheme.brightness)
+              : Surfaces.chrome(scheme),
           child: SafeArea(
             bottom: false,
             child: Column(
@@ -100,8 +103,8 @@ class EditorTopBar extends StatelessWidget {
                   const SizedBox(height: ChromeMetrics.tabHeight),
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    color: scheme.surface,
-                    border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
+                    color: Surfaces.chrome(scheme),
+                    border: Border(bottom: Surfaces.chromeEdge(scheme)),
                   ),
                   child: SizedBox(
                     height: ChromeMetrics.barHeight,
@@ -122,8 +125,12 @@ class EditorTopBar extends StatelessWidget {
   }
 
   Widget _back() => secondPane
-      ? BarButton(tooltip: 'Close this pane', icon: Icons.close_rounded, onPressed: actions.onBack)
-      : BarButton(tooltip: 'Back', icon: Icons.arrow_back_rounded, onPressed: actions.onBack);
+      ? BarButton(
+          tooltip: 'Close this pane',
+          icon: Symbols.close_rounded,
+          onPressed: actions.onBack,
+        )
+      : BarButton(tooltip: 'Back', icon: Symbols.arrow_back_rounded, onPressed: actions.onBack);
 
   Widget _title() => TitleButton(title: title, subtitle: subtitle, onRename: actions.onRename);
 
@@ -141,12 +148,11 @@ class EditorTopBar extends StatelessWidget {
               : const SizedBox.shrink(),
         ),
         if (roomy && a.onOverview != null)
-          BarButton(tooltip: 'All pages', icon: Icons.grid_view_rounded, onPressed: a.onOverview),
+          BarButton(tooltip: 'All pages', icon: Symbols.grid_view_rounded, onPressed: a.onOverview),
         if (roomy && a.onToggleBookmark != null)
           BarButton(
             tooltip: a.bookmarked ? 'Remove bookmark' : 'Bookmark page',
-            icon: Icons.bookmark_border_rounded,
-            selectedIcon: Icons.bookmark_rounded,
+            icon: Symbols.bookmark_rounded,
             selected: a.bookmarked,
             onPressed: a.onToggleBookmark,
           ),
@@ -160,7 +166,7 @@ class EditorTopBar extends StatelessWidget {
         ?split,
         BarButton(
           tooltip: 'Focus mode (F11)',
-          icon: Icons.fullscreen_rounded,
+          icon: Symbols.fullscreen_rounded,
           onPressed: a.onFocusMode,
         ),
         EditorMoreMenu(actions: a, pagesInMenu: !roomy),

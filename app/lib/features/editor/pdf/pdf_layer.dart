@@ -1,11 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/floating_panel.dart';
 import '../../documents/progress_dialog.dart' show showMessage;
 import '../links/link_menu.dart';
 import 'pdf_interaction.dart';
@@ -97,7 +99,7 @@ class _PdfLayerState extends State<PdfLayer> {
       title: 'Open link?',
       message: url.toString(),
       confirmLabel: 'Open',
-      icon: Icons.open_in_new_rounded,
+      icon: Symbols.open_in_new_rounded,
     );
     if (!open || !mounted) return;
     if (!await widget.openUrl(url) && mounted) showMessage(context, 'Couldn’t open $url');
@@ -222,12 +224,11 @@ class _PdfLayerState extends State<PdfLayer> {
   /// is no room above).
   Widget _menu(BuildContext context, Rect selected) {
     final roomAbove = MediaQuery.paddingOf(context).top + 64;
-    final scheme = Theme.of(context).colorScheme;
     Widget button(String label, IconData icon, VoidCallback onPressed, String key) =>
         TextButton.icon(
           key: ValueKey(key),
           onPressed: onPressed,
-          icon: Icon(icon, size: 18),
+          icon: Icon(icon, size: Glyphs.menu),
           label: Text(label),
         );
     return Positioned.fill(
@@ -235,22 +236,21 @@ class _PdfLayerState extends State<PdfLayer> {
         delegate: PdfMenuPlacement(selected, roomAbove: roomAbove),
         child: Listener(
           onPointerDown: (_) => _onSelection = true,
-          child: Material(
-            elevation: 6,
-            color: scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(Radii.pill),
+          child: FloatingPanel(
+            radius: Radii.pill,
+            padding: EdgeInsets.zero,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  button('Copy', Icons.copy_rounded, _copy, 'pdf-copy'),
-                  button('Highlight', Icons.border_color_rounded, _highlight, 'pdf-highlight'),
+                  button('Copy', Symbols.content_copy_rounded, _copy, 'pdf-copy'),
+                  button('Highlight', Symbols.border_color_rounded, _highlight, 'pdf-highlight'),
                   if (_pdf.selectedLink != null)
                     IconButton(
                       key: const ValueKey('pdf-open-link'),
                       tooltip: 'Open link',
-                      icon: const Icon(Icons.open_in_new_rounded, size: 20),
+                      icon: const Icon(Symbols.open_in_new_rounded, size: Glyphs.bar),
                       onPressed: _pdf.openSelectedLink,
                     ),
                   if (_pdf.onLinkSelection case final link?)
@@ -258,7 +258,7 @@ class _PdfLayerState extends State<PdfLayer> {
                       builder: (anchor) => IconButton(
                         key: const ValueKey('pdf-link'),
                         tooltip: 'Link…',
-                        icon: const Icon(Icons.link_rounded, size: 20),
+                        icon: const Icon(Symbols.link_rounded, size: Glyphs.bar),
                         onPressed: () async {
                           final choice = await showLinkMenu(anchor);
                           if (choice != null) link(url: choice == LinkChoice.url);
@@ -268,7 +268,7 @@ class _PdfLayerState extends State<PdfLayer> {
                   IconButton(
                     key: const ValueKey('pdf-select-all'),
                     tooltip: 'Select all on page',
-                    icon: const Icon(Icons.select_all_rounded, size: 20),
+                    icon: const Icon(Symbols.select_all_rounded, size: Glyphs.bar),
                     onPressed: _pdf.selectAll,
                   ),
                 ],

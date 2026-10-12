@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/preferences.dart';
+import '../../../ui/app_theme.dart';
 import '../document/document_layout.dart';
 import '../document/page_fit.dart';
 import '../document/page_overview.dart';
@@ -45,14 +47,14 @@ class EditorMoreMenu extends StatelessWidget {
       menuChildren: [
         if (tabs != null)
           _item(
-            Icons.filter_none_rounded,
+            Symbols.filter_none_rounded,
             'Open notebooks (${tabs.length})',
             () => showTabSwitcher(context, tabs),
           ),
         if (compact && a.onSearch != null)
-          _item(Icons.search_rounded, 'Search in notebook', a.onSearch),
+          _item(Symbols.search_rounded, 'Search in notebook', a.onSearch),
         if ((compact || pagesInMenu) && a.isPaged) ...[
-          _item(Icons.grid_view_outlined, 'All pages', a.onOverview),
+          _item(Symbols.grid_view_rounded, 'All pages', a.onOverview),
           _bookmarkItem(),
         ],
         if (compact && a.isPaged)
@@ -60,23 +62,24 @@ class EditorMoreMenu extends StatelessWidget {
         if (compact) ...compactItems,
         if (a.isPaged) ...[
           SubmenuButton(
-            leadingIcon: const Icon(Icons.description_outlined),
+            trailingIcon: const Icon(Symbols.chevron_right_rounded, size: Glyphs.menu),
+            leadingIcon: const Icon(Symbols.description_rounded),
             menuChildren: [
-              _item(Icons.note_add_outlined, 'Add page with template…', a.onAddWithTemplate),
+              _item(Symbols.note_add_rounded, 'Add page with template…', a.onAddWithTemplate),
               _command(PageCommand.duplicate, 'Duplicate page'),
               _command(PageCommand.template, 'Change template…'),
               _command(PageCommand.saveAsTemplate, 'Save page as template…'),
-              _item(Icons.picture_as_pdf_outlined, 'Add pages from PDF…', a.onInsertPdf),
-              _item(Icons.playlist_add_rounded, 'Add page to outline…', a.onAddToOutline),
+              _item(Symbols.picture_as_pdf_rounded, 'Add pages from PDF…', a.onInsertPdf),
+              _item(Symbols.playlist_add_rounded, 'Add page to outline…', a.onAddToOutline),
               const Divider(),
               _command(PageCommand.delete, 'Delete page', destructive: true),
             ],
             child: const Text('Page'),
           ),
-          if (a.onOutline case final onOutline?) _item(Icons.toc_rounded, 'Outline', onOutline),
+          if (a.onOutline case final onOutline?) _item(Symbols.toc_rounded, 'Outline', onOutline),
           const Divider(),
           _radioSubmenu<PageFlow>(
-            icon: Icons.view_agenda_outlined,
+            icon: Symbols.view_agenda_rounded,
             label: 'Page layout',
             value: a.flow,
             options: const [
@@ -86,7 +89,7 @@ class EditorMoreMenu extends StatelessWidget {
             onSelected: a.onFlow,
           ),
           _radioSubmenu<PageFit>(
-            icon: Icons.zoom_out_map_rounded,
+            icon: Symbols.zoom_out_map_rounded,
             label: 'Page zoom',
             value: a.fit,
             options: [for (final f in PageFit.values) (f, f.label)],
@@ -97,11 +100,11 @@ class EditorMoreMenu extends StatelessWidget {
           ),
         ] else ...[
           // Infinite canvas: background and navigation.
-          _item(Icons.wallpaper_outlined, 'Background…', a.onBackground),
+          _item(Symbols.wallpaper_rounded, 'Background…', a.onBackground),
           const Divider(),
         ],
         _radioSubmenu<ToolbarPlacement>(
-          icon: Icons.space_dashboard_outlined,
+          icon: Symbols.space_dashboard_rounded,
           label: 'Toolbar',
           value: a.placement,
           options: const [
@@ -113,45 +116,46 @@ class EditorMoreMenu extends StatelessWidget {
             const Divider(),
             MenuItemButton(
               leadingIcon: Icon(
-                a.toolLabels ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                a.toolLabels ? Symbols.check_box_rounded : Symbols.check_box_outline_blank_rounded,
+                fill: a.toolLabels ? 1 : 0,
               ),
               onPressed: a.onToolLabels == null ? null : () => a.onToolLabels!(!a.toolLabels),
               child: const Text('Show tool names'),
             ),
             if (a.onCustomiseToolbar case final onCustomise?)
               MenuItemButton(
-                leadingIcon: const Icon(Icons.tune_rounded),
+                leadingIcon: const Icon(Symbols.tune_rounded),
                 onPressed: onCustomise,
                 child: const Text('Customise toolbar…'),
               ),
           ],
         ),
         MenuItemButton(
-          leadingIcon: const Icon(Icons.fullscreen_rounded),
+          leadingIcon: const Icon(Symbols.fullscreen_rounded),
           shortcut: compact ? null : const SingleActivator(LogicalKeyboardKey.f11),
           onPressed: a.onFocusMode,
           child: const Text('Focus mode'),
         ),
         const Divider(),
         MenuItemButton(
-          leadingIcon: const Icon(Icons.draw_outlined),
+          leadingIcon: const Icon(Symbols.draw_rounded),
           trailingIcon: _MenuSwitch(value: a.stylusOnly),
           onPressed: () => a.onStylusOnly(!a.stylusOnly),
           child: const Text('Draw with stylus only'),
         ),
-        _item(Icons.edit_outlined, 'Rename notebook…', a.onRename),
-        _item(Icons.tune_rounded, 'Stylus & gesture settings…', a.onSettings),
+        _item(Symbols.edit_rounded, 'Rename notebook…', a.onRename),
+        _item(Symbols.tune_rounded, 'Stylus & gesture settings…', a.onSettings),
       ],
       builder: (context, menu, _) => BarButton(
         tooltip: 'More options',
-        icon: Icons.more_horiz_rounded,
+        icon: Symbols.more_horiz_rounded,
         onPressed: () => menu.isOpen ? menu.close() : menu.open(),
       ),
     );
   }
 
   Widget _bookmarkItem() => _item(
-    actions.bookmarked ? Icons.bookmark_remove_rounded : Icons.bookmark_add_outlined,
+    actions.bookmarked ? Symbols.bookmark_remove_rounded : Symbols.bookmark_add_rounded,
     actions.bookmarked ? 'Remove bookmark' : 'Bookmark page',
     actions.onToggleBookmark,
   );
@@ -194,12 +198,15 @@ class EditorMoreMenu extends StatelessWidget {
     Map<T, String> hints = const {},
     List<Widget> extra = const [],
   }) => SubmenuButton(
+    trailingIcon: const Icon(Symbols.chevron_right_rounded, size: Glyphs.menu),
     leadingIcon: Icon(icon),
     menuChildren: [
       for (final (option, text) in options)
         MenuItemButton(
           leadingIcon: Icon(
-            option == value ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+            option == value
+                ? Symbols.radio_button_checked_rounded
+                : Symbols.radio_button_unchecked_rounded,
           ),
           trailingIcon: hints[option] == null ? null : Text(hints[option]!),
           onPressed: onSelected == null ? null : () => onSelected(option),
@@ -213,7 +220,7 @@ class EditorMoreMenu extends StatelessWidget {
 
 /// The "Export…" menu entry: opens the export sheet.
 Widget exportMenuItem(VoidCallback onExport) => MenuItemButton(
-  leadingIcon: const Icon(Icons.ios_share_rounded),
+  leadingIcon: const Icon(Symbols.ios_share_rounded),
   onPressed: onExport,
   child: const Text('Export…'),
 );
@@ -227,7 +234,7 @@ class ShareMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      BarButton(tooltip: 'Export & share', icon: Icons.ios_share_rounded, onPressed: onExport);
+      BarButton(tooltip: 'Export & share', icon: Symbols.ios_share_rounded, onPressed: onExport);
 }
 
 /// A switch shown in a menu row; the row itself toggles it.

@@ -41,7 +41,7 @@ class SettingsScreen extends StatelessWidget {
 
   Widget _heading(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(Gaps.xs, 0, 0, Gaps.xl),
-    child: Text('Settings', style: Theme.of(context).textTheme.headlineLarge),
+    child: Text('Settings', style: Theme.of(context).textTheme.titleLarge),
   );
 
   /// Every section as a card, in a column of readable width.

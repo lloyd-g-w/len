@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 
@@ -26,10 +27,10 @@ class SelectionMark extends StatelessWidget {
         // The same in light and dark mode: covers don't follow the theme. A
         // dark ring on white shows on light and dark covers alike.
         border: Border.all(color: selected ? Colors.white : Colors.black54, width: 2),
-        boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 4)],
+        boxShadow: Shadows.low(Brightness.light),
       ),
       child: selected
-          ? Icon(Icons.check_rounded, size: compact ? 14 : 18, color: scheme.onPrimary)
+          ? Icon(Symbols.check_rounded, size: compact ? 14 : 18, color: scheme.onPrimary)
           : null,
     );
     return IgnorePointer(
@@ -37,7 +38,7 @@ class SelectionMark extends StatelessWidget {
         duration: Motion.fast,
         decoration: BoxDecoration(
           color: selected ? scheme.primary.withValues(alpha: 0.18) : Colors.transparent,
-          borderRadius: BorderRadius.circular(compact ? Radii.xs : Radii.cover),
+          borderRadius: BorderRadius.circular(compact ? Radii.xs : Radii.sm),
           border: Border.all(
             color: selected ? scheme.primary : Colors.transparent,
             width: compact ? 2 : 3,

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
 
-/// The app's menu row: optional icon + label, red when [destructive], a
-/// trailing check when [checked] (choices such as a sort order).
+/// The app's menu row (REDESIGN §5): an 18-dp icon in a leading slot that
+/// is always reserved (so labels line up), a Label-style text, red when
+/// [destructive], a trailing check when [checked] (choices such as a sort
+/// order). Rows are 44 high, 48 on phones.
 class MenuRow<T> extends PopupMenuItem<T> {
   const MenuRow({
     super.key,
@@ -12,8 +15,9 @@ class MenuRow<T> extends PopupMenuItem<T> {
     required this.label,
     this.destructive = false,
     this.checked = false,
+    this.filledIcon = false,
     super.enabled,
-  }) : super(child: null, height: 44);
+  }) : super(child: null, height: Targets.menuRow);
 
   final IconData? icon;
   final String label;
@@ -21,6 +25,9 @@ class MenuRow<T> extends PopupMenuItem<T> {
 
   /// Marks the current choice with a check after the label.
   final bool checked;
+
+  /// Draws [icon] filled (an active state, e.g. a favourite).
+  final bool filledIcon;
 
   @override
   PopupMenuItemState<T, MenuRow<T>> createState() => _MenuRowState<T>();
@@ -32,29 +39,36 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
     final scheme = Theme.of(context).colorScheme;
     final base = widget.destructive ? scheme.error : scheme.onSurface;
     final color = widget.enabled ? base : base.withValues(alpha: 0.38);
-    return Row(
-      children: [
-        if (widget.icon case final icon?) ...[
-          Icon(
-            icon,
-            size: 20,
-            color: widget.destructive || !widget.enabled ? color : scheme.onSurfaceVariant,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: Targets.menuRowHeight(context)),
+      child: Row(
+        children: [
+          SizedBox(
+            width: Glyphs.menu,
+            child: widget.icon == null
+                ? null
+                : Icon(
+                    widget.icon,
+                    size: Glyphs.menu,
+                    fill: widget.filledIcon ? 1 : 0,
+                    color: widget.destructive || !widget.enabled ? color : scheme.onSurfaceVariant,
+                  ),
           ),
           const SizedBox(width: Gaps.md),
-        ],
-        Expanded(
-          child: Text(
-            widget.label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Expanded(
+            child: Text(
+              widget.label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(color: color),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
-        if (widget.checked) ...[
-          const SizedBox(width: Gaps.md),
-          Icon(Icons.check_rounded, size: 20, color: scheme.primary),
+          if (widget.checked) ...[
+            const SizedBox(width: Gaps.md),
+            Icon(Symbols.check_rounded, size: Glyphs.menu, color: scheme.primary),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

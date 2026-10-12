@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
@@ -48,7 +49,7 @@ class LibraryHeader extends StatelessWidget {
       if (_c.section == LibrarySection.library && !_c.isSearching)
         IconButton(
           tooltip: 'New folder',
-          icon: const Icon(Icons.create_new_folder_outlined),
+          icon: const Icon(Symbols.create_new_folder_rounded),
           onPressed: () => unawaited(actions.createFolder(context)),
         ),
       _ViewMenu(actions: actions),
@@ -57,7 +58,7 @@ class LibraryHeader extends StatelessWidget {
           IconButton(
             tooltip: 'Empty trash',
             color: theme.colorScheme.error,
-            icon: const Icon(Icons.delete_sweep_outlined),
+            icon: const Icon(Symbols.delete_sweep_rounded),
             onPressed: () => unawaited(actions.emptyTrash(context)),
           )
         else
@@ -66,7 +67,7 @@ class LibraryHeader extends StatelessWidget {
             child: TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
               onPressed: () => unawaited(actions.emptyTrash(context)),
-              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+              icon: const Icon(Symbols.delete_sweep_rounded, size: Glyphs.menu),
               label: const Text('Empty trash'),
             ),
           ),
@@ -96,7 +97,7 @@ class LibraryHeader extends StatelessWidget {
             key: ValueKey(_title),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: compact ? theme.textTheme.headlineSmall : theme.textTheme.headlineMedium,
+            style: compact ? theme.textTheme.titleLarge : theme.textTheme.titleLarge,
           ),
         ),
         const SizedBox(height: Gaps.xxs),
@@ -170,13 +171,17 @@ class _SearchField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: 'Search',
             contentPadding: EdgeInsets.zero,
-            prefixIcon: Icon(Icons.search_rounded, color: scheme.onSurfaceVariant, size: 20),
+            prefixIcon: Icon(
+              Symbols.search_rounded,
+              color: scheme.onSurfaceVariant,
+              size: Glyphs.bar,
+            ),
             suffixIcon: controller.text.isEmpty
                 ? null
                 : IconButton(
                     tooltip: 'Clear search',
-                    iconSize: 18,
-                    icon: const Icon(Icons.close_rounded),
+                    iconSize: Glyphs.menu,
+                    icon: const Icon(Symbols.close_rounded),
                     onPressed: () {
                       controller.clear();
                       actions.controller.query = '';
@@ -225,7 +230,7 @@ class _ViewMenu extends StatelessWidget {
     final c = actions.controller;
     return PopupMenuButton<_ViewChoice>(
       tooltip: 'View',
-      icon: const Icon(Icons.swap_vert_rounded),
+      icon: const Icon(Symbols.swap_vert_rounded),
       onSelected: (choice) => switch (choice) {
         _Sort(:final sort) => c.sort = sort,
         _Layout(:final layout) => c.layout = layout,
@@ -239,13 +244,13 @@ class _ViewMenu extends StatelessWidget {
         ],
         MenuRow(
           value: const _Layout(LibraryLayout.grid),
-          icon: Icons.grid_view_outlined,
+          icon: Symbols.grid_view_rounded,
           label: 'Grid',
           checked: c.layout == LibraryLayout.grid,
         ),
         MenuRow(
           value: const _Layout(LibraryLayout.list),
-          icon: Icons.view_agenda_outlined,
+          icon: Symbols.view_agenda_rounded,
           label: 'List',
           checked: c.layout == LibraryLayout.list,
         ),
@@ -253,7 +258,7 @@ class _ViewMenu extends StatelessWidget {
           const PopupMenuDivider(),
           const MenuRow(
             value: _Select(),
-            icon: Icons.check_circle_outline_rounded,
+            icon: Symbols.check_circle_rounded,
             label: 'Select notebooks',
           ),
         ],
@@ -289,7 +294,7 @@ class _Breadcrumbs extends StatelessWidget {
               builder: (context, active) => AnimatedContainer(
                 duration: Motion.fast,
                 decoration: BoxDecoration(
-                  color: active ? scheme.primaryContainer : Colors.transparent,
+                  color: active ? scheme.primary.withValues(alpha: 0.12) : Colors.transparent,
                   borderRadius: BorderRadius.circular(Radii.xs),
                 ),
                 child: TextButton(
@@ -304,7 +309,7 @@ class _Breadcrumbs extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 18, color: scheme.outline),
+            Icon(Symbols.chevron_right_rounded, size: Glyphs.menu, color: scheme.outline),
           ],
         ],
       ),

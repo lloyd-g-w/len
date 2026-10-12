@@ -4,6 +4,7 @@ import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
+import '../../ui/sheet_parts.dart';
 import '../documents/template_picker.dart';
 import '../documents/templates/planner_options.dart';
 import '../documents/templates/template_catalog.dart';
@@ -96,9 +97,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: widget.wide
-          ? theme.dialogTheme.backgroundColor
-          : theme.colorScheme.surfaceContainerLow,
+      color: Surfaces.overlay(theme.brightness),
       child: DefaultTabController(
         length: 2,
         child: widget.wide ? _wideLayout(context) : _phoneLayout(context),
@@ -106,26 +105,10 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
     );
   }
 
-  Widget _header(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            _canvas ? 'New canvas' : 'New notebook',
-            style: theme.textTheme.titleLarge,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        IconButton(
-          tooltip: 'Close',
-          icon: const Icon(Icons.close_rounded),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ],
-    );
-  }
+  Widget _header(BuildContext context) => SheetHeader(
+    title: _canvas ? 'New canvas' : 'New notebook',
+    onClose: () => Navigator.of(context).pop(),
+  );
 
   Widget _preview(double height) => Center(
     child: NotebookPreview(kind: _kind, coverColor: _cover, template: _template, height: height),

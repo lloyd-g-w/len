@@ -35,9 +35,6 @@ class CanvasContextMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final dark = scheme.brightness == Brightness.dark;
     return Stack(
       children: [
         Positioned.fill(
@@ -56,17 +53,12 @@ class CanvasContextMenu extends StatelessWidget {
             curve: Motion.standard,
             builder: (context, t, child) => Opacity(
               opacity: t,
-              child: Transform.scale(scale: 0.96 + 0.04 * t, child: child),
-            ),
-            child: Material(
-              color: dark ? scheme.surfaceContainerHigh : scheme.surfaceContainerLowest,
-              elevation: 6,
-              shadowColor: Colors.black38,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(Radii.control),
-                side: BorderSide(color: scheme.outlineVariant),
+              child: Transform.scale(
+                scale: Motion.popoverScale + (1 - Motion.popoverScale) * t,
+                child: child,
               ),
-              clipBehavior: Clip.antiAlias,
+            ),
+            child: OverlaySurface(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: minWidth),
                 child: IntrinsicWidth(
@@ -79,7 +71,7 @@ class CanvasContextMenu extends StatelessWidget {
                         for (final action in actions) ...[
                           if (action.dividerBefore) const Divider(height: Gaps.sm + 1),
                           MenuItemButton(
-                            leadingIcon: Icon(action.icon, size: 20),
+                            leadingIcon: Icon(action.icon),
                             onPressed: () {
                               onDismiss();
                               action.onSelected();

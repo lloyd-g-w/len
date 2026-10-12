@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/recording.dart';
 import '../../../ui/app_theme.dart';
@@ -95,7 +96,7 @@ class TrimPanel extends StatelessWidget {
               IconButton.filledTonal(
                 tooltip: playback.playing ? 'Pause (Space)' : 'Play the kept audio (Space)',
                 onPressed: playback.loading ? null : () => unawaited(playback.toggle()),
-                icon: Icon(playback.playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                icon: Icon(playback.playing ? Symbols.pause_rounded : Symbols.play_arrow_rounded),
               ),
               const SizedBox(width: Gaps.xs),
               TextButton(

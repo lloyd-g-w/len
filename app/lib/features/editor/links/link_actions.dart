@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/link_target.dart';
 import '../chrome/canvas_context_menu.dart';
@@ -11,7 +12,7 @@ import 'link_menu.dart';
 /// The selection menu's "Link…": link the selected content to a page or a
 /// web address, or remove its link.
 SelectionExtraAction linkSelectionAction(BuildContext context, EditorSession session) =>
-    SelectionExtraAction('Link…', Icons.link_rounded, (anchor) async {
+    SelectionExtraAction('Link…', Symbols.link_rounded, (anchor) async {
       final selection = session.content.selection;
       final choice = await showLinkMenu(
         anchor,
@@ -45,7 +46,7 @@ CanvasAction? openLinkAction(BuildContext context, EditorSession session, Offset
   if (hit == null) return null;
   final target = hit.target;
   return CanvasAction(
-    target is UrlLinkTarget ? Icons.open_in_new_rounded : Icons.link_rounded,
+    target is UrlLinkTarget ? Symbols.open_in_new_rounded : Symbols.link_rounded,
     'Go to ${session.links.describe(target)}',
     () => unawaited(session.links.follow(context, target)),
   );

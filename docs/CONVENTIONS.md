@@ -14,12 +14,62 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
 - **ink/** drawing engine: models, input routing, rendering. No Material widgets
   except in `ink_surface.dart`.
 - **features/<area>/** screens and their private widgets.
-- **ui/** shared widgets and design tokens (`app_theme.dart`). Use tokens
-  (`Radii`, `Gaps`, `Motion`, palette) instead of magic numbers, and the shared
-  components instead of local styling: `AppDialog` / `confirmAction` for dialogs,
-  `showMessage` for snack bars, `MenuRow` for popup menus, `SectionLabel` for
-  group headings, `EvenGrid` for swatches. Copy is sentence case; commands that
-  ask something first end in …; single-sentence messages have no full stop.
+- **ui/** shared widgets and design tokens (`app_theme.dart`, which exports
+  `design_tokens.dart` and `surfaces.dart`). Use the shared components instead
+  of local styling: `AppDialog` / `confirmAction` for dialogs, `showMessage`
+  for snack bars, `MenuRow` for popup menus, `showAdaptivePopover` for live
+  settings, `showDialogOrSheet` + `SheetHeader` / `SheetActions` for task
+  sheets, `FloatingPanel` for anything floating over the canvas,
+  `SectionLabel` for group headings, `EvenGrid` for swatches. Copy is sentence
+  case; commands that ask something first end in …; single-sentence messages
+  have no full stop.
+
+## Design tokens (REDESIGN §1)
+
+No magic numbers or ad-hoc colours in `features/`: pick a token.
+
+- **Spacing:** `Gaps` (2, 4, 8, 12, 16, 24, 32, 48). **Radii:** `xs` 6 (chips,
+  badges, the selected-tool plate), `sm` 10 (buttons, fields, covers,
+  thumbnails), `md` 14 (menus, popovers, floating panels, snack bars), `lg` 20
+  (dialogs, sheets), `pill`.
+- **Type:** Inter only, six roles from `Theme.of(context).textTheme`:
+  `titleLarge` (screen titles), `titleMedium` (dialog titles, the notebook
+  title), `bodyMedium` (rows), `labelLarge` (buttons, menu rows, card titles),
+  `bodySmall` (captions; already `onSurfaceVariant`), `labelSmall`
+  (`SectionLabel`). Don't set `fontSize` / `fontWeight` on UI text; numbers
+  that change in place use `AppTheme.tabularFigures`.
+- **Colour:** the accent (`colorScheme.primary`, ink blue) only for primary
+  buttons, focus rings, selection handles, links, switches, progress and the
+  selected sidebar row. Selected states otherwise use the neutral plate
+  `Surfaces.pressed` with `onSurface`; hovers `Surfaces.hovered`. Ink and
+  covers are never themed; fixed marker colours live in `Palette`.
+  Destructive commands are `colorScheme.error`, last in menus.
+- **Surfaces:** `Surfaces.canvasBackdrop` around pages; `Surfaces.chrome` +
+  `Surfaces.chromeEdge` hairline for docked bars; `raised` (`FloatingPanel`,
+  `Surfaces.raisedDecoration`, `Shadows.low`) for floating palettes, pills and
+  menus over the canvas; `overlay` (`OverlaySurface`,
+  `Surfaces.overlayDecoration`, `Shadows.high`) for popovers, menus, dialogs
+  and sheets. Shadows only from `Shadows`; never Material `elevation`
+  (menus excepted: Flutter offers no shadow hook there). No outlines in light
+  mode; dark mode adds the hairline (`Surfaces.border`).
+- **Icons:** Material Symbols Rounded only (`Symbols.*_rounded` from
+  `package:material_symbols_icons/symbols.dart`; never `Icons.*`). Weight 300
+  and fill 0 come from the theme; active or selected states pass `fill: 1`.
+  Sizes from `Glyphs`: `bar` 20, `menu` 18, `empty` 40. Always reference
+  symbols as `const` members (no lookups by name), so release builds keep
+  tree-shaking the icon font.
+- **Targets:** by input, not width. `Targets.touchFirst` (Android, or a coarse
+  pointer on the web); `Targets.of(context, visual)`, `Targets.barHit` (48 on
+  touch, 40 with a pointer), `Targets.slotHit` (44 / 36),
+  `Targets.menuRowHeight` (48 on phones, else 44). Bar buttons keep a 40-dp
+  visual and pad their hit area (`MaterialTapTargetSize.padded`).
+- **Motion:** `Motion.fast` 120 (state changes, popovers scaling from
+  `Motion.popoverScale`), `medium` 200 (chrome fades, panels), `slow` 300
+  (sheets, routes), `travel` 420. Chrome shows and hides with `ChromeFade`
+  (fade + `Motion.chromeSlide` 8 px toward its edge; fades only when
+  `Motion.reduced`). Taps never ripple: the theme uses `NoSplash` and a calm
+  `onSurface` overlay (`ThemeComponents.calmOverlay` for custom button
+  styles).
 
 ## Pre-release: breaking changes are fine
 

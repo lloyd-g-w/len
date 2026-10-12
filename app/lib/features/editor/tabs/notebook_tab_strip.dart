@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
@@ -62,10 +63,10 @@ class NotebookTabStrip extends StatelessWidget {
         if (split)
           const MenuRow(
             value: _TabAction.split,
-            icon: Icons.vertical_split_outlined,
+            icon: Symbols.vertical_split_rounded,
             label: 'Open in split view',
           ),
-        const MenuRow(value: _TabAction.close, icon: Icons.close_rounded, label: 'Close tab'),
+        const MenuRow(value: _TabAction.close, icon: Symbols.close_rounded, label: 'Close tab'),
       ],
     );
     switch (choice) {
@@ -118,7 +119,7 @@ class _Tab extends StatelessWidget {
           if (e.buttons == 4) onClose();
         },
         child: Material(
-          color: active ? scheme.surface : Colors.transparent,
+          color: active ? Surfaces.chrome(scheme) : Colors.transparent,
           borderRadius: _shape,
           child: InkWell(
             onTap: onTap,
@@ -135,8 +136,8 @@ class _Tab extends StatelessWidget {
                   children: [
                     Icon(
                       tab.kind == NotebookKind.canvas
-                          ? Icons.gesture_rounded
-                          : Icons.menu_book_rounded,
+                          ? Symbols.gesture_rounded
+                          : Symbols.menu_book_rounded,
                       size: 16,
                       color: active ? scheme.primary : fg,
                     ),
@@ -162,7 +163,7 @@ class _Tab extends StatelessWidget {
                         fixedSize: const Size(28, 28),
                         padding: EdgeInsets.zero,
                       ),
-                      icon: const Icon(Icons.close_rounded),
+                      icon: const Icon(Symbols.close_rounded),
                     ),
                   ],
                 ),

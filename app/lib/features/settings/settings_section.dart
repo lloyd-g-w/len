@@ -30,7 +30,7 @@ class SettingsSection extends StatelessWidget {
             padding: const EdgeInsets.only(left: Gaps.xs, bottom: Gaps.md),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: scheme.primary),
+                Icon(icon, size: Glyphs.bar, color: scheme.primary),
                 const SizedBox(width: Gaps.sm),
                 Text(title, style: theme.textTheme.titleMedium),
               ],
@@ -49,11 +49,11 @@ class SettingsSection extends StatelessWidget {
               color: theme.brightness == Brightness.dark
                   ? scheme.surfaceContainerLow
                   : scheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(Radii.card),
+              borderRadius: BorderRadius.circular(Radii.md),
               border: Border.all(color: scheme.outlineVariant),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(Radii.card),
+              borderRadius: BorderRadius.circular(Radii.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -99,13 +99,7 @@ class SettingsTile extends StatelessWidget {
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.1,
-          ),
-        ),
+        Text(title, style: theme.textTheme.bodyMedium),
         if (subtitle != null) ...[
           const SizedBox(height: Gaps.xxs),
           Text(subtitle!, style: theme.textTheme.bodySmall),
@@ -122,7 +116,7 @@ class SettingsTile extends StatelessWidget {
             Row(
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 22, color: theme.colorScheme.onSurfaceVariant),
+                  Icon(icon, size: Glyphs.menu, color: theme.colorScheme.onSurfaceVariant),
                   const SizedBox(width: Gaps.lg),
                 ],
                 Expanded(child: text),
@@ -132,7 +126,7 @@ class SettingsTile extends StatelessWidget {
             if (below != null) ...[
               const SizedBox(height: Gaps.md),
               Padding(
-                padding: EdgeInsets.only(left: icon == null ? 0 : 22 + Gaps.lg),
+                padding: EdgeInsets.only(left: icon == null ? 0 : Glyphs.menu + Gaps.lg),
                 child: below,
               ),
             ],

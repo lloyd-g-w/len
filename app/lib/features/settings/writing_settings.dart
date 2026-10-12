@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../data/app_preferences.dart';
 import '../../domain/preferences.dart';
@@ -22,10 +23,10 @@ class WritingSettings extends StatelessWidget {
       listenable: preferences,
       builder: (context, _) => SettingsSection(
         title: 'Writing',
-        icon: Icons.edit_outlined,
+        icon: Symbols.edit_rounded,
         children: [
           SettingsTile(
-            icon: Icons.back_hand_outlined,
+            icon: Symbols.back_hand_rounded,
             title: 'Only the stylus draws',
             subtitle:
                 'Fingers pan and zoom, so a resting palm leaves no marks. Turns on by '
@@ -37,7 +38,7 @@ class WritingSettings extends StatelessWidget {
             ),
           ),
           SettingsTile(
-            icon: Icons.ads_click_outlined,
+            icon: Symbols.ads_click_rounded,
             title: 'Side button',
             subtitle: 'While you hold the S Pen (or stylus) button, the pen…',
             below: ShrinkToFit(
@@ -51,12 +52,12 @@ class WritingSettings extends StatelessWidget {
                   ),
                   ButtonSegment(
                     value: PenButtonAction.lasso,
-                    icon: icons ? const Icon(Icons.gesture_rounded) : null,
+                    icon: icons ? const Icon(Symbols.gesture_rounded) : null,
                     label: const SegmentLabel('Selects'),
                   ),
                   ButtonSegment(
                     value: PenButtonAction.none,
-                    icon: icons ? const Icon(Icons.block_rounded) : null,
+                    icon: icons ? const Icon(Symbols.block_rounded) : null,
                     label: const SegmentLabel('Nothing'),
                   ),
                 ],
@@ -66,7 +67,7 @@ class WritingSettings extends StatelessWidget {
             ),
           ),
           SettingsTile(
-            icon: Icons.undo_rounded,
+            icon: Symbols.undo_rounded,
             title: 'Finger taps to undo and redo',
             subtitle: 'Tap the page with two fingers to undo, with three to redo.',
             onTap: () => preferences.fingerTapUndo = !preferences.fingerTapUndo,
@@ -76,7 +77,7 @@ class WritingSettings extends StatelessWidget {
             ),
           ),
           SettingsTile(
-            icon: Icons.view_day_outlined,
+            icon: Symbols.view_day_rounded,
             title: 'Toolbar',
             subtitle: switch (preferences.toolbarPlacement) {
               ToolbarPlacement.docked =>

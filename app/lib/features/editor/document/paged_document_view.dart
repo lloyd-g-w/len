@@ -167,7 +167,7 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
   @override
   Widget build(BuildContext context) {
     final input = widget.input;
-    final desk = Theme.of(context).colorScheme.surfaceContainerHigh;
+    final desk = Surfaces.canvasBackdrop(Theme.of(context).brightness);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {

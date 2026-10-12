@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../domain/link_target.dart';
@@ -96,7 +97,7 @@ class EditorLinks {
           title: 'Open link?',
           message: uri.toString(),
           confirmLabel: 'Open',
-          icon: Icons.open_in_new_rounded,
+          icon: Symbols.open_in_new_rounded,
         );
         if (!open || !context.mounted) return;
         if (!await _openUrl(uri) && context.mounted) showMessage(context, 'Couldn’t open $uri');

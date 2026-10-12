@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
+import '../app_theme.dart';
 import '../color_dot.dart';
 
 /// The last swatch of a colour row: opens a colour picker; shows the
@@ -27,9 +29,9 @@ class CustomColorSwatch extends StatelessWidget {
       child: IconButton(
         tooltip: 'Custom colour…',
         padding: EdgeInsets.zero,
-        iconSize: 18,
+        iconSize: Glyphs.menu,
         onPressed: () => onTap(context),
-        icon: const Icon(Icons.palette_outlined),
+        icon: const Icon(Symbols.palette_rounded),
       ),
     );
   }

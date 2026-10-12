@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
@@ -53,12 +54,12 @@ class _NotebookListTileState extends State<NotebookListTile> {
       duration: Motion.fast,
       decoration: BoxDecoration(
         color: _hovered ? scheme.surfaceContainerLow : Colors.transparent,
-        borderRadius: BorderRadius.circular(Radii.control),
+        borderRadius: BorderRadius.circular(Radii.sm),
       ),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.control),
+          borderRadius: BorderRadius.circular(Radii.sm),
           onTap: widget.actions.selection.active
               ? () => widget.actions.selection.toggle(_notebook.id)
               : () => unawaited(
@@ -107,7 +108,7 @@ class _NotebookListTileState extends State<NotebookListTile> {
                     children: [
                       Text(
                         _notebook.title,
-                        style: theme.textTheme.titleSmall,
+                        style: theme.textTheme.labelLarge,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -125,8 +126,9 @@ class _NotebookListTileState extends State<NotebookListTile> {
                   IconButton(
                     tooltip: _notebook.favorite ? 'Remove from favourites' : 'Add to favourites',
                     icon: Icon(
-                      _notebook.favorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                      color: _notebook.favorite ? const Color(0xFFF5A524) : scheme.onSurfaceVariant,
+                      Symbols.star_rounded,
+                      fill: _notebook.favorite ? 1 : 0,
+                      color: _notebook.favorite ? Palette.favourite : scheme.onSurfaceVariant,
                     ),
                     onPressed: () =>
                         widget.actions.controller.setFavorite(_notebook.id, !_notebook.favorite),
@@ -135,7 +137,7 @@ class _NotebookListTileState extends State<NotebookListTile> {
                   builder: (anchor) => IconButton(
                     tooltip: 'More',
                     color: scheme.onSurfaceVariant,
-                    icon: const Icon(Icons.more_horiz_rounded),
+                    icon: const Icon(Symbols.more_horiz_rounded),
                     onPressed: () => unawaited(_showMenu(anchor: anchor)),
                   ),
                 ),

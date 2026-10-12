@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
 import '../../data/search/search_index.dart';
@@ -126,7 +127,7 @@ class _LibrarySearchResultsState extends State<LibrarySearchResults> {
               padding: const EdgeInsets.fromLTRB(Gaps.xxs, Gaps.xl, 0, Gaps.md),
               child: Text(
                 'In notebooks · ${count == 1 ? '1 match' : '$count matches'}',
-                style: theme.textTheme.titleSmall?.copyWith(
+                style: theme.textTheme.labelLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
@@ -196,7 +197,7 @@ class _NotebookResultsState extends State<_NotebookResults> {
     final hidden = group.content.length - hits.length;
     return Material(
       color: scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(Radii.card),
+      borderRadius: BorderRadius.circular(Radii.md),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -213,7 +214,7 @@ class _NotebookResultsState extends State<_NotebookResults> {
                     child: HighlightedText.of(
                       notebook.title,
                       group.titleMatches ? widget.query : SearchQuery(''),
-                      style: theme.textTheme.titleSmall,
+                      style: theme.textTheme.labelLarge,
                     ),
                   ),
                   Text(
@@ -237,7 +238,7 @@ class _NotebookResultsState extends State<_NotebookResults> {
                 padding: const EdgeInsets.only(left: Gaps.sm, bottom: Gaps.xs),
                 child: TextButton.icon(
                   onPressed: () => setState(() => _expanded = true),
-                  icon: const Icon(Icons.expand_more_rounded, size: 18),
+                  icon: const Icon(Symbols.expand_more_rounded, size: Glyphs.menu),
                   label: Text('Show $hidden more'),
                 ),
               ),
@@ -274,12 +275,12 @@ class _HitRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: 1),
               decoration: BoxDecoration(
-                color: scheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(Radii.pill),
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(Radii.xs),
               ),
               child: Text(
                 hitLocation(hit),
-                style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSecondaryContainer),
+                style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ),
             const SizedBox(width: Gaps.sm),
@@ -311,9 +312,9 @@ class SearchHitIcon extends StatelessWidget {
     },
     child: Icon(
       switch (hit.kind) {
-        SearchHitKind.pdf => Icons.picture_as_pdf_outlined,
-        SearchHitKind.handwriting => Icons.draw_outlined,
-        _ => Icons.text_fields_rounded,
+        SearchHitKind.pdf => Symbols.picture_as_pdf_rounded,
+        SearchHitKind.handwriting => Symbols.draw_rounded,
+        _ => Symbols.text_fields_rounded,
       },
       size: 18,
       color: Theme.of(context).colorScheme.onSurfaceVariant,

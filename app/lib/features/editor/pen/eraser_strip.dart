@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
@@ -30,7 +31,7 @@ class EraserStrip extends StatelessWidget {
               : 'Whole-stroke eraser (tap for partial)',
           onPressed: () =>
               tools.eraser = eraser.copyWith(mode: pixel ? EraserMode.stroke : EraserMode.pixel),
-          icon: Icon(pixel ? Icons.blur_on_rounded : Icons.gesture_rounded),
+          icon: Icon(pixel ? Symbols.blur_on_rounded : Symbols.gesture_rounded),
         ),
         // Sizes in a recessed track with a tonal selection, like widths.
         DecoratedBox(
@@ -60,7 +61,7 @@ class EraserStrip extends StatelessWidget {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: eraser.radius == size ? scheme.secondaryContainer : null,
+                              color: eraser.radius == size ? Surfaces.pressed(scheme) : null,
                             ),
                             child: Container(
                               width: 6 + size * 0.6,
@@ -69,7 +70,7 @@ class EraserStrip extends StatelessWidget {
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: eraser.radius == size
-                                      ? scheme.onSecondaryContainer
+                                      ? scheme.onSurface
                                       : scheme.onSurfaceVariant.withValues(alpha: 0.75),
                                   width: 1.5,
                                 ),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
 
-/// Asks to confirm an action; true if confirmed. Destructive actions get
-/// a red confirm button and an error-tinted [icon] (a warning by default).
+/// The Confirm primitive (REDESIGN §5): asks one question; true if
+/// confirmed. Destructive actions get a red confirm button and an
+/// error-tinted [icon] (a warning by default); other confirms have no icon.
 Future<bool> confirmAction(
   BuildContext context, {
   required String title,
@@ -16,14 +18,14 @@ Future<bool> confirmAction(
     context: context,
     builder: (context) {
       final scheme = Theme.of(context).colorScheme;
-      final symbol = icon ?? (destructive ? Icons.warning_amber_rounded : null);
+      final symbol = destructive ? icon ?? Symbols.warning_rounded : null;
       return AppDialog(
         icon: symbol,
         iconColor: destructive ? scheme.error : null,
         title: title,
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: dialogFormWidth),
-          child: Text(message, textAlign: symbol == null ? null : TextAlign.center),
+          child: Text(message),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -44,11 +46,12 @@ Future<bool> confirmAction(
   return result ?? false;
 }
 
-/// The app's one dialog pattern (an [AlertDialog]): an optional tinted
-/// [icon] centres the title (confirmations, progress, downloads), plain
-/// dialogs are start-aligned. [actions] go Cancel first, the primary
-/// (filled) last; when they don't fit in a row they stack, end-aligned,
-/// with the primary on top and Cancel at the bottom.
+/// The app's one dialog pattern (an [AlertDialog], an `overlay` surface of
+/// radius [Radii.lg] over the scrim): a left-aligned Heading title, with a
+/// tinted [icon] above it only in destructive and progress dialogs.
+/// [actions] go Cancel first, the primary (filled) last; when they don't
+/// fit in a row they stack, end-aligned, with the primary on top and Cancel
+/// at the bottom.
 class AppDialog extends StatelessWidget {
   const AppDialog({
     super.key,
@@ -85,13 +88,11 @@ class AppDialog extends StatelessWidget {
             ? null
             : DialogIcon(icon!, color: iconColor ?? Theme.of(context).colorScheme.primary));
     return AlertDialog(
-      icon: header,
-      title: Text(
-        title,
-        textAlign: header == null ? null : TextAlign.center,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
+      icon: header == null
+          ? null
+          : Align(alignment: AlignmentDirectional.centerStart, child: header),
+      iconPadding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.xl, Gaps.xl, Gaps.md),
+      title: Text(title, textAlign: TextAlign.start, maxLines: 2, overflow: TextOverflow.ellipsis),
       content: content,
       contentPadding: contentPadding,
       scrollable: scrollable,
@@ -112,10 +113,10 @@ class DialogIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
-    child: Icon(icon, color: color, size: 26),
+    child: Icon(icon, color: color, size: 22),
   );
 }
 

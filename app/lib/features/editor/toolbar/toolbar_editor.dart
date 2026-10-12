@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
@@ -170,8 +171,7 @@ class ToolbarEditor extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
           child: Text(
             'Favourites',
-            style: Theme.of(context).textTheme.labelMedium
-                ?.copyWith(color: scheme.onSurfaceVariant),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ),
         for (final (i, pen) in config.favourites.indexed)
@@ -194,7 +194,11 @@ class ToolbarEditor extends StatelessWidget {
                       child: CircleAvatar(
                         radius: 7,
                         backgroundColor: scheme.inverseSurface,
-                        child: Icon(Icons.close_rounded, size: 12, color: scheme.onInverseSurface),
+                        child: Icon(
+                          Symbols.close_rounded,
+                          size: 12,
+                          color: scheme.onInverseSurface,
+                        ),
                       ),
                     ),
                   ),
@@ -213,7 +217,7 @@ class ToolbarEditor extends StatelessWidget {
                 : 'Already a favourite',
             padding: EdgeInsets.zero,
             onPressed: canAdd ? () => onChanged(config.addFavourite(current)) : null,
-            icon: const Icon(Icons.star_border_rounded, size: 20),
+            icon: const Icon(Symbols.star_rounded, size: Glyphs.bar),
           ),
         ),
       ],
@@ -253,7 +257,7 @@ class _ToolTile extends StatelessWidget {
       child: Tooltip(
         message: hidden ? 'Show ${descriptor.label}' : 'Hide ${descriptor.label}',
         child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.control),
+          borderRadius: BorderRadius.circular(Radii.sm),
           onTap: onToggle,
           child: SizedBox(
             width: width,
@@ -285,7 +289,7 @@ class _ToolTile extends StatelessWidget {
                   top: 4,
                   right: 6,
                   child: Icon(
-                    hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                    hidden ? Symbols.visibility_off_rounded : Symbols.visibility_rounded,
                     size: 14,
                     color: hidden ? scheme.onSurfaceVariant : scheme.primary,
                   ),

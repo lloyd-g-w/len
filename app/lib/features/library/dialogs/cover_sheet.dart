@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_or_sheet.dart';
+import '../../../ui/sheet_parts.dart';
 import '../cover_picker.dart';
 import '../notebook_cover.dart';
 
@@ -40,7 +41,7 @@ class _CoverSheetState extends State<_CoverSheet> {
       width: compact ? 96 : 128,
       height: compact ? 132 : 176,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Radii.cover),
+        borderRadius: BorderRadius.circular(Radii.sm),
         boxShadow: Shadows.high(theme.brightness),
       ),
       child: NotebookCover(color: _color, kind: widget.notebook.kind),
@@ -57,12 +58,10 @@ class _CoverSheetState extends State<_CoverSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Cover', style: theme.textTheme.headlineSmall),
-          Text(
-            widget.notebook.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          SheetHeader(
+            title: 'Cover',
+            subtitle: widget.notebook.title,
+            onClose: () => Navigator.of(context).pop(),
           ),
           const SizedBox(height: Gaps.xl),
           if (compact) ...[

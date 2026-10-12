@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ink/ink_surface.dart';
@@ -70,10 +71,11 @@ class CanvasView extends StatelessWidget {
                 Align(
                   alignment: Alignment.bottomRight,
                   child: FloatingPanel(
+                    radius: Radii.pill,
                     child: IconButton(
                       tooltip: 'Fit content (Shift+1)',
                       onPressed: nav.fitContent,
-                      icon: const Icon(Icons.fit_screen_outlined),
+                      icon: const Icon(Symbols.fit_screen_rounded),
                     ),
                   ),
                 ),

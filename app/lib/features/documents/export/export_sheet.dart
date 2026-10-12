@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_or_sheet.dart';
+import '../../../ui/sheet_parts.dart';
 import 'export_options.dart';
 import 'export_sheet_sections.dart';
 
@@ -104,7 +105,6 @@ class _ExportSheetState extends State<ExportSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final media = MediaQuery.of(context);
     final selection = _selection;
     final options = _options;
@@ -145,20 +145,10 @@ class _ExportSheetState extends State<ExportSheet> {
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(Gaps.xl, widget.wide ? Gaps.xl : 0, Gaps.xl, Gaps.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Export', style: theme.textTheme.headlineSmall),
-              const SizedBox(height: Gaps.xxs),
-              Text(
-                widget.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
+          child: SheetHeader(
+            title: 'Export',
+            subtitle: widget.title,
+            onClose: () => Navigator.of(context).pop(),
           ),
         ),
         Flexible(child: body),

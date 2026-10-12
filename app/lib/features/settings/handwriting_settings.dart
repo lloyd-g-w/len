@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../ink/recognition/handwriting_recognizer.dart';
 import '../../ink/recognition/recognition_languages.dart';
@@ -23,7 +24,7 @@ class HandwritingSettings extends StatelessWidget {
       listenable: Listenable.merge([recognition, recognition.indexer]),
       builder: (context, _) => SettingsSection(
         title: 'Handwriting',
-        icon: Icons.draw_outlined,
+        icon: Symbols.draw_rounded,
         description:
             'Search your handwriting, and convert it to text: select it with the lasso, '
             'then tap Convert to text. Recognition runs on this device; nothing is sent anywhere.',
@@ -31,7 +32,7 @@ class HandwritingSettings extends StatelessWidget {
             ? [_language(context), _indexing(context), _model(context)]
             : [
                 SettingsTile(
-                  icon: Icons.info_outline_rounded,
+                  icon: Symbols.info_rounded,
                   title: 'Not available here',
                   subtitle: recognition.unsupportedReason,
                 ),
@@ -41,13 +42,13 @@ class HandwritingSettings extends StatelessWidget {
   }
 
   Widget _language(BuildContext context) => SettingsTile(
-    icon: Icons.translate_rounded,
+    icon: Symbols.translate_rounded,
     title: 'Language',
     subtitle: recognition.isAutomaticLanguage
         ? 'Same as the device · ${_name(recognition.language)}'
         : _name(recognition.language),
     onTap: () => unawaited(_pickLanguage(context)),
-    trailing: const Icon(Icons.chevron_right_rounded),
+    trailing: const Icon(Symbols.chevron_right_rounded),
   );
 
   Future<void> _pickLanguage(BuildContext context) async {
@@ -97,7 +98,7 @@ class HandwritingSettings extends StatelessWidget {
       status = 'Up to date: $lines line${lines == 1 ? '' : 's'} recognised.';
     }
     return SettingsTile(
-      icon: Icons.manage_search_rounded,
+      icon: Symbols.manage_search_rounded,
       title: 'Search handwriting',
       subtitle: 'Recognises handwriting in the background while you are not writing. $status',
       onTap: () => unawaited(recognition.setIndexingEnabled(!recognition.indexingEnabled)),
@@ -114,8 +115,8 @@ class HandwritingSettings extends StatelessWidget {
     final failed = recognition.downloadError != null && status == ModelStatus.missing;
     return SettingsTile(
       icon: status == ModelStatus.downloaded
-          ? Icons.offline_pin_outlined
-          : Icons.download_for_offline_outlined,
+          ? Symbols.offline_pin_rounded
+          : Symbols.download_for_offline_rounded,
       title: 'Language model',
       subtitle: switch (status) {
         ModelStatus.downloaded => '$name is on this device.',

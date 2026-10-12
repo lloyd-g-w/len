@@ -30,7 +30,7 @@ class HighlightedText extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final base = style ?? DefaultTextStyle.of(context).style;
     final emphasis = base.copyWith(
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w600,
       color: scheme.onSurface,
       backgroundColor: SearchColors.match(scheme).withValues(alpha: 0.45),
     );

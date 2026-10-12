@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../document/undo_target.dart';
 import 'bar_button.dart';
@@ -19,12 +20,12 @@ class UndoRedoButtons extends StatelessWidget {
           BarButton(
             tooltip: 'Undo (Ctrl+Z)',
             onPressed: target.canUndo ? target.undo : null,
-            icon: Icons.undo_rounded,
+            icon: Symbols.undo_rounded,
           ),
           BarButton(
             tooltip: 'Redo (Ctrl+Shift+Z)',
             onPressed: target.canRedo ? target.redo : null,
-            icon: Icons.redo_rounded,
+            icon: Symbols.redo_rounded,
           ),
         ],
       ),

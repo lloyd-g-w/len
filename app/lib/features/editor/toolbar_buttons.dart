@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../ui/app_theme.dart';
 import 'editor_tools.dart';
@@ -37,23 +38,23 @@ class ToolButton extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     void openOptions() => descriptor.openOptions(context);
-    final fg = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
+    final fg = selected ? scheme.onSurface : scheme.onSurfaceVariant;
     final glyph = showLabel
         ? Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ToolGlyph(descriptor: descriptor),
-              const SizedBox(height: 2),
+              ToolGlyph(descriptor: descriptor, filled: selected),
+              const SizedBox(height: Gaps.xxs),
               Text(
                 descriptor.shortLabel,
                 maxLines: 1,
                 overflow: TextOverflow.fade,
                 softWrap: false,
-                style: theme.textTheme.labelSmall?.copyWith(color: fg, fontSize: 11, height: 1),
+                style: theme.textTheme.labelSmall?.copyWith(color: fg, height: 1),
               ),
             ],
           )
-        : ToolGlyph(descriptor: descriptor);
+        : ToolGlyph(descriptor: descriptor, filled: selected);
     return GestureDetector(
       onLongPress: openOptions,
       onSecondaryTap: openOptions,
@@ -68,11 +69,10 @@ class ToolButton extends StatelessWidget {
         onPressed: () => selected ? openOptions() : onSelect(),
         style: IconButton.styleFrom(
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          backgroundColor: selected ? scheme.secondaryContainer : null,
+          backgroundColor: selected ? Surfaces.pressed(scheme) : null,
           foregroundColor: fg,
-          shape: showLabel
-              ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.control))
-              : null,
+          // The selected tool sits on a neutral xs plate (REDESIGN §1.3).
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
         ),
         icon: glyph,
       ),
@@ -82,9 +82,12 @@ class ToolButton extends StatelessWidget {
 
 /// A tool's icon with its ink colour as a small bar underneath.
 class ToolGlyph extends StatelessWidget {
-  const ToolGlyph({super.key, required this.descriptor});
+  const ToolGlyph({super.key, required this.descriptor, this.filled = false});
 
   final ToolDescriptor descriptor;
+
+  /// Fills symbol glyphs (the active tool).
+  final bool filled;
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +98,10 @@ class ToolGlyph extends StatelessWidget {
       child: Stack(
         alignment: Alignment.topCenter,
         children: [
-          IconTheme.merge(data: const IconThemeData(size: 20), child: descriptor.icon),
+          IconTheme.merge(
+            data: IconThemeData(size: Glyphs.bar, fill: filled ? 1 : 0),
+            child: descriptor.icon,
+          ),
           if (color != null)
             Positioned(
               bottom: 0,
@@ -129,7 +135,7 @@ class SettingsButton extends StatelessWidget {
       constraints: const BoxConstraints.tightFor(width: 40, height: 40),
       padding: EdgeInsets.zero,
       onPressed: () => descriptor.openOptions(context),
-      icon: const Icon(Icons.tune_rounded, size: 20),
+      icon: const Icon(Symbols.tune_rounded, size: Glyphs.bar),
     );
   }
 }
@@ -152,8 +158,8 @@ class PalmRejectionButton extends StatelessWidget {
       constraints: const BoxConstraints.tightFor(width: 40, height: 40),
       padding: EdgeInsets.zero,
       onPressed: () => onChanged(!enabled),
-      icon: const Icon(Icons.touch_app_outlined, size: 20),
-      selectedIcon: const Icon(Icons.do_not_touch_outlined, size: 20),
+      icon: const Icon(Symbols.touch_app_rounded, size: Glyphs.bar),
+      selectedIcon: const Icon(Symbols.do_not_touch_rounded, size: Glyphs.bar, fill: 1),
     );
   }
 }

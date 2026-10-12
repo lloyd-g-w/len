@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../ui/menus.dart';
 
 /// Something the user asked for on one page in the overview.
 enum PageCommand {
-  insertAfter('Add page after', Icons.vertical_align_bottom_rounded),
-  duplicate('Duplicate', Icons.library_add_outlined),
-  template('Change template…', Icons.grid_on_rounded),
-  saveAsTemplate('Save as template…', Icons.dashboard_customize_outlined),
-  bookmark('Bookmark', Icons.bookmark_border_rounded),
-  delete('Delete', Icons.delete_outline_rounded);
+  insertAfter('Add page after', Symbols.vertical_align_bottom_rounded),
+  duplicate('Duplicate', Symbols.library_add_rounded),
+  template('Change template…', Symbols.grid_on_rounded),
+  saveAsTemplate('Save as template…', Symbols.dashboard_customize_rounded),
+  bookmark('Bookmark', Symbols.bookmark_rounded),
+  delete('Delete', Symbols.delete_rounded);
 
   const PageCommand(this.label, this.icon);
   final String label;
@@ -47,7 +48,7 @@ List<PopupMenuEntry<PageCommand>> pageMenuItems(NotebookPage page) => [
     if (c == PageCommand.delete) const PopupMenuDivider(),
     MenuRow(
       value: c,
-      icon: c == PageCommand.bookmark && page.bookmarked ? Icons.bookmark_remove_outlined : c.icon,
+      icon: c == PageCommand.bookmark && page.bookmarked ? Symbols.bookmark_remove_rounded : c.icon,
       label: c == PageCommand.bookmark && page.bookmarked ? 'Remove bookmark' : c.label,
       destructive: c == PageCommand.delete,
     ),

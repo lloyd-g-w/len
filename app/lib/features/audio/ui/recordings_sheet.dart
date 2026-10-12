@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/format.dart';
 import '../../../domain/recording.dart';
@@ -105,7 +106,7 @@ class _RecordingsListState extends State<RecordingsList> {
             IconButton(
               tooltip: 'Select',
               onPressed: () => setState(() => _selected = {}),
-              icon: const Icon(Icons.checklist_rounded),
+              icon: const Icon(Symbols.checklist_rounded),
             ),
           const SizedBox(width: Gaps.xs),
           FilledButton.tonalIcon(
@@ -113,7 +114,7 @@ class _RecordingsListState extends State<RecordingsList> {
               Navigator.of(context).pop();
               unawaited(startRecording(context, audio));
             },
-            icon: const Icon(Icons.mic_rounded),
+            icon: const Icon(Symbols.mic_rounded),
             label: const Text('Record'),
           ),
         ],
@@ -147,7 +148,7 @@ class _RecordingsListState extends State<RecordingsList> {
           IconButton(
             tooltip: 'Cancel selection',
             onPressed: () => setState(() => _selected = null),
-            icon: const Icon(Icons.close_rounded),
+            icon: const Icon(Symbols.close_rounded),
           ),
           Expanded(
             child: Text(
@@ -159,17 +160,17 @@ class _RecordingsListState extends State<RecordingsList> {
             tooltip: all ? 'Select none' : 'Select all',
             onPressed: () =>
                 setState(() => _selected = all ? {} : {for (final r in recordings) r.id}),
-            icon: Icon(all ? Icons.deselect_rounded : Icons.select_all_rounded),
+            icon: Icon(all ? Symbols.deselect_rounded : Symbols.select_all_rounded),
           ),
           IconButton(
             tooltip: 'Export…',
             onPressed: chosen.isEmpty ? null : () => unawaited(_export(chosen)),
-            icon: const Icon(Icons.ios_share_rounded),
+            icon: const Icon(Symbols.ios_share_rounded),
           ),
           IconButton(
             tooltip: 'Delete…',
             onPressed: chosen.isEmpty ? null : () => unawaited(_deleteAll(chosen)),
-            icon: const Icon(Icons.delete_outline_rounded),
+            icon: const Icon(Symbols.delete_rounded),
           ),
         ],
       ),
@@ -239,7 +240,9 @@ class _RecordingTile extends StatelessWidget {
       leading: selecting
           ? Checkbox(value: selected, onChanged: (_) => onSelect())
           : Icon(
-              open && audio.playback.playing ? Icons.graphic_eq_rounded : Icons.play_circle_rounded,
+              open && audio.playback.playing
+                  ? Symbols.graphic_eq_rounded
+                  : Symbols.play_circle_rounded,
             ),
       title: Text(recording.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(details, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -254,17 +257,21 @@ class _RecordingTile extends StatelessWidget {
           ? null
           : PopupMenuButton<String>(
               tooltip: 'More',
-              icon: const Icon(Icons.more_vert_rounded),
+              icon: const Icon(Symbols.more_vert_rounded),
               onSelected: (action) => unawaited(_run(context, action)),
               itemBuilder: (_) => [
-                const MenuRow(value: 'rename', icon: Icons.edit_outlined, label: 'Rename…'),
-                const MenuRow(value: 'trim', icon: Icons.content_cut_rounded, label: 'Trim…'),
+                const MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),
+                const MenuRow(value: 'trim', icon: Symbols.content_cut_rounded, label: 'Trim…'),
                 if (recording.trimmed)
-                  const MenuRow(value: 'untrim', icon: Icons.restore_rounded, label: 'Reset trim'),
-                const MenuRow(value: 'export', icon: Icons.ios_share_rounded, label: 'Export…'),
+                  const MenuRow(
+                    value: 'untrim',
+                    icon: Symbols.restore_rounded,
+                    label: 'Reset trim',
+                  ),
+                const MenuRow(value: 'export', icon: Symbols.ios_share_rounded, label: 'Export…'),
                 const MenuRow(
                   value: 'delete',
-                  icon: Icons.delete_outline_rounded,
+                  icon: Symbols.delete_rounded,
                   label: 'Delete…',
                   destructive: true,
                 ),

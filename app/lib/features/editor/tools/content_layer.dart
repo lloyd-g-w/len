@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../app_services.dart';
 import '../../../domain/surface_element.dart';
@@ -7,6 +8,7 @@ import '../../../ink/selection/selection_painter.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/tools/content_tools.dart';
 import '../../../ink/viewport.dart';
+import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../images/image_crop_overlay.dart';
 import '../recognition/convert_to_text_dialog.dart';
@@ -129,7 +131,6 @@ class _ContentLayerState extends State<ContentLayer> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final recognition = AppScope.of(context).recognition;
     final pasteAt = _pasteAt;
     return Stack(
@@ -142,8 +143,8 @@ class _ContentLayerState extends State<ContentLayer> {
                 selection: _content.selection,
                 lasso: _content.lassoPath,
                 viewport: widget.viewport,
-                accent: scheme.primary,
-                handleFill: scheme.surface,
+                accent: AppTheme.seed, // handles sit on the paper, not the chrome
+                handleFill: Palette.paper,
                 clip: widget.pages,
               ),
             ),
@@ -183,7 +184,7 @@ class _ContentLayerState extends State<ContentLayer> {
                   setState(() => _pasteAt = null);
                   _content.selection.paste(pasteAt.world);
                 },
-                icon: const Icon(Icons.content_paste_rounded, size: 18),
+                icon: const Icon(Symbols.content_paste_rounded, size: Glyphs.menu),
                 label: const Text('Paste'),
               ),
             ),

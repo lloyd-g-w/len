@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../domain/text/text_data.dart';
+import '../../../../ui/app_theme.dart';
 
 /// Picks one of the bundled fonts; each entry is shown in its own font.
 class FontMenuButton extends StatelessWidget {
@@ -18,7 +20,6 @@ class FontMenuButton extends StatelessWidget {
     return PopupMenuButton<TextFont>(
       key: const ValueKey('font-menu'),
       tooltip: 'Font',
-      initialValue: current,
       onSelected: onSelected,
       itemBuilder: (_) => [
         for (final f in TextFont.values)
@@ -29,7 +30,7 @@ class FontMenuButton extends StatelessWidget {
           ),
       ],
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.sm + 2),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -41,7 +42,7 @@ class FontMenuButton extends StatelessWidget {
                 style: current == null ? null : sample(current),
               ),
             ),
-            const Icon(Icons.arrow_drop_down_rounded, size: 20),
+            const Icon(Symbols.arrow_drop_down_rounded, size: Glyphs.bar),
           ],
         ),
       ),
@@ -78,7 +79,7 @@ class HighlightMenuButton extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: scheme.outline),
       ),
-      child: c == null ? Icon(Icons.block_rounded, size: 16, color: scheme.outline) : null,
+      child: c == null ? Icon(Symbols.block_rounded, size: 16, color: scheme.outline) : null,
     );
     return PopupMenuButton<int>(
       tooltip: 'Highlight',
@@ -100,7 +101,7 @@ class HighlightMenuButton extends StatelessWidget {
       icon: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          const Icon(Icons.border_color_outlined, size: 20),
+          const Icon(Symbols.border_color_rounded, size: Glyphs.bar),
           Container(
             width: 20,
             height: 4,
@@ -127,7 +128,6 @@ class HeadingMenuButton extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return PopupMenuButton<int>(
       tooltip: 'Paragraph style',
-      initialValue: heading,
       onSelected: onSelected,
       itemBuilder: (_) => [
         CheckedPopupMenuItem(value: 0, checked: heading == 0, child: const Text('Body text')),
@@ -143,9 +143,9 @@ class HeadingMenuButton extends StatelessWidget {
         ),
       ],
       icon: Icon(switch (heading) {
-        1 => Icons.title_rounded,
-        2 => Icons.text_fields_rounded,
-        _ => Icons.notes_rounded,
+        1 => Symbols.title_rounded,
+        2 => Symbols.text_fields_rounded,
+        _ => Symbols.notes_rounded,
       }, size: 20),
     );
   }

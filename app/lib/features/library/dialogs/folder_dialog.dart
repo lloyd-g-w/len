@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
@@ -71,17 +72,15 @@ class _FolderDialogState extends State<_FolderDialog> {
       // Name and colours can outgrow short (landscape phone) screens.
       scrollable: true,
       // The folder as it will look, in its colour.
-      leading: Center(
-        child: AnimatedContainer(
-          duration: Motion.medium,
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14),
-            borderRadius: BorderRadius.circular(Radii.control + 4),
-          ),
-          child: Icon(Icons.folder_rounded, color: color, size: 36),
+      leading: AnimatedContainer(
+        duration: Motion.medium,
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.14),
+          borderRadius: BorderRadius.circular(Radii.md),
         ),
+        child: Icon(Symbols.folder_rounded, fill: 1, color: color, size: 32),
       ),
       title: widget.title,
       content: DialogBody(
@@ -97,7 +96,7 @@ class _FolderDialogState extends State<_FolderDialog> {
               onSubmitted: (_) => _submit(),
             ),
             const SizedBox(height: Gaps.xl),
-            Text('Colour', style: theme.textTheme.titleSmall),
+            Text('Colour', style: theme.textTheme.labelLarge),
             const SizedBox(height: Gaps.sm),
             EvenGrid(
               itemExtent: 40,

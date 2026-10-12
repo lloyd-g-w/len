@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 
@@ -34,7 +35,7 @@ class SheetFooter extends StatelessWidget {
                 alignment: AlignmentDirectional.centerStart,
                 child: TextButton.icon(
                   onPressed: onImportPdf,
-                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  icon: const Icon(Symbols.picture_as_pdf_rounded),
                   label: const Text('Import PDF…', maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
               ),
@@ -42,7 +43,7 @@ class SheetFooter extends StatelessWidget {
             const SizedBox(width: Gaps.md),
             FilledButton.icon(
               onPressed: onCreate,
-              icon: const Icon(Icons.add_rounded),
+              icon: const Icon(Symbols.add_rounded),
               label: const Text('Create'),
             ),
           ],

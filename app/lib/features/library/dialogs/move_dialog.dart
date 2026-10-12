@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/folder.dart';
 import '../../../ui/app_dialogs.dart';
@@ -95,7 +96,8 @@ class _FolderRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(Radii.sm),
         ),
         child: Icon(
-          folder == null ? Icons.auto_stories_rounded : Icons.folder_rounded,
+          folder == null ? Symbols.auto_stories_rounded : Symbols.folder_rounded,
+          fill: folder == null ? 0 : 1,
           color: color,
           size: 20,
         ),
@@ -106,12 +108,12 @@ class _FolderRow extends StatelessWidget {
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xxs),
               decoration: BoxDecoration(
-                color: scheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(Radii.pill),
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(Radii.xs),
               ),
               child: Text(
                 'Current',
-                style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSecondaryContainer),
+                style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             )
           : null,

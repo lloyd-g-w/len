@@ -35,7 +35,7 @@ class TitleButton extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(color: scheme.onSurface),
+                  style: theme.textTheme.titleMedium,
                 ),
                 if (subtitle case final subtitle?)
                   Text(

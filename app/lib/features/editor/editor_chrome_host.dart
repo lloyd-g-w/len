@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../audio/notebook_audio.dart';
 import '../audio/ui/audio_bar_button.dart';
@@ -214,7 +215,7 @@ class EditorChromeHost extends StatelessWidget {
           insert: InsertImageButton(images: session.images),
           search: BarButton(
             tooltip: 'Search (Ctrl+F)',
-            icon: Icons.search_rounded,
+            icon: Symbols.search_rounded,
             onPressed: commands.openSearch,
           ),
           secondPane: secondPane,

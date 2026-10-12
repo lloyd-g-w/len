@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../app_theme.dart';
 import '../color_dot.dart';
@@ -171,7 +172,7 @@ class _HexRow extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(Radii.control - 4),
+            borderRadius: BorderRadius.circular(Radii.xs),
             border: Border.all(color: scheme.outlineVariant),
           ),
         ),
@@ -258,7 +259,7 @@ class _FavoritesRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Favourites', style: Theme.of(context).textTheme.labelMedium),
+        Text('Favourites', style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: Gaps.xs),
         Wrap(
           spacing: 6,
@@ -285,7 +286,11 @@ class _FavoritesRow extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: scheme.outline),
                   ),
-                  child: Icon(Icons.add_rounded, size: 18, color: scheme.onSurfaceVariant),
+                  child: Icon(
+                    Symbols.add_rounded,
+                    size: Glyphs.menu,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ),

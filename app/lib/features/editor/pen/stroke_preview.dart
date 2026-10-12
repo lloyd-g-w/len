@@ -112,7 +112,7 @@ class PreviewCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
       decoration: BoxDecoration(
         color: Palette.paper,
-        borderRadius: BorderRadius.circular(Radii.control),
+        borderRadius: BorderRadius.circular(Radii.sm),
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: StrokePreview(tool: tool, config: config, width: width, height: height),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
@@ -67,12 +68,12 @@ class PlaybackBar extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Trim…',
-                  iconSize: 18,
+                  iconSize: Glyphs.menu,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(width: 36, height: 28),
                   color: scheme.onSurfaceVariant,
                   onPressed: playback.loading ? null : playback.beginTrim,
-                  icon: const Icon(Icons.content_cut_rounded),
+                  icon: const Icon(Symbols.content_cut_rounded),
                 ),
               ],
             ),
@@ -96,7 +97,7 @@ class PlaybackBar extends StatelessWidget {
               IconButton.filledTonal(
                 tooltip: playback.playing ? 'Pause (Space)' : 'Play (Space)',
                 onPressed: playback.loading ? null : () => unawaited(playback.toggle()),
-                icon: Icon(playback.playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                icon: Icon(playback.playing ? Symbols.pause_rounded : Symbols.play_arrow_rounded),
               ),
               _skip(playback, back: false),
               const SizedBox(width: Gaps.xs),
@@ -108,8 +109,8 @@ class PlaybackBar extends StatelessWidget {
                     : 'Tap ink to play (off)',
                 isSelected: playback.tapToSeek,
                 onPressed: () => playback.tapToSeek = !playback.tapToSeek,
-                icon: const Icon(Icons.touch_app_outlined),
-                selectedIcon: const Icon(Icons.touch_app_rounded),
+                icon: const Icon(Symbols.touch_app_rounded),
+                selectedIcon: const Icon(Symbols.touch_app_rounded, fill: 1),
                 style: IconButton.styleFrom(foregroundColor: scheme.onSurfaceVariant).copyWith(
                   foregroundColor: WidgetStateProperty.resolveWith(
                     (states) => states.contains(WidgetState.selected)
@@ -121,12 +122,12 @@ class PlaybackBar extends StatelessWidget {
               IconButton(
                 tooltip: 'Recordings',
                 onPressed: () => unawaited(showRecordingsSheet(context, audio)),
-                icon: const Icon(Icons.queue_music_rounded),
+                icon: const Icon(Symbols.queue_music_rounded),
               ),
               IconButton(
                 tooltip: 'Close player',
                 onPressed: playback.close,
-                icon: const Icon(Icons.close_rounded),
+                icon: const Icon(Symbols.close_rounded),
               ),
             ],
           ),
@@ -142,7 +143,7 @@ class PlaybackBar extends StatelessWidget {
         : () => unawaited(
             playback.skip(back ? -PlaybackController.skipMs : PlaybackController.skipMs),
           ),
-    icon: Icon(back ? Icons.replay_10_rounded : Icons.forward_10_rounded),
+    icon: Icon(back ? Symbols.replay_10_rounded : Symbols.forward_10_rounded),
   );
 }
 

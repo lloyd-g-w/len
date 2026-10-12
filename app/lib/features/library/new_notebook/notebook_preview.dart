@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook.dart';
 import '../../../domain/paper.dart';
@@ -59,7 +60,7 @@ class NotebookPreview extends StatelessWidget {
         children: [
           _Lifted(
             brightness: brightness,
-            radius: Radii.cover,
+            radius: Radii.sm,
             child: AnimatedContainer(
               duration: Motion.medium,
               curve: Motion.standard,
@@ -92,7 +93,7 @@ class NotebookPreview extends StatelessWidget {
                         right: 8,
                         bottom: 8,
                         child: Icon(
-                          Icons.all_inclusive_rounded,
+                          Symbols.all_inclusive_rounded,
                           size: 18,
                           color: Color(coverColor).withValues(alpha: 0.85),
                         ),

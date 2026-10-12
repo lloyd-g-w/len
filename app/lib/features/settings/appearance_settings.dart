@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../data/app_preferences.dart';
 import 'settings_section.dart';
@@ -17,7 +18,7 @@ class AppearanceSettings extends StatelessWidget {
       builder: (context, _) {
         return SettingsSection(
           title: 'Appearance',
-          icon: Icons.palette_outlined,
+          icon: Symbols.palette_rounded,
           children: [
             SettingsTile(
               title: 'Theme',

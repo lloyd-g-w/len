@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../ui/app_theme.dart';
 import '../../ui/floating_panel.dart';
@@ -48,7 +49,7 @@ class PageNavigator extends StatelessWidget {
     Widget button(String tooltip, IconData icon, VoidCallback? onPressed) => IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      iconSize: 22,
+      iconSize: Glyphs.bar,
       style: IconButton.styleFrom(
         foregroundColor: scheme.onSurfaceVariant,
         fixedSize: const Size(40, 40),
@@ -58,15 +59,16 @@ class PageNavigator extends StatelessWidget {
       icon: Icon(icon),
     );
     return FloatingPanel(
+      radius: Radii.pill,
       padding: const EdgeInsets.symmetric(horizontal: Gaps.xs, vertical: Gaps.xxs),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (onOverview != null) button('All pages', Icons.grid_view_rounded, onOverview),
+          if (onOverview != null) button('All pages', Symbols.grid_view_rounded, onOverview),
           if (!compact)
             button(
               'Previous page',
-              Icons.chevron_left_rounded,
+              Symbols.chevron_left_rounded,
               index > 0 ? () => onSelect(index - 1) : null,
             ),
           Tooltip(
@@ -82,7 +84,12 @@ class PageNavigator extends StatelessWidget {
                     if (bookmarked)
                       Padding(
                         padding: const EdgeInsets.only(right: Gaps.xxs),
-                        child: Icon(Icons.bookmark_rounded, size: 16, color: scheme.tertiary),
+                        child: Icon(
+                          Symbols.bookmark_rounded,
+                          fill: 1,
+                          size: 16,
+                          color: Palette.bookmark,
+                        ),
                       ),
                     Text(
                       '${index + 1} / $count',
@@ -98,7 +105,7 @@ class PageNavigator extends StatelessWidget {
           if (!compact) ...[
             button(
               'Next page',
-              Icons.chevron_right_rounded,
+              Symbols.chevron_right_rounded,
               index < count - 1 ? () => onSelect(index + 1) : null,
             ),
             Container(
@@ -108,7 +115,7 @@ class PageNavigator extends StatelessWidget {
               color: scheme.outlineVariant,
             ),
           ],
-          button('Add page after this one', Icons.add_rounded, onAddPage),
+          button('Add page after this one', Symbols.add_rounded, onAddPage),
           if (!compact && (onAddWithTemplate != null || onInsertPdf != null))
             _moreAdd(context, scheme),
         ],
@@ -120,13 +127,13 @@ class PageNavigator extends StatelessWidget {
     menuChildren: [
       if (onAddWithTemplate != null)
         MenuItemButton(
-          leadingIcon: const Icon(Icons.note_add_outlined),
+          leadingIcon: const Icon(Symbols.note_add_rounded),
           onPressed: onAddWithTemplate,
           child: const Text('Add page with template…'),
         ),
       if (onInsertPdf != null)
         MenuItemButton(
-          leadingIcon: const Icon(Icons.picture_as_pdf_outlined),
+          leadingIcon: const Icon(Symbols.picture_as_pdf_rounded),
           onPressed: onInsertPdf,
           child: const Text('Add pages from PDF…'),
         ),
@@ -140,7 +147,7 @@ class PageNavigator extends StatelessWidget {
         padding: EdgeInsets.zero,
       ),
       onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-      icon: const Icon(Icons.expand_more_rounded, size: 20),
+      icon: const Icon(Symbols.expand_more_rounded, size: Glyphs.bar),
     ),
   );
 }

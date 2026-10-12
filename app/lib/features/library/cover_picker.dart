@@ -22,7 +22,7 @@ class CoverPicker extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: Gaps.sm),
           child: Row(
             children: [
-              Text('Colour', style: theme.textTheme.titleSmall),
+              Text('Colour', style: theme.textTheme.labelLarge),
               if (name != null) ...[
                 const SizedBox(width: Gaps.sm),
                 Text(name, style: theme.textTheme.bodySmall),

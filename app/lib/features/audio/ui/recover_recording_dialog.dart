@@ -79,11 +79,10 @@ class RecoverRecordingDialog extends StatelessWidget {
     );
     if (saved > 0) message.write(' The first ${formatClock(saved)} are saved either way.');
     return AppDialog(
-      icon: Icons.mic_none,
       title: 'Recover recording?',
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: dialogFormWidth),
-        child: Text(message.toString(), textAlign: TextAlign.center),
+        child: Text(message.toString()),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Discard')),

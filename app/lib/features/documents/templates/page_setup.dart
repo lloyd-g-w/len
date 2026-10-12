@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
@@ -19,7 +20,7 @@ class PickerLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: Gaps.sm),
       child: Row(
         children: [
-          Text(text, style: theme.textTheme.titleSmall),
+          Text(text, style: theme.textTheme.labelLarge),
           if (trailing != null) ...[
             const SizedBox(width: Gaps.sm),
             Flexible(
@@ -69,12 +70,12 @@ class PageSizeRow extends StatelessWidget {
             segments: const [
               ButtonSegment(
                 value: PageOrientation.portrait,
-                icon: Icon(Icons.crop_portrait_rounded),
+                icon: Icon(Symbols.crop_portrait_rounded),
                 label: Text('Portrait'),
               ),
               ButtonSegment(
                 value: PageOrientation.landscape,
-                icon: Icon(Icons.crop_landscape_rounded),
+                icon: Icon(Symbols.crop_landscape_rounded),
                 label: Text('Landscape'),
               ),
             ],
