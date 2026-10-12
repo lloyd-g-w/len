@@ -202,7 +202,7 @@ void main() {
     Stroke at(String id, double x) => Stroke(
       id: id,
       surfaceId: 's',
-      tool: InkTool.pen,
+      tool: InkTool.ballpoint,
       color: 0xFF000000,
       width: 2,
       points: [StrokePoint(x, 10, 0.5), StrokePoint(x + 10, 10, 0.5)],

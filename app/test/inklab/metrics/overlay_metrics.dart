@@ -6,7 +6,6 @@ import 'package:len/ink/input/wet_ink.dart';
 import 'package:len/ink/lab/raw_samples.dart';
 import 'package:len/ink/lab/replay_run.dart';
 import 'package:len/ink/lab/wet_ink_model.dart';
-import 'package:len/ink/pen/pen_profile.dart';
 
 import 'metric.dart';
 import 'outline_geometry.dart';
@@ -65,10 +64,7 @@ List<OverlayMoment> overlayMoments(ReplayResult r, {int depth = 2}) =>
 /// keep only the ink near the pen tip).
 Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<int> depths}) {
   final moments = {for (final d in depths) d: <OverlayMoment>[]};
-  final profile = PenProfile.of(r.pen.tool);
-  if (profile.flatCaps || profile.textured || profile.nibVariation > 0 || r.style.opacity < 1) {
-    return moments;
-  }
+  if (r.pen.tool.isHighlighter || r.style.opacity < 1) return moments;
   final dpr = r.recording.meta.devicePixelRatio;
   final frameUs = frameIntervalUs(r);
   final contacts = rawContacts(r.recording);

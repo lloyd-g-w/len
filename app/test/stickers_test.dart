@@ -63,7 +63,7 @@ void main() {
       expect(
         () => StickerCodec.decode({
           'strokes': [
-            {'tool': 'pen', 'color': 1, 'width': 2, 'points': '!!'},
+            {'tool': 'ballpoint', 'color': 1, 'width': 2, 'points': '!!'},
           ],
           'elements': [],
         }),

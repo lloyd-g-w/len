@@ -81,7 +81,7 @@ void main() {
           'z$n',
           points,
           width: [2.0, 8.0, 24.0][n % 3],
-          tool: _legacyPens[n % _legacyPens.length],
+          tool: InkTool.values[n % InkTool.values.length],
           style: StrokeStyle.defaultsFor(InkTool.ballpoint).copyWith(streamline: (n % 5) / 4),
           pressure: (i) => random.nextDouble(),
         );
@@ -164,12 +164,3 @@ void main() {
     expect(keys.every(box.contains), isTrue);
   });
 }
-
-/// Every pen type strokes may carry (current and legacy).
-const _legacyPens = [
-  InkTool.ballpoint,
-  InkTool.fountain,
-  InkTool.brush,
-  InkTool.pencil,
-  InkTool.marker,
-];

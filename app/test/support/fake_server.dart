@@ -139,7 +139,7 @@ SyncApi apiFor(FakeServer server) =>
 Stroke bigStroke(String id, String surface, int points) => Stroke(
   id: id,
   surfaceId: surface,
-  tool: InkTool.pen,
+  tool: InkTool.ballpoint,
   color: 0xFF000000,
   width: 2,
   points: [for (var i = 0; i < points; i++) StrokePoint(i.toDouble(), 0, 0.5)],

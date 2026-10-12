@@ -195,7 +195,7 @@ void main() {
           Stroke(
             id: 'long$i',
             surfaceId: 's',
-            tool: i.isEven ? InkTool.marker : InkTool.highlighter,
+            tool: i.isEven ? InkTool.ballpoint : InkTool.highlighter,
             color: i.isEven ? 0xFF283593 : 0x88FFD54F,
             width: i.isEven ? 14 : 40,
             points: [

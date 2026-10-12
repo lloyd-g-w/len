@@ -15,7 +15,7 @@ import 'package:len/domain/stroke.dart';
 Stroke _stroke(String id, String surface) => Stroke(
   id: id,
   surfaceId: surface,
-  tool: InkTool.pen,
+  tool: InkTool.ballpoint,
   color: 0xFF000000,
   width: 2,
   points: const [StrokePoint(10, 10, 0.5), StrokePoint(40, 30, 0.5)],

@@ -5,29 +5,20 @@ import 'stroke_style.dart';
 
 export 'stroke_style.dart';
 
-/// Which tool produced a stroke; decides its outline shape and texture.
+/// Which tool produced a stroke: the pen ([ballpoint]) or the highlighter
+/// (translucent, flat ends, drawn beneath other ink).
 ///
-/// Stored by [name]; never rename a value. Unknown names (from newer
-/// clients) parse to [pen], so they still render as ink.
-///
-/// New strokes use [ballpoint] (the pen) or [highlighter]; the other values
-/// were offered by earlier versions and are kept so their strokes render.
+/// Stored by [name]; never rename a value.
 enum InkTool {
-  /// The original v0.1 pen (legacy).
-  pen,
-  highlighter,
   ballpoint,
-
-  /// Legacy pen types.
-  fountain,
-  brush,
-  pencil,
-  marker;
+  highlighter;
 
   bool get isHighlighter => this == highlighter;
 
+  /// The tool named [value]; throws [FormatException] for unknown names
+  /// (the stroke is malformed and skipped).
   static InkTool parse(String value) =>
-      values.firstWhere((t) => t.name == value, orElse: () => pen);
+      values.asNameMap()[value] ?? (throw FormatException('Unknown ink tool $value'));
 }
 
 /// A single sampled input point in world coordinates.

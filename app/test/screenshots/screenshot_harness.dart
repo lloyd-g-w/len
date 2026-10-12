@@ -213,7 +213,7 @@ List<Stroke> handwriting(String surface, Clock clock, {required int lines, requi
         Stroke(
           id: clock.newId(),
           surfaceId: surface,
-          tool: InkTool.pen,
+          tool: InkTool.ballpoint,
           color: line == 0 ? 0xFF1C7ED6 : 0xFF1F2937,
           width: line == 0 ? 4 : 2.6,
           points: points,
@@ -240,7 +240,7 @@ List<Stroke> handwriting(String surface, Clock clock, {required int lines, requi
       Stroke(
         id: clock.newId(),
         surfaceId: surface,
-        tool: InkTool.pen,
+        tool: InkTool.ballpoint,
         color: 0xFFE03131,
         width: 5,
         points: [

@@ -30,7 +30,7 @@ void main() {
       Stroke(
         id: 'ink-1',
         surfaceId: nb.id,
-        tool: InkTool.pen,
+        tool: InkTool.ballpoint,
         color: 0xFF000000,
         width: 3,
         points: const [StrokePoint(1, 2, 0.25), StrokePoint(30, 40, 0.75)],
@@ -111,7 +111,7 @@ void main() {
         'deleted': false,
         'data': {
           'surfaceId': 's',
-          'tool': 'pen',
+          'tool': 'ballpoint',
           'color': 0,
           'width': 1,
           'points': '!!',

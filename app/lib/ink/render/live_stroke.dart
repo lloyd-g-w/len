@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import '../../domain/stroke.dart';
 import '../input/live_ink.dart';
-import '../pen/pen_profile.dart';
 import 'outline_sink.dart';
 import 'ribbon_emitter.dart';
 import 'stroke_outline.dart';
@@ -69,9 +68,6 @@ class LiveStrokeBuilder {
 
   /// Told why [finish] had to rebuild from scratch (tests).
   static void Function(String why)? debugFallback;
-
-  /// Sub-paths in the frozen part.
-  int get frozenPieces => _pieces.length;
 
   /// Whether [points] extends the points of the previous [update].
   bool continues(List<StrokePoint> points) =>
@@ -189,7 +185,7 @@ class LiveStrokeBuilder {
 
   void _feed(List<StrokePoint> points) {
     final from = _fed.length;
-    StrokeOutline.feed(_shaper, points, spec, null, from: from);
+    StrokeOutline.feed(_shaper, points, spec, from: from);
     _fed.addAll(points.skip(from));
   }
 
@@ -198,8 +194,7 @@ class LiveStrokeBuilder {
 
   static final Expando<LiveStrokeBuilder> _builders = Expando('live stroke builders');
 
-  /// The live outline of [live]'s stroke, built incrementally (nib pens,
-  /// whose radius depends on the whole stroke, are rebuilt every frame).
+  /// The live outline of [live]'s stroke, built incrementally.
   static LiveOutline livePath(LiveInk live) {
     final built = build(
       _builders[live],
@@ -225,32 +220,20 @@ class LiveStrokeBuilder {
     final builder = _builders[live];
     _builders[live] = null;
     if (builder == null || points.isEmpty || points.first != builder._fed.firstOrNull) return null;
-    if (PenProfile.of(tool).nibVariation > 0) return null;
     if (!builder.spec.sameShape(StrokeRenderer.specFor(tool, width, style))) return null;
     return builder.finish(points);
   }
 
   /// The live outline of [points] drawn with [tool], [width] and [style]:
   /// built by [previous] when it is drawing the same stroke, else by a new
-  /// builder (returned in `builder`; null for nib pens, which are rebuilt
-  /// from scratch every frame).
-  static ({LiveOutline path, LiveStrokeBuilder? builder}) build(
+  /// builder (returned in `builder`).
+  static ({LiveOutline path, LiveStrokeBuilder builder}) build(
     LiveStrokeBuilder? previous,
     List<StrokePoint> points, {
     required InkTool tool,
     required double width,
     required StrokeStyle style,
   }) {
-    if (PenProfile.of(tool).nibVariation > 0) {
-      final path = StrokeRenderer.buildPath(
-        points,
-        tool: tool,
-        width: width,
-        style: style,
-        complete: false,
-      );
-      return (path: LiveOutline.of(path), builder: null);
-    }
     final spec = StrokeRenderer.specFor(tool, width, style);
     final same = previous != null && previous.continues(points) && previous.spec.sameShape(spec);
     final builder = same ? previous : LiveStrokeBuilder(spec);

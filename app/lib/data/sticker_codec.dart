@@ -78,7 +78,7 @@ abstract final class StickerCodec {
           width: number(raw, 'width'),
           points: points,
           createdAt: i,
-          style: StrokeStyle.fromJson(raw['style'], fallback: StrokeStyle.defaultsFor(tool)),
+          style: StrokeStyle.fromJson(raw['style']),
         ),
       );
     }

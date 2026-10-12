@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/painting.dart';
 
 import '../../domain/stroke.dart';
-import '../pen/pen_profile.dart';
 import '../render/shape_params.dart';
 import '../render/stroke_outline.dart';
 import '../render/stroke_renderer.dart';
@@ -49,9 +48,9 @@ class WetInkView {
 /// ("low-latency ink"): it paints the newest samples itself, before Flutter
 /// can, until Flutter's own rendering of the live stroke catches up.
 ///
-/// Only opaque, round, untextured ink qualifies — anywhere the overlay and
-/// Flutter's ink overlap must look the same, which translucent or textured
-/// ink would not.
+/// Only opaque pen ink qualifies — anywhere the overlay and Flutter's ink
+/// overlap must look the same, which translucent (or flat-capped
+/// highlighter) ink would not.
 class WetInkStyle {
   const WetInkStyle({required this.color, required this.radii, required this.shape});
 
@@ -101,9 +100,8 @@ class WetInkStyle {
     required int color,
     required double scale,
   }) {
-    final profile = PenProfile.of(tool);
     final opaque = style.opacity >= 1 && (color >>> 24) == 0xFF;
-    if (!opaque || profile.flatCaps || profile.textured || profile.nibVariation > 0) return null;
+    if (!opaque || tool.isHighlighter) return null;
     final spec = StrokeRenderer.specFor(tool, width, style);
     return WetInkStyle(
       color: color,

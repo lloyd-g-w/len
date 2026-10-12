@@ -127,66 +127,6 @@ void main() {
       expect(t.activeConfig.colorIndex, 0);
     });
 
-    test('old combined presets migrate to colour and width slots', () {
-      final t = restored({
-        'penType': 'ballpoint',
-        'pens': {
-          'ballpoint': {
-            'presets': [
-              {'c': 0xFF111111, 'w': 2},
-              {'c': 0xFF2222AA, 'w': 2},
-              {'c': 0xFFAA2222, 'w': 5},
-            ],
-            'selected': 2,
-            'thinning': 0.7,
-          },
-          'highlighter': {
-            'presets': [
-              {'c': 0xFFFACC15, 'w': 18},
-              {'c': 0xFFFACC15, 'w': 18},
-              {'c': 0xFF69DB7C, 'w': 18},
-            ],
-            'selected': 0,
-          },
-        },
-      });
-      final pen = t.configOf(InkTool.ballpoint);
-      expect(pen.colors, [0xFF111111, 0xFF2222AA, 0xFFAA2222]);
-      expect(pen.widths, hasLength(3));
-      expect(pen.widths, containsAll([2.0, 5.0]));
-      expect(pen.color, 0xFFAA2222);
-      expect(pen.width, 5);
-      expect(pen.thinning, 0.7);
-      final hl = t.configOf(InkTool.highlighter);
-      expect(hl.colors.take(2), [0xFFFACC15, 0xFF69DB7C]);
-      expect(hl.colors, hasLength(3), reason: 'topped up from the defaults');
-      expect(hl.widths, contains(18.0));
-      expect(hl.width, 18);
-    });
-
-    test('a removed pen type in use hands its colours and widths to the pen', () {
-      final t = restored({
-        'penType': 'fountain',
-        'pens': {
-          'ballpoint': {'thinning': 0.3},
-          'fountain': {
-            'presets': [
-              {'c': 0xFF0000AA, 'w': 4.5},
-              {'c': 0xFF00AA00, 'w': 30},
-            ],
-            'selected': 1,
-          },
-        },
-      });
-      expect(t.tool, EditorTool.pen);
-      final pen = t.configOf(InkTool.ballpoint);
-      expect(pen.colors.take(2), [0xFF0000AA, 0xFF00AA00]);
-      expect(pen.color, 0xFF00AA00);
-      expect(pen.width, PenDefaults.pen.maxWidth, reason: 'clamped to the pen range');
-      expect(pen.thinning, 0.3);
-      expect(t.activeInk, InkTool.ballpoint);
-    });
-
     test('selecting a slot leaves the eraser; widths step within range', () {
       final t = ToolSettings()..tool = EditorTool.eraser;
       t.selectColor(2);

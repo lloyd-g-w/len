@@ -208,16 +208,16 @@ class LiveInkPainter extends CustomPainter {
     if (drawing) {
       if (clip != null) canvas.clipRect(clip!);
       final outline = _livePath();
-      final paint = StrokeRenderer.paintFor(live.tool, live.color, live.style);
+      final paint = StrokeRenderer.paintFor(live.color, live.style);
       final frozen = outline.frozen;
-      if (frozen != null && paint.shader == null && paint.color.a >= 1) {
+      if (frozen != null && paint.color.a >= 1) {
         // Opaque ink: the frozen part and the tail overlap (the tail's cap),
         // so they can be filled separately, without copying the frozen part.
         canvas
           ..drawPath(frozen, paint)
           ..drawPath(outline.tail, paint);
       } else {
-        // Translucent or textured ink must be filled in one go.
+        // Translucent ink must be filled in one go.
         canvas.drawPath(outline.combined, paint);
       }
     }

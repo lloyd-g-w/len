@@ -1171,24 +1171,16 @@ The toolbar offers exactly two inks — the **pen** (`InkTool.ballpoint`) and th
 **highlighter** — plus the eraser. A stroke's look = its `InkTool` + its
 `StrokeStyle`:
 
-- **`PenProfile`** (per tool, in code): pressure easing, nib, texture and
-  flat highlighter caps. It also covers the tools earlier versions offered
-  (`pen` (v0.1), `fountain`, `brush`, `pencil`, `marker`), so their strokes
-  keep rendering; nothing creates them any more. Render constants must stay
-  stable.
 - **`PenDefaults`** (pen, highlighter): default colours, widths, feel settings,
   width range and taper factor offered in the UI.
 - **`StrokeStyle`** (per stroke, stored in `strokes.style` and synced as
   `data.style`): opacity, thinning (pressure sensitivity), streamline
-  (stabiliser) and start/end taper lengths. Missing → `StrokeStyle.defaultsFor`,
-  which reproduces how v0.1 strokes looked. So a stroke renders identically on
-  every device, whatever the local tool settings.
+  (stabiliser) and start/end taper lengths; required, parsed strictly (as
+  is the tool: an unknown one makes the stroke malformed). So a stroke
+  renders identically on every device, whatever the local tool settings.
 
-The legacy **fountain** nib adjusts per-point pressure so the radius shrinks
-where the pen travels along a 45° nib (`render/nib.dart`); the legacy
-**pencil** fills its outline with a world-anchored grain texture
-(`render/pencil_texture.dart`). **Highlighter** strokes are translucent with
-flat chisel ends, drawn before other ink in each chunk picture, and the live
+**Highlighter** strokes are translucent with flat chisel ends (the pen has
+round caps), drawn before other ink in each chunk picture, and the live
 highlighter stroke is painted on a layer beneath committed ink.
 
 User customisation lives in `ToolSettings`, persisted as JSON in the local
@@ -1196,10 +1188,8 @@ User customisation lives in `ToolSettings`, persisted as JSON in the local
 quick widths** (1–6 slots each, one of each selected) and feel settings
 (pressure sensitivity, stabiliser, tapered ends; opacity for the highlighter —
 the pen is always opaque), plus eraser options, hold-to-straighten and
-favourite colours. Older settings with combined colour+width presets migrate:
-preset colours become colour slots, preset widths width slots (topped up from
-the defaults to three each); if a removed pen type was in use, its slots go to
-the pen (`PenConfigJson`).
+favourite colours (`PenConfigJson` parses it leniently: anything missing or
+invalid takes its default).
 
 ### Toolbar (`features/editor/`)
 

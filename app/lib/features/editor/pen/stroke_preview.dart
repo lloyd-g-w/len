@@ -83,7 +83,7 @@ class _PreviewPainter extends CustomPainter {
       style: style,
       complete: true,
     );
-    canvas.drawPath(path, StrokeRenderer.paintFor(tool, color, style));
+    canvas.drawPath(path, StrokeRenderer.paintFor(color, style));
   }
 
   @override

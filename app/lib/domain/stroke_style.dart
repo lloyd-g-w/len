@@ -2,10 +2,6 @@ import 'stroke.dart';
 
 /// Per-stroke rendering parameters, stored with the stroke so it renders
 /// identically on every device regardless of the local tool settings.
-///
-/// Strokes written before styles existed (or by clients that omit fields)
-/// fall back to [StrokeStyle.defaultsFor], which reproduces how those
-/// strokes were originally rendered.
 class StrokeStyle {
   const StrokeStyle({
     this.opacity = 1,
@@ -36,11 +32,11 @@ class StrokeStyle {
   /// scale is estimated from the points' spacing (`StrokeOutline.unitOf`).
   final double unit;
 
-  /// How a stroke without a stored style is rendered.
+  /// The style of a stroke of [tool] created without one (generated
+  /// content, tests).
   static StrokeStyle defaultsFor(InkTool tool) => switch (tool) {
     InkTool.highlighter => const StrokeStyle(opacity: 0.35, thinning: 0, streamline: 0.5),
-    InkTool.pen => const StrokeStyle(thinning: 0.6, streamline: 0.35),
-    _ => const StrokeStyle(),
+    InkTool.ballpoint => const StrokeStyle(),
   };
 
   StrokeStyle copyWith({
@@ -69,22 +65,25 @@ class StrokeStyle {
     if (unit > 0) 'u': unit,
   };
 
-  /// Parses [json] leniently: missing, mistyped or out-of-range fields take
-  /// their value from [fallback]; unknown fields are ignored.
-  static StrokeStyle fromJson(Object? json, {required StrokeStyle fallback}) {
-    if (json is! Map) return fallback;
-    double read(String key, double orElse, double max) {
+  /// Parses [json] strictly: `o`, `th` and `sl` are required, in 0..1;
+  /// `ts`, `te` and `u` are omitted when 0. Throws [FormatException] when
+  /// malformed. Unknown fields are ignored.
+  static StrokeStyle fromJson(Object? json) {
+    if (json is! Map) throw const FormatException('Malformed stroke style');
+    double read(String key, double max, {bool required = false}) {
       final v = json[key];
-      return v is num && v.isFinite ? v.toDouble().clamp(0.0, max) : orElse;
+      if (v == null && !required) return 0;
+      if (v is num && v.isFinite && v >= 0 && v <= max) return v.toDouble();
+      throw FormatException('Malformed stroke style: $key');
     }
 
     return StrokeStyle(
-      opacity: read('o', fallback.opacity, 1),
-      thinning: read('th', fallback.thinning, 1),
-      streamline: read('sl', fallback.streamline, 1),
-      taperStart: read('ts', fallback.taperStart, 1e4),
-      taperEnd: read('te', fallback.taperEnd, 1e4),
-      unit: read('u', fallback.unit, 1e6),
+      opacity: read('o', 1, required: true),
+      thinning: read('th', 1, required: true),
+      streamline: read('sl', 1, required: true),
+      taperStart: read('ts', 1e4),
+      taperEnd: read('te', 1e4),
+      unit: read('u', 1e6),
     );
   }
 

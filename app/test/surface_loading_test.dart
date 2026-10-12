@@ -18,7 +18,7 @@ import 'elements_test.dart' show textBox;
 Stroke _stroke(String id, Offset at) => Stroke(
   id: id,
   surfaceId: 's',
-  tool: InkTool.pen,
+  tool: InkTool.ballpoint,
   color: 0xFF000000,
   width: 2,
   points: [StrokePoint(at.dx, at.dy, 0.5), StrokePoint(at.dx + 10, at.dy, 0.5)],

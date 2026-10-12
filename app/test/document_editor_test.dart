@@ -71,7 +71,7 @@ Future<(AppServices, Notebook)> pumpEditor(
 Stroke _wave(String id, String surface, Offset at, int color) => Stroke(
   id: id,
   surfaceId: surface,
-  tool: InkTool.pen,
+  tool: InkTool.ballpoint,
   color: color,
   width: 4,
   points: [

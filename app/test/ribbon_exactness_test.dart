@@ -50,7 +50,7 @@ List<List<StrokePoint>> strokes(int seed) {
 
 int holes(List<StrokePoint> points, OutlineSpec spec, {required double zoom}) {
   final s = StrokeShaper(StrokeOutline.paramsOf(points, spec));
-  StrokeOutline.feed(s, points, spec, null);
+  StrokeOutline.feed(s, points, spec);
   s.update(ended: true);
   Offset map(Offset o) => o * zoom;
   final ribbon = PolygonSink(map: map, tolerance: 0.05);

@@ -670,7 +670,6 @@ void main() {
       a.s.strokes.save([
         _stroke('hl', nb.id, tool: InkTool.highlighter, style: style),
         _stroke('bp', nb.id),
-        _stroke('old', nb.id, tool: InkTool.pen),
       ]);
       await a.sync();
       final changes = await b.sync();
@@ -700,7 +699,7 @@ void main() {
         return a.sync();
       })();
       expect(back.strokeSurfaces, {nb.id});
-      expect(a.content.loadAll(nb.id).map((s) => s.id), unorderedEquals(['bp', 'old']));
+      expect(a.content.loadAll(nb.id).map((s) => s.id), ['bp']);
     });
 
     test('elements: text box create, edit, move, delete', () async {
@@ -942,7 +941,7 @@ void main() {
           10,
           data: {
             'surfaceId': 's',
-            'tool': 'pen',
+            'tool': 'ballpoint',
             'color': 0,
             'width': 0,
             'points': _points(const [StrokePoint(0, 0, 1)]),
@@ -958,7 +957,7 @@ void main() {
           10,
           data: {
             'surfaceId': 's',
-            'tool': 'pen',
+            'tool': 'ballpoint',
             'color': 0,
             'width': 2,
             'points': _points(const [StrokePoint(0, 0, 1), StrokePoint(3e38, 3e38, 1)]),

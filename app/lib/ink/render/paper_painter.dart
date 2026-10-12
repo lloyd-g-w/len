@@ -45,11 +45,6 @@ abstract final class PaperRenderer {
     _ => minScreenSpacing,
   };
 
-  /// Whether [style]'s repeating pattern is legible at [scale] device
-  /// pixels per unit.
-  static bool patternVisible(PaperStyle style, double scale) =>
-      style.spacing * scale >= _threshold(style);
-
   /// Fills [page] with the paper colour, with a soft drop shadow.
   static void paintSheet(
     Canvas canvas,

@@ -11,7 +11,7 @@ import 'package:len/ink/surface_model.dart';
 
 import 'data_test.dart' show FakeClock;
 
-Stroke styled(String id, {InkTool tool = InkTool.fountain, double y = 0}) => Stroke(
+Stroke styled(String id, {InkTool tool = InkTool.ballpoint, double y = 0}) => Stroke(
   id: id,
   surfaceId: 's',
   tool: tool,
@@ -33,20 +33,14 @@ void main() {
 
   tearDown(() => db.close());
 
-  test('a migration adds a nullable style column', () {
-    final columns = db.db.select('PRAGMA table_info(strokes)');
-    final style = columns.singleWhere((r) => r['name'] == 'style');
-    expect(style['notnull'], 0);
-  });
-
   test('styles round-trip through storage and sync records', () {
     strokes.save([styled('a')]);
     final loaded = strokes.loadChunks('s', [(x: 0, y: 0)]).single;
-    expect(loaded.tool, InkTool.fountain);
+    expect(loaded.tool, InkTool.ballpoint);
     expect(loaded.style, styled('a').style);
 
     final record = strokes.dirtyRecords(10).single;
-    expect(record.data!['tool'], 'fountain');
+    expect(record.data!['tool'], 'ballpoint');
     final other = AppDatabase.inMemory();
     addTearDown(other.close);
     final remote = StrokeRepository(other, deviceId: 'dev-b');
@@ -54,38 +48,44 @@ void main() {
     expect(remote.loadChunks('s', [(x: 0, y: 0)]).single.style, styled('a').style);
   });
 
-  test('old rows and records without a style get the legacy defaults', () {
-    db.db.execute(
-      'INSERT INTO strokes (id, surface_id, tool, color, width, points, created_at, updated_at, '
-      "device_id, deleted, dirty) VALUES ('old', 's', 'highlighter', 0, 18, ?, 1, 1, 'x', 0, 0)",
-      [
-        StrokeCodec.encode(const [StrokePoint(1, 1, 0.5), StrokePoint(9, 1, 0.5)]),
-      ],
-    );
-    db.db.execute("INSERT INTO stroke_chunks VALUES ('s', 0, 0, 'old')");
-    final old = strokes.loadChunks('s', [(x: 0, y: 0)]).single;
-    expect(old.style, StrokeStyle.defaultsFor(InkTool.highlighter));
+  test('rows and records without a style or with an unknown tool are malformed', () {
+    final points = StrokeCodec.encode(const [StrokePoint(1, 1, 0.5), StrokePoint(9, 1, 0.5)]);
+    for (final (id, tool, style) in [
+      ('no-style', 'highlighter', null),
+      ('odd-tool', 'fountain', '{"o":1,"th":0.5,"sl":0.4}'),
+    ]) {
+      db.db.execute(
+        'INSERT INTO strokes (id, surface_id, tool, color, width, points, created_at, '
+        "updated_at, device_id, deleted, dirty, style) VALUES (?, 's', ?, 0, 18, ?, 1, 1, 'x', "
+        '0, 0, ?)',
+        [id, tool, points, style],
+      );
+      db.db.execute("INSERT INTO stroke_chunks VALUES ('s', 0, 0, ?)", [id]);
+    }
+    expect(strokes.loadChunks('s', [(x: 0, y: 0)]), isEmpty);
 
-    strokes.writeRemote(
-      SyncRecord(
-        collection: 'strokes',
-        id: 'v1',
-        updatedAt: 5,
-        deviceId: 'old-client',
-        deleted: false,
-        data: {
-          'surfaceId': 's',
-          'tool': 'pen',
-          'color': 0xFF000000,
-          'width': 2,
-          'points': base64Encode(StrokeCodec.encode(const [StrokePoint(0, 0, 0.5)])),
-          'createdAt': 1,
-          'style': 'garbage', // tolerated
-        },
-      ),
+    SyncRecord record(String tool, Object? style) => SyncRecord(
+      collection: 'strokes',
+      id: 'r',
+      updatedAt: 5,
+      deviceId: 'other',
+      deleted: false,
+      data: {
+        'surfaceId': 's',
+        'tool': tool,
+        'color': 0xFF000000,
+        'width': 2,
+        'points': base64Encode(StrokeCodec.encode(const [StrokePoint(0, 0, 0.5)])),
+        'createdAt': 1,
+        'style': style,
+      },
     );
-    final v1 = strokes.loadChunks('s', [(x: 0, y: 0)]).firstWhere((s) => s.id == 'v1');
-    expect(v1.style, StrokeStyle.defaultsFor(InkTool.pen));
+    final style = const StrokeStyle().toJson();
+    expect(() => strokes.writeRemote(record('pen', style)), throwsFormatException);
+    expect(() => strokes.writeRemote(record('ballpoint', 'garbage')), throwsFormatException);
+    expect(() => strokes.writeRemote(record('ballpoint', null)), throwsFormatException);
+    strokes.writeRemote(record('ballpoint', style));
+    expect(strokes.loadChunks('s', [(x: 0, y: 0)]).single.id, 'r');
   });
 
   group('SurfaceModel pixel eraser', () {

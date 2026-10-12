@@ -274,7 +274,7 @@ abstract final class PdfExporter {
   }
 
   static void _drawStroke(_Pen pen, Stroke stroke) {
-    // Same colour and opacity as on screen (textured pens become flat ink).
+    // Same colour and opacity as on screen.
     final base = Color(stroke.color);
     final color = base.withValues(alpha: base.a * stroke.style.opacity);
     final g = pen.g

@@ -16,7 +16,4 @@ class Centerline {
   final List<int> corners;
 
   int get length => x.length;
-
-  /// Length of the centre line.
-  double get arcLength => step * (length - 1);
 }

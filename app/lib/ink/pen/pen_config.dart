@@ -150,8 +150,6 @@ class PenConfig {
 
   /// Parses the config of [tool] leniently, taking anything missing or
   /// invalid from [fallback] and clamping values to their valid ranges.
-  /// Configs saved with combined colour + width presets (before quick
-  /// colours and widths were separate) are migrated.
   static PenConfig fromJson(Object? json, PenConfig fallback, {required InkTool tool}) =>
       PenConfigJson.parse(json, fallback, tool: tool);
 

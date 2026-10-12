@@ -86,26 +86,23 @@ class ToolSettings extends ChangeNotifier {
   InkTool get activeInk =>
       _tool == EditorTool.highlighter ? InkTool.highlighter : InkTool.ballpoint;
 
-  /// The customisation of [tool] (the pen's for any non-highlighter ink).
-  PenConfig configOf(InkTool tool) => _configs[_inkOf(tool)]!;
+  /// The customisation of [tool].
+  PenConfig configOf(InkTool tool) => _configs[tool]!;
 
   /// The customisation of [activeInk].
   PenConfig get activeConfig => configOf(activeInk);
 
   /// Replaces the configuration of [tool].
   void updateConfig(InkTool tool, PenConfig Function(PenConfig) update) {
-    _configs[_inkOf(tool)] = update(configOf(tool));
+    _configs[tool] = update(configOf(tool));
     _changed();
   }
 
   /// The style a new stroke with [tool] gets.
   StrokeStyle styleFor(InkTool tool) {
     final config = configOf(tool);
-    return config.styleFor(_inkOf(tool), config.width);
+    return config.styleFor(tool, config.width);
   }
-
-  static InkTool _inkOf(InkTool tool) =>
-      tool.isHighlighter ? InkTool.highlighter : InkTool.ballpoint;
 
   /// Selects colour slot [index] of the active ink (switching to the pen
   /// from tools that draw no ink).
@@ -251,32 +248,13 @@ class ToolSettings extends ChangeNotifier {
     final pens = data['pens'];
     if (pens is Map) {
       for (final tool in inks) {
-        _configs[tool] = PenConfig.fromJson(
-          _saved(pens, tool, data['penType']),
-          _configs[tool]!,
-          tool: tool,
-        );
+        _configs[tool] = PenConfig.fromJson(pens[tool.name], _configs[tool]!, tool: tool);
       }
     }
     _eraser = EraserConfig.fromJson(data['eraser']);
     if (data['straighten'] case final bool straighten) _holdToStraighten = straighten;
     _shape = ShapeKind.parse(data['shape']);
     if (data['text'] case final Map<String, Object?> text) _text = TextData.fromJson(text);
-  }
-
-  /// The saved config of [tool]. Settings from before the pen line-up was
-  /// reduced to one pen take the quick colours and widths of the pen type
-  /// that was in use ([penType]: fountain, brush, …) for the pen.
-  static Object? _saved(Map<Object?, Object?> pens, InkTool tool, Object? penType) {
-    final own = pens[tool.name];
-    if (tool.isHighlighter || penType is! String || penType == tool.name) return own;
-    final used = pens[penType];
-    if (used is! Map || (own is Map && own.containsKey('colors'))) return own;
-    return {
-      ...?(own is Map ? own : null),
-      'presets': used['presets'],
-      'selected': used['selected'],
-    };
   }
 
   /// Distinct colours, first occurrence first, at most [maxFavorites].

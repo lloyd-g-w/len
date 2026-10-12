@@ -186,27 +186,23 @@ class StrokeQueries implements StrokeReader {
     try {
       final points = StrokeCodec.decode(row['points'] as Uint8List);
       if (points.isEmpty) return null;
-      final tool = InkTool.parse(row['tool'] as String);
       final style = row['style'];
       return Stroke(
         id: row['id'] as String,
         surfaceId: row['surface_id'] as String,
-        tool: tool,
+        tool: InkTool.parse(row['tool'] as String),
         color: row['color'] as int,
         width: (row['width'] as num).toDouble(),
         points: points,
         createdAt: row['created_at'] as int,
-        style: StrokeStyle.fromJson(
-          style is String ? decodeStyle(style) : null,
-          fallback: StrokeStyle.defaultsFor(tool),
-        ),
+        style: StrokeStyle.fromJson(style is String ? decodeStyle(style) : null),
       );
     } on FormatException {
       return null;
     }
   }
 
-  /// Decodes a stored style column; malformed JSON yields null (defaults).
+  /// Decodes a stored style column; malformed JSON yields null.
   static Object? decodeStyle(String json) {
     try {
       return jsonDecode(json);

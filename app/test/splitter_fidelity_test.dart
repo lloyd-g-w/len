@@ -7,7 +7,7 @@ import 'package:len/ink/render/stroke_renderer.dart';
 
 void main() {
   test('pixel-erasing the middle leaves the rest of the ink where it was', () {
-    for (final tool in [InkTool.ballpoint, InkTool.fountain, InkTool.brush]) {
+    for (final tool in InkTool.values) {
       // A wavy, sparsely sampled stroke with a strong stabiliser.
       final original = Stroke(
         id: 'o',
