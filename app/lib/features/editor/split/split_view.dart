@@ -69,11 +69,17 @@ class SplitView extends StatelessWidget {
               top: 0,
               bottom: 0,
               width: solo == true ? width : left,
-              child: _Parked(
-                parked: solo == true,
-                child: MediaQuery(
-                  data: split ? media.removePadding(removeRight: true) : media,
-                  child: primary,
+              // Each pane paints only within itself: zoomed ink (drawn in
+              // whole tiles clipped to its page), a page sliding in or a
+              // popover's shadow never cross into the other pane.
+              child: ClipRect(
+                clipBehavior: split ? Clip.hardEdge : Clip.none,
+                child: _Parked(
+                  parked: solo == true,
+                  child: MediaQuery(
+                    data: split ? media.removePadding(removeRight: true) : media,
+                    child: primary,
+                  ),
                 ),
               ),
             ),
@@ -101,12 +107,15 @@ class SplitView extends StatelessWidget {
                 top: 0,
                 bottom: 0,
                 width: solo == null ? width - left - dividerWidth : width,
-                child: _Parked(
-                  parked: solo == false,
-                  primaryWidth: split ? left : null,
-                  child: MediaQuery(
-                    data: split ? media.removePadding(removeLeft: true) : media,
-                    child: secondary,
+                child: ClipRect(
+                  clipBehavior: split ? Clip.hardEdge : Clip.none,
+                  child: _Parked(
+                    parked: solo == false,
+                    primaryWidth: split ? left : null,
+                    child: MediaQuery(
+                      data: split ? media.removePadding(removeLeft: true) : media,
+                      child: secondary,
+                    ),
                   ),
                 ),
               ),
