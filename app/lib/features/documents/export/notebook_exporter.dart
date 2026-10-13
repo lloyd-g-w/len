@@ -13,6 +13,7 @@ import '../../../domain/surface_element.dart';
 import '../../../ink/surface_model.dart';
 import '../../editor/document/page_painting.dart';
 import '../pdf/pdf_renderer.dart';
+import 'export_report.dart';
 import 'pdf_export.dart';
 import 'pdf_page_sources.dart';
 
@@ -40,13 +41,15 @@ class NotebookExporter {
   /// as vectors). [onProgress] hears how many pages are prepared, then
   /// written, and may throw to abandon the export. Without [backgrounds],
   /// imported PDF pages are left out. [onRasterized] hears the index (in
-  /// [pages]) of each PDF page that had to be embedded as an image.
+  /// [pages]) of each PDF page that had to be embedded as an image;
+  /// [report] collects what was left out or simplified.
   Future<Uint8List> pdf(
     List<NotebookPage> pages, {
     String? title,
     ExportProgress? onProgress,
     bool backgrounds = true,
     void Function(int index)? onRasterized,
+    ExportReport? report,
   }) async {
     SurfaceModel.flushAll(); // Ink drawn a moment ago.
     final sources = PdfPageSources(read: _readBlob, normalize: _renderer.normalized);
@@ -58,7 +61,7 @@ class NotebookExporter {
           page,
           _copier.loadAll(page.id),
           elements: _copier.loadAllElements(page.id),
-          background: backgrounds ? await _exportBackground(page, sources) : null,
+          background: backgrounds ? await _exportBackground(page, sources, report) : null,
         ),
       );
     }
@@ -68,12 +71,21 @@ class NotebookExporter {
       onPage: (done) => onProgress?.call(ExportStage.writing, done, export.length),
       readBlob: _readBlob,
       onRasterized: onRasterized,
+      report: report,
     );
   }
 
-  Future<ExportBackground?> _exportBackground(NotebookPage page, PdfPageSources sources) async {
+  Future<ExportBackground?> _exportBackground(
+    NotebookPage page,
+    PdfPageSources sources,
+    ExportReport? report,
+  ) async {
     final bg = page.background;
-    if (bg == null || !await services.sync.fetchBlob(bg.blob)) return null;
+    if (bg == null) return null;
+    if (!await services.sync.fetchBlob(bg.blob)) {
+      report?.missingBackgrounds++;
+      return null;
+    }
     return ExportBackground(
       source: await sources.sourceOf(bg.blob),
       pageIndex: bg.pageIndex,
@@ -158,8 +170,8 @@ class NotebookExporter {
   }
 
   /// A one-page PDF of a canvas's drawing ([canvasPage]).
-  Future<Uint8List> canvasPdf(ExportPage canvas, {String? title}) =>
-      PdfExporter.build([canvas], title: title, readBlob: _readBlob);
+  Future<Uint8List> canvasPdf(ExportPage canvas, {String? title, ExportReport? report}) =>
+      PdfExporter.build([canvas], title: title, readBlob: _readBlob, report: report);
 
   /// A PNG of a canvas's drawing ([canvasPage]) at [scale] pixels per
   /// world unit, or less for a drawing too large for [maxCanvasPixels].

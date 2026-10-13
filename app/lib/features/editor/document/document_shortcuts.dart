@@ -9,8 +9,8 @@ import 'page_fit.dart';
 
 /// Keyboard navigation of a paged notebook: ← / → and Page Up / Down turn
 /// pages, ↑ / ↓ scroll (turn pages in single-page flow), Home / End go to
-/// the first / last page, `+` / `-` zoom (also with Ctrl/⌘), `0` is the
-/// automatic page zoom, Shift+1 the whole page, Shift+2 the page width.
+/// the first / last page, `+` / `-` zoom (also with Ctrl/⌘), `0` (also
+/// with Ctrl/⌘) is the automatic page zoom, Shift+1 the whole page, Shift+2 the page width.
 /// Single keys are wrapped in [unlessTyping].
 Map<ShortcutActivator, VoidCallback> documentShortcuts(
   DocumentController doc,
@@ -45,6 +45,8 @@ Map<ShortcutActivator, VoidCallback> documentShortcuts(
         SingleActivator(key, meta: true): () => zoom(factor),
       },
     const SingleActivator(LogicalKeyboardKey.digit0): unlessTyping(() => doc.setFit(PageFit.auto)),
+    const SingleActivator(LogicalKeyboardKey.digit0, control: true): () => doc.setFit(PageFit.auto),
+    const SingleActivator(LogicalKeyboardKey.digit0, meta: true): () => doc.setFit(PageFit.auto),
     const SingleActivator(LogicalKeyboardKey.digit1, shift: true): unlessTyping(
       () => doc.setFit(PageFit.page),
     ),

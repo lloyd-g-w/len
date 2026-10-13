@@ -319,6 +319,6 @@ class LibraryController extends ChangeNotifier {
 
   void _changed() {
     reload();
-    unawaited(services.sync.syncNow());
+    unawaited(services.sync.syncInBackground());
   }
 }

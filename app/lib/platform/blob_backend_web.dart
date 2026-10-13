@@ -9,14 +9,15 @@ import '../data/blob_backend.dart';
 /// Opens the app's blob storage: an IndexedDB object store (database
 /// `len_blobs`), separate from the SQLite database so large PDFs are not
 /// part of the SQLite file the wasm VFS keeps in memory. Falls back to
-/// memory (blobs then last until the tab closes) if IndexedDB is
-/// unavailable. [directory] is ignored.
+/// memory ([VolatileBlobBackend]: blobs then last until the tab closes,
+/// which the app tells the user) if IndexedDB is unavailable. [directory]
+/// is ignored.
 Future<BlobBackend> openBlobBackend(String directory) async {
   try {
     return IndexedDbBlobBackend._(await _openDatabase());
   } on Object catch (e) {
     debugPrint('IndexedDB unavailable, keeping blobs in memory: $e');
-    return MemoryBlobBackend();
+    return VolatileBlobBackend();
   }
 }
 

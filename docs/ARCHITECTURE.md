@@ -616,7 +616,14 @@ Canvas PNGs shrink to at most 8192 px on the long side.
 Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
-on mobile and written into a folder the user picks on desktop.
+on mobile and written into a folder the user picks on desktop. On Android the
+export sheet also offers Save to device: the system's save dialog (one file)
+or folder picker (several), `SaveDocumentPlugin.kt` on `len/save_document`.
+The saver returns `ExportedFiles` (where they went), so the flow can say
+"Saved “Lecture.pdf”" with Show in folder on desktops; an `ExportReport`
+collects what was left out (missing PDF pages or images, PDF pages included
+as pictures) for the same message, and failures show their raw text only
+under Details.
 
 **Why a Dart copier** (not PDFium page import): PDFium's
 `FPDF_ImportPages` / `FPDF_NewXObjectFromPage` are reachable only through
@@ -1545,6 +1552,10 @@ All writes go straight to SQLite; in-memory state is a cache.
 
 ## Platforms (`platform/`)
 
+Startup (`main.dart`) opens the database and blob store in a try: if either
+fails, `ui/startup_error.dart` runs instead of the app (what happened, the
+data folder on desktops, Copy details, Try again, which reruns startup).
+
 Platform differences live behind conditional exports
 (`export 'x_native.dart' if (dart.library.js_interop) 'x_web.dart'`), so no
 `dart:io`, `dart:isolate`, `dart:ffi` or `path_provider` code is compiled for
@@ -1553,10 +1564,10 @@ the web:
 | Concern            | Android / Linux / Windows                     | Web                                              |
 |--------------------|-----------------------------------------------|--------------------------------------------------|
 | SQLite (`sqlite_connection`) | FFI, bundled SQLite, WAL, `<app support>/len.db` | `sqlite3.wasm` + IndexedDB VFS (`len`), no WAL |
-| Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs`                      |
+| Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs`; if it can't open, memory (`VolatileBlobBackend`), which the library, Settings and a first-write snack say |
 | App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread, time-budgeted slices (`SlicedStrokeReader`) |
-| Export (`file_export`) | save dialog / share sheet                 | browser download                                 |
+| Export (`file_export`) | save dialog + Show in folder / share sheet or Save to device | browser download                                 |
 | Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock: a second tab waits ("open in another tab") |
 | Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux / Windows: command line + forwarding from a second instance | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
@@ -1939,6 +1950,14 @@ elements keep their payload, and tombstones their blobs, for 30 days
 deleted pages / notebooks that hold live content and notebooks / pages whose
 tombstone a live record replaced, then pushes the revived rows. Tombstones are
 pushed children first, so a half-finished push never looks like a conflict.
+
+Presentation and retries (`SyncController`, `ui/sync_status_button.dart`,
+`features/settings/sync_*`): `lastError` is always plain words, with any raw
+text in `lastErrorDetails` (Settings → Sync shows it under Details). The
+timer, app lifecycle, editor and library call `syncInBackground`, which skips
+while `waitsForSettings` (the server rejected the token: retrying can't help);
+saving settings or Sync now tries again. A failed status opens Settings at
+Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
 
 ## Known limitations / next steps
 

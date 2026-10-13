@@ -13,19 +13,24 @@ import 'writing_settings.dart';
 /// Settings (REDESIGN §4): General, Writing, Handwriting, Sync, Storage
 /// (web only) and About, in one centred column at most [maxWidth] wide.
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.showSync = false});
+
+  /// Scrolls to Sync once shown (opened from a failed sync status).
+  final bool showSync;
 
   /// The column's widest.
   static const double maxWidth = 640;
 
   @override
-  Widget build(BuildContext context) => const Scaffold(body: _SettingsColumn());
+  Widget build(BuildContext context) => Scaffold(body: _SettingsColumn(showSync: showSync));
 }
 
 /// The sections under a pinned bar titled "Settings"; the bar gets its
 /// hairline once the column scrolls under it.
 class _SettingsColumn extends StatefulWidget {
-  const _SettingsColumn();
+  const _SettingsColumn({required this.showSync});
+
+  final bool showSync;
 
   @override
   State<_SettingsColumn> createState() => _SettingsColumnState();
@@ -62,7 +67,7 @@ class _SettingsColumnState extends State<_SettingsColumn> {
           padding: EdgeInsets.symmetric(horizontal: gutter),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: _sections(context),
+            children: _sections(context, showSync: widget.showSync),
           ),
         ),
       ),
@@ -88,15 +93,16 @@ class _SettingsColumnState extends State<_SettingsColumn> {
 }
 
 /// The settings sections, in order.
-List<Widget> _sections(BuildContext context) {
+List<Widget> _sections(BuildContext context, {required bool showSync}) {
   final services = AppScope.of(context);
   final preferences = services.preferences;
   return [
     GeneralSettings(preferences: preferences),
     WritingSettings(preferences: preferences),
     HandwritingSettings(recognition: services.recognition),
-    const SyncSettings(),
-    if (browserStorage case final storage?) StorageSettings(storage: storage),
+    SyncSettings(reveal: showSync),
+    if (browserStorage case final storage?)
+      StorageSettings(storage: storage, filesKept: services.blobsArePersistent),
     const AboutSettings(),
   ];
 }

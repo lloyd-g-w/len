@@ -7,8 +7,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../app_services.dart';
 import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
+import '../../sync/sync_controller.dart';
 import '../../ui/app_theme.dart';
-import '../../ui/menus.dart';
 import '../../ui/messages.dart';
 import '../audio/ui/recover_recording_dialog.dart';
 import '../documents/import/import_flow.dart';
@@ -19,6 +19,8 @@ import 'library_content.dart';
 import 'library_controller.dart';
 import 'library_file_drop.dart';
 import 'library_header.dart';
+import 'library_menus.dart';
+import 'library_notice.dart';
 import 'library_sidebar.dart';
 import 'selection/selection_actions.dart';
 import 'selection/selection_bar.dart';
@@ -30,9 +32,10 @@ import 'thumbnails/thumbnail_scope.dart';
 ///
 /// From [Breakpoints.medium] a sidebar; below it the same content in a
 /// drawer (☰). Shortcuts: Ctrl+N new notebook, Ctrl+Shift+N new folder,
-/// Ctrl+F search, Ctrl+A select all, Delete moves the focused (or selected)
-/// notebooks to the trash, Esc ends selection or clears the search. Ctrl-
-/// and Shift-click select notebooks.
+/// Ctrl+F search, Ctrl+A select all, Delete (⌘⌫ on Macs) moves the focused
+/// (or selected) notebooks to the trash, F2 renames the focused notebook,
+/// Esc ends selection or clears the search. Ctrl- and Shift-click select
+/// notebooks.
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
 
@@ -140,8 +143,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.dispose();
   }
 
-  void _openSettings() => unawaited(
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+  void _openSettings({bool sync = false}) => unawaited(
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => SettingsScreen(showSync: sync))),
   );
 
   void _focusSearch() {
@@ -178,6 +182,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
     unawaited(_actions.trash(focusContext, notebook));
   }
 
+  /// The notebook with keyboard focus, if it is not in the trash.
+  Notebook? get _focusedNotebook {
+    final id = _controller.focusedNotebookId;
+    final notebook = id == null ? null : _services!.notebooks.get(id);
+    return notebook == null || notebook.isTrashed ? null : notebook;
+  }
+
+  void _renameFocused() {
+    final notebook = _focusedNotebook;
+    if (notebook == null) return;
+    final focusContext = FocusManager.instance.primaryFocus?.context ?? context;
+    unawaited(_actions.onNotebookAction(focusContext, notebook, NotebookAction.rename));
+  }
+
   Map<ShortcutActivator, VoidCallback> get _shortcuts => {
     // Ctrl, and ⌘ on Apple keyboards.
     for (final mod in [(control: true, meta: false), (control: false, meta: true)]) ...{
@@ -194,6 +212,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     },
     ...keyboardShortcutsBinding(() => unawaited(showKeyboardShortcuts(context))),
     const SingleActivator(LogicalKeyboardKey.delete): _trashFocused,
+    const SingleActivator(LogicalKeyboardKey.backspace, meta: true): _trashFocused,
+    const SingleActivator(LogicalKeyboardKey.f2): _renameFocused,
     const SingleActivator(LogicalKeyboardKey.keyA, control: true): _selectAll,
     const SingleActivator(LogicalKeyboardKey.keyA, meta: true): _selectAll,
     const SingleActivator(LogicalKeyboardKey.escape): _clearSearch,
@@ -237,17 +257,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _content({Widget? headerLeading}) => AnimatedSwitcher(
-    duration: Motion.medium,
-    switchInCurve: Motion.standard,
-    transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-    child: KeyedSubtree(
-      key: ValueKey('${_controller.section}/${_controller.folderId}'),
-      child: LibraryContent(
-        actions: _actions,
-        searchController: _search,
-        searchFocus: _searchFocus,
-        headerLeading: headerLeading,
+  Widget _content({Widget? headerLeading}) => LibraryNotices(
+    child: AnimatedSwitcher(
+      duration: Motion.medium,
+      switchInCurve: Motion.standard,
+      transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+      child: KeyedSubtree(
+        key: ValueKey('${_controller.section}/${_controller.folderId}'),
+        child: LibraryContent(
+          actions: _actions,
+          searchController: _search,
+          searchFocus: _searchFocus,
+          headerLeading: headerLeading,
+        ),
       ),
     ),
   );
@@ -289,7 +311,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return Scaffold(
       body: Row(
         children: [
-          LibrarySidebar(actions: _actions, onOpenSettings: _openSettings),
+          LibrarySidebar(
+            actions: _actions,
+            onOpenSettings: _openSettings,
+            onOpenSyncSettings: () => _openSettings(sync: true),
+          ),
           Expanded(
             // The selection bar floats over the content, not the sidebar.
             child: Stack(
@@ -323,15 +349,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
               Navigator.of(context).pop();
               _openSettings();
             },
+            onOpenSyncSettings: () {
+              Navigator.of(context).pop();
+              _openSettings(sync: true);
+            },
           ),
         ),
       ),
       body: _content(
         headerLeading: Builder(
-          builder: (context) => IconButton(
-            tooltip: 'Menu',
-            icon: const Icon(Symbols.menu_rounded),
-            onPressed: Scaffold.of(context).openDrawer,
+          builder: (context) => ListenableBuilder(
+            listenable: _services!.sync,
+            // A dot while sync fails: the status is in the drawer.
+            builder: (context, _) {
+              final failing = _services!.sync.state == SyncState.error;
+              return IconButton(
+                tooltip: failing ? 'Menu (sync failed)' : 'Menu',
+                icon: Badge(
+                  isLabelVisible: failing,
+                  smallSize: 8,
+                  child: const Icon(Symbols.menu_rounded),
+                ),
+                onPressed: Scaffold.of(context).openDrawer,
+              );
+            },
           ),
         ),
       ),

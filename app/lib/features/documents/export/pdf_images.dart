@@ -27,6 +27,9 @@ class PdfImageWriter {
   /// Each blob is embedded once per document, however often it is used.
   final Map<String, PdfImage?> _embedded = {};
 
+  /// How many images couldn't be read or embedded (left out).
+  int get missing => _embedded.entries.where((e) => e.key.isNotEmpty && e.value == null).length;
+
   /// Draws [element] (an image) onto [g]; [toPdf] maps world points to PDF
   /// points and [k] is PDF points per world unit.
   Future<void> draw(

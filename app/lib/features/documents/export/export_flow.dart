@@ -7,7 +7,9 @@ import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../platform/file_export.dart' as platform;
 import '../progress_dialog.dart';
+import 'export_messages.dart';
 import 'export_options.dart';
+import 'export_report.dart';
 import 'export_sheet.dart';
 import 'notebook_exporter.dart';
 
@@ -17,8 +19,14 @@ export 'export_options.dart' show ExportRange;
 typedef ExportFile = ({Uint8List bytes, String name});
 
 /// Hands exported [files] to the user and returns where they went (null
-/// if cancelled or shared); `saveOrShareAll` from `platform/file_export`.
-typedef ExportSaver = Future<String?> Function(List<ExportFile> files, {required String mime});
+/// if cancelled); `saveOrShareAll` from `platform/file_export`. With
+/// [toDevice] (Android) through the system's save dialog instead of the
+/// share sheet.
+typedef ExportSaver = Future<platform.ExportedFiles?> Function(
+  List<ExportFile> files, {
+  required String mime,
+  bool toDevice,
+});
 
 /// Asks what to export from [pages] of [notebook] (the export sheet,
 /// starting at [initialRange]; [currentPage] is zero-based), exports with
@@ -66,6 +74,7 @@ Future<void> runExport(
   final names = exportFileNames(notebook.title, options.format, options.pages, pages.length);
   final worker = exporter ?? NotebookExporter(AppScope.read(context));
   final subject = names.length == 1 ? names.single : '${names.length} images';
+  final report = ExportReport();
   try {
     final files = await runWithSteps(context, 'Exporting', subject: subject, cancellable: true, (
       progress,
@@ -76,6 +85,7 @@ Future<void> runExport(
           selected,
           title: notebook.title,
           backgrounds: options.includeBackgrounds,
+          report: report,
           onProgress: (stage, done, total) => progress.step(
             done,
             total,
@@ -96,19 +106,22 @@ Future<void> runExport(
       return pngs;
     });
     if (!context.mounted) return;
-    final saved = await save(files, mime: options.format.mime);
+    final saved = await save(files, mime: options.format.mime, toDevice: options.toDevice);
     if (saved == null || !context.mounted) return;
-    showMessage(context, files.length == 1 ? 'Saved $saved' : 'Saved ${files.length} images');
+    showExported(context, saved, plural: 'images', note: report.summary);
   } on Cancelled {
     return; // Nothing was saved; rendered pages are already disposed.
   } on Object catch (e, stack) {
     // Errors too: the dialog is closed, the user must hear about it.
     debugPrint('Export failed: $e\n$stack');
-    if (context.mounted) showMessage(context, 'Export failed: $e');
+    if (context.mounted) showExportFailed(context, _quoted(subject, names.length), e);
   } finally {
     if (exporter == null) await worker.dispose();
   }
 }
+
+/// "“Lecture.pdf”" for one file, "3 images" for several.
+String _quoted(String subject, int count) => count == 1 ? '“$subject”' : subject;
 
 Future<Uint8List> _png(
   NotebookExporter exporter,
@@ -131,6 +144,7 @@ Future<void> exportCanvasFlow(
   ExportSaver save = platform.saveOrShareAll,
 }) async {
   final worker = exporter ?? NotebookExporter(AppScope.read(context));
+  final report = ExportReport();
   try {
     final preview = worker.canvasPage(notebook);
     if (preview == null) {
@@ -154,20 +168,20 @@ Future<void> exportCanvasFlow(
       final canvas = worker.canvasPage(notebook, template: options.includeTemplates);
       if (canvas == null) return const <ExportFile>[];
       final bytes = options.format == ExportFormat.pdf
-          ? await worker.canvasPdf(canvas, title: notebook.title)
+          ? await worker.canvasPdf(canvas, title: notebook.title, report: report)
           : await worker.canvasPng(canvas, scale: pngScale);
       progress.check(); // Cancelled meanwhile.
       return [(bytes: bytes, name: name)];
     });
     if (files.isEmpty || !context.mounted) return;
-    final saved = await save(files, mime: options.format.mime);
+    final saved = await save(files, mime: options.format.mime, toDevice: options.toDevice);
     if (saved == null || !context.mounted) return;
-    showMessage(context, 'Saved $saved');
+    showExported(context, saved, plural: 'images', note: report.summary);
   } on Cancelled {
     return;
   } on Object catch (e, stack) {
     debugPrint('Canvas export failed: $e\n$stack');
-    if (context.mounted) showMessage(context, 'Export failed: $e');
+    if (context.mounted) showExportFailed(context, '“${notebook.title}”', e);
   } finally {
     if (exporter == null) await worker.dispose();
   }

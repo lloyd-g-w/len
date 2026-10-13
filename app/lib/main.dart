@@ -14,25 +14,48 @@ import 'platform/incoming_files.dart';
 import 'platform/outline_preparer.dart';
 import 'platform/single_instance.dart';
 import 'ui/app_theme.dart';
+import 'ui/startup_error.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   registerFontLicenses();
   // Web: one tab at a time owns the database.
   await claimSingleInstance(onWaiting: () => runApp(const _OpenElsewhere()));
-  // Natively: files in the app-support directory. Web: IndexedDB.
-  final dir = await appDataDirectory();
   // Web: ask the browser not to evict the IndexedDB data (where silent).
   unawaited(requestPersistentStorageOnStartup());
-  final database = await AppDatabase.openDefault(dir);
-  final services = AppServices.create(
-    database,
-    blobBackend: await openBlobBackend(dir),
-    // "Open with" / "Share to Len", command-line files, PWA file handler.
-    incomingFiles: openIncomingFiles(args),
-    // Outlines of loaded ink are built on worker isolates.
-    outlines: createOutlinePreparer(),
-  )..sync.start();
+  await _start(args);
+}
+
+/// Opens the storage and runs the app; if the storage can't be opened, runs
+/// [StartupErrorApp] instead (whose Try again calls this again).
+Future<void> _start(List<String> args) async {
+  String? dir;
+  AppDatabase? database;
+  final AppServices services;
+  try {
+    // Natively: files in the app-support directory. Web: IndexedDB.
+    dir = await appDataDirectory();
+    database = await AppDatabase.openDefault(dir);
+    final blobs = await openBlobBackend(dir);
+    services = AppServices.create(
+      database,
+      blobBackend: blobs,
+      // "Open with" / "Share to Len", command-line files, PWA file handler.
+      incomingFiles: openIncomingFiles(args),
+      // Outlines of loaded ink are built on worker isolates.
+      outlines: createOutlinePreparer(),
+    );
+  } on Object catch (error, stack) {
+    debugPrint('Cannot open storage: $error\n$stack');
+    try {
+      database?.close();
+    } on Object catch (_) {}
+    runApp(
+      StartupErrorApp(error: error, stack: stack, dataFolder: dir, onRetry: () => _start(args)),
+    );
+    return;
+  }
+  services.sync.start();
   if (PerfProbe.requested) PerfProbe.start();
   runApp(LenApp(services: services));
   // Throttled to once a day; deletes blobs unreferenced for a week.

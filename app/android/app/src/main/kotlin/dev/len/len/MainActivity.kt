@@ -24,6 +24,8 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         flutterEngine.plugins.add(RecordingServicePlugin())
         // ML Kit handwriting recognition off the UI thread.
         flutterEngine.plugins.add(HandwritingRecognitionPlugin())
+        // "Save to device" for exports (system save dialogs).
+        flutterEngine.plugins.add(SaveDocumentPlugin())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -34,8 +34,14 @@ const _digitKeys = [
 ];
 
 /// The editor's keyboard shortcuts: undo/redo, tools, quick colours and
-/// widths, selection, focus mode and tabs, plus canvas navigation
-/// ([canvasShortcuts]) or page navigation ([documentShortcuts]).
+/// widths, selection (Ctrl/⌘+A selects all on the page or in view; arrows
+/// nudge a selection 1 pt, Shift+arrows 10 pt), focus mode and tabs, plus
+/// canvas navigation ([canvasShortcuts]) or page navigation
+/// ([documentShortcuts]), whose arrows apply when nothing is selected.
+
+/// How far an arrow key nudges a selection (world units: points on a page),
+/// and with Shift.
+const double nudgeStep = 1, nudgeStepLarge = 10;
 Map<ShortcutActivator, VoidCallback> editorShortcuts(
   EditorSession session, {
   required VoidCallback toggleFocus,
@@ -47,6 +53,41 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
 }) {
   final undo = session.undo;
   final tools = session.tools;
+  final selection = session.content.selection;
+  final doc = session.doc;
+  void selectAll() =>
+      session.content.selectAllIn(doc?.pageViewport.contentBounds ?? session.viewport.visibleWorld);
+  final nav = <ShortcutActivator, VoidCallback>{
+    if (session.canvasNav case final canvas?) ...canvasShortcuts(canvas, unlessTyping),
+    if (doc != null) ...documentShortcuts(doc, session.docAnimator!, unlessTyping),
+  };
+  final arrows = {
+    LogicalKeyboardKey.arrowLeft: const Offset(-1, 0),
+    LogicalKeyboardKey.arrowRight: const Offset(1, 0),
+    LogicalKeyboardKey.arrowUp: const Offset(0, -1),
+    LogicalKeyboardKey.arrowDown: const Offset(0, 1),
+  };
+  bool isArrow(ShortcutActivator a, {bool? large}) => switch (a) {
+    SingleActivator(:final trigger, :final shift) =>
+      arrows.containsKey(trigger) && (large == null || shift == large),
+    _ => false,
+  };
+  // Arrows nudge the selection, else navigate as [nav] binds them
+  // (activators have no value equality, so look them up by key).
+  VoidCallback arrow(LogicalKeyboardKey key, Offset direction, {required bool large}) {
+    final fallback = nav.entries
+        .where((e) => isArrow(e.key, large: large) && (e.key as SingleActivator).trigger == key)
+        .map((e) => e.value)
+        .firstOrNull;
+    return unlessTyping(() {
+      if (!selection.isEmpty) {
+        selection.nudge(direction * (large ? nudgeStepLarge : nudgeStep));
+      } else {
+        fallback?.call();
+      }
+    });
+  }
+
   return {
     for (final mod in [(control: true, meta: false), (control: false, meta: true)]) ...{
       SingleActivator(LogicalKeyboardKey.keyZ, control: mod.control, meta: mod.meta): undo.undo,
@@ -54,6 +95,9 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
           undo.redo,
       SingleActivator(LogicalKeyboardKey.period, control: mod.control, meta: mod.meta): toggleFocus,
       SingleActivator(LogicalKeyboardKey.keyW, control: mod.control, meta: mod.meta): ?closeTab,
+      SingleActivator(LogicalKeyboardKey.keyA, control: mod.control, meta: mod.meta): unlessTyping(
+        selectAll,
+      ),
     },
     const SingleActivator(LogicalKeyboardKey.keyY, control: true): undo.redo,
     const SingleActivator(LogicalKeyboardKey.f11): toggleFocus,
@@ -73,8 +117,12 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
     const SingleActivator(LogicalKeyboardKey.bracketLeft): unlessTyping(() => tools.stepWidth(-1)),
     const SingleActivator(LogicalKeyboardKey.bracketRight): unlessTyping(() => tools.stepWidth(1)),
     ...contentShortcuts(session.content, tools, unlessTyping, paste: paste, pastePlain: pastePlain),
-    if (session.canvasNav case final nav?) ...canvasShortcuts(nav, unlessTyping),
-    if (session.doc case final doc?) ...documentShortcuts(doc, session.docAnimator!, unlessTyping),
+    for (final e in nav.entries)
+      if (!isArrow(e.key)) e.key: e.value,
+    for (final MapEntry(:key, value: direction) in arrows.entries) ...{
+      SingleActivator(key): arrow(key, direction, large: false),
+      SingleActivator(key, shift: true): arrow(key, direction, large: true),
+    },
   };
 }
 

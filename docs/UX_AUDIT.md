@@ -39,7 +39,7 @@ Status: ⬜ open (all items).
 
 ### P0 — broken
 
-**P0-1 Web: if IndexedDB can't open, PDFs, images and audio live in memory and vanish with the tab.**
+✅ **P0-1 Web: if IndexedDB can't open, PDFs, images and audio live in memory and vanish with the tab.**
 `platform/blob_backend_web.dart:14-20` catches any error and returns
 `MemoryBlobBackend()` with only a `debugPrint`. Browsers that block
 IndexedDB (older private modes, locked-down profiles, storage disabled) hit this. The user imports a PDF, annotates it,
@@ -50,8 +50,12 @@ browser window. Turn on sync or use a normal window.") and say so in
 Settings → Storage. *Files:* `platform/blob_backend_web.dart`,
 `data/blob_backend.dart`, `app_services.dart`, `features/settings/storage_settings.dart`,
 `features/library/library_screen.dart`.
+*Done:* the web fallback is a `VolatileBlobBackend`;
+`AppServices.blobsArePersistent` drives a library banner ("Files you add won't
+be kept in this browser window"), a Settings → Storage row, and a one-time
+snack the first time a file is stored.
 
-**P0-2 A database or blob-store failure at startup leaves a blank window.**
+✅ **P0-2 A database or blob-store failure at startup leaves a blank window.**
 `main.dart:27-31`: `AppDatabase.openDefault(dir)` and `openBlobBackend(dir)`
 are awaited with no try/catch before `runApp`, so a locked, corrupt or
 unwritable database (full disk, a second desktop instance racing, a broken
@@ -59,6 +63,9 @@ wasm VFS) gives an empty window and no clue. *Fix:* wrap startup; on failure
 `runApp` a small error screen (what happened in one sentence, the data folder
 path on desktop, Copy details, Try again). *Files:* `main.dart`, a new
 `ui/startup_error.dart`.
+*Done:* `main.dart` opens the storage in a try; on failure
+`ui/startup_error.dart` explains (data folder on desktops), with Try again and
+Copy details.
 
 ### Editor chrome
 
@@ -490,7 +497,7 @@ device." with "Locate file…" and "Try again". *Files:*
 
 ### Sync, storage and files
 
-**P1-22 Sync errors are raw and hidden.** `sync/sync_api.dart:234,274` "Cannot
+✅ **P1-22 Sync errors are raw and hidden.** `sync/sync_api.dart:234,274` "Cannot
 reach sync server: $e" (embeds `ClientException` / `SocketException` text),
 `:251,289` "Sync server error 401…", `sync_controller.dart:189` "Sync failed: $e".
 The only place an error shows is the sidebar status (`ui/sync_status_button.dart`),
@@ -503,16 +510,25 @@ on auth failure, a one-time snack with "Settings"; a dot on the phone ☰ while
 sync fails. *Files:* `sync/sync_api.dart`, `sync/sync_controller.dart`,
 `ui/sync_status_button.dart`, `features/settings/sync_settings.dart`,
 `features/library/library_header.dart`.
+*Done (building on `sync_errors.dart`):* unexpected errors read "Something
+went wrong on this device while syncing" with the raw text under Details (also
+for blob upload errors); a failed status opens Settings → Sync (scrolled to);
+a rejected token pauses automatic syncs until the settings change
+(`SyncController.waitsForSettings`, `syncInBackground`) and says so once in a
+snack with Settings; the phone ☰ gets a dot while sync fails.
 
-**P1-23 Sync setup is strict and has no off switch.** `s_settings_sync_error_phone_*`:
+✅ **P1-23 Sync setup is strict and has no off switch.** `s_settings_sync_error_phone_*`:
 "len.example" is rejected ("Enter a full URL, e.g. https://…",
 `sync_settings.dart:23`) instead of assuming `https://`; turning sync off
 means clearing the URL and pressing "Connect & save" (`sync_settings.dart:66-71`).
 *Fix:* prepend `https://` when no scheme is typed (show the result); once
 connected show the server, last sync and a "Turn off sync…" text button
 (Confirm) instead of the form. *Files:* `features/settings/sync_settings.dart`.
+*Done:* `https://` is assumed (and shown) when no scheme is typed; once
+connected Settings shows the status, the server, Sync now, Change… and Turn
+off sync… (confirm).
 
-**P1-24 Export success doesn't say where the file went.** `documents/export/export_flow.dart:101,165`:
+✅ **P1-24 Export success doesn't say where the file went.** `documents/export/export_flow.dart:101,165`:
 desktop shows "Saved /home/…/very/long/path.pdf" with no action; several
 images say "Saved 3 images" with no folder; on Android the share sheet
 returns null and nothing confirms (`platform/file_export_native.dart:38-59`),
@@ -523,14 +539,22 @@ Share and Save to device (SAF `createDocument`) in the export sheet;
 friendly failure copy, details in the log. *Files:*
 `features/documents/export/export_flow.dart`, `platform/file_export*.dart`,
 `features/audio/recording_export.dart`.
+*Done:* `saveOrShareAll` returns `ExportedFiles`; messages say "Saved
+“Lecture.pdf”" (Show in folder on desktops), "Saved 3 images to “Exports”",
+"Shared …", "Downloaded …"; on Android the export sheet offers Save to device
+(system save dialog, `SaveDocumentPlugin.kt`) beside Share; failures read
+"Couldn’t export “x”" with Details (notebooks, canvases, recordings).
 
-**P2-29 Export drops content silently.** `documents/export/pdf_images.dart:72` (image
+✅ **P2-29 Export drops content silently.** `documents/export/pdf_images.dart:72` (image
 not embeddable → skipped), `pdf_page_sources.dart:42`, `pdf_export.dart:200`
 (raster fallback, links omitted) only `debugPrint`. *Fix:* collect warnings
 and end with "Exported · 2 images couldn't be included". *Files:*
 `features/documents/export/*`.
+*Done:* `ExportReport` collects missing PDF pages, images that couldn't be
+embedded and PDF pages included as pictures; the success message ends "· 2
+images couldn’t be included".
 
-**P2-30 Web: storage warnings live only in Settings.** Unpersisted storage with
+✅ **P2-30 Web: storage warnings live only in Settings.** Unpersisted storage with
 sync off is shown in Settings → Storage only; there is no handling of quota
 errors on write. *Fix:* a one-time library banner when storage isn't persisted
 and sync is off; catch `QuotaExceededError` → "This browser is out of space
@@ -538,16 +562,22 @@ for Len". The "Len is open in another tab" screen (`main.dart:43-62`) is text
 only: add "Use here", which takes the lock over. *Files:*
 `features/settings/storage_settings.dart`, `features/library/library_screen.dart`,
 `platform/*_web.dart`, `main.dart`, `platform/single_instance_web.dart`.
+*Partly done:* a one-time library notice when the browser may evict data and
+sync is off (Keep data / ✕). Open: quota errors on write and "Use here" for
+the other-tab screen (stealing the Web Lock needs the old tab to stop writing
+first).
 
-**P2-31 PDF import errors are generic.** `documents/pdf/pdf_import_flow.dart:91`
+✅ **P2-31 PDF import errors are generic.** `documents/pdf/pdf_import_flow.dart:91`
 "It may be damaged or password-protected." *Fix:* tell the two apart (pdfium
 reports encryption) and say "This PDF is password-protected" (a password
 prompt can come later). *Files:* `features/documents/pdf/pdf_import_flow.dart`,
 `pdf_relink_flow.dart`.
+*Done:* `pdf_open_failure.dart` tells `PdfPasswordException` ("it’s
+password-protected") from damaged files, in import and relink.
 
 ### Platform-specific: desktop keyboard, split view
 
-**P1-12 Desktop keyboard: the library and editor miss basics.**
+✅ **P1-12 Desktop keyboard: the library and editor miss basics.**
 - Editor: no Ctrl/⌘+A (select all exists: `editor_gestures.dart:66`,
   `content_tools.dart:114`), no arrow nudge of a selection (arrows turn pages
   even with a selection: `editor_shortcuts.dart:76-79`), and no Ctrl+= / − / 0
@@ -555,6 +585,11 @@ prompt can come later). *Files:* `features/documents/pdf/pdf_import_flow.dart`,
 - Library: only Delete trashes (`library_screen.dart:188`; no ⌘⌫ on Macs), no
   F2 rename; arrow keys between cards rely on Flutter's default directional
   focus (not checked with a real grid).
+*Done:* Ctrl/⌘+A selects all on the page (or in view); arrows nudge a
+selection 1 pt (Shift 10 pt), one undo step each, and only turn pages without
+one; +/−, Ctrl/⌘+= / − and Ctrl/⌘+0 zoom paged notebooks; F2 renames and ⌘⌫
+trashes the focused notebook; all in the shortcuts sheet. Arrow keys between
+library cards still use Flutter's directional focus.
 
 *Fix:* bind them (arrows nudge 1 pt, Shift 10 pt, as one undoable move while a
 selection exists) and list them in the shortcuts sheet. *Files:*
@@ -569,11 +604,15 @@ inactive tab. *Fix:* a labelled chip "Biology · in split view" with Show;
 show the title in both panes; mark both split notebooks in the strip.
 *Files:* `features/editor/split/*`, `chrome/parked_pane_notice.dart`,
 `tabs/notebook_tab_strip.dart`.
+*Left open by fix/robust-feedback:* split-view chrome is being reworked
+on the editor branches.
 
 **P2-32 Dragging a selection across panes.** `split_drag_*`: the dragged ink is
 a full-size, full-opacity copy over the target, and the target goes flat grey
 in dark. *Fix:* 60 % opacity preview, a tinted (not grey) drop target.
 *Files:* `features/editor/split/*`.
+*Left open by fix/robust-feedback:* split-view chrome is being reworked
+on the editor branches.
 
 ### Accessibility and simplification notes
 

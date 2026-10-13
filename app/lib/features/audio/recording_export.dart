@@ -6,6 +6,7 @@ import '../../data/blob_store.dart';
 import '../../domain/recording.dart';
 import '../../platform/file_export.dart' as platform;
 import '../documents/export/export_flow.dart' show ExportFile, ExportSaver;
+import '../documents/export/export_messages.dart';
 import '../documents/export/export_options.dart' show safeFileName;
 import '../documents/progress_dialog.dart' show showMessage;
 import 'adts.dart';
@@ -99,12 +100,13 @@ Future<void> exportRecordings(
   try {
     final saved = await save(files, mime: mimes.length == 1 ? mimes.single : 'audio/*');
     if (saved == null || !context.mounted) return;
-    showMessage(
-      context,
-      recordings.length == 1 ? 'Saved $saved' : 'Saved ${recordings.length} recordings',
-    );
+    showExported(context, saved, plural: 'recordings');
   } on Exception catch (e) {
     debugPrint('Recording export failed: $e');
-    if (context.mounted) showMessage(context, 'Could not export the recording');
+    if (!context.mounted) return;
+    final subject = recordings.length == 1
+        ? '“${recordings.single.title}”'
+        : '${recordings.length} recordings';
+    showExportFailed(context, subject, e);
   }
 }
