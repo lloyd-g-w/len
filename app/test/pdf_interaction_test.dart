@@ -115,9 +115,9 @@ void main() {
       dir.deleteSync(recursive: true);
     });
 
-    Future<PdfInteraction> open(WidgetTester tester) async {
+    Future<PdfInteraction> open(WidgetTester tester, {Size size = const Size(900, 1200)}) async {
       tester.view
-        ..physicalSize = const Size(900, 1200)
+        ..physicalSize = size
         ..devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
@@ -233,6 +233,77 @@ void main() {
       // One undo removes it.
       pdf.doc.surfaces.undo();
       expect(model.strokesNear(Offset.zero & page.size), isEmpty);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('a selection runs across pages: copy and highlight both', skip: pdfium == null, (
+      tester,
+    ) async {
+      final pdf = await open(tester, size: const Size(900, 2000));
+      pdf.tools.stylusOnly = true; // Fingers navigate: a long press selects.
+      // The end of page 1 and the top of page 2 on screen.
+      final view = pdf.doc.viewport;
+      view.panBy(Offset(0, -view.toScreen(const Offset(0, 40)).dy));
+      await tester.pump();
+      final second = pdf.doc.pages[1];
+      for (var i = 0; i < 50 && !pdf.info.isLoaded(second.background!.blob, 1); i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      Offset onPage(int index, String text, {bool right = false}) {
+        final page = pdf.doc.pages[index];
+        final glyphs = pdf.info.glyphs(page.background!.blob, index)!;
+        final box = glyphs.boxes[glyphs.text.indexOf(text) + (right ? text.length - 1 : 0)];
+        final frame = pdf.doc.layout.frameOf(index)!;
+        final n = box.center; // The middle of the first (or, [right], last) letter.
+        return pdf.doc.viewport.toScreen(
+          frame.topLeft + Offset(n.dx * frame.width, n.dy * frame.height),
+        );
+      }
+
+      await tester.longPressAt(onPage(0, 'Second'), kind: PointerDeviceKind.touch);
+      await tester.pumpAndSettle();
+      expect(pdf.selection.text, 'Second');
+      // Drag the end handle down onto the second page's heading.
+      final from = pdf.handleEnds!.$2, to = onPage(1, 'Chapter', right: true);
+      final gesture = await tester.startGesture(from, kind: PointerDeviceKind.touch);
+      for (var t = 0.05; t <= 1.0; t += 0.05) {
+        await gesture.moveTo(Offset.lerp(from, to, t)!);
+        await tester.pump();
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(pdf.selection.spansPages, isTrue);
+      expect(pdf.selection.spans.map((s) => s.page.id), [for (final p in pdf.doc.pages) p.id]);
+      final text = pdf.selection.text;
+      expect(text, startsWith('Second line of text'));
+      expect(text, contains('Go to page two\n\nChapter'), reason: 'pages joined by a blank line');
+      expect(text, endsWith('Chapter'));
+      // The start handle stays on page 1, the end on page 2.
+      final ends = pdf.handleEnds!;
+      expect(ends.$1.dy, lessThan(tester.getCenter(find.byType(EditorScreen)).dy));
+      expect(ends.$2.dy, closeTo(onPage(1, 'Chapter').dy, 30));
+
+      await tester.tap(find.byKey(const ValueKey('pdf-copy')));
+      await tester.pumpAndSettle();
+      expect(copied, [text]);
+
+      pdf.selectRange(
+        pdf.textPointAt(onPage(0, 'Second'))!,
+        pdf.textPointAt(onPage(1, 'Chapter', right: true))!,
+        menu: true,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('pdf-highlight')));
+      await tester.pumpAndSettle();
+      for (final page in pdf.doc.pages) {
+        final strokes = pdf.doc.surfaces
+            .surfaceOf(page.id)
+            .model
+            .strokesNear(Offset.zero & page.size);
+        expect(strokes, isNotEmpty, reason: 'highlighted on ${page.id}');
+      }
       await tester.pumpWidget(const SizedBox());
     });
 

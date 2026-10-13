@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../ui/app_theme.dart';
 import 'pdf_interaction.dart';
 import 'pdf_page_info.dart';
+import 'pdf_text_selection.dart';
 
 /// Places the selection's menu above the [selected] lines (screen box),
 /// below them if the top of the screen (above [roomAbove]) is too close,
@@ -41,41 +42,50 @@ class PdfSelectionPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final selection = pdf.selection;
-    final page = selection.page;
-    if (page == null || selection.isEmpty) return;
+    if (selection.isEmpty) return;
     final doc = pdf.doc;
-    final index = doc.pages.indexWhere((p) => p.id == page.id);
-    final frame = index < 0 ? null : doc.layout.frameOf(index);
-    if (frame == null) return;
     final fill = Paint()..color = color.withValues(alpha: 0.28);
-    for (final r in selection.rects) {
-      final a = doc.viewport.toScreen(
-        frame.topLeft + Offset(r.left * frame.width, r.top * frame.height),
-      );
-      final b = doc.viewport.toScreen(
-        frame.topLeft + Offset(r.right * frame.width, r.bottom * frame.height),
-      );
-      canvas.drawRect(Rect.fromPoints(a, b), fill);
+    Rect? frameOf(PdfSpan span) {
+      final index = doc.pages.indexWhere((p) => p.id == span.page.id);
+      return index < 0 ? null : doc.layout.frameOf(index);
+    }
+
+    // Every page's selected lines.
+    for (final span in selection.spans) {
+      final frame = frameOf(span);
+      if (frame == null) continue;
+      for (final line in span.lines) {
+        final r = line.rect;
+        final a = doc.viewport.toScreen(
+          frame.topLeft + Offset(r.left * frame.width, r.top * frame.height),
+        );
+        final b = doc.viewport.toScreen(
+          frame.topLeft + Offset(r.right * frame.width, r.bottom * frame.height),
+        );
+        canvas.drawRect(Rect.fromPoints(a, b), fill);
+      }
     }
     final ends = pdf.handleEnds;
     if (ends == null) return;
+    final spans = selection.spans.where((s) => !s.isEmpty).toList();
+    final firstFrame = frameOf(spans.first), lastFrame = frameOf(spans.last);
+    if (firstFrame == null || lastFrame == null) return;
     final solid = Paint()
       ..color = color
       ..strokeWidth = 2;
-    final lines = selection.lines;
     final scale = doc.viewport.scale;
     // Bars across the line (from the top of its letters to their bottom),
     // knobs beyond: the start's above the text, the end's below.
-    Offset bar(PdfTextLine line) {
+    Offset bar(PdfTextLine line, Rect frame) {
       final side = line.direction.vertical ? frame.width : frame.height;
       return line.direction.down * (line.thickness * side * scale);
     }
 
-    final first = lines.first, last = lines.last;
+    final first = spans.first.lines.first, last = spans.last.lines.last;
     canvas
-      ..drawLine(ends.$1, ends.$1 + bar(first), solid)
+      ..drawLine(ends.$1, ends.$1 + bar(first, firstFrame), solid)
       ..drawCircle(ends.$1 - first.direction.down * 5, 6, solid)
-      ..drawLine(ends.$2, ends.$2 - bar(last), solid)
+      ..drawLine(ends.$2, ends.$2 - bar(last, lastFrame), solid)
       ..drawCircle(ends.$2 + last.direction.down * 5, 6, solid);
   }
 
