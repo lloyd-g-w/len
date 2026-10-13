@@ -55,7 +55,7 @@ class _SidebarItemState extends State<SidebarItem> {
     final scheme = theme.colorScheme;
     final selected = widget.selected;
     // The current row carries the margin rule (DESIGN §6): a short accent
-    // rule at its left edge and the label in 600; no plate.
+    // rule at its left edge and the label in bold; no plate.
     final background = widget.dropActive
         ? scheme.primary.withValues(alpha: 0.12)
         : _hovered
@@ -106,7 +106,7 @@ class _SidebarItemState extends State<SidebarItem> {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelLarge?.copyWith(
                             color: foreground,
-                            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                           ),
                         ),
                       ),

@@ -12,8 +12,9 @@ extension ThemeControls on ThemeData {
   ThemeData applyControlThemes(ColorScheme scheme) {
     final calm = ThemeComponents.calmOverlay(scheme);
     final control = RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm));
+    // An "off" track that still reads on a dark Sheet.
     final off = scheme.brightness == Brightness.dark
-        ? scheme.surfaceContainerHighest
+        ? const Color(0xFF4A4A4A)
         : scheme.outlineVariant;
     bool on(Set<WidgetState> s) => s.contains(WidgetState.selected);
     bool disabled(Set<WidgetState> s) => s.contains(WidgetState.disabled);
