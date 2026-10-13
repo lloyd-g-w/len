@@ -7,6 +7,7 @@ import '../../../app_services.dart';
 import '../../../ui/app_dialogs.dart';
 import '../progress_dialog.dart';
 import 'pdf_import.dart';
+import 'pdf_open_failure.dart';
 import 'pdf_renderer.dart';
 
 const _pdfTypes = [
@@ -91,10 +92,7 @@ Future<RelinkResult> relinkPdfFlow(
   } on Object catch (e, stack) {
     debugPrint('Relinking ${picked.name} failed: $e\n$stack');
     if (context.mounted) {
-      showMessage(
-        context,
-        'Couldn’t open “${picked.name}”. It may be damaged or password-protected.',
-      );
+      showMessage(context, pdfOpenFailure(picked.name, e));
     }
     return await _discard(importer, sha);
   } finally {

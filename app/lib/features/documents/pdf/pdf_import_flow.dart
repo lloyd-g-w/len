@@ -7,6 +7,7 @@ import '../../../domain/notebook_page.dart';
 import '../../../ui/app_theme.dart';
 import '../progress_dialog.dart';
 import 'pdf_import.dart';
+import 'pdf_open_failure.dart';
 
 const _pdfTypes = [
   XTypeGroup(label: 'PDF', extensions: ['pdf'], mimeTypes: ['application/pdf']),
@@ -88,7 +89,7 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
 
 String _failure(String name, Object e, StackTrace stack) {
   debugPrint('PDF import of $name failed: $e\n$stack');
-  return 'Couldn’t open “$name”. It may be damaged or password-protected.';
+  return pdfOpenFailure(name, e);
 }
 
 String _pages(int n) => n == 1 ? '1 page' : '$n pages';

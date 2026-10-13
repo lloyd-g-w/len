@@ -174,7 +174,7 @@ void main() {
         // A PDF that fails to import (the message importPdfFlow shows).
         showMessage(
           ctx(tester),
-          'Couldn’t open “scan.pdf”. It may be damaged or password-protected.',
+          'Couldn’t open “scan.pdf”: it may be damaged, or not a PDF',
         );
         await settle(tester);
         await shoot(tester, 's_import_failed_${name}_$m');
