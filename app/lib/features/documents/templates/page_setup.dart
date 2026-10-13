@@ -88,7 +88,8 @@ class PageSizeRow extends StatelessWidget {
   }
 }
 
-/// "College ruled, white, A4 portrait" (or "…, infinite canvas").
+/// "College ruled, white, A4 portrait" (or "…, infinite canvas"): commas,
+/// not a `·` chain (DESIGN §2).
 String describeTemplate(PageTemplate t, {bool canvas = false}) {
   final size = canvas
       ? 'infinite canvas'
@@ -100,12 +101,16 @@ String describeTemplate(PageTemplate t, {bool canvas = false}) {
   return '${t.paper.label}, ${t.color.label.toLowerCase()}, $size';
 }
 
+/// [describeTemplate] with how many pages it makes: "Daily planner,
+/// white, A4 portrait, 31 pages".
+String describeWithPages(PageTemplate t, int pages) =>
+    '${describeTemplate(t)}, $pages ${pages == 1 ? 'page' : 'pages'}';
+
 /// [describeTemplate] for a chooser's selection; generated planners say
-/// how many pages they make ("Daily planner, white, A4 portrait, 31
-/// pages").
+/// how many pages they make ([describeWithPages]).
 String describeSelection(TemplateSelection s, {bool canvas = false, bool generate = true}) {
   if (!generate || !s.style.isPlanner) return describeTemplate(s.template, canvas: canvas);
   final t = s.template.copyWith(paper: Paper(s.style));
   final pages = s.pagesToCreate().length;
-  return '${describeTemplate(t)}, $pages ${pages == 1 ? 'page' : 'pages'}';
+  return describeWithPages(t, pages);
 }

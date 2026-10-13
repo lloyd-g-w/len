@@ -26,6 +26,12 @@ class NotebookListTile extends StatefulWidget {
   final String subtitle;
   final LibraryActions actions;
 
+  /// Where the title starts: the hairlines between rows start here. The
+  /// cover sits on the screen's margin column, like the grid's first cover.
+  static const double textInset = Gaps.xxs + _coverWidth + Gaps.lg;
+
+  static const double _coverWidth = 40;
+
   @override
   State<NotebookListTile> createState() => _NotebookListTileState();
 }
@@ -67,31 +73,31 @@ class _NotebookListTileState extends State<NotebookListTile> {
       duration: Motion.fast,
       decoration: BoxDecoration(
         color: _hovered ? Surfaces.hovered(scheme) : Colors.transparent,
-        borderRadius: BorderRadius.circular(Radii.sm),
+        borderRadius: BorderRadius.circular(Radii.xs),
       ),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.sm),
+          borderRadius: BorderRadius.circular(Radii.xs),
           onTap: _tap,
           onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
           onHover: (h) => setState(() => _hovered = h),
           onFocusChange: (f) => widget.actions.controller.setNotebookFocused(_notebook.id, f),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.sm),
+            padding: const EdgeInsets.fromLTRB(Gaps.xxs, Gaps.sm, Gaps.xs, Gaps.sm),
             child: Row(
               children: [
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(Radii.xs),
+                    borderRadius: BorderRadius.circular(Radii.sm),
                     boxShadow: Shadows.low(theme.brightness),
                   ),
                   child: CoverAnchor(
                     locator: widget.actions.covers,
                     notebookId: _notebook.id,
                     child: SizedBox(
-                      width: 40,
-                      height: 40 / 0.72,
+                      width: NotebookListTile._coverWidth,
+                      height: NotebookListTile._coverWidth / 0.72,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [

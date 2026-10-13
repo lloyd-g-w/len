@@ -10,7 +10,8 @@ import 'thumbnails/thumbnail_scope.dart';
 /// The visual cover of a notebook: a live preview of its content when
 /// something is drawn, otherwise a plain cover in its colour.
 ///
-/// Paged notebooks get a bound spine in the cover colour; canvases a small
+/// Flat colour, no gradient (DESIGN §6.1). Paged notebooks get a darker
+/// spine band (in the cover colour beside a preview); canvases a small
 /// "∞" tag. Use [NotebookCover.of] to pick up the cached live preview.
 class NotebookCover extends StatelessWidget {
   const NotebookCover({
@@ -105,41 +106,26 @@ class NotebookCover extends StatelessWidget {
   }
 }
 
+/// A plain cover: flat colour, no gradient or sheen (DESIGN §6.1).
 class _PlainCover extends StatelessWidget {
   const _PlainCover({super.key, required this.color});
 
   final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color.lerp(color, Colors.white, 0.14)!, Color.lerp(color, Colors.black, 0.16)!],
-        ),
-      ),
-      // A soft sheen from the top, like light on a laminated cover.
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.center,
-            colors: [Colors.white.withValues(alpha: 0.10), Colors.white.withValues(alpha: 0)],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ColoredBox(color: color);
 }
 
-/// The bound edge of a paged notebook.
+/// The bound edge of a paged notebook: a flat band, darker than a plain
+/// cover, in the cover colour beside a preview (the cover wraps the paper).
 class _Spine extends StatelessWidget {
   const _Spine({required this.color, required this.onPreview});
 
   final Color color;
   final bool onPreview;
+
+  /// How much darker the band is than a plain cover.
+  static const double _shade = 0.18;
 
   @override
   Widget build(BuildContext context) {
@@ -148,34 +134,10 @@ class _Spine extends StatelessWidget {
         final width = (constraints.maxWidth * 0.075).clamp(6.0, 16.0);
         return Align(
           alignment: Alignment.centerLeft,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: width,
-                decoration: BoxDecoration(
-                  color: onPreview ? color : Colors.black.withValues(alpha: 0.14),
-                  gradient: onPreview
-                      ? LinearGradient(colors: [Color.lerp(color, Colors.black, 0.12)!, color])
-                      : null,
-                ),
-              ),
-              // Highlight on a cover, a soft fold shadow on paper.
-              Container(
-                width: onPreview ? 8 : 1.5,
-                decoration: BoxDecoration(
-                  gradient: onPreview
-                      ? LinearGradient(
-                          colors: [
-                            Colors.black.withValues(alpha: 0.14),
-                            Colors.black.withValues(alpha: 0),
-                          ],
-                        )
-                      : null,
-                  color: onPreview ? null : Colors.white.withValues(alpha: 0.25),
-                ),
-              ),
-            ],
+          child: SizedBox(
+            width: width,
+            height: constraints.maxHeight,
+            child: ColoredBox(color: onPreview ? color : Color.lerp(color, Colors.black, _shade)!),
           ),
         );
       },
@@ -192,11 +154,7 @@ class _CanvasTag extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(Radii.pill),
-        boxShadow: Shadows.low(Brightness.light),
-      ),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(Radii.xs)),
       child: const Icon(Symbols.all_inclusive_sharp, size: 14, color: Colors.white),
     );
   }
@@ -211,9 +169,9 @@ class _FavoriteBadge extends StatelessWidget {
       width: 24,
       height: 24,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.94),
-        shape: BoxShape.circle,
-        boxShadow: Shadows.low(Brightness.light),
+        // A badge printed on the cover: flat, radius xs (DESIGN §3).
+        color: Palette.paper,
+        borderRadius: BorderRadius.circular(Radii.xs),
       ),
       child: const Icon(Symbols.star_sharp, fill: 1, size: 16, color: Palette.favourite),
     );

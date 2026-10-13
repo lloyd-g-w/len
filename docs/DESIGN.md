@@ -371,6 +371,14 @@ Still open (feature-level, in the rollout): grey folder tiles and gradient
 covers, the blue brand tile, the accent `+` on the new-notebook tile, `·`
 meta strings in the library, editor and audio.
 
+Library rollout, from its screenshots: folders on their own column widths
+looked loose beside the covers, so they sit on the covers' columns; the
+empty state's fanned, overlapping covers read as one striped block and became
+three upright covers in a row; a blue ring for the current page in the
+overview competed with selection, so the current page takes the margin rule
+by its number and only selection rings. Page miniatures are square (a page
+corner is square); `sm` stays for covers and notebook thumbnails.
+
 Also checked: no cream background, no terracotta, no acid accent on black, no
 monospace data labels, no arrows appended to buttons, no identical shadowed
 cards (settings and folders lose their plates).
@@ -389,11 +397,12 @@ themes, `FloatingPanel`, `OverlaySurface`, popovers, menus, dialogs, sheets,
 snack bars, `SidebarItem` (margin rule), `FocusRing`, ruled fields, slider
 thumb. Next, by area:
 
-- **Library:** folders as a ruled row (`folder_tile.dart`) instead of grey
-  tiles; flat covers with a spine band, no gradient (`notebook_cover.dart`);
-  sidebar brand without the blue tile and a hairline right edge
-  (`library_sidebar.dart`); replace `·` meta strings in `library_format.dart`
-  and the header; list view rows with hairlines; empty state copy and glyph.
+- **Library:** done. Folders are names on the covers' columns with a
+  hairline under the row; covers flat with a darker spine band; the New tile
+  and Add page are Pencil-edged outlines with an Ink +; list rows ruled from
+  the titles; the brand is the Ink scribble; commas in meta strings; square
+  checkbox selection marks; search results label and count as separate
+  spans, the page location as a plain column.
 - **Editor chrome:** tool plate radius `xs` and Ink 8 % everywhere
   (`tool_cluster.dart`, `toolbar_buttons.dart`); slot rings 1.5 dp; redraw
   `EraserIcon`, `ShapeGlyph`, `tools/tool_icons.dart` with square caps;
@@ -405,17 +414,21 @@ thumb. Next, by area:
 - ~~**Dialogs and sheets:**~~ done: ruled export options, margin-rule move
   dialog, flat library notices, ruled progress, full-width primary on phone
   template sheets; no `FilledButton.tonal` left.
-- **Overview, templates, PDF:** page tiles with contact shadow only;
-  template gallery selection by margin rule; `overview_parts.dart` radii.
+- ~~**Overview, templates:**~~ done. Pages are square with the contact shadow
+  only (no hover lift); the current page has the margin rule beside its
+  bold number; selection is a 2-dp accent ring and a square checkbox; the
+  template gallery marks its choice with the margin rule and a bold name.
+  PDF views remain.
 - **Audio, images, text:** recording bar as a flat Board strip with a
   hairline; text format bar on `FloatingPanel`.
 - **Copy:** remove `·` chains and any remaining all-caps; one name per action.
-  Done in settings, dialogs, sheets and messages (template descriptions
-  "College ruled, white, A4 portrait", export summaries "3 pages, PDF").
-  Left: the library header and cards, search results, the editor (ink
-  options, split tooltip), audio (recordings sheet, trim panel) and the
-  planner labels in `domain/templates` (`Paper.label`, `period`).
-- **App icon / splash:** Ink and ruling blue mark (`tool/branding`).
+  Done in settings, dialogs, sheets, messages and the library (template
+  descriptions "College ruled, white, A4 portrait", export summaries "3
+  pages, PDF", "3 folders, 7 notebooks"). Left: the editor (ink options,
+  split tooltip), audio (recordings sheet, trim panel) and the planner
+  labels in `domain/templates` (`Paper.label`, `period`).
+- ~~**App icon / splash:**~~ done: the white scribble on a ruling-blue rule on
+  an Ink tile, flat; splash on Board (`tool/branding`).
 - ~~**Controls:**~~ done: `AppSwitch` / `AppSwitchTile` in `ui/app_switch.dart`
   replace every `Switch` / `SwitchListTile`; `FilledButton.tonal` became
   `OutlinedButton`.

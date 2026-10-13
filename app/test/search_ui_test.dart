@@ -117,7 +117,8 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Search'), 'light');
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
-    expect(find.text('Pages · 3 matches'), findsOneWidget);
+    expect(find.text('Pages'), findsOneWidget);
+    expect(find.text('3 matches'), findsOneWidget);
     expect(find.text('Page 3'), findsOneWidget);
     expect(find.text('Canvas'), findsOneWidget);
     await expectLater(find.byType(LibraryScreen), matchesGoldenFile('goldens/search_library.png'));
@@ -235,7 +236,7 @@ void main() {
     });
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
-    expect(find.text('Pages · 1 match'), findsOneWidget);
+    expect(find.text('1 match'), findsOneWidget);
     expect(find.textContaining('tunnelling', findRichText: true), findsOneWidget);
   });
 

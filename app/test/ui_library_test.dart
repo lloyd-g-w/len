@@ -98,7 +98,7 @@ void main() {
 
   testWidgets('create a notebook from the empty library, draw, and go back', (tester) async {
     final services = await pumpLibrary(tester);
-    expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(find.text('No notebooks yet'), findsOneWidget);
 
     await createNotebook(tester, 'Physics');
     expect(find.byType(EditorScreen), findsOneWidget);
@@ -252,7 +252,7 @@ void main() {
     await tester.tap(find.text('Move to trash'));
     await tester.pumpAndSettle();
     expect(services.notebooks.list(), isEmpty);
-    expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(find.text('No notebooks yet'), findsOneWidget);
 
     // Restore from the trash.
     await tester.tap(find.text('Trash').first);
@@ -320,7 +320,7 @@ void main() {
     expect(find.byType(EditorScreen), findsNothing);
     expect(find.byType(LibraryScreen), findsOneWidget);
     expect(find.textContaining('deleted on another device'), findsOneWidget);
-    expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(find.text('No notebooks yet'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

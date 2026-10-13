@@ -3,8 +3,8 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 
-/// Overlay on a cover in selection mode: a check circle, and a tinted
-/// ring when selected. It takes no taps: the whole cover (or list row)
+/// Overlay on a cover in selection mode: a checkbox, and an accent ring
+/// when selected. It takes no taps: the whole cover (or list row)
 /// toggles the selection, so the target is far larger than the mark.
 class SelectionMark extends StatelessWidget {
   const SelectionMark({super.key, required this.selected, this.compact = false});
@@ -19,15 +19,15 @@ class SelectionMark extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final check = AnimatedContainer(
       duration: Motion.fast,
-      width: compact ? 22 : 28,
-      height: compact ? 22 : 28,
+      width: compact ? 20 : 24,
+      height: compact ? 20 : 24,
+      // A checkbox (DESIGN §6: 2-dp corners, blue when on), flat on the
+      // cover. The same in light and dark mode: covers don't follow the
+      // theme. A dark edge on white shows on light and dark covers alike.
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(Radii.xs),
         color: selected ? scheme.primary : Colors.white.withValues(alpha: 0.92),
-        // The same in light and dark mode: covers don't follow the theme. A
-        // dark ring on white shows on light and dark covers alike.
-        border: Border.all(color: selected ? Colors.white : Colors.black54, width: 2),
-        boxShadow: Shadows.low(Brightness.light),
+        border: Border.all(color: selected ? Colors.white : Colors.black54, width: 1.5),
       ),
       child: selected
           ? Icon(Symbols.check_sharp, size: compact ? 14 : 18, color: scheme.onPrimary)
@@ -41,7 +41,7 @@ class SelectionMark extends StatelessWidget {
           borderRadius: BorderRadius.circular(compact ? Radii.xs : Radii.sm),
           border: Border.all(
             color: selected ? scheme.primary : Colors.transparent,
-            width: compact ? 2 : 3,
+            width: Hairline.rule,
           ),
         ),
         child: compact

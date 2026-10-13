@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
+import '../../../ui/sidebar_item.dart' show MarginRulePainter;
 import '../../editor/document/page_backgrounds.dart';
 import '../../editor/document/page_thumbnail.dart';
 import 'page_commands.dart';
@@ -111,7 +112,9 @@ class _Thumb extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final ring = tile.selecting ? tile.selected : tile.current;
+    // Only selection rings the page (blue marks state); the page on screen
+    // is marked by the margin rule beside its number (_Footer).
+    final ring = tile.selecting && tile.selected;
     return Center(
       child: GestureDetector(
         onTap: tile.onTap,
@@ -124,29 +127,40 @@ class _Thumb extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
+              // Paper at rest: square corners, the contact shadow only
+              // (DESIGN §3); hover is the ink overlay on the page.
               AnimatedContainer(
                 duration: Motion.fast,
-                padding: const EdgeInsets.all(3),
+                padding: const EdgeInsets.all(Hairline.rule + Gaps.xxs),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(Radii.sm),
-                  border: Border.all(color: ring ? scheme.primary : Colors.transparent, width: 2.5),
-                ),
-                child: AnimatedContainer(
-                  duration: Motion.fast,
-                  transform: Matrix4.translationValues(0, hovered && !tile.selecting ? -2 : 0, 0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(Radii.sm),
-                    boxShadow: hovered
-                        ? Shadows.high(theme.brightness)
-                        : Shadows.low(theme.brightness),
+                  borderRadius: BorderRadius.circular(Radii.xs),
+                  border: Border.all(
+                    color: ring ? scheme.primary : Colors.transparent,
+                    width: Hairline.rule,
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(Radii.sm),
-                    child: PageThumbnail(
-                      page: tile.page,
-                      cache: tile.cache,
-                      backgrounds: tile.backgrounds,
-                    ),
+                ),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(boxShadow: Shadows.low(theme.brightness)),
+                  position: DecorationPosition.background,
+                  child: Stack(
+                    fit: StackFit.passthrough,
+                    children: [
+                      PageThumbnail(
+                        page: tile.page,
+                        cache: tile.cache,
+                        backgrounds: tile.backgrounds,
+                      ),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: AnimatedContainer(
+                            duration: Motion.fast,
+                            color: hovered && !tile.selecting
+                                ? Surfaces.hovered(scheme)
+                                : Colors.transparent,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -158,19 +172,13 @@ class _Thumb extends StatelessWidget {
                 ),
               if (tile.selecting)
                 Positioned(top: 10, left: 10, child: _Check(selected: tile.selected)),
-              // Where a dragged page will land: before this one.
+              // Where a dragged page will land: a margin rule before this one.
               if (dropTarget)
                 Positioned(
                   left: -Gaps.md,
                   top: 0,
                   bottom: 0,
-                  child: Container(
-                    width: 4,
-                    decoration: BoxDecoration(
-                      color: scheme.primary,
-                      borderRadius: BorderRadius.circular(Radii.pill),
-                    ),
-                  ),
+                  child: Container(width: Hairline.rule, color: scheme.primary),
                 ),
             ],
           ),
@@ -190,13 +198,13 @@ class _Check extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return AnimatedContainer(
       duration: Motion.fast,
-      width: 26,
-      height: 26,
+      width: 24,
+      height: 24,
+      // A checkbox (DESIGN §6): 2-dp corners, blue when on; flat on paper.
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(Radii.xs),
         color: selected ? scheme.primary : Colors.white.withValues(alpha: 0.9),
-        border: Border.all(color: selected ? scheme.primary : scheme.outline, width: 1.5),
-        boxShadow: Shadows.low(Brightness.light),
+        border: Border.all(color: selected ? scheme.primary : Colors.black54, width: 1.5),
       ),
       child: selected
           ? Icon(Symbols.check_sharp, size: Glyphs.menu, color: scheme.onPrimary)
@@ -205,6 +213,8 @@ class _Check extends StatelessWidget {
   }
 }
 
+/// The number on the left, the current page marked by the margin rule and
+/// a bold number (as the sidebar marks the current row), ⋯ on the right.
 class _Footer extends StatelessWidget {
   const _Footer({required this.tile});
 
@@ -214,41 +224,36 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final number = Container(
-      padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xxs),
-      decoration: BoxDecoration(
-        // The neutral plate: blue marks the selection, not the page on screen.
-        color: tile.current ? Surfaces.pressed(scheme) : Colors.transparent,
-        borderRadius: BorderRadius.circular(Radii.pill),
-      ),
-      child: Text(
-        '${tile.index + 1}',
-        style: theme.textTheme.labelLarge?.copyWith(
-          color: tile.current ? scheme.onSurface : scheme.onSurfaceVariant,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
-    );
+    final current = tile.current && !tile.selecting;
     return SizedBox(
       height: 40,
-      width: double.infinity,
-      child: Stack(
-        alignment: Alignment.center,
+      child: Row(
         children: [
-          number,
-          if (!tile.selecting)
-            Positioned(
-              right: 0,
-              child: MenuIconButton<PageCommand>(
-                tooltip: 'Page ${tile.index + 1} options',
-                icon: Icon(
-                  Symbols.more_horiz_sharp,
-                  size: Glyphs.bar,
-                  color: scheme.onSurfaceVariant,
-                ),
-                onSelected: tile.onCommand,
-                items: () => pageMenuItems(tile.page),
+          CustomPaint(
+            painter: current ? MarginRulePainter(scheme.primary) : null,
+            // The number starts just inside the page's left edge.
+            child: const SizedBox(width: Gaps.sm, height: 20),
+          ),
+          Expanded(
+            child: Text(
+              '${tile.index + 1}',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: current ? scheme.onSurface : scheme.onSurfaceVariant,
+                fontWeight: current ? FontWeight.w700 : null,
+                fontFeatures: AppTheme.tabularFigures,
               ),
+            ),
+          ),
+          if (!tile.selecting)
+            MenuIconButton<PageCommand>(
+              tooltip: 'Page ${tile.index + 1} options',
+              icon: Icon(
+                Symbols.more_horiz_sharp,
+                size: Glyphs.bar,
+                color: scheme.onSurfaceVariant,
+              ),
+              onSelected: tile.onCommand,
+              items: () => pageMenuItems(tile.page),
             ),
         ],
       ),
@@ -256,17 +261,15 @@ class _Footer extends StatelessWidget {
   }
 }
 
+/// A page being dragged: lifted (DESIGN §3), not tilted.
 class _DragFeedback extends StatelessWidget {
   const _DragFeedback({required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Transform.rotate(
-    angle: -0.03,
-    child: SizedBox(
-      width: 132,
-      child: Material(type: MaterialType.transparency, child: child),
-    ),
+  Widget build(BuildContext context) => SizedBox(
+    width: 132,
+    child: Material(type: MaterialType.transparency, child: child),
   );
 }

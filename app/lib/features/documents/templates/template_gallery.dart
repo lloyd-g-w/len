@@ -131,28 +131,33 @@ class _ImportTile extends StatelessWidget {
       child: InkWell(
         key: const ValueKey('import-template'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(Radii.sm),
+        borderRadius: BorderRadius.circular(Radii.xs),
         child: Padding(
           padding: const EdgeInsets.all(Gaps.xs),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: width + 6,
-                height: height + 6,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(Radii.sm),
-                  border: Border.all(color: scheme.outline.withValues(alpha: 0.6)),
-                  color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+              // A secondary button the size of a page: a Pencil edge, an Ink
+              // glyph.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                child: Container(
+                  width: width,
+                  height: height,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(Radii.sm),
+                    border: Border.all(color: scheme.outline),
+                  ),
+                  child: Icon(Symbols.add_photo_alternate_sharp, color: scheme.onSurface),
                 ),
-                child: Icon(Symbols.add_photo_alternate_sharp, color: scheme.primary),
               ),
               const SizedBox(height: Gaps.xs),
-              SizedBox(
+              Container(
                 width: width + 10,
+                padding: const EdgeInsets.only(left: 5),
                 child: Text(
                   'Import…',
-                  textAlign: TextAlign.center,
                   maxLines: 2,
                   style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 ),
@@ -165,7 +170,7 @@ class _ImportTile extends StatelessWidget {
   }
 }
 
-/// One selectable template miniature with its name; a check badge marks
+/// One selectable template miniature with its name; the margin rule marks
 /// the selection.
 class TemplateTile extends StatelessWidget {
   const TemplateTile({
@@ -199,51 +204,55 @@ class TemplateTile extends StatelessWidget {
         onTap: onTap,
         onLongPress: onMenu == null ? null : () => onMenu!(_center(context)),
         onSecondaryTapUp: onMenu == null ? null : (d) => onMenu!(d.globalPosition),
-        borderRadius: BorderRadius.circular(Radii.sm),
+        borderRadius: BorderRadius.circular(Radii.xs),
         child: Padding(
           padding: const EdgeInsets.all(Gaps.xs),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // The selected template carries the margin rule along its
+              // left edge and a bold Ink name (DESIGN §0, as the sidebar
+              // marks its current row); no ring, no badge.
               Stack(
-                clipBehavior: Clip.none,
                 children: [
-                  AnimatedContainer(
-                    duration: Motion.fast,
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(Radii.sm),
-                      border: Border.all(
-                        color: selected ? scheme.primary : Colors.transparent,
-                        width: 2,
-                      ),
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: _ruleRoom, vertical: 3),
+                    // A page: square corners, a hairline edge on the sheet
+                    // and the contact shadow.
                     child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(Radii.sm),
-                        border: Border.all(color: scheme.outlineVariant),
-                        boxShadow: Shadows.low(theme.brightness),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(Radii.sm),
+                      position: DecorationPosition.foreground,
+                      decoration: BoxDecoration(border: Border.all(color: scheme.outlineVariant)),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(boxShadow: Shadows.low(theme.brightness)),
                         child: TemplatePreview(template: template, width: width),
                       ),
                     ),
                   ),
-                  if (selected)
-                    Positioned(right: -2, top: -2, child: _CheckBadge(color: scheme.primary)),
+                  Positioned(
+                    left: 0,
+                    top: 3,
+                    bottom: 3,
+                    child: AnimatedContainer(
+                      duration: Motion.fast,
+                      width: Hairline.rule,
+                      color: selected ? scheme.primary : Colors.transparent,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: Gaps.xs),
               SizedBox(
-                width: width + 10,
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                width: width + 2 * _ruleRoom,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: _ruleRoom),
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
@@ -253,29 +262,12 @@ class TemplateTile extends StatelessWidget {
       ),
     );
   }
+
+  /// Room on each side of the miniature: the margin rule and its gap.
+  static const double _ruleRoom = 5;
 }
 
 Offset _center(BuildContext context) {
   final box = context.findRenderObject() as RenderBox?;
   return box == null ? Offset.zero : box.localToGlobal(box.size.center(Offset.zero));
-}
-
-class _CheckBadge extends StatelessWidget {
-  const _CheckBadge({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 20,
-      height: 20,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
-      ),
-      child: Icon(Symbols.check_sharp, size: 12, color: Theme.of(context).colorScheme.onPrimary),
-    );
-  }
 }

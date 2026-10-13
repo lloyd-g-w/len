@@ -7,7 +7,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Len — handwriting-first notes: paged notebooks, an infinite canvas and self-hosted sync.">
-  <meta name="theme-color" content="#3B5BDB">
+  <meta name="theme-color" content="#F4F4F4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1A1A1A" media="(prefers-color-scheme: dark)">
   <meta name="color-scheme" content="light dark">
 
   <!-- Installable (PWA) on Android / desktop Chrome, home-screen app on iOS -->
@@ -22,8 +23,8 @@
 
   <title>Len</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #F9F9F7; }
-    @media (prefers-color-scheme: dark) { html, body { background: #131316; } }
+    html, body { margin: 0; height: 100%; background: #F4F4F4; }
+    @media (prefers-color-scheme: dark) { html, body { background: #1A1A1A; } }
     /* Shown while the app loads; the Flutter view covers it once running. */
     #splash {
       position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;

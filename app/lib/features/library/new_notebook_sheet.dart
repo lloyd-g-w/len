@@ -149,8 +149,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
       return describeSelection(_selection, canvas: _canvas);
     }
     final pages = chosen.length;
-    return '${describeTemplate(_template.copyWith(paper: Paper(_paper)))}, '
-        '$pages ${pages == 1 ? 'page' : 'pages'}';
+    return describeWithPages(_template.copyWith(paper: Paper(_paper)), pages);
   }
 
   @override
