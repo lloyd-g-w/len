@@ -29,6 +29,37 @@ import 'undo_history.dart';
 /// are evicted again, so memory and render cost depend on what is on screen
 /// rather than on the total amount of content. Every edit is persisted
 /// immediately, so the in-memory state is purely a cache plus undo history.
+/// Draws content lifted out of a surface, in the surface's coordinates.
+typedef LiftedPaint = void Function(Canvas canvas);
+
+/// [source] (lifted content changing), heard only when the change came
+/// from an owner outside [self] (whose [owner] is asked at the time): a
+/// view's own selection dragging never repaints that view's ink.
+class ForeignLiftedChanges implements Listenable {
+  ForeignLiftedChanges(this.source, this.owner, this.self);
+
+  final Listenable source;
+  final Object? Function() owner;
+  final Set<Object?> self;
+  final Map<VoidCallback, VoidCallback> _wrapped = {};
+
+  @override
+  void addListener(VoidCallback listener) {
+    void wrapped() {
+      if (!self.contains(owner())) listener();
+    }
+
+    _wrapped[listener] = wrapped;
+    source.addListener(wrapped);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    final wrapped = _wrapped.remove(listener);
+    if (wrapped != null) source.removeListener(wrapped);
+  }
+}
+
 class SurfaceModel extends ChangeNotifier {
   SurfaceModel({
     required this.surfaceId,
@@ -204,6 +235,55 @@ class SurfaceModel extends ChangeNotifier {
 
   /// The ids each owner hides (see [setHidden]).
   final Map<Object?, Set<String>> _hiddenBy = {};
+
+  /// What owners hiding items draw in their place, in this surface's
+  /// coordinates: a selection its (moving) items, a text editor its box as
+  /// typed. The owner's own view draws them itself; other views of this
+  /// surface (split view) paint them from here ([paintLifted]) instead of
+  /// showing a hole.
+  final Map<Object, LiftedPaint> _lifted = {};
+
+  /// Notifies when lifted content appears, changes or goes.
+  Listenable get liftedChanges => _liftedChanges;
+  final ChangeNotifier _liftedChanges = ChangeNotifier();
+
+  /// Sets (or with null, removes) what [owner] draws in place of the items
+  /// it hides.
+  void setLifted(Object owner, LiftedPaint? paint) {
+    if (paint == null) {
+      if (_lifted.remove(owner) == null) return;
+    } else {
+      final had = _lifted.containsKey(owner);
+      _lifted[owner] = paint;
+      if (had) return; // Same owner, same paint: changes come by liftedChanged.
+    }
+    _notifyLifted(owner);
+  }
+
+  /// [owner]'s lifted content changed (it moved, was retyped).
+  void liftedChanged(Object owner) {
+    if (_lifted.containsKey(owner)) _notifyLifted(owner);
+  }
+
+  /// Whose lifted content changed last (see [ForeignLiftedChanges]).
+  Object? get lastLiftedOwner => _lastLiftedOwner;
+  Object? _lastLiftedOwner;
+
+  void _notifyLifted(Object owner) {
+    _lastLiftedOwner = owner;
+    _liftedChanges.notifyListeners();
+  }
+
+  /// Whether owners other than [except] have lifted content here.
+  bool hasLiftedExcept(Set<Object?> except) => _lifted.keys.any((o) => !except.contains(o));
+
+  /// Paints the lifted content of owners other than [except] (in this
+  /// surface's coordinates).
+  void paintLifted(Canvas canvas, {Set<Object?> except = const {}}) {
+    for (final MapEntry(key: owner, value: paint) in _lifted.entries) {
+      if (!except.contains(owner)) paint(canvas);
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Loading
@@ -615,6 +695,7 @@ class SurfaceModel extends ChangeNotifier {
     flush();
     _disposed = true;
     _loading.dispose();
+    _liftedChanges.dispose();
     _changes.close();
     super.dispose();
   }

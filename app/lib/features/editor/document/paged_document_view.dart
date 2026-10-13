@@ -239,6 +239,7 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
                           surfaces: _doc.surfaces,
                           viewport: _doc.viewport,
                           devicePixelRatio: dpr,
+                          self: {input.content?.selection, input.content?.text},
                         ),
                       ),
                     ),

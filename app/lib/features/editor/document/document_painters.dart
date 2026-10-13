@@ -8,6 +8,7 @@ import '../../../domain/notebook_page.dart';
 import '../../../ink/render/ink_painters.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/tiles/tile_space.dart';
+import '../../../ink/surface_model.dart';
 import '../../../ink/viewport.dart';
 import '../../../ui/app_theme.dart';
 import 'document_layout.dart';
@@ -120,13 +121,26 @@ class DocumentInkPainter extends CustomPainter {
     required this.surfaces,
     required this.viewport,
     this.devicePixelRatio = 1,
-  }) : super(repaint: Listenable.merge([viewport, surfaces, surfaces.rendered]));
+    this.self = const {},
+  }) : super(
+         repaint: Listenable.merge([
+           viewport,
+           surfaces,
+           surfaces.rendered,
+           ForeignLiftedChanges(surfaces.lifted, () => surfaces.lastLiftedOwner, self),
+         ]),
+       );
 
   final DocumentLayout layout;
   final List<NotebookPage> pages;
   final DocumentSurfaces surfaces;
   final ViewportController viewport;
   final double devicePixelRatio;
+
+  /// This view's own selection and text editor: what they lift out of a
+  /// page they draw themselves; other owners' (another view of the
+  /// notebook) is drawn here.
+  final Set<Object?> self;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -137,19 +151,31 @@ class DocumentInkPainter extends CustomPainter {
       if (surface == null) continue;
       final frame = layout.frameOf(index)!;
       final local = visible.shift(-frame.topLeft);
-      if (surface.model.chunksIn(ChunkGrid.rangeFor(local)).isEmpty) continue;
-      surface.cache.setScale(scale); // Image resolution.
-      paintTiled(
-        canvas,
-        surface.tiles,
-        TileView(
-          k: scale * devicePixelRatio,
-          origin: (viewport.offset + frame.topLeft * scale) * devicePixelRatio,
-          visible: local,
-          clip: Offset.zero & frame.size,
-        ),
-        devicePixelRatio,
-      );
+      if (surface.model.chunksIn(ChunkGrid.rangeFor(local)).isNotEmpty) {
+        surface.cache.setScale(scale); // Image resolution.
+        paintTiled(
+          canvas,
+          surface.tiles,
+          TileView(
+            k: scale * devicePixelRatio,
+            origin: (viewport.offset + frame.topLeft * scale) * devicePixelRatio,
+            visible: local,
+            clip: Offset.zero & frame.size,
+          ),
+          devicePixelRatio,
+        );
+      }
+      // Over the ink, as the owner's own view shows it.
+      if (surface.model.hasLiftedExcept(self)) {
+        canvas
+          ..save()
+          ..translate(viewport.offset.dx, viewport.offset.dy)
+          ..scale(scale)
+          ..translate(frame.left, frame.top)
+          ..clipRect(Offset.zero & frame.size);
+        surface.model.paintLifted(canvas, except: self);
+        canvas.restore();
+      }
     }
   }
 
@@ -159,5 +185,6 @@ class DocumentInkPainter extends CustomPainter {
       old.pages != pages ||
       old.surfaces != surfaces ||
       old.viewport != viewport ||
-      old.devicePixelRatio != devicePixelRatio;
+      old.devicePixelRatio != devicePixelRatio ||
+      !setEquals(old.self, self);
 }

@@ -171,8 +171,11 @@ Reviewed from `split_same_tablet_*`, `split_parked_portrait_*` and
 - ✅ A parked pane gives no hint in portrait (e.g. its recording runs unseen; the first
   pane only learns of it when it tries to record). → While the parked pane records,
   the pane on screen says "Recording in “…”" with Show (swaps the panes) and Stop.
-- ⬜ A selection or a text box being edited in one pane hides those items in the other
-  view of the same notebook until it ends.
+- ✅ A selection or a text box being edited in one pane hides those items in the other
+  view of the same notebook until it ends. → The owner (selection, text editor) gives
+  the surface what to draw in their place (`SurfaceModel.setLifted`); other views
+  paint it over their ink, moving and retyped live; a view never repaints its ink for
+  its own selection's drags.
 
 ## Round 3 — whole app (`feat/ux3`)
 
