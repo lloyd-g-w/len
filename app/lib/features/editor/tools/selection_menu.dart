@@ -295,13 +295,13 @@ class _Action {
 
   Widget button() {
     final hint = shortcut == null ? label : '$label ($shortcut)';
-    return Tooltip(
-      message: hint,
-      child: Builder(
-        builder: (anchor) => IconButton(
-          onPressed: enabled ? () => run(anchor) : null,
-          icon: Icon(icon, size: Glyphs.bar),
-        ),
+    // The button's own tooltip also names it to screen readers (a Tooltip
+    // around it labelled the whole canvas instead).
+    return Builder(
+      builder: (anchor) => IconButton(
+        tooltip: hint,
+        onPressed: enabled ? () => run(anchor) : null,
+        icon: Icon(icon, size: Glyphs.bar),
       ),
     );
   }

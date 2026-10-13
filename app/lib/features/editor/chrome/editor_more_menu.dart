@@ -188,7 +188,10 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           Symbols.fullscreen_sharp,
           'Focus mode',
           a.onFocusMode,
-          shortcut: const SingleActivator(LogicalKeyboardKey.f11),
+          // By name: Flutter labels F-keys as characters when compiled to
+          // JavaScript (their 64-bit key ids lose the plane bits in 32-bit
+          // bitwise operations), so F11 showed as a missing glyph on the web.
+          shortcut: const CharacterActivator('F11'),
         ),
       ],
     );
@@ -204,7 +207,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
     IconData icon,
     String label,
     VoidCallback? onPressed, {
-    SingleActivator? shortcut,
+    MenuSerializableShortcut? shortcut,
     bool destructive = false,
   }) => Builder(
     builder: (context) {

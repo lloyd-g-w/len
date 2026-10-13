@@ -200,6 +200,14 @@ void main() {
     await mouseDrag(tester, const [Offset(150, 400)]);
     expect(await selectionOffers(tester, 'Crop'), isFalse); // The ink.
     expect(find.byTooltip('Style'), findsOneWidget);
+    // Screen readers name the pill's buttons (a Tooltip around one named the canvas).
+    final semantics = tester.ensureSemantics();
+    await tester.pump();
+    expect(
+      tester.getSemantics(find.byIcon(Symbols.palette_sharp)),
+      isSemantics(tooltip: 'Style', isButton: true),
+    );
+    semantics.dispose();
 
     await mouseDrag(tester, const [Offset(400, 450)]);
     expect(await selectionOffers(tester, 'Bring to front'), isTrue); // The ink overlaps it.
