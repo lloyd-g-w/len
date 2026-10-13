@@ -14,7 +14,10 @@ Future<void> selectionAction(WidgetTester tester, String label) async {
     await tester.pumpAndSettle();
     await tester.tap(find.text(label).last);
   }
-  await tester.pumpAndSettle();
+  // Bounded: what the action opens may animate for good (a spinner).
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }
 
 /// Whether the selection menu offers [label] (on the pill or in ⋯); leaves

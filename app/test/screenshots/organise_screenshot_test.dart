@@ -6,6 +6,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/tools/content_layer.dart';
 
+import '../support/selection_actions.dart';
 import 'screenshot_harness.dart';
 
 /// Organisation features with real fonts: the editor's outline panel and
@@ -98,7 +99,7 @@ void main() {
     final first = SurfaceCopier(s.strokes).loadAll(s.pages.pagesOf(nb.id).first.id).first;
     content.selection.select([?model.strokeById(first.id)], const []);
     await settle(tester);
-    await tap(tester, find.byTooltip('Link…'));
+    await selectionAction(tester, 'Link…');
     await shoot(tester, 'o_link_menu_tablet_light');
     await tap(tester, find.text('Link to page…'));
     await shoot(tester, 'o_link_page_picker_tablet_light');
