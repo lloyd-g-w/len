@@ -89,6 +89,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Page overview: live thumbnails, drag to reorder (drop indicator), duplicate, delete (undo),
   insert before/after, go to page, "Add page" tile, selection mode (bookmark / duplicate / delete
   several pages, one Undo)
+- ✅ Move or copy pages to another notebook (overview selection and page menu): ink, elements,
+  links among them, outline entries and the recordings they were written during go along; one Undo
 - ✅ Bookmarks (synced) with a bookmarks filter in the overview
 - ✅ Continuous vertical scrolling of pages (default) or one page at a time (swipe / arrows)
 - ✅ Page navigation: smooth scroll-to-page, whole-page fit + slide in single-page flow, "Add page"
@@ -177,7 +179,11 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
 - ✅ Create sheet with a live cover + first-page preview, Paper gallery and Cover colours, size and paper
   colour (dialog on wide screens, tall sheet on phones); grouped template gallery
-- ✅ Selection mode: favourite, move, trash (undo), restore, delete forever for many notebooks
+- ✅ Selection mode: favourite, move, export, trash (undo), restore, delete forever for many notebooks
+- ✅ Recent row at the library root (the 8 notebooks opened lately, wherever they are filed)
+- ✅ Export from the library (notebook menu and selection: one file per notebook)
+- ✅ Recordings seen from the library: a mic on cards, "2 recordings" in the list, search finds
+  recording titles
 - ✅ Cards show page count and short dates; consistent dialogs; empty states with actions
 - ✅ "New…" tile in the grid
 
@@ -199,7 +205,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   position (docked / floating, draggable), focus mode (F11 / Ctrl+.) with
   immersive system bars
 - ✅ Open-notebook tabs (up to 8, each keeps its page and zoom; tab strip on tablets/desktops,
-  switcher on phones; Ctrl+Tab, Ctrl+W)
+  switcher on phones; Ctrl+Tab, Ctrl+W); the workspace (tabs, split view) reopens after the app
+  was killed or closed from the editor
 - ✅ Editor UX round 2: toolbar in groups (≥ 40 px targets, optional tool names), one-row phone
   toolbar with a tool switcher, title left-aligned with the folder on every size, open-notebook
   transition from the cover, export options, a one-time pen side-button tip,
@@ -231,6 +238,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 ## Sync
 - ✅ Self-hosted LWW record sync
 - ✅ Blob sync (content-addressed PDFs, images and audio)
+- ✅ A failing sync is seen outside Settings: after 15 min a mark in the phone library's header
+  and the editor's bar; after a day "Not synced since …" once
 - ✅ Blob garbage collection (unreferenced blobs on device and server); oversized blobs no longer block sync
 - ✅ Recovery from servers that lost history (restored backup, replaced server: `serverId`, 409,
   `server new-id`); durable server commits; errors that say what to fix (token, address, server
