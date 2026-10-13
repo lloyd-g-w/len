@@ -116,6 +116,23 @@ class RecordingRepository extends SyncableTable {
     return updated;
   }
 
+  /// Stores [recording] as the next version of its (live) row — its audio
+  /// released (see `RecordingRelease`) or restored by undo; returns it as
+  /// stored, or null when the recording is gone.
+  Recording? replace(Recording recording) {
+    if (get(recording.id) == null) return null;
+    final updated = recording.copyWith(updatedAt: nextVersion(recording.id));
+    _write(updated, deviceId: deviceId, dirty: true);
+    return updated;
+  }
+
+  /// The audio blobs of live recordings other than [id] (a duplicated
+  /// notebook's recordings share their blobs).
+  Set<String> audioBlobsBesides(String id) => {
+    for (final row in db.select('SELECT audio FROM recordings WHERE id != ? AND deleted = 0', [id]))
+      for (final p in jsonDecode(row['audio'] as String) as List) ?RecordingPart.tryParse(p)?.blob,
+  };
+
   /// Tombstones recording [id]. Its blob stays until garbage collection
   /// (see `LocalBlobGc`) finds it unreferenced for long enough.
   void delete(String id) => _tombstone(id);

@@ -127,8 +127,15 @@ class PlaybackController extends ChangeNotifier {
   }
 
   /// Takes over a newer version of the open recording (renamed, trimmed).
+  /// Other audio (parts outside the trim dropped, or put back) is opened
+  /// afresh, paused at its kept start: positions have moved.
   void update(Recording recording) {
-    if (recording.id != _recording?.id || identical(recording, _recording)) return;
+    final open = _recording;
+    if (open == null || recording.id != open.id || identical(recording, open)) return;
+    if (!listEquals(recording.parts, open.parts)) {
+      unawaited(this.open(recording, autoplay: false));
+      return;
+    }
     _recording = recording;
     _timeline = recording.timeline;
     notifyListeners();
