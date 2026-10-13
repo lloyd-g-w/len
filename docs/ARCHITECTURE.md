@@ -483,7 +483,7 @@ bytes. `BlobStore` keeps a `blobs` table (size, mime, uploaded flag) and the
 bytes in a `BlobBackend`: files under `<app support>/blobs/<sha[0..2]>/<sha>`
 natively, an IndexedDB object store on the web, memory in tests. Its API is
 path-free (`read`, `openRead`, `localPath` — null on the web). Each sync cycle first reads
-`/v1/health` (the server's blob limit and last garbage collection), then uploads
+`/v1/health` (the server's id, blob limit and last garbage collection), then uploads
 pending blobs that live rows reference (`BlobSync`, `HEAD` then `PUT`), then pushes
 records. One blob never stalls the others: a blob over the server's limit (or
 refused with 413) is marked too large (`blobs.rejected_limit`), skipped from then on
@@ -1841,6 +1841,21 @@ records with last-write-wins. Remote records are parsed strictly
 (`RecordFields`): every field of the collection's format is required, and a
 malformed record is skipped. Open screens subscribe to
 `SyncController.remoteChanges` and reload only the affected surfaces.
+
+Robustness (`SyncEngine`): rows are marked clean only for the exact version
+the server confirmed (`markClean` by `updatedAt`), and each pulled page is
+applied in one transaction with the new feed position, so a dropped
+connection never loses or duplicates anything; the next cycle resumes.
+Each cycle starts with `/v1/health`: its `serverId` decides whether this is
+the server last synced with — a new id (another server, or a wiped or
+restored one) resets the feed position and marks every row and blob for
+upload, so the server gets a complete copy; a changed address of the same
+server costs nothing. Push and pull send the last pulled seq; a server that
+no longer has it (restored from a backup) answers 409 and takes a new id,
+and the cycle starts over once. Failures are `SyncException`s with a
+`SyncFailure` kind and a message that says what to do
+(`sync/sync_errors.dart`): wrong token, unreachable / refused / unknown host /
+certificate, not a Len server, server too old or too new.
 
 ## Known limitations / next steps
 

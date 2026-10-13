@@ -115,6 +115,19 @@ interrupted uploads and are removed at startup). Alternatively stop the containe
 whole volume, including any `len.db-wal` file. Records reference blobs by
 sha256, so a backup without the blob directory loses attachments.
 
+**Restoring a backup:** stop the server, put the backed-up `len.db` (and
+`blobs/`) in place, run `server new-id` (`docker compose run --rm len-sync
+new-id`, or `dart run bin/server.dart new-id`), then start the server. The
+new id makes every device upload its complete copy again, so changes made
+after the backup was taken come back from the devices that have them. (The
+server also notices by itself when a device has seen changes it no longer
+has, but only if that device syncs before others have written as much.)
+The same happens automatically when the address leads to a new, empty
+server: devices recognise it by its id and upload everything.
+
+**Durability:** the database runs in WAL mode with `synchronous = FULL`, so a
+push the server has answered survives a crash or power loss.
+
 **Stopping:** on SIGTERM or SIGINT (`docker stop`) the server stops accepting
 connections, lets requests in flight finish for up to 8 s (within Docker's
 default 10 s stop timeout), then closes the database.
@@ -169,5 +182,5 @@ Layout: `bin/server.dart` (wiring), `lib/src/config.dart` (env config),
 (SQLite/LWW), `lib/src/api.dart` (routes, auth), `lib/src/cors.dart`
 (CORS middleware), `lib/src/blob_store.dart` (content-addressed files),
 `lib/src/blob_api.dart` (blob routes), `lib/src/blob_gc.dart` (blob garbage
-collection) and `lib/src/gc_command.dart` with `bin/gc.dart` (its admin
-command).
+collection), `lib/src/gc_command.dart` with `bin/gc.dart` (its admin
+command) and `lib/src/new_id_command.dart` (`server new-id`).
