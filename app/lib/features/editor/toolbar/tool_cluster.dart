@@ -29,6 +29,8 @@ class ToolCluster extends StatelessWidget {
     final compact = ToolbarDensity.compactOf(context);
     final cell = ToolbarMetrics.toolCell(compact: compact);
     final height = ToolCluster.height;
+    final vertical = ToolbarAxis.of(context) == Axis.vertical;
+    final length = widthFor(insert: insert != null, compact: compact);
     final reduced = Motion.reduced(context);
     final scheme = Theme.of(context).colorScheme;
     return ListenableBuilder(
@@ -36,9 +38,11 @@ class ToolCluster extends StatelessWidget {
       builder: (context, _) {
         final descriptors = editorTools(tools);
         final index = descriptors.indexWhere((d) => d.tool == tools.tool);
+        final along = index * cell + (cell - Targets.bar) / 2;
+        final across = (height - Targets.bar) / 2;
         return SizedBox(
-          width: widthFor(insert: insert != null, compact: compact),
-          height: height,
+          width: vertical ? height : length,
+          height: vertical ? length : height,
           child: Stack(
             children: [
               if (index >= 0)
@@ -46,8 +50,8 @@ class ToolCluster extends StatelessWidget {
                   key: const ValueKey('tool-plate'),
                   duration: reduced ? Duration.zero : Motion.fast,
                   curve: Motion.standard,
-                  left: index * cell + (cell - Targets.bar) / 2,
-                  top: (height - Targets.bar) / 2,
+                  left: vertical ? across : along,
+                  top: vertical ? along : across,
                   width: Targets.bar,
                   height: Targets.bar,
                   child: DecoratedBox(
@@ -57,12 +61,13 @@ class ToolCluster extends StatelessWidget {
                     ),
                   ),
                 ),
-              Row(
+              Flex(
+                direction: vertical ? Axis.vertical : Axis.horizontal,
                 children: [
                   for (final d in descriptors)
                     SizedBox(
-                      width: cell,
-                      height: height,
+                      width: vertical ? height : cell,
+                      height: vertical ? cell : height,
                       child: Center(
                         child: ToolButton(
                           descriptor: d,
@@ -183,10 +188,16 @@ class ToolbarDivider extends StatelessWidget {
   final double height;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: 1,
-    height: height,
-    margin: const EdgeInsets.symmetric(horizontal: (ToolbarMetrics.divider - 1) / 2),
-    color: Theme.of(context).colorScheme.outlineVariant,
-  );
+  Widget build(BuildContext context) {
+    final vertical = ToolbarAxis.of(context) == Axis.vertical;
+    const margin = (ToolbarMetrics.divider - 1) / 2;
+    return Container(
+      width: vertical ? height : 1,
+      height: vertical ? 1 : height,
+      margin: vertical
+          ? const EdgeInsets.symmetric(vertical: margin)
+          : const EdgeInsets.symmetric(horizontal: margin),
+      color: Theme.of(context).colorScheme.outlineVariant,
+    );
+  }
 }

@@ -4,6 +4,7 @@ import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../editor_tools.dart';
 import 'tool_cluster.dart';
+import 'toolbar_metrics.dart';
 
 /// The active tool's quick controls (colour and width slots, eraser sizes,
 /// laser colours…), cross-fading as the tool changes. With [reserve] it
@@ -28,16 +29,18 @@ class ToolStrip extends StatelessWidget {
         final child = strip == null
             ? const SizedBox(key: ValueKey('no-strip'), height: 1)
             : KeyedSubtree(key: ValueKey(active.tool), child: strip(context, active.openOptions));
+        final vertical = ToolbarAxis.of(context) == Axis.vertical;
+        final start = vertical ? Alignment.topCenter : AlignmentDirectional.centerStart;
         final switcher = AnimatedSwitcher(
           duration: reduced ? Duration.zero : Motion.fast,
           layoutBuilder: (current, previous) =>
-              Stack(alignment: AlignmentDirectional.centerStart, children: [...previous, ?current]),
+              Stack(alignment: start, children: [...previous, ?current]),
           child: child,
         );
         return SizedBox(
-          width: reserve,
-          height: ToolCluster.height,
-          child: Align(alignment: AlignmentDirectional.centerStart, child: switcher),
+          width: vertical ? ToolCluster.height : reserve,
+          height: vertical ? reserve : ToolCluster.height,
+          child: Align(alignment: start, child: switcher),
         );
       },
     );

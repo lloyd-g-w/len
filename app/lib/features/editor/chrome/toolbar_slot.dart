@@ -4,11 +4,14 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/chrome_fade.dart';
 import '../../../ui/floating_panel.dart';
+import '../toolbar/toolbar_metrics.dart';
 import 'chrome_metrics.dart';
 
-/// Hosts the floating toolbar: where the user dragged it by its grip
-/// (phase 6 adds edge snapping). Fills the editor; only the palette takes
-/// input.
+/// Hosts the floating toolbar where the user dragged it by its grip
+/// (REDESIGN §2.1). Released within [snapDistance] of an edge, it snaps to
+/// the middle of that edge: across the top or bottom, or running down the
+/// left or right side ([ToolbarAxis] vertical). Fills the editor; only the
+/// palette takes input.
 class ToolbarSlot extends StatefulWidget {
   const ToolbarSlot({
     super.key,
@@ -34,6 +37,27 @@ class ToolbarSlot extends StatefulWidget {
   /// False in focus mode: the toolbar fades out and ignores input.
   final bool visible;
 
+  /// How close to an edge (logical pixels) a released palette snaps to it.
+  static const double snapDistance = 48;
+
+  /// Where a palette released at [at] (fractions of the free area, which
+  /// is [free] pixels: the room the palette can move in) ends up: the
+  /// middle of the nearest edge within [snapDistance], else [at].
+  static (double, double) snap((double, double) at, Size free) {
+    final (x, y) = at;
+    final distances = <(double, double), double>{
+      (0, 0.5): x * free.width,
+      (1, 0.5): (1 - x) * free.width,
+      (0.5, 0): y * free.height,
+      (0.5, 1): (1 - y) * free.height,
+    };
+    final nearest = distances.entries.reduce((a, b) => a.value <= b.value ? a : b);
+    return nearest.value <= snapDistance ? nearest.key : at;
+  }
+
+  /// Whether a palette at [at] runs down a side edge.
+  static bool isVertical((double, double)? at) => at != null && (at.$1 == 0 || at.$1 == 1);
+
   @override
   State<ToolbarSlot> createState() => _ToolbarSlotState();
 }
@@ -50,12 +74,20 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
     return Alignment(x * 2 - 1, y * 2 - 1);
   }
 
-  void _drag(DragUpdateDetails d, Size area) {
+  /// The room the palette can move in within [area].
+  Size _free(Size area) {
     final child = _panel.currentContext?.size ?? Size.zero;
-    final free = Size(
+    return Size(
       (area.width - child.width).clamp(1, double.infinity),
       (area.height - child.height).clamp(1, double.infinity),
     );
+  }
+
+  Size _area = Size.zero;
+
+  void _drag(DragUpdateDetails d, Size area) {
+    _area = area;
+    final free = _free(area);
     final current = _dragging ?? _floatAlignment;
     setState(() {
       _dragging = Alignment(
@@ -68,13 +100,16 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
   void _endDrag() {
     final a = _dragging;
     if (a == null) return;
-    widget.onFloatMoved?.call(((a.x + 1) / 2, (a.y + 1) / 2));
+    final at = ToolbarSlot.snap(((a.x + 1) / 2, (a.y + 1) / 2), _free(_area));
+    widget.onFloatMoved?.call(at);
     setState(() => _dragging = null);
   }
 
   @override
   Widget build(BuildContext context) {
     final padding = widget.insets + const EdgeInsets.all(ChromeMetrics.edge);
+    // The axis changes only when a drag ends (never mid-drag).
+    final axis = ToolbarSlot.isVertical(widget.floatAt) ? Axis.vertical : Axis.horizontal;
     return Padding(
       padding: padding,
       child: LayoutBuilder(
@@ -89,14 +124,28 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
               ignoring: !widget.visible,
               child: ConstrainedBox(
                 key: _panel,
-                constraints: BoxConstraints(maxWidth: constraints.maxWidth),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _Grip(onDrag: (d) => _drag(d, constraints.biggest), onEnd: _endDrag),
-                    const SizedBox(width: Gaps.xs),
-                    Flexible(child: widget.toolbar),
-                  ],
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth,
+                  maxHeight: constraints.maxHeight,
+                ),
+                child: ToolbarAxis(
+                  axis: axis,
+                  child: Flex(
+                    direction: axis,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _Grip(
+                        axis: axis,
+                        onDrag: (d) => _drag(d, constraints.biggest),
+                        onEnd: _endDrag,
+                      ),
+                      if (axis == Axis.horizontal)
+                        const SizedBox(width: Gaps.xs)
+                      else
+                        const SizedBox(height: Gaps.xs),
+                      Flexible(child: widget.toolbar),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -109,8 +158,10 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
 
 /// The handle by which the floating toolbar is dragged.
 class _Grip extends StatelessWidget {
-  const _Grip({required this.onDrag, required this.onEnd});
+  const _Grip({required this.axis, required this.onDrag, required this.onEnd});
 
+  /// The palette's axis: the grip leads it.
+  final Axis axis;
   final GestureDragUpdateCallback onDrag;
   final VoidCallback onEnd;
 
@@ -130,10 +181,12 @@ class _Grip extends StatelessWidget {
             radius: Radii.pill,
             padding: EdgeInsets.zero,
             child: SizedBox(
-              width: 28,
-              height: 48,
+              width: axis == Axis.horizontal ? 28 : 48,
+              height: axis == Axis.horizontal ? 48 : 28,
               child: Icon(
-                Symbols.drag_indicator_rounded,
+                axis == Axis.horizontal
+                    ? Symbols.drag_indicator_rounded
+                    : Symbols.drag_handle_rounded,
                 size: Glyphs.bar,
                 color: scheme.onSurfaceVariant,
               ),
