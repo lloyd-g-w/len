@@ -202,7 +202,7 @@ class _LanguageSheetState extends State<_LanguageSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(Gaps.xl, widget.wide ? Gaps.lg : 0, Gaps.md, Gaps.sm),
+            padding: EdgeInsets.fromLTRB(Gaps.xl, widget.wide ? Gaps.lg : 0, Gaps.xl, Gaps.sm),
             child: SheetHeader(
               title: 'Handwriting language',
               onClose: () => Navigator.of(context).pop(),

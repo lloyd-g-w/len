@@ -252,7 +252,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.lg, Gaps.md, Gaps.sm),
+                padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.lg, Gaps.xl, Gaps.sm),
                 child: _header(context),
               ),
               Expanded(
@@ -298,7 +298,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(Gaps.xl, 0, Gaps.sm, Gaps.sm),
+              padding: const EdgeInsets.fromLTRB(Gaps.xl, 0, Gaps.xl, Gaps.sm),
               child: _header(context),
             ),
             Flexible(

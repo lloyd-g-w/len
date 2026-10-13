@@ -180,7 +180,14 @@ extension ThemeComponents on ThemeData {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
+        // In dark mode the slab is light, like the paper it often floats
+        // over: a Pencil edge keeps it apart.
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.md),
+          side: scheme.brightness == Brightness.dark
+              ? BorderSide(color: scheme.outline)
+              : BorderSide.none,
+        ),
         backgroundColor: scheme.inverseSurface,
         contentTextStyle: textTheme.bodyMedium?.copyWith(color: scheme.onInverseSurface),
         actionTextColor: scheme.inversePrimary,
