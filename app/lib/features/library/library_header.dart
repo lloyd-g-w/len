@@ -289,10 +289,38 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// What ⊕▾ creates.
-enum _NewChoice { notebook, canvas, pdf, folder }
+/// What ⊕▾ (and a long press on the phone's ⊕) creates.
+enum NewChoice { notebook, canvas, pdf, folder }
 
-/// ⊕▾ (wide screens): New notebook, New canvas, Import PDF…, New folder.
+/// The rows of ⊕▾: New notebook, New canvas, Import PDF…, New folder.
+List<PopupMenuEntry<NewChoice>> newMenuItems() => const [
+  MenuRow(
+    value: NewChoice.notebook,
+    icon: Symbols.menu_book_rounded,
+    label: 'New notebook',
+    shortcut: 'Ctrl+N',
+  ),
+  MenuRow(value: NewChoice.canvas, icon: Symbols.all_inclusive_rounded, label: 'New canvas'),
+  MenuRow(value: NewChoice.pdf, icon: Symbols.picture_as_pdf_rounded, label: 'Import PDF…'),
+  PopupMenuDivider(),
+  MenuRow(
+    value: NewChoice.folder,
+    icon: Symbols.create_new_folder_rounded,
+    label: 'New folder…',
+    shortcut: 'Ctrl+Shift+N',
+  ),
+];
+
+/// Creates what [choice] says.
+Future<void> runNewChoice(BuildContext context, LibraryActions actions, NewChoice choice) =>
+    switch (choice) {
+      NewChoice.notebook => actions.createNotebook(context),
+      NewChoice.canvas => actions.createNotebook(context, kind: NotebookKind.canvas),
+      NewChoice.pdf => actions.importPdf(context),
+      NewChoice.folder => actions.createFolder(context),
+    };
+
+/// ⊕▾ (wide screens).
 class _NewMenu extends StatelessWidget {
   const _NewMenu({required this.actions});
 
@@ -300,7 +328,7 @@ class _NewMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MenuIconButton<_NewChoice>(
+    return MenuIconButton<NewChoice>(
       tooltip: 'New',
       icon: const Row(
         mainAxisSize: MainAxisSize.min,
@@ -309,29 +337,8 @@ class _NewMenu extends StatelessWidget {
           Icon(Symbols.arrow_drop_down_rounded, size: Glyphs.menu),
         ],
       ),
-      items: () => const [
-        MenuRow(
-          value: _NewChoice.notebook,
-          icon: Symbols.menu_book_rounded,
-          label: 'New notebook',
-          shortcut: 'Ctrl+N',
-        ),
-        MenuRow(value: _NewChoice.canvas, icon: Symbols.all_inclusive_rounded, label: 'New canvas'),
-        MenuRow(value: _NewChoice.pdf, icon: Symbols.picture_as_pdf_rounded, label: 'Import PDF…'),
-        PopupMenuDivider(),
-        MenuRow(
-          value: _NewChoice.folder,
-          icon: Symbols.create_new_folder_rounded,
-          label: 'New folder…',
-          shortcut: 'Ctrl+Shift+N',
-        ),
-      ],
-      onSelected: (choice) => unawaited(switch (choice) {
-        _NewChoice.notebook => actions.createNotebook(context),
-        _NewChoice.canvas => actions.createNotebook(context, kind: NotebookKind.canvas),
-        _NewChoice.pdf => actions.importPdf(context),
-        _NewChoice.folder => actions.createFolder(context),
-      }),
+      items: newMenuItems,
+      onSelected: (choice) => unawaited(runNewChoice(context, actions, choice)),
     );
   }
 }

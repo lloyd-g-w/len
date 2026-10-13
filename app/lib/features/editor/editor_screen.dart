@@ -468,6 +468,12 @@ class _EditorScreenState extends State<_EditorView> {
       _setFocus(false);
       return KeyEventResult.handled;
     }
+    // From a toolbar or bar button reached with Tab, Escape goes back to
+    // the page (where the editor's shortcuts work again).
+    if (escape && !node.hasPrimaryFocus) {
+      node.requestFocus();
+      return KeyEventResult.handled;
+    }
     return escape && _guard.closeMenus()
         ? KeyEventResult.handled
         : handlePlaybackKey(_audio, event);

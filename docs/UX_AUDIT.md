@@ -68,10 +68,12 @@ Reviewed from the `library_`, `flows_`, `organise_` and `app_surfaces*` suites
   (`CoverGridDelegate`) instead of a `SliverLayoutBuilder`, which rebuilt every
   card on every scroll frame (75 → 4 card builds a frame with 200 notebooks);
   covers requested last render first. `test/perf/library_perf_test.dart` pins it.
-- ⬜ Phones create folders only from the drawer (no ⊕▾ there, by the spec); a
-  long-press on the FAB could offer New folder.
-- ⬜ The sidebar shows sync as an icon beside Settings, not yet the "Synced 2m"
-  caption of the spec's sketch.
+- ✅ Phones create folders only from the drawer (no ⊕▾ there, by the spec); a
+  long-press on the FAB could offer New folder. → A long press on ⊕ offers
+  what ⊕▾ does on wide screens: notebook, canvas, PDF, folder.
+- ✅ The sidebar shows sync as an icon beside Settings, not yet the "Synced 2m"
+  caption of the spec's sketch. → It reads "Synced 2m" / "Syncing…" / "Sync
+  failed" / "Sync off" beside the icon (`syncCaption`, refreshed every 30 s).
 
 ## Toolbar redesign (`feat/toolbar`, REDESIGN phases 3–4)
 
@@ -581,9 +583,10 @@ Status of these in `feat/editorux2` (✅ done there):
 - ✅ **Discoverability**: empty-canvas hint, a one-time pen side-button
   tip, repeated undos counted in the HUD, Escape closes
   chrome menus.
-- 🟡 Keyboard: chrome buttons are reachable with Tab but there is no
+- ✅ Keyboard: chrome buttons are reachable with Tab but there is no
   "skip to canvas" or toolbar arrow-key navigation yet. → Arrow keys move
-  along the toolbar; "skip to canvas" is still open.
+  along the toolbar, and Escape from any chrome control goes back to the
+  page.
 - ✅ **Motion**: opening a notebook animates from its cover (container
   transform in `NotebookOpenRoute`, see 15); reduced motion → plain fade.
 - ➡️ **Export**: entry points should offer options (see 18); progress is

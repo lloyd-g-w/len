@@ -124,7 +124,11 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                       onTap: widget.onOpenSettings,
                     ),
                   ),
-                  SyncStatusButton(sync: c.services.sync, onConfigure: widget.onOpenSettings),
+                  SyncStatusButton(
+                    sync: c.services.sync,
+                    onConfigure: widget.onOpenSettings,
+                    caption: true,
+                  ),
                 ],
               ),
             ),

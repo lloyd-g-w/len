@@ -336,4 +336,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Duplicate'), findsOneWidget);
   });
+
+  testWidgets('phones: a long press on ⊕ offers a folder, a canvas or a PDF', (tester) async {
+    final s = await pumpSeeded(
+      tester,
+      (s) => addNotebook(s, 'Algebra'),
+      size: const Size(390, 844),
+    );
+    await tester.longPress(find.byTooltip('New notebook'));
+    await tester.pumpAndSettle();
+    for (final item in ['New notebook', 'New canvas', 'Import PDF…', 'New folder…']) {
+      expect(find.text(item), findsOneWidget);
+    }
+    await tester.tap(find.text('New folder…'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'School');
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(s.folders.list().map((f) => f.name), ['School']);
+    expect(tester.takeException(), isNull);
+  });
 }

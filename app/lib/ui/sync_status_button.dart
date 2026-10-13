@@ -5,13 +5,67 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../sync/sync_controller.dart';
 
+/// The short sync status the sidebar shows (REDESIGN §3): "Synced 2m",
+/// "Synced just now", "Syncing…", "Sync failed", "Sync off".
+String syncCaption(SyncState state, DateTime? lastSuccess, DateTime now) {
+  switch (state) {
+    case SyncState.disabled:
+      return 'Sync off';
+    case SyncState.syncing:
+      return 'Syncing…';
+    case SyncState.error:
+      return 'Sync failed';
+    case SyncState.idle:
+      if (lastSuccess == null) return 'Not synced yet';
+      final ago = now.difference(lastSuccess);
+      if (ago.inMinutes < 1) return 'Synced just now';
+      if (ago.inHours < 1) return 'Synced ${ago.inMinutes}m';
+      if (ago.inDays < 1) return 'Synced ${ago.inHours}h';
+      return 'Synced ${ago.inDays}d';
+  }
+}
+
 /// Toolbar button showing sync status; tapping syncs now (or calls
-/// [onConfigure] when sync is not set up yet).
-class SyncStatusButton extends StatelessWidget {
-  const SyncStatusButton({super.key, required this.sync, required this.onConfigure});
+/// [onConfigure] when sync is not set up yet). With [caption], the status
+/// is also written beside the icon ([syncCaption]), kept current.
+class SyncStatusButton extends StatefulWidget {
+  const SyncStatusButton({
+    super.key,
+    required this.sync,
+    required this.onConfigure,
+    this.caption = false,
+  });
 
   final SyncController sync;
   final VoidCallback onConfigure;
+  final bool caption;
+
+  @override
+  State<SyncStatusButton> createState() => _SyncStatusButtonState();
+}
+
+class _SyncStatusButtonState extends State<SyncStatusButton> {
+  /// Refreshes "Synced 2m" as time passes (only with a caption).
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.caption) {
+      _tick = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  SyncController get sync => widget.sync;
+  VoidCallback get onConfigure => widget.onConfigure;
 
   @override
   Widget build(BuildContext context) {
@@ -27,20 +81,37 @@ class SyncStatusButton extends StatelessWidget {
         };
         final scheme = Theme.of(context).colorScheme;
         final color = sync.state == SyncState.error ? scheme.error : null;
-        return IconButton(
-          tooltip: tooLarge == null ? status : '$status\n$tooLarge',
-          // A small badge: some files stay on this device (see Settings → Sync).
-          icon: Badge(
-            isLabelVisible: tooLarge != null,
-            smallSize: 8,
-            backgroundColor: scheme.primary,
-            child: Icon(icon, color: color),
+        // A small badge: some files stay on this device (see Settings → Sync).
+        final glyph = Badge(
+          isLabelVisible: tooLarge != null,
+          smallSize: 8,
+          backgroundColor: scheme.primary,
+          child: Icon(icon, color: color, size: widget.caption ? 18 : null),
+        );
+        final onPressed = switch (sync.state) {
+          SyncState.disabled => onConfigure,
+          SyncState.syncing => null,
+          _ => () => unawaited(sync.syncNow()),
+        };
+        final tooltip = tooLarge == null ? status : '$status\n$tooLarge';
+        if (!widget.caption) {
+          return IconButton(tooltip: tooltip, icon: glyph, onPressed: onPressed);
+        }
+        final theme = Theme.of(context);
+        return Tooltip(
+          message: tooltip,
+          child: TextButton.icon(
+            key: const ValueKey('sync-status'),
+            onPressed: onPressed,
+            style: TextButton.styleFrom(
+              foregroundColor: color ?? scheme.onSurfaceVariant,
+              disabledForegroundColor: scheme.onSurfaceVariant,
+              textStyle: theme.textTheme.bodySmall,
+              visualDensity: VisualDensity.compact,
+            ),
+            icon: glyph,
+            label: Text(syncCaption(sync.state, sync.lastSuccess, DateTime.now())),
           ),
-          onPressed: switch (sync.state) {
-            SyncState.disabled => onConfigure,
-            SyncState.syncing => null,
-            _ => () => unawaited(sync.syncNow()),
-          },
         );
       },
     );
