@@ -540,9 +540,10 @@ and snack at once). *Fix:* `MessageInsets` anchors the snack's bottom edge,
 so it grows upward; queue tips behind snacks; shorten "Saved “Physics —
 Mechanics, page 1” to My templates" → "Page saved as a template". *Files:*
 `ui/messages.dart`, `chrome/editor_tips.dart`, `document/document_commands.dart`.
-→ ✅ Snack bars are anchored by their bottom margin and grow upward; the side-button tip waits for the stylus-detected snack bar; "Saved to My templates". Not done: the missing-planner notice and a snack at once.
+→ ✅ Snack bars are anchored by their bottom margin and grow upward; the side-button tip waits for the stylus-detected snack bar; "Saved to My templates".
+✅ *Rest (fix/a11y-library):* standing notices (the missing-PDF card) fade away while a snack bar shows (e.g. "no page for Wed, 14 Oct") and come back after it (`MessageQueue`), so one message shows at a time.
 
-🟡 **P2-27 Export sheet polish.** `export_*_range`, `export_narrow_large_text_scrolled`,
+✅ **P2-27 Export sheet polish.** `export_*_range`, `export_narrow_large_text_scrolled`,
 `export_tablet_portrait_*`: the range error shows in the field and again in
 the footer ("Check the page range", wraps on phones); disabled Export is grey
 on grey in dark; content scrolls under the header with no divider; 800-dp
@@ -553,7 +554,7 @@ scrolled; `showDialogOrSheet` threshold at 600 dp. *Files:*
 → 🟡 The range error shows in its field only (helper "Pages 1–N, separated by commas", hint "e.g. 1-3, 5").
 *Done (fix/a11y-tools):* disabled filled buttons keep a readable label
 (`onSurfaceVariant` on a 12 % plate, theme-wide) instead of 38 % grey.
-Open: header divider when scrolled, and the 600-dp `showDialogOrSheet` threshold (left at 840: it would move every task sheet on 800-dp tablets).
+✅ *Done (fix/a11y-library):* a hairline under the header once the options scroll (as Settings' pinned bar). The 600-dp `showDialogOrSheet` threshold stays at 840 (lead decision: it would move every task sheet on 800-dp tablets).
 
 ✅ **P2-28 Missing-PDF notice copy.** `e_missing_pdf_background_*`: "A PDF these
 pages are drawn on isn't on this device" / "Relink…" is awkward and repeats
@@ -712,18 +713,25 @@ dark); the "Drop to copy here" pill uses the text roles and `Shadows.low`.
   is a full target on touch; folder tiles grow with large text (they
   overflowed at 2×). A focus ring (`ui/focus_ring.dart`, accent, 2 dp) follows
   keyboard focus everywhere; touch and mouse never show it.
-- **A11Y-1 Small targets in the tablet library sidebar.** Sidebar rows are
+- ✅ **A11Y-1 Small targets in the tablet library sidebar.** Sidebar rows are
   40 dp (42 with spacing), New folder 40, the footer's Settings and Sync
   40, the search field 40: under 44 on touch tablets. At 2× text the footer
   squeezes the Settings label away. *Fix:* rows and footer buttons
   `Targets.of(context, 40)` on touch; the footer stacks at large text.
   *Files:* `ui/sidebar_item.dart`, `features/library/library_sidebar.dart`,
-  `library_header.dart`. (Allowed in `accessibility_test.dart` until fixed.)
-- **A11Y-2 Settings segmented buttons shrink on phones.** `ShrinkToFit`
+  `library_header.dart`.
+  → ✅ Rows, New folder, the footer's Settings and sync status, and the search field are
+  `Targets.menuRowHeight` (48 on touch, 44 with a pointer); at large text the footer stacks
+  (Settings, then the sync status with its caption). Allowlist entries removed.
+- ✅ **A11Y-2 Settings segmented buttons shrink on phones.** `ShrinkToFit`
   scales "Draw with" and "Side button" down to fit 390 dp (to about 38 dp
   high, smaller text), more at large text. *Fix:* below a width, a menu or
   radio rows instead of a segmented button. *Files:* `ui/segment_label.dart`,
   `features/settings/writing_settings.dart`.
+  → ✅ `FitSegments` (`ui/fit_segments.dart`): a segmented button that doesn't fit its room
+  stacks its segments (vertical `SegmentedButton`) at full text size and 48-dp height (Theme,
+  Draw with, Side button, Toolbar). Allowlist entry removed; so is the card ⋯ one (48 dp on
+  touch since fix/library-r4).
 - Targets: library ⋯ buttons (P2-23); the phone cover row of ten swatches is
   34 dp each (5 × 2 on phones, P1-18).
 - Simplify without losing parity: drop the spacing presets in paper options

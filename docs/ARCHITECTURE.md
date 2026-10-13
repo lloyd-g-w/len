@@ -1959,7 +1959,10 @@ dialog on tablets / desktops, bottom sheet on phones; `sheet_parts.dart`: `Sheet
 left-aligned Heading and ✕, `SheetActions` with Cancel and one filled primary, stacked on
 phones), confirms (`app_dialogs.dart`: `confirmAction`, `AppDialog` with a left-aligned title
 and a tinted `DialogIcon` only when destructive or in progress, `DialogBody` width) and
-messages (`messages.dart`: `showMessage`). Floating chrome: `floating_panel.dart`
+messages (`messages.dart`: `showMessage`; `MessageQueue` counts the snack bars up per messenger
+and `MessageQueue.stepAside` fades standing notices such as the missing-PDF card while one shows,
+so one message shows at a time), segmented buttons that stack rather than shrink when they
+don't fit (`fit_segments.dart`: `FitSegments`). Floating chrome: `floating_panel.dart`
 (`FloatingPanel`, the `raised` surface; `radius: Radii.pill` for pills) and `chrome_fade.dart`
 (`ChromeFade`: fade plus an 8-px slide toward the edge). Also `text_prompt.dart`,
 `sidebar_item.dart` (library sidebar; the selected row carries the accent). Menus opened from a
