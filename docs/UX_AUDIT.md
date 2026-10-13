@@ -115,7 +115,7 @@ this menu once the context menu's Select is the documented way (one home).
 
 ### Editor chrome
 
-⬜ **R6-2 P1 · A phone held sideways gets tablet chrome.** Dock and tab strip
+✅ **R6-2 P1 · A phone held sideways gets tablet chrome.** Dock and tab strip
 are chosen by width only: `dockFor` (`features/editor/editor_chrome_host.dart:50-59`)
 returns `row` at 844 dp (two rows: bar 52 + tools 48), and `showsStrip`
 (`chrome/editor_top_bar.dart:84-86`) adds the 40-dp tab strip with two or
@@ -126,8 +126,14 @@ No screenshot covers it. *Fix:* below `Breakpoints.shortHeight` use one row:
 the inline dock (tools centred; `fitsOneRow` with the title dropped first)
 and no tab strip (tabs move to ⋯ → Open notebooks, as on phones). Add
 `editor_phone_sideways` renders.
+*Done (`fix/r6-editor`):* below `Breakpoints.shortHeight` the dock is
+`ToolbarDock.slim`: one 52-dp row with ← ▦, the title when it has room, the
+phone's switcher, previous tool and quick controls, then ↶ (↷) ⋯; no tab
+strip (tabs and audio in ⋯; recording controls dock at the bottom as on
+phones). Wide short windows whose full tools fit keep the inline bar.
+Renders: `editor_phone_sideways_*`.
 
-⬜ **R6-4 P1 · Tablet portrait with tabs: three chrome rows.**
+✅ **R6-4 P1 · Tablet portrait with tabs: three chrome rows.**
 `e_tabs_tablet_portrait_*`: tab strip (40), then a bar that hides its title
 (`showTitle: !strip || split`, `chrome/editor_top_bar.dart:132`) and keeps only
 ← ▦ on the left and 🎙 ↶ ↷ ⋯ on the right, then the tool row (48). About
@@ -135,6 +141,10 @@ and no tab strip (tabs move to ⋯ → Open notebooks, as on phones). Add
 shows and the dock is `row`, drop the middle bar. Put ← ▦ at the start of
 the tool row and 🎙 ↶ ↷ ⋯ at its end (the row is centred and has room at
 800 dp), or put them at the ends of the tab strip.
+*Done (`fix/r6-editor`):* the tool row has no room for them at 800 dp on
+touch, so ← ▦ and 🎙 ↶ ↷ ⋯ sit at the ends of the tab strip (52 dp) over
+the tool row: two rows, 100 dp. The active tab names the notebook (double
+tap renames). Split views keep both bars, which name each pane.
 
 ⬜ **R6-14 P2 · Gesture undo is never taught.** Tap to undo (two fingers) and
 redo (three) are on by default, but the only tip is the side button

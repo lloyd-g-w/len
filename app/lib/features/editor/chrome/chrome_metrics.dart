@@ -22,4 +22,9 @@ abstract final class ChromeMetrics {
 
   /// From this width the tab strip replaces the phone tab switcher.
   static const double tabStripWidth = compactWidth;
+
+  /// Whether a window [height] tall is short (a phone held sideways):
+  /// the chrome keeps to one row there, with no tab strip, and leaves the
+  /// page the rest ([Breakpoints.shortHeight], as in the library).
+  static bool short(double height) => height < Breakpoints.shortHeight;
 }

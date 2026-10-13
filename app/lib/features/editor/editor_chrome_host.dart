@@ -46,34 +46,43 @@ class ToolbarMeasure extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Where the toolbar sits in a pane [width] wide.
-  ToolbarDock dockFor(double width) {
+  /// Where the toolbar sits in a pane of [size]: short windows (a phone
+  /// held sideways) keep the chrome to one row, with the phone's switcher
+  /// inside the bar when the full tools don't fit there.
+  ToolbarDock dockFor(Size size) {
     if (session.services.preferences.toolbarPlacement == ToolbarPlacement.floating) {
       return ToolbarDock.floating;
     }
-    if (width < ChromeMetrics.compactWidth) return ToolbarDock.bottom;
+    if (size.width < ChromeMetrics.compactWidth) return ToolbarDock.bottom;
     final paged = session.doc != null;
-    return ToolbarMetrics.fitsOneRow(width, session.tools, paged: paged)
-        ? ToolbarDock.inline
-        : ToolbarDock.row;
+    if (ToolbarMetrics.fitsOneRow(size.width, session.tools, paged: paged)) {
+      return ToolbarDock.inline;
+    }
+    return ChromeMetrics.short(size.height) ? ToolbarDock.slim : ToolbarDock.row;
   }
 
-  /// How the chrome lays out in an editor [width] wide, with [tabs] (or
-  /// an empty [band] in their place) in the top bar; [focus] hides it.
+  /// How the chrome lays out in an editor pane of [size], with [tabs] (or
+  /// an empty [band] in their place) in the top bar, both panes of a
+  /// [split] view shown; [focus] hides it.
   ChromeLayout layout({
-    required double width,
+    required Size size,
     required EdgeInsets safe,
     required OpenNotebooks? tabs,
     required bool focus,
     bool band = false,
-  }) => ChromeLayout(
-    dock: dockFor(width),
-    barHeight: EditorTopBar.heightFor(width, tabs, band: band),
-    safe: safe,
-    hasNavigator: session.doc != null,
-    width: width,
-    focus: focus,
-  );
+    bool split = false,
+  }) {
+    final dock = dockFor(size);
+    return ChromeLayout(
+      dock: dock,
+      barHeight: EditorTopBar.heightFor(size, tabs, dock: dock, band: band, split: split),
+      safe: safe,
+      hasNavigator: session.doc != null,
+      width: size.width,
+      focus: focus,
+      short: ChromeMetrics.short(size.height),
+    );
+  }
 
   @override
   void dispose() {
@@ -216,7 +225,7 @@ class EditorChromeHost extends StatelessWidget {
     final prefs = session.services.preferences;
     final dock = layout.dock;
     final toolbar = EditorToolbar(tools: session.tools, dock: dock, insert: _insert(context));
-    final inBar = dock == ToolbarDock.inline || dock == ToolbarDock.row;
+    final inBar = dock != ToolbarDock.bottom && dock != ToolbarDock.floating;
     return ListenableBuilder(
       listenable: Listenable.merge([?doc, ?session.canvasNav]),
       // Ink previews in the tool popovers show the paper being written on.
@@ -259,7 +268,10 @@ class EditorChromeHost extends StatelessWidget {
             compactMenuItems: audioMenuItems(context, audio),
             toolbar: inBar ? toolbar : null,
             dock: dock,
-            toolbarWidth: ToolbarMetrics.group(session.tools),
+            short: layout.short,
+            toolbarWidth: dock == ToolbarDock.slim
+                ? ToolbarMetrics.slim(session.tools)
+                : ToolbarMetrics.group(session.tools),
             splitMenu: splitMenu,
             secondPane: secondPane,
             split: split?.isSplit ?? false,

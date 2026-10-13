@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/messages.dart';
-import '../editor/chrome/chrome_metrics.dart';
 import '../editor/editor_session.dart';
 import 'notebook_audio.dart';
 import 'replay/ink_replay_layer.dart';
@@ -24,6 +23,7 @@ class AudioLayer extends StatefulWidget {
     required this.audio,
     required this.session,
     required this.chromeInsets,
+    required this.compactBar,
     this.canvasPaper = PaperColor.white,
   });
 
@@ -32,6 +32,10 @@ class AudioLayer extends StatefulWidget {
 
   /// Screen edges covered by chrome; the playback bar sits above the bottom.
   final EdgeInsets chromeInsets;
+
+  /// The top bar is the phone's, without the audio button (phones, short
+  /// windows): the recording controls dock at the bottom instead.
+  final bool compactBar;
 
   /// Paper colour of an infinite canvas (pages carry their own).
   final PaperColor canvasPaper;
@@ -85,7 +89,7 @@ class _AudioLayerState extends State<AudioLayer> {
   Widget build(BuildContext context) {
     final playback = widget.audio.playback;
     final insets = widget.chromeInsets;
-    final compact = MediaQuery.sizeOf(context).width < ChromeMetrics.compactWidth;
+    final compact = widget.compactBar;
     return MessageInsets(
       bottom: _messages,
       child: Stack(

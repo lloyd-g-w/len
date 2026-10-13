@@ -20,8 +20,11 @@ import 'undo_redo_buttons.dart';
 /// the title with its folder; tap it to rename) · the tools, when docked
 /// inside the bar · actions (🎙▾ audio, undo, redo, ⋯). With the tools
 /// docked as a row, that row is attached under the bar (one hairline under
-/// the block). Phones keep back, the title, undo, redo and ⋯. Several open
-/// notebooks add a tab strip above it (tablets, desktops).
+/// the block). Phones keep back, the title, undo, redo and ⋯; short windows
+/// (a phone held sideways) add the phone's tool switcher and quick controls
+/// to that one row. Several open notebooks add a tab strip above the bar
+/// (tablets, desktops), or put the bar's buttons at the strip's ends when
+/// the tools have a row of their own (two rows of chrome, never three).
 class EditorTopBar extends StatelessWidget {
   const EditorTopBar({
     super.key,
@@ -39,6 +42,7 @@ class EditorTopBar extends StatelessWidget {
     this.secondPane = false,
     this.split = false,
     this.band = false,
+    this.short = false,
   });
 
   final String title;
@@ -78,14 +82,38 @@ class EditorTopBar extends StatelessWidget {
   /// pane's bar beside a first pane that shows the strip, so both line up.
   final bool band;
 
-  /// Height of the bar (without the status bar and the tool row) for a
-  /// given [width] (with the empty [band] in place of the strip).
-  static double heightFor(double width, OpenNotebooks? tabs, {bool band = false}) =>
-      ChromeMetrics.barHeight + (band || showsStrip(width, tabs) ? ChromeMetrics.tabHeight : 0);
+  /// A short window ([ChromeMetrics.short]): no tab strip (open notebooks
+  /// are in ⋯, as on phones).
+  final bool short;
 
-  /// Whether a bar [width] wide shows the tab strip for [tabs].
-  static bool showsStrip(double width, OpenNotebooks? tabs) =>
-      tabs != null && tabs.length > 1 && width >= ChromeMetrics.tabStripWidth;
+  /// Height of the bar (without the status bar and the tool row) in a pane
+  /// of [size] with the toolbar at [dock] (with the empty [band] in place
+  /// of the strip; [split]: both panes of a split view shown).
+  static double heightFor(
+    Size size,
+    OpenNotebooks? tabs, {
+    required ToolbarDock dock,
+    bool band = false,
+    bool split = false,
+  }) {
+    final strip = band || showsStrip(size, tabs);
+    final extra = strip && !stripHoldsBar(dock, split: split) ? ChromeMetrics.tabHeight : 0;
+    return ChromeMetrics.barHeight + extra;
+  }
+
+  /// Whether a bar in a pane of [size] shows the tab strip for [tabs].
+  static bool showsStrip(Size size, OpenNotebooks? tabs) =>
+      _strip(size.width, tabs, short: ChromeMetrics.short(size.height));
+
+  static bool _strip(double width, OpenNotebooks? tabs, {required bool short}) =>
+      !short && tabs != null && tabs.length > 1 && width >= ChromeMetrics.tabStripWidth;
+
+  /// Whether the tab strip takes in the bar's buttons (← ▦ at its start,
+  /// 🎙 ↶ ↷ ⋯ at its end): when the tools have a row of their own, so the
+  /// chrome is two rows, not three; the active tab names the notebook. A
+  /// split view keeps both bars, which name each pane's notebook.
+  static bool stripHoldsBar(ToolbarDock dock, {required bool split}) =>
+      dock == ToolbarDock.row && !split;
 
   /// Room the action cluster may take while recording (the time pill).
   static const double _recordingExtra = 150;
@@ -96,9 +124,10 @@ class EditorTopBar extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final strip = showsStrip(width, tabs);
+        final strip = _strip(width, tabs, short: short);
         final phone = width < ChromeMetrics.compactWidth;
         final row = dock == ToolbarDock.row && !phone ? toolbar : null;
+        final holdsBar = strip && stripHoldsBar(dock, split: split);
         // The strip, the bar and the status bar area are one flat Board
         // block, with one hairline under it all.
         return Material(
@@ -108,7 +137,15 @@ class EditorTopBar extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (strip)
+                if (holdsBar)
+                  SizedBox(
+                    height: ChromeMetrics.barHeight,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
+                      child: _stripBar(),
+                    ),
+                  )
+                else if (strip)
                   SizedBox(
                     height: ChromeMetrics.tabHeight,
                     child: NotebookTabStrip(
@@ -124,15 +161,20 @@ class EditorTopBar extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox(
-                        height: ChromeMetrics.barHeight,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
-                          child: Receding(
-                            child: phone ? _phone() : _wide(width, showTitle: !strip || split),
+                      if (!holdsBar)
+                        SizedBox(
+                          height: ChromeMetrics.barHeight,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
+                            child: Receding(
+                              child: phone
+                                  ? _phone()
+                                  : dock == ToolbarDock.slim
+                                  ? _slim(width - 2 * Gaps.xs)
+                                  : _wide(width, showTitle: !strip || split),
+                            ),
                           ),
                         ),
-                      ),
                       if (row != null) Receding(child: row),
                     ],
                   ),
@@ -224,6 +266,51 @@ class EditorTopBar extends StatelessWidget {
         inline,
         divider,
         _actions(compact: false),
+      ],
+    );
+  }
+
+  /// ← ▦ and the tab strip, then the actions (see [stripHoldsBar]).
+  Widget _stripBar() => Row(
+    children: [
+      _back(),
+      if (actions.onOverview case final onOverview?)
+        BarButton(tooltip: 'All pages', icon: Symbols.grid_view_sharp, onPressed: onOverview),
+      Expanded(
+        child: SizedBox(
+          height: ChromeMetrics.tabHeight,
+          child: NotebookTabStrip(
+            tabs: tabs!,
+            onRename: actions.onRename,
+            splitAvailable: splitMenu != null,
+          ),
+        ),
+      ),
+      _actions(compact: false),
+    ],
+  );
+
+  /// Short windows, one row: ← ▦ (title, when it has room), the tool
+  /// switcher and quick controls, then ↶ (↷) ⋯ as on phones (audio and
+  /// the open notebooks in ⋯).
+  Widget _slim(double width) {
+    final paged = actions.onOverview != null;
+    final fixed =
+        (paged ? 2 : 1) * ToolbarMetrics.barButton +
+        2 * ToolbarMetrics.divider +
+        3 * ToolbarMetrics.barButton;
+    final room = width - fixed;
+    final tools = room < toolbarWidth ? (room < 0 ? 0.0 : room) : toolbarWidth;
+    const divider = ToolbarDivider();
+    return Row(
+      children: [
+        Expanded(
+          child: Row(children: _nav(showTitle: room - tools >= ToolbarMetrics.minTitle)),
+        ),
+        divider,
+        SizedBox(width: tools, child: toolbar),
+        divider,
+        _actions(compact: true),
       ],
     );
   }

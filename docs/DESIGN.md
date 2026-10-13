@@ -271,6 +271,9 @@ Docked, one bar (≥ 1040): Board, 52 dp, hairline under it
 │ Desk                ┌──────────────────────────────┐                         │
 │                     │ page (brightest), contact     │                        │
 Two rows (600–1039): the tool row (48) joins the bar, one hairline under both.
+With tabs, ← ▦ and 🎙 ↶ ↷ ⋯ sit at the ends of the tab strip (never three rows).
+Short windows (< 480 high, a phone held sideways): one row, ← ▦ title, the
+phone's switcher and quick controls, ↶ ⋯; tabs and audio in ⋯.
 Phone: tool row at the bottom, hairline on its top edge.
 
 Floating palette: Sheet, radius md, hairline, contact shadow, grip of 2 ticks

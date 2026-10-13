@@ -9,11 +9,13 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/tabs/editor_workspace.dart';
+import 'package:len/features/editor/toolbar/tool_switcher.dart';
 
 import 'screenshot_harness.dart';
 
 const phone = Size(390, 844);
 const narrowPhone = Size(320, 640);
+const phoneSideways = Size(844, 390);
 const tabletPortrait = Size(800, 1280);
 const tablet = Size(1280, 800);
 const desktop = Size(1440, 900);
@@ -75,6 +77,7 @@ void main() {
     ('tablet', tablet, 1.0, false),
     ('tablet_portrait', tabletPortrait, 1.0, false),
     ('phone', phone, 2.0, true),
+    ('phone_sideways', phoneSideways, 2.0, true),
     ('desktop', desktop, 1.0, false),
   ]) {
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
@@ -95,6 +98,18 @@ void main() {
       }
     }
   }
+
+  testWidgets('editor phone sideways: tool switcher and ⋯', (tester) async {
+    await pumpEditor(tester, size: phoneSideways, dpr: 2, tabs: true, phoneInsets: true);
+    await tester.tap(find.byType(ToolSwitcherButton));
+    await settle(tester);
+    await shoot(tester, 'editor_phone_sideways_switcher');
+    await tester.tapAt(const Offset(422, 350));
+    await settle(tester);
+    await tester.tap(find.byTooltip('More options'));
+    await settle(tester);
+    await shoot(tester, 'editor_phone_sideways_more');
+  });
 
   testWidgets('editor 320 dp phone has no overflow', (tester) async {
     await pumpEditor(tester, size: narrowPhone, dpr: 2, tabs: true, phoneInsets: true);
