@@ -173,6 +173,18 @@ class SettingsRepository {
   void setEditorView(String notebookId, String? value) =>
       value == null ? _remove('editor_view.$notebookId') : _set('editor_view.$notebookId', value);
 
+  /// Notebooks opened lately (ids), most recent first.
+  List<String> get recentNotebooks => [
+    for (final part in (_get('recent_notebooks') ?? '').split(','))
+      if (part.isNotEmpty) part,
+  ];
+  set recentNotebooks(List<String> ids) => _set('recent_notebooks', ids.join(','));
+
+  /// The editor's open tabs while it is shown (an opaque string owned by
+  /// the editor), or null once the user went back to the library.
+  String? get workspace => _get('workspace');
+  set workspace(String? value) => value == null ? _remove('workspace') : _set('workspace', value);
+
   String? _get(String key) {
     final rows = _database.db.select('SELECT value FROM settings WHERE key = ?', [key]);
     return rows.isEmpty ? null : rows.first['value'] as String;

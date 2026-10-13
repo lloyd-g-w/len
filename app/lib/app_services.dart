@@ -32,6 +32,7 @@ import 'features/audio/backends/platform_audio.dart';
 import 'features/documents/import/incoming_files.dart';
 import 'features/editor/shared/shared_notebooks.dart';
 import 'features/editor/tabs/open_notebooks.dart';
+import 'features/editor/tabs/workspace_memory.dart';
 import 'ink/images/element_images.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
 import 'ink/recognition/recognition_service.dart';
@@ -241,6 +242,13 @@ class AppServices {
   /// Notebooks open in editor tabs (with each tab's place in memory).
   final OpenNotebooks openNotebooks = OpenNotebooks();
 
+  /// Recent notebooks and the workspace kept across launches.
+  late final WorkspaceMemory workspace = WorkspaceMemory(
+    settings: settings,
+    tabs: openNotebooks,
+    isClosed: () => database.isClosed,
+  );
+
   /// Which part of the screen opened each route (register with the app's
   /// navigator).
   final RouteOwners routeOwners = RouteOwners();
@@ -264,6 +272,7 @@ class AppServices {
     sharedNotebooks.dispose();
     incomingFiles.dispose();
     images.dispose();
+    workspace.dispose();
     openNotebooks.dispose();
     clipboard.dispose();
     recognition.dispose();

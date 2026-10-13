@@ -56,6 +56,12 @@ class EditorLifecycle {
     if (closing) return;
     session.content.text.end();
     saveView();
+    // The second pane's place is kept with the workspace.
+    final tabs = services.openNotebooks;
+    if (secondPane && tabs.splitId == _notebook.id && !services.database.isClosed) {
+      tabs.splitView = session.viewState;
+      services.workspace.save();
+    }
   }
 
   void start() {
