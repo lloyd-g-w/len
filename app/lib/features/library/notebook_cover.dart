@@ -80,8 +80,7 @@ class NotebookCover extends StatelessWidget {
                   ),
           ),
           if (_paged && !pending) _Spine(color: base, onPreview: preview != null),
-          if (!_paged && preview != null)
-            Positioned(left: 8, bottom: 8, child: _CanvasTag(color: base)),
+          if (!_paged && preview != null) const Positioned.fill(child: _CanvasTag()),
           if (!_paged && preview == null && !pending)
             Positioned(
               right: 10,
@@ -145,17 +144,39 @@ class _Spine extends StatelessWidget {
   }
 }
 
+/// Marks a canvas over its preview: a badge printed on the cover like
+/// [_FavoriteBadge], a paper plate with an Ink ∞ (DESIGN §1: badges are
+/// neutral; the cover colour stays on the cover), in its bottom-left
+/// corner; smaller on small thumbnails, so it never fills them.
 class _CanvasTag extends StatelessWidget {
-  const _CanvasTag({required this.color});
-
-  final Color color;
+  const _CanvasTag();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(Radii.xs)),
-      child: const Icon(Symbols.all_inclusive_sharp, size: 14, color: Colors.white),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final side = (constraints.maxWidth * 0.3).clamp(12.0, 24.0);
+        final inset = (constraints.maxWidth * 0.06).clamp(2.0, 8.0);
+        return Align(
+          alignment: Alignment.bottomLeft,
+          child: Container(
+            width: side,
+            height: side,
+            margin: EdgeInsets.all(inset),
+            decoration: BoxDecoration(
+              color: Palette.paper,
+              borderRadius: BorderRadius.circular(Radii.xs),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+            ),
+            // Paper stays light in both themes, so its ink is the light Ink.
+            child: Icon(
+              Symbols.all_inclusive_sharp,
+              size: side * 2 / 3,
+              color: Tones.of(Brightness.light).ink,
+            ),
+          ),
+        );
+      },
     );
   }
 }
