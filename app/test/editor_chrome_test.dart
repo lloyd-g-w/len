@@ -2,7 +2,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/features/editor/chrome/canvas_context_menu.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
@@ -10,6 +9,7 @@ import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/toolbar/tool_strip.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
 

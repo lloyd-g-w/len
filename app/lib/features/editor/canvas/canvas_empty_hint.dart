@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -58,11 +57,6 @@ class _CanvasEmptyHintState extends State<CanvasEmptyHint> {
     super.dispose();
   }
 
-  static bool get _touchFirst => switch (defaultTargetPlatform) {
-    TargetPlatform.android || TargetPlatform.iOS => true,
-    _ => false,
-  };
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -85,10 +79,11 @@ class _CanvasEmptyHintState extends State<CanvasEmptyHint> {
                 Text('Draw anywhere', style: theme.textTheme.titleMedium?.copyWith(color: colour)),
                 const SizedBox(height: Gaps.xs),
                 Text(
-                  _touchFirst
-                      ? 'Drag with two fingers to move, pinch to zoom.\n'
-                            'Long-press for more.'
-                      : 'Scroll to move, Ctrl + scroll to zoom.\nRight-click for more.',
+                  // By input, not platform: a tablet with a mouse, or a
+                  // touch screen on the web, gets its own words.
+                  Targets.touchFirst
+                      ? 'Two fingers move and zoom.\nLong-press for more options.'
+                      : 'Scroll to move, Ctrl + scroll to zoom.\nRight-click for more options.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(color: colour),
                 ),
