@@ -826,7 +826,10 @@ search highlights use the same boxes.
     for Dart; later intents arrive through `onNewIntent` (warm start). The
     activity is `singleTask` so a share from another app reaches the running Len
     instead of starting a second engine in that app's task. Copies are deleted
-    when the next engine starts.
+    when the next engine starts. Only other apps' `content:` URIs are read (no
+    `file:`, none of Len's own providers: no app can make Len import its own
+    private files), and a start from the recent apps (which repeats the first
+    intent) imports nothing.
   - *Linux:* paths / `file://` URIs on the command line (`Exec=len %U`;
     `MimeType=application/pdf;image/png;image/jpeg;image/webp;x-scheme-handler/len`
     in the desktop entry). The GTK runner is single-instance (`G_APPLICATION_HANDLES_OPEN`): a

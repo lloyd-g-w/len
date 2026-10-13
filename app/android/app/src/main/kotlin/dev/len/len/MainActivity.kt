@@ -30,9 +30,11 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Cold start with files ("Open with" / "Share"); a recreated
-        // activity has handled its intent already.
-        if (savedInstanceState == null) incoming?.handle(intent)
+        // Cold start with files ("Open with" / "Share"). A recreated
+        // activity has handled its intent already, and one started from
+        // the recent apps gets the intent it was first started with again.
+        val fromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (savedInstanceState == null && !fromHistory) incoming?.handle(intent)
     }
 
     override fun onStart() {
