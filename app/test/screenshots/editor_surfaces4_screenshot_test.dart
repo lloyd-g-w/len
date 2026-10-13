@@ -96,7 +96,7 @@ void main() {
           await tester.tap(find.text('Save'));
           await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
           await settle(tester);
-          expect(find.textContaining('to My templates'), findsOneWidget);
+          expect(find.text('Saved to My templates'), findsOneWidget);
           await shoot(tester, 'e_snack_saved_template_$shot');
         });
       });
