@@ -8,6 +8,9 @@
 // INKLAB_ENDS writes every entry with those pen ends (`cursive@0.4/flat`);
 // `both` runs the table with the pen's round ends, then with flat ends
 // (butt caps: the overlay's flat-end rules, `WetInkEnds`).
+//
+// Fails when any metric fails (FAILS is not 0), so CI's weekly Ink Lab
+// run (.github/workflows/inklab.yml) goes red on a regression.
 @Tags(['inklab'])
 library;
 
@@ -48,6 +51,7 @@ void main() {
       }
       // ignore: avoid_print
       print('FAILS: $fails');
+      expect(fails, 0, reason: 'failing metrics are marked !! in the table above');
     },
     skip: _enabled ? false : 'opt-in: --dart-define=INKLAB_TABLE=true',
     timeout: Timeout.none,

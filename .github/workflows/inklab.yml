@@ -1,0 +1,68 @@
+name: Ink Lab
+
+# The full Ink Lab metric table, real-device recordings included, with the
+# pen's round ends and then flat ends (docs/INK_LAB.md, "Running"). Too slow
+# for every push (`flutter test` in CI skips the real recordings); runs
+# weekly and on demand, and fails when the table's FAILS count isn't 0.
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays, 03:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: inklab
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keep in step with ci.yml and the Flutter in flake.nix.
+  FLUTTER_VERSION: "3.47.4"
+
+jobs:
+  table:
+    name: Ink Lab · full table (real recordings, both ends)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Metric table
+        # pipefail: the test's exit code, not tee's.
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter test test/inklab/tools/table_test.dart --reporter expanded \
+            --dart-define=INKLAB_TABLE=true \
+            --dart-define=INKLAB_REAL=true \
+            --dart-define=INKLAB_ENDS=both \
+            | tee "$RUNNER_TEMP/inklab-table.txt"
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          touch "$RUNNER_TEMP/inklab-table.txt"
+          {
+            echo '### Ink Lab'
+            grep -E '^FAILS:' "$RUNNER_TEMP/inklab-table.txt" || echo 'No FAILS line: the run stopped early.'
+            echo
+            echo 'Failing metrics (marked !!):'
+            echo '```'
+            grep -F '!!' "$RUNNER_TEMP/inklab-table.txt" || echo 'none'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inklab-table
+          path: ${{ runner.temp }}/inklab-table.txt
+          retention-days: 30
