@@ -63,6 +63,10 @@ class _SyncSettingsState extends State<SyncSettings> {
   /// Shown under the URL field until it is edited.
   String? _urlError;
 
+  /// The form was filled from a setup link: its caption says where links
+  /// come from, for next time.
+  bool _fromLink = false;
+
   SyncController get _sync => _services.sync;
 
   /// Said once: the secure store failed, so the token is in the database.
@@ -108,6 +112,7 @@ class _SyncSettingsState extends State<SyncSettings> {
     _url.text = link.url;
     _token.text = link.token;
     _editing = _sync.isConfigured;
+    _fromLink = true;
     _testError = _urlError = null;
   }
 
@@ -136,7 +141,7 @@ class _SyncSettingsState extends State<SyncSettings> {
     try {
       await _sync.test(url: url, token: _token.text);
       _sync.configure(url: url, token: _token.text);
-      _editing = false;
+      _editing = _fromLink = false;
       unawaited(_sync.syncNow());
     } on SyncException catch (e) {
       _testError = e.message;
@@ -170,7 +175,7 @@ class _SyncSettingsState extends State<SyncSettings> {
   void _cancelEditing() => setState(() {
     _url.text = _services.settings.syncUrl;
     _token.text = _sync.tokens.token;
-    _editing = false;
+    _editing = _fromLink = false;
     _testError = _urlError = null;
   });
 
@@ -274,7 +279,11 @@ class _SyncSettingsState extends State<SyncSettings> {
         decoration: InputDecoration(
           labelText: 'Server URL',
           hintText: 'len.example.com',
-          helperText: 'Or paste a setup link from a connected device',
+          helperText: _fromLink
+              ? 'Filled from a setup link; next time, open Settings → Sync → '
+                    'Set up another device… on a connected device'
+              : 'Or paste a setup link from a connected device',
+          helperMaxLines: 3,
           errorText: _urlError,
           errorMaxLines: 3,
         ),
