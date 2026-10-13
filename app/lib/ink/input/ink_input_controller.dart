@@ -150,15 +150,28 @@ class InkInputController {
     gestures?.cancel(e);
   }
 
-  /// Shows the eraser outline while hovering (mouse or hovering stylus).
+  /// Shows the eraser outline while hovering (mouse or hovering stylus),
+  /// and the laser's dot under a hovering mouse (presenting with a mouse
+  /// needs no button held).
   void handleHover(PointerHoverEvent e) {
     gestures?.hover(e);
     if (_draw.pointer != null) return; // Don't fight the active pointer.
     samples?.hover(e);
     _draw.showEraser(_wantsErase(e) ? e.localPosition : null);
+    final laser = content?.laser;
+    if (laser == null) return;
+    if (e.kind == PointerDeviceKind.mouse && tools.tool == EditorTool.laser) {
+      laser.config = tools.laser;
+      laser.hover(viewport.toWorld(e.localPosition));
+    } else {
+      laser.hover(null);
+    }
   }
 
-  void handleExit() => _draw.showEraser(null);
+  void handleExit() {
+    _draw.showEraser(null);
+    content?.laser.hover(null);
+  }
 
   // ---------------------------------------------------------------------------
   // Wheel / trackpad

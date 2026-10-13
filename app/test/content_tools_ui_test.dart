@@ -214,6 +214,34 @@ void main() {
     expect(trail().isVisible, isFalse);
   });
 
+  testWidgets('with a mouse, the laser dot follows the pointer without a press', (tester) async {
+    await openCanvas(tester);
+    LaserTrail trail() => tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((c) => c.painter)
+        .whereType<LaserPainter>()
+        .single
+        .trail;
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(300, 300));
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(const Offset(320, 300));
+    await tester.pump();
+    expect(trail().head, isNull, reason: 'not with the pen');
+
+    await key(tester, LogicalKeyboardKey.keyK);
+    await mouse.moveTo(const Offset(400, 350));
+    await tester.pump();
+    expect(trail().head, const Offset(400, 350)); // World = screen here.
+    expect(trail().headAlpha, 1);
+    expect(trail().isEmpty, isTrue);
+
+    // Another tool: the dot goes.
+    await key(tester, LogicalKeyboardKey.keyP);
+    await tester.pump(const Duration(seconds: 3));
+    expect(trail().isVisible, isFalse);
+  });
+
   testWidgets('the toolbar shape picker selects the shape tool', (tester) async {
     await openCanvas(tester);
     await tester.tap(find.byTooltip('Shapes (S)'));

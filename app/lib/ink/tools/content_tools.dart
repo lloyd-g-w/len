@@ -177,6 +177,7 @@ class ContentTools {
     if (tool == _lastTool) return;
     if (_lastTool == EditorTool.lasso) selection.clear();
     if (_lastTool == EditorTool.text) text.end();
+    if (_lastTool == EditorTool.laser) laser.hover(null); // A mouse's dot goes.
     _lastTool = tool;
   }
 
