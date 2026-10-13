@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:len/app_services.dart';
+import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/features/library/notebook_card.dart';
@@ -28,10 +30,15 @@ Future<void> createNotebook(WidgetTester tester, String title, {bool canvas = fa
   await settle(tester);
 }
 
-/// More options → Page → Add page after.
+/// Right-click on the page → Add page after (⋯ → Page no longer has it:
+/// one home per command).
 Future<void> addPageAfter(WidgetTester tester) async {
-  await tapTooltip(tester, 'More options');
-  await tapText(tester, 'Page');
+  await tester.tapAt(
+    tester.getCenter(find.byType(PagedDocumentView)),
+    buttons: kSecondaryMouseButton,
+    kind: PointerDeviceKind.mouse,
+  );
+  await settle(tester);
   await tapText(tester, 'Add page after', last: true);
 }
 
