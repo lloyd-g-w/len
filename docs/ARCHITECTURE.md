@@ -81,12 +81,16 @@ The same grid drives three things:
    selections, thumbnails, exports — uses. A stroke edit invalidates only the chunks
    it touches. Painting visits only populated chunks intersecting the screen.
 4. **Level of detail** — when a chunk covers ≤ 256 device pixels,
-   `CommittedInkPainter` draws it from a `ChunkRasterCache` image (32/64/128/256
+   `paintLod` (`render/lod_painting.dart`; canvases and, per page, paged
+   documents) draws it from a `ChunkRasterCache` image (32/64/128/256
    px, always at least screen resolution) instead of replaying its vectors.
    Rasters are made off the critical path (time-boxed batches, newest request
    first, `Picture.toImage`), invalidated by the same chunk stream, and kept in
-   an LRU bounded by bytes. A frame never records more than a few uncached
-   chunks; the rest fill in over the next frames. Measured (test
+   an LRU bounded by bytes. A chunk without a raster yet shows what the tile
+   cache still holds of it (the closer zoom's images, scaled) or nothing for
+   the frame or two until it is made; only chunks edited since their rasters
+   were dropped (`needsVectors`: an erase must not linger, a stroke must show)
+   are drawn from vectors, a few recorded per frame at most. Measured (test
    `lod_render_test.dart`, 50 000 strokes, 1 632 visible chunks at 5 %): frame
    rasterisation 205 ms → 17 ms, cold first frame 700 ms → 2 ms.
 
@@ -148,8 +152,12 @@ draws a few dozen images, however much ink is on screen.
   while the gesture lasts, rendering only those missing on screen (and the
   ring when zooming out); zooming out more than 1.5× from the tiles adopts
   the new zoom at once. After 150 ms still the new zoom is adopted and
-  rendered; old tiles stand in wherever they exist (vectors only for the
-  parts they do not cover), so nothing goes blank.
+  rendered; old tiles (never stale ones) stand in wherever they exist.
+  Once a cache has zoomed, the parts they do not cover (the rim a fast
+  zoom-out exposes) stay empty for the frame or two until their tiles
+  render, rather than being drawn from vectors every frame meanwhile —
+  which cost as much as rendering them, per frame. Tiles dropped by an
+  edit (`InkTile.edited`) and a cache's first show still draw vectors.
 - **Memory**: tile images live in one `TilePool` (LRU by bytes, 160 MB =
   160 tiles of 1 MB) shared by every surface and view; evicted tiles are
   re-rendered when needed. Beyond 256 tiles known per cache, those without
@@ -161,9 +169,12 @@ draws a few dozen images, however much ink is on screen.
   (`PageModels`), tile caches are not — each view has its own zoom and its
   own `PageSurface` (chunk pictures + tiles), all listening to the shared
   model's `changes`.
-- **Level of detail**: zoomed out far (canvas), `ChunkRasterCache` images
-  are drawn instead; on an append they too keep their (stale) images with
-  the new strokes drawn over them until re-rasterised.
+- **Level of detail**: zoomed out far (canvas, and pages: each
+  `PageSurface` has its own `ChunkRasterCache`, 4 MB at most),
+  `ChunkRasterCache` images are drawn instead (see *Level of detail* above); on an
+  append they too keep their (stale) images with the new strokes drawn
+  over them until re-rasterised. Crossing into LOD, the tiles stand in
+  until the rasters are made (`InkTileCache.paintStandIn`).
 
 Two more things keep pen-up and first show off the frame:
 
@@ -1869,7 +1880,7 @@ malformed record is skipped. Open screens subscribe to
   thumbnails and other queries still run on the UI isolate (small and indexed).
 - Far zoom-out of a huge canvas still loads every visible stroke into memory
   (LOD caps rendering cost, not memory); LOD rasters are not persisted, so they
-  are rebuilt after reopening. Paged documents do not use LOD rasters yet.
+  are rebuilt after reopening.
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
 - Text boxes: list items have no hanging indent (wrapped lines start at the

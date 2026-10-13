@@ -134,7 +134,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Canvas background: template + paper colour
 - ✅ Double-tap zoom (finger, when fingers navigate): page fit / 100 % ⇄ 2× or the last zoom, about
   the tap; palm-safe, never confused with two-finger undo
-- ⬜ Persistent LOD tiles; LOD for paged documents
+- ✅ LOD for paged documents (per-page chunk rasters when zoomed out far)
+- ⬜ Persistent LOD tiles
 
 ## Library
 - ✅ Folders (nested, synced), move to folder (menu + drag and drop), breadcrumbs, folder tree

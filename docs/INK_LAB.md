@@ -635,10 +635,25 @@ machine). Round 3 (perf/ink-render), main at 85e43c5 → after:
 | page overview, 16 pages of 1 500 strokes | recording 16.6 s (outlines), frame 562 ms (pictures) | 0.3 s (plain lines), 67 ms (rasters) |
 
 (Recording times are desktop JIT in a test; the tablet is several times
-faster but on the UI thread all the same.) Still open: zooming out fast on
-dense ink draws the newly exposed rim from vectors until its tiles render;
-far zoom-out of a canvas records up to 8 chunk pictures per frame for its
-level-of-detail rasters (by design). Not yet measured on the tablet.
+faster but on the UI thread all the same.)
+
+Round 4 (perf/lod-pages): zoom-out rims wait for their tiles (empty for a
+frame or two, *blank screens* = screens' worth of such area summed over
+the frames) instead of being drawn from vectors; level of detail for paged
+documents; LOD views show the tiles or nothing until their rasters are
+made. fc4dd34 → after:
+
+| Scenario | before | after |
+| --- | --- | --- |
+| pinch out to 40 % (30 frames) | 17 vector frames, 5.7 vector screens, 286 chunk draws | 0, 0, 0; 4.6 blank screens |
+| pinch out to 12 % across the LOD threshold (canvas) | 26 vector frames, 8.8 vector screens, 613 chunk draws | 1, 0.03, 2; 8.5 blank screens (tiles), LOD chunks from tiles or empty |
+| notebook (16 pages) pinch out 60 % → 12 % | 7 vector frames, 48 chunk draws, 62 tile renders | 0, 0, 36 tile renders + 65 small LOD rasters |
+| notebook scroll at 12 % (40 frames) | 11 tile renders (whole pages each) | 24 LOD rasters (128 px chunks), 0 tile renders |
+
+Further zooming within overview zooms re-renders nothing for pages (rasters
+are per level, not per zoom). Frame raster times on the CPU are noisy on a
+shared machine and draw more, smaller images at overview (6 per page):
+compare on the tablet. Not yet measured there.
 
 ## Low-latency ink
 
