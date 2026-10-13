@@ -62,57 +62,82 @@ class TextFormatBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The formatting controls scroll when the screen is too narrow;
-    // delete and done always stay visible.
-    final bar = FloatingPanel(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: ScrollFade(
-              child: ListenableBuilder(
-                listenable: controller,
-                builder: (context, _) => _row(context),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24, child: VerticalDivider(width: 9)),
-          // Delete in a trailing ⋯ (REDESIGN §2.6): out of the way of ✓.
-          MenuIconButton<bool>(
-            tooltip: 'More',
-            icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
-            items: () => const [
-              MenuRow(
-                value: true,
-                icon: Symbols.delete_rounded,
-                label: 'Delete text box',
-                destructive: true,
-              ),
-            ],
-            onSelected: (_) => onDelete(),
-          ),
-          IconButton(
-            tooltip: 'Done (Esc)',
-            onPressed: onDone,
-            icon: const Icon(Symbols.check_rounded, size: Glyphs.bar),
-          ),
-        ],
+    // Phones: docked full width at the bottom (above the keyboard, which
+    // the editor makes room for), where a thumb reaches it and it never
+    // covers the box being typed in.
+    final docked = MediaQuery.sizeOf(context).width < dockBelowWidth;
+    // A fade one button wide, so a cut always shows a faded control (a
+    // hint that the row scrolls), wherever it falls.
+    Widget scrolling(List<Widget> Function(List<List<Widget>>) row) => ScrollFade(
+      extent: Targets.barHit(context),
+      child: ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) =>
+            Row(mainAxisSize: MainAxisSize.min, children: row(_groups(context))),
       ),
     );
+    // Delete in a trailing ⋯ (REDESIGN §2.6): out of the way of ✓.
+    final more = MenuIconButton<bool>(
+      tooltip: 'More',
+      icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
+      items: () => const [
+        MenuRow(
+          value: true,
+          icon: Symbols.delete_rounded,
+          label: 'Delete text box',
+          destructive: true,
+        ),
+      ],
+      onSelected: (_) => onDelete(),
+    );
+    final done = IconButton(
+      tooltip: 'Done (Esc)',
+      onPressed: onDone,
+      icon: const Icon(Symbols.check_rounded, size: Glyphs.bar),
+    );
+    // Phones: two rows, so every control shows (font, size and paragraph
+    // over the character formats), with ⋯ above ✓ at the end. Elsewhere
+    // one row that scrolls when the window is too narrow; ⋯ and ✓ stay.
+    final bar = FloatingPanel(
+      child: docked
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (row, trailing) in [
+                  ((List<List<Widget>> g) => [...g[0], _divider, ...g[2]], more),
+                  ((List<List<Widget>> g) => g[1], done),
+                ])
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Align(alignment: Alignment.centerLeft, child: scrolling(row)),
+                      ),
+                      trailing,
+                    ],
+                  ),
+              ],
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(child: scrolling((g) => [...g[0], _divider, ...g[1], _divider, ...g[2]])),
+                _divider,
+                more,
+                done,
+              ],
+            ),
+    );
     return CustomSingleChildLayout(
-      delegate: _BarLayout(
-        anchor,
-        MediaQuery.paddingOf(context),
-        // Phones: docked full width at the bottom (above the keyboard,
-        // which the editor makes room for), where a thumb reaches it and
-        // it never covers the box being typed in.
-        docked: MediaQuery.sizeOf(context).width < dockBelowWidth,
-      ),
+      delegate: _BarLayout(anchor, MediaQuery.paddingOf(context), docked: docked),
       child: bar,
     );
   }
 
-  Widget _row(BuildContext context) {
+  static const Widget _divider = SizedBox(height: 24, child: VerticalDivider(width: 9));
+
+  /// The controls in three groups: font and size; character formats;
+  /// paragraph.
+  List<List<Widget>> _groups(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final c = controller;
     final style = c.currentStyle;
@@ -126,14 +151,13 @@ class TextFormatBar extends StatelessWidget {
       style: IconButton.styleFrom(backgroundColor: on ? Surfaces.pressed(scheme) : null),
       icon: Icon(icon, size: Glyphs.bar),
     );
-    Widget divider() => const SizedBox(height: 24, child: VerticalDivider(width: 9));
     final nextAlign = TextAlignment.values[(box.align.index + 1) % TextAlignment.values.length];
     final size = c.currentSize;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return [
+      [
         FontMenuButton(
           font: font,
+          compact: MediaQuery.sizeOf(context).width < dockBelowWidth,
           onSelected: (f) {
             c.setFont(f);
             if (c.isEmpty) onBoxChanged(c.box);
@@ -159,7 +183,8 @@ class TextFormatBar extends StatelessWidget {
           onPressed: () => _setSize(step(size, 1)),
           icon: const Icon(Symbols.text_increase_rounded, size: Glyphs.bar),
         ),
-        divider(),
+      ],
+      [
         toggle('Bold (Ctrl+B)', Symbols.format_bold_rounded, style.bold, c.toggleBold),
         toggle('Italic (Ctrl+I)', Symbols.format_italic_rounded, style.italic, c.toggleItalic),
         toggle(
@@ -209,7 +234,8 @@ class TextFormatBar extends StatelessWidget {
             refocus();
           },
         ),
-        divider(),
+      ],
+      [
         ParagraphMenuButton(
           heading: para.heading,
           list: para.list,
@@ -230,10 +256,10 @@ class TextFormatBar extends StatelessWidget {
             TextAlignment.left => Symbols.format_align_left_rounded,
             TextAlignment.center => Symbols.format_align_center_rounded,
             TextAlignment.right => Symbols.format_align_right_rounded,
-          }, size: 20),
+          }, size: Glyphs.bar),
         ),
       ],
-    );
+    ];
   }
 
   void _setSize(double size) {

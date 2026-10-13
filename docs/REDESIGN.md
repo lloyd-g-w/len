@@ -271,8 +271,9 @@ the active tab.
   Paste, Convert to text, Link…, Crop and Bring to front / Send to back.
 - **Text format bar** (`tools/text_format_bar.dart`, done): the same pill. Order: font ▾ ·
   size · B I U S · colour · highlight · lists ▾ · align · ✓, with Delete in a trailing ⋯.
-  On phones it docks full width above the keyboard and scrolls sideways (fixing the
-  overflow routed in UX_AUDIT).
+  On phones it docks full width above the keyboard in two rows (font "Aa", size, lists,
+  align, ⋯ over B I U S, colour, highlight, ✓), so every control shows; very narrow
+  windows scroll each row.
 
 ### 2.7 Focus mode (absorbs presentation; F5 = focus mode with the laser)
 

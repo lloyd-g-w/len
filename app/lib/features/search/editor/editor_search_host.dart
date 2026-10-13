@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../../../domain/notebook_page.dart';
 import '../../../ink/viewport.dart';
@@ -27,27 +28,30 @@ abstract interface class EditorSearchHost {
   SurfaceTransform? transformOf(String surfaceId);
 
   /// Scrolls (or turns pages) so [local] on [surfaceId] is visible,
-  /// keeping clear of the top [topInset] screen pixels.
-  void reveal(String surfaceId, Rect local, {double topInset = 0});
+  /// keeping clear of the screen edges in [clear].
+  void reveal(String surfaceId, Rect local, {EdgeInsets clear = EdgeInsets.zero});
 }
 
 /// Screen-space panning shared by the hosts: centres [target] (screen) in
-/// the free area if it is not already comfortably inside it.
-Offset _panToShow(Rect target, Size size, double topInset) {
-  final free = Rect.fromLTRB(0, topInset, size.width, size.height).deflate(24);
+/// the free area along each axis where it is not already comfortably
+/// inside it. An axis that already shows the target never moves, so
+/// stepping down a page fitted to the width never pans it sideways.
+@visibleForTesting
+Offset panToShow(Rect target, Size size, EdgeInsets clear) {
+  final free = clear.deflateRect(Offset.zero & size).deflate(24);
   if (free.isEmpty) return Offset.zero;
-  final inside =
-      target.left >= free.left &&
-      target.right <= free.right &&
-      target.top >= free.top &&
-      target.bottom <= free.bottom;
-  if (inside) return Offset.zero;
+  final insideX = target.left >= free.left && target.right <= free.right;
+  final insideY = target.top >= free.top && target.bottom <= free.bottom;
   // Large targets: show their top-left part.
-  final anchor = Offset(
-    target.width > free.width ? target.left + free.width / 2 : target.center.dx,
-    target.height > free.height ? target.top + free.height / 3 : target.center.dy,
-  );
-  return free.center - anchor;
+  final dx = insideX
+      ? 0.0
+      : free.center.dx -
+            (target.width > free.width ? target.left + free.width / 2 : target.center.dx);
+  final dy = insideY
+      ? 0.0
+      : free.center.dy -
+            (target.height > free.height ? target.top + free.height / 3 : target.center.dy);
+  return Offset(dx, dy);
 }
 
 /// [EditorSearchHost] for a paged notebook.
@@ -79,7 +83,7 @@ class DocumentSearchHost implements EditorSearchHost {
   }
 
   @override
-  void reveal(String surfaceId, Rect local, {double topInset = 0}) {
+  void reveal(String surfaceId, Rect local, {EdgeInsets clear = EdgeInsets.zero}) {
     final i = _indexOf(surfaceId);
     if (i == -1) return;
     doc.beforeJump?.call(); // Stop any glide or page scroll.
@@ -96,7 +100,7 @@ class DocumentSearchHost implements EditorSearchHost {
       viewport.toScreen(target.topLeft),
       viewport.toScreen(target.bottomRight),
     );
-    viewport.panBy(_panToShow(screen, viewport.size, topInset));
+    viewport.panBy(panToShow(screen, viewport.size, clear));
   }
 }
 
@@ -121,11 +125,11 @@ class CanvasSearchHost implements EditorSearchHost {
       surfaceId == this.surfaceId ? (offset: viewport.offset, scale: viewport.scale) : null;
 
   @override
-  void reveal(String surfaceId, Rect local, {double topInset = 0}) {
+  void reveal(String surfaceId, Rect local, {EdgeInsets clear = EdgeInsets.zero}) {
     if (surfaceId != this.surfaceId || viewport.size.isEmpty) return;
     final size = viewport.size;
     // Zoom out if the box would not fit; never zoom in.
-    final room = Size(size.width - 96, size.height - topInset - 96);
+    final room = Size(size.width - clear.horizontal - 96, size.height - clear.vertical - 96);
     if (local.width * viewport.scale > room.width || local.height * viewport.scale > room.height) {
       final fit = viewport.viewFitting(local, padding: 48, scaleCap: viewport.scale);
       viewport.setView(scale: fit.scale, offset: fit.offset);
@@ -134,6 +138,6 @@ class CanvasSearchHost implements EditorSearchHost {
       viewport.toScreen(local.topLeft),
       viewport.toScreen(local.bottomRight),
     );
-    viewport.panBy(_panToShow(screen, size, topInset));
+    viewport.panBy(panToShow(screen, size, clear));
   }
 }

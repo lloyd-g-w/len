@@ -127,7 +127,7 @@ class _ImageCropOverlayState extends State<ImageCropOverlay> {
             ListenableBuilder(
               listenable: Listenable.merge([_session, _viewport]),
               builder: (context, _) => CustomSingleChildLayout(
-                delegate: _BarLayout(_frameOnScreen()),
+                delegate: _BarLayout(_frameOnScreen(), MediaQuery.paddingOf(context)),
                 child: _CropBar(
                   cropped: _session.crop != _session.imageRect,
                   onReset: _session.reset,
@@ -183,12 +183,19 @@ class _CropBar extends StatelessWidget {
   }
 }
 
-/// Places the bar under the image (above when there is no room).
+/// Places the bar under the image (above when there is no room), clear
+/// of the editor's chrome.
 class _BarLayout extends SingleChildLayoutDelegate {
-  _BarLayout(this.target);
+  _BarLayout(this.target, this.chrome);
 
   final Rect target;
-  static const double gap = 14, margin = 8, topInset = 84, bottomInset = 84;
+
+  /// Screen edges covered by the editor's chrome.
+  final EdgeInsets chrome;
+  static const double gap = 14, margin = 8;
+
+  double get topInset => chrome.top + margin;
+  double get bottomInset => chrome.bottom + margin;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
@@ -207,7 +214,7 @@ class _BarLayout extends SingleChildLayoutDelegate {
   }
 
   @override
-  bool shouldRelayout(_BarLayout old) => old.target != target;
+  bool shouldRelayout(_BarLayout old) => old.target != target || old.chrome != chrome;
 }
 
 class _CropPainter extends CustomPainter {

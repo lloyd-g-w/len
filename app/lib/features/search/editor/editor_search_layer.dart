@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import '../../../ui/app_theme.dart';
 import '../highlighted_text.dart';
 import 'editor_search_bar.dart';
 import 'editor_search_controller.dart';
@@ -14,7 +16,7 @@ class EditorSearchLayer extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onClose,
-    this.top = 72,
+    this.covered = const EdgeInsets.only(top: 72),
   });
 
   /// Ctrl+F (Cmd+F) opens the search.
@@ -28,10 +30,11 @@ class EditorSearchLayer extends StatelessWidget {
   /// Called after the bar closed (e.g. to give focus back to the canvas).
   final VoidCallback onClose;
 
-  /// Screen space covered by the editor's top chrome; the bar goes below.
-  final double top;
+  /// Screen edges covered by the editor's chrome; the bar goes below the
+  /// top, and revealed matches stay clear of both the chrome and the bar.
+  final EdgeInsets covered;
 
-  /// Room the bar's field row takes, kept clear when revealing matches.
+  /// Room the bar's field row takes until the bar has been measured.
   static const double _barRow = 64;
 
   /// Widest the bar gets.
@@ -40,7 +43,9 @@ class EditorSearchLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    controller.topInset = top + _barRow;
+    final top = covered.top;
+    // Until the bar reports its height (with the result list, if shown).
+    if (!controller.isOpen) controller.clear = covered.copyWith(top: top + Gaps.sm + _barRow);
     return Stack(
       children: [
         Positioned.fill(
@@ -64,15 +69,45 @@ class EditorSearchLayer extends StatelessWidget {
             final width = MediaQuery.sizeOf(context).width;
             final narrow = width < maxWidth + 24;
             return Positioned(
-              top: top + 8,
+              top: top + Gaps.sm,
               right: 12,
               left: narrow ? 12 : null,
               width: narrow ? null : maxWidth,
-              child: EditorSearchBar(controller: controller, onClose: onClose),
+              child: _HeightReporter(
+                onHeight: (h) => controller.clear = covered.copyWith(top: top + Gaps.sm + h),
+                child: EditorSearchBar(controller: controller, onClose: onClose),
+              ),
             );
           },
         ),
       ],
     );
+  }
+}
+
+/// Reports its child's height after each layout (the search bar grows
+/// with its result list), so revealed matches land below it.
+class _HeightReporter extends SingleChildRenderObjectWidget {
+  const _HeightReporter({required this.onHeight, required super.child});
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderHeightReporter(onHeight);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderHeightReporter renderObject) =>
+      renderObject.onHeight = onHeight;
+}
+
+class _RenderHeightReporter extends RenderProxyBox {
+  _RenderHeightReporter(this.onHeight);
+
+  ValueChanged<double> onHeight;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    onHeight(size.height);
   }
 }

@@ -8,6 +8,7 @@ import '../../../ink/viewport.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
+import '../chrome/chrome_metrics.dart';
 
 /// The zoom percentage, peeking like the page indicator (REDESIGN §2.4):
 /// shown when the canvas opens and while the view moves (zoom or pan), for
@@ -107,6 +108,8 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Shortcut hints only where a keyboard is likely (as in the ⋯ menu).
+    final keys = MediaQuery.sizeOf(context).width >= ChromeMetrics.compactWidth;
     return IgnorePointer(
       ignoring: !_visible,
       child: AnimatedOpacity(
@@ -133,13 +136,15 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
               MenuItemButton(
                 leadingIcon: const Icon(Symbols.fit_screen_rounded),
                 onPressed: widget.onFit,
-                shortcut: const SingleActivator(LogicalKeyboardKey.digit1, shift: true),
+                shortcut: keys
+                    ? const SingleActivator(LogicalKeyboardKey.digit1, shift: true)
+                    : null,
                 child: const Text('Fit content'),
               ),
               MenuItemButton(
                 leadingIcon: const Icon(Symbols.home_rounded),
                 onPressed: widget.onBackToStart,
-                shortcut: const SingleActivator(LogicalKeyboardKey.home),
+                shortcut: keys ? const SingleActivator(LogicalKeyboardKey.home) : null,
                 child: const Text('Back to start'),
               ),
             ],

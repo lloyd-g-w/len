@@ -20,6 +20,7 @@ class SplitViewMenu extends StatelessWidget {
     final split = tabs.splitId != null;
     return SubmenuButton(
       leadingIcon: const Icon(Symbols.vertical_split_rounded),
+      trailingIcon: const Icon(Symbols.chevron_right_rounded),
       menuChildren: split ? _splitItems() : _openItems(),
       child: Text(split ? 'Split view' : 'Open in split view'),
     );

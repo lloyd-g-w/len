@@ -80,6 +80,7 @@ class LaserOptionsPanel extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: Gaps.sm),
             OptionSlider(
               label: 'Size',
               value: laser.size,

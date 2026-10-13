@@ -13,9 +13,11 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/features/documents/export/notebook_exporter.dart';
 import 'package:len/features/documents/export/pdf_export.dart';
+import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/thumbnails/thumbnail_renderer.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:len/ui/floating_panel.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'content_documents_test.dart' show elementsOf;
@@ -32,10 +34,11 @@ Future<(AppServices, Notebook)> openImageCanvas(
   WidgetTester tester, {
   Future<void> Function(AppServices services, Notebook notebook)? seed,
   bool fonts = false,
+  Size size = const Size(1280, 800),
 }) async {
   if (fonts) await loadFonts();
   tester.view
-    ..physicalSize = const Size(1280, 800)
+    ..physicalSize = size
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final services = AppServices.create(AppDatabase.inMemory());
@@ -49,7 +52,7 @@ Future<(AppServices, Notebook)> openImageCanvas(
   );
   if (seed != null) await tester.runAsync(() => seed(services, notebook));
   // World = screen coordinates: open at the origin, 100 %.
-  pinCanvasView(services, notebook.id, const Size(1280, 800));
+  pinCanvasView(services, notebook.id, size);
   await tester.pumpWidget(
     AppScope(
       services: services,
@@ -221,6 +224,39 @@ void main() {
     await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
     await tester.pump();
     expect(liveElements(services, nb.id).single.rect, seeded.rect);
+  });
+
+  testWidgets('phone: the crop bar of a tall image stays clear of the bottom toolbar', (
+    tester,
+  ) async {
+    await openImageCanvas(
+      tester,
+      size: const Size(390, 844),
+      seed: (s, nb) async {
+        await seedImage(
+          s,
+          nb.id,
+          jpegOf(200, 400),
+          id: 'img',
+          rect: const Rect.fromLTWH(40, 120, 310, 620),
+        );
+      },
+    );
+    // A phone's system bars.
+    tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+    await tester.pumpAndSettle();
+    await key(tester, LogicalKeyboardKey.keyL);
+    await mouseDrag(tester, const [Offset(200, 400)]);
+    await selectionAction(tester, 'Crop');
+    final bar = tester.getRect(
+      find.ancestor(of: find.text('Done'), matching: find.byType(FloatingPanel)),
+    );
+    final covered = tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.covered;
+    expect(covered.bottom, greaterThan(34)); // The toolbar is at the bottom.
+    expect(bar.bottom, lessThanOrEqualTo(844 - covered.bottom), reason: 'not on the toolbar');
+    expect(bar.top, greaterThan(tester.getRect(find.byTooltip('Undo (Ctrl+Z)')).bottom));
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('golden: images beneath and above ink, rotated, cropped, selected', (tester) async {

@@ -9,6 +9,7 @@ import '../../../ink/elements/text_edit_session.dart';
 import '../../../ink/elements/text_layout.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/viewport.dart';
+import '../../../ui/app_theme.dart';
 import 'text/list_marker_view.dart';
 import 'text/rich_text_controller.dart';
 import 'text/rich_text_field.dart';
@@ -105,7 +106,9 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
         final element = _session.current;
         if (element == null) return const SizedBox.shrink();
         final scale = widget.viewport.scale;
-        final accent = Theme.of(context).colorScheme.primary;
+        // The box sits on the paper, not the chrome: ink blue in both themes
+        // (like the selection handles).
+        const accent = AppTheme.seed;
         // The outline sits a few pixels outside the text, which is laid out
         // exactly as it renders.
         final pad = 6 / scale;
@@ -129,13 +132,19 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                   ),
                 ),
               ),
-              DefaultTextEditingShortcuts(
-                child: RichTextField(
-                  controller: _text,
-                  focusNode: _focus,
-                  cursorWidth: cursor,
-                  cursorColor: accent,
-                  onDone: _session.end,
+              TextSelectionTheme(
+                data: TextSelectionThemeData(
+                  selectionColor: accent.withValues(alpha: 0.25),
+                  selectionHandleColor: accent,
+                ),
+                child: DefaultTextEditingShortcuts(
+                  child: RichTextField(
+                    controller: _text,
+                    focusNode: _focus,
+                    cursorWidth: cursor,
+                    cursorColor: accent,
+                    onDone: _session.end,
+                  ),
                 ),
               ),
             ],

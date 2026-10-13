@@ -227,6 +227,40 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('phones open Page and View in place of the ⋯ menu, with a way back', (tester) async {
+    final (s, nb) = await pumpEditor(tester, size: const Size(390, 844));
+    final pages = s.pages.pagesOf(nb.id).length;
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Page'));
+    await tester.pumpAndSettle();
+    // The page commands replace the menu instead of covering it.
+    expect(find.text('Duplicate page'), findsOneWidget);
+    expect(find.text('Search in notebook'), findsNothing);
+    await tester.tap(find.text('Page')); // The back row.
+    await tester.pumpAndSettle();
+    expect(find.text('Search in notebook'), findsOneWidget);
+    expect(find.text('Duplicate page'), findsNothing);
+    await tester.tap(find.text('Page'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add page after'));
+    await tester.pumpAndSettle();
+    expect(s.pages.pagesOf(nb.id), hasLength(pages + 1));
+    // Reopened (also after Esc in a submenu), the menu starts at the top.
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Search in notebook'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
   testWidgets('quick controls cut off by a narrow bar fade at the edge', (tester) async {
     await pumpEditor(tester, size: const Size(390, 844));
     expect(find.byKey(const ValueKey('scroll-fade')), findsNothing); // Everything fits.

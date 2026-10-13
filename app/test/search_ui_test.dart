@@ -267,4 +267,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('structure', findRichText: true), findsOneWidget);
   });
+
+  testWidgets('phone: stepping to a match folds the list and scrolls without panning sideways', (
+    tester,
+  ) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final nbs = seed(services);
+    await pumpEditorFor(tester, services, nbs.biology, size: const Size(390, 844));
+    final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
+    final x = doc.viewport.offset.dx;
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    await typeSearch(tester, 'cell');
+    await tester.tap(find.byTooltip('Show results'));
+    await tester.pumpAndSettle();
+    final bar = find.byType(EditorSearchBar);
+    final search = tester.widget<EditorSearchBar>(bar).controller;
+    for (final page in [0, 2, 0]) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.f3);
+      await tester.pumpAndSettle();
+      expect(currentPage(tester), page);
+      expect(doc.viewport.offset.dx, moreOrLessEquals(x), reason: 'no sideways pan');
+      final match = search.currentMatch!;
+      final t = search.host.transformOf(match.surfaceId)!;
+      final top = search.rectsOf(match).first.rect.top * t.scale + t.offset.dy;
+      expect(find.byTooltip('Show results'), findsOneWidget, reason: 'the list folded away');
+      expect(top, greaterThan(tester.getRect(bar).bottom), reason: 'not under the bar');
+    }
+  });
 }

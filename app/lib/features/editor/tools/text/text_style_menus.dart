@@ -7,10 +7,19 @@ import '../../../../ui/menus.dart';
 
 /// Picks one of the bundled fonts; each entry is shown in its own font.
 class FontMenuButton extends StatelessWidget {
-  const FontMenuButton({super.key, required this.font, required this.onSelected});
+  const FontMenuButton({
+    super.key,
+    required this.font,
+    required this.onSelected,
+    this.compact = false,
+  });
 
   final TextFont? font;
   final ValueChanged<TextFont> onSelected;
+
+  /// Shows "Aa" in the font instead of its name (phones, where the bar
+  /// needs the room for the controls after it).
+  final bool compact;
 
   static TextStyle sample(TextFont font, {double size = 15}) =>
       TextStyle(fontFamily: font.family, fontSize: size, height: 1.2);
@@ -32,14 +41,21 @@ class FontMenuButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: 92,
-              child: Text(
-                current?.label ?? 'Mixed',
-                overflow: TextOverflow.ellipsis,
+            if (compact)
+              Text(
+                'Aa',
+                semanticsLabel: current?.label ?? 'Mixed',
                 style: current == null ? null : sample(current),
+              )
+            else
+              SizedBox(
+                width: 92,
+                child: Text(
+                  current?.label ?? 'Mixed',
+                  overflow: TextOverflow.ellipsis,
+                  style: current == null ? null : sample(current),
+                ),
               ),
-            ),
             const Icon(Symbols.arrow_drop_down_rounded, size: Glyphs.bar),
           ],
         ),

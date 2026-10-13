@@ -80,7 +80,7 @@ void main() {
       await tester.tap(find.text('Page'));
       await settle(tester);
       await shoot(tester, 'e_page_menu_phone_large_text');
-      await dismiss(tester, phone.center(Offset.zero));
+      await dismiss(tester, const Offset(40, 700)); // Beside the menu.
       await tester.sendEventToBinding(
         const PointerScrollEvent(position: Offset(180, 480), scrollDelta: Offset(0, 500)),
       );
