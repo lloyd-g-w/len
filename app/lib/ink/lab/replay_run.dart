@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
+
 import '../../data/app_database.dart';
 import '../../data/stroke_repository.dart';
 import '../../domain/stroke.dart';
@@ -58,6 +60,21 @@ class ReplayFrame {
   final List<Stroke> committed;
   final Duration commitTime;
 
+  /// This frame with the faster of its timings and [build] / [commitTime].
+  ReplayFrame withTimes(Duration build, Duration commitTime) => ReplayFrame(
+    index: index,
+    t: t,
+    vsyncUs: vsyncUs,
+    points: points,
+    newestEventUs: newestEventUs,
+    build: build < this.build ? build : this.build,
+    committed: committed,
+    commitTime: commitTime < this.commitTime ? commitTime : this.commitTime,
+    viewScale: viewScale,
+    viewOffset: viewOffset,
+    style: style,
+  );
+
   bool get drawing => points.isNotEmpty;
 }
 
@@ -106,14 +123,50 @@ class ReplayResult {
   /// recorded pen) and its [ends] (default: the tool's) into an in-memory
   /// surface. Each frame's live outline is
   /// built (and timed) as `LiveInkPainter` builds it: incrementally.
-  /// [timingRepeats] is accepted for compatibility (the incremental build
-  /// cannot be repeated).
+  ///
+  /// With [timingRepeats] > 1 the whole replay runs that many times (the
+  /// incremental build cannot repeat one frame) and each frame keeps its
+  /// fastest build and pen-up handling: a load spike or a GC pause on a busy
+  /// machine slows one run's frames, not every run's.
+  ///
+  /// [buildLive] replaces the live build that is timed (tests: a
+  /// deliberately slower builder).
   static ReplayResult run(
     InputRecording recording, {
     PenSettings? pen,
     PenEnds? ends,
     int timingRepeats = 1,
+    @visibleForTesting LiveOutline Function(LiveInk live)? buildLive,
   }) {
+    var result = _once(recording, pen, ends, buildLive ?? LiveStrokeBuilder.livePath);
+    for (var i = 1; i < timingRepeats; i++) {
+      final again = _once(recording, pen, ends, buildLive ?? LiveStrokeBuilder.livePath);
+      assert(again.frames.length == result.frames.length, 'replays are deterministic');
+      result = again._fastest(result);
+    }
+    return result;
+  }
+
+  /// This replay with each frame's [ReplayFrame.build] and
+  /// [ReplayFrame.commitTime] the faster of its and [other]'s.
+  ReplayResult _fastest(ReplayResult other) => ReplayResult(
+    recording: recording,
+    pen: pen,
+    frames: [
+      for (final (i, f) in frames.indexed)
+        f.withTimes(other.frames[i].build, other.frames[i].commitTime),
+    ],
+    viewScale: viewScale,
+    viewOffset: viewOffset,
+    style: style,
+  );
+
+  static ReplayResult _once(
+    InputRecording recording,
+    PenSettings? pen,
+    PenEnds? ends,
+    LiveOutline Function(LiveInk live) buildLive,
+  ) {
     final db = AppDatabase.inMemory();
     final model = SurfaceModel(
       surfaceId: 'inklab',
@@ -132,7 +185,7 @@ class ReplayResult {
     final frames = <ReplayFrame>[];
     Duration timeBuild() {
       final watch = Stopwatch()..start();
-      LiveStrokeBuilder.livePath(live);
+      buildLive(live);
       return watch.elapsed;
     }
 

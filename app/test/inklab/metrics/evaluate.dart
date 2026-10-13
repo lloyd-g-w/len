@@ -20,8 +20,9 @@ class Subject {
   /// default: the pen's round ends). Without
   /// [truths], the raw samples of each committed contact stand in.
   ///
-  /// With [timed], the replay runs once to warm up first and each live
-  /// outline is timed three times (fastest kept), for steadier timings.
+  /// With [timed], the replay runs three times and each frame keeps its
+  /// fastest live build and pen-up handling (the first run also warms up),
+  /// so a busy machine does not skew the timing metrics.
   factory Subject.of(
     String name,
     InputRecording recording, {
@@ -30,7 +31,6 @@ class Subject {
     PenEnds? ends,
     bool timed = false,
   }) {
-    if (timed) ReplayResult.run(recording, pen: pen, ends: ends);
     final replay = ReplayResult.run(recording, pen: pen, ends: ends, timingRepeats: timed ? 3 : 1);
     return Subject(name, replay, truths ?? rawTruths(recording));
   }
