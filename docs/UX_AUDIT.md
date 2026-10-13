@@ -146,7 +146,7 @@ touch, so ← ▦ and 🎙 ↶ ↷ ⋯ sit at the ends of the tab strip (52 dp) 
 the tool row: two rows, 100 dp. The active tab names the notebook (double
 tap renames). Split views keep both bars, which name each pane.
 
-⬜ **R6-14 P2 · Gesture undo is never taught.** Tap to undo (two fingers) and
+✅ **R6-14 P2 · Gesture undo is never taught.** Tap to undo (two fingers) and
 redo (three) are on by default, but the only tip is the side button
 (`features/editor/chrome/editor_tips.dart:12-15`). The gestures are described
 only in Settings ("Two fingers undo, three redo"). A daily S Pen user keeps
@@ -154,6 +154,9 @@ reaching for ↶ at the top of a phone, the farthest point from the bottom
 tool row. *Fix:* a second tip, offered after the third ↶ tap on a touch
 device: "Tap with two fingers to undo, three to redo". Same
 `TipsController`, once per device.
+*Done (`fix/r6-editor`):* `EditorTip.gestureUndo`, offered on the third ↶
+tap in an editor on a touch-first device with finger-tap undo on
+(`TipsController.undoTapped`); once per device, never with a pointer.
 
 ### Pens, colours, tools
 

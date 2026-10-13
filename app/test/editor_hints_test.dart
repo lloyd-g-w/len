@@ -191,6 +191,52 @@ void main() {
     expect(_activeTool(tester), EditorTool.pen);
     await closeEditor(tester);
   });
+  testWidgets('a few taps on ↶ on a touch device teach the undo gesture, once', (tester) async {
+    final (s, _) = await pumpEditor(tester);
+    const tip = 'Tap with two fingers to undo, three to redo';
+    Future<void> undoThrice() async {
+      for (var i = 0; i < 3; i++) {
+        await drawAt(tester, Offset(300, 400 + i * 40.0));
+      }
+      for (var i = 0; i < 3; i++) {
+        expect(find.text(tip), findsNothing);
+        await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+    }
+
+    await undoThrice();
+    expect(find.text(tip), findsOneWidget);
+    expect(s.settings.seenTips, contains(EditorTip.gestureUndo.name));
+    await tester.tap(find.byTooltip('Dismiss tip'));
+    await tester.pumpAndSettle();
+    await undoThrice();
+    expect(find.text(tip), findsNothing);
+    await closeEditor(tester);
+  });
+
+  testWidgets('no undo gesture tip with a pointer or with the gesture off', (tester) async {
+    Future<void> check({bool touch = true, bool gesture = true}) async {
+      Targets.debugTouchFirst = touch;
+      addTearDown(() => Targets.debugTouchFirst = null);
+      final (s, _) = await pumpEditor(tester);
+      s.preferences.fingerTapUndo = gesture;
+      for (var i = 0; i < 4; i++) {
+        await drawAt(tester, Offset(300, 400 + i * 40.0));
+      }
+      for (var i = 0; i < 4; i++) {
+        await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Dismiss tip'), findsNothing);
+      await closeEditor(tester);
+    }
+
+    await check(touch: false);
+    await check(gesture: false);
+  });
 }
 
 EditorTool? _activeTool(WidgetTester tester) {

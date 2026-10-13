@@ -12,6 +12,10 @@ import '../../../ui/floating_panel.dart';
 enum EditorTip {
   /// The stylus side button (after the first stylus contact).
   penButton,
+
+  /// Tapping with two fingers to undo, three to redo (after a few taps on
+  /// ↶ on a touch device).
+  gestureUndo,
 }
 
 /// What a shown tip says.
@@ -37,6 +41,15 @@ class TipsController extends ValueNotifier<TipMessage?> {
   static const Duration visibleFor = Duration(seconds: 10);
 
   Timer? _timer;
+  int _undoTaps = 0;
+
+  /// The ↶ button was tapped. On a touch device with finger-tap undo on,
+  /// the third tap in this editor offers [EditorTip.gestureUndo]: the
+  /// gesture saves reaching for the top of the screen.
+  void undoTapped(AppPreferences preferences) {
+    if (!Targets.touchFirst || !preferences.fingerTapUndo) return;
+    if (++_undoTaps == 3) offer(EditorTip.gestureUndo);
+  }
 
   /// Offers [tip] as [preferences] have it (the pen button's action).
   void offerFor(EditorTip tip, AppPreferences preferences) =>
@@ -59,6 +72,11 @@ class TipsController extends ValueNotifier<TipMessage?> {
         ),
         PenButtonAction.none => null,
       },
+      EditorTip.gestureUndo => TipMessage(
+        tip,
+        Symbols.touch_app_sharp,
+        'Tap with two fingers to undo, three to redo',
+      ),
     };
     if (message == null) return;
     markSeen(message.tip.name);

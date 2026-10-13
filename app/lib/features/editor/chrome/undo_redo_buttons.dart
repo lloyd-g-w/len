@@ -7,9 +7,17 @@ import 'bar_button.dart';
 
 /// Undo and redo, enabled as the [target]'s history allows.
 class UndoRedoButtons extends StatelessWidget {
-  const UndoRedoButtons({super.key, required this.target, this.redoOnlyWhenAvailable = false});
+  const UndoRedoButtons({
+    super.key,
+    required this.target,
+    this.redoOnlyWhenAvailable = false,
+    this.onUndoTapped,
+  });
 
   final UndoTarget target;
+
+  /// Told after ↶ undid something (to teach the undo gesture).
+  final VoidCallback? onUndoTapped;
 
   /// Phones: redo shows only while there is something to redo (it appears
   /// after an undo), giving the title its room the rest of the time.
@@ -24,7 +32,12 @@ class UndoRedoButtons extends StatelessWidget {
         children: [
           BarButton(
             tooltip: 'Undo (${modifierLabel()}+Z)',
-            onPressed: target.canUndo ? target.undo : null,
+            onPressed: target.canUndo
+                ? () {
+                    target.undo();
+                    onUndoTapped?.call();
+                  }
+                : null,
             icon: Symbols.undo_sharp,
           ),
           if (target.canRedo || !redoOnlyWhenAvailable)

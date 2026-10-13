@@ -43,6 +43,7 @@ class EditorTopBar extends StatelessWidget {
     this.split = false,
     this.band = false,
     this.short = false,
+    this.onUndoTapped,
   });
 
   final String title;
@@ -51,6 +52,9 @@ class EditorTopBar extends StatelessWidget {
   final String? subtitle;
   final EditorMenuActions actions;
   final UndoTarget undo;
+
+  /// Told after ↶ undid something ([UndoRedoButtons.onUndoTapped]).
+  final VoidCallback? onUndoTapped;
   final OpenNotebooks? tabs;
 
   /// The audio split button (features/audio), first of the actions; on
@@ -210,7 +214,7 @@ class EditorTopBar extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       if (!compact) ?audio,
-      UndoRedoButtons(target: undo, redoOnlyWhenAvailable: compact),
+      UndoRedoButtons(target: undo, redoOnlyWhenAvailable: compact, onUndoTapped: onUndoTapped),
       EditorMoreMenu(
         actions: actions,
         compact: compact,
