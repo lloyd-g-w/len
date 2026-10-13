@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:len/domain/stroke.dart';
+import 'package:len/ink/lab/input_recording.dart';
 import 'package:len/ink/lab/recording_codec.dart';
 import 'package:len/ink/pen/pen_ends.dart';
 
@@ -137,3 +138,20 @@ const List<String> metricIds = [
   'overlay.gap',
   'overlay.ghost',
 ];
+
+/// Contacts [from] to [to] (exclusive, counted from 0) of [recording], from
+/// the first frame after the lift before them to the first frame after
+/// their last lift: a few lines of a long take that a routine test can
+/// replay.
+InputRecording excerpt(InputRecording recording, {int from = 0, required int to}) {
+  var lifts = 0;
+  var started = from == 0;
+  final entries = <InputEntry>[];
+  for (final e in recording.entries) {
+    if (!started && lifts >= from && e is FrameEntry) started = true;
+    if (started) entries.add(e);
+    if (e is PointerEntry && (e.type == PointerType.up || e.type == PointerType.cancel)) lifts++;
+    if (lifts >= to && e is FrameEntry) break;
+  }
+  return InputRecording(meta: recording.meta, entries: entries);
+}
