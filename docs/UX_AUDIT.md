@@ -1,5 +1,21 @@
 # Len — UX/UI audit
 
+## Screenshot sweep after the redesign (all suites, phone / tablet / desktop, 1.3× text)
+
+- ✅ Toolbar: a tool without quick controls (lasso, text) left a divider
+  trailing into nothing → hidden (`StripDivider`). Quick controls cut off by
+  a narrow bar fade at the edge (`ScrollFade`).
+- ✅ Tool switcher: Insert's label rode 3 dp above the tools' → level.
+- ✅ Text format bar on phones: the cut showed as a double divider → fades.
+- ✅ Selection pill ⋯ → Link… opened its menu over the pill → below ⋯.
+- ✅ Outline rows: the current page's highlight ran edge to edge → 8 dp in;
+  row menus ⋮ → ⋯ (outline, recordings) like every other row.
+- ✅ New notebook (wide): the paper row overflowed the form by 18 dp → fits.
+- ✅ Library at 1.3× text on a phone: card captions cut ("1 pa…") → the
+  caption takes the full width under ⋯; folder names cut ("Sket…") → one
+  folder column.
+- ✅ Settings: "Up to date: 0 lines recognised." → "no handwriting yet".
+
 ## Peeking page indicator (REDESIGN phase 5, in progress)
 
 - ✅ The page control is now a compact `3 / 12` pill on every screen. It
