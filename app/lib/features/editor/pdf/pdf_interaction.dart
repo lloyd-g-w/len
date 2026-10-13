@@ -6,8 +6,10 @@ import '../../../core/clock.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
+import '../../../ink/tools/lasso_tool.dart';
 import '../../../ink/undo_history.dart';
 import '../document/document_controller.dart';
+import 'pdf_highlights.dart';
 import 'pdf_page_info.dart';
 import 'pdf_page_info_cache.dart';
 import 'pdf_text_selection.dart';
@@ -19,9 +21,10 @@ typedef PdfPagePoint = ({int index, NotebookPage page, PageBackground pdf, Offse
 typedef PdfTextPoint = ({int index, NotebookPage page, PdfGlyphs glyphs, int glyph});
 
 /// The interactive side of imported PDF pages in one paged editor: text
-/// selection (a long press or right click, then the handles), copying, highlighting
-/// the selection with highlighter strokes, links and the outline.
-class PdfInteraction extends ChangeNotifier {
+/// selection (a long press or right click, or the lasso: [LassoText]; then
+/// the handles), copying, highlighting the selection with highlighter
+/// strokes, links and the outline.
+class PdfInteraction extends ChangeNotifier implements LassoText {
   PdfInteraction({
     required this.doc,
     required this.tools,
@@ -199,8 +202,26 @@ class PdfInteraction extends ChangeNotifier {
     onLink?.call(link, bg);
   }
 
-  /// Selects the word under [screen] and offers the menu (long press);
-  /// returns whether there was text there.
+  /// Whether a character of PDF text lies under [screen] (or just beside
+  /// it on its line).
+  @override
+  bool hasTextAt(Offset screen) {
+    final at = pageAt(screen);
+    if (at == null) return false;
+    return info.glyphs(at.pdf.blob, at.pdf.pageIndex)?.indexAt(at.normalized, slop: 0.005) != null;
+  }
+
+  /// Selects the text from the character nearest [from] to the one nearest
+  /// [to] (a lasso drag), offering the menu when [done].
+  @override
+  void selectBetween(Offset from, Offset to, {required bool done}) {
+    final a = textPointAt(from), b = textPointAt(to);
+    if (a != null && b != null) selectRange(a, b, menu: done);
+  }
+
+  /// Selects the word under [screen] and offers the menu (long press, a
+  /// lasso tap); returns whether there was text there.
+  @override
   bool selectWordAt(Offset screen) {
     final at = pageAt(screen);
     if (at == null) return false;
@@ -232,12 +253,13 @@ class PdfInteraction extends ChangeNotifier {
     return null;
   }
 
-  /// Covers the selected lines with highlighter strokes (the highlighter's
-  /// current colour and opacity), as one undoable edit; clears the
-  /// selection. Returns how many strokes were added.
-  int highlightSelection() {
+  /// Covers the selected lines with highlighter strokes in [color] (by
+  /// default the highlighter's current colour) and the highlighter's
+  /// opacity, as one undoable edit; clears the selection. Returns how many
+  /// strokes were added.
+  int highlightSelection({int? color}) {
     if (selection.isEmpty) return 0;
-    final config = tools.configOf(InkTool.highlighter);
+    final ink = color ?? tools.configOf(InkTool.highlighter).color;
     final style = tools.styleFor(InkTool.highlighter).copyWith(thinning: 0, streamline: 0);
     final now = clock.nowMs();
     var added = 0;
@@ -246,21 +268,14 @@ class PdfInteraction extends ChangeNotifier {
       final page = span.page;
       final strokes = [
         for (final line in span.lines)
-          if (highlightPoints(line.rect, page.size, direction: line.direction) case final points?)
-            Stroke(
-              id: clock.newId(),
-              surfaceId: page.id,
-              tool: InkTool.highlighter,
-              color: config.color,
-              width:
-                  (line.thickness *
-                          (line.direction.vertical ? page.width : page.height) *
-                          highlightHeight)
-                      .clamp(2.0, 200.0),
-              style: style,
-              points: points,
-              createdAt: now,
-            ),
+          ?PdfHighlights.stroke(
+            line,
+            page,
+            id: clock.newId(),
+            color: ink,
+            style: style,
+            createdAt: now,
+          ),
       ];
       if (strokes.isEmpty) continue;
       doc.surfaces.surfaceOf(page.id).model.commit(InkEdit(added: strokes));
@@ -268,38 +283,6 @@ class PdfInteraction extends ChangeNotifier {
     }
     selection.clear();
     return added;
-  }
-
-  /// A highlight's height relative to its line of text.
-  static const double highlightHeight = 1.1;
-
-  /// The points of a highlighter stroke across line [normalized] of a page
-  /// of [size] units: along its middle in reading [direction], end to end
-  /// (the highlighter's flat ends add nothing), one point every 2 units.
-  @visibleForTesting
-  static List<StrokePoint>? highlightPoints(
-    Rect normalized,
-    Size size, {
-    PdfTextDirection direction = PdfTextDirection.ltr,
-  }) {
-    final r = Rect.fromLTRB(
-      normalized.left * size.width,
-      normalized.top * size.height,
-      normalized.right * size.width,
-      normalized.bottom * size.height,
-    );
-    if (r.width <= 0 || r.height <= 0) return null;
-    final (from, to) = switch (direction) {
-      PdfTextDirection.ltr => (r.centerLeft, r.centerRight),
-      PdfTextDirection.rtl => (r.centerRight, r.centerLeft),
-      PdfTextDirection.ttb => (r.topCenter, r.bottomCenter),
-      PdfTextDirection.btt => (r.bottomCenter, r.topCenter),
-    };
-    final n = ((to - from).distance / 2).ceil().clamp(1, 2000);
-    return [
-      for (var i = 0; i <= n; i++)
-        if (Offset.lerp(from, to, i / n) case final p?) StrokePoint(p.dx, p.dy, 0.5),
-    ];
   }
 
   @override

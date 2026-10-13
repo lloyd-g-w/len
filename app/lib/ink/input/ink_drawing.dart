@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/clock.dart';
 import '../../domain/stroke.dart';
@@ -11,12 +14,15 @@ import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../tools/content_tools.dart';
 import '../tools/pointer_tool.dart';
+import '../undo_history.dart';
 import '../viewport.dart';
 import 'bounce_filter.dart';
+import 'highlight_snap.dart';
 import 'hold_to_straighten.dart';
 import 'lift_speed.dart';
 import 'live_ink.dart';
 import 'sample_source.dart';
+import 'scribble_detector.dart';
 import 'stroke_sampler.dart';
 import 'stylus_buttons.dart';
 
@@ -25,7 +31,9 @@ import 'stylus_buttons.dart';
 ///
 /// Ink goes pen-down → points ([StrokeSampler]: thinned, pressure
 /// normalised and smoothed, end settled) → commit at pen-up, with stylus
-/// bounces dropped and [HoldToStraighten] snapping a resting pen.
+/// bounces dropped, [HoldToStraighten] snapping a resting pen, a pen
+/// scribble over ink erasing it ([ScribbleDetector]) and highlights over
+/// PDF text snapping to it ([highlightSnap]).
 class InkDrawing {
   InkDrawing({
     required this.model,
@@ -49,6 +57,9 @@ class InkDrawing {
 
   final HoldToStraighten _straighten;
 
+  /// Snaps highlighter strokes over text to it (with hold to snap on).
+  HighlightSnap? highlightSnap;
+
   /// The pointer tool handling the current drawing pointer, if any.
   PointerTool? _tool;
 
@@ -57,6 +68,9 @@ class InkDrawing {
 
   /// Thins and pressure-filters the ink's samples.
   late final StrokeSampler _sampler = StrokeSampler(viewport, _keep);
+
+  /// Recognises a pen stroke that is a scribble to erase.
+  final ScribbleDetector _scribble = ScribbleDetector();
 
   /// The pen's speed at the lift, for an end taper that follows it.
   final LiftSpeed _liftSpeed = LiftSpeed();
@@ -76,9 +90,6 @@ class InkDrawing {
   double _drawTravel = 0;
   bool _erasing = false;
   bool _eraseStarted = false;
-
-  /// The eraser tool (not the side button or eraser end) is erasing.
-  bool _erasingWithTool = false;
   Offset? _lastScreen;
 
   /// The drawing pointer, if a contact is in progress.
@@ -93,9 +104,9 @@ class InkDrawing {
   /// The contact's latest screen position.
   Offset? get lastScreen => _lastScreen;
 
-  /// Starts a contact; [eraserTool] (default: [erase]) says whether the
-  /// eraser tool rather than a stylus button or end erases.
-  void start(PointerDownEvent e, {required bool erase, bool? eraserTool, bool lasso = false}) {
+  /// Starts a contact; [erase] erases (the eraser tool, a stylus button or
+  /// end), [lasso] selects (the side button set to the lasso).
+  void start(PointerDownEvent e, {required bool erase, bool lasso = false}) {
     // Zoomed far out the view may show stored rasters only: what is
     // erased, selected or written over must be in memory.
     model.loadVisible(view: viewport);
@@ -108,7 +119,6 @@ class InkDrawing {
     _sampler.reset();
     _liftSpeed.reset();
     _erasing = erase;
-    _erasingWithTool = eraserTool ?? erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
     final tool = erase ? null : content?.toolAt(tools.tool, e.localPosition, lasso: lasso);
@@ -131,6 +141,7 @@ class InkDrawing {
       _endFollowsSpeed = config.ends.endFollowsSpeed && !ink.isHighlighter;
       live.add(_sampler.first(e));
       _liftSpeed.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
+      _scribble.begin(e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _straighten.begin(
         e.localPosition,
         enabled: tools.holdToStraighten,
@@ -190,6 +201,7 @@ class InkDrawing {
   void _keep(Offset from, Offset at, StrokePoint point, int timeMs) {
     _drawTravel += (at - from).distance;
     _liftSpeed.add(at, timeMs);
+    _scribble.add(at, timeMs);
     if (_straighten.move(at, point)) return;
     live.add(point);
   }
@@ -201,18 +213,33 @@ class InkDrawing {
       _tool = null;
       tool.up();
     } else if (_erasing) {
-      final deselected = _erasingWithTool && tools.eraserStrokeEnded();
-      showEraser(_drawKind == PointerDeviceKind.touch || deselected ? null : _lastScreen);
+      showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
       // A snapped shape's end follows no speed (the pen rested to snap it).
       if (live.straightened) _endFollowsSpeed = false;
       final points = StrokeSampler.settleEnd(live.finish());
       // A bounce was shown while it touched (under the nib, where the pen
       // just lifted, for less than `BounceFilter.maxContact`) and goes now.
-      if (points.isNotEmpty && !_isBounce(liftTime)) _commit(points, liftTime);
+      if (points.isNotEmpty && !_isBounce(liftTime) && !_erasedByScribble(points)) {
+        _commit(points, liftTime);
+      }
       _recordLift(liftTime);
     }
     _reset();
+  }
+
+  /// Scribble to erase: a pen stroke that is a scribble over ink erases
+  /// the strokes under it (one undo step) instead of becoming ink. Over
+  /// nothing, it is ink (shading, say).
+  bool _erasedByScribble(List<StrokePoint> points) {
+    if (!tools.scribbleToErase || live.tool != InkTool.ballpoint || live.straightened) {
+      return false;
+    }
+    if (!_scribble.isScribble) return false;
+    final reach = math.max(live.width / 2, ScribbleDetector.reach / viewport.scale);
+    if (model.eraseScribbled([for (final p in points) p.offset], reach) == 0) return false;
+    unawaited(HapticFeedback.selectionClick());
+    return true;
   }
 
   void _commit(List<StrokePoint> points, Duration? liftTime) {
@@ -228,6 +255,12 @@ class InkDrawing {
       points: points,
       createdAt: _drawStartedAt,
     );
+    // Over PDF text, a highlight snaps to the words it covers.
+    if (stroke.tool.isHighlighter && tools.holdToStraighten) {
+      if (highlightSnap?.snap(stroke) case final snapped? when snapped.isNotEmpty) {
+        return model.commit(InkEdit(added: snapped));
+      }
+    }
     // The live outline's builder completes it (cheaply) at pen-up.
     final path = LiveStrokeBuilder.finishLive(
       live,

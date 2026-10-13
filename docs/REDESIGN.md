@@ -113,7 +113,7 @@ split buttons; the sticker panel; Present (merged into focus mode, §2.7).
 
 `ToolbarPlacement` becomes `{docked, floating}`. Delete `auto`, `top`, `bottom`,
 `resolvePlacement`, `ChromeMetrics.topToolbarWidth` and `roomyBarWidth`. The choice
-lives in ⋯ → View → Toolbar and in Settings → Writing.
+lives in ⋯ → View → Toolbar (round 7: no longer in Settings → Writing).
 
 - **Docked:** one 52-dp bar when everything fits (measured, as `oneRowWidth` does now);
   else a 48-dp tool row attached under it (no gap or shadow, one hairline under the

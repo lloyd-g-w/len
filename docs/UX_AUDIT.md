@@ -25,11 +25,11 @@ server that their notes exist on one device only.
 | Tool switching on tablets | On par | One tap per tool, one tap per colour / width slot; S Pen button erases |
 | Tool switching on phones | Slightly behind | Switcher plus one "previous" slot; see R7-2 |
 | Colours and sizes | On par | 1–6 independent colour and width slots per ink; presets + HSV + saved colours |
-| Eraser | On par, one gap | Whole stroke / partial / highlighter only / switch back; hover outline. **Missing:** scribble to erase |
+| Eraser | On par | Whole stroke / partial / highlighter only; hover outline; scribble to erase (✅) |
 | Lasso | **Better** | Tap or loop, move / resize / rotate, Style, convert to text, cut / copy across notebooks and pages, split-view drag |
 | Shapes | On par, one gap | Hold to snap plus a Shape tool. **Missing:** fill |
 | Text boxes | **Better** | Rich text, lists, checklists, rich paste from browsers / Word |
-| Highlighter | On par | Behind ink, straight-line option. PDF text needs a finger (R7-1) |
+| Highlighter | On par | Behind ink, straight-line option; snaps to PDF text (✅) |
 | Undo / redo | On par | Buttons, two- / three-finger taps, keyboard |
 | Library, folders, favourites, trash | On par | Nested folders, drag and drop, Undo everywhere |
 | Recent notebooks / reopen last | **Missing** | R7-6, R7-7 |
@@ -89,6 +89,11 @@ press-and-drag that starts on text extends the selection (in
 `PdfInteraction.selectWordAt` when `contentAt` finds nothing). Update the
 tip to "Circle ink to select it; tap PDF text to select text". The bigger
 win is the text-aware highlighter under Missing features.
+*Done (`fix/r7-pen`):* with the lasso (any pointer), where no ink or
+element is hit: a tap on PDF text selects the word, a held press selects it
+and a drag extends it, and a quick open drag that circles no ink selects the
+text it spans. Loops starting on text still lasso ink. Finger long-press is
+unchanged. The tip says "…; tap PDF text to select it".
 
 **R7-2 P1 · Phones: the only quick tool slot goes to the eraser the S Pen
 button already gives.** The phone bar is `[tool▾][previous]` plus the
@@ -101,6 +106,8 @@ three taps (switcher, Highlighter, then previous) instead of two.
 erases (`penButtonAction == eraser`), skip the eraser when choosing
 `previousTool`, and start it at the highlighter. Pen ↔ highlighter is
 then one tap each way. No setting needed.
+*Done (`fix/r7-pen`):* `ToolSettings.previousTool` skips the eraser while
+`stylusOnly` and `penButtonErases` (kept in step with the preference).
 
 **R7-3 P2 · "Hold to snap shapes" changes every pen stroke but lives in the
 Shapes options.** `ShapeOptionsPanel` holds the only switch for
@@ -112,6 +119,9 @@ and never find it, because pen users don't open Shapes. *Fix:* move the
 switch to the Pen's Feel section (`pen/pen_options_panel.dart`) and the
 Highlighter's. Keep one caption line in Shapes ("Or hold the pen still at
 the end of a stroke").
+*Done (`fix/r7-pen`), lead decision:* one home, the pen's Feel only
+(`pen/pen_gestures.dart`, after "Reset feel", which doesn't touch it). Shapes
+says "Hold the pen still to snap a shape — Pen › Feel".
 
 **R7-4 P2 · PDF "Highlight" uses whatever colour the highlighter last
 had.** `PdfInteraction.highlightSelection` takes
@@ -123,6 +133,9 @@ the colour means switching to the highlighter, changing its slot, and
 selecting again. *Fix:* replace the button with the highlighter's quick
 colours as swatches in the pill (2–3 dots, the current one first). A tap
 highlights in that colour. One undo, as now.
+*Done (`fix/r7-pen`):* `PdfHighlightSwatches`, up to 3 quick colours after
+a quiet highlighter glyph, the current one ringed; Copy loses its label on
+phones so the row fits.
 
 **R7-5 P2 · The lasso's first-use tip covers the selection for 10 s.** The
 tip stays for `visibleFor` (`features/editor/chrome/editor_tips.dart:45,
@@ -131,6 +144,8 @@ tip stays for `visibleFor` (`features/editor/chrome/editor_tips.dart:45,
 under the selection menu, above the bottom bar. *Fix:* dismiss
 `EditorTip.lasso` when the first selection is made (listen to the
 selection in `TipsController.followTools`) or the tool changes.
+*Done (`fix/r7-pen`):* it goes with the first selection (ink, elements or
+PDF text) or another tool, and isn't offered while something is selected.
 
 ### Organising and finding
 
@@ -292,18 +307,27 @@ this branch:* the lines now describe the fixed toolbar.
 2. **Recent strip** (high · S): R7-6.
 3. **Reopen where you left off** (high · S): R7-7.
 4. **Move / copy pages to another notebook** (high · M): R7-9.
-5. **Scribble to erase** (high · M; GoodNotes 6 has it). With the pen, a
+5. ✅ **Scribble to erase** (high · M; GoodNotes 6 has it). With the pen, a
    quick zigzag (≥ 3 sharp reversals within ~600 ms, small extent) over
    ink erases the strokes it crosses instead of drawing; one undo. It sits
    beside `HoldToStraighten` in `ink/input/`, with one switch in Pen →
    Feel next to hold to snap (R7-3). This is the biggest daily tap saving
    for writers without a side button (Windows pens, other styluses,
    fingers).
-6. **Text-aware highlighter on PDFs** (high for students · M). A
+   *Done (`fix/r7-pen`):* stricter than proposed so writing never trips it:
+   ≥ 6 passes (5 reversals) within 1.2 s, in a narrow band
+   (`ink/input/scribble_detector.dart`); zero hits on the Ink Lab's real and
+   simulated writing. Erases strokes mostly inside the scribble; over blank
+   paper it stays ink. Pen only (not the highlighter); "Scribble to erase"
+   in Pen › Feel, on by default.
+6. ✅ **Text-aware highlighter on PDFs** (high for students · M). A
    highlighter stroke whose length lies mostly over one or more lines of
    PDF text becomes the same snapped strokes `highlightSelection` makes
    (crisp, line-high, multi-line). With hold to snap off, nothing snaps.
    This removes R7-1's detour for the most common PDF action.
+   *Done (`fix/r7-pen`):* `PdfHighlightSnap` (≥ 70 % of the stroke along
+   text lines), whole words when more than half covered; one undo step; no
+   new setting (hold to snap's caption mentions it).
 7. **Shape fill** (medium · M). A fill colour for closed shapes (none /
    the stroke colour at 25 % / solid), in the Shape strip and lasso Style.
    It needs a synced stroke field.
@@ -328,7 +352,7 @@ collaboration.
 - **"Switch back after erasing"** (`pen/eraser_options_panel.dart`) is
   covered by the side button (temporary eraser), the phone's previous-tool
   slot and the one-tap tablet bar. Candidate for removal, with the
-  `autoDeselect` field.
+  `autoDeselect` field. *Done (`fix/r7-pen`):* removed, setting and code.
 - **Hold to snap** gets one home in the pen's Feel (R7-3), not a second
   switch.
 - **Don't add new settings for R7-2, R7-6, R7-7 or R7-12:** each is a
@@ -571,7 +595,9 @@ disclosure into its own row under Size, so Reset feel covers exactly what's
 above it.
 *Done (`fix/r6-editor`):* one home, the Shapes popover (`ShapeOptionsPanel`,
 under a rule); gone from the pen's and the highlighter's Feel, so Reset feel
-covers only per-pen settings.
+covers only per-pen settings. *Superseded by R7-3 (`fix/r7-pen`):* the one
+home is now the end of the pen's Feel, after "Reset feel" (`PenGestures`);
+Shapes shows one caption pointing there.
 
 ✅ **R6-16 P2 · The lasso popover is three lines of hints.** Tapping the
 active lasso opens a popover with no controls

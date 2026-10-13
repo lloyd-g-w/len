@@ -13,7 +13,6 @@ class EraserConfig {
     this.mode = EraserMode.stroke,
     this.radius = 12,
     this.highlighterOnly = false,
-    this.autoDeselect = false,
   });
 
   static const double minRadius = 3;
@@ -30,27 +29,16 @@ class EraserConfig {
   /// Only erase highlighter ink, leaving pen ink untouched.
   final bool highlighterOnly;
 
-  /// After an erase stroke with the eraser tool, go back to the ink used
-  /// before it (the stylus side button and eraser end are temporary anyway).
-  final bool autoDeselect;
-
-  EraserConfig copyWith({
-    EraserMode? mode,
-    double? radius,
-    bool? highlighterOnly,
-    bool? autoDeselect,
-  }) => EraserConfig(
+  EraserConfig copyWith({EraserMode? mode, double? radius, bool? highlighterOnly}) => EraserConfig(
     mode: mode ?? this.mode,
     radius: radius ?? this.radius,
     highlighterOnly: highlighterOnly ?? this.highlighterOnly,
-    autoDeselect: autoDeselect ?? this.autoDeselect,
   );
 
   Map<String, Object?> toJson() => {
     'mode': mode.name,
     'radius': radius,
     'highlighterOnly': highlighterOnly,
-    'autoDeselect': autoDeselect,
   };
 
   /// Parses settings saved by [toJson] strictly (every field present and
@@ -58,10 +46,10 @@ class EraserConfig {
   static EraserConfig? fromJson(Object? json) {
     if (json is! Map<String, Object?>) return null;
     final mode = EraserMode.values.asNameMap()[json['mode']];
-    final r = json['radius'], h = json['highlighterOnly'], a = json['autoDeselect'];
+    final r = json['radius'], h = json['highlighterOnly'];
     if (mode == null || r is! num || !(r >= minRadius && r <= maxRadius)) return null;
-    if (h is! bool || a is! bool) return null;
-    return EraserConfig(mode: mode, radius: r.toDouble(), highlighterOnly: h, autoDeselect: a);
+    if (h is! bool) return null;
+    return EraserConfig(mode: mode, radius: r.toDouble(), highlighterOnly: h);
   }
 
   @override
@@ -69,9 +57,8 @@ class EraserConfig {
       other is EraserConfig &&
       other.mode == mode &&
       other.radius == radius &&
-      other.highlighterOnly == highlighterOnly &&
-      other.autoDeselect == autoDeselect;
+      other.highlighterOnly == highlighterOnly;
 
   @override
-  int get hashCode => Object.hash(mode, radius, highlighterOnly, autoDeselect);
+  int get hashCode => Object.hash(mode, radius, highlighterOnly);
 }

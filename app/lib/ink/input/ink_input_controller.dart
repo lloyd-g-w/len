@@ -8,6 +8,7 @@ import '../tool_settings.dart';
 import '../tools/content_tools.dart';
 import '../viewport.dart';
 import 'canvas_gestures.dart';
+import 'highlight_snap.dart';
 import 'hold_to_straighten.dart';
 import 'ink_drawing.dart';
 import 'live_ink.dart';
@@ -74,6 +75,9 @@ class InkInputController {
     _draw.model = value;
     content?.model = value;
   }
+
+  /// Snaps highlighter strokes over PDF text to it (paged editors).
+  set highlightSnap(HighlightSnap? value) => _draw.highlightSnap = value;
 
   final ViewportController viewport;
   final ToolSettings tools;
@@ -219,7 +223,6 @@ class InkInputController {
     _draw.start(
       e,
       erase: route == StylusRoute.eraser || eraserTool,
-      eraserTool: eraserTool,
       lasso: route == StylusRoute.lasso,
     );
   }

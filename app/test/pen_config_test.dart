@@ -70,12 +70,7 @@ void main() {
         ..tool = EditorTool.highlighter
         ..updateConfig(InkTool.highlighter, (c) => c.copyWith(opacity: 0.5))
         ..updateConfig(InkTool.highlighter, (c) => c.copyWith(streamline: 0.8, straight: true))
-        ..eraser = const EraserConfig(
-          mode: EraserMode.pixel,
-          radius: 20,
-          highlighterOnly: true,
-          autoDeselect: true,
-        )
+        ..eraser = const EraserConfig(mode: EraserMode.pixel, radius: 20, highlighterOnly: true)
         ..addRecentColor(0xFF00AA00)
         ..holdToStraighten = false;
       a.dispose(); // flushes the debounced save
@@ -91,7 +86,6 @@ void main() {
       expect(highlighter.straight, isTrue);
       expect(b.eraser.mode, EraserMode.pixel);
       expect(b.eraser.highlighterOnly, isTrue);
-      expect(b.eraser.autoDeselect, isTrue);
       expect(b.recentColors, [0xFF00AA00]);
       expect(b.holdToStraighten, isFalse);
       b.dispose();
@@ -120,7 +114,7 @@ void main() {
           },
           'highlighter': valid,
         },
-        'eraser': {...const EraserConfig().toJson(), 'autoDeselect': 'yes'},
+        'eraser': {...const EraserConfig().toJson(), 'highlighterOnly': 'yes'},
         'recent': [0x00FF0000],
       });
       expect(t.configOf(InkTool.ballpoint), PenConfig.defaultsFor(InkTool.ballpoint));
@@ -184,19 +178,33 @@ void main() {
       expect(t.recentColors.take(3), [0xFF000005, 0xFF000009, 0xFF000008]);
     });
 
-    test('auto-deselect returns to the ink used before the eraser', () {
-      final t = ToolSettings()..tool = EditorTool.highlighter;
-      t.tool = EditorTool.lasso;
+    test('previous tool: the eraser at first, then the tool used before', () {
+      final t = ToolSettings();
+      expect(t.previousTool, EditorTool.eraser);
+      t.togglePrevious();
+      expect((t.tool, t.previousTool), (EditorTool.eraser, EditorTool.pen));
+      t.tool = EditorTool.highlighter;
+      expect(t.previousTool, EditorTool.eraser);
+    });
+
+    test('previous tool skips the eraser when the side button erases (R7-2)', () {
+      final t = ToolSettings(stylusOnly: true, penButtonErases: true);
+      expect(t.previousTool, EditorTool.highlighter, reason: 'pen ↔ highlighter from the start');
+      t.togglePrevious();
+      expect((t.tool, t.previousTool), (EditorTool.highlighter, EditorTool.pen));
       t.tool = EditorTool.eraser;
-      expect(t.eraserStrokeEnded(), isFalse, reason: 'off by default');
-      expect(t.tool, EditorTool.eraser);
-      t.eraser = t.eraser.copyWith(autoDeselect: true);
-      expect(t.eraserStrokeEnded(), isTrue);
-      expect(t.tool, EditorTool.highlighter);
       t.tool = EditorTool.pen;
+      expect(t.previousTool, EditorTool.highlighter, reason: 'the eraser is skipped');
+      t.tool = EditorTool.lasso;
+      expect(t.previousTool, EditorTool.pen);
+      // Fingers draw (no stylus in use) or the button selects: the eraser is back.
       t.tool = EditorTool.eraser;
-      t.eraserStrokeEnded();
-      expect(t.tool, EditorTool.pen);
+      t.tool = EditorTool.pen;
+      t.penButtonErases = false;
+      expect(t.previousTool, EditorTool.eraser);
+      t.penButtonErases = true;
+      t.stylusOnly = false;
+      expect(t.previousTool, EditorTool.eraser);
     });
 
     test('Reset restores the feel settings and keeps the slots', () {

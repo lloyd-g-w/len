@@ -252,6 +252,53 @@ void main() {
     expect(find.text(tip), findsNothing);
     await closeEditor(tester);
   });
+
+  testWidgets('the lasso tip goes with the first selection or another tool (R7-5)', (tester) async {
+    await pumpEditor(tester, size: const Size(1280, 900));
+    const tip = 'Circle ink, text or images to select them';
+    await drawAt(tester, const Offset(600, 400));
+    await tester.tap(find.byTooltip('Lasso (L)'));
+    await tester.pumpAndSettle();
+    expect(find.text(tip), findsOneWidget);
+    // A loop around the stroke selects it: the tip has done its job.
+    final loop = await tester.startGesture(const Offset(560, 360), kind: PointerDeviceKind.mouse);
+    for (final p in const [
+      Offset(700, 360),
+      Offset(700, 460),
+      Offset(560, 460),
+      Offset(560, 365),
+    ]) {
+      await loop.moveTo(p);
+    }
+    await loop.up();
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Delete (Del)'), findsOneWidget, reason: 'selected');
+    expect(find.text(tip), findsNothing);
+    await closeEditor(tester);
+  });
+
+  test('the lasso tip waits while something is selected and goes with another tool', () {
+    final tools = ToolSettings();
+    final selection = ValueNotifier(false);
+    final seen = <String>{};
+    final tips = TipsController(seen: seen.contains, markSeen: seen.add)
+      ..followTools(tools, selection: selection, selected: () => selection.value);
+    selection.value = true;
+    tools.tool = EditorTool.lasso;
+    expect(tips.value, isNull, reason: 'it would cover the selection');
+    selection.value = false;
+    tools.tool = EditorTool.pen;
+    tools.tool = EditorTool.lasso;
+    expect(tips.value?.tip, EditorTip.lasso);
+    tools.tool = EditorTool.pen;
+    expect(tips.value, isNull);
+    seen.clear();
+    tools.tool = EditorTool.lasso;
+    expect(tips.value?.tip, EditorTip.lasso);
+    selection.value = true;
+    expect(tips.value, isNull);
+    tips.dispose();
+  });
 }
 
 EditorTool? _activeTool(WidgetTester tester) {

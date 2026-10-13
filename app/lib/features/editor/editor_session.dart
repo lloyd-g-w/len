@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
+import '../../domain/preferences.dart';
 import '../../ink/input/canvas_gestures.dart';
 import '../../ink/input/ink_input_controller.dart';
 import '../../ink/input/live_ink.dart';
@@ -24,6 +25,7 @@ import 'document/undo_target.dart';
 import 'double_tap_zoom.dart';
 import 'images/editor_images.dart';
 import 'links/editor_links.dart';
+import 'pdf/pdf_highlight_snap.dart';
 import 'pdf/pdf_interaction.dart';
 import 'shared/shared_notebook.dart';
 import 'tabs/open_notebooks.dart';
@@ -41,7 +43,11 @@ class EditorSession {
     required this.shared,
     required void Function() onStylusDetected,
     EditorViewState? initialView,
-  }) : tools = ToolSettings(stylusOnly: services.settings.stylusOnly, store: services.settings) {
+  }) : tools = ToolSettings(
+         stylusOnly: services.settings.stylusOnly,
+         penButtonErases: services.preferences.penButtonAction == PenButtonAction.eraser,
+         store: services.settings,
+       ) {
     final current = shared.notebook;
     if (current.kind == NotebookKind.canvas) {
       final model = canvas = shared.canvasModel(
@@ -84,7 +90,8 @@ class EditorSession {
       shared.attachDocument(doc, commands.reload);
       backgrounds = shared.backgrounds;
       content = _contentFor(doc.activeModel, doc.pageViewport);
-      pdf = PdfInteraction(doc: doc, tools: tools, info: shared.pdfInfo);
+      final pdf = this.pdf = PdfInteraction(doc: doc, tools: tools, info: shared.pdfInfo);
+      content.lasso.text = pdf; // The lasso selects PDF text too.
       // A lasso reaches across pages; selections dropped on a page move there.
       content.selection.surfaces = DocumentSelection(doc);
       final animator = docAnimator = ViewportAnimator(doc.viewport);
@@ -99,7 +106,7 @@ class EditorSession {
           animator,
           settle: (focal, {required zoomed}) => doc.settleSingle() || (zoomed && zoom.snap(focal)),
         ),
-      );
+      )..highlightSnap = PdfHighlightSnap(doc: doc, info: shared.pdfInfo);
       // Paste onto the page in the middle of the screen.
       content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));
       undo = doc.surfaces;

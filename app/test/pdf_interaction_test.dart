@@ -11,6 +11,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/outline/outline_panel.dart';
+import 'package:len/features/editor/pdf/pdf_highlights.dart';
 import 'package:len/features/editor/pdf/pdf_interaction.dart';
 import 'package:len/features/editor/pdf/pdf_layer.dart';
 import 'package:len/features/editor/pdf/pdf_page_info.dart';
@@ -50,6 +51,73 @@ Future<List<int>> interactivePdf() {
   return doc.save();
 }
 
+/// Opens [interactivePdf] imported into [services] (files in [dir]) in an
+/// editor of [size]; text copied to the clipboard goes to [copied].
+Future<PdfInteraction> openPdfEditor(
+  WidgetTester tester,
+  AppServices services,
+  Directory dir, {
+  Size size = const Size(900, 1200),
+  List<String>? copied,
+}) async {
+  tester.view
+    ..physicalSize = size
+    ..devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+    call,
+  ) async {
+    if (call.method == 'Clipboard.setData') {
+      copied?.add((call.arguments as Map)['text'] as String);
+    }
+    return null;
+  });
+  addTearDown(
+    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      null,
+    ),
+  );
+  final nb = await tester.runAsync(() async {
+    final file = File('${dir.path}/doc.pdf')..writeAsBytesSync(await interactivePdf());
+    final importer = PdfImporter(services);
+    final notebook = await importer.createNotebook(
+      await importer.store(XFile(file.path)),
+      title: 'PDF',
+      cover: 0,
+    );
+    await importer.dispose();
+    return notebook;
+  });
+  await tester.pumpWidget(
+    AppScope(
+      services: services,
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        home: EditorScreen(notebook: nb!),
+      ),
+    ),
+  );
+  await tester.pump();
+  final pdf = tester.widget<PdfLayer>(find.byType(PdfLayer)).interaction;
+  final bg = pdf.doc.pages.first.background!;
+  // PDFium works on its own thread, in real time.
+  await pumpUntil(tester, () => pdf.info.glyphs(bg.blob, 0) != null, reason: 'glyphs');
+  await pumpUntilPdfRendered(tester);
+  return pdf;
+}
+
+/// The screen position of character [i] of [text] on page 1 (its middle,
+/// or its [right] edge).
+Offset pdfTextAt(PdfInteraction pdf, String text, {int i = 0, bool right = false}) {
+  final page = pdf.doc.pages.first;
+  final glyphs = pdf.info.glyphs(page.background!.blob, 0)!;
+  final box = glyphs.boxes[glyphs.text.indexOf(text) + i];
+  final frame = pdf.doc.layout.frameOf(0)!;
+  final n = right ? Offset(box.right - 0.001, box.center.dy) : box.center;
+  return pdf.doc.viewport.toScreen(frame.topLeft + Offset(n.dx * frame.width, n.dy * frame.height));
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -86,14 +154,14 @@ void main() {
     });
 
     test('highlight strokes run along the middle of a line, end to end', () {
-      final points = PdfInteraction.highlightPoints(
+      final points = PdfHighlights.points(
         const Rect.fromLTRB(0.1, 0.1, 0.6, 0.15),
         const Size(800, 1000),
       )!;
       expect(points.first.offset, const Offset(80, 125));
       expect(points.last.offset, const Offset(480, 125));
       expect(points.length, greaterThan(100)); // One point every 2 units.
-      expect(PdfInteraction.highlightPoints(Rect.zero, const Size(800, 1000)), isNull);
+      expect(PdfHighlights.points(Rect.zero, const Size(800, 1000)), isNull);
     });
   });
 
@@ -116,66 +184,11 @@ void main() {
       dir.deleteSync(recursive: true);
     });
 
-    Future<PdfInteraction> open(WidgetTester tester, {Size size = const Size(900, 1200)}) async {
-      tester.view
-        ..physicalSize = size
-        ..devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
-        call,
-      ) async {
-        if (call.method == 'Clipboard.setData') {
-          copied.add((call.arguments as Map)['text'] as String);
-        }
-        return null;
-      });
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
-          null,
-        ),
-      );
-      final nb = await tester.runAsync(() async {
-        final file = File('${dir.path}/doc.pdf')..writeAsBytesSync(await interactivePdf());
-        final importer = PdfImporter(services);
-        final notebook = await importer.createNotebook(
-          await importer.store(XFile(file.path)),
-          title: 'PDF',
-          cover: 0,
-        );
-        await importer.dispose();
-        return notebook;
-      });
-      await tester.pumpWidget(
-        AppScope(
-          services: services,
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: EditorScreen(notebook: nb!),
-          ),
-        ),
-      );
-      await tester.pump();
-      final pdf = tester.widget<PdfLayer>(find.byType(PdfLayer)).interaction;
-      final bg = pdf.doc.pages.first.background!;
-      // PDFium works on its own thread, in real time.
-      await pumpUntil(tester, () => pdf.info.glyphs(bg.blob, 0) != null, reason: 'glyphs');
-      await pumpUntilPdfRendered(tester);
-      return pdf;
-    }
+    Future<PdfInteraction> open(WidgetTester tester, {Size size = const Size(900, 1200)}) =>
+        openPdfEditor(tester, services, dir, size: size, copied: copied);
 
-    /// The screen position of character [i] of [text] on page 1 (its middle,
-    /// or its [right] edge).
-    Offset at(PdfInteraction pdf, String text, {int i = 0, bool right = false}) {
-      final page = pdf.doc.pages.first;
-      final glyphs = pdf.info.glyphs(page.background!.blob, 0)!;
-      final box = glyphs.boxes[glyphs.text.indexOf(text) + i];
-      final frame = pdf.doc.layout.frameOf(0)!;
-      final n = right ? Offset(box.right - 0.001, box.center.dy) : box.center;
-      return pdf.doc.viewport.toScreen(
-        frame.topLeft + Offset(n.dx * frame.width, n.dy * frame.height),
-      );
-    }
+    Offset at(PdfInteraction pdf, String text, {int i = 0, bool right = false}) =>
+        pdfTextAt(pdf, text, i: i, right: right);
 
     testWidgets('right click / long press selects a word; copy', skip: pdfium == null, (
       tester,

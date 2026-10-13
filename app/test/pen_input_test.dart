@@ -109,40 +109,13 @@ void main() {
     });
   });
 
-  group('eraser auto-deselect', () {
-    setUp(() {
-      draw([const Offset(10, 300), const Offset(400, 300)]); // Something to erase.
-      tools
-        ..tool = EditorTool.highlighter
-        ..tool = EditorTool.eraser
-        ..eraser = tools.eraser.copyWith(autoDeselect: true);
-    });
-
-    const across = [Offset(200, 250), Offset(200, 300), Offset(200, 350)];
-
-    test('an erase stroke with the eraser tool goes back to the previous ink', () {
-      draw(across);
-      expect(model.loadedStrokeCount, 0);
-      expect(tools.tool, EditorTool.highlighter);
-      expect(live.eraserCenter, isNull, reason: 'no eraser cursor left behind');
-    });
-
-    test('also for the mouse', () {
-      draw(across, kind: PointerDeviceKind.mouse);
-      expect(tools.tool, EditorTool.highlighter);
-    });
-
-    test('the side button and the eraser end leave the tool alone', () {
-      draw(across, b: kPrimaryStylusButton);
-      expect(model.loadedStrokeCount, 0, reason: 'the side button erased');
-      draw(across, kind: PointerDeviceKind.invertedStylus);
-      expect(tools.tool, EditorTool.eraser);
-    });
-
-    test('off: the eraser stays', () {
-      tools.eraser = tools.eraser.copyWith(autoDeselect: false);
-      draw(across);
-      expect(tools.tool, EditorTool.eraser);
-    });
+  test('an erase stroke with the eraser tool keeps the eraser', () {
+    draw([const Offset(10, 300), const Offset(400, 300)]); // Something to erase.
+    tools
+      ..tool = EditorTool.highlighter
+      ..tool = EditorTool.eraser;
+    draw(const [Offset(200, 250), Offset(200, 300), Offset(200, 350)]);
+    expect(model.loadedStrokeCount, 0);
+    expect(tools.tool, EditorTool.eraser);
   });
 }

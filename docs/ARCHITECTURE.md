@@ -345,12 +345,14 @@ or deleted pages in order with ink. Snack bars' Undo calls
   selection instead).
 - **Hints** (shown sparingly, never blocking): an empty infinite canvas shows a quiet
   "Draw anywhere" note with how to move around (`canvas/canvas_empty_hint.dart`; gone at
-  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows a one-time tip under
-  the top bar, for 10 s or until dismissed, remembered per device
+  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows a one-time tip at
+  the bottom, above the toolbar, for 10 s or until dismissed, remembered per device
   (`SettingsRepository.seenTips`): the stylus side button (after the first pen contact,
   phrased for `PenButtonAction`; none if it does nothing); tap with two / three fingers
   to undo / redo (the third ↶ tap in an editor on touch with finger-tap undo on); what
-  the lasso does (the first time it is picked). The gesture HUD names multi-finger taps
+  the lasso does (the first time it is picked; it waits while something is selected
+  and goes with the first selection, ink or PDF text, or another tool, so it never
+  covers a selection or its menu). The gesture HUD names multi-finger taps
   when they happen.
 - **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
   the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
@@ -719,17 +721,26 @@ search highlights use the same boxes.
 
 - **Select text** — there is no text tool: a finger long press or right
   click on PDF text with any tool selects the word instead of opening the
-  canvas menu, and dragging the selection's handles (`PdfSelectionHandles`,
+  canvas menu. With the lasso the pen selects text too (`PdfInteraction`
+  is the lasso's `LassoText`, `ink/tools/lasso_tool.dart`): where no ink or
+  element is hit, a tap on text selects the word, a press held still
+  selects it and dragging on extends it, and a quick open drag (not a
+  loop) that selects no ink selects the text it spans; a loop starting on
+  text still selects the ink it circles. Dragging the selection's handles (`PdfSelectionHandles`,
   touch targets over the painted knobs that keep the press from the canvas)
   extends it — also onto other PDF pages: `PdfSelection` is a list of
   per-page `PdfSpan`s (`PdfInteraction.selectRange`: the anchor's page from
   the anchor on, pages between whole, the focus's page up to the focus),
   copied with a blank line between pages and highlighted page by page. `PdfLayer` paints the selection (one box per line, with
-  handles) and a menu: **Copy** (also Ctrl/⌘+C), **Highlight**, select all
-  on the page.
+  handles) and a menu: **Copy** (also Ctrl/⌘+C; icon only under 480 dp),
+  **Highlight** as the highlighter's quick colours (`PdfHighlightSwatches`:
+  up to 3, the current one first and ringed; one tap highlights in that
+  colour, the highlighter keeps its own), select all on the page.
 - **Highlight** turns each selected line (`PdfGlyphs.rectsFor`) into one
-  highlighter stroke along its middle, 1.1 × the line's height, with the
-  highlighter's colour and opacity (no pressure thinning or stabiliser),
+  highlighter stroke along its middle (`PdfHighlights`, shared with the
+  text-aware highlighter, see Input), 1.1 × the line's height, with the
+  colour picked (by default the highlighter's) and the highlighter's opacity
+  (no pressure thinning or stabiliser),
   committed to the page's `SurfaceModel` as one `InkEdit` — so it
   is ordinary ink: undoable, erasable, selectable, synced and exported.
 - **Links** (`loadLinks`, incl. URLs detected in the text): tapped with a
@@ -1213,6 +1224,28 @@ strokes become a line (whose end then follows the pen) or an arrow, closed
 ones a rectangle (axis-aligned or rotated), ellipse/circle, triangle or
 polygon; scribbles stay freehand. Only the clean shape is committed.
 
+**Scribble to erase** (`input/scribble_detector.dart`, on by default, a
+switch in Pen › Feel): a pen (ballpoint) stroke holding a fast
+back-and-forth scribble — `ScribbleDetector`: ≥ 6 passes within 1.2 s, each
+nearly reversing the last, ≥ 14 screen px and fairly straight, all in a
+band at most half their length wide (cursive m / n / u / w reverses as
+sharply but moves on) — erases instead of becoming ink when it crosses
+ink: `SurfaceModel.eraseScribbled` removes the strokes it touches that lie
+mostly inside its bounds (a long line under a scribbled word stays), as
+one `InkEdit`. Over blank paper it stays ink (shading). It is held to zero
+false positives on the Ink Lab's real S Pen recordings and simulated
+writing at 1–4× (`test/scribble_detector_test.dart`).
+
+**Text-aware highlighter** (`input/highlight_snap.dart`, set by paged
+editors to `features/editor/pdf/PdfHighlightSnap`): with hold to snap on,
+a highlighter stroke of which ≥ 70 % runs along lines of PDF text (within
+0.35 × a line's height across it, ≥ 1.5 line heights along each line it
+counts) is committed as the clean highlights a selection's Highlight makes
+(`PdfHighlights.stroke`, one per line) over the characters it covers,
+widened to words it covers half of and trimmed off words it covers less of;
+one undo step. Anything else (circles, margin notes, strokes across lines,
+non-PDF pages) stays as drawn, hold to snap included.
+
 The lasso, shape, text and laser tools are `PointerTool`s
 (`ink/tools/`): `InkInputController` hands them the drawing pointer
 (after palm rejection / navigation / stylus-eraser routing) instead of
@@ -1426,9 +1459,11 @@ Parsing is strict (`PenConfigJson`,
 defaults as a whole.
 
 The ink panels (`features/editor/pen/`) are self-contained:
-`PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, hold to
-snap) and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
-lines, hold to snap); on their own, their Reset restores the feel settings.
+`PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
+and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
+lines); on their own, their Reset restores the feel settings. The pen's
+global gestures (`PenGestures`: hold to snap, scribble to erase) follow "Reset feel" at the
+end of the pen's Feel, under a rule; it is their only home.
 The preview (`StrokePreview` / `PreviewCard`, `pen/stroke_preview.dart`)
 draws with the real renderer at the real size and colour on the paper the
 user writes on (`InkPaper`, provided by the editor chrome from the current
@@ -1485,7 +1520,9 @@ Page with template…).
   tool's options.) Picking a quick colour or width from a tool that draws
   no ink switches to the pen.
   Phones show the previous tool beside the switcher (`PreviousToolButton`,
-  `ToolSettings.previousTool`, the eraser at first): one tap swaps them.
+  `ToolSettings.previousTool`, the eraser at first): one tap swaps them. When a
+  stylus is in use and its side button erases (`penButtonErases`), the slot skips
+  the eraser and starts at the highlighter: pen ↔ highlighter is one tap.
   The slots give up to 4 dp of their 44-dp cells for it (`ToolbarDensity.slot`)
   and it steps aside when they would go under 40 (narrow phones, 5 + 5).
 - **One options popover** (`toolbar/tool_options_popover.dart`,
@@ -1502,13 +1539,15 @@ Page with template…).
   inks (`InkOptions`: live preview, the selected slot's colour — the pen
   palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
   logarithmic slider in mm, then *Feel* collapsed (ending in "Reset feel",
-  which keeps the quick colours and sizes; inks have no whole-tool Reset),
+  which keeps the quick colours and sizes; inks have no whole-tool Reset;
+  the pen's then has `PenGestures`),
   then *Toolbar* collapsed ("3 colours · 3 sizes": "Quick colours / Quick
   sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
   none for the lasso (`ToolDescriptor.options` null: tapping it again does
   nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: seven
-  kinds in one row, and "Hold to snap shapes"); `TextOptionsPanel`;
+  kinds in one row, and a caption pointing to hold to snap in Pen › Feel);
+  `TextOptionsPanel`;
   `LaserOptionsPanel` (`ToolSettings.laser`: dot / trail, colours, size,
   trail length). `pickColour` (`tools/colour_sheet.dart`; text and
   selection colours) is a popover too: no Apply, it previews live and
@@ -1524,7 +1563,7 @@ Page with template…).
   `ToolbarDensity`, and shorter still the strip scrolls); in panes under 600 dp in a
   **56-dp bottom row** (`ToolSwitcherButton` `[✎▾]`, whose popover is a 4 × 2
   grid of the tools and Insert, then the strip, scrolling if needed). With
-  `ToolbarPlacement.floating` (⋯ → View, or Settings → Writing) it is a
+  `ToolbarPlacement.floating` (⋯ → View, its only home) it is a
   `raised` palette dragged by its grip (`ToolbarSlot`; it covers no edge).
   The strip's width is reserved at its widest across tools, so switching
   tools moves nothing and never changes the layout.
@@ -1668,11 +1707,10 @@ cuts the ink under the eraser out (`geometry/stroke_splitter.dart`): the stroke
 is removed and its surviving fragments are added as new strokes (keeping the
 original `createdAt`, so paint order is unchanged). One drag is one undoable
 `InkEdit`; fragments cut and erased again within the drag cancel out.
-Optionally only highlighter ink is erased. With *switch back after erasing*
-(`EraserConfig.autoDeselect`, off by default) an erase stroke made with the
-Eraser tool switches back to the ink used before it, pen or highlighter
-(`ToolSettings.eraserStrokeEnded`); the S Pen side button and the eraser end
-are temporary anyway and leave the tool alone. Both modes test against the ink as
+Optionally only highlighter ink is erased. The Eraser tool stays the tool
+after an erase stroke; quick erasing comes from the S Pen side button and the
+eraser end (temporary), the phone's previous-tool slot and the one-tap tablet
+bar. Both modes test against the ink as
 rendered: its radius at each point depends on pressure, thinning and the pen's
 easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 

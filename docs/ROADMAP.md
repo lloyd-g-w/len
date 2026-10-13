@@ -15,12 +15,14 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Pen settings: pressure sensitivity, stabiliser (stored per stroke);
   highlighter opacity
 - ✅ Full colour picker (HSV + hex), saved favourite colours
-- ✅ Highlighter renders behind ink; hold to straighten
+- ✅ Highlighter renders behind ink; hold to straighten; on PDF text a highlight snaps to the
+  words it covers
 - 🚧 Committed ink from a tile raster cache (frame cost independent of the ink on screen, pen-up
   drawn over tiles, writes after the frame, outlines of loaded strokes on worker isolates; pans and
   scrolls keep tiles, large edits swap in together, pages render ahead, rasterised page
   thumbnails); tablet numbers in docs/INK_LAB.md (the last round measured headless only)
 - ✅ Pixel (partial) eraser, eraser size, "erase highlighter only"
+- ✅ Scribble to erase: a quick back-and-forth pen scribble over ink erases it (Pen › Feel)
 
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
