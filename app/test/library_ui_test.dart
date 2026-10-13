@@ -140,6 +140,40 @@ void main() {
     expect(find.text('School'), findsWidgets); // Location subtitle.
   });
 
+  testWidgets('rename, favourite and duplicate say what they did and can be undone', (
+    tester,
+  ) async {
+    final services = await pumpSeeded(tester, (s) => addNotebook(s, 'Physics'));
+    final id = services.notebooks.list().single.id;
+
+    await openMenuOf(tester, 'Physics');
+    await tester.tap(find.text('Rename…'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Optics');
+    await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
+    await tester.pumpAndSettle();
+    expect(find.text('Renamed to “Optics”'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.get(id)!.title, 'Physics');
+
+    await openMenuOf(tester, 'Physics');
+    await tester.tap(find.text('Add to favourites'));
+    await tester.pumpAndSettle();
+    expect(find.text('Added “Physics” to favourites'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.get(id)!.favorite, isFalse);
+
+    await openMenuOf(tester, 'Physics');
+    await tester.tap(find.text('Duplicate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Duplicated as “Physics (copy)”'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list().map((n) => n.title), ['Physics']);
+  });
+
   testWidgets('at large text on a phone, card captions use the full width', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);

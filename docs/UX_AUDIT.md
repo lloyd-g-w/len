@@ -71,7 +71,7 @@ place phones go to create: Notebook | Canvas | PDF… as the segmented control
 (`new_notebook_sheet.dart`), with PDF… opening the file picker. Keep the
 long press as a shortcut.
 
-⬜ **R6-7 P2 · Library edits without Undo.** Rename, cover, favourite and
+✅ **R6-7 P2 · Library edits without Undo.** Rename, cover, favourite and
 folder edits write straight away (`library_actions.dart:154-172, 204-214`).
 Duplicate shows a plain toast (`:173-175`). Trash, move and folder delete
 already offer Undo. CONVENTIONS says every visible edit is undoable, and a
@@ -79,6 +79,11 @@ cover change or a mis-tapped favourite is the kind of edit you want back.
 *Fix:* reuse the move pattern: remember the old `Notebook`/`Folder` and show
 "Cover changed · Undo", "Renamed to “X” · Undo" and "Duplicated as “X” ·
 Undo" (Undo trashes the copy).
+*Done:* rename, cover, favourite (menu, list star, sidebar drop, selection
+bar) and folder edits say what changed with Undo (Undo puts back only the
+field that changed); Duplicate's Undo trashes the copy. Favouriting a
+selection ends it, like move and trash, so the message takes the bar's
+place.
 
 ⬜ **R6-10 P2 · Every quick notebook is "Untitled notebook".** An empty title
 becomes `'Untitled notebook'` or `'Untitled canvas'`

@@ -175,7 +175,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
       },
       onAccept: (item) => switch (section) {
         LibrarySection.library => widget.actions.drop(context, item, null),
-        LibrarySection.favorites => c.setFavorite(item.id, true),
+        LibrarySection.favorites => widget.actions.setFavorite(context, [item.id], true),
         LibrarySection.trash => _trash(item.id),
       },
       builder: (context, active) => SidebarItem(

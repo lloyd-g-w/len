@@ -149,7 +149,7 @@ class _NotebookListTileState extends State<NotebookListTile> {
                         color: _notebook.favorite ? Palette.favourite : scheme.onSurfaceVariant,
                       ),
                       onPressed: () =>
-                          widget.actions.controller.setFavorite(_notebook.id, !_notebook.favorite),
+                          widget.actions.setFavorite(context, [_notebook.id], !_notebook.favorite),
                     ),
                   ),
                 Builder(

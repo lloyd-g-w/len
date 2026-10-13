@@ -93,7 +93,7 @@ class LibrarySelectionBar extends StatelessWidget {
                       action(
                         allStarred ? 'Remove from favourites' : 'Add to favourites',
                         Symbols.star_sharp,
-                        () => actions.favoriteSelected(selection),
+                        () => actions.favoriteSelected(context, selection),
                         filled: allStarred,
                       ),
                       action(

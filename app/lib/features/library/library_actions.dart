@@ -174,14 +174,26 @@ class LibraryActions {
         if (title == null || title.isEmpty) return;
         // Re-read: it may have changed (or gone) while the dialog was open.
         final current = controller.services.notebooks.get(notebook.id);
-        if (current != null) controller.updateNotebook(current.copyWith(title: title));
+        if (current == null || title == current.title || !context.mounted) return;
+        controller.updateNotebook(current.copyWith(title: title));
+        _undoable(
+          context,
+          'Renamed to “$title”',
+          () => _editNotebook(notebook.id, (n) => n.copyWith(title: current.title)),
+        );
       case NotebookAction.favorite:
-        controller.setFavorite(notebook.id, !notebook.favorite);
+        setFavorite(context, [notebook.id], !notebook.favorite);
       case NotebookAction.cover:
+        // Applies on tap; "Cover changed" offers Undo once it closes.
         await changeCover(context, controller, notebook);
       case NotebookAction.duplicate:
         final copy = controller.duplicate(notebook.id);
-        if (copy != null && context.mounted) _toast(context, 'Duplicated as “${copy.title}”');
+        if (copy == null || !context.mounted) return;
+        _undoable(
+          context,
+          'Duplicated as “${copy.title}”',
+          () => controller.trashNotebook(copy.id),
+        );
       case NotebookAction.move:
         final target = await showMoveDialog(
           context,
@@ -221,8 +233,19 @@ class LibraryActions {
           initialColor: folder.color,
         );
         final current = controller.folderById(folder.id);
-        if (details == null || current == null) return;
+        if (details == null || current == null || !context.mounted) return;
+        if (details.name == current.name && details.color == current.color) return;
         controller.updateFolder(current.copyWith(name: details.name, color: details.color));
+        _undoable(
+          context,
+          details.name == current.name ? 'Folder changed' : 'Renamed to “${details.name}”',
+          () {
+            final now = controller.folderById(folder.id);
+            if (now != null) {
+              controller.updateFolder(now.copyWith(name: current.name, color: current.color));
+            }
+          },
+        );
       case FolderAction.move:
         final target = await showMoveDialog(
           context,
@@ -266,6 +289,34 @@ class LibraryActions {
       '“${folder.name}” deleted',
       action: SnackBarAction(label: 'Undo', onPressed: () => controller.undoDeleteFolder(deletion)),
     );
+  }
+
+  /// Stars notebooks [ids] ([value]) or unstars them, says so and offers
+  /// Undo (each goes back to how it was).
+  void setFavorite(BuildContext context, List<String> ids, bool value) {
+    final before = {for (final id in ids) id: controller.services.notebooks.get(id)?.favorite};
+    final changed = [
+      for (final MapEntry(key: id, value: was) in before.entries)
+        if (was != null && was != value) id,
+    ];
+    if (changed.isEmpty) return;
+    for (final id in changed) {
+      controller.setFavorite(id, value);
+    }
+    final notebook = changed.length == 1 ? controller.services.notebooks.get(changed.single) : null;
+    final what = notebook != null ? '“${notebook.title}”' : countLabel(changed.length, 'notebook');
+    _undoable(context, value ? 'Added $what to favourites' : 'Removed $what from favourites', () {
+      for (final id in changed) {
+        controller.setFavorite(id, !value);
+      }
+    });
+  }
+
+  /// Applies [edit] to notebook [id] as it is now (for Undo: other fields
+  /// may have changed since).
+  void _editNotebook(String id, Notebook Function(Notebook n) edit) {
+    final now = controller.services.notebooks.get(id);
+    if (now != null) controller.updateNotebook(edit(now));
   }
 
   /// Takes notebooks [ids] out of the trash and says where they went.
