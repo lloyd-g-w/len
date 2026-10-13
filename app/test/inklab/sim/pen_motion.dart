@@ -18,8 +18,17 @@ class PenMotion {
   /// Tip position (logical screen px of the surface) at time t.
   final Offset Function(double t) at;
 
-  /// True pressure (0..1) at time t.
+  /// Pressure at time t as the ink should show it (0..1; 0.5 is medium,
+  /// the pen's width). The hand presses [devicePressure] for it.
   final double Function(double t) pressure;
+
+  /// The device pressure (0..1) the hand presses at time t: what gives
+  /// [pressure] through the input's `PressureCurve` (S Pen handwriting
+  /// presses about 0.2 for medium).
+  double devicePressure(double t) {
+    final y = pressure(t);
+    return y / (4 - 3 * y); // the inverse of 4p / (3p + 1)
+  }
 
   /// Times of deliberate sharp reversals (the tip of a "v").
   final List<double> cusps;
@@ -29,8 +38,9 @@ class PenMotion {
     for (var i = 0; i <= (duration / dt).ceil(); i++) at(math.min(duration, i * dt)),
   ];
 
+  /// The true device pressure ([devicePressure]) every [dt] seconds.
   List<double> pressures({double dt = 0.0005}) => [
-    for (var i = 0; i <= (duration / dt).ceil(); i++) pressure(math.min(duration, i * dt)),
+    for (var i = 0; i <= (duration / dt).ceil(); i++) devicePressure(math.min(duration, i * dt)),
   ];
 
   /// The same motion moved by [by].

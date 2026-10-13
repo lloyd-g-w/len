@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import '../input/stroke_sampler.dart';
 import '../input/wet_ink.dart';
 import '../render/growable.dart';
 import '../render/hooks.dart';
@@ -15,9 +16,9 @@ import '../render/taper.dart';
 ///  * **Samples**: every digitiser sample of the contact (historical and
 ///    current), position in view pixels, time in whole milliseconds
 ///    (`MotionEvent` times), pressure normalised by the device's range,
-///    clamped to 0.05..1 and smoothed by the same filter as Dart's
-///    `PressureFilter` (the lift sample keeps the previous pressure, as
-///    Flutter's synthesized up move does).
+///    clamped to 0.05..1, through the `PressureCurve` and smoothed by the
+///    same filter as Dart's `PressureFilter` (the lift sample keeps the
+///    previous pressure, as Flutter's synthesized up move does).
 ///  * **Points**: thinned like the input controller does (`PointSpacing`):
 ///    closer than [WetInkShape.minSpacing] to the last point is dropped,
 ///    unless it is the furthest dropped sample and more than
@@ -124,7 +125,7 @@ class WetInkModel {
   /// [lift] marks the pen-up sample.
   void add(Offset position, double pressure, int timeMs, {bool lift = false}) {
     if (_lifted) return;
-    final norm = pressure.clamp(0.05, 1.0);
+    final norm = StrokeSampler.strokePressure(pressure);
     if (!lift || _pressure < 0) {
       _pressure = _pressure < 0
           ? norm
