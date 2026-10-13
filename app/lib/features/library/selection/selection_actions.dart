@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/messages.dart';
+import '../../documents/export/notebooks_export.dart';
 import '../dialogs/move_dialog.dart';
 import '../library_actions.dart';
 import '../library_controller.dart';
@@ -38,6 +39,20 @@ extension SelectionActions on LibraryActions {
     );
     if (target == null || !context.mounted) return;
     move(context, ids, target.folderId);
+    selection.clear();
+  }
+
+  /// Exports the selected notebooks (one file each), then ends the
+  /// selection.
+  Future<void> exportSelected(BuildContext context, LibrarySelection selection) async {
+    final ids = _ids(selection).toSet();
+    final notebooks = [
+      for (final n in controller.visibleNotebooks)
+        if (ids.contains(n.id)) n,
+    ];
+    if (notebooks.isEmpty) return;
+    // The bar's context exports, so it ends afterwards.
+    await exportNotebooks(context, notebooks);
     selection.clear();
   }
 

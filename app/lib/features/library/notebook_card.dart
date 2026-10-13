@@ -25,10 +25,14 @@ class NotebookCard extends StatefulWidget {
     required this.notebook,
     required this.subtitle,
     required this.actions,
+    this.recordings = 0,
   });
 
   final Notebook notebook;
   final String subtitle;
+
+  /// How many audio recordings it has: a mic glyph leads the caption.
+  final int recordings;
   final LibraryActions actions;
 
   /// Width of the ⋯'s button beside the title (its target grows to 48 on
@@ -189,8 +193,27 @@ class _NotebookCardState extends State<NotebookCard> {
                                 ),
                                 child: _CardTitle(_notebook.title),
                               ),
-                              Text(
-                                widget.subtitle,
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    if (widget.recordings > 0) ...[
+                                      WidgetSpan(
+                                        alignment: PlaceholderAlignment.middle,
+                                        child: Icon(
+                                          Symbols.mic_sharp,
+                                          size: MediaQuery.textScalerOf(context)
+                                              .scale(theme.textTheme.bodySmall?.fontSize ?? 0),
+                                          color: theme.textTheme.bodySmall?.color,
+                                          semanticLabel: widget.recordings == 1
+                                              ? '1 recording'
+                                              : '${widget.recordings} recordings',
+                                        ),
+                                      ),
+                                      const TextSpan(text: ' '),
+                                    ],
+                                    TextSpan(text: widget.subtitle),
+                                  ],
+                                ),
                                 style: theme.textTheme.bodySmall,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,

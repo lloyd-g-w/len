@@ -6,7 +6,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/labelled_action.dart';
 
 /// What can be done to the pages selected in the overview.
-enum SelectionAction { bookmark, duplicate, template, export, delete }
+enum SelectionAction { bookmark, duplicate, send, template, export, delete }
 
 /// The app bar in selection mode: count, select all, done.
 class SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -121,6 +121,11 @@ class SelectionBar extends StatelessWidget {
                           SelectionAction.duplicate => action(
                             Symbols.library_add_sharp,
                             'Duplicate',
+                            () => onAction(a),
+                          ),
+                          SelectionAction.send => action(
+                            Symbols.drive_file_move_sharp,
+                            'Move to…',
                             () => onAction(a),
                           ),
                           SelectionAction.template => action(

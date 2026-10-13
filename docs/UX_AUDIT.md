@@ -134,7 +134,7 @@ selection in `TipsController.followTools`) or the tool changes.
 
 ### Organising and finding
 
-**R7-6 P1 · No recent notebooks.** The library shows the current folder
+✅ **R7-6 P1 · No recent notebooks.** The library shows the current folder
 only (`features/library/library_controller.dart:206-219`,
 `folderOf(n) == _folderId`). A student with a folder per course opens the
 drawer or folder, then the notebook, several times a day. On phones that
@@ -144,8 +144,14 @@ add a "Recent" strip above the folders: the last 6 notebooks opened or
 edited across all folders, as covers in one sideways-scrolling row (the
 `FolderRow.strip` pattern), hidden while fewer than 2 notebooks live in
 folders. No setting, no new section in the sidebar.
+*Done:* a Recent row at the library root (`library/recent_row.dart`): the 8
+notebooks opened lately (`WorkspaceMemory.recent`), as names with a small
+cover and where they live on the covers' columns, ruled like the folder row
+above which it sits; one line that scrolls sideways, the next name peeking
+in. Hidden in folders, while searching or selecting, in short windows and
+while none of them lives in a folder.
 
-**R7-7 P1 · Nothing reopens where you were writing.** `OpenNotebooks`
+✅ **R7-7 P1 · Nothing reopens where you were writing.** `OpenNotebooks`
 keeps tabs in memory only (`features/editor/tabs/open_notebooks.dart`, no
 persistence). `EditorLifecycle` saves the page and zoom per notebook
 (`features/editor/editor_lifecycle.dart:47-67`), not which notebooks were
@@ -156,8 +162,13 @@ store the open tab ids, the active one and whether the editor was showing
 the app was last left in the editor, open that workspace again (the
 library stays underneath for Back). A user who backed out to the library
 gets the library.
+*Done:* `editor/tabs/workspace_memory.dart` keeps the tabs, the active one
+and the split view (pane, fraction, the second pane's place) in settings
+while the editor is shown (on every tab change, on hide and on window
+close); pages and zoom per tab were already kept per notebook. The library
+reopens them at launch; leaving the editor forgets them.
 
-**R7-8 P1 · Export / share only exists inside the editor.** The notebook
+✅ **R7-8 P1 · Export / share only exists inside the editor.** The notebook
 menu offers Open, Rename, Favourite, Duplicate, Move, Cover, Select, Trash
 (`features/library/library_menus.dart:12-23`). The editor's top bar has no
 export either; it is in ⋯ (`chrome/editor_more_menu.dart:92`). "Send
@@ -165,8 +176,12 @@ yesterday's notes to a classmate" means opening the notebook, ⋯, Export.
 *Fix:* add "Export…" to the notebook menu and the selection bar, running
 `exportFlow` with all pages (the same sheet; several notebooks give one
 PDF each through the share path).
+*Done:* Export… in the notebook menu and Export in the selection bar
+(`documents/export/notebooks_export.dart`): one notebook gets the editor's
+sheet with all its pages; several get the sheet without a page range and
+one file per notebook (same-named ones kept apart), saved or shared together.
 
-**R7-9 P1 · Pages can't be moved or copied to another notebook.** The
+✅ **R7-9 P1 · Pages can't be moved or copied to another notebook.** The
 overview's selection bar has Bookmark, Duplicate, Template, Export, Delete
 (`features/documents/overview/page_commands.dart:8-33`). Nothing moves
 pages between notebooks; lasso copy carries ink and elements but not the
@@ -176,10 +191,17 @@ filing a page into the right course is impossible. *Fix:* "Move to…" and
 notebook picker the link pickers already have (`editor/links/link_pickers.dart`)
 plus "New notebook". Pages are appended; their backgrounds keep their blob
 references. Moves are one Undo ("Moved 3 pages to “Physics” · Undo").
+*Done:* Move to… in the overview's selection bar and the page menu opens a
+notebook picker (recent first) with Move and Copy (`editor/document/
+page_transfer_flow.dart`). `NotebookDuplicator.copyPages` copies pages,
+content, links among them, their outline entries and the recordings their
+ink was written during; a move deletes the originals. One history step, one
+Undo. Not done: "New notebook" as a destination; links from pages left
+behind to moved pages still point at the originals (deleted, until Undo).
 
 ### Studying and PDFs
 
-**R7-10 P2 · Lecture recordings are invisible outside the notebook.** Cards
+✅ **R7-10 P2 · Lecture recordings are invisible outside the notebook.** Cards
 and list rows show no sign of recordings (`features/library/notebook_card.dart`,
 `notebook_list_tile.dart`). Recording titles aren't in the search index
 (`data/search/*` indexes titles, folders, text boxes, PDF text,
@@ -187,6 +209,9 @@ handwriting). "Which lecture did I record?" means opening notebooks one by
 one. *Fix:* a small mic glyph beside the page count on cards with
 recordings ("12 pages · 2 recordings" in the list), and index recording
 titles so a search for "Lecture 4" finds the notebook.
+*Done:* a mic glyph leads the card caption, list rows say "2 recordings",
+and the library search matches recording titles (in `LibraryController`,
+not the full-text index).
 
 **R7-11 P2 · Export is two taps deep on every size.** Tablet and desktop
 top bars have ← ⊞ title | tools | 🎤 ↶ ↷ ⋯ (`editor_tablet_light.png`;
@@ -233,7 +258,7 @@ and text are included in your Android backup; PDFs, images and audio are
 not." *Done* as proposed (the line is in Settings → Backup); the marker
 holds the device id (`data/install_identity.dart`).
 
-**R7-14 P2 · Phones show sync status only inside the drawer; the editor
+✅ **R7-14 P2 · Phones show sync status only inside the drawer; the editor
 never shows a failing sync.** `SyncStatusButton` is built only in the
 sidebar (`features/library/library_sidebar.dart:145`). On phones the
 sidebar is the drawer. `SyncAttention` speaks up only for a refused token
@@ -242,6 +267,11 @@ unreachable for days goes unnoticed. *Fix:* on phones, show the cloud-alert
 glyph in the library header while sync has failed for more than 15
 minutes (tap: Settings → Sync). After 24 h of failures, show the
 `SyncAttention` snack once ("Not synced since Monday · Settings").
+*Done:* `settings/sync_alert_button.dart`: after 15 min of failures (or a
+refused token) a cloud-alert glyph in the phone library's header and the
+editor's bar opens Settings → Sync; the ☰ dot that lit at the first failure
+is gone. After a day without a working sync `SyncAttention` says "Not
+synced since …" once. The last success is kept across launches.
 
 **R7-15 P2 · ROADMAP still lists removed features.** "Customisable
 toolbar … favourite pens … edit mode" and "synced favourite pens"

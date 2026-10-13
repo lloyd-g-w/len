@@ -191,6 +191,14 @@ class NotebookRepository extends SyncableTable {
   Notebook? duplicate(String id, {String? title}) =>
       NotebookDuplicator(this).duplicate(id, title: title);
 
+  /// Copies pages [pageIds] of notebook [from] to the end of [to] (see
+  /// [NotebookDuplicator.copyPages]).
+  CopiedPages copyPages(String from, List<String> pageIds, String to) =>
+      NotebookDuplicator(this).copyPages(from, pageIds, to);
+
+  /// Takes back [copyPages].
+  void removeCopies(CopiedPages copied) => NotebookDuplicator(this).removeCopies(copied);
+
   /// Permanently tombstones the notebook together with its pages, strokes,
   /// elements, recordings and outline, all at one version: every device can
   /// then tell this deletion's tombstones from earlier ones, and bring them

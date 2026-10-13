@@ -59,6 +59,11 @@ class SettingsRepository {
   int get syncLastSeq => int.tryParse(_get(_syncLastSeq) ?? '') ?? 0;
   set syncLastSeq(int value) => _set(_syncLastSeq, '$value');
 
+  /// When (ms) sync last succeeded, or null if never.
+  int? get syncLastSuccess => int.tryParse(_get('sync_last_success') ?? '');
+  set syncLastSuccess(int? value) =>
+      value == null ? _remove('sync_last_success') : _set('sync_last_success', '$value');
+
   /// The `serverId` (`/v1/health`) of the server last synced with; when it
   /// changes (another server, or one restored from a backup), everything is
   /// uploaded again and pulled from the start. Empty before the first sync.
@@ -185,6 +190,18 @@ class SettingsRepository {
   String? editorView(String notebookId) => _get('editor_view.$notebookId');
   void setEditorView(String notebookId, String? value) =>
       value == null ? _remove('editor_view.$notebookId') : _set('editor_view.$notebookId', value);
+
+  /// Notebooks opened lately (ids), most recent first.
+  List<String> get recentNotebooks => [
+    for (final part in (_get('recent_notebooks') ?? '').split(','))
+      if (part.isNotEmpty) part,
+  ];
+  set recentNotebooks(List<String> ids) => _set('recent_notebooks', ids.join(','));
+
+  /// The editor's open tabs while it is shown (an opaque string owned by
+  /// the editor), or null once the user went back to the library.
+  String? get workspace => _get('workspace');
+  set workspace(String? value) => value == null ? _remove('workspace') : _set('workspace', value);
 
   String? _get(String key) {
     final rows = _database.db.select('SELECT value FROM settings WHERE key = ?', [key]);

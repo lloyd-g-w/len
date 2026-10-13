@@ -357,6 +357,10 @@ or deleted pages in order with ink. Snack bars' Undo calls
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
   the active tab's `EditorScreen` (keyed by notebook), which saves its view on dispose
   and restores it on creation. Closing the last tab leaves the workspace.
+  `WorkspaceMemory` (`tabs/workspace_memory.dart`, in `AppServices`) keeps the tabs,
+  the active one and the split view in the settings (`workspace`) while the workspace
+  is shown, and the notebooks opened lately (`recent_notebooks`, the library's Recent
+  row); the library restores the workspace at launch, leaving it clears it.
   The workspace route is a `NotebookOpenRoute` (`tabs/notebook_open_route.dart`): opened from
   a library cover (`NotebookOpenOrigin` from the library's `CoverLocator`), the cover's rect
   grows to the screen with easing corners, fades into the paper colour and the editor (scaled

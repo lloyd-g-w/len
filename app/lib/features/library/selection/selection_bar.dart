@@ -85,6 +85,12 @@ class LibrarySelectionBar extends StatelessWidget {
           () => unawaited(actions.moveSelected(context, selection)),
         ),
         action(
+          'Export',
+          'Export…',
+          Symbols.ios_share_sharp,
+          () => unawaited(actions.exportSelected(context, selection)),
+        ),
+        action(
           'Trash',
           'Move to trash',
           Symbols.delete_sharp,

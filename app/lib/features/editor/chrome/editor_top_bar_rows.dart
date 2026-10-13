@@ -25,6 +25,7 @@ extension _BarRows on EditorTopBar {
   Widget _actions({required bool compact}) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
+      ?status,
       if (!compact) ?audio,
       UndoRedoButtons(target: undo, redoOnlyWhenAvailable: compact, onUndoTapped: onUndoTapped),
       EditorMoreMenu(

@@ -29,6 +29,15 @@ class RecordingRepository extends SyncableTable {
       .map(_rowToRecording)
       .toList();
 
+  /// The titles of the live recordings of each notebook that has any.
+  Map<String, List<String>> titlesByNotebook() {
+    final titles = <String, List<String>>{};
+    for (final r in db.select('SELECT notebook_id, title FROM recordings WHERE deleted = 0')) {
+      (titles[r['notebook_id'] as String] ??= []).add(r['title'] as String);
+    }
+    return titles;
+  }
+
   Recording? get(String id) {
     final rows = db.select('SELECT * FROM recordings WHERE id = ? AND deleted = 0', [id]);
     return rows.isEmpty ? null : _rowToRecording(rows.first);

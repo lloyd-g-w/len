@@ -21,6 +21,7 @@ import 'page_actions.dart';
 import 'page_backgrounds.dart';
 import 'page_edits.dart';
 import 'page_overview.dart';
+import 'page_transfer_flow.dart';
 
 /// The editor's page-level commands for a paged notebook, with their UI
 /// (pickers, confirmations, undo snack bars).
@@ -133,6 +134,8 @@ class DocumentCommands {
         await _saveAsTemplate(context, page);
       case PageCommand.bookmark:
         edits.setBookmarks([page], on: !page.bookmarked);
+      case PageCommand.moveTo:
+        await sendPages(context, [page]);
       case PageCommand.delete:
         await _delete(context, page);
     }
@@ -262,6 +265,7 @@ class DocumentCommands {
             duplicateMany: duplicateMany,
             exportMany: exportPages,
             templateMany: changeTemplateOf,
+            sendMany: sendPages,
           ),
         ),
       ),

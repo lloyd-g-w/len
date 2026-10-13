@@ -7,7 +7,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../app_services.dart';
 import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
-import '../../sync/sync_controller.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/messages.dart';
 import '../audio/ui/recover_recording_dialog.dart';
@@ -104,7 +103,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     services.lenFiles.addListener(_onLenImport);
     // A recording cut off by the app being killed: offer to recover it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(offerRecordingRecovery(context, services));
+      if (!mounted) return;
+      _reopenWorkspace(services);
+      unawaited(offerRecordingRecovery(context, services));
       _onSyncSetup(); // Launched with a setup link.
     });
     _remoteChanges = services.sync.remoteChanges.listen((c) {
@@ -114,6 +115,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _syncNotices = services.sync.notices.listen((notice) {
       if (mounted) showMessage(context, notice);
     });
+  }
+
+  /// The app was left in the editor (killed in the background, a window
+  /// closed): its tabs open again, the library underneath (UX_AUDIT R7-7).
+  void _reopenWorkspace(AppServices services) {
+    if (services.incomingFiles.targets.active != null) return; // An editor is up.
+    final active = services.workspace.restore(services.notebooks.get);
+    if (active != null) unawaited(_actions.openNotebook(context, active));
   }
 
   /// Where the library is: section and folder (not the search, which only

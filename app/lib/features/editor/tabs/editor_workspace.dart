@@ -75,10 +75,12 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
   void initState() {
     super.initState();
     _tabs.addListener(_onTabs);
+    _services.workspace.shown = true; // Reopened at the next launch.
   }
 
   @override
   void dispose() {
+    _services.workspace.shown = false; // Back to the library: launch there.
     _tabs.removeListener(_onTabs);
     _split.dispose();
     _resized.dispose();

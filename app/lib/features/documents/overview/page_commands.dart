@@ -11,6 +11,7 @@ enum PageCommand {
   template('Change template…', Symbols.grid_on_sharp),
   saveAsTemplate('Save as template…', Symbols.dashboard_customize_sharp),
   bookmark('Bookmark', Symbols.bookmark_sharp),
+  moveTo('Move to…', Symbols.drive_file_move_sharp),
   delete('Delete', Symbols.delete_sharp);
 
   const PageCommand(this.label, this.icon);
@@ -30,6 +31,7 @@ class OverviewHandlers {
     this.duplicateMany,
     this.exportMany,
     this.templateMany,
+    this.sendMany,
   });
 
   /// Current pages in order.
@@ -61,6 +63,10 @@ class OverviewHandlers {
   /// Asks for a template and applies it to [pages] as one undoable step.
   /// Without it, the selection offers no Template.
   final Future<void> Function(BuildContext context, List<NotebookPage> pages)? templateMany;
+
+  /// Moves or copies [pages] to another notebook the user picks. Without
+  /// it, the selection offers no Move to.
+  final Future<void> Function(BuildContext context, List<NotebookPage> pages)? sendMany;
 }
 
 /// The options menu of [page].

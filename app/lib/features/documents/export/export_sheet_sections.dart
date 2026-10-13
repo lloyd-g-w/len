@@ -51,10 +51,19 @@ class ExportRule extends StatelessWidget {
 
 /// PDF / PNG / Len choice with a line on what each produces.
 class ExportFormatPicker extends StatelessWidget {
-  const ExportFormatPicker({super.key, required this.format, required this.onChanged});
+  const ExportFormatPicker({
+    super.key,
+    required this.format,
+    required this.onChanged,
+    this.len = true,
+  });
 
   final ExportFormat format;
   final ValueChanged<ExportFormat> onChanged;
+
+  /// Whether a Len file is offered (one notebook; several notebooks would
+  /// need one save each: a folder's Export covers that).
+  final bool len;
 
   @override
   Widget build(BuildContext context) {
@@ -64,22 +73,23 @@ class ExportFormatPicker extends StatelessWidget {
       children: [
         SegmentedButton<ExportFormat>(
           showSelectedIcon: false,
-          segments: const [
-            ButtonSegment(
+          segments: [
+            const ButtonSegment(
               value: ExportFormat.pdf,
               icon: Icon(Symbols.picture_as_pdf_sharp),
               label: Text('PDF'),
             ),
-            ButtonSegment(
+            const ButtonSegment(
               value: ExportFormat.png,
               icon: Icon(Symbols.image_sharp),
               label: Text('PNG'),
             ),
-            ButtonSegment(
-              value: ExportFormat.len,
-              icon: Icon(Symbols.stylus_note_sharp),
-              label: Text('Len'),
-            ),
+            if (len)
+              const ButtonSegment(
+                value: ExportFormat.len,
+                icon: Icon(Symbols.stylus_note_sharp),
+                label: Text('Len'),
+              ),
           ],
           selected: {format},
           onSelectionChanged: (s) => onChanged(s.single),
