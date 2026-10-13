@@ -28,6 +28,9 @@ import 'thumbnails/thumbnail_cache.dart';
 import 'thumbnails/thumbnail_renderer.dart';
 import 'thumbnails/thumbnail_scope.dart';
 
+part 'library_screen_keys.dart';
+part 'library_screen_layout.dart';
+
 /// Home screen: the notebook library with folders, favourites and trash.
 ///
 /// From [Breakpoints.medium] a sidebar (unless the window is short, a
@@ -157,77 +160,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
         .push(MaterialPageRoute<void>(builder: (_) => SettingsScreen(showSync: sync))),
   );
 
-  void _focusSearch() {
-    _searchFocus.requestFocus();
-    _search.selection = TextSelection(baseOffset: 0, extentOffset: _search.text.length);
-  }
-
-  void _clearSearch() {
-    if (_actions.selection.active) {
-      _actions.selection.clear();
-      return;
-    }
-    _search.clear();
-    _controller.query = '';
-    _searchFocus.unfocus();
-  }
-
-  /// Ctrl+A: selects every notebook shown (a focused text field keeps its
-  /// own Ctrl+A).
-  void _selectAll() {
-    final ids = [for (final n in _controller.visibleNotebooks) n.id];
-    if (ids.isNotEmpty) _actions.selection.selectAll(ids);
-  }
-
-  void _trashFocused() {
-    if (_actions.selection.active && _controller.section != LibrarySection.trash) {
-      _actions.trashSelected(context, _actions.selection);
-      return;
-    }
-    final id = _controller.focusedNotebookId;
-    final notebook = id == null ? null : _services!.notebooks.get(id);
-    if (notebook == null || notebook.isTrashed) return;
-    final focusContext = FocusManager.instance.primaryFocus?.context ?? context;
-    unawaited(_actions.trash(focusContext, notebook));
-  }
-
-  /// The notebook with keyboard focus, if it is not in the trash.
-  Notebook? get _focusedNotebook {
-    final id = _controller.focusedNotebookId;
-    final notebook = id == null ? null : _services!.notebooks.get(id);
-    return notebook == null || notebook.isTrashed ? null : notebook;
-  }
-
-  void _renameFocused() {
-    final notebook = _focusedNotebook;
-    if (notebook == null) return;
-    final focusContext = FocusManager.instance.primaryFocus?.context ?? context;
-    unawaited(_actions.onNotebookAction(focusContext, notebook, NotebookAction.rename));
-  }
-
-  Map<ShortcutActivator, VoidCallback> get _shortcuts => {
-    // Ctrl, and ⌘ on Apple keyboards.
-    for (final mod in [(control: true, meta: false), (control: false, meta: true)]) ...{
-      SingleActivator(LogicalKeyboardKey.keyN, control: mod.control, meta: mod.meta): () =>
-          unawaited(_actions.createNotebook(context)),
-      SingleActivator(
-        LogicalKeyboardKey.keyN,
-        control: mod.control,
-        meta: mod.meta,
-        shift: true,
-      ): () =>
-          unawaited(_actions.createFolder(context)),
-      SingleActivator(LogicalKeyboardKey.keyF, control: mod.control, meta: mod.meta): _focusSearch,
-    },
-    ...keyboardShortcutsBinding(() => unawaited(showKeyboardShortcuts(context))),
-    const SingleActivator(LogicalKeyboardKey.delete): _trashFocused,
-    const SingleActivator(LogicalKeyboardKey.backspace, meta: true): _trashFocused,
-    const SingleActivator(LogicalKeyboardKey.f2): _renameFocused,
-    const SingleActivator(LogicalKeyboardKey.keyA, control: true): _selectAll,
-    const SingleActivator(LogicalKeyboardKey.keyA, meta: true): _selectAll,
-    const SingleActivator(LogicalKeyboardKey.escape): _clearSearch,
-  };
-
   @override
   Widget build(BuildContext context) {
     return ThumbnailScope(
@@ -264,130 +196,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _content({Widget? headerLeading}) => LibraryNotices(
-    child: AnimatedSwitcher(
-      duration: Motion.medium,
-      switchInCurve: Motion.standard,
-      transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-      child: KeyedSubtree(
-        key: ValueKey('${_controller.section}/${_controller.folderId}'),
-        child: LibraryContent(
-          actions: _actions,
-          searchController: _search,
-          searchFocus: _searchFocus,
-          headerLeading: headerLeading,
-        ),
-      ),
-    ),
-  );
-
-  /// The "New" button (phones only: wide screens have the "New…" tile and
-  /// ⊕▾). Like ⊕▾ it belongs to the library and its folders, so it hides in
-  /// favourites, the trash, search and selection, and when the empty state
-  /// already offers to create one.
-  Widget? _fab(BuildContext context) =>
-      _actions.selection.active ||
-          _controller.section != LibrarySection.library ||
-          _controller.isSearching ||
-          (_controller.visibleFolders.isEmpty && _controller.visibleNotebooks.isEmpty)
-      ? null
-      // Tap: a new notebook. Long press: everything ⊕▾ offers on wide
-      // screens (a canvas, a PDF, a folder), which phones have no room for.
-      : Semantics(
-          onLongPressHint: 'More: canvas, PDF, folder',
-          child: GestureDetector(
-            onLongPress: () async {
-              final choice = await showContextMenuAt<NewChoice>(context, items: newMenuItems());
-              if (choice != null && context.mounted) {
-                unawaited(runNewChoice(context, _actions, choice));
-              }
-            },
-            child: Tooltip(
-              message: 'New notebook',
-              // A touch long press opens the menu, not the tooltip.
-              triggerMode: TooltipTriggerMode.manual,
-              child: FloatingActionButton(
-                onPressed: () => unawaited(_actions.createNotebook(context)),
-                child: const Icon(Symbols.add_sharp, semanticLabel: 'New notebook'),
-              ),
-            ),
-          ),
-        );
-
-  Widget _wide(BuildContext context) {
-    return Scaffold(
-      body: Row(
-        children: [
-          LibrarySidebar(
-            actions: _actions,
-            onOpenSettings: _openSettings,
-            onOpenSyncSettings: () => _openSettings(sync: true),
-          ),
-          Expanded(
-            // The selection bar floats over the content, not the sidebar.
-            child: Stack(
-              children: [
-                Positioned.fill(child: MessagePane(child: _content())),
-                if (_selectionBar() case final bar?)
-                  Positioned(left: 0, right: 0, bottom: 0, child: bar),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget? _selectionBar() => _actions.selection.active
-      ? LibrarySelectionBar(actions: _actions, selection: _actions.selection)
-      : null;
-
-  /// Phones: the sidebar's content in a drawer, opened from ☰.
-  Widget _phone(BuildContext context) {
-    return Scaffold(
-      drawer: Drawer(
-        width: 288,
-        child: Builder(
-          builder: (context) => LibrarySidebar(
-            actions: _actions,
-            width: 288,
-            onNavigate: Navigator.of(context).pop,
-            onOpenSettings: () {
-              Navigator.of(context).pop();
-              _openSettings();
-            },
-            onOpenSyncSettings: () {
-              Navigator.of(context).pop();
-              _openSettings(sync: true);
-            },
-          ),
-        ),
-      ),
-      body: _content(
-        headerLeading: Builder(
-          builder: (context) => ListenableBuilder(
-            listenable: _services!.sync,
-            // A dot while sync fails: the status is in the drawer.
-            builder: (context, _) {
-              final failing = _services!.sync.state == SyncState.error;
-              return IconButton(
-                tooltip: failing ? 'Menu (sync failed)' : 'Menu',
-                icon: Badge(
-                  isLabelVisible: failing,
-                  smallSize: 8,
-                  child: const Icon(Symbols.menu_sharp),
-                ),
-                onPressed: Scaffold.of(context).openDrawer,
-              );
-            },
-          ),
-        ),
-      ),
-      floatingActionButton: _fab(context),
-      bottomNavigationBar: _selectionBar(),
     );
   }
 }
