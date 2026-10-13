@@ -170,7 +170,7 @@ class PaperOptions extends StatelessWidget {
           key: const ValueKey('paper-custom'),
           color: color.isCustom ? color.paper.toARGB32() : null,
           // Live, like every colour popover: the preview follows the picker.
-          onTap: (context) => pickColor(
+          onTap: (context) => pickCustomColor(
             context,
             title: 'Paper colour',
             initial: color.paper.toARGB32(),
@@ -205,7 +205,7 @@ class PaperOptions extends StatelessWidget {
         CustomColorSwatch(
           key: const ValueKey('pattern-custom'),
           color: current != null && !patternColors.contains(current) ? current : null,
-          onTap: (context) => pickColor(
+          onTap: (context) => pickCustomColor(
             context,
             title: 'Pattern colour',
             initial: current ?? auto,

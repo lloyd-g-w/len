@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -8,13 +10,12 @@ import '../../../ink/selection/selection_controller.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
-import '../../../ui/color_dot.dart';
-import '../../../ui/even_grid.dart';
+import '../../../ui/color_picker/color_choices.dart';
+import '../../../ui/color_picker/color_swatches.dart';
 import '../../../ui/group_header.dart';
 import '../pen/ink_slots.dart';
 import '../pen/option_controls.dart';
 import '../pen/size_scale.dart';
-import 'colour_sheet.dart';
 import 'text/text_style_menus.dart';
 import 'text_format_bar.dart';
 
@@ -27,6 +28,7 @@ Future<void> showSelectionStyle(
   required ToolSettings tools,
 }) => showAdaptivePopover<void>(
   context: context,
+  width: colorChoicesPopoverWidth(),
   builder: (_) => SelectionStylePanel(selection: selection, tools: tools),
 );
 
@@ -87,44 +89,54 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
       if (e.knownType == ElementType.text) TextData.fromJson(e.data).color | 0xFF000000,
   ]);
 
-  /// The pen's quick colours, then the recent colours; at most two rows.
-  List<int> _swatches() {
-    final tools = widget.tools;
-    return {
-      for (final c in tools.configOf(InkTool.ballpoint).colors) c | 0xFF000000,
-      ...tools.recentColors.map((c) => c | 0xFF000000),
-    }.take(_maxSwatches).toList();
+  /// A custom colour not yet applied: the custom picker reports every
+  /// drag step, and each recolour is an undoable edit, so a custom colour
+  /// is applied once it has rested for [_settle] (or the panel closes).
+  int? _pending;
+  Timer? _settleTimer;
+  static const _settle = Duration(milliseconds: 400);
+
+  @override
+  void dispose() {
+    _settleTimer?.cancel();
+    if (_pending != null) {
+      // After the tree is unlocked: recolouring notifies listeners.
+      scheduleMicrotask(_commit);
+    }
+    super.dispose();
   }
 
-  static const int _maxSwatches = 13;
+  void _recolor(int colour, {required bool preset}) {
+    _settleTimer?.cancel();
+    if (preset) {
+      _pending = null;
+      _sel.recolor(colour);
+      return;
+    }
+    setState(() => _pending = colour);
+    _settleTimer = Timer(_settle, _commit);
+  }
+
+  void _commit() {
+    final colour = _pending;
+    if (colour == null) return;
+    _pending = null;
+    _sel.recolor(colour);
+    widget.tools.addRecentColor(colour);
+  }
 
   List<Widget> _colourSection(BuildContext context) {
-    final current = _commonColour();
+    final recent = widget.tools.recentColors;
     return [
-      const OptionHeader('Colour'),
-      EvenGrid(
-        itemExtent: 32,
-        touchTargets: true,
-        children: [
-          for (final c in _swatches())
-            ColorDot(color: c, selected: c == current, onTap: () => _sel.recolor(c)),
-          Builder(
-            builder: (anchor) => IconButton(
-              tooltip: 'More colours',
-              padding: EdgeInsets.zero,
-              icon: const Icon(Symbols.add_sharp, size: Glyphs.bar),
-              onPressed: () async {
-                final colour = await pickColour(
-                  anchor,
-                  title: 'Recolour selection',
-                  initial: current ?? _sel.strokes.firstOrNull?.color ?? 0xFF000000,
-                  tools: widget.tools,
-                );
-                if (colour != null) _sel.recolor(colour);
-              },
-            ),
-          ),
-        ],
+      const OptionHeader('Style'),
+      const SizedBox(height: Gaps.sm),
+      ColorChoices(
+        color: _pending ?? _commonColour() ?? _sel.strokes.firstOrNull?.color ?? 0xFF000000,
+        recent: recent,
+        onChanged: (c) => _recolor(
+          c,
+          preset: ColorSwatches.palette.contains(c) || recent.any((r) => r | 0xFF000000 == c),
+        ),
       ),
     ];
   }

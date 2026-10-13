@@ -1,28 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
-import '../color_dot.dart';
 import 'color_hex.dart';
-import 'color_rows.dart';
-import 'color_swatches.dart';
 import 'gradient_slider.dart';
 import 'hsv_square.dart';
 
-/// A full colour picker: saturation/value square, hue and opacity sliders,
-/// hex input, a preset palette and recently picked colours.
+/// The custom colour picker: saturation/value square, hue and opacity
+/// sliders and hex input (the "Custom" part of [ColorChoices], which lists
+/// the swatches).
 ///
 /// Reports every change through [onChanged] as ARGB (alpha = opacity).
-/// The caller's [recent] colours show once there are any. Without
-/// [showSwatches] only the square, sliders and hex field show (the
-/// "Custom" part of a popover that lists swatches itself).
 class ColorPicker extends StatefulWidget {
   const ColorPicker({
     super.key,
     required this.color,
     required this.onChanged,
-    this.recent = const [],
     this.showOpacity = true,
-    this.showSwatches = true,
   });
 
   /// The colour shown (ARGB).
@@ -31,14 +24,8 @@ class ColorPicker extends StatefulWidget {
   /// Called with the new ARGB colour on every change.
   final ValueChanged<int> onChanged;
 
-  /// Colours the user picked recently (ARGB), most recent first.
-  final List<int> recent;
-
   /// Whether the opacity slider is shown (otherwise colours are opaque).
   final bool showOpacity;
-
-  /// Whether the preset palette and [recent] colours are shown.
-  final bool showSwatches;
 
   @override
   State<ColorPicker> createState() => _ColorPickerState();
@@ -78,12 +65,6 @@ class _ColorPickerState extends State<ColorPicker> {
     if (notify) widget.onChanged(_argb);
   }
 
-  /// Applies an opaque swatch, keeping the current opacity.
-  void _pickSwatch(int rgb) {
-    final alpha = widget.showOpacity ? (_hsv.alpha * 255).round() : 0xFF;
-    _setHsv(HSVColor.fromColor(Color((alpha << 24) | (rgb & 0xFFFFFF))));
-  }
-
   void _onHex(String text) {
     final parsed = ColorHex.parse(text, alpha: (_hsv.alpha * 255).round());
     if (parsed != null) _setHsv(HSVColor.fromColor(Color(parsed)), syncHex: false);
@@ -121,22 +102,6 @@ class _ColorPickerState extends State<ColorPicker> {
           alpha: widget.showOpacity ? _hsv.alpha : null,
           onChanged: _onHex,
         ),
-        if (widget.showSwatches) ...[
-          const SizedBox(height: Gaps.md),
-          _SwatchGrid(
-            colors: ColorSwatches.palette,
-            selected: _argb | 0xFF000000,
-            onTap: _pickSwatch,
-          ),
-          if (widget.recent.isNotEmpty) ...[
-            const SizedBox(height: Gaps.md),
-            RecentColorsRow(
-              colors: widget.recent,
-              selected: _argb,
-              onTap: (c) => _setHsv(HSVColor.fromColor(Color(c))),
-            ),
-          ],
-        ],
       ],
     );
   }
@@ -202,35 +167,6 @@ class _HexRow extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// The palette as an even grid of [columns] swatches per row.
-class _SwatchGrid extends StatelessWidget {
-  const _SwatchGrid({required this.colors, required this.selected, required this.onTap});
-
-  final List<int> colors;
-  final int selected;
-  final ValueChanged<int> onTap;
-
-  static const int columns = 7;
-  static const double gap = 4;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = ((constraints.maxWidth - gap * (columns - 1)) / columns).clamp(20.0, 36.0);
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final c in colors)
-              ColorDot(color: c, size: size, selected: c == selected, onTap: () => onTap(c)),
-          ],
-        );
-      },
     );
   }
 }

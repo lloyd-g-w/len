@@ -147,7 +147,7 @@ device: "Tap with two fingers to undo, three to redo". Same
 
 ### Pens, colours, tools
 
-⬜ **R6-6 P2 · Text colour and recolour open a different, cramped picker.**
+✅ **R6-6 P2 · Text colour and recolour open a different, cramped picker.**
 The text bar's colour (`features/editor/tools/text_format_bar.dart:214-230`)
 and the selection's recolour (`tools/selection_style_panel.dart`) go through
 `pickColour` → `pickColor`, the generic `ColorPicker`. It leads with the HSV
@@ -159,6 +159,11 @@ with 36-dp targets. The ink popovers show the palette first, 2 × 7 with
 text colour is the frequent case, and a custom colour the rare one. *Fix:*
 build `pickColor` on the ink popovers' `ColorChoices` (palette, Recent,
 Custom ▸ HSV), laid out with `EvenGrid`. One colour picker everywhere.
+*Done (`fix/r6-pickers`):* `pickColor` is `ColorChoices` in a popover
+(touch width as the tool popovers); the lasso Style panel embeds
+`ColorChoices` itself (a custom colour applies once it rests, one Undo
+step); paper/pattern "Custom colour…" swatches open `pickCustomColor`
+(square, hue, hex). The old picker's swatch grid and recent row are gone.
 
 ⬜ **R6-15 P2 · "Hold to snap shapes" lives in three places, one of them
 above a Reset that ignores it.** `HoldToSnapSwitch` is one global setting.

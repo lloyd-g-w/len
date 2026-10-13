@@ -161,6 +161,9 @@ void main() {
     await tester.tap(find.text('Pick'));
     await tester.pumpAndSettle();
     expect(find.text('Apply'), findsNothing);
+    expect(find.byType(TextField), findsNothing, reason: 'the palette first');
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '00AA00');
     await tester.pump();
     expect(live.last, 0xFF00AA00);

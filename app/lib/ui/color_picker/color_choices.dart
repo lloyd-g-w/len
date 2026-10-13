@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../adaptive_popover.dart';
 import '../app_theme.dart';
 import '../color_dot.dart';
 import '../even_grid.dart';
@@ -8,6 +9,13 @@ import '../group_header.dart';
 import '../section_label.dart';
 import 'color_picker.dart';
 import 'color_swatches.dart';
+
+/// The width of a popover holding [ColorChoices] on touch: seven 48-dp
+/// swatch cells and its 16-dp padding on each side.
+const double colorChoicesTouchWidth = 7 * Targets.touch + 2 * Gaps.lg;
+
+/// The width of an anchored popover holding [ColorChoices].
+double colorChoicesPopoverWidth() => Targets.touchFirst ? colorChoicesTouchWidth : popoverWidth;
 
 /// The colour block every tool popover shares: a "Colour" heading with
 /// Custom (opens the full picker in place), a [palette] (seven per row:
@@ -104,12 +112,7 @@ class _ColorChoicesState extends State<ColorChoices> {
               child: _customOpen
                   ? Padding(
                       padding: const EdgeInsets.only(top: Gaps.sm, bottom: Gaps.sm),
-                      child: ColorPicker(
-                        color: selected,
-                        showOpacity: false,
-                        showSwatches: false,
-                        onChanged: _pick,
-                      ),
+                      child: ColorPicker(color: selected, showOpacity: false, onChanged: _pick),
                     )
                   : const SizedBox(width: double.infinity),
             ),
