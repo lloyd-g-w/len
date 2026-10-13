@@ -143,6 +143,8 @@ class DocumentCommands {
         size: page.size,
         name: '${notebook().title}, page $number',
       );
+    } on Cancelled {
+      return;
     } finally {
       await exporter.dispose();
     }

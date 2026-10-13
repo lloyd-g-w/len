@@ -49,8 +49,9 @@ abstract final class UserTemplates {
       if (file.name.toLowerCase().endsWith('.pdf')) {
         return await _importPdf(context, services, file, name);
       }
-      return await runWithProgress(context, 'Importing template', () async {
+      return await _importing(context, (progress) async {
         final image = await ImageImport.prepare(await file.readAsBytes());
+        progress.check();
         final sha = await services.blobs.putBytes(image.bytes, mime: image.mime);
         return services.templates.create(
           name: name,
@@ -58,11 +59,20 @@ abstract final class UserTemplates {
           size: pageSizeFor(image.width, image.height),
         );
       });
+    } on Cancelled {
+      return null;
     } on Exception catch (e) {
       if (context.mounted) showMessage(context, 'Could not import ${file.name}: ${_reason(e)}');
       return null;
     }
   }
+
+  /// The progress dialog of an import; Cancel stops it before it stores
+  /// the template.
+  static Future<T> _importing<T>(
+    BuildContext context,
+    Future<T> Function(TaskProgress progress) task,
+  ) => runWithSteps(context, 'Importing template', task, cancellable: true);
 
   static Future<UserTemplate?> _importPdf(
     BuildContext context,
@@ -91,10 +101,11 @@ abstract final class UserTemplates {
         index = page.clamp(1, sizes.length) - 1;
       }
       if (!context.mounted) return null;
-      return await runWithProgress(context, 'Importing template', () async {
+      return await _importing(context, (progress) async {
         final image = await renderer.render(sha, index, templateRenderWidth);
         if (image == null) throw const FormatException('Cannot render the page');
         final png = await _png(image);
+        progress.check();
         final blob = await services.blobs.putBytes(png, mime: 'image/png');
         return services.templates.create(
           name: sizes.length > 1 ? '$name, page ${index + 1}' : name,

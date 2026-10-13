@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
+import 'dialog_actions.dart';
+
+export 'dialog_actions.dart';
 
 /// The Confirm primitive (REDESIGN §5): asks one question; true if
 /// confirmed. Destructive actions get a red confirm button and an
@@ -50,8 +53,8 @@ Future<bool> confirmAction(
 /// radius [Radii.lg] over the scrim): a left-aligned Heading title, with a
 /// tinted [icon] above it only in destructive and progress dialogs.
 /// [actions] go Cancel first, the primary (filled) last; when they don't
-/// fit in a row they stack, end-aligned, with the primary on top and Cancel
-/// at the bottom.
+/// fit in a row they stack full width, primary on top and Cancel at the
+/// bottom ([DialogActions]).
 class AppDialog extends StatelessWidget {
   const AppDialog({
     super.key,
@@ -96,10 +99,7 @@ class AppDialog extends StatelessWidget {
       content: content,
       contentPadding: contentPadding,
       scrollable: scrollable,
-      actions: actions.isEmpty ? null : actions,
-      actionsOverflowDirection: VerticalDirection.up,
-      actionsOverflowAlignment: OverflowBarAlignment.end,
-      actionsOverflowButtonSpacing: 0,
+      actions: actions.isEmpty ? null : [DialogActions(children: actions)],
     );
   }
 }
