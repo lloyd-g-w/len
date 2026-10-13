@@ -164,6 +164,19 @@ void main() {
       expect(r.frame.rect.width, greaterThanOrEqualTo(SelectionFrame.minExtent - 1e-9));
     });
 
+    test('a thin frame (a straight line) resizes from where it is grabbed', () {
+      const thin = SelectionFrame(Rect.fromLTWH(0, 0, 200, 1));
+      // Grabbed in place: no jump.
+      final same = thin.resized(SelectionHandle.bottomRight, const Offset(200, 1));
+      expect(same.frame.rect.width, closeTo(200, 1e-6));
+      // Shrinks to half.
+      final half = thin.resized(SelectionHandle.bottomRight, const Offset(100, 0.5));
+      expect(half.frame.rect.width, closeTo(100, 1e-6));
+      // Never below the smallest extent along its long side.
+      final tiny = thin.resized(SelectionHandle.bottomRight, const Offset(-50, 0));
+      expect(tiny.frame.rect.width, closeTo(SelectionFrame.minExtent, 1e-6));
+    });
+
     test('rotation follows the handle and snaps to 45°', () {
       final r = frame.rotatedTowards(frame.center + const Offset(100, 2));
       expect(r.frame.angle, closeTo(math.pi / 2, 1e-9)); // snapped
