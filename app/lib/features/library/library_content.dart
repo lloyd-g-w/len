@@ -75,16 +75,16 @@ class LibraryContent extends StatelessWidget {
     final folders = _c.visibleFolders;
     final notebooks = _c.visibleNotebooks;
     final empty = folders.isEmpty && notebooks.isEmpty;
+    // Short windows have no room for the Recent row: Recent leads the strip.
+    final recent = actions.selection.active ? const <Notebook>[] : _c.recentNotebooks;
     final strip = short && folders.isNotEmpty
-        ? FolderRow.strip(folders: folders, actions: actions)
+        ? FolderRow.strip(folders: folders, actions: actions, recent: recent)
         : null;
     final inlineFolders = strip != null && !_c.isSearching;
     final rule = Theme.of(context).colorScheme.outlineVariant;
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
     final newTile = showsNewTile(actions, compact: compact);
-    // Short windows have no room for it; selecting works on the grid.
-    final recent = short || actions.selection.active ? const <Notebook>[] : _c.recentNotebooks;
     // Room after the last row: clear of the phone's ⊕ and of a snack bar
     // above it (an Undo after trashing the last card), or of a snack bar.
     final endRoom = compact ? 160.0 : 120.0;
@@ -159,7 +159,7 @@ class LibraryContent extends StatelessWidget {
               ),
             )
           else ...[
-            if (recent.isNotEmpty)
+            if (recent.isNotEmpty && !short)
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(gutter, Gaps.md, gutter, 0),
                 sliver: SliverToBoxAdapter(

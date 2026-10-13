@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/menus.dart';
 import '../../ui/mini_cover.dart';
 import '../../ui/scroll_fade.dart';
 import '../../ui/section_label.dart';
@@ -169,6 +171,78 @@ class _RecentTileState extends State<RecentTile> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Short windows' Recent (a phone held sideways): the first item of the
+/// folder strip beside the title, as low as a touch target, that lists
+/// the notebooks opened lately in a menu (one row of chrome has no room
+/// for the Recent row).
+class RecentStripTile extends StatelessWidget {
+  const RecentStripTile({super.key, required this.notebooks, required this.actions});
+
+  final List<Notebook> notebooks;
+  final LibraryActions actions;
+
+  Future<void> _open(BuildContext anchor) async {
+    final chosen = await showMenuBelow<Notebook>(
+      anchor,
+      items: [
+        for (final n in notebooks)
+          MenuRow(
+            value: n,
+            leading: MiniCover(color: Color(n.coverColor)),
+            label: n.title,
+          ),
+      ],
+    );
+    if (chosen != null && anchor.mounted) await actions.openNotebook(anchor, chosen);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = notebooks.length;
+    return Semantics(
+      button: true,
+      child: SizedBox(
+        height: math.max(Targets.touch, MediaQuery.textScalerOf(context).scale(20 + 16) + Gaps.sm),
+        child: Builder(
+          builder: (anchor) => InkWell(
+            borderRadius: BorderRadius.circular(Radii.xs),
+            onTap: () => unawaited(_open(anchor)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Gaps.xxs),
+              child: Row(
+                children: [
+                  Icon(Symbols.history_sharp, size: Glyphs.bar, color: theme.colorScheme.onSurface),
+                  const SizedBox(width: Gaps.md), // FolderTile.textInset
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Recent', style: theme.textTheme.labelLarge, maxLines: 1),
+                        Text(
+                          count == 1 ? '1 notebook' : '$count notebooks',
+                          style: theme.textTheme.bodySmall,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Symbols.expand_more_sharp,
+                    size: Glyphs.menu,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
@@ -142,5 +143,28 @@ void main() {
       s.settings.recentNotebooks = [a.id, b.id];
     });
     expect(find.byType(RecentRow), findsNothing);
+  });
+
+  testWidgets('a phone held sideways: Recent leads the folder strip, a menu', (tester) async {
+    await pumpSeeded(tester, size: const Size(844, 390), (s) {
+      final school = s.folders.create(name: 'School', color: 0xFF0CA678);
+      final algebra = addNotebook(s, 'Algebra', folderId: school.id);
+      final biology = addNotebook(s, 'Biology');
+      s.settings.recentNotebooks = [algebra.id, biology.id];
+    });
+    expect(find.byType(RecentRow), findsNothing);
+    final tile = find.byType(RecentStripTile);
+    expect(find.descendant(of: tile, matching: find.text('2 notebooks')), findsOneWidget);
+    // In the one row of chrome, before the folders.
+    expect(tester.getRect(tile).bottom, lessThan(80));
+    expect(tester.getTopLeft(tile).dx, lessThan(tester.getTopLeft(find.text('School')).dx));
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Algebra').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(EditorScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
