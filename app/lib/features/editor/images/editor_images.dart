@@ -134,6 +134,8 @@ class EditorImages {
       final html = plain || RichTextController.isOwnClip(text) ? null : await _readHtml();
       final rich = html == null ? null : textFromHtml(html, tools.textStyle);
       content.pasteText(rich ?? RichTextController.pasted(text, tools.textStyle));
+    } else if (content.selection.clipboard.isEmpty) {
+      if (context.mounted) showMessage(context, 'Nothing to paste');
     } else {
       content.pasteAtCentre();
     }
@@ -191,6 +193,11 @@ class EditorImages {
           name == null ? 'That image can’t be opened' : 'Couldn’t open “$name” as an image',
         );
       }
+      return null;
+    } on Object catch (e) {
+      // Storing failed (a full disk, the browser's storage quota).
+      debugPrint('Image could not be stored: $e');
+      if (context.mounted) showMessage(context, 'Couldn’t add the image');
       return null;
     }
   }
