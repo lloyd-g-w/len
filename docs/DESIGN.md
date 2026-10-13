@@ -1,8 +1,8 @@
 # Len: design language
 
-Status: foundation implemented (tokens, theme, shared components, font, icons);
-the per-screen rollout is the checklist in §9. This replaces `REDESIGN.md` §1;
-the rest of `REDESIGN.md` (structure, one home per command) still holds.
+Status: implemented across the app (foundation, library, editor, dialogs,
+settings) and reviewed as a whole (§9, "Final polish"). This replaces
+`REDESIGN.md` §1; the rest of `REDESIGN.md` (structure, one home per command) still holds.
 
 ## 0. Subject, audience, job
 
@@ -63,6 +63,11 @@ Containers between Board and Sheet, for the few places that need a plate
 Interaction overlays are ink: hover 4 % (dark 6 %), pressed / selected plate 8 %
 (dark 12 %), a firm selection 12 % (dark 20 %). Ink, covers, paper and
 `Palette` markers are content and never themed.
+
+Search matches are marked like a highlighter on paper, in marker yellow
+(content; on pages, in snippets and on handwriting alike); the current match
+is a state, so it adds a 2-dp ruling-blue ring (the light blue on pages,
+which stay light in dark mode). No orange anywhere in chrome.
 
 ## 2. Type
 
@@ -234,7 +239,7 @@ Desktop (≥ 1040)                                       hairline = sidebar edge
 │                      │ notebook  Saturday Saturday Saturday Saturday          │
 │ ⚙ Settings   ☁ Off   │                                                        │
 └──────────────────────┴────────────────────────────────────────────────────────┘
-Tablet (840–1039): the same with an icon rail.     Phone (< 840):
+Tablet (840–1039): the same.  Phone (< 840 wide, or < 480 high: sideways):
                                                    ┌──────────────────────────┐
                                                    │ ≡  Library          ⌕  ⇅ │
                                                    │    3 folders, 7 notebooks│
@@ -419,19 +424,63 @@ thumb. Next, by area:
   only (no hover lift); the current page has the margin rule beside its
   bold number; selection is a 2-dp accent ring and a square checkbox; the
   template gallery marks its choice with the margin rule and a bold name.
-  PDF views remain.
+  PDF views followed in the final polish.
 - ~~**Audio, images, text:**~~ done: player and phone recording controls in
   one docked Board strip with a hairline; flat recording controls in the bar
   (only the dot red); crop bar, selection menu and text format bar on
   `FloatingPanel`.
-- **Copy:** remove `·` chains and any remaining all-caps; one name per action.
-  Done everywhere except the planner labels in `domain/templates`
-  (`Paper.label`, `period`).
+- ~~**Copy:**~~ done: no `·` chains or all-caps left; planner labels use
+  commas ("Weekly planner, Week 41, 5 – 11 October 2026").
 - ~~**App icon / splash:**~~ done: the white scribble on a ruling-blue rule on
   an Ink tile, flat; splash on Board (`tool/branding`).
 - ~~**Controls:**~~ done: `AppSwitch` / `AppSwitchTile` in `ui/app_switch.dart`
   replace every `Switch` / `SwitchListTile`; `FilledButton.tonal` became
   `OutlinedButton`.
 - **Icons after merges:** other branches still add `Symbols.*_rounded`; re-run
-  the rename in the "Icons: Material Symbols Sharp" commit message.
-- **Tests:** refresh goldens per area as it lands.
+  the rename in the "Icons: Material Symbols Sharp" commit message (none
+  left at the final polish).
+- ~~**Tests:**~~ goldens refreshed per area.
+
+**Final polish** (whole-app screenshot critique, all suites, light/dark,
+1.3×/2× text), all done:
+
+- Leftovers: the new-notebook sheet's preview lies on the sheet (a hairline
+  beside the form, no grey strip; the page square, contact shadow); "More…"
+  is a Pencil-edged outline with an Ink glyph, one name at every width; the
+  audio play button is an Ink plate (`ThemeComponents.inkIconButton`, filled
+  glyph); the default desk is the true-grey Desk `#E6E6E6`; search marks per
+  §1; folders stacked one per line (large text, phones) are ruled from the
+  names; a phone held sideways keeps the phone layout
+  (`Breakpoints.libraryCompact`), with a library screenshot at 844×390.
+- Controls: chips have a Rule edge and, selected, an Ink plate with a 600
+  label and no check glyph (`FilterChip` included); checked menu radios are
+  in the accent; dark snack bars get a Pencil edge (a light slab over paper).
+- Templates: labels wrap only between words (the tile grows or the grid
+  drops a column); staves show in small previews; the gallery sits on the
+  margin column; planner options preview the whole page; option headings
+  are `SectionLabel`s.
+- Popovers: `GroupHeader` (Small label + right-aligned tabular readout) for
+  every group; quiet buttons and chevrons flush with the right edge
+  (`EndTextButton`, `EndChevron`); a fixed header height with or without
+  Reset; a font row instead of a stock dropdown; the laser preview on a
+  true-grey slab with a Rule edge; tall popovers show a scrollbar; the
+  colour picker's hex field in the UI face and a ruled hue band with the
+  ink tick.
+- Editor surfaces: the current outline and link-picker rows take the margin
+  rule (`MarginRule`), not a grey plate; outline rows on the left margin;
+  the PDF selection bar is a `FloatingPanel`; the split drop target is the
+  blue outline with an Ink slab label (no wash); Add page is an outline;
+  go-to-page miniatures are square with the accent ring only; convert to
+  text uses the ruled progress line; the audio playhead is the Ink tick;
+  the recording strip's glyphs fill; the editor search bar moves its
+  counter and arrows to a second row before the field gets cramped, and the
+  results toggle shows its plate; the focus/present exit is a bar button.
+- Library and sheets: trashed covers fade without fading their selection
+  mark; every sheet's ✕ sits on the content edge (`SheetHeader`); a header
+  without a caption centres its title on the ☰.
+
+Known, left as is: dark-mode screenshots render light-on-dark text a little
+heavier than on devices (rasteriser gamma); the inactive split pane fades
+its whole tool row including ink swatches (`Receding`); planner page
+weekday headers are capitals (printed content); the menu switch overhangs
+the submenu chevrons' glyph column by a few dp.
