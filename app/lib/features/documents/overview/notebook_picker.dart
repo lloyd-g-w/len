@@ -17,13 +17,15 @@ typedef PageDestination = ({Notebook? notebook, String title, bool copy});
 /// Asks which of [notebooks] pages go to (UX_AUDIT R7-9), [title] above
 /// the list ("Move 3 pages"), each row captioned by [caption] (where it
 /// lives), or a new notebook (with [cover], asking for its name): pick
-/// one, then Move or Copy. Null if cancelled.
+/// one, then Move or Copy. Without [canMove] (every page of a notebook)
+/// only Copy is offered, and the picker says why. Null if cancelled.
 Future<PageDestination?> pickPageDestination(
   BuildContext context, {
   required String title,
   required List<Notebook> notebooks,
   required String Function(Notebook notebook) caption,
   required Color cover,
+  bool canMove = true,
 }) => showDialogOrSheet<PageDestination>(
   context: context,
   maxWidth: 480,
@@ -34,6 +36,7 @@ Future<PageDestination?> pickPageDestination(
     notebooks: notebooks,
     caption: caption,
     cover: cover,
+    canMove: canMove,
     wide: wide,
   ),
 );
@@ -44,6 +47,7 @@ class _DestinationPicker extends StatefulWidget {
     required this.notebooks,
     required this.caption,
     required this.cover,
+    required this.canMove,
     required this.wide,
   });
 
@@ -51,6 +55,7 @@ class _DestinationPicker extends StatefulWidget {
   final List<Notebook> notebooks;
   final String Function(Notebook notebook) caption;
   final Color cover;
+  final bool canMove;
   final bool wide;
 
   @override
@@ -64,6 +69,25 @@ class _DestinationPickerState extends State<_DestinationPicker> {
   String? _newTitle;
 
   bool get _newChosen => _chosen == null && _newTitle != null;
+
+  /// Narrows a long list (more than [_filterAfter] notebooks).
+  final _filter = TextEditingController();
+  static const _filterAfter = 12;
+
+  @override
+  void dispose() {
+    _filter.dispose();
+    super.dispose();
+  }
+
+  List<Notebook> get _shown {
+    final query = _filter.text.trim().toLowerCase();
+    if (query.isEmpty) return widget.notebooks;
+    return [
+      for (final n in widget.notebooks)
+        if ('${n.title} ${widget.caption(n)}'.toLowerCase().contains(query)) n,
+    ];
+  }
 
   void _done({required bool copy}) => Navigator.pop<PageDestination>(context, (
     notebook: _chosen,
@@ -91,6 +115,7 @@ class _DestinationPickerState extends State<_DestinationPicker> {
     final theme = Theme.of(context);
     final chosen = _chosen != null || _newChosen;
     final bottom = widget.wide ? 0.0 : MediaQuery.paddingOf(context).bottom;
+    final shown = _shown;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -104,35 +129,37 @@ class _DestinationPickerState extends State<_DestinationPicker> {
             onClose: widget.wide ? null : () => Navigator.pop(context),
           ),
         ),
-        Flexible(
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
-            children: [
-              _NotebookRow(
-                key: const ValueKey('destination-new'),
-                leading: _newTitle == null
-                    ? Icon(Symbols.add_sharp, size: Glyphs.bar, color: theme.colorScheme.onSurface)
-                    : MiniCover(color: widget.cover),
-                title: _newTitle ?? 'New notebook…',
-                caption: _newTitle == null
-                    ? 'With this notebook’s paper and cover'
-                    : 'New notebook',
-                chosen: _newChosen,
-                onTap: _chooseNew,
+        if (widget.notebooks.length > _filterAfter)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Gaps.xl, 0, Gaps.xl, Gaps.sm),
+            child: TextField(
+              key: const ValueKey('destination-filter'),
+              controller: _filter,
+              onChanged: (_) => setState(() {}),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Find a notebook',
+                prefixIcon: const Icon(Symbols.search_sharp, size: Glyphs.bar),
+                suffixIcon: _filter.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear',
+                        icon: const Icon(Symbols.close_sharp, size: Glyphs.menu),
+                        onPressed: () => setState(_filter.clear),
+                      ),
               ),
-              for (final n in widget.notebooks)
-                _NotebookRow(
-                  key: ValueKey('destination-${n.id}'),
-                  leading: MiniCover(color: Color(n.coverColor)),
-                  title: n.title,
-                  caption: widget.caption(n),
-                  chosen: n.id == _chosen?.id,
-                  onTap: () => setState(() => _chosen = n),
-                ),
-            ],
+            ),
           ),
-        ),
+        Flexible(child: _list(theme, shown)),
+        if (!widget.canMove)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.md, Gaps.xl, 0),
+            child: Text(
+              'A notebook keeps at least one page, so these can only be copied',
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
         Padding(
           padding: EdgeInsets.fromLTRB(Gaps.xl, Gaps.md, Gaps.xl, Gaps.xl + bottom),
           child: DialogActions(
@@ -143,7 +170,7 @@ class _DestinationPickerState extends State<_DestinationPicker> {
                 child: const Text('Copy'),
               ),
               FilledButton(
-                onPressed: chosen ? () => _done(copy: false) : null,
+                onPressed: chosen && widget.canMove ? () => _done(copy: false) : null,
                 child: const Text('Move'),
               ),
             ],
@@ -152,6 +179,36 @@ class _DestinationPickerState extends State<_DestinationPicker> {
       ],
     );
   }
+
+  /// New notebook… first, then the notebooks, built as they scroll in.
+  Widget _list(ThemeData theme, List<Notebook> shown) => ListView.builder(
+    shrinkWrap: true,
+    padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
+    itemCount: shown.length + 1,
+    itemBuilder: (context, i) {
+      if (i == 0) {
+        return _NotebookRow(
+          key: const ValueKey('destination-new'),
+          leading: _newTitle == null
+              ? Icon(Symbols.add_sharp, size: Glyphs.bar, color: theme.colorScheme.onSurface)
+              : MiniCover(color: widget.cover),
+          title: _newTitle ?? 'New notebook…',
+          caption: _newTitle == null ? 'With this notebook’s paper and cover' : 'New notebook',
+          chosen: _newChosen,
+          onTap: _chooseNew,
+        );
+      }
+      final n = shown[i - 1];
+      return _NotebookRow(
+        key: ValueKey('destination-${n.id}'),
+        leading: MiniCover(color: Color(n.coverColor)),
+        title: n.title,
+        caption: widget.caption(n),
+        chosen: n.id == _chosen?.id,
+        onTap: () => setState(() => _chosen = n),
+      );
+    },
+  );
 }
 
 /// A destination: its small cover ([leading]), title and where it lives;

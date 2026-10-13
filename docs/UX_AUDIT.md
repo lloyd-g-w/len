@@ -55,7 +55,7 @@ grew apart.
    the height.
 8. R8-26 (P1) Scribble to erase and hold to snap are never taught. They sit
    under "Reset feel" in the collapsed Feel section, below the fold.
-9. R8-2 (P1) Move or copy pages isn't in the editor's page menu, only in
+9. ✅ R8-2 (P1) Move or copy pages isn't in the editor's page menu, only in
    the page overview.
 10. R8-17 (P1) On the web, a backup is built entirely in memory. A library
     full of PDFs crashes the tab.
@@ -85,7 +85,7 @@ grew apart.
   - Never `delete` a notebook in an undo. Trash it, and only when it is
     untouched.
 
-**R8-2 P1 · Move or copy pages is missing from the editor.**
+**✅ R8-2 P1 · Move or copy pages is missing from the editor.**
 - *What:* ⋯ → Page (`features/editor/chrome/editor_more_menu.dart:128-145`)
   and the page long-press actions (`editor_gestures.dart:73-89`) have no
   entry for it. It exists only in the overview (`page_commands.dart:14`,
@@ -94,7 +94,9 @@ grew apart.
 - *Fix:* add `PageCommand.moveTo` after "Duplicate page" in ⋯ → Page.
   `DocumentCommands` already dispatches it (`document_commands.dart:137`).
 
-**R8-3 P2 · Moving every page is refused only after the user has picked.**
+*Done (`fix/r8-library`):* ⋯ → Page → "Move or copy page…" (after Duplicate page) runs `PageCommand.moveTo` on the current page: the same picker and flow as the overview (`test/page_transfer_menu_test.dart`).
+
+**✅ R8-3 P2 · Moving every page is refused only after the user has picked.**
 - *What:* the check runs after the picker has closed
   (`page_transfer_flow.dart:35-38`), and with one page the message reads
   "…copy them instead".
@@ -102,7 +104,9 @@ grew apart.
   Move and says "A notebook keeps at least one page" under it. Then drop
   the check after the picker.
 
-**R8-4 P2 · One action, three names, and a borrowed icon.**
+*Done (`fix/r8-library`):* `pickPageDestination(canMove: false)` when every page is sent: Move is disabled and the picker says "A notebook keeps at least one page, so these can only be copied". A guard stays after the picker for pages a sync removed meanwhile.
+
+**✅ R8-4 P2 · One action, three names, and a borrowed icon.**
 - *What:* the menu and the selection bar say "Move to…"
   (`page_commands.dart:14`, `overview_selection.dart:128`). It opens
   "Move or copy N pages" with Move and Copy (`page_transfer_flow.dart:22`).
@@ -112,6 +116,8 @@ grew apart.
   bar, R8-2), so Copy is discoverable. Keep the snack's "Moved 3 pages to
   “X”". Give it a different glyph from the folder move
   (`Symbols.move_group_sharp` or similar).
+
+*Done (`fix/r8-library`):* pages: "Move or copy…" everywhere it opens the picker (overview menu and selection bar; "Move or copy page…" in the editor's Page menu), with `Symbols.move_group_sharp`; notebooks and folders keep "Move to folder…" with `drive_file_move`.
 
 **R8-5 P2 · A move isn't one database transaction.**
 - *What:* `send()` calls `copyPages` (its own transaction), then
@@ -123,7 +129,7 @@ grew apart.
   originals still exist, and sync uploads that state.
 - *Fix:* wrap `send` in `services.database.transaction`.
 
-**R8-6 P2 · The destination picker loses its way in a big library.**
+**✅ R8-6 P2 · The destination picker loses its way in a big library.**
 - *What:* captions show only the parent folder's name
   (`page_transfer_flow.dart:97-101`). The Recent row and search show the
   path via `LibraryController.locationOf` (`library_controller.dart:281-289`),
@@ -133,6 +139,8 @@ grew apart.
   with no filter (`documents/overview/notebook_picker.dart:107-135`).
 - *Fix:* share `locationOf`, use `ListView.builder`, and add a filter
   field once there are more than about 12 notebooks.
+
+*Done (`fix/r8-library`):* captions use the library's path (`LibraryQuery.pathOf`, shared with Recent and search: "School › Maths"); the list is a `ListView.builder`; over 12 notebooks a "Find a notebook" filter field shows.
 
 ### Library
 

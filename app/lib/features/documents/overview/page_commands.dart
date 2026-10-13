@@ -11,7 +11,7 @@ enum PageCommand {
   template('Change template…', Symbols.grid_on_sharp),
   saveAsTemplate('Save as template…', Symbols.dashboard_customize_sharp),
   bookmark('Bookmark', Symbols.bookmark_sharp),
-  moveTo('Move to…', Symbols.drive_file_move_sharp),
+  moveTo('Move or copy…', Symbols.move_group_sharp),
   delete('Delete', Symbols.delete_sharp);
 
   const PageCommand(this.label, this.icon);
@@ -65,7 +65,7 @@ class OverviewHandlers {
   final Future<void> Function(BuildContext context, List<NotebookPage> pages)? templateMany;
 
   /// Moves or copies [pages] to another notebook the user picks. Without
-  /// it, the selection offers no Move to.
+  /// it, the selection offers no Move or copy.
   final Future<void> Function(BuildContext context, List<NotebookPage> pages)? sendMany;
 }
 

@@ -289,15 +289,7 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
 
   /// "School › Maths", the folders a notebook is filed in; null at the top
   /// level (the Recent row says nothing there).
-  String? folderPathOf(Notebook notebook) {
-    final names = <String>[];
-    var current = _folderById[LibraryQuery.folderOf(notebook, _folderById)];
-    while (current != null && names.length <= _folders.length) {
-      names.insert(0, current.name);
-      current = _folderById[parentOf(current)];
-    }
-    return names.isEmpty ? null : names.join(' › ');
-  }
+  String? folderPathOf(Notebook notebook) => LibraryQuery.pathOf(notebook, _folderById);
 
   Folder? folderById(String? id) => _folderById[id];
 }

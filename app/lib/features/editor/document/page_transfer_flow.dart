@@ -6,6 +6,7 @@ import '../../../domain/surface_element.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ui/messages.dart';
 import '../../documents/overview/notebook_picker.dart';
+import '../../library/library_query.dart';
 import 'document_commands.dart';
 
 /// Moving and copying pages to another notebook (UX_AUDIT R7-9).
@@ -20,6 +21,8 @@ extension PageTransferFlow on DocumentCommands {
     final destination = await pickPageDestination(
       context,
       title: 'Move or copy $what',
+      // Every page: a notebook keeps at least one, so only Copy (R8-3).
+      canMove: pages.length < actions.pages.length,
       notebooks: _destinations(here),
       caption: _locations(),
       cover: Color(here.coverColor),
@@ -34,7 +37,7 @@ extension PageTransferFlow on DocumentCommands {
     if (sent.isEmpty) return;
     final copy = destination.copy;
     if (!copy && sent.length == live.length) {
-      showMessage(context, 'A notebook needs at least one page: copy them instead');
+      showMessage(context, 'A notebook keeps at least one page'); // Changed meanwhile.
       return;
     }
     final to = destination.notebook;
@@ -97,9 +100,10 @@ extension PageTransferFlow on DocumentCommands {
     });
   }
 
-  /// Where a notebook lives: its folder's name, or "Library".
+  /// Where a notebook lives, as the library says it: "School › Maths",
+  /// or "Library".
   String Function(Notebook) _locations() {
-    final names = {for (final f in services.folders.list()) f.id: f.name};
-    return (n) => names[n.folderId] ?? 'Library';
+    final folders = {for (final f in services.folders.list()) f.id: f};
+    return (n) => LibraryQuery.pathOf(n, folders) ?? 'Library';
   }
 }
