@@ -9,6 +9,7 @@ import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/toolbar/tool_strip.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
+import 'package:len/ui/design_tokens.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
@@ -244,7 +245,7 @@ void main() {
     expect(find.text('Duplicate page'), findsNothing);
     await tester.tap(find.text('Page'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add page after'));
+    await tester.tap(find.text('Duplicate page'));
     await tester.pumpAndSettle();
     expect(s.pages.pagesOf(nb.id), hasLength(pages + 1));
     // Reopened (also after Esc in a submenu), the menu starts at the top.
@@ -263,6 +264,57 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
+  testWidgets('Page ▸ is about this page: adding pages lives elsewhere', (tester) async {
+    await pumpEditor(tester, size: const Size(1280, 800));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Page'));
+    await tester.pumpAndSettle();
+    expect(find.text('Duplicate page'), findsOneWidget);
+    expect(find.text('Add page after'), findsNothing);
+    expect(find.text('Add page with template…'), findsNothing);
+    expect(find.text('Add page to outline…'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
+  for (final touch in [true, false]) {
+    testWidgets('shortcut hints follow the input, not the width (touch: $touch)', (tester) async {
+      Targets.debugTouchFirst = touch;
+      addTearDown(() => Targets.debugTouchFirst = null);
+      await pumpEditor(tester, size: const Size(1280, 800));
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      expect(find.text('Search in notebook'), findsOneWidget);
+      expect(find.text('Ctrl+F'), touch ? findsNothing : findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await closeEditor(tester);
+    });
+  }
+
+  testWidgets('phones show ↷ only while there is something to redo', (tester) async {
+    final (s, nb) = await pumpEditor(tester, size: const Size(390, 844));
+    final redo = find.byTooltip('Redo (Ctrl+Shift+Z)');
+    expect(redo, findsNothing);
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Page'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duplicate page'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Undo (Ctrl+Z)').first);
+    await tester.pumpAndSettle();
+    expect(redo, findsOneWidget);
+    await tester.tap(redo);
+    await tester.pumpAndSettle();
+    expect(redo, findsNothing);
+    expect(s.pages.pagesOf(nb.id), hasLength(greaterThan(1)));
     await closeEditor(tester);
   });
 

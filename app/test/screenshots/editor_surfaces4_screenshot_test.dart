@@ -11,6 +11,7 @@ import 'package:len/domain/paper_pattern.dart';
 import 'package:len/features/documents/templates/user_templates.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/editor/toolbar/tool_switcher.dart';
 
 import '../images_test.dart' show pngOf;
 import 'editor_screenshot_test.dart' show pumpEditor;
@@ -29,6 +30,21 @@ Future<void> _menu(WidgetTester tester, List<String> path) async {
     await tester.tap(find.text(item).last);
     await settle(tester);
   }
+}
+
+/// Insert ⊕ → "Page with template…" (on phones through the tool switcher).
+Future<void> _insertPageWithTemplate(WidgetTester tester) async {
+  final insert = find.byTooltip('Insert');
+  if (insert.evaluate().isNotEmpty) {
+    await tester.tap(insert);
+  } else {
+    await tester.tap(find.byType(ToolSwitcherButton));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('switch-insert')));
+  }
+  await settle(tester);
+  await tester.tap(find.text('Page with template…').last);
+  await settle(tester);
 }
 
 /// Renames from the title (tap it).
@@ -183,7 +199,7 @@ void main() {
           await _rename(tester);
           await shoot(tester, 'e_dialog_rename_$shot');
           await _cancel(tester);
-          await _menu(tester, ['Page', 'Add page with template…']);
+          await _insertPageWithTemplate(tester);
           await shoot(tester, 'e_dialog_add_page_template_$shot');
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await settle(tester);
@@ -206,7 +222,7 @@ void main() {
       await _rename(tester);
       await shoot(tester, 'e_dialog_rename_phone_large_text');
       await _cancel(tester);
-      await _menu(tester, ['Page', 'Add page with template…']);
+      await _insertPageWithTemplate(tester);
       await shoot(tester, 'e_dialog_add_page_template_phone_large_text');
     });
   });

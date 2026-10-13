@@ -12,6 +12,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
 import '../../../ui/messages.dart';
+import '../../settings/keyboard_shortcuts.dart' show modifierLabel;
 import 'selection_style_panel.dart';
 
 /// A command the editor adds to the selection menu (links):
@@ -133,13 +134,23 @@ class _MenuBar extends StatelessWidget {
           Symbols.palette_rounded,
           (anchor) => showSelectionStyle(anchor, selection: selection, tools: tools),
         ),
-      _Action('Cut', Symbols.content_cut_rounded, selection.cut, shortcut: 'Ctrl+X'),
-      _Action('Copy', Symbols.content_copy_rounded, selection.copy, shortcut: 'Ctrl+C'),
+      _Action('Cut', Symbols.content_cut_rounded, selection.cut, shortcut: '${modifierLabel()}+X'),
+      _Action(
+        'Copy',
+        Symbols.content_copy_rounded,
+        selection.copy,
+        shortcut: '${modifierLabel()}+C',
+      ),
     ];
     final secondary = <_Action>[
-      _Action('Duplicate', Symbols.library_add_rounded, selection.duplicate, shortcut: 'Ctrl+D'),
+      _Action(
+        'Duplicate',
+        Symbols.library_add_rounded,
+        selection.duplicate,
+        shortcut: '${modifierLabel()}+D',
+      ),
       if (!selection.clipboard.isEmpty)
-        _Action('Paste', Symbols.content_paste_rounded, onPaste, shortcut: 'Ctrl+V'),
+        _Action('Paste', Symbols.content_paste_rounded, onPaste, shortcut: '${modifierLabel()}+V'),
       if (convertible)
         if (convertUnavailable case final reason?)
           // Chosen where it can't work, it says why (a disabled row in a

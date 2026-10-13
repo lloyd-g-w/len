@@ -224,11 +224,6 @@ class EditorChrome extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               GestureHud(controller: hud),
-              if (tips case final tips?)
-                Padding(
-                  padding: const EdgeInsets.only(top: Gaps.sm, left: Gaps.md, right: Gaps.md),
-                  child: TipBanner(controller: tips),
-                ),
               if (notice case final notice?)
                 Padding(
                   padding: const EdgeInsets.only(top: Gaps.sm, left: Gaps.md, right: Gaps.md),
@@ -238,6 +233,17 @@ class EditorChrome extends StatelessWidget {
             ],
           ),
         ),
+        // Tips sit at the bottom, where messages go (not over the first
+        // lines of writing), and step aside while a snack bar shows.
+        if (tips case final tips?)
+          Positioned(
+            bottom: layout.floatingInsets.bottom + Gaps.lg,
+            left: Gaps.md,
+            right: Gaps.md,
+            child: Center(
+              child: MessageQueue.stepAside(child: TipBanner(controller: tips)),
+            ),
+          ),
         // Only in focus mode: otherwise its controls would sit (hidden) in
         // the tree beside the toolbar's own.
         if (puck case final puck? when focus && !presenting)

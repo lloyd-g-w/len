@@ -69,7 +69,7 @@ class NotebookOutline extends ChangeNotifier {
     }
     final details = await showOutlineEntryDialog(
       context,
-      title: 'Add page ${index + 1} to the outline',
+      title: 'Add page ${index + 1} to outline',
       confirmLabel: 'Add',
       initialTitle: 'Page ${index + 1}',
       parents: rows,

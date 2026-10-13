@@ -87,10 +87,12 @@ void main() {
     s.pages.addPage(nb.id, template: const PageTemplate(paper: Paper(PaperStyle.wideRuled)));
     s.outline.add(notebookId: nb.id, pageId: s.pages.pagesOf(nb.id).first.id, title: 'Start');
     await pumpApp(tester, s, EditorScreen(notebook: nb));
-    await tap(tester, find.byTooltip('More options'));
-    await tap(tester, find.text('Page'));
-    await tap(tester, find.text('Add page to outline…'));
+    await tap(tester, find.byTooltip('All pages'));
+    await tap(tester, find.text('Outline'));
+    await tap(tester, find.text('Add page 1 to outline'));
     await shoot(tester, 'o_outline_add_tablet_light');
+    await tester.binding.handlePopRoute();
+    await settle(tester);
     await tester.binding.handlePopRoute();
     await settle(tester);
 

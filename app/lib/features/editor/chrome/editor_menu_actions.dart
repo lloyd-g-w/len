@@ -22,9 +22,7 @@ class EditorMenuActions {
     this.onToggleBookmark,
     this.onOverview,
     this.onPageCommand,
-    this.onAddWithTemplate,
     this.onExport,
-    this.onAddToOutline,
     this.flow,
     this.onFlow,
     this.fit,
@@ -57,13 +55,9 @@ class EditorMenuActions {
   /// Opens the page overview (▦ in the bar).
   final VoidCallback? onOverview;
   final ValueChanged<PageCommand>? onPageCommand;
-  final VoidCallback? onAddWithTemplate;
 
   /// Opens the export sheet (Ctrl+E).
   final VoidCallback? onExport;
-
-  /// Adds the current page to the notebook's outline.
-  final VoidCallback? onAddToOutline;
   final PageFlow? flow;
   final ValueChanged<PageFlow>? onFlow;
 

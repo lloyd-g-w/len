@@ -9,22 +9,24 @@ import 'document_editor_test.dart' show closeEditor, pumpEditor;
 DocumentController _doc(WidgetTester tester) =>
     tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
 
-Future<void> _menu(WidgetTester tester, String item, {bool page = true}) async {
-  await tester.tap(find.byTooltip('More options'));
-  await tester.pumpAndSettle();
-  if (page) {
-    await tester.tap(find.text('Page'));
-    await tester.pumpAndSettle();
-  }
-  await tester.tap(find.text(item).last);
-  await tester.pumpAndSettle();
-}
-
 /// The outline lives in the page overview's Outline filter.
 Future<void> _outline(WidgetTester tester) async {
   await tester.tap(find.byTooltip('All pages'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Outline'));
+  await tester.pumpAndSettle();
+}
+
+/// Adds page 1 as "Intro" from the outline panel, then goes back to it.
+Future<void> _addIntro(WidgetTester tester) async {
+  await _outline(tester);
+  await tester.tap(find.text('Add page 1 to outline'));
+  await tester.pumpAndSettle();
+  expect(find.text('Add page 1 to outline'), findsWidgets);
+  await tester.enterText(find.byKey(const ValueKey('outline-title-field')), 'Intro');
+  await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Intro'));
   await tester.pumpAndSettle();
 }
 
@@ -34,10 +36,7 @@ void main() {
     final pages = s.pages.pagesOf(nb.id);
 
     // Page 1 → "Intro" at the top level.
-    await _menu(tester, 'Add page to outline…');
-    await tester.enterText(find.byKey(const ValueKey('outline-title-field')), 'Intro');
-    await tester.tap(find.widgetWithText(FilledButton, 'Add'));
-    await tester.pumpAndSettle();
+    await _addIntro(tester);
     expect(s.outline.entriesOf(nb.id).single.pageId, pages[0].id);
 
     // Page 3 → "Details", nested under Intro from the panel.
@@ -101,10 +100,7 @@ void main() {
     tester,
   ) async {
     final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
-    await _menu(tester, 'Add page to outline…');
-    await tester.enterText(find.byKey(const ValueKey('outline-title-field')), 'Intro');
-    await tester.tap(find.widgetWithText(FilledButton, 'Add'));
-    await tester.pumpAndSettle();
+    await _addIntro(tester);
     _doc(tester).scrollToPage(2);
     await tester.pumpAndSettle();
 

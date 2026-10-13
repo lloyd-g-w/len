@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../../domain/text/text_data.dart';
 import '../../../../ui/app_theme.dart';
 import '../../../../ui/menus.dart';
+import '../../../settings/keyboard_shortcuts.dart' show modifierLabel;
 
 /// Picks one of the bundled fonts; each entry is shown in its own font.
 class FontMenuButton extends StatelessWidget {
@@ -189,16 +190,16 @@ class ParagraphMenuButton extends StatelessWidget {
           checked: heading == 2,
         ),
         const PopupMenuDivider(),
-        for (final (kind, label, keys) in const [
-          (ListKind.bullet, 'Bulleted list', 'Ctrl+Shift+8'),
-          (ListKind.number, 'Numbered list', 'Ctrl+Shift+7'),
-          (ListKind.check, 'Checklist', 'Ctrl+Shift+9'),
+        for (final (kind, label, key) in const [
+          (ListKind.bullet, 'Bulleted list', '8'),
+          (ListKind.number, 'Numbered list', '7'),
+          (ListKind.check, 'Checklist', '9'),
         ])
           MenuRow(
             value: ListChoice(kind),
             icon: iconOf(kind),
             label: label,
-            shortcut: keys,
+            shortcut: '${modifierLabel()}+Shift+$key',
             checked: current == kind,
           ),
       ],

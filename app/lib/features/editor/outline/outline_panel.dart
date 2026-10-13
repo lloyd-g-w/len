@@ -45,21 +45,6 @@ class _NotebookOutlineViewState extends State<NotebookOutlineView> {
   );
 }
 
-/// Adds the current page of [session] to its outline (menu command).
-Future<void> addPageToOutline(BuildContext context, EditorSession session) async {
-  final outline = NotebookOutline(
-    repository: session.services.outline,
-    notebookId: session.notebook.id,
-    doc: session.doc!,
-    sync: session.services.sync,
-  );
-  try {
-    await outline.addCurrentPage(context);
-  } finally {
-    outline.dispose();
-  }
-}
-
 enum _EntryAction { rename, indent, outdent, repoint, delete }
 
 /// The outline panel's content.

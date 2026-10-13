@@ -8,7 +8,6 @@ import '../../../ink/viewport.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
-import '../chrome/chrome_metrics.dart';
 
 /// The zoom percentage, peeking like the page indicator (REDESIGN §2.4):
 /// shown when the canvas opens and while the view moves (zoom or pan), for
@@ -109,7 +108,7 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     // Shortcut hints only where a keyboard is likely (as in the ⋯ menu).
-    final keys = MediaQuery.sizeOf(context).width >= ChromeMetrics.compactWidth;
+    final keys = !Targets.touchFirst;
     return IgnorePointer(
       ignoring: !_visible,
       child: AnimatedOpacity(

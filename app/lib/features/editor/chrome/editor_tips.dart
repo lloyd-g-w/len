@@ -98,7 +98,7 @@ class TipBanner extends StatelessWidget {
         transitionBuilder: (child, animation) => FadeTransition(
           opacity: animation,
           child: SlideTransition(
-            position: Tween(begin: const Offset(0, -0.2), end: Offset.zero).animate(animation),
+            position: Tween(begin: const Offset(0, 0.2), end: Offset.zero).animate(animation),
             child: child,
           ),
         ),
