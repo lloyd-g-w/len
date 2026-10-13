@@ -191,9 +191,10 @@ void main() {
       const data = ImageData(blob: 'p', width: 1000, height: 500);
       final changes = <String>[];
       images.changes.listen(changes.add);
+      final decoded = images.changes.first;
 
       expect(images.imageFor(data, 200), isNull); // Not decoded yet.
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await decoded.timeout(const Duration(seconds: 30)); // Not a fixed sleep: flaky under load.
       final small = await images.load(data, 200);
       expect(small!.width, 256);
       expect(changes, ['p']);
