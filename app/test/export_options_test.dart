@@ -33,6 +33,9 @@ void main() {
       expect(parsePageRange('2', 1).error, 'Only page 1 exists');
       expect(parsePageRange('4-2', 5).error, contains('backwards'));
       expect(parsePageRange('4-2', 5).pages, isNull);
+      // Numbers too long for an int are out of range, not a crash.
+      expect(parsePageRange('99999999999999999999999', 5).error, 'Pages are 1–5');
+      expect(parsePageRange('1-99999999999999999999999', 5).error, 'Pages are 1–5');
     });
   });
 
