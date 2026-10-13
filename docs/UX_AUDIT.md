@@ -1,5 +1,547 @@
 # Len — UX/UI audit
 
+## Round 8 audit (`review/round8`)
+
+Scope: everything that landed after round 7: Len files and library backup
+and restore, the "only on this device" notice, the Recent row and its
+short-window strip item, reopening where you left off, export from the
+library, moving and copying pages (including to a new notebook), the sync
+alert, recordings in the library, selecting PDF text with the pen, hold to
+snap in the pen's Feel, highlight colours, scribble to erase (with its
+preview), the highlighter snapping to PDF text, and Import Len file on
+phones. Plus a whole-app consistency sweep after eight rounds.
+
+Method:
+- Rendered all 728 images in `test/screenshots/` (every suite passed) and
+  viewed them downscaled, as contact sheets and as crops.
+- Walked the code of each new flow as a demanding user, checking the edge
+  cases one by one: an empty library with Recent, backing up a big
+  library, restoring twice, moving the last page, scribbling near text
+  boxes and images, and highlighter snapping on turned PDF pages.
+- Checked every item in the code. Paths are under `app/lib/` unless noted.
+
+Summary: the features are good ideas, well placed, and they mostly look
+like Len. One P0: Undo on a page move can delete work. Most P1s are about
+trust:
+- A backup restore fails completely over one bad byte, and nests the
+  library a level deep on a new device.
+- Restores can't be undone.
+- The phone library now stacks a notice, Recent and folders above the
+  first cover.
+- Two gestures that change every stroke (scribble to erase, hold to snap)
+  are invisible.
+
+The design language itself held up. There are no `_rounded` or `Icons.*`
+glyphs, and tokens are used almost everywhere. The drift is in the
+vocabulary (one action, several names) and in two selection bars that
+grew apart.
+
+### Top 10 (fix first)
+
+1. R8-1 (P0) Undoing a page move or copy deletes whatever was written in
+   the destination since. With "New notebook…", it deletes the whole
+   notebook for good.
+2. R8-14 (P1) A restore is all or nothing: one damaged blob or line, and
+   nothing comes back.
+3. R8-16 (P1) A restore has no confirmation and no Undo. Restoring twice
+   duplicates the library on every synced device.
+4. R8-15 (P1) Restoring on a new or empty device buries the whole library
+   in a "Backup 13 Oct 2026" folder.
+5. R8-24 (P1) Highlighted PDF text can't be selected with the pen any more.
+6. R8-25 (P1) A scribble erases along the whole stroke, not just where it
+   zigzagged, and can wipe an outline it filled in.
+7. R8-7 (P1) Phones: the notice, Recent and folders push the first cover
+   below the middle of the screen. Held sideways, the notice takes 27 % of
+   the height.
+8. R8-26 (P1) Scribble to erase and hold to snap are never taught. They sit
+   under "Reset feel" in the collapsed Feel section, below the fold.
+9. R8-2 (P1) Move or copy pages isn't in the editor's page menu, only in
+   the page overview.
+10. R8-17 (P1) On the web, a backup is built entirely in memory. A library
+    full of PDFs crashes the tab.
+
+### Pages between notebooks
+
+**R8-1 P0 · Undoing a page transfer deletes later work.**
+- *What:* `PageEdits.sendTo` (`features/editor/document/page_edits.dart:87-126`)
+  records the transfer as a step in the source notebook's history. Its
+  undo runs `removeCopies` (`data/notebook_duplicator.dart`). That deletes
+  the copied pages whatever happened to them since.
+- For "New notebook…" the undo also calls `discard` =
+  `services.notebooks.delete` (`page_transfer_flow.dart:44`), a permanent
+  tombstone of the notebook and everything in it
+  (`data/notebook_repository.dart:218`). It does not go to the Trash.
+- Undo stays reachable through the toolbar, gestures and keyboard as long
+  as the step is in history. Older steps can be undone out of order
+  (`page_models.dart:137-149`).
+- *Why:* move three pages to "Biology", write there for ten minutes, go
+  back to the source tab and undo twice. The writing is gone, and with a
+  new notebook there is nothing in the Trash.
+- *Fix:*
+  - Before undoing, check whether the copies (or the new notebook) changed
+    since the transfer: compare `updated_at` with the copy stamp and look
+    for pages added there. If they did, refuse with "Pages changed in
+    “Biology” since: move them back from there".
+  - Never `delete` a notebook in an undo. Trash it, and only when it is
+    untouched.
+
+**R8-2 P1 · Move or copy pages is missing from the editor.**
+- *What:* ⋯ → Page (`features/editor/chrome/editor_more_menu.dart:128-145`)
+  and the page long-press actions (`editor_gestures.dart:73-89`) have no
+  entry for it. It exists only in the overview (`page_commands.dart:14`,
+  `overview_selection.dart:128`), although R7-9 promised "the page menu".
+- *Why:* "file this page into Physics" happens while looking at the page.
+- *Fix:* add `PageCommand.moveTo` after "Duplicate page" in ⋯ → Page.
+  `DocumentCommands` already dispatches it (`document_commands.dart:137`).
+
+**R8-3 P2 · Moving every page is refused only after the user has picked.**
+- *What:* the check runs after the picker has closed
+  (`page_transfer_flow.dart:35-38`), and with one page the message reads
+  "…copy them instead".
+- *Fix:* when every live page is selected, `pickPageDestination` disables
+  Move and says "A notebook keeps at least one page" under it. Then drop
+  the check after the picker.
+
+**R8-4 P2 · One action, three names, and a borrowed icon.**
+- *What:* the menu and the selection bar say "Move to…"
+  (`page_commands.dart:14`, `overview_selection.dart:128`). It opens
+  "Move or copy N pages" with Move and Copy (`page_transfer_flow.dart:22`).
+  `drive_file_move` is also the library's "Move to folder…"
+  (`library/library_menus.dart:61`).
+- *Fix:* call it "Move or copy…" everywhere it opens the picker (menu,
+  bar, R8-2), so Copy is discoverable. Keep the snack's "Moved 3 pages to
+  “X”". Give it a different glyph from the folder move
+  (`Symbols.move_group_sharp` or similar).
+
+**R8-5 P2 · A move isn't one database transaction.**
+- *What:* `send()` calls `copyPages` (its own transaction), then
+  `deleteAll`, `retargetLinks` and `touch` separately
+  (`page_edits.dart:100-109`). The undo does run in one transaction
+  (`:114`).
+- *Why:* if something throws or the app is killed part way, the user is
+  left with duplicate pages, or links pointing at copies while the
+  originals still exist, and sync uploads that state.
+- *Fix:* wrap `send` in `services.database.transaction`.
+
+**R8-6 P2 · The destination picker loses its way in a big library.**
+- *What:* captions show only the parent folder's name
+  (`page_transfer_flow.dart:97-101`). The Recent row and search show the
+  path via `LibraryController.locationOf` (`library_controller.dart:281-289`),
+  so two "Week 3" notebooks in two "Lectures" folders look identical
+  here.
+- The list is a non-lazy `ListView(shrinkWrap: true)` over every notebook,
+  with no filter (`documents/overview/notebook_picker.dart:107-135`).
+- *Fix:* share `locationOf`, use `ListView.builder`, and add a filter
+  field once there are more than about 12 notebooks.
+
+### Library
+
+**R8-7 P1 · Phones: chrome pushes the notebooks off the screen.**
+- *What:* `library_phone_light.png` stacks four bands above the first
+  cover, which starts 55 % of the way down the screen:
+  - the "only on this device" notice: four lines, with "Back up…" on a
+    row of its own;
+  - the header;
+  - Recent;
+  - two rows of folders.
+- Held sideways (`library_phone_sideways_*.png`, 844×390), the notice
+  takes about 105 of the 390 dp. That undoes the one-row-of-chrome work of
+  round 6 (R6-2, R6-3).
+- *Why:* the library's job is "get to the right page fast" (DESIGN §0),
+  and on a phone this is the first screen.
+- *Fix:*
+  - On phones and short windows, the notice becomes one line: the title
+    with "Back up…" inline and ✕ (`features/library/library_notice.dart`,
+    `LibraryNotice` layout). The explanation moves to Settings → Backup,
+    where it already is.
+  - On phones, folders take one sideways-scrolling row (`FolderRow.strip`)
+    when the Recent row is shown.
+
+**R8-8 P2 · The device-only notice: parenthetical copy, one action, and
+it never comes back.**
+- *What:* the body ends with "(Settings)" and offers only "Back up…"
+  (`library_notice.dart:128-140`). After one backup, `lastBackupAt != null`
+  hides it for good. Settings shows "Last backup 3 Oct" with no sense of
+  age (`settings/backup_settings.dart:38-40`).
+- *Fix:*
+  - Body: "Back up your library now and then, or set up sync." Actions:
+    "Back up…" and "Set up sync…".
+  - With sync off, show the notice again (once) when the last backup is
+    over 30 days old and notebooks have changed since.
+
+**R8-9 P2 · "Local only" against "only on this device".**
+- *What:* the sidebar says "Local only" (`ui/sync_status_button.dart:15`).
+  The notice, Settings → Sync (`sync_status_line.dart:32`) and Settings →
+  Backup (`backup_settings.dart:25`) say "only on this device". R7-12
+  chose "On this device only".
+- On the Settings screen, Backup's description repeats the Sync line just
+  above it, word for word in meaning (`s_settings_backup_*.png`).
+- *Fix:*
+  - The caption reads "On this device".
+  - With sync off, Backup's description drops its first sentence and
+    starts with "Back up your library now and then…".
+
+**R8-10 P2 · Recent: noise and lost slots.**
+- *What:* notebooks at the root are captioned "Library"
+  (`library_controller.dart:288`), which says nothing when you are standing
+  in the Library. Trashed and deleted notebooks keep their slots, since
+  `noteOpened` keeps 8 ids and only filters them when shown
+  (`editor/tabs/workspace_memory.dart:32,50-55`). Trash three, and Recent
+  shows five.
+- The short-window item says "Recent, 3 notebooks", and its menu entries
+  have no location (`recent_row.dart:196-201,231-235`).
+- *Fix:*
+  - No caption for root notebooks.
+  - Keep 16 ids and show the first 8 that are live.
+  - The strip item's caption names the latest notebook, and its menu
+    entries carry the location the row shows.
+
+**R8-11 P2 · A recording match doesn't say why it matched.**
+- *What:* recording titles match in the library's title filter
+  (`library_controller.dart:257`). While searching, the caption becomes
+  the path only (`library_content.dart:248`), and list rows lose
+  "2 recordings".
+- *Fix:* when only a recording title matched, caption the result
+  "Recording “Lecture 4”" with the mic glyph. Better: add a recording
+  result kind to `library_search_results.dart` that opens the recordings
+  sheet at it.
+
+**R8-12 P2 · The sync alert says "Not synced since Just now" and goes red
+for being offline.**
+- *What:* when everything synced except a few file uploads, `lastSuccess`
+  is set but `_failingSince` stays (`sync/sync_controller.dart:218-231`).
+  After 15 minutes the tooltip reads "Not synced since Just now: open Sync
+  settings" (`settings/sync_alert_button.dart:12-15,38`). Being offline
+  (`SyncFailure.network`) also shows the error-red glyph and points to
+  Settings, where nothing can be fixed.
+- *Fix:*
+  - File-upload failures: "3 files not uploaded yet".
+  - Network failures: a Graphite glyph and "Offline: not synced since
+    Monday".
+  - Keep red for auth and incompatible failures. Write "just now" in
+    lower case inside a sentence.
+
+**R8-13 P2 · Two selection bars that grew apart.**
+- *What:* the library's selection (`library/selection/selection_bar.dart`)
+  is a floating panel holding "3 selected", Select all and four labelled
+  actions without ellipses ("Move", "Export").
+- The page overview (`documents/overview/overview_selection.dart:99-150`)
+  puts "2 selected" in a top bar and a docked bottom bar with six actions,
+  some with ellipses ("Move to…", "Template…", "Export…").
+- Each label scales down on its own (`ui/labelled_action.dart:47`,
+  `FittedBox`). On a 390-dp phone the labels end up in three sizes and
+  touch each other ("DuplicateMove to…", `overview_select_phone_light.png`).
+- *Fix:*
+  - One selection bar component with one layout (DESIGN §6 "features
+    never restyle them locally").
+  - One label size: if the labels don't fit, drop all of them to icons
+    with tooltips rather than shrinking some.
+  - At most five actions on phones: Bookmark and Template go into a ⋯.
+
+### Backup and Len files
+
+**R8-14 P1 · One damaged byte loses the whole restore.**
+- *What:*
+  - A blob whose hash doesn't match throws (`data/blob_store.dart:105`) and
+    becomes `LenArchiveException.damaged`
+    (`data/archive/len_archive_reader.dart:188-191`).
+  - So does a single unparsable JSON line (`:229-230`), although the
+    comment at `:214-216` says odd records are skipped.
+  - The `catch` at `:160-166` then rolls back everything.
+- *Why:* a backup exists for the bad day. One flipped bit in one PDF of
+  a 5 GB backup gives back nothing.
+- *Fix:* count a damaged blob as missing and an unparsable line as
+  skipped, and carry on. The success message already reports both. Keep
+  the rollback for Cancel and for errors that aren't about the file.
+
+**R8-15 P1 · Restoring on a new device nests the library, and the
+destination depends on where you start.**
+- *What:* every library restore goes into a new "Backup 13 Oct 2026"
+  folder (`features/backup/len_file_flows.dart:112-113`,
+  `data/archive/len_import_commit.dart:310-327`), even into an empty
+  library, which is the main restore case.
+- From the library's "Import Len file…", a backup lands *inside the open
+  folder* (`library/library_actions.dart:141-143`). From Settings it lands
+  at the top level.
+- *Fix:* into an empty library, restore at the top level as it was
+  (`folderName: null`). Otherwise put the backup folder at the top level,
+  whatever the entry point.
+
+**R8-16 P1 · A restore has no confirmation, no Undo, and duplicates
+everywhere.**
+- *What:* "Restore from backup…" goes from the file picker straight into
+  the import (`settings/backup_settings.dart:77`). The success snack has
+  no action (`len_file_flows.dart:120`).
+- Everything is marked dirty and syncs (`len_import_commit.dart:356`).
+  Restoring twice makes two identical folders, with the same name if
+  both backups are from the same day (`len_file_flows.dart:135-136`).
+- *Fix:*
+  - After `LenArchiveReader.open` has read the manifest, confirm in an
+    `AppDialog`: "Restore the backup from 13 Oct 2026, 14:05? Its 42
+    notebooks are added as copies; nothing here is replaced." With sync
+    on, add "They sync to your other devices too."
+  - Offer Undo in the snack (delete the folder it made, like the
+    library's undoable deletes).
+  - Add the time to the folder name when the name is taken.
+
+**R8-17 P1 · The web builds the whole backup in memory.**
+- *What:* `platform/len_file_io_web.dart:96-103` writes into an
+  `OutputMemoryStream` and hands `getBytes()` to the download. Blobs are
+  read whole (`data/archive/len_archive_writer.dart:124-127`). Import
+  reads the whole file into memory too (`len_file_io_web.dart:85-86`).
+- *Why:* Storage settings tells web users to back up
+  (`settings/storage_settings.dart:89`). A few hundred MB of PDFs crashes
+  the tab during "Backing up", with no explanation.
+- *Fix:* stream to `showSaveFilePicker` where the browser has it.
+  Otherwise add up the blob sizes first, and above about 500 MB say so
+  and suggest backing up folders one by one, or sync.
+
+**R8-18 P2 · Desktop writes the backup, then asks where to save it.**
+- *What:* `createLenFileOutput` writes to a temporary folder
+  (`platform/len_file_io_native.dart:30-41`). Only afterwards does
+  `saveOrShareFile` ask for a location and copy the file
+  (`platform/file_export_native.dart:137-145`).
+- *Why:* minutes of work, then a save dialog. Cancelling it throws the
+  work away, and the disk briefly holds twice the size.
+- *Fix:* on desktop, ask first and write straight to the chosen path.
+
+**R8-19 P2 · Writing a big library freezes the UI.**
+- *What:* `ResolvedScope._estimate` runs synchronous `COUNT(*)` queries
+  per notebook and per page before the first `await`
+  (`data/archive/len_scope.dart:105-150`). `ZipEncoder.add` is
+  synchronous and reads each blob twice (`len_archive_writer.dart:130`).
+- *Why:* the progress dialog and its Cancel stop responding, and Android
+  risks showing "app not responding".
+- *Fix:* a few aggregate queries (`… WHERE surface_id IN (SELECT id FROM
+  pages WHERE notebook_id IN …)`), and yield between blobs (or write in
+  an isolate on native).
+
+**R8-20 P2 · Backup, restore and Len export each have several names.**
+- *What:*
+  - A restore shows "Importing…", then "Couldn’t import …" / "Import
+    failed", and only success says "Restored" (`len_file_flows.dart:103,
+    125,129,146`).
+  - A failed backup says "Couldn’t export “Len backup 2026-10-13.len”" /
+    "Export failed" (`:85`, `documents/export/export_messages.dart:47,51`).
+  - The folder menu says "Export as Len file…" while the notebook menu
+    says "Export…" (`library/library_menus.dart:63,79`). The format
+    segment says "Len" (`export_sheet_sections.dart:92`).
+  - The backup file is "Len backup 2026-10-13", but it is restored into
+    "Backup 13 Oct 2026".
+  - Opening an unsupported file says "Len opens PDFs and images", leaving
+    out Len files (`documents/import/import_router.dart:72-73`).
+- *Fix:*
+  - Library backups: "Backing up / Couldn’t back up your library / Backup
+    failed".
+  - Library restores: "Restoring / Couldn’t restore … / Restore failed".
+  - "Export…" everywhere, and "Len file" in the format segment.
+  - One date style in both names.
+  - "Len opens PDFs, images and Len files".
+
+**R8-21 P2 · Import errors read backwards and don't say what to do.**
+- *What:* `'${e.message}: couldn’t import $name'` (`len_file_flows.dart:125`;
+  the messages are at `data/archive/len_format.dart:168,185`) gives "This
+  file was made by a newer version of Len: couldn’t import “x.len”".
+- *Fix:* lead with what failed and end with the remedy:
+  - "Couldn’t import “x.len”: it was made by a newer Len. Update Len and
+    try again."
+  - "…: it isn’t a Len file, or it is damaged. Try the original file."
+
+**R8-22 P2 · A partial backup counts as a whole one.**
+- *What:* blobs not yet downloaded are skipped. The note says only "1 file
+  wasn’t on this device yet" (`len_file_flows.dart:76`). Then
+  `lastBackupAt` is set and the device-only notice is dismissed for good
+  (`len_file_flows.dart:178`, `library/library_notice.dart:68`).
+- *Fix:* "2 PDFs or recordings aren’t downloaded yet and aren’t in this
+  backup". With sync configured, fetch them first
+  (`SyncController.fetchBlob`).
+
+**R8-23 P2 · Library backups include the Trash, which a restore can then
+purge at once.**
+- *What:* the library scope takes every non-deleted notebook
+  (`data/archive/len_scope.dart:56`), while folder scope skips trashed
+  ones (`:46`). Remap keeps `trashedAt` (`data/archive/len_remap.dart:45`),
+  so anything trashed more than 30 days before is purged on the next load
+  (`data/notebook_repository.dart:163-171`).
+- *Fix:* leave the Trash out of library backups (`trashed_at IS NULL`).
+
+### Pen and PDF
+
+**R8-24 P1 · Highlighted PDF text can't be selected with the pen.**
+- *What:* the lasso treats a press as on text only when
+  `!_hitsContent` (`ink/tools/lasso_tool.dart:123`). `_hitsContent`
+  (`:223-226`) uses `ContentHitTest.strokeAt`, which counts highlighter
+  strokes (`ink/tools/content_hit_test.dart:22-29`).
+- So once a phrase is highlighted, by Highlight or by snapping, a tap
+  selects the highlight stroke. A hold opens the canvas menu instead of
+  selecting the word.
+- *Why:* "highlight, then copy or link" is the core study flow, and it
+  now needs a finger.
+- *Fix:* ignore highlighter strokes in `_hitsContent` for the hold and
+  drag paths. A plain tap may still pick the highlight, so recolour and
+  delete keep working.
+
+**R8-25 P1 · A scribble erases along the whole stroke.**
+- *What:* `ScribbleDetector` answers yes or no for the whole stroke
+  (`ink/input/scribble_detector.dart:63-72`). At pen-up
+  `ScribbleErase.erase` hands every point to `eraseScribbled`
+  (`scribble_erase.dart:80`). Its area and crossings use the whole path
+  (`ink/surface_model_editing.dart:73-91`).
+- A stroke that travels, then zigzags, erases what the lead-in crossed.
+- Quickly filling in a small outline (a checkbox, a bullet) makes an area
+  that contains the outline, so the outline is erased.
+- *Fix:* `detect` returns the matched window (first and last index), and
+  only that sub-path erases. Skip strokes whose bounds enclose the window.
+
+**R8-26 P1 · Gestures that change every stroke are hidden and never
+taught.**
+- *What:* "Hold to snap" and "Scribble to erase" live after "Reset feel",
+  at the end of the Feel section, which starts collapsed
+  (`features/editor/pen/pen_gestures.dart`, `pen/ink_options.dart:18,55`).
+- Even expanded, they sit below the fold of a desktop-height popover
+  (`popover_pen_feel_light.png`, 800 dp tall).
+- No `EditorTip` mentions scribbling (`chrome/editor_tips.dart:111-135`),
+  and neither does the eraser panel (`pen/eraser_options_panel.dart`).
+- *Why:* scribble to erase was meant as the biggest daily saving for
+  people with no side button, and they won't find it. Someone whose line
+  snaps won't find the switch either.
+- *Fix:*
+  - A one-time tip "Scribble over ink to erase it", the second time
+    someone without a side button picks the eraser.
+  - One caption in the eraser panel: "Or scribble over ink with the pen".
+  - See Simplify for their home.
+
+**R8-27 P2 · Text snapping hangs on "Hold to snap".**
+- *What:* highlights snap to PDF text only while `holdToStraighten` is on
+  (`ink/input/ink_drawing.dart:242`). Text snapping needs no hold.
+- The highlighter's panel says nothing about it.
+- The caption ends "highlights on PDF text snap to it", where "it" has no
+  referent (`pen_gestures.dart:27-29`).
+- `docs/ROADMAP.md:18` still says "hold to straighten".
+- *Fix:* make text snapping unconditional (see Simplify), and shorten the
+  caption to "Hold the pen still at the end of a stroke for a clean line
+  or shape".
+
+**R8-28 P2 · A snapped line can be erased as a scribble.**
+- *What:* `_enabled` checks `!live.straightened`
+  (`ink/input/scribble_erase.dart:142-143`). But `finish()` calls
+  `live.finish()` first, which resets the flag (`ink/input/live_ink.dart:76`,
+  `ink_drawing.dart:217-220`). The detector was fed every move before the
+  snap.
+- *Fix:* latch "not a scribble" in `ScribbleErase.add` once `straightened`
+  is seen.
+
+**R8-29 P2 · Scribbling over a text box or image leaves a zigzag.**
+- *What:* `scribbled` only looks at strokes
+  (`ink/surface_model_editing.dart:86-91`). When it erases nothing, the
+  scribble is committed as ink. Nothing dims, so there is no warning.
+- *Fix:* when a recognised scribble lies mostly over an element and hits
+  no ink, drop it and say "Scribble erases ink only". Over blank paper it
+  stays ink, as now.
+
+**R8-30 P2 · Underlines become highlights; turned pages are untested.**
+- *What:* `_Line.holds` accepts points up to 0.85 line heights from the
+  line's middle (`features/editor/pdf/pdf_highlight_snap.dart:30,154`).
+  A highlighter underline drawn just below the letters snaps into a full
+  highlight.
+- The snap handles vertical lines (`_Line.vertical`), but
+  `test/pdf_highlight_snap_test.dart` has no turned page. Only text
+  selection is tested at 90°, 180° and 270° (`test/pdf_rotation_test.dart`).
+- *Fix:* snap only when the stroke's middle is within about 0.35 line
+  heights of the line's middle (or the stroke is at least half a line
+  thick). Add the `rotatedPdf` cases to the snap test.
+
+**R8-31 P2 · The highlight swatches announce "selected" and hide the
+word.**
+- *What:* `pdf_highlight_swatches.dart:51` passes `selected: i == 0`. In
+  `ui/color_dot.dart:46-48` that becomes `Semantics(selected: true)`, so
+  the swatch reads as "Highlight in yellow, selected", although it is an
+  action.
+- A highlighter glyph before the dots looks like a button but does
+  nothing. "Highlight" is never written, even where there is room
+  (`pdf_layer.dart:227`, `pdf_selection_*.png`).
+- *Fix:* no selected semantics (and no ring: order shows the current
+  colour). On wide windows the label "Highlight" replaces the glyph.
+
+**R8-32 P2 · The scribble detector's per-move cost grows with the stroke.**
+- *What:* every 4th kept point, `detect` re-scans the whole stroke
+  (`ink/input/scribble_erase.dart:69,104`, `scribble_detector.dart:68`).
+  Once a scribble is recognised, `_follow` copies all live points and
+  re-runs `scribbled` against every candidate stroke (`:106-107`).
+- *Why:* this is O(n²) over a long drawing stroke, on the input path.
+- *Fix:* only the last 1.2 s can be a scribble (`maxDuration`), so keep a
+  window of that and test only the segments added since the last
+  `_follow` (the set only grows).
+
+**R8-33 P2 · The Shapes caption points to a switch that may be off, in
+template typography.**
+- *What:* "Hold the pen still to snap a shape — Pen › Feel"
+  (`features/editor/tools/shape_options_panel.dart:63`) shows even when
+  hold to snap is off, and uses the "WORD — fragment" dash the taste bar
+  calls a tell.
+- *Fix:* "Hold the pen still to snap a shape (in the pen's options)".
+  When the switch is off, say "Hold to snap is off in the pen's options".
+
+### Whole app
+
+**R8-34 P2 · New surfaces have no screenshots.**
+- *What:* nothing in `test/screenshots/` renders:
+  - the move or copy picker;
+  - "New notebook…";
+  - backup progress and the restore result;
+  - the scribble preview;
+  - the Recent row inside a folder (hidden) or with trashed entries;
+  - the notice on a short window without notebooks.
+- *Why:* every round's drift was found in screenshots, and these surfaces
+  will drift unseen.
+- *Fix:* add them to `organise_screenshot_test.dart`,
+  `app_surfaces3_screenshot_test.dart` and `toolbar_screenshot_test.dart`.
+
+**R8-35 P2 · Small drift from DESIGN.md.**
+- *What:*
+  - Off-grid paddings of 5 and 3 dp in the template gallery's Import tile
+    (`documents/templates/template_gallery.dart:162,176`) and the paper
+    row (`library/new_notebook/paper_row.dart:123,135`).
+  - Warm greys (`#F3F3F0`, `#E4E4DF`, `#5F5F5A`) on the missing-PDF page
+    (`features/editor/document/missing_pdf_painter.dart:19,25,41`), where
+    §1 asks for true greys.
+- The rest of the sweep was clean:
+  - icons are all Sharp;
+  - radii come from tokens (except two scaled or 1-dp cases);
+  - the accent is used for state only;
+  - there are no `·` chains.
+- *Fix:* use `Gaps.xs` and `Gaps.xxs`, and true greys.
+
+### Simplify
+
+- **Text snapping always on.** A highlight that runs ≥ 70 % along text
+  lines (`pdf_highlight_snap.dart:26`) wants to be clean. Drop the
+  `holdToStraighten` gate (`ink_drawing.dart:242`), and with it the
+  coupling in R8-27.
+- **One home for writing gestures.** Settings → Writing already holds
+  "Draw with finger", "Side button" and "Tap to undo and redo"
+  (`settings/writing_settings.dart`). "Hold to snap" and "Scribble to
+  erase" are just as global, but sit in Pen › Feel after a per-pen reset.
+  Lead decision to revisit R7-3: either move both to Settings → Writing
+  (the pen panel keeps one caption), or lift them out of the collapsed
+  Feel to the end of the pen popover. Both on by default, as now.
+- **One import destination.** What the file is decides where it goes: a
+  notebook or folder goes into the open folder, a backup goes to the top
+  level (R8-15). Settings → Restore stays a shortcut to the same flow.
+- **Len export for several notebooks.** The export sheet hides the Len
+  format when several notebooks are selected (`export_sheet_sections.dart:64-66`).
+  Offering it removes the folder menu's separate "Export as Len file…"
+  (R8-20).
+- **One selection bar** for the library and the overview (R8-13).
+- **Disable "Back up library…" in an empty library**, and make no empty
+  "Backup …" folder when an import brings nothing.
+- **Drop the ring on the first PDF highlight swatch** (R8-31).
+- **Reuse `locationOf`** in the move or copy picker (R8-6) instead of
+  `_locations`.
+- Keep as is: no new settings are needed for any item above. Every fix is
+  a default, a caption or a removal.
+
+
 ## Round 7 audit (`review/round7`)
 
 Scope: what makes people stay with a handwriting app or leave it, measured
