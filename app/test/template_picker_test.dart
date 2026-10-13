@@ -268,7 +268,7 @@ void main() {
       mode: TemplatePickerMode.change,
       initial: PageTemplate(paper: Paper.planner(PaperStyle.weeklyPlanner, _today)),
     );
-    expect(find.text('Week 41 · 5 – 11 October 2026'), findsOneWidget);
+    expect(find.text('Week 41, 5 – 11 October 2026'), findsOneWidget);
     await tester.ensureVisible(find.byTooltip('Next'));
     await tester.tap(find.byTooltip('Next'));
     await tester.pumpAndSettle();

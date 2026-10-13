@@ -90,11 +90,10 @@ class PlannerLabels {
   }
 
   /// A short label of the period starting at [start], e.g. `Sun, 11 Oct
-  /// 2026`, `Week 41 · 5 – 11 October 2026`, `October 2026`, `2026`.
+  /// 2026`, `Week 41, 5 – 11 October 2026`, `October 2026`, `2026`.
   String describe(PlannerPeriod period, DateTime start, WeekStart weekStart) => switch (period) {
     PlannerPeriod.day => _dayShort.format(start),
-    PlannerPeriod.week =>
-      '${week(PlannerDates.weekNumber(start, weekStart))} · ${weekRange(start)}',
+    PlannerPeriod.week => '${week(PlannerDates.weekNumber(start, weekStart))}, ${weekRange(start)}',
     PlannerPeriod.month => monthYear(start),
     PlannerPeriod.year => '${start.year}',
   };

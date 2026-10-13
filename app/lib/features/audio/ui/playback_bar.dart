@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
+import '../../../ui/theme_components.dart';
 import '../notebook_audio.dart';
 import '../playback_controller.dart';
 import 'audio_format.dart';
@@ -106,7 +107,8 @@ class PlaybackBar extends StatelessWidget {
           Row(
             children: [
               _skip(playback, back: true),
-              IconButton.filledTonal(
+              IconButton.filled(
+                style: ThemeComponents.inkIconButton(Theme.of(context).colorScheme),
                 tooltip: playback.playing ? 'Pause (Space)' : 'Play (Space)',
                 onPressed: playback.loading ? null : () => unawaited(playback.toggle()),
                 icon: Icon(playback.playing ? Symbols.pause_sharp : Symbols.play_arrow_sharp),

@@ -265,6 +265,15 @@ extension ThemeComponents on ThemeData {
         return null;
       });
 
+  /// An Ink-filled icon button, the one primary control of a strip (the
+  /// audio player's play button): `IconButton.filled(style: inkIconButton(scheme))`.
+  static ButtonStyle inkIconButton(ColorScheme scheme) => IconButton.styleFrom(
+    backgroundColor: scheme.onSurface,
+    foregroundColor: scheme.surface,
+    disabledBackgroundColor: scheme.outlineVariant,
+    disabledForegroundColor: scheme.onSurfaceVariant,
+  ).copyWith(overlayColor: _inverseOverlay(scheme));
+
   /// The overlay of Ink-filled controls: the Board colour over the ink.
   static WidgetStateProperty<Color?> _inverseOverlay(ColorScheme scheme) =>
       WidgetStateProperty.resolveWith((states) {

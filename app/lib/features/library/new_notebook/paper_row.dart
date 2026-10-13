@@ -126,16 +126,12 @@ class _AllTemplatesTile extends StatelessWidget {
                 margin: const EdgeInsets.all(5),
                 width: width,
                 height: height,
+                // An outline like the library's New tile, not a grey plate.
                 decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(Radii.sm),
-                  border: Border.all(color: scheme.outlineVariant),
+                  border: Border.all(color: scheme.outline),
                 ),
-                child: Icon(
-                  Symbols.grid_view_sharp,
-                  size: Glyphs.bar,
-                  color: scheme.onSurfaceVariant,
-                ),
+                child: Icon(Symbols.grid_view_sharp, size: Glyphs.bar, color: scheme.onSurface),
               ),
               const SizedBox(height: Gaps.xs),
               SizedBox(

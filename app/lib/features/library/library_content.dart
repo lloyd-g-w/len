@@ -76,27 +76,31 @@ class LibraryContent extends StatelessWidget {
       while (span < columns && spanWidth(span) < minTile) {
         span++;
       }
+      final rule = Theme.of(context).colorScheme.outlineVariant;
+      Widget tile(Folder f) => FolderTile(
+        key: ValueKey('folder-${f.id}'),
+        folder: f,
+        subtitle: _folderCaption(f),
+        actions: actions,
+      );
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: spacing,
-            runSpacing: Gaps.xxs,
-            children: [
-              for (final f in folders)
-                SizedBox(
-                  width: spanWidth(span),
-                  child: FolderTile(
-                    key: ValueKey('folder-${f.id}'),
-                    folder: f,
-                    subtitle: _folderCaption(f),
-                    actions: actions,
-                  ),
-                ),
-            ],
-          ),
+          if (span == columns)
+            // One folder per line (large text, phones): ruled like list
+            // rows, a hairline between them that starts at the names.
+            for (final (i, f) in folders.indexed) ...[
+              if (i > 0) Divider(height: Hairline.width, indent: FolderTile.textInset, color: rule),
+              tile(f),
+            ]
+          else
+            Wrap(
+              spacing: spacing,
+              runSpacing: Gaps.xxs,
+              children: [for (final f in folders) SizedBox(width: spanWidth(span), child: tile(f))],
+            ),
           const SizedBox(height: Gaps.md),
-          Divider(height: Hairline.width, color: Theme.of(context).colorScheme.outlineVariant),
+          Divider(height: Hairline.width, color: rule),
         ],
       );
     },

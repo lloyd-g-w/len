@@ -152,7 +152,7 @@ class Paper {
   /// The labels of a planner page (in its language).
   PlannerLabels get labels => PlannerLabels.of((calendar ?? PlannerCalendar.standard).language);
 
-  /// The period a planner page shows, e.g. `Week 41 · 5 – 11 October
+  /// The period a planner page shows, e.g. `Week 41, 5 – 11 October
   /// 2026`, in the page's language; the style's label for other
   /// templates.
   String get period {
@@ -162,9 +162,9 @@ class Paper {
     return labels.describe(period, date, (calendar ?? PlannerCalendar.standard).weekStart);
   }
 
-  /// A short description for pickers and menus, e.g. `Weekly planner ·
-  /// Week 41 · 5 – 11 October 2026`.
-  String get label => date == null ? style.label : '${style.label} · $period';
+  /// A short description for pickers and menus, e.g. `Weekly planner,
+  /// Week 41, 5 – 11 October 2026`.
+  String get label => date == null ? style.label : '${style.label}, $period';
 
   @override
   bool operator ==(Object other) =>

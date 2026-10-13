@@ -242,7 +242,8 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         // The preview beside the form.
         Container(
           width: 320,
-          color: scheme.surfaceContainerLow,
+          // The preview lies on the sheet itself, a hairline beside the form.
+          decoration: BoxDecoration(border: Border(right: Surfaces.chromeEdge(scheme))),
           padding: const EdgeInsets.all(Gaps.xl),
           child: LayoutBuilder(builder: (context, c) => _preview(c.maxHeight.clamp(120.0, 220.0))),
         ),
@@ -282,7 +283,6 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
 
   Widget _phoneLayout(BuildContext context) {
     final media = MediaQuery.of(context);
-    final scheme = Theme.of(context).colorScheme;
     // With the keyboard up, or in a short window (a phone held sideways),
     // the preview yields its space to the form.
     final keyboard = media.viewInsets.bottom > 0 || media.size.height < 520;
@@ -317,7 +317,6 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
                           : ClipRect(
                               child: Container(
                                 height: previewHeight + Gaps.lg * 2,
-                                color: scheme.surfaceContainerLow,
                                 padding: const EdgeInsets.symmetric(vertical: Gaps.lg),
                                 child: _preview(previewHeight),
                               ),

@@ -12,14 +12,15 @@ import '../viewport.dart';
 class PaperColors {
   const PaperColors({
     this.margin = const Color(0x66E86A6A),
-    this.desk = const Color(0xFFE9EAEE),
+    this.desk = const Color(0xFFE6E6E6),
     this.shadow = const Color(0x33000000),
   });
 
   /// The red margin line of ruled paper.
   final Color margin;
 
-  /// Background around pages.
+  /// Background around pages: by default the light Desk tone (a true
+  /// grey, DESIGN §1); the editor passes the theme's.
   final Color desk;
   final Color shadow;
 }
