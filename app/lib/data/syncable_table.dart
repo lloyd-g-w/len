@@ -46,12 +46,34 @@ abstract class SyncableTable implements SyncableStore {
     return time > previous ? time : previous + 1;
   }
 
+  /// The newest version among rows matching the SQL condition [where]
+  /// (0 if none): a batch of writes stamped later than it beats them all.
+  int latestVersion(String where, List<Object?> args) =>
+      db.select('SELECT MAX(updated_at) AS v FROM $table WHERE $where', args).first['v'] as int? ??
+      0;
+
+  /// Brings tombstoned rows [ids] back as local edits (a deletion that
+  /// raced an edit, see `DeletionConflicts`). Tables whose tombstones keep
+  /// every column revive them as they were.
+  void revive(Iterable<String> ids) {
+    final now = clock.nowMs();
+    for (final id in ids) {
+      db.execute(
+        'UPDATE $table SET deleted = 0, dirty = 1, updated_at = ?, device_id = ? '
+        'WHERE id = ? AND deleted = 1',
+        [nextVersion(id, now), deviceId, id],
+      );
+    }
+  }
+
   @override
-  List<SyncRecord> dirtyRecords(int limit, {String? after}) => db
-      .select('SELECT * FROM $table WHERE dirty = 1 AND id > ? ORDER BY id LIMIT ?', [
-        after ?? '',
-        limit,
-      ])
+  List<SyncRecord> dirtyRecords(int limit, {String? after, bool? deleted}) => db
+      .select(
+        'SELECT * FROM $table WHERE dirty = 1 AND id > ? '
+        '${deleted == null ? '' : 'AND deleted = ${deleted ? 1 : 0} '}'
+        'ORDER BY id LIMIT ?',
+        [after ?? '', limit],
+      )
       .map(rowToRecord)
       .toList();
 

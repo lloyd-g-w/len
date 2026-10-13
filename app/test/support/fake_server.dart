@@ -54,6 +54,10 @@ class FakeServer {
   /// server not advertising its limit).
   int? rejectBlobsAbove;
 
+  /// Ids of records the server refuses as invalid (400 naming the index of
+  /// the first one in the push, applying nothing).
+  final Set<String> invalidRecords = {};
+
   /// Blob uploads that fail with 500.
   final Set<String> failingPuts = {};
 
@@ -114,6 +118,11 @@ class FakeServer {
         final records = body['records']! as List;
         if (_historyLost(body['since'] ?? 0) case final lost?) return lost;
         if (records.length > 1000) return http.Response('{"error":"too many"}', 413);
+        for (var i = 0; i < records.length; i++) {
+          if (invalidRecords.contains((records[i] as Map)['id'])) {
+            return http.Response(jsonEncode({'error': 'records[$i]: invalid', 'index': i}), 400);
+          }
+        }
         pushes.add((bytes: request.bodyBytes.length, count: records.length));
         for (final r in (body['records']! as List).cast<Map<String, Object?>>()) {
           final key = '${r['collection']}/${r['id']}';

@@ -32,6 +32,7 @@ class SyncController extends ChangeNotifier {
   static SyncApi _defaultApi(String url, String token) => SyncApi(baseUrl: url, token: token);
 
   final _remoteChanges = StreamController<RemoteChanges>.broadcast();
+  final _notices = StreamController<String>.broadcast();
   Timer? _timer;
   Future<void>? _running;
   Future<void>? _queued;
@@ -77,6 +78,10 @@ class SyncController extends ChangeNotifier {
 
   /// Fires after a sync that changed local data.
   Stream<RemoteChanges> get remoteChanges => _remoteChanges.stream;
+
+  /// One-line notices for the user (e.g. everything was synced again
+  /// because the server changed), each sent once after the sync it concerns.
+  Stream<String> get notices => _notices.stream;
 
   /// Announces [changes] as if a sync had brought them (tests).
   @visibleForTesting
@@ -178,6 +183,7 @@ class SyncController extends ChangeNotifier {
         );
       }
       if (!changes.isEmpty) _remoteChanges.add(changes);
+      if (engine.takeResync() case final notice?) _notices.add(notice);
     } on SyncException catch (e) {
       _fail(e.message, cancelled());
     } catch (e, stack) {
@@ -218,6 +224,7 @@ class SyncController extends ChangeNotifier {
     _disposed = true;
     _timer?.cancel();
     unawaited(_remoteChanges.close());
+    unawaited(_notices.close());
     super.dispose();
   }
 }

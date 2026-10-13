@@ -197,7 +197,11 @@ void main() {
       test(name, () async {
         final r = await send('POST', '/v1/push', body: body);
         expect(r.statusCode, 400);
-        expect((await jsonOf(r))['error'], isA<String>());
+        final json = await jsonOf(r);
+        expect(json['error'], isA<String>());
+        // Only an invalid record has an index (the client skips just it).
+        final oneRecord = name == 'invalid record' || name == 'data not object';
+        expect(json['index'], oneRecord ? 0 : isNull);
       });
     });
 
@@ -213,6 +217,7 @@ void main() {
         },
       );
       expect(r.statusCode, 400);
+      expect(await jsonOf(r), {'error': startsWith('records[1]: '), 'index': 1});
       expect(store.currentSeq(), 0);
     });
 
@@ -223,6 +228,7 @@ void main() {
       final body = '{"records":[${rec.substring(0, rec.length - 1)},"data":$data}]}';
       final r = await send('POST', '/v1/push', body: body);
       expect(r.statusCode, 400);
+      expect((await jsonOf(r))['index'], 0);
       expect(store.currentSeq(), 0);
     });
 

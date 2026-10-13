@@ -8,6 +8,7 @@ import 'package:len/app_services.dart';
 import 'package:len/core/clock.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/blob_references.dart';
+import 'package:len/data/tombstone_payloads.dart';
 import 'package:len/domain/image_data.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
@@ -15,6 +16,8 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/platform/blob_backend_native.dart';
+
+import 'support/fake_server.dart';
 
 /// A clock tests can move forward.
 class _Clock extends Clock {
@@ -181,7 +184,10 @@ void main() {
       final r = recording(notebook(), sha);
       await s.blobGc.run(); // Referenced: unmarked.
       s.recordings.delete(r.id);
-      clock.advance(const Duration(days: 5));
+      clock.advance(const Duration(days: 8));
+      // A deletion may still be undone by sync (TombstonePayloads).
+      expect(await s.blobGc.run(), isEmpty);
+      clock.advance(TombstonePayloads.retention);
       await s.blobGc.run(); // Marked anew.
       clock.advance(const Duration(days: 5));
       expect(await s.blobGc.run(), isEmpty);
@@ -218,6 +224,30 @@ void main() {
       clock.advance(const Duration(days: 30));
       expect(await s.blobGc.run(), isEmpty);
       expect(await s.blobs.has(sha), isTrue);
+    });
+
+    test('deleted forever: ink and blobs are kept while sync may undo it', () async {
+      final pdf = await blob('pdf'), img = await blob('img'), audio = await blob('audio');
+      final n = notebook();
+      final page = pdfPage(n, pdf);
+      image(page.id, img);
+      recording(n, audio);
+      s.strokes.save([bigStroke('ink', page.id, 3)]);
+      s.notebooks.delete(n.id);
+      String points() =>
+          '${s.database.db.select("SELECT length(points) AS n FROM strokes").single['n']}';
+      expect(points(), isNot('0'));
+
+      await s.blobGc.run();
+      clock.advance(TombstonePayloads.retention - const Duration(days: 1));
+      expect(await s.blobGc.run(), isEmpty);
+      expect(points(), isNot('0'));
+      clock.advance(const Duration(days: 2));
+      expect(await s.blobGc.run(), isEmpty); // Marked; the ink is gone.
+      expect(points(), '0');
+      expect(s.database.db.select("SELECT * FROM elements WHERE data <> '{}'"), isEmpty);
+      clock.advance(const Duration(days: 7));
+      expect((await s.blobGc.run()).toSet(), {pdf, img, audio});
     });
 
     test('runIfDue runs at most once a day', () async {

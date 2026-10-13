@@ -64,7 +64,9 @@ Body: `{"since": <int>, "records": [Record, …]}` — at most 1000 records, bod
 server's newest seq, the server lost changes the client has seen: it applies nothing and answers
 `409` (see [Server identity](#server-identity)).
 
-Applied atomically in one transaction. Response `200`:
+Applied atomically in one transaction. If a record is invalid, nothing is applied and the answer
+is `400 {"error": "records[3]: …", "index": 3}`: `index` is the position of the (first) invalid
+record in `records`, so the client can send the others again without it. Response `200`:
 ```json
 {"applied": 12, "ignored": 3, "serverSeq": 4711}
 ```
@@ -84,7 +86,8 @@ up to 8 MiB (always returning at least one), so responses stay bounded when reco
 `hasMore` is true; a page with `hasMore: true` always advances `nextSince`.
 
 ### Errors
-`401` missing/bad token, `400` malformed request (body `{"error": "…"}`), `409` the client is
+`401` missing/bad token, `400` malformed request (body `{"error": "…"}`, plus `index` for an
+invalid pushed record), `409` the client is
 ahead of the server (lost history), `413` too large, `404` unknown route.
 
 ### Server identity
@@ -203,7 +206,9 @@ reference and uploads any the server lost.
 
 **Client** (local, never visible to the server): a locally stored blob is deleted from the device
 once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio parts and waveform) and the user's
-templates; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. The app
+templates; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. Tombstoned
+pages, elements and recordings count for 30 days after their deletion, as long as a
+[deletion conflict](#deletion-conflicts) may still bring them back. The app
 checks this at startup at most once a day. A blob collected locally is fetched again lazily if a
 record referencing it arrives later.
 
@@ -212,16 +217,56 @@ record referencing it arrives later.
 0. **Health**: `GET /v1/health`; stop with an explanation if it is not a compatible Len server;
    reset if its `serverId` changed ([Server identity](#server-identity)).
 1. **Push**: read locally dirty rows in pages ordered by id (keyset pagination, so rows that stay
-   dirty cannot stall the loop) and send them in requests of at most 1000 records and ~4 MiB of
-   JSON. A single record too large for the server's body limit is skipped (it stays dirty). After
+   dirty cannot stall the loop) — live rows collection by collection in the order of the table
+   below (parents first), then tombstones in the reverse order (children first, so a server never
+   holds a deleted page or notebook whose content is still live because a push stopped half way) —
+   and send them in requests of at most 1000 records and ~4 MiB of
+   JSON. A single record too large for the server's body limit is skipped (it stays dirty), and so
+   is a record the server rejects with `400` and its `index` (logged; the rest of that request is
+   sent again; a `400` without an index fails the cycle). After
    success, clear the dirty flag of each row whose `updatedAt` has not changed since it was read.
    Every push carries `since` = `lastPulledSeq`; on `409` the client resets (as for a new
    `serverId`) and starts the cycle over once.
 2. **Pull**: from the stored `lastPulledSeq`, page through `/v1/pull`, applying each record locally
    with the same LWW rule, then persist `nextSince` in the same local transaction. Malformed
    records and unknown collections are skipped (never retried), so they cannot block sync.
+   After the last page the client resolves [deletion conflicts](#deletion-conflicts) and, if it
+   brought anything back, pushes again.
 
 Records echoed back from the client's own push are harmless (LWW makes them no-ops).
+
+### Deletion conflicts
+
+Last-write-wins works per record, so a deletion racing an edit on another device would lose the
+edit: strokes written offline on a page another device deleted would land on a deleted page
+(invisible), and a notebook "deleted forever" whose record an offline device edited (writing in a
+notebook updates its `editedAt`) would come back without pages. Rule: **data is never silently
+lost**. Content edited elsewhere while its page or notebook was deleted brings the deleted page or
+notebook back, with everything the deletion removed; a notebook comes back **into the trash** (or
+stays there), where the user can restore it or delete it forever again.
+
+- **One version per deletion.** Deleting a page tombstones it with its strokes and elements, and
+  deleting a notebook forever tombstones it with its pages, strokes, elements, recordings and
+  outline entries, each with one `updatedAt` (later than every row it replaces) and the deleting
+  device's `deviceId`. That pair marks the tombstones of one deletion.
+- **Detection.** After a complete pull, a client looks for tombstoned pages holding live strokes
+  or elements, and for tombstoned notebooks holding live pages, recordings, outline entries or
+  canvas content — content that was written without knowing about the deletion. While pulling, it
+  also notices a live record replacing a page or notebook it holds as a tombstone (the edit won
+  last-write-wins over the deletion).
+- **Revival.** The client revives the page or notebook and every row of the same deletion (same
+  `updatedAt` and `deviceId`) as local edits, which it pushes right away; a revived notebook gets
+  `trashedAt` (unless it is in the trash already). Pages deleted earlier, by another deletion, stay
+  deleted. Every device holding the deleted content does this, so it does not matter which syncs
+  first; repeated revivals are ordinary last-write-wins updates of the same data. Tombstones the
+  client only knows as placeholders (never seen live) are not revived.
+- **Payloads are kept for 30 days.** A tombstoned stroke or element keeps its points or data on the
+  device (never sent: tombstones carry `data: null`), and the blobs of tombstoned pages, elements
+  and recordings stay referenced, for 30 days, matching the server's blob grace period; then they
+  are dropped. A conflict seen later revives the rows without that content.
+- Folders: deleting a folder trashes its notebooks (live records), so a notebook revived from a
+  deleted folder is in the trash and, when restored, goes to the library root like any notebook
+  whose folder is gone.
 
 **Local versions.** `updatedAt` comes from the client's wall clock, but a local write always stamps
 `max(now, previous updatedAt + 1)`. An edit therefore always beats the version it replaces, even if
@@ -268,7 +313,7 @@ Enumerated values: `kind` as above (notebooks); `paper` and `paperColor` see [Pa
 - `notebooks.folderId` pointing at a missing folder means "library root".
 - `notebooks.trashedAt` (ms) puts a notebook in the trash; it stays a live record so it can be
   restored. "Delete forever" tombstones the notebook, its pages, strokes, elements, recordings and
-  outline entries. Duplicating a notebook copies its outline (onto the copied pages).
+  outline entries (one deletion, see [Deletion conflicts](#deletion-conflicts)). Duplicating a notebook copies its outline (onto the copied pages).
 - `notebooks.paperColor` is the background of a canvas (same values as on pages);
   `notebooks.paper` + `paperData` its pattern.
 - `editedAt` is the last content/title edit (used for "last edited" sorting); organisation changes

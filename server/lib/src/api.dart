@@ -154,7 +154,8 @@ Future<Response> _push(Request request, RecordStore store) async {
     try {
       records.add(SyncRecord.fromJson(rawRecords[i]));
     } on RecordValidationException catch (e) {
-      return _badRequest('records[$i]: ${e.message}');
+      // `index` lets the client skip just this record and push the rest.
+      return _json(HttpStatus.badRequest, {'error': 'records[$i]: ${e.message}', 'index': i});
     }
   }
 
