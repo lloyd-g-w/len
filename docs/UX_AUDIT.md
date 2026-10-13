@@ -284,8 +284,11 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
     ✅ the paused recorder shows "Paused" in place of the level meter and
     Resume is a play icon.
 23. ✅ List view shows the favourite star twice (cover badge plus column).
-24. ⬜ A missing PDF background renders as a silently blank page (should be
-    a placeholder with a "Relink…" action).
+24. ✅ A missing PDF background renders as a silently blank page (should be
+    a placeholder with a "Relink…" action). → Hatched "PDF page
+    unavailable" pages and thumbnails, and an editor notice with Retry and
+    Relink… (same file restores it; a different one replaces it page for
+    page after a confirm, refused if it has too few pages).
 25. ⬜ Canvases can't be exported (no entry point).
 26. ⬜ Desktop: folder cards and the notebook grid end at different right
     edges, and titles are limited to one line.

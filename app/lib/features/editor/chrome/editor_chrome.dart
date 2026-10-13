@@ -82,6 +82,7 @@ class EditorChrome extends StatelessWidget {
     required this.toolbar,
     required this.hud,
     this.tips,
+    this.notice,
     required this.onExitFocus,
     this.navigator,
     this.navigatorActivity,
@@ -106,6 +107,9 @@ class EditorChrome extends StatelessWidget {
 
   /// One-time tips, shown under the HUD.
   final TipsController? tips;
+
+  /// A standing notice under the tips (e.g. a PDF that can't be had).
+  final Widget? notice;
   final VoidCallback onExitFocus;
   final (double, double)? floatAt;
   final ValueChanged<(double, double)>? onFloatMoved;
@@ -198,6 +202,11 @@ class EditorChrome extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: Gaps.sm, left: Gaps.md, right: Gaps.md),
                   child: TipBanner(controller: tips),
+                ),
+              if (notice case final notice?)
+                Padding(
+                  padding: const EdgeInsets.only(top: Gaps.sm, left: Gaps.md, right: Gaps.md),
+                  child: notice,
                 ),
             ],
           ),

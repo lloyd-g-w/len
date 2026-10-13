@@ -516,6 +516,14 @@ tiles are drawn without anti-aliasing so neighbours meet without seams.
 Images and tiles share one LRU within a memory budget (160 MiB); requests
 are served newest first (whole pages before tiles, the middle of the view
 before its edges) and dropped when no paint repeated them for 2 s.
+A PDF that is neither on the device nor fetchable (or that PDFium can't
+read) is *missing* (`PageBackgrounds.isMissing`): its pages and their
+thumbnails paint a hatched "PDF page unavailable" placeholder
+(`missing_pdf_painter.dart`) instead of staying blank, and the editor shows
+`MissingPdfNotice` with Retry (`retryMissing`, also run after each sync) and
+Relink… (`relinkPdfFlow`): the same file restores the blob; a different one,
+once confirmed and only if it has enough pages, replaces it page for page
+(`PageRepository.relinkBackground`, synced like any page edit).
 PDFium itself is a native asset downloaded at build time by `pdfium_dart`'s
 build hook (Linux, Windows, Android), so no system package is needed; on the
 web `pdfrx` runs PDFium as WebAssembly in a worker. `PdfRenderer` opens a

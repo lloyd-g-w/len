@@ -27,5 +27,10 @@ abstract class PageBackgrounds implements Listenable {
     double pixelsPerUnit,
   );
 
+  /// Whether [background]'s file couldn't be had: it is neither on this
+  /// device nor could it be fetched (or it could not be read). Such pages
+  /// show a placeholder instead of staying silently blank.
+  bool isMissing(PageBackground background);
+
   void dispose();
 }

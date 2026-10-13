@@ -8,6 +8,7 @@ import 'chrome/editor_chrome.dart';
 import 'chrome/editor_tips.dart';
 import 'chrome/editor_top_bar.dart';
 import 'chrome/gesture_hud.dart';
+import 'chrome/missing_pdf_notice.dart';
 import 'document/document_layout.dart';
 import 'editor_actions.dart';
 import 'editor_session.dart';
@@ -160,6 +161,21 @@ class EditorChromeHost extends StatelessWidget {
     );
   }
 
+  /// Paged notebooks: says when a PDF their pages are drawn on is missing.
+  Widget? _missingPdfNotice() {
+    final doc = session.doc;
+    final commands = session.commands;
+    final backgrounds = session.backgrounds;
+    if (doc == null || commands == null || backgrounds == null) return null;
+    return Builder(
+      builder: (context) => MissingPdfNotice(
+        backgrounds: backgrounds,
+        doc: doc,
+        onRelink: (blob) => commands.relinkPdf(context, blob, backgrounds),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final doc = session.doc;
@@ -173,6 +189,7 @@ class EditorChromeHost extends StatelessWidget {
         layout: layout,
         hud: hud,
         tips: tips,
+        notice: _missingPdfNotice(),
         onExitFocus: commands.toggleFocus,
         floatAt: prefs.toolbarFloat,
         onFloatMoved: (at) => prefs.toolbarFloat = at,
