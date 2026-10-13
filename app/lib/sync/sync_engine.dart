@@ -239,14 +239,12 @@ class SyncEngine {
                 for (final r in rows)
                   if (!BlobReferences.inValue(r.data).any(heldBack.contains)) r,
               ];
-        final oversized = ready.isEmpty
+        // Records the API could not send (too large, not encodable) stay dirty.
+        final unsent = ready.isEmpty
             ? const <SyncRecord>[]
             : await api.push(ready, since: settings.syncLastSeq);
         if (cancelled()) return;
-        for (final r in oversized) {
-          debugPrint('Not syncing oversized ${r.collection}/${r.id}');
-        }
-        final skipped = {for (final r in oversized) r.id};
+        final skipped = {for (final r in unsent) r.id};
         store.markClean([
           for (final r in ready)
             if (!skipped.contains(r.id)) (id: r.id, updatedAt: r.updatedAt),

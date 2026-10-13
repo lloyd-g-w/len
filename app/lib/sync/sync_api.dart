@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../data/syncable.dart';
@@ -124,9 +124,10 @@ class SyncApi {
   /// ([SyncFailure.historyLost]).
   ///
   /// Returns the records that were not sent because a single one exceeds
-  /// [maxRecordBytes]; everything else was accepted by the server.
+  /// [maxRecordBytes] or cannot be encoded as JSON; everything else was
+  /// accepted by the server.
   Future<List<SyncRecord>> push(List<SyncRecord> records, {required int since}) async {
-    final oversized = <SyncRecord>[];
+    final unsent = <SyncRecord>[];
     var batch = <String>[];
     var batchBytes = 0;
 
@@ -139,11 +140,21 @@ class SyncApi {
     }
 
     for (final record in records) {
-      final encoded = jsonEncode(record.toJson());
+      final String encoded;
+      try {
+        encoded = jsonEncode(record.toJson());
+      } on JsonUnsupportedObjectError catch (e) {
+        // A value JSON cannot hold (NaN or infinity from a geometry bug):
+        // skip this record rather than failing the push of every other.
+        debugPrint('Cannot encode ${record.collection}/${record.id}: ${e.cause ?? e}');
+        unsent.add(record);
+        continue;
+      }
       // Records are mostly ASCII (base64 points); measure exactly anyway.
       final bytes = utf8.encode(encoded).length;
       if (bytes > maxRecordBytes) {
-        oversized.add(record);
+        debugPrint('Not syncing oversized ${record.collection}/${record.id}');
+        unsent.add(record);
         continue;
       }
       if (batch.length >= maxPushRecords || batchBytes + bytes > pushBytesTarget) {
@@ -153,7 +164,7 @@ class SyncApi {
       batchBytes += bytes + 1; // + separator
     }
     await flush();
-    return oversized;
+    return unsent;
   }
 
   /// Fetches one page of changes after [since].

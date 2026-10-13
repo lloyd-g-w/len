@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:len_sync_server/len_sync_server.dart';
 import 'package:test/test.dart';
 
@@ -108,6 +110,25 @@ void main() {
       // Tombstones drop their data, so its depth does not matter.
       final tomb = SyncRecord.fromJson({...validJson(), 'deleted': true, 'data': nest(max + 1)});
       expect(tomb.data, isNull);
+    });
+
+    test('rejects numbers JSON cannot store (1e400 decodes to infinity)', () {
+      for (final data in [
+        {'x': double.infinity},
+        {
+          'a': [1.5, double.nan],
+        },
+        jsonDecode('{"b":{"c":-1e400}}'),
+      ]) {
+        expect(() => SyncRecord.fromJson({...validJson(), 'data': data}), throwsValidation);
+      }
+      expect(
+        SyncRecord.fromJson({
+          ...validJson(),
+          'data': {'x': 1e300},
+        }).data,
+        isNotNull,
+      );
     });
 
     test('rejects missing fields', () {

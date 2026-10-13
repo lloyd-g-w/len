@@ -29,7 +29,8 @@ defaults, unknown fields and values tolerated.
 }
 ```
 
-The server stores `data` opaquely (it accepts `null` for live records); the app treats a live
+The server stores `data` opaquely (it accepts `null` for live records; it rejects data nested
+deeper than 64 levels or holding numbers outside the double range, which it could not store); the app treats a live
 record without a `data` object as malformed.
 
 Records returned by the server additionally contain `"seq": <int>` — a strictly increasing,

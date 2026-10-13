@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/syncable.dart';
 import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
@@ -87,6 +88,23 @@ void main() {
     expect(server.pushes.every((p) => p.bytes <= SyncApi.pushBytesTarget), isTrue);
     expect(server.pushes.fold<int>(0, (n, p) => n + p.count), 600);
     expect(a.strokes.dirtyRecords(1000), isEmpty);
+  });
+
+  test('a record JSON cannot encode is skipped, the others are pushed', () async {
+    final server = FakeServer();
+    SyncRecord record(String id, double x) => SyncRecord(
+      collection: 'elements',
+      id: id,
+      updatedAt: 1,
+      deviceId: 'd',
+      deleted: false,
+      data: {'x': x},
+    );
+    final unsent = await apiFor(server)
+        .push([record('bad', double.nan), record('ok', 1)], since: 0);
+    expect(unsent.single.id, 'bad');
+    expect(server.stored('elements', 'ok'), isNotNull);
+    expect(server.stored('elements', 'bad'), isNull);
   });
 
   test('malformed pulled records are skipped and the feed advances', () async {
