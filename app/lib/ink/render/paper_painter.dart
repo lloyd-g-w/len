@@ -101,11 +101,10 @@ abstract final class PaperRenderer {
       if (image != null) _paintImage(canvas, image, page!);
       return;
     }
-    // Staves stay as grey bands in thumbnails (they read as music).
-    final miniPitch = thumbnail && style == PaperStyle.music
-        ? minMiniatureSpacing / 2
-        : minMiniatureSpacing;
+    // Staves are structure: they stay as grey bands in thumbnails and
+    // template miniatures (they read as music).
     final mini = always || thumbnail;
+    final miniPitch = style == PaperStyle.music ? minMiniatureSpacing / 2 : minMiniatureSpacing;
     final minPitch = (mini ? miniPitch : _threshold(style)) / scale;
     final pattern = PaperPattern.of(paper, area, page: page, minPitch: minPitch);
     if (pattern.isEmpty) return;

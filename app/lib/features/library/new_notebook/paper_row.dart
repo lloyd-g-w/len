@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
@@ -8,7 +9,7 @@ import '../../documents/templates/template_gallery.dart';
 
 /// The new-notebook sheet's paper choice: the recently used papers as
 /// miniatures (the selection first when it is not one of them, e.g. a
-/// planner from the full chooser), then "All templates…".
+/// planner from the full chooser), then "More…" (all templates).
 class PaperRow extends StatelessWidget {
   const PaperRow({
     super.key,
@@ -27,8 +28,8 @@ class PaperRow extends StatelessWidget {
   /// Opens the full template chooser.
   final VoidCallback onAll;
 
-  /// What a tile adds around its miniature (padding and selection ring).
-  static const double _tileChrome = 2 * (Gaps.xs + 5);
+  /// What a tile adds around its miniature (padding and selection rule).
+  static const double _tileChrome = 2 * TemplateTile.inset;
 
   @override
   Widget build(BuildContext context) {
@@ -38,10 +39,18 @@ class PaperRow extends StatelessWidget {
     final landscape = current.orientation == PageOrientation.landscape;
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Every tile fits when it can; on phones the row scrolls.
-        final fit = constraints.maxWidth / (entries.length + 1) - _tileChrome;
+        // Every tile fits when it can; on phones the row scrolls. The
+        // tiles hang out by their inset so the miniatures align with the
+        // heading (as in the gallery).
+        final available = constraints.maxWidth + _tileChrome;
+        final fit = available / (entries.length + 1) - _tileChrome;
         final portrait = fit.clamp(48.0, 64.0);
-        return _row(current, entries, listed, landscape ? portrait * 1.3 : portrait);
+        return OverflowBox(
+          fit: OverflowBoxFit.deferToChild,
+          minWidth: available,
+          maxWidth: available,
+          child: _row(current, entries, listed, landscape ? portrait * 1.3 : portrait),
+        );
       },
     );
   }
@@ -83,26 +92,13 @@ class PaperRow extends StatelessWidget {
   }
 }
 
-/// "All templates…": a tile the size of a miniature.
+/// "More…" (all templates): a tile the size of a miniature.
 class _AllTemplatesTile extends StatelessWidget {
   const _AllTemplatesTile({required this.width, required this.height, required this.onTap});
 
   final double width;
   final double height;
   final VoidCallback onTap;
-
-  /// Whether [word] fits on one line [width] wide in the label's style.
-  static bool _fits(BuildContext context, String word, double width) {
-    final painter = TextPainter(
-      text: TextSpan(text: word, style: Theme.of(context).textTheme.bodySmall),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-      maxLines: 1,
-    )..layout();
-    final fits = painter.width <= width;
-    painter.dispose();
-    return fits;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,10 +116,11 @@ class _AllTemplatesTile extends StatelessWidget {
           padding: const EdgeInsets.all(Gaps.xs),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                // The miniature's selection ring (3 + 2) around the page.
-                margin: const EdgeInsets.all(5),
+                // Where a template tile has its page (and margin rule).
+                margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
                 width: width,
                 height: height,
                 // An outline like the library's New tile, not a grey plate.
@@ -134,16 +131,11 @@ class _AllTemplatesTile extends StatelessWidget {
                 child: Icon(Symbols.grid_view_sharp, size: Glyphs.bar, color: scheme.onSurface),
               ),
               const SizedBox(height: Gaps.xs),
-              SizedBox(
-                width: width + 10,
-                child: Text(
-                  // Never broken mid-word: "More…" where "templates…"
-                  // doesn't fit on a line (large text on a narrow tile).
-                  _fits(context, 'templates…', width + 10) ? 'All templates…' : 'More…',
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  style: theme.textTheme.bodySmall,
-                ),
+              Padding(
+                padding: const EdgeInsets.only(left: 5),
+                // One short name on every width: "All templates…" broke
+                // or swapped names on narrow tiles with large text.
+                child: Text('More…', maxLines: 1, style: theme.textTheme.bodySmall),
               ),
             ],
           ),

@@ -58,24 +58,7 @@ class TemplateOptions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (preview) ...[
-          Center(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(Radii.xs),
-                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                boxShadow: Shadows.low(Theme.of(context).brightness),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(Radii.xs),
-                child: TemplatePreview(
-                  template: template,
-                  width: template.orientation == PageOrientation.landscape
-                      ? previewWidth * 1.4
-                      : previewWidth,
-                ),
-              ),
-            ),
-          ),
+          PagePreview(template: template, width: previewWidth),
           const SizedBox(height: Gaps.lg),
         ],
         AnimatedSize(

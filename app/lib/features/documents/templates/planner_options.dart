@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../domain/paper.dart';
 import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/section_label.dart';
 import '../../../ui/segment_label.dart';
 import 'page_setup.dart';
 import 'template_catalog.dart';
@@ -211,7 +212,7 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: Gaps.sm),
-    child: Text(text, style: Theme.of(context).textTheme.labelLarge),
+    child: Semantics(header: true, child: Text(text, style: SectionLabel.style(context))),
   );
 }
 

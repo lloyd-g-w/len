@@ -24,7 +24,7 @@ import 'new_notebook/recent_papers.dart';
 export 'new_notebook/new_notebook_request.dart';
 
 /// Creates a notebook or an infinite canvas, in one column: title;
-/// Notebook / Canvas; paper (the recent ones, then "All templates…");
+/// Notebook / Canvas; paper (the recent ones, then "More…");
 /// cover colour; page size; Create. A dialog with a live preview beside
 /// the form on wide screens; a full-height sheet on phones, its preview
 /// strip scrolling away with the form.

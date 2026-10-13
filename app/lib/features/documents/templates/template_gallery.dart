@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
@@ -38,29 +39,41 @@ class TemplateGallery extends StatelessWidget {
   final void Function(UserTemplate template, Offset position)? onTemplateMenu;
 
   /// Space a tile takes beyond its miniature's width (padding, selection
-  /// ring, label overhang), and the gap between tiles.
-  static const double _tileChrome = 2 * Gaps.xs + 10, _spacing = Gaps.xxs;
+  /// rule), and the gap between tiles.
+  static const double _tileChrome = 2 * TemplateTile.inset, _spacing = Gaps.xxs;
 
   /// The miniature width that fills [available] with whole columns of
-  /// tiles: the column count whose tiles come closest to [preferred].
-  static double fillWidth(double available, double preferred) {
+  /// tiles: the column count whose tiles come closest to [preferred], fewer
+  /// where a name's longest word ([minLabel] wide) would not fit.
+  static double fillWidth(double available, double preferred, {double minLabel = 0}) {
     if (!available.isFinite) return preferred;
-    final columns = math.max(
+    double widthFor(int columns) => (available - (columns - 1) * _spacing) / columns - _tileChrome;
+    var columns = math.max(
       1,
       ((available + _spacing) / (preferred + _tileChrome + _spacing)).round(),
     );
-    final width = (available - (columns - 1) * _spacing) / columns - _tileChrome;
-    return math.max(width, preferred * 0.75);
+    while (columns > 1 && widthFor(columns) + TemplateTile.labelOverhang < minLabel) {
+      columns--;
+    }
+    return math.max(widthFor(columns), preferred * 0.75);
   }
 
   @override
   Widget build(BuildContext context) {
     final landscape = selection.template.orientation == PageOrientation.landscape;
+    final minLabel = [
+      for (final (_, entries) in sections)
+        for (final entry in entries) TemplateTile.wordWidth(context, entry.name),
+    ].fold(0.0, math.max);
     // Every section shares one column grid that fills the width, so no
-    // gutter is left at the end of the rows.
+    // gutter is left at the end of the rows. The tiles hang out by their
+    // inset on both sides, so the miniatures line up with the headings
+    // and the content's edges.
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = fillWidth(constraints.maxWidth, landscape ? tileWidth * 1.3 : tileWidth);
+        final available = constraints.maxWidth + 2 * TemplateTile.inset;
+        final preferred = landscape ? tileWidth * 1.3 : tileWidth;
+        final width = fillWidth(available, preferred, minLabel: minLabel);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -71,17 +84,22 @@ class TemplateGallery extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.only(bottom: Gaps.xs, left: Gaps.xs),
+                      padding: const EdgeInsets.only(bottom: Gaps.xs),
                       child: SectionLabel(category.label),
                     ),
-                    Wrap(
-                      spacing: _spacing,
-                      runSpacing: Gaps.xs,
-                      children: [
-                        for (final entry in entries) _tile(entry, width),
-                        if (category == TemplateCategory.mine && onImport != null)
-                          _ImportTile(width: width, height: width * 1.414, onTap: onImport!),
-                      ],
+                    OverflowBox(
+                      fit: OverflowBoxFit.deferToChild,
+                      minWidth: available,
+                      maxWidth: available,
+                      child: Wrap(
+                        spacing: _spacing,
+                        runSpacing: Gaps.xs,
+                        children: [
+                          for (final entry in entries) _tile(entry, width),
+                          if (category == TemplateCategory.mine && onImport != null)
+                            _ImportTile(width: width, height: width * 1.414, onTap: onImport!),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -243,16 +261,16 @@ class TemplateTile extends StatelessWidget {
               ),
               const SizedBox(height: Gaps.xs),
               SizedBox(
-                width: width + 2 * _ruleRoom,
+                // The name may run into the gap after the miniature, and
+                // the tile grows rather than break a word (large text).
+                width: math.max(width + labelOverhang, wordWidth(context, label)) + _ruleRoom,
                 child: Padding(
                   padding: const EdgeInsets.only(left: _ruleRoom),
                   child: Text(
                     label,
                     maxLines: 2,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
+                    overflow: TextOverflow.ellipsis,
+                    style: _labelStyle(context, selected: selected),
                   ),
                 ),
               ),
@@ -265,6 +283,42 @@ class TemplateTile extends StatelessWidget {
 
   /// Room on each side of the miniature: the margin rule and its gap.
   static const double _ruleRoom = 5;
+
+  /// How far the miniature sits inside the tile: its padding and the room
+  /// for the margin rule. The gallery hangs tiles out by this much so the
+  /// miniatures align with the content's left edge (the rule sits in the
+  /// margin, like the sidebar's).
+  static const double inset = Gaps.xs + _ruleRoom;
+
+  /// How far a name may run past its miniature (into the tile's padding).
+  static const double labelOverhang = _ruleRoom;
+
+  static TextStyle? _labelStyle(BuildContext context, {required bool selected}) {
+    final theme = Theme.of(context);
+    return theme.textTheme.bodySmall?.copyWith(
+      color: selected ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+    );
+  }
+
+  /// The width of the longest word of [label] as a selected (bold) tile
+  /// shows it: the narrowest label box that never breaks a word.
+  static double wordWidth(BuildContext context, String label) {
+    final painter = TextPainter(
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    );
+    var widest = 0.0;
+    for (final word in label.split(' ')) {
+      painter
+        ..text = TextSpan(text: word, style: _labelStyle(context, selected: true))
+        ..layout();
+      widest = math.max(widest, painter.width.ceilToDouble());
+    }
+    painter.dispose();
+    return widest;
+  }
 }
 
 Offset _center(BuildContext context) {

@@ -3,10 +3,13 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/section_label.dart';
 import 'even_choices.dart';
 import 'template_catalog.dart';
 
-/// A small section heading inside pickers ("Paper colour", "Page size").
+/// A small section heading inside pickers ("Paper", "Page size"): a
+/// [SectionLabel], like the gallery's category headings, with an optional
+/// caption after it ("41 pages").
 class PickerLabel extends StatelessWidget {
   const PickerLabel(this.text, {super.key, this.trailing});
 
@@ -19,8 +22,10 @@ class PickerLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: Gaps.sm),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
-          Text(text, style: theme.textTheme.labelLarge),
+          SectionLabel(text),
           if (trailing != null) ...[
             const SizedBox(width: Gaps.sm),
             Flexible(

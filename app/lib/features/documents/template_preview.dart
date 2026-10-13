@@ -8,6 +8,7 @@ import '../../domain/image_data.dart';
 import '../../domain/paper.dart';
 import '../../ink/images/element_images.dart';
 import '../../ink/render/paper_painter.dart';
+import '../../ui/app_theme.dart';
 
 /// A miniature page showing a template, drawn with the same renderer as
 /// real pages so the preview is exactly what the user gets. Image
@@ -111,4 +112,35 @@ class TemplatePreviewPainter extends CustomPainter {
   @override
   bool shouldRepaint(TemplatePreviewPainter old) =>
       old.template != template || (images != null) != (old.images != null) || images != null;
+}
+
+/// A larger [TemplatePreview] laid on the sheet like a page: a hairline
+/// edge and the contact shadow, centred. [width] is for portrait pages;
+/// landscape ones are wider.
+class PagePreview extends StatelessWidget {
+  const PagePreview({super.key, required this.template, this.width = 112});
+
+  final PageTemplate template;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Radii.xs),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          boxShadow: Shadows.low(theme.brightness),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(Radii.xs),
+          child: TemplatePreview(
+            template: template,
+            width: template.orientation == PageOrientation.landscape ? width * 1.4 : width,
+          ),
+        ),
+      ),
+    );
+  }
 }

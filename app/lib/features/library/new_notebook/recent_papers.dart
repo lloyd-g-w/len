@@ -1,6 +1,6 @@
 import '../../../domain/paper.dart';
 
-/// How many papers the new-notebook sheet offers before "All templates…".
+/// How many papers the new-notebook sheet offers before "More…" (all templates).
 const int recentPaperCount = 6;
 
 /// Offered when there is no history yet (or to fill up the row).
