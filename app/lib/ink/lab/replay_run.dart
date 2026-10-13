@@ -4,6 +4,7 @@ import '../../data/app_database.dart';
 import '../../data/stroke_repository.dart';
 import '../../domain/stroke.dart';
 import '../input/live_ink.dart';
+import '../pen/pen_ends.dart';
 import '../render/live_stroke.dart';
 import '../surface_model.dart';
 import '../viewport.dart';
@@ -102,11 +103,17 @@ class ReplayResult {
   List<Stroke> get strokes => [for (final f in frames) ...f.committed];
 
   /// Runs [recording] through the real pipeline with [pen] (default: the
-  /// recorded pen) into an in-memory surface. Each frame's live outline is
+  /// recorded pen) and its [ends] (default: the tool's) into an in-memory
+  /// surface. Each frame's live outline is
   /// built (and timed) as `LiveInkPainter` builds it: incrementally.
   /// [timingRepeats] is accepted for compatibility (the incremental build
   /// cannot be repeated).
-  static ReplayResult run(InputRecording recording, {PenSettings? pen, int timingRepeats = 1}) {
+  static ReplayResult run(
+    InputRecording recording, {
+    PenSettings? pen,
+    PenEnds? ends,
+    int timingRepeats = 1,
+  }) {
     final db = AppDatabase.inMemory();
     final model = SurfaceModel(
       surfaceId: 'inklab',
@@ -114,7 +121,14 @@ class ReplayResult {
     );
     final live = LiveInk();
     final viewport = ViewportController(minScale: 0.01, maxScale: 64);
-    final driver = ReplayDriver(recording, model: model, live: live, viewport: viewport, pen: pen);
+    final driver = ReplayDriver(
+      recording,
+      model: model,
+      live: live,
+      viewport: viewport,
+      pen: pen,
+      ends: ends,
+    );
     final frames = <ReplayFrame>[];
     Duration timeBuild() {
       final watch = Stopwatch()..start();
