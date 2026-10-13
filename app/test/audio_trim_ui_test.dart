@@ -148,7 +148,7 @@ void main() {
     await tester.pumpAndSettle();
     final draft = e.recording; // Not saved yet.
     expect(draft.trimmed, isFalse);
-    expect(find.text('0:05 – 0:25 · 0:20'), findsOneWidget);
+    expect(find.text('0:05 – 0:25 (0:20)'), findsOneWidget);
     // After the end moved, the preview is just before it.
     expect(e.audio.log.last, 'seek 23000');
     e.audio.player.emit(23000);
@@ -171,7 +171,7 @@ void main() {
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pump();
-    expect(find.text('0:04 – 0:25 · 0:21'), findsOneWidget);
+    expect(find.text('0:04 – 0:25 (0:21)'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
 
@@ -208,7 +208,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Recordings').first);
     await tester.pumpAndSettle();
-    expect(find.textContaining(' · 0:20'), findsWidgets);
+    expect(find.text('0:20'), findsWidgets);
     final list = tester.widget<RecordingsList>(find.byType(RecordingsList));
     List<ExportFile>? exported;
     list.audio.saveFiles = (files, {required mime, toDevice = false}) async {

@@ -236,6 +236,7 @@ class EditorChromeHost extends StatelessWidget {
           puckAt: prefs.puckFloat,
           onPuckMoved: (at) => prefs.puckFloat = at,
           puckBlocked: (rect) => PuckClearance.inkUnder(session, rect),
+          bottomStrip: audio.stripHeight,
           toolbar: toolbar,
           topBar: EditorTopBar(
             title: title,

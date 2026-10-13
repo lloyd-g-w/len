@@ -65,6 +65,11 @@ class NotebookAudio extends ChangeNotifier {
 
   /// Waveforms and ink activity of the recordings, for the scrubber.
   late final RecordingOverviews overviews;
+
+  /// Height of the audio strip docked along the bottom of the editor (0
+  /// while hidden), set by `AudioLayer`: chrome that peeks above the bottom
+  /// edge (the page indicator, tips) sits above it.
+  final stripHeight = ValueNotifier<double>(0);
   String? _openId;
   late final StreamSubscription<RemoteChanges> _remote;
   late final AppLifecycleListener _lifecycle;
@@ -218,6 +223,7 @@ class NotebookAudio extends ChangeNotifier {
     playback.removeListener(_onPlayback);
     playback.dispose();
     overviews.dispose();
+    stripHeight.dispose();
     super.dispose();
   }
 }

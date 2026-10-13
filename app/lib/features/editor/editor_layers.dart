@@ -93,7 +93,7 @@ class EditorLayers extends StatelessWidget {
           child: AudioLayer(
             audio: audio,
             session: session,
-            chromeInsets: layout.floatingInsets,
+            chromeInsets: layout.covered,
             canvasPaper: notebook.paperColor,
           ),
         ),

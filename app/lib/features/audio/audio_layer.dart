@@ -14,8 +14,10 @@ import 'ui/audio_bar_button.dart';
 import 'ui/playback_bar.dart';
 
 /// What audio adds over the editor's surface (below its chrome): ink
-/// replay and the playback bar, both only while a recording is open, and
-/// on phones (no room in the top bar) the floating recording controls.
+/// replay and the player, both only while a recording is open, and on
+/// phones (no room in the top bar) the recording controls. Player and
+/// controls share one docked strip along the bottom: flat Board with a
+/// hairline on the edge facing the page, like the bars (DESIGN §3).
 class AudioLayer extends StatefulWidget {
   const AudioLayer({
     super.key,
@@ -58,9 +60,8 @@ class _AudioLayerState extends State<AudioLayer> {
     final box = _barKey.currentContext?.findRenderObject() as RenderBox?;
     final height = box != null && box.hasSize ? box.size.height : 0.0;
     final below = MessageInsets.of(context);
-    _messages.value = height == 0
-        ? below
-        : math.max(below, widget.chromeInsets.bottom + Gaps.md + height);
+    _messages.value = height == 0 ? below : math.max(below, widget.chromeInsets.bottom + height);
+    widget.audio.stripHeight.value = height;
     // The document's end makes room too, so "Add page" isn't under them.
     widget.session.doc?.setEndRoom(height == 0 ? 0 : height + Gaps.sm);
   }
@@ -92,41 +93,62 @@ class _AudioLayerState extends State<AudioLayer> {
         children: [
           InkReplayLayer(audio: widget.audio, target: _target),
           Positioned(
-            left: insets.left + Gaps.md,
-            right: insets.right + Gaps.md,
-            bottom: insets.bottom + Gaps.sm,
-            child: Align(
-              heightFactor: 1,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: ListenableBuilder(
-                  listenable: Listenable.merge([playback, widget.audio.recorder]),
-                  builder: (context, _) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
-                    return Column(
-                      key: _barKey,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (compact && widget.audio.recorder.state.isActive)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: Gaps.sm),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(Radii.pill),
-                                boxShadow: Shadows.low(Theme.of(context).brightness),
-                              ),
-                              child: RecordingPill(recorder: widget.audio.recorder),
-                            ),
-                          ),
-                        PlaybackBar(audio: widget.audio),
-                      ],
-                    );
-                  },
-                ),
-              ),
+            left: insets.left,
+            right: insets.right,
+            bottom: insets.bottom,
+            child: ListenableBuilder(
+              listenable: Listenable.merge([playback, widget.audio.recorder]),
+              builder: (context, _) {
+                WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+                final recording = compact && widget.audio.recorder.state.isActive;
+                final playing = playback.recording != null;
+                if (!recording && !playing) return SizedBox(key: _barKey);
+                return _AudioStrip(
+                  key: _barKey,
+                  children: [
+                    if (recording)
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: RecordingControls(recorder: widget.audio.recorder),
+                      ),
+                    if (recording && playing) const Divider(height: Hairline.width),
+                    if (playing) PlaybackBar(audio: widget.audio),
+                  ],
+                );
+              },
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The docked audio strip: Board, a hairline on top, its content at most
+/// 560 dp wide in the middle.
+class _AudioStrip extends StatelessWidget {
+  const _AudioStrip({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Surfaces.chrome(scheme),
+        border: Border(top: Surfaces.chromeEdge(scheme)),
+      ),
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
+        ),
       ),
     );
   }

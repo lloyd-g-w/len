@@ -183,8 +183,8 @@ void main() {
     await tester.tap(find.byTooltip('Recordings'));
     await tester.pumpAndSettle();
     expect(find.text(saved.title), findsOneWidget);
-    expect(find.text('1 recording · 1 min'), findsOneWidget);
-    expect(find.textContaining(RegExp(r'^\d+ Jan 1970, \d\d:\d\d · 1:10$')), findsOneWidget);
+    expect(find.text('1 recording, 1 min'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^\d+ Jan 1970, \d\d:\d\d$')), findsOneWidget);
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Rename…'));

@@ -41,9 +41,9 @@ class TrimPanel extends StatelessWidget {
     if (recording == null || draft == null) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final small = theme.textTheme.labelSmall?.copyWith(
+    final small = theme.textTheme.bodySmall?.copyWith(
       color: scheme.onSurfaceVariant,
-      fontFeatures: const [FontFeature.tabularFigures()],
+      fontFeatures: AppTheme.tabularFigures,
     );
     return Column(
       key: const ValueKey('trim-panel'),
@@ -64,8 +64,8 @@ class TrimPanel extends StatelessWidget {
               ),
               const SizedBox(width: Gaps.sm),
               Text(
-                '${formatClock(draft.start)} – ${formatClock(draft.end)} · '
-                '${formatClock(draft.lengthMs)}',
+                '${formatClock(draft.start)} – ${formatClock(draft.end)} '
+                '(${formatClock(draft.lengthMs)})',
                 key: const ValueKey('trim-range'),
                 style: small,
               ),
