@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/features/editor/canvas/zoom_indicator.dart';
 import 'package:len/ink/render/laser_painter.dart';
 import 'package:len/ink/tools/laser.dart';
 import 'package:len/ink/viewport.dart';
@@ -19,6 +20,9 @@ void main() {
   testWidgets('laser pointer: a move repaints only the laser', (tester) async {
     await openCanvas(tester);
     await key(tester, LogicalKeyboardKey.keyK);
+    // The zoom pill peeks as the canvas opens: let it fade first.
+    await tester.pump(ZoomIndicator.linger + const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     final gesture = await tester.startGesture(
       const Offset(200, 300),
       kind: PointerDeviceKind.mouse,
