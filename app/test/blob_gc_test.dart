@@ -157,6 +157,8 @@ void main() {
       );
       expect(BlobReferences.inJson('{"nested":{"blob":"$sha"}}'), {sha});
       expect(BlobReferences.inJson('not json'), isEmpty);
+      expect(BlobReferences.inJson('["$sha", "${sha}0", "x$sha"]'), {sha});
+      expect(BlobReferences.inJson('{"text":"${sha}0"}'), isEmpty);
     });
   });
 

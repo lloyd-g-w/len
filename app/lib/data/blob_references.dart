@@ -53,11 +53,32 @@ class BlobReferences {
 
   /// The blob ids among the strings of a JSON document (malformed: none).
   static Set<String> inJson(String json) {
+    // Most documents (paper looks, text boxes) hold none: skip decoding
+    // those (it took most of a garbage collection's scan).
+    if (!_mayHoldId(json)) return const {};
     try {
       return inValue(jsonDecode(json));
     } on FormatException {
       return const {};
     }
+  }
+
+  /// Whether [json] has a string of 64 lowercase hex digits, as encoded
+  /// (hex needs no escapes). A plain scan: a RegExp is slower than decoding.
+  static bool _mayHoldId(String json) {
+    var run = -1; // Hex digits since an opening quote; -1: none open.
+    for (var i = 0; i < json.length; i++) {
+      final c = json.codeUnitAt(i);
+      if (c == 0x22) {
+        if (run == 64) return true;
+        run = 0;
+      } else if (run >= 0 && ((c >= 0x30 && c <= 0x39) || (c >= 0x61 && c <= 0x66))) {
+        run++;
+      } else {
+        run = -1;
+      }
+    }
+    return false;
   }
 
   /// The blob ids among the strings of a decoded JSON value (e.g. a sync
