@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../ink/tool_settings.dart';
 import '../../ui/app_theme.dart';
@@ -37,16 +38,29 @@ class EditorToolbar extends StatelessWidget {
   /// What Insert ⊕ offers; null leaves it out.
   final InsertActions? insert;
 
-  @override
-  Widget build(BuildContext context) => switch (dock) {
-    ToolbarDock.inline => _group(reserve: ToolbarMetrics.strip(tools)),
-    ToolbarDock.row => SizedBox(
-      height: ToolbarMetrics.rowHeight,
-      child: LayoutBuilder(builder: _row),
+  /// While a toolbar control has keyboard focus, ← and → move to the
+  /// previous / next control (tools, Insert, then the quick slots), as in
+  /// any toolbar, instead of reaching the editor (where they turn pages).
+  static const Map<ShortcutActivator, Intent> arrowKeys = {
+    SingleActivator(LogicalKeyboardKey.arrowLeft): DirectionalFocusIntent(TraversalDirection.left),
+    SingleActivator(LogicalKeyboardKey.arrowRight): DirectionalFocusIntent(
+      TraversalDirection.right,
     ),
-    ToolbarDock.bottom => _bottom(context),
-    ToolbarDock.floating => LayoutBuilder(builder: _floating),
   };
+
+  @override
+  Widget build(BuildContext context) => Shortcuts(
+    shortcuts: arrowKeys,
+    child: switch (dock) {
+      ToolbarDock.inline => _group(reserve: ToolbarMetrics.strip(tools)),
+      ToolbarDock.row => SizedBox(
+        height: ToolbarMetrics.rowHeight,
+        child: LayoutBuilder(builder: _row),
+      ),
+      ToolbarDock.bottom => _bottom(context),
+      ToolbarDock.floating => LayoutBuilder(builder: _floating),
+    },
+  );
 
   Widget _cluster() => ToolCluster(tools: tools, insert: insert);
 
