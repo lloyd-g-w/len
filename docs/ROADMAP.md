@@ -15,8 +15,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Pen settings: pressure sensitivity, stabiliser (stored per stroke);
   highlighter opacity
 - ✅ Full colour picker (HSV + hex), saved favourite colours
-- ✅ Highlighter renders behind ink; hold to straighten; on PDF text a highlight snaps to the
-  words it covers
+- ✅ Highlighter renders behind ink; hold to snap a clean line; on PDF text a highlight always
+  snaps to the words it covers
 - 🚧 Committed ink from a tile raster cache (frame cost independent of the ink on screen, pen-up
   drawn over tiles, writes after the frame, outlines of loaded strokes on worker isolates; pans and
   scrolls keep tiles, large edits swap in together, pages render ahead, rasterised page

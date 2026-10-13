@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
+import 'package:len/data/search/pdf_text_source.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
@@ -17,6 +18,7 @@ import 'package:len/platform/blob_backend_native.dart';
 import 'package:pdfrx/pdfrx.dart' show Pdfrx;
 
 import 'pdf_interaction_test.dart' show openPdfEditor, pdfTextAt;
+import 'pdf_rotation_test.dart' show a4, rotatedPdf;
 import 'pdf_test.dart' show pdfium;
 
 /// The text-aware highlighter: highlighter strokes along PDF text become
@@ -44,12 +46,12 @@ void main() {
     ]);
     var ids = 0;
 
-    Stroke highlight(List<Offset> points) => Stroke(
+    Stroke highlight(List<Offset> points, {double width = 16}) => Stroke(
       id: 'h',
       surfaceId: 'p',
       tool: InkTool.highlighter,
       color: 0xFFFFEB3B,
-      width: 16,
+      width: width,
       points: [for (final p in points) StrokePoint(p.dx, p.dy, 0.5)],
       createdAt: 7,
     );
@@ -102,6 +104,109 @@ void main() {
       );
       expect(snap(line(const Offset(100, 110), const Offset(125, 110))), isNull, reason: 'a dab');
     });
+
+    test('an underline just below the letters stays as drawn (R8-30)', () {
+      // The first line runs from y = 100 to 120; letters end at 120.
+      expect(snap(line(const Offset(100, 124), const Offset(360, 124))), isNull);
+      expect(snap(line(const Offset(100, 122), const Offset(360, 123), wobble: 2)), isNull);
+      // Slightly off the middle, or wide enough to cover it, it snaps.
+      expect(snap(line(const Offset(100, 115), const Offset(360, 116))), hasLength(1));
+      expect(
+        PdfHighlightSnap.snapTo(
+          highlight(line(const Offset(100, 123), const Offset(360, 123)), width: 30),
+          page,
+          glyphs,
+          newId: () => 'n${ids++}',
+        ),
+        hasLength(1),
+        reason: 'a wide stroke still covers the middle',
+      );
+    });
+  });
+
+  group('on turned pages (R8-30)', () {
+    setUpAll(() {
+      Pdfrx.cacheDirectoryPath = Directory.systemTemp.createTempSync().path;
+      Pdfrx.pdfiumModulePath = pdfium;
+    });
+
+    test(
+      'a stroke along a line snaps to it at 0°, 90°, 180° and 270°',
+      skip: pdfium == null,
+      () async {
+        final source = await const PdfrxTextSource().open(await rotatedPdf([0, 1, 2, 3]));
+        addTearDown(source.dispose);
+        for (var turns = 0; turns < 4; turns++) {
+          final glyphs = (await source.glyphs(turns))!;
+          final size = turns.isOdd ? Size(a4.height, a4.width) : a4;
+          final page = NotebookPage(
+            id: 'p',
+            notebookId: 'n',
+            sortKey: 1,
+            width: size.width,
+            height: size.height,
+            paper: const Paper(PaperStyle.blank),
+          );
+          Offset at(int i) => Offset(
+            glyphs.boxes[i].center.dx * size.width,
+            glyphs.boxes[i].center.dy * size.height,
+          );
+          final s = glyphs.text.indexOf('Second'), e = glyphs.text.indexOf('text') + 3;
+          final from = at(s), to = at(e);
+          final n = ((to - from).distance / 3).ceil();
+          // Along the line, wobbling a little across it.
+          final across = Offset(-(to - from).dy, (to - from).dx) / (to - from).distance;
+          final points = [
+            for (var i = 0; i <= n; i++)
+              Offset.lerp(from, to, i / n)! + across * (i.isEven ? 1.5 : -1.5),
+          ];
+          Stroke stroke(List<Offset> points) => Stroke(
+            id: 'h',
+            surfaceId: 'p',
+            tool: InkTool.highlighter,
+            color: 0xFFFFEB3B,
+            width: 12,
+            points: [for (final p in points) StrokePoint(p.dx, p.dy, 0.5)],
+            createdAt: 0,
+          );
+          var ids = 0;
+          final snapped = PdfHighlightSnap.snapTo(
+            stroke(points),
+            page,
+            glyphs,
+            newId: () => 'n${ids++}',
+          );
+          expect(snapped, hasLength(1), reason: '$turns');
+          final line = snapped!.single;
+          final vertical = turns.isOdd;
+          final across0 = line.points.map((p) => vertical ? p.x : p.y);
+          expect(
+            across0.reduce(math.max) - across0.reduce(math.min),
+            lessThan(1e-6),
+            reason: 'straight at $turns',
+          );
+          // It covers the line from "Second" to "text".
+          final along = line.points.map((p) => vertical ? p.y : p.x).toList();
+          final lo = along.reduce(math.min), hi = along.reduce(math.max);
+          for (final i in [s, e]) {
+            final a = vertical ? at(i).dy : at(i).dx;
+            expect(a, inInclusiveRange(lo, hi), reason: '$turns: character $i');
+          }
+          // Across the line, it stays as drawn.
+          final mid = Offset.lerp(from, to, 0.5)!;
+          expect(
+            PdfHighlightSnap.snapTo(
+              stroke([for (var k = -20; k <= 20; k++) mid + across * (k * 4.0)]),
+              page,
+              glyphs,
+              newId: () => 'x',
+            ),
+            isNull,
+            reason: '$turns: across',
+          );
+        }
+      },
+    );
   });
 
   group('in the editor', () {
@@ -164,7 +269,9 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('with hold to snap off it stays as drawn', skip: pdfium == null, (tester) async {
+    testWidgets('with hold to snap off it snaps all the same', skip: pdfium == null, (
+      tester,
+    ) async {
       final pdf = await openPdfEditor(tester, services, dir);
       pdf.tools
         ..stylusOnly = true
@@ -173,7 +280,7 @@ void main() {
       await tester.pumpAndSettle();
       final s = (await highlightAcross(tester, pdf)).single;
       final ys = s.points.map((p) => p.y);
-      expect(ys.reduce(math.max) - ys.reduce(math.min), greaterThan(1));
+      expect(ys.reduce(math.max) - ys.reduce(math.min), lessThan(1e-6), reason: 'straight');
       await tester.pumpWidget(const SizedBox());
     });
   });

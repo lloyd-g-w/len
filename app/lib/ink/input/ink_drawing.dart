@@ -54,7 +54,7 @@ class InkDrawing {
 
   final HoldToStraighten _straighten;
 
-  /// Snaps highlighter strokes over text to it (with hold to snap on).
+  /// Snaps highlighter strokes over text to it.
   HighlightSnap? highlightSnap;
 
   /// The pointer tool handling the current drawing pointer, if any.
@@ -238,8 +238,9 @@ class InkDrawing {
       points: points,
       createdAt: _drawStartedAt,
     );
-    // Over PDF text, a highlight snaps to the words it covers.
-    if (stroke.tool.isHighlighter && tools.holdToStraighten) {
+    // Over PDF text, a highlight snaps to the words it covers (always: no
+    // hold needed).
+    if (stroke.tool.isHighlighter) {
       if (highlightSnap?.snap(stroke) case final snapped? when snapped.isNotEmpty) {
         return model.commit(InkEdit(added: snapped));
       }

@@ -444,7 +444,7 @@ taught.**
   no ink, drop it and say "Scribble erases ink only". Over blank paper it
   stays ink, as now.
 
-**R8-30 P2 · Underlines become highlights; turned pages are untested.**
+✅ **R8-30 P2 · Underlines become highlights; turned pages are untested.**
 - *What:* `_Line.holds` accepts points up to 0.85 line heights from the
   line's middle (`features/editor/pdf/pdf_highlight_snap.dart:30,154`).
   A highlighter underline drawn just below the letters snaps into a full
@@ -455,6 +455,11 @@ taught.**
 - *Fix:* snap only when the stroke's middle is within about 0.35 line
   heights of the line's middle (or the stroke is at least half a line
   thick). Add the `rotatedPdf` cases to the snap test.
+- *Done:* a line counts only when the stroke's middle lies within 0.35
+  line heights of the line's middle on average, or within half the
+  stroke's width (a wide stroke still covers it): an underline stays ink.
+  `pdf_highlight_snap_test.dart` snaps along a real line on pages turned
+  0°, 90°, 180° and 270° (`fix/r8-pen`).
 
 **R8-31 P2 · The highlight swatches announce "selected" and hide the
 word.**
