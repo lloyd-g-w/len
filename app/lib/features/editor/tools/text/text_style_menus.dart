@@ -109,30 +109,93 @@ class HighlightMenuButton extends StatelessWidget {
   static const _names = ['Yellow', 'Green', 'Blue', 'Pink', 'Orange'];
 }
 
-/// Picks body text or a heading level for the caret's paragraphs.
-class HeadingMenuButton extends StatelessWidget {
-  const HeadingMenuButton({super.key, required this.heading, required this.onSelected});
+/// What [ParagraphMenuButton] sets on the caret's paragraphs.
+sealed class ParagraphChoice {
+  const ParagraphChoice();
+}
+
+/// Body text (0) or a heading level.
+class HeadingChoice extends ParagraphChoice {
+  const HeadingChoice(this.level);
+  final int level;
+}
+
+/// Turns a list kind on or off.
+class ListChoice extends ParagraphChoice {
+  const ListChoice(this.kind);
+  final ListKind kind;
+}
+
+/// Lists and headings for the caret's paragraphs in one menu (REDESIGN
+/// §2.6's "lists ▾"): body text, two heading levels, then bulleted,
+/// numbered and checklist (each with its shortcut). Its icon shows what the
+/// paragraph is.
+class ParagraphMenuButton extends StatelessWidget {
+  const ParagraphMenuButton({
+    super.key,
+    required this.heading,
+    required this.list,
+    required this.onSelected,
+  });
 
   /// 0 = body text.
   final int heading;
-  final ValueChanged<int> onSelected;
+  final ListKind list;
+  final ValueChanged<ParagraphChoice> onSelected;
+
+  static IconData iconOf(ListKind kind) => switch (kind) {
+    ListKind.none => Symbols.notes_rounded,
+    ListKind.bullet => Symbols.format_list_bulleted_rounded,
+    ListKind.number => Symbols.format_list_numbered_rounded,
+    ListKind.check => Symbols.checklist_rounded,
+  };
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return MenuIconButton<int>(
-      tooltip: 'Paragraph style',
+    final current = list == ListKind.none ? null : list;
+    return MenuIconButton<ParagraphChoice>(
+      key: const ValueKey('paragraph-menu'),
+      tooltip: 'Lists and headings',
       onSelected: onSelected,
       items: () => [
-        MenuRow(value: 0, label: 'Body text', checked: heading == 0),
-        MenuRow(value: 1, label: 'Heading 1', labelStyle: text.titleLarge, checked: heading == 1),
-        MenuRow(value: 2, label: 'Heading 2', labelStyle: text.titleMedium, checked: heading == 2),
+        MenuRow(value: const HeadingChoice(0), label: 'Body text', checked: heading == 0),
+        MenuRow(
+          value: const HeadingChoice(1),
+          label: 'Heading 1',
+          labelStyle: text.titleLarge,
+          checked: heading == 1,
+        ),
+        MenuRow(
+          value: const HeadingChoice(2),
+          label: 'Heading 2',
+          labelStyle: text.titleMedium,
+          checked: heading == 2,
+        ),
+        const PopupMenuDivider(),
+        for (final (kind, label, keys) in const [
+          (ListKind.bullet, 'Bulleted list', 'Ctrl+Shift+8'),
+          (ListKind.number, 'Numbered list', 'Ctrl+Shift+7'),
+          (ListKind.check, 'Checklist', 'Ctrl+Shift+9'),
+        ])
+          MenuRow(
+            value: ListChoice(kind),
+            icon: iconOf(kind),
+            label: label,
+            shortcut: keys,
+            checked: current == kind,
+          ),
       ],
-      icon: Icon(switch (heading) {
-        1 => Symbols.title_rounded,
-        2 => Symbols.text_fields_rounded,
-        _ => Symbols.notes_rounded,
-      }, size: 20),
+      icon: Icon(
+        current != null
+            ? iconOf(current)
+            : switch (heading) {
+                1 => Symbols.title_rounded,
+                2 => Symbols.text_fields_rounded,
+                _ => Symbols.notes_rounded,
+              },
+        size: 20,
+      ),
     );
   }
 }

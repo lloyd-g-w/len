@@ -7,6 +7,7 @@ import '../../../domain/text/text_data.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
+import '../../../ui/menus.dart';
 import 'colour_sheet.dart';
 import 'text/rich_text_controller.dart';
 import 'text/text_style_menus.dart';
@@ -42,6 +43,9 @@ class TextFormatBar extends StatelessWidget {
 
   static const List<double> sizes = [12, 16, 20, 24, 32, 40, 56, 72, 96];
 
+  /// Narrower screens (phones) dock the bar at the bottom.
+  static const double dockBelowWidth = 600;
+
   /// The next preset size after [s] in [direction].
   static double step(double s, int direction) {
     final next = direction > 0
@@ -73,10 +77,19 @@ class TextFormatBar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24, child: VerticalDivider(width: 9)),
-          IconButton(
-            tooltip: 'Delete text box',
-            onPressed: onDelete,
-            icon: const Icon(Symbols.delete_rounded, size: Glyphs.bar),
+          // Delete in a trailing ⋯ (REDESIGN §2.6): out of the way of ✓.
+          MenuIconButton<bool>(
+            tooltip: 'More',
+            icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
+            items: () => const [
+              MenuRow(
+                value: true,
+                icon: Symbols.delete_rounded,
+                label: 'Delete text box',
+                destructive: true,
+              ),
+            ],
+            onSelected: (_) => onDelete(),
           ),
           IconButton(
             tooltip: 'Done (Esc)',
@@ -87,7 +100,14 @@ class TextFormatBar extends StatelessWidget {
       ),
     );
     return CustomSingleChildLayout(
-      delegate: _BarLayout(anchor, MediaQuery.paddingOf(context)),
+      delegate: _BarLayout(
+        anchor,
+        MediaQuery.paddingOf(context),
+        // Phones: docked full width at the bottom (above the keyboard,
+        // which the editor makes room for), where a thumb reaches it and
+        // it never covers the box being typed in.
+        docked: MediaQuery.sizeOf(context).width < dockBelowWidth,
+      ),
       child: bar,
     );
   }
@@ -190,30 +210,18 @@ class TextFormatBar extends StatelessWidget {
           },
         ),
         divider(),
-        HeadingMenuButton(
+        ParagraphMenuButton(
           heading: para.heading,
-          onSelected: (level) {
-            c.setHeading(level);
+          list: para.list,
+          onSelected: (choice) {
+            switch (choice) {
+              case HeadingChoice(:final level):
+                c.setHeading(level);
+              case ListChoice(:final kind):
+                c.toggleList(kind);
+            }
             refocus();
           },
-        ),
-        toggle(
-          'Bulleted list (Ctrl+Shift+8)',
-          Symbols.format_list_bulleted_rounded,
-          para.list == ListKind.bullet,
-          () => c.toggleList(ListKind.bullet),
-        ),
-        toggle(
-          'Numbered list (Ctrl+Shift+7)',
-          Symbols.format_list_numbered_rounded,
-          para.list == ListKind.number,
-          () => c.toggleList(ListKind.number),
-        ),
-        toggle(
-          'Checklist (Ctrl+Shift+9)',
-          Symbols.checklist_rounded,
-          para.list == ListKind.check,
-          () => c.toggleList(ListKind.check),
         ),
         IconButton(
           tooltip: 'Align ${nextAlign.name}',
@@ -235,9 +243,12 @@ class TextFormatBar extends StatelessWidget {
 }
 
 class _BarLayout extends SingleChildLayoutDelegate {
-  _BarLayout(this.anchor, this.chrome);
+  _BarLayout(this.anchor, this.chrome, {this.docked = false});
 
   final Rect anchor;
+
+  /// Full width at the bottom instead of beside [anchor].
+  final bool docked;
 
   /// Screen edges covered by the editor's chrome.
   final EdgeInsets chrome;
@@ -247,11 +258,14 @@ class _BarLayout extends SingleChildLayoutDelegate {
   double get bottomInset => chrome.bottom + margin;
 
   @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      constraints.loosen().deflate(const EdgeInsets.all(margin));
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final loose = constraints.loosen().deflate(const EdgeInsets.all(margin));
+    return docked ? loose.tighten(width: loose.maxWidth) : loose;
+  }
 
   @override
   Offset getPositionForChild(Size size, Size child) {
+    if (docked) return Offset(margin, size.height - bottomInset - child.height);
     final double x = (anchor.left).clamp(
       margin,
       math.max(margin, size.width - child.width - margin),
@@ -263,5 +277,6 @@ class _BarLayout extends SingleChildLayoutDelegate {
   }
 
   @override
-  bool shouldRelayout(_BarLayout old) => old.anchor != anchor || old.chrome != chrome;
+  bool shouldRelayout(_BarLayout old) =>
+      old.anchor != anchor || old.chrome != chrome || old.docked != docked;
 }
