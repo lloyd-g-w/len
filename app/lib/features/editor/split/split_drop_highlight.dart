@@ -36,15 +36,14 @@ class SplitDropHighlight extends StatelessWidget {
                         decoration: BoxDecoration(
                           // A tint of the accent, in light and dark alike.
                           color: scheme.primary.withValues(alpha: 0.08),
-                          border: Border.all(color: scheme.primary, width: 3),
+                          border: Border.all(color: scheme.primary, width: Hairline.rule),
                         ),
                         child: Align(
                           alignment: const Alignment(0, -0.6),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               color: scheme.primary,
-                              borderRadius: BorderRadius.circular(Radii.pill),
-                              boxShadow: Shadows.low(scheme.brightness),
+                              borderRadius: BorderRadius.circular(Radii.xs),
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(

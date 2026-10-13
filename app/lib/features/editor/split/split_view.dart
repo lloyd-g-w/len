@@ -194,7 +194,7 @@ class _Divider extends StatelessWidget {
           return KeyEventResult.ignored;
         },
         child: Tooltip(
-          message: 'Drag to resize · double-tap for halves',
+          message: 'Drag to resize, double-tap for halves',
           waitDuration: const Duration(seconds: 1),
           child: MouseRegion(
             cursor: SystemMouseCursors.resizeColumn,
@@ -205,14 +205,20 @@ class _Divider extends StatelessWidget {
               onDoubleTap: onReset,
               child: ColoredBox(
                 color: Surfaces.canvasBackdrop(scheme.brightness),
+                // Two ticks, like the floating palette's grip.
                 child: Center(
-                  child: Container(
-                    width: 4,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: scheme.outline,
-                      borderRadius: BorderRadius.circular(Radii.pill),
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < 2; i++) ...[
+                        if (i > 0) const SizedBox(width: Gaps.xxs),
+                        Container(
+                          width: Hairline.width,
+                          height: Gaps.lg,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),

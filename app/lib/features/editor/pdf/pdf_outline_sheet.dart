@@ -114,7 +114,7 @@ class _PdfOutlineSectionState extends State<PdfOutlineSection> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.lg, Gaps.xl, Gaps.xs),
       child: Text(
-        first == null ? 'PDF ${pdf + 1}' : 'PDF ${pdf + 1} · from page ${first + 1}',
+        first == null ? 'PDF ${pdf + 1}' : 'PDF ${pdf + 1}, from page ${first + 1}',
         style: Theme.of(context).textTheme.labelLarge,
       ),
     );
