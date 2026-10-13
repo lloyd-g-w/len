@@ -59,7 +59,7 @@ Future<void> connectSync(WidgetTester tester, AppServices s) async {
   await tester.enterText(find.widgetWithText(TextField, 'Server URL'), E2E.server);
   await tester.enterText(find.widgetWithText(TextField, 'Access token'), E2E.token);
   final before = s.sync.lastSuccess;
-  await tester.tap(find.widgetWithText(FilledButton, 'Connect & save').first);
+  await tester.tap(find.widgetWithText(FilledButton, 'Connect').first);
   await waitForSync(tester, s, before);
   await tapTooltip(tester, 'Back');
 }

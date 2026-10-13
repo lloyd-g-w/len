@@ -110,9 +110,11 @@ class _RingPainter extends CustomPainter {
     if (node == null || node is FocusScopeNode || context == null || !context.mounted) {
       return null;
     }
-    if (context.findAncestorWidgetOfExactType<EditableText>() != null) return null;
+    // A focused element being taken out of the tree is detached before it
+    // is unmounted: check that first, an ancestor lookup there throws.
     final render = context.findRenderObject();
     if (render is! RenderBox || !render.attached || !render.hasSize) return null;
+    if (context.findAncestorWidgetOfExactType<EditableText>() != null) return null;
     final rect = node.rect;
     if (rect.isEmpty || rect.width * rect.height > window.width * window.height / 2) return null;
     return rect;
