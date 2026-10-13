@@ -46,3 +46,20 @@ class ToolStrip extends StatelessWidget {
     );
   }
 }
+
+/// The divider before a [ToolStrip]: hidden (keeping its room) while the
+/// active tool has no quick controls, so no line trails off into nothing.
+class StripDivider extends StatelessWidget {
+  const StripDivider({super.key, required this.tools});
+
+  final ToolSettings tools;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: tools,
+    builder: (context, _) {
+      final active = editorTools(tools).firstWhere((d) => d.tool == tools.tool);
+      return Opacity(opacity: active.strip == null ? 0 : 1, child: const ToolbarDivider());
+    },
+  );
+}
