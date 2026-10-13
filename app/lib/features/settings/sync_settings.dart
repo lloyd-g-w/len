@@ -13,6 +13,8 @@ import 'settings_section.dart';
 import 'sync_setup_dialog.dart';
 import 'sync_status_line.dart';
 
+part 'sync_settings_views.dart';
+
 /// Sync: once connected the server, its status, Sync now, Change…, Set up
 /// another device… and Turn off sync…; otherwise (or while changing) the
 /// URL and token form, with a connection test. A setup link fills the form:
@@ -174,6 +176,11 @@ class _SyncSettingsState extends State<SyncSettings> {
     _testError = _urlError = null;
   });
 
+  /// Change…: shows the form although sync is set up.
+  void _startEditing() => setState(() => _editing = true);
+
+  void _toggleObscureToken() => setState(() => _obscureToken = !_obscureToken);
+
   @override
   Widget build(BuildContext context) {
     return SettingsSection(
@@ -189,135 +196,5 @@ class _SyncSettingsState extends State<SyncSettings> {
         ),
       ],
     );
-  }
-
-  Widget _connected(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SyncStatusLine(sync: _sync),
-        Padding(
-          padding: const EdgeInsetsDirectional.only(start: SyncStatusLine.iconColumn),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: Gaps.xxs),
-              Text(
-                _services.settings.syncUrl,
-                style: theme.textTheme.bodySmall,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (_tokenNote) ...[
-                const SizedBox(height: Gaps.sm),
-                Text(
-                  'This device\'s secure storage isn\'t available right now, so the access '
-                  'token is kept with Len\'s data. Len moves it there once it can.',
-                  style: theme.textTheme.bodySmall,
-                ),
-              ],
-              const SizedBox(height: Gaps.md),
-              _actions(context),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _actions(BuildContext context) => Wrap(
-    spacing: Gaps.sm,
-    runSpacing: Gaps.sm,
-    children: [
-      OutlinedButton.icon(
-        onPressed: _sync.state == SyncState.syncing ? null : () => unawaited(_sync.syncNow()),
-        icon: const Icon(Symbols.sync_sharp, size: Glyphs.menu),
-        label: const Text('Sync now'),
-      ),
-      TextButton(onPressed: () => setState(() => _editing = true), child: const Text('Change…')),
-      TextButton(
-        onPressed: () => unawaited(
-          showSyncSetupDialog(
-            context,
-            SyncSetupLink(url: _services.settings.syncUrl, token: _sync.tokens.token),
-          ),
-        ),
-        child: const Text('Set up another device…'),
-      ),
-      TextButton(onPressed: () => unawaited(_turnOff()), child: const Text('Turn off sync…')),
-    ],
-  );
-
-  Widget _form(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!_sync.isConfigured) ...[SyncStatusLine(sync: _sync), const SizedBox(height: Gaps.sm)],
-        Padding(
-          // Fields and buttons under the status's text, like a row's.
-          padding: const EdgeInsetsDirectional.only(start: SyncStatusLine.iconColumn),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _fields(context)),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> _fields(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return [
-      TextField(
-        controller: _url,
-        keyboardType: TextInputType.url,
-        textInputAction: TextInputAction.next,
-        autocorrect: false,
-        onChanged: _onUrlChanged,
-        decoration: InputDecoration(
-          labelText: 'Server URL',
-          hintText: 'len.example.com',
-          helperText: 'Or paste a setup link from a connected device',
-          errorText: _urlError,
-          errorMaxLines: 3,
-        ),
-      ),
-      const SizedBox(height: Gaps.md),
-      TextField(
-        controller: _token,
-        obscureText: _obscureToken,
-        autocorrect: false,
-        enableSuggestions: false,
-        onSubmitted: (_) {
-          if (!_busy) unawaited(_testAndSave());
-        },
-        decoration: InputDecoration(
-          labelText: 'Access token',
-          suffixIcon: IconButton(
-            tooltip: _obscureToken ? 'Show' : 'Hide',
-            onPressed: () => setState(() => _obscureToken = !_obscureToken),
-            icon: Icon(_obscureToken ? Symbols.visibility_sharp : Symbols.visibility_off_sharp),
-          ),
-        ),
-      ),
-      if (_testError case final error?) ...[
-        const SizedBox(height: Gaps.md),
-        Text(error, style: TextStyle(color: scheme.error)),
-      ],
-      const SizedBox(height: Gaps.lg),
-      Wrap(
-        spacing: Gaps.sm,
-        runSpacing: Gaps.sm,
-        children: [
-          FilledButton(
-            onPressed: _busy ? null : _testAndSave,
-            child: _busy
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Connect'),
-          ),
-          if (_editing) TextButton(onPressed: _cancelEditing, child: const Text('Cancel')),
-        ],
-      ),
-    ];
   }
 }
