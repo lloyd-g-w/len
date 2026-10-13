@@ -15,7 +15,11 @@ import 'sync_status_line.dart';
 /// off sync…; otherwise (or while changing) the URL and token form, with a
 /// connection test.
 class SyncSettings extends StatefulWidget {
-  const SyncSettings({super.key});
+  const SyncSettings({super.key, this.reveal = false});
+
+  /// Scrolls itself into view once shown (Settings opened from a failed
+  /// sync status).
+  final bool reveal;
 
   /// [url] as typed, completed: trimmed, and `https://` assumed when no
   /// scheme is given ("len.example" → "https://len.example").
@@ -57,6 +61,16 @@ class _SyncSettingsState extends State<SyncSettings> {
   String? _urlError;
 
   SyncController get _sync => _services.sync;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.reveal) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(Scrollable.ensureVisible(context, duration: Motion.travel, curve: Motion.move));
+    });
+  }
 
   @override
   void dispose() {
@@ -150,8 +164,14 @@ class _SyncSettingsState extends State<SyncSettings> {
         const SizedBox(height: Gaps.md),
         Row(
           children: [
-            Icon(Symbols.dns_rounded, size: Glyphs.menu, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(width: Gaps.sm),
+            SizedBox(
+              width: Targets.touch,
+              child: Icon(
+                Symbols.dns_rounded,
+                size: Glyphs.bar,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
             Expanded(
               child: Text(
                 _services.settings.syncUrl,
@@ -187,7 +207,7 @@ class _SyncSettingsState extends State<SyncSettings> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!_sync.isConfigured) ...[SyncStatusLine(sync: _sync), const SizedBox(height: Gaps.lg)],
+        if (!_sync.isConfigured) ...[SyncStatusLine(sync: _sync), const SizedBox(height: Gaps.md)],
         TextField(
           controller: _url,
           keyboardType: TextInputType.url,

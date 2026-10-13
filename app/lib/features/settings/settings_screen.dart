@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../app_services.dart';
@@ -14,7 +12,7 @@ import 'writing_settings.dart';
 
 /// Settings (REDESIGN §4): General, Writing, Handwriting, Sync, Storage
 /// (web only) and About, in one centred column at most [maxWidth] wide.
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, this.showSync = false});
 
   /// Scrolls to Sync once shown (opened from a failed sync status).
@@ -22,24 +20,6 @@ class SettingsScreen extends StatefulWidget {
 
   /// The column's widest.
   static const double maxWidth = 640;
-
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  final _syncKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    if (!widget.showSync) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final sync = _syncKey.currentContext;
-      if (sync == null || !sync.mounted) return;
-      unawaited(Scrollable.ensureVisible(sync, duration: Motion.travel, curve: Motion.move));
-    });
-  }
 
   /// The sections, in order.
   List<Widget> _sections(BuildContext context) {
@@ -49,7 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       GeneralSettings(preferences: preferences),
       WritingSettings(preferences: preferences),
       HandwritingSettings(recognition: services.recognition),
-      SyncSettings(key: _syncKey),
+      SyncSettings(reveal: showSync),
       if (browserStorage case final storage?)
         StorageSettings(storage: storage, filesKept: services.blobsArePersistent),
       const AboutSettings(),
@@ -76,7 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final content = Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: SettingsScreen.maxWidth),
+        constraints: const BoxConstraints(maxWidth: maxWidth),
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: compact ? Gaps.lg : Gaps.xl),
           child: Column(
