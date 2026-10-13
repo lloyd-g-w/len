@@ -78,10 +78,18 @@ class CanvasGuard extends ChangeNotifier {
 /// A [MenuAnchor] for the editor chrome: the canvas ignores the tap that
 /// closes it, and Escape closes it (see [CanvasGuard.closeMenus]).
 class ChromeMenuAnchor extends StatefulWidget {
-  const ChromeMenuAnchor({super.key, required this.menuChildren, required this.builder});
+  const ChromeMenuAnchor({
+    super.key,
+    required this.menuChildren,
+    required this.builder,
+    this.onClose,
+  });
 
   final List<Widget> menuChildren;
   final MenuAnchorChildBuilder builder;
+
+  /// Called when the menu closes.
+  final VoidCallback? onClose;
 
   @override
   State<ChromeMenuAnchor> createState() => _ChromeMenuAnchorState();
@@ -99,7 +107,10 @@ class _ChromeMenuAnchorState extends State<ChromeMenuAnchor> {
         reservedPadding: menuReservedPadding(context),
         consumeOutsideTap: true,
         onOpen: () => guard?.opened(_controller),
-        onClose: () => guard?.closed(_controller),
+        onClose: () {
+          guard?.closed(_controller);
+          widget.onClose?.call();
+        },
         menuChildren: widget.menuChildren,
         builder: widget.builder,
       ),

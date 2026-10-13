@@ -15,8 +15,9 @@ import 'editor_menu_actions.dart';
 /// The top bar's "⋯" menu (REDESIGN §2.3): search and export; the page
 /// (paged) or the background (canvas); view options; split view; drawing
 /// with a finger; settings. Phones ([compact]) add audio and the open
-/// notebooks at the top.
-class EditorMoreMenu extends StatelessWidget {
+/// notebooks at the top, and open Page and View in place of the menu
+/// (a drill-in with a back row) instead of beside it.
+class EditorMoreMenu extends StatefulWidget {
   const EditorMoreMenu({
     super.key,
     required this.actions,
@@ -42,11 +43,27 @@ class EditorMoreMenu extends StatelessWidget {
   final Widget? split;
 
   @override
+  State<EditorMoreMenu> createState() => _EditorMoreMenuState();
+}
+
+/// A submenu shown in place of the menu on phones.
+typedef _Drill = ({IconData icon, String label, List<Widget> children});
+
+class _EditorMoreMenuState extends State<EditorMoreMenu> {
+  /// The submenu drilled into (phones), null for the menu itself.
+  String? _drilled;
+
+  EditorMenuActions get actions => widget.actions;
+  bool get compact => widget.compact;
+
+  @override
   Widget build(BuildContext context) {
     final a = actions;
-    final tabs = this.tabs;
+    final tabs = widget.tabs;
+    final submenus = <_Drill>[if (a.isPaged) _pageMenu(), _viewMenu()];
+    final drilled = submenus.where((d) => d.label == _drilled).firstOrNull;
     final top = [
-      ...compactItems,
+      ...widget.compactItems,
       if (tabs != null)
         _item(
           Symbols.filter_none_rounded,
@@ -55,39 +72,43 @@ class EditorMoreMenu extends StatelessWidget {
         ),
     ];
     return ChromeMenuAnchor(
-      menuChildren: [
-        if (top.isNotEmpty) ...[...top, const Divider()],
-        _item(
-          Symbols.search_rounded,
-          'Search in notebook',
-          a.onSearch,
-          shortcut: const SingleActivator(LogicalKeyboardKey.keyF, control: true),
-        ),
-        if (a.onExport case final onExport?)
-          _item(
-            Symbols.ios_share_rounded,
-            'Export…',
-            onExport,
-            shortcut: const SingleActivator(LogicalKeyboardKey.keyE, control: true),
-          ),
-        const Divider(),
-        if (a.isPaged) ...[
-          _pageMenu(),
-          if (a.onOutline case final onOutline?) _item(Symbols.toc_rounded, 'Outline', onOutline),
-        ] else
-          _item(Symbols.wallpaper_rounded, 'Background…', a.onBackground),
-        _viewMenu(),
-        ?split,
-        const Divider(),
-        if (a.stylusOnly case final stylusOnly?)
-          MenuItemButton(
-            leadingIcon: const Icon(Symbols.draw_rounded),
-            trailingIcon: _MenuSwitch(value: !stylusOnly),
-            onPressed: () => a.onStylusOnly(!stylusOnly),
-            child: const Text('Draw with finger'),
-          ),
-        _item(Symbols.settings_rounded, 'Settings…', a.onSettings),
-      ],
+      onClose: () => _drilled = null,
+      menuChildren: drilled != null
+          ? [_back(drilled), const Divider(), ...drilled.children]
+          : [
+              if (top.isNotEmpty) ...[...top, const Divider()],
+              _item(
+                Symbols.search_rounded,
+                'Search in notebook',
+                a.onSearch,
+                shortcut: const SingleActivator(LogicalKeyboardKey.keyF, control: true),
+              ),
+              if (a.onExport case final onExport?)
+                _item(
+                  Symbols.ios_share_rounded,
+                  'Export…',
+                  onExport,
+                  shortcut: const SingleActivator(LogicalKeyboardKey.keyE, control: true),
+                ),
+              const Divider(),
+              if (a.isPaged) ...[
+                _submenu(_pageMenu()),
+                if (a.onOutline case final onOutline?)
+                  _item(Symbols.toc_rounded, 'Outline', onOutline),
+              ] else
+                _item(Symbols.wallpaper_rounded, 'Background…', a.onBackground),
+              _submenu(_viewMenu()),
+              ?widget.split,
+              const Divider(),
+              if (a.stylusOnly case final stylusOnly?)
+                MenuItemButton(
+                  leadingIcon: const Icon(Symbols.draw_rounded),
+                  trailingIcon: _MenuSwitch(value: !stylusOnly),
+                  onPressed: () => a.onStylusOnly(!stylusOnly),
+                  child: const Text('Draw with finger'),
+                ),
+              _item(Symbols.settings_rounded, 'Settings…', a.onSettings),
+            ],
       builder: (context, menu, _) => BarButton(
         tooltip: 'More options',
         icon: Symbols.more_horiz_rounded,
@@ -96,66 +117,74 @@ class EditorMoreMenu extends StatelessWidget {
     );
   }
 
-  Widget _pageMenu() {
+  _Drill _pageMenu() {
     final a = actions;
-    return _submenu(Symbols.description_rounded, 'Page', [
-      _command(PageCommand.insertAfter, 'Add page after'),
-      _item(Symbols.note_add_rounded, 'Add page with template…', a.onAddWithTemplate),
-      _command(PageCommand.duplicate, 'Duplicate page'),
-      _item(
-        a.bookmarked ? Symbols.bookmark_remove_rounded : Symbols.bookmark_add_rounded,
-        a.bookmarked ? 'Remove bookmark' : 'Bookmark page',
-        a.onToggleBookmark,
-      ),
-      _command(PageCommand.template, 'Change template…'),
-      _command(PageCommand.saveAsTemplate, 'Save as template…'),
-      _item(Symbols.playlist_add_rounded, 'Add page to outline…', a.onAddToOutline),
-      const Divider(),
-      _command(PageCommand.delete, 'Delete page', destructive: true),
-    ]);
+    return (
+      icon: Symbols.description_rounded,
+      label: 'Page',
+      children: [
+        _command(PageCommand.insertAfter, 'Add page after'),
+        _item(Symbols.note_add_rounded, 'Add page with template…', a.onAddWithTemplate),
+        _command(PageCommand.duplicate, 'Duplicate page'),
+        _item(
+          a.bookmarked ? Symbols.bookmark_remove_rounded : Symbols.bookmark_add_rounded,
+          a.bookmarked ? 'Remove bookmark' : 'Bookmark page',
+          a.onToggleBookmark,
+        ),
+        _command(PageCommand.template, 'Change template…'),
+        _command(PageCommand.saveAsTemplate, 'Save as template…'),
+        _item(Symbols.playlist_add_rounded, 'Add page to outline…', a.onAddToOutline),
+        const Divider(),
+        _command(PageCommand.delete, 'Delete page', destructive: true),
+      ],
+    );
   }
 
-  Widget _viewMenu() {
+  _Drill _viewMenu() {
     final a = actions;
-    return _submenu(Symbols.visibility_rounded, 'View', [
-      if (a.isPaged) ...[
+    return (
+      icon: Symbols.visibility_rounded,
+      label: 'View',
+      children: [
+        if (a.isPaged) ...[
+          _radio(
+            a.flow == PageFlow.continuous,
+            'Scroll pages',
+            () => a.onFlow?.call(PageFlow.continuous),
+          ),
+          _radio(
+            a.flow == PageFlow.single,
+            'One page at a time',
+            () => a.onFlow?.call(PageFlow.single),
+          ),
+          const Divider(),
+          for (final (fit, keys) in const [
+            (PageFit.width, SingleActivator(LogicalKeyboardKey.digit2, shift: true)),
+            (PageFit.page, SingleActivator(LogicalKeyboardKey.digit1, shift: true)),
+            (PageFit.auto, SingleActivator(LogicalKeyboardKey.digit0)),
+          ])
+            _radio(a.fit == fit, fit.label, () => a.onFit?.call(fit), shortcut: keys),
+          const Divider(),
+        ],
         _radio(
-          a.flow == PageFlow.continuous,
-          'Scroll pages',
-          () => a.onFlow?.call(PageFlow.continuous),
+          a.placement == ToolbarPlacement.docked,
+          'Toolbar docked',
+          () => a.onPlacement(ToolbarPlacement.docked),
         ),
         _radio(
-          a.flow == PageFlow.single,
-          'One page at a time',
-          () => a.onFlow?.call(PageFlow.single),
+          a.placement == ToolbarPlacement.floating,
+          'Toolbar floating',
+          () => a.onPlacement(ToolbarPlacement.floating),
         ),
         const Divider(),
-        for (final (fit, keys) in const [
-          (PageFit.width, SingleActivator(LogicalKeyboardKey.digit2, shift: true)),
-          (PageFit.page, SingleActivator(LogicalKeyboardKey.digit1, shift: true)),
-          (PageFit.auto, SingleActivator(LogicalKeyboardKey.digit0)),
-        ])
-          _radio(a.fit == fit, fit.label, () => a.onFit?.call(fit), shortcut: keys),
-        const Divider(),
+        _item(
+          Symbols.fullscreen_rounded,
+          'Focus mode',
+          a.onFocusMode,
+          shortcut: const SingleActivator(LogicalKeyboardKey.f11),
+        ),
       ],
-      _radio(
-        a.placement == ToolbarPlacement.docked,
-        'Toolbar docked',
-        () => a.onPlacement(ToolbarPlacement.docked),
-      ),
-      _radio(
-        a.placement == ToolbarPlacement.floating,
-        'Toolbar floating',
-        () => a.onPlacement(ToolbarPlacement.floating),
-      ),
-      const Divider(),
-      _item(
-        Symbols.fullscreen_rounded,
-        'Focus mode',
-        a.onFocusMode,
-        shortcut: const SingleActivator(LogicalKeyboardKey.f11),
-      ),
-    ]);
+    );
   }
 
   Widget _command(PageCommand c, String label, {bool destructive = false}) {
@@ -196,8 +225,25 @@ class EditorMoreMenu extends StatelessWidget {
         child: Text(label),
       );
 
-  static Widget _submenu(IconData icon, String label, List<Widget> children) =>
-      SubmenuButton(leadingIcon: Icon(icon), menuChildren: children, child: Text(label));
+  /// A submenu: beside the menu where there is room, in its place on
+  /// phones (where a cascade would cover its parent).
+  Widget _submenu(_Drill d) => compact
+      ? MenuItemButton(
+          leadingIcon: Icon(d.icon),
+          trailingIcon: const Icon(Symbols.chevron_right_rounded),
+          closeOnActivate: false,
+          onPressed: () => setState(() => _drilled = d.label),
+          child: Text(d.label),
+        )
+      : SubmenuButton(leadingIcon: Icon(d.icon), menuChildren: d.children, child: Text(d.label));
+
+  /// The drilled-in submenu's title row; goes back to the menu.
+  Widget _back(_Drill d) => MenuItemButton(
+    leadingIcon: const Icon(Symbols.chevron_left_rounded),
+    closeOnActivate: false,
+    onPressed: () => setState(() => _drilled = null),
+    child: Text(d.label),
+  );
 }
 
 /// A switch shown in a menu row; the row itself toggles it.
