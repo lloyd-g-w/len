@@ -58,10 +58,10 @@ token=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
 mkdir -p "$work/server"
 (cd ../server && dart pub get >/dev/null)
 (cd ../server && LEN_SYNC_TOKEN="$token" LEN_DB_PATH="$work/server/len.db" HOST=127.0.0.1 \
-  PORT="$port" exec dart bin/server.dart) >"$out/server.log" 2>&1 &
+  PORT="$port" exec dart run bin/server.dart) >"$out/server.log" 2>&1 &
 server_pid=$!
 url="http://127.0.0.1:$port"
-for _ in $(seq 1 60); do
+for _ in $(seq 1 180); do  # dart run builds native assets the first time
   curl -fsS "$url/v1/health" >/dev/null 2>&1 && break
   sleep 1
 done
