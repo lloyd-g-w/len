@@ -9,9 +9,11 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
 
-/// The zoom percentage, shown briefly whenever the zoom changes. Tapping
-/// it (while shown) offers 50 %, 100 %, 200 %, "Fit content" and "Back to
-/// start": the one home of the canvas's navigation commands.
+/// The zoom percentage, peeking like the page indicator (REDESIGN §2.4):
+/// shown when the canvas opens and while the view moves (zoom or pan), for
+/// [linger] after. Tapping it (while shown) offers 50 %, 100 %, 200 %,
+/// "Fit content" and "Back to start": the one home of the canvas's
+/// navigation commands.
 class ZoomIndicator extends StatefulWidget {
   const ZoomIndicator({
     super.key,
@@ -44,13 +46,17 @@ class ZoomIndicator extends StatefulWidget {
 class _ZoomIndicatorState extends State<ZoomIndicator> {
   final MenuController _menu = MenuController();
   late double _scale = widget.viewport.scale;
-  bool _visible = false;
+  late Offset _offset = widget.viewport.offset;
+
+  /// Shown when the canvas opens, so its menu is found.
+  bool _visible = true;
   Timer? _hide;
 
   @override
   void initState() {
     super.initState();
     widget.viewport.addListener(_onViewport);
+    _scheduleHide();
   }
 
   @override
@@ -71,9 +77,13 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
 
   void _onViewport() {
     final scale = widget.viewport.scale;
-    if (scale == _scale) return; // Panning only.
-    if (widget.quiet?.call() ?? false) {
-      _scale = scale;
+    final offset = widget.viewport.offset;
+    if (scale == _scale && offset == _offset) return;
+    final quiet = widget.quiet?.call() ?? false;
+    _offset = offset;
+    if (quiet) {
+      // The view the canvas opens with: just follow it.
+      if (scale != _scale) setState(() => _scale = scale);
       return;
     }
     setState(() {
