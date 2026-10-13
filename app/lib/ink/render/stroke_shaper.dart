@@ -73,6 +73,10 @@ class StrokeShaper implements RibbonLine {
   int _resFinal = 0;
   int _seg = 0;
   double _next = 0;
+  // Per segment: the arc length of its first resampled point from its
+  // start ([phaseAt]) and that point's index ([firstSampleOf]); entries
+  // before the start are unused.
+  final DoubleBuffer _segNext = DoubleBuffer(), _segFirst = DoubleBuffer();
 
   // 6a. Causal radii: two exponential passes and the slope limit.
   final DoubleBuffer _r1 = DoubleBuffer(), _r2 = DoubleBuffer(), _rs = DoubleBuffer();
@@ -328,18 +332,49 @@ class StrokeShaper implements RibbonLine {
       final phase = _phase;
       _next = phase != null && phase > 1e-9 ? phase : p.step;
     }
+    _segNext.length = _seg;
+    _segFirst.length = _seg;
     while (_seg + 2 <= n - 2 && !ended) {
+      _segNext.add(_next);
+      _segFirst.add(_rx.length.toDouble());
       _next = _segment(_seg, start, n, _next);
       _seg++;
       _resFinal = _rx.length;
     }
     var next = _next;
     for (var k = _seg; k < n - 1; k++) {
+      _segNext.add(next);
+      _segFirst.add(_rx.length.toDouble());
       next = _segment(k, start, n, next);
     }
     // The end sample itself (closer than a step to the one before).
     final along = next - p.step; // distance of the last sample before the end
     if (n - 1 > start && along < -p.step * 1e-3) _push(_sx[n - 1], _sy[n - 1], _sr[n - 1]);
+  }
+
+  /// The arc length from input sample [sample] to the first resampled
+  /// point after it (0 < phase ≤ step), as of the last [update]; null
+  /// where the line has no samples (before its start, after its end).
+  /// A piece cut out of the line (the pixel eraser) is resampled with
+  /// this phase, so its points fall where the line's did.
+  double? phaseAt(int sample) {
+    if (sample < startSample || sample >= _segNext.length) return null;
+    return _segNext[sample];
+  }
+
+  /// The index of the first resampled point after input sample [sample],
+  /// as of the last [update]; null as for [phaseAt].
+  int? firstSampleOf(int sample) {
+    if (sample < startSample || sample >= _segFirst.length) return null;
+    return _segFirst[sample].toInt();
+  }
+
+  /// The input sample that input point [point] starts, or null when it was
+  /// merged into the one before (closer than [ShapeParams.dedupe]).
+  int? sampleStartingAt(int point) {
+    if (point >= pointCount) return null;
+    final s = sampleOfPoint(point);
+    return _samplePoint[s] == point ? s : null;
   }
 
   /// Adds the samples of segment [k] (input samples k → k+1) at arc

@@ -70,6 +70,8 @@ abstract final class StrokeRenderer {
       unit: style.unit,
       taperStart: tapered ? style.taperStart * width : 0,
       taperEnd: tapered ? style.taperEnd * width : 0,
+      startPhase: style.startPhase,
+      cutEnd: style.cutEnd,
     );
   }
 

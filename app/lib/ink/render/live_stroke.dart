@@ -117,7 +117,7 @@ class LiveStrokeBuilder {
             step: _shaper.p.step,
           )
         : _emitter;
-    emitter.emit(PathSink(tail), from: (at: _cursor.at, cut: false));
+    emitter.emit(PathSink(tail), from: (at: _cursor.at, cut: false), ended: false);
     return LiveOutline(_frozen, tail);
   }
 
@@ -171,7 +171,9 @@ class LiveStrokeBuilder {
           StrokeOutline.dot(PathSink(out), _shaper, spec);
           return out;
         }
-        if (!_unfreeze(_shaper.taperedFrom)) return StrokeOutline.build(points, spec);
+        // The end taper's pieces, and a flat end's (cut off at the end).
+        final redo = math.min(_shaper.taperedFrom, _emitter.endZoneFrom());
+        if (!_unfreeze(redo)) return StrokeOutline.build(points, spec);
         out.addPath(_frozen, Offset.zero);
         _emitter.emit(PathSink(out), from: _cursor);
         return out;
@@ -182,7 +184,7 @@ class LiveStrokeBuilder {
   }
 
   /// Drops the frozen pieces that depend on samples from [sample] on (the
-  /// end taper's), back to the latest checkpoint before them; false when
+  /// end taper's, a flat end's), back to the latest checkpoint before them; false when
   /// there is none.
   bool _unfreeze(int sample) {
     // A piece up to sample q depends on samples up to q + 2 (the tangent
@@ -194,7 +196,7 @@ class LiveStrokeBuilder {
     }
     if (k < 0) {
       if (sample >= 3) {
-        debugFallback?.call('no checkpoint before the end taper at $sample');
+        debugFallback?.call('no checkpoint before the end at $sample');
         return false;
       }
       _cursor = (at: 0, cut: false);

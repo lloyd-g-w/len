@@ -39,6 +39,8 @@ class StrokeStyle {
     this.ends = StrokeEnds.round,
     this.taperStart = 0,
     this.taperEnd = 0,
+    this.startPhase = 0,
+    this.cutEnd = false,
   });
 
   /// Overall ink opacity, 0..1 (the stroke colour itself is stored opaque).
@@ -66,6 +68,18 @@ class StrokeStyle {
   final double taperStart;
   final double taperEnd;
 
+  /// 0: the stroke starts where the pen landed (its pen-down hook is
+  /// trimmed, and its centre line is resampled from there). Otherwise the
+  /// start is a cut (the pixel eraser): nothing is trimmed, and the first
+  /// resampled point lies this many resampling steps (0 < phase ≤ 1)
+  /// after the first point, where it lay in the stroke it was cut from,
+  /// so the rest of the ink does not move.
+  final double startPhase;
+
+  /// Whether the end is a cut (the pixel eraser): its pen-up hook is not
+  /// trimmed.
+  final bool cutEnd;
+
   /// The longest taper ([taperStart], [taperEnd]), in widths.
   static const double maxTaper = 24;
 
@@ -84,6 +98,8 @@ class StrokeStyle {
     StrokeEnds? ends,
     double? taperStart,
     double? taperEnd,
+    double? startPhase,
+    bool? cutEnd,
   }) => StrokeStyle(
     opacity: opacity ?? this.opacity,
     thinning: thinning ?? this.thinning,
@@ -92,6 +108,8 @@ class StrokeStyle {
     ends: ends ?? this.ends,
     taperStart: taperStart ?? this.taperStart,
     taperEnd: taperEnd ?? this.taperEnd,
+    startPhase: startPhase ?? this.startPhase,
+    cutEnd: cutEnd ?? this.cutEnd,
   );
 
   /// Compact JSON for storage and sync.
@@ -102,11 +120,15 @@ class StrokeStyle {
     if (unit > 0) 'u': unit,
     'e': ends.key,
     if (ends == StrokeEnds.tapered) ...{'ts': taperStart, 'te': taperEnd},
+    if (startPhase > 0) 'cs': startPhase,
+    if (cutEnd) 'ce': true,
   };
 
   /// Parses [json] strictly: `o`, `th` and `sl` are required, in 0..1;
   /// `u` is omitted when 0; `e` (ends) is required, and with `taper` so are
-  /// `ts` and `te` (0..[maxTaper]), which are absent otherwise. Throws
+  /// `ts` and `te` (0..[maxTaper]), which are absent otherwise; `cs`
+  /// ([startPhase], 0 < cs ≤ 1) and `ce` ([cutEnd], `true`) only for cut
+  /// ends. Throws
   /// [FormatException] when malformed. Unknown fields are ignored.
   static StrokeStyle fromJson(Object? json) {
     if (json is! Map) throw const FormatException('Malformed stroke style');
@@ -122,6 +144,12 @@ class StrokeStyle {
     if (!tapered && (json.containsKey('ts') || json.containsKey('te'))) {
       throw const FormatException('Malformed stroke style: taper without e: taper');
     }
+    final phase = read('cs', 1);
+    if (json.containsKey('cs') && phase <= 0) {
+      throw const FormatException('Malformed stroke style: cs');
+    }
+    final cutEnd = json['ce'];
+    if (cutEnd != null && cutEnd != true) throw const FormatException('Malformed stroke style: ce');
     return StrokeStyle(
       opacity: read('o', 1, required: true),
       thinning: read('th', 1, required: true),
@@ -130,6 +158,8 @@ class StrokeStyle {
       ends: ends,
       taperStart: tapered ? read('ts', maxTaper, required: true) : 0,
       taperEnd: tapered ? read('te', maxTaper, required: true) : 0,
+      startPhase: phase,
+      cutEnd: cutEnd == true,
     );
   }
 
@@ -142,10 +172,22 @@ class StrokeStyle {
       other.unit == unit &&
       other.ends == ends &&
       other.taperStart == taperStart &&
-      other.taperEnd == taperEnd;
+      other.taperEnd == taperEnd &&
+      other.startPhase == startPhase &&
+      other.cutEnd == cutEnd;
 
   @override
-  int get hashCode => Object.hash(opacity, thinning, streamline, unit, ends, taperStart, taperEnd);
+  int get hashCode => Object.hash(
+    opacity,
+    thinning,
+    streamline,
+    unit,
+    ends,
+    taperStart,
+    taperEnd,
+    startPhase,
+    cutEnd,
+  );
 
   @override
   String toString() => 'StrokeStyle(${toJson()})';
