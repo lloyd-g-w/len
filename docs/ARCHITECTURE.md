@@ -186,12 +186,14 @@ DevTools.
 **Navigation** (`ink/navigation/`, `features/editor/canvas/`): `KineticPan`
 measures the viewport's own motion during a navigation gesture (fingers,
 trackpad, middle-button drag) and `ViewportAnimator` glides on after a fling
-(iOS-like deceleration; no glide after a pause or a pinch). The input controller
+(iOS-like deceleration; no glide after a pause or a pinch), after settling and
+spring back (see *Navigation feel* under *Input*). The input controller
 only reports begin / track / release. `ViewportAnimator` also animates zooms
 (geometric scale, focal point fixed) and fits. Canvases add a zoom indicator
 (shown while zooming; tap for 50 / 100 / 200 %, "fit content" (exact
-bounds from the outermost chunks) or "back to start": their only menu), keyboard zoom (`+` `-` `0` Shift+1 Home) and a background: template and
-paper colour (`notebooks.paper_color`). Continuous paged documents glide too.
+bounds from the outermost chunks) or "back to start": their only menu), keyboard zoom and arrows (`+` `-` `0` Shift+1 Home ← ↑ → ↓) and a background: template and
+paper colour (`notebooks.paper_color`). Paged documents glide too (single-page flow
+only when zoomed in; at the whole page it settles back or turns the page).
 
 World coordinates are stored as `float32`, which stays sub-unit precise to
 roughly ±8 million units from the origin — thousands of screens in every
