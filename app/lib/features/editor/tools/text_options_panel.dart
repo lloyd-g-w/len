@@ -4,6 +4,7 @@ import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
 import '../../../ui/color_picker/color_swatches.dart';
+import '../../../ui/even_grid.dart';
 import '../pen/option_controls.dart';
 import 'text/text_style_menus.dart';
 
@@ -24,6 +25,7 @@ class TextOptionsPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const OptionHeader('Text'),
+            const SizedBox(height: Gaps.sm),
             OptionSlider(
               label: 'Size',
               value: style.fontSize,
@@ -42,14 +44,14 @@ class TextOptionsPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: Gaps.sm),
-            Wrap(
-              spacing: Gaps.xs,
-              runSpacing: Gaps.xs,
+            // The whole palette in two even rows, like the pen's.
+            EvenGrid(
+              itemExtent: 28,
+              minItemExtent: 22,
               children: [
-                for (final c in ColorSwatches.palette.take(15))
+                for (final c in ColorSwatches.palette)
                   ColorDot(
                     color: c,
-                    size: 28,
                     selected: style.color == c,
                     onTap: () => tools.textStyle = style.copyWith(color: c),
                   ),
