@@ -1,0 +1,197 @@
+import 'dart:typed_data';
+
+import 'package:archive/archive.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:len/app_services.dart';
+import 'package:len/data/app_database.dart';
+import 'package:len/data/archive/len_archives.dart';
+import 'package:len/data/blob_backend.dart';
+import 'package:len/data/surface_copier.dart';
+import 'package:len/domain/notebook.dart';
+import 'package:len/domain/paper.dart';
+import 'package:len/domain/stroke.dart';
+import 'package:len/features/backup/len_import_flow.dart';
+import 'package:len/features/backup/restore_dialogs.dart';
+
+AppServices _services() =>
+    AppServices.create(AppDatabase.inMemory(), blobBackend: MemoryBlobBackend());
+
+/// Restoring backups: as it was into an empty library, asking about what
+/// is here already, and undoable (UX_AUDIT R8-15, R8-16).
+void main() {
+  late AppServices source, target;
+  setUp(() {
+    source = _services();
+    target = _services();
+  });
+  tearDown(() {
+    source.dispose();
+    target.dispose();
+  });
+
+  Notebook notebook(AppServices s, String title, {String? folder}) {
+    final n = s.notebooks.create(
+      title: title,
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+      folderId: folder,
+    );
+    final page = s.pages.pagesOf(n.id).single;
+    s.strokes.save([
+      Stroke(
+        id: 'ink-$title',
+        surfaceId: page.id,
+        tool: InkTool.ballpoint,
+        color: 0xFF000000,
+        width: 2,
+        points: const [StrokePoint(1, 1, 0.5), StrokePoint(9, 4, 0.5)],
+        createdAt: 1,
+      ),
+    ]);
+    return n;
+  }
+
+  /// A library: "Physics" (in "School") and "Diary" (at the top).
+  Future<Uint8List> backup() async {
+    final school = source.folders.create(name: 'School', color: 1);
+    notebook(source, 'Physics', folder: school.id);
+    notebook(source, 'Diary');
+    final out = OutputMemoryStream();
+    await source.lenFiles.write(const LenScope.library(), out);
+    return out.getBytes();
+  }
+
+  Future<LenSource> open(AppServices s, Uint8List bytes) =>
+      s.lenFiles.open(InputMemoryStream(bytes));
+
+  Future<LenImportResult> restore(
+    AppServices s,
+    Uint8List bytes, {
+    String? folderName,
+    Set<String> skip = const {},
+  }) async =>
+      s.lenFiles.import(await open(s, bytes), folderName: folderName, keepIds: true, skip: skip);
+
+  test('into an empty library, a backup comes back as it was, same ids', () async {
+    final bytes = await backup();
+    final source0 = await open(target, bytes);
+    expect(source0.contents.notebooks.values.toSet(), {'Physics', 'Diary'});
+    expect(target.lenFiles.present(source0), isEmpty);
+    await source0.close();
+
+    final result = await restore(target, bytes);
+    expect(
+      {for (final n in target.notebooks.list()) n.id},
+      {for (final n in source.notebooks.list()) n.id},
+    );
+    final school = target.folders.list().single;
+    expect((school.name, school.parentId), ('School', null)); // Not nested in a backup folder.
+    expect(school.id, source.folders.list().single.id);
+    final physics = target.notebooks.list().singleWhere((n) => n.title == 'Physics');
+    expect(physics.folderId, school.id);
+    final page = target.pages.pagesOf(physics.id).single;
+    expect(page.id, source.pages.pagesOf(physics.id).single.id);
+    expect(SurfaceCopier(target.strokes).loadAll(page.id).single.id, 'ink-Physics');
+    expect(result.folders, [school.id]);
+  });
+
+  test('restoring again asks about what is here: skip it, or copy it again', () async {
+    final bytes = await backup();
+    await restore(target, bytes);
+    final again = await open(target, bytes);
+    expect(target.lenFiles.present(again).values.toSet(), {'Physics', 'Diary'});
+
+    // Skipping all of it adds nothing, not even an empty backup folder.
+    final skipped = await target.lenFiles.import(
+      again,
+      folderName: 'Backup 13 Oct 2026',
+      keepIds: true,
+      skip: target.lenFiles.present(await open(target, bytes)).keys.toSet(),
+    );
+    expect(skipped.notebooks, isEmpty);
+    expect(skipped.folders, isEmpty);
+    expect(target.folders.list(), hasLength(1));
+    expect(target.notebooks.list(), hasLength(2));
+
+    // Restoring all of it again makes copies, in a folder of their own.
+    final copies = await restore(target, bytes, folderName: 'Backup 13 Oct 2026');
+    expect(copies.notebooks, hasLength(2));
+    expect(target.notebooks.list(), hasLength(4));
+    final backupFolder = target.folders.get(copies.folder!)!;
+    expect(backupFolder.name, 'Backup 13 Oct 2026');
+    expect(target.folders.childrenOf(backupFolder.id).single.name, 'School');
+  });
+
+  test('on the device it came from, only what was deleted since comes back', () async {
+    final bytes = await backup();
+    final diary = source.notebooks.list().singleWhere((n) => n.title == 'Diary');
+    final page = source.pages.pagesOf(diary.id).single.id;
+    source.notebooks.delete(diary.id); // Deleted forever since the backup.
+
+    final from = await open(source, bytes);
+    final present = source.lenFiles.present(from);
+    expect(present.values, ['Physics']);
+    final result = await source.lenFiles.import(
+      from,
+      folderName: 'Backup 13 Oct 2026',
+      keepIds: true,
+      skip: present.keys.toSet(),
+    );
+    // The diary is back under its own id, with its ink; "School" (holding
+    // only what was skipped) isn't copied.
+    expect(result.notebooks, [diary.id]);
+    final back = source.notebooks.get(diary.id)!;
+    expect(back.folderId, result.folder);
+    expect(source.pages.pagesOf(diary.id).single.id, page);
+    expect(SurfaceCopier(source.strokes).loadAll(page).single.id, 'ink-Diary');
+    expect(source.folders.list().map((f) => f.name).toSet(), {'School', 'Backup 13 Oct 2026'});
+    expect(source.notebooks.list(), hasLength(2));
+  });
+
+  test('undo puts a restore in the Trash, its folders away', () async {
+    final bytes = await backup();
+    notebook(target, 'Mine');
+    final result = await restore(target, bytes, folderName: 'Backup 13 Oct 2026');
+    expect(target.notebooks.list(), hasLength(3));
+
+    undoRestore(target, result);
+    expect(target.notebooks.list().single.title, 'Mine');
+    expect(target.notebooks.trashed().map((n) => n.title).toSet(), {'Physics', 'Diary'});
+    expect(target.folders.list(), isEmpty);
+    // Restorable: out of the Trash, at the top level.
+    final physics = target.notebooks.trashed().firstWhere((n) => n.title == 'Physics');
+    target.notebooks.restore(physics.id);
+    expect(target.notebooks.get(physics.id)!.folderId, isNull);
+  });
+
+  test('the question says what a restore does', () {
+    final manifest = LenManifest(
+      kind: LenArchiveKind.library,
+      title: 'Library',
+      createdAt: DateTime(2026, 10, 13, 14, 5).millisecondsSinceEpoch,
+    );
+    expect(
+      restoreQuestion(
+        manifest: manifest,
+        notebooks: 42,
+        present: 0,
+        intoEmpty: true,
+        syncing: false,
+      ),
+      'The backup from 13 Oct 2026, 14:05 holds 42 notebooks. They come back as they were.',
+    );
+    expect(
+      restoreQuestion(
+        manifest: manifest,
+        notebooks: 42,
+        present: 3,
+        intoEmpty: false,
+        syncing: true,
+      ),
+      'The backup from 13 Oct 2026, 14:05 holds 42 notebooks. They are added in a folder of '
+      'their own; nothing here is replaced. 3 of them are here already: skip those, or restore '
+      'them again as copies? Everything restored syncs to your other devices too.',
+    );
+  });
+}

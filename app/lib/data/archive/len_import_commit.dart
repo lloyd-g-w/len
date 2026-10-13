@@ -44,20 +44,26 @@ class LenImportCommit {
 
   /// Adds the folders, templates and notebooks: those at the top of the
   /// file's tree go into [parent], or with [folderName] into a new folder
-  /// there. Marks everything imported for sync. Returns the new notebooks,
-  /// the folder holding the import, and how many records were malformed.
-  ({List<String> notebooks, String? folder, int skipped}) finish({
+  /// there (none when there is nothing to put in it). With
+  /// [onlyUsedFolders] (notebooks were left out), folders that would hold
+  /// no notebook are left out too. Marks everything imported for sync.
+  /// Returns the new notebooks and folders, the folder holding the import,
+  /// and how many records were malformed.
+  ({List<String> notebooks, List<String> folders, String? folder, int skipped}) finish({
     String? parent,
     String? folderName,
     int folderColor = 0,
+    bool onlyUsedFolders = false,
   }) {
     var skipped = 0;
-    final notebooks = <String>[];
+    final notebooks = <String>[], folders = <String>[];
     String? top;
+    if (onlyUsedFolders) _dropUnusedFolders();
     stores.any.database.transaction(() {
       var root = parent;
-      if (folderName != null) {
-        root = top = remap.clock.newId();
+      if (folderName != null && (_folders.isNotEmpty || _notebooks.isNotEmpty)) {
+        folders.add(remap.clock.newId());
+        root = top = folders.last;
         _write(
           SyncRecord(
             collection: 'folders',
@@ -84,7 +90,10 @@ class LenImportCommit {
         final placed = _with(folder, 'parentId', place(old));
         if (!_write(placed)) {
           skipped++;
-        } else if (placed.data!['parentId'] == root && folderName == null) {
+          continue;
+        }
+        folders.add(folder.id);
+        if (placed.data!['parentId'] == root && folderName == null) {
           top ??= folder.id;
         }
       }
@@ -104,7 +113,21 @@ class LenImportCommit {
       }
       _markDirty();
     });
-    return (notebooks: notebooks, folder: top, skipped: skipped);
+    return (notebooks: notebooks, folders: folders, folder: top, skipped: skipped);
+  }
+
+  /// Leaves out the folders that hold no notebook being imported, at any
+  /// depth.
+  void _dropUnusedFolders() {
+    final parentOf = {for (final (old, f) in _folders) f.id: old.isEmpty ? null : remap.idOf(old)};
+    final used = <String>{};
+    for (final (old, _) in _notebooks) {
+      String? id = old.isEmpty ? null : remap.idOf(old);
+      while (id != null && parentOf.containsKey(id) && used.add(id)) {
+        id = parentOf[id];
+      }
+    }
+    _folders.removeWhere((entry) => !used.contains(entry.$2.id));
   }
 
   /// Removes the content written so far (an import that failed or was

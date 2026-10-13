@@ -103,8 +103,18 @@ Future<Uint8List> _export(AppServices s, LenScope scope) async {
   return out.getBytes();
 }
 
-Future<LenImportResult> _import(AppServices s, Uint8List bytes, {String? folderName}) => s.lenFiles
-    .import(InputMemoryStream(bytes), folderName: folderName == null ? null : (_) => folderName);
+Future<LenImportResult> _import(
+  AppServices s,
+  Uint8List bytes, {
+  String? folderName,
+  bool keepIds = false,
+  Set<String> skip = const {},
+}) async => s.lenFiles.import(
+  await s.lenFiles.open(InputMemoryStream(bytes)),
+  folderName: folderName,
+  keepIds: keepIds,
+  skip: skip,
+);
 
 List<Map<String, Object?>> _records(
   AppServices s,
@@ -268,8 +278,8 @@ void main() {
     final restored = target.folders.get(backup.folder!)!;
     expect((restored.name, restored.parentId), ('Backup 13 Oct 2026', null));
     expect(target.folders.childrenOf(restored.id).map((f) => f.name).toSet(), {'Biology', 'Other'});
-    expect(backup.notebooks, hasLength(4));
-    expect(target.notebooks.trashed().single.title, 'Old');
+    expect(backup.notebooks, hasLength(3));
+    expect(target.notebooks.trashed(), isEmpty); // The Trash isn't backed up (R8-23).
     expect(target.templates.list().single.name, 'Mine');
     // Restoring again adds copies but not a second template.
     await _import(target, await _export(source, const LenScope.library()), folderName: 'Again');
@@ -290,7 +300,7 @@ void main() {
     expect(SurfaceCopier(target.strokes).loadAll(copy), hasLength(4));
   });
 
-  group('damaged files fail without leaving anything behind', () {
+  group('files that aren’t Len files fail without leaving anything behind', () {
     Future<void> expectRefused(Uint8List bytes, Matcher message) async {
       await expectLater(
         _import(target, bytes),
@@ -314,7 +324,7 @@ void main() {
         Archive()
           ..add(ArchiveFile.string('manifest.json', jsonEncode({'format': 'len', 'version': 99}))),
       );
-      await expectRefused(zip, contains('newer version'));
+      await expectRefused(zip, contains('newer Len'));
     });
 
     test('a truncated file', () async {
@@ -323,36 +333,13 @@ void main() {
       await expectRefused(bytes.sublist(0, bytes.length ~/ 2), contains('Len file'));
     });
 
-    test('a blob whose bytes do not match its name', () async {
-      final n = await _richNotebook(source);
-      final bytes = await _export(source, LenScope.notebook(n.id));
-      // Flip one byte inside the stored audio blob.
-      final at = _find(bytes, utf8.encode('audio pretend'));
-      bytes[at] ^= 0xFF;
-      await expectRefused(bytes, contains('damaged'));
-    });
-
-    test('records that are not JSON', () async {
-      final n = await _richNotebook(source);
-      final archive = ZipDecoder().decodeBytes(await _export(source, LenScope.notebook(n.id)));
-      final broken = Archive();
-      for (final f in archive.files) {
-        broken.add(
-          f.name.startsWith('records/')
-              ? ArchiveFile.string(f.name, '${utf8.decode(f.content)}{not json')
-              : ArchiveFile.bytes(f.name, f.content),
-        );
-      }
-      await expectRefused(ZipEncoder().encodeBytes(broken), contains('damaged'));
-    });
-
     test('cancelling removes what was imported so far', () async {
       final n = await _richNotebook(source);
       final bytes = await _export(source, LenScope.notebook(n.id));
       final token = CancellationToken();
       await expectLater(
         target.lenFiles.import(
-          InputMemoryStream(bytes),
+          await target.lenFiles.open(InputMemoryStream(bytes)),
           cancel: token,
           onProgress: (done) {
             if (done > 0.9) token.cancel();
@@ -362,6 +349,58 @@ void main() {
       );
       expect(target.database.db.select('SELECT 1 FROM strokes'), isEmpty);
       expect(target.database.db.select('SELECT 1 FROM blobs'), isEmpty);
+    });
+  });
+
+  group('damaged parts are left out, the rest imported (R8-14)', () {
+    test('a blob whose bytes do not match its name', () async {
+      final n = await _richNotebook(source);
+      final bytes = await _export(source, LenScope.notebook(n.id));
+      // Flip one byte inside the stored audio blob.
+      final at = _find(bytes, utf8.encode('audio pretend'));
+      bytes[at] ^= 0xFF;
+      final result = await _import(target, bytes);
+      expect(result.missingBlobs, 1);
+      expect(result.complete, isFalse);
+      expect(result.problems.single, startsWith('Damaged file'));
+      expect(target.pages.pagesOf(result.notebooks.single), hasLength(2));
+      expect(target.database.db.select('SELECT 1 FROM blobs'), hasLength(4));
+    });
+
+    test('lines that are not JSON', () async {
+      final n = await _richNotebook(source);
+      final archive = ZipDecoder().decodeBytes(await _export(source, LenScope.notebook(n.id)));
+      final broken = Archive();
+      for (final f in archive.files) {
+        broken.add(
+          f.name.startsWith('records/')
+              ? ArchiveFile.string(f.name, '${utf8.decode(f.content)}{not json\n[1, 2')
+              : ArchiveFile.bytes(f.name, f.content),
+        );
+      }
+      final result = await _import(target, ZipEncoder().encodeBytes(broken));
+      expect(result.skipped, 2);
+      expect(target.strokes.dirtyRecords(100), hasLength(8));
+    });
+
+    test('a records part that can’t be read at all, and a damaged blob index', () async {
+      final n = await _richNotebook(source);
+      final archive = ZipDecoder().decodeBytes(await _export(source, LenScope.notebook(n.id)));
+      final broken = Archive();
+      for (final f in archive.files) {
+        broken.add(switch (f.name) {
+          'blobs.json' => ArchiveFile.string(f.name, '{"broken'),
+          _ => ArchiveFile.bytes(f.name, f.content),
+        });
+      }
+      // A second part of invalid UTF-8.
+      broken.add(ArchiveFile.bytes('records/000002.jsonl', Uint8List.fromList([0xFF, 0xFE, 0x80])));
+      final result = await _import(target, ZipEncoder().encodeBytes(broken));
+      expect(result.lostParts, 1);
+      expect(result.missingBlobs, 0); // Found without the index.
+      expect(result.problems, hasLength(2));
+      expect(target.notebooks.list(), hasLength(1));
+      expect(target.database.db.select('SELECT 1 FROM blobs'), hasLength(5));
     });
   });
 

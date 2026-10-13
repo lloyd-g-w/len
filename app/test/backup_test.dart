@@ -16,6 +16,8 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/features/backup/len_file_flows.dart';
+import 'package:len/features/backup/len_import_flow.dart';
+import 'package:len/features/backup/restore_dialogs.dart';
 import 'package:len/features/documents/export/export_options.dart';
 import 'package:len/features/documents/import/import_router.dart';
 import 'package:len/features/settings/backup_settings.dart';
@@ -33,7 +35,8 @@ LenImportResult _result(LenArchiveKind kind, {int missing = 0, int skipped = 0})
     createdAt: DateTime(2026, 10, 13, 9).millisecondsSinceEpoch,
   ),
   notebooks: const ['n'],
-  folder: null,
+  folders: const ['f'],
+  folder: 'f',
   skipped: skipped,
   missingBlobs: missing,
 );
@@ -52,16 +55,37 @@ void main() {
   group('names and messages', () {
     test('file and folder names', () {
       expect(lenFileName('a/b: c'), endsWith('.len'));
-      expect(backupFileName(DateTime(2026, 3, 4)), 'Len backup 2026-03-04.len');
-      expect(backupFolderName(_result(LenArchiveKind.library).manifest), 'Backup 13 Oct 2026');
+      expect(backupFileName(DateTime(2026, 3, 4)), 'Len backup 4 Mar 2026.len');
+      final manifest = _result(LenArchiveKind.library).manifest;
+      expect(backupFolderName(manifest), 'Backup 13 Oct 2026');
+      // The time tells two restores of one day apart.
+      expect(
+        backupFolderName(manifest, taken: {'Backup 13 Oct 2026'}),
+        'Backup 13 Oct 2026, 09:00',
+      );
     });
 
     test('what an import says', () {
       expect(importedMessage(_result(LenArchiveKind.notebook)), 'Imported “Lecture”');
+      final backup = _result(LenArchiveKind.library, missing: 2, skipped: 1);
+      expect(importedMessage(backup), 'Restored your backup');
       expect(
-        importedMessage(_result(LenArchiveKind.library, missing: 2, skipped: 1)),
-        'Restored your backup into “Backup 13 Oct 2026”; 2 files were missing from it; '
-        '1 item couldn’t be read',
+        importedMessage(backup, folderName: 'Backup 13 Oct 2026', skipped: 3),
+        'Restored your backup into “Backup 13 Oct 2026”; 3 notebooks were here already',
+      );
+      expect(
+        gapsMessage(backup),
+        '2 files (PDFs, images or recordings) were missing or damaged and 1 item couldn’t be '
+        'read: they are left out.',
+      );
+      expect(
+        gapsMessage(_result(LenArchiveKind.notebook, missing: 1)),
+        '1 file (a PDF, image or recording) was missing or damaged: it is left out.',
+      );
+      expect(notDownloadedNote(0), isNull);
+      expect(
+        notDownloadedNote(2),
+        '2 PDFs, images or recordings aren’t downloaded yet and aren’t in it',
       );
     });
 
@@ -74,7 +98,7 @@ void main() {
     test('Settings says where notes are and when the last backup was', () {
       expect(
         BackupSettings.describe(syncing: false, android: false),
-        startsWith('Your notes are kept only on this device.'),
+        startsWith('Back up your library now and then'),
       );
       expect(BackupSettings.describe(syncing: true, android: true), contains('Android backup'));
       final now = DateTime(2026, 10, 13, 18);
@@ -139,9 +163,10 @@ void main() {
       await out.close();
       expect(report.blobs, 3);
 
-      final input = InputFileStream(path);
-      final result = await target.lenFiles.import(input, folderName: backupFolderName);
-      await input.close();
+      final result = await target.lenFiles.import(
+        await target.lenFiles.open(InputFileStream(path)),
+        folderName: 'Backup 13 Oct 2026',
+      );
       expect(result.manifest.kind, LenArchiveKind.library);
       final restored = target.folders.get(result.folder!)!;
       expect(restored.name, startsWith('Backup '));
@@ -167,7 +192,7 @@ void main() {
     final target = _services();
     addTearDown(target.dispose);
     await expectLater(
-      target.lenFiles.import(InputMemoryStream(Uint8List.fromList([1, 2, 3]))),
+      target.lenFiles.open(InputMemoryStream(Uint8List.fromList([1, 2, 3]))),
       throwsA(isA<LenArchiveException>().having((e) => e.message, 'message', contains('Len file'))),
     );
   });

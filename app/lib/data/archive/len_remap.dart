@@ -12,8 +12,29 @@ import '../syncable.dart';
 /// (nothing then shows them), except links to pages: those lead to the
 /// copy only when the file holds the page, else stay as they are (to a
 /// notebook here, or shown as deleted).
+///
+/// A restored backup (UX_AUDIT R8-16) keeps the ids of the folders and
+/// notebooks in [keep] (with everything in them): those not here, so a
+/// second restore can tell they are here already. Notebooks in [skip]
+/// are left out with everything in them.
 class LenRemap {
-  LenRemap({required this.deviceId, required this.version, this.clock = const Clock()});
+  LenRemap({
+    required this.deviceId,
+    required this.version,
+    this.clock = const Clock(),
+    Set<String> keep = const {},
+    this.skip = const {},
+  }) {
+    for (final id in keep) {
+      _ids[id] = id;
+    }
+  }
+
+  /// Notebooks left out, with their pages and content.
+  final Set<String> skip;
+
+  /// The notebook of each page seen so far, for the content on it.
+  final Map<String, String> _notebookOf = {};
 
   /// Stamped on every imported record.
   final String deviceId;
@@ -42,14 +63,23 @@ class LenRemap {
   SyncRecord? remap(SyncRecord record) {
     final data = record.data;
     if (record.deleted || data == null) return null;
+    // The notebook a record belongs to (a canvas is its own surface).
+    final notebook = switch (record.collection) {
+      'notebooks' => record.id,
+      'pages' || 'recordings' || 'outline' => data['notebookId'],
+      'strokes' || 'elements' => _notebookOf[data['surfaceId']] ?? data['surfaceId'],
+      _ => null,
+    };
+    if (skip.contains(notebook)) return null;
+    // What belongs to a notebook keeping its id keeps its id too.
+    final kept = notebook is String && _ids[notebook] == notebook;
+    String map(String old) => kept ? _ids[old] = old : idOf(old);
     final copy = {...data};
-    String? ref(String field, {Set<String>? into}) {
+    void ref(String field, {Set<String>? into}) {
       if (copy[field] case final String old) {
-        final id = copy[field] = idOf(old);
+        final id = copy[field] = map(old);
         into?.add(id);
-        return id;
       }
-      return null;
     }
 
     final String id;
@@ -58,20 +88,18 @@ class LenRemap {
         // Parents (folder, folder of a notebook) are set once all are known.
         id = idOf(record.id);
       case 'pages' || 'recordings':
-        id = idOf(record.id);
+        id = map(record.id);
+        if (record.collection == 'pages' && notebook is String) _notebookOf[record.id] = notebook;
         ref('notebookId', into: owners);
       case 'outline':
-        id = idOf(record.id);
+        id = map(record.id);
         ref('notebookId', into: owners);
         ref('pageId');
         ref('parentId');
-      case 'strokes':
-        id = clock.newId();
+      case 'strokes' || 'elements':
+        id = kept ? record.id : clock.newId();
         ref('surfaceId', into: surfaces);
-      case 'elements':
-        id = clock.newId();
-        ref('surfaceId', into: surfaces);
-        _relink(copy);
+        if (record.collection == 'elements') _relink(copy);
       default:
         return null;
     }

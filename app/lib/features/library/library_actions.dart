@@ -12,6 +12,7 @@ import '../../ui/app_theme.dart';
 import '../../ui/messages.dart';
 import '../../ui/text_prompt.dart';
 import '../backup/len_file_flows.dart';
+import '../backup/len_import_flow.dart';
 import '../documents/export/notebooks_export.dart';
 import '../documents/pdf/pdf_import_flow.dart';
 import '../editor/tabs/editor_workspace.dart' as editor;
@@ -136,11 +137,10 @@ class LibraryActions with _NotebookActions, _FolderActions {
     await openNotebook(context, notebook);
   }
 
-  /// Imports a Len file the user picks into the open folder (a backup:
-  /// into a folder of its own); a notebook opens.
+  /// Imports a Len file the user picks (a notebook or folder into the
+  /// open folder, a backup as [importLenFlow] says); a notebook opens.
   Future<void> importLen(BuildContext context) async {
-    final folder = controller.section == LibrarySection.library ? controller.folderId : null;
-    final result = await importLenFlow(context, parent: folder);
+    final result = await importLenFlow(context);
     if (result == null || !context.mounted) return;
     controller.reload();
     if (result.manifest.kind != LenArchiveKind.notebook) return;
