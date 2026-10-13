@@ -363,6 +363,14 @@ offers no shape hook; an `AppSwitch` in `ui/` with a square thumb), grey
 folder tiles and gradient covers, the blue brand tile, the accent `+` on the
 new-notebook tile, white settings plates with a shadow, `·` meta strings.
 
+Library rollout, from its screenshots: folders on their own column widths
+looked loose beside the covers, so they sit on the covers' columns; the
+empty state's fanned, overlapping covers read as one striped block and became
+three upright covers in a row; a blue ring for the current page in the
+overview competed with selection, so the current page takes the margin rule
+by its number and only selection rings. Page miniatures are square (a page
+corner is square); `sm` stays for covers and notebook thumbnails.
+
 Also checked: no cream background, no terracotta, no acid accent on black, no
 monospace data labels, no arrows appended to buttons, no identical shadowed
 cards (settings and folders lose their plates).
@@ -381,11 +389,12 @@ themes, `FloatingPanel`, `OverlaySurface`, popovers, menus, dialogs, sheets,
 snack bars, `SidebarItem` (margin rule), `FocusRing`, ruled fields, slider
 thumb. Next, by area:
 
-- **Library:** folders as a ruled row (`folder_tile.dart`) instead of grey
-  tiles; flat covers with a spine band, no gradient (`notebook_cover.dart`);
-  sidebar brand without the blue tile and a hairline right edge
-  (`library_sidebar.dart`); replace `·` meta strings in `library_format.dart`
-  and the header; list view rows with hairlines; empty state copy and glyph.
+- **Library:** done. Folders are names on the covers' columns with a
+  hairline under the row; covers flat with a darker spine band; the New tile
+  and Add page are Pencil-edged outlines with an Ink +; list rows ruled from
+  the titles; the brand is the Ink scribble; commas in meta strings; square
+  checkbox selection marks; search results label and count as separate
+  spans, the page location as a plain column.
 - **Editor chrome:** tool plate radius `xs` and Ink 8 % everywhere
   (`tool_cluster.dart`, `toolbar_buttons.dart`); slot rings 1.5 dp; redraw
   `EraserIcon`, `ShapeGlyph`, `tools/tool_icons.dart` with square caps;
@@ -398,12 +407,16 @@ thumb. Next, by area:
 - **Dialogs and sheets:** move dialog, cover sheet, new-notebook sheet,
   export sheet onto the ruled fields and Ink primary; check every
   `FilledButton.tonal` (becomes secondary/outlined).
-- **Overview, templates, PDF:** page tiles with contact shadow only;
-  template gallery selection by margin rule; `overview_parts.dart` radii.
+- **Overview, templates:** done. Pages are square with the contact shadow
+  only (no hover lift); the current page has the margin rule beside its
+  bold number; selection is a 2-dp accent ring and a square checkbox; the
+  template gallery marks its choice with the margin rule and a bold name.
+  PDF views remain.
 - **Audio, images, text:** recording bar as a flat Board strip with a
   hairline; text format bar on `FloatingPanel`.
 - **Copy:** remove `·` chains and any remaining all-caps; one name per action.
-- **App icon / splash:** Ink and ruling blue mark (`tool/branding`).
+- **App icon / splash:** done: the white scribble on a ruling-blue rule on
+  an Ink tile, flat; splash on Board (`tool/branding`).
 - **Controls:** an `AppSwitch` in `ui/` (flat rectangular track, square
   thumb, 44 × 24) replacing `Switch` / `SwitchListTile` (19 uses); every
   `FilledButton.tonal` to `OutlinedButton` (the theme makes both Ink).
