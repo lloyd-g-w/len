@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
+import '../../../ui/scroll_fade.dart';
 import 'open_notebooks.dart';
 
 /// GoodNotes-style strip of open notebooks (tablets and desktops): tap a
@@ -27,29 +28,47 @@ class NotebookTabStrip extends StatelessWidget {
   /// Whether tabs offer "Open in split view" (large screens).
   final bool splitAvailable;
 
+  /// The widest an inactive tab grows for its title; the active tab may
+  /// take [activeMaxWidth], so it is never the one cut short.
+  static const double maxWidth = 220;
+
+  /// The widest the active tab grows.
+  static const double activeMaxWidth = 280;
+
   @override
   Widget build(BuildContext context) {
+    // Tabs keep their size and the strip scrolls when they run out of
+    // room, with a fade at a cut edge; the active tab scrolls into view.
     return ListenableBuilder(
       listenable: tabs,
-      builder: (context, _) => ListView(
-        scrollDirection: Axis.horizontal,
-        // Tabs sit on the bar below them, like browser tabs.
-        padding: const EdgeInsets.only(left: Gaps.sm, right: Gaps.sm, top: Gaps.xs + 2),
-        children: [
-          for (final tab in tabs.tabs)
-            Padding(
-              padding: const EdgeInsets.only(right: Gaps.xs),
-              child: _Tab(
-                key: ValueKey('tab-${tab.id}'),
-                tab: tab,
-                active: tab.id == tabs.activeId,
-                onTap: () => tabs.activate(tab.id),
-                onClose: () => tabs.close(tab.id),
-                onRename: tab.id == tabs.activeId ? onRename : null,
-                onMenu: (context, at) => _menu(context, tab, at),
-              ),
+      // Full width, so the tabs start at the leading edge.
+      builder: (context, _) => SizedBox(
+        width: double.infinity,
+        child: ScrollFade(
+          extent: Gaps.xxxl,
+          child: Padding(
+            // Tabs sit on the bar below them, like browser tabs.
+            padding: const EdgeInsets.only(left: Gaps.sm, right: Gaps.sm, top: Gaps.xs + 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final tab in tabs.tabs)
+                  Padding(
+                    padding: const EdgeInsets.only(right: Gaps.xs),
+                    child: _Tab(
+                      key: ValueKey('tab-${tab.id}'),
+                      tab: tab,
+                      active: tab.id == tabs.activeId,
+                      onTap: () => tabs.activate(tab.id),
+                      onClose: () => tabs.close(tab.id),
+                      onRename: tab.id == tabs.activeId ? onRename : null,
+                      onMenu: (context, at) => _menu(context, tab, at),
+                    ),
+                  ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -82,7 +101,7 @@ class NotebookTabStrip extends StatelessWidget {
 
 enum _TabAction { split, close }
 
-class _Tab extends StatelessWidget {
+class _Tab extends StatefulWidget {
   const _Tab({
     super.key,
     required this.tab,
@@ -105,57 +124,92 @@ class _Tab extends StatelessWidget {
   static const BorderRadius _shape = BorderRadius.vertical(top: Radius.circular(Radii.sm));
 
   @override
+  State<_Tab> createState() => _TabState();
+}
+
+class _TabState extends State<_Tab> {
+  static const BorderRadius _shape = _Tab._shape;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _reveal();
+  }
+
+  @override
+  void didUpdateWidget(_Tab old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) _reveal();
+  }
+
+  /// Scrolls this tab fully into view (only as far as needed).
+  void _reveal() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    for (final policy in [
+      ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+    ]) {
+      unawaited(Scrollable.ensureVisible(context, alignmentPolicy: policy));
+    }
+  });
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final fg = active ? scheme.onSurface : scheme.onSurfaceVariant;
+    final fg = widget.active ? scheme.onSurface : scheme.onSurfaceVariant;
     return Semantics(
-      selected: active,
+      selected: widget.active,
       button: true,
-      label: tab.title,
+      label: widget.tab.title,
       child: Listener(
         // Middle click closes, as in browsers.
         onPointerDown: (e) {
-          if (e.buttons == 4) onClose();
+          if (e.buttons == 4) widget.onClose();
         },
         child: Material(
-          color: active ? Surfaces.chrome(scheme) : Colors.transparent,
+          color: widget.active ? Surfaces.chrome(scheme) : Colors.transparent,
           borderRadius: _shape,
           child: InkWell(
-            onTap: onTap,
-            onDoubleTap: onRename,
-            onLongPress: () => onMenu(context, null),
-            onSecondaryTapUp: (d) => onMenu(context, d.globalPosition),
+            onTap: widget.onTap,
+            onDoubleTap: widget.onRename,
+            onLongPress: () => widget.onMenu(context, null),
+            onSecondaryTapUp: (d) => widget.onMenu(context, d.globalPosition),
             borderRadius: _shape,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 112, maxWidth: 220),
+              constraints: BoxConstraints(
+                minWidth: 112,
+                maxWidth: widget.active
+                    ? NotebookTabStrip.activeMaxWidth
+                    : NotebookTabStrip.maxWidth,
+              ),
               child: Padding(
                 padding: const EdgeInsets.only(left: Gaps.md, right: Gaps.xxs),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      tab.kind == NotebookKind.canvas
+                      widget.tab.kind == NotebookKind.canvas
                           ? Symbols.gesture_rounded
                           : Symbols.menu_book_rounded,
                       size: 16,
-                      color: active ? scheme.primary : fg,
+                      color: widget.active ? scheme.primary : fg,
                     ),
                     const SizedBox(width: Gaps.sm),
                     Flexible(
                       child: Text(
-                        tab.title,
+                        widget.tab.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: fg,
-                          fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: widget.active ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
                     ),
                     IconButton(
                       tooltip: 'Close tab',
-                      onPressed: onClose,
+                      onPressed: widget.onClose,
                       iconSize: 16,
                       style: IconButton.styleFrom(
                         foregroundColor: fg,

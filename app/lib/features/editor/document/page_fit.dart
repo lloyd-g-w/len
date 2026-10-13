@@ -7,7 +7,7 @@ import 'package:flutter/painting.dart' show EdgeInsets;
 enum PageFit {
   /// Fit the width, but never so large that little of the page shows
   /// (landscape tablets, desktops); whole pages in single-page flow.
-  auto('Automatic'),
+  auto('Automatic zoom'),
 
   /// The page's width fills the screen.
   width('Fit width'),

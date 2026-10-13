@@ -107,7 +107,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
                   onPressed: () => a.onStylusOnly(!(a.stylusOnly ?? false)),
                   child: const Text('Draw with finger'),
                 ),
-              _item(Symbols.settings_rounded, 'Settings…', a.onSettings),
+              _item(Symbols.settings_rounded, 'Settings', a.onSettings),
             ],
       builder: (context, menu, _) => BarButton(
         tooltip: 'More options',
@@ -164,8 +164,8 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           ),
           const Divider(),
           for (final (fit, keys) in const [
-            (PageFit.width, SingleActivator(LogicalKeyboardKey.digit2, shift: true)),
             (PageFit.page, SingleActivator(LogicalKeyboardKey.digit1, shift: true)),
+            (PageFit.width, SingleActivator(LogicalKeyboardKey.digit2, shift: true)),
             (PageFit.auto, SingleActivator(LogicalKeyboardKey.digit0)),
           ])
             _radio(a.fit == fit, fit.label, () => a.onFit?.call(fit), shortcut: keys),
@@ -240,12 +240,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           onPressed: () => setState(() => _drilled = d.label),
           child: Text(d.label),
         )
-      : SubmenuButton(
-          leadingIcon: Icon(d.icon),
-          trailingIcon: const Icon(Symbols.chevron_right_rounded),
-          menuChildren: d.children,
-          child: Text(d.label),
-        );
+      : SubmenuButton(leadingIcon: Icon(d.icon), menuChildren: d.children, child: Text(d.label));
 
   /// The drilled-in submenu's title row; goes back to the menu.
   Widget _back(_Drill d) => MenuItemButton(

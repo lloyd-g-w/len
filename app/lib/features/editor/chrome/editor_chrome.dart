@@ -242,6 +242,7 @@ class EditorChrome extends StatelessWidget {
           Positioned.fill(
             child: ToolbarSlot(
               toolbar: puck,
+              joined: true,
               insets: safe,
               floatAt: puckAt ?? const (0.5, 1.0),
               onFloatMoved: onPuckMoved,
@@ -254,7 +255,7 @@ class EditorChrome extends StatelessWidget {
           child: ChromeFade(
             visible: focus && !presenting,
             edge: const Offset(0, -1),
-            child: FocusHandle(onExit: onExitFocus),
+            child: FocusHandle(onExit: onExitFocus, active: focus && !presenting),
           ),
         ),
       ],

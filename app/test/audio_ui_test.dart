@@ -262,6 +262,27 @@ void main() {
     await _close(tester);
   });
 
+  testWidgets('phone: the recording pill never covers "Add page" at the end', (tester) async {
+    await _pump(tester, size: const Size(390, 844), kind: NotebookKind.paged);
+    // To the end of the document.
+    await tester.drag(find.byType(PagedDocumentView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    final add = find.text('Add page');
+    expect(add, findsOneWidget);
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Record audio'));
+    await _settleAsync(tester);
+    await tester.pumpAndSettle();
+    final pill = tester.getRect(find.byKey(const ValueKey('recording-pill')));
+    expect(tester.getRect(add).bottom, lessThanOrEqualTo(pill.top - 8));
+    await tester.tap(find.byTooltip('Stop recording'));
+    await _settleAsync(tester);
+    await tester.pump(const Duration(seconds: 5)); // Snack bar.
+    await tester.pumpAndSettle();
+    await _close(tester);
+  });
+
   testWidgets('phone, paged: record from the menu (floating controls), replay on pages', (
     tester,
   ) async {
@@ -290,7 +311,7 @@ void main() {
 
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Recordings…'));
+    await tester.tap(find.text('Recordings'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Seminar'));
     await _settleAsync(tester);

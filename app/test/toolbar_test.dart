@@ -117,7 +117,7 @@ void main() {
     }
 
     await openMenu();
-    for (final item in ['Search in notebook', 'Export…', 'Page', 'View', 'Settings…']) {
+    for (final item in ['Search in notebook', 'Export…', 'Page', 'View', 'Settings']) {
       expect(find.text(item), findsOneWidget, reason: item);
     }
     for (final gone in ['Rename notebook…', 'Show tool names', 'Customise toolbar…', 'Present']) {

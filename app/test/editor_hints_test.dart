@@ -9,6 +9,7 @@ import 'package:len/features/editor/chrome/peeking.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/ink/tool_settings.dart';
+import 'package:len/ui/app_theme.dart';
 
 import 'content_tools_ui_test.dart' show liveStrokes, mouseDrag, openCanvas, seedStroke;
 import 'document_editor_test.dart' show closeEditor, drawAt, pumpEditor;
@@ -134,6 +135,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(liveStrokes(s, nb.id), isNotEmpty);
     expect(_opacityOf(tester, hint), 0);
+  });
+
+  testWidgets('the empty-canvas hint speaks mouse with a pointer, touch on touch', (tester) async {
+    Targets.debugTouchFirst = false;
+    addTearDown(() => Targets.debugTouchFirst = null);
+    await openCanvas(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Right-click'), findsOneWidget);
+    expect(find.textContaining('Two fingers'), findsNothing);
   });
 
   testWidgets('a canvas with content shows no hint', (tester) async {

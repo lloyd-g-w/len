@@ -129,6 +129,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('View'));
     await tester.pumpAndSettle();
+    // In the order of their shortcuts (Shift+1, Shift+2, 0).
+    final fits = ['Fit page', 'Fit width', 'Automatic zoom'];
+    final tops = [for (final f in fits) tester.getTopLeft(find.text(f).last).dy];
+    expect(tops, orderedEquals([...tops]..sort()));
     await tester.tap(find.text('Fit page'));
     await tester.pumpAndSettle();
     expect(doc().fit, PageFit.page);

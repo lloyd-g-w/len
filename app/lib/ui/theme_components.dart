@@ -140,6 +140,10 @@ extension ThemeComponents on ThemeData {
         labelTextStyle: WidgetStatePropertyAll(textTheme.labelLarge),
       ),
       menuTheme: MenuThemeData(
+        // A rounded chevron, not Material's filled triangle.
+        submenuIcon: const WidgetStatePropertyAll(
+          Icon(Symbols.chevron_right_rounded, size: Glyphs.menu),
+        ),
         style: MenuStyle(
           backgroundColor: WidgetStatePropertyAll(overlay),
           surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),

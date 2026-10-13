@@ -111,7 +111,7 @@ Future<void> _trimFromList(WidgetTester tester) async {
   if (find.byTooltip('Recordings').evaluate().isEmpty) {
     await tester.tap(find.byTooltip('More options').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Recordings…'));
+    await tester.tap(find.text('Recordings'));
   } else {
     await tester.tap(find.byTooltip('Recordings'));
   }
