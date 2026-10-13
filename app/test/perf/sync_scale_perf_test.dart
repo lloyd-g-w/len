@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -16,6 +17,15 @@ class _Feed {
   _Feed(this.records);
 
   final List<Map<String, Object?>> records;
+  final _encoded = <List<int>>[];
+
+  /// Encodes the records not yet served, so serving a page costs (the
+  /// client's thread, which this mock shares) only a copy.
+  void encodeAhead() {
+    for (var i = _encoded.length; i < records.length; i++) {
+      _encoded.add(utf8.encode(jsonEncode(records[i])));
+    }
+  }
 
   /// Resident memory at each pull request.
   final rss = <int>[];
@@ -41,14 +51,16 @@ class _Feed {
         pulls++;
         final since = int.parse(request.url.queryParameters['since']!);
         final limit = int.parse(request.url.queryParameters['limit']!);
-        final page = records.skip(since).take(limit).toList();
-        final body = jsonEncode({
-          'records': page,
-          'nextSince': since + page.length,
-          'hasMore': since + page.length < records.length,
-        });
+        encodeAhead();
+        final end = math.min(since + limit, records.length);
+        final body = BytesBuilder(copy: false)..add(utf8.encode('{"records":['));
+        for (var i = since; i < end; i++) {
+          if (i > since) body.addByte(0x2c);
+          body.add(_encoded[i]);
+        }
+        body.add(utf8.encode('],"nextSince":$end,"hasMore":${end < records.length}}'));
         return http.Response.bytes(
-          utf8.encode(body),
+          body.takeBytes(),
           200,
           headers: {'content-type': 'application/json; charset=utf-8'},
         );
@@ -100,7 +112,7 @@ void main() {
     addTearDown(files.dispose);
     final device = AppServices.create(AppDatabase.open(files.dbPath), clock: BenchClock(9));
     addTearDown(device.dispose);
-    final feed = _Feed(records);
+    final feed = _Feed(records)..encodeAhead();
     final rssBefore = ProcessInfo.currentRss;
     final watch = Stopwatch()..start();
     var done = false;

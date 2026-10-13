@@ -69,6 +69,22 @@ class Notebook {
 
   bool get isTrashed => trashedAt != null;
 
+  /// Whether [other] holds the same values (a re-read of an unchanged row).
+  bool sameAs(Notebook other) =>
+      identical(this, other) ||
+      (other.id == id &&
+          other.updatedAt == updatedAt &&
+          other.editedAt == editedAt &&
+          other.title == title &&
+          other.kind == kind &&
+          other.paper == paper &&
+          other.paperColor == paperColor &&
+          other.coverColor == coverColor &&
+          other.createdAt == createdAt &&
+          other.folderId == folderId &&
+          other.favorite == favorite &&
+          other.trashedAt == trashedAt);
+
   static const Object _keep = Object();
 
   /// A copy with the given fields replaced. Pass `folderId: null` /

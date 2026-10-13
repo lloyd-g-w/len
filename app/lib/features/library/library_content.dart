@@ -23,7 +23,7 @@ import 'notebook_list_tile.dart';
 import 'recent_row.dart';
 
 /// The scrolling main area of the library: header, folders, notebooks.
-class LibraryContent extends StatelessWidget {
+class LibraryContent extends StatefulWidget {
   const LibraryContent({
     super.key,
     required this.actions,
@@ -51,13 +51,38 @@ class LibraryContent extends StatelessWidget {
         !actions.selection.active;
   }
 
-  LibraryController get _c => actions.controller;
-
   /// About how wide notebook covers are in the grid (REDESIGN §3).
   static const double coverWidth = 150;
 
   /// The gap between the grid's columns (the folder row shares them).
   static double gridSpacingFor({required bool compact}) => compact ? Gaps.lg : Gaps.xl;
+
+  @override
+  State<LibraryContent> createState() => _LibraryContentState();
+}
+
+class _LibraryContentState extends State<LibraryContent> {
+  LibraryActions get actions => widget.actions;
+  TextEditingController get searchController => widget.searchController;
+  FocusNode get searchFocus => widget.searchFocus;
+  Widget? get headerLeading => widget.headerLeading;
+  LibraryController get _c => actions.controller;
+
+  /// The cards and rows last built, with what they showed:
+  /// one whose notebook, caption and selection are unchanged is used again
+  /// as it is, so a sort, a selection or a move rebuilds only the cards
+  /// that changed.
+  final _kept = <String, ({Widget item, Object? shown})>{};
+
+  /// The item [id] (a notebook's card or row) showing [shown] (compared with ==; records
+  /// of what it shows), from [_kept] if it showed the same.
+  Widget _keep(String id, Object? shown, Widget Function() build) {
+    final kept = _kept[id];
+    if (kept != null && kept.shown == shown) return kept.item;
+    final item = build();
+    _kept[id] = (item: item, shown: shown);
+    return item;
+  }
 
   // The viewport's height sizes covers in short windows; the grid reads it
   // from its sliver constraints, the folder row (on the same columns) here.
@@ -71,7 +96,7 @@ class LibraryContent extends StatelessWidget {
     // (or, while searching, a row of their own that scrolls sideways).
     final short = Breakpoints.short(MediaQuery.sizeOf(context));
     final gutter = compact ? Gaps.lg + Gaps.xs : Gaps.xxl;
-    final gridSpacing = gridSpacingFor(compact: compact);
+    final gridSpacing = LibraryContent.gridSpacingFor(compact: compact);
     final folders = _c.visibleFolders;
     final notebooks = _c.visibleNotebooks;
     final empty = folders.isEmpty && notebooks.isEmpty;
@@ -84,7 +109,7 @@ class LibraryContent extends StatelessWidget {
     final rule = Theme.of(context).colorScheme.outlineVariant;
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
-    final newTile = showsNewTile(actions, compact: compact);
+    final newTile = LibraryContent.showsNewTile(actions, compact: compact);
     // Room after the last row: clear of the phone's ⊕ and of a snack bar
     // above it (an Undo after trashing the last card), or of a snack bar.
     final endRoom = compact ? 160.0 : 120.0;
@@ -166,7 +191,7 @@ class LibraryContent extends StatelessWidget {
                   child: RecentRow(
                     notebooks: recent,
                     actions: actions,
-                    coverWidth: coverWidth,
+                    coverWidth: LibraryContent.coverWidth,
                     spacing: gridSpacing,
                     viewportHeight: viewportHeight,
                   ),
@@ -179,7 +204,7 @@ class LibraryContent extends StatelessWidget {
                   child: FolderRow(
                     folders: folders,
                     actions: actions,
-                    coverWidth: coverWidth,
+                    coverWidth: LibraryContent.coverWidth,
                     spacing: gridSpacing,
                     viewportHeight: viewportHeight,
                   ),
@@ -270,11 +295,12 @@ class LibraryContent extends StatelessWidget {
       // Columns from the width in the delegate, not a layout builder: a
       // builder above the grid would rebuild every card on every scroll frame.
       gridDelegate: CoverGridDelegate(
-        coverWidth: coverWidth,
-        spacing: gridSpacingFor(compact: compact),
+        coverWidth: LibraryContent.coverWidth,
+        spacing: LibraryContent.gridSpacingFor(compact: compact),
         captionHeight: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
       ),
       itemCount: notebooks.length + offset,
+      findChildIndexCallback: _indexOf(notebooks, offset: offset),
       itemBuilder: (context, i) {
         if (i < offset) {
           return NewNotebookTile(
@@ -283,15 +309,41 @@ class LibraryContent extends StatelessWidget {
           );
         }
         final notebook = notebooks[i - offset];
-        return NotebookCard(
-          key: ValueKey(notebook.id),
-          notebook: notebook,
-          subtitle: _subtitle(notebook),
-          recordings: notebook.isTrashed ? 0 : _c.recordingCountOf(notebook.id),
-          actions: actions,
+        final subtitle = _subtitle(notebook);
+        final recordings = notebook.isTrashed ? 0 : _c.recordingCountOf(notebook.id);
+        final selection = actions.selection;
+        return _keep(
+          'card/${notebook.id}',
+          (
+            notebook,
+            subtitle,
+            recordings,
+            actions,
+            selection.active,
+            selection.contains(notebook.id),
+          ),
+          () => NotebookCard(
+            key: ValueKey(notebook.id),
+            notebook: notebook,
+            subtitle: subtitle,
+            recordings: recordings,
+            actions: actions,
+          ),
         );
       },
     );
+  }
+
+  /// Where the card or row keyed by a notebook's id now is: after a sort,
+  /// a move or a reload, cards on screen keep their state (and cover)
+  /// instead of being built anew.
+  static int? Function(Key) _indexOf(List<Notebook> notebooks, {int offset = 0}) {
+    Map<String, int>? index;
+    return (key) {
+      if (key is! ValueKey<String>) return null;
+      index ??= {for (var i = 0; i < notebooks.length; i++) notebooks[i].id: i + offset};
+      return index![key.value];
+    };
   }
 
   /// The list view's widest rows: the star and ⋯ stay near the titles.
@@ -302,8 +354,10 @@ class LibraryContent extends StatelessWidget {
   }
 
   Widget _listRows(List<Notebook> notebooks) {
+    final indexOf = _indexOf(notebooks);
     return SliverList.separated(
       itemCount: notebooks.length,
+      findItemIndexCallback: indexOf,
       // Rows are ruled like the folder row: a hairline that starts at
       // the titles.
       separatorBuilder: (context, _) => Divider(
@@ -311,12 +365,21 @@ class LibraryContent extends StatelessWidget {
         indent: NotebookListTile.textInset,
         color: Theme.of(context).colorScheme.outlineVariant,
       ),
-      itemBuilder: (context, i) => NotebookListTile(
-        key: ValueKey(notebooks[i].id),
-        notebook: notebooks[i],
-        subtitle: _subtitle(notebooks[i], list: true),
-        actions: actions,
-      ),
+      itemBuilder: (context, i) {
+        final notebook = notebooks[i];
+        final subtitle = _subtitle(notebook, list: true);
+        final selection = actions.selection;
+        return _keep(
+          'row/${notebook.id}',
+          (notebook, subtitle, actions, selection.active, selection.contains(notebook.id)),
+          () => NotebookListTile(
+            key: ValueKey(notebook.id),
+            notebook: notebook,
+            subtitle: subtitle,
+            actions: actions,
+          ),
+        );
+      },
     );
   }
 }

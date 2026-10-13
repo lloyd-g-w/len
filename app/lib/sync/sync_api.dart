@@ -5,26 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../data/syncable.dart';
+import '../platform/pull_decoder.dart';
+import 'pull_page.dart';
 import 'sync_errors.dart';
 
+export 'pull_page.dart' show PullPage;
 export 'sync_errors.dart';
-
-/// One page of the server's change feed.
-class PullPage {
-  const PullPage({
-    required this.records,
-    required this.nextSince,
-    required this.hasMore,
-    this.malformed = 0,
-  });
-
-  final List<SyncRecord> records;
-  final int nextSince;
-  final bool hasMore;
-
-  /// Records on this page that could not be parsed and were dropped.
-  final int malformed;
-}
 
 /// What `GET /v1/health` reports.
 class ServerInfo {
@@ -98,8 +84,9 @@ class SyncApi {
   /// minus room for the envelope).
   static const maxRecordBytes = 32 * 1024 * 1024 - 1024;
 
-  /// Page size requested from `/v1/pull` (the server caps it at 1000).
-  static const pullLimit = 500;
+  /// Page size requested from `/v1/pull`: the server's largest (fewer
+  /// round trips; pages are decoded off the UI thread and applied in slices).
+  static const pullLimit = 1000;
 
   final Uri baseUri;
   final String token;
@@ -199,31 +186,14 @@ class SyncApi {
   /// Fetches one page of changes after [since].
   ///
   /// Malformed records are dropped (and counted) rather than failing the
-  /// whole page, so one bad record can never block sync forever.
+  /// whole page, so one bad record can never block sync forever. Pages are
+  /// decoded off the UI thread where the platform can ([decodePulled]).
   Future<PullPage> pull({required int since, int limit = pullLimit}) async {
-    final json = await _send(
+    final response = await _request(
       () => _client.get(_uri('v1/pull', {'since': '$since', 'limit': '$limit'}), headers: _headers),
     );
-    final rawRecords = json['records'];
-    final nextSince = json['nextSince'];
-    final hasMore = json['hasMore'];
-    if (rawRecords is! List ||
-        nextSince is! int ||
-        hasMore is! bool ||
-        nextSince < since ||
-        (hasMore && nextSince == since)) {
-      throw SyncException.unexpected;
-    }
-    final records = <SyncRecord>[];
-    var malformed = 0;
-    for (final raw in rawRecords) {
-      try {
-        records.add(SyncRecord.fromJson(raw));
-      } on FormatException {
-        malformed++;
-      }
-    }
-    return PullPage(records: records, nextSince: nextSince, hasMore: hasMore, malformed: malformed);
+    _expectOk(response);
+    return await decodePulled(response.bodyBytes, since: since) ?? (throw SyncException.unexpected);
   }
 
   // ---------------------------------------------------------------------------

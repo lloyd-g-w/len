@@ -242,6 +242,11 @@ Two more things keep pen-up and first show off the frame:
   (`ThumbnailCache`: page overview, go to page) do the same below 2.5 px
   (the regular pens) and are rasterised once at the size shown (48 MB LRU),
   so scrolling the overview draws images instead of every page's outlines.
+  A page waiting to be recorded is dropped from the queue once no
+  thumbnail shows it (scrolled past). Each overview tile's ⋯ is a
+  `MenuIconButton(staggered: true)`: the glyph first (it opens the menu
+  too), the IconButton with its tooltip completed by `StaggeredBuild` (a
+  few a frame, not while the grid scrolls).
 
 Measuring: `test/perf/ink_render_perf_test.dart` replays the scenarios
 headlessly and counts the work (see docs/INK_LAB.md); profile builds with
@@ -1994,7 +1999,11 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   stretched to the width) with a fixed caption area (`NotebookCard.captionHeight`: two title
   lines and a caption), so every cover in a row is as tall. The columns come from the delegate,
   not a layout builder above the grid: that rebuilt every card on every scroll frame
-  (`test/perf/library_perf_test.dart` builds 200 notebooks and counts card builds). In a short
+  (`test/perf/library_perf_test.dart` builds 200 notebooks and counts card builds). Cards and
+  rows are found by notebook id (`findChildIndexCallback`), and `LibraryContent` hands back the
+  same card widget while its notebook object, caption and selection are unchanged (the
+  controller's `reload` keeps unchanged notebooks as the same objects, `Notebook.sameAs`), so a
+  sort, a selection change or a reload builds only the cards that changed. In a short
   viewport the delegate adds columns until a cover and its caption take at most 60 % of the
   height (`cover_grid.dart`; not under 96 dp), so a row with its titles fits a phone held
   sideways; the folder row reads the viewport height from a box `LayoutBuilder` around the
@@ -2255,12 +2264,18 @@ malformed record is skipped. Open screens subscribe to
 `SyncController.remoteChanges` and reload only the affected surfaces.
 
 Robustness (`SyncEngine`): rows are marked clean only for the exact version
-the server confirmed (`markClean` by `updatedAt`), and each pulled page is
-applied in slices of 64 records, one transaction each with a turn of the event
-loop between (so a first sync of a large library never holds the UI for a
-frame); only the last slice moves the feed position, so a dropped connection
-never loses anything: a page cut short is pulled again (re-applying a record is
-a no-op); the next cycle resumes.
+the server confirmed (`markClean` by `updatedAt`). Pulls ask for the server's
+largest page (1,000 records) and fetch the next page while one is applied.
+Natively a page is decoded in a worker isolate (`platform/pull_decoder.dart`;
+the web decodes on the UI thread): JSON, the record checks, and live strokes
+parsed into the rows they are stored as (`StrokeRow`, `SyncRecord.prepared`;
+a stroke within one chunk is checked on its encoded points without being
+built). The UI thread then applies the page in slices of about 4 ms, one
+transaction each with a turn of the event loop between (also between pages),
+so a first sync of a large library never holds the UI for a frame; only the
+last slice moves the feed position, so a dropped connection never loses
+anything: a page cut short is pulled again (re-applying a record is a no-op);
+the next cycle resumes.
 Each cycle starts with `/v1/health`: its `serverId` decides whether this is
 the server last synced with — a new id (another server, or a wiped or
 restored one) resets the feed position and marks every row and blob for
