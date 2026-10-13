@@ -41,6 +41,8 @@ typedef VectorFallback = void Function(ui.Canvas canvas, TileView view, List<ui.
 ///   then the new zoom is adopted and rendered, with the old tiles standing
 ///   in until then. Zooming out further than [maxZoomOut] adopts the
 ///   current zoom at once (fewer, larger tiles than the old zoom needs).
+///   Once zoomed, areas no tile covers yet stay empty until rendered (a
+///   frame or two) instead of being drawn from vectors; edits always are.
 ///
 /// Rendering is asynchronous ([ui.Picture.toImage]), newest and most
 /// urgent first, a few at a time. Images live in a [TilePool] (LRU by
@@ -205,14 +207,24 @@ class InkTileCache extends ChangeNotifier {
         continue;
       }
       _request(index, 1);
-      missing.addAll(_drawOld(canvas, view, rect));
+      if (tile.edited) {
+        missing.add(rect); // Shown as it now is at once.
+        continue;
+      }
+      final uncovered = _drawOld(canvas, view, rect);
+      if (_oldSpace == null) {
+        missing.addAll(uncovered); // A first show.
+      } else {
+        // Not rendered since a zoom (a rim zooming out exposed): empty
+        // for the frame or two until it is, rather than a frame of
+        // vectors.
+        lastPaint.blankPixels += _pixels(uncovered, view);
+      }
     }
     if (missing.isNotEmpty) {
-      lastPaint.vectorTiles = missing.length;
-      for (final rect in missing) {
-        final area = view.clip == null ? rect : rect.intersect(view.clip!);
-        lastPaint.vectorPixels += area.width * area.height * view.k * view.k;
-      }
+      lastPaint
+        ..vectorTiles = missing.length
+        ..vectorPixels = _pixels(missing, view);
       fallback(canvas, view, missing);
     }
     for (final tile in overlays) {
@@ -229,6 +241,42 @@ class InkTileCache extends ChangeNotifier {
     PerfProbe.count('tileImages', lastPaint.images);
     PerfProbe.count('tileVector', lastPaint.vectorTiles);
     PerfProbe.count('tileOverlays', lastPaint.overlayStrokes);
+  }
+
+  /// Device pixels of [rects] (world) within the view's clip.
+  static double _pixels(List<ui.Rect> rects, TileView view) {
+    var sum = 0.0;
+    for (final rect in rects) {
+      final area = view.clip == null ? rect : rect.intersect(view.clip!);
+      if (!area.isEmpty) sum += area.width * area.height * view.k * view.k;
+    }
+    return sum;
+  }
+
+  /// Draws, scaled into [view], what the tiles hold of [world] that is up
+  /// to date (images of this or the previous zoom; no stale ones), as a
+  /// stand-in while zoomed out to level-of-detail rasters that are not
+  /// made yet. Renders and requests nothing; returns the parts of [world]
+  /// not covered.
+  List<ui.Rect> paintStandIn(ui.Canvas canvas, TileView view, ui.Rect world) {
+    final space = _space;
+    if (space == null || view.clip != _clip) return [world];
+    final area = view.clip == null ? world : world.intersect(view.clip!);
+    if (area.isEmpty) return const [];
+    final uncovered = <ui.Rect>[];
+    for (final index in space.covering(area)) {
+      final rect = space.worldRectOf(index).intersect(area);
+      final tile = _tiles[index];
+      final image = tile?.image;
+      if (tile != null && image != null && !tile.stale) {
+        _drawImage(canvas, image, view.toDevice(space.worldRectOf(index)), exact: false);
+        if (tile.overlay.isNotEmpty) _drawOverlay(canvas, view, tile);
+        lastPaint.images++;
+      } else if (tile == null || tile.blank != true || tile.overlay.isNotEmpty) {
+        uncovered.addAll(_drawOld(canvas, view, rect));
+      }
+    }
+    return uncovered;
   }
 
   static final ui.Paint _exactPaint = ui.Paint()..filterQuality = ui.FilterQuality.none;
@@ -314,7 +362,9 @@ class InkTileCache extends ChangeNotifier {
     _releaseAll(_old);
     _old = {
       for (final e in _tiles.entries)
-        if ((e.value.image != null || e.value.blank == true) && e.value.overlay.isEmpty)
+        if ((e.value.image != null || e.value.blank == true) &&
+            e.value.overlay.isEmpty &&
+            !e.value.stale)
           e.key: e.value,
     };
     _releaseAll({
@@ -365,7 +415,9 @@ class InkTileCache extends ChangeNotifier {
       _restale(hit, 1);
     } else if (hit.where((t) => t.image != null).length <= maxVectorTiles) {
       for (final tile in hit) {
-        tile.invalidate();
+        tile
+          ..invalidate()
+          ..edited = true;
       }
     } else {
       // A large edit (undo of a lasso move, say): rather than frames of
@@ -394,7 +446,10 @@ class InkTileCache extends ChangeNotifier {
   void _restale(List<InkTile> tiles, int priority) {
     for (final tile in tiles) {
       if (tile.image == null) {
-        tile.invalidate();
+        final edited = tile.edited || priority == 0;
+        tile
+          ..invalidate()
+          ..edited = edited;
         continue;
       }
       tile
@@ -579,6 +634,7 @@ class InkTileCache extends ChangeNotifier {
     tile
       ..image = image
       ..stale = false
+      ..edited = false
       ..overlay.removeRange(0, included);
     pool.add(tile);
     _notify();
