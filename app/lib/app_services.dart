@@ -161,6 +161,12 @@ class AppServices {
   /// Reads strokes for lazy loading off the UI isolate when possible.
   final StrokeReader strokeReader;
   final BlobStore blobs;
+
+  /// Whether files added to notebooks (PDFs, images, audio) are kept on
+  /// this device. False in a browser that refused storage
+  /// ([VolatileBlobBackend]): they then last only until the tab closes, and
+  /// the app says so.
+  bool get blobsArePersistent => blobs.backend is! VolatileBlobBackend;
   final ElementRepository elements;
   final SyncController sync;
 

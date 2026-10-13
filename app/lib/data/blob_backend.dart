@@ -57,6 +57,19 @@ class MemoryBlobBackend implements BlobBackend {
   String? localPath(String sha) => null;
 }
 
+/// Memory standing in for storage the platform refused (a browser that
+/// blocks IndexedDB): blobs last until the app closes. [onWrite] lets the
+/// app warn when something is stored that will not be kept.
+class VolatileBlobBackend extends MemoryBlobBackend {
+  void Function()? onWrite;
+
+  @override
+  Future<void> write(String sha, Stream<List<int>> data) async {
+    await super.write(sha, data);
+    onWrite?.call();
+  }
+}
+
 /// Concatenates a byte stream.
 Future<Uint8List> collectBytes(Stream<List<int>> data) async {
   final builder = BytesBuilder(copy: false);

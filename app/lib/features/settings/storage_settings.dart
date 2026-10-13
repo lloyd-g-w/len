@@ -9,9 +9,13 @@ import 'settings_section.dart';
 /// Web only: whether the browser keeps Len's data (persistent storage) and
 /// how much of the site's quota it uses.
 class StorageSettings extends StatefulWidget {
-  const StorageSettings({super.key, required this.storage});
+  const StorageSettings({super.key, required this.storage, this.filesKept = true});
 
   final BrowserStorage storage;
+
+  /// False when the browser refused file storage (IndexedDB): PDFs, images
+  /// and recordings then last only until the tab closes.
+  final bool filesKept;
 
   @override
   State<StorageSettings> createState() => _StorageSettingsState();
@@ -61,6 +65,15 @@ class _StorageSettingsState extends State<StorageSettings> {
           'device runs low on space, unless the site may keep its data. Clearing site data '
           'yourself still deletes it, so use sync for a backup.',
       children: [
+        if (!widget.filesKept)
+          SettingsTile(
+            icon: Symbols.error_rounded,
+            title: 'Files aren\'t kept in this window',
+            subtitle:
+                'This browser doesn\'t let Len store files, so PDFs, images and recordings '
+                'are lost when the tab closes. Use a normal (not private) window, allow site '
+                'data for Len, or turn on sync.',
+          ),
         SettingsTile(
           icon: Symbols.verified_user_rounded,
           title: 'Keep data on this device',

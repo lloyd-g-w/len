@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'app_services.dart';
+import 'data/blob_backend.dart';
 import 'domain/preferences.dart';
 import 'features/library/library_screen.dart';
 import 'ui/app_theme.dart';
+import 'ui/messages.dart';
 import 'ui/phone_menus.dart';
 import 'ui/system_bars.dart';
 
@@ -30,6 +32,27 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     widget.services.pointerActivity.attach();
+    if (widget.services.blobs.backend case final VolatileBlobBackend volatile) {
+      volatile.onWrite = _warnFilesNotKept;
+    }
+  }
+
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
+
+  /// The first file stored in a browser that refused storage: say right
+  /// away that it won't be kept (the library shows a banner too).
+  void _warnFilesNotKept() {
+    final volatile = widget.services.blobs.backend as VolatileBlobBackend;
+    volatile.onWrite = null;
+    final context = _messenger.currentContext;
+    if (context == null) return;
+    _messenger.currentState?.showSnackBar(
+      appSnackBar(
+        context,
+        'This browser won\'t keep this file once the tab is closed',
+        duration: const Duration(seconds: 10),
+      ),
+    );
   }
 
   @override
@@ -64,6 +87,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
             themeMode: themeModeOf(preferences.themeMode),
             themeAnimationDuration: Motion.medium,
             builder: (context, child) => SystemBars(child: PhoneMenus(child: child!)),
+            scaffoldMessengerKey: _messenger,
             navigatorObservers: [widget.services.routeOwners],
             home: const LibraryScreen(),
           );

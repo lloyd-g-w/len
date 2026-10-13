@@ -27,7 +27,8 @@ class SettingsScreen extends StatelessWidget {
       WritingSettings(preferences: preferences),
       HandwritingSettings(recognition: services.recognition),
       const SyncSettings(),
-      if (browserStorage case final storage?) StorageSettings(storage: storage),
+      if (browserStorage case final storage?)
+        StorageSettings(storage: storage, filesKept: services.blobsArePersistent),
       const AboutSettings(),
     ];
   }

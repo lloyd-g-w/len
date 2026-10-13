@@ -18,6 +18,7 @@ import 'library_content.dart';
 import 'library_controller.dart';
 import 'library_file_drop.dart';
 import 'library_header.dart';
+import 'library_notice.dart';
 import 'library_sidebar.dart';
 import 'selection/selection_actions.dart';
 import 'selection/selection_bar.dart';
@@ -229,17 +230,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _content({Widget? headerLeading}) => AnimatedSwitcher(
-    duration: Motion.medium,
-    switchInCurve: Motion.standard,
-    transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-    child: KeyedSubtree(
-      key: ValueKey('${_controller.section}/${_controller.folderId}'),
-      child: LibraryContent(
-        actions: _actions,
-        searchController: _search,
-        searchFocus: _searchFocus,
-        headerLeading: headerLeading,
+  Widget _content({Widget? headerLeading}) => LibraryNotices(
+    child: AnimatedSwitcher(
+      duration: Motion.medium,
+      switchInCurve: Motion.standard,
+      transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+      child: KeyedSubtree(
+        key: ValueKey('${_controller.section}/${_controller.folderId}'),
+        child: LibraryContent(
+          actions: _actions,
+          searchController: _search,
+          searchFocus: _searchFocus,
+          headerLeading: headerLeading,
+        ),
       ),
     ),
   );
