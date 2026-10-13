@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/features/editor/chrome/toolbar_slot.dart';
+import 'package:len/features/editor/editor_screen.dart';
 
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
 
@@ -85,5 +87,32 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byTooltip('Pen (P)'), findsOneWidget);
     await closeEditor(tester);
+  });
+
+  group('goldens', () {
+    for (final (name, float) in [
+      ('toolbar_floating_h', (0.5, 1.0)),
+      ('toolbar_floating_v', (0.0, 0.5)),
+    ]) {
+      testWidgets(name, (tester) async {
+        final (s, _) = await pumpEditor(tester, size: const Size(1280, 900));
+        s.preferences
+          ..toolbarPlacement = ToolbarPlacement.floating
+          ..toolbarFloat = float;
+        await tester.pumpAndSettle();
+        await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/$name.png'));
+        await closeEditor(tester);
+      });
+    }
+
+    testWidgets('focus_puck', (tester) async {
+      await pumpEditor(tester, size: const Size(1280, 900));
+      await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+      await tester.pumpAndSettle();
+      await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/focus_puck.png'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+      await tester.pumpAndSettle();
+      await closeEditor(tester);
+    });
   });
 }
