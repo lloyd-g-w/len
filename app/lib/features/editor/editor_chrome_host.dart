@@ -16,6 +16,7 @@ import 'editor_actions.dart';
 import 'editor_session.dart';
 import 'editor_toolbar.dart';
 import 'images/editor_images.dart';
+import 'pen/ink_paper.dart';
 import 'split/parked_pane_notice.dart';
 import 'split/split_controller.dart';
 import 'tabs/open_notebooks.dart';
@@ -217,48 +218,52 @@ class EditorChromeHost extends StatelessWidget {
     final inBar = dock == ToolbarDock.inline || dock == ToolbarDock.row;
     return ListenableBuilder(
       listenable: Listenable.merge([?doc, ?session.canvasNav]),
-      builder: (context, _) => EditorChrome(
-        layout: layout,
-        hud: hud,
-        tips: tips,
-        dimmed: dimmed,
-        notice: _notices(),
-        onExitFocus: commands.toggleFocus,
-        floatAt: prefs.toolbarFloat,
-        onFloatMoved: (at) => prefs.toolbarFloat = at,
-        presenting: presenting,
-        puck: ToolPuck(tools: session.tools, undo: session.undo, insert: _insert(context)),
-        puckAt: prefs.puckFloat,
-        onPuckMoved: (at) => prefs.puckFloat = at,
-        toolbar: toolbar,
-        topBar: EditorTopBar(
-          title: title,
-          subtitle: subtitle,
-          actions: editorMenuActions(
-            context,
-            session,
-            onBack: commands.back,
-            onRename: commands.rename,
-            onFocusMode: commands.toggleFocus,
-            onStylusOnly: commands.setStylusOnly,
-            onSettings: commands.openSettings,
-            onFlow: commands.setFlow,
-            onBackground: commands.pickBackground,
-            onSearch: commands.openSearch,
+      // Ink previews in the tool popovers show the paper being written on.
+      builder: (context, _) => InkPaper(
+        color: doc?.activePageData.paperColor ?? session.shared.notebook.paperColor,
+        child: EditorChrome(
+          layout: layout,
+          hud: hud,
+          tips: tips,
+          dimmed: dimmed,
+          notice: _notices(),
+          onExitFocus: commands.toggleFocus,
+          floatAt: prefs.toolbarFloat,
+          onFloatMoved: (at) => prefs.toolbarFloat = at,
+          presenting: presenting,
+          puck: ToolPuck(tools: session.tools, undo: session.undo, insert: _insert(context)),
+          puckAt: prefs.puckFloat,
+          onPuckMoved: (at) => prefs.puckFloat = at,
+          toolbar: toolbar,
+          topBar: EditorTopBar(
+            title: title,
+            subtitle: subtitle,
+            actions: editorMenuActions(
+              context,
+              session,
+              onBack: commands.back,
+              onRename: commands.rename,
+              onFocusMode: commands.toggleFocus,
+              onStylusOnly: commands.setStylusOnly,
+              onSettings: commands.openSettings,
+              onFlow: commands.setFlow,
+              onBackground: commands.pickBackground,
+              onSearch: commands.openSearch,
+            ),
+            undo: session.undo,
+            tabs: tabs,
+            audio: AudioBarButton(audio: audio),
+            compactMenuItems: audioMenuItems(context, audio),
+            toolbar: inBar ? toolbar : null,
+            dock: dock,
+            toolbarWidth: ToolbarMetrics.group(session.tools),
+            splitMenu: splitMenu,
+            secondPane: secondPane,
+            band: band,
           ),
-          undo: session.undo,
-          tabs: tabs,
-          audio: AudioBarButton(audio: audio),
-          compactMenuItems: audioMenuItems(context, audio),
-          toolbar: inBar ? toolbar : null,
-          dock: dock,
-          toolbarWidth: ToolbarMetrics.group(session.tools),
-          splitMenu: splitMenu,
-          secondPane: secondPane,
-          band: band,
+          navigator: editorPageNavigator(context, session),
+          navigatorActivity: navigatorActivity,
         ),
-        navigator: editorPageNavigator(context, session),
-        navigatorActivity: navigatorActivity,
       ),
     );
   }

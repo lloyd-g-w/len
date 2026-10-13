@@ -2,13 +2,29 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../domain/paper.dart';
 import '../../../domain/stroke.dart';
 import '../../../ink/pen/pen_config.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import '../../../ui/app_theme.dart';
+import 'ink_paper.dart';
 import 'option_controls.dart';
+import 'preview_strokes.dart';
 
-/// Draws a sample S-curve with real ink, to preview a pen's look and feel.
+/// What a [StrokePreview] draws.
+enum PreviewSample {
+  /// A few words of handwriting (the pen), or a highlight over lines of
+  /// text (the highlighter).
+  writing,
+
+  /// One short stroke (a size on its own); the highlighter's is the same
+  /// highlight as [writing].
+  line,
+}
+
+/// Previews an ink with the real renderer, at its real size and colour, on
+/// the paper the user writes on ([InkPaper]): handwriting on a faint rule
+/// for the pen, a highlight across grey lines of text for the highlighter.
 class StrokePreview extends StatelessWidget {
   const StrokePreview({
     super.key,
@@ -16,7 +32,8 @@ class StrokePreview extends StatelessWidget {
     required this.config,
     this.color,
     this.width,
-    this.height = 44,
+    this.height = 64,
+    this.sample = PreviewSample.writing,
   });
 
   final InkTool tool;
@@ -26,6 +43,7 @@ class StrokePreview extends StatelessWidget {
   final int? color;
   final double? width;
   final double height;
+  final PreviewSample sample;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +56,8 @@ class StrokePreview extends StatelessWidget {
           config: config,
           color: color ?? config.color,
           width: width ?? config.width,
+          paper: InkPaper.of(context),
+          sample: sample,
         ),
       ),
     );
@@ -50,82 +70,163 @@ class _PreviewPainter extends CustomPainter {
     required this.config,
     required this.color,
     required this.width,
+    required this.paper,
+    required this.sample,
   });
 
   final InkTool tool;
   final PenConfig config;
   final int color;
   final double width;
+  final PaperColor paper;
+  final PreviewSample sample;
 
-  /// A gentle S-curve whose pressure swells in the middle.
-  static List<StrokePoint> samplePoints(Size size, double inset) {
-    const n = 64;
-    final w = size.width - 2 * inset, h = size.height - 2 * inset;
-    return [
-      for (var i = 0; i <= n; i++)
-        StrokePoint(
-          inset + w * i / n,
-          inset + h * (0.5 - 0.42 * math.sin(i / n * 2 * math.pi)),
-          0.25 + 0.75 * math.sin(i / n * math.pi),
-        ),
-    ];
-  }
-
-  /// A gently rising straight line, as an ink with straight lines draws.
-  static List<StrokePoint> straightPoints(Size size, double inset) => [
-    StrokePoint(inset, size.height * 0.65, 0.5),
-    StrokePoint(size.width - inset, size.height * 0.35, 0.5),
-  ];
+  /// Space between the ink and the card's sides.
+  static const double _side = Gaps.lg;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Keep thick pens inside the preview.
-    final shown = math.min(width, size.height * 0.4);
-    final inset = shown / 2 + 4;
-    final points = config.straight ? straightPoints(size, inset) : samplePoints(size, inset);
+    if (tool.isHighlighter) {
+      _highlight(canvas, size);
+    } else if (sample == PreviewSample.line) {
+      _line(canvas, size);
+    } else {
+      _writing(canvas, size);
+    }
+  }
+
+  void _ink(Canvas canvas, List<StrokePoint> points, double width) {
     final style = config.styleFor(tool);
     final path = StrokeRenderer.buildPath(
       points,
       tool: tool,
-      width: shown,
+      width: width,
       style: style,
       complete: true,
     );
     canvas.drawPath(path, StrokeRenderer.paintFor(color, style));
   }
 
+  /// Handwriting on a faint rule; thicker pens write a little larger, as a
+  /// hand does, while the words fit the card.
+  void _writing(Canvas canvas, Size size) {
+    final shown = math.min(width, size.height * 0.16);
+    final box = Rect.fromLTRB(
+      _side,
+      shown / 2 + Gaps.sm,
+      size.width - _side,
+      size.height - shown / 2 - Gaps.md,
+    );
+    final x = math.min(PreviewStrokes.xHeightFor(box), 11 + shown * 1.6);
+    final lineWidth = PreviewStrokes.widthInXHeights * x;
+    final left = box.left + (box.width - lineWidth) / 2;
+    final baseline = box.center.dy + PreviewStrokes.tallest * x / 2;
+    canvas.drawLine(
+      Offset(0, baseline + 0.5),
+      Offset(size.width, baseline + 0.5),
+      Paint()
+        ..color = paper.pattern
+        ..strokeWidth = 1,
+    );
+    for (final word in PreviewStrokes.handwriting(left, baseline, x)) {
+      _ink(canvas, word, shown);
+    }
+  }
+
+  /// One gentle stroke across the middle.
+  void _line(Canvas canvas, Size size) {
+    final shown = math.min(width, size.height * 0.4);
+    final inset = _side + shown / 2;
+    final mid = size.height / 2;
+    final points = PreviewStrokes.highlight(
+      Offset(inset, mid + 2),
+      Offset(size.width - inset, mid - 2),
+    );
+    _ink(canvas, [for (final p in points) StrokePoint(p.x, p.y, 0.6)], shown);
+  }
+
+  /// Three lines of grey "text", the middle one highlighted from its start
+  /// to about two thirds across.
+  void _highlight(Canvas canvas, Size size) {
+    final shown = math.min(width, size.height * 0.6);
+    final mid = size.height / 2;
+    const pitch = 17.0;
+    final text = Paint()
+      ..color = paper.text.withValues(alpha: 0.42)
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3.5;
+    for (final (row, words) in _rows.indexed) {
+      final y = mid + (row - 1) * pitch;
+      var x = _side;
+      for (final w in words) {
+        final end = math.min(x + w, size.width - _side);
+        if (end - x > 4) canvas.drawLine(Offset(x, y), Offset(end, y), text);
+        x += w + 7;
+      }
+    }
+    final from = Offset(_side - 2 + shown * 0.15, mid + 1);
+    final to = Offset(_side + (size.width - 2 * _side) * 0.68, mid);
+    final points = PreviewStrokes.highlight(from, to);
+    _ink(canvas, config.straight ? [points.first, points.last] : points, shown);
+  }
+
+  /// Word lengths of the three lines of "text" (the last one ends early).
+  static const List<List<double>> _rows = [
+    [30, 18, 44, 24, 36, 20, 40, 28, 34],
+    [22, 40, 26, 34, 18, 46, 30, 24, 38],
+    [36, 24, 30, 42, 20],
+  ];
+
   @override
   bool shouldRepaint(_PreviewPainter old) =>
-      old.tool != tool || old.config != config || old.color != color || old.width != width;
+      old.tool != tool ||
+      old.config != config ||
+      old.color != color ||
+      old.width != width ||
+      old.paper != paper ||
+      old.sample != sample;
 }
 
-/// A [StrokePreview] on a paper-white card, as the ink will look on a page.
+/// A [StrokePreview] on a card of the paper the user writes on, framed by a
+/// hairline that sits quietly on light and dark chrome alike.
 class PreviewCard extends StatelessWidget {
   const PreviewCard({
     super.key,
     required this.tool,
     required this.config,
+    this.color,
     this.width,
-    this.height = 56,
+    this.height = 64,
+    this.sample = PreviewSample.writing,
   });
 
   final InkTool tool;
   final PenConfig config;
+  final int? color;
   final double? width;
   final double height;
+  final PreviewSample sample;
 
   @override
   Widget build(BuildContext context) {
     // The options popover shows its own preview above the embedded panel.
     if (EmbeddedOptions.of(context)) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Palette.paper,
+        color: InkPaper.of(context).paper,
         borderRadius: BorderRadius.circular(Radii.sm),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        border: Border.all(color: scheme.outlineVariant),
       ),
-      child: StrokePreview(tool: tool, config: config, width: width, height: height),
+      child: StrokePreview(
+        tool: tool,
+        config: config,
+        color: color,
+        width: width,
+        height: height,
+        sample: sample,
+      ),
     );
   }
 }
