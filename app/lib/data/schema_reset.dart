@@ -23,8 +23,15 @@ class SchemaReset {
 /// replacing it (pre-release: no upgrade path, see CONVENTIONS.md).
 abstract final class SchemaCheck {
   /// The settings carried over a reset: the sync login, so synced
-  /// notebooks come back without asking (keys of `SettingsRepository`).
-  static const keptSettings = ['sync_url', 'sync_token'];
+  /// notebooks come back without asking (keys of `SettingsRepository`):
+  /// the server, and the token's slot in the secure store or the token
+  /// itself while it is kept in the database (`SyncTokenStore`).
+  static const keptSettings = ['sync_url', 'sync_token_slot', 'sync_token'];
+
+  /// Whether [kept] (from [reset]) holds a sync login.
+  static bool keepsSync(Map<String, String> kept) =>
+      kept.containsKey('sync_url') &&
+      (kept.containsKey('sync_token_slot') || kept.containsKey('sync_token'));
 
   /// The structure the code relies on: every table with its columns (name,
   /// declared type, NOT NULL, primary key) and the names of indexes and

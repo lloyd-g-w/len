@@ -6,9 +6,11 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/schema_reset.dart';
 import 'package:len/data/settings_repository.dart';
+import 'package:len/data/sync_token_store.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/library/library_notice.dart';
+import 'package:len/platform/secure_store.dart';
 import 'package:sqlite3/common.dart';
 import 'package:sqlite3/sqlite3.dart' show sqlite3;
 
@@ -99,21 +101,46 @@ void main() {
     expect(db.schemaReset, isNotNull);
   });
 
-  test('the sync login is kept, so synced notebooks come back', () {
+  test('the sync login is kept, so synced notebooks come back', () async {
+    final secure = MemorySecureStore();
     prepare((d) {
       SettingsRepository(d)
         ..syncUrl = 'https://len.example'
-        ..syncToken = 'secret'
         ..syncLastSeq = 42;
-      d.db.execute('DROP TABLE outline');
     });
+    final before = AppDatabase.open(path);
+    await SyncTokenStore(SettingsRepository(before), secure).save('secret');
+    before.db.execute('DROP TABLE outline');
+    before.close();
+    expect(secure.values.values, ['secret']);
+
     final db = AppDatabase.open(path);
     addTearDown(db.close);
     expect(db.schemaReset!.keptSync, isTrue);
     final settings = SettingsRepository(db);
     expect(settings.syncUrl, 'https://len.example');
-    expect(settings.syncToken, 'secret');
+    expect(settings.syncTokenFallback, isNull, reason: 'the token stays out of the database');
+    final tokens = SyncTokenStore(settings, secure);
+    await tokens.load();
+    expect(tokens.token, 'secret');
     expect(settings.syncLastSeq, 0, reason: 'everything is pulled again');
+  });
+
+  test('a token kept in the database (no secure store) is kept too', () async {
+    prepare((d) {
+      SettingsRepository(d)
+        ..syncUrl = 'https://len.example'
+        ..syncTokenFallback = 'secret';
+      d.db.execute('DROP TABLE outline');
+    });
+    final db = AppDatabase.open(path);
+    addTearDown(db.close);
+    expect(db.schemaReset!.keptSync, isTrue);
+    final secure = MemorySecureStore();
+    final tokens = SyncTokenStore(SettingsRepository(db), secure);
+    expect(tokens.token, 'secret');
+    await tokens.load();
+    expect(secure.values.values, ['secret'], reason: 'moved to the secure store');
   });
 
   test('a matching database is untouched', () {

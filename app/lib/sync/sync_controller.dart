@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../data/settings_repository.dart';
+import '../data/sync_token_store.dart';
 import 'blob_sync.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
@@ -14,15 +15,20 @@ class SyncController extends ChangeNotifier {
   SyncController({
     required this.engine,
     required this.settings,
+    required this.tokens,
     this.interval = const Duration(seconds: 45),
     this.apiFactory = _defaultApi,
   }) {
     _state = isConfigured ? SyncState.idle : SyncState.disabled;
     _refreshTooLarge();
+    tokens.addListener(_tokenChanged);
   }
 
   final SyncEngine engine;
   final SettingsRepository settings;
+
+  /// The access token (in the secure store, see [SyncTokenStore]).
+  final SyncTokenStore tokens;
   final Duration interval;
 
   /// Creates the API client for one sync run; may throw [SyncException]
@@ -91,7 +97,7 @@ class SyncController extends ChangeNotifier {
 
   void _refreshTooLarge() => _tooLarge = engine.blobs?.tooLarge() ?? const [];
 
-  bool get isConfigured => settings.syncUrl.isNotEmpty && settings.syncToken.isNotEmpty;
+  bool get isConfigured => settings.syncUrl.isNotEmpty && tokens.token.isNotEmpty;
 
   /// Fires after a sync that changed local data.
   Stream<RemoteChanges> get remoteChanges => _remoteChanges.stream;
@@ -123,9 +129,8 @@ class SyncController extends ChangeNotifier {
   /// everything uploaded, so the new server gets a complete copy, while a
   /// new address of the same server (or a new token) changes nothing.
   void configure({required String url, required String token}) {
-    settings
-      ..syncUrl = _normalizeUrl(url)
-      ..syncToken = token.trim();
+    settings.syncUrl = _normalizeUrl(url);
+    unawaited(tokens.save(token.trim()));
     _configGeneration++;
     _lastError = _lastErrorDetails = _lastFailure = null;
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
@@ -166,7 +171,7 @@ class SyncController extends ChangeNotifier {
     if (!isConfigured || _disposed) return false;
     SyncApi? api;
     try {
-      api = apiFactory(settings.syncUrl, settings.syncToken);
+      api = apiFactory(settings.syncUrl, tokens.token);
       return await BlobSync(blobs).download(api, sha);
     } on SyncException catch (e) {
       debugPrint('Cannot fetch blob $sha: ${e.message}');
@@ -177,6 +182,7 @@ class SyncController extends ChangeNotifier {
   }
 
   Future<void> _run() async {
+    await tokens.retryIfDue();
     if (!isConfigured) {
       _setState(SyncState.disabled);
       return;
@@ -187,7 +193,7 @@ class SyncController extends ChangeNotifier {
     _setState(SyncState.syncing);
     SyncApi? api;
     try {
-      api = apiFactory(settings.syncUrl, settings.syncToken);
+      api = apiFactory(settings.syncUrl, tokens.token);
       final changes = await engine.sync(api, isCancelled: cancelled);
       if (cancelled()) return;
       _refreshTooLarge();
@@ -238,6 +244,17 @@ class SyncController extends ChangeNotifier {
     _setState(SyncState.error);
   }
 
+  /// The token was read from the secure store (after start) or changed:
+  /// sync may have become possible, or impossible.
+  void _tokenChanged() {
+    if (_state == SyncState.syncing) return;
+    if (!isConfigured) {
+      _setState(SyncState.disabled);
+    } else if (_state == SyncState.disabled) {
+      _setState(SyncState.idle);
+    }
+  }
+
   void _setState(SyncState state) {
     if (_disposed) return;
     _state = state;
@@ -255,6 +272,7 @@ class SyncController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    tokens.removeListener(_tokenChanged);
     _timer?.cancel();
     unawaited(_remoteChanges.close());
     unawaited(_notices.close());

@@ -23,6 +23,7 @@ import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
+import 'data/sync_token_store.dart';
 import 'data/template_repository.dart';
 import 'data/tombstone_payloads.dart';
 import 'data/write_back.dart';
@@ -37,6 +38,7 @@ import 'ink/recognition/recognition_service.dart';
 import 'ink/render/outline_preparer.dart';
 import 'ink/selection/ink_clipboard.dart';
 import 'platform/handwriting_recognizer.dart';
+import 'platform/secure_store.dart';
 import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
@@ -74,7 +76,9 @@ class AppServices {
   /// substitute the sync transport. Blobs (PDFs) are kept in [blobBackend]
   /// (in memory if omitted, e.g. in tests). [audio] replaces the
   /// recorder and player (tests use fakes). [incomingFiles] are files
-  /// handed to the app from outside (`platform/incoming_files`).
+  /// handed to the app from outside (`platform/incoming_files`). The sync
+  /// token goes to [secureStore] (`platformSecureStore`); without one (a
+  /// browser, tests) it is kept in the database.
   factory AppServices.create(
     AppDatabase database, {
     Clock clock = const Clock(),
@@ -86,8 +90,10 @@ class AppServices {
     OutlinePreparer outlines = const InlineOutlinePreparer(),
     StorageWrites? writes,
     RasterStore? rasterStore,
+    SecureStore? secureStore,
   }) {
     final settings = SettingsRepository(database);
+    final tokens = SyncTokenStore(settings, secureStore, clock: clock);
     final deviceId = settings.deviceId(clock);
     final strokes = StrokeRepository(database, deviceId: deviceId, clock: clock);
     final elements = ElementRepository(database, deviceId: deviceId, clock: clock);
@@ -145,8 +151,13 @@ class AppServices {
       blobs: blobs,
       elements: elements,
       sync: syncApiFactory == null
-          ? SyncController(engine: engine, settings: settings)
-          : SyncController(engine: engine, settings: settings, apiFactory: syncApiFactory),
+          ? SyncController(engine: engine, settings: settings, tokens: tokens)
+          : SyncController(
+              engine: engine,
+              settings: settings,
+              tokens: tokens,
+              apiFactory: syncApiFactory,
+            ),
       search: search,
       recognition: recognition,
       pointerActivity: pointerActivity,
@@ -257,6 +268,7 @@ class AppServices {
     pointerActivity.detach();
     search.dispose();
     sync.dispose();
+    sync.tokens.dispose();
     closeStrokeReader(strokeReader);
     outlines.close();
     preferences.dispose();
