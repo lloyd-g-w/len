@@ -38,20 +38,27 @@ class PageEdits {
 
   /// Adds [specs] after [after] (at the end if null); undo deletes them.
   List<NotebookPage> add(List<PageSpec> specs, {NotebookPage? after}) {
-    final added = actions.addAll(specs, after: after);
-    _undoableAdd(added);
-    return added;
+    final pages = actions.addAll(specs, after: after);
+    added(pages);
+    return pages;
   }
 
   /// Inserts a copy of [page] after it; undo deletes the copy.
-  NotebookPage duplicate(NotebookPage page) {
-    final copy = actions.duplicate(page);
-    _undoableAdd([copy]);
-    return copy;
+  NotebookPage duplicate(NotebookPage page) => duplicateAll([page]).single;
+
+  /// Inserts a copy of each of [pages] right after it, as one step; undo
+  /// deletes the copies. Returns the copies in page order.
+  List<NotebookPage> duplicateAll(List<NotebookPage> pages) {
+    if (pages.isEmpty) return const [];
+    // Last first, so each copy lands after its page.
+    final copies = [for (final p in pages.reversed) actions.duplicate(p)].reversed.toList();
+    added(copies);
+    return copies;
   }
 
-  /// Makes adding [pages] (already added) undoable.
-  void _undoableAdd(List<NotebookPage> pages) {
+  /// Makes adding [pages] (already added elsewhere, e.g. from a PDF)
+  /// undoable and shows the first.
+  void added(List<NotebookPage> pages) {
     var deleted = <DeletedPage>[];
     _record(
       () => deleted = actions.deleteAll(pages),

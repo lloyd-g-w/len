@@ -26,7 +26,7 @@ class _FakeExporter extends NotebookExporter {
   /// When set, [pdf] fails with it.
   Object? error;
 
-  /// Images [pdf] reports as left out.
+  /// Images [pdf] (and each [png]) reports as left out.
   int missingImages = 0;
   final pngCalls = <(NotebookPage, double, bool)>[];
 
@@ -51,8 +51,14 @@ class _FakeExporter extends NotebookExporter {
   }
 
   @override
-  Future<Uint8List> png(NotebookPage page, {double scale = 2, bool backgrounds = true}) async {
+  Future<Uint8List> png(
+    NotebookPage page, {
+    double scale = 2,
+    bool backgrounds = true,
+    ExportReport? report,
+  }) async {
     pngCalls.add((page, scale, backgrounds));
+    report?.missingImages += missingImages;
     return Uint8List.fromList([4]);
   }
 }
@@ -205,6 +211,18 @@ void main() {
     await tester.tap(_exportButton);
     await tester.pumpAndSettle();
     expect(find.textContaining('· 2 images couldn’t be included'), findsOneWidget);
+  });
+
+  testWidgets('PNG exports say what they left out too', (tester) async {
+    exporter.missingImages = 1;
+    await open(tester);
+    await tester.tap(find.text('PNG'));
+    await tester.tap(find.text('Current page'));
+    await tester.pumpAndSettle();
+    await tester.tap(_exportButton);
+    await tester.pumpAndSettle();
+    expect(exporter.pngCalls, hasLength(1));
+    expect(find.textContaining('· 1 image couldn’t be included'), findsOneWidget);
   });
 
   testWidgets('a failed export says so in words, the error under Details', (tester) async {

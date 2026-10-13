@@ -13,6 +13,7 @@ import '../../../ui/app_theme.dart';
 import 'text/list_marker_view.dart';
 import 'text/rich_text_controller.dart';
 import 'text/rich_text_field.dart';
+import 'text/text_box_reveal.dart';
 import 'text_format_bar.dart';
 
 /// Edits the session's text box in place: a real text field laid out in
@@ -38,6 +39,8 @@ class TextBoxEditor extends StatefulWidget {
 class _TextBoxEditorState extends State<TextBoxEditor> {
   final RichTextController _text = RichTextController(const TextData());
   final FocusNode _focus = FocusNode(debugLabel: 'TextBoxEditor');
+  final GlobalKey _dockedBar = GlobalKey(debugLabel: 'docked format bar');
+  final TextBoxReveal _reveal = TextBoxReveal();
   String? _editingId;
 
   TextEditSession get _session => widget.session;
@@ -105,6 +108,16 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
       builder: (context, _) {
         final element = _session.current;
         if (element == null) return const SizedBox.shrink();
+        final bounds = _screenBounds(element);
+        final docked = MediaQuery.sizeOf(context).width < TextFormatBar.dockBelowWidth;
+        _reveal.schedule(
+          host: context,
+          viewport: widget.viewport,
+          id: element.id,
+          box: bounds,
+          bar: docked ? _dockedBar : null,
+          top: MediaQuery.paddingOf(context).top + TextBoxReveal.gap,
+        );
         final scale = widget.viewport.scale;
         // The box sits on the paper, not the chrome: ink blue in both themes
         // (like the selection handles).
@@ -186,7 +199,8 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
               ),
             ),
             TextFormatBar(
-              anchor: _screenBounds(element),
+              anchor: bounds,
+              dockedKey: _dockedBar,
               controller: _text,
               tools: widget.tools,
               onBoxChanged: (box) => widget.tools.textStyle = box,

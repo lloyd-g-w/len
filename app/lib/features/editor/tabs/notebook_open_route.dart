@@ -22,7 +22,8 @@ class NotebookOpenOrigin {
   final Widget cover;
 
   /// The notebook's paper colour: the cover fades into it, then the editor
-  /// fades in over it (default: the theme's background).
+  /// fades in over it (default: the theme's background). Dark mode uses the
+  /// editor's backdrop instead.
   final Color? paper;
 
   /// The cover's current global rect, or null when it is gone; the editor
@@ -188,8 +189,12 @@ class _OpenTransitionState extends State<_OpenTransition> {
 
   @override
   Widget build(BuildContext context) {
-    final fill = widget.origin?.paper ?? Theme.of(context).scaffoldBackgroundColor;
     final brightness = Theme.of(context).brightness;
+    // Dark mode flies on the editor's dark backdrop: over light paper the
+    // fading editor would read as a pale flash on every open and close.
+    final fill = brightness == Brightness.dark
+        ? Surfaces.canvasBackdrop(brightness)
+        : widget.origin?.paper ?? Theme.of(context).scaffoldBackgroundColor;
     return LayoutBuilder(
       builder: (context, constraints) => AnimatedBuilder(
         animation: widget.animation,

@@ -66,10 +66,13 @@ path on desktop, Copy details, Try again). *Files:* `main.dart`, a new
 *Done:* `main.dart` opens the storage in a try; on failure
 `ui/startup_error.dart` explains (data folder on desktops), with Try again and
 Copy details.
+A database from an older pre-release (same `user_version`, different
+tables) no longer lands there: it is backed up and started fresh, and the
+library says so once with the backup path (`SchemaCheck`).
 
 ### Editor chrome
 
-**P1-1 Opening a notebook in dark mode flashes a light editor.**
+✅ **P1-1 Opening a notebook in dark mode flashes a light editor.**
 `open_tablet_dark_40.png`, `open_tablet_portrait_dark_40.png`,
 `open_phone_dark_40.png`: mid-transition the editor fades in over the
 paper-coloured growing cover, so the whole bar and backdrop read as pale grey
@@ -77,8 +80,10 @@ over the dark library, every open and close. *Fix:* in `NotebookOpenRoute`
 put the dark `canvasBackdrop` under the fading editor (the paper only where
 the page is), or cross-fade from the cover to the backdrop first. Check the
 `_back` frames too. *Files:* `features/editor/tabs/notebook_open_route.dart`.
+*Done (`fix/editor-chrome-r4`):* dark mode flies on `canvasBackdrop` (light
+mode keeps the paper); the open and back frames stay dark.
 
-**P1-2 Focus mode's exit is nearly invisible on touch, and the puck sits on the writing.**
+✅ **P1-2 Focus mode's exit is nearly invisible on touch, and the puck sits on the writing.**
 `editor_focus.png`, `present_light.png`, `present_dark.png`: the 32-dp exit is
 at 40 % on a light chip in the top-right corner (about 2:1), and touch has no
 hover to reveal it. The puck's grip is a separate bubble beside it, and
@@ -87,23 +92,32 @@ entering and after any tap on empty chrome space, then 40 %; Android back
 (and Esc, already) leave; merge the grip into the puck's capsule; the puck
 starts at the bottom edge but snaps clear of the page content when it overlaps
 ink on release. *Files:* `chrome/focus_handle.dart`, `chrome/tool_puck.dart`.
+*Done:* the exit shows in full for 2 s on entering, then rests at 70 % on
+touch (40 % with a mouse), `onSurface` glyph, a 48-dp target on touch; back
+and Esc already left. The grip is inside the puck's capsule
+(`ToolbarSlot.joined`). Still open: snapping the puck clear of ink on release.
 
-**P1-3 The tab strip cuts the last tab with no cue, and squeezes the active tab first.**
+✅ **P1-3 The tab strip cuts the last tab with no cue, and squeezes the active tab first.**
 `e_tabs_tablet_portrait_light.png` ("Spanish voca" cut at the edge, no fade,
 no overflow control), `e_tabs_desktop_light.png` (the active "Physics —
 Mecha…" is the only truncated tab while 200 px are free). *Fix:* `ScrollFade`
 on the strip and scroll the active tab into view; size tabs to their title up
 to 220 dp and shrink inactive tabs before the active one. *Files:*
 `features/editor/tabs/notebook_tab_strip.dart`.
+*Done:* tabs keep their size (inactive up to 220 dp, the active one 280) and
+the strip scrolls with a 48-dp `ScrollFade`; a newly active tab scrolls into
+view; the strip starts at the leading edge (it was centred on desktops).
 
-**P2-1 The phone top bar wastes its width.** `editor_phone_paged_light.png`,
+✅ **P2-1 The phone top bar wastes its width.** `editor_phone_paged_light.png`,
 `editor_narrow_paged.png`: ↶ ↷ ⋯ sit about 48 dp apart (96 px @2x), so long
 titles truncate early ("Physics — …" in the narrow render) while there is no
 ▦ (see P1-10). *Fix:* 40-dp visual buttons in 48-dp targets packed together
 (no extra gaps); use the gained width for ▦ and the title. *Files:*
 `chrome/editor_top_bar.dart`, `chrome/bar_button.dart`.
+*Note:* ↶ ↷ ⋯ already are 48-dp targets edge to edge (48 dp is the minimum
+pitch on touch); ▦ on phones comes with P1-10 (`fix/pages-writing`).
 
-**P2-2 The phone ⋯ menu is long and mixes ellipsis rules.** `editor_phone_more_menu.png`:
+✅ **P2-2 The phone ⋯ menu is long and mixes ellipsis rules.** `editor_phone_more_menu.png`:
 9 rows; "Record audio" and "Recordings…" are two rows; "Settings…" and
 "Recordings…" have ellipses though they ask nothing (CONVENTIONS: … only
 for commands that ask first); the submenu arrows are filled triangles, unlike
@@ -111,26 +125,35 @@ the rounded chevrons elsewhere. *Fix:* one "Audio" row (record; recordings
 when there are any, as on wide); drop the ellipses; a `chevron_right_rounded`
 trailing glyph for submenus. *Files:* `chrome/editor_more_menu.dart`,
 `ui/menus.dart`, `features/audio/ui/audio_bar_button.dart`.
+*Done:* "Recordings" shows only once there are any (Record audio stays one
+tap); "Settings" and "Recordings" lose the ellipsis; wide submenus showed a
+chevron *and* Material's triangle → one rounded chevron (theme `submenuIcon`).
 
-**P2-3 View ▸ runs three radio groups together.** `e_page_zoom_menu_*`,
+✅ **P2-3 View ▸ runs three radio groups together.** `e_page_zoom_menu_*`,
 `menu_more_view*`: Scroll / One page, Fit width / Fit page / Automatic and
 Toolbar docked / floating show three checks at once with no dividers; Fit
 width (Shift+2) is listed above Fit page (Shift+1); "Automatic" doesn't say
 what it automates. *Fix:* dividers between groups; order Fit page, Fit width,
 "Automatic zoom"; consider dropping the toolbar pair from View (it is in
 Settings → Writing; one home). *Files:* `chrome/editor_more_menu.dart`.
+*Done:* the dividers were already there; Fit page, Fit width, "Automatic
+zoom" now in shortcut order. The toolbar pair stays (REDESIGN §2.1 puts it in
+View as well as Settings).
 
-**P2-4 The empty-canvas hint talks touch on desktops.** `editor_empty_canvas_tablet_*`
+✅ **P2-4 The empty-canvas hint talks touch on desktops.** `editor_empty_canvas_tablet_*`
 vs desktop: "two fingers… long-press" appears with a mouse too, and is
 smaller than on phones. *Fix:* pick the copy by `Targets.touchFirst` (mouse:
 "Scroll to pan, Ctrl+scroll to zoom, right-click for more"). *Files:*
 `features/editor/canvas/canvas_empty_hint.dart`.
+*Done:* copy by `Targets.touchFirst` (was the platform), "…for more options".
+Screenshot suites run as Android, so desktop renders still show touch copy.
 
-**P2-5 The page indicator shows "1 / 1".** `open_phone_light_80.png`,
+✅ **P2-5 The page indicator shows "1 / 1".** `open_phone_light_80.png`,
 `open_tablet_portrait_light_80.png`: a one-page notebook gets the pill (and it
 pops mid-transition). *Fix:* don't peek with a single page; keep the tap target
 via ⋯ → Go to page only when there are pages to go to. *Files:*
 `chrome/peeking.dart`, `page_navigator.dart`.
+*Done:* no indicator with a single page (`editorPageNavigator`).
 
 ### Pen and tools
 
@@ -224,7 +247,7 @@ history entry, no Undo snack (delete page has one). "Apply to all pages" on a
 does), or better push page-level commands into the editor history so Ctrl+Z
 works. *Files:* `document/document_commands.dart`, `document/page_actions.dart`,
 `features/documents/overview/page_commands.dart`.
-→ ✅ Templates, moves, bookmarks (many as one step), added, duplicated and deleted pages are steps of the notebook-wide undo history (`PageEdits` → `PageModels.record`), so Ctrl+Z and ↶ take them back in order with ink. "Template changed on N pages · Undo"; snack-bar Undo goes through the same history (`PageModels.undoEdit`). PDF page inserts are not undoable yet.
+→ ✅ Templates, moves, bookmarks (many as one step), added, duplicated and deleted pages are steps of the notebook-wide undo history (`PageEdits` → `PageModels.record`), so Ctrl+Z and ↶ take them back in order with ink. "Template changed on N pages · Undo"; snack-bar Undo goes through the same history (`PageModels.undoEdit`). Pages inserted from a PDF are one step too, and so is duplicating several pages in the overview.
 
 ✅ **P1-8 Phones: the selection bar and handles get clipped at the edge.**
 `e_shape_selected_phone_*` (handles cut at the screen edge),
@@ -552,7 +575,8 @@ and end with "Exported · 2 images couldn't be included". *Files:*
 `features/documents/export/*`.
 *Done:* `ExportReport` collects missing PDF pages, images that couldn't be
 embedded and PDF pages included as pictures; the success message ends "· 2
-images couldn’t be included".
+images couldn’t be included". PNG exports (pages and canvases) report images
+and PDF pages they couldn't include too.
 
 ✅ **P2-30 Web: storage warnings live only in Settings.** Unpersisted storage with
 sync off is shown in Settings → Storage only; there is no handling of quota
@@ -586,7 +610,8 @@ password-protected") from damaged files, in import and relink.
   F2 rename; arrow keys between cards rely on Flutter's default directional
   focus (not checked with a real grid).
 *Done:* Ctrl/⌘+A selects all on the page (or in view); arrows nudge a
-selection 1 pt (Shift 10 pt), one undo step each, and only turn pages without
+selection 1 pt (Shift 10 pt), a burst of nudges (≤ 1 s apart, nothing else
+edited between) one undo step, and only turn pages without
 one; +/−, Ctrl/⌘+= / − and Ctrl/⌘+0 zoom paged notebooks; F2 renames and ⌘⌫
 trashes the focused notebook; all in the shortcuts sheet. Arrow keys between
 library cards still use Flutter's directional focus.
@@ -596,7 +621,7 @@ selection exists) and list them in the shortcuts sheet. *Files:*
 `features/editor/editor_shortcuts.dart`, `tools/content_shortcuts.dart`,
 `features/library/library_screen.dart`, `features/settings/keyboard_shortcuts.dart`.
 
-**P1-25 A parked pane and the second pane's header are unclear.** `split_parked_portrait_*`:
+◐ **P1-25 A parked pane and the second pane's header are unclear.** `split_parked_portrait_*`:
 the parked pane is an unlabelled pill cut at the bottom edge; `split_*`: the
 two panes' headers differ (the second has ✕ and a title, the first no title
 while tabs show), and the tab strip shows the right-hand notebook as an
@@ -604,15 +629,20 @@ inactive tab. *Fix:* a labelled chip "Biology · in split view" with Show;
 show the title in both panes; mark both split notebooks in the strip.
 *Files:* `features/editor/split/*`, `chrome/parked_pane_notice.dart`,
 `tabs/notebook_tab_strip.dart`.
-*Left open by fix/robust-feedback:* split-view chrome is being reworked
-on the editor branches.
+*Done (fix/followups-1):* the pane on screen shows a chip "“Biology” in split
+view · Show" while the other is parked (with Stop while it records;
+`split/parked_pane_notice.dart`). *Left open:* the title in the first pane's
+bar and marking both split notebooks in the tab strip (the strip and bar
+were being reworked on fix/editor-chrome-r4 at the same time).
 
-**P2-32 Dragging a selection across panes.** `split_drag_*`: the dragged ink is
+✅ **P2-32 Dragging a selection across panes.** `split_drag_*`: the dragged ink is
 a full-size, full-opacity copy over the target, and the target goes flat grey
 in dark. *Fix:* 60 % opacity preview, a tinted (not grey) drop target.
 *Files:* `features/editor/split/*`.
-*Left open by fix/robust-feedback:* split-view chrome is being reworked
-on the editor branches.
+*Done (fix/followups-1):* the preview is drawn at 60 %; the drop target is
+tinted with the accent and its chrome is no longer dimmed while a drop
+would land there (a dimmed bar over a light canvas read as flat grey in
+dark); the "Drop to copy here" pill uses the text roles and `Shadows.low`.
 
 ### Accessibility and simplification notes
 
@@ -918,14 +948,16 @@ Notewise. The open editor items of round 3 are closed above; besides them:
 - ✅ Text tool popover: 15 swatches wrapped 9 + 6, the title touched Size
   → the whole palette in two even rows, spaced like the other popovers;
   the laser's sliders no longer touch its swatches.
-- ⬜ The recording pill can cover the "Add page" footer at the end of a
-  document (`features/audio` places it; the document has no bottom room
-  for it).
-- ⬜ A text box typed near the bottom of a phone can sit under the docked
-  format bar (nothing scrolls it into view).
-- ⬜ Menu rows are 44 dp on touch tablets (`Targets.menuRowHeight` goes by
-  width, not input, unlike the other targets; a shared-token change that
-  moves many goldens).
+- ✅ The recording pill can cover the "Add page" footer at the end of a
+  document → the floating pill and player add room past the end
+  (`DocumentController.setEndRoom`); scrolled to the end, the view stays
+  at the end, so the footer moves clear (`fix/editor-chrome-r4`). A short
+  document that can't scroll far enough still tucks it under a tall player.
+- ✅ A text box typed near the bottom of a phone can sit under the docked
+  format bar → it pans up just clear of the bar when the box or the bar
+  (keyboard) changes, never on the user's own pans (`TextBoxReveal`).
+- ✅ Menu rows are 44 dp on touch tablets → `Targets.menuRowHeight` by input:
+  48 on touch, 44 with a pointer (`TouchMenus`, was `PhoneMenus`).
 
 ## Round 3 — whole app (`feat/ux3`)
 

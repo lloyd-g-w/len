@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:len/domain/stroke.dart';
+import 'package:len/ink/input/stroke_sampler.dart';
 import 'package:len/ink/lab/replay_run.dart';
 import 'package:len/ink/render/hooks.dart';
 import 'package:len/ink/render/stroke_outline.dart';
@@ -35,8 +36,16 @@ class StrokePair {
     );
   }
 
+  /// The ink radius (screen px) the true device [pressure] (normalised
+  /// 0..1, as the truth holds it) gives: through the input's pressure
+  /// curve (`StrokeSampler.strokePressure`), then the pen's width.
   double radiusFor(double pressure) =>
-      StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style).radiusFor(pressure) * scale;
+      StrokeRenderer.specFor(
+        stroke.tool,
+        stroke.width,
+        stroke.style,
+      ).radiusFor(StrokeSampler.strokePressure(pressure)) *
+      scale;
 
   late final PolylineIndex truthIndex = PolylineIndex(truth.path, cell: 3);
   late final PolylineIndex lineIndex = PolylineIndex(line!.c, cell: 3);

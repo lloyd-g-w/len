@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/ui/color_dot.dart';
+import 'package:len/ui/floating_panel.dart';
 import 'package:len/ui/menus.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -85,6 +86,33 @@ void main() {
     await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
     await tester.pump();
     expect(liveElements(services, nb.id), isEmpty);
+  });
+
+  testWidgets('phones: a box typed near the bottom stays above the docked format bar', (
+    tester,
+  ) async {
+    await openCanvas(tester, size: const Size(390, 844));
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(120, 690)]);
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('text-box-field'));
+    final bar = find.ancestor(
+      of: find.byTooltip('Done (Esc)'),
+      matching: find.byType(FloatingPanel),
+    );
+    Future<void> expectClear() async {
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(field).bottom,
+        lessThanOrEqualTo(tester.getRect(bar).top),
+        reason: 'the box is not under the bar',
+      );
+    }
+
+    await expectClear();
+    await tester.enterText(field, 'milk\neggs\nbread\nbutter');
+    await expectClear();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('text: shortcuts format, lists toggle, checkboxes tick (editing and not)', (

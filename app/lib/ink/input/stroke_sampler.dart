@@ -95,14 +95,21 @@ class StrokeSampler {
   /// [time] in whole milliseconds (as Android's `MotionEvent` times).
   static int msOf(Duration time) => time.inMicroseconds ~/ 1000;
 
-  /// [e]'s pressure as 0.05..1; 0.5 without a stylus.
+  /// [e]'s pressure as a stroke stores it; 0.5 without a stylus.
   static double pressureOf(PointerEvent e) => normalisedPressure(e, e.pressure);
 
-  /// [raw] pressure (in [e]'s device range) as 0.05..1; 0.5 without a stylus.
+  /// [raw] pressure (in [e]'s device range) as a stroke stores it: clamped
+  /// to 0.05..1 of the range, then through the [PressureCurve]; 0.5 without
+  /// a stylus.
   static double normalisedPressure(PointerEvent e, double raw) {
     if (!isStylusKind(e.kind)) return 0.5;
     final range = e.pressureMax - e.pressureMin;
     if (range <= 0) return 0.5;
-    return ((raw - e.pressureMin) / range).clamp(0.05, 1.0);
+    return strokePressure((raw - e.pressureMin) / range);
   }
+
+  /// A device pressure normalised to 0..1 as a stroke stores it (the
+  /// low-latency overlay's model applies the same).
+  static double strokePressure(double normalised) =>
+      PressureCurve.apply(normalised.clamp(0.05, 1.0));
 }

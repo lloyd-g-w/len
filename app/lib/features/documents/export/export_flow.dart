@@ -98,7 +98,13 @@ Future<void> runExport(
       final pngs = [
         for (final (i, page) in selected.indexed)
           (
-            bytes: await _png(worker, page, options, () => progress.step(i, selected.length)),
+            bytes: await _png(
+              worker,
+              page,
+              options,
+              report,
+              () => progress.step(i, selected.length),
+            ),
             name: names[i],
           ),
       ];
@@ -127,10 +133,16 @@ Future<Uint8List> _png(
   NotebookExporter exporter,
   NotebookPage page,
   ExportOptions options,
+  ExportReport report,
   VoidCallback started,
 ) {
   started();
-  return exporter.png(page, scale: pngScale, backgrounds: options.includeBackgrounds);
+  return exporter.png(
+    page,
+    scale: pngScale,
+    backgrounds: options.includeBackgrounds,
+    report: report,
+  );
 }
 
 /// Exports infinite canvas [notebook]: its whole drawing as one PDF page or
@@ -169,7 +181,7 @@ Future<void> exportCanvasFlow(
       if (canvas == null) return const <ExportFile>[];
       final bytes = options.format == ExportFormat.pdf
           ? await worker.canvasPdf(canvas, title: notebook.title, report: report)
-          : await worker.canvasPng(canvas, scale: pngScale);
+          : await worker.canvasPng(canvas, scale: pngScale, report: report);
       progress.check(); // Cancelled meanwhile.
       return [(bytes: bytes, name: name)];
     });

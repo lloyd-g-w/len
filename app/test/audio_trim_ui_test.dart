@@ -111,7 +111,7 @@ Future<void> _trimFromList(WidgetTester tester) async {
   if (find.byTooltip('Recordings').evaluate().isEmpty) {
     await tester.tap(find.byTooltip('More options').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Recordings…'));
+    await tester.tap(find.text('Recordings'));
   } else {
     await tester.tap(find.byTooltip('Recordings'));
   }
@@ -217,7 +217,7 @@ void main() {
     };
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Export…'));
+    await tester.tap(find.text('Share…'));
     await _settle(tester);
     expect(exported!.single.name, 'Mitosis.aac');
     expect(exported!.single.bytes, AdtsReader.cut(_audio, 5000, 25000));

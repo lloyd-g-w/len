@@ -61,6 +61,8 @@ class _AudioLayerState extends State<AudioLayer> {
     _messages.value = height == 0
         ? below
         : math.max(below, widget.chromeInsets.bottom + Gaps.md + height);
+    // The document's end makes room too, so "Add page" isn't under them.
+    widget.session.doc?.setEndRoom(height == 0 ? 0 : height + Gaps.sm);
   }
 
   ReplayTarget _targetFor() {

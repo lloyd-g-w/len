@@ -65,17 +65,24 @@ class AudioBarButton extends StatelessWidget {
 }
 
 /// The "⋯" menu entries on phones, where the top bar has no room for the
-/// audio slot (the recording controls then float, see `AudioLayer`).
+/// audio slot (the recording controls then float, see `AudioLayer`):
+/// Record audio, and Recordings once there are any (as the bar's ▾).
 List<Widget> audioMenuItems(BuildContext context, NotebookAudio audio) => [
   MenuItemButton(
     leadingIcon: const Icon(Symbols.mic_rounded),
     onPressed: () => unawaited(startRecording(context, audio)),
     child: const Text('Record audio'),
   ),
-  MenuItemButton(
-    leadingIcon: const Icon(Symbols.graphic_eq_rounded),
-    onPressed: () => unawaited(showRecordingsSheet(context, audio)),
-    child: const Text('Recordings…'),
+  ListenableBuilder(
+    listenable: audio,
+    // The editor's context: the menu's is gone once it closes.
+    builder: (_, _) => audio.recordings.isEmpty
+        ? const SizedBox.shrink()
+        : MenuItemButton(
+            leadingIcon: const Icon(Symbols.graphic_eq_rounded),
+            onPressed: () => unawaited(showRecordingsSheet(context, audio)),
+            child: const Text('Recordings'),
+          ),
   ),
 ];
 

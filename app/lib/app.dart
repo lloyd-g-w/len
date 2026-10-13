@@ -9,8 +9,8 @@ import 'features/library/library_screen.dart';
 import 'features/settings/sync_attention.dart';
 import 'ui/app_theme.dart';
 import 'ui/messages.dart';
-import 'ui/phone_menus.dart';
 import 'ui/system_bars.dart';
+import 'ui/touch_menus.dart';
 
 /// The root widget: provides [AppServices] and builds the themed app.
 class LenApp extends StatefulWidget {
@@ -95,7 +95,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
             darkTheme: _dark,
             themeMode: themeModeOf(preferences.themeMode),
             themeAnimationDuration: Motion.medium,
-            builder: (context, child) => SystemBars(child: PhoneMenus(child: child!)),
+            builder: (context, child) => SystemBars(child: TouchMenus(child: child!)),
             scaffoldMessengerKey: _messenger,
             navigatorKey: _navigator,
             navigatorObservers: [widget.services.routeOwners],

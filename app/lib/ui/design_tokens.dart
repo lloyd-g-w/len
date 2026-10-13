@@ -68,7 +68,7 @@ abstract final class Targets {
   /// A quick slot's hit area on touch.
   static const double slotTouch = 44;
 
-  /// Menu rows: 44 high, 48 on phones.
+  /// Menu rows with a pointer: 44 high ([touch] on touch).
   static const double menuRow = 44;
 
   /// Overrides [touchFirst] in tests.
@@ -95,9 +95,8 @@ abstract final class Targets {
   /// The hit area of a quick slot: 44 on touch, 36 with a pointer.
   static double slotHit(BuildContext context) => touchFirst ? slotTouch : slot;
 
-  /// The height of a menu row: 48 on phones, 44 elsewhere.
-  static double menuRowHeight(BuildContext context) =>
-      MediaQuery.sizeOf(context).shortestSide < 600 ? touch : menuRow;
+  /// The height of a menu row: 48 on touch, 44 with a pointer.
+  static double menuRowHeight(BuildContext context) => touchFirst ? touch : menuRow;
 }
 
 /// Glyph sizes for Material Symbols, by where they sit.

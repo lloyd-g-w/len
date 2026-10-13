@@ -60,6 +60,15 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('dark mode flies on the dark backdrop, not the light paper (no pale flash)', (
+    tester,
+  ) async {
+    expect(await flightFills(tester, AppTheme.light()), contains(Colors.white));
+    final dark = await flightFills(tester, AppTheme.dark());
+    expect(dark, contains(Surfaces.canvasBackdrop(Brightness.dark)));
+    expect(dark, isNot(contains(Colors.white)));
+  });
+
   testWidgets('without a cover (new notebook) and with reduced motion it fades', (tester) async {
     final services = AppServices.create(AppDatabase.inMemory());
     final physics = addNotebook(services, 'Physics');
@@ -89,4 +98,33 @@ void main() {
     expect(find.byType(EditorScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+/// The colours the flight fills behind the editor mid-open, in [theme].
+Future<Set<Color>> flightFills(WidgetTester tester, ThemeData theme) async {
+  final navigator = GlobalKey<NavigatorState>();
+  await tester.pumpWidget(
+    MaterialApp(navigatorKey: navigator, theme: theme, home: const SizedBox.expand()),
+  );
+  unawaited(
+    navigator.currentState!.push(
+      NotebookOpenRoute<void>(
+        builder: (_) => const SizedBox.expand(key: Key('editor')),
+        origin: const NotebookOpenOrigin(
+          rect: Rect.fromLTWH(40, 40, 120, 160),
+          cover: SizedBox.expand(),
+          paper: Colors.white,
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 180));
+  final editor = find.byKey(const Key('editor'));
+  final fills = tester
+      .widgetList<ColoredBox>(find.ancestor(of: editor, matching: find.byType(ColoredBox)))
+      .map((box) => box.color)
+      .toSet();
+  await tester.pumpAndSettle();
+  return fills;
 }

@@ -63,7 +63,7 @@ No magic numbers or ad-hoc colours in `features/`: pick a token.
 - **Targets:** by input, not width. `Targets.touchFirst` (Android, or a coarse
   pointer on the web); `Targets.of(context, visual)`, `Targets.barHit` (48 on
   touch, 40 with a pointer), `Targets.slotHit` (44 / 36),
-  `Targets.menuRowHeight` (48 on phones, else 44). Bar buttons keep a 40-dp
+  `Targets.menuRowHeight` (48 on touch, 44 with a pointer). Bar buttons keep a 40-dp
   visual and pad their hit area (`MaterialTapTargetSize.padded`).
 - **Motion:** `Motion.fast` 120 (state changes, popovers scaling from
   `Motion.popoverScale`), `medium` 200 (chrome fades, panels), `slow` 300
@@ -81,6 +81,13 @@ record formats, no keeping removed features around for old data. Change
 formats, rename things, squash migrations and drop old tools freely when it
 makes the code better â just keep the code base itself consistent and the
 tests green. (Forward-compat rules below apply once we ship.)
+
+Safety net for old local data: a database whose schema doesn't match what
+the current migrations produce (or that is newer, or fails to migrate) is
+copied aside as `len.db.schema-<version>-<time>.bak` (native; browsers
+can't keep it) and started fresh, keeping the sync login; the library tells
+the user once (`SchemaCheck`, `AppDatabase.schemaReset`). So rewriting
+migrations needs no manual cleanup — but don't rely on it once we ship.
 
 ## Rules
 

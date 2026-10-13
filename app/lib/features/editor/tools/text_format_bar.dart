@@ -28,7 +28,12 @@ class TextFormatBar extends StatelessWidget {
     required this.onDelete,
     required this.onDone,
     required this.refocus,
+    this.dockedKey,
   });
+
+  /// Keys the bar while it is docked (phones), so the editor can keep the
+  /// box clear of it.
+  final GlobalKey? dockedKey;
 
   final Rect anchor;
   final RichTextController controller;
@@ -99,6 +104,7 @@ class TextFormatBar extends StatelessWidget {
     // over the character formats), with ⋯ above ✓ at the end. Elsewhere
     // one row that scrolls when the window is too narrow; ⋯ and ✓ stay.
     final bar = FloatingPanel(
+      key: docked ? dockedKey : null,
       child: docked
           ? Column(
               mainAxisSize: MainAxisSize.min,

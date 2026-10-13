@@ -11,6 +11,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
+import 'package:len/features/documents/export/export_report.dart';
 import 'package:len/features/documents/export/notebook_exporter.dart';
 import 'package:len/features/documents/export/pdf_export.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
@@ -381,6 +382,43 @@ void main() {
     expect(covers.pendingImages, isEmpty); // Decoded already.
     expect(await pixel(cover, 200, 150), const Color(0xFFDC3C28));
     expect(image.belowInk, isTrue);
+  });
+
+  test('PNG exports count the images they could not include', () async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final nb = services.notebooks.create(
+      title: 'Doc',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0xFF3B5BDB,
+    );
+    final page = services.pages.pagesOf(nb.id).first;
+    await seedImage(
+      services,
+      page.id,
+      pngOf(10, 10),
+      id: 'here',
+      rect: const Rect.fromLTWH(10, 10, 50, 50),
+    );
+    // An image whose blob is on no device reachable.
+    services.elements.save([
+      SurfaceElement(
+        id: 'gone',
+        surfaceId: page.id,
+        type: 'image',
+        rect: const Rect.fromLTWH(100, 100, 50, 50),
+        z: -10,
+        createdAt: 1,
+        data: const ImageData(blob: 'f00d', width: 10, height: 10).toJson(),
+      ),
+    ]);
+    final exporter = NotebookExporter(services);
+    addTearDown(exporter.dispose);
+    final report = ExportReport();
+    await exporter.png(page, scale: 1, report: report);
+    expect(report.missingImages, 1);
+    expect(report.summary, '1 image couldn’t be included');
   });
 
   test('PDF export embeds JPEGs as they are and other images as pixels', () async {

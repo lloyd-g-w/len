@@ -629,7 +629,8 @@ sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
 on mobile and written into a folder the user picks on desktop. On Android the
 export sheet also offers Save to device: the system's save dialog (one file)
-or folder picker (several), `SaveDocumentPlugin.kt` on `len/save_document`.
+or folder picker (several), `SaveDocumentPlugin.kt` on `len/save_document`
+(recordings offer Share and Save to device the same way).
 The saver returns `ExportedFiles` (where they went), so the flow can say
 "Saved “Lecture.pdf”" with Show in folder on desktops; an `ExportReport`
 collects what was left out (missing PDF pages or images, PDF pages included
@@ -1056,7 +1057,8 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
 - **Same ink as Flutter**: `WetInkModel.kt` is a line-for-line port of the
   Dart model the Ink Lab measures (`ink/lab/wet_ink_model.dart`), which
   applies the outline's own rules — point thinning (`PointSpacing`), the
-  pressure filter, the causal radius smoothing, the start and tip rules,
+  pressure curve and filter, the causal radius smoothing, the start and
+  tip rules,
   the pen-down and pen-up hooks (`HookFinder`), the dot rule and the
   shaper's position smoothing — in screen pixels (a view is a translation
   and a uniform scale, so the rules scale with it). Each piece is the hull
@@ -1443,8 +1445,12 @@ does not grow with the stroke's length.
 
 1. **Points** (`input/ink_input_controller.dart`): samples closer than
    0.75 screen px to the last point are dropped, except the extreme of a
-   dropped run (a cusp tip, `PointSpacing`); pressure is filtered
-   (`PressureFilter`). **Ink shows from the first sample**, under the nib
+   dropped run (a cusp tip, `PointSpacing`); stylus pressure goes through
+   the `PressureCurve` (`4p / (3p + 1)`: handwriting presses lightly, so
+   device pressure 0.2 is medium, the pen's nominal width; fingers and the
+   mouse are 0.5, medium too) and is filtered (`PressureFilter`); the
+   overlay's Kotlin model applies the same. **Ink shows from the first
+   sample**, under the nib
    (latency beats purity): every contact is drawn from pen-down, even one
    that turns out to be a bounce (`BounceFilter.isBounce`, decided at its
    lift: it showed as a dot where the pen just lifted for < 80 ms and is
@@ -1559,6 +1565,14 @@ easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 `AppDatabase._createSchema` creates the whole schema (`PRAGMA user_version`
 1). Later schema changes append a migration to `AppDatabase._migrations`;
 once released, never edit one.
+After migrating, `SchemaCheck` (`data/schema_reset.dart`) compares the
+database's shape (tables with their columns, index and trigger names; the
+optional FTS index aside) with that of a freshly migrated in-memory
+database. A newer `user_version`, a failing migration or a different shape
+(pre-release migrations were rewritten) resets the database: the file is
+copied to `<path>.schema-<version>-<time>.bak` (native only), everything is
+dropped and recreated, the sync login is carried over (so synced notebooks
+come back), and the library says so once (`AppDatabase.schemaReset`).
 All writes go straight to SQLite; in-memory state is a cache.
 
 ## Platforms (`platform/`)

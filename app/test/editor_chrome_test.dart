@@ -9,6 +9,7 @@ import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/toolbar/tool_strip.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
 
@@ -256,8 +257,44 @@ void main() {
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
     expect(find.text('Search in notebook'), findsOneWidget);
+    // Recordings only once there are any; no ellipsis on what asks nothing.
+    expect(find.text('Record audio'), findsOneWidget);
+    expect(find.text('Recordings'), findsNothing);
+    expect(find.text('Settings'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
+  testWidgets('wide ⋯ submenus show one rounded chevron, not a second arrow', (tester) async {
+    await pumpEditor(tester, size: const Size(1280, 800));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    final view = find.ancestor(of: find.text('View'), matching: find.byType(SubmenuButton));
+    expect(
+      find.descendant(of: view, matching: find.byIcon(Symbols.chevron_right_rounded)),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.arrow_right), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
+  testWidgets('a single page shows no "1 / 1" indicator', (tester) async {
+    final (s, nb) = await pumpEditor(tester, size: const Size(390, 844));
+    final indicator = find.byKey(const ValueKey('page-indicator'));
+    expect(indicator, findsOneWidget);
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Page'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete page'));
+      await tester.pumpAndSettle();
+    }
+    expect(s.pages.pagesOf(nb.id), hasLength(1));
+    expect(indicator, findsNothing);
     await closeEditor(tester);
   });
 

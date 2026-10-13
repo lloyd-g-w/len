@@ -27,6 +27,7 @@ class OverviewHandlers {
     required this.move,
     this.bookmarkMany,
     this.deleteMany,
+    this.duplicateMany,
   });
 
   /// Current pages in order.
@@ -45,6 +46,11 @@ class OverviewHandlers {
   /// Deletes several pages as one undoable step. Without it, the overview
   /// runs [PageCommand.delete] on each page.
   final Future<void> Function(BuildContext context, List<NotebookPage> pages)? deleteMany;
+
+  /// Duplicates several pages (each copy right after its page) as one
+  /// undoable step. Without it, the overview runs [PageCommand.duplicate]
+  /// on each page.
+  final void Function(List<NotebookPage> pages)? duplicateMany;
 }
 
 /// The options menu of [page].

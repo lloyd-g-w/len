@@ -6,6 +6,9 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/features/editor/document/page_actions.dart';
+import 'package:len/features/editor/document/page_edits.dart';
+import 'package:len/features/editor/document/page_models.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -154,6 +157,61 @@ void main() {
     await tester.pumpAndSettle();
     await undo(tester);
     expect([for (final p in pages()) p.id], original);
+    await close(tester);
+  });
+
+  testWidgets('duplicating several pages in the overview is one undo step', (tester) async {
+    await pump(tester);
+    final original = [for (final p in pages()) p.id];
+    await tester.tap(find.byTooltip('All pages'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('page-tile-0')));
+    await tester.tap(find.byKey(const ValueKey('page-tile-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duplicate'));
+    await tester.pumpAndSettle();
+    expect(styles(), [
+      PaperStyle.collegeRuled,
+      PaperStyle.collegeRuled,
+      PaperStyle.dotted,
+      PaperStyle.gridLarge,
+      PaperStyle.gridLarge,
+    ], reason: 'each copy right after its page');
+
+    await tester.tap(find.byTooltip('Done'));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await undo(tester);
+    expect([for (final p in pages()) p.id], original);
+    await redo(tester);
+    expect(pages(), hasLength(5));
+    await close(tester);
+  });
+
+  testWidgets('pages inserted from elsewhere (a PDF) are one undo step', (tester) async {
+    await pump(tester);
+    final original = [for (final p in pages()) p.id];
+    final models = PageModels();
+    addTearDown(models.dispose);
+    final actions = PageActions(s, nb.id);
+    final shown = <String?>[];
+    final edits = PageEdits(actions: actions, models: models, shown: ({keep}) => shown.add(keep));
+    // As the PDF importer inserts them, then made undoable.
+    final inserted = actions.addAll([
+      PageActions.blankAfter(pages().first),
+      PageActions.blankAfter(pages().first),
+    ], after: pages().first);
+    edits.added(inserted);
+    expect(shown, [inserted.first.id]);
+    expect(models.canUndo, isTrue);
+
+    models.undo();
+    expect([for (final p in pages()) p.id], original);
+    models.redo();
+    expect(pages().map((p) => p.id), containsAll(inserted.map((p) => p.id)));
     await close(tester);
   });
 }

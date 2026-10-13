@@ -34,14 +34,18 @@ class SplitDropHighlight extends StatelessWidget {
                     ? const SizedBox.expand()
                     : DecoratedBox(
                         decoration: BoxDecoration(
-                          color: scheme.primary.withValues(alpha: 0.06),
+                          // A tint of the accent, in light and dark alike.
+                          color: scheme.primary.withValues(alpha: 0.08),
                           border: Border.all(color: scheme.primary, width: 3),
                         ),
                         child: Align(
                           alignment: const Alignment(0, -0.6),
-                          child: Material(
-                            color: scheme.primary,
-                            borderRadius: BorderRadius.circular(Radii.pill),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: scheme.primary,
+                              borderRadius: BorderRadius.circular(Radii.pill),
+                              boxShadow: Shadows.low(scheme.brightness),
+                            ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: Gaps.lg,
@@ -52,16 +56,14 @@ class SplitDropHighlight extends StatelessWidget {
                                 children: [
                                   Icon(
                                     Symbols.content_copy_rounded,
-                                    size: 18,
+                                    size: Glyphs.menu,
                                     color: scheme.onPrimary,
                                   ),
                                   const SizedBox(width: Gaps.sm),
                                   Text(
                                     'Drop to copy here',
-                                    style: TextStyle(
-                                      color: scheme.onPrimary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: Theme.of(context).textTheme.labelLarge
+                                        ?.copyWith(color: scheme.onPrimary),
                                   ),
                                 ],
                               ),
