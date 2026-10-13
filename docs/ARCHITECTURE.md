@@ -1860,7 +1860,7 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   delete-event and installs a global button-press emission hook, more than
   these three features need.
 - **CI / releases:** `.github/workflows/ci.yml` (analyze, tests, all builds,
-  server image) and `release.yml` (on `v*` tags; see README *Release*).
+  server image, the overlay's Kotlin model against the Dart one) and `release.yml` (on `v*` tags; see README *Release*).
 
 ## Library (`features/library/`)
 

@@ -1,9 +1,7 @@
-// The low-latency overlay with flat ends (`WetInkEnds`): on every simulated
-// case at the default stabiliser, written with a flat-ended pen, the
-// overlay's model must cover what Flutter's ink will be (no gap) and draw
-// nothing round past the flat ends that Flutter's ink does not (ghost ink,
-// as `overlay.ghost` judges it for round ends). And on Flutter's own line,
-// the overlay's flat-end rules draw what Flutter's live ink draws.
+// The low-latency overlay with flat ends (`WetInkEnds`): on Flutter's own
+// live line, every frame, the overlay's flat-end rules draw what Flutter's
+// live ink draws. (The overlay metrics with flat ends, against the ink
+// Flutter will show: flat_ends_suite_test.dart.)
 @Tags(['inklab'])
 library;
 
@@ -29,20 +27,6 @@ import 'sim/cases.dart';
 const _flat = PenEnds(style: StrokeEnds.flat);
 
 void main() {
-  for (final c in simCases) {
-    test('flat ends: the overlay draws what Flutter will (${c.name})', () {
-      final r = ReplayResult.run(c.record(defaultPen).recording, ends: _flat);
-      expect(r.style.ends, StrokeEnds.flat);
-      final m = {for (final x in overlay(r)) x.id: x};
-      expect(m['overlay.gap']!.value, 0, reason: '${m['overlay.gap']!.where}');
-      expect(
-        m['overlay.ghost']!.value,
-        lessThanOrEqualTo(2),
-        reason: '${m['overlay.ghost']!.where}',
-      );
-    });
-  }
-
   for (final name in ['hooks', 'cursive', 'fast_loops']) {
     for (final st in [0.0, 1.0]) {
       test(

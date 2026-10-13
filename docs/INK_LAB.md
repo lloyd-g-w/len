@@ -84,7 +84,25 @@ tool/heavy.sh nix develop ..# -c bash -c \
 ```
 
 Pen-engine work must pass that run too. Timing metrics only run on
-`long_stroke` and recordings. Metrics listed in `known_failures.dart` are
+`long_stroke` and recordings; their replays run three times and each frame
+keeps its fastest live build and pen-up handling, so load on the machine
+does not tip `perf.flatness` (`perf_flatness_test.dart` checks that it
+still fails builders doing O(length) work per frame: 6–7× against 1.0×).
+
+Flat pen ends (butt caps) have their own rules for the live tip, the
+committed ends and the overlay, so `flat_ends_suite_test.dart` (part of
+every `flutter test`, ≈ 30 s) judges every metric with the same limits on
+flat-ended entries: each simulated case at one stabiliser (0, 0.4 and 1
+all covered, where flat ends failed before their rules), the two
+simulated recordings, and an excerpt of each
+real recording (`excerpt`: a few lines, none of the multi-second ones; the
+whole recordings take minutes with flat ends too). Every entry with both
+end styles: the table below with `INKLAB_ENDS=both`.
+
+CI (`.github/workflows/ci.yml`) runs `flutter test` (the suite without
+the real recordings, flat entries included) and, in *wet-ink Kotlin
+parity*, `unit_test.sh` and `check.sh` below with `LEN_NO_NIX=1` (a JDK
+and the Kotlin compiler from PATH instead of nix). Metrics listed in `known_failures.dart` are
 **skipped with their finding as the reason**. The list is **empty**: the
 engine passes every metric on every entry, real recordings included, so any
 failure is a regression (or needs a new finding, with evidence, before an
@@ -188,7 +206,7 @@ are for stabiliser 0 / 0.4 / 1, linear in between (`byStabiliser`).
 | `temporal.bounceFlash` | How long a bounce shows (it is drawn while it touches, < 80 ms, and dropped at its lift) | 100 ms |
 | `pop.pixels` | Pixels changing by > 25 % between the last live frame and the committed stroke, outside the samples that came after that frame | 2 px² |
 | `pop.max` | Largest such coverage change | 50 % |
-| `perf.flatness` | Median live-outline build time in the last fifth of the longest contact ÷ the first fifth (counted from 5 frames after part of the stroke became final: the first frames, a few points of tail, are cheaper), which is ≈ 1 if per-frame cost is O(1) | 2× |
+| `perf.flatness` | Median live-outline build time in the last fifth of the longest contact ÷ the first fifth (counted from 5 frames after part of the stroke became final: the first frames, a few points of tail, are cheaper), which is ≈ 1 if per-frame cost is O(1); each frame's fastest of three replays | 2× |
 | `perf.frameCost` | Median live build in the last fifth (this machine, JIT) | 1000 µs |
 | `perf.commit` | Pen-up handling + committed outline | 8 ms |
 | `perf.subpaths` | Sub-paths (`moveTo`s) in the last live outline; the GPU re-tessellates all of them each frame | 64 / 64 / 96 |
@@ -1046,8 +1064,9 @@ after (round entries and every other flat metric unchanged, `pop.*` and
 overlay's round hulls stood out of the tip's sweeps: ghosts up to 13 px²
 on `real_spen_01@0`, and gaps where Flutter's shown tip zone had less ink
 than the line later has; both fixed as above.)
-`overlay_flat_ends_test.dart` holds every simulated case with flat ends
-to no gap and ≤ 2 px² ghost, and checks on Flutter's own live line, every
+`flat_ends_suite_test.dart` holds the flat-ended entries (above,
+*Running*) to no gap and ≤ 2 px² ghost like every other metric, and
+`overlay_flat_ends_test.dart` checks on Flutter's own live line, every
 frame, that the overlay's rules draw Flutter's tip (no gap, ≤ 1 px²
 ghost).
 
