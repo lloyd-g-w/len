@@ -143,10 +143,15 @@ void main() {
       await settle(tester);
       await shoot(tester, 'popover_pen_feel_$m');
       await closePopover(tester);
-      // From a slot: tap the selected width (the second).
+      // A slot's own editor: tap the selected colour, then the selected
+      // width (the second).
+      await tester.tap(find.byKey(const ValueKey('color-0')));
+      await settle(tester);
+      await shoot(tester, 'slot_colour_$m');
+      await closePopover(tester);
       await tester.tap(find.byKey(const ValueKey('width-1')));
       await settle(tester);
-      await shoot(tester, 'popover_from_slot_$m');
+      await shoot(tester, 'slot_size_$m');
       await closePopover(tester);
       for (final (tooltip, shot) in [
         ('Highlighter (H)', 'highlighter'),
@@ -171,6 +176,9 @@ void main() {
   testWidgets('pen options: custom colour and more slots', (tester) async {
     await openEditor(tester, tablet, 2, ThemeMode.light);
     await tester.tap(find.byTooltip('Pen (P)'));
+    await settle(tester);
+    await tester.ensureVisible(find.text('Toolbar'));
+    await tester.tap(find.text('Toolbar'));
     await settle(tester);
     await tester.ensureVisible(find.byTooltip('More quick colours'));
     await tester.tap(find.byTooltip('More quick colours'));
@@ -212,13 +220,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('toolbar phone: pen options as a sheet', (tester) async {
-    await openEditor(tester, phone, 2, ThemeMode.light);
-    await tester.tap(find.byKey(const ValueKey('color-0')));
-    await settle(tester);
-    await shoot(tester, 'phone_pen_sheet');
-    expect(tester.takeException(), isNull);
-  });
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    testWidgets('toolbar phone: pen options and slot editors as sheets ${mode.name}', (
+      tester,
+    ) async {
+      final m = mode.name;
+      await openEditor(tester, phone, 2, mode);
+      await tester.tap(find.byType(ToolSwitcherButton));
+      await settle(tester);
+      await tester.tap(find.text('Pen'));
+      await settle(tester);
+      await shoot(tester, 'phone_pen_sheet_$m');
+      await tester.tapAt(const Offset(195, 60));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('color-0')));
+      await settle(tester);
+      await shoot(tester, 'phone_slot_colour_$m');
+      await tester.tapAt(const Offset(195, 60));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('width-1')));
+      await settle(tester);
+      await shoot(tester, 'phone_slot_size_$m');
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('toolbar phone: highlighter sheet at 1.3x text, dark', (tester) async {
     await openEditor(tester, phone, 2, ThemeMode.dark, textScale: 1.3);
@@ -226,7 +251,7 @@ void main() {
     await settle(tester);
     await tester.tap(find.text('Highlighter'));
     await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('color-0')));
+    await tester.longPress(find.byType(ToolSwitcherButton));
     await settle(tester);
     await shoot(tester, 'phone_highlighter_sheet_text13');
     expect(tester.takeException(), isNull);

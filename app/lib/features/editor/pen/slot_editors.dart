@@ -102,7 +102,7 @@ class WidthSlotEditor extends StatelessWidget {
             tool: ink,
             config: config,
             width: config.widths[index],
-            height: 56,
+            height: 48,
             sample: PreviewSample.line,
           ),
           const SizedBox(height: Gaps.xs),

@@ -30,30 +30,51 @@ class ToolSwitcherButton extends StatelessWidget {
       listenable: tools,
       builder: (context, _) {
         final active = editorTools(tools).firstWhere((d) => d.tool == tools.tool);
+        void open() => _open(context);
+        void options() => active.openOptions(context);
+        // A 40-dp plate in a 48-dp hit area on touch.
         return Tooltip(
           message: '${active.label}: tap to switch tools',
           child: Semantics(
             button: true,
             label: 'Tool: ${active.label}. Switch tools',
-            child: Material(
-              color: Surfaces.pressed(scheme),
-              borderRadius: BorderRadius.circular(Radii.xs),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(Radii.xs),
-                onTap: () => _open(context),
-                onLongPress: () => active.openOptions(context),
-                child: SizedBox(
-                  width: width,
-                  height: Targets.bar,
-                  child: IconTheme.merge(
-                    data: IconThemeData(color: scheme.onSurface),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ToolGlyph(descriptor: active, filled: true),
-                        const SizedBox(width: Gaps.xxs),
-                        Icon(Symbols.expand_more_rounded, size: 16, color: scheme.onSurfaceVariant),
-                      ],
+            excludeSemantics: true,
+            onTap: open,
+            onLongPress: options,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: open,
+              onLongPress: options,
+              child: SizedBox(
+                width: width,
+                height: Targets.barHit(context),
+                child: Center(
+                  child: Material(
+                    color: Surfaces.pressed(scheme),
+                    borderRadius: BorderRadius.circular(Radii.xs),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(Radii.xs),
+                      onTap: open,
+                      onLongPress: options,
+                      child: SizedBox(
+                        width: width,
+                        height: Targets.bar,
+                        child: IconTheme.merge(
+                          data: IconThemeData(color: scheme.onSurface),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ToolGlyph(descriptor: active, filled: true),
+                              const SizedBox(width: Gaps.xxs),
+                              Icon(
+                                Symbols.expand_more_rounded,
+                                size: 16,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -97,6 +118,7 @@ class PreviousToolButton extends StatelessWidget {
             button: true,
             label: 'Switch to ${previous.label.toLowerCase()}',
             excludeSemantics: true,
+            onTap: tools.togglePrevious,
             child: InkWell(
               key: const ValueKey('previous-tool'),
               borderRadius: BorderRadius.circular(Radii.xs),
