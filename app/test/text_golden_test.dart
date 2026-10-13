@@ -63,7 +63,7 @@ void main() {
     );
   });
 
-  testWidgets('text: format bar on a phone keeps delete and done visible', (tester) async {
+  testWidgets('text: the phone format bar shows every control in two rows', (tester) async {
     await richCanvas(tester, size: const Size(390, 844));
     await key(tester, LogicalKeyboardKey.keyT);
     await mouseDrag(tester, const [Offset(120, 200)]);
@@ -74,8 +74,21 @@ void main() {
       find.byType(Directionality).first,
       matchesGoldenFile('goldens/text_phone_bar.png'),
     );
-    // The cut-off controls fade out at the edge: there is more to scroll to.
-    expect(find.byKey(const ValueKey('scroll-fade')), findsOneWidget);
+    // Nothing is cut off, so nothing scrolls.
+    expect(find.byKey(const ValueKey('scroll-fade')), findsNothing);
+    for (final tip in ['Font', 'Larger', 'Bold (Ctrl+B)', 'Colour', 'Align center', 'More']) {
+      expect(find.byTooltip(tip).hitTestable(), findsOneWidget, reason: tip);
+    }
+  });
+
+  testWidgets('text: on a very narrow phone the rows scroll, fading at the cut', (tester) async {
+    await richCanvas(tester, size: const Size(300, 700));
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(60, 200)]);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('scroll-fade')), findsWidgets);
+    expect(find.byTooltip('Done (Esc)').hitTestable(), findsOneWidget);
   });
 
   testWidgets('text: font picker shows every bundled font in itself', (tester) async {
