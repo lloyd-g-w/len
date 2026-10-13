@@ -189,7 +189,8 @@ void main() {
             await settle(tester);
           }
           await shoot(tester, 'e_shapes_$shot');
-          await lassoCanvas(tester, const Rect.fromLTRB(-190, -140, 210, -40));
+          // Tight: on a phone the shape spans almost the whole width.
+          await lassoCanvas(tester, const Rect.fromLTRB(-181, -131, 201, -49));
           await shoot(tester, 'e_shape_selected_$shot');
         });
       });
