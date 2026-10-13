@@ -40,7 +40,8 @@ void main() {
       // ignore: avoid_print
       print(
         'INKPERF 5 % first open: ${opened.chunks} chunks after ${opened.frames} frames; '
-        'writes while painting=${opened.writesWhilePainting}, after=${store.writes - opened.writesWhilePainting}',
+        'writes while painting=${opened.writesWhilePainting}, '
+        'after=${store.writes - opened.writesWhilePainting}, longest stall ${opened.stall.inMilliseconds} ms',
       );
       first.dispose();
 
@@ -51,7 +52,7 @@ void main() {
       print(
         'INKPERF 5 % reopened: middle after ${again.middleFrame} frames, all ${again.chunks} '
         'after ${again.frames} frames, ${again.took.inMilliseconds} ms; reads=${store.reads}, '
-        'at once ≤ ${store.peak}',
+        'at once ≤ ${store.peak}, longest stall ${again.stall.inMilliseconds} ms',
       );
       reopened.dispose();
 
@@ -69,7 +70,8 @@ void main() {
       // ignore: avoid_print
       print(
         'INKPERF 5 % reopened, panned away at frame 3: all ${away.chunks} after ${away.frames} '
-        'frames; reads=${store.reads}, of chunks out of view=$wasted',
+        'frames; reads=${store.reads}, of chunks out of view=$wasted, longest stall '
+        '${away.stall.inMilliseconds} ms',
       );
       panned.dispose();
       db.close();
@@ -134,12 +136,25 @@ class _View {
   late final rasters = ChunkRasterCache(pictures, maxBytes: 64 << 20);
 
   /// Frames 16 ms apart until every visible chunk shows its own raster.
-  Future<({int frames, int? middleFrame, int chunks, Duration took, int writesWhilePainting})>
+  Future<
+    ({
+      int frames,
+      int? middleFrame,
+      int chunks,
+      Duration took,
+      int writesWhilePainting,
+      Duration stall,
+    })
+  >
   open({void Function(int frame)? onFrame}) async {
     final watch = Stopwatch()..start();
     final level = ChunkRasterCache.levelFor(ChunkGrid.size * viewport.scale * 2)!;
     int? middle;
+    var last = Duration.zero, longest = Duration.zero;
     for (var frame = 1; frame < 4000; frame++) {
+      // The event loop's longest turn between frames: what stalls the UI.
+      final gap = watch.elapsed - last - const Duration(milliseconds: 16);
+      if (frame > 1 && gap > longest) longest = gap;
       onFrame?.call(frame);
       model.showStored(viewport.visibleWorld);
       CommittedInkPainter(
@@ -164,8 +179,10 @@ class _View {
           chunks: chunks.length,
           took: watch.elapsed,
           writesWhilePainting: store.writes,
+          stall: longest,
         );
       }
+      last = watch.elapsed;
       await Future<void>.delayed(const Duration(milliseconds: 16));
     }
     fail('never complete');

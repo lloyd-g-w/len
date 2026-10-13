@@ -25,9 +25,9 @@ import '../lab/perf_probe.dart';
 class StoredRasterIo {
   StoredRasterIo(
     this.store, {
-    this.maxReads = 4,
+    this.maxReads = 16,
     this.idleDelay = const Duration(milliseconds: 300),
-    this.maxPendingBytes = 16 << 20,
+    this.maxPendingBytes = 32 << 20,
   });
 
   final RasterStore store;
