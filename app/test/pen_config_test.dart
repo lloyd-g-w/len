@@ -178,6 +178,35 @@ void main() {
       expect(t.recentColors.take(3), [0xFF000005, 0xFF000009, 0xFF000008]);
     });
 
+    test('previous tool: the eraser at first, then the tool used before', () {
+      final t = ToolSettings();
+      expect(t.previousTool, EditorTool.eraser);
+      t.togglePrevious();
+      expect((t.tool, t.previousTool), (EditorTool.eraser, EditorTool.pen));
+      t.tool = EditorTool.highlighter;
+      expect(t.previousTool, EditorTool.eraser);
+    });
+
+    test('previous tool skips the eraser when the side button erases (R7-2)', () {
+      final t = ToolSettings(stylusOnly: true, penButtonErases: true);
+      expect(t.previousTool, EditorTool.highlighter, reason: 'pen ↔ highlighter from the start');
+      t.togglePrevious();
+      expect((t.tool, t.previousTool), (EditorTool.highlighter, EditorTool.pen));
+      t.tool = EditorTool.eraser;
+      t.tool = EditorTool.pen;
+      expect(t.previousTool, EditorTool.highlighter, reason: 'the eraser is skipped');
+      t.tool = EditorTool.lasso;
+      expect(t.previousTool, EditorTool.pen);
+      // Fingers draw (no stylus in use) or the button selects: the eraser is back.
+      t.tool = EditorTool.eraser;
+      t.tool = EditorTool.pen;
+      t.penButtonErases = false;
+      expect(t.previousTool, EditorTool.eraser);
+      t.penButtonErases = true;
+      t.stylusOnly = false;
+      expect(t.previousTool, EditorTool.eraser);
+    });
+
     test('Reset restores the feel settings and keeps the slots', () {
       final h = PenConfig.defaultsFor(InkTool.highlighter);
       final custom = h.addColor(0xFF123456).copyWith(opacity: 0.8, streamline: 1, straight: true);

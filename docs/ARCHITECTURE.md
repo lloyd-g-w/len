@@ -1481,7 +1481,9 @@ Page with template…).
   tool's options.) Picking a quick colour or width from a tool that draws
   no ink switches to the pen.
   Phones show the previous tool beside the switcher (`PreviousToolButton`,
-  `ToolSettings.previousTool`, the eraser at first): one tap swaps them.
+  `ToolSettings.previousTool`, the eraser at first): one tap swaps them. When a
+  stylus is in use and its side button erases (`penButtonErases`), the slot skips
+  the eraser and starts at the highlighter: pen ↔ highlighter is one tap.
   The slots give up to 4 dp of their 44-dp cells for it (`ToolbarDensity.slot`)
   and it steps aside when they would go under 40 (narrow phones, 5 + 5).
 - **One options popover** (`toolbar/tool_options_popover.dart`,

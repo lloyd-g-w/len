@@ -101,6 +101,8 @@ three taps (switcher, Highlighter, then previous) instead of two.
 erases (`penButtonAction == eraser`), skip the eraser when choosing
 `previousTool`, and start it at the highlighter. Pen ↔ highlighter is
 then one tap each way. No setting needed.
+*Done (`fix/r7-pen`):* `ToolSettings.previousTool` skips the eraser while
+`stylusOnly` and `penButtonErases` (kept in step with the preference).
 
 **R7-3 P2 · "Hold to snap shapes" changes every pen stroke but lives in the
 Shapes options.** `ShapeOptionsPanel` holds the only switch for

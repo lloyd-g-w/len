@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
+import '../../domain/preferences.dart';
 import '../../ink/tool_settings.dart';
 import '../../platform/fullscreen.dart';
 import '../../ui/messages.dart';
@@ -309,12 +310,14 @@ class _EditorScreenState extends State<_EditorView> {
     _services.routeOwners.current = this; // Dialogs opened by keyboard.
   }
 
-  /// Toolbar placement, and stylus-only changed elsewhere (e.g. in the
-  /// settings opened from the editor).
+  /// Toolbar placement, stylus-only and the side button changed elsewhere
+  /// (e.g. in the settings opened from the editor).
   void _onPreferences() {
     if (!mounted) return;
-    final stylusOnly = _services.preferences.stylusOnly;
+    final prefs = _services.preferences;
+    final stylusOnly = prefs.stylusOnly;
     if (stylusOnly != _session.tools.stylusOnly) _session.tools.stylusOnly = stylusOnly;
+    _session.tools.penButtonErases = prefs.penButtonAction == PenButtonAction.eraser;
     setState(() {});
   }
 

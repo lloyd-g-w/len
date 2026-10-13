@@ -25,7 +25,7 @@ export 'tools/laser_config.dart';
 /// With a [store], customisation is restored on creation and saved
 /// (debounced) whenever it changes.
 class ToolSettings extends ChangeNotifier {
-  ToolSettings({this._stylusOnly, this._store}) {
+  ToolSettings({this._stylusOnly, this._penButtonErases = false, this._store}) {
     final store = _store;
     if (store == null) return;
     final json = store.toolPrefs;
@@ -43,9 +43,11 @@ class ToolSettings extends ChangeNotifier {
   TextData _text = const TextData();
   bool _holdToStraighten = true;
   List<int> _recent = const [];
-  EditorTool _lastInk = EditorTool.pen;
-  EditorTool _previous = EditorTool.eraser;
+
+  /// The tools used, most recent first: [tool], then the ones before it.
+  List<EditorTool> _used = const [EditorTool.pen];
   bool? _stylusOnly;
+  bool _penButtonErases;
 
   /// The inks offered in the toolbar: the pen (ballpoint) and highlighter.
   static const List<InkTool> inks = [InkTool.ballpoint, InkTool.highlighter];
@@ -58,17 +60,35 @@ class ToolSettings extends ChangeNotifier {
   }
 
   void _select(EditorTool value) {
-    if (value != _tool) _previous = _tool;
     _tool = value;
-    if (value == EditorTool.pen || value == EditorTool.highlighter) _lastInk = value;
+    if (_used.first != value) _used = [value, ..._used.where((t) => t != value).take(3)];
   }
 
-  /// The tool used before [tool] (the eraser at first), for the phone's
-  /// one-tap toggle (pen ↔ eraser, pen ↔ highlighter).
-  EditorTool get previousTool => _previous;
+  /// The tool used before [tool], for the phone's one-tap toggle (pen ↔
+  /// eraser, pen ↔ highlighter). At first the eraser. A stylus writer whose
+  /// side button erases ([stylusOnly] and [penButtonErases]) has the eraser
+  /// on the pen already: the eraser is skipped, and the toggle starts at
+  /// the highlighter (the pen, from the highlighter).
+  EditorTool get previousTool {
+    final skipEraser = (_stylusOnly ?? false) && _penButtonErases;
+    for (final t in _used.skip(1)) {
+      if (!(skipEraser && t == EditorTool.eraser)) return t;
+    }
+    if (!skipEraser) return EditorTool.eraser;
+    return _tool == EditorTool.highlighter ? EditorTool.pen : EditorTool.highlighter;
+  }
 
   /// Swaps [tool] and [previousTool].
-  void togglePrevious() => tool = _previous;
+  void togglePrevious() => tool = previousTool;
+
+  /// Whether the stylus side button erases (`PenButtonAction.eraser`); see
+  /// [previousTool].
+  bool get penButtonErases => _penButtonErases;
+  set penButtonErases(bool value) {
+    if (value == _penButtonErases) return;
+    _penButtonErases = value;
+    notifyListeners();
+  }
 
   /// The ink the colour/width controls currently edit: the highlighter
   /// while it is the tool, else the pen.
@@ -182,7 +202,7 @@ class ToolSettings extends ChangeNotifier {
     final tool = other._tool;
     final same =
         tool == _tool &&
-        _previous == other._previous &&
+        identical(_used, other._used) &&
         _eraser == other._eraser &&
         _shape == other._shape &&
         _laser == other._laser &&
@@ -192,8 +212,7 @@ class ToolSettings extends ChangeNotifier {
         inks.every((t) => identical(_configs[t], other._configs[t]));
     if (same) return;
     _tool = tool;
-    _lastInk = other._lastInk;
-    _previous = other._previous;
+    _used = other._used;
     _configs.addAll(other._configs);
     _eraser = other._eraser;
     _shape = other._shape;

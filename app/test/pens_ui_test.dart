@@ -246,6 +246,21 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('phones: with the side button erasing, the slot is pen ↔ highlighter', (
+      tester,
+    ) async {
+      final tools = await pumpToolbar(tester, const Size(390, 800));
+      tools
+        ..stylusOnly = true
+        ..penButtonErases = true;
+      await tester.pump();
+      expect(find.byTooltip('Switch to highlighter'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('previous-tool')));
+      await tester.pump();
+      expect(tools.tool, EditorTool.highlighter);
+      expect(find.byTooltip('Switch to pen'), findsOneWidget);
+    });
+
     testWidgets('phones: the tool switcher changes tools; the active one opens its options', (
       tester,
     ) async {
