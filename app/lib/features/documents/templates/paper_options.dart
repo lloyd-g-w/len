@@ -163,14 +163,13 @@ class PaperOptions extends StatelessWidget {
         CustomColorSwatch(
           key: const ValueKey('paper-custom'),
           color: color.isCustom ? color.paper.toARGB32() : null,
-          onTap: (context) async {
-            final picked = await pickColor(
-              context,
-              title: 'Paper colour',
-              initial: color.paper.toARGB32(),
-            );
-            if (picked != null) onChanged(template.copyWith(color: PaperColor.custom(picked)));
-          },
+          // Live, like every colour popover: the preview follows the picker.
+          onTap: (context) => pickColor(
+            context,
+            title: 'Paper colour',
+            initial: color.paper.toARGB32(),
+            live: (c) => onChanged(template.copyWith(color: PaperColor.custom(c))),
+          ),
         ),
       ],
     );
@@ -200,14 +199,12 @@ class PaperOptions extends StatelessWidget {
         CustomColorSwatch(
           key: const ValueKey('pattern-custom'),
           color: current != null && !patternColors.contains(current) ? current : null,
-          onTap: (context) async {
-            final picked = await pickColor(
-              context,
-              title: 'Pattern colour',
-              initial: current ?? auto,
-            );
-            if (picked != null) _setLook(_look.copyWith(patternColor: picked));
-          },
+          onTap: (context) => pickColor(
+            context,
+            title: 'Pattern colour',
+            initial: current ?? auto,
+            live: (c) => _setLook(_look.copyWith(patternColor: c)),
+          ),
         ),
       ],
     );

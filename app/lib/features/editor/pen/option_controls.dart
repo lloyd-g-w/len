@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../domain/stroke.dart';
+import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 
 /// A labelled slider row used in the tool option panels.
@@ -153,21 +155,83 @@ class StabiliserSlider extends StatelessWidget {
   );
 }
 
-/// An ink settings panel's title row with Reset (restores the feel defaults).
-/// Inside an [EmbeddedOptions] (the options popover's Feel section, which
-/// has its own header) it shows nothing.
+/// An ink settings panel's title row with Reset (restores the feel
+/// defaults). Inside an [EmbeddedOptions] (the options popover's Feel
+/// section, whose header resets everything) it shows nothing.
 class FeelHeader extends StatelessWidget {
-  const FeelHeader(this.title, {super.key, required this.onReset});
+  const FeelHeader(this.title, {super.key, required this.tools, required this.ink});
 
   final String title;
-  final VoidCallback onReset;
+  final ToolSettings tools;
+  final InkTool ink;
 
   @override
   Widget build(BuildContext context) {
     if (EmbeddedOptions.of(context)) return const SizedBox.shrink();
+    final config = tools.configOf(ink);
     return OptionHeader(
       title,
-      trailing: TextButton(onPressed: onReset, child: const Text('Reset')),
+      trailing: ResetButton<PenConfig>(
+        value: config,
+        defaults: config.withFeelDefaults(ink),
+        onChanged: (c) => tools.updateConfig(ink, (_) => c),
+      ),
+    );
+  }
+}
+
+/// An options popover's Reset: puts every setting the popover shows back
+/// to [defaults]. Until something else changes it then reads Undo, which
+/// puts back what was there. Disabled while the settings are the defaults.
+class ResetButton<T extends Object> extends StatefulWidget {
+  const ResetButton({
+    super.key,
+    required this.value,
+    required this.defaults,
+    required this.onChanged,
+  });
+
+  /// The settings now.
+  final T value;
+  final T defaults;
+  final ValueChanged<T> onChanged;
+
+  @override
+  State<ResetButton<T>> createState() => _ResetButtonState<T>();
+}
+
+class _ResetButtonState<T extends Object> extends State<ResetButton<T>> {
+  /// The settings before Reset, while Undo is offered.
+  T? _before;
+
+  @override
+  void didUpdateWidget(ResetButton<T> old) {
+    super.didUpdateWidget(old);
+    // Another change since Reset: Undo would throw it away.
+    if (widget.value != widget.defaults) _before = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final before = _before;
+    if (before != null) {
+      return TextButton(
+        onPressed: () {
+          setState(() => _before = null);
+          widget.onChanged(before);
+        },
+        child: const Text('Undo'),
+      );
+    }
+    final atDefaults = widget.value == widget.defaults;
+    return TextButton(
+      onPressed: atDefaults
+          ? null
+          : () {
+              setState(() => _before = widget.value);
+              widget.onChanged(widget.defaults);
+            },
+      child: const Text('Reset'),
     );
   }
 }

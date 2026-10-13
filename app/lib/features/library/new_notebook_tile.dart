@@ -42,9 +42,11 @@ class _NewNotebookTileState extends State<NewNotebookTile> {
               decoration: BoxDecoration(
                 color: lifted ? scheme.surfaceContainerHigh : scheme.surfaceContainer,
                 borderRadius: radius,
-                // No outlines in light mode (REDESIGN §1.1).
+                // No outlines in light mode (REDESIGN §1.1). In dark mode a
+                // firmer edge than a cover's: the tile is a button, and its
+                // face is close to the background.
                 border: theme.brightness == Brightness.dark
-                    ? Border.all(color: scheme.outlineVariant)
+                    ? Border.all(color: scheme.outline)
                     : null,
               ),
               child: Material(

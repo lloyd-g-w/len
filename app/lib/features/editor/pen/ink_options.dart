@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../domain/stroke.dart';
@@ -11,6 +9,7 @@ import '../../../ui/color_picker/color_swatches.dart';
 import 'ink_slots.dart';
 import 'option_controls.dart';
 import 'option_sections.dart';
+import 'size_scale.dart';
 import 'stroke_preview.dart';
 
 /// The pen's or highlighter's section of the tool options popover: a live
@@ -61,16 +60,18 @@ class _InkOptionsState extends State<InkOptions> {
       listenable: tools,
       builder: (context, _) {
         final config = tools.configOf(ink);
-        final scale = _SizeScale(PenDefaults.of(ink));
+        final scale = SizeScale(PenDefaults.of(ink));
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             OptionHeader(
               widget.title,
-              trailing: TextButton(
-                onPressed: () => _update((c) => c.withFeelDefaults(ink)),
-                child: const Text('Reset'),
+              // Everything here: colours, sizes, the slot counts and Feel.
+              trailing: ResetButton<PenConfig>(
+                value: config,
+                defaults: PenConfig.defaultsFor(ink),
+                onChanged: (c) => _update((_) => c),
               ),
             ),
             const SizedBox(height: Gaps.sm),
@@ -144,20 +145,4 @@ class _InkOptionsState extends State<InkOptions> {
     final up = c.widths.last * 1.5;
     return d.clampWidth(up <= d.maxWidth ? up : c.width / 1.5);
   }
-}
-
-/// The size slider's scale: logarithmic, so fine pens get as much travel
-/// as broad ones (the default sizes sit near the middle). Widths snap to
-/// 0.1 world units.
-class _SizeScale {
-  _SizeScale(PenDefaults d) : _min = d.minWidth, _max = d.maxWidth;
-
-  final double _min, _max;
-
-  double get _span => math.log(_max / _min);
-
-  double toSlider(double width) => math.log(width.clamp(_min, _max) / _min) / _span;
-
-  double toWidth(double t) =>
-      (_min * math.exp(t * _span) * 10).roundToDouble().clamp(_min * 10, _max * 10) / 10;
 }

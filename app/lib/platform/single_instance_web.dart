@@ -1,31 +1,71 @@
 import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
+import 'dart:math';
 
 import 'package:web/web.dart' as web;
 
-const _lockName = 'len-database';
+import 'tab_handover.dart';
 
-/// Holds an exclusive Web Lock for as long as this tab lives. If another
-/// tab holds it, calls [onWaiting] and completes once that tab is closed.
-Future<void> claimSingleInstance({required void Function() onWaiting}) async {
-  if (!(web.window.navigator as JSObject).has('locks')) return; // Very old browser.
-  final locks = web.window.navigator.locks;
-  if (await _request(locks, web.LockOptions(ifAvailable: true))) return;
-  onWaiting();
-  await _request(locks, web.LockOptions());
+const _name = 'len-database';
+
+/// Coordinates Len's tabs with a Web Lock and a BroadcastChannel; null in
+/// browsers without Web Locks (very old ones).
+TabHandover? openTabHandover() {
+  if (!(web.window.navigator as JSObject).has('locks')) return null;
+  return TabHandover(
+    lock: _WebLock(web.window.navigator.locks),
+    channel: _Channel(web.BroadcastChannel(_name)),
+    id: Random().nextInt(1 << 30).toRadixString(36),
+  );
 }
 
-/// Requests the lock; completes with whether it was granted (only
-/// `ifAvailable` requests can be refused). Once granted, it is never
-/// released: the browser releases it when the tab closes.
-Future<bool> _request(web.LockManager locks, web.LockOptions options) {
-  final granted = Completer<bool>();
-  JSPromise<JSAny?> callback(web.Lock? lock) {
-    granted.complete(lock != null);
-    return lock == null ? Future<JSAny?>.value().toJS : Completer<JSAny?>().future.toJS;
+/// Starts this tab afresh (after handing Len to another tab: it then
+/// waits for its turn again).
+void reloadTab() => web.window.location.reload();
+
+class _WebLock implements TabLock {
+  _WebLock(this._locks);
+
+  final web.LockManager _locks;
+
+  /// Completes the held lock's callback promise, which releases it.
+  Completer<JSAny?>? _held;
+
+  @override
+  Future<bool> request({bool ifAvailable = false}) {
+    final granted = Completer<bool>();
+    JSPromise<JSAny?> callback(web.Lock? lock) {
+      granted.complete(lock != null);
+      if (lock == null) return Future<JSAny?>.value().toJS;
+      final held = _held = Completer<JSAny?>();
+      return held.future.toJS;
+    }
+
+    _locks.request(_name, web.LockOptions(ifAvailable: ifAvailable), callback.toJS);
+    return granted.future;
   }
 
-  locks.request(_lockName, options, callback.toJS);
-  return granted.future;
+  @override
+  void release() {
+    _held?.complete();
+    _held = null;
+  }
+}
+
+class _Channel implements TabChannel {
+  _Channel(this._channel);
+
+  final web.BroadcastChannel _channel;
+
+  @override
+  void post(String message) => _channel.postMessage(message.toJS);
+
+  @override
+  set onMessage(void Function(String message) handler) {
+    _channel.onmessage = ((web.MessageEvent event) {
+      final data = event.data;
+      if (data.isA<JSString>()) handler((data as JSString).toDart);
+    }).toJS;
+  }
 }

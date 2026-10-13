@@ -113,10 +113,14 @@ class SettingsTile extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final controlTrails = constraints.maxWidth >= controlTrailsFrom;
+        // Large text: a control beside the title would squeeze it (or
+        // overflow), so it goes below.
+        final controlTrails =
+            constraints.maxWidth >= controlTrailsFrom &&
+            MediaQuery.textScalerOf(context).scale(1) < 1.5;
         final trailing = this.trailing ?? (controlTrails ? control : null);
         final below = this.below ?? (controlTrails ? null : control);
-        return InkWell(
+        final tile = InkWell(
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.md),
@@ -154,6 +158,9 @@ class SettingsTile extends StatelessWidget {
             ),
           ),
         );
+        // A row that toggles its switch (or opens a page) when tapped reads
+        // as one control: its title names the switch.
+        return onTap != null && below == null ? MergeSemantics(child: tile) : tile;
       },
     );
   }

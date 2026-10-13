@@ -6,6 +6,7 @@ import '../platform/sqlite_connection.dart';
 import 'schema_reset.dart';
 import 'search/ink_text_schema.dart';
 import 'search/search_schema.dart';
+import 'write_back.dart';
 
 /// Owns the SQLite connection and creates and migrates the schema.
 ///
@@ -29,11 +30,12 @@ class AppDatabase {
       AppDatabase.fromConnection(openSqliteFile(path), path: path);
 
   /// Opens the app's own database `len.db` in [directory] — on the web it
-  /// lives in IndexedDB instead and [directory] is ignored.
-  static Future<AppDatabase> openDefault(String directory) async {
+  /// lives in IndexedDB instead, [directory] is ignored and the database
+  /// joins [writes] (whose writes reach storage asynchronously).
+  static Future<AppDatabase> openDefault(String directory, {StorageWrites? writes}) async {
     _expected ??= _shapeOfFresh(await openSqliteScratch());
     return AppDatabase.fromConnection(
-      await openSqlite(name: _defaultName, directory: directory),
+      await openSqlite(name: _defaultName, directory: directory, writes: writes),
       path: sqliteFilePath(name: _defaultName, directory: directory),
     );
   }

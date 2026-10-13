@@ -176,6 +176,10 @@ at the bottom; the popover body scrolls with `ScrollFade` (vertical; it now
 keeps its content's state when the fade appears); the slot row shows only in
 the phone sheet, which covers the toolbar; "Ends" uses the row label style and
 slider tracks line up with their labels.
+*Follow-ups (fix/a11y-tools):* the lasso Style panel's Size slider uses the
+same log scale (`pen/size_scale.dart`); the phone sheet scrolls with
+`ScrollFade` too; on touch the colour swatches sit in 48-dp cells
+(`EvenGrid`: the pen palette shows its four colour families as rows of 5).
 
 ✅ **P1-5 Shapes: the selected kind looks switched off, and the panel says the snap tip twice.**
 `e_shape_picker_tablet_light.png` / `_dark`, `popover_shapes*`: unselected
@@ -221,6 +225,13 @@ colour applies live. *Files:* `tools/laser_options_panel.dart`,
 shapes have nothing to reset); one `ColorChoices` block ("Colour" + Custom,
 palette, recent) in ink, text and laser; `pickColour` has no Apply: live, and
 closing keeps the last pick (and notes it as recent).
+*Follow-ups (fix/a11y-tools):* Reset now restores everything its popover
+shows (for ink: quick colours and sizes, their counts and Feel), then reads
+Undo until something else changes; it is disabled at the defaults. Undo sits
+in the popover rather than a snack bar, which would sit under the sheet or
+popover barrier. The template dialog's paper and pattern colours
+(`ui/color_picker/pick_color.dart`) are live the same way; `pickColour`
+builds on it.
 
 ✅ **P2-8 Copy in tool popovers.** "Auto-deselect" (eraser) is jargon → "Switch
 back after erasing"; the lasso help is a long paragraph → two short lines.
@@ -352,7 +363,9 @@ app bar for all filters. *Files:* `features/documents/overview/page_overview.dar
 light-grey caps (worst on A5); a week across two months shows only one month.
 *Fix:* add those labels to the planner label tables; darker labels; "Dec –
 Jan". *Files:* `domain/templates/patterns_planner.dart`, planner label tables.
-→ 🟡 Week, Schedule, Priorities, To do and Notes come in all 19 planner languages; a week across two months reads "Dec – Jan"; headings slightly bigger. Not done: darker labels (muted alpha 0.62 in `ink/render/paper_painter.dart` and `export/pdf_template.dart`).
+→ ✅ Week, Schedule, Priorities, To do and Notes come in all 19 planner languages; a week across two months reads "Dec – Jan"; headings slightly bigger.
+*Done (fix/a11y-tools):* darker labels: muted planner text is drawn at 80 %
+(`PatternLabel.mutedOpacity`, was 62 %), over 3:1 on every paper colour.
 
 ### Library
 
@@ -417,6 +430,8 @@ The tile's label "New…" is vague and low-contrast in dark. *Fix:* label the
 tile "New notebook"; keep ⊕▾ for the other kinds. *Files:*
 `features/library/new_notebook_tile.dart`.
 → ✅ The tile says New notebook; Import PDF… only in ⊕▾ and the empty state.
+*Done (fix/a11y-tools):* contrast: in dark mode the tile has the firmer
+`outline` edge (its face is close to the background).
 
 ✅ **P2-20 The ⇅ View menu has no group labels.** `s_library_view_menu*`: sort,
 layout and Select… run together with a ragged icon column; the current sort
@@ -531,7 +546,10 @@ tablets get a bottom sheet while 1280 gets a dialog. *Fix:* error in the field
 only, helper "e.g. 1–3, 5"; theme disabled colours; header divider when
 scrolled; `showDialogOrSheet` threshold at 600 dp. *Files:*
 `features/documents/export/export_sheet*.dart`, `ui/dialog_or_sheet.dart`.
-→ 🟡 The range error shows in its field only (helper "Pages 1–N, separated by commas", hint "e.g. 1-3, 5"). Open: header divider when scrolled, dark disabled Export, and the 600-dp `showDialogOrSheet` threshold (left at 840: it would move every task sheet on 800-dp tablets).
+→ 🟡 The range error shows in its field only (helper "Pages 1–N, separated by commas", hint "e.g. 1-3, 5").
+*Done (fix/a11y-tools):* disabled filled buttons keep a readable label
+(`onSurfaceVariant` on a 12 % plate, theme-wide) instead of 38 % grey.
+Open: header divider when scrolled, and the 600-dp `showDialogOrSheet` threshold (left at 840: it would move every task sheet on 800-dp tablets).
 
 ✅ **P2-28 Missing-PDF notice copy.** `e_missing_pdf_background_*`: "A PDF these
 pages are drawn on isn't on this device" / "Relink…" is awkward and repeats
@@ -609,9 +627,12 @@ only: add "Use here", which takes the lock over. *Files:*
 `features/settings/storage_settings.dart`, `features/library/library_screen.dart`,
 `platform/*_web.dart`, `main.dart`, `platform/single_instance_web.dart`.
 *Partly done:* a one-time library notice when the browser may evict data and
-sync is off (Keep data / ✕). Open: quota errors on write and "Use here" for
-the other-tab screen (stealing the Web Lock needs the old tab to stop writing
-first).
+sync is off (Keep data / ✕). *Done (fix/web-robust):* quota errors on write
+keep the changes in memory and retry ("Browser storage is full: your latest
+changes are kept in this tab until there's room", once, with Try again; a
+library notice while it lasts; "Your changes are saved" after). The other-tab
+screen has "Use here": the old tab stores everything and stops writing before
+it releases the lock (ARCHITECTURE *Platforms*, *Tab handover*).
 
 ✅ **P2-31 PDF import errors are generic.** `documents/pdf/pdf_import_flow.dart:91`
 "It may be damaged or password-protected." *Fix:* tell the two apart (pdfium
@@ -670,6 +691,35 @@ dark); the "Drop to copy here" pill uses the text roles and `Shadows.low`.
 
 - Contrast: focus-mode exit (P1-2), the "New…" tile in dark (P2-19), planner
   labels (P2-15) and the disabled Export in dark (P2-27) fall under 3:1.
+  ✅ P2-19, P2-15 and P2-27 (fix/a11y-tools); P1-2 is fix/editor-chrome's.
+- ✅ Accessibility pass (fix/a11y-tools). `test/accessibility_test.dart` runs
+  Flutter's guidelines (tap targets: 48 dp on phones, 44 elsewhere; labelled
+  tap targets; WCAG text contrast in the test font) on the library, settings,
+  editor, every tool popover, the export sheet, the template dialog and the
+  new-notebook dialog, phone and tablet, light and dark, and at 2× text.
+  Fixed: tool buttons carried a second, unlabelled long-press node and a
+  40-dp hit area (now 48 on touch, the visual stays 40; Insert too); notebook
+  cards were an unlabelled tap target (now one node: title and caption,
+  selected while selecting); the phone ⊕ had no label; settings switches had
+  no label (a row that toggles reads as one control); the sidebar announces
+  the current section, and folders expand with a screen-reader action
+  (Expand / Collapse) instead of the 22-dp chevron; colour swatches and
+  slots say colour names ("Colour 1, dark blue") rather than hex; "Custom"
+  is a full target on touch; folder tiles grow with large text (they
+  overflowed at 2×). A focus ring (`ui/focus_ring.dart`, accent, 2 dp) follows
+  keyboard focus everywhere; touch and mouse never show it.
+- **A11Y-1 Small targets in the tablet library sidebar.** Sidebar rows are
+  40 dp (42 with spacing), New folder 40, the footer's Settings and Sync
+  40, the search field 40: under 44 on touch tablets. At 2× text the footer
+  squeezes the Settings label away. *Fix:* rows and footer buttons
+  `Targets.of(context, 40)` on touch; the footer stacks at large text.
+  *Files:* `ui/sidebar_item.dart`, `features/library/library_sidebar.dart`,
+  `library_header.dart`. (Allowed in `accessibility_test.dart` until fixed.)
+- **A11Y-2 Settings segmented buttons shrink on phones.** `ShrinkToFit`
+  scales "Draw with" and "Side button" down to fit 390 dp (to about 38 dp
+  high, smaller text), more at large text. *Fix:* below a width, a menu or
+  radio rows instead of a segmented button. *Files:* `ui/segment_label.dart`,
+  `features/settings/writing_settings.dart`.
 - Targets: library ⋯ buttons (P2-23); the phone cover row of ten swatches is
   34 dp each (5 × 2 on phones, P1-18).
 - Simplify without losing parity: drop the spacing presets in paper options

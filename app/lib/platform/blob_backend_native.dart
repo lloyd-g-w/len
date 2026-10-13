@@ -4,9 +4,11 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 
 import '../data/blob_backend.dart';
+import '../data/write_back.dart';
 
-/// Opens the app's blob storage: files under `<directory>/blobs`.
-Future<BlobBackend> openBlobBackend(String directory) async =>
+/// Opens the app's blob storage: files under `<directory>/blobs` (written
+/// synchronously from the caller's view, so nothing joins [writes]).
+Future<BlobBackend> openBlobBackend(String directory, {StorageWrites? writes}) async =>
     FileBlobBackend(p.join(directory, 'blobs'));
 
 /// Stores each blob as a file `<directory>/<sha[0..2]>/<sha>`.

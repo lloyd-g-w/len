@@ -48,8 +48,12 @@ class PatternLabel {
   final LabelAlign align;
   final bool bold;
 
-  /// Secondary text (drawn lighter).
+  /// Secondary text, drawn at [mutedOpacity].
   final bool muted;
+
+  /// How strongly muted labels are drawn: lighter than the rest, yet over
+  /// 3:1 against every paper colour.
+  static const double mutedOpacity = 0.8;
 
   @override
   String toString() => 'PatternLabel($text, $box)';

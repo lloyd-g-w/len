@@ -12,6 +12,7 @@ import '../../../ui/color_dot.dart';
 import '../../../ui/even_grid.dart';
 import '../pen/ink_slots.dart';
 import '../pen/option_controls.dart';
+import '../pen/size_scale.dart';
 import 'colour_sheet.dart';
 import 'text/text_style_menus.dart';
 import 'text_format_bar.dart';
@@ -166,7 +167,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
   List<Widget> _inkSection(BuildContext context, List<Stroke> strokes) {
     final tool = _common(strokes.map((s) => s.tool.isHighlighter));
     final highlighter = tool ?? false;
-    final defaults = highlighter ? PenDefaults.highlighter : PenDefaults.pen;
+    final scale = SizeScale(highlighter ? PenDefaults.highlighter : PenDefaults.pen);
     final width = _dragWidth ?? _common(strokes.map((s) => s.width)) ?? strokes.first.width;
     final tools = widget.tools;
     return [
@@ -201,13 +202,13 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           Text(formatWidth(width), style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
+      // The pen popover's log scale: fine pens get as much travel as broad.
       Slider(
-        value: defaults.clampWidth(width),
-        min: defaults.minWidth,
-        max: defaults.maxWidth,
-        onChanged: (w) => setState(() => _dragWidth = w),
-        onChangeEnd: (w) {
-          _sel.restyleInk(width: w);
+        value: scale.toSlider(width),
+        semanticFormatterCallback: (t) => formatWidth(scale.toWidth(t)),
+        onChanged: (t) => setState(() => _dragWidth = scale.toWidth(t)),
+        onChangeEnd: (t) {
+          _sel.restyleInk(width: scale.toWidth(t));
           setState(() => _dragWidth = null);
         },
       ),
