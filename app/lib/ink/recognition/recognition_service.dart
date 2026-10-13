@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/pointer_activity.dart';
 import '../../data/app_database.dart';
+import '../../data/recognised_text_repository.dart';
 import '../../data/search/ink_text_schema.dart';
 import '../../data/settings_repository.dart';
 import '../../domain/stroke.dart';
@@ -16,6 +17,9 @@ import 'recognition_languages.dart';
 /// chosen language (from the device locale unless set), its model
 /// (download / delete) and the background [indexer] for search.
 ///
+/// Without a recogniser on the platform, the [indexer] still indexes the
+/// handwriting devices with one recognised (synced), always.
+///
 /// When indexing is on and the model is missing, [start] downloads it over
 /// Wi-Fi; the settings and "Convert to text" offer to download it on
 /// demand.
@@ -24,6 +28,7 @@ class RecognitionService extends ChangeNotifier {
     required this.recognizer,
     required this.settings,
     required AppDatabase database,
+    required RecognisedTextRepository shared,
     List<Locale> Function()? deviceLocales,
     Duration idleDelay = const Duration(seconds: 3),
     PointerActivity? activity,
@@ -32,7 +37,9 @@ class RecognitionService extends ChangeNotifier {
     indexer = HandwritingIndexer(
       database,
       recognizer: recognizer,
+      shared: shared,
       language: () => language,
+      languageChangedAt: () => settings.handwritingLanguageChangedAt,
       idleDelay: idleDelay,
       activity: activity,
     );
@@ -74,7 +81,10 @@ class RecognitionService extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    _database.transaction(() => InkTextSchema.queueAll(_database.db));
+    _database.transaction(() {
+      settings.handwritingLanguageChangedAt = indexer.shared.clock.nowMs();
+      InkTextSchema.queueAll(_database.db);
+    });
     _model = ModelStatus.unknown;
     _downloadError = null;
     notifyListeners();
@@ -110,7 +120,12 @@ class RecognitionService extends ChangeNotifier {
   Future<void> start() => _prepare(autoDownload: true);
 
   Future<void> _prepare({bool autoDownload = false}) async {
-    if (!isSupported || _disposed) return;
+    if (_disposed) return;
+    if (!isSupported) {
+      // Indexes what devices with a recogniser synced.
+      indexer.start();
+      return;
+    }
     await refreshModel();
     if (autoDownload && indexingEnabled && _model == ModelStatus.missing) {
       unawaited(download(wifiOnly: true));

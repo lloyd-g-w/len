@@ -291,11 +291,12 @@ server (another host name or address) changes nothing.
 | `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth}`, see [Text boxes](#text-boxes)), `image` (`data` = `{blob, width, height, crop?}`, see below) or `link` (`data` = `{target}`, see [Links](#links)). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
 | `recordings` | `{notebookId, audio, durationMs, startedAt, title, mime, segments, waveform, trimStartMs, trimEndMs}` — an audio recording of a notebook. `audio` = `[[<sha256>, durationMs], …]` (never empty) are the parts of the audio in order, each a [blob](#blobs) of `mime`: `audio/aac` (raw AAC in ADTS frames; parts join by concatenation into one stream), `audio/mp4` AAC or `audio/webm` Opus (recorded in browsers; each part a complete file, played one after the other). A recording being made gains a part every few minutes, so the record is updated (and its finished parts uploaded) while recording continues. `durationMs` is the audio length (the sum of the parts); `startedAt` is the wall time (epoch ms) recording began; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (empty → one segment `[startedAt, durationMs]`); ink and elements are replayed from their `createdAt`. `waveform` is `""` (none) or the `<sha256>` of the recording's [waveform](#waveforms) blob. `trimStartMs` / `trimEndMs` (ints, `0 ≤ trimStartMs ≤ trimEndMs ≤ durationMs`, else malformed) are the audio kept by a non-destructive trim, positions in the whole audio: `0` and `durationMs` when untrimmed (a recording being made stays untrimmed). Clients play, list, replay and export only the kept range; the parts keep all the audio, so trimming back restores it. Deleting a notebook tombstones its recordings. |
 | `outline`   | `{notebookId, pageId, parentId: string|null, title, createdAt}` — an entry of a notebook's own outline (table of contents) leading to page `pageId`. Entries nest by `parentId` (null = top level). There is no stored order: siblings are shown in the order of their pages in the notebook (then by `createdAt`), so reordering pages reorders the outline and concurrent additions never conflict. An entry whose parent is missing, or that is part of a parent cycle, is shown at the top level; one whose page was deleted is shown as such (deleting a page keeps its entries, so undoing the deletion restores them). Deleting an entry moves its children to its parent. |
+| `recognised_text` | `{language, lines}` — handwriting a device with a recogniser read on one surface; the record's `id` **is the surface id** (a page id, or a canvas notebook's id). See [Recognised handwriting](#recognised-handwriting). |
 
 **Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
 cache `pdf_text`) is derived on each device from the collections above and the PDF blobs, and is
 updated when records are applied by sync like any local write. Nothing about it travels over the
-wire, so search needs no protocol change.
+wire; handwriting enters it through `recognised_text` (below).
 
 **Validation.** Every field listed for a collection is required (fields typed `…|null` must be
 present, possibly `null`), and enumerated values must be ones listed here. A record that is missing
@@ -364,6 +365,31 @@ length in units of 10 ms (`10` = 100 ms), then one byte per bucket — the loude
 it, 0 (silence) … 255, on a decibel scale (−50 dBFS … 0). Buckets cover the audio from its start
 (pauses are not part of the audio); a shorter waveform than the audio means silence at the end.
 Readers ignore waveforms with another version or magic.
+
+**Recognised handwriting.** Only some devices can recognise handwriting (Android, with ML Kit);
+`recognised_text` lets every device search what they read. A device groups a surface's live,
+non-highlighter strokes into lines (`InkClustering`, deterministic: the same strokes give the same
+lines on every device) and keys each line by its strokes: the first 20 hex digits of the SHA-1 of
+the line's sorted stroke ids joined by `,`.
+
+- `language`: the BCP 47 tag the text was recognised in (non-empty).
+- `lines` = `[[key, text], …]`, top to bottom: every line of the surface when it was recognised
+  (`key` non-empty; `text` may be `""`, a line read as nothing). No geometry: boxes for highlights
+  come from the reader's own clustering. Any other shape makes the record malformed.
+
+**Reading.** A device shows (indexes) a line's text only while a line with that key exists among
+its own strokes. Editing ink is remove + add, so an edited or erased line gets a new key (or none)
+and its text disappears on every device at once, whoever made the change and whether or not the
+record was updated yet. A device re-reads a surface when its strokes change or a record for it
+arrives.
+
+**Writing.** Only devices with a recogniser write. A line whose key is in the record (in the
+device's language) is taken from it, not recognised again; the others are recognised. The device
+then writes the record (one per surface, so two devices recognising the same page converge under
+last-write-wins) when it is missing, lacks one of the current lines or holds one that is gone, or —
+when the user chose the device's language later than the record was written — is in another
+language. Other differences (two readings of the same strokes) are left alone, so devices never
+take turns rewriting a record. A surface left without ink gets its record tombstoned.
 
 **Paper and pages.** `paper` names a template: `blank`, `dotted`, `narrowRuled`,
 `collegeRuled`, `wideRuled`, `cornell`, `todo`, `meeting`, `dailyPlanner`, `weeklyPlanner`,

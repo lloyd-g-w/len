@@ -2,7 +2,9 @@ import 'package:sqlite3/common.dart';
 
 import 'search_schema.dart';
 
-/// Recognised handwriting: a local, derived table (never synced).
+/// Recognised handwriting on this device: a local, derived table (never
+/// synced; the synced form is `recognised_text`, see
+/// `RecognisedTextRepository`).
 ///
 /// * `ink_text` — one row per recognised line on a surface: its text, the
 ///   line's bounds, per-word boxes (JSON `[[x, y, w, h], …]` matching the
@@ -11,7 +13,8 @@ import 'search_schema.dart';
 ///   change are not recognised again.
 /// * `ink_text_queue` — surfaces whose strokes changed since they were last
 ///   recognised, filled by triggers on `strokes` (local edits, undo, sync —
-///   whatever wrote them). `version` grows with every change, so a change
+///   whatever wrote them) and on `recognised_text` (text recognised
+///   elsewhere arrived). `version` grows with every change, so a change
 ///   made while a surface is being recognised re-queues it.
 ///
 /// Triggers mirror `ink_text` into `search_docs` (kind
@@ -39,6 +42,22 @@ abstract final class InkTextSchema {
     // where nothing drains the queue (no recogniser on the platform).
     db.execute('CREATE INDEX ink_text_queue_by_version ON ink_text_queue(version)');
     _createTriggers(db);
+  }
+
+  /// Queues a surface when recognised text for it arrives by sync (remote
+  /// writes are the clean ones; this device's own writes are dirty).
+  static void createSyncedTriggers(CommonDatabase db) {
+    db.execute('''
+      CREATE TRIGGER ink_text_recognised_ai AFTER INSERT ON recognised_text
+      WHEN NEW.dirty = 0 BEGIN
+        ${_queue('NEW.id')}
+      END''');
+    db.execute('''
+      CREATE TRIGGER ink_text_recognised_au AFTER UPDATE ON recognised_text
+      WHEN NEW.dirty = 0 AND (OLD.lines IS NOT NEW.lines OR OLD.deleted IS NOT NEW.deleted
+        OR OLD.language IS NOT NEW.language) BEGIN
+        ${_queue('NEW.id')}
+      END''');
   }
 
   /// Queues every surface with live ink (after a language change, or
