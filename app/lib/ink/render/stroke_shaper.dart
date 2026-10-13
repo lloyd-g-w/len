@@ -8,6 +8,11 @@ import 'ribbon_emitter.dart';
 import 'shape_params.dart';
 import 'taper.dart';
 
+part 'stroke_shaper_checkpoints.dart';
+part 'stroke_shaper_radii.dart';
+part 'stroke_shaper_resampling.dart';
+part 'stroke_shaper_smoothing.dart';
+
 /// Turns the input points of a stroke into its smoothed centre line with
 /// radii, *incrementally* and with a fixed reach: every value further than
 /// a fixed distance behind the pen tip is **final** — computed once, from
@@ -219,22 +224,7 @@ class StrokeShaper implements RibbonLine {
 
   /// Records the current final state; returns its id for [rollBack].
   int checkpoint() {
-    _checkpoints.add(
-      _Checkpoint(
-        id: _checkpointIds++,
-        seg: _seg,
-        next: _next,
-        resFinal: _resFinal,
-        radDone: _radDone,
-        corners: _corners.length,
-        scan: _scan,
-        runFirst: _runFirst,
-        runBest: _runBest,
-        runScore: _runScore,
-        posFinal: _posFinal,
-        roDone: _roDone,
-      ),
-    );
+    _checkpoints.add(_Checkpoint.of(this, _checkpointIds++));
     if (_checkpoints.length > _keptCheckpoints) _checkpoints.removeAt(0);
     return _checkpoints.last.id;
   }
@@ -251,22 +241,7 @@ class StrokeShaper implements RibbonLine {
       // Final segments end before c.seg; they use samples up to c.seg + 1.
       if (c.seg + 2 > sample || c.resFinal == 0) continue;
       _checkpoints.removeRange(k + 1, _checkpoints.length);
-      _seg = c.seg;
-      _next = c.next;
-      _resFinal = c.resFinal;
-      _radDone = c.radDone;
-      _corners.removeRange(c.corners, _corners.length);
-      _scan = c.scan;
-      _runFirst = c.runFirst;
-      _runBest = c.runBest;
-      _runScore = c.runScore;
-      _posFinal = c.posFinal;
-      _roDone = c.roDone;
-      _sx.length = sample;
-      _sy.length = sample;
-      _sr.length = sample;
-      pointCount = _samplePoint[sample];
-      _samplePoint.removeRange(sample, _samplePoint.length);
+      c.restore(this, sample);
       return c.id;
     }
     return null;
@@ -314,44 +289,6 @@ class StrokeShaper implements RibbonLine {
   /// The number of input samples to keep once the stroke has ended.
   int endKeep() => _hooks.endKeep(_sx, _sy, _sx.length);
 
-  // ---------------------------------------------------------------------------
-  // 3. Resampling
-
-  void _resample(int start, int n, {required bool ended}) {
-    // Final segments: the sample after the segment's end is final (only
-    // the last input sample is not: its radius may still grow), and the
-    // input must still be growing (an ended stroke's last segments use
-    // the end reflection).
-    _rx.length = _resFinal;
-    _ry.length = _resFinal;
-    _rr.length = _resFinal;
-    if (_resFinal == 0) {
-      _push(_sx[start], _sy[start], _sr[start]);
-      _resFinal = 1;
-      _seg = start;
-      final phase = _phase;
-      _next = phase != null && phase > 1e-9 ? phase : p.step;
-    }
-    _segNext.length = _seg;
-    _segFirst.length = _seg;
-    while (_seg + 2 <= n - 2 && !ended) {
-      _segNext.add(_next);
-      _segFirst.add(_rx.length.toDouble());
-      _next = _segment(_seg, start, n, _next);
-      _seg++;
-      _resFinal = _rx.length;
-    }
-    var next = _next;
-    for (var k = _seg; k < n - 1; k++) {
-      _segNext.add(next);
-      _segFirst.add(_rx.length.toDouble());
-      next = _segment(k, start, n, next);
-    }
-    // The end sample itself (closer than a step to the one before).
-    final along = next - p.step; // distance of the last sample before the end
-    if (n - 1 > start && along < -p.step * 1e-3) _push(_sx[n - 1], _sy[n - 1], _sr[n - 1]);
-  }
-
   /// The arc length from input sample [sample] to the first resampled
   /// point after it (0 < phase ≤ step), as of the last [update]; null
   /// where the line has no samples (before its start, after its end).
@@ -377,38 +314,6 @@ class StrokeShaper implements RibbonLine {
     return _samplePoint[s] == point ? s : null;
   }
 
-  /// Adds the samples of segment [k] (input samples k → k+1) at arc
-  /// lengths [next], next + step, …; returns the arc length of the next
-  /// sample measured from the start of segment k + 1.
-  double _segment(int k, int start, int n, double next) {
-    final x1 = _sx[k], y1 = _sy[k], x2 = _sx[k + 1], y2 = _sy[k + 1];
-    final lead = k > start || (_leadIn && k > 0);
-    final x0 = lead ? _sx[k - 1] : 2 * x1 - x2;
-    final y0 = lead ? _sy[k - 1] : 2 * y1 - y2;
-    final x3 = k + 2 < n ? _sx[k + 2] : 2 * x2 - x1;
-    final y3 = k + 2 < n ? _sy[k + 2] : 2 * y2 - y1;
-    final r1 = _sr[k], r2 = _sr[k + 1];
-    final gap = _dist(x2 - x1, y2 - y1);
-    final pieces = math.max(1, math.min(64, (gap / (p.step * 0.5)).ceil()));
-    final cr = _CatmullRom(x0, y0, x1, y1, x2, y2, x3, y3);
-    var ax = x1, ay = y1, along = 0.0;
-    for (var q = 1; q <= pieces; q++) {
-      final t = q / pieces;
-      final (bx, by) = q == pieces ? (x2, y2) : cr.at(t);
-      final len = _dist(bx - ax, by - ay);
-      while (next <= along + len && len > 0) {
-        final u = (next - along) / len;
-        final tt = (q - 1 + u) / pieces;
-        _push(ax + (bx - ax) * u, ay + (by - ay) * u, r1 + (r2 - r1) * tt);
-        next += p.step;
-      }
-      along += len;
-      ax = bx;
-      ay = by;
-    }
-    return next - along;
-  }
-
   /// The length of the resampling spline's segment from (x1, y1) to
   /// (x2, y2) with neighbours (x0, y0) and (x3, y3), flattened as the
   /// shaper flattens it for [step] (the overlay tracks where the whole
@@ -424,285 +329,12 @@ class StrokeShaper implements RibbonLine {
     double y3,
     double step,
   ) {
-    final gap = _dist(x2 - x1, y2 - y1);
-    final pieces = math.max(1, math.min(64, (gap / (step * 0.5)).ceil()));
-    final cr = _CatmullRom(x0, y0, x1, y1, x2, y2, x3, y3);
-    var ax = x1, ay = y1, along = 0.0;
-    for (var q = 1; q <= pieces; q++) {
-      final (bx, by) = q == pieces ? (x2, y2) : cr.at(q / pieces);
-      along += _dist(bx - ax, by - ay);
-      ax = bx;
-      ay = by;
-    }
-    return along;
-  }
-
-  void _push(double x, double y, double r) {
-    _rx.add(x);
-    _ry.add(y);
-    _rr.add(r);
-  }
-
-  // ---------------------------------------------------------------------------
-  // 6a. Causal radii
-
-  void _radii(int count) {
-    final keep = p.radiusKeep, d = p.slope;
-    // Values computed from final input in an earlier call are final.
-    final from = _radDone;
-    _r1.length = count;
-    _r2.length = count;
-    _rs.length = count;
-    for (var i = from; i < count; i++) {
-      if (i == 0) {
-        _r1[0] = _r2[0] = _rs[0] = _rr[0];
-        continue;
-      }
-      _r1[i] = _r1[i - 1] * keep + _rr[i] * (1 - keep);
-      _r2[i] = _r2[i - 1] * keep + _r1[i] * (1 - keep);
-      _rs[i] = _r2[i].clamp(_rs[i - 1] - d, _rs[i - 1] + d);
-    }
-    _radDone = _resFinal;
-  }
-
-  // ---------------------------------------------------------------------------
-  // 4. Corners
-
-  /// Turn (radians) at sample [i] over the corner baseline.
-  double _turnAt(int i) {
-    final k = p.cornerK;
-    final ax = _rx[i] - _rx[i - k], ay = _ry[i] - _ry[i - k];
-    final bx = _rx[i + k] - _rx[i], by = _ry[i + k] - _ry[i];
-    return math.atan2(ax * by - ay * bx, ax * bx + ay * by).abs();
-  }
-
-  /// How far sample [i] lies along the direction the line came in from
-  /// before the run of sharp turns starting at [first]: the tip of a cusp
-  /// is where the pen stops going that way (every corner turns > 90°). The
-  /// sharpest turn over the baseline can be a sample or two past the tip.
-  double _tipScore(int first, int i) {
-    final k = p.cornerK;
-    final ux = _rx[first] - _rx[first - k], uy = _ry[first] - _ry[first - k];
-    return (_rx[i] - _rx[first]) * ux + (_ry[i] - _ry[first]) * uy;
-  }
-
-  void _findCorners(int count) {
-    final k = p.cornerK;
-    if (_scan < k) _scan = k;
-    // Final part: samples whose baseline reaches only final samples.
-    while (_scan + k < _resFinal) {
-      if (_turnAt(_scan) > ShapeParams.minTurn) {
-        if (_runFirst < 0) {
-          _runFirst = _runBest = _scan;
-          _runScore = 0;
-        } else if (_tipScore(_runFirst, _scan) > _runScore) {
-          _runBest = _scan;
-          _runScore = _tipScore(_runFirst, _scan);
-        }
-      } else if (_runFirst >= 0) {
-        _corners.add(_runBest);
-        _runFirst = _runBest = -1;
-        _runScore = 0;
-      }
-      _scan++;
-    }
-    // Provisional part, from a copy of the scan state.
-    final found = List<int>.of(_corners);
-    var first = _runFirst, best = _runBest;
-    var score = _runScore;
-    for (var i = _scan; i + k < count; i++) {
-      if (_turnAt(i) > ShapeParams.minTurn) {
-        if (first < 0) {
-          first = best = i;
-          score = 0;
-        } else if (_tipScore(first, i) > score) {
-          best = i;
-          score = _tipScore(first, i);
-        }
-      } else if (first >= 0) {
-        found.add(best);
-        first = best = -1;
-        score = 0;
-      }
-    }
-    if (best >= 0) found.add(best);
-    corners = found;
-  }
-
-  // ---------------------------------------------------------------------------
-  // 5. Positions
-
-  void _smooth(int count) {
-    _cx.length = count;
-    _cy.length = count;
-    final bounds = [0, ...corners, count - 1];
-    var b = 1;
-    for (var i = _posFinal; i < count; i++) {
-      while (bounds[b] < i) {
-        b++;
-      }
-      // Stretch [lo, hi] containing i (a corner belongs to the one before).
-      final lo = bounds[b - 1], hi = bounds[b];
-      _cx[i] = _filtered(_rx, i, lo, hi);
-      _cy[i] = _filtered(_ry, i, lo, hi);
-    }
-    // Final: the window reaches neither a non-final sample nor where a
-    // corner may still be found.
-    final known = _runBest >= 0 ? _runBest : _scan;
-    final settled = math.min(known, _resFinal) - p.kernelK - 1;
-    if (settled > _posFinal) _posFinal = settled;
-  }
-
-  /// The low-pass value at [i] of [v] within the stretch [lo]..[hi].
-  double _filtered(DoubleBuffer v, int i, int lo, int hi) {
-    if (i == lo || i == hi || hi - lo < 2) return v[i];
-    final w = p.kernel, k = p.kernelK;
-    var sum = 0.0;
-    final inLo = math.max(lo, i - k), inHi = math.min(hi, i + k);
-    for (var m = inLo; m <= inHi; m++) {
-      sum += w[m - i + k] * v[m];
-    }
-    if (i - k < lo) {
-      final (a, c) = LineFilters.endFit(v, lo, 1, math.min(p.fit, hi - lo));
-      for (var m = i - k; m < lo; m++) {
-        final j = (lo - m).toDouble();
-        sum += w[m - i + k] * (v[lo] + a * j + c * j * j);
-      }
-    }
-    if (i + k > hi) {
-      final (a, c) = LineFilters.endFit(v, hi, -1, math.min(p.fit, hi - lo));
-      for (var m = hi + 1; m <= i + k; m++) {
-        final j = (m - hi).toDouble();
-        sum += w[m - i + k] * (v[hi] + a * j + c * j * j);
-      }
-    }
-    return sum;
-  }
-
-  // ---------------------------------------------------------------------------
-  // 6b. End rules
-
-  void _endRules(int count) {
-    _ro.length = count;
-    final from = _roDone;
-    for (var i = from; i < count; i++) {
-      _ro[i] = _rs[i];
-    }
-    if (from == 0) {
-      // Start: non-swelling, then levelled (final once the start reach is,
-      // which the gate ensures before anything is shown).
-      final ks = math.min(count - 1, p.settleK);
-      for (var i = ks - 1; i >= 0; i--) {
-        _ro[i] = math.min(_ro[i], _ro[i + 1]);
-      }
-      if (p.levelK > 0 && count > p.levelK) {
-        final level = _ro[p.levelK];
-        for (var i = 0; i < p.levelK; i++) {
-          _ro[i] = math.max(_ro[i], level);
-        }
-      }
-    }
-    // End (the moving tip while drawing, the real end once ended).
-    final ke = math.min(count - 1, p.settleEndK);
-    for (var i = count - ke; i < count; i++) {
-      if (i > 0) _ro[i] = math.min(_ro[i], _ro[i - 1]);
-    }
-    if (p.levelEndK > 0 && count > 2 * p.levelEndK) {
-      final level = _ro[count - 1 - p.levelEndK];
-      for (var i = count - p.levelEndK; i < count; i++) {
-        _ro[i] = math.max(_ro[i], level);
-      }
-    }
-    final settled = _resFinal - p.endReach;
-    if (settled > p.startReach && settled > _roDone) _roDone = settled;
-  }
-
-  // ---------------------------------------------------------------------------
-  // 6c. Tapers
-
-  void _taper(int count, {required bool ended}) {
-    taperedFrom = count;
-    if (!_tapers) return;
-    _rt.length = count;
-    // Final radii taper as they were; the rest (and an end taper from
-    // before a roll-back) is redone.
-    _rtFrom = math.min(_rtFrom, _roDone);
-    final start = p.taperStart, step = p.step;
-    for (var i = _rtFrom; i < count; i++) {
-      _rt[i] = start > 0 ? _ro[i] * Taper.factor(i * step, start) : _ro[i];
-    }
-    _rtFrom = _roDone;
-    taperedFrom = count;
-    if (!ended || taperEnd <= 0 || count < 2) return;
-    // Every sample is a step from the one before, but the last.
-    final dx = _rx[count - 1] - _rx[count - 2], dy = _ry[count - 1] - _ry[count - 2];
-    final total = (count - 2) * step + _dist(dx, dy);
-    final length = math.min(taperEnd, total * Taper.maxEndShare);
-    for (var i = count - 1; i >= 0; i--) {
-      final along = i == count - 1 ? 0.0 : total - i * step;
-      if (along >= length) break;
-      _rt[i] *= Taper.factor(along, length);
-      _rtFrom = math.min(_rtFrom, i);
-      taperedFrom = i;
-    }
+    return _splineLength(x0, y0, x1, y1, x2, y2, x3, y3, step);
   }
 
   /// A copy of the line's samples (for measurements).
   ({Float64List x, Float64List y, Float64List r}) snapshot() =>
       (x: _cx.toList(), y: _cy.toList(), r: r.toList());
-
-  static double _dist(double dx, double dy) => math.sqrt(dx * dx + dy * dy);
 }
 
-class _Checkpoint {
-  _Checkpoint({
-    required this.id,
-    required this.seg,
-    required this.next,
-    required this.resFinal,
-    required this.radDone,
-    required this.corners,
-    required this.scan,
-    required this.runFirst,
-    required this.runBest,
-    required this.runScore,
-    required this.posFinal,
-    required this.roDone,
-  });
-
-  final int id;
-  final int seg;
-  final double next;
-  final int resFinal, radDone, corners, scan, runFirst, runBest;
-  final double runScore;
-  final int posFinal, roDone;
-}
-
-/// One centripetal Catmull-Rom segment from P1 to P2 (Barry–Goldman form).
-class _CatmullRom {
-  _CatmullRom(this.x0, this.y0, this.x1, this.y1, this.x2, this.y2, this.x3, this.y3) {
-    t1 = _knot(0, x0, y0, x1, y1);
-    t2 = _knot(t1, x1, y1, x2, y2);
-    t3 = _knot(t2, x2, y2, x3, y3);
-  }
-
-  final double x0, y0, x1, y1, x2, y2, x3, y3;
-  late final double t1, t2, t3;
-
-  static double _knot(double t, double ax, double ay, double bx, double by) {
-    final d = math.sqrt(math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)));
-    return t + math.max(d, 1e-6);
-  }
-
-  (double, double) at(double u) {
-    final t = t1 + (t2 - t1) * u;
-    double lerp(double a, double b, double ta, double tb) =>
-        (tb - t) / (tb - ta) * a + (t - ta) / (tb - ta) * b;
-    final a1x = lerp(x0, x1, 0, t1), a1y = lerp(y0, y1, 0, t1);
-    final a2x = lerp(x1, x2, t1, t2), a2y = lerp(y1, y2, t1, t2);
-    final a3x = lerp(x2, x3, t2, t3), a3y = lerp(y2, y3, t2, t3);
-    final b1x = lerp(a1x, a2x, 0, t2), b1y = lerp(a1y, a2y, 0, t2);
-    final b2x = lerp(a2x, a3x, t1, t3), b2y = lerp(a2y, a3y, t1, t3);
-    return (lerp(b1x, b2x, t1, t2), lerp(b1y, b2y, t1, t2));
-  }
-}
+double _dist(double dx, double dy) => math.sqrt(dx * dx + dy * dy);

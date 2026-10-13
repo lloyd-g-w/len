@@ -111,6 +111,14 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
 
 - `flutter analyze` must report **no issues**; `flutter test` must pass.
 - Small files (aim < 300 lines), small functions, doc comments on public APIs.
+  To split a large class, prefer its own files for cohesive pieces (widgets,
+  value types, codecs); otherwise `part` files: private members in a private
+  `extension` on the class, public ones in a private mixin (declaring what it
+  needs abstract, as `LibraryActions`' do, or `on` a private base class
+  holding the state, as `SurfaceModel` and `DocumentController` do). Methods
+  calling `setState` / `notifyListeners` (protected) and listeners removed
+  again by tear-off (`removeListener(_onX)`: extension tear-offs are not
+  equal) stay in the class.
 - No new state-management framework: `ChangeNotifier` + `ListenableBuilder`.
 - New packages only when they clearly earn their place and support
   **Android, Linux, Windows and Web** (or are confined to a
