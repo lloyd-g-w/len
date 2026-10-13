@@ -132,12 +132,16 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
 endif()
 
 # Desktop integration: launcher, icons (hicolor theme layout; the runner also
-# uses them as the window icon) and a helper that installs both for the user.
+# uses them as the window icon), the Len file type (application/x-len, *.len)
+# and a helper that installs them for the user.
 # Regenerate the icons with tool/generate_icons.sh.
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icons/"
   DESTINATION "${CMAKE_INSTALL_PREFIX}/share/icons/hicolor" COMPONENT Runtime)
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/dev.len.len.desktop"
   DESTINATION "${CMAKE_INSTALL_PREFIX}/share/applications" COMPONENT Runtime)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/dev.len.len.mime.xml"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/mime/packages" RENAME "dev.len.len.xml"
+  COMPONENT Runtime)
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/dev.len.len.metainfo.xml"
   DESTINATION "${CMAKE_INSTALL_PREFIX}/share/metainfo" COMPONENT Runtime)
 install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/packaging/install-desktop-entry.sh"

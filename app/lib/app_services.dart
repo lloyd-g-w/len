@@ -39,6 +39,7 @@ import 'ink/recognition/recognition_service.dart';
 import 'ink/render/outline_preparer.dart';
 import 'ink/selection/ink_clipboard.dart';
 import 'platform/handwriting_recognizer.dart';
+import 'platform/len_file_io.dart';
 import 'platform/secure_store.dart';
 import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
@@ -263,6 +264,7 @@ class AppServices {
     tables: [folders, templates, notebooks, pages, outline, recordings, strokes, elements],
     blobs: blobs,
     deviceId: strokes.deviceId,
+    openBlobFile: openFileInput,
   );
 
   /// Decoded bitmaps of image elements, shared by editors and previews.

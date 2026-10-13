@@ -81,6 +81,8 @@ mixin _FolderActions {
         if (target != null && context.mounted) {
           drop(context, LibraryDragItem.folder(folder.id), target.folderId);
         }
+      case FolderAction.export:
+        await exportLenFlow(context, LenScope.folder(folder.id), name: lenFileName(folder.name));
       case FolderAction.delete:
         deleteFolder(context, folder);
     }

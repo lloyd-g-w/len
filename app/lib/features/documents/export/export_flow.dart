@@ -3,9 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../../../app_services.dart';
+import '../../../data/archive/len_archives.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../platform/file_export.dart' as platform;
+import '../../backup/len_file_flows.dart';
 import '../progress_dialog.dart';
 import 'export_messages.dart';
 import 'export_options.dart';
@@ -72,6 +74,15 @@ Future<void> runExport(
   NotebookExporter? exporter,
   ExportSaver save = platform.saveOrShareAll,
 }) async {
+  if (options.format == ExportFormat.len) {
+    await exportLenFlow(
+      context,
+      LenScope.notebook(notebook.id),
+      name: lenFileName(notebook.title),
+      toDevice: options.toDevice,
+    );
+    return;
+  }
   final selected = options.resolve(pages);
   if (selected.isEmpty) return;
   final names = exportFileNames(notebook.title, options.format, options.pages, pages.length);
@@ -174,6 +185,15 @@ Future<void> exportCanvasFlow(
       canvas: true,
     );
     if (options == null || !context.mounted) return;
+    if (options.format == ExportFormat.len) {
+      await exportLenFlow(
+        context,
+        LenScope.notebook(notebook.id),
+        name: lenFileName(notebook.title),
+        toDevice: options.toDevice,
+      );
+      return;
+    }
     final name = '${safeFileName(notebook.title)}.${options.format.extension}';
     final files = await runWithSteps(context, 'Exporting', subject: name, cancellable: true, (
       progress,

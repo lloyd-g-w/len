@@ -70,6 +70,12 @@ class SettingsRepository {
   int get syncBlobsCollectedAt => int.tryParse(_get('sync_blobs_collected_at') ?? '') ?? 0;
   set syncBlobsCollectedAt(int value) => _set('sync_blobs_collected_at', '$value');
 
+  /// When (ms since epoch) the library was last backed up into a Len file;
+  /// null if never.
+  int? get lastBackupAt => int.tryParse(_get('last_backup_at') ?? '');
+  set lastBackupAt(int? value) =>
+      value == null ? _remove('last_backup_at') : _set('last_backup_at', '$value');
+
   /// When (ms since epoch) local blob garbage collection last ran; 0 = never.
   int get blobGcLastRun => int.tryParse(_get('blob_gc_last_run') ?? '') ?? 0;
   set blobGcLastRun(int value) => _set('blob_gc_last_run', '$value');

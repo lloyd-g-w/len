@@ -4,10 +4,12 @@ import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app_services.dart';
+import '../../../data/archive/len_format.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/paper.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../backup/len_file_flows.dart';
 import '../pdf/pdf_import_flow.dart';
 import '../progress_dialog.dart';
 import 'import_router.dart';
@@ -68,6 +70,15 @@ class ImportFlow {
         case NewPdfNotebook(:final file):
           final notebook = await importPdfFlow(context, file: file);
           if (notebook != null) created.add(adopt(notebook));
+        case ImportLenFile(:final file):
+          final result = await importLenFlow(context, file: file);
+          // A notebook goes where the library is (and opens); folders and
+          // backups show in the library.
+          if (result != null && result.manifest.kind == LenArchiveKind.notebook) {
+            final id = result.notebooks.firstOrNull;
+            final notebook = id == null ? null : services.notebooks.get(id);
+            if (notebook != null) created.add(adopt(notebook));
+          }
         case NewImageCanvas(:final files, :final title):
           final notebook = adopt(_createCanvas(title));
           created.add(notebook);

@@ -38,5 +38,6 @@ modules:
       # The runner's window icon (share/icons next to the executable).
       - cp -a share /app/lib/len/
       - install -Dm644 share/applications/dev.len.len.desktop -t /app/share/applications
+      - install -Dm644 share/mime/packages/dev.len.len.xml -t /app/share/mime/packages
       - cp -a share/icons /app/share/
       - install -Dm644 dev.len.len.metainfo.xml -t /app/share/metainfo

@@ -72,6 +72,27 @@
                 <data android:mimeType="application/pdf"/>
                 <data android:mimeType="image/*"/>
             </intent-filter>
+            <!-- Len files (.len: a notebook, folder or backup). Few apps know
+                 their type, so files named *.len sent as generic binaries or
+                 zips are taken too (the path pattern needs a host). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:mimeType="application/x-len"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:scheme="file"/>
+                <data android:host="*"/>
+                <data android:mimeType="application/octet-stream"/>
+                <data android:mimeType="application/zip"/>
+                <data android:pathPattern=".*\\.len"/>
+                <data android:pathPattern=".*\\..*\\.len"/>
+                <data android:pathPattern=".*\\..*\\..*\\.len"/>
+            </intent-filter>
             <!-- Sync setup links (len://sync?url=…&token=…) from another
                  device's QR code or a message fill Settings → Sync. -->
             <intent-filter>
@@ -86,6 +107,7 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="application/pdf"/>
                 <data android:mimeType="image/*"/>
+                <data android:mimeType="application/x-len"/>
             </intent-filter>
         </activity>
         <service

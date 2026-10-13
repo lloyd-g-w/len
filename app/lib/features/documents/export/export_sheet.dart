@@ -116,11 +116,13 @@ class _ExportSheetState extends State<ExportSheet> {
   int get _count => widget.pages.length;
 
   /// The chosen pages (zero-based), or an error for a bad range.
-  ({List<int>? pages, String? error}) get _selection => switch (_range) {
-    ExportRange.current => (pages: [widget.currentPage], error: null),
-    ExportRange.all => (pages: [for (var i = 0; i < _count; i++) i], error: null),
-    ExportRange.custom => parsePageRange(_rangeText.text, _count),
-  };
+  ({List<int>? pages, String? error}) get _selection => _format == ExportFormat.len
+      ? (pages: [for (var i = 0; i < _count; i++) i], error: null)
+      : switch (_range) {
+          ExportRange.current => (pages: [widget.currentPage], error: null),
+          ExportRange.all => (pages: [for (var i = 0; i < _count; i++) i], error: null),
+          ExportRange.custom => parsePageRange(_rangeText.text, _count),
+        };
 
   ExportOptions? _options({bool toDevice = false}) {
     final pages = _selection.pages;
@@ -158,7 +160,8 @@ class _ExportSheetState extends State<ExportSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ExportFormatPicker(format: _format, onChanged: (f) => setState(() => _format = f)),
-          if (_count > 1) ...[
+          // A Len file is the whole notebook, as it is.
+          if (_count > 1 && _format != ExportFormat.len) ...[
             const SizedBox(height: Gaps.xl),
             ExportSection(
               title: 'Pages',
@@ -176,8 +179,10 @@ class _ExportSheetState extends State<ExportSheet> {
               ],
             ),
           ],
-          const SizedBox(height: Gaps.xl),
-          ExportSection(title: 'Include', children: _includes(hasBackground)),
+          if (_format != ExportFormat.len) ...[
+            const SizedBox(height: Gaps.xl),
+            ExportSection(title: 'Include', children: _includes(hasBackground)),
+          ],
         ],
       ),
     );

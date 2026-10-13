@@ -75,12 +75,13 @@ class LenArchiveReader {
   }
 
   /// Imports [input] into folder [parent] (null: the library's top level).
-  /// With [folderName], everything goes into a new folder of that name
-  /// (and [folderColor]) inside [parent] instead (a restored backup).
+  /// When [folderName] names a folder for the file's manifest, everything
+  /// goes into a new folder of that name (and [folderColor]) inside
+  /// [parent] instead (a restored backup).
   Future<LenImportResult> import(
     InputStream input, {
     String? parent,
-    String? folderName,
+    String? Function(LenManifest manifest)? folderName,
     int folderColor = 0,
     CancellationToken? cancel,
     void Function(double done)? onProgress,
@@ -102,7 +103,7 @@ class LenArchiveReader {
   Future<LenImportResult> _import(
     InputStream input, {
     String? parent,
-    String? folderName,
+    String? Function(LenManifest manifest)? folderName,
     required int folderColor,
     CancellationToken? cancel,
     void Function(double done)? onProgress,
@@ -146,7 +147,7 @@ class LenArchiveReader {
       cancel?.check();
       final result = commit.finish(
         parent: parent,
-        folderName: folderName,
+        folderName: folderName?.call(manifest),
         folderColor: folderColor,
       );
       return LenImportResult(

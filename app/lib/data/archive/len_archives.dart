@@ -1,4 +1,5 @@
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../core/clock.dart';
 import '../../domain/cancellation.dart';
@@ -6,6 +7,7 @@ import '../blob_store.dart';
 import '../syncable_table.dart';
 import 'len_archive_reader.dart';
 import 'len_archive_writer.dart';
+import 'len_format.dart';
 import 'len_scope.dart';
 import 'len_stores.dart';
 
@@ -14,8 +16,9 @@ export 'len_archive_writer.dart' show BlobFileOpener, LenWriteReport;
 export 'len_format.dart';
 export 'len_scope.dart' show LenScope;
 
-/// Writes and reads Len files ([LenFormat]) of this library.
-class LenArchives {
+/// Writes and reads Len files ([LenFormat]) of this library; notifies
+/// listeners (the library) after an import added something.
+class LenArchives extends ChangeNotifier {
   LenArchives({
     required Iterable<SyncableTable> tables,
     required this.blobs,
@@ -49,16 +52,20 @@ class LenArchives {
   Future<LenImportResult> import(
     InputStream input, {
     String? parent,
-    String? folderName,
+    String? Function(LenManifest manifest)? folderName,
     int folderColor = 0,
     CancellationToken? cancel,
     void Function(double done)? onProgress,
-  }) => LenArchiveReader(stores, blobs, deviceId: deviceId, clock: clock).import(
-    input,
-    parent: parent,
-    folderName: folderName,
-    folderColor: folderColor,
-    cancel: cancel,
-    onProgress: onProgress,
-  );
+  }) async {
+    final result = await LenArchiveReader(stores, blobs, deviceId: deviceId, clock: clock).import(
+      input,
+      parent: parent,
+      folderName: folderName,
+      folderColor: folderColor,
+      cancel: cancel,
+      onProgress: onProgress,
+    );
+    notifyListeners();
+    return result;
+  }
 }

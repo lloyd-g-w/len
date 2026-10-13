@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Len files (.len: a notebook, folder or library backup; a zip with a
+     Len manifest), installed as share/mime/packages/dev.len.len.xml. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-len">
+    <comment>Len file</comment>
+    <sub-class-of type="application/zip"/>
+    <glob pattern="*.len"/>
+    <icon name="dev.len.len"/>
+  </mime-type>
+</mime-info>

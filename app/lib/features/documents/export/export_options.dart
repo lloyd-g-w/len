@@ -1,10 +1,14 @@
+import '../../../data/archive/len_format.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
 
 /// The file format of an export.
 enum ExportFormat {
   pdf('PDF', 'pdf', 'application/pdf'),
-  png('PNG', 'png', 'image/png');
+  png('PNG', 'png', 'image/png'),
+
+  /// An editable copy for Len (`LenFormat`): always the whole notebook.
+  len('Len', LenFormat.extension, LenFormat.mime);
 
   const ExportFormat(this.label, this.extension, this.mime);
 
@@ -65,6 +69,7 @@ class ExportOptions {
     return switch (format) {
       ExportFormat.pdf => '$count, PDF',
       ExportFormat.png => '$count, PNG at $pngDpi dpi',
+      ExportFormat.len => canvas ? 'Whole canvas, Len file' : 'Whole notebook, Len file',
     };
   }
 }

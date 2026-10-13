@@ -13,6 +13,6 @@ void main() {
     expect(syncCaption(SyncState.idle, null, now), 'Not synced yet');
     expect(syncCaption(SyncState.syncing, now, now), 'Syncing…');
     expect(syncCaption(SyncState.error, now, now), 'Sync failed');
-    expect(syncCaption(SyncState.disabled, null, now), 'Sync off');
+    expect(syncCaption(SyncState.disabled, null, now), 'On this device only');
   });
 }

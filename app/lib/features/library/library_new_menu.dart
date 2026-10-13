@@ -10,9 +10,10 @@ import 'library_actions.dart';
 import 'library_menus.dart';
 
 /// What ⊕▾ (and a long press on the phone's ⊕) creates.
-enum NewChoice { notebook, canvas, pdf, folder }
+enum NewChoice { notebook, canvas, pdf, len, folder }
 
-/// The rows of ⊕▾: New notebook, New canvas, Import PDF…, New folder.
+/// The rows of ⊕▾: New notebook, New canvas, Import PDF…, Import Len file…,
+/// New folder.
 List<PopupMenuEntry<NewChoice>> newMenuItems() => [
   MenuRow(
     value: NewChoice.notebook,
@@ -22,6 +23,7 @@ List<PopupMenuEntry<NewChoice>> newMenuItems() => [
   ),
   const MenuRow(value: NewChoice.canvas, icon: Symbols.all_inclusive_sharp, label: 'New canvas'),
   const MenuRow(value: NewChoice.pdf, icon: Symbols.picture_as_pdf_sharp, label: 'Import PDF…'),
+  const MenuRow(value: NewChoice.len, icon: Symbols.file_open_sharp, label: 'Import Len file…'),
   const PopupMenuDivider(),
   MenuRow(
     value: NewChoice.folder,
@@ -37,6 +39,7 @@ Future<void> runNewChoice(BuildContext context, LibraryActions actions, NewChoic
       NewChoice.notebook => actions.createNotebook(context),
       NewChoice.canvas => actions.createNotebook(context, kind: NotebookKind.canvas),
       NewChoice.pdf => actions.importPdf(context),
+      NewChoice.len => actions.importLen(context),
       NewChoice.folder => actions.createFolder(context),
     };
 

@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app_services.dart';
+import '../../data/archive/len_archives.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/messages.dart';
 import '../../ui/text_prompt.dart';
+import '../backup/len_file_flows.dart';
 import '../documents/pdf/pdf_import_flow.dart';
 import '../editor/tabs/editor_workspace.dart' as editor;
 import 'cover_locator.dart';
@@ -125,6 +127,20 @@ class LibraryActions with _NotebookActions, _FolderActions {
     if (imported == null || !context.mounted) return;
     final notebook = controller.adoptNotebook(imported);
     await openNotebook(context, notebook);
+  }
+
+  /// Imports a Len file the user picks into the open folder (a backup:
+  /// into a folder of its own); a notebook opens.
+  Future<void> importLen(BuildContext context) async {
+    final folder = controller.section == LibrarySection.library ? controller.folderId : null;
+    final result = await importLenFlow(context, parent: folder);
+    if (result == null || !context.mounted) return;
+    controller.reload();
+    if (result.manifest.kind != LenArchiveKind.notebook) return;
+    final notebook = result.notebooks.isEmpty
+        ? null
+        : controller.services.notebooks.get(result.notebooks.single);
+    if (notebook != null) await openNotebook(context, notebook);
   }
 
   @override

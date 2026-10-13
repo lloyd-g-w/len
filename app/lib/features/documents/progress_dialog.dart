@@ -39,6 +39,9 @@ class TaskProgress extends ChangeNotifier {
   String _unit = 'page';
   String? _note;
 
+  /// Whether [detail] counts units ([step]) rather than showing the note.
+  bool _counted = true;
+
   /// What is happening ("Reading PDF…").
   String get stage => _stage;
 
@@ -52,7 +55,7 @@ class TaskProgress extends ChangeNotifier {
   /// "Page 3 of 12", or null while the amount of work is unknown.
   String? get detail {
     final total = _total;
-    if (total == null) return _note;
+    if (total == null || !_counted) return _note;
     final unit = '${_unit[0].toUpperCase()}${_unit.substring(1)}';
     return '$unit ${((_done ?? 0) + 1).clamp(1, total)} of $total';
   }
@@ -68,6 +71,17 @@ class TaskProgress extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reports that the fraction [done] (0–1) of the stage is finished, when
+  /// there are no units to count; throws [Cancelled] if the user cancelled
+  /// the task.
+  void advanced(double done) {
+    check();
+    _done = (done.clamp(0.0, 1.0) * 1000).round();
+    _total = 1000;
+    _counted = false;
+    notifyListeners();
+  }
+
   /// Reports that [done] of [total] [unit]s are finished; throws
   /// [Cancelled] if the user cancelled the task.
   void step(int done, int total, {String? stage, String unit = 'page'}) {
@@ -76,6 +90,7 @@ class TaskProgress extends ChangeNotifier {
     _done = done;
     _total = total;
     _unit = unit;
+    _counted = true;
     notifyListeners();
   }
 }

@@ -3,7 +3,8 @@
 ; Installs per user by default (no administrator rights; "Install for all
 ; users" is offered in a dialog), adds Start menu / optional desktop
 ; shortcuts, registers Len for PDFs and images ("Open with" list and the
-; Default apps settings; it never takes over an existing default) and an
+; Default apps settings; it never takes over an existing default), opens
+; its own .len files (notebooks, folders and backups) and adds an
 ; uninstaller. Files opened while Len runs reach the running window
 ; (single instance, windows/runner/single_instance.cpp).
 
@@ -20,6 +21,7 @@
 #define AppName "Len"
 #define AppExe "len.exe"
 #define ProgId "Len.Document"
+#define LenFileProgId "Len.File"
 
 [Setup]
 ; Never change AppId: it identifies the installation for upgrades.
@@ -71,6 +73,13 @@ Root: HKA; Subkey: "Software\Len"; Flags: uninsdeletekeyifempty
 Root: HKA; Subkey: "Software\Classes\{#ProgId}"; ValueType: string; ValueName: ""; ValueData: "Len document"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\{#ProgId}\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#AppExe},0"
 Root: HKA; Subkey: "Software\Classes\{#ProgId}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""
+; Len's own files (.len): Len is their handler.
+Root: HKA; Subkey: "Software\Classes\{#LenFileProgId}"; ValueType: string; ValueName: ""; ValueData: "Len file"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\{#LenFileProgId}\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#AppExe},0"
+Root: HKA; Subkey: "Software\Classes\{#LenFileProgId}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""
+Root: HKA; Subkey: "Software\Classes\.len"; ValueType: string; ValueName: ""; ValueData: "{#LenFileProgId}"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.len"; ValueType: string; ValueName: "Content Type"; ValueData: "application/x-len"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.len\OpenWithProgids"; ValueType: string; ValueName: "{#LenFileProgId}"; ValueData: ""; Flags: uninsdeletevalue
 ; len://sync?… setup links (Settings → Sync → Set up another device).
 Root: HKA; Subkey: "Software\Classes\len"; ValueType: string; ValueName: ""; ValueData: "URL:Len link"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\len"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
@@ -89,6 +98,7 @@ Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\SupportedTypes"; Val
 Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\SupportedTypes"; ValueType: string; ValueName: ".jpg"; ValueData: ""
 Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\SupportedTypes"; ValueType: string; ValueName: ".jpeg"; ValueData: ""
 Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\SupportedTypes"; ValueType: string; ValueName: ".webp"; ValueData: ""
+Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\SupportedTypes"; ValueType: string; ValueName: ".len"; ValueData: ""
 ; Settings → Apps → Default apps: Len can be chosen for these types.
 Root: HKA; Subkey: "Software\Len\Capabilities"; ValueType: string; ValueName: "ApplicationName"; ValueData: "{#AppName}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Len\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Handwriting-first notes with an infinite canvas and self-hosted sync"
@@ -97,6 +107,7 @@ Root: HKA; Subkey: "Software\Len\Capabilities\FileAssociations"; ValueType: stri
 Root: HKA; Subkey: "Software\Len\Capabilities\FileAssociations"; ValueType: string; ValueName: ".jpg"; ValueData: "{#ProgId}"
 Root: HKA; Subkey: "Software\Len\Capabilities\FileAssociations"; ValueType: string; ValueName: ".jpeg"; ValueData: "{#ProgId}"
 Root: HKA; Subkey: "Software\Len\Capabilities\FileAssociations"; ValueType: string; ValueName: ".webp"; ValueData: "{#ProgId}"
+Root: HKA; Subkey: "Software\Len\Capabilities\FileAssociations"; ValueType: string; ValueName: ".len"; ValueData: "{#LenFileProgId}"
 Root: HKA; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "{#AppName}"; ValueData: "Software\Len\Capabilities"; Flags: uninsdeletevalue
 
 [Run]

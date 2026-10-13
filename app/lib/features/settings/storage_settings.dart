@@ -86,7 +86,7 @@ class _StorageSettingsState extends State<StorageSettings> {
       description:
           'Your notebooks are stored in this browser. Browsers may clear site data when the '
           'device runs low on space, unless the site may keep its data. Clearing site data '
-          'yourself still deletes it, so use sync for a backup.',
+          'yourself still deletes it, so back up your library (Backup) or use sync.',
       children: [
         if (_failure case final failure?)
           SettingsTile(

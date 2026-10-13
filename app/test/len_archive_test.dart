@@ -103,8 +103,8 @@ Future<Uint8List> _export(AppServices s, LenScope scope) async {
   return out.getBytes();
 }
 
-Future<LenImportResult> _import(AppServices s, Uint8List bytes, {String? folderName}) =>
-    s.lenFiles.import(InputMemoryStream(bytes), folderName: folderName);
+Future<LenImportResult> _import(AppServices s, Uint8List bytes, {String? folderName}) => s.lenFiles
+    .import(InputMemoryStream(bytes), folderName: folderName == null ? null : (_) => folderName);
 
 List<Map<String, Object?>> _records(
   AppServices s,

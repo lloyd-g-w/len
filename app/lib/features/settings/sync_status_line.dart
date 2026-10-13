@@ -26,7 +26,11 @@ class SyncStatusLine extends StatelessWidget {
       builder: (context, _) {
         final last = sync.lastSuccess;
         final (icon, color, text) = switch (sync.state) {
-          SyncState.disabled => (Symbols.cloud_off_sharp, scheme.onSurfaceVariant, 'Sync is off'),
+          SyncState.disabled => (
+            Symbols.cloud_off_sharp,
+            scheme.onSurfaceVariant,
+            'Sync is off: your notes are only on this device',
+          ),
           SyncState.syncing => (Symbols.cloud_sync_sharp, scheme.primary, 'Syncing…'),
           SyncState.error => (
             Symbols.error_sharp,
