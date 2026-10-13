@@ -60,4 +60,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Library'), findsOneWidget, reason: 'the library was not popped');
   });
+
+  testWidgets('Cancel closes a plain progress dialog at once', (tester) async {
+    late BuildContext context;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (c) {
+            context = c;
+            return const Scaffold(body: Text('Home'));
+          },
+        ),
+      ),
+    );
+    final never = Completer<int>();
+    Object? error;
+    final result = runWithProgress(context, 'Rendering page', () => never.future).catchError((
+      Object e,
+    ) {
+      error = e;
+      return 0;
+    });
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Cancel'));
+    await tester.pump();
+    await result;
+    expect(error, isA<Cancelled>());
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(ProgressDialog), findsNothing);
+    never.complete(1); // Finishing later changes nothing.
+    await tester.pump();
+    expect(find.text('Home'), findsOneWidget);
+  });
 }

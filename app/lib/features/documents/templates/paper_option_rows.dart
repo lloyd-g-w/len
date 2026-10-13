@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/chip_surface.dart';
 
 /// A labelled row: the label in a fixed column, the control beside it.
 class PaperOptionRow extends StatelessWidget {
@@ -101,10 +102,12 @@ class PaperExtraChip extends StatelessWidget {
   final ValueChanged<bool> onSelected;
 
   @override
-  Widget build(BuildContext context) => FilterChip(
-    label: Text(label),
-    selected: selected,
-    visualDensity: VisualDensity.compact,
-    onSelected: onSelected,
+  Widget build(BuildContext context) => ChipSurface(
+    child: FilterChip(
+      label: Text(label),
+      selected: selected,
+      visualDensity: VisualDensity.compact,
+      onSelected: onSelected,
+    ),
   );
 }

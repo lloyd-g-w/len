@@ -95,7 +95,11 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                           visualDensity: VisualDensity.compact,
                           color: scheme.onSurfaceVariant,
                           icon: const Icon(Symbols.create_new_folder_rounded),
-                          onPressed: () => unawaited(widget.actions.createFolder(context)),
+                          onPressed: () {
+                            // The drawer closes first: one overlay at a time.
+                            widget.onNavigate?.call();
+                            unawaited(widget.actions.createFolder(context));
+                          },
                         ),
                       ],
                     ),
@@ -127,7 +131,8 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                   SyncStatusButton(
                     sync: c.services.sync,
                     onConfigure: widget.onOpenSettings,
-                    caption: true,
+                    // Large text: Settings keeps its name; sync its icon.
+                    caption: MediaQuery.textScalerOf(context).scale(1) < 1.15,
                   ),
                 ],
               ),

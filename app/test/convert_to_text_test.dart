@@ -211,6 +211,21 @@ void main() {
       expect(liveStrokes(services, nb.id), hasLength(2));
     });
 
+    testWidgets('a failed recognition offers Try again', (tester) async {
+      final recognizer = FakeRecognizer(words: {'hello': 'hello', 'world': 'world'})..failures = 1;
+      await open(tester, recognizer);
+      await lassoAll(tester);
+      await selectionAction(tester, 'Convert to text');
+      await tester.pumpAndSettle();
+      expect(find.text('The handwriting could not be recognised.'), findsOneWidget);
+      expect(find.text('Close'), findsOneWidget);
+      await tester.tap(find.text('Try again'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'hello world'), findsOneWidget);
+      expect(find.text('Try again'), findsNothing);
+      expect(find.text('Replace ink'), findsOneWidget);
+    });
+
     testWidgets('a missing model is offered for download first', (tester) async {
       final recognizer = FakeRecognizer(words: {'hello': 'hello'}, downloaded: false);
       await open(tester, recognizer);

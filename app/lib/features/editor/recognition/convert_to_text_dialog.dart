@@ -10,6 +10,7 @@ import '../../../ink/recognition/recognition_service.dart';
 import '../../../ink/selection/selection_controller.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/chip_surface.dart';
 import '../../../ui/messages.dart';
 
 /// What the user chose in the "Convert to text" dialog.
@@ -38,13 +39,13 @@ Future<void> convertSelectionToText(
   final strokes = selection.strokes;
   if (strokes.isEmpty || !recognition.isSupported) return;
   if (!await _ensureModel(context, recognition) || !context.mounted) return;
-  final result = ConvertToText.recognize(
+  Future<ConversionResult> recognize() => ConvertToText.recognize(
     strokes,
     (line, area) => recognition.recognize(line, writingArea: area),
   );
   final choice = await showDialog<_Choice>(
     context: context,
-    builder: (context) => _ConvertDialog(result: result),
+    builder: (context) => _ConvertDialog(recognize: recognize),
   );
   if (choice == null || !context.mounted) return;
   switch (choice) {
@@ -145,11 +146,12 @@ class _DownloadDialog extends StatelessWidget {
   );
 }
 
-/// Shows the reading (editable) and its alternatives.
+/// Shows the reading (editable) and its alternatives; when recognition
+/// fails, offers to try again.
 class _ConvertDialog extends StatefulWidget {
-  const _ConvertDialog({required this.result});
+  const _ConvertDialog({required this.recognize});
 
-  final Future<ConversionResult> result;
+  final Future<ConversionResult> Function() recognize;
 
   @override
   State<_ConvertDialog> createState() => _ConvertDialogState();
@@ -163,8 +165,21 @@ class _ConvertDialogState extends State<_ConvertDialog> {
   @override
   void initState() {
     super.initState();
+    _start();
+    _text.addListener(() => setState(() {}));
+  }
+
+  void _retry() {
+    setState(() {
+      _result = null;
+      _error = null;
+    });
+    _start();
+  }
+
+  void _start() {
     unawaited(
-      widget.result.then(
+      widget.recognize().then(
         (r) {
           if (!mounted) return;
           setState(() => _result = r);
@@ -175,7 +190,6 @@ class _ConvertDialogState extends State<_ConvertDialog> {
         },
       ),
     );
-    _text.addListener(() => setState(() {}));
   }
 
   @override
@@ -220,20 +234,22 @@ class _ConvertDialogState extends State<_ConvertDialog> {
                 const SizedBox(height: Gaps.md),
                 Text('Alternatives', style: theme.textTheme.bodySmall),
                 const SizedBox(height: Gaps.xs),
-                Wrap(
-                  spacing: Gaps.sm,
-                  runSpacing: Gaps.xs,
-                  children: [
-                    for (final alt in [r.text, ...r.alternatives])
-                      ChoiceChip(
-                        label: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 200),
-                          child: Text(alt, maxLines: 2, overflow: TextOverflow.ellipsis),
+                ChipSurface(
+                  child: Wrap(
+                    spacing: Gaps.sm,
+                    runSpacing: Gaps.xs,
+                    children: [
+                      for (final alt in [r.text, ...r.alternatives])
+                        ChoiceChip(
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 200),
+                            child: Text(alt, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          ),
+                          selected: _text.text == alt,
+                          onSelected: (_) => _text.text = alt,
                         ),
-                        selected: _text.text == alt,
-                        onSelected: (_) => _text.text = alt,
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ],
@@ -245,6 +261,12 @@ class _ConvertDialogState extends State<_ConvertDialog> {
           onPressed: () => Navigator.pop(context),
           child: Text(ready || (result == null && _error == null) ? 'Cancel' : 'Close'),
         ),
+        if (_error != null)
+          FilledButton(
+            key: const ValueKey('convert-retry'),
+            onPressed: _retry,
+            child: const Text('Try again'),
+          ),
         if (ready) ...[
           TextButton(
             onPressed: text.isEmpty ? null : () => Navigator.pop(context, _Copy(text)),

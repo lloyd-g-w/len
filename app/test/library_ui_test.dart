@@ -298,16 +298,39 @@ void main() {
     expect(find.byType(LibrarySidebar), findsNothing);
     await tester.tap(find.byTooltip('Menu'));
     await tester.pumpAndSettle();
+    expect(find.byType(FloatingActionButton), findsOneWidget);
     await tester.tap(find.text('Favourites'));
     await tester.pumpAndSettle();
     expect(find.byType(LibrarySidebar), findsNothing, reason: 'the drawer closes');
     expect(find.text('No favourites yet'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing, reason: 'it creates in the library');
     await tester.tap(find.byTooltip('Menu'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Trash'));
     await tester.pumpAndSettle();
     expect(find.text('Trash is empty'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
+    // New folder from the drawer closes the drawer under its sheet.
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('New folder'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LibrarySidebar), findsNothing);
+    expect(find.text('New folder'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('phones: searching hides ⊕', (tester) async {
+    await pumpSeeded(tester, (s) => addNotebook(s, 'Pocket'), size: const Size(390, 844));
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'zzz');
+    await tester.pumpAndSettle();
+    expect(find.text('No results'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingActionButton), findsOneWidget);
   });
 
   testWidgets('settings change the theme mode app-wide', (tester) async {

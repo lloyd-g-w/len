@@ -36,8 +36,8 @@ class SelectionMark extends StatelessWidget {
     return IgnorePointer(
       child: AnimatedContainer(
         duration: Motion.fast,
+        // Ring and check only: covers keep their own colours (never themed).
         decoration: BoxDecoration(
-          color: selected ? scheme.primary.withValues(alpha: 0.18) : Colors.transparent,
           borderRadius: BorderRadius.circular(compact ? Radii.xs : Radii.sm),
           border: Border.all(
             color: selected ? scheme.primary : Colors.transparent,

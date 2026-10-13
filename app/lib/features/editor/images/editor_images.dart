@@ -185,6 +185,8 @@ class EditorImages {
       return bytes.length > (2 << 20)
           ? await runWithProgress(context, 'Adding image…', run)
           : await run();
+    } on Cancelled {
+      return null;
     } on ImageImportException catch (e) {
       debugPrint('Image import failed: $e');
       if (context.mounted) {

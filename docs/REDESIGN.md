@@ -370,7 +370,7 @@ One column, at most 640 dp, centred; the two-pane layout and `SettingsSection.un
 
 ```
 General       Theme                 System · Light · Dark   (segmented, no previews)
-Writing       Draw with             Automatic (default) · Stylus only · Stylus & finger
+Writing       Draw with             Automatic (default) · Stylus · Both
               Side button           Erases · Selects · Nothing
               Tap to undo and redo  one switch (two fingers undo, three redo)
               Toolbar               Docked · Floating

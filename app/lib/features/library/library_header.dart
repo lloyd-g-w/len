@@ -101,7 +101,8 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       // The library also lists matches inside notebooks (features/search).
       LibrarySection.library when _c.isSearching => 'Titles and contents, across all folders',
       _ when _c.isSearching => '${plural(count, 'notebook')} across all folders',
-      LibrarySection.trash when count > 0 =>
+      // Phones have no room for the note (Empty trash… says it again).
+      LibrarySection.trash when count > 0 && !widget.compact =>
         '${plural(count, 'notebook')} · deleted forever '
             'when you empty the trash',
       _ when count == 0 && folders == 0 => 'Empty',
@@ -211,7 +212,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
     void empty() => unawaited(_actions.emptyTrash(context));
     if (!wide) {
       return IconButton(
-        tooltip: 'Empty trash',
+        tooltip: 'Empty trash…',
         color: theme.colorScheme.error,
         icon: const Icon(Symbols.delete_sweep_rounded),
         onPressed: empty,
@@ -223,7 +224,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
         style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
         onPressed: empty,
         icon: const Icon(Symbols.delete_sweep_rounded, size: Glyphs.menu),
-        label: const Text('Empty trash'),
+        label: const Text('Empty trash…'),
       ),
     );
   }

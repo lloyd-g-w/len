@@ -20,6 +20,9 @@ class FakeRecognizer extends HandwritingRecognizer {
   final languages = <String>[];
   int downloads = 0;
 
+  /// How many of the next recognition requests fail.
+  int failures = 0;
+
   @override
   bool get isSupported => supported;
 
@@ -43,6 +46,10 @@ class FakeRecognizer extends HandwritingRecognizer {
     String preContext = '',
   }) async {
     if (!downloaded) throw StateError('model missing');
+    if (failures > 0) {
+      failures--;
+      throw StateError('recognition failed');
+    }
     requests.add([for (final s in strokes) s.id]);
     languages.add(language);
     final ordered = [...strokes]..sort((a, b) => a.bounds.left.compareTo(b.bounds.left));

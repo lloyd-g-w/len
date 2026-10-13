@@ -81,9 +81,13 @@ class TaskProgress extends ChangeNotifier {
 }
 
 /// Runs [task] behind a modal "working…" dialog and returns its result.
-/// Errors are rethrown after the dialog closes.
+/// Errors are rethrown after the dialog closes. The dialog's Cancel closes
+/// it at once and throws [Cancelled]; the task can't be stopped, so it
+/// finishes unseen and its result (or error) is dropped. Use it only for
+/// tasks without lasting effects; tasks that store something take a
+/// [TaskProgress] from [runWithSteps] and [TaskProgress.check] before they do.
 Future<T> runWithProgress<T>(BuildContext context, String label, Future<T> Function() task) =>
-    runWithSteps(context, label, (_) => task());
+    _run(context, label, (_) => task(), cancellable: true, abandonOnCancel: true);
 
 /// Runs [task] behind a modal dialog titled [title] that shows the stage
 /// and progress the task reports through its [TaskProgress]. Errors are
@@ -96,6 +100,18 @@ Future<T> runWithSteps<T>(
   Future<T> Function(TaskProgress progress) task, {
   String? subject,
   bool cancellable = false,
+}) => _run(context, title, task, subject: subject, cancellable: cancellable);
+
+/// [runWithSteps]; with [abandonOnCancel], Cancel doesn't wait for the
+/// task to check: [Cancelled] is thrown at once and the task's outcome is
+/// ignored (the task must not use its [TaskProgress]).
+Future<T> _run<T>(
+  BuildContext context,
+  String title,
+  Future<T> Function(TaskProgress progress) task, {
+  String? subject,
+  bool cancellable = false,
+  bool abandonOnCancel = false,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
   final progress = TaskProgress('Working…');
@@ -116,7 +132,23 @@ Future<T> runWithSteps<T>(
   );
   unawaited(navigator.push(route));
   try {
-    return await task(progress);
+    final running = task(progress);
+    if (!abandonOnCancel) return await running;
+    final cancelled = Completer<T>();
+    void onChange() {
+      if (progress.isCancelled && !cancelled.isCompleted) {
+        cancelled.completeError(const Cancelled());
+      }
+    }
+
+    progress.addListener(onChange);
+    // The task's outcome no longer matters once cancelled.
+    unawaited(running.then<void>((_) {}, onError: (Object _) {}));
+    try {
+      return await Future.any([running, cancelled.future]);
+    } finally {
+      progress.removeListener(onChange);
+    }
   } finally {
     // Only this dialog: it may be gone already (e.g. closed with the
     // editor when its notebook was deleted on another device), and then
@@ -156,7 +188,8 @@ class ProgressDialog extends StatelessWidget {
       icon: Symbols.hourglass_top_rounded,
       title: title,
       content: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 280, maxWidth: 360),
+        // As wide as the other dialogs (on phones, the screen allows less).
+        constraints: const BoxConstraints.tightFor(width: dialogFormWidth),
         child: ListenableBuilder(
           listenable: progress,
           builder: (context, _) {

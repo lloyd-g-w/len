@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
+import 'dialog_actions.dart';
+
+export 'dialog_actions.dart';
 
 /// The Confirm primitive (REDESIGN §5): asks one question; true if
 /// confirmed. Destructive actions get a red confirm button and an
@@ -50,8 +53,8 @@ Future<bool> confirmAction(
 /// radius [Radii.lg] over the scrim): a left-aligned Heading title, with a
 /// tinted [icon] above it only in destructive and progress dialogs.
 /// [actions] go Cancel first, the primary (filled) last; when they don't
-/// fit in a row they stack, end-aligned, with the primary on top and Cancel
-/// at the bottom.
+/// fit in a row they stack full width, primary on top and Cancel at the
+/// bottom ([DialogActions]).
 class AppDialog extends StatelessWidget {
   const AppDialog({
     super.key,
@@ -87,19 +90,36 @@ class AppDialog extends StatelessWidget {
         (icon == null
             ? null
             : DialogIcon(icon!, color: iconColor ?? Theme.of(context).colorScheme.primary));
+    // AlertDialog narrows its side padding as text grows, but not the
+    // actions': undo that so fields, text and buttons share one edge.
+    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final shrink = 1 - (scale.clamp(1.0, 2.0) - 1) * 2 / 3;
+    double side(double v) => v / shrink;
+    final content =
+        (contentPadding ?? const EdgeInsets.fromLTRB(Gaps.xl, Gaps.lg, Gaps.xl, Gaps.xl)).resolve(
+          Directionality.of(context),
+        );
     return AlertDialog(
       icon: header == null
           ? null
           : Align(alignment: AlignmentDirectional.centerStart, child: header),
-      iconPadding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.xl, Gaps.xl, Gaps.md),
+      iconPadding: EdgeInsets.fromLTRB(side(Gaps.xl), side(Gaps.xl), side(Gaps.xl), Gaps.md),
+      titlePadding: EdgeInsets.fromLTRB(
+        side(Gaps.xl),
+        header == null ? side(Gaps.xl) : 0,
+        side(Gaps.xl),
+        this.content == null ? 20 : 0,
+      ),
       title: Text(title, textAlign: TextAlign.start, maxLines: 2, overflow: TextOverflow.ellipsis),
-      content: content,
-      contentPadding: contentPadding,
+      content: this.content,
+      contentPadding: EdgeInsets.fromLTRB(
+        side(content.left),
+        content.top,
+        side(content.right),
+        content.bottom,
+      ),
       scrollable: scrollable,
-      actions: actions.isEmpty ? null : actions,
-      actionsOverflowDirection: VerticalDirection.up,
-      actionsOverflowAlignment: OverflowBarAlignment.end,
-      actionsOverflowButtonSpacing: 0,
+      actions: actions.isEmpty ? null : [DialogActions(children: actions)],
     );
   }
 }

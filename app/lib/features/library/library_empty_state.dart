@@ -64,11 +64,14 @@ class LibraryEmptyState extends StatelessWidget {
     // Short windows (a phone held sideways): no picture, so the button
     // shows without scrolling.
     final short = MediaQuery.sizeOf(context).height < artFrom;
-    return Center(
+    // A little above the middle, where the eye expects it (the header
+    // already sits above it).
+    return Align(
+      alignment: short ? Alignment.center : const Alignment(0, -0.2),
       child: Padding(
         padding: EdgeInsets.all(short ? Gaps.lg : Gaps.xxl),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
+          constraints: const BoxConstraints(maxWidth: 400),
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
             duration: Motion.slow,
