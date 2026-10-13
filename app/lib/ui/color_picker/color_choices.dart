@@ -9,8 +9,9 @@ import 'color_picker.dart';
 import 'color_swatches.dart';
 
 /// The colour block every tool popover shares: a "Colour" heading with
-/// Custom (opens the full picker in place), a [palette] (up to ten per
-/// row), then the [recent] colours. Every pick applies at once through [onChanged] (opaque ARGB).
+/// Custom (opens the full picker in place), a [palette] (seven per row:
+/// 2 × 7 pen colours, 2 × 5 highlighter ones), then the [recent] colours,
+/// lined up with the palette's columns. Every pick applies at once through [onChanged] (opaque ARGB).
 class ColorChoices extends StatefulWidget {
   const ColorChoices({
     super.key,
@@ -25,7 +26,7 @@ class ColorChoices extends StatefulWidget {
   final ValueChanged<int> onChanged;
   final List<int> palette;
 
-  /// Colours picked recently, most recent first; up to six show.
+  /// Colours picked recently, most recent first; one row of them shows.
   final List<int> recent;
 
   @override
@@ -36,7 +37,7 @@ class _ColorChoicesState extends State<ColorChoices> {
   /// Whether the custom picker is open.
   bool _customOpen = false;
 
-  static const int _columns = 10;
+  static const int _columns = 7;
   static const double _gap = 4;
 
   void _pick(int argb) => widget.onChanged(argb | 0xFF000000);
@@ -45,20 +46,31 @@ class _ColorChoicesState extends State<ColorChoices> {
   Widget build(BuildContext context) {
     final selected = widget.color | 0xFF000000;
     final recent = [
-      for (final c in widget.recent.take(6))
+      for (final c in widget.recent)
         if (!widget.palette.contains(c | 0xFF000000)) c | 0xFF000000,
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = ((constraints.maxWidth - _gap * (_columns - 1)) / _columns).clamp(20.0, 32.0);
-        // On touch the swatches get 48-dp cells (fewer per row, EvenGrid).
-        final visual = Targets.touchFirst ? 32.0 : size;
-        Widget grid(List<int> colours) => EvenGrid(
+        // On touch the swatches get 48-dp cells (EvenGrid) spread across the
+        // full width; a pointer keeps the 4-dp grid.
+        final touch = Targets.touchFirst;
+        final visual = touch ? 32.0 : size;
+        // The palette's columns, as EvenGrid lays them out (touch cells are
+        // 48 dp with no spacing of their own). Recent colours keep its
+        // spacing and fill at most one row, so they line up with it.
+        final columns = EvenGridSpec(
+          itemExtent: touch ? Targets.touch : size,
+          minItemExtent: touch ? Targets.touch : size,
+          minSpacing: touch ? 0 : _gap,
+          runSpacing: 0,
+          maxSpacing: touch ? double.infinity : _gap,
+        ).resolve(widget.palette.length, constraints.maxWidth);
+        Widget grid(List<int> colours, {required double maxSpacing}) => EvenGrid(
           itemExtent: size,
           minSpacing: _gap,
           runSpacing: _gap,
-          // Touch cells spread to fill the row; a pointer keeps the 4-dp grid.
-          maxSpacing: Targets.touchFirst ? Gaps.lg : _gap,
+          maxSpacing: maxSpacing,
           touchTargets: true,
           children: [
             for (final c in colours)
@@ -86,12 +98,12 @@ class _ColorChoicesState extends State<ColorChoices> {
                 ),
               ],
             ),
-            grid(widget.palette),
+            grid(widget.palette, maxSpacing: touch ? double.infinity : _gap),
             if (recent.isNotEmpty) ...[
               const SizedBox(height: Gaps.sm),
               const SectionLabel('Recent'),
               const SizedBox(height: Gaps.xs),
-              grid(recent),
+              grid(recent.take(columns.columns).toList(), maxSpacing: columns.spacing),
             ],
             AnimatedSize(
               duration: Motion.fast,

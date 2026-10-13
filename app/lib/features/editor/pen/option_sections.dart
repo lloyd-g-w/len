@@ -3,7 +3,8 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 
-/// A collapsible section: its label and a chevron, then [child] when open.
+/// A collapsible section: its label, an optional [summary] and a chevron,
+/// then [child] when open.
 class OptionDisclosure extends StatelessWidget {
   const OptionDisclosure({
     super.key,
@@ -11,9 +12,13 @@ class OptionDisclosure extends StatelessWidget {
     required this.open,
     required this.onToggle,
     required this.child,
+    this.summary,
   });
 
   final String label;
+
+  /// What the section holds, at a glance ("3 colours · 3 sizes").
+  final String? summary;
   final bool open;
   final VoidCallback onToggle;
   final Widget child;
@@ -36,6 +41,10 @@ class OptionDisclosure extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(child: Text(label, style: theme.textTheme.labelLarge)),
+                  if (summary case final summary?) ...[
+                    Text(summary, style: theme.textTheme.bodySmall),
+                    const SizedBox(width: Gaps.xs),
+                  ],
                   AnimatedRotation(
                     turns: open ? 0.5 : 0,
                     duration: Motion.fast,

@@ -38,7 +38,7 @@ class PenConfig {
 
   /// Fewest and most slots in each row.
   static const int minSlots = 1;
-  static const int maxSlots = 6;
+  static const int maxSlots = 5;
 
   /// Lowest opacity the highlighter can be set to, so it never vanishes.
   static const double minOpacity = 0.1;

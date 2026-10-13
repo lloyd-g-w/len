@@ -70,7 +70,7 @@ class TextData {
     autoWidth: autoWidth,
   );
 
-  static const int defaultColor = 0xFF1F2937;
+  static const int defaultColor = 0xFF1A2233;
   static const double minFontSize = 6;
   static const double maxFontSize = 400;
 

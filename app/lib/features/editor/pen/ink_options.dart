@@ -14,8 +14,10 @@ import 'stroke_preview.dart';
 
 /// The pen's or highlighter's section of the tool options popover: a live
 /// preview, the colour and size of the selected quick slots, the ink's own
-/// panel ([feel]: pressure, stabiliser… ) collapsed under [feelLabel], and
-/// how many quick colours and sizes the toolbar shows. Edits apply live.
+/// panel ([feel]: pressure, stabiliser… ) collapsed under [feelLabel] with
+/// "Reset feel" at its end, and, collapsed under Toolbar, how many quick
+/// colours and sizes the toolbar shows. Edits apply live. Nothing resets
+/// the quick colours and sizes: they are the user's choices.
 ///
 /// The quick slots themselves show here only in the phone sheet, which
 /// covers the toolbar; the anchored popover sits right under them.
@@ -43,8 +45,9 @@ class InkOptions extends StatefulWidget {
 }
 
 class _InkOptionsState extends State<InkOptions> {
-  /// Whether Feel is open; remembered while the app runs.
+  /// Whether Feel and Toolbar are open; remembered while the app runs.
   static bool _feelOpen = false;
+  static bool _toolbarOpen = false;
 
   ToolSettings get tools => widget.tools;
   InkTool get ink => widget.ink;
@@ -65,24 +68,16 @@ class _InkOptionsState extends State<InkOptions> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            OptionHeader(
-              widget.title,
-              // Everything here: colours, sizes, the slot counts and Feel.
-              trailing: ResetButton<PenConfig>(
-                value: config,
-                defaults: PenConfig.defaultsFor(ink),
-                onChanged: (c) => _update((_) => c),
-              ),
-            ),
+            OptionHeader(widget.title),
             const SizedBox(height: Gaps.sm),
             PreviewCard(tool: ink, config: config),
             if (popoverIsSheet(context)) ...[
               const SizedBox(height: Gaps.sm),
               Row(
                 children: [
-                  ColorSlots(tools: tools, ink: ink),
+                  ColorSlots(tools: tools, ink: ink, editable: false),
                   const Spacer(),
-                  WidthSlots(tools: tools, ink: ink),
+                  WidthSlots(tools: tools, ink: ink, editable: false),
                 ],
               ),
             ],
@@ -107,30 +102,52 @@ class _InkOptionsState extends State<InkOptions> {
               label: widget.feelLabel,
               open: _feelOpen,
               onToggle: () => setState(() => _feelOpen = !_feelOpen),
-              child: EmbeddedOptions(child: widget.feel),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  EmbeddedOptions(child: widget.feel),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: _ResetFeel(config: config, ink: ink, onReset: (c) => _update((_) => c)),
+                  ),
+                ],
+              ),
             ),
-            Divider(height: Gaps.lg, color: Theme.of(context).colorScheme.outlineVariant),
-            SlotCountRow(
-              noun: 'colours',
-              count: config.colors.length,
-              min: PenConfig.minSlots,
-              max: PenConfig.maxSlots,
-              onAdd: () => _update((c) => c.addColor(_unusedColor(c.colors))),
-              onRemove: () => _update((c) => c.removeColor(c.colors.length - 1)),
-            ),
-            SlotCountRow(
-              noun: 'sizes',
-              count: config.widths.length,
-              min: PenConfig.minSlots,
-              max: PenConfig.maxSlots,
-              onAdd: () => _update((c) => c.addWidth(_newWidth(c))),
-              onRemove: () => _update((c) => c.removeWidth(c.widths.length - 1)),
+            OptionDisclosure(
+              label: 'Toolbar',
+              summary:
+                  '${_count(config.colors.length, 'colour')} · '
+                  '${_count(config.widths.length, 'size')}',
+              open: _toolbarOpen,
+              onToggle: () => setState(() => _toolbarOpen = !_toolbarOpen),
+              child: Column(
+                children: [
+                  SlotCountRow(
+                    noun: 'colours',
+                    count: config.colors.length,
+                    min: PenConfig.minSlots,
+                    max: PenConfig.maxSlots,
+                    onAdd: () => _update((c) => c.addColor(_unusedColor(c.colors))),
+                    onRemove: () => _update((c) => c.removeColor(c.colors.length - 1)),
+                  ),
+                  SlotCountRow(
+                    noun: 'sizes',
+                    count: config.widths.length,
+                    min: PenConfig.minSlots,
+                    max: PenConfig.maxSlots,
+                    onAdd: () => _update((c) => c.addWidth(_newWidth(c))),
+                    onRemove: () => _update((c) => c.removeWidth(c.widths.length - 1)),
+                  ),
+                ],
+              ),
             ),
           ],
         );
       },
     );
   }
+
+  static String _count(int n, String noun) => n == 1 ? '1 $noun' : '$n ${noun}s';
 
   /// A palette colour not in the row yet, to start a new slot with.
   int _unusedColor(List<int> used) => _palette.firstWhere(
@@ -144,5 +161,25 @@ class _InkOptionsState extends State<InkOptions> {
     final d = PenDefaults.of(ink);
     final up = c.widths.last * 1.5;
     return d.clampWidth(up <= d.maxWidth ? up : c.width / 1.5);
+  }
+}
+
+/// "Reset feel": puts the ink's feel (pressure, stabiliser, ends, opacity…)
+/// back to its defaults, keeping the quick colours and sizes. Disabled at
+/// the defaults. It needs no Undo: what it changes is right above it.
+class _ResetFeel extends StatelessWidget {
+  const _ResetFeel({required this.config, required this.ink, required this.onReset});
+
+  final PenConfig config;
+  final InkTool ink;
+  final ValueChanged<PenConfig> onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final defaults = config.withFeelDefaults(ink);
+    return TextButton(
+      onPressed: config == defaults ? null : () => onReset(defaults),
+      child: const Text('Reset feel'),
+    );
   }
 }
