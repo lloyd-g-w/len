@@ -269,7 +269,7 @@ the active tab.
   **Style** · Cut · Copy · Delete · ⋯. Style is one popover merging today's Colour and
   Style (colour, then width or pen for ink, font and size for text). ⋯ holds Duplicate,
   Paste, Convert to text, Link…, Crop and Bring to front / Send to back.
-- **Text format bar** (`tools/text_format_bar.dart`, done except the phone dock): the same pill. Order: font ▾ ·
+- **Text format bar** (`tools/text_format_bar.dart`, done): the same pill. Order: font ▾ ·
   size · B I U S · colour · highlight · lists ▾ · align · ✓, with Delete in a trailing ⋯.
   On phones it docks full width above the keyboard and scrolls sideways (fixing the
   overflow routed in UX_AUDIT).

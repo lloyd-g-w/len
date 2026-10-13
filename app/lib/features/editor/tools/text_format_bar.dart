@@ -43,6 +43,9 @@ class TextFormatBar extends StatelessWidget {
 
   static const List<double> sizes = [12, 16, 20, 24, 32, 40, 56, 72, 96];
 
+  /// Narrower screens (phones) dock the bar at the bottom.
+  static const double dockBelowWidth = 600;
+
   /// The next preset size after [s] in [direction].
   static double step(double s, int direction) {
     final next = direction > 0
@@ -97,7 +100,14 @@ class TextFormatBar extends StatelessWidget {
       ),
     );
     return CustomSingleChildLayout(
-      delegate: _BarLayout(anchor, MediaQuery.paddingOf(context)),
+      delegate: _BarLayout(
+        anchor,
+        MediaQuery.paddingOf(context),
+        // Phones: docked full width at the bottom (above the keyboard,
+        // which the editor makes room for), where a thumb reaches it and
+        // it never covers the box being typed in.
+        docked: MediaQuery.sizeOf(context).width < dockBelowWidth,
+      ),
       child: bar,
     );
   }
@@ -233,9 +243,12 @@ class TextFormatBar extends StatelessWidget {
 }
 
 class _BarLayout extends SingleChildLayoutDelegate {
-  _BarLayout(this.anchor, this.chrome);
+  _BarLayout(this.anchor, this.chrome, {this.docked = false});
 
   final Rect anchor;
+
+  /// Full width at the bottom instead of beside [anchor].
+  final bool docked;
 
   /// Screen edges covered by the editor's chrome.
   final EdgeInsets chrome;
@@ -245,11 +258,14 @@ class _BarLayout extends SingleChildLayoutDelegate {
   double get bottomInset => chrome.bottom + margin;
 
   @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      constraints.loosen().deflate(const EdgeInsets.all(margin));
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final loose = constraints.loosen().deflate(const EdgeInsets.all(margin));
+    return docked ? loose.tighten(width: loose.maxWidth) : loose;
+  }
 
   @override
   Offset getPositionForChild(Size size, Size child) {
+    if (docked) return Offset(margin, size.height - bottomInset - child.height);
     final double x = (anchor.left).clamp(
       margin,
       math.max(margin, size.width - child.width - margin),
@@ -261,5 +277,6 @@ class _BarLayout extends SingleChildLayoutDelegate {
   }
 
   @override
-  bool shouldRelayout(_BarLayout old) => old.anchor != anchor || old.chrome != chrome;
+  bool shouldRelayout(_BarLayout old) =>
+      old.anchor != anchor || old.chrome != chrome || old.docked != docked;
 }
