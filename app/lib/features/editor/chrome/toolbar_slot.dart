@@ -20,9 +20,14 @@ class ToolbarSlot extends StatefulWidget {
     this.floatAt,
     this.onFloatMoved,
     this.visible = true,
+    this.joined = false,
   });
 
   final Widget toolbar;
+
+  /// Whether [toolbar] is bare and shares one capsule with the grip (focus
+  /// mode's puck), instead of a panel of its own beside the grip's.
+  final bool joined;
 
   /// Space taken by other chrome (top bar, safe areas) that the toolbar
   /// must stay clear of.
@@ -128,25 +133,7 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
                   maxWidth: constraints.maxWidth,
                   maxHeight: constraints.maxHeight,
                 ),
-                child: ToolbarAxis(
-                  axis: axis,
-                  child: Flex(
-                    direction: axis,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _Grip(
-                        axis: axis,
-                        onDrag: (d) => _drag(d, constraints.biggest),
-                        onEnd: _endDrag,
-                      ),
-                      if (axis == Axis.horizontal)
-                        const SizedBox(width: Gaps.xs)
-                      else
-                        const SizedBox(height: Gaps.xs),
-                      Flexible(child: widget.toolbar),
-                    ],
-                  ),
-                ),
+                child: ToolbarAxis(axis: axis, child: _capsule(axis, constraints.biggest)),
               ),
             ),
           ),
@@ -154,11 +141,44 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
       ),
     );
   }
+
+  /// The grip and the toolbar: side by side, or in one capsule if [joined].
+  Widget _capsule(Axis axis, Size area) {
+    final grip = _Grip(
+      axis: axis,
+      framed: !widget.joined,
+      onDrag: (d) => _drag(d, area),
+      onEnd: _endDrag,
+    );
+    final row = Flex(
+      direction: axis,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        grip,
+        SizedBox(
+          width: axis == Axis.horizontal && !widget.joined ? Gaps.xs : 0,
+          height: axis == Axis.vertical && !widget.joined ? Gaps.xs : 0,
+        ),
+        Flexible(child: widget.toolbar),
+      ],
+    );
+    if (!widget.joined) return row;
+    return FloatingPanel(radius: Radii.pill, padding: const EdgeInsets.all(Gaps.xs), child: row);
+  }
 }
 
 /// The handle by which the floating toolbar is dragged.
 class _Grip extends StatelessWidget {
-  const _Grip({required this.axis, required this.onDrag, required this.onEnd});
+  const _Grip({
+    required this.axis,
+    required this.framed,
+    required this.onDrag,
+    required this.onEnd,
+  });
+
+  /// Whether the grip is a capsule of its own (else it sits in the
+  /// toolbar's).
+  final bool framed;
 
   /// The palette's axis: the grip leads it.
   final Axis axis;
@@ -168,6 +188,17 @@ class _Grip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // Framed it stands 48 high on its own; inside a capsule it takes the
+    // capsule's height.
+    final handle = SizedBox(
+      width: axis == Axis.horizontal ? 28 : (framed ? 48 : null),
+      height: axis == Axis.horizontal ? (framed ? 48 : null) : 28,
+      child: Icon(
+        axis == Axis.horizontal ? Symbols.drag_indicator_rounded : Symbols.drag_handle_rounded,
+        size: Glyphs.bar,
+        color: scheme.onSurfaceVariant,
+      ),
+    );
     return Tooltip(
       message: 'Drag to move the toolbar',
       child: MouseRegion(
@@ -177,21 +208,9 @@ class _Grip extends StatelessWidget {
           onPanUpdate: onDrag,
           onPanEnd: (_) => onEnd(),
           onPanCancel: onEnd,
-          child: FloatingPanel(
-            radius: Radii.pill,
-            padding: EdgeInsets.zero,
-            child: SizedBox(
-              width: axis == Axis.horizontal ? 28 : 48,
-              height: axis == Axis.horizontal ? 48 : 28,
-              child: Icon(
-                axis == Axis.horizontal
-                    ? Symbols.drag_indicator_rounded
-                    : Symbols.drag_handle_rounded,
-                size: Glyphs.bar,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ),
+          child: framed
+              ? FloatingPanel(radius: Radii.pill, padding: EdgeInsets.zero, child: handle)
+              : handle,
         ),
       ),
     );

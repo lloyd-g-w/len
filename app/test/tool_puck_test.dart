@@ -1,7 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/features/editor/chrome/focus_handle.dart';
 import 'package:len/features/editor/chrome/tool_puck.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
+import 'package:len/ui/floating_panel.dart';
 
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
 
@@ -67,6 +70,38 @@ void main() {
     expect(find.byType(ToolPuck), findsOneWidget);
     expect(tester.getRect(find.byType(ToolPuck)).bottom, lessThanOrEqualTo(844));
     expect(tester.takeException(), isNull);
+    await closeEditor(tester);
+  });
+
+  testWidgets('the exit shows in full on entering, then rests; the grip is in the puck', (
+    tester,
+  ) async {
+    await pumpEditor(tester, size: const Size(390, 844));
+    await toggleFocus(tester);
+    double exitOpacity() => tester
+        .widget<AnimatedOpacity>(
+          find.descendant(of: find.byType(FocusHandle), matching: find.byType(AnimatedOpacity)),
+        )
+        .opacity;
+    expect(exitOpacity(), 1);
+    await tester.pump(FocusHandle.announce);
+    await tester.pumpAndSettle();
+    expect(exitOpacity(), FocusHandle.restingOpacity);
+    // Touch has no hover: it rests firmer than with a mouse.
+    expect(FocusHandle.restingOpacity, greaterThan(0.4));
+    expect(tester.getSize(find.byTooltip('Show toolbars (F11)')).width, greaterThanOrEqualTo(48));
+
+    // One capsule holds the grip and the puck's tools.
+    final capsule = find.ancestor(of: find.byType(ToolPuck), matching: find.byType(FloatingPanel));
+    expect(capsule, findsOneWidget);
+    expect(
+      find.descendant(of: capsule, matching: find.byTooltip('Drag to move the toolbar')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: find.byType(ToolPuck), matching: find.byType(FloatingPanel)),
+      findsNothing,
+    );
     await closeEditor(tester);
   });
 }
