@@ -286,9 +286,11 @@ under any stylus) active before handing the event to `InkInputController`.
 Everything the engine draws or hit-tests therefore lands on the right page.
 
 `DocumentSurfaces` holds a `SurfaceModel` + `ChunkPictureCache` only for
-visible pages (plus a few recently seen ones, and any with undo history), and
-loads just their visible chunks. It also provides **notebook-wide undo**: the
-most recently edited page is undone first (a step may span pages: see
+visible pages (plus a few recently seen ones), and loads just their visible
+chunks; a page's `SurfaceModel` outlives its view while undo can reach it
+(`PageModels`). It also provides **notebook-wide undo**: the
+most recently edited page is undone first, back at most 200 steps on at most
+24 pages (older steps, and the models only they kept, are dropped) (a step may span pages: see
 *Selections across pages* under *Editing tools*). Painting mirrors `InkSurface`
 (paper → committed ink → live ink layers) across every visible page.
 
@@ -583,7 +585,8 @@ server before its blob. Blobs are fetched lazily when a page needs them
 
 `BlobReferences` is the reference graph (live page backgrounds, elements and
 recordings; the trash is live, "delete forever" releases after 30 days, see
-*Sync*). `LocalBlobGc` (started at launch, at most daily) deletes blobs unreferenced for 7 days
+*Sync*). `LocalBlobGc` (started 20 s after launch, at most daily; old tombstones'
+payloads are dropped first, 2,000 rows per transaction) deletes blobs unreferenced for 7 days
 (`blobs.unreferenced_since`); it runs exclusively with `BlobStore`'s `put`
 methods, and storing a blob again restarts its grace period. The server has its
 own admin-run collector (server/README.md).
@@ -1689,6 +1692,10 @@ the token's secure-store slot, or the token while it is in the database; so
 synced notebooks come back), and the library says so once
 (`AppDatabase.schemaReset`).
 All writes go straight to SQLite; in-memory state is a cache.
+`AppDatabase.select` / `execute` keep up to 64 prepared statements (LRU) for
+constant SQL; the sync and chunk-index hot paths use them (preparing costs
+about as much as running a small statement). Scale budgets and numbers:
+[`PERFORMANCE.md`](PERFORMANCE.md).
 
 ## Platforms (`platform/`)
 
@@ -1888,7 +1895,9 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   notebook column-by-column (`RowCopier`), so columns added later are copied too.
 - **State.** `LibraryController` (a `ChangeNotifier`) holds the section (library,
   favourites, trash), open folder and search query, reads the repositories on `reload()`
-  and filters/sorts in memory (`LibraryQuery`). `LibraryActions` adds the dialogs and
+  and filters/sorts in memory (`LibraryQuery`). The 30-day trash is purged after the
+  first frame, a notebook per event-loop turn (deleting a notebook tombstones its rows
+  set-based, one statement per surface). `LibraryActions` adds the dialogs and
   confirmations. Layout and sort are preferences (`AppPreferences`).
 - **Shell.** From `Breakpoints.medium` (840 dp): a 248-dp sidebar with sections, the folder
   tree (all drop targets), sync status and settings; narrower: the same in a drawer (☰). The
@@ -2165,8 +2174,11 @@ malformed record is skipped. Open screens subscribe to
 
 Robustness (`SyncEngine`): rows are marked clean only for the exact version
 the server confirmed (`markClean` by `updatedAt`), and each pulled page is
-applied in one transaction with the new feed position, so a dropped
-connection never loses or duplicates anything; the next cycle resumes.
+applied in slices of 64 records, one transaction each with a turn of the event
+loop between (so a first sync of a large library never holds the UI for a
+frame); only the last slice moves the feed position, so a dropped connection
+never loses anything: a page cut short is pulled again (re-applying a record is
+a no-op); the next cycle resumes.
 Each cycle starts with `/v1/health`: its `serverId` decides whether this is
 the server last synced with — a new id (another server, or a wiped or
 restored one) resets the feed position and marks every row and blob for
