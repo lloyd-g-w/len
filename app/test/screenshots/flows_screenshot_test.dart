@@ -62,6 +62,12 @@ void main() {
       await pumpApp(tester, services, const SettingsScreen());
       expect(tester.takeException(), isNull);
       await shoot(tester, 'settings2_${name}_light');
+      // The shortcut reference (not offered on touch phones).
+      final shortcuts = find.text('Keyboard shortcuts');
+      if (shortcuts.evaluate().isEmpty) return;
+      await tester.tap(shortcuts);
+      await settle(tester);
+      await shoot(tester, 'shortcuts_${name}_light');
     });
   }
 

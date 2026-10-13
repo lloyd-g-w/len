@@ -68,9 +68,11 @@ class OpenElsewhereScreen extends StatelessWidget {
                     Text(_explanation(state), style: theme.textTheme.bodyMedium),
                     const SizedBox(height: Gaps.xl),
                     if (state == WaitState.asking)
-                      const SizedBox.square(
-                        dimension: Glyphs.bar,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                      // A ruled progress line (DESIGN §6), where the button was.
+                      const SizedBox(
+                        width: 160,
+                        height: Targets.bar,
+                        child: Center(child: LinearProgressIndicator()),
                       )
                     else
                       FilledButton(

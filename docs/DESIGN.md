@@ -174,8 +174,10 @@ Correction red. Label inside the field, Caption when floating.
  ───────────────────────────        ━━━━━━━━━━━━━━━━━━━━━━━━━━━  (2 dp, blue)
 ```
 
-**Switch:** flat track (Rule when off, ruling blue when on), white square-ish
-thumb of constant size, no check glyph. **Slider:** a 2-dp ruled track (blue
+**Switch** (`AppSwitch`, `AppSwitchTile` for a labelled row): a flat
+44 × 24 track (radius `xs`; Rule when off, ruling blue when on) and a square
+16-dp thumb of constant size (Graphite when off, Sheet when on), no glyph;
+the thumb slides in `Motion.fast` (reduced motion: colour only). **Slider:** a 2-dp ruled track (blue
 up to the value, Rule after) and an Ink tick thumb 4 × 20 dp, like a ruler's
 mark. **Checkbox / radio:** 2-dp corners, blue when on. **Progress:** 2-dp
 blue rule on a Rule track, square ends.
@@ -305,23 +307,25 @@ Dialog (≥ 600): Sheet over scrim         Sheet (phones)
 
 ### 6.4 Settings
 
-Sections are open ruled lists on Board, not cards: a Small label heading in
-Graphite, rows separated by hairlines that start at the text, controls
-right-aligned on wide rows, below on narrow ones.
+Sections are open ruled lists on Board, not cards: a hairline opens each
+section; its Small label heading (Graphite) hangs in a 160-dp margin column
+on wide screens (≥ 600 dp of column, text under 1.5×) and sits above the
+rows on narrow ones; rows are separated by hairlines that start at the text;
+controls right-aligned on wide rows, below on narrow ones. A row's press
+plate overhangs its icon by 8 dp, so icons, headings and rules keep to the
+margin column.
 
 ```
-Settings                                        (Title, left margin column)
-
-General
-──────────────────────────────────────────────────────────────
- ◐  Theme                         ┌────────┬───────┬───────┐
-    Paper keeps its colour         │▓System▓│ Light │ Dark  │
-                                   └────────┴───────┴───────┘
-    ──────────────────────────────────────────────────────────
- ⌨  Keyboard shortcuts                                       ›
-──────────────────────────────────────────────────────────────
-Writing
- ...
+Wide                                            Narrow
+Settings                                        Settings
+──────────────────────────────────────────────  ─────────────────────────────
+General      ◐  Theme        ┌──────┬─────┬────┐ General
+                Paper keeps… │▓Sys▓▓│Light│Dark│ ◐  Theme
+                             └──────┴─────┴────┘    Paper keeps its colour
+                ──────────────────────────────      ┌──────┬─────┬────┐
+             ⌨  Keyboard shortcuts           ›      │▓Sys▓▓│Light│Dark│
+──────────────────────────────────────────────      └──────┴─────┴────┘
+Writing      ✎  Draw with …                     ─────────────────────────────
 ```
 
 ## 7. Review against the brief and the generic defaults
@@ -357,11 +361,15 @@ surfaces suites, phone/tablet/desktop, light and dark) changed:
 | dark "off" switch and slider tracks vanished into the Sheet | a lifted `#4A4A4A` off-track |
 | popovers scaling from 96 %: a soft Material bloom | fade plus a 4-dp drop from the anchor |
 | field label/hint styles fixed in the theme kept the UI font where tests swap it | left to Material's defaults (same Graphite colour) |
+| settings on white plates with a shadow (rollout) | open ruled lists; headings hang in the margin column on wide screens, where the centred column left empty space |
+| export options on grey plates | a Small label over hairline-ruled rows |
+| move dialog's grey "Current" badge | the margin rule and a bold label mark the current place, "Current" as a caption |
+| library notices on tinted plates | a flat Board strip with a hairline under it and a coloured glyph |
+| 6-dp pill progress bars in progress dialogs | the 2-dp ruled line |
 
-Still open (feature-level, in the rollout): Material's stadium switch (Flutter
-offers no shape hook; an `AppSwitch` in `ui/` with a square thumb), grey
-folder tiles and gradient covers, the blue brand tile, the accent `+` on the
-new-notebook tile, white settings plates with a shadow, `·` meta strings.
+Still open (feature-level, in the rollout): grey folder tiles and gradient
+covers, the blue brand tile, the accent `+` on the new-notebook tile, `·`
+meta strings in the library, editor and audio.
 
 Also checked: no cream background, no terracotta, no acid accent on black, no
 monospace data labels, no arrows appended to buttons, no identical shadowed
@@ -393,20 +401,24 @@ thumb. Next, by area:
   (`editor_tabs`) with a margin-rule current tab instead of a plate.
 - **Popovers:** hairlines between groups instead of spacing alone; pen
   preview box radius `sm` with a Rule edge; Feel row as a ruled disclosure.
-- **Settings:** `settings_section.dart` to open ruled lists (no plates, no
-  shadow); section headings on the left margin column.
-- **Dialogs and sheets:** move dialog, cover sheet, new-notebook sheet,
-  export sheet onto the ruled fields and Ink primary; check every
-  `FilledButton.tonal` (becomes secondary/outlined).
+- ~~**Settings:**~~ done: open ruled lists, hanging headings (§6.4).
+- ~~**Dialogs and sheets:**~~ done: ruled export options, margin-rule move
+  dialog, flat library notices, ruled progress, full-width primary on phone
+  template sheets; no `FilledButton.tonal` left.
 - **Overview, templates, PDF:** page tiles with contact shadow only;
   template gallery selection by margin rule; `overview_parts.dart` radii.
 - **Audio, images, text:** recording bar as a flat Board strip with a
   hairline; text format bar on `FloatingPanel`.
 - **Copy:** remove `·` chains and any remaining all-caps; one name per action.
+  Done in settings, dialogs, sheets and messages (template descriptions
+  "College ruled, white, A4 portrait", export summaries "3 pages, PDF").
+  Left: the library header and cards, search results, the editor (ink
+  options, split tooltip), audio (recordings sheet, trim panel) and the
+  planner labels in `domain/templates` (`Paper.label`, `period`).
 - **App icon / splash:** Ink and ruling blue mark (`tool/branding`).
-- **Controls:** an `AppSwitch` in `ui/` (flat rectangular track, square
-  thumb, 44 × 24) replacing `Switch` / `SwitchListTile` (19 uses); every
-  `FilledButton.tonal` to `OutlinedButton` (the theme makes both Ink).
+- ~~**Controls:**~~ done: `AppSwitch` / `AppSwitchTile` in `ui/app_switch.dart`
+  replace every `Switch` / `SwitchListTile`; `FilledButton.tonal` became
+  `OutlinedButton`.
 - **Icons after merges:** other branches still add `Symbols.*_rounded`; re-run
   the rename in the "Icons: Material Symbols Sharp" commit message.
 - **Tests:** refresh goldens per area as it lands.

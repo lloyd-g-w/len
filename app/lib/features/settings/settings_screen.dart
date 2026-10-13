@@ -6,20 +6,22 @@ import '../../ui/app_theme.dart';
 import 'about_settings.dart';
 import 'general_settings.dart';
 import 'handwriting_settings.dart';
+import 'settings_section.dart';
 import 'storage_settings.dart';
 import 'sync_settings.dart';
 import 'writing_settings.dart';
 
-/// Settings (REDESIGN §4): General, Writing, Handwriting, Sync, Storage
-/// (web only) and About, in one centred column at most [maxWidth] wide.
+/// Settings (DESIGN §6.4): General, Writing, Handwriting, Sync, Storage
+/// (web only) and About, as open ruled lists in one centred column at most
+/// [maxWidth] wide; on wide screens the headings hang in its margin column.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, this.showSync = false});
 
   /// Scrolls to Sync once shown (opened from a failed sync status).
   final bool showSync;
 
-  /// The column's widest.
-  static const double maxWidth = 640;
+  /// The column's widest (the headings' margin column and the rows).
+  static const double maxWidth = 800;
 
   @override
   Widget build(BuildContext context) => Scaffold(body: _SettingsColumn(showSync: showSync));
@@ -51,8 +53,10 @@ class _SettingsColumnState extends State<_SettingsColumn> {
     final scheme = Theme.of(context).colorScheme;
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < Breakpoints.medium;
+    // The margin column (DESIGN §3); rows overhang it by their plate's edge.
     final gutter = compact ? Gaps.lg : Gaps.xl;
-    // The title lines up with the (centred) column below it.
+    const overhang = SettingsTile.edge;
+    // The title lines up with the (centred) column's margin below it.
     final columnStart = (width - SettingsScreen.maxWidth).clamp(0.0, double.infinity) / 2 + gutter;
     final hasBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
     final titleSpacing = (columnStart - (hasBack ? kToolbarHeight : 0)).clamp(
@@ -64,7 +68,7 @@ class _SettingsColumnState extends State<_SettingsColumn> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: SettingsScreen.maxWidth),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: gutter),
+          padding: EdgeInsets.symmetric(horizontal: gutter - overhang),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: _sections(context, showSync: widget.showSync),

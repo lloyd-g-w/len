@@ -211,16 +211,12 @@ class ProgressDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: Gaps.lg),
                   ],
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(Radii.pill),
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(end: fraction ?? 0),
-                      duration: Motion.medium,
-                      builder: (context, value, _) => LinearProgressIndicator(
-                        value: fraction == null ? null : value,
-                        minHeight: 6,
-                      ),
-                    ),
+                  // A 2-dp ruled line with square ends (DESIGN §6).
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(end: fraction ?? 0),
+                    duration: Motion.medium,
+                    builder: (context, value, _) =>
+                        LinearProgressIndicator(value: fraction == null ? null : value),
                   ),
                   const SizedBox(height: Gaps.md),
                   Row(
@@ -237,7 +233,7 @@ class ProgressDialog extends StatelessWidget {
                         Text(
                           detail,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontFeatures: const [FontFeature.tabularFigures()],
+                            fontFeatures: AppTheme.tabularFigures,
                           ),
                         ),
                     ],

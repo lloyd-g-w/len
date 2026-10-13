@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../platform/file_export.dart' as platform;
+import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_or_sheet.dart';
 import '../../../ui/sheet_parts.dart';
@@ -226,9 +227,10 @@ class _ExportSheetState extends State<ExportSheet> {
   ];
 
   Widget _switch(String title, String subtitle, bool value, void Function(bool) set) =>
-      SwitchListTile(
-        title: Text(title),
-        subtitle: Text(subtitle),
+      AppSwitchTile(
+        padding: EdgeInsets.zero,
+        title: title,
+        subtitle: subtitle,
         value: value,
         onChanged: (v) => setState(() => set(v)),
       );

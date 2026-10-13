@@ -9,7 +9,7 @@ import '../../../ui/messages.dart';
 /// "Saved “Lecture.pdf”" (with Show in folder on desktops), "Saved 3
 /// images to “Exports”", "Shared “Lecture.pdf”", "Downloaded 3 images":
 /// where exported [files] went. [plural] names several ("images"); [note]
-/// adds what was left out ("· 2 images couldn't be included").
+/// adds what was left out ("; 2 images couldn't be included").
 void showExported(
   BuildContext context,
   platform.ExportedFiles files, {
@@ -29,7 +29,7 @@ void showExported(
   final path = files.path;
   showMessage(
     context,
-    note == null ? message : '$message · $note',
+    note == null ? message : '$message; $note',
     duration: note == null ? null : const Duration(seconds: 8),
     action: path == null || !platform.canShowInFolder
         ? null

@@ -137,7 +137,7 @@ void main() {
 
   testWidgets('a page range exports exactly those pages', (tester) async {
     await open(tester);
-    expect(find.text('5 pages · PDF'), findsOneWidget); // All pages preselected.
+    expect(find.text('5 pages, PDF'), findsOneWidget); // All pages preselected.
     await tester.tap(find.text('Page range'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('export-range')), '2-9');
@@ -147,7 +147,7 @@ void main() {
 
     await tester.enterText(find.byKey(const ValueKey('export-range')), '1-2, 4');
     await tester.pump();
-    expect(find.text('3 pages · PDF'), findsOneWidget);
+    expect(find.text('3 pages, PDF'), findsOneWidget);
     await tester.tap(_exportButton);
     await tester.pumpAndSettle();
 
@@ -183,7 +183,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Page templates'));
     await tester.pumpAndSettle();
-    expect(find.text('1 page · PNG · 288 dpi'), findsOneWidget);
+    expect(find.text('1 page, PNG at 288 dpi'), findsOneWidget);
     expect(find.text('PDF backgrounds'), findsNothing); // No imported PDF pages.
     await tester.tap(_exportButton);
     await tester.pumpAndSettle();
@@ -210,7 +210,7 @@ void main() {
     await open(tester);
     await tester.tap(_exportButton);
     await tester.pumpAndSettle();
-    expect(find.textContaining('· 2 images couldn’t be included'), findsOneWidget);
+    expect(find.textContaining('; 2 images couldn’t be included'), findsOneWidget);
   });
 
   testWidgets('PNG exports say what they left out too', (tester) async {
@@ -222,7 +222,7 @@ void main() {
     await tester.tap(_exportButton);
     await tester.pumpAndSettle();
     expect(exporter.pngCalls, hasLength(1));
-    expect(find.textContaining('· 1 image couldn’t be included'), findsOneWidget);
+    expect(find.textContaining('; 1 image couldn’t be included'), findsOneWidget);
   });
 
   testWidgets('a failed export says so in words, the error under Details', (tester) async {

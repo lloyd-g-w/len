@@ -88,11 +88,11 @@ void main() {
     test('summary', () {
       expect(
         const ExportOptions(format: ExportFormat.pdf, pages: [0, 1, 2]).summary,
-        '3 pages · PDF',
+        '3 pages, PDF',
       );
       expect(
         const ExportOptions(format: ExportFormat.png, pages: [0]).summary,
-        '1 page · PNG · 288 dpi',
+        '1 page, PNG at 288 dpi',
       );
     });
   });
