@@ -117,6 +117,9 @@ class SharedNotebook extends ChangeNotifier {
     if (entry != null) doc.removeListener(entry.listener);
   }
 
+  /// Reloads every view's page list (after a change none of them made).
+  void reloadViews() => _reloadPages();
+
   void _reloadPages({DocumentController? except}) {
     _reloading = true;
     try {

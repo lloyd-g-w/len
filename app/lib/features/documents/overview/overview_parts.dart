@@ -163,9 +163,17 @@ class SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
 
 /// Actions for the selected pages, along the bottom (thumb reach).
 class SelectionBar extends StatelessWidget {
-  const SelectionBar({super.key, required this.count, required this.onAction});
+  const SelectionBar({
+    super.key,
+    required this.count,
+    required this.onAction,
+    this.allBookmarked = false,
+  });
 
   final int count;
+
+  /// Whether every selected page is bookmarked: the action removes them.
+  final bool allBookmarked;
   final ValueChanged<SelectionAction> onAction;
 
   Future<void> _delete(BuildContext context) async {
@@ -196,7 +204,7 @@ class SelectionBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon),
+            Icon(icon, size: Glyphs.bar),
             const SizedBox(height: Gaps.xxs),
             Text(label),
           ],
@@ -220,8 +228,8 @@ class SelectionBar extends StatelessWidget {
                 child: Row(
                   children: [
                     action(
-                      Symbols.bookmark_rounded,
-                      'Bookmark',
+                      allBookmarked ? Symbols.bookmark_remove_rounded : Symbols.bookmark_rounded,
+                      allBookmarked ? 'Remove bookmark' : 'Bookmark',
                       () => onAction(SelectionAction.bookmark),
                     ),
                     action(

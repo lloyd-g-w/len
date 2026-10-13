@@ -25,6 +25,7 @@ class OverviewHandlers {
     required this.load,
     required this.command,
     required this.move,
+    this.bookmarkMany,
     this.deleteMany,
   });
 
@@ -36,6 +37,10 @@ class OverviewHandlers {
 
   /// Moves a page to a new index.
   final void Function(NotebookPage page, int toIndex) move;
+
+  /// Bookmarks several pages ([on]) or removes their bookmarks, as one
+  /// undoable step. Without it, the overview toggles each page.
+  final void Function(List<NotebookPage> pages, {required bool on})? bookmarkMany;
 
   /// Deletes several pages as one undoable step. Without it, the overview
   /// runs [PageCommand.delete] on each page.

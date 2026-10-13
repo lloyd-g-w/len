@@ -103,5 +103,21 @@ class PageActions {
     });
   }
 
-  void toggleBookmark(NotebookPage page) => services.pages.setBookmarked(page.id, !page.bookmarked);
+  /// Gives each page back its paper and colour (undoing [setTemplate]).
+  void setPapers(List<({String id, Paper paper, PaperColor color})> papers) {
+    services.database.transaction(() {
+      for (final p in papers) {
+        services.pages.setPaper([p.id], paper: p.paper, color: p.color);
+      }
+    });
+  }
+
+  /// Bookmarks [targets] or removes their bookmarks.
+  void setBookmarks(List<NotebookPage> targets, bool bookmarked) {
+    services.database.transaction(() {
+      for (final page in targets) {
+        services.pages.setBookmarked(page.id, bookmarked);
+      }
+    });
+  }
 }

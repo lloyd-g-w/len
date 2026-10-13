@@ -19,13 +19,20 @@ import 'document_controller.dart';
 import 'go_to_page_dialog.dart';
 import 'page_actions.dart';
 import 'page_backgrounds.dart';
+import 'page_edits.dart';
 import 'page_overview.dart';
 
 /// The editor's page-level commands for a paged notebook, with their UI
 /// (pickers, confirmations, undo snack bars).
 class DocumentCommands {
-  DocumentCommands({required this.services, required this.notebook, required this.doc})
-    : actions = PageActions(services, notebook().id);
+  DocumentCommands({
+    required this.services,
+    required this.notebook,
+    required this.doc,
+    this.reloadViews,
+  }) : actions = PageActions(services, notebook().id) {
+    edits = PageEdits(actions: actions, models: doc.surfaces.models, shown: _shown);
+  }
 
   final AppServices services;
 
@@ -33,6 +40,13 @@ class DocumentCommands {
   final Notebook Function() notebook;
   final DocumentController doc;
   final PageActions actions;
+
+  /// Reloads every open view of the notebook; for undoing page changes
+  /// made here (the history is shared) after this editor closed.
+  final VoidCallback? reloadViews;
+
+  /// Page changes as steps of the notebook's undo history.
+  late final PageEdits edits;
 
   /// Whether the page structure changed (pages added, moved, …).
   bool changed = false;
@@ -52,16 +66,20 @@ class DocumentCommands {
   /// resolving) only change data, not the disposed document.
   void dispose() => _disposed = true;
 
-  void _changedAndShow(NotebookPage page) {
+  /// After a page change (or its undo or redo): reloads, showing [keep].
+  void _shown({String? keep}) {
     changed = true;
-    if (_disposed) return;
-    reload(keep: page.id);
-    doc.goToPage(doc.pages.indexWhere((p) => p.id == page.id));
+    if (_disposed) return reloadViews?.call();
+    reload(keep: keep);
+    final index = doc.pages.indexWhere((p) => p.id == keep);
+    if (index != -1) doc.goToPage(index);
   }
+
+  void _changedAndShow(NotebookPage page) => _shown(keep: page.id);
 
   /// Adds a page like the current one (same paper and size; a planner's
   /// next day, week or month) after it.
-  void addPage() => _changedAndShow(actions.add(PageActions.blankAfter(_current), after: _current));
+  void addPage() => edits.add([PageActions.blankAfter(_current)], after: _current);
 
   /// Lets the user choose a template, then adds a page after the current.
   Future<void> addPageWithTemplate(BuildContext context) async {
@@ -71,10 +89,9 @@ class DocumentCommands {
       mode: TemplatePickerMode.addPage,
     );
     if (choice == null) return;
-    final added = actions.addAll([
+    edits.add([
       for (final paper in choice.papers) specOf(choice.template.copyWith(paper: paper)),
     ], after: _current);
-    _changedAndShow(added.first);
   }
 
   /// Follows a planner link: shows the page with template [target], or
@@ -99,7 +116,7 @@ class DocumentCommands {
             color: current.paperColor,
             background: null,
           );
-          _changedAndShow(actions.add(spec, after: current));
+          edits.add([spec], after: current);
         },
       ),
     );
@@ -109,17 +126,15 @@ class DocumentCommands {
   Future<void> run(BuildContext context, PageCommand command, NotebookPage page) async {
     switch (command) {
       case PageCommand.insertAfter:
-        _changedAndShow(actions.add(PageActions.blankAfter(page), after: page));
+        edits.add([PageActions.blankAfter(page)], after: page);
       case PageCommand.duplicate:
-        _changedAndShow(actions.duplicate(page));
+        edits.duplicate(page);
       case PageCommand.template:
         await _changeTemplate(context, page);
       case PageCommand.saveAsTemplate:
         await _saveAsTemplate(context, page);
       case PageCommand.bookmark:
-        actions.toggleBookmark(page);
-        changed = true;
-        reload();
+        edits.setBookmarks([page], on: !page.bookmarked);
       case PageCommand.delete:
         await _delete(context, page);
     }
@@ -156,9 +171,17 @@ class DocumentCommands {
     );
     if (choice == null) return;
     final targets = choice.allPages ? doc.pages : [page];
-    actions.setTemplate(targets, choice.template, papers: choice.papersForPages(targets.length));
-    changed = true;
-    reload();
+    final edit = edits.setTemplate(
+      targets,
+      choice.template,
+      papers: choice.papersForPages(targets.length),
+    );
+    if (!context.mounted || targets.length < 2) return;
+    showMessage(
+      context,
+      'Template changed on ${targets.length} pages',
+      action: SnackBarAction(label: 'Undo', onPressed: () => edits.models.undoEdit(edit)),
+    );
   }
 
   Future<void> _delete(BuildContext context, NotebookPage page) async {
@@ -167,19 +190,11 @@ class DocumentCommands {
       return;
     }
     final number = doc.pages.indexWhere((p) => p.id == page.id) + 1;
-    final deleted = actions.delete(page);
-    changed = true;
-    reload();
+    final edit = edits.delete([page]);
     showMessage(
       context,
       'Page $number deleted',
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () {
-          actions.restore(deleted);
-          reload(keep: page.id);
-        },
-      ),
+      action: SnackBarAction(label: 'Undo', onPressed: () => edits.models.undoEdit(edit)),
     );
   }
 
@@ -191,19 +206,11 @@ class DocumentCommands {
       return;
     }
     if (pages.length == 1) return _delete(context, pages.single);
-    final deleted = actions.deleteAll(pages);
-    changed = true;
-    reload();
+    final edit = edits.delete(pages);
     showMessage(
       context,
       '${pages.length} pages deleted',
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () {
-          actions.restoreAll(deleted);
-          reload();
-        },
-      ),
+      action: SnackBarAction(label: 'Undo', onPressed: () => edits.models.undoEdit(edit)),
     );
   }
 
@@ -228,10 +235,8 @@ class DocumentCommands {
           handlers: OverviewHandlers(
             load: () => actions.pages,
             command: run,
-            move: (page, to) {
-              actions.move(page, to);
-              changed = true;
-            },
+            move: edits.move,
+            bookmarkMany: (pages, {required on}) => edits.setBookmarks(pages, on: on),
             deleteMany: deleteMany,
           ),
         ),

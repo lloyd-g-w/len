@@ -3,6 +3,17 @@ import 'package:flutter/foundation.dart';
 import '../../../ink/surface_model.dart';
 import 'undo_target.dart';
 
+/// A notebook-level change that is not ink on a page (a template, the page
+/// order, bookmarks, pages added or deleted), undone and redone by the
+/// callbacks it was made with. Each callback changes the stored data and
+/// shows the result.
+class PageEdit {
+  PageEdit({required this.undo, required this.redo});
+
+  final VoidCallback undo;
+  final VoidCallback redo;
+}
+
 /// The page models (ink, elements, undo history) of one paged notebook,
 /// shared by every view of it: two views of a notebook (split view) draw
 /// into, see and undo the very same models, so they never disagree.
@@ -14,7 +25,9 @@ import 'undo_target.dart';
 /// Undo spans pages: the most recently edited page is undone first, like
 /// one history for the whole notebook. Every committed edit (ink, text,
 /// selection changes) counts, whether or not it came from a pointer, and
-/// in whichever view it was made.
+/// in whichever view it was made. Page-level changes ([PageEdit]s: a
+/// template, the page order, bookmarks, pages deleted) are steps of the
+/// same history, so Ctrl+Z takes back whatever was done last.
 class PageModels extends ChangeNotifier implements UndoTarget {
   final Map<String, SurfaceModel> _models = {};
   final Map<String, int> _users = {};
@@ -22,12 +35,13 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   /// The pages of every undo step across the notebook (most recent last),
   /// and of every undone step that can be redone. A step is usually one
   /// page's; a [group] (e.g. a selection moved across pages) lists each
-  /// page's own step in the order they were made.
-  final List<List<String>> _undoPages = [];
-  final List<List<String>> _redoPages = [];
+  /// page's own step in the order they were made. Entries are page ids or
+  /// [PageEdit]s.
+  final List<List<Object>> _undoPages = [];
+  final List<List<Object>> _redoPages = [];
 
   /// The steps made while a [group] runs.
-  List<String>? _grouping;
+  List<Object>? _grouping;
 
   /// [UndoHistory.recorded] of each page when last seen, to tell new undo
   /// steps from edits merged into the previous one.
@@ -59,7 +73,7 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   void retain(Set<String> pageIds) {
     for (final steps in [_undoPages, _redoPages]) {
       for (final step in steps) {
-        step.removeWhere((id) => !pageIds.contains(id));
+        step.removeWhere((id) => id is String && !pageIds.contains(id));
       }
       steps.removeWhere((step) => step.isEmpty);
     }
@@ -95,13 +109,46 @@ class PageModels extends ChangeNotifier implements UndoTarget {
     final recorded = model.history.recorded;
     if (_recorded[pageId] != recorded) {
       _recorded[pageId] = recorded;
-      final group = _grouping;
-      group == null ? _undoPages.add([pageId]) : group.add(pageId);
+      _add(pageId);
     }
+    _clearRedo();
+    notifyListeners();
+  }
+
+  /// Records [edit], already made, as an undo step (part of the running
+  /// [group], if any).
+  void record(PageEdit edit) {
+    _add(edit);
+    _clearRedo();
+    notifyListeners();
+  }
+
+  /// Takes back [edit] wherever it is in the history (a snack bar's Undo,
+  /// pressed after later edits): the latest step is undone as usual; an
+  /// older one is undone and dropped. False if [edit] is not undoable.
+  bool undoEdit(PageEdit edit) {
+    if (_undoPages.isNotEmpty && _undoPages.last.contains(edit)) {
+      undo();
+      return true;
+    }
+    final step = _undoPages.where((s) => s.contains(edit)).firstOrNull;
+    if (step == null) return false;
+    step.remove(edit);
+    if (step.isEmpty) _undoPages.remove(step);
+    edit.undo();
+    notifyListeners();
+    return true;
+  }
+
+  void _add(Object entry) {
+    final group = _grouping;
+    group == null ? _undoPages.add([entry]) : group.add(entry);
+  }
+
+  void _clearRedo() {
     final redone = _redoPages.isNotEmpty;
     _redoPages.clear();
     if (redone) _collect();
-    notifyListeners();
   }
 
   /// Runs [edits] — commits on several pages — as one notebook-wide undo
@@ -124,8 +171,8 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   @override
   bool get canRedo => _redoPages.any((step) => step.any(_canRedo));
 
-  bool _canUndo(String id) => _models[id]?.history.canUndo ?? false;
-  bool _canRedo(String id) => _models[id]?.history.canRedo ?? false;
+  bool _canUndo(Object id) => id is PageEdit || (_models[id]?.history.canUndo ?? false);
+  bool _canRedo(Object id) => id is PageEdit || (_models[id]?.history.canRedo ?? false);
 
   /// Undoes the most recent step on any page.
   @override
@@ -138,12 +185,17 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   /// Pops steps off [from] until one can step (a page's own history may
   /// be shorter, e.g. after its limit), steps each of its pages (backwards
   /// to undo) and pushes it onto [to].
-  void _step(List<List<String>> from, List<List<String>> to, {required bool undo}) {
+  void _step(List<List<Object>> from, List<List<Object>> to, {required bool undo}) {
     while (from.isNotEmpty) {
       final step = from.removeLast();
       final pages = undo ? step.reversed : step;
       var stepped = false;
       for (final id in pages) {
+        if (id is PageEdit) {
+          undo ? id.undo() : id.redo();
+          stepped = true;
+          continue;
+        }
         final model = _models[id];
         if (model == null || !(undo ? _canUndo(id) : _canRedo(id))) continue;
         undo ? model.undo() : model.redo();
