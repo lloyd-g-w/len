@@ -123,8 +123,10 @@ class _NotebookCardState extends State<NotebookCard> {
       ),
     );
     final showMore = Targets.touchFirst || _hovered || _focused || _menuOpen;
+    // One node for the card: the cover takes taps, its title and caption
+    // make the label; the ⋯ stays a button of its own.
     return Semantics(
-      label: '${_notebook.title}, ${widget.subtitle}',
+      container: true,
       selected: _selecting && _selected,
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
@@ -157,6 +159,8 @@ class _NotebookCardState extends State<NotebookCard> {
                     // The title is part of the target too.
                     Positioned.fill(
                       child: GestureDetector(
+                        // The card says its title and caption and takes taps.
+                        excludeFromSemantics: true,
                         behavior: HitTestBehavior.opaque,
                         onTap: _tap,
                         onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),

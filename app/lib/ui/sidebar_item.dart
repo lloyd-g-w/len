@@ -63,53 +63,57 @@ class _SidebarItemState extends State<SidebarItem> {
         ? Surfaces.hovered(scheme)
         : Colors.transparent;
     final foreground = selected ? scheme.primary : scheme.onSurface;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1),
-      child: AnimatedContainer(
-        duration: Motion.fast,
-        height: 40,
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(Radii.sm),
-          border: widget.dropActive ? Border.all(color: scheme.primary, width: 1.5) : null,
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
+    // Screen readers announce the current section.
+    return Semantics(
+      selected: selected,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 1),
+        child: AnimatedContainer(
+          duration: Motion.fast,
+          height: 40,
+          decoration: BoxDecoration(
+            color: background,
             borderRadius: BorderRadius.circular(Radii.sm),
-            onTap: widget.onTap,
-            onHover: (h) => setState(() => _hovered = h),
-            onSecondaryTapUp: widget.onSecondaryTapUp,
-            onLongPress: widget.onLongPress,
-            child: Padding(
-              padding: EdgeInsets.only(left: Gaps.md - 2 + widget.indent, right: Gaps.md),
-              child: Row(
-                children: [
-                  ?widget.leading,
-                  Icon(
-                    widget.icon,
-                    size: 20,
-                    fill: selected || widget.filled ? 1 : 0,
-                    color: widget.iconColor ?? (selected ? foreground : scheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(width: Gaps.md),
-                  Expanded(
-                    child: Text(
-                      widget.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: foreground,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            border: widget.dropActive ? Border.all(color: scheme.primary, width: 1.5) : null,
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(Radii.sm),
+              onTap: widget.onTap,
+              onHover: (h) => setState(() => _hovered = h),
+              onSecondaryTapUp: widget.onSecondaryTapUp,
+              onLongPress: widget.onLongPress,
+              child: Padding(
+                padding: EdgeInsets.only(left: Gaps.md - 2 + widget.indent, right: Gaps.md),
+                child: Row(
+                  children: [
+                    ?widget.leading,
+                    Icon(
+                      widget.icon,
+                      size: 20,
+                      fill: selected || widget.filled ? 1 : 0,
+                      color: widget.iconColor ?? (selected ? foreground : scheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(width: Gaps.md),
+                    Expanded(
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: foreground,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
-                  if (widget.count != null && widget.count! > 0)
-                    Text(
-                      '${widget.count}',
-                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                ],
+                    if (widget.count != null && widget.count! > 0)
+                      Text(
+                        '${widget.count}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

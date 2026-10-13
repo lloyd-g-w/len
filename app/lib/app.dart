@@ -9,6 +9,7 @@ import 'features/library/library_screen.dart';
 import 'features/settings/sync_attention.dart';
 import 'features/storage/storage_attention.dart';
 import 'ui/app_theme.dart';
+import 'ui/focus_ring.dart';
 import 'ui/messages.dart';
 import 'ui/system_bars.dart';
 import 'ui/touch_menus.dart';
@@ -102,7 +103,9 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
             darkTheme: _dark,
             themeMode: themeModeOf(preferences.themeMode),
             themeAnimationDuration: Motion.medium,
-            builder: (context, child) => SystemBars(child: TouchMenus(child: child!)),
+            builder: (context, child) => FocusRing(
+              child: SystemBars(child: TouchMenus(child: child!)),
+            ),
             scaffoldMessengerKey: _messenger,
             navigatorKey: _navigator,
             navigatorObservers: [widget.services.routeOwners],

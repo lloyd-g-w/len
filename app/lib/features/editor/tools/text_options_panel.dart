@@ -25,9 +25,10 @@ class TextOptionsPanel extends StatelessWidget {
           children: [
             OptionHeader(
               'Text',
-              trailing: TextButton(
-                onPressed: () => tools.textStyle = const TextData(),
-                child: const Text('Reset'),
+              trailing: ResetButton<TextData>(
+                value: style,
+                defaults: const TextData(),
+                onChanged: (s) => tools.textStyle = s,
               ),
             ),
             const SizedBox(height: Gaps.sm),

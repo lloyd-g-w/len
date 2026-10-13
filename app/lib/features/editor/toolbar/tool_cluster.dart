@@ -112,6 +112,9 @@ class ToolButton extends StatelessWidget {
     }
 
     return GestureDetector(
+      // The button speaks for the tool; a screen reader opens the options
+      // by activating the selected tool.
+      excludeFromSemantics: true,
       onLongPress: openOptions,
       onSecondaryTap: openOptions,
       child: IconButton(
@@ -121,7 +124,10 @@ class ToolButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         onPressed: selected ? openOptions : onSelect,
         style: IconButton.styleFrom(
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          // A 48-dp hit area on touch around the 40-dp visual.
+          tapTargetSize: Targets.touchFirst
+              ? MaterialTapTargetSize.padded
+              : MaterialTapTargetSize.shrinkWrap,
           foregroundColor: selected ? scheme.onSurface : scheme.onSurfaceVariant,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
         ),

@@ -59,6 +59,10 @@ extension ThemeComponents on ThemeData {
           minimumSize: const Size(64, 40),
           padding: const EdgeInsets.symmetric(horizontal: Gaps.lg + 2),
           elevation: 0,
+          // Disabled: no accent, but its label still reads (Material's 38 %
+          // was grey on grey on dark dialogs).
+          disabledBackgroundColor: scheme.onSurface.withValues(alpha: 0.12),
+          disabledForegroundColor: scheme.onSurfaceVariant,
           splashFactory: NoSplash.splashFactory,
         ),
       ),

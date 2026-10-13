@@ -28,7 +28,7 @@ class PenOptionsPanel extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FeelHeader('Pen settings', onReset: () => update((c) => c.withFeelDefaults(ink))),
+            FeelHeader('Pen settings', tools: tools, ink: ink),
             const SizedBox(height: Gaps.sm),
             PreviewCard(tool: ink, config: config),
             OptionSlider(

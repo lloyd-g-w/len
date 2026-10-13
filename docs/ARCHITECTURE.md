@@ -1348,7 +1348,7 @@ defaults as a whole.
 The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, hold to
 snap) and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
-lines, hold to snap); Reset restores the feel settings, not the slots. The
+lines, hold to snap); on their own, their Reset restores the feel settings. The
 tool options popover hosts them unchanged under *Feel* (`InkOptions`,
 `pen/ink_options.dart`), inside an `EmbeddedOptions` scope that makes
 their title row (`FeelHeader`) and `PreviewCard` step aside, since the
@@ -1395,8 +1395,10 @@ Page with template…).
   `showToolOptions`): `showAdaptivePopover`, anchored and 320 dp wide, a
   sheet on phones (the sheet covers the toolbar, so only it repeats the
   quick slots); the body scrolls with a fading edge (`ScrollFade`); edits
-  apply live. Every section starts with its title and Reset (`OptionHeader`;
-  none where there is nothing to reset) and picks colours with one block,
+  apply live. Every section starts with its title and Reset (`OptionHeader`,
+  `ResetButton`: every setting the section shows back to its defaults, then
+  Undo until something else changes; none where there is nothing to reset)
+  and picks colours with one block,
   `ColorChoices` (`ui/color_picker/color_choices.dart`: "Colour" with Custom,
   which opens the HSV picker in place, a palette, recent colours). Sections:
   inks (`InkOptions`: live preview, the selected slot's colour — the pen
@@ -1965,6 +1967,16 @@ Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActi
 actions, floating bar). `flows_screenshot_test.dart` and `overview_screenshot_test.dart` cover
 sheets, dialogs, empty states, selection, the page overview and 1.3× text; findings are tracked
 in `docs/UX_AUDIT.md`.
+
+Accessibility: `test/accessibility_test.dart` checks Flutter's guidelines (tap targets,
+labelled tap targets, WCAG text contrast measured in the test font) on the main screens,
+popovers and dialogs at phone and tablet sizes, light and dark, and at 2× text; known
+exceptions are listed there with their `UX_AUDIT` item. Icon-only controls need a tooltip or
+`semanticLabel`; colours are announced by name (`color_picker/color_names.dart`,
+`colorName`, also `ColorDot`'s default label); selected and expanded states go into
+`Semantics`. `FocusRing` (`focus_ring.dart`, in `MaterialApp.builder`) paints an accent ring
+around the focused control while the keyboard drives focus (not for text fields, scopes or
+areas over half the window), so no control needs a focus style of its own.
 
 Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
 canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar at every dock, its
