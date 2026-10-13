@@ -73,13 +73,18 @@ class _FakeChannel implements TabChannel {
 
 /// A tab running the handover protocol, with a log of what it did.
 class _Tab {
-  _Tab(this.name, _Locks locks, _Bus bus, this.log) : lock = _FakeLock(locks), handover = null {
+  _Tab(this.name, _Locks locks, _Bus bus, this.log, {bool reclaim = false})
+    : lock = _FakeLock(locks),
+      handover = null {
     handover = TabHandover(
       lock: lock,
       channel: _FakeChannel(bus),
       id: name,
       answerTimeout: const Duration(milliseconds: 100),
       yieldTimeout: const Duration(seconds: 2),
+      returnGrace: const Duration(milliseconds: 100),
+      reclaim: reclaim,
+      onHoldingChanged: (holding) => log.add('$name holding: $holding'),
     )..onHandedOver = () => log.add('$name handed over');
   }
 
@@ -120,7 +125,8 @@ void main() {
     log = [];
   });
 
-  _Tab tab(String name) => _Tab(name, locks, bus, log);
+  _Tab tab(String name, {bool reclaim = false}) => _Tab(name, locks, bus, log, reclaim: reclaim);
+  List<String> started() => log.where((e) => e.endsWith('started')).toList();
 
   test('the first tab starts; a second one waits', () async {
     final a = tab('a');
@@ -143,7 +149,16 @@ void main() {
     b.h.useHere();
     expect(b.h.state.value, WaitState.asking);
     await _settle();
-    expect(log, ['a started', 'a saving', 'a saved: true', 'a handed over', 'b started']);
+    expect(log, [
+      'a holding: true',
+      'a started',
+      'a saving',
+      'a saved: true',
+      'a holding: false',
+      'a handed over',
+      'b holding: true',
+      'b started',
+    ]);
     expect(locks.holder, b.lock);
     expect(a.h.holding, isFalse);
     expect(b.h.holding, isTrue);
@@ -199,7 +214,7 @@ void main() {
     b.h.useHere();
     await _settle();
     expect(b.started, isTrue);
-    expect(log.where((e) => e.endsWith('started')), ['a started', 'c started', 'b started']);
+    expect(started(), ['a started', 'c started', 'b started']);
   });
 
   test('closing the holder lets a waiting tab start', () async {
@@ -209,8 +224,43 @@ void main() {
     unawaited(b.claim());
     await _settle();
     a.lock.closeTab();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(b.started, isFalse, reason: 'gives a reload of the holder a moment first');
     await _settle();
     expect(b.started, isTrue);
+  });
+
+  test('a reload of the holder takes it back from a waiting tab', () async {
+    final a = tab('a');
+    await a.claim();
+    final b = tab('b');
+    unawaited(b.claim());
+    await _settle();
+    a.lock.closeTab(); // The reload unloads the page, releasing the lock.
+    final reloaded = tab('a2', reclaim: true);
+    unawaited(reloaded.claim());
+    await _settle();
+    expect(reloaded.started, isTrue);
+    expect(reloaded.waited, isFalse);
+    expect(b.started, isFalse);
+    expect(locks.holder, reloaded.lock);
+  });
+
+  test('a slow reload of the holder takes it back once the other tab saved', () async {
+    final a = tab('a');
+    await a.claim();
+    final b = tab('b');
+    unawaited(b.claim());
+    await _settle();
+    a.lock.closeTab();
+    await _settle(); // b started meanwhile.
+    b.canHandOver();
+    final reloaded = tab('a2', reclaim: true);
+    unawaited(reloaded.claim());
+    await _settle();
+    expect(started(), ['a started', 'b started', 'a2 started']);
+    expect(log, containsAllInOrder(['b saved: true', 'b handed over', 'a2 started']));
+    expect(locks.holder, reloaded.lock);
   });
 
   test('a second request while handing over is ignored', () async {
