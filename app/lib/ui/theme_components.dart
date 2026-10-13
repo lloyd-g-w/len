@@ -99,12 +99,6 @@ extension ThemeComponents on ThemeData {
         // in a lighter dialog or sheet.
         backgroundColor: Colors.transparent,
         selectedColor: Surfaces.pressed(scheme),
-        // Material's own chip colour fills unselected chips with the
-        // lowest container (near black in dark mode); this wins over it.
-        color: WidgetStateProperty.resolveWith(
-          (states) =>
-              states.contains(WidgetState.selected) ? Surfaces.pressed(scheme) : Colors.transparent,
-        ),
         elevation: 0,
         pressElevation: 0,
         iconTheme: const IconThemeData(size: Glyphs.menu),

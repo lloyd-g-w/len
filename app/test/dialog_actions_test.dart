@@ -57,4 +57,34 @@ void main() {
       expect(r.height, greaterThanOrEqualTo(Targets.touch));
     }
   });
+
+  testWidgets('at 1.3× text, content and actions share the same edge', (tester) async {
+    tester.view
+      ..physicalSize = const Size(390, 844)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(390, 844), textScaler: TextScaler.linear(1.3)),
+          child: Builder(
+            builder: (context) => AppDialog(
+              title: 'Rename',
+              content: const TextField(),
+              actions: [
+                TextButton(onPressed: () {}, child: const Text('Cancel')),
+                FilledButton(onPressed: () {}, child: const Text('Rename')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final field = tester.getRect(find.byType(TextField));
+    final title = tester.getRect(find.text('Rename').first);
+    final primary = tester.getRect(find.byType(FilledButton));
+    expect(field.left, moreOrLessEquals(title.left));
+    expect(field.right, moreOrLessEquals(primary.right));
+  });
 }

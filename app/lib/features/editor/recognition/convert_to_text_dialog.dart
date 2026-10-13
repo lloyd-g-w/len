@@ -10,6 +10,7 @@ import '../../../ink/recognition/recognition_service.dart';
 import '../../../ink/selection/selection_controller.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/chip_surface.dart';
 import '../../../ui/messages.dart';
 
 /// What the user chose in the "Convert to text" dialog.
@@ -233,20 +234,22 @@ class _ConvertDialogState extends State<_ConvertDialog> {
                 const SizedBox(height: Gaps.md),
                 Text('Alternatives', style: theme.textTheme.bodySmall),
                 const SizedBox(height: Gaps.xs),
-                Wrap(
-                  spacing: Gaps.sm,
-                  runSpacing: Gaps.xs,
-                  children: [
-                    for (final alt in [r.text, ...r.alternatives])
-                      ChoiceChip(
-                        label: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 200),
-                          child: Text(alt, maxLines: 2, overflow: TextOverflow.ellipsis),
+                ChipSurface(
+                  child: Wrap(
+                    spacing: Gaps.sm,
+                    runSpacing: Gaps.xs,
+                    children: [
+                      for (final alt in [r.text, ...r.alternatives])
+                        ChoiceChip(
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 200),
+                            child: Text(alt, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          ),
+                          selected: _text.text == alt,
+                          onSelected: (_) => _text.text = alt,
                         ),
-                        selected: _text.text == alt,
-                        onSelected: (_) => _text.text = alt,
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ],
