@@ -711,7 +711,7 @@ the tablet.)
 `test/perf/ink_render_perf_test.dart` (`tool/light.sh flutter test
 test/perf/ink_render_perf_test.dart`, ≈ 1.5 min) replays the scenarios on a
 1280 × 800 view at 2× (9 000 scribbles; 8 pages of 1 200; a 40 000-stroke
-canvas at 6 %) and counts the work: *vector screens* (screens' worth of
+canvas at 6 % and reopened at 10 %) and counts the work: *vector screens* (screens' worth of
 area drawn from chunk pictures instead of tiles), frames with vectors, tile
 renders, frames showing stale images. Frames are 16 ms apart and tile
 renders started in one frame finish before the next, as on a GPU (they
@@ -747,6 +747,23 @@ Further zooming within overview zooms re-renders nothing for pages (rasters
 are per level, not per zoom). Frame raster times on the CPU are noisy on a
 shared machine and draw more, smaller images at overview (6 per page):
 compare on the tablet. Not yet measured there.
+
+Round 5 (perf/persistent-lod): *reopen a big canvas at 10 %* (40 000
+strokes over 30 000 × 20 000, chunks 102 device px: level 128, synchronous
+reads on the test isolate) counts frames until every visible chunk shows its
+own raster. With a raster store (native) the view draws stored rasters and
+loads only chunks without one:
+
+| Run | frames | wall | strokes loaded | chunks rasterised | store reads / hits / writes |
+| --- | --- | --- | --- | --- | --- |
+| no store (web, and before) | 339 | 14.9 s | 9 373 | 442 | — |
+| first open, storing | 234 | 8.6 s | 7 807 | 442 | 442 / 0 / 442 |
+| reopened | 6 | 0.2 s | 0 | 0 | 442 / 442 / 0 |
+
+(Times are CPU rasterisation in a test; the frame counts and work are what
+compare. The first open loads fewer strokes than before: only visible
+chunks, not the ring around them.) Correctness — rasters never stale after
+an edit, undo, sync or emptied chunk — is `test/persistent_lod_test.dart`.
 
 ## Low-latency ink
 
