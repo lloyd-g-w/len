@@ -185,6 +185,19 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('the tool switcher lines up Insert with the tools', (tester) async {
+    await pumpEditor(tester, size: const Size(390, 844));
+    await tester.tap(find.byType(ToolSwitcherButton));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getCenter(find.text('Insert')).dy,
+      closeTo(tester.getCenter(find.text('Laser')).dy, 0.5),
+    );
+    await tester.tapAt(const Offset(200, 300));
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
   testWidgets('no divider trails the tools when the tool has no quick controls', (tester) async {
     await pumpEditor(tester, size: const Size(390, 844));
     double opacity() => tester
