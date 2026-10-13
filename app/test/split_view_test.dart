@@ -293,7 +293,8 @@ void main() {
     final (s, _) = await pumpEditor(tester, size: const Size(1280, 900));
     final tools = tester.widget<EditorToolbar>(find.byType(EditorToolbar)).tools;
     final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
-    bool chrome() => find.byTooltip('Undo (Ctrl+Z)').hitTestable().evaluate().isNotEmpty;
+    // The top bar's Undo (focus mode's puck has its own, later in the tree).
+    bool chrome() => find.byTooltip('Undo (Ctrl+Z)').first.hitTestable().evaluate().isNotEmpty;
     await tester.sendKeyEvent(LogicalKeyboardKey.f5);
     await tester.pumpAndSettle();
     expect(chrome(), isFalse);

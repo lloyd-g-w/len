@@ -464,4 +464,7 @@ Phase 1 comes first because every later phase then gets smaller.
   implied by `toolbarFloat` (x of 0 or 1 is a side). Focus mode shows the
   `ToolPuck` (active tool ▾ and undo; dragged and snapped like the palette,
   remembered in `puckFloat`) and a 32-dp exit button at 40 % until hovered
-  or touched. Not yet: the puck's two-finger hide, split focus dimming.
+  or touched. In split view the pane used last (first pointer contact or
+  keyboard focus) has full chrome; the other's bar and toolbar recede to
+  60 % (deviation: they don't collapse to the puck, which would re-lay out
+  the page each time focus moves). Not yet: the puck's two-finger hide.

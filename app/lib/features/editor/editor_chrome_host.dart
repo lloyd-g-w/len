@@ -124,7 +124,11 @@ class EditorChromeHost extends StatelessWidget {
     this.band = false,
     this.splitMenu,
     this.navigatorActivity,
+    this.dimmed = false,
   });
+
+  /// The other pane of a split view is in use: this pane's chrome dims.
+  final bool dimmed;
 
   final EditorSession session;
   final ChromeLayout layout;
@@ -190,6 +194,7 @@ class EditorChromeHost extends StatelessWidget {
         layout: layout,
         hud: hud,
         tips: tips,
+        dimmed: dimmed,
         notice: _missingPdfNotice(),
         onExitFocus: commands.toggleFocus,
         floatAt: prefs.toolbarFloat,
