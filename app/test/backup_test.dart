@@ -74,7 +74,7 @@ void main() {
     test('Settings says where notes are and when the last backup was', () {
       expect(
         BackupSettings.describe(syncing: false, android: false),
-        startsWith('Your notes are kept only on this device.'),
+        startsWith('Back up your library now and then'),
       );
       expect(BackupSettings.describe(syncing: true, android: true), contains('Android backup'));
       final now = DateTime(2026, 10, 13, 18);

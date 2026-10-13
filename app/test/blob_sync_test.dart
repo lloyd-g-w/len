@@ -385,7 +385,7 @@ void main() {
       );
       expect(find.text('1 file too large to sync'), findsOneWidget);
       expect(find.textContaining('the server accepts up to 100 bytes'), findsOneWidget);
-      expect(find.byTooltip('Synced — tap to sync now\n1 file too large to sync'), findsOneWidget);
+      expect(find.byTooltip('Synced: tap to sync now\n1 file too large to sync'), findsOneWidget);
 
       server.maxBlobBytes = 1000;
       await tester.runAsync(() => a.sync.retryTooLargeFiles());

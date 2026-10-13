@@ -7,20 +7,37 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/library/library_notice.dart';
 
-class _LastWeek extends Clock {
+class _DaysAgo extends Clock {
+  const _DaysAgo(this.days);
+
+  final int days;
+
   @override
-  int nowMs() => DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
+  int nowMs() => DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
 }
+
+int _daysAgo(int days) => DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
 
 void main() {
   const title = 'Your notes are only on this device';
 
-  Future<AppServices> pump(WidgetTester tester, {required bool oldNotes}) async {
+  Future<AppServices> pump(
+    WidgetTester tester, {
+    required bool oldNotes,
+    int notesAge = 7,
+    Size window = const Size(1280, 800),
+    int? lastBackupAt,
+  }) async {
+    tester.view
+      ..physicalSize = window
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final services = AppServices.create(
       AppDatabase.inMemory(),
-      clock: oldNotes ? _LastWeek() : const Clock(),
+      clock: oldNotes ? _DaysAgo(notesAge) : const Clock(),
     );
     addTearDown(services.dispose);
+    services.settings.lastBackupAt = lastBackupAt;
     services.notebooks.create(
       title: 'Lecture',
       kind: NotebookKind.paged,
@@ -43,6 +60,7 @@ void main() {
     final services = await pump(tester, oldNotes: true);
     expect(find.text(title), findsOneWidget);
     expect(find.text('Back up…'), findsOneWidget);
+    expect(find.text('Set up sync…'), findsOneWidget);
     await tester.tap(find.byTooltip('Dismiss'));
     await tester.pump();
     expect(find.text(title), findsNothing);
@@ -56,7 +74,7 @@ void main() {
 
   testWidgets('not once backed up', (tester) async {
     final services = await pump(tester, oldNotes: true);
-    services.settings.lastBackupAt = 1;
+    services.settings.lastBackupAt = _daysAgo(0);
     await tester.pumpWidget(
       AppScope(
         services: services,
@@ -67,6 +85,42 @@ void main() {
         ),
       ),
     );
+    expect(find.text(title), findsNothing);
+  });
+
+  testWidgets('phones get one line: the short title, Back up… and ✕ (R8-7)', (tester) async {
+    await pump(tester, oldNotes: true, window: const Size(390, 844));
+    expect(find.text(title), findsNothing);
+    expect(find.text('Only on this device'), findsOneWidget);
+    expect(find.text('Back up…'), findsOneWidget);
+    expect(find.text('Set up sync…'), findsNothing);
+    final notice = tester.getSize(find.byType(LibraryNotice));
+    expect(notice.height, lessThanOrEqualTo(49));
+  });
+
+  testWidgets('comes back once when the last backup is stale (R8-8)', (tester) async {
+    final stale = _daysAgo(40);
+    final services = await pump(tester, oldNotes: false, lastBackupAt: stale);
+    expect(find.text(title), findsOneWidget);
+    expect(find.textContaining('Your last backup is from'), findsOneWidget);
+    await tester.tap(find.byTooltip('Dismiss'));
+    await tester.pump();
+    expect(services.settings.seenTips, contains('${LibraryNotices.deviceOnlyTip}@$stale'));
+    await tester.pumpWidget(
+      AppScope(
+        services: services,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: LibraryNotices(key: ValueKey('again'), child: SizedBox()),
+          ),
+        ),
+      ),
+    );
+    expect(find.text(title), findsNothing);
+  });
+
+  testWidgets('not when nothing changed since a stale backup', (tester) async {
+    await pump(tester, oldNotes: true, notesAge: 60, lastBackupAt: _daysAgo(40));
     expect(find.text(title), findsNothing);
   });
 }

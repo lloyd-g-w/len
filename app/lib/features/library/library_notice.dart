@@ -7,8 +7,11 @@ import '../../app_services.dart';
 import '../../data/schema_reset.dart';
 import '../../platform/browser_storage.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/sync_status_button.dart';
 import '../backup/len_file_flows.dart';
+import '../settings/settings_screen.dart';
 import '../storage/storage_attention.dart';
+import 'library_format.dart';
 
 /// Puts a notice above the library's [child] while something needs the
 /// user's attention: changes that can't be saved yet (a full browser
@@ -29,8 +32,12 @@ class LibraryNotices extends StatefulWidget {
   /// The one-time tip id of the "may clear your data" notice.
   static const evictionTip = 'storage_not_persisted';
 
-  /// The one-time tip id of the "only on this device" notice.
+  /// The one-time tip id of the "only on this device" notice (a backup
+  /// that grew stale adds `@` and its time).
   static const deviceOnlyTip = 'notes_device_only';
+
+  /// How old a backup is before the notice comes back (once per backup).
+  static const staleAfter = Duration(days: 30);
 
   @override
   State<LibraryNotices> createState() => _LibraryNoticesState();
@@ -44,14 +51,28 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   /// Whether the browser may evict Len's data (null until known).
   bool? _evictable;
 
-  /// Whether to say (once) that notes are only on this device: there are
-  /// notebooks a day old or more (not on the first day, which the empty
-  /// library's "Set up sync…" covers).
-  late bool _deviceOnly =
-      !_services.settings.seenTips.contains(LibraryNotices.deviceOnlyTip) &&
-      _services.notebooks.list().any(
-        (n) => DateTime.now().millisecondsSinceEpoch - n.createdAt > Duration.millisecondsPerDay,
-      );
+  /// The tip id that dismisses the "only on this device" notice now:
+  /// once before the first backup, and once more per backup that grew
+  /// stale (R8-8). Null while it has nothing to say: no notebook a day
+  /// old or more (the empty library's "Set up sync…" covers the first
+  /// day), or a backup under [staleAfter] old, or nothing changed since.
+  String? _deviceOnlyTip() {
+    final notebooks = _services.notebooks.list();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final last = _services.settings.lastBackupAt;
+    final String tip;
+    if (last == null) {
+      if (!notebooks.any((n) => now - n.createdAt > Duration.millisecondsPerDay)) return null;
+      tip = LibraryNotices.deviceOnlyTip;
+    } else {
+      if (now - last < LibraryNotices.staleAfter.inMilliseconds) return null;
+      if (!notebooks.any((n) => n.editedAt > last)) return null;
+      tip = '${LibraryNotices.deviceOnlyTip}@$last';
+    }
+    return _services.settings.seenTips.contains(tip) ? null : tip;
+  }
+
+  late String? _deviceOnly = _deviceOnlyTip();
 
   @override
   void initState() {
@@ -60,9 +81,14 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   }
 
   void _dismissDeviceOnly() {
-    _services.settings.markTipSeen(LibraryNotices.deviceOnlyTip);
-    setState(() => _deviceOnly = false);
+    if (_deviceOnly case final tip?) _services.settings.markTipSeen(tip);
+    setState(() => _deviceOnly = null);
   }
+
+  void _setUpSync() => unawaited(
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen(showSync: true))),
+  );
 
   Future<void> _backUp() async {
     if (await backupLibraryFlow(context) && mounted) _dismissDeviceOnly();
@@ -93,10 +119,12 @@ class _LibraryNoticesState extends State<LibraryNotices> {
         icon: Symbols.save_sharp,
         title: StorageAttention.unsavedTitle,
         body: StorageAttention.unsavedBody(failure),
-        action: TextButton(
-          onPressed: () => unawaited(_services.writes.flush()),
-          child: const Text('Try again'),
-        ),
+        actions: [
+          TextButton(
+            onPressed: () => unawaited(_services.writes.flush()),
+            child: const Text('Try again'),
+          ),
+        ],
       );
     }
     if (!_services.blobsArePersistent) {
@@ -119,21 +147,31 @@ class _LibraryNoticesState extends State<LibraryNotices> {
           'Browsers can delete site data when space runs low. Let Len keep its data, '
           'or turn on sync for a copy on your server.',
       tone: NoticeTone.info,
-      action: TextButton(onPressed: () => unawaited(_keepData()), child: const Text('Keep data')),
+      actions: [
+        TextButton(onPressed: () => unawaited(_keepData()), child: const Text('Keep data')),
+      ],
       onDismiss: _dismiss,
     );
   }
 
   LibraryNotice? _deviceOnlyNotice() {
-    if (!_deviceOnly || _services.settings.lastBackupAt != null) return null;
+    if (_deviceOnly == null) return null;
+    final last = _services.settings.lastBackupAt;
     return LibraryNotice(
       icon: Symbols.devices_sharp,
       title: 'Your notes are only on this device',
-      body:
-          'Back up your library now and then, or set up sync to keep a copy on your server '
-          '(Settings).',
+      // Phones and short windows: one line, the title and "Back up…" (the
+      // explanation is in Settings → Backup; sync in the sidebar).
+      shortTitle: deviceOnlyCaption,
+      body: last == null
+          ? 'Back up your library now and then, or set up sync'
+          : 'Your last backup is from ${formatLibraryDate(last)}. Back up your library now '
+                'and then, or set up sync',
       tone: NoticeTone.info,
-      action: TextButton(onPressed: () => unawaited(_backUp()), child: const Text('Back up…')),
+      actions: [
+        TextButton(onPressed: () => unawaited(_backUp()), child: const Text('Back up…')),
+        TextButton(onPressed: _setUpSync, child: const Text('Set up sync…')),
+      ],
       onDismiss: _dismissDeviceOnly,
     );
   }
@@ -187,15 +225,20 @@ enum NoticeTone {
 /// A calm strip docked above the library (DESIGN §0: chrome is ruled
 /// paper): flat on the Board with a hairline under it, a glyph in the
 /// tone's colour on the margin column, a title and a sentence or two, with
-/// an optional [action] and ✕. No tinted plate.
+/// optional [actions] and ✕. No tinted plate.
+///
+/// With a [shortTitle], phones and short windows get one line instead
+/// (R8-7): the glyph, the short title, the first action and ✕, so the
+/// notice doesn't push the notebooks off the screen.
 class LibraryNotice extends StatelessWidget {
   const LibraryNotice({
     super.key,
     required this.icon,
     required this.title,
     required this.body,
+    this.shortTitle,
     this.detail,
-    this.action,
+    this.actions = const [],
     this.onDismiss,
     this.tone = NoticeTone.warning,
   });
@@ -204,11 +247,16 @@ class LibraryNotice extends StatelessWidget {
   final String title;
   final String body;
 
+  /// The one-line notice's title on phones and short windows (none: the
+  /// whole notice everywhere).
+  final String? shortTitle;
+
   /// Shown selectable under [body] (e.g. a file path to copy).
   final String? detail;
 
-  /// A button at the end (e.g. "Keep data").
-  final Widget? action;
+  /// Buttons at the end (e.g. "Keep data"); the one-line notice keeps
+  /// the first.
+  final List<Widget> actions;
 
   /// Shows ✕, which calls this.
   final VoidCallback? onDismiss;
@@ -220,62 +268,90 @@ class LibraryNotice extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final tint = tone == NoticeTone.warning ? scheme.error : scheme.primary;
+    final compact = Breakpoints.libraryCompact(MediaQuery.sizeOf(context));
     // The screen's margin column (DESIGN §3).
-    final margin = Breakpoints.libraryCompact(MediaQuery.sizeOf(context)) ? Gaps.lg : Gaps.xl;
+    final margin = compact ? Gaps.lg : Gaps.xl;
+    final oneLine = compact ? shortTitle : null;
+    final dismiss = onDismiss == null
+        ? null
+        : IconButton(
+            tooltip: 'Dismiss',
+            // 48 on touch, 40 with a pointer.
+            constraints: BoxConstraints.tightFor(
+              width: Targets.barHit(context),
+              height: Targets.barHit(context),
+            ),
+            icon: const Icon(Symbols.close_sharp, size: Glyphs.menu),
+            onPressed: onDismiss,
+          );
+    final glyph = Icon(icon, size: Glyphs.bar, color: tint);
     return Semantics(
       container: true,
       liveRegion: true,
       child: Container(
         padding: EdgeInsets.fromLTRB(
           margin,
-          Gaps.md,
-          onDismiss == null ? margin : Gaps.sm,
-          action == null ? Gaps.md : Gaps.xs,
+          oneLine != null ? 0 : Gaps.md,
+          dismiss == null ? margin : Gaps.sm,
+          oneLine != null ? 0 : (actions.isEmpty ? Gaps.md : Gaps.xs),
         ),
+        constraints: BoxConstraints(minHeight: Targets.barHit(context)),
         decoration: BoxDecoration(
           color: Surfaces.chrome(scheme),
           border: Border(bottom: Surfaces.chromeEdge(scheme)),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: Gaps.xxs),
-              child: Icon(icon, size: Glyphs.bar, color: tint),
-            ),
-            const SizedBox(width: Gaps.md),
-            Expanded(
-              child: Column(
+        child: oneLine != null
+            ? Row(
+                children: [
+                  glyph,
+                  const SizedBox(width: Gaps.md),
+                  Expanded(
+                    child: Text(
+                      oneLine,
+                      style: theme.textTheme.labelLarge,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (actions.isNotEmpty) actions.first,
+                  ?dismiss,
+                ],
+              )
+            : Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: theme.textTheme.labelLarge),
-                  const SizedBox(height: Gaps.xxs),
-                  Text(
-                    body,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                  Padding(
+                    padding: const EdgeInsets.only(top: Gaps.xxs),
+                    child: glyph,
                   ),
-                  if (detail case final detail?) ...[
-                    const SizedBox(height: Gaps.xxs),
-                    SelectableText(detail, style: theme.textTheme.bodySmall),
-                  ],
-                  if (action case final action?)
-                    Align(alignment: AlignmentDirectional.centerEnd, child: action),
+                  const SizedBox(width: Gaps.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: theme.textTheme.labelLarge),
+                        const SizedBox(height: Gaps.xxs),
+                        Text(
+                          body,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                        if (detail case final detail?) ...[
+                          const SizedBox(height: Gaps.xxs),
+                          SelectableText(detail, style: theme.textTheme.bodySmall),
+                        ],
+                        if (actions.isNotEmpty)
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Wrap(spacing: Gaps.xs, children: actions),
+                          ),
+                      ],
+                    ),
+                  ),
+                  ?dismiss,
                 ],
               ),
-            ),
-            if (onDismiss case final dismiss?)
-              IconButton(
-                tooltip: 'Dismiss',
-                // 48 on touch, 40 with a pointer.
-                constraints: BoxConstraints.tightFor(
-                  width: Targets.barHit(context),
-                  height: Targets.barHit(context),
-                ),
-                icon: const Icon(Symbols.close_sharp, size: Glyphs.menu),
-                onPressed: dismiss,
-              ),
-          ],
-        ),
       ),
     );
   }

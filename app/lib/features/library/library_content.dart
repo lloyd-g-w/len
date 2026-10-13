@@ -81,6 +81,9 @@ class LibraryContent extends StatelessWidget {
         ? FolderRow.strip(folders: folders, actions: actions, recent: recent)
         : null;
     final inlineFolders = strip != null && !_c.isSearching;
+    // Phones under the Recent row: the folders take one line that scrolls
+    // sideways too, so the first covers stay above the fold (R8-7).
+    final folderStrip = compact && recent.isNotEmpty;
     final rule = Theme.of(context).colorScheme.outlineVariant;
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
@@ -172,7 +175,21 @@ class LibraryContent extends StatelessWidget {
                   ),
                 ),
               ),
-            if (folders.isNotEmpty)
+            if (folders.isNotEmpty && folderStrip)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(gutter, Gaps.sm, gutter, 0),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FolderRow.strip(folders: folders, actions: actions),
+                      const SizedBox(height: Gaps.sm),
+                      Divider(height: Hairline.width, color: rule),
+                    ],
+                  ),
+                ),
+              )
+            else if (folders.isNotEmpty)
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(gutter, Gaps.md, gutter, 0),
                 sliver: SliverToBoxAdapter(

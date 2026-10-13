@@ -50,7 +50,7 @@ grew apart.
 5. R8-24 (P1) Highlighted PDF text can't be selected with the pen any more.
 6. R8-25 (P1) A scribble erases along the whole stroke, not just where it
    zigzagged, and can wipe an outline it filled in.
-7. R8-7 (P1) Phones: the notice, Recent and folders push the first cover
+7. ✅ R8-7 (P1) Phones: the notice, Recent and folders push the first cover
    below the middle of the screen. Held sideways, the notice takes 27 % of
    the height.
 8. R8-26 (P1) Scribble to erase and hold to snap are never taught. They sit
@@ -136,7 +136,7 @@ grew apart.
 
 ### Library
 
-**R8-7 P1 · Phones: chrome pushes the notebooks off the screen.**
+**✅ R8-7 P1 · Phones: chrome pushes the notebooks off the screen.**
 - *What:* `library_phone_light.png` stacks four bands above the first
   cover, which starts 55 % of the way down the screen:
   - the "only on this device" notice: four lines, with "Back up…" on a
@@ -157,7 +157,9 @@ grew apart.
   - On phones, folders take one sideways-scrolling row (`FolderRow.strip`)
     when the Recent row is shown.
 
-**R8-8 P2 · The device-only notice: parenthetical copy, one action, and
+*Done (`fix/r8-library`):* on phones and short windows the device-only notice is one line (`LibraryNotice.shortTitle`: "Only on this device", Back up…, ✕; 49 dp), and under the Recent row the folders take one sideways line (`FolderRow.strip`). The first covers start at about 36 % of a portrait phone, under one row of chrome sideways.
+
+**✅ R8-8 P2 · The device-only notice: parenthetical copy, one action, and
 it never comes back.**
 - *What:* the body ends with "(Settings)" and offers only "Back up…"
   (`library_notice.dart:128-140`). After one backup, `lastBackupAt != null`
@@ -169,7 +171,9 @@ it never comes back.**
   - With sync off, show the notice again (once) when the last backup is
     over 30 days old and notebooks have changed since.
 
-**R8-9 P2 · "Local only" against "only on this device".**
+*Done (`fix/r8-library`):* the body reads "Back up your library now and then, or set up sync", with Back up… and Set up sync…. Without sync, the notice comes back once per backup when it is over 30 days old and a notebook changed since (`LibraryNotices.staleAfter`, tip id `notes_device_only@<time>`), saying when the last backup was.
+
+**✅ R8-9 P2 · "Local only" against "only on this device".**
 - *What:* the sidebar says "Local only" (`ui/sync_status_button.dart:15`).
   The notice, Settings → Sync (`sync_status_line.dart:32`) and Settings →
   Backup (`backup_settings.dart:25`) say "only on this device". R7-12
@@ -180,6 +184,8 @@ it never comes back.**
   - The caption reads "On this device".
   - With sync off, Backup's description drops its first sentence and
     starts with "Back up your library now and then…".
+
+*Done (`fix/r8-library`):* one phrase, `deviceOnlyCaption` "Only on this device" (sidebar caption, one-line notice; sentences say "only on this device"). The sidebar stacks the caption under Settings while sync is off, so it is never cut. Backup's description starts with "Back up your library now and then…" with sync off. The sync tooltip lost its dash ("Synced: tap to sync now").
 
 **R8-10 P2 · Recent: noise and lost slots.**
 - *What:* notebooks at the root are captioned "Library"

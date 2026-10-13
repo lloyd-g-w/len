@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/folder.dart';
+import '../../sync/sync_controller.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/section_label.dart';
 import '../../ui/sidebar_item.dart';
@@ -133,15 +134,23 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     );
   }
 
-  /// Settings and the sync status side by side; stacked at large text, so
-  /// both keep their words.
-  Widget _footer(BuildContext context) {
+  /// Settings and the sync status side by side; stacked at large text and
+  /// while sync is off ("Only on this device" is long), so both keep their
+  /// words.
+  Widget _footer(BuildContext context) => ListenableBuilder(
+    listenable: _controller.services.sync,
+    builder: (context, _) => _footerRow(context),
+  );
+
+  Widget _footerRow(BuildContext context) {
     final settings = SidebarItem(
       icon: Symbols.settings_sharp,
       label: 'Settings',
       onTap: widget.onOpenSettings,
     );
-    final large = MediaQuery.textScalerOf(context).scale(1) >= 1.15;
+    final large =
+        MediaQuery.textScalerOf(context).scale(1) >= 1.15 ||
+        _controller.services.sync.state == SyncState.disabled;
     final sync = SyncStatusButton(
       sync: _controller.services.sync,
       onOpenSettings: widget.onOpenSyncSettings ?? widget.onOpenSettings,
