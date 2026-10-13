@@ -68,7 +68,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _actions = LibraryActions(controller: _controller, thumbnails: _thumbnails);
     _scope = _scopeKey;
     // Selection belongs to one place: leaving it ends selection mode, and
-    // notebooks that disappear (trashed, moved by sync) are deselected.
+    // notebooks that disappear (trashed, moved by sync, filtered out by
+    // the search) are deselected. Searching stays in the place: what is
+    // selected and still matches stays selected (UX_AUDIT #20).
     _controller.addListener(() {
       final scope = _scopeKey;
       if (scope != _scope) {
@@ -94,8 +96,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
   }
 
-  /// Where the library is: section, folder and search.
-  String get _scopeKey => '${_controller.section}/${_controller.folderId}/${_controller.query}';
+  /// Where the library is: section and folder (not the search, which only
+  /// narrows what is shown).
+  String get _scopeKey => '${_controller.section}/${_controller.folderId}';
   String _scope = '';
 
   /// Opens imported notebooks in editor tabs, the last one shown.

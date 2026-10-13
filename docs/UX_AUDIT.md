@@ -521,8 +521,10 @@ settings — at the four sizes, light and dark, and at 1.3× text.
     sheet): format, pages or range, templates & PDF backgrounds (PNGs at 288 dpi).
 19. ✅ Paper-colour chips wrap to two rows on phones in the template picker.
     → Even rows (`EvenChoices`): four in a row when they fit, else 2 × 2.
-20. ⬜ Typing a search ends selection mode (selection is scoped to the
+20. ✅ Typing a search ends selection mode (selection is scoped to the
     place, search included); keep it if the selected notebooks match.
+    → The place is the section and folder only: searching keeps selection
+    mode and the selected notebooks that still match.
 21. ✅ Template picker had one flat set of 10 templates. → Categories (Basic,
     Writing, Planners, Paper, My templates) as chips, search, planners with
     dates ("Add 31 pages"), an Import tile and per-template menu (rename,
