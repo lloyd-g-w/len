@@ -138,6 +138,25 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('a damaged PDF is refused and leaves no blob behind', skip: pdfium == null, (
+      tester,
+    ) async {
+      final services = AppServices.create(
+        AppDatabase.inMemory(),
+        blobBackend: FileBlobBackend(dir.path),
+      );
+      await pumpLibrary(tester, services: services);
+      final file = (await tester.runAsync(() async {
+        return File('${dir.path}/broken.pdf')..writeAsStringSync('%PDF-1.7 not really');
+      }))!;
+      services.incomingFiles.add([XFile(file.path)]);
+      final failure = find.textContaining('Couldn’t open “broken.pdf”');
+      await settleReal(tester, () => failure.evaluate().isNotEmpty);
+      expect(notebooks(services), isEmpty);
+      expect(services.database.db.select('SELECT * FROM blobs'), isEmpty);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('into the open notebook: pages after the current one', skip: pdfium == null, (
       tester,
     ) async {
