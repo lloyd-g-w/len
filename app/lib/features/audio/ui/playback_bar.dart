@@ -51,20 +51,32 @@ class PlaybackBar extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: Gaps.xxs),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Up to two lines (the time and Trim keep the first one's
+                // height), the whole title on hover.
                 Expanded(
-                  child: Text(
-                    recording.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelLarge,
+                  child: Tooltip(
+                    message: recording.title,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        recording.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: Gaps.sm),
-                Text(
-                  '${formatClock(playback.positionMs - playback.startMs)} / '
-                  '${formatClock(recording.lengthMs)}',
-                  style: small,
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    '${formatClock(playback.positionMs - playback.startMs)} / '
+                    '${formatClock(recording.lengthMs)}',
+                    style: small,
+                  ),
                 ),
                 IconButton(
                   tooltip: 'Trim…',

@@ -289,7 +289,9 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
     checkboxes (28 dp) are under 48 dp on phones. → `EvenGrid(touchTargets:)`
     gives swatch cells 48 dp on phones (visuals unchanged, the whole
     cell takes taps); the checkmark never was a target (the whole cover is).
-22. 🟡 The playback bar truncates the title (title and time share one row);
+22. ✅ The playback bar truncates the title (title and time share one row);
+    → the title wraps to two lines (time and Trim stay on the first), the
+    whole title on hover;
     ✅ the paused recorder shows "Paused" in place of the level meter and
     Resume is a play icon.
 23. ✅ List view shows the favourite star twice (cover badge plus column).
