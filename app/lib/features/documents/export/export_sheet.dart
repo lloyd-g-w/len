@@ -168,7 +168,8 @@ class _ExportSheetState extends State<ExportSheet> {
         ),
         Flexible(child: body),
         ExportSheetFooter(
-          summary: options?.summary ?? 'Check the page range',
+          // A bad range says so in its field only.
+          summary: options?.summary ?? '',
           onExport: options == null ? null : () => Navigator.of(context).pop(options),
           onSaveToDevice: !widget.offerSaveToDevice || options == null
               ? null
