@@ -225,26 +225,39 @@ void main() {
   });
 
   test('building a 1000-point stroke stays fast', () {
-    final long = [
-      for (var i = 0; i < 1000; i++)
+    List<StrokePoint> stroke(int n) => [
+      for (var i = 0; i < n; i++)
         StrokePoint(
           i * 0.8 + 3 * math.sin(i / 9),
           12 * math.sin(i / 14) + 0.15 * math.sin(i * 2.3),
           0.5 + 0.2 * math.sin(i / 30),
         ),
     ];
-    for (var i = 0; i < 20; i++) {
-      StrokeOutline.build(long, ballpoint, complete: false);
+    // Milliseconds per build: the best of several batches, so a busy
+    // machine (preemption, a GC pause) does not count.
+    double best(List<StrokePoint> points) {
+      for (var i = 0; i < 20; i++) {
+        StrokeOutline.build(points, ballpoint, complete: false);
+      }
+      var best = double.infinity;
+      for (var batch = 0; batch < 8; batch++) {
+        final watch = Stopwatch()..start();
+        for (var i = 0; i < 10; i++) {
+          StrokeOutline.build(points, ballpoint, complete: false);
+        }
+        best = math.min(best, watch.elapsedMicroseconds / 10 / 1000);
+      }
+      return best;
     }
-    final watch = Stopwatch()..start();
-    const runs = 50;
-    for (var i = 0; i < runs; i++) {
-      StrokeOutline.build(long, ballpoint, complete: false);
-    }
-    final ms = watch.elapsedMicroseconds / runs / 1000;
+
+    final short = best(stroke(250));
+    final long = best(stroke(1000));
     // ignore: avoid_print
-    print('1000-point outline: ${ms.toStringAsFixed(2)} ms');
-    expect(ms, lessThan(4));
+    print('outline: 250 points ${short.toStringAsFixed(2)} ms, 1000 ${long.toStringAsFixed(2)} ms');
+    // ≈ 2.6 ms on the dev machine (JIT): generous, it catches blow-ups.
+    expect(long, lessThan(10));
+    // Linear in length (4×), whatever the machine's speed.
+    expect(long / short, lessThan(6));
   });
 }
 
