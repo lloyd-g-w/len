@@ -2,11 +2,11 @@ import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
-import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/canvas/zoom_indicator.dart';
 import 'package:len/features/editor/document/document_controller.dart';
@@ -187,6 +187,29 @@ void main() {
       expect(doc.viewport.offset - before, const Offset(0, -120));
       await _close(tester);
     });
+  });
+
+  testWidgets('keys scroll and zoom a paged notebook; arrows move a canvas', (tester) async {
+    await _pump(tester);
+    final doc = _doc(tester);
+    final (scale, offset) = (doc.viewport.scale, doc.viewport.offset);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(doc.viewport.offset.dy - offset.dy, closeTo(-0.15 * 1200, 0.5));
+    await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+    await tester.pumpAndSettle();
+    expect(doc.viewport.scale, closeTo(scale * 1.25, 1e-6));
+    await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+    await tester.pumpAndSettle();
+    expect(doc.viewport.scale, closeTo(scale, 1e-6));
+    await _close(tester);
+
+    await _pump(tester, canvas: true);
+    final viewport = tester.widget<ZoomIndicator>(find.byType(ZoomIndicator)).viewport;
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(viewport.offset.dx, closeTo(-0.15 * 800, 0.5));
+    await _close(tester);
   });
 
   testWidgets('on a canvas, a pinch ending near 100 % snaps to it', (tester) async {

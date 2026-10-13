@@ -108,6 +108,14 @@ final List<ShortcutGroup> shortcutGroups = [
       SingleActivator(LogicalKeyboardKey.home),
       SingleActivator(LogicalKeyboardKey.end),
     ], shown: 'Home / End'),
+    ShortcutHelp('Scroll', [
+      SingleActivator(LogicalKeyboardKey.arrowUp),
+      SingleActivator(LogicalKeyboardKey.arrowDown),
+    ], shown: '↑ / ↓'),
+    ShortcutHelp('Zoom in / out', [
+      SingleActivator(LogicalKeyboardKey.equal),
+      SingleActivator(LogicalKeyboardKey.minus),
+    ], shown: '+ / −'),
     ShortcutHelp('Automatic zoom', [SingleActivator(LogicalKeyboardKey.digit0)]),
     ShortcutHelp('Whole page', [SingleActivator(LogicalKeyboardKey.digit1, shift: true)]),
     ShortcutHelp('Page width', [SingleActivator(LogicalKeyboardKey.digit2, shift: true)]),
@@ -121,6 +129,12 @@ final List<ShortcutGroup> shortcutGroups = [
     const ShortcutHelp('Fit the content', [
       SingleActivator(LogicalKeyboardKey.digit1, shift: true),
     ]),
+    const ShortcutHelp('Move around', [
+      SingleActivator(LogicalKeyboardKey.arrowLeft),
+      SingleActivator(LogicalKeyboardKey.arrowUp),
+      SingleActivator(LogicalKeyboardKey.arrowRight),
+      SingleActivator(LogicalKeyboardKey.arrowDown),
+    ], shown: '← ↑ → ↓'),
     const ShortcutHelp('Back to the start', [SingleActivator(LogicalKeyboardKey.home)]),
   ]),
   ShortcutGroup('Text boxes', [
