@@ -74,9 +74,19 @@ class OutlineRepository extends SyncableTable {
   });
 
   /// Copies the outline of notebook [from] to [to] under new ids, mapping
-  /// pages through [pages] (original page id → copy).
-  void copyAll(String from, String to, Map<String, String> pages) => database.transaction(() {
-    final entries = entriesOf(from);
+  /// pages through [pages] (original page id → copy); with [onlyPages],
+  /// only the entries of those pages (one whose parent stays behind goes
+  /// to the top level). Returns the new entries' ids.
+  List<String> copyAll(
+    String from,
+    String to,
+    Map<String, String> pages, {
+    bool onlyPages = false,
+  }) => database.transaction(() {
+    final entries = [
+      for (final e in entriesOf(from))
+        if (!onlyPages || pages.containsKey(e.pageId)) e,
+    ];
     final ids = {for (final e in entries) e.id: clock.newId()};
     for (final e in entries) {
       _write(
@@ -93,6 +103,7 @@ class OutlineRepository extends SyncableTable {
         dirty: true,
       );
     }
+    return ids.values.toList();
   });
 
   void _tombstone(String id, [int? version]) => db.execute(

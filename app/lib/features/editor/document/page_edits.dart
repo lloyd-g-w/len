@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../data/page_repository.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
@@ -72,6 +74,37 @@ class PageEdits {
       () => actions.restoreAll(deleted),
       () => deleted = actions.deleteAll(pages),
       keepOnUndo: pages.first.id,
+    );
+  }
+
+  /// Copies [pages] to the end of notebook [to] and, unless [copy], deletes
+  /// them here (a move), as one step (UX_AUDIT R7-9); undo takes the copies
+  /// back and restores the pages. [changed] runs after each change to [to]
+  /// (its open views reload).
+  PageEdit sendTo(
+    List<NotebookPage> pages,
+    String to, {
+    required bool copy,
+    required VoidCallback changed,
+  }) {
+    final notebooks = actions.services.notebooks;
+    final ids = [for (final p in pages) p.id];
+    var copied = notebooks.copyPages(actions.notebookId, ids, to);
+    var deleted = copy ? const <DeletedPage>[] : actions.deleteAll(pages);
+    notebooks.touch(to);
+    changed();
+    return _record(
+      () {
+        notebooks.removeCopies(copied);
+        if (!copy) actions.restoreAll(deleted);
+        changed();
+      },
+      () {
+        copied = notebooks.copyPages(actions.notebookId, ids, to);
+        if (!copy) deleted = actions.deleteAll(pages);
+        changed();
+      },
+      keepOnUndo: copy ? null : pages.first.id,
     );
   }
 

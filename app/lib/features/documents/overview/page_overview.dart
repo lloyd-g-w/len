@@ -133,6 +133,9 @@ class _PageOverviewState extends State<PageOverview> {
             await widget.handlers.command(context, PageCommand.duplicate, p);
           }
         }
+      case SelectionAction.send:
+        await widget.handlers.sendMany?.call(context, pages);
+        if (mounted) setState(() => _selection = null);
       case SelectionAction.template:
         await widget.handlers.templateMany?.call(context, pages);
       case SelectionAction.export:
@@ -198,6 +201,7 @@ class _PageOverviewState extends State<PageOverview> {
                 offered: {
                   SelectionAction.bookmark,
                   SelectionAction.duplicate,
+                  if (widget.handlers.sendMany != null) SelectionAction.send,
                   if (widget.handlers.templateMany != null) SelectionAction.template,
                   if (widget.handlers.exportMany != null) SelectionAction.export,
                   SelectionAction.delete,

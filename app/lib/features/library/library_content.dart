@@ -188,7 +188,9 @@ class LibraryContent extends StatelessWidget {
           ],
           if (notebooks.isNotEmpty || newTile) ...[
             SliverToBoxAdapter(
-              child: SizedBox(height: short ? Gaps.md : (folders.isEmpty && recent.isEmpty ? Gaps.lg : Gaps.xl)),
+              child: SizedBox(
+                height: short ? Gaps.md : (folders.isEmpty && recent.isEmpty ? Gaps.lg : Gaps.xl),
+              ),
             ),
             // A search lists titles and pages alike, as rows.
             if (fullText)

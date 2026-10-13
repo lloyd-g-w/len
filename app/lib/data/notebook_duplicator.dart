@@ -3,8 +3,10 @@ import 'dart:convert';
 import '../domain/chunk_digest.dart';
 import '../domain/link_target.dart';
 import '../domain/notebook.dart';
+import '../domain/recording.dart';
 import '../domain/surface_element.dart';
 import 'notebook_repository.dart';
+import 'page_order.dart';
 import 'row_copier.dart';
 import 'stroke_queries.dart';
 
@@ -57,6 +59,99 @@ class NotebookDuplicator {
     return repo.get(copyId);
   }
 
+  /// Copies pages [pageIds] of notebook [from] (in that order) to the end
+  /// of notebook [to] (UX_AUDIT R7-9): each page with its paper and
+  /// background, its strokes and elements (links among the copied pages
+  /// lead to the copies), its outline entries, and the recordings its ink
+  /// was written during (unless [to] has them already), so it replays
+  /// there too. Returns what was made, for [removeCopies].
+  CopiedPages copyPages(String from, List<String> pageIds, String to) {
+    final repo = _notebooks;
+    final now = repo.clock.nowMs();
+    final copier = RowCopier(repo.db);
+    final stamp = {'updated_at': now, 'device_id': repo.deviceId, 'deleted': 0, 'dirty': 1};
+    return repo.database.transaction(() {
+      final live = {for (final p in repo.pages.pagesOf(from)) p.id: p};
+      final pages = [for (final id in pageIds) ?live[id]];
+      final last = repo.pages.pagesOf(to).lastOrNull?.sortKey;
+      final keys = PageOrder.spread(last, null, pages.length)!;
+      final surfaces = <String, String>{};
+      for (final (i, page) in pages.indexed) {
+        final pageId = repo.clock.newId();
+        copier.copy('pages', page.id, {
+          ...stamp,
+          'id': pageId,
+          'notebook_id': to,
+          'sort_key': keys[i],
+        });
+        surfaces[page.id] = pageId;
+      }
+      surfaces.forEach((from, to) {
+        _copyContent(copier, 'strokes', 'stroke_chunks', 'stroke_id', from, to, stamp);
+        _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp);
+      });
+      _relink(from, to, surfaces);
+      final outline = repo.outline?.copyAll(from, to, surfaces, onlyPages: true) ?? const [];
+      return CopiedPages(
+        pages: surfaces.values.toList(),
+        outline: outline,
+        recordings: _copyRecordingsOf(copier, from, to, surfaces.values, stamp),
+      );
+    });
+  }
+
+  /// Takes back [copyPages]: the copied pages with their content, outline
+  /// entries and recordings.
+  void removeCopies(CopiedPages copied) {
+    final repo = _notebooks;
+    repo.database.transaction(() {
+      for (final id in copied.pages) {
+        repo.deletePage(id);
+      }
+      for (final id in copied.outline) {
+        repo.outline?.delete(id);
+      }
+      repo.recordings?.deleteAll(copied.recordings);
+    });
+  }
+
+  /// Copies the recordings of notebook [from] during which the ink on
+  /// [surfaces] (of notebook [to]) was written, except those [to] has
+  /// already (the same audio from the same moment); returns the copies.
+  List<String> _copyRecordingsOf(
+    RowCopier copier,
+    String from,
+    String to,
+    Iterable<String> surfaces,
+    Map<String, Object?> stamp,
+  ) {
+    final repo = _notebooks;
+    final recordings = repo.recordings;
+    if (recordings == null || surfaces.isEmpty) return const [];
+    final marks = List.filled(surfaces.length, '?').join(', ');
+    final times = [
+      for (final table in ['strokes', 'elements'])
+        for (final r in repo.db.select(
+          'SELECT created_at FROM $table WHERE surface_id IN ($marks) AND deleted = 0',
+          surfaces.toList(),
+        ))
+          r['created_at'] as int,
+    ];
+    String key(Recording r) => '${r.startedAt}:${r.blobs.join(',')}';
+    final there = {for (final r in recordings.listOf(to)) key(r)};
+    return [
+      for (final r in recordings.listOf(from))
+        if (!there.contains(key(r)) && times.any((t) => r.inkPositionOf(t) != null))
+          _copyRecording(copier, r.id, to, stamp),
+    ];
+  }
+
+  String _copyRecording(RowCopier copier, String id, String to, Map<String, Object?> stamp) {
+    final copy = _notebooks.clock.newId();
+    copier.copy('recordings', id, {...stamp, 'id': copy, 'notebook_id': to});
+    return copy;
+  }
+
   /// Points the copied link elements that lead to a page of notebook
   /// [from] at that page's copy in [to], so the copy's links stay inside
   /// it (links to other notebooks, or to pages since deleted, are kept).
@@ -100,7 +195,7 @@ class NotebookDuplicator {
         .map((r) => r['id'] as String)
         .toList();
     for (final id in ids) {
-      copier.copy('recordings', id, {...stamp, 'id': repo.clock.newId(), 'notebook_id': to});
+      _copyRecording(copier, id, to, stamp);
     }
   }
 
@@ -132,4 +227,14 @@ class NotebookDuplicator {
       );
     }
   }
+}
+
+/// What [NotebookDuplicator.copyPages] made: page, outline entry and
+/// recording ids.
+class CopiedPages {
+  const CopiedPages({required this.pages, required this.outline, required this.recordings});
+
+  final List<String> pages;
+  final List<String> outline;
+  final List<String> recordings;
 }

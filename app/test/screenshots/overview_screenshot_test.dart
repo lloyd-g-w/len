@@ -4,6 +4,7 @@ import 'package:len/app_services.dart';
 import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/features/documents/overview/notebook_picker.dart';
 import 'package:len/features/editor/document/page_overview.dart';
 
 import 'screenshot_harness.dart';
@@ -22,6 +23,16 @@ void main() {
       // As in the editor: the selection can be exported and retemplated.
       exportMany: (context, pages) async {},
       templateMany: (context, pages) async {},
+      // The real picker, without sending anything.
+      sendMany: (context, pages) => pickPageDestination(
+        context,
+        title: 'Move or copy ${pages.length} pages',
+        notebooks: [
+          for (final n in s.notebooks.list())
+            if (n.kind == NotebookKind.paged && n.id != notebookId) n,
+        ],
+        caption: (n) => n.folderId == null ? 'Library' : s.folders.get(n.folderId!)!.name,
+      ),
     ),
   );
 
@@ -59,6 +70,11 @@ void main() {
         await settle(tester);
         expect(find.text('2 selected'), findsOneWidget);
         await shoot(tester, 'overview_select_${name}_${mode.name}');
+        await tester.tap(find.text('Move to…'));
+        await settle(tester);
+        await tester.tap(find.text('Meeting notes'));
+        await settle(tester);
+        await shoot(tester, 'overview_move_${name}_${mode.name}');
         expect(nb.kind, NotebookKind.paged);
       });
     }
