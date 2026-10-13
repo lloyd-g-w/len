@@ -44,6 +44,12 @@ class BlobStore {
       database.db.select('SELECT size FROM blobs WHERE sha256 = ?', [sha]).firstOrNull?['size']
           as int?;
 
+  /// The blob's MIME type as stored, or `application/octet-stream`.
+  String mimeOf(String sha) =>
+      database.db.select('SELECT mime FROM blobs WHERE sha256 = ?', [sha]).firstOrNull?['mime']
+          as String? ??
+      'application/octet-stream';
+
   /// The file holding the blob on platforms with files, else null. Lets
   /// large PDFs be opened without reading them into memory.
   String? localPath(String sha) => backend.localPath(_checked(sha));
@@ -75,6 +81,33 @@ class BlobStore {
       if (!await has(sha)) await backend.write(sha, source.openRead());
       _record(sha, await source.length(), mime, uploaded: false);
       return sha;
+    });
+  }
+
+  /// Stores blob [sha] from [open] (called once to check the bytes hash to
+  /// [sha], once more to store them; e.g. a Len file's entry) and returns
+  /// whether it was new here. Throws [FormatException] if the bytes don't
+  /// match, before anything is stored.
+  Future<bool> putVerified(
+    String sha,
+    Stream<List<int>> Function() open, {
+    required String mime,
+  }) async {
+    _checked(sha);
+    if (await has(sha)) return false;
+    var size = 0;
+    final actual = await hashStream(
+      open().map((chunk) {
+        size += chunk.length;
+        return chunk;
+      }),
+    );
+    if (actual != sha) throw FormatException('Blob $sha is damaged');
+    return _exclusive(() async {
+      if (await has(sha)) return false;
+      if (!await backend.contains(sha)) await backend.write(sha, open());
+      _record(sha, size, mime, uploaded: false);
+      return true;
     });
   }
 

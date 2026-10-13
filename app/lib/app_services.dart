@@ -7,6 +7,7 @@ import 'core/clock.dart';
 import 'core/pointer_activity.dart';
 import 'data/app_database.dart';
 import 'data/app_preferences.dart';
+import 'data/archive/len_archives.dart';
 import 'data/blob_backend.dart';
 import 'data/blob_gc.dart';
 import 'data/blob_references.dart';
@@ -255,6 +256,13 @@ class AppServices {
     references: BlobReferences(database),
     settings: settings,
     tombstones: TombstonePayloads(database: database, strokes: strokes, elements: elements),
+  );
+
+  /// Len files: notebooks, folders and library backups (see `LenFormat`).
+  late final LenArchives lenFiles = LenArchives(
+    tables: [folders, templates, notebooks, pages, outline, recordings, strokes, elements],
+    blobs: blobs,
+    deviceId: strokes.deviceId,
   );
 
   /// Decoded bitmaps of image elements, shared by editors and previews.
