@@ -298,7 +298,7 @@ void main() {
           kind: NotebookKind.paged,
           seed: (s, nb) => _recording(s, nb.id, title: 'Seminar'),
         );
-        if (size.width < 600) {
+        if (size.width < 600 || size.height < 480) {
           await tester.tap(find.byTooltip('More options'));
           await tester.pumpAndSettle();
           await tester.tap(find.text('Recordings'));
@@ -386,7 +386,6 @@ void main() {
   for (final size in const [
     Size(640, 900),
     Size(700, 900),
-    Size(844, 390),
     Size(800, 1280),
     Size(1100, 800),
     Size(1280, 800),

@@ -7,7 +7,6 @@ import '../../../app_services.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/templates/user_template.dart';
 import '../../../ui/app_theme.dart';
-import '../../../ui/chip_surface.dart';
 import '../../../ui/scroll_fade.dart';
 import 'template_catalog.dart';
 import 'template_gallery.dart';
@@ -15,8 +14,9 @@ import 'template_options.dart';
 import 'user_templates.dart';
 
 /// Everything about the paper of new or existing pages, shared by the
-/// template picker and the new-notebook sheet: search and category
-/// filters, the gallery (with My templates), planner dates, paper colour
+/// template picker and the new-notebook sheet: search, the gallery
+/// (grouped under category headings, which are the only filter besides
+/// search) (with My templates), planner dates, paper colour
 /// and page size — stacked (scrolled by the parent), or [split]: the
 /// gallery left and the options (with a preview) in a column on the
 /// right, each scrolling on its own so the options stay in view.
@@ -58,7 +58,6 @@ class TemplateChooser extends StatefulWidget {
 class _TemplateChooserState extends State<TemplateChooser> {
   final _query = TextEditingController();
   final _optionsKey = GlobalKey();
-  TemplateCategory? _category;
   List<UserTemplate> _mine = const [];
   AppServices? _services;
 
@@ -119,8 +118,6 @@ class _TemplateChooserState extends State<TemplateChooser> {
       for (final section in templateSections(
         canvas: widget.canvas,
         query: _query.text,
-        // A search looks through every category.
-        only: _query.text.trim().isEmpty ? _category : null,
         mine: _mine,
       ))
         // Without the app's services (standalone use) there is no My templates.
@@ -128,8 +125,6 @@ class _TemplateChooserState extends State<TemplateChooser> {
     ];
     final gallery = <Widget>[
       _searchField(theme),
-      const SizedBox(height: Gaps.sm),
-      _categoryChips(),
       const SizedBox(height: Gaps.lg),
       if (sections.isEmpty)
         Padding(
@@ -209,45 +204,4 @@ class _TemplateChooserState extends State<TemplateChooser> {
             ),
     ),
   );
-
-  Widget _categoryChips() {
-    final searching = _query.text.trim().isNotEmpty;
-    final categories = [
-      null,
-      for (final c in TemplateCategory.values)
-        if (_offered(c)) c,
-    ];
-    return ChipSurface(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        // Chips scroll out to the sheet edge rather than being cut at the inset.
-        clipBehavior: Clip.none,
-        child: Row(
-          children: [
-            for (final c in categories)
-              Padding(
-                padding: const EdgeInsets.only(right: Gaps.sm),
-                child: ChoiceChip(
-                  key: ValueKey('category-${c?.name ?? 'all'}'),
-                  showCheckmark: false,
-                  label: Text(c?.label ?? 'All'),
-                  // A search looks through every category, and says so.
-                  selected: searching ? c == null : _category == c,
-                  onSelected: (_) => setState(() {
-                    _query.clear();
-                    _category = c;
-                  }),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  bool _offered(TemplateCategory c) => switch (c) {
-    TemplateCategory.mine => !widget.canvas && _services != null,
-    TemplateCategory.planners => !widget.canvas,
-    _ => true,
-  };
 }

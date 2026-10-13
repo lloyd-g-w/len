@@ -115,7 +115,7 @@ this menu once the context menu's Select is the documented way (one home).
 
 ### Editor chrome
 
-⬜ **R6-2 P1 · A phone held sideways gets tablet chrome.** Dock and tab strip
+✅ **R6-2 P1 · A phone held sideways gets tablet chrome.** Dock and tab strip
 are chosen by width only: `dockFor` (`features/editor/editor_chrome_host.dart:50-59`)
 returns `row` at 844 dp (two rows: bar 52 + tools 48), and `showsStrip`
 (`chrome/editor_top_bar.dart:84-86`) adds the 40-dp tab strip with two or
@@ -126,8 +126,14 @@ No screenshot covers it. *Fix:* below `Breakpoints.shortHeight` use one row:
 the inline dock (tools centred; `fitsOneRow` with the title dropped first)
 and no tab strip (tabs move to ⋯ → Open notebooks, as on phones). Add
 `editor_phone_sideways` renders.
+*Done (`fix/r6-editor`):* below `Breakpoints.shortHeight` the dock is
+`ToolbarDock.slim`: one 52-dp row with ← ▦, the title when it has room, the
+phone's switcher, previous tool and quick controls, then ↶ (↷) ⋯; no tab
+strip (tabs and audio in ⋯; recording controls dock at the bottom as on
+phones). Wide short windows whose full tools fit keep the inline bar.
+Renders: `editor_phone_sideways_*`.
 
-⬜ **R6-4 P1 · Tablet portrait with tabs: three chrome rows.**
+✅ **R6-4 P1 · Tablet portrait with tabs: three chrome rows.**
 `e_tabs_tablet_portrait_*`: tab strip (40), then a bar that hides its title
 (`showTitle: !strip || split`, `chrome/editor_top_bar.dart:132`) and keeps only
 ← ▦ on the left and 🎙 ↶ ↷ ⋯ on the right, then the tool row (48). About
@@ -135,8 +141,12 @@ and no tab strip (tabs move to ⋯ → Open notebooks, as on phones). Add
 shows and the dock is `row`, drop the middle bar. Put ← ▦ at the start of
 the tool row and 🎙 ↶ ↷ ⋯ at its end (the row is centred and has room at
 800 dp), or put them at the ends of the tab strip.
+*Done (`fix/r6-editor`):* the tool row has no room for them at 800 dp on
+touch, so ← ▦ and 🎙 ↶ ↷ ⋯ sit at the ends of the tab strip (52 dp) over
+the tool row: two rows, 100 dp. The active tab names the notebook (double
+tap renames). Split views keep both bars, which name each pane.
 
-⬜ **R6-14 P2 · Gesture undo is never taught.** Tap to undo (two fingers) and
+✅ **R6-14 P2 · Gesture undo is never taught.** Tap to undo (two fingers) and
 redo (three) are on by default, but the only tip is the side button
 (`features/editor/chrome/editor_tips.dart:12-15`). The gestures are described
 only in Settings ("Two fingers undo, three redo"). A daily S Pen user keeps
@@ -144,6 +154,9 @@ reaching for ↶ at the top of a phone, the farthest point from the bottom
 tool row. *Fix:* a second tip, offered after the third ↶ tap on a touch
 device: "Tap with two fingers to undo, three to redo". Same
 `TipsController`, once per device.
+*Done (`fix/r6-editor`):* `EditorTip.gestureUndo`, offered on the third ↶
+tap in an editor on a touch-first device with finger-tap undo on
+(`TipsController.undoTapped`); once per device, never with a pointer.
 
 ### Pens, colours, tools
 
@@ -165,7 +178,7 @@ Custom ▸ HSV), laid out with `EvenGrid`. One colour picker everywhere.
 step); paper/pattern "Custom colour…" swatches open `pickCustomColor`
 (square, hue, hex). The old picker's swatch grid and recent row are gone.
 
-⬜ **R6-15 P2 · "Hold to snap shapes" lives in three places, one of them
+✅ **R6-15 P2 · "Hold to snap shapes" lives in three places, one of them
 above a Reset that ignores it.** `HoldToSnapSwitch` is one global setting.
 It shows in the pen's Feel (`features/editor/pen/pen_options_panel.dart:50`),
 the highlighter's Feel (`highlighter_options_panel.dart:52`) and the Shapes
@@ -176,8 +189,11 @@ resettable but is neither. *Fix:* one home, the Shapes popover (where shapes
 are). Or, if it stays in Feel for discoverability, move it out of the
 disclosure into its own row under Size, so Reset feel covers exactly what's
 above it.
+*Done (`fix/r6-editor`):* one home, the Shapes popover (`ShapeOptionsPanel`,
+under a rule); gone from the pen's and the highlighter's Feel, so Reset feel
+covers only per-pen settings.
 
-⬜ **R6-16 P2 · The lasso popover is three lines of hints.** Tapping the
+✅ **R6-16 P2 · The lasso popover is three lines of hints.** Tapping the
 active lasso opens a popover with no controls
 (`features/editor/tools/lasso_options_panel.dart`): "Circle ink, text or
 images…", "Drag to move them…", "To select PDF text, long-press it". Every
@@ -185,6 +201,10 @@ other popover is a place to change something, and you open this one again
 and again by habit. *Fix:* show the hints once as a tip the first time the
 lasso is picked, and either give the lasso a real option (GoodNotes-style:
 what it selects: ink, images, text; or freeform/rectangle) or open nothing.
+*Done (`fix/r6-editor`):* no popover; tapping the active lasso does nothing
+(its tooltip still names it). The first time it is picked, a one-time tip
+says "Circle ink, text or images to select them" (with "; long-press PDF
+text" in notebooks with PDF pages). The tip's ✕ is a full touch target now.
 
 ### Pages, templates
 
@@ -198,14 +218,16 @@ and Change template already has "All pages". *Fix:* add Export… (opens the
 export sheet with the selection as the custom range) and Change template…
 (applied to the selection) to the bar, or behind a ⋯ in it.
 
-⬜ **R6-18 P2 · The primary button names the same act two ways.** The template
+✅ **R6-18 P2 · The primary button names the same act two ways.** The template
 picker says "Apply" in Change template and "Use template" in Canvas
 background and when creating (`features/documents/template_picker.dart:231-233`).
 Background… on a canvas is a change too. *Fix:* "Apply" for every change of
 an existing page or canvas. "Use template" stays only where the picker
 chooses for something not created yet (the new notebook's More…).
+*Done (`fix/r6-editor`):* "Apply" for Change template and Canvas
+background; "Use template" only when creating.
 
-⬜ **R6-19 P2 · Template filter chips repeat the gallery's headings and cut
+✅ **R6-19 P2 · Template filter chips repeat the gallery's headings and cut
 mid-word on phones.** The chooser has search, a chip row (All, Paper,
 Writing, Planners, My templates; `features/documents/templates/template_chooser.dart:213-245`)
 and a gallery grouped under the same headings. On a 390-dp sheet the row
@@ -213,6 +235,8 @@ scrolls off as "My t" (`e_dialog_add_page_template_phone_*`,
 `templates_picker_*`). *Fix:* see S3. Drop the chips, keep search, and let
 the headings be the categories (jump links in the wide dialog's left column
 if anything).
+*Done (`fix/r6-editor`):* the chips are gone (and `templateSections`'
+`only` filter); search plus the gallery's headings remain. No jump links.
 
 ### Dialogs, fields and copy
 
@@ -249,6 +273,9 @@ loudest thing on an empty screen for the least important act. *Fix:* drop
 the stops. Make Clear search a quiet `TextButton`. Extend
 `test/copy_rules_test.dart` to the record/switch tuples and `_toast` calls
 it misses today.
+*Partly done (`fix/r6-editor`):* the canvas hint lost its stops; the
+library's strings, Clear search and the copy test are left to the library
+branch.
 
 ⬜ **R6-22 P2 · The trash's subtitle differs by width.** "Kept for 30 days" on
 phones, "1 notebook, deleted forever after 30 days" on wide screens
@@ -296,10 +323,10 @@ with the form filled (`IncomingFiles.syncSetup`). Connect stays the user's.
 |---|---|---|---|
 | S1 ✅ | Settings "Draw with" becomes the "Draw with finger" switch (R6-9) | Automatic is a first-run state, not a choice; one control shape in both homes | `features/settings/writing_settings.dart`, `chrome/editor_more_menu.dart` |
 | S2 ✅ | No ✕ on wide dialogs that have Cancel (R6-8) | Two exits on one form; DESIGN §6.3 | `ui/sheet_parts.dart` (`SheetHeader`) |
-| S3 | Template chooser: drop the category chips (R6-19) | Search plus headings already filter; the chips repeat the headings and cut off on phones | `features/documents/templates/template_chooser.dart` |
+| S3 ✅ | Template chooser: drop the category chips (R6-19) | Search plus headings already filter; the chips repeat the headings and cut off on phones | `features/documents/templates/template_chooser.dart` |
 | S4 | Folder delete: no confirm (or none for empty folders); the snack's Undo restores it | Trashing a notebook has no confirm and relies on Undo; deleting an empty folder asks "The folder is empty." (`library_actions.dart:241-252`) | `features/library/library_actions.dart` |
-| S5 | Lasso: no hint popover (R6-16) | A popover with nothing to set | `features/editor/tools/lasso_options_panel.dart`, `editor_tools.dart` |
-| S6 | "Hold to snap shapes" in one place (R6-15) | One global switch, three homes | `pen/pen_options_panel.dart`, `pen/highlighter_options_panel.dart`, `editor_tools.dart` |
+| S5 ✅ | Lasso: no hint popover (R6-16) | A popover with nothing to set | `features/editor/tools/lasso_options_panel.dart`, `editor_tools.dart` |
+| S6 ✅ | "Hold to snap shapes" in one place (R6-15) | One global switch, three homes | `pen/pen_options_panel.dart`, `pen/highlighter_options_panel.dart`, `editor_tools.dart` |
 | S7 ✅ | Cover: the colour applies on tap, Undo in a snack; no Apply/Cancel | The preview is the result; four taps for one colour | `features/library/dialogs/cover_sheet.dart`, `library_actions.dart:168-172` |
 | S8 ✅ | `showTextPrompt` loses its `icon` parameter (R6-20) | One field style | `ui/text_prompt.dart` |
 | S9 ✅ | One colour picker (R6-6): `pickColor` built on `ColorChoices` | Two pickers with different layouts, sizes and order | `ui/color_picker/` |

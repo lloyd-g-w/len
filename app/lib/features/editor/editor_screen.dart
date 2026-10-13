@@ -145,11 +145,11 @@ class _EditorScreenState extends State<_EditorView> {
   /// notebook's editors.
   NotebookAudio get _audio => _shared.audio;
 
-  /// One-time tips (stylus side button, multi-finger taps).
+  /// One-time tips (stylus side button, the undo gesture, the lasso).
   late final TipsController _tips = TipsController(
     seen: (id) => _services.settings.seenTips.contains(id),
     markSeen: _services.settings.markTipSeen,
-  );
+  )..followTools(_session.tools, hasPdf: () => _session.pdf?.hasPdf ?? false);
 
   /// In-notebook search, Ctrl+F (features/search).
   late final EditorSearchController _search;
@@ -432,7 +432,9 @@ class _EditorScreenState extends State<_EditorView> {
     final tabs = open.contains(_notebook.id) && !widget.secondPane ? open : null;
     // The second pane's bar lines up with the first's tab strip.
     final primaryWidth = widget.secondPane ? SplitView.primaryWidthOf(context) : null;
-    final band = primaryWidth != null && EditorTopBar.showsStrip(primaryWidth, open);
+    final band =
+        primaryWidth != null &&
+        EditorTopBar.showsStrip(Size(primaryWidth, MediaQuery.sizeOf(context).height), open);
     // Back (e.g. Android's) leaves focus mode before leaving the editor.
     return PopScope(
       canPop: !_focus,
@@ -515,15 +517,16 @@ class _EditorScreenState extends State<_EditorView> {
     bool band,
   ) {
     final layout = _toolbar.layout(
-      width: constraints.maxWidth,
+      size: constraints.biggest,
       safe: MediaQuery.paddingOf(context),
       tabs: tabs,
       focus: _focus,
       band: band,
+      split: widget.split?.isSplit ?? false,
     );
     _session.setChromeInsets(layout.covered);
     widget.messageInset.value = layout.covered.bottom;
-    _guard.laidOut(constraints.maxWidth);
+    _guard.laidOut(compact: layout.compactBar);
     return CanvasGuardScope(
       guard: _guard,
       child: Listener(

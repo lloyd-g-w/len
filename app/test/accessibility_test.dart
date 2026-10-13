@@ -85,6 +85,7 @@ const Map<String, String> knownSmallTargets = {
 /// test can't swap for boxes, so it measures anti-aliased glyph edges.
 const Map<String, String> knownContrast = {
   'label: "Sans", tooltip: "Font"': 'the font menu shows the font in itself',
+  'label: "Planners"': 'at the template gallery\'s bottom edge, inside its scroll fade',
 };
 
 /// [reason] without the nodes [known] allows; null if none is left.
@@ -155,7 +156,7 @@ final Map<String, List<Finder> Function()> editorStates = {
   'pen options': () => [find.byTooltip('Pen (P)')],
   'highlighter options': () => toolOptions('Highlighter (H)'),
   'eraser options': () => toolOptions('Eraser (E)'),
-  'lasso options': () => toolOptions('Lasso (L)'),
+  'lasso tip': () => [find.byTooltip('Lasso (L)')],
   'shape options': () => toolOptions('Shapes (S)'),
   'text options': () => toolOptions('Text (T)'),
   'laser options': () => toolOptions('Laser pointer (K)'),

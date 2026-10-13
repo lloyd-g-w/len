@@ -193,8 +193,7 @@ void main() {
       );
       await settle(tester);
       await shoot(tester, 'templates_picker_${name}_all');
-      await tester.ensureVisible(find.byKey(const ValueKey('category-planners')));
-      await tester.tap(find.byKey(const ValueKey('category-planners')));
+      await tester.ensureVisible(find.text('Monthly calendar'));
       await settle(tester);
       await tester.tap(find.text('Monthly calendar'));
       await settle(tester);

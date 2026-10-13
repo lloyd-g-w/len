@@ -94,6 +94,7 @@ class EditorLayers extends StatelessWidget {
             audio: audio,
             session: session,
             chromeInsets: layout.covered,
+            compactBar: layout.compactBar,
             canvasPaper: notebook.paperColor,
           ),
         ),

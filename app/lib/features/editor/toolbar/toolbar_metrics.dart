@@ -6,6 +6,7 @@ import '../../../ui/app_theme.dart';
 import '../chrome/bar_button.dart';
 import '../chrome/chrome_metrics.dart';
 import '../editor_tools.dart';
+import 'tool_switcher.dart';
 
 /// Sizes of the toolbar's parts, so the chrome can decide (before laying
 /// anything out) whether the tools fit inside the top bar on one row.
@@ -84,6 +85,11 @@ abstract final class ToolbarMetrics {
   /// the attached row or the floating palette.
   static double group(ToolSettings tools, {bool compact = false}) =>
       cluster(compact: compact) + divider + strip(tools, compact: compact);
+
+  /// The switcher, the previous tool, a divider and the reserved strip:
+  /// the group a short window's bar carries ([ToolbarDock.slim]).
+  static double slim(ToolSettings tools) =>
+      ToolSwitcherButton.width + PreviousToolButton.width + divider + strip(tools);
 
   /// The narrowest the title may get before the bar becomes two rows.
   static const double minTitle = 120;

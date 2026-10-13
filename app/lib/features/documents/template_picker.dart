@@ -230,8 +230,10 @@ class _TemplatePickerState extends State<TemplatePicker> {
       onPressed: _done,
       child: Text(switch (widget.mode) {
         TemplatePickerMode.addPage => count == 1 ? 'Add page' : 'Add $count pages',
-        TemplatePickerMode.change => 'Apply',
-        _ => 'Use template',
+        // A change to something that exists applies; the new notebook's
+        // first page is chosen.
+        TemplatePickerMode.change || TemplatePickerMode.canvas => 'Apply',
+        TemplatePickerMode.create => 'Use template',
       }),
     );
     final buttons = OverflowBar(

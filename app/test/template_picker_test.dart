@@ -85,7 +85,7 @@ void main() {
       expect(planners.single.$2.map((e) => e.name), contains('Monthly calendar'));
       expect(templateSections(query: 'zzz'), isEmpty);
       expect(
-        templateSections(only: TemplateCategory.paper).single.$2.map((e) => e.name),
+        templateSections().firstWhere((s) => s.$1 == TemplateCategory.paper).$2.map((e) => e.name),
         containsAll(['Blank', 'Dotted', 'Graph paper', 'Engineering', 'Storyboard', 'Music staff']),
       );
       final canvas = templateSections(canvas: true).expand((s) => s.$2).toList();
@@ -146,7 +146,8 @@ void main() {
         ),
       ),
     );
-    await _tapKey(tester, 'category-planners');
+    await tester.enterText(find.byKey(const ValueKey('template-search')), 'planner');
+    await tester.pumpAndSettle();
     expect(find.text('Daily planner'), findsOneWidget);
     expect(find.text('Dotted'), findsNothing);
     expect(find.text('Add page'), findsNWidgets(2)); // Title and button: one month.
@@ -170,20 +171,10 @@ void main() {
     expect(find.text('Dotted'), findsOneWidget);
   });
 
-  testWidgets('a search shows All; a category ends the search', (tester) async {
+  testWidgets('no category chips: the headings are the categories', (tester) async {
     await _open(tester, mode: TemplatePickerMode.create);
-    ChoiceChip chip(String key) => tester.widget<ChoiceChip>(find.byKey(ValueKey(key)));
-    await _tapKey(tester, 'category-planners');
-    expect(chip('category-planners').selected, isTrue);
-    await tester.enterText(find.byKey(const ValueKey('template-search')), 'engin');
-    await tester.pumpAndSettle();
-    expect(find.text('Engineering'), findsOneWidget);
-    expect(chip('category-all').selected, isTrue);
-    expect(chip('category-planners').selected, isFalse);
-    await _tapKey(tester, 'category-writing');
-    expect(chip('category-writing').selected, isTrue);
-    expect(find.text('Engineering'), findsNothing);
-    expect(find.text('Cornell notes'), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(find.text('Planners'), findsOneWidget);
   });
 
   testWidgets('choosing a template returns it', (tester) async {
@@ -301,7 +292,8 @@ void main() {
     );
 
     final choice = await _open(tester, mode: TemplatePickerMode.create, services: services);
-    await _tapKey(tester, 'category-mine');
+    await tester.ensureVisible(find.text('Lab sheet'));
+    await tester.pumpAndSettle();
     expect(find.text('Lab sheet'), findsOneWidget);
     expect(find.text('Import…'), findsOneWidget);
 
@@ -323,7 +315,8 @@ void main() {
     expect(choice()!.template.size, const Size(1000, 750));
 
     await _open(tester, mode: TemplatePickerMode.create, services: services);
-    await _tapKey(tester, 'category-mine');
+    await tester.ensureVisible(find.text('Lab'));
+    await tester.pumpAndSettle();
     await tester.longPress(find.text('Lab'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete…'));

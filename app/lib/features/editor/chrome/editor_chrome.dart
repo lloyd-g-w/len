@@ -25,6 +25,7 @@ class ChromeLayout {
     required this.hasNavigator,
     required this.width,
     required this.focus,
+    this.short = false,
   });
 
   /// Where the toolbar is.
@@ -39,8 +40,15 @@ class ChromeLayout {
   final double width;
   final bool focus;
 
+  /// A short window (a phone held sideways): the chrome is one row.
+  final bool short;
+
   /// Whether the editor is laid out for a phone.
   bool get phone => width < ChromeMetrics.compactWidth;
+
+  /// Whether the top bar is the phone's compact one (back, undo, redo, ⋯;
+  /// audio and the open notebooks in ⋯): phones and short windows.
+  bool get compactBar => phone || dock == ToolbarDock.slim;
 
   /// Height of the tool row attached under the top bar (0 without one).
   double get toolRowHeight => dock == ToolbarDock.row ? ToolbarMetrics.rowHeight : 0;

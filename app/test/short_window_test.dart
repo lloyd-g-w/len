@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/features/editor/toolbar/tool_switcher.dart';
 
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
 import 'ui_library_test.dart' show pumpLibrary;
@@ -75,7 +76,12 @@ void main() {
       },
     );
     await _check(tester, 'pen options', () async {
-      await tester.tap(find.byTooltip('Pen (P)'));
+      // One row of chrome: the phone's switcher sits in the bar.
+      await tester.longPress(find.byType(ToolSwitcherButton));
+      await tester.pumpAndSettle();
+    });
+    await _check(tester, 'tool switcher', () async {
+      await tester.tap(find.byType(ToolSwitcherButton));
       await tester.pumpAndSettle();
     });
     await _check(tester, 'text box', () async {

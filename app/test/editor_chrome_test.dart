@@ -185,6 +185,13 @@ void main() {
     expect(find.byTooltip('Pen (P)'), findsNothing); // The switcher shows the tool.
     expect(tester.getCenter(find.byType(ToolSwitcherButton)).dy, greaterThan(760));
     await closeEditor(tester);
+
+    // A phone held sideways: one row, the switcher inside the top bar.
+    await pumpEditor(tester, size: const Size(844, 390));
+    expect(dock(), ToolbarDock.slim);
+    expect(tester.getCenter(find.byType(ToolSwitcherButton)).dy, lessThan(60));
+    expect(tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.covered.top, 52);
+    await closeEditor(tester);
   });
 
   testWidgets('the tool switcher lines up Insert with the tools', (tester) async {

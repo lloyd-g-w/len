@@ -5,8 +5,10 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/tabs/editor_workspace.dart';
+import 'package:len/features/editor/tabs/notebook_tab_strip.dart';
 import 'package:len/features/editor/tabs/open_notebooks.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/ui/app_theme.dart';
@@ -148,4 +150,52 @@ void main() {
     expect(find.byType(LibraryScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final (size, strip, top) in const [
+    // Tablet portrait: ← ▦ and the actions at the strip's ends, the tools
+    // under it; two rows, not three.
+    (Size(800, 1280), true, 52.0 + 48),
+    // A phone held sideways: one row; the tabs are in ⋯.
+    (Size(844, 390), false, 52.0),
+  ]) {
+    testWidgets('tabs at $size: chrome $top dp tall', (tester) async {
+      tester.view
+        ..physicalSize = size
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final s = AppServices.create(AppDatabase.inMemory());
+      addTearDown(s.dispose);
+      for (final title in ['Physics', 'Chemistry']) {
+        final nb = s.notebooks.create(
+          title: title,
+          kind: NotebookKind.paged,
+          paper: PaperStyle.wideRuled,
+          coverColor: 0,
+        );
+        s.openNotebooks.open(nb);
+      }
+      await tester.pumpWidget(
+        AppScope(
+          services: s,
+          child: MaterialApp(theme: AppTheme.light(), home: const EditorWorkspace()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final chrome = tester.widget<EditorChrome>(find.byType(EditorChrome));
+      expect(chrome.layout.covered.top, top);
+      expect(find.byType(NotebookTabStrip), strip ? findsOneWidget : findsNothing);
+      if (strip) {
+        final tab = tester.getCenter(find.byType(NotebookTabStrip)).dy;
+        expect(tester.getCenter(find.byTooltip('Back')).dy, tab);
+        expect(tester.getCenter(find.byTooltip('More options')).dy, tab);
+      } else {
+        await tester.tap(find.byTooltip('More options'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Open notebooks'), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    });
+  }
 }
