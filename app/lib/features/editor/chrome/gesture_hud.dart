@@ -45,7 +45,7 @@ class HudController extends ValueNotifier<HudMessage?> {
   }
 }
 
-/// The HUD pill (centred near the top of the canvas), fading in and out.
+/// The HUD slip (centred near the top of the canvas), fading in and out.
 class GestureHud extends StatelessWidget {
   const GestureHud({super.key, required this.controller});
 
@@ -55,6 +55,7 @@ class GestureHud extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme.labelLarge;
+    final drop = Motion.reduced(context) ? Offset.zero : const Offset(0, -0.1);
     return IgnorePointer(
       child: ValueListenableBuilder(
         valueListenable: controller,
@@ -64,8 +65,10 @@ class GestureHud extends StatelessWidget {
           switchOutCurve: Motion.exit,
           transitionBuilder: (child, animation) => FadeTransition(
             opacity: animation,
-            child: ScaleTransition(
-              scale: Tween(begin: 0.92, end: 1.0).animate(animation),
+            child: SlideTransition(
+              // A short drop from above, like a slip laid on the page (fade only
+              // with reduced motion).
+              position: Tween(begin: drop, end: Offset.zero).animate(animation),
               child: child,
             ),
           ),
@@ -75,8 +78,11 @@ class GestureHud extends StatelessWidget {
                   key: ValueKey(message.label),
                   padding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.sm + 2),
                   decoration: BoxDecoration(
-                    color: scheme.inverseSurface.withValues(alpha: 0.88),
-                    borderRadius: BorderRadius.circular(Radii.pill),
+                    color: scheme.inverseSurface,
+                    borderRadius: BorderRadius.circular(Radii.md),
+                    // Dark mode's slab is light, like the paper under it:
+                    // the hairline keeps its edge.
+                    border: Border.fromBorderSide(Surfaces.border(scheme)!),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -117,7 +123,7 @@ class _Count extends StatelessWidget {
       '×$count',
       style: style?.copyWith(
         color: color.withValues(alpha: 0.75),
-        fontFeatures: const [FontFeature.tabularFigures()],
+        fontFeatures: AppTheme.tabularFigures,
       ),
     ),
   );

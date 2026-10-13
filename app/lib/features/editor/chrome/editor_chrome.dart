@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
@@ -63,8 +64,8 @@ class ChromeLayout {
     return EdgeInsets.only(top: barBottom, bottom: safe.bottom + bottomRowHeight);
   }
 
-  /// [covered], plus the spot a peeking navigator appears in:
-  /// floating controls along the bottom (the audio bar) stay clear of it.
+  /// [covered], plus the spot a peeking navigator appears in: floating
+  /// slips along the bottom (tips) stay clear of it.
   EdgeInsets get floatingInsets {
     final insets = covered;
     if (focus || !hasNavigator) return insets;
@@ -96,7 +97,12 @@ class EditorChrome extends StatelessWidget {
     this.puckBlocked,
     this.dimmed = false,
     this.presenting = false,
+    this.bottomStrip,
   });
+
+  /// Height of a strip docked along the bottom of the canvas (the audio
+  /// strip): the page indicator and tips sit above it.
+  final ValueListenable<double>? bottomStrip;
 
   /// In focus mode, hides the puck and the exit button too (a two-finger
   /// long press toggles it; F11 / Esc still leave focus mode).
@@ -140,6 +146,14 @@ class EditorChrome extends StatelessWidget {
   /// Whether ink lies under a rectangle of the editor: the puck released
   /// over it moves clear (`ToolbarSlot.blocked`).
   final bool Function(Rect rect)? puckBlocked;
+
+  /// [child] positioned [bottomStrip]'s height higher.
+  Widget _lifted(Widget Function(double strip) child) => bottomStrip == null
+      ? child(0)
+      : ValueListenableBuilder(
+          valueListenable: bottomStrip!,
+          builder: (context, strip, _) => child(strip),
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -190,28 +204,30 @@ class EditorChrome extends StatelessWidget {
               ),
             ),
           if (navigator case final navigator?)
-            AnimatedPositioned(
-              duration: Motion.slow,
-              curve: Motion.emphasized,
-              left: 0,
-              right: 0,
-              bottom: layout.navigatorBottom,
-              child: Align(
-                // Phones centre the indicator under the page; wider screens
-                // tuck it into the bottom-right corner. Aligning (rather than
-                // guessing a width) keeps it centred at any text scale.
-                alignment: layout.phone ? Alignment.center : Alignment.centerRight,
-                child: Padding(
-                  padding: layout.phone
-                      ? EdgeInsets.only(left: safe.left, right: safe.right)
-                      : EdgeInsets.only(right: safe.right + ChromeMetrics.edge),
-                  child: ChromeFade(
-                    visible: !focus,
-                    edge: const Offset(0, 1),
-                    child: Peeking(
-                      enabled: layout.navigatorPeeks,
-                      activity: navigatorActivity,
-                      child: navigator,
+            _lifted(
+              (strip) => AnimatedPositioned(
+                duration: Motion.slow,
+                curve: Motion.emphasized,
+                left: 0,
+                right: 0,
+                bottom: layout.navigatorBottom + strip,
+                child: Align(
+                  // Phones centre the indicator under the page; wider screens
+                  // tuck it into the bottom-right corner. Aligning (rather than
+                  // guessing a width) keeps it centred at any text scale.
+                  alignment: layout.phone ? Alignment.center : Alignment.centerRight,
+                  child: Padding(
+                    padding: layout.phone
+                        ? EdgeInsets.only(left: safe.left, right: safe.right)
+                        : EdgeInsets.only(right: safe.right + ChromeMetrics.edge),
+                    child: ChromeFade(
+                      visible: !focus,
+                      edge: const Offset(0, 1),
+                      child: Peeking(
+                        enabled: layout.navigatorPeeks,
+                        activity: navigatorActivity,
+                        child: navigator,
+                      ),
                     ),
                   ),
                 ),
@@ -243,12 +259,14 @@ class EditorChrome extends StatelessWidget {
           // Tips sit at the bottom, where messages go (not over the first
           // lines of writing), and step aside while a snack bar shows.
           if (tips case final tips?)
-            Positioned(
-              bottom: layout.floatingInsets.bottom + Gaps.lg,
-              left: Gaps.md,
-              right: Gaps.md,
-              child: Center(
-                child: MessageQueue.stepAside(child: TipBanner(controller: tips)),
+            _lifted(
+              (strip) => Positioned(
+                bottom: layout.floatingInsets.bottom + strip + Gaps.lg,
+                left: Gaps.md,
+                right: Gaps.md,
+                child: Center(
+                  child: MessageQueue.stepAside(child: TipBanner(controller: tips)),
+                ),
               ),
             ),
           // Only in focus mode: otherwise its controls would sit (hidden) in
@@ -257,7 +275,6 @@ class EditorChrome extends StatelessWidget {
             Positioned.fill(
               child: ToolbarSlot(
                 toolbar: puck,
-                joined: true,
                 insets: safe,
                 floatAt: puckAt ?? const (0.5, 1.0),
                 onFloatMoved: onPuckMoved,

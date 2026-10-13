@@ -55,7 +55,14 @@ class OptionSlider extends StatelessWidget {
               Expanded(
                 child: Text(label, style: text.labelLarge?.copyWith(color: faded)),
               ),
-              if (showValue) Text(display(value), style: text.labelMedium?.copyWith(color: faded)),
+              if (showValue)
+                Text(
+                  display(value),
+                  style: text.bodySmall?.copyWith(
+                    color: faded,
+                    fontFeatures: AppTheme.tabularFigures,
+                  ),
+                ),
             ],
           ),
           SliderTheme(
@@ -111,6 +118,22 @@ class OptionSwitch extends StatelessWidget {
       onChanged: onChanged,
     );
   }
+}
+
+/// The hairline between groups of an options popover (DESIGN §6: groups
+/// are separated by a rule, not by spacing alone).
+class OptionRule extends StatelessWidget {
+  const OptionRule({super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: Gaps.sm),
+    child: Divider(
+      height: Hairline.width,
+      thickness: Hairline.width,
+      color: Theme.of(context).colorScheme.outlineVariant,
+    ),
+  );
 }
 
 /// Section heading inside an option panel.

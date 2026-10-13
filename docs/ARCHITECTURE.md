@@ -962,9 +962,11 @@ replayed in step with the ink.
   recording, else the latest recording of the notebook covering that time);
   drags and pinches still pan and zoom.
 - **UI.** Tablets and desktops get a top bar slot (microphone, recordings
-  list, and while recording a pill with time, level, pause and stop); phones
-  get "⋯" menu entries and floating recording controls (`AudioLayer`). The
-  player (`PlaybackBar`) floats above the bottom chrome: title and time, a
+  list, and while recording flat `RecordingControls`: time, level, pause and
+  stop); phones get "⋯" menu entries and the recording controls in the audio
+  strip (`AudioLayer`). The strip is docked along the bottom of the canvas
+  (Board, a hairline on top; its height in `NotebookAudio.stripHeight` lifts
+  the page indicator and tips) and holds the player (`PlaybackBar`): title and time, a
   `WaveformScrubber` (played part in the accent colour, ink density strip with
   a dot per burst; tap or drag to seek, a tap near a dot plays from just
   before that writing), skip ±10 s, play / pause, speed menu, "tap ink to

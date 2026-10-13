@@ -28,8 +28,9 @@ class LevelMeter extends StatelessWidget {
                 width: 3,
                 height: 4.0 + i * 4,
                 decoration: BoxDecoration(
-                  color: i < lit ? color : color.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(1.5),
+                  // Square bars, like the rest of the chrome; unlit ones
+                  // a faint trace of the same ink.
+                  color: i < lit ? color : color.withValues(alpha: 0.2),
                 ),
               ),
           ],

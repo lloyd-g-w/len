@@ -7,7 +7,8 @@ import '../toolbar/toolbar_metrics.dart';
 /// tap to select it; tap it again when selected, long-press or right-click
 /// to edit it ([onEdit]).
 ///
-/// A selected colour slot gets a 2-px `onSurface` ring with a 2-px gap
+/// A selected colour slot gets a 1.5-px `onSurface` ring (the weight of
+/// the glyphs beside it) with a gap
 /// around its swatch, so it reads on any colour (white and black included)
 /// in light and dark themes. Size slots ([plate]) get the neutral pressed
 /// plate instead, so a selected size never looks like a selected dark
@@ -27,6 +28,9 @@ class SlotButton extends StatelessWidget {
 
   /// Outer diameter of the selection ring.
   static const double ring = 30;
+
+  /// The selection ring's stroke.
+  static const double ringWidth = 1.5;
 
   final bool selected;
   final String tooltip;
@@ -85,7 +89,7 @@ class SlotButton extends StatelessWidget {
                             color: selected
                                 ? scheme.onSurface
                                 : scheme.onSurface.withValues(alpha: 0),
-                            width: 2,
+                            width: ringWidth,
                           ),
                         ),
                   alignment: Alignment.center,

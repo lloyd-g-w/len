@@ -99,11 +99,10 @@ class EditorTopBar extends StatelessWidget {
         final strip = showsStrip(width, tabs);
         final phone = width < ChromeMetrics.compactWidth;
         final row = dock == ToolbarDock.row && !phone ? toolbar : null;
-        // With tabs, the status bar area takes the strip's colour.
+        // The strip, the bar and the status bar area are one flat Board
+        // block, with one hairline under it all.
         return Material(
-          color: strip || band
-              ? Surfaces.canvasBackdrop(scheme.brightness)
-              : Surfaces.chrome(scheme),
+          color: Surfaces.chrome(scheme),
           child: SafeArea(
             bottom: false,
             child: Column(
@@ -121,10 +120,7 @@ class EditorTopBar extends StatelessWidget {
                 else if (band)
                   const SizedBox(height: ChromeMetrics.tabHeight),
                 DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Surfaces.chrome(scheme),
-                    border: Border(bottom: Surfaces.chromeEdge(scheme)),
-                  ),
+                  decoration: BoxDecoration(border: Border(bottom: Surfaces.chromeEdge(scheme))),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

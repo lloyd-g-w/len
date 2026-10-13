@@ -87,13 +87,12 @@ class _FocusHandleState extends State<FocusHandle> {
                   dimension: Targets.barHit(context),
                   child: Center(
                     child: FloatingPanel(
-                      radius: Radii.pill,
                       padding: EdgeInsets.zero,
                       child: SizedBox.square(
                         dimension: 32,
                         child: Icon(
                           Symbols.fullscreen_exit_sharp,
-                          size: 18,
+                          size: Glyphs.menu,
                           color: scheme.onSurface,
                         ),
                       ),

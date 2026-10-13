@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
-import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
 import '../notebook_audio.dart';
 import '../playback_controller.dart';
@@ -13,7 +12,8 @@ import 'recordings_sheet.dart';
 import 'trim_panel.dart';
 import 'waveform_scrubber.dart';
 
-/// Floating player for the open recording: title and time, a waveform
+/// The player for the open recording (docked in the audio strip, see
+/// `AudioLayer`): title and time, a waveform
 /// scrubber with ink markers, skip ±10 s, play / pause, speed, "tap ink to
 /// play", the recordings list and close. Ink created later than the
 /// position is faded meanwhile (see `InkReplayLayer`); keyboard control in
@@ -29,21 +29,21 @@ class PlaybackBar extends StatelessWidget {
     final recording = playback.recording;
     if (recording == null) return const SizedBox.shrink();
     if (playback.trimDraft != null) {
-      return FloatingPanel(
+      return Padding(
         key: const ValueKey('playback-bar'),
-        padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.xs, Gaps.xxs),
+        padding: _padding,
         child: TrimPanel(audio: audio),
       );
     }
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final small = theme.textTheme.labelSmall?.copyWith(
+    final small = theme.textTheme.bodySmall?.copyWith(
       color: scheme.onSurfaceVariant,
-      fontFeatures: const [FontFeature.tabularFigures()],
+      fontFeatures: AppTheme.tabularFigures,
     );
-    return FloatingPanel(
+    return Padding(
       key: const ValueKey('playback-bar'),
-      padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.xs, Gaps.xxs),
+      padding: _padding,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -148,6 +148,8 @@ class PlaybackBar extends StatelessWidget {
     );
   }
 
+  static const _padding = EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.xs, Gaps.xxs);
+
   Widget _skip(PlaybackController playback, {required bool back}) => IconButton(
     tooltip: back ? 'Back 10 seconds (←)' : 'Forward 10 seconds (→)',
     onPressed: playback.loading
@@ -185,7 +187,7 @@ class SpeedButton extends StatelessWidget {
           formatRate(playback.rate),
           style: theme.textTheme.labelLarge?.copyWith(
             color: playback.rate == 1 ? scheme.onSurfaceVariant : scheme.primary,
-            fontFeatures: const [FontFeature.tabularFigures()],
+            fontFeatures: AppTheme.tabularFigures,
           ),
         ),
       ),

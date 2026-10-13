@@ -227,9 +227,9 @@ class _Tile extends StatelessWidget {
       button: true,
       child: Material(
         color: selected ? Surfaces.pressed(scheme) : Colors.transparent,
-        borderRadius: BorderRadius.circular(Radii.sm),
+        borderRadius: BorderRadius.circular(Radii.xs),
         child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.sm),
+          borderRadius: BorderRadius.circular(Radii.xs),
           onTap: onTap,
           child: SizedBox(
             width: ToolSwitcherPanel._tile,

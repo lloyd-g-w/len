@@ -41,13 +41,15 @@ void paintBookmark(Canvas canvas, Size page) {
   canvas.drawPath(path, Paint()..color = Palette.bookmark);
 }
 
-/// Paints the desk, the visible pages' paper, backgrounds and templates.
+/// Paints the desk, the visible pages' paper (resting on it with a contact
+/// shadow), backgrounds and templates.
 class DocumentPaperPainter extends CustomPainter {
   DocumentPaperPainter({
     required this.layout,
     required this.pages,
     required this.viewport,
     required this.desk,
+    required this.shadows,
     required this.devicePixelRatio,
     this.backgrounds,
     this.paperImages,
@@ -58,6 +60,9 @@ class DocumentPaperPainter extends CustomPainter {
   final List<NotebookPage> pages;
   final ViewportController viewport;
   final Color desk;
+
+  /// The pages' contact shadow ([Shadows.low]), in screen pixels.
+  final List<BoxShadow> shadows;
   final double devicePixelRatio;
   final PageBackgrounds? backgrounds;
 
@@ -78,7 +83,15 @@ class DocumentPaperPainter extends CustomPainter {
         ..translate(viewport.offset.dx, viewport.offset.dy)
         ..scale(scale)
         ..translate(frame.left, frame.top);
-      PaperRenderer.paintSheet(canvas, local, page.paperColor, scale: scale);
+      for (final shadow in shadows) {
+        canvas.drawRect(
+          local.shift(shadow.offset / scale).inflate(shadow.spreadRadius / scale),
+          Paint()
+            ..color = shadow.color
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, shadow.blurSigma / scale),
+        );
+      }
+      PaperRenderer.paintSheet(canvas, local, page.paperColor, scale: scale, shadow: false);
       canvas.clipRect(local);
       final area = visible.shift(-frame.topLeft).intersect(local);
       final background = page.background;
@@ -109,6 +122,7 @@ class DocumentPaperPainter extends CustomPainter {
       old.pages != pages ||
       old.viewport != viewport ||
       old.desk != desk ||
+      !listEquals(old.shadows, shadows) ||
       old.devicePixelRatio != devicePixelRatio ||
       old.backgrounds != backgrounds ||
       old.paperImages != paperImages;

@@ -137,7 +137,8 @@ class ToolButton extends StatelessWidget {
   }
 }
 
-/// A tool's icon with its ink colour as a small bar underneath.
+/// A tool's icon with its ink colour as a small square-ended bar
+/// underneath (ink, so never themed).
 class ToolGlyph extends StatelessWidget {
   const ToolGlyph({super.key, required this.descriptor, this.filled = false});
 
@@ -171,7 +172,6 @@ class ToolGlyph extends StatelessWidget {
                 height: 3,
                 decoration: BoxDecoration(
                   color: Color(color),
-                  borderRadius: BorderRadius.circular(1.5),
                   border: Border.all(
                     color: nearSurface
                         ? scheme.onSurfaceVariant

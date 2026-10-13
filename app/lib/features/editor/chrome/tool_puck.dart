@@ -11,8 +11,8 @@ import 'bar_button.dart';
 
 /// Focus mode's only tools (REDESIGN §2.7): the active tool, which opens
 /// the tool switcher (long press: its options), and undo. Hosted in a
-/// `ToolbarSlot` that draws its capsule (`joined`), so it is dragged by
-/// the grip at its start and snaps like the palette.
+/// `ToolbarSlot` like the palette, so it is dragged by the grip at its
+/// start and snaps the same way.
 class ToolPuck extends StatelessWidget {
   const ToolPuck({super.key, required this.tools, required this.undo, this.insert});
 

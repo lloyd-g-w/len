@@ -397,19 +397,20 @@ themes, `FloatingPanel`, `OverlaySurface`, popovers, menus, dialogs, sheets,
 snack bars, `SidebarItem` (margin rule), `FocusRing`, ruled fields, slider
 thumb. Next, by area:
 
-- **Library:** done. Folders are names on the covers' columns with a
+- ~~**Library:**~~ done. Folders are names on the covers' columns with a
   hairline under the row; covers flat with a darker spine band; the New tile
   and Add page are Pencil-edged outlines with an Ink +; list rows ruled from
   the titles; the brand is the Ink scribble; commas in meta strings; square
   checkbox selection marks; search results label and count as separate
   spans, the page location as a plain column.
-- **Editor chrome:** tool plate radius `xs` and Ink 8 % everywhere
-  (`tool_cluster.dart`, `toolbar_buttons.dart`); slot rings 1.5 dp; redraw
-  `EraserIcon`, `ShapeGlyph`, `tools/tool_icons.dart` with square caps;
-  floating palette grip as two ticks; page indicator tabular figures; tabs
-  (`editor_tabs`) with a margin-rule current tab instead of a plate.
-- **Popovers:** hairlines between groups instead of spacing alone; pen
-  preview box radius `sm` with a Rule edge; Feel row as a ruled disclosure.
+- ~~**Editor chrome:**~~ done: `xs` Ink 8 % tool plates (switcher tiles
+  too), 1.5-dp slot rings, square-cap glyphs, two-tick grips (palette and
+  split divider), tabular page indicator, margin-rule current tab; zoom,
+  tips and focus exit on `md` panels (the pill is the page indicator's
+  only); the gesture HUD an Ink slab with a hairline; search a lifted slip;
+  pages rest on the Desk with the contact shadow (`Shadows.low`).
+- ~~**Popovers:**~~ done: hairlines between groups, `sm` preview with a Rule
+  edge, Feel as a ruled disclosure.
 - ~~**Settings:**~~ done: open ruled lists, hanging headings (§6.4).
 - ~~**Dialogs and sheets:**~~ done: ruled export options, margin-rule move
   dialog, flat library notices, ruled progress, full-width primary on phone
@@ -419,14 +420,13 @@ thumb. Next, by area:
   bold number; selection is a 2-dp accent ring and a square checkbox; the
   template gallery marks its choice with the margin rule and a bold name.
   PDF views remain.
-- **Audio, images, text:** recording bar as a flat Board strip with a
-  hairline; text format bar on `FloatingPanel`.
+- ~~**Audio, images, text:**~~ done: player and phone recording controls in
+  one docked Board strip with a hairline; flat recording controls in the bar
+  (only the dot red); crop bar, selection menu and text format bar on
+  `FloatingPanel`.
 - **Copy:** remove `·` chains and any remaining all-caps; one name per action.
-  Done in settings, dialogs, sheets, messages and the library (template
-  descriptions "College ruled, white, A4 portrait", export summaries "3
-  pages, PDF", "3 folders, 7 notebooks"). Left: the editor (ink options,
-  split tooltip), audio (recordings sheet, trim panel) and the planner
-  labels in `domain/templates` (`Paper.label`, `period`).
+  Done everywhere except the planner labels in `domain/templates`
+  (`Paper.label`, `period`).
 - ~~**App icon / splash:**~~ done: the white scribble on a ruling-blue rule on
   an Ink tile, flat; splash on Board (`tool/branding`).
 - ~~**Controls:**~~ done: `AppSwitch` / `AppSwitchTile` in `ui/app_switch.dart`

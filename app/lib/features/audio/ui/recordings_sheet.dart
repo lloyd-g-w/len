@@ -125,11 +125,11 @@ class _RecordingsListState extends State<RecordingsList> {
     );
   }
 
-  /// "3 recordings · 1 h 17 min" (sizes are in each row's menu).
+  /// "3 recordings, 1 h 17 min" (sizes are in each row's menu).
   String _summary(List<Recording> recordings) {
     final duration = recordings.fold(0, (sum, r) => sum + r.lengthMs);
     final count = recordings.length == 1 ? '1 recording' : '${recordings.length} recordings';
-    return '$count · ${formatDuration(duration)}';
+    return '$count, ${formatDuration(duration)}';
   }
 
   Widget _selectionHeader(List<Recording> recordings) {
@@ -233,7 +233,6 @@ class _RecordingTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final open = audio.playback.recording?.id == recording.id;
     final size = audio.sizeOf(recording);
-    final details = '${formatRecordedAt(recording.startedAt)} · ${formatClock(recording.lengthMs)}';
     final selecting = selected != null;
     return ListTile(
       key: ValueKey('recording-${recording.id}'),
@@ -244,7 +243,24 @@ class _RecordingTile extends StatelessWidget {
               open && audio.playback.playing ? Symbols.graphic_eq_sharp : Symbols.play_circle_sharp,
             ),
       title: Text(recording.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(details, maxLines: 1, overflow: TextOverflow.ellipsis),
+      // When, then the length at the line's end in tabular figures (separate
+      // spans, not an "A · B" chain).
+      subtitle: Row(
+        children: [
+          Expanded(
+            child: Text(
+              formatRecordedAt(recording.startedAt),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: Gaps.sm),
+          Text(
+            formatClock(recording.lengthMs),
+            style: const TextStyle(fontFeatures: AppTheme.tabularFigures),
+          ),
+        ],
+      ),
       onTap: selecting
           ? onSelect
           : () {

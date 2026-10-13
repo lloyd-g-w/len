@@ -4,7 +4,6 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../data/search/search_query.dart';
 import '../../../ui/app_theme.dart';
-import '../../../ui/floating_panel.dart';
 import '../highlighted_text.dart';
 import '../library_search_results.dart' show SearchHitIcon;
 import '../search_groups.dart';
@@ -105,20 +104,23 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
         const SingleActivator(LogicalKeyboardKey.keyF, control: true): _focusField,
         const SingleActivator(LogicalKeyboardKey.keyF, meta: true): _focusField,
       },
-      child: FloatingPanel(
-        padding: const EdgeInsets.all(Gaps.xs),
-        child: ListenableBuilder(
-          listenable: Listenable.merge([_c, _c.search]),
-          builder: (context, _) => Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _fieldRow(context, showList: showList, compact: compact),
-              if (showList && _c.query.trim().isNotEmpty) ...[
-                const Divider(height: Gaps.sm),
-                _results(context, compact: compact),
+      // A slip over the page (lifted, like a popover), not chrome.
+      child: OverlaySurface(
+        child: Padding(
+          padding: const EdgeInsets.all(Gaps.xs),
+          child: ListenableBuilder(
+            listenable: Listenable.merge([_c, _c.search]),
+            builder: (context, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _fieldRow(context, showList: showList, compact: compact),
+                if (showList && _c.query.trim().isNotEmpty) ...[
+                  const Divider(height: Gaps.sm),
+                  _results(context, compact: compact),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -165,9 +167,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
         ),
         Text(
           counter,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+          style: theme.textTheme.bodySmall?.copyWith(fontFeatures: AppTheme.tabularFigures),
         ),
         IconButton(
           tooltip: 'Previous (Shift+Enter)',
@@ -248,9 +248,9 @@ class _MatchTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     return Material(
       color: selected ? Surfaces.pressed(scheme) : Colors.transparent,
-      borderRadius: BorderRadius.circular(Radii.sm),
+      borderRadius: BorderRadius.circular(Radii.xs),
       child: InkWell(
-        borderRadius: BorderRadius.circular(Radii.sm),
+        borderRadius: BorderRadius.circular(Radii.xs),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.sm),
@@ -267,7 +267,13 @@ class _MatchTile extends StatelessWidget {
               ),
               const SizedBox(width: Gaps.sm),
               if (match.pageIndex != null)
-                Text(hitLocation(match.hit), style: theme.textTheme.labelSmall),
+                Text(
+                  hitLocation(match.hit),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontFeatures: AppTheme.tabularFigures,
+                  ),
+                ),
             ],
           ),
         ),

@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import 'option_controls.dart';
+import 'slot_button.dart';
 
 /// Eraser options: whole-stroke vs. partial erasing, size, "highlighter
 /// only" and switching back to the previous tool after erasing.
@@ -71,6 +72,7 @@ class EraserOptionsPanel extends StatelessWidget {
                 _SizePreview(radius: eraser.radius),
               ],
             ),
+            const OptionRule(),
             OptionSwitch(
               label: 'Erase highlighter only',
               subtitle: 'Leaves pen ink untouched',
@@ -107,8 +109,8 @@ class _SizePreview extends StatelessWidget {
           height: (radius * 2).clamp(4, box),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: scheme.onSurface.withValues(alpha: 0.08),
-            border: Border.all(color: scheme.onSurface.withValues(alpha: 0.6)),
+            color: Surfaces.pressed(scheme),
+            border: Border.all(color: scheme.onSurfaceVariant, width: SlotButton.ringWidth),
           ),
         ),
       ),

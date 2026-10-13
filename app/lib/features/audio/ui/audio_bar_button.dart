@@ -15,8 +15,8 @@ import 'recordings_sheet.dart';
 
 /// The top bar's audio slot (tablets and desktops): a split button whose
 /// microphone starts recording and whose ▾ lists the recordings,
-/// and while recording a pill with the time, the input level, pause /
-/// resume and stop.
+/// and while recording [RecordingControls]: the time, the input level,
+/// pause / resume and stop.
 class AudioBarButton extends StatelessWidget {
   const AudioBarButton({super.key, required this.audio});
 
@@ -31,7 +31,7 @@ class AudioBarButton extends StatelessWidget {
         duration: Motion.medium,
         curve: Motion.standard,
         child: switch (recorder.state) {
-          RecorderState.recording || RecorderState.paused => RecordingPill(recorder: recorder),
+          RecorderState.recording || RecorderState.paused => RecordingControls(recorder: recorder),
           RecorderState.starting || RecorderState.saving => const _Busy(),
           RecorderState.idle => _idle(context),
         },
@@ -115,8 +115,8 @@ Future<void> stopRecording(BuildContext context, RecordingController recorder) a
   }
 }
 
-/// Pauses or resumes, explaining a failure in a snack bar (the pill keeps
-/// showing the real state).
+/// Pauses or resumes, explaining a failure in a snack bar (the controls
+/// keep showing the real state).
 Future<void> togglePause(BuildContext context, RecordingController recorder) async {
   final paused = recorder.state == RecorderState.paused;
   final done = await (paused ? recorder.resume() : recorder.pause());
@@ -124,9 +124,10 @@ Future<void> togglePause(BuildContext context, RecordingController recorder) asy
   if (!done && error != null && context.mounted) showMessage(context, error);
 }
 
-/// Red dot, elapsed time, level meter (or "Paused"), pause / resume and stop.
-class RecordingPill extends StatelessWidget {
-  const RecordingPill({super.key, required this.recorder});
+/// Red dot, elapsed time, level meter (or "Paused"), pause / resume and
+/// stop: flat, in the docked bar or the audio strip, so only the dot is red.
+class RecordingControls extends StatelessWidget {
+  const RecordingControls({super.key, required this.recorder});
 
   final RecordingController recorder;
 
@@ -134,19 +135,13 @@ class RecordingPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final paused = recorder.state == RecorderState.paused;
-    final text = Theme.of(context).textTheme.labelLarge?.copyWith(
-      fontFeatures: const [FontFeature.tabularFigures()],
-      color: scheme.onErrorContainer,
-    );
+    final text = Theme.of(context).textTheme.labelLarge
+        ?.copyWith(fontFeatures: AppTheme.tabularFigures);
     return Container(
       key: const ValueKey('recording-pill'),
-      height: 36,
+      constraints: const BoxConstraints(minHeight: 36),
       margin: const EdgeInsets.symmetric(horizontal: Gaps.xs),
-      padding: const EdgeInsets.only(left: Gaps.md, right: Gaps.xxs),
-      decoration: BoxDecoration(
-        color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(Radii.pill),
-      ),
+      padding: const EdgeInsets.only(left: Gaps.sm),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -155,16 +150,16 @@ class RecordingPill extends StatelessWidget {
             height: 10,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: paused ? scheme.onErrorContainer.withValues(alpha: 0.4) : scheme.error,
+              color: paused ? scheme.onSurfaceVariant : scheme.error,
             ),
           ),
           const SizedBox(width: Gaps.sm),
           Text(formatClock(recorder.elapsedMs), style: text),
           const SizedBox(width: Gaps.sm),
           if (paused)
-            Text('Paused', style: text?.copyWith(fontWeight: FontWeight.w400))
+            Text('Paused', style: text?.copyWith(color: scheme.onSurfaceVariant))
           else
-            LevelMeter(level: recorder.level, color: scheme.error),
+            LevelMeter(level: recorder.level, color: scheme.onSurface),
           const SizedBox(width: Gaps.xxs),
           _PillButton(
             tooltip: paused ? 'Resume recording' : 'Pause recording',
@@ -195,10 +190,13 @@ class _PillButton extends StatelessWidget {
     onPressed: onPressed,
     iconSize: Glyphs.bar,
     style: IconButton.styleFrom(
-      foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
-      fixedSize: const Size(32, 32),
-      minimumSize: const Size(32, 32),
+      foregroundColor: Theme.of(context).colorScheme.onSurface,
+      fixedSize: const Size.square(Targets.bar),
+      minimumSize: const Size.square(Targets.bar),
       padding: EdgeInsets.zero,
+      tapTargetSize: Targets.touchFirst
+          ? MaterialTapTargetSize.padded
+          : MaterialTapTargetSize.shrinkWrap,
     ),
     icon: Icon(icon),
   );

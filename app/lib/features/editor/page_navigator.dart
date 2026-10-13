@@ -46,10 +46,7 @@ class PageNavigator extends StatelessWidget {
                 heightFactor: 1,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Gaps.md),
-                  child: Text(
-                    label,
-                    style: text?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
-                  ),
+                  child: Text(label, style: text?.copyWith(fontFeatures: AppTheme.tabularFigures)),
                 ),
               ),
             ),
