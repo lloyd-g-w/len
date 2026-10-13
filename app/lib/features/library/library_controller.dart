@@ -135,8 +135,8 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
   void reload() {
     _folders = services.folders.list();
     _folderById = {for (final f in _folders) f.id: f};
-    _notebooks = services.notebooks.list();
-    _trash = services.notebooks.trashed();
+    _notebooks = _unchangedKept(services.notebooks.list(), _notebooks);
+    _trash = _unchangedKept(services.notebooks.trashed(), _trash);
     _pageCounts = SurfaceStats(services.database).pageCounts();
     _recentIds = services.workspace.recent;
     _recordingTitles = services.recordings.titlesByNotebook();
@@ -154,6 +154,17 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
     }
     if (_folderId != null && !_folderById.containsKey(_folderId)) _folderId = null;
     notifyListeners();
+  }
+
+  /// [fresh] with the notebooks that did not change since [before] as the
+  /// same objects, so their cards are not built again.
+  static List<Notebook> _unchangedKept(List<Notebook> fresh, List<Notebook> before) {
+    if (before.isEmpty) return fresh;
+    final old = {for (final n in before) n.id: n};
+    return [
+      for (final n in fresh)
+        if (old[n.id] case final kept? when kept.sameAs(n)) kept else n,
+    ];
   }
 
   @override

@@ -98,13 +98,20 @@ void main() {
     await tester.enterText(find.byType(TextField).first, '');
     await tester.pumpAndSettle();
 
-    // Sort and layout switches rebuild the grid once.
-    final switches = <String, int>{};
+    // Sort and layout switches rebuild the grid once, and only the cards
+    // that changed (a card widget used again is not built again).
+    final switches = <String, Object>{};
+    Set<Widget> cards() =>
+        find.byType(NotebookCard, skipOffstage: false).evaluate().map((e) => e.widget).toSet();
     for (final sort in LibrarySort.values) {
+      final before = cards();
       watch.reset();
       controller.sort = sort;
       await tester.pump();
-      switches['sort ${sort.name}'] = watch.elapsedMilliseconds;
+      final after = cards();
+      switches['sort ${sort.name}'] =
+          '${watch.elapsedMilliseconds} (${after.difference(before).length}/${after.length} '
+          'cards built)';
     }
     for (final layout in [LibraryLayout.list, LibraryLayout.grid]) {
       watch.reset();
@@ -112,10 +119,14 @@ void main() {
       await tester.pump();
       switches['layout ${layout.name}'] = watch.elapsedMilliseconds;
     }
+    final before = cards();
     watch.reset();
     controller.reload();
     await tester.pump();
-    switches['reload'] = watch.elapsedMilliseconds;
+    final after = cards();
+    switches['reload'] =
+        '${watch.elapsedMilliseconds} (${after.difference(before).length}/${after.length} '
+        'cards built)';
     await tester.pumpAndSettle();
 
     // The folder tree: open the deepest folders (the sidebar reveals each

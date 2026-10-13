@@ -1994,7 +1994,11 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   stretched to the width) with a fixed caption area (`NotebookCard.captionHeight`: two title
   lines and a caption), so every cover in a row is as tall. The columns come from the delegate,
   not a layout builder above the grid: that rebuilt every card on every scroll frame
-  (`test/perf/library_perf_test.dart` builds 200 notebooks and counts card builds). In a short
+  (`test/perf/library_perf_test.dart` builds 200 notebooks and counts card builds). Cards and
+  rows are found by notebook id (`findChildIndexCallback`), and `LibraryContent` hands back the
+  same card widget while its notebook object, caption and selection are unchanged (the
+  controller's `reload` keeps unchanged notebooks as the same objects, `Notebook.sameAs`), so a
+  sort, a selection change or a reload builds only the cards that changed. In a short
   viewport the delegate adds columns until a cover and its caption take at most 60 % of the
   height (`cover_grid.dart`; not under 96 dp), so a row with its titles fits a phone held
   sideways; the folder row reads the viewport height from a box `LayoutBuilder` around the
