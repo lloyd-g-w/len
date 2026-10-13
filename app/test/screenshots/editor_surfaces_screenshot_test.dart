@@ -8,6 +8,7 @@ import 'package:len/domain/recording.dart';
 import 'package:len/features/editor/editor_screen.dart';
 
 import '../support/fake_audio.dart';
+import '../support/selection_actions.dart';
 import 'editor_screenshot_test.dart' show pumpEditor;
 import 'editor_surfaces_common.dart';
 import 'screenshot_harness.dart';
@@ -54,7 +55,7 @@ Future<void> _lassoed(
 }
 
 Future<void> _convert(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Convert to text'));
+  await selectionAction(tester, 'Convert to text');
   await settle(tester);
 }
 

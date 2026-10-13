@@ -21,6 +21,7 @@ import 'package:len/ui/app_theme.dart';
 import 'content_tools_ui_test.dart' show key, liveElements, liveStrokes, mouseDrag, pinCanvasView;
 import 'data_test.dart' show FakeClock;
 import 'support/fake_recognizer.dart';
+import 'support/selection_actions.dart';
 
 /// "hello world" written in red at (100, 400), letters 40 high.
 List<Stroke> helloWorld(String surface) => [
@@ -160,7 +161,7 @@ void main() {
       final recognizer = FakeRecognizer(words: {'hello': 'hello', 'world': 'world'});
       final (services, nb) = await open(tester, recognizer);
       await lassoAll(tester);
-      await tester.tap(find.byTooltip('Convert to text'));
+      await selectionAction(tester, 'Convert to text');
       await tester.pumpAndSettle();
       expect(find.text('Convert to text'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'hello world'), findsOneWidget);
@@ -202,7 +203,7 @@ void main() {
         FakeRecognizer(words: {'hello': 'hello', 'world': 'world'}),
       );
       await lassoAll(tester);
-      await tester.tap(find.byTooltip('Convert to text'));
+      await selectionAction(tester, 'Convert to text');
       await tester.pumpAndSettle();
       await tester.tap(find.text('Copy'));
       await tester.pumpAndSettle();
@@ -214,7 +215,7 @@ void main() {
       final recognizer = FakeRecognizer(words: {'hello': 'hello'}, downloaded: false);
       await open(tester, recognizer);
       await lassoAll(tester);
-      await tester.tap(find.byTooltip('Convert to text'));
+      await selectionAction(tester, 'Convert to text');
       await tester.pumpAndSettle();
       expect(find.text('Download handwriting model?'), findsOneWidget);
       await tester.tap(find.text('Download'));
@@ -226,8 +227,9 @@ void main() {
     testWidgets('unsupported platforms show the action disabled with a reason', (tester) async {
       await open(tester, FakeRecognizer(supported: false));
       await lassoAll(tester);
-      expect(find.byTooltip('Convert to text'), findsNothing);
-      expect(find.byTooltip('Not here'), findsOneWidget);
+      // Offered, but chosen it says why it can't.
+      await selectionAction(tester, 'Convert to text');
+      expect(find.text('Not here'), findsOneWidget);
     });
   });
 }

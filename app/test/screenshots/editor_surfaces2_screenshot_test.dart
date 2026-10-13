@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:len/app_services.dart';
 
 import '../images_ui_test.dart' show seedImage;
+import '../support/selection_actions.dart';
 import 'editor_screenshot_test.dart' show pumpEditor;
 import 'editor_surfaces_common.dart';
 import 'screenshot_harness.dart';
@@ -106,9 +107,8 @@ void main() {
           await _withPhoto(tester, screen, mode);
           await shoot(tester, 'e_image_canvas_$shot');
           await _lassoTap(tester, const Offset(100, 330));
-          expect(find.byTooltip('Crop'), findsOneWidget);
           await shoot(tester, 'e_image_selected_$shot');
-          await tester.tap(find.byTooltip('Crop'));
+          await selectionAction(tester, 'Crop');
           await settle(tester);
           final left = canvasToScreen(tester, const Offset(-160, 270));
           await mouseDrag(tester, [left, left + const Offset(30, 0), left + const Offset(60, 0)]);

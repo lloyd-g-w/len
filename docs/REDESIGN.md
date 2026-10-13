@@ -265,7 +265,7 @@ the active tab.
 
 ### 2.6 Selection menu and text format bar
 
-- **Selection menu** (`tools/selection_menu.dart`): a `raised` pill above the selection:
+- **Selection menu** (`tools/selection_menu.dart`, done): a `raised` pill above the selection:
   **Style** · Cut · Copy · Delete · ⋯. Style is one popover merging today's Colour and
   Style (colour, then width or pen for ink, font and size for text). ⋯ holds Duplicate,
   Paste, Convert to text, Link…, Crop and Bring to front / Send to back.
