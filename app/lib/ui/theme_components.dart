@@ -222,6 +222,11 @@ extension ThemeComponents on ThemeData {
         textStyle: textTheme.bodySmall?.copyWith(color: dark ? scheme.onSurface : Colors.white),
       ),
       scrollbarTheme: const ScrollbarThemeData(radius: Radius.circular(Radii.pill)),
+      // A track that shows on dark dialogs too (the secondary container
+      // nearly matches them).
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        linearTrackColor: scheme.onSurface.withValues(alpha: 0.12),
+      ),
       // Flutter's own back, close and drawer buttons use Symbols too.
       actionIconTheme: ActionIconThemeData(
         backButtonIconBuilder: (_) => const Icon(Symbols.arrow_back_rounded),

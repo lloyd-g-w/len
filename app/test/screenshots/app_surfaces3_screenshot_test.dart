@@ -152,10 +152,16 @@ void main() {
         final done = Completer<void>();
         late TaskProgress task;
         unawaited(
-          runWithSteps(ctx(tester), 'Importing PDF', subject: 'Lecture 7 slides.pdf', (progress) {
-            task = progress..stageStarted('Creating pages…', note: '48 pages');
-            return done.future;
-          }),
+          runWithSteps(
+            ctx(tester),
+            'Importing PDF',
+            subject: 'Lecture 7 slides.pdf',
+            cancellable: true, // As the real import.
+            (progress) {
+              task = progress..stageStarted('Creating pages…', note: '48 pages');
+              return done.future;
+            },
+          ),
         );
         await settle(tester);
         await shoot(tester, 's_import_progress_stage_${name}_$m');
