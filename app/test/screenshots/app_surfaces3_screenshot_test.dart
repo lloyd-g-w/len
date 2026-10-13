@@ -178,10 +178,7 @@ void main() {
         await shoot(tester, 's_import_unsupported_${name}_$m');
 
         // A PDF that fails to import (the message importPdfFlow shows).
-        showMessage(
-          ctx(tester),
-          'Couldn’t open “scan.pdf”: it may be damaged, or not a PDF',
-        );
+        showMessage(ctx(tester), 'Couldn’t open “scan.pdf”: it may be damaged, or not a PDF');
         await settle(tester);
         await shoot(tester, 's_import_failed_${name}_$m');
         expect(tester.takeException(), isNull);

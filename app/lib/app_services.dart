@@ -23,6 +23,7 @@ import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
 import 'data/template_repository.dart';
 import 'data/tombstone_payloads.dart';
+import 'data/write_back.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
 import 'features/documents/import/incoming_files.dart';
@@ -63,6 +64,7 @@ class AppServices {
     required this.templates,
     required this.outlines,
     required this.outline,
+    required this.writes,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -79,6 +81,7 @@ class AppServices {
     HandwritingRecognizer? recognizer,
     Stream<List<XFile>>? incomingFiles,
     OutlinePreparer outlines = const InlineOutlinePreparer(),
+    StorageWrites? writes,
   }) {
     final settings = SettingsRepository(database);
     final deviceId = settings.deviceId(clock);
@@ -146,10 +149,15 @@ class AppServices {
       templates: templates,
       outlines: outlines,
       outline: outline,
+      writes: writes ?? StorageWrites(),
     );
   }
 
   final AppDatabase database;
+
+  /// Writes on their way to storage (the web's IndexedDB): whether some are
+  /// pending or failing (storage full). Empty natively and in tests.
+  final StorageWrites writes;
   final SettingsRepository settings;
 
   /// Observable user preferences (theme, accent, input gestures, library view).

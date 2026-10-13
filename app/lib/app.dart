@@ -7,6 +7,7 @@ import 'data/blob_backend.dart';
 import 'domain/preferences.dart';
 import 'features/library/library_screen.dart';
 import 'features/settings/sync_attention.dart';
+import 'features/storage/storage_attention.dart';
 import 'ui/app_theme.dart';
 import 'ui/messages.dart';
 import 'ui/phone_menus.dart';
@@ -34,6 +35,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     widget.services.pointerActivity.attach();
     _syncAttention;
+    _storageAttention;
     if (widget.services.blobs.backend case final VolatileBlobBackend volatile) {
       volatile.onWrite = _warnFilesNotKept;
     }
@@ -45,6 +47,10 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     sync: widget.services.sync,
     messenger: _messenger,
     navigator: _navigator,
+  );
+  late final _storageAttention = StorageAttention(
+    writes: widget.services.writes,
+    messenger: _messenger,
   );
 
   /// The first file stored in a browser that refused storage: say right
@@ -67,6 +73,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
   void dispose() {
     widget.services.pointerActivity.detach();
     _syncAttention.dispose();
+    _storageAttention.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

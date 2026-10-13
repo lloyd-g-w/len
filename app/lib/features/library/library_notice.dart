@@ -4,13 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
+import '../../data/write_back.dart';
 import '../../platform/browser_storage.dart';
 import '../../ui/app_theme.dart';
 
 /// Puts a notice above the library's [child] while something needs the
-/// user's attention: files that won't be kept (a browser that refused
-/// storage, UX_AUDIT P0-1); else, once, a browser that may clear Len's
-/// data while sync is off (P2-30).
+/// user's attention: changes that can't be saved yet (a full browser
+/// storage); files that won't be kept (a browser that refused storage,
+/// UX_AUDIT P0-1); else, once, a browser that may clear Len's data while
+/// sync is off (P2-30).
 class LibraryNotices extends StatefulWidget {
   const LibraryNotices({super.key, required this.child, this.storage});
 
@@ -29,6 +31,7 @@ class LibraryNotices extends StatefulWidget {
 class _LibraryNoticesState extends State<LibraryNotices> {
   late final AppServices _services = AppScope.read(context);
   late final BrowserStorage? _storage = widget.storage ?? browserStorage;
+  late final Listenable _changes = Listenable.merge([_services.sync, _services.writes]);
 
   /// Whether the browser may evict Len's data (null until known).
   bool? _evictable;
@@ -59,6 +62,21 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   }
 
   Widget? _notice() {
+    if (_services.writes.failure case final failure?) {
+      return LibraryNotice(
+        icon: Symbols.save_rounded,
+        title: 'Your latest changes aren\'t saved yet',
+        body: failure == WriteFailure.full
+            ? 'Browser storage is full. Len keeps the changes in this tab and saves them '
+                  'once there\'s room: free up space, and keep this tab open until then.'
+            : 'Len keeps the changes in this tab and keeps trying to save them. Keep this '
+                  'tab open until then.',
+        action: TextButton(
+          onPressed: () => unawaited(_services.writes.flush()),
+          child: const Text('Try again'),
+        ),
+      );
+    }
     if (!_services.blobsArePersistent) {
       return const LibraryNotice(
         icon: Symbols.cloud_off_rounded,
@@ -84,7 +102,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _services.sync,
+    listenable: _changes,
     builder: (context, _) {
       final notice = _notice();
       if (notice == null) return widget.child;
