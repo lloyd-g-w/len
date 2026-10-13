@@ -200,6 +200,36 @@ Reviewed from `split_same_tablet_*`, `split_parked_portrait_*` and
   paint it over their ink, moving and retyped live; a view never repaints its ink for
   its own selection's drags.
 
+## Editor polish (`fix/editor-ux`)
+
+Reviewed from `editor_*`, `editor_surfaces*`, `toolbar_` and `workspace_`
+(phone, tablet, desktop; light, dark; 1.3× text) against GoodNotes 6 and
+Notewise. The open editor items of round 3 are closed above; besides them:
+
+- ✅ Search: stepping to the first match on a phone left it under the
+  result list (the top of page 1 can't scroll lower) → the list folds.
+- ✅ Text boxes: outline, handles, caret and selection were the pale dark
+  theme accent on white paper → ink blue in both themes, like the lasso.
+- ✅ Text format bar on phones: B, I, U… were hidden behind an unhinted
+  scroll → two rows (font "Aa", size, paragraph, ⋯ over the character
+  formats and ✓); very narrow windows still scroll, with a fade one button
+  wide so a cut always shows.
+- ✅ ⋯ menu: submenu arrows were Material's filled triangles → rounded
+  chevrons; reopening always starts at the top level.
+- ✅ Zoom menu showed "Shift+1" and "Home" on phones → hints only where
+  the ⋯ menu shows them.
+- ✅ Text tool popover: 15 swatches wrapped 9 + 6, the title touched Size
+  → the whole palette in two even rows, spaced like the other popovers;
+  the laser's sliders no longer touch its swatches.
+- ⬜ The recording pill can cover the "Add page" footer at the end of a
+  document (`features/audio` places it; the document has no bottom room
+  for it).
+- ⬜ A text box typed near the bottom of a phone can sit under the docked
+  format bar (nothing scrolls it into view).
+- ⬜ Menu rows are 44 dp on touch tablets (`Targets.menuRowHeight` goes by
+  width, not input, unlike the other targets; a shared-token change that
+  moves many goldens).
+
 ## Round 3 — whole app (`feat/ux3`)
 
 Scope: every surface. The library, settings, dialogs, import and export
@@ -405,13 +435,20 @@ the second for what is left.
   light covers, the style differs between light and dark, and targets
   are 28 dp. → A dark ring on white in both themes; the whole cover is the
   target.
-- Editor search on phones: stepping to a match pans the page sideways.
-- Lasso selection handles in dark mode are dark and filled on light
+- ✅ Editor search on phones: stepping to a match pans the page sideways.
+  → Panning is per axis (an axis already showing the match never moves);
+  matches land below the measured bar (with its list); phones fold the
+  list when stepping.
+- ✅ Lasso selection handles in dark mode are dark and filled on light
   paper. They should follow the paper, as the canvas hint now
-  does.
-- The image crop bar overlaps the fit button on phones.
-- The page submenu opens over its parent on phones (a drill-in or a sheet
-  would suit phones better).
+  does. → Ink blue on paper white in both themes (selection, crop and,
+  now, text boxes).
+- ✅ The image crop bar overlaps the fit button on phones. → The Fit button
+  is gone; the bar now keeps clear of the measured chrome (it sat on the
+  phone toolbar above a tall image).
+- ✅ The page submenu opens over its parent on phones (a drill-in or a sheet
+  would suit phones better). → Phones drill into Page and View in place
+  of the ⋯ menu, with a ‹ back row.
 - The handwriting language picker is a `SimpleDialog`: no Cancel, and no
   hint that it scrolls.
 - ✅ The paused recorder shows no "Paused" label, and Resume is a mic icon.
@@ -434,12 +471,13 @@ the second for what is left.
 
 ### Routed ➡️
 
-- feat/text: the text format bar overflows on phones (Delete and Done are
-  clipped); text touches the box border; colour swatches are 22 dp.
-- feat/pen3: dark ink swatches and colour underlines vanish on the dark
+- feat/text: ✅ the text format bar overflows on phones (Delete and Done are
+  clipped) → two rows on phones, every control visible; text touches the
+  box border; colour swatches are 22 dp.
+- ✅ feat/pen3: dark ink swatches and colour underlines vanish on the dark
   toolbar (needs the `ColorDot` ring or the same rule); the phone tool
   switcher has uneven margins; the narrow bottom toolbar is clipped at the
-  right edge.
+  right edge. (Checked in `toolbar_*` and `editor_narrow_paged`: all fixed.)
 
 ---
 
