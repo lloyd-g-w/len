@@ -262,12 +262,14 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
       gets a hairline ring when it is close to the surface colour. The
       switch icon uses `primary`. Hint colours come from the paper, not
       the UI theme.
-12. 🟡 **Dialog headers differ.** Some have a tinted icon and a centred
+12. ✅ **Dialog headers differ.** Some have a tinted icon and a centred
     title, others are left-aligned, and the progress dialog has a bare
     hourglass. Template sheets disagree on footers: "Change template" has
     no Cancel, and the primary labels and icons vary. → Tinted
     `DialogIcon` for confirmations and progress; every sheet has Cancel
-    plus one filled primary.
+    plus one filled primary. (Checked again: all dialogs go through
+    `AppDialog`; Change template has Cancel, Apply to all pages and the
+    filled Apply to this page.)
 13. ✅ **The editor search bar squeezes the query to about 2 characters on
     phones** (counter plus 4 icon buttons in one row). "0 matches" and
     "No matches" show at the same time.
