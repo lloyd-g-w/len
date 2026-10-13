@@ -67,6 +67,15 @@ mixin _LibraryOperations {
     return moved;
   }
 
+  /// The notebooks in folder [id] and its subfolders, at any depth.
+  List<Notebook> notebooksIn(String id) {
+    final subtree = services.folders.subtreeOf(id);
+    return [
+      for (final n in _notebooks)
+        if (subtree.contains(n.folderId)) n,
+    ];
+  }
+
   /// What deleting folder [id] takes with it: its subfolders (at any
   /// depth) and the notebooks in it and them.
   ({int folders, int notebooks}) contentsOf(String id) {

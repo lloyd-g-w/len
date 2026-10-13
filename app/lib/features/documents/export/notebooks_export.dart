@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../app_services.dart';
+import '../../../data/archive/len_archives.dart';
+import '../../../domain/folder.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../platform/file_export.dart' as platform;
+import '../../backup/len_file_flows.dart';
 import '../progress_dialog.dart';
 import 'export_flow.dart';
 import 'export_messages.dart';
@@ -12,20 +15,27 @@ import 'export_report.dart';
 import 'export_sheet.dart';
 import 'notebook_exporter.dart';
 
-/// Exports whole [notebooks] from the library (UX_AUDIT R7-8). One opens
-/// the editor's export sheet with all its pages (a canvas, the canvas
-/// sheet); several ask once (format, what to include, no page range) and
-/// give one PDF per notebook (or its pages as PNGs), saved or shared
-/// together. [exporter] and [save] are for tests.
+/// Exports whole [notebooks] from the library (UX_AUDIT R7-8), or those of
+/// [folder] (its "Export…"). One notebook opens the editor's export sheet
+/// with all its pages (a canvas, the canvas sheet); several, or a folder,
+/// ask once (format, what to include, no page range) and give one PDF per
+/// notebook (or its pages as PNGs), saved or shared together, or one Len
+/// file holding them all (a folder's keeps its subfolders). [exporter] and
+/// [save] are for tests.
 Future<void> exportNotebooks(
   BuildContext context,
   List<Notebook> notebooks, {
+  Folder? folder,
   NotebookExporter? exporter,
   ExportSaver save = platform.saveOrShareAll,
+  @visibleForTesting LenExport lenExport = exportLenFlow,
 }) async {
-  if (notebooks.isEmpty) return;
+  if (notebooks.isEmpty) {
+    if (folder != null) showMessage(context, 'Nothing to export yet: the folder is empty');
+    return;
+  }
   final services = AppScope.read(context);
-  if (notebooks.length == 1) {
+  if (notebooks.length == 1 && folder == null) {
     final notebook = notebooks.single;
     if (notebook.kind == NotebookKind.canvas) {
       return exportCanvasFlow(context, notebook: notebook, exporter: exporter, save: save);
@@ -42,8 +52,12 @@ Future<void> exportNotebooks(
     );
   }
   final worker = exporter ?? NotebookExporter(services);
+  final count = '${notebooks.length} ${notebooks.length == 1 ? 'notebook' : 'notebooks'}';
+  final len = folder == null
+      ? (scope: LenScope.notebooks([for (final n in notebooks) n.id]), title: count, whole: count)
+      : (scope: LenScope.folder(folder.id), title: folder.name, whole: 'Whole folder');
   try {
-    await _exportSeveral(context, services, notebooks, worker, save);
+    await _exportSeveral(context, services, notebooks, worker, save, len, lenExport);
   } finally {
     if (exporter == null) await worker.dispose();
   }
@@ -55,6 +69,8 @@ Future<void> _exportSeveral(
   List<Notebook> notebooks,
   NotebookExporter worker,
   ExportSaver save,
+  ({LenScope scope, String title, String whole}) len,
+  LenExport lenExport,
 ) async {
   // The sheet sees every page, for its count and whether any has a PDF
   // background; an empty canvas has nothing to give.
@@ -65,12 +81,18 @@ Future<void> _exportSeveral(
   if (all.isEmpty) return showMessage(context, 'Nothing to export yet: no pages');
   final options = await showExportSheet(
     context,
-    title: '${notebooks.length} notebooks',
+    title: len.title,
     pages: all,
     currentPage: 0,
     choosePages: false,
+    whole: len.whole,
   );
   if (options == null || !context.mounted) return;
+  if (options.format == ExportFormat.len) {
+    // One file: the notebooks (or the folder) as they are.
+    await lenExport(context, len.scope, name: lenFileName(len.title), toDevice: options.toDevice);
+    return;
+  }
   final report = ExportReport();
   final taken = <String>{};
   // Two notebooks of the same name don't overwrite each other.

@@ -1,7 +1,8 @@
 /// Reading and writing Len files (`data/archive`) where they live:
 /// `openFileInput` reads a file (a blob) in chunks natively (null on the
 /// web); `openPickedInput` opens a picked or incoming file (natively read
-/// in place, in browsers from memory); `createLenFileOutput` writes a Len
+/// in place, in browsers from memory); `fileCrc32` checksums a file off
+/// the UI thread (natively; null in browsers); `createLenFileOutput` writes a Len
 /// file, asking where first where it can (desktop: to the chosen file;
 /// mobile: to a temporary file to share; browsers: to the file chosen in
 /// the save picker where there is one, else to a blob of chunks to

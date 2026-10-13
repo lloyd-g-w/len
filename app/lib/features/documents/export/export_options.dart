@@ -7,7 +7,7 @@ enum ExportFormat {
   pdf('PDF', 'pdf', 'application/pdf'),
   png('PNG', 'png', 'image/png'),
 
-  /// An editable copy for Len (`LenFormat`): always the whole notebook.
+  /// An editable copy for Len (`LenFormat`): always whole notebooks.
   len('Len', LenFormat.extension, LenFormat.mime);
 
   const ExportFormat(this.label, this.extension, this.mime);
@@ -36,6 +36,7 @@ class ExportOptions {
     this.includeTemplates = true,
     this.includeBackgrounds = true,
     this.canvas = false,
+    this.whole,
     this.toDevice = false,
   });
 
@@ -50,6 +51,10 @@ class ExportOptions {
 
   /// The whole drawing of an infinite canvas (one page, sized to fit it).
   final bool canvas;
+
+  /// What is exported whole when it isn't one notebook: "3 notebooks",
+  /// "Whole folder" (a Len file of it holds that).
+  final String? whole;
 
   /// Saved through the system's save dialog rather than shared (Android
   /// "Save to device").
@@ -69,7 +74,7 @@ class ExportOptions {
     return switch (format) {
       ExportFormat.pdf => '$count, PDF',
       ExportFormat.png => '$count, PNG at $pngDpi dpi',
-      ExportFormat.len => canvas ? 'Whole canvas, Len file' : 'Whole notebook, Len file',
+      ExportFormat.len => '${whole ?? (canvas ? 'Whole canvas' : 'Whole notebook')}, Len file',
     };
   }
 }

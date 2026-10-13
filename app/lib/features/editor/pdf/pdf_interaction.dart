@@ -263,24 +263,27 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
     final style = tools.styleFor(InkTool.highlighter).copyWith(thinning: 0, streamline: 0);
     final now = clock.nowMs();
     var added = 0;
-    // Each page gets its own strokes (on a selection over several pages).
-    for (final span in selection.spans) {
-      final page = span.page;
-      final strokes = [
-        for (final line in span.lines)
-          ?PdfHighlights.stroke(
-            line,
-            page,
-            id: clock.newId(),
-            color: ink,
-            style: style,
-            createdAt: now,
-          ),
-      ];
-      if (strokes.isEmpty) continue;
-      doc.surfaces.surfaceOf(page.id).model.commit(InkEdit(added: strokes));
-      added += strokes.length;
-    }
+    // Each page gets its own strokes (on a selection over several pages),
+    // one undo step for all.
+    doc.surfaces.models.group(() {
+      for (final span in selection.spans) {
+        final page = span.page;
+        final strokes = [
+          for (final line in span.lines)
+            ?PdfHighlights.stroke(
+              line,
+              page,
+              id: clock.newId(),
+              color: ink,
+              style: style,
+              createdAt: now,
+            ),
+        ];
+        if (strokes.isEmpty) continue;
+        doc.surfaces.surfaceOf(page.id).model.commit(InkEdit(added: strokes));
+        added += strokes.length;
+      }
+    });
     selection.clear();
     return added;
   }

@@ -350,6 +350,13 @@ everywhere.**
   disk) and, above 500 MB of files, ask first with the size, pointing to
   per-folder export or sync. Import still reads the file into memory on the
   web.
+  *Then (`fix/r8-followups`):* imports and restores in a browser read the
+  picked file in slices (`Blob.slice`): `RangedZip` loads the zip's
+  structure (directory, headers), then each entry as it is read, blobs 1 MB
+  at a time (`data/archive/ranged_input.dart`), so a big backup is never in
+  memory whole. On the way: reading a backup's contents (for the restore
+  question) closed its record parts, so a restore from a file on disk then
+  imported no records; parts are now read without being kept or closed.
 
 ✅ **R8-18 P2 · Desktop writes the backup, then asks where to save it.**
 - *What:* `createLenFileOutput` writes to a temporary folder
@@ -374,6 +381,10 @@ everywhere.**
 - *Done (`fix/r8-data`):* the estimate is a few aggregate queries per 500
   notebooks; the writer yields between blobs. (Blobs are still hashed by
   `ZipEncoder.add` synchronously, one at a time.)
+  *Then (`fix/r8-followups`):* natively, each blob file is checksummed
+  (CRC-32) in a worker isolate first and handed to the encoder as stored with
+  its checksum, so the UI thread only copies it (`fileCrc32`); browsers keep
+  checksumming as they write (their blobs are in memory one at a time anyway).
 
 ✅ **R8-20 P2 · Backup, restore and Len export each have several names.**
 - *What:*
@@ -428,6 +439,9 @@ text, so it stays on one line). The backup, restore and import wording is
   (stopping at the first failure, e.g. offline); what is still missing is
   said as "2 PDFs, images or recordings aren’t downloaded yet and aren’t in
   it". `lastBackupAt` is still set.
+  *Then (`fix/r8-followups`):* only a complete backup sets `lastBackupAt`
+  and dismisses the device-only notice; one with files missing is saved
+  and says so, but the library keeps suggesting a backup.
 
 ✅ **R8-23 P2 · Library backups include the Trash, which a restore can then
 purge at once.**
@@ -459,6 +473,12 @@ purge at once.**
   drag on highlighted PDF text selects the text; ink written with the pen
   over it still wins. A highlight is selected with a lasso loop
   (`fix/r8-pen`).
+  *Then (`fix/r8-followups`):* the text menu offers "Remove highlight" when
+  the selection is (partly) highlighted: the highlighter strokes whose path
+  crosses the selected lines go, as one undo step across pages
+  (`pdf/pdf_highlight_removal.dart`); on a phone the menu shows two colour
+  dots then, so it still fits. Highlight over several pages is one undo step
+  too.
 
 ✅ **R8-25 P1 · A scribble erases along the whole stroke.**
 - *What:* `ScribbleDetector` answers yes or no for the whole stroke
@@ -669,10 +689,15 @@ are `fix/r8-data`'s; the scribble preview `fix/r8-pen`'s.
 - ✅ **One import destination.** What the file is decides where it goes: a
   notebook or folder goes into the open folder, a backup goes to the top
   level (R8-15). Settings → Restore stays a shortcut to the same flow.
-- **Len export for several notebooks.** The export sheet hides the Len
+- ✅ **Len export for several notebooks.** The export sheet hides the Len
   format when several notebooks are selected (`export_sheet_sections.dart:64-66`).
   Offering it removes the folder menu's separate "Export as Len file…"
   (R8-20).
+  *Done (`fix/r8-followups`):* the sheet always offers "Len file": several
+  notebooks give one Len file of kind `notebooks` ("2 notebooks.len",
+  imported into the open folder without their folders); a folder's
+  "Export…" opens the same sheet (one PDF per notebook, PNGs, or the folder's
+  Len file, "Whole folder, Len file").
 - **One selection bar** for the library and the overview (R8-13).
 - ✅ **Disable "Back up library…" in an empty library**, and make no empty
   "Backup …" folder when an import brings nothing.

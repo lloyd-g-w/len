@@ -313,6 +313,11 @@ void main() {
             .strokesNear(Offset.zero & page.size);
         expect(strokes, isNotEmpty, reason: 'highlighted on ${page.id}');
       }
+      pdf.doc.surfaces.undo(); // One step for both pages.
+      for (final page in pdf.doc.pages) {
+        final model = pdf.doc.surfaces.surfaceOf(page.id).model;
+        expect(model.strokesNear(Offset.zero & page.size), isEmpty);
+      }
       await tester.pumpWidget(const SizedBox());
     });
 

@@ -34,12 +34,20 @@ String backupFileName(DateTime at) => 'Len backup ${formatDay(at)}.${LenFormat.e
 /// it goes is likely to run out of memory: warn first (UX_AUDIT R8-17).
 const webBackupWarnBytes = 500 << 20;
 
+/// [exportLenFlow]'s signature.
+typedef LenExport = Future<LenWriteReport?> Function(
+  BuildContext context,
+  LenScope scope, {
+  required String name,
+  bool toDevice,
+});
+
 /// Writes [scope] as a Len file named [name] behind a progress dialog,
 /// asking where to save it first where the platform can (desktop, some
 /// browsers), else sharing or with [toDevice] saving it (Android) or
-/// downloading it (web) when done; then says where it went. Returns
-/// whether it was saved.
-Future<bool> exportLenFlow(
+/// downloading it (web) when done; then says where it went. Returns what
+/// was written once saved, else null.
+Future<LenWriteReport?> exportLenFlow(
   BuildContext context,
   LenScope scope, {
   required String name,
@@ -47,13 +55,13 @@ Future<bool> exportLenFlow(
 }) async {
   final services = AppScope.read(context);
   final backup = scope.kind == LenArchiveKind.library;
-  if (backup && !lenFilesStream && !await _confirmLarge(context, services)) return false;
+  if (backup && !lenFilesStream && !await _confirmLarge(context, services)) return null;
   LenFileOutput? output;
   try {
     output = await createLenFileOutput(name, mime: LenFormat.mime, toDevice: toDevice);
     if (output == null || !context.mounted) {
       await output?.discard();
-      return false;
+      return null;
     }
     final out = output;
     final written = await runWithSteps(
@@ -76,19 +84,19 @@ Future<bool> exportLenFlow(
     );
     if (!context.mounted) {
       await out.discard();
-      return false;
+      return null;
     }
     final saved = await out.deliver();
-    if (saved == null || !context.mounted) return false;
+    if (saved == null || !context.mounted) return null;
     showExported(context, saved, plural: 'files', note: notDownloadedNote(written.missingBlobs));
-    return true;
+    return written;
   } on Cancelled {
     await output?.discard();
-    return false;
+    return null;
   } on Object catch (e, stack) {
     debugPrint('Len export failed: $e\n$stack');
     await output?.discard();
-    if (!context.mounted) return false;
+    if (!context.mounted) return null;
     showMessage(
       context,
       backup ? 'Couldn’t back up your library' : 'Couldn’t export “$name”',
@@ -103,7 +111,7 @@ Future<bool> exportLenFlow(
         ),
       ),
     );
-    return false;
+    return null;
   }
 }
 
@@ -132,17 +140,24 @@ Future<bool> _confirmLarge(BuildContext context, AppServices services) async {
 }
 
 /// Backs up the whole library into one Len file (Settings → Backup, the
-/// library's notice) and remembers when; returns whether it was saved.
-Future<bool> backupLibraryFlow(BuildContext context) async {
+/// library's notice) and, when nothing was left out, remembers when;
+/// returns whether a complete backup was saved. (A backup missing files
+/// that aren't downloaded yet is saved, and says so, but doesn't count:
+/// the library keeps suggesting one.)
+Future<bool> backupLibraryFlow(
+  BuildContext context, {
+  @visibleForTesting LenExport export = exportLenFlow,
+}) async {
   final services = AppScope.read(context);
   final now = DateTime.now();
-  final saved = await exportLenFlow(
+  final written = await export(
     context,
     const LenScope.library(),
     name: backupFileName(now),
     // Android: a backup belongs in a file the user keeps, not a message.
     toDevice: canSaveToDevice,
   );
-  if (saved) services.settings.lastBackupAt = now.millisecondsSinceEpoch;
-  return saved;
+  final complete = written != null && written.missingBlobs == 0;
+  if (complete) services.settings.lastBackupAt = now.millisecondsSinceEpoch;
+  return complete;
 }

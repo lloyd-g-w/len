@@ -284,8 +284,9 @@ server (another host name or address) changes nothing.
 ## Len files
 
 A Len file (`.len`, MIME type `application/x-len`; `app/lib/data/archive/len_format.dart`) is a
-notebook, a folder or the whole library (a backup) packed for people rather than servers: a zip
-with `manifest.json` (`{"format": "len", "version": 1, "kind": "notebook"|"folder"|"library",
+notebook, a folder, several notebooks (a library selection, without their folders) or the whole
+library (a backup) packed for people rather than servers: a zip with `manifest.json`
+(`{"format": "len", "version": 1, "kind": "notebook"|"folder"|"notebooks"|"library",
 "title", "createdAt"}`), the records as sync records (the format above; one JSON record per line
 in `records/000001.jsonl`, … parts of about 4 MB, parents before children in the order
 `folders, templates, notebooks, pages, outline, recordings, strokes, elements`), `blobs.json`

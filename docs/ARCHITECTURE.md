@@ -1782,14 +1782,19 @@ A notebook, a folder or the whole library can be written as a Len file
 files"). `LenArchives` (`AppServices.lenFiles`) writes a `LenScope` through
 `LenArchiveWriter` and imports through `LenArchiveReader`: records go out in
 ~4 MB parts and blobs one at a time, read natively straight from their files
-(`platform/len_file_io_native.dart` opens them as `InputFileStream`s); blobs
+(`platform/len_file_io_native.dart` opens them as `InputFileStream`s and
+checksums them in a worker isolate first, `fileCrc32`, so the zip encoder only
+copies them; in browsers the encoder checksums each as it writes it); blobs
 not downloaded yet are fetched first through sync where it can. The file is
 never held in memory whole (`createLenFileOutput`): desktops ask where to
 save first and write there (a `.part` file until done), phones write a
 temporary file to share or save, browsers write through the save picker
 (`showSaveFilePicker`, streamed via `ChunkedOutput`) where there is one,
 else into a blob of 4 MB chunks to download, and warn before backing up
-more than 500 MB of files. An import opens the file (`LenSource`: the
+more than 500 MB of files. Browsers read a picked file in slices
+(`RangedInput` over `Blob.slice`; `RangedZip` loads the zip's structure
+first, then each entry as it is read), natively it is read in place. An
+import opens the file (`LenSource`: the
 manifest and, for a backup, the folders and notebooks it holds), stages
 everything, remaps ids (`LenRemap`), checks each blob's hash and commits in
 one transaction (`LenImportCommit`). Damage (a blob, a line, a part) is
@@ -1802,9 +1807,11 @@ library, else into a folder "Backup 13 Oct 2026" (with the time when that
 name is taken). A restore keeps the ids of what isn't here, and its Undo
 (`undoRestore`) puts its notebooks in the Trash and its folders away.
 Entry points: the export sheet's Len format (a notebook or canvas, always
-whole), a folder's "Export…", ⊕▾ "Import Len file…", "Open
+whole; several selected notebooks as one file, `LenScope.notebooks`; a
+folder, from its "Export…", which opens the same sheet), ⊕▾ "Import Len file…", "Open
 with" / share / drop (`ImportRouter`, `IncomingKind.len`) and Settings →
-Backup ("Back up library…", which records `last_backup_at`, and "Restore
+Backup ("Back up library…", which records `last_backup_at` when nothing was
+left out, and "Restore
 from backup…"). With sync off, Settings → Backup and the sidebar ("On this
 device only") say the notes are only here; the library says so once
 (`LibraryNotices`, tip `notes_device_only`) when notebooks are a day old and

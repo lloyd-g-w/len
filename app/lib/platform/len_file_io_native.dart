@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:archive/archive.dart';
 import 'package:cross_file/cross_file.dart';
@@ -11,6 +12,23 @@ import 'file_export_native.dart';
 
 /// File [path] for reading in chunks, or null if there is none.
 InputStream? openFileInput(String path) => File(path).existsSync() ? InputFileStream(path) : null;
+
+/// The zip checksum (CRC-32) of file [path], worked out in a worker
+/// isolate so a big file doesn't hold up the UI (UX_AUDIT R8-19).
+Future<int?> fileCrc32(String path) => Isolate.run(() {
+  final file = File(path).openSync();
+  try {
+    final chunk = Uint8List(1 << 20);
+    var crc = 0;
+    while (true) {
+      final read = file.readIntoSync(chunk);
+      if (read == 0) return crc;
+      crc = getCrc32(Uint8List.sublistView(chunk, 0, read), crc);
+    }
+  } finally {
+    file.closeSync();
+  }
+});
 
 /// [file] for reading: in place when it is a file here, else from memory.
 Future<InputStream> openPickedInput(XFile file) async =>

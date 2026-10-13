@@ -82,7 +82,7 @@ mixin _FolderActions {
           drop(context, LibraryDragItem.folder(folder.id), target.folderId);
         }
       case FolderAction.export:
-        await exportLenFlow(context, LenScope.folder(folder.id), name: lenFileName(folder.name));
+        await exportNotebooks(context, controller.notebooksIn(folder.id), folder: folder);
       case FolderAction.delete:
         deleteFolder(context, folder);
     }

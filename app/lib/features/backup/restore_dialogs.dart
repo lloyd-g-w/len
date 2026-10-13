@@ -146,6 +146,10 @@ String importedMessage(LenImportResult result, {String? folderName, int skipped 
   final what = switch (manifest.kind) {
     LenArchiveKind.notebook => 'Imported “${manifest.title}”',
     LenArchiveKind.folder => 'Imported the folder “${manifest.title}”',
+    LenArchiveKind.notebooks => switch (result.notebooks.length) {
+      1 => 'Imported 1 notebook',
+      final n => 'Imported $n notebooks',
+    },
     LenArchiveKind.library =>
       folderName == null || result.folder == null
           ? 'Restored your backup'

@@ -19,12 +19,17 @@ class PdfHighlightSwatches extends StatelessWidget {
     required this.tools,
     required this.onHighlight,
     this.labelled = false,
+    this.count = max,
   });
 
   final ToolSettings tools;
 
   /// Says "Highlight" before the dots, rather than showing a glyph.
   final bool labelled;
+
+  /// How many swatches to show, at most [max] (fewer where the menu
+  /// offers more on a phone).
+  final int count;
 
   /// Highlights the selection in an opaque ARGB colour.
   final ValueChanged<int> onHighlight;
@@ -33,15 +38,15 @@ class PdfHighlightSwatches extends StatelessWidget {
   static const int max = 3;
 
   /// The quick colours, the current one first, at most [max].
-  static List<int> colorsOf(PenConfig config) => [
+  static List<int> colorsOf(PenConfig config, {int count = max}) => [
     config.color,
     for (final (i, c) in config.colors.indexed)
       if (i != config.colorIndex && c != config.color) c,
-  ].take(max).toList();
+  ].take(count.clamp(1, max)).toList();
 
   @override
   Widget build(BuildContext context) {
-    final colors = colorsOf(tools.configOf(InkTool.highlighter));
+    final colors = colorsOf(tools.configOf(InkTool.highlighter), count: count);
     final target = Targets.barHit(context);
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;

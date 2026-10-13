@@ -7,6 +7,7 @@ import 'package:cross_file/cross_file.dart';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 
+import '../data/archive/ranged_input.dart';
 import 'chunked_output.dart';
 import 'file_export_api.dart';
 import 'file_export_web.dart';
@@ -14,9 +15,23 @@ import 'file_export_web.dart';
 /// Browsers keep blobs in IndexedDB, not files.
 InputStream? openFileInput(String path) => null;
 
-/// [file] read into memory.
-Future<InputStream> openPickedInput(XFile file) async =>
-    InputMemoryStream(await file.readAsBytes());
+/// No files here: the checksum is worked out as a blob is written.
+Future<int?> fileCrc32(String path) async => null;
+
+/// [file] for reading: a picked file (behind a `blob:` URL) in slices,
+/// as it is read (`Blob.slice`), so a big backup is never in memory whole;
+/// other files (already in memory) from memory.
+Future<InputStream> openPickedInput(XFile file) async {
+  if (!file.path.startsWith('blob:')) return InputMemoryStream(await file.readAsBytes());
+  final response = await web.window.fetch(file.path.toJS).toDart;
+  final blob = await response.blob().toDart;
+  return RangedInput(
+    RangedFile(blob.size, (start, end) async {
+      final buffer = await blob.slice(start, end).arrayBuffer().toDart;
+      return buffer.toDart.asUint8List();
+    }),
+  );
+}
 
 /// Whether a Len file is written without being held in memory: where the
 /// browser can save files as they are written (`showSaveFilePicker`).
