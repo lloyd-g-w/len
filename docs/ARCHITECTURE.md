@@ -950,7 +950,11 @@ replayed in step with the ink.
   manager). With the service up, pausing the app (screen off, another app in
   front) keeps recording (`NotebookAudio`); if it could not start (or reports
   `failed`), the old behaviour applies: the recording is stopped and saved
-  when the app is paused. Swiping Len away from the recent apps asks Dart to
+  when the app is paused. Back at the library's root moves Len to the back
+  (`MainActivity.popSystemNavigator`; predictive back does the same) instead
+  of finishing the activity, which would end the engine and the recording;
+  the activity also handles every configuration change Flutter follows by
+  itself, as any recreation restarts the engine. Swiping Len away from the recent apps asks Dart to
   stop and save, and the service quits after a grace period (or as soon as
   the engine detaches). Other platforms have no keep-alive (desktop apps keep
   the microphone; browsers keep recording in a background tab).
@@ -2010,6 +2014,85 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   these three features need.
 - **CI / releases:** `.github/workflows/ci.yml` (analyze, tests, all builds,
   server image, the overlay's Kotlin model against the Dart one) and `release.yml` (on `v*` tags; see README *Release*).
+
+### Android review (2026-10)
+
+A code review of `app/android/` against target SDK 36 (Flutter 3.47's default;
+min SDK 24), without a device: everything below is verified by reading, the
+JVM unit tests (`tool/wet_ink_check/unit_test.sh`: model, flat ends,
+prediction, incoming file names), the Dart/Kotlin parity check
+(`tool/wet_ink_check/check.sh`) and a release build (R8, the merged manifest
+and mapping inspected), **not** on hardware.
+
+- **Fixed:** back at the root finished the activity (Flutter's
+  `SystemNavigator.pop` → `finish()`), destroying the engine and a background
+  recording → `moveTaskToBack`, plus `enableOnBackInvokedCallback` (predictive
+  back on Android 13–15; the default at SDK 36). Leaving focus mode used
+  `SystemUiMode.manual`, which turns edge to edge off (Android ≤ 14 then laid
+  the app out between the bars) → `edgeToEdge`. Bold text, SIM network and
+  touchscreen changes recreated the activity (= an engine restart) → in
+  `configChanges`. Reopening from the recent apps re-imported the launch
+  intent's files (`FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`). Incoming `file:`
+  URIs and Len's own providers were readable by any sender ("dirty stream")
+  → only other apps' `content:` URIs. Stopping the recording service between
+  its creation and `onStartCommand` skipped `startForeground` (a crash on
+  some versions) → it ends once foreground. Save to device left Dart waiting
+  forever when the activity went away, and failed on providers without
+  `"wt"`. Handwriting recognition rejected whole-number writing areas.
+  `RECEIVE_BOOT_COMPLETED` (from ML Kit's WorkManager) removed.
+- **Checked, fine:** FGS type `microphone` with `FOREGROUND_SERVICE_MICROPHONE`,
+  started only while visible after `RECORD_AUDIO` is granted (Android 14's
+  while-in-use rule; failures report `failed`); `POST_NOTIFICATIONS` asked once;
+  immutable `PendingIntent`s; no exact alarms. Backup rules match the data
+  layout (`files/len.db` + WAL; blobs only device to device; never the install
+  marker or the secure-storage token). R8: own plugins are registered
+  directly (no reflection); ML Kit, WorkManager/Room and `jni` keeps;
+  graphics-core and motion prediction ship consumer rules. Stylus samples:
+  `device` and time stamps match Flutter's `AndroidTouchProcessor`.
+- **Left as is:** on Android 14+ the recording notification can be swiped
+  away (the service keeps running; reopen Len to stop); ML Kit's datatransport
+  telemetry comes with the library; the Play Console needs the microphone
+  FGS declaration (a short video of background recording).
+
+**Device checklist (Galaxy Tab + S Pen, release build).** Each line: do →
+expect.
+
+1. Write fast loops and dots with the S Pen at 120 Hz → ink under the nib,
+   no gap or double edge where the overlay hands over; same in split screen,
+   in a pop-up window, rotated, and in DeX on an external display (move the
+   window between displays mid-session, then write).
+2. Hover, then write with the side button held → no overlay ink (eraser /
+   selection); palm resting while writing → no stray ink.
+3. Focus mode → bars hidden, swipe from the edge shows them briefly; leave
+   (back / handle) → bars back, content still drawn behind them (no jump),
+   on Android 14 and 15+.
+4. Predictive back: in a notebook, slowly swipe back → the route follows and
+   can be cancelled; at the library root → back-to-home animation; reopen →
+   same state, no restart (no splash).
+5. Start a recording, press back to home, lock the screen 2 min, unlock →
+   notification shows time; Pause / Resume / Stop from the notification and
+   from the lock screen work; the recording is saved with full length.
+6. Fresh install: first recording asks microphone, then notifications; deny
+   notifications → recording still continues in the background.
+7. While recording: toggle dark mode, Bold text (Settings → Display), font
+   size, rotate, split screen, DeX on/off → recording continues, notebook
+   stays open.
+8. Swipe Len away from recents while recording → the recording is saved
+   (open it again); the notification disappears within ~8 s.
+9. Files app → open a PDF, an image, a `.len` with Len (cold: Len closed;
+   warm: Len open) → imported once; then close Len with back and reopen it
+   from recents → **not** imported again. Share 3 images from Gallery → one
+   batch. Open a `len://sync?…` link from a message → Settings → Sync filled.
+10. Export → Save to device: one file (rename it), several (pick a folder),
+    to Google Drive, and over an existing file → content correct, size not
+    larger than the new file.
+11. "Don't keep activities" (developer options) on, background Len during a
+    save dialog and during a share → no crash, Len restarts at the library.
+12. Handwriting search / conversion with a downloaded model → results; then
+    reboot, open Len → still works.
+13. Settings → Apps → Len → Back up (or `adb shell bmgr backupnow dev.len.len`),
+    uninstall, reinstall and restore → notebooks back; sync needs its token
+    again (not backed up) and runs as a new device.
 
 ## Library (`features/library/`)
 
