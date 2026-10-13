@@ -21,12 +21,16 @@ import 'new_notebook_sheet.dart';
 import 'selection/library_selection.dart';
 import 'thumbnails/thumbnail_cache.dart';
 
+part 'library_folder_actions.dart';
+part 'library_notebook_actions.dart';
+
 /// User-facing flows of the library (dialogs, confirmations, navigation)
 /// on top of [LibraryController]. Widgets pass their own [BuildContext].
-class LibraryActions {
+class LibraryActions with _NotebookActions, _FolderActions {
   LibraryActions({required this.controller, required this.thumbnails, LibrarySelection? selection})
     : selection = selection ?? LibrarySelection();
 
+  @override
   final LibraryController controller;
   final ThumbnailCache thumbnails;
 
@@ -34,10 +38,12 @@ class LibraryActions {
   final LibrarySelection selection;
 
   /// Covers on screen, which notebooks open out of.
+  @override
   final CoverLocator covers = CoverLocator();
 
   /// Opens [notebook] in the editor (out of its cover with [from]), and
   /// refreshes the covers of everything visited when the editor closes.
+  @override
   Future<void> openNotebook(
     BuildContext context,
     Notebook notebook, {
@@ -73,6 +79,7 @@ class LibraryActions {
 
   /// Enters selection mode (with [id] selected). A message still showing
   /// goes: the selection bar takes its place.
+  @override
   void startSelection(BuildContext context, [String? id]) {
     ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
     selection.start(id);
@@ -120,273 +127,19 @@ class LibraryActions {
     await openNotebook(context, notebook);
   }
 
-  Future<void> createFolder(BuildContext context) async {
-    final details = await showFolderDialog(context, title: 'New folder', confirmLabel: 'Create');
-    if (details == null) return;
-    controller.createFolder(details.name, color: details.color);
-  }
-
-  /// Handles a dragged item dropped on folder [folderId] (null = root):
-  /// moves it, says where and offers Undo, as the Move dialog does.
-  void drop(BuildContext context, LibraryDragItem item, String? folderId) {
-    if (!item.isFolder) {
-      final from = controller.services.notebooks.get(item.id)?.folderId;
-      if (from != folderId) move(context, [item.id], folderId);
-      return;
-    }
-    final folder = controller.folderById(item.id);
-    if (folder == null) return;
-    final from = controller.parentOf(folder);
-    if (from == folderId) return;
-    if (!controller.moveFolder(item.id, folderId)) {
-      _toast(context, 'A folder can’t be moved into itself');
-      return;
-    }
-    _undoable(
-      context,
-      'Moved “${folder.name}” to “${_folderName(folderId)}”',
-      () => controller.moveFolder(item.id, from),
-    );
-  }
-
-  /// Whether [item] may be dropped into [folderId].
-  bool canDrop(LibraryDragItem item, String? folderId) =>
-      !item.isFolder ||
-      (item.id != folderId && controller.services.folders.canMove(item.id, folderId));
-
-  Future<void> trash(BuildContext context, Notebook notebook) async {
-    controller.trashNotebook(notebook.id);
-    showMessage(
-      context,
-      '“${notebook.title}” moved to the trash',
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () => controller.restoreNotebook(notebook.id),
-      ),
-    );
-  }
-
-  Future<void> onNotebookAction(
-    BuildContext context,
-    Notebook notebook,
-    NotebookAction action,
-  ) async {
-    switch (action) {
-      case NotebookAction.open:
-        await openNotebook(context, notebook, from: covers.originOf(context, notebook));
-      case NotebookAction.rename:
-        final title = await showTextPrompt(
-          context,
-          title: 'Rename notebook',
-          label: 'Name',
-          initialValue: notebook.title,
-          confirmLabel: 'Rename',
-        );
-        if (title == null || title.isEmpty) return;
-        // Re-read: it may have changed (or gone) while the dialog was open.
-        final current = controller.services.notebooks.get(notebook.id);
-        if (current == null || title == current.title || !context.mounted) return;
-        controller.updateNotebook(current.copyWith(title: title));
-        _undoable(
-          context,
-          'Renamed to “$title”',
-          () => _editNotebook(notebook.id, (n) => n.copyWith(title: current.title)),
-        );
-      case NotebookAction.favorite:
-        setFavorite(context, [notebook.id], !notebook.favorite);
-      case NotebookAction.cover:
-        // Applies on tap; "Cover changed" offers Undo once it closes.
-        await changeCover(context, controller, notebook);
-      case NotebookAction.duplicate:
-        final copy = controller.duplicate(notebook.id);
-        if (copy == null || !context.mounted) return;
-        _undoable(
-          context,
-          'Duplicated as “${copy.title}”',
-          () => controller.trashNotebook(copy.id),
-        );
-      case NotebookAction.move:
-        final target = await showMoveDialog(
-          context,
-          controller: controller,
-          title: 'Move “${notebook.title}”',
-          currentFolderId: notebook.folderId,
-        );
-        if (target != null && context.mounted) move(context, [notebook.id], target.folderId);
-      case NotebookAction.select:
-        startSelection(context, notebook.id);
-      case NotebookAction.trash:
-        await trash(context, notebook);
-      case NotebookAction.restore:
-        restore(context, [notebook.id]);
-      case NotebookAction.deleteForever:
-        final ok = await confirmAction(
-          context,
-          title: 'Delete “${notebook.title}” forever?',
-          message: 'It will be removed from all synced devices. This can’t be undone.',
-          confirmLabel: 'Delete forever',
-          destructive: true,
-        );
-        if (ok) controller.deleteForever(notebook.id);
-    }
-  }
-
-  Future<void> onFolderAction(BuildContext context, Folder folder, FolderAction action) async {
-    switch (action) {
-      case FolderAction.open:
-        controller.openFolder(folder.id);
-      case FolderAction.edit:
-        final details = await showFolderDialog(
-          context,
-          title: 'Edit folder',
-          confirmLabel: 'Save',
-          initialName: folder.name,
-          initialColor: folder.color,
-        );
-        final current = controller.folderById(folder.id);
-        if (details == null || current == null || !context.mounted) return;
-        if (details.name == current.name && details.color == current.color) return;
-        controller.updateFolder(current.copyWith(name: details.name, color: details.color));
-        _undoable(
-          context,
-          details.name == current.name ? 'Folder changed' : 'Renamed to “${details.name}”',
-          () {
-            final now = controller.folderById(folder.id);
-            if (now != null) {
-              controller.updateFolder(now.copyWith(name: current.name, color: current.color));
-            }
-          },
-        );
-      case FolderAction.move:
-        final target = await showMoveDialog(
-          context,
-          controller: controller,
-          title: 'Move “${folder.name}”',
-          currentFolderId: controller.parentOf(folder),
-          movingFolderId: folder.id,
-        );
-        if (target != null && context.mounted) {
-          drop(context, LibraryDragItem.folder(folder.id), target.folderId);
-        }
-      case FolderAction.delete:
-        deleteFolder(context, folder);
-    }
-  }
-
-  /// Deletes [folder] with its subfolders (their notebooks go to the
-  /// trash) without asking, says what went and offers Undo, as trashing a
-  /// notebook does.
-  void deleteFolder(BuildContext context, Folder folder) {
-    final (:folders, :notebooks) = controller.contentsOf(folder.id);
-    final deletion = controller.deleteFolder(folder.id);
-    final parts = [
-      if (folders > 0) countLabel(folders, 'subfolder'),
-      if (notebooks > 0) countLabel(notebooks, 'notebook'),
-    ];
-    final what = switch ((folders, notebooks)) {
-      (0, 0) => '',
-      (_, 0) => ' with ${parts.single}',
-      (0, _) => ', ${parts.single} to the trash',
-      _ => ', ${parts.join(' and ')} to the trash',
-    };
-    _undoable(
-      context,
-      '“${folder.name}” deleted$what',
-      () => controller.undoDeleteFolder(deletion),
-    );
-  }
-
-  /// Stars notebooks [ids] ([value]) or unstars them, says so and offers
-  /// Undo (each goes back to how it was).
-  void setFavorite(BuildContext context, List<String> ids, bool value) {
-    final before = {for (final id in ids) id: controller.services.notebooks.get(id)?.favorite};
-    final changed = [
-      for (final MapEntry(key: id, value: was) in before.entries)
-        if (was != null && was != value) id,
-    ];
-    if (changed.isEmpty) return;
-    for (final id in changed) {
-      controller.setFavorite(id, value);
-    }
-    final notebook = changed.length == 1 ? controller.services.notebooks.get(changed.single) : null;
-    final what = notebook != null ? '“${notebook.title}”' : countLabel(changed.length, 'notebook');
-    _undoable(context, value ? 'Added $what to favourites' : 'Removed $what from favourites', () {
-      for (final id in changed) {
-        controller.setFavorite(id, !value);
-      }
-    });
-  }
-
-  /// Applies [edit] to notebook [id] as it is now (for Undo: other fields
-  /// may have changed since).
-  void _editNotebook(String id, Notebook Function(Notebook n) edit) {
-    final now = controller.services.notebooks.get(id);
-    if (now != null) controller.updateNotebook(edit(now));
-  }
-
-  /// Takes notebooks [ids] out of the trash and says where they went.
-  void restore(BuildContext context, List<String> ids) {
-    for (final id in ids) {
-      controller.restoreNotebook(id);
-    }
-    final restored = [for (final id in ids) ?controller.services.notebooks.get(id)];
-    if (restored.isEmpty) return;
-    final folders = {for (final n in restored) n.folderId};
-    final where = folders.length == 1 ? '“${_folderName(folders.single)}”' : 'their folders';
-    final what = restored.length == 1
-        ? '“${restored.single.title}”'
-        : countLabel(ids.length, 'notebook');
-    showMessage(context, 'Restored $what to $where');
-  }
-
-  /// Moves notebooks [ids] into [folderId] (null = the library root), says
-  /// so and offers Undo.
-  void move(BuildContext context, List<String> ids, String? folderId) {
-    final from = {for (final id in ids) id: controller.services.notebooks.get(id)?.folderId};
-    for (final id in ids) {
-      controller.moveNotebook(id, folderId);
-    }
-    final notebook = ids.length == 1 ? controller.services.notebooks.get(ids.single) : null;
-    final what = notebook != null ? '“${notebook.title}”' : countLabel(ids.length, 'notebook');
-    showMessage(
-      context,
-      'Moved $what to “${_folderName(folderId)}”',
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () {
-          for (final MapEntry(key: id, value: folder) in from.entries) {
-            controller.moveNotebook(id, folder);
-          }
-        },
-      ),
-    );
-  }
-
+  @override
   String _folderName(String? id) => controller.folderById(id)?.name ?? 'Library';
-
-  Future<void> emptyTrash(BuildContext context) async {
-    final count = controller.trash.length;
-    if (count == 0) return;
-    final ok = await confirmAction(
-      context,
-      title: 'Empty trash?',
-      message:
-          '$count ${count == 1 ? 'notebook' : 'notebooks'} will be deleted forever '
-          'on all synced devices.',
-      confirmLabel: 'Empty trash',
-      destructive: true,
-    );
-    if (ok) controller.emptyTrash();
-  }
 
   /// `1 notebook`, `3 subfolders`.
   static String countLabel(int n, String one) => '$n ${n == 1 ? one : '${one}s'}';
 
+  @override
   void _toast(BuildContext context, String message) {
     showMessage(context, message);
   }
 
   /// Says what was done and offers [undo].
+  @override
   void _undoable(BuildContext context, String message, VoidCallback undo) {
     if (!context.mounted) return;
     showMessage(
