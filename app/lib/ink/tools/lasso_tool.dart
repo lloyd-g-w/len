@@ -96,7 +96,8 @@ class LassoTool implements PointerTool {
   Timer? _longPressTimer;
   ({String id, int time})? _lastTap;
 
-  /// The press started on [text], with no ink or element there.
+  /// The press started on [text], with no ink (but highlights) or element
+  /// there.
   bool _onText = false;
 
   @override
@@ -219,11 +220,12 @@ class LassoTool implements PointerTool {
     _mode = _Mode.idle;
   }
 
-  /// Whether ink or an element lies under [world].
+  /// Whether ink or an element lies under [world]. Highlights don't count:
+  /// highlighted PDF text stays selectable (a lasso loop still takes them).
   bool _hitsContent(Offset world) {
     final model = selection.model;
     return ContentHitTest.elementAt(model, world) != null ||
-        ContentHitTest.strokeAt(model, world, 8 / viewport.scale) != null;
+        ContentHitTest.strokeAt(model, world, 8 / viewport.scale, highlighter: false) != null;
   }
 
   /// A tap on text: its word, and the ink selection goes.

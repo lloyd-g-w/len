@@ -47,7 +47,7 @@ grew apart.
    duplicates the library on every synced device.
 4. R8-15 (P1) Restoring on a new or empty device buries the whole library
    in a "Backup 13 Oct 2026" folder.
-5. R8-24 (P1) Highlighted PDF text can't be selected with the pen any more.
+5. ✅ R8-24 (P1) Highlighted PDF text can't be selected with the pen any more.
 6. R8-25 (P1) A scribble erases along the whole stroke, not just where it
    zigzagged, and can wipe an outline it filled in.
 7. R8-7 (P1) Phones: the notice, Recent and folders push the first cover
@@ -367,7 +367,7 @@ purge at once.**
 
 ### Pen and PDF
 
-**R8-24 P1 · Highlighted PDF text can't be selected with the pen.**
+✅ **R8-24 P1 · Highlighted PDF text can't be selected with the pen.**
 - *What:* the lasso treats a press as on text only when
   `!_hitsContent` (`ink/tools/lasso_tool.dart:123`). `_hitsContent`
   (`:223-226`) uses `ContentHitTest.strokeAt`, which counts highlighter
@@ -380,6 +380,11 @@ purge at once.**
 - *Fix:* ignore highlighter strokes in `_hitsContent` for the hold and
   drag paths. A plain tap may still pick the highlight, so recolour and
   delete keep working.
+- *Done:* the lasso's "on text" test ignores highlighter strokes
+  (`ContentHitTest.strokeAt(highlighter: false)`), so a tap, a hold or a
+  drag on highlighted PDF text selects the text; ink written with the pen
+  over it still wins. A highlight is selected with a lasso loop
+  (`fix/r8-pen`).
 
 **R8-25 P1 · A scribble erases along the whole stroke.**
 - *What:* `ScribbleDetector` answers yes or no for the whole stroke
