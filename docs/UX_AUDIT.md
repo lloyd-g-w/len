@@ -38,8 +38,9 @@ halves wait for `design/foundation`):
 - R5-18/S9: the field holds one reading and the chips the others; loading
   says "Recognising handwriting…"; no text or a failure keep the dialog
   with Try again and Close (the caller chose this over snacks); a minimum
-  content height keeps the dialog steady. Not done: hiding the selection
-  pill behind the dialog.
+  content height keeps the dialog steady. ✅ (`fix/r5-leftovers`) the
+  selection pill steps aside while a dialog or sheet is open over it
+  (`RouteOwners.dialogOpen`).
 - R5-19: a converted reading shrinks (to 70 %) to keep the ink's line count
   before it wraps.
 - R5-24/S7: "Basic" merged into "Paper" (the selected label's colour is
@@ -53,8 +54,13 @@ halves wait for `design/foundation`):
   to outline); one name per command. S10: "1 of 3" / "3 matches"
   everywhere. S12: Bring to front / Send to back only when something else
   overlaps the selected element.
-- Open: R5-15 (search bar over the first match), R5-21 (split drag,
-  `fix/editor-followups`), R5-23 (faint thumbnails); visual items.
+- ✅ on `fix/r5-leftovers`: R5-15 (the first match, on open and when
+  stepping, lands below the measured search bar; pages can scroll clear of
+  it while it is open), R5-23 (page thumbnails and library previews keep
+  dots and rulings: at least 1 px and a little more contrast when small;
+  staves as grey bands), and the copy test now reads adjacent / multi-line
+  literals and `showMessage` messages.
+- Open: R5-21 (split drag, `fix/editor-followups`); visual items.
 
 ### Top 10 (fix first)
 
@@ -215,7 +221,7 @@ over the first written line, just when the user starts writing there.
 (where snacks go), and queue them behind a showing snack (round 4 P2-26).
 *Files:* `chrome/editor_tips.dart`, `chrome/editor_chrome.dart`.
 
-**R5-15 P2 · The in-notebook search bar covers the match on phones.**
+**✅ R5-15 P2 · The in-notebook search bar covers the match on phones.**
 `e_search_phone_light_folded`: the bar sits over the top of page 1, and the
 first match ("Forces…") is under it. `e_search_phone_light_none`: "No
 matches" cuts through a line of ink. The tablet pushes the page down only
@@ -290,7 +296,7 @@ a 300-px gutter opens on the left. *Fix:* put the header and the filter in
 the same centred column on the Outline filter (or use one 960-dp column
 for the whole screen). *Files:* `features/documents/overview/page_overview.dart`.
 
-**R5-23 P2 · Thumbnails of faint papers look blank.** `paper_dotted`,
+**✅ R5-23 P2 · Thumbnails of faint papers look blank.** `paper_dotted`,
 `paper_gridSmall`, `paper_music` (the left thumbnail): the dots and fine
 lines drop out at thumbnail size. College and narrow ruled keep only the
 margin line. In the overview and the library, a dotted or small-grid page
