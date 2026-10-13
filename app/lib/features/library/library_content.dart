@@ -20,6 +20,7 @@ import 'library_header.dart';
 import 'new_notebook_tile.dart';
 import 'notebook_card.dart';
 import 'notebook_list_tile.dart';
+import 'recent_row.dart';
 
 /// The scrolling main area of the library: header, folders, notebooks.
 class LibraryContent extends StatelessWidget {
@@ -82,6 +83,8 @@ class LibraryContent extends StatelessWidget {
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
     final newTile = showsNewTile(actions, compact: compact);
+    // Short windows have no room for it; selecting works on the grid.
+    final recent = short || actions.selection.active ? const <Notebook>[] : _c.recentNotebooks;
     // Room after the last row: clear of the phone's ⊕ and of a snack bar
     // above it (an Undo after trashing the last card), or of a snack bar.
     final endRoom = compact ? 160.0 : 120.0;
@@ -155,22 +158,37 @@ class LibraryContent extends StatelessWidget {
                 ),
               ),
             )
-          else if (folders.isNotEmpty)
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(gutter, Gaps.md, gutter, 0),
-              sliver: SliverToBoxAdapter(
-                child: FolderRow(
-                  folders: folders,
-                  actions: actions,
-                  coverWidth: coverWidth,
-                  spacing: gridSpacing,
-                  viewportHeight: viewportHeight,
+          else ...[
+            if (recent.isNotEmpty)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(gutter, Gaps.md, gutter, 0),
+                sliver: SliverToBoxAdapter(
+                  child: RecentRow(
+                    notebooks: recent,
+                    actions: actions,
+                    coverWidth: coverWidth,
+                    spacing: gridSpacing,
+                    viewportHeight: viewportHeight,
+                  ),
                 ),
               ),
-            ),
+            if (folders.isNotEmpty)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(gutter, Gaps.md, gutter, 0),
+                sliver: SliverToBoxAdapter(
+                  child: FolderRow(
+                    folders: folders,
+                    actions: actions,
+                    coverWidth: coverWidth,
+                    spacing: gridSpacing,
+                    viewportHeight: viewportHeight,
+                  ),
+                ),
+              ),
+          ],
           if (notebooks.isNotEmpty || newTile) ...[
             SliverToBoxAdapter(
-              child: SizedBox(height: short ? Gaps.md : (folders.isEmpty ? Gaps.lg : Gaps.xl)),
+              child: SizedBox(height: short ? Gaps.md : (folders.isEmpty && recent.isEmpty ? Gaps.lg : Gaps.xl)),
             ),
             // A search lists titles and pages alike, as rows.
             if (fullText)

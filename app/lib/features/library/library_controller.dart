@@ -53,6 +53,7 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
   Map<String?, List<Folder>> _childrenByParent = const {};
   Map<String?, int> _notebookCountByFolder = const {};
   Map<String, int> _pageCounts = const {};
+  List<String> _recentIds = const [];
 
   /// [visibleNotebooks] for the current state and sort; several widgets
   /// read it per build. Cleared whenever listeners are notified.
@@ -110,6 +111,7 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
     _notebooks = services.notebooks.list();
     _trash = services.notebooks.trashed();
     _pageCounts = SurfaceStats(services.database).pageCounts();
+    _recentIds = services.workspace.recent;
     _parentById = {
       for (final f in _folders) f.id: FolderRepository.effectiveParentOf(f, _folderById),
     };
@@ -227,6 +229,17 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
     return _section == LibrarySection.trash
         ? matching.toList()
         : LibraryQuery.sorted(matching, sort);
+  }
+
+  /// The library root's Recent row (UX_AUDIT R7-6): the notebooks opened
+  /// lately, most recent first. Only at the root and not while searching,
+  /// and only while one of them lives in a folder (else they are all in
+  /// the grid below anyway).
+  List<Notebook> get recentNotebooks {
+    if (_section != LibrarySection.library || _folderId != null || isSearching) return const [];
+    final byId = {for (final n in _notebooks) n.id: n};
+    final recent = [for (final id in _recentIds) ?byId[id]];
+    return recent.any((n) => LibraryQuery.folderOf(n, _folderById) != null) ? recent : const [];
   }
 
   /// Number of notebooks and subfolders directly in [folderId].
