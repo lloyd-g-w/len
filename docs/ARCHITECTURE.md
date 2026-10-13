@@ -539,8 +539,9 @@ or deleted pages in order with ink. Snack bars' Undo calls
   PDF page (rendered to a 2000 px PNG); "Save page as template" (page menu) renders the page
   as it looks (paper, background, ink, content). Pages made from a template reference the
   blob directly (`Paper.image`), so renaming or deleting a template never changes them.
-- **Picker** (`features/documents/templates/`). `TemplateChooser` (search, category chips,
-  `TemplateGallery` of live miniatures, `PlannerOptions`, `PaperOptions`, page size) is shared by
+- **Picker** (`features/documents/templates/`). `TemplateChooser` (search, then the
+  `TemplateGallery` of live miniatures under category headings, no filter chips;
+  `PlannerOptions`, `PaperOptions`, page size) is shared by
   the template picker (new page, change one / all pages, canvas background) and the
   new-notebook sheet; `templateSections` / `TemplateSelection` (`template_catalog.dart`) hold
   the logic. Planners generate a range when creating or adding ("Add 31 pages"); "Apply to all
