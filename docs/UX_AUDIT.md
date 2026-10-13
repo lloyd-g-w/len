@@ -292,6 +292,10 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
     menus keep 8 dp; tall chrome menus now clear the system bars by 8 dp
     (`menuReservedPadding`). Open: Flutter's `MenuAnchor` still places a menu
     that meets the left or right edge flush against it (the phone "⋯" menu).
+    Not fixable per anchor: `OverlayPortal` replaces the anchor's
+    `MediaQuery` padding with the overlay's (tried a `MediaQuery` around the
+    anchor: no effect). Options left: a transparent menu panel drawing its
+    own inset card, or an `Overlay` with padded `MediaQuery` around the chrome.
 21. ✅ Colour dots (40 dp) and selection
     checkboxes (28 dp) are under 48 dp on phones. → `EvenGrid(touchTargets:)`
     gives swatch cells 48 dp on phones (visuals unchanged, the whole
