@@ -48,8 +48,12 @@ class PatternLabel {
   final LabelAlign align;
   final bool bold;
 
-  /// Secondary text (drawn lighter).
+  /// Secondary text, drawn at [mutedOpacity].
   final bool muted;
+
+  /// How strongly muted labels are drawn: lighter than the rest, yet over
+  /// 3:1 against every paper colour.
+  static const double mutedOpacity = 0.8;
 
   @override
   String toString() => 'PatternLabel($text, $box)';
@@ -99,9 +103,7 @@ class PaperPattern {
       return const PaperPattern();
     }
     // A header area: ruled off, the pattern starts below it.
-    final header = headed
-        ? page.top + PatternBuilder.headerHeight(page)
-        : null;
+    final header = headed ? page.top + PatternBuilder.headerHeight(page) : null;
     final body = header == null
         ? region
         : region.intersect(Rect.fromLTRB(region.left, header, region.right, region.bottom));
@@ -125,7 +127,11 @@ class PaperPattern {
       if (header >= region.top && header <= region.bottom) {
         final from = math.max(c.left, region.left), to = math.min(c.right, region.right);
         if (from < to) {
-          b.lines.add((a: Offset(from, header), b: Offset(to, header), weight: PatternWeight.heavy));
+          b.lines.add((
+            a: Offset(from, header),
+            b: Offset(to, header),
+            weight: PatternWeight.heavy,
+          ));
         }
       }
     }

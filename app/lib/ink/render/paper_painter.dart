@@ -140,7 +140,7 @@ abstract final class PaperRenderer {
       PatternText.paint(
         canvas,
         label,
-        label.muted ? color.text.withValues(alpha: 0.62) : color.text,
+        label.muted ? color.text.withValues(alpha: PatternLabel.mutedOpacity) : color.text,
       );
     }
   }
