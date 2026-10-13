@@ -11,6 +11,8 @@ import '../../domain/paper.dart';
 import '../../domain/preferences.dart';
 import 'library_query.dart';
 
+part 'library_operations.dart';
+
 /// Folders removed by [LibraryController.deleteFolder] and the notebooks it
 /// moved to the trash.
 typedef FolderDeletion = ({List<Folder> folders, List<String> notebookIds});
@@ -22,21 +24,26 @@ enum LibrarySection { library, favorites, trash }
 /// operations on notebooks and folders. Reads everything from the
 /// repositories on [reload]; libraries are small, so filtering and sorting
 /// happen in memory.
-class LibraryController extends ChangeNotifier {
+class LibraryController extends ChangeNotifier with _LibraryOperations {
   LibraryController(this.services) {
     // Notebooks trashed more than 30 days ago go for good.
     if (services.notebooks.purgeTrash() > 0) unawaited(services.sync.syncNow());
     reload();
   }
 
+  @override
   final AppServices services;
 
+  @override
   LibrarySection _section = LibrarySection.library;
+  @override
   String? _folderId;
   String _query = '';
 
+  @override
   List<Folder> _folders = const [];
   Map<String, Folder> _folderById = const {};
+  @override
   List<Notebook> _notebooks = const [];
   List<Notebook> _trash = const [];
 
@@ -72,6 +79,7 @@ class LibraryController extends ChangeNotifier {
   String? get folderId => _folderId;
   Folder? get folder => _folderById[_folderId];
   String get query => _query;
+  @override
   bool get isSearching => _query.trim().isNotEmpty;
 
   List<Folder> get allFolders => _folders;
@@ -95,6 +103,7 @@ class LibraryController extends ChangeNotifier {
   }
 
   /// Re-reads folders and notebooks (after local or remote changes).
+  @override
   void reload() {
     _folders = services.folders.list();
     _folderById = {for (final f in _folders) f.id: f};
@@ -236,134 +245,4 @@ class LibraryController extends ChangeNotifier {
   }
 
   Folder? folderById(String? id) => _folderById[id];
-
-  // ---------------------------------------------------------------------------
-  // Operations
-
-  /// Creates a notebook in the open folder; a paged notebook's first page
-  /// is made from [firstPage] (default: a blank A4 page of [paper]); with
-  /// [papers], one page per paper (a generated planner).
-  Notebook createNotebook({
-    required String title,
-    required NotebookKind kind,
-    required PaperStyle paper,
-    PaperLook look = PaperLook.standard,
-    required int coverColor,
-    PaperColor paperColor = PaperColor.white,
-    PageTemplate? firstPage,
-    List<Paper> papers = const [],
-  }) {
-    final notebook = services.notebooks.create(
-      title: title,
-      kind: kind,
-      paper: paper,
-      look: look,
-      paperColor: paperColor,
-      coverColor: coverColor,
-      folderId: _section == LibrarySection.library ? _folderId : null,
-      firstPage: firstPage,
-      papers: papers,
-    );
-    if (_section == LibrarySection.favorites) services.notebooks.setFavorite(notebook.id, true);
-    _changed();
-    return notebook;
-  }
-
-  /// Files a notebook created elsewhere (e.g. imported from a PDF) where
-  /// [createNotebook] would have put it: the open folder, or favourites.
-  /// Returns the up-to-date notebook.
-  Notebook adoptNotebook(Notebook notebook) {
-    final folderId = _section == LibrarySection.library ? _folderId : null;
-    if (folderId != null) services.notebooks.moveTo(notebook.id, folderId);
-    if (_section == LibrarySection.favorites) services.notebooks.setFavorite(notebook.id, true);
-    _changed();
-    return services.notebooks.get(notebook.id) ?? notebook;
-  }
-
-  Folder createFolder(String name, {required int color}) {
-    final parent = _section == LibrarySection.library && !isSearching ? _folderId : null;
-    final folder = services.folders.create(name: name, parentId: parent, color: color);
-    _changed();
-    return folder;
-  }
-
-  void updateFolder(Folder folder) => _run(() => services.folders.update(folder));
-
-  /// Moves a folder; false if that would put it inside itself.
-  bool moveFolder(String id, String? parentId) {
-    final moved = services.folders.move(id, parentId) != null;
-    if (moved) _changed();
-    return moved;
-  }
-
-  /// What deleting folder [id] takes with it: its subfolders (at any
-  /// depth) and the notebooks in it and them.
-  ({int folders, int notebooks}) contentsOf(String id) {
-    final subtree = services.folders.subtreeOf(id);
-    return (
-      folders: subtree.length - 1,
-      notebooks: _notebooks.where((n) => subtree.contains(n.folderId)).length,
-    );
-  }
-
-  /// Deletes a folder with its subfolders; their notebooks go to the trash.
-  /// Returns what [undoDeleteFolder] needs to put it all back.
-  FolderDeletion deleteFolder(String id) {
-    late final FolderDeletion deletion;
-    _run(
-      () => services.database.transaction(() {
-        final subtree = services.folders.subtreeOf(id);
-        deletion = (
-          folders: [
-            for (final f in _folders)
-              if (subtree.contains(f.id)) f,
-          ],
-          notebookIds: [
-            for (final n in _notebooks)
-              if (subtree.contains(n.folderId)) n.id,
-          ],
-        );
-        services.notebooks.trashAllIn(services.folders.delete(id));
-      }),
-    );
-    return deletion;
-  }
-
-  /// Brings back the folders of [deletion] and the notebooks it trashed
-  /// (those still in the trash), each in its own folder again.
-  void undoDeleteFolder(FolderDeletion deletion) => _run(
-    () => services.database.transaction(() {
-      for (final f in deletion.folders) {
-        services.folders.update(f);
-      }
-      for (final id in deletion.notebookIds) {
-        if (services.notebooks.get(id)?.isTrashed ?? false) services.notebooks.restore(id);
-      }
-    }),
-  );
-
-  void updateNotebook(Notebook notebook) => _run(() => services.notebooks.update(notebook));
-  void setFavorite(String id, bool value) => _run(() => services.notebooks.setFavorite(id, value));
-  void moveNotebook(String id, String? folderId) =>
-      _run(() => services.notebooks.moveTo(id, folderId));
-  void trashNotebook(String id) => _run(() => services.notebooks.trash(id));
-  void restoreNotebook(String id) => _run(() => services.notebooks.restore(id));
-  void deleteForever(String id) => _run(() => services.notebooks.delete(id));
-  void emptyTrash() => _run(services.notebooks.emptyTrash);
-
-  Notebook? duplicate(String id) {
-    final copy = services.notebooks.duplicate(id);
-    _changed();
-    return copy;
-  }
-
-  void _run(void Function() action) {
-    action();
-    _changed();
-  }
-
-  void _changed() {
-    reload();
-    unawaited(services.sync.syncInBackground());
-  }
 }
