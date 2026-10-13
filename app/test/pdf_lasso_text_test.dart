@@ -29,6 +29,35 @@ void main() {
     expect(PdfHighlightSwatches.colorsOf(many), hasLength(PdfHighlightSwatches.max));
   });
 
+  testWidgets('the swatches are actions: no selected state; "Highlight" where there is room', (
+    tester,
+  ) async {
+    final tools = ToolSettings();
+    Future<void> pump({required bool labelled}) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: PdfHighlightSwatches(tools: tools, onHighlight: (_) {}, labelled: labelled),
+          ),
+        ),
+      ),
+    );
+    final handle = tester.ensureSemantics();
+    await pump(labelled: false);
+    expect(find.text('Highlight'), findsNothing);
+    final dots = find.bySemanticsLabel(RegExp('^Highlight in'));
+    expect(dots, findsNWidgets(PdfHighlightSwatches.max));
+    for (final dot in dots.evaluate()) {
+      expect(
+        tester.getSemantics(find.byWidget(dot.widget)),
+        isSemantics(isButton: true, isSelected: false),
+      );
+    }
+    await pump(labelled: true);
+    expect(find.text('Highlight'), findsOneWidget);
+    handle.dispose();
+  });
+
   late Directory dir;
   late AppServices services;
 

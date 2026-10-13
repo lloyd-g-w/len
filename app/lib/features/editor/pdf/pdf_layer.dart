@@ -223,7 +223,8 @@ class _PdfLayerState extends State<PdfLayer> {
     return rects.isEmpty ? Rect.zero : rects.reduce((a, b) => a.expandToInclude(b));
   }
 
-  /// Windows narrower than this show Copy without its label.
+  /// Windows narrower than this show Copy without its label, and a glyph
+  /// for Highlight.
   static const double _labelledWidth = 480;
 
   /// The selection's menu, above the selected lines (below them if there
@@ -231,7 +232,8 @@ class _PdfLayerState extends State<PdfLayer> {
   Widget _menu(BuildContext context, Rect selected) {
     final roomAbove = MediaQuery.paddingOf(context).top + 64;
     // Phones: Copy without its label, so the colours and a link fit.
-    final copy = MediaQuery.sizeOf(context).width < _labelledWidth
+    final labelled = MediaQuery.sizeOf(context).width >= _labelledWidth;
+    final copy = !labelled
         ? IconButton(
             key: const ValueKey('pdf-copy'),
             tooltip: 'Copy',
@@ -256,7 +258,11 @@ class _PdfLayerState extends State<PdfLayer> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 copy,
-                PdfHighlightSwatches(tools: _pdf.tools, onHighlight: _highlight),
+                PdfHighlightSwatches(
+                  tools: _pdf.tools,
+                  onHighlight: _highlight,
+                  labelled: labelled,
+                ),
                 if (_pdf.selectedLink != null)
                   IconButton(
                     key: const ValueKey('pdf-open-link'),

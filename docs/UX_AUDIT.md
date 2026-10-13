@@ -488,7 +488,7 @@ taught.**
   `pdf_highlight_snap_test.dart` snaps along a real line on pages turned
   0°, 90°, 180° and 270° (`fix/r8-pen`).
 
-**R8-31 P2 · The highlight swatches announce "selected" and hide the
+✅ **R8-31 P2 · The highlight swatches announce "selected" and hide the
 word.**
 - *What:* `pdf_highlight_swatches.dart:51` passes `selected: i == 0`. In
   `ui/color_dot.dart:46-48` that becomes `Semantics(selected: true)`, so
@@ -499,6 +499,11 @@ word.**
   (`pdf_layer.dart:227`, `pdf_selection_*.png`).
 - *Fix:* no selected semantics (and no ring: order shows the current
   colour). On wide windows the label "Highlight" replaces the glyph.
+- *Done:* no ring and no selected state on the swatches (the order shows
+  the current colour); windows wide enough for Copy's label say
+  "Highlight" before the dots instead of the glyph, which screen readers
+  skip (each dot says "Highlight in …"). `pdf_select_90.png` refreshed
+  (`fix/r8-pen`).
 
 ✅ **R8-32 P2 · The scribble detector's per-move cost grows with the stroke.**
 - *What:* every 4th kept point, `detect` re-scans the whole stroke
@@ -578,7 +583,7 @@ template typography.**
 - **One selection bar** for the library and the overview (R8-13).
 - **Disable "Back up library…" in an empty library**, and make no empty
   "Backup …" folder when an import brings nothing.
-- **Drop the ring on the first PDF highlight swatch** (R8-31).
+- ✅ **Drop the ring on the first PDF highlight swatch** (R8-31).
 - **Reuse `locationOf`** in the move or copy picker (R8-6) instead of
   `_locations`.
 - Keep as is: no new settings are needed for any item above. Every fix is
