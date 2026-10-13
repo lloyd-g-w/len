@@ -71,8 +71,8 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 8);
-    expect(AppDatabase.latestVersion, 8);
+    expect(schema['version'], 9);
+    expect(AppDatabase.latestVersion, 9);
     // Version 7: a notebook's paper look.
     expect(schema['notebooks'], contains("paper_data TEXT 1 '{}' 0"));
     // Version 3: recording waveforms, stroke times per surface.
@@ -103,6 +103,7 @@ void main() {
         'pdf_text_blobs',
         'ink_text',
         'ink_text_queue',
+        'recognised_text',
       ]),
     );
     final indexes = (schema['indexes']! as List<String>).join('\n');
@@ -172,6 +173,7 @@ void main() {
     db.db.execute('ALTER TABLE recordings DROP COLUMN trim_start_ms');
     db.db.execute('ALTER TABLE recordings DROP COLUMN trim_end_ms');
     db.db.execute('ALTER TABLE notebooks DROP COLUMN paper_data');
+    db.db.execute('DROP TABLE recognised_text');
     db.db.execute('''
       INSERT INTO recordings (id, notebook_id, blob, duration_ms, started_at, title, mime,
                               updated_at, device_id)
@@ -256,6 +258,7 @@ void main() {
       "UPDATE strokes SET style = '{\"o\":1,\"th\":0.5,\"sl\":0}', "
       "updated_at = 100, dirty = 0 WHERE id = 'before-ends'",
     );
+    old.db.execute('DROP TABLE recognised_text');
     old.db.execute('PRAGMA user_version = 7');
     services.dispose();
 
