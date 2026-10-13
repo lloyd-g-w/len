@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'capsule_emitter.dart';
+import 'flat_ends.dart';
 import 'growable.dart';
 import 'outline_sink.dart';
 
@@ -65,7 +66,9 @@ typedef RibbonCursor = ({int at, bool cut});
 class RibbonEmitter {
   RibbonEmitter(this.line, {required this.flatCaps, required this.width, required double step})
     : tolerance = toleranceFor(width),
-      block = math.max(16, (24 / step).ceil());
+      block = math.max(16, (24 / step).ceil()),
+      _endReach = (2 * width / step).ceil(),
+      _step = step;
 
   final RibbonLine line;
   final bool flatCaps;
@@ -87,6 +90,12 @@ class RibbonEmitter {
 
   static const int _maxSpan = 32;
 
+  final double _step;
+
+  /// With [flatCaps], how far (samples) an end's zone may reach
+  /// (`FlatEnds`): two widths.
+  final int _endReach;
+
   /// Within a run, a side may not run backwards by more than this many
   /// centre-line steps per step (a mild fold of the inner side, at a bend
   /// tighter than the radius, is fine: the non-zero fill still covers
@@ -100,18 +109,24 @@ class RibbonEmitter {
 
   /// Emits the whole outline from [from] to the end of the line. With
   /// [cut], the outline starts at [from] with a straight cut (the frozen
-  /// part of a live stroke ends there).
-  void emit(OutlineSink sink, {RibbonCursor from = (at: 0, cut: false)}) => _walk(sink, from, null);
+  /// part of a live stroke ends there). Unless [ended], the line's last
+  /// sample is a moving pen tip, not yet an end (no flat end's zone).
+  void emit(OutlineSink sink, {RibbonCursor from = (at: 0, cut: false), bool ended = true}) =>
+      _walk(sink, from, null, ended: ended);
 
   /// Emits the pieces from [from] whose geometry only depends on the first
   /// [finalCount] samples, each as its own contour; returns where the
   /// frozen part now ends.
   RibbonCursor freeze(OutlineSink sink, RibbonCursor from, int finalCount) =>
-      _walk(sink, from, finalCount);
+      _walk(sink, from, finalCount, ended: false);
 
-  RibbonCursor _walk(OutlineSink sink, RibbonCursor from, int? limit) {
+  RibbonCursor _walk(OutlineSink sink, RibbonCursor from, int? limit, {required bool ended}) {
     final n = line.length;
     final bounds = [0, ...line.corners, n - 1];
+    final ends = _flatEnds(bounds, limit: limit, ended: ended);
+    OutlineSink to(int a, int b) => ends?.clip(sink, a, b, tolerance) ?? sink;
+    // Freezing waits until the start's zone is known.
+    if (ends != null && !ends.settled && limit != null) return from;
     var b = 1;
     var i = from.at;
     var cut = from.cut;
@@ -121,8 +136,16 @@ class RibbonEmitter {
       }
       final lo = bounds[b - 1], hi = bounds[b];
       if (limit != null && i + 3 >= limit) break;
+      // A corner within a flat end's zone: the nib turns on it.
+      if (i == lo && lo > 0 && ends != null && ends.covers(lo, lo)) {
+        _sweep(to(lo, lo), lo, _offsets(lo, bounds[b - 2], lo), lo, _offsets(lo, lo, hi));
+      }
       if (_folded(i, lo, hi)) {
-        _capsule(sink, i);
+        if (ends != null && ends.covers(i, i + 1)) {
+          _sweep(to(i, i + 1), i, _offsets(i, lo, hi), i + 1, _offsets(i + 1, lo, hi));
+        } else {
+          _capsule(sink, i);
+        }
         i++;
         cut = false;
         continue;
@@ -138,26 +161,60 @@ class RibbonEmitter {
         if (_folded(j, lo, hi)) break;
         j++;
       }
-      if (limit == null) {
-        _run(sink, i, j, lo, hi, startCut: cut);
-        i = j;
-        cut = false;
-        continue;
-      }
-      // Freezing: each final piece as its own contour.
+      // Pieces split where a flat end's zone begins or ends, and when
+      // freezing, at multiples of [block]; a piece in a zone has straight
+      // cuts for ends.
       var p = i;
       while (p < j) {
-        final q = math.min(j, (p ~/ block + 1) * block);
+        var q = ends?.split(p, j) ?? j;
+        if (limit != null) q = math.min(q, (p ~/ block + 1) * block);
         if (q == j && open) break;
-        _run(sink, p, q, lo, hi, startCut: p == i ? cut : true, endCut: q < j);
+        final zone = ends != null && ends.covers(p, q);
+        _run(
+          to(p, q),
+          p,
+          q,
+          lo,
+          hi,
+          startCut: zone || (p == i ? cut : true),
+          endCut: zone || q < j,
+        );
         p = q;
       }
-      if (p < j || open) return (at: p, cut: p > i || cut);
+      if (limit != null && (p < j || open)) return (at: p, cut: p > i || cut);
       i = j;
       cut = false;
     }
     return (at: i, cut: cut);
   }
+
+  /// The first sample of the end's flat zone (the line's length without
+  /// one): its pieces are drawn differently once the line has ended.
+  int endZoneFrom() => _flatEnds([0, ...line.corners, line.length - 1])?.endFrom ?? line.length;
+
+  FlatEnds? _flatEnds(List<int> bounds, {int? limit, bool ended = true}) => FlatEnds.of(
+    line,
+    flatCaps: flatCaps,
+    reach: _endReach,
+    endLine: (i) => _endLine(i, bounds),
+    limit: limit,
+    ended: ended,
+  );
+
+  /// The line of the butt cap at the first or last sample [i] (the offset
+  /// points tilt with the radius slope), facing away from the line.
+  EndLine _endLine(int i, List<int> bounds) {
+    final (tx, ty, s) = i == 0 ? _frame(0, 0, bounds[1]) : _frame(i, bounds[bounds.length - 2], i);
+    final along = -line.r[i] * s, sign = i == 0 ? -1.0 : 1.0;
+    return (px: line.x[i] + along * tx, py: line.y[i] + along * ty, nx: sign * tx, ny: sign * ty);
+  }
+
+  /// The area a flat nib sweeps from cross-section [a] to [b].
+  void _sweep(OutlineSink sink, int i, _Offsets a, int j, _Offsets b) =>
+      emitSweep(sink, _section(i, a), _section(j, b), tolerance);
+
+  CrossSection _section(int i, _Offsets o) =>
+      (cx: line.x[i], cy: line.y[i], lx: o.lx, ly: o.ly, rx: o.rx, ry: o.ry);
 
   // ---------------------------------------------------------------------------
   // Geometry per sample
@@ -166,6 +223,14 @@ class RibbonEmitter {
   (double, double, double) _frame(int i, int lo, int hi) {
     final x = line.x, y = line.y, r = line.r;
     var a = math.max(lo, i - 1), c = math.min(hi, i + 1);
+    // A flat end is square to where the line runs over its last half
+    // radius: the line's first and last samples are where the pen was
+    // (`StrokeShaper` keeps the ends of stretches), and the step to them
+    // may turn away from the smoothed line before it.
+    if (flatCaps && hi - lo >= 3 && (i == 0 || (i == line.length - 1 && i == hi))) {
+      final k = math.max(1, (0.5 * r[i] / _step).ceil());
+      (a, c) = i == 0 ? (1, math.min(hi - 1, 1 + k)) : (math.max(lo + 1, i - 1 - k), i - 1);
+    }
     var dx = x[c] - x[a], dy = y[c] - y[a];
     var d = math.sqrt(dx * dx + dy * dy);
     // Coincident neighbours (a pinned tip): look one further.
