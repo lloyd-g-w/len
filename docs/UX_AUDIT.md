@@ -137,7 +137,7 @@ Trash; Restore, Delete), with pointer and touch alike; the long names stay
 as tooltips. Select all is a quiet text button by the count, as in the
 overview. Narrower than 520 dp (phones) the commands take a second row.
 
-⬜ **R6-13 P2 · The library's "View" button looks like Sort and holds
+✅ **R6-13 P2 · The library's "View" button looks like Sort and holds
 Select.** The header's menu uses `Symbols.swap_vert_sharp` with the tooltip
 "View" and holds Sort by, Show as and Select
 (`features/library/library_header.dart:410-439`). The glyph promises sorting
@@ -145,6 +145,8 @@ only, so grid/list and multi-select are hard to find on phones. *Fix:* a
 neutral glyph (`tune` or `view_agenda`) and the label "View". Multi-select
 already starts with a long press then Select. Consider dropping "Select" from
 this menu once the context menu's Select is the documented way (one home).
+*Done:* the glyph is `tune` (tooltip "View"). Select stays in View: on
+phones it is the only visible way into multi-select.
 
 ### Editor chrome
 
@@ -315,11 +317,12 @@ it misses today.
 library's strings, Clear search and the copy test are left to the library
 branch.
 
-⬜ **R6-22 P2 · The trash's subtitle differs by width.** "Kept for 30 days" on
+✅ **R6-22 P2 · The trash's subtitle differs by width.** "Kept for 30 days" on
 phones, "1 notebook, deleted forever after 30 days" on wide screens
 (`features/library/library_header.dart:106-108`). The phone loses the count,
 and the two sentences sound like different policies. *Fix:* one string, "1
 notebook, deleted after 30 days" (short enough for 390 dp).
+*Done* as proposed.
 
 ### Sync and settings
 

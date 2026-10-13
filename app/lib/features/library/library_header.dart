@@ -102,10 +102,8 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       // The library also lists matches inside notebooks (features/search).
       LibrarySection.library when _c.isSearching => 'Titles and contents, across all folders',
       _ when _c.isSearching => '${plural(count, 'notebook')} across all folders',
-      // Phones have room for the note only.
-      LibrarySection.trash when count > 0 && widget.compact => 'Kept for 30 days',
-      LibrarySection.trash when count > 0 =>
-        '${plural(count, 'notebook')}, deleted forever after 30 days',
+      // One string at every width (short enough for a phone).
+      LibrarySection.trash when count > 0 => '${plural(count, 'notebook')}, deleted after 30 days',
       // The empty state says it.
       _ when count == 0 && folders == 0 => '',
       _ => [
@@ -408,7 +406,8 @@ class _ViewMenu extends StatelessWidget {
     final c = actions.controller;
     return MenuIconButton<_ViewChoice>(
       tooltip: 'View',
-      icon: const Icon(Symbols.swap_vert_sharp),
+      // Sort, layout and Select: a neutral glyph, not a sorting one.
+      icon: const Icon(Symbols.tune_sharp),
       onSelected: (choice) => switch (choice) {
         _Sort(:final sort) => c.sort = sort,
         _Layout(:final layout) => c.layout = layout,
