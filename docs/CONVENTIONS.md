@@ -16,11 +16,13 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
 - **features/<area>/** screens and their private widgets.
 - **ui/** shared widgets and design tokens (`app_theme.dart`, which exports
   `design_tokens.dart` and `surfaces.dart`). Use the shared components instead
-  of local styling: `AppDialog` / `confirmAction` for dialogs, `showMessage`
+  of local styling: `AppDialog` / `confirmAction` for dialogs (their buttons lay out through
+  `DialogActions`), `showMessage`
   for snack bars, `MenuRow` for popup menus, `showAdaptivePopover` for live
   settings, `showDialogOrSheet` + `SheetHeader` / `SheetActions` for task
   sheets, `FloatingPanel` for anything floating over the canvas,
-  `SectionLabel` for group headings, `EvenGrid` for swatches. Copy is sentence
+  `SectionLabel` for group headings, `EvenGrid` for swatches, `ChipSurface`
+  around chips on dialogs and sheets. Copy is sentence
   case; commands that ask something first end in …; single-sentence messages
   have no full stop.
 

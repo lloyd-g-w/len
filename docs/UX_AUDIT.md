@@ -82,7 +82,7 @@ Reviewed from the `library_`, `flows_`, `organise_` and `app_surfaces*` suites
 - ✅ **Search results:** flat rows split by hairlines, page chips `xs` on
   `surfaceContainerHigh`; an empty result offers Clear search.
 - ✅ **Settings:** one centred column (640 dp): General (theme: System · Light ·
-  Dark), Writing (Draw with: Automatic · Stylus only · Stylus & finger; side
+  Dark), Writing (Draw with: Automatic · Stylus · Both; side
   button; tap to undo and redo; toolbar), Handwriting (search, language; the
   model row only until it is downloaded), Sync (with Sync now), Storage (web),
   About (version: 7 taps open Ink Lab, kept in release builds; licences).
@@ -97,6 +97,75 @@ Reviewed from the `library_`, `flows_`, `organise_` and `app_surfaces*` suites
 - ✅ The sidebar shows sync as an icon beside Settings, not yet the "Synced 2m"
   caption of the spec's sketch. → It reads "Synced 2m" / "Syncing…" / "Sync
   failed" / "Sync off" beside the icon (`syncCaption`, refreshed every 30 s).
+
+## Library and dialogs, round 4 (`fix/library-dialogs`)
+
+Reviewed from the `library_`, `organise_`, `flows_`, `app_surfaces*`,
+`templates_` and `export_` suites (phone, tablet portrait and landscape,
+desktop; light and dark; 1.3× text). There were two review passes, and the
+second one checked the first one's fixes.
+
+- ✅ **Dialog actions:** `DialogActions` (in `AppDialog`) keeps the
+  buttons in one end-aligned row while they fit. Otherwise it stacks them
+  full width, primary on top, each at least 48 dp. At large text,
+  `AlertDialog` narrowed the content's side padding but not the actions'.
+  `AppDialog` undoes that, so fields, text and buttons share one edge.
+- ✅ **Cancel everywhere:** `runWithProgress` dialogs (Rendering page,
+  Adding image) now have Cancel. Cancel closes the dialog at once and
+  drops the result. Importing a template is cancellable and stops before
+  it stores anything. The progress dialog is as wide as the other
+  dialogs. Its track shows on dark dialogs.
+- ✅ **Convert to text:** after a failed recognition the dialog offers
+  Try again.
+- ✅ **⊕ (FAB):** it shows only in the library and its folders. It hides
+  in favourites, the trash, search and selection, and when the empty state
+  offers New. It now uses the primary colours, so dark mode matches the
+  other primary buttons.
+- ✅ **New notebook:**
+  - Phones: the sheet has rounded corners (its own Material had squared
+    them). The preview scrolls with the form.
+  - Tablets in portrait: the sheet sizes to its content (it had a 350-dp
+    gap).
+  - The dialog is 720 dp tall, so the orientation row is no longer cut.
+  - The footer has a hairline over the scrolling form.
+- ✅ **Cover sheet:** one row of ten colours, as in New notebook and the
+  folder sheet. It had 9 + 1 on desktop and a grid leaning left on
+  phones. On phones it has a single full-width Apply; ✕ cancels.
+  `EvenGrid` now prefers 5 + 5 to 9 + 1 everywhere.
+- ✅ **Library:**
+  - Dark folder tiles: the hairline no longer narrows the name
+    ("Sketch…").
+  - Selected covers keep their colours: a ring and check only, no blue
+    wash.
+  - Empty states sit a little above the middle.
+  - The phone trash caption no longer truncates.
+  - Empty trash… has its ellipsis.
+  - New folder from the drawer closes the drawer first.
+  - At large text the sidebar's sync caption gives way to "Settings".
+- ✅ **Chips:** on dialogs and sheets, unselected chips were filled with
+  the screen surface (a chip's own `Material` falls back to
+  `canvasColor`), so they looked like dark holes in dark mode.
+  `ChipSurface` fixes this in the template chooser, the paper options and
+  Convert to text.
+- ✅ **Template search:** a search looks through every category, so the
+  chips show All. Choosing a category ends the search.
+- ✅ **Settings:**
+  - A pinned "Settings" bar on every size, aligned to the column, with a
+    hairline once scrolled. Content was cut under an empty bar on wide
+    screens.
+  - "Sync is off" is a plain status line, not a filled pill that read as
+    a field.
+  - "Draw with" is Automatic / Stylus / Both. It trails like the other
+    choices and is no longer shrunk to a smaller size than them.
+  - Copy: "then choose Convert to text".
+- Not done (judged minor or out of scope):
+  - Two snack bar issues. On desktop the snack bar centres on the window
+    rather than the content pane. A screenshot showed the list clipped
+    above the snack bar (right after trashing the last card).
+  - "Select…" keeps its ellipsis (it enters a mode).
+  - On tablets at 1.3× text, "All templates…" breaks mid-word.
+  - Export sheet details (labels inset 8 dp, the footer status wrapping)
+    are left to the export owner ➡️.
 
 ## Toolbar redesign (`feat/toolbar`, REDESIGN phases 3–4)
 
@@ -387,20 +456,23 @@ the second for what is left.
   desktops. Elsewhere those sizes use centred dialogs (New notebook,
   Export, Folder). → All of them go through the shared `showDialogOrSheet`
   (centred dialog from 720 dp wide, sheet with drag handle on phones).
-- Progress dialogs have no Cancel (also item 17 of round 2).
+- ✅ Progress dialogs have no Cancel (also item 17 of round 2).
   Convert-to-text errors only offer Close, with no Try again (it would
-  need to re-run recognition).
-- Stacked dialog actions are end-aligned at their own widths, so they
+  need to re-run recognition). → Every progress dialog has Cancel (see
+  "Library and dialogs, round 4"); a failed conversion offers Try again.
+- ✅ Stacked dialog actions are end-aligned at their own widths, so they
   look ragged (Change template on phones). Full-width stacked buttons
-  would need a custom actions layout. (✅ for the template picker: full-width
-  buttons on phones, primary on top; other dialogs still open.)
-- New-notebook sheet on phones at 1.3×: the preview takes most of the
+  would need a custom actions layout. → `DialogActions` in every
+  `AppDialog`: a row when they fit, else full width, primary on top.
+- ✅ New-notebook sheet on phones at 1.3×: the preview takes most of the
   screen, leaving about one row of templates. On phones the preview
-  should collapse.
+  should collapse. → The strip scrolls away with the form (88 dp at
+  large text).
 - ✅ The phone library shows both the "New…" tile and the "New" FAB. → Tile on wide
   screens, FAB on phones (never both).
-- The FAB still shows over the empty Favourites and empty search states,
-  which offer no create action of their own.
+- ✅ The FAB still shows over the empty Favourites and empty search states,
+  which offer no create action of their own. → ⊕ shows only in the library
+  and its folders, not while searching or when the empty state offers New.
 - ✅ Selection checkmarks on covers: unselected rings are low-contrast on
   light covers, the style differs between light and dark, and targets
   are 28 dp. → A dark ring on white in both themes; the whole cover is the
@@ -412,8 +484,9 @@ the second for what is left.
 - The image crop bar overlaps the fit button on phones.
 - The page submenu opens over its parent on phones (a drill-in or a sheet
   would suit phones better).
-- The handwriting language picker is a `SimpleDialog`: no Cancel, and no
-  hint that it scrolls.
+- ✅ The handwriting language picker is a `SimpleDialog`: no Cancel, and no
+  hint that it scrolls. → A task sheet with ✕, opened at the current
+  language, with an always-shown thin scrollbar.
 - ✅ The paused recorder shows no "Paused" label, and Resume is a mic icon.
   → "Paused" replaces the level meter; Resume is a play icon.
 - ✅ Template grid on phones: 3 fixed columns leave a gutter on the right.
@@ -424,11 +497,16 @@ the second for what is left.
 
 ### Accessibility (round 3)
 
-- Targets: compact menus are 44 dp high (fine for pointer, tight for
+- ✅ Targets: compact menus are 44 dp high (fine for pointer, tight for
   touch). Icon buttons are 48 dp. Swatch and selection controls are listed
-  in 21.
-- Contrast: see 11. Body subtitles (`onSurfaceVariant`) are 5.6:1 in
+  in 21. → Decided: menus stay 44 dp on tablets and desktops and 48 dp on
+  phones (`Targets.menuRowHeight`). Rows are full-width bars, 44 dp meets
+  Apple's minimum, and GoodNotes and Notewise use the same on iPad.
+- ✅ Contrast: see 11. Body subtitles (`onSurfaceVariant`) are 5.6:1 in
   light and 7.4:1 in dark. The page pill's "1 / 1" in light is borderline.
+  → The library and dialogs were checked again in round 4: dark chips,
+  progress tracks and the FAB are fixed. The page pill is editor chrome
+  and is routed there ➡️.
 - Semantics: icon-only buttons have tooltips, which double as labels. The
   selection bar on phones is icon-only.
 
