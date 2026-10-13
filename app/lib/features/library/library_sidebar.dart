@@ -131,7 +131,8 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                   SyncStatusButton(
                     sync: c.services.sync,
                     onConfigure: widget.onOpenSettings,
-                    caption: true,
+                    // Large text: Settings keeps its name; sync its icon.
+                    caption: MediaQuery.textScalerOf(context).scale(1) < 1.15,
                   ),
                 ],
               ),

@@ -206,6 +206,7 @@ class _TemplateChooserState extends State<TemplateChooser> {
   );
 
   Widget _categoryChips() {
+    final searching = _query.text.trim().isNotEmpty;
     final categories = [
       null,
       for (final c in TemplateCategory.values)
@@ -224,8 +225,12 @@ class _TemplateChooserState extends State<TemplateChooser> {
                 key: ValueKey('category-${c?.name ?? 'all'}'),
                 showCheckmark: false,
                 label: Text(c?.label ?? 'All'),
-                selected: _category == c,
-                onSelected: (_) => setState(() => _category = c),
+                // A search looks through every category, and says so.
+                selected: searching ? c == null : _category == c,
+                onSelected: (_) => setState(() {
+                  _query.clear();
+                  _category = c;
+                }),
               ),
             ),
         ],

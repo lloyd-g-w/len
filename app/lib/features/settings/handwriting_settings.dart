@@ -202,20 +202,31 @@ class _LanguageSheetState extends State<_LanguageSheet> {
             child: RadioGroup<String>(
               groupValue: widget.current,
               onChanged: (v) => Navigator.pop(context, v),
-              child: Scrollbar(
-                controller: _scroll,
-                thumbVisibility: true,
-                // A few dozen rows: all built, so the current one can be
-                // scrolled to.
-                child: SingleChildScrollView(
+              // A quiet, always-shown thumb: the list goes on below.
+              child: ScrollbarTheme(
+                data: ScrollbarTheme.of(context).copyWith(
+                  thumbColor: WidgetStatePropertyAll(
+                    Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  ),
+                  crossAxisMargin: Gaps.xxs,
+                ),
+                child: Scrollbar(
                   controller: _scroll,
-                  padding: EdgeInsets.only(bottom: Gaps.md + media.padding.bottom),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _option('', widget.automaticLabel),
-                      for (final l in RecognitionLanguages.all) _option(l.tag, l.name),
-                    ],
+                  thumbVisibility: true,
+                  thickness: 4,
+                  radius: const Radius.circular(Radii.pill),
+                  // A few dozen rows: all built, so the current one can be
+                  // scrolled to.
+                  child: SingleChildScrollView(
+                    controller: _scroll,
+                    padding: EdgeInsets.only(bottom: Gaps.md + media.padding.bottom),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _option('', widget.automaticLabel),
+                        for (final l in RecognitionLanguages.all) _option(l.tag, l.name),
+                      ],
+                    ),
                   ),
                 ),
               ),

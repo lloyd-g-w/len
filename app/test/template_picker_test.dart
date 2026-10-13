@@ -170,6 +170,22 @@ void main() {
     expect(find.text('Dotted'), findsOneWidget);
   });
 
+  testWidgets('a search shows All; a category ends the search', (tester) async {
+    await _open(tester, mode: TemplatePickerMode.create);
+    ChoiceChip chip(String key) => tester.widget<ChoiceChip>(find.byKey(ValueKey(key)));
+    await _tapKey(tester, 'category-planners');
+    expect(chip('category-planners').selected, isTrue);
+    await tester.enterText(find.byKey(const ValueKey('template-search')), 'engin');
+    await tester.pumpAndSettle();
+    expect(find.text('Engineering'), findsOneWidget);
+    expect(chip('category-all').selected, isTrue);
+    expect(chip('category-planners').selected, isFalse);
+    await _tapKey(tester, 'category-basic');
+    expect(chip('category-basic').selected, isTrue);
+    expect(find.text('Engineering'), findsNothing);
+    expect(find.text('Dotted'), findsOneWidget);
+  });
+
   testWidgets('choosing a template returns it', (tester) async {
     final choice = await _open(tester, mode: TemplatePickerMode.change);
     expect(find.text('Page size'), findsNothing); // Size is fixed when changing.
