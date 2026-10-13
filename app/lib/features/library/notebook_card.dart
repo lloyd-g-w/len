@@ -142,11 +142,12 @@ class _NotebookCardState extends State<NotebookCard> {
       ),
     );
     final showMore = Targets.touchFirst || _hovered || _focused || _menuOpen;
-    // One node for the card: the cover takes taps, its title and caption
-    // make the label; the ⋯ stays a button of its own.
+    final recordings = widget.recordings;
+    // For screen readers the card is a button named by its title and
+    // caption (the cover takes taps and long presses), the ⋯ a button
+    // beside it: whether or not the ⋯ shows, the card stays a button.
     return Semantics(
       container: true,
-      selected: _selecting && _selected,
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
@@ -154,15 +155,25 @@ class _NotebookCardState extends State<NotebookCard> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: LibraryDraggable(
-                item: LibraryDragItem.notebook(_notebook.id),
-                feedback: DragFeedback(
-                  width: 110,
-                  height: 110 / 0.72,
-                  child: NotebookCover.of(_notebook),
+              child: Semantics(
+                container: true,
+                button: true,
+                selected: _selecting && _selected,
+                label: [
+                  _notebook.title,
+                  if (recordings > 0) recordings == 1 ? '1 recording' : '$recordings recordings',
+                  widget.subtitle,
+                ].join('\n'),
+                child: LibraryDraggable(
+                  item: LibraryDragItem.notebook(_notebook.id),
+                  feedback: DragFeedback(
+                    width: 110,
+                    height: 110 / 0.72,
+                    child: NotebookCover.of(_notebook),
+                  ),
+                  onLongPressMenu: () => unawaited(_showMenu()),
+                  child: cover,
                 ),
-                onLongPressMenu: () => unawaited(_showMenu()),
-                child: cover,
               ),
             ),
             // A fixed caption area, so every cover in a row is as tall.
@@ -174,51 +185,53 @@ class _NotebookCardState extends State<NotebookCard> {
                 // the full width (it would truncate early at large text).
                 child: Stack(
                   children: [
-                    // The title is part of the target too.
+                    // The title is part of the target too; the cover
+                    // says it to screen readers.
                     Positioned.fill(
                       child: GestureDetector(
-                        // The card says its title and caption and takes taps.
                         excludeFromSemantics: true,
                         behavior: HitTestBehavior.opaque,
                         onTap: _tap,
                         onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: Gaps.xxs),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  right: _selecting ? 0 : NotebookCard._moreRoom,
+                        child: ExcludeSemantics(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: Gaps.xxs),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    right: _selecting ? 0 : NotebookCard._moreRoom,
+                                  ),
+                                  child: _CardTitle(_notebook.title),
                                 ),
-                                child: _CardTitle(_notebook.title),
-                              ),
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    if (widget.recordings > 0) ...[
-                                      WidgetSpan(
-                                        alignment: PlaceholderAlignment.middle,
-                                        child: Icon(
-                                          Symbols.mic_sharp,
-                                          size: MediaQuery.textScalerOf(context)
-                                              .scale(theme.textTheme.bodySmall?.fontSize ?? 0),
-                                          color: theme.textTheme.bodySmall?.color,
-                                          semanticLabel: widget.recordings == 1
-                                              ? '1 recording'
-                                              : '${widget.recordings} recordings',
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      if (widget.recordings > 0) ...[
+                                        WidgetSpan(
+                                          alignment: PlaceholderAlignment.middle,
+                                          child: Icon(
+                                            Symbols.mic_sharp,
+                                            size: MediaQuery.textScalerOf(context)
+                                                .scale(theme.textTheme.bodySmall?.fontSize ?? 0),
+                                            color: theme.textTheme.bodySmall?.color,
+                                            semanticLabel: widget.recordings == 1
+                                                ? '1 recording'
+                                                : '${widget.recordings} recordings',
+                                          ),
                                         ),
-                                      ),
-                                      const TextSpan(text: ' '),
+                                        const TextSpan(text: ' '),
+                                      ],
+                                      TextSpan(text: widget.subtitle),
                                     ],
-                                    TextSpan(text: widget.subtitle),
-                                  ],
+                                  ),
+                                  style: theme.textTheme.bodySmall,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                style: theme.textTheme.bodySmall,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -230,6 +243,8 @@ class _NotebookCardState extends State<NotebookCard> {
                         child: AnimatedOpacity(
                           opacity: showMore ? 1 : 0,
                           duration: Motion.fast,
+                          // Reachable by screen readers while hidden.
+                          alwaysIncludeSemantics: true,
                           // A 48-dp target on touch; the glyph keeps its
                           // place beside the title's first line.
                           child: SizedBox(
@@ -248,8 +263,7 @@ class _NotebookCardState extends State<NotebookCard> {
                                 ),
                                 iconSize: Glyphs.bar,
                                 color: scheme.onSurfaceVariant,
-                                // Reachable by keyboard and screen readers even
-                                // while hidden.
+                                // Reachable by keyboard while hidden.
                                 icon: const Icon(Symbols.more_horiz_sharp),
                                 onPressed: () => unawaited(_showMenu(anchor: anchor)),
                               ),
