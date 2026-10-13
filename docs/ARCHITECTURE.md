@@ -1857,25 +1857,24 @@ malformed record is skipped. Open screens subscribe to
 - The sync token is stored in the app's SQLite database; move it to secure
   storage before shipping.
 - PDF: tiles are not persisted (re-rendered after reopening) and stop at
-  65536 px page width; selection is per page (not across pages); exported
+  65536 px page width; exported
   PDFs drop the source's form fields (their looks are kept) and links with
   other actions than web addresses and pages of the same file — see
   *Blobs and PDFs*.
-- Audio: a recording is one blob, so it syncs only once finished and a
-  recording above the server's blob limit (200 MiB by default, ≈ 7 h at
-  64 kbit/s) cannot be uploaded (it stays on the device, reported as too
-  large to sync); downloads hold the
-  whole blob in memory. Android background recording needs the foreground
-  service to start while Len is in front (it does, at the start of a
-  recording); a recording in progress when Len is swiped away from the
-  recent apps is saved only if that finishes within the service's grace
-  period, and one in progress when the process is killed is lost. Linux recording needs `parecord` and `ffmpeg`
+- Audio: recordings are stored in 5-minute parts (each a blob, synced once
+  finished; a part's download is held in memory). Android background
+  recording needs the foreground service to start while Len is in front (it
+  does, at the start of a recording); a recording cut off by a killed process
+  is recovered on the next start from its journal (browsers keep only the
+  finished parts). Linux recording needs `parecord` and `ffmpeg`
   installed, playback needs GStreamer with the `-good` (MP4) and an AAC
   decoder plugin; Opus/WebM recordings from Chrome/Firefox may not play on
   platforms without a WebM decoder. Waveforms come from the recorder's level
   meter (≈ the loudness of the last buffer every 100 ms), not from decoding
-  the audio; recordings without one show a flat scrubber. No trimming yet;
-  exporting reads the whole audio blob into memory.
+  the audio; recordings without one show a flat scrubber. Trimming is
+  non-destructive (parts outside the trim keep their storage), browser
+  recordings export untrimmed, and no media notification plays in the
+  background; exporting reads the whole audio into memory.
 - Planners: fixed headings ("Week", "Schedule", "Priorities", "To do", "Notes") are English
   whatever the planner's language; the language list is curated (scripts the bundled Inter
   covers), hours are always 24-hour, and weeks start on Monday or Sunday only. User templates
