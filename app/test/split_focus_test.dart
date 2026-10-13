@@ -2,6 +2,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
+import 'package:len/features/editor/chrome/editor_top_bar.dart';
+import 'package:len/features/editor/chrome/title_button.dart';
+import 'package:len/features/editor/tabs/notebook_tab_strip.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'split_view_test.dart';
 
@@ -42,6 +46,48 @@ void main() {
     s.openNotebooks.closeSplit();
     await tester.pumpAndSettle();
     expect(chromeOpacity(tester, 0), 1);
+  });
+
+  testWidgets('a receded bar keeps its surface; only what is on it fades', (tester) async {
+    final (s, _, chemistry) = await pumpWorkspace(tester);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    expect(chromeOpacity(tester, 0), 0.6);
+    final bar = find.byType(EditorTopBar).at(0);
+    final above = tester.widgetList<AnimatedOpacity>(
+      find.ancestor(of: bar, matching: find.byType(AnimatedOpacity)),
+    );
+    expect(above.every((o) => o.opacity == 1), isTrue, reason: 'the bar itself is not faded');
+  });
+
+  testWidgets('split view: both bars name their notebook; the strip marks both', (tester) async {
+    final (s, physics, chemistry) = await pumpWorkspace(tester);
+    final strip = find.byType(NotebookTabStrip);
+    Finder titleIn(int pane) =>
+        find.descendant(of: find.byType(EditorTopBar).at(pane), matching: find.byType(TitleButton));
+    // Alone, the strip's active tab names the notebook.
+    expect(titleIn(0), findsNothing);
+    expect(
+      find.descendant(of: strip, matching: find.byIcon(Symbols.vertical_split_rounded)),
+      findsNothing,
+    );
+
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: titleIn(0), matching: find.text(physics.title)), findsOneWidget);
+    expect(find.descendant(of: titleIn(1), matching: find.text(chemistry.title)), findsOneWidget);
+    expect(
+      find.descendant(of: strip, matching: find.byIcon(Symbols.vertical_split_rounded)),
+      findsNWidgets(2),
+    );
+
+    s.openNotebooks.closeSplit();
+    await tester.pumpAndSettle();
+    expect(titleIn(0), findsNothing);
+    expect(
+      find.descendant(of: strip, matching: find.byIcon(Symbols.vertical_split_rounded)),
+      findsNothing,
+    );
   });
 
   testWidgets('a pane a selection would drop into is not dimmed', (tester) async {

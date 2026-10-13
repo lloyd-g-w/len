@@ -470,9 +470,12 @@ Phase 1 comes first because every later phase then gets smaller.
   `ToolPuck` (active tool ▾ and undo; dragged and snapped like the palette,
   remembered in `puckFloat`) and a 32-dp exit button at 40 % until hovered
   or touched. In split view the pane used last (first pointer contact or
-  keyboard focus) has full chrome; the other's bar and toolbar recede to
-  60 % (deviation: they don't collapse to the puck, which would re-lay out
-  the page each time focus moves). A two-finger long press in focus mode hides the puck and the exit button
+  keyboard focus) has full chrome; what is on the other's bar and toolbar
+  recedes to 60 % (`Receding`; the bars keep their surfaces, which faded
+  read as grey over a light page in dark mode) (deviation: they don't
+  collapse to the puck, which would re-lay out the page each time focus
+  moves). Both bars show their notebook's title, and the tab strip marks
+  both split notebooks with a split glyph (the second on a quiet plate). A two-finger long press in focus mode hides the puck and the exit button
   too (presenting; again to bring them back; F11 / Esc still leave).
 
 - Phases 7 and 8 checked against §3–§5 (library and settings screenshot

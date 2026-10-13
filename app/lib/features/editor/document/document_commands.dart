@@ -216,6 +216,19 @@ class DocumentCommands {
     );
   }
 
+  /// Duplicates [pages] (each copy after its page) as one step; several
+  /// get a message with Undo.
+  Future<void> duplicateMany(BuildContext context, List<NotebookPage> pages) async {
+    if (pages.isEmpty) return;
+    final edit = edits.duplicateAll(pages);
+    if (pages.length < 2) return;
+    showMessage(
+      context,
+      '${pages.length} pages duplicated',
+      action: SnackBarAction(label: 'Undo', onPressed: () => edits.models.undoEdit(edit)),
+    );
+  }
+
   /// Opens the page overview (on [filter]); shows the page picked there.
   /// [outline] builds its Outline filter.
   Future<void> openOverview(
@@ -240,7 +253,7 @@ class DocumentCommands {
             move: edits.move,
             bookmarkMany: (pages, {required on}) => edits.setBookmarks(pages, on: on),
             deleteMany: deleteMany,
-            duplicateMany: edits.duplicateAll,
+            duplicateMany: duplicateMany,
           ),
         ),
       ),

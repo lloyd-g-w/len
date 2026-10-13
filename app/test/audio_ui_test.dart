@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
@@ -283,6 +284,52 @@ void main() {
     await tester.pumpAndSettle();
     await _close(tester);
   });
+
+  // Short screens (a phone in landscape) and short documents (zoomed out:
+  // centred, they can't scroll) included.
+  for (final size in const [Size(390, 844), Size(844, 390), Size(1280, 800)]) {
+    for (final out in const [0, 4]) {
+      testWidgets('the player leaves room to scroll "Add page" clear ($size, zoomed out $out)', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          size: size,
+          kind: NotebookKind.paged,
+          seed: (s, nb) => _recording(s, nb.id, title: 'Seminar'),
+        );
+        if (size.width < 600) {
+          await tester.tap(find.byTooltip('More options'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Recordings'));
+        } else {
+          await tester.tap(find.byTooltip('Recordings'));
+        }
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Seminar'));
+        await _settleAsync(tester);
+        await tester.pumpAndSettle();
+        ScaffoldMessenger.of(tester.element(find.byType(EditorScreen))).removeCurrentSnackBar();
+        for (var i = 0; i < out; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+          await tester.pumpAndSettle();
+        }
+        // To the end of the document (the wheel: a touch drag may fling).
+        final wheel = TestPointer(1, PointerDeviceKind.mouse);
+        // Over the page, above the player.
+        await tester.sendEventToBinding(wheel.hover(Offset(size.width / 2, 130)));
+        for (var i = 0; i < 20; i++) {
+          await tester.sendEventToBinding(wheel.scroll(const Offset(0, 400)));
+          await tester.pump();
+        }
+        await tester.pumpAndSettle();
+        final add = find.widgetWithText(OutlinedButton, 'Add page');
+        final bar = tester.getRect(find.byKey(const ValueKey('playback-bar')));
+        expect(tester.getRect(add).bottom, lessThanOrEqualTo(bar.top - 8));
+        await _close(tester);
+      });
+    }
+  }
 
   testWidgets('phone, paged: record from the menu (floating controls), replay on pages', (
     tester,

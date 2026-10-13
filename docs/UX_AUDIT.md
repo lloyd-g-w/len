@@ -15,8 +15,12 @@ GoodNotes 6, Notewise and Apple Notes.
 Not repeated (other branches are working on them): the open library and
 dialog items from round 4 (P1-13…P1-21, P2-16…P2-28, A11Y-1/2) on
 `fix/library-r4`, and split-view titles and dimming, the focus puck and
-desktop pointer mode on `fix/editor-followups`. Harness artefacts aren't
-reported either: desktop renders run as Android (touch copy and sizes), and
+desktop pointer mode on `fix/editor-followups` (✅ done there: both panes'
+bars titled and both split notebooks marked in the tab strip, receding
+content rather than whole bars; the puck moves clear of writing on release;
+Space / Shift+Space type into a text box in focus mode; the overview's
+"2 pages duplicated · Undo"; the player always leaves room for Add page;
+desktop renders use a pointer). Harness artefacts aren't reported either:
 screens pumped as the first route have no back button.
 
 No P0s: nothing is broken or loses data. Paths are under `app/lib/`.
@@ -497,7 +501,8 @@ ink on release. *Files:* `chrome/focus_handle.dart`, `chrome/tool_puck.dart`.
 *Done:* the exit shows in full for 2 s on entering, then rests at 70 % on
 touch (40 % with a mouse), `onSurface` glyph, a 48-dp target on touch; back
 and Esc already left. The grip is inside the puck's capsule
-(`ToolbarSlot.joined`). Still open: snapping the puck clear of ink on release.
+(`ToolbarSlot.joined`). Released over writing, the puck moves to the nearest
+clear spot along the edges (`chrome/puck_clearance.dart`, `fix/editor-followups`).
 
 ✅ **P1-3 The tab strip cuts the last tab with no cue, and squeezes the active tab first.**
 `e_tabs_tablet_portrait_light.png` ("Spanish voca" cut at the edge, no fade,
@@ -548,7 +553,8 @@ smaller than on phones. *Fix:* pick the copy by `Targets.touchFirst` (mouse:
 "Scroll to pan, Ctrl+scroll to zoom, right-click for more"). *Files:*
 `features/editor/canvas/canvas_empty_hint.dart`.
 *Done:* copy by `Targets.touchFirst` (was the platform), "…for more options".
-Screenshot suites run as Android, so desktop renders still show touch copy.
+The screenshot suites render desktop sizes (≥ 1400 dp) with a pointer
+(`setWindow`), so desktop renders show pointer copy and sizes.
 
 ✅ **P2-5 The page indicator shows "1 / 1".** `open_phone_light_80.png`,
 `open_tablet_portrait_light_80.png`: a one-page notebook gets the pill (and it
@@ -660,7 +666,7 @@ history entry, no Undo snack (delete page has one). "Apply to all pages" on a
 does), or better push page-level commands into the editor history so Ctrl+Z
 works. *Files:* `document/document_commands.dart`, `document/page_actions.dart`,
 `features/documents/overview/page_commands.dart`.
-→ ✅ Templates, moves, bookmarks (many as one step), added, duplicated and deleted pages are steps of the notebook-wide undo history (`PageEdits` → `PageModels.record`), so Ctrl+Z and ↶ take them back in order with ink. "Template changed on N pages · Undo"; snack-bar Undo goes through the same history (`PageModels.undoEdit`). Pages inserted from a PDF are one step too, and so is duplicating several pages in the overview.
+→ ✅ Templates, moves, bookmarks (many as one step), added, duplicated and deleted pages are steps of the notebook-wide undo history (`PageEdits` → `PageModels.record`), so Ctrl+Z and ↶ take them back in order with ink. "Template changed on N pages · Undo"; snack-bar Undo goes through the same history (`PageModels.undoEdit`). Pages inserted from a PDF are one step too, and so is duplicating several pages in the overview ("2 pages duplicated · Undo").
 
 ✅ **P1-8 Phones: the selection bar and handles get clipped at the edge.**
 `e_shape_selected_phone_*` (handles cut at the screen edge),
@@ -708,7 +714,8 @@ again" (`audio/backends/audioplayers_playback.dart:48,64`,
 `audio/recording_export.dart:81`) offers no Sync: add "Sync now", or say "It
 downloads when you're online". *Files:* `features/audio/ui/*`,
 `features/audio/backends/audioplayers_playback.dart`, `features/audio/recording_export.dart`.
-→ ✅ Solid seek track with a round thumb; Recordings uses an outline glyph; subtitle "4 recordings · 1 h 17 min", sizes moved into a row's menu; "…It downloads when you're online". Not done: lifting the recorder pill above Add page, trim into the overflow.
+→ ✅ Solid seek track with a round thumb; Recordings uses an outline glyph; subtitle "4 recordings · 1 h 17 min", sizes moved into a row's menu; "…It downloads when you're online". The pill and player add room past the end so Add page scrolls clear (see the
+follow-up notes). Not done: trim into the overflow.
 
 ✅ **P2-12 "Draw with finger" is hidden in Automatic and named differently.**
 `chrome/editor_more_menu.dart:82` shows the switch only once a stylus was seen
@@ -1073,7 +1080,7 @@ selection exists) and list them in the shortcuts sheet. *Files:*
 `features/editor/editor_shortcuts.dart`, `tools/content_shortcuts.dart`,
 `features/library/library_screen.dart`, `features/settings/keyboard_shortcuts.dart`.
 
-◐ **P1-25 A parked pane and the second pane's header are unclear.** `split_parked_portrait_*`:
+✅ **P1-25 A parked pane and the second pane's header are unclear.** `split_parked_portrait_*`:
 the parked pane is an unlabelled pill cut at the bottom edge; `split_*`: the
 two panes' headers differ (the second has ✕ and a title, the first no title
 while tabs show), and the tab strip shows the right-hand notebook as an
@@ -1086,6 +1093,8 @@ view · Show" while the other is parked (with Stop while it records;
 `split/parked_pane_notice.dart`). *Left open:* the title in the first pane's
 bar and marking both split notebooks in the tab strip (the strip and bar
 were being reworked on fix/editor-chrome-r4 at the same time).
+*Done (fix/editor-followups):* both panes' bars show their notebook's title,
+and the strip marks both split notebooks with a split glyph.
 
 ✅ **P2-32 Dragging a selection across panes.** `split_drag_*`: the dragged ink is
 a full-size, full-opacity copy over the target, and the target goes flat grey
@@ -1439,8 +1448,8 @@ Notewise. The open editor items of round 3 are closed above; besides them:
 - ✅ The recording pill can cover the "Add page" footer at the end of a
   document → the floating pill and player add room past the end
   (`DocumentController.setEndRoom`); scrolled to the end, the view stays
-  at the end, so the footer moves clear (`fix/editor-chrome-r4`). A short
-  document that can't scroll far enough still tucks it under a tall player.
+  at the end, so the footer moves clear (`fix/editor-chrome-r4`); short
+  screens and zoomed-out documents too (tested on `fix/editor-followups`).
 - ✅ A text box typed near the bottom of a phone can sit under the docked
   format bar → it pans up just clear of the bar when the box or the bar
   (keyboard) changes, never on the user's own pans (`TextBoxReveal`).

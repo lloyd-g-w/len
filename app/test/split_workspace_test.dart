@@ -287,7 +287,7 @@ void main() {
       final (s, physics, chemistry) = await pumpWorkspace(tester);
       s.openNotebooks.openSplit(chemistry.id);
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(TitleButton)); // Rename Chemistry…
+      await tester.tap(find.byType(TitleButton).last); // Rename Chemistry (second pane)…
       await tester.pumpAndSettle();
       expect(find.byType(TextField), findsOneWidget);
       tester.view.physicalSize = const Size(800, 1280); // Parks the pane.

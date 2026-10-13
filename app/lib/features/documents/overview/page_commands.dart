@@ -50,7 +50,7 @@ class OverviewHandlers {
   /// Duplicates several pages (each copy right after its page) as one
   /// undoable step. Without it, the overview runs [PageCommand.duplicate]
   /// on each page.
-  final void Function(List<NotebookPage> pages)? duplicateMany;
+  final Future<void> Function(BuildContext context, List<NotebookPage> pages)? duplicateMany;
 }
 
 /// The options menu of [page].

@@ -289,4 +289,25 @@ void main() {
     expect(inkOf(s, original[1]), hasLength(1));
     await closeEditor(tester);
   });
+
+  testWidgets('overview: duplicating several pages offers Undo', (tester) async {
+    final (s, nb) = await pumpEditor(tester, size: const Size(1000, 800));
+    final original = [for (final p in s.pages.pagesOf(nb.id)) p.id];
+    await tester.tap(find.byTooltip('All pages'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('page-tile-0')));
+    await tester.tap(find.byKey(const ValueKey('page-tile-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duplicate'));
+    await tester.pumpAndSettle();
+    expect(s.pages.pagesOf(nb.id), hasLength(5));
+    expect(find.text('2 pages duplicated'), findsOneWidget);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(s.pages.pagesOf(nb.id).map((p) => p.id), original);
+    await closeEditor(tester);
+  });
 }

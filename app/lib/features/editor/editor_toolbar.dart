@@ -5,6 +5,7 @@ import '../../ink/tool_settings.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/floating_panel.dart';
 import '../../ui/scroll_fade.dart';
+import 'chrome/receding.dart';
 import 'toolbar/insert_menu.dart';
 import 'toolbar/tool_cluster.dart';
 import 'toolbar/tool_strip.dart';
@@ -161,34 +162,40 @@ class EditorToolbar extends StatelessWidget {
     if (ToolbarAxis.of(context) == Axis.vertical) {
       return FloatingPanel(
         padding: const EdgeInsets.symmetric(horizontal: Gaps.xs, vertical: Gaps.xs + 2),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: constraints.maxHeight - padding),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _cluster(),
-                StripDivider(tools: tools),
-                ToolStrip(tools: tools, reserve: reserve),
-              ],
+        child: Receding(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: constraints.maxHeight - padding),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _cluster(),
+                  StripDivider(tools: tools),
+                  ToolStrip(tools: tools, reserve: reserve),
+                ],
+              ),
             ),
           ),
         ),
       );
     }
     if (ToolbarMetrics.group(tools) + padding <= constraints.maxWidth) {
-      return FloatingPanel(child: _group(reserve: reserve));
+      return FloatingPanel(
+        child: Receding(child: _group(reserve: reserve)),
+      );
     }
     return FloatingPanel(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ToolSwitcherButton(tools: tools, insert: insert),
-          StripDivider(tools: tools),
-          Flexible(
-            child: ScrollFade(child: ToolStrip(tools: tools)),
-          ),
-        ],
+      child: Receding(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ToolSwitcherButton(tools: tools, insert: insert),
+            StripDivider(tools: tools),
+            Flexible(
+              child: ScrollFade(child: ToolStrip(tools: tools)),
+            ),
+          ],
+        ),
       ),
     );
   }
