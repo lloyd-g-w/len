@@ -618,7 +618,8 @@ sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
 on mobile and written into a folder the user picks on desktop. On Android the
 export sheet also offers Save to device: the system's save dialog (one file)
-or folder picker (several), `SaveDocumentPlugin.kt` on `len/save_document`.
+or folder picker (several), `SaveDocumentPlugin.kt` on `len/save_document`
+(recordings offer Share and Save to device the same way).
 The saver returns `ExportedFiles` (where they went), so the flow can say
 "Saved “Lecture.pdf”" with Show in folder on desktops; an `ExportReport`
 collects what was left out (missing PDF pages or images, PDF pages included
