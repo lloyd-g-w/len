@@ -1,14 +1,76 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/blob_backend.dart';
+import 'package:len/features/library/library_notice.dart';
+import 'package:len/platform/browser_storage_api.dart';
 import 'package:len/ui/startup_error.dart';
 
 import 'ui_library_test.dart' show pumpLibrary;
 
+class _Storage implements BrowserStorage {
+  bool persisted = false;
+  bool grant = true;
+
+  @override
+  Future<bool> isPersisted() async => persisted;
+
+  @override
+  Future<bool> requestPersistence() async => persisted = grant;
+
+  @override
+  Future<StorageUsage?> usage() async => null;
+}
+
 void main() {
+  group('a browser that may clear the data (UX_AUDIT P2-30)', () {
+    Future<AppServices> pump(WidgetTester tester, BrowserStorage storage) async {
+      final services = AppServices.create(AppDatabase.inMemory());
+      addTearDown(services.dispose);
+      await tester.pumpWidget(
+        AppScope(
+          services: services,
+          child: MaterialApp(
+            home: Scaffold(
+              body: LibraryNotices(storage: storage, child: const SizedBox()),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return services;
+    }
+
+    const title = 'This browser may clear your notebooks';
+
+    testWidgets('says so once while sync is off; Keep data asks the browser', (tester) async {
+      final storage = _Storage();
+      final services = await pump(tester, storage);
+      expect(find.text(title), findsOneWidget);
+      await tester.tap(find.text('Keep data'));
+      await tester.pump();
+      expect(storage.persisted, isTrue);
+      expect(find.text(title), findsNothing);
+      expect(services.settings.seenTips, contains(LibraryNotices.evictionTip));
+    });
+
+    testWidgets('not with sync on, nor once dismissed', (tester) async {
+      final services = await pump(tester, _Storage());
+      services.sync.configure(url: 'https://len.example', token: 't');
+      await tester.pump();
+      expect(find.text(title), findsNothing);
+      services.sync.configure(url: '', token: '');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Dismiss'));
+      await tester.pump();
+      expect(find.text(title), findsNothing);
+      expect(services.settings.seenTips, contains(LibraryNotices.evictionTip));
+    });
+  });
+
   group('files that are not kept (UX_AUDIT P0-1)', () {
     testWidgets('the library says so when blobs only live in memory', (tester) async {
       final services = AppServices.create(
