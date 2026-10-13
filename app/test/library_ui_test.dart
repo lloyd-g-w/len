@@ -66,19 +66,29 @@ void main() {
     expect(find.byType(FolderTile), findsOneWidget);
 
     // Drag the notebook onto the folder with a mouse.
-    final from = tester.getCenter(find.byType(NotebookCard));
-    final to = tester.getCenter(find.byType(FolderTile));
-    final gesture = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
-    for (var i = 1; i <= 10; i++) {
-      await gesture.moveTo(Offset.lerp(from, to, i / 10)!);
-      await tester.pump();
+    Future<void> dragIntoFolder() async {
+      final from = tester.getCenter(find.byType(NotebookCard));
+      final to = tester.getCenter(find.byType(FolderTile));
+      final gesture = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
+      for (var i = 1; i <= 10; i++) {
+        await gesture.moveTo(Offset.lerp(from, to, i / 10)!);
+        await tester.pump();
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
     }
-    await gesture.up();
-    await tester.pumpAndSettle();
 
+    await dragIntoFolder();
     final folder = services.folders.list().single;
     expect(services.notebooks.list().single.folderId, folder.id);
     expect(find.byType(NotebookCard), findsNothing);
+    // A drop says where the notebook went and can be undone, like Move.
+    expect(find.text('Moved “Algebra” to “School”'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list().single.folderId, isNull);
+    await dragIntoFolder();
+    expect(services.notebooks.list().single.folderId, folder.id);
 
     await tester.tap(find.byType(FolderTile));
     await tester.pumpAndSettle();

@@ -36,7 +36,7 @@ pickers and dialogs, and commands that have no feedback or no Undo.
 
 ### Library and organising
 
-⬜ **R6-1 P1 · Dragging a notebook onto a folder moves it silently, with no
+✅ **R6-1 P1 · Dragging a notebook onto a folder moves it silently, with no
 Undo.** `LibraryActions.drop` (`features/library/library_actions.dart:118-127`)
 calls `controller.moveNotebook` and returns. The notebook disappears from the
 grid with no message. The Move dialog path goes through `move()` (`:279-297`),
@@ -45,6 +45,9 @@ get no feedback either. A drop that misses by one tile loses a notebook into
 the wrong folder. *Fix:* route notebook drops through `move(context, [id],
 folderId)`. For folders, add a "Moved “School” into “Work” · Undo" snack
 (`moveFolder` back to the old parent).
+*Done:* notebook drops go through `move()` (same message and Undo);
+folder drops say "Moved “School” to “Work”" with Undo; a drop where the
+item already is does nothing.
 
 ⬜ **R6-3 P1 · A phone held sideways shows no notebook titles.**
 `library_phone_sideways_*`: four covers about 190 dp wide fill the 390-dp

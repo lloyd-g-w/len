@@ -115,15 +115,27 @@ class LibraryActions {
     controller.createFolder(details.name, color: details.color);
   }
 
-  /// Handles a dragged item dropped on folder [folderId] (null = root).
+  /// Handles a dragged item dropped on folder [folderId] (null = root):
+  /// moves it, says where and offers Undo, as the Move dialog does.
   void drop(BuildContext context, LibraryDragItem item, String? folderId) {
     if (!item.isFolder) {
-      controller.moveNotebook(item.id, folderId);
+      final from = controller.services.notebooks.get(item.id)?.folderId;
+      if (from != folderId) move(context, [item.id], folderId);
       return;
     }
+    final folder = controller.folderById(item.id);
+    if (folder == null) return;
+    final from = controller.parentOf(folder);
+    if (from == folderId) return;
     if (!controller.moveFolder(item.id, folderId)) {
-      _toast(context, 'A folder can’t be moved into itself.');
+      _toast(context, 'A folder can’t be moved into itself');
+      return;
     }
+    _undoable(
+      context,
+      'Moved “${folder.name}” to “${_folderName(folderId)}”',
+      () => controller.moveFolder(item.id, from),
+    );
   }
 
   /// Whether [item] may be dropped into [folderId].
@@ -316,5 +328,15 @@ class LibraryActions {
 
   void _toast(BuildContext context, String message) {
     showMessage(context, message);
+  }
+
+  /// Says what was done and offers [undo].
+  void _undoable(BuildContext context, String message, VoidCallback undo) {
+    if (!context.mounted) return;
+    showMessage(
+      context,
+      message,
+      action: SnackBarAction(label: 'Undo', onPressed: undo),
+    );
   }
 }
