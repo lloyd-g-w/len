@@ -55,7 +55,8 @@ abstract final class ConvertToText {
 
   /// A text box showing [text] where [strokes] were: at their top left,
   /// in their (most common) colour, its font sized like the handwriting,
-  /// as wide as the ink (wrapping; wider only for a long word).
+  /// as wide as the ink (wrapping; wider only for a long word). A reading
+  /// that needs more lines than the ink had shrinks (to [minShrink]) first.
   ///
   /// [area] (surface coordinates; the visible part of the page or canvas)
   /// keeps the box inside: it wraps narrower or moves left to fit.
@@ -81,20 +82,30 @@ abstract final class ConvertToText {
     final letter = lines.isEmpty
         ? bounds.height
         : (lines.map((l) => l.letterHeight).toList()..sort())[lines.length ~/ 2];
-    final data = TextData(
-      text: text,
-      fontSize: (letter * fontPerLetterHeight)
-          .clamp(TextData.minFontSize, math.min(TextData.maxFontSize, 160))
-          .toDouble(),
-      color: _commonColour(source),
-    );
-    // The ink's width, but no narrower than the longest word.
-    var width = math.max(bounds.width, _longestWord(data));
-    var left = bounds.left;
-    if (area != null) {
-      final inside = area.deflate(math.min(_margin, area.shortestSide / 8));
-      width = math.min(width, math.max(inside.width, TextLayout.minWidth));
-      if (left + width > inside.right) left = math.max(inside.left, inside.right - width);
+    final colour = _commonColour(source);
+    final base = (letter * fontPerLetterHeight)
+        .clamp(TextData.minFontSize, math.min(TextData.maxFontSize, 160))
+        .toDouble();
+    final floor = math.max(TextData.minFontSize, base * minShrink);
+    // As many text lines as the ink had (or the text has): a longer reading
+    // shrinks first, so it doesn't grow over the next handwritten line, and
+    // wraps only below the floor.
+    final target = math.max(lines.length, '\n'.allMatches(text).length + 1);
+    var size = base;
+    late TextData data;
+    late double width, left;
+    while (true) {
+      data = TextData(text: text, fontSize: size, color: colour);
+      // The ink's width, but no narrower than the longest word.
+      width = math.max(bounds.width, _longestWord(data));
+      left = bounds.left;
+      if (area != null) {
+        final inside = area.deflate(math.min(_margin, area.shortestSide / 8));
+        width = math.min(width, math.max(inside.width, TextLayout.minWidth));
+        if (left + width > inside.right) left = math.max(inside.left, inside.right - width);
+      }
+      if (size <= floor || _lineCount(data, width) <= target) break;
+      size = math.max(floor, size * 0.94);
     }
     final height = TextLayout.heightOf(data, width);
     return SurfaceElement(
@@ -106,6 +117,17 @@ abstract final class ConvertToText {
       createdAt: createdAt,
       data: data.toJson(),
     );
+  }
+
+  /// How far a converted reading may shrink (of the handwriting's size)
+  /// to keep to the ink's lines before it wraps.
+  static const double minShrink = 0.7;
+
+  static int _lineCount(TextData data, double width) {
+    final layout = TextBoxLayout(data, width);
+    final count = layout.painter.computeLineMetrics().length;
+    layout.dispose();
+    return count;
   }
 
   /// Room kept between a converted box and the edge of its area.

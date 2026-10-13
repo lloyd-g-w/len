@@ -80,6 +80,25 @@ void main() {
     expect(box.z, 3);
   });
 
+  test('a reading a bit longer than the ink shrinks to stay on one line', () {
+    final box = ConvertToText.textBox(
+      helloWorld('s'),
+      'hello world!!',
+      id: 't',
+      surfaceId: 's',
+      z: 1,
+      createdAt: 1,
+    );
+    final data = TextData.fromJson(box.data);
+    const base = 42 * ConvertToText.fontPerLetterHeight;
+    expect(data.fontSize, lessThan(base));
+    expect(data.fontSize, greaterThanOrEqualTo(base * ConvertToText.minShrink));
+    final layout = TextLayout.layout(data, box.rect.width);
+    expect(layout.painter.computeLineMetrics(), hasLength(1));
+    layout.dispose();
+    expect(box.rect.width, lessThan(300), reason: 'as wide as the ink, not wider');
+  });
+
   test("a long reading wraps at the ink's width and stays inside the visible area", () {
     const long = "Newton's second law: F = m a, the net force equals mass times acceleration";
     SurfaceElement box({Rect? area}) => ConvertToText.textBox(
@@ -96,6 +115,11 @@ void main() {
     expect(free.rect.width, lessThan(oneLine), reason: 'wraps, no one-line box');
     expect(free.rect.width, lessThan(400));
     expect(free.rect.height, greaterThan(2 * TextData.fromJson(free.data).fontSize));
+    expect(
+      TextData.fromJson(free.data).fontSize,
+      closeTo(42 * ConvertToText.fontPerLetterHeight * ConvertToText.minShrink, 1e-6),
+      reason: 'shrunk to the floor before wrapping',
+    );
 
     // A phone-wide view whose right edge cuts through the ink's width.
     const phone = Rect.fromLTWH(0, 0, 300, 800);
@@ -192,8 +216,12 @@ void main() {
       expect(find.text('Convert to text'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'hello world'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'HELLO WORLD'));
+      // The reading shows once: in the field, not again as a chip.
+      expect(find.widgetWithText(ActionChip, 'hello world'), findsNothing);
+      await tester.tap(find.widgetWithText(ActionChip, 'HELLO WORLD'));
       await tester.pump();
+      expect(find.widgetWithText(ActionChip, 'hello world'), findsOneWidget);
+      expect(find.widgetWithText(ActionChip, 'HELLO WORLD'), findsNothing);
       await tester.tap(find.text('Replace ink'));
       await tester.pumpAndSettle();
 
@@ -243,13 +271,26 @@ void main() {
       await lassoAll(tester);
       await selectionAction(tester, 'Convert to text');
       await tester.pumpAndSettle();
-      expect(find.text('The handwriting could not be recognised.'), findsOneWidget);
+      expect(find.text('Couldn’t read this handwriting'), findsOneWidget);
       expect(find.text('Close'), findsOneWidget);
       await tester.tap(find.text('Try again'));
       await tester.pumpAndSettle();
       expect(find.widgetWithText(TextField, 'hello world'), findsOneWidget);
       expect(find.text('Try again'), findsNothing);
       expect(find.text('Replace ink'), findsOneWidget);
+    });
+
+    testWidgets('no handwriting found offers Try again and Close', (tester) async {
+      await open(tester, FakeRecognizer(words: {'hello': ' ', 'world': ' '}));
+      await lassoAll(tester);
+      await selectionAction(tester, 'Convert to text');
+      await tester.pumpAndSettle();
+      expect(find.text('No handwriting found in the selection'), findsOneWidget);
+      expect(find.text('Replace ink'), findsNothing);
+      expect(find.text('Try again'), findsOneWidget);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      expect(find.text('Convert to text'), findsNothing);
     });
 
     testWidgets('a missing model is offered for download first', (tester) async {

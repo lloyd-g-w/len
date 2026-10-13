@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/recognition/convert_to_text.dart';
 import '../../../ink/recognition/handwriting_recognizer.dart';
@@ -149,8 +150,8 @@ class _DownloadDialog extends StatelessWidget {
   );
 }
 
-/// Shows the reading (editable) and its alternatives; when recognition
-/// fails, offers to try again.
+/// Shows the reading (editable) and the other readings; when recognition
+/// fails or finds nothing, offers to try again (or close).
 class _ConvertDialog extends StatefulWidget {
   const _ConvertDialog({required this.recognize});
 
@@ -201,70 +202,56 @@ class _ConvertDialogState extends State<_ConvertDialog> {
     super.dispose();
   }
 
+  /// Every state keeps at least this height, so the dialog doesn't jump
+  /// as recognition finishes (about the field and a row or two of readings).
+  static const double _minHeight = 160;
+
   @override
   Widget build(BuildContext context) {
     final result = _result;
     final theme = Theme.of(context);
     final text = _text.text.trim();
+    final failed = _error != null || (result != null && result.isEmpty);
     // Copy / Replace only once there is a reading to use.
-    final ready = result != null && !result.isEmpty && _error == null;
+    final ready = result != null && !failed;
+    Widget status(Widget lead, String message) => Row(
+      children: [
+        lead,
+        const SizedBox(width: Gaps.md),
+        Expanded(child: Text(message)),
+      ],
+    );
     return AppDialog(
       title: 'Convert to text',
       content: DialogBody(
-        child: switch ((result, _error)) {
-          (_, final Object _) => Text(
-            'The handwriting could not be recognised.',
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
-          (null, _) => const Padding(
-            padding: EdgeInsets.symmetric(vertical: Gaps.lg),
-            child: Center(heightFactor: 1, child: CircularProgressIndicator()),
-          ),
-          (final r?, _) when r.isEmpty => const Text('No text was found in the selection.'),
-          (final r?, _) => Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                key: const ValueKey('convert-text-field'),
-                controller: _text,
-                minLines: 1,
-                maxLines: 6,
-                autofocus: false,
-                decoration: const InputDecoration(labelText: 'Recognised text'),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: _minHeight),
+          child: switch ((result, _error)) {
+            (_, final Object _) => status(
+              Icon(Symbols.error_rounded, color: theme.colorScheme.error),
+              'Couldn’t read this handwriting',
+            ),
+            (null, _) => status(
+              const SizedBox.square(
+                dimension: Glyphs.bar,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              if (r.alternatives.isNotEmpty) ...[
-                const SizedBox(height: Gaps.md),
-                Text('Alternatives', style: theme.textTheme.bodySmall),
-                const SizedBox(height: Gaps.xs),
-                ChipSurface(
-                  child: Wrap(
-                    spacing: Gaps.sm,
-                    runSpacing: Gaps.xs,
-                    children: [
-                      for (final alt in [r.text, ...r.alternatives])
-                        ChoiceChip(
-                          label: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 200),
-                            child: Text(alt, maxLines: 2, overflow: TextOverflow.ellipsis),
-                          ),
-                          selected: _text.text == alt,
-                          onSelected: (_) => _text.text = alt,
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        },
+              'Recognising handwriting…',
+            ),
+            (final r?, _) when r.isEmpty => status(
+              const Icon(Symbols.draw_rounded),
+              'No handwriting found in the selection',
+            ),
+            (final r?, _) => _reading(theme, r),
+          },
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(ready || (result == null && _error == null) ? 'Cancel' : 'Close'),
+          child: Text(ready || result == null && _error == null ? 'Cancel' : 'Close'),
         ),
-        if (_error != null)
+        if (failed)
           FilledButton(
             key: const ValueKey('convert-retry'),
             onPressed: _retry,
@@ -278,6 +265,50 @@ class _ConvertDialogState extends State<_ConvertDialog> {
           FilledButton(
             onPressed: text.isEmpty ? null : () => Navigator.pop(context, _Replace(text)),
             child: const Text('Replace ink'),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// The field holds one reading; the chips offer the others (the best one
+  /// too, once another is in the field), so no reading shows twice.
+  Widget _reading(ThemeData theme, ConversionResult r) {
+    final others = [
+      for (final alt in {r.text, ...r.alternatives})
+        if (alt != _text.text) alt,
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          key: const ValueKey('convert-text-field'),
+          controller: _text,
+          minLines: 1,
+          maxLines: 6,
+          autofocus: false,
+          decoration: const InputDecoration(labelText: 'Recognised text'),
+        ),
+        if (r.alternatives.isNotEmpty) ...[
+          const SizedBox(height: Gaps.md),
+          Text('Other readings', style: theme.textTheme.bodySmall),
+          const SizedBox(height: Gaps.xs),
+          ChipSurface(
+            child: Wrap(
+              spacing: Gaps.sm,
+              runSpacing: Gaps.xs,
+              children: [
+                for (final alt in others)
+                  ActionChip(
+                    label: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 200),
+                      child: Text(alt, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ),
+                    onPressed: () => _text.text = alt,
+                  ),
+              ],
+            ),
           ),
         ],
       ],
