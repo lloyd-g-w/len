@@ -166,11 +166,11 @@ void main() {
     final api = SyncApi(
       baseUrl: 'http://sync.test/',
       token: 't',
-      client: MockClient((_) async => http.Response('<html>${'x' * 10000}</html>', 502)),
+      client: MockClient((_) async => http.Response('<html>${'x' * 10000}</html>', 500)),
     );
     await expectLater(
       api.check(),
-      throwsA(isA<SyncException>().having((e) => e.message, 'message', 'Sync server error 502')),
+      throwsA(isA<SyncException>().having((e) => e.message, 'message', 'Sync server error 500')),
     );
   });
 
@@ -196,15 +196,17 @@ void main() {
       expect(controller.state, SyncState.idle);
       expect(a.settings.syncLastSeq, 1);
 
-      // Same server with a trailing slash is not a switch.
-      controller.configure(url: 'http://one.test/', token: FakeServer.token);
-      expect(a.notebooks.dirtyRecords(10), isEmpty);
+      // Another address of the same server (same id) is not a switch.
+      controller.configure(url: 'http://192.168.1.10:8080/', token: FakeServer.token);
+      await controller.syncNow();
+      expect(first.pushes, hasLength(1));
 
       target = second;
       controller.configure(url: 'http://two.test', token: FakeServer.token);
-      expect(a.settings.syncLastSeq, 0);
       await controller.syncNow();
+      expect(controller.state, SyncState.idle);
       expect(second.pushes.single.count, 1);
+      expect(a.settings.syncServerId, second.serverId);
       controller.dispose();
     });
 

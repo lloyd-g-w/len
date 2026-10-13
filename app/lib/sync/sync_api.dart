@@ -5,31 +5,9 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../data/syncable.dart';
+import 'sync_errors.dart';
 
-/// What kind of failure a [SyncException] reports.
-enum SyncFailure {
-  /// The server could not be reached (or did not answer in time).
-  network,
-
-  /// The server rejected the access token.
-  auth,
-
-  /// The server (or a proxy in front of it) refused a request as too large.
-  tooLarge,
-
-  /// Anything else: an error status or an unexpected response.
-  server,
-}
-
-/// Thrown for any failed sync request, with a user-presentable message.
-class SyncException implements Exception {
-  const SyncException(this.message, {this.kind = SyncFailure.server});
-  final String message;
-  final SyncFailure kind;
-
-  @override
-  String toString() => message;
-}
+export 'sync_errors.dart';
 
 /// One page of the server's change feed.
 class PullPage {
@@ -48,19 +26,41 @@ class PullPage {
   final int malformed;
 }
 
-/// What `GET /v1/health` reports; fields are null when the answer did not
-/// say (e.g. a proxy answering instead of the server).
+/// What `GET /v1/health` reports.
 class ServerInfo {
-  const ServerInfo({this.maxBlobBytes, this.blobsCollectedAt});
+  const ServerInfo({
+    required this.serverId,
+    required this.maxBlobBytes,
+    required this.blobsCollectedAt,
+  });
 
-  /// Nothing known.
-  static const unknown = ServerInfo();
+  /// The protocol version this app speaks.
+  static const protocol = 1;
+
+  /// Identifies the server's change history; a new id means another server
+  /// (or one restored from a backup).
+  final String serverId;
 
   /// Largest blob the server accepts.
-  final int? maxBlobBytes;
+  final int maxBlobBytes;
 
   /// When the server last deleted blobs by garbage collection (0 = never).
-  final int? blobsCollectedAt;
+  final int blobsCollectedAt;
+
+  /// Parses a health answer; throws [SyncException] when it is not one of a
+  /// Len sync server speaking [protocol].
+  factory ServerInfo.fromJson(Map<String, Object?>? json) {
+    if (json == null || json['status'] != 'ok') throw SyncException.notLen;
+    final version = json['protocol'];
+    if (version is! int) throw SyncException.notLen;
+    if (version > protocol) throw SyncException.serverTooNew;
+    final (id, max, collected) = (json['serverId'], json['maxBlobBytes'], json['blobsCollectedAt']);
+    if (version < protocol || id is! String || id.isEmpty || max is! int || collected is! int) {
+      throw SyncException.serverTooOld;
+    }
+    if (max <= 0 || collected < 0) throw SyncException.unexpected;
+    return ServerInfo(serverId: id, maxBlobBytes: max, blobsCollectedAt: collected);
+  }
 }
 
 /// Thin HTTP client for the Len sync server (docs/SYNC_PROTOCOL.md).
@@ -99,40 +99,40 @@ class SyncApi {
     'Content-Type': 'application/json; charset=utf-8',
   };
 
-  /// Checks that the server is reachable and the token is accepted.
+  /// Checks that a compatible Len server answers and accepts the token.
   Future<void> check() async {
+    await serverInfo();
     await _send(
       () => _client.get(_uri('v1/pull', {'since': '0', 'limit': '1'}), headers: _headers),
     );
   }
 
-  /// Reads `/v1/health`. Throws [SyncException] only if the server cannot
-  /// be reached; any other unexpected answer gives [ServerInfo.unknown].
+  /// Reads `/v1/health`. Throws [SyncException] if the server cannot be
+  /// reached or is not a compatible Len sync server. Sends the token too
+  /// (the server ignores it), so a proxy guarding every path lets it pass.
   Future<ServerInfo> serverInfo() async {
-    final response = await _request(() => _client.get(_uri('v1/health')));
-    final json = response.statusCode == 200 ? _decodeObject(response.body) : null;
-    if (json == null) return ServerInfo.unknown;
-    int? positive(Object? v) => v is int && v > 0 ? v : null;
-    final collected = json['blobsCollectedAt'];
-    return ServerInfo(
-      maxBlobBytes: positive(json['maxBlobBytes']),
-      blobsCollectedAt: collected is int && collected >= 0 ? collected : null,
-    );
+    final response = await _request(() => _client.get(_uri('v1/health'), headers: _headers));
+    if (response.statusCode != 200) {
+      throw SyncException.status(response.statusCode, response.body);
+    }
+    return ServerInfo.fromJson(decodeObject(response.body));
   }
 
   /// Uploads [records], split into as many requests as the server's count
-  /// and size limits require.
+  /// and size limits require. [since] is the newest seq pulled from this
+  /// server; a server that no longer has it refuses the push
+  /// ([SyncFailure.historyLost]).
   ///
   /// Returns the records that were not sent because a single one exceeds
   /// [maxRecordBytes]; everything else was accepted by the server.
-  Future<List<SyncRecord>> push(List<SyncRecord> records) async {
+  Future<List<SyncRecord>> push(List<SyncRecord> records, {required int since}) async {
     final oversized = <SyncRecord>[];
     var batch = <String>[];
     var batchBytes = 0;
 
     Future<void> flush() async {
       if (batch.isEmpty) return;
-      final body = '{"records":[${batch.join(',')}]}';
+      final body = '{"since":$since,"records":[${batch.join(',')}]}';
       batch = [];
       batchBytes = 0;
       await _send(() => _client.post(_uri('v1/push'), headers: _headers, body: body));
@@ -172,7 +172,7 @@ class SyncApi {
         hasMore is! bool ||
         nextSince < since ||
         (hasMore && nextSince == since)) {
-      throw const SyncException('Unexpected response from sync server');
+      throw SyncException.unexpected;
     }
     final records = <SyncRecord>[];
     var malformed = 0;
@@ -231,25 +231,13 @@ class SyncApi {
     try {
       return await request().timeout(timeout ?? this.timeout);
     } on Exception catch (e) {
-      throw SyncException('Cannot reach sync server: $e', kind: SyncFailure.network);
+      throw SyncException.unreachable(e);
     }
   }
 
   static void _expectOk(http.Response response) {
-    switch (response.statusCode) {
-      case 200:
-        return;
-      case 401:
-        throw const SyncException('Sync server rejected the access token', kind: SyncFailure.auth);
-      case 413:
-        throw const SyncException(
-          'Sync server refused an oversized file',
-          kind: SyncFailure.tooLarge,
-        );
-      case final status:
-        throw SyncException(
-          'Sync server error $status${_errorDetail(_decodeObject(response.body))}',
-        );
+    if (response.statusCode != 200) {
+      throw SyncException.status(response.statusCode, response.body);
     }
   }
 
@@ -267,43 +255,8 @@ class SyncApi {
       baseUri.resolve(path).replace(queryParameters: query);
 
   Future<Map<String, Object?>> _send(Future<http.Response> Function() request) async {
-    final http.Response response;
-    try {
-      response = await request().timeout(timeout);
-    } on Exception catch (e) {
-      throw SyncException('Cannot reach sync server: $e', kind: SyncFailure.network);
-    }
-    final json = _decodeObject(response.body);
-    switch (response.statusCode) {
-      case 200:
-        if (json != null) return json;
-        throw const SyncException('Unexpected response from sync server');
-      case 401:
-        throw const SyncException('Sync server rejected the access token', kind: SyncFailure.auth);
-      case 413:
-        throw const SyncException(
-          'Sync server refused an oversized request',
-          kind: SyncFailure.tooLarge,
-        );
-      case final status:
-        throw SyncException('Sync server error $status${_errorDetail(json)}');
-    }
-  }
-
-  /// The server's `{"error": "…"}` message, shortened; never raw bodies,
-  /// which may be large HTML pages from a proxy.
-  static String _errorDetail(Map<String, Object?>? json) {
-    final error = json?['error'];
-    if (error is! String || error.isEmpty) return '';
-    return ': ${error.length > 200 ? '${error.substring(0, 200)}…' : error}';
-  }
-
-  static Map<String, Object?>? _decodeObject(String body) {
-    try {
-      final decoded = jsonDecode(body);
-      return decoded is Map<String, Object?> ? decoded : null;
-    } on FormatException {
-      return null;
-    }
+    final response = await _request(request);
+    _expectOk(response);
+    return decodeObject(response.body) ?? (throw SyncException.unexpected);
   }
 }

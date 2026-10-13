@@ -130,15 +130,19 @@ void main() {
       expect(a.sync.tooLargeFiles, isEmpty);
     });
 
-    test('switching servers forgets "too large"', () async {
-      server.maxBlobBytes = 100;
-      await _recording(a, 500, 1);
+    test('another server forgets "too large"', () async {
+      server.rejectBlobsAbove = 100;
+      final big = await _recording(a, 500, 1);
       await a.sync.syncNow();
       expect(a.sync.tooLargeFiles, hasLength(1));
 
-      a.sync.configure(url: 'http://other.test', token: FakeServer.token);
+      // The same address now leads to another server, without the proxy.
+      server
+        ..serverId = 'replaced'
+        ..rejectBlobsAbove = null;
+      await a.sync.syncNow();
       expect(a.sync.tooLargeFiles, isEmpty);
-      expect(a.blobs.pendingUploads(), hasLength(1));
+      expect(server.blobs.keys, [big.sha]);
     });
   });
 
@@ -211,21 +215,72 @@ void main() {
       client: MockClient((r) async => handle(r)),
     );
 
-    test('serverInfo reads the limit and tolerates proxies and odd answers', () async {
-      var info = await api(
-        (_) => http.Response('{"status":"ok","maxBlobBytes":42,"blobsCollectedAt":7,"x":1}', 200),
+    test('serverInfo reads the health answer and explains wrong ones', () async {
+      final info = await api(
+        (_) => http.Response(
+          '{"status":"ok","protocol":1,"maxBlobBytes":42,"blobsCollectedAt":7,"serverId":"s","x":1}',
+          200,
+        ),
       ).serverInfo();
-      expect((info.maxBlobBytes, info.blobsCollectedAt), (42, 7));
-      info = await api((_) => http.Response('{"status":"ok"}', 200)).serverInfo();
-      expect((info.maxBlobBytes, info.blobsCollectedAt), (null, null));
-      info = await api((_) => http.Response('<html>bad gateway</html>', 502)).serverInfo();
-      expect(info.maxBlobBytes, isNull);
-      info = await api((_) => http.Response('{"maxBlobBytes":"big"}', 200)).serverInfo();
-      expect(info.maxBlobBytes, isNull);
+      expect((info.serverId, info.maxBlobBytes, info.blobsCollectedAt), ('s', 42, 7));
+      Future<void> fails(http.Response response, SyncException expected) => expectLater(
+        api((_) => response).serverInfo(),
+        throwsA(
+          isA<SyncException>()
+              .having((e) => e.kind, 'kind', expected.kind)
+              .having((e) => e.message, 'message', expected.message),
+        ),
+      );
+      // A web page, or a site without this path: not a Len server.
+      await fails(http.Response('<html>Welcome</html>', 200), SyncException.notLen);
+      await fails(http.Response('Not found', 404), SyncException.notLen);
+      await fails(http.Response('{"status":"ok"}', 200), SyncException.notLen);
+      // Protocol versions.
+      await fails(http.Response('{"status":"ok","protocol":2}', 200), SyncException.serverTooNew);
+      await fails(
+        http.Response('{"status":"ok","protocol":1,"maxBlobBytes":1,"blobsCollectedAt":0}', 200),
+        SyncException.serverTooOld,
+      );
+      // A proxy in front of a stopped server; a proxy guarding the path.
+      await expectLater(
+        api((_) => http.Response('<html>bad gateway</html>', 502)).serverInfo(),
+        throwsA(
+          isA<SyncException>()
+              .having((e) => e.kind, 'kind', SyncFailure.network)
+              .having((e) => e.message, 'message', contains('is it running?')),
+        ),
+      );
+      await fails(http.Response('', 401), SyncException.rejectedToken);
       await expectLater(
         api((_) => throw http.ClientException('offline')).serverInfo(),
         throwsA(isA<SyncException>().having((e) => e.kind, 'kind', SyncFailure.network)),
       );
+    });
+
+    test('network failures are explained in words', () async {
+      Future<String> message(Object error) async {
+        try {
+          await api((_) => throw error).serverInfo();
+        } on SyncException catch (e) {
+          expect(e.kind, SyncFailure.network);
+          return e.message;
+        }
+        fail('no exception');
+      }
+
+      expect(
+        await message(http.ClientException('Failed host lookup: sync.test')),
+        startsWith('Cannot find the sync server'),
+      );
+      expect(
+        await message(http.ClientException('Connection refused, errno = 111')),
+        'The sync server refused the connection — is it running?',
+      );
+      expect(
+        await message(http.ClientException('HandshakeException: CERTIFICATE_VERIFY_FAILED')),
+        contains('HTTPS certificate'),
+      );
+      expect(await message(http.ClientException('reset')), startsWith('Cannot reach'));
     });
 
     test('putBlob reports 413 as too large, 500 as a server error', () async {
@@ -285,6 +340,27 @@ void main() {
       await tester.pump();
     }
 
+    testWidgets('Connect & save says what is wrong with the address or token', (tester) async {
+      await pump(tester, const SyncSettings());
+      Future<void> connect(String url, String token) async {
+        await tester.enterText(find.widgetWithText(TextField, 'Server URL'), url);
+        await tester.enterText(find.widgetWithText(TextField, 'Access token'), token);
+        await tester.runAsync(() async {
+          await tester.tap(find.text('Connect & save'));
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
+        await tester.pump(Motion.medium);
+      }
+
+      await connect('http://sync.test', 'wrong-token');
+      expect(find.text(SyncException.rejectedToken.message), findsOneWidget);
+      expect(a.settings.syncToken, FakeServer.token, reason: 'not saved');
+
+      server.serverId = '';
+      await connect('http://sync.test', FakeServer.token);
+      expect(find.text(SyncException.serverTooOld.message), findsOneWidget);
+    });
+
     testWidgets('Settings → Sync and the status button show files too large', (tester) async {
       server.maxBlobBytes = 100;
       await tester.runAsync(() async {
@@ -304,7 +380,7 @@ void main() {
       expect(find.textContaining('the server accepts up to 100 bytes'), findsOneWidget);
       expect(find.byTooltip('Synced — tap to sync now\n1 file too large to sync'), findsOneWidget);
 
-      server.maxBlobBytes = null;
+      server.maxBlobBytes = 1000;
       await tester.runAsync(() => a.sync.retryTooLargeFiles());
       await tester.pump();
       expect(find.text('1 file too large to sync.'), findsNothing);

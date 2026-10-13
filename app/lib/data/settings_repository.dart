@@ -34,6 +34,12 @@ class SettingsRepository {
   int get syncLastSeq => int.tryParse(_get(_syncLastSeq) ?? '') ?? 0;
   set syncLastSeq(int value) => _set(_syncLastSeq, '$value');
 
+  /// The `serverId` (`/v1/health`) of the server last synced with; when it
+  /// changes (another server, or one restored from a backup), everything is
+  /// uploaded again and pulled from the start. Empty before the first sync.
+  String get syncServerId => _get('sync_server_id') ?? '';
+  set syncServerId(String value) => _set('sync_server_id', value);
+
   /// The server's `blobsCollectedAt` (`/v1/health`) seen last; when it
   /// changes, the server deleted blobs and uploads are re-checked.
   int get syncBlobsCollectedAt => int.tryParse(_get('sync_blobs_collected_at') ?? '') ?? 0;
