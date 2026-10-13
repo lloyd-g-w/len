@@ -196,10 +196,10 @@ AppServices seededServices() {
     return n;
   }
 
-  nb('Physics — Mechanics', 0, ink: 9);
+  final physics = nb('Physics — Mechanics', 0, ink: 9);
   final journal = nb('Journal 2026', 4);
   nb('Whiteboard', 8, kind: NotebookKind.canvas, paper: PaperStyle.dotted, ink: 5);
-  nb('Meeting notes', 1, paper: PaperStyle.gridLarge, folder: work.id, ink: 6);
+  final meeting = nb('Meeting notes', 1, paper: PaperStyle.gridLarge, folder: work.id, ink: 6);
   nb('Recipes', 2);
   nb('Ideas', 5, ink: 4, paper: PaperStyle.dotted);
   nb('Spanish vocabulary', 7);
@@ -207,6 +207,8 @@ AppServices seededServices() {
   final old = nb('Old drafts', 6);
   s.notebooks.setFavorite(journal.id, true);
   s.notebooks.trash(old.id);
+  // The library root's Recent row: one of them lives in a folder.
+  s.settings.recentNotebooks = [meeting.id, physics.id, journal.id];
   return s;
 }
 

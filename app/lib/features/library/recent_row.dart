@@ -36,6 +36,9 @@ class RecentRow extends StatelessWidget {
   final double spacing;
   final double viewportHeight;
 
+  /// How much of the first name past the edge shows.
+  static const double _peek = 0.35;
+
   @override
   Widget build(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
@@ -57,10 +60,14 @@ class RecentRow extends StatelessWidget {
         }
         // A whole line per name (phones, large text) would hide the rest:
         // then names keep their narrowest width, and the line scrolls.
-        final tile = span == columns
+        var tile = span == columns
             ? math.min(minTile, width)
             : column * span + spacing * (span - 1);
         final gap = span == columns ? Gaps.sm : spacing;
+        // More than fit: the next one peeks in at the edge, so the line
+        // shows it scrolls.
+        final fits = math.max(1, ((width + gap) / (tile + gap)).floor());
+        if (notebooks.length > fits) tile = (width - gap * fits) / (fits + _peek);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
