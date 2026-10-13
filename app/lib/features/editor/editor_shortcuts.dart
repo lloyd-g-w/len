@@ -12,17 +12,32 @@ import 'pdf/pdf_layer.dart';
 import 'tabs/open_notebooks.dart';
 import 'tools/content_shortcuts.dart';
 
-/// Wraps a single-key shortcut so it doesn't fire while text is edited.
-VoidCallback unlessTyping(VoidCallback action) => () {
+/// Whether a text field (or a text box being edited) has the keyboard.
+bool isTyping() {
   // The focus node belongs to a Focus widget inside the EditableText.
   final focused = FocusManager.instance.primaryFocus?.context;
-  if (focused != null &&
+  return focused != null &&
       (focused.widget is EditableText ||
-          focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
-    return;
-  }
-  action();
+          focused.findAncestorWidgetOfExactType<EditableText>() != null);
+}
+
+/// Wraps a single-key shortcut so it doesn't fire while text is edited.
+VoidCallback unlessTyping(VoidCallback action) => () {
+  if (!isTyping()) action();
 };
+
+/// Whether [event] types a character into the text being edited (no
+/// Ctrl, Alt or ⌘): the editor lets it through to the platform's text
+/// input untouched, as Flutter does for Space, instead of letting a
+/// single-key shortcut swallow it.
+bool typesCharacter(KeyEvent event) {
+  if (event is KeyUpEvent || !isTyping()) return false;
+  final character = event.character;
+  if (character == null || character.isEmpty || character.codeUnitAt(0) < 0x20) return false;
+  if (character.codeUnitAt(0) == 0x7f) return false;
+  final keyboard = HardwareKeyboard.instance;
+  return !keyboard.isControlPressed && !keyboard.isAltPressed && !keyboard.isMetaPressed;
+}
 
 const _digitKeys = [
   LogicalKeyboardKey.digit1,
@@ -164,8 +179,8 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
     const SingleActivator(LogicalKeyboardKey.keyG, meta: true): goToPage,
   },
   if (turnPage != null) ...{
-    const SingleActivator(LogicalKeyboardKey.space): () => turnPage(1),
-    const SingleActivator(LogicalKeyboardKey.space, shift: true): () => turnPage(-1),
+    const SingleActivator(LogicalKeyboardKey.space): unlessTyping(() => turnPage(1)),
+    const SingleActivator(LogicalKeyboardKey.space, shift: true): unlessTyping(() => turnPage(-1)),
   },
   ...EditorSearchLayer.shortcuts(search),
   ...?session.pdf == null ? null : pdfShortcuts(session.pdf!),

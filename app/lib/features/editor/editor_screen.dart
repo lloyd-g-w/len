@@ -487,9 +487,11 @@ class _EditorScreenState extends State<_EditorView> {
       node.requestFocus();
       return KeyEventResult.handled;
     }
-    return escape && _guard.closeMenus()
-        ? KeyEventResult.handled
-        : handlePlaybackKey(_audio, event);
+    if (escape && _guard.closeMenus()) return KeyEventResult.handled;
+    // A character typed into a text box goes to the text, past the
+    // editor's single-key shortcuts (Space turning pages, P for the pen…).
+    if (typesCharacter(event)) return KeyEventResult.skipRemainingHandlers;
+    return handlePlaybackKey(_audio, event);
   }
 
   Widget _buildArea(

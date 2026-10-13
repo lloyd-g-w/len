@@ -289,6 +289,38 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('in focus mode, Space and Shift+Space type into a text box, not turn pages', (
+    tester,
+  ) async {
+    await pumpEditor(tester, size: const Size(1280, 900));
+    final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
+    await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(doc.currentPage, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+    await tester.pump();
+    final gesture = await tester.startGesture(
+      const Offset(640, 400),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('text-box-field')), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(doc.currentPage, 1);
+    // Shift+Space too (Flutter's text shortcuts stop plain Space only).
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    expect(doc.currentPage, 1);
+    expect(find.byKey(const ValueKey('text-box-field')), findsOneWidget);
+    await closeEditor(tester);
+  });
+
   testWidgets('F5: focus mode with the laser; Space turns pages; Esc restores', (tester) async {
     final (s, _) = await pumpEditor(tester, size: const Size(1280, 900));
     final tools = tester.widget<EditorToolbar>(find.byType(EditorToolbar)).tools;
