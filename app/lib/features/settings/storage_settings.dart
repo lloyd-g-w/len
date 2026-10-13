@@ -2,16 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/format.dart';
+import '../../data/write_back.dart';
 import '../../platform/browser_storage_api.dart';
 import '../../ui/messages.dart';
+import '../storage/storage_attention.dart';
 import 'settings_section.dart';
 
 /// Web only: whether the browser keeps Len's data (persistent storage) and
-/// how much of the site's quota it uses.
+/// how much of the site's quota it uses; while changes can't be saved
+/// (storage full), says so, as the library's notice does.
 class StorageSettings extends StatefulWidget {
-  const StorageSettings({super.key, required this.storage, this.filesKept = true});
+  const StorageSettings({super.key, required this.storage, this.filesKept = true, this.writes});
 
   final BrowserStorage storage;
+
+  /// The app's storage writes, whose failures this shows.
+  final StorageWrites? writes;
 
   /// False when the browser refused file storage (IndexedDB): PDFs, images
   /// and recordings then last only until the tab closes.
@@ -25,11 +31,28 @@ class _StorageSettingsState extends State<StorageSettings> {
   bool? _persisted;
   StorageUsage? _usage;
   bool _asking = false;
+  WriteFailure? _failure;
 
   @override
   void initState() {
     super.initState();
+    _failure = widget.writes?.failure;
+    widget.writes?.addListener(_writesChanged);
     _refresh();
+  }
+
+  @override
+  void dispose() {
+    widget.writes?.removeListener(_writesChanged);
+    super.dispose();
+  }
+
+  void _writesChanged() {
+    final failure = widget.writes?.failure;
+    if (failure == _failure) return;
+    final saved = failure == null;
+    setState(() => _failure = failure);
+    if (saved) _refresh(); // The usage grew.
   }
 
   Future<void> _refresh() async {
@@ -65,6 +88,16 @@ class _StorageSettingsState extends State<StorageSettings> {
           'device runs low on space, unless the site may keep its data. Clearing site data '
           'yourself still deletes it, so use sync for a backup.',
       children: [
+        if (_failure case final failure?)
+          SettingsTile(
+            icon: Symbols.save_rounded,
+            title: StorageAttention.unsavedTitle,
+            subtitle: StorageAttention.unsavedBody(failure),
+            trailing: TextButton(
+              onPressed: () => widget.writes?.flush(),
+              child: const Text('Try again'),
+            ),
+          ),
         if (!widget.filesKept)
           SettingsTile(
             icon: Symbols.error_rounded,

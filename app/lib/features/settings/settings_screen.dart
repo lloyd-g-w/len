@@ -102,7 +102,11 @@ List<Widget> _sections(BuildContext context, {required bool showSync}) {
     HandwritingSettings(recognition: services.recognition),
     SyncSettings(reveal: showSync),
     if (browserStorage case final storage?)
-      StorageSettings(storage: storage, filesKept: services.blobsArePersistent),
+      StorageSettings(
+        storage: storage,
+        filesKept: services.blobsArePersistent,
+        writes: services.writes,
+      ),
     const AboutSettings(),
   ];
 }

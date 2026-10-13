@@ -1,6 +1,20 @@
 {{flutter_js}}
 {{flutter_build_config}}
 
+// One tab at a time has Len open (lib/platform/single_instance_web.dart).
+// A reload of that tab asks for it back right away, before a waiting tab
+// that got it meanwhile starts using it.
+window.lenTab = { id: Math.random().toString(36).slice(2, 10), reclaim: false };
+try {
+  const navigation = performance.getEntriesByType('navigation')[0];
+  if (sessionStorage.getItem('len-held') && navigation?.type === 'reload' && navigator.locks) {
+    window.lenTab.reclaim = true;
+    new BroadcastChannel('len-database').postMessage('take:' + window.lenTab.id);
+  }
+} catch (e) {
+  // No session storage (blocked): the reload waits like any other tab.
+}
+
 // No `serviceWorkerSettings`: Flutter's own service worker is deprecated (it
 // only unregisters itself). Len registers its offline worker, sw.js, below.
 _flutter.loader.load();

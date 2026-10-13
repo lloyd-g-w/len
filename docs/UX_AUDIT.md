@@ -1039,7 +1039,9 @@ keep the changes in memory and retry ("Browser storage is full: your latest
 changes are kept in this tab until there's room", once, with Try again; a
 library notice while it lasts; "Your changes are saved" after). The other-tab
 screen has "Use here": the old tab stores everything and stops writing before
-it releases the lock (ARCHITECTURE *Platforms*, *Tab handover*).
+it releases the lock (ARCHITECTURE *Platforms*, *Tab handover*). *Done
+(fix/web-followups):* Settings → Storage shows unsaved changes too; reloading
+the tab that has Len open keeps it there instead of handing it to a waiting tab.
 
 ✅ **P2-31 PDF import errors are generic.** `documents/pdf/pdf_import_flow.dart:91`
 "It may be damaged or password-protected." *Fix:* tell the two apart (pdfium

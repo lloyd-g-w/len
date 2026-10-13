@@ -49,6 +49,12 @@ enum WaitState {
 ///    were waiting), it releases it again at once — before opening
 ///    anything — and queues behind B.
 /// 4. The new holder posts `holding:<id>`.
+///
+/// Reloading the holder releases the lock like closing it does, but the
+/// reloaded tab gets Len back: it knows it held the lock ([reclaim]) and
+/// asks for it at once, as with "Use here". A tab that got the lock
+/// without asking waits [returnGrace] for such a request before starting,
+/// so it usually gives the lock back before opening anything.
 class TabHandover {
   TabHandover({
     required this.lock,
@@ -56,6 +62,9 @@ class TabHandover {
     required this.id,
     this.answerTimeout = const Duration(seconds: 5),
     this.yieldTimeout = const Duration(seconds: 10),
+    this.returnGrace = const Duration(seconds: 1),
+    this.reclaim = false,
+    this.onHoldingChanged,
   }) {
     channel.onMessage = _received;
   }
@@ -72,6 +81,19 @@ class TabHandover {
   /// How long another tab's "Use here" makes this tab give way to it.
   final Duration yieldTimeout;
 
+  /// How long a tab that got the lock without asking waits for the
+  /// previous holder to come back (a reload) before starting.
+  final Duration returnGrace;
+
+  /// Whether this tab is a reload of the holder: it takes the lock back
+  /// from tabs that got it meanwhile, without showing that it waits
+  /// (unless that takes longer than [returnGrace]).
+  final bool reclaim;
+
+  /// Remembers, across reloads of this tab, whether it holds the lock
+  /// (the next start's [reclaim]).
+  final void Function(bool holding)? onHoldingChanged;
+
   /// What this tab shows while it waits.
   final ValueNotifier<WaitState> state = ValueNotifier(WaitState.waiting);
 
@@ -81,6 +103,7 @@ class TabHandover {
   String? _yieldTo; // Another waiting tab that asked to take over.
   Timer? _yieldTimer;
   Timer? _answerTimer;
+  Completer<void>? _asked; // Completes when another tab asks to take over.
 
   /// Whether this tab holds the lock.
   bool get holding => _holding;
@@ -101,19 +124,32 @@ class TabHandover {
   /// Completes once this tab holds the lock; calls [onWaiting] first if
   /// another tab holds it.
   Future<void> claim({required void Function() onWaiting}) async {
+    if (reclaim) useHere();
     if (!await lock.request(ifAvailable: true)) {
-      onWaiting();
+      final shown = reclaim ? Timer(returnGrace, onWaiting) : null;
+      if (!reclaim) onWaiting();
       while (true) {
         await lock.request();
+        if (_yieldTo == null && state.value != WaitState.asking) await _graceForReturn();
         if (_yieldTo == null) break;
         // Another waiting tab asked for it: let that tab have it.
         lock.release();
         await Future<void>.delayed(const Duration(milliseconds: 200));
       }
+      shown?.cancel();
     }
     _answerTimer?.cancel();
     _holding = true;
+    onHoldingChanged?.call(true);
     channel.post('holding:$id');
+  }
+
+  /// Got the lock without asking: the holder closed, or is reloading and
+  /// about to ask for it back. Waits [returnGrace] for that request.
+  Future<void> _graceForReturn() async {
+    final asked = _asked = Completer<void>();
+    await asked.future.timeout(returnGrace, onTimeout: () {});
+    _asked = null;
   }
 
   /// "Use here": asks the holder to hand over.
@@ -142,6 +178,8 @@ class TabHandover {
         state.value = WaitState.waiting;
         _yieldTimer?.cancel();
         _yieldTimer = Timer(yieldTimeout, () => _yieldTo = null);
+        _asked?.complete();
+        _asked = null;
       case 'holding' when from == _yieldTo:
         _yieldTo = null;
       case 'refused' when from == id:
@@ -172,6 +210,7 @@ class TabHandover {
       return;
     }
     _holding = false;
+    onHoldingChanged?.call(false);
     lock.release();
     channel.post('released:$to');
     onHandedOver?.call();

@@ -10,14 +10,35 @@ import 'tab_handover.dart';
 const _name = 'len-database';
 
 /// Coordinates Len's tabs with a Web Lock and a BroadcastChannel; null in
-/// browsers without Web Locks (very old ones).
+/// browsers without Web Locks (very old ones). `flutter_bootstrap.js` sets
+/// `window.lenTab`: this tab's id and whether it is a reload of the tab
+/// holding the lock, which has already asked for it back (`take:<id>`)
+/// before the app loaded.
 TabHandover? openTabHandover() {
   if (!(web.window.navigator as JSObject).has('locks')) return null;
+  final early = globalContext['lenTab'];
+  final tab = early.isA<JSObject>() ? early as JSObject : null;
+  final id = tab?['id'];
   return TabHandover(
     lock: _WebLock(web.window.navigator.locks),
     channel: _Channel(web.BroadcastChannel(_name)),
-    id: Random().nextInt(1 << 30).toRadixString(36),
+    id: id.isA<JSString>() ? (id as JSString).toDart : Random().nextInt(1 << 30).toRadixString(36),
+    reclaim: tab?['reclaim'].isA<JSBoolean>() == true && (tab!['reclaim'] as JSBoolean).toDart,
+    onHoldingChanged: _rememberHolding,
   );
+}
+
+/// Read by `flutter_bootstrap.js` after a reload.
+const _heldKey = 'len-held';
+
+void _rememberHolding(bool holding) {
+  try {
+    if (holding) {
+      web.window.sessionStorage.setItem(_heldKey, '1');
+    } else {
+      web.window.sessionStorage.removeItem(_heldKey);
+    }
+  } on Object catch (_) {} // Storage blocked: reloads wait like other tabs.
 }
 
 /// Starts this tab afresh (after handing Len to another tab: it then

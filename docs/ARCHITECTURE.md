@@ -1655,7 +1655,10 @@ yield to the event loop after each 6 ms, and their result arrives
 asynchronously through `SurfaceLoader`, like a native background read.
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
-(`app/tool/fetch_sqlite_wasm.sh` refreshes it). The VFS keeps the
+(`app/tool/fetch_sqlite_wasm.sh` refreshes it). It is loaded once per page:
+the app database, the schema check's fresh copy and scratch databases (Ink
+Lab) share the module, the latter two on an in-memory file system
+(`len-scratch`). The VFS keeps the
 database in memory and writes changes back asynchronously, hence the
 one-tab lock.
 
@@ -1676,7 +1679,8 @@ Blobs go through `WriteBackBlobBackend`: one the storage refuses stays in
 memory (readable) and is retried. `StorageWrites` (in `AppServices.writes`;
 empty natively) sums both up: `pending`, `failure`, `flush()`, `close()`.
 While it fails, `StorageAttention` says so once in a snack bar (Try again;
-"Your changes are saved" once it works) and the library shows a notice.
+"Your changes are saved" once it works) and the library and Settings →
+Storage show it (same words, Try again).
 `platform/page_lifecycle` flushes when the tab is hidden or on `pagehide`, and
 registers a `beforeunload` guard (the browser's "Leave site?") only while a
 write is pending, so idle pages stay eligible for the back/forward cache.
@@ -1692,7 +1696,17 @@ posts `released` and reloads, so it waits in turn. The lock is granted in
 request order, so a different waiting tab that gets it first gives it back
 before opening anything (it saw the other tab's `take`). The new holder posts
 `holding`. A holder still starting answers once it is ready; no answer in
-5 s shows "isn't answering" (a frozen background tab). The sync server must allow the app's origin (CORS,
+5 s shows "isn't answering" (a frozen background tab). Reloading the holder
+releases the lock like closing it, but the tab keeps Len: the holder
+remembers in `sessionStorage` that it holds the lock, and on a reload
+(`PerformanceNavigationTiming.type`) `flutter_bootstrap.js` posts `take:<id>`
+before the app has even loaded (`window.lenTab`; `TabHandover.reclaim`). A
+waiting tab that got the lock without asking waits a second for such a
+request before starting, so it normally gives the lock back before opening
+anything; a slower reload takes it back through the usual handover. The
+reloaded tab shows the waiting screen only if that takes longer. Web Locks
+can't be kept across a reload, and a waiting tab can't tell a reload from a
+close, hence the early message. The sync server must allow the app's origin (CORS,
 `LEN_CORS_ORIGINS`, default `*`).
 
 **Offline (installed PWA).** `web/flutter_bootstrap.js` (our own; it loads
@@ -1713,9 +1727,15 @@ fetched before the worker controlled it (first visit), so cross-origin fonts
 fetched on demand are cached too (`len-fonts-v1`). `flutter run` / a plain
 `flutter build web` keep an empty precache list (runtime caching only).
 Verified in headless Chromium (`app/tool/web_offline_check.py`, Playwright
-from nixpkgs): first visit online, then with the server stopped and the
-browser offline the app starts and lists the notebook drawn in on the first
-visit.
+from nixpkgs; drives the app by label through the semantics tree and by
+keyboard, reads back what IndexedDB holds): offline start and reload list
+the notebook drawn in online; a full storage keeps an edit in the tab, says
+so (library, Settings) and saves it once there is room; a second tab waits,
+a reload of the first keeps Len there, and *Use here* brings the latest
+edit along. `app/tool/web_upgrade_check.py OLD NEW` checks that a build
+opens (and writes to) the data of an older one after a service-worker
+update; run against the build before the write-back VFS, the data opened
+intact.
 
 **Storage.** At start the web app requests persistent storage
 (`navigator.storage.persist()`) where browsers decide silently (Chromium,
