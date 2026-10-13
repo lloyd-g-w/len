@@ -98,7 +98,7 @@ languages), for notebooks and canvases alike (the cover shows the kind),
 with no English word in front; a taken title is numbered "13 October (2)"
 (a bare "2" read like part of the date). The field's hint shows it.
 
-⬜ **R6-11 P2 · The favourite star is amber chrome on a white plate.**
+✅ **R6-11 P2 · The favourite star is amber chrome on a white plate.**
 `_FavoriteBadge` (`features/library/notebook_cover.dart:163-178`) draws a
 `Palette.favourite` (`#F5A524`, `ui/app_theme.dart:208`) star on a paper
 square. The list tile also tints the star amber (`notebook_list_tile.dart:149`).
@@ -106,6 +106,9 @@ DESIGN §1 allows no orange in chrome, and this badge has the same "sticker"
 look as the ∞ badge being fixed on `design/followups`. *Fix:* give it the
 same treatment as the ∞ badge (an Ink filled star, no plate, or a paper
 label), and use `onSurface` in the list.
+*Done:* the badge is the ∞ tag's twin (paper plate, Rule-ish edge, filled
+light-Ink star); the list's star is `onSurface`; `Palette.favourite` is
+gone.
 
 ⬜ **R6-12 P2 · Library selection bar: bare icons; the overview's has labels.**
 `LibrarySelectionBar` is icon-only (select all, ☆, folder, 🗑, with tooltips;

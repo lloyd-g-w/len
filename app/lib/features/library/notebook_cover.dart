@@ -181,6 +181,9 @@ class _CanvasTag extends StatelessWidget {
   }
 }
 
+/// Marks a favourite: like [_CanvasTag], a paper plate printed on the
+/// cover with a filled Ink star (DESIGN §1: the star is state on paper, not
+/// amber chrome), in the top-right corner.
 class _FavoriteBadge extends StatelessWidget {
   const _FavoriteBadge();
 
@@ -193,8 +196,10 @@ class _FavoriteBadge extends StatelessWidget {
         // A badge printed on the cover: flat, radius xs (DESIGN §3).
         color: Palette.paper,
         borderRadius: BorderRadius.circular(Radii.xs),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
       ),
-      child: const Icon(Symbols.star_sharp, fill: 1, size: 16, color: Palette.favourite),
+      // Paper stays light in both themes, so its ink is the light Ink.
+      child: Icon(Symbols.star_sharp, fill: 1, size: 16, color: Tones.of(Brightness.light).ink),
     );
   }
 }
