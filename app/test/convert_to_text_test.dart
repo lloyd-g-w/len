@@ -188,6 +188,7 @@ void main() {
           services: services,
           child: MaterialApp(
             theme: AppTheme.light(),
+            navigatorObservers: [services.routeOwners],
             home: EditorScreen(notebook: notebook),
           ),
         ),
@@ -257,12 +258,20 @@ void main() {
         FakeRecognizer(words: {'hello': 'hello', 'world': 'world'}),
       );
       await lassoAll(tester);
+      bool pillShown() => tester
+          .widget<Visibility>(
+            find.ancestor(of: find.byTooltip('Delete (Del)'), matching: find.byType(Visibility)),
+          )
+          .visible;
+      expect(pillShown(), isTrue);
       await selectionAction(tester, 'Convert to text');
       await tester.pumpAndSettle();
+      expect(pillShown(), isFalse, reason: 'the selection pill steps aside for the dialog');
       await tester.tap(find.text('Copy'));
       await tester.pumpAndSettle();
       expect(copied, 'hello world');
       expect(liveStrokes(services, nb.id), hasLength(2));
+      expect(pillShown(), isTrue, reason: 'and comes back after');
     });
 
     testWidgets('a failed recognition offers Try again', (tester) async {
