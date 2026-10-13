@@ -115,7 +115,15 @@ class ToolSwitcherPanel extends StatelessWidget {
             key: const ValueKey('switch-insert'),
             label: 'Insert',
             selected: false,
-            glyph: const Icon(Symbols.add_circle_rounded, size: Glyphs.bar),
+            // In a tool glyph's 26-dp box, icon on top, so its label lines
+            // up with the tools'.
+            glyph: const SizedBox.square(
+              dimension: 26,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Icon(Symbols.add_circle_rounded, size: Glyphs.bar),
+              ),
+            ),
             onTap: () {
               Navigator.of(context).pop();
               if (anchor.mounted) insert.showAt(anchor);
