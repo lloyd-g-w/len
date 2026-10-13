@@ -66,6 +66,9 @@ path on desktop, Copy details, Try again). *Files:* `main.dart`, a new
 *Done:* `main.dart` opens the storage in a try; on failure
 `ui/startup_error.dart` explains (data folder on desktops), with Try again and
 Copy details.
+A database from an older pre-release (same `user_version`, different
+tables) no longer lands there: it is backed up and started fresh, and the
+library says so once with the backup path (`SchemaCheck`).
 
 ### Editor chrome
 
