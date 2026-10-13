@@ -32,6 +32,7 @@ class ExportOptions {
     this.includeTemplates = true,
     this.includeBackgrounds = true,
     this.canvas = false,
+    this.toDevice = false,
   });
 
   final ExportFormat format;
@@ -45,6 +46,10 @@ class ExportOptions {
 
   /// The whole drawing of an infinite canvas (one page, sized to fit it).
   final bool canvas;
+
+  /// Saved through the system's save dialog rather than shared (Android
+  /// "Save to device").
+  final bool toDevice;
 
   /// The notebook pages to export, as they should be drawn.
   List<NotebookPage> resolve(List<NotebookPage> all) => [

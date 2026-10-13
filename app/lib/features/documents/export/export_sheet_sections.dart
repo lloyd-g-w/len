@@ -173,8 +173,17 @@ class ExportSheetFooter extends StatelessWidget {
     super.key,
     required this.summary,
     required this.onExport,
+    this.onSaveToDevice,
+    this.offersSaveToDevice = false,
     this.bottomInset = 0,
   });
+
+  /// "Save to device" (Android, beside Share); null while the choice is
+  /// invalid.
+  final VoidCallback? onSaveToDevice;
+
+  /// Whether Save to device and Share are offered instead of Export.
+  final bool offersSaveToDevice;
 
   final String summary;
 
@@ -202,8 +211,32 @@ class ExportSheetFooter extends StatelessWidget {
       key: const ValueKey('export-button'),
       onPressed: onExport,
       icon: const Icon(Symbols.ios_share_rounded, size: Glyphs.bar),
-      label: const Text('Export'),
+      label: Text(offersSaveToDevice ? 'Share' : 'Export'),
     );
+    // Android: both ways out, side by side under the summary (the header's
+    // ✕ cancels); stacked, Share on top, when narrow or with large text.
+    final saveToDevice = OutlinedButton.icon(
+      key: const ValueKey('save-to-device-button'),
+      onPressed: onSaveToDevice,
+      icon: const Icon(Symbols.download_rounded, size: Glyphs.bar),
+      label: const Text('Save to device'),
+    );
+    Widget pair(double width) => width / MediaQuery.textScalerOf(context).scale(1) < 340
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              export,
+              const SizedBox(height: Gaps.sm),
+              saveToDevice,
+            ],
+          )
+        : Row(
+            children: [
+              Expanded(child: saveToDevice),
+              const SizedBox(width: Gaps.sm),
+              Expanded(child: export),
+            ],
+          );
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
@@ -211,7 +244,16 @@ class ExportSheetFooter extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.fromLTRB(Gaps.xl, Gaps.md, Gaps.xl, Gaps.md + bottomInset),
         child: LayoutBuilder(
-          builder: (context, c) => c.maxWidth < 300
+          builder: (context, c) => offersSaveToDevice
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    text,
+                    const SizedBox(height: Gaps.sm),
+                    pair(c.maxWidth),
+                  ],
+                )
+              : c.maxWidth < 300
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

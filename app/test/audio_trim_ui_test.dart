@@ -13,6 +13,7 @@ import 'package:len/features/audio/adts.dart';
 import 'package:len/features/audio/ui/recordings_sheet.dart';
 import 'package:len/features/documents/export/export_flow.dart' show ExportFile;
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/platform/file_export.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'content_golden_test.dart' show loadFonts;
@@ -210,9 +211,9 @@ void main() {
     expect(find.textContaining(' · 0:20'), findsWidgets);
     final list = tester.widget<RecordingsList>(find.byType(RecordingsList));
     List<ExportFile>? exported;
-    list.audio.saveFiles = (files, {required mime}) async {
+    list.audio.saveFiles = (files, {required mime, toDevice = false}) async {
       exported = files;
-      return '/home/me/Music';
+      return ExportedFiles(ExportedTo.folder, count: files.length, path: '/home/me/Music');
     };
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();

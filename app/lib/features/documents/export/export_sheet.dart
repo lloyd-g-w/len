@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/notebook_page.dart';
+import '../../../platform/file_export.dart' as platform;
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_or_sheet.dart';
 import '../../../ui/sheet_parts.dart';
@@ -25,6 +26,7 @@ Future<ExportOptions?> showExportSheet(
     initialRange: initialRange,
     wide: wide,
     canvas: canvas,
+    offerSaveToDevice: platform.canSaveToDevice,
   );
   return showDialogOrSheet<ExportOptions>(
     context: context,
@@ -44,7 +46,11 @@ class ExportSheet extends StatefulWidget {
     this.initialRange = ExportRange.all,
     this.wide = false,
     this.canvas = false,
+    this.offerSaveToDevice = false,
   });
+
+  /// Offers "Save to device" beside "Share" (Android).
+  final bool offerSaveToDevice;
 
   /// The notebook's title.
   final String title;
@@ -89,7 +95,7 @@ class _ExportSheetState extends State<ExportSheet> {
     ExportRange.custom => parsePageRange(_rangeText.text, _count),
   };
 
-  ExportOptions? get _options {
+  ExportOptions? _options({bool toDevice = false}) {
     final pages = _selection.pages;
     if (pages == null || pages.isEmpty) return null;
     return ExportOptions(
@@ -98,6 +104,7 @@ class _ExportSheetState extends State<ExportSheet> {
       includeTemplates: _templates,
       includeBackgrounds: _backgrounds,
       canvas: widget.canvas,
+      toDevice: toDevice,
     );
   }
 
@@ -115,7 +122,7 @@ class _ExportSheetState extends State<ExportSheet> {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final selection = _selection;
-    final options = _options;
+    final options = _options();
     final selected = selection.pages ?? const <int>[];
     final hasBackground = selected.any((i) => widget.pages[i].background != null);
     final body = SingleChildScrollView(
@@ -163,6 +170,10 @@ class _ExportSheetState extends State<ExportSheet> {
         ExportSheetFooter(
           summary: options?.summary ?? 'Check the page range',
           onExport: options == null ? null : () => Navigator.of(context).pop(options),
+          onSaveToDevice: !widget.offerSaveToDevice || options == null
+              ? null
+              : () => Navigator.of(context).pop(_options(toDevice: true)),
+          offersSaveToDevice: widget.offerSaveToDevice,
           bottomInset: widget.wide ? 0 : media.padding.bottom,
         ),
       ],

@@ -13,6 +13,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/features/documents/export/export_flow.dart';
 import 'package:len/features/documents/export/notebook_exporter.dart';
 import 'package:len/features/documents/export/pdf_export.dart';
+import 'package:len/platform/file_export.dart';
 
 import 'content_tools_ui_test.dart' show openCanvas;
 
@@ -153,9 +154,9 @@ void main() {
     final done = exportCanvasFlow(
       context,
       notebook: nb,
-      save: (files, {required mime}) async {
+      save: (files, {required mime, toDevice = false}) async {
         saved.add(([for (final f in files) f.name], mime));
-        return 'Downloads';
+        return ExportedFiles(ExportedTo.downloaded, count: 1, name: files.single.name);
       },
     );
     await tester.pumpAndSettle();
@@ -171,7 +172,7 @@ void main() {
     await done;
     expect(saved.single.$1, ['Board.pdf']);
     expect(saved.single.$2, 'application/pdf');
-    expect(find.text('Saved Downloads'), findsOneWidget);
+    expect(find.text('Downloaded “Board.pdf”'), findsOneWidget);
   });
 
   testWidgets('an empty canvas says there is nothing to export', (tester) async {
@@ -180,7 +181,7 @@ void main() {
     await exportCanvasFlow(
       context,
       notebook: nb,
-      save: (_, {required mime}) async => fail('saved'),
+      save: (_, {required mime, toDevice = false}) async => fail('saved'),
     );
     await tester.pump();
     expect(find.text('Nothing to export yet: the canvas is empty'), findsOneWidget);
