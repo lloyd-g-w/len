@@ -240,15 +240,23 @@ class LibraryContent extends StatelessWidget {
     );
   }
 
-  String _subtitle(Notebook n) {
+  /// The caption under a notebook's title; [list] rows have room to name
+  /// its recordings too ("Saturday, 3 pages, 2 recordings"; cards show a
+  /// mic glyph instead).
+  String _subtitle(Notebook n, {bool list = false}) {
     if (n.isTrashed) return trashLeftLabel(n.trashedAt!, NotebookRepository.trashKeptFor);
     if (_c.isSearching) return _c.locationOf(n);
     final kind = n.kind == NotebookKind.canvas ? 'canvas' : pageCountLabel(_c.pageCountOf(n.id));
     final date = _c.sort == LibrarySort.created
         ? libraryDateAfter('Created', n.createdAt)
         : formatLibraryDate(n.editedAt);
-    // A comma, not a `·` chain (DESIGN §2): "Saturday, 3 pages".
-    return '$date, $kind';
+    final recordings = _c.recordingCountOf(n.id);
+    // Commas, not a `·` chain (DESIGN §2): "Saturday, 3 pages".
+    return [
+      date,
+      kind,
+      if (list && recordings > 0) recordings == 1 ? '1 recording' : '$recordings recordings',
+    ].join(', ');
   }
 
   Widget _grid(
@@ -279,6 +287,7 @@ class LibraryContent extends StatelessWidget {
           key: ValueKey(notebook.id),
           notebook: notebook,
           subtitle: _subtitle(notebook),
+          recordings: notebook.isTrashed ? 0 : _c.recordingCountOf(notebook.id),
           actions: actions,
         );
       },
@@ -305,7 +314,7 @@ class LibraryContent extends StatelessWidget {
       itemBuilder: (context, i) => NotebookListTile(
         key: ValueKey(notebooks[i].id),
         notebook: notebooks[i],
-        subtitle: _subtitle(notebooks[i]),
+        subtitle: _subtitle(notebooks[i], list: true),
         actions: actions,
       ),
     );
