@@ -45,7 +45,14 @@ void main() {
       const flat = StrokeStyle(ends: StrokeEnds.flat);
       expect(StrokeStyle.fromJson(flat.toJson()), flat);
       expect(flat.toJson().containsKey('ts'), isFalse);
+      expect(flat.toJson().containsKey('cs'), isFalse);
+      expect(flat.toJson().containsKey('ce'), isFalse);
+      const cut = StrokeStyle(startPhase: 0.25, cutEnd: true);
+      expect(StrokeStyle.fromJson(cut.toJson()), cut);
       for (final bad in [
+        {'o': 1, 'th': 0.5, 'sl': 0, 'e': 'round', 'cs': 0}, // cut phase 0..1, not 0
+        {'o': 1, 'th': 0.5, 'sl': 0, 'e': 'round', 'cs': 1.5},
+        {'o': 1, 'th': 0.5, 'sl': 0, 'e': 'round', 'ce': false}, // absent unless cut
         {'o': 1, 'th': 0.5, 'sl': 0}, // no ends
         {'o': 1, 'th': 0.5, 'sl': 0, 'e': 'pointy'},
         {'o': 1, 'th': 0.5, 'sl': 0, 'e': 'taper', 'ts': 2}, // no te

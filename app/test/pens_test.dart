@@ -108,7 +108,11 @@ void main() {
       expect(parts[0].points.last.x, lessThanOrEqualTo(44));
       expect(parts[1].points.first.x, greaterThanOrEqualTo(56));
       expect(parts[1].points.last.x, 100);
-      expect(parts.every((p) => p.style == style), isTrue);
+      // The same pen; the cut ends are marked as cuts, the second piece
+      // resampled where the original was.
+      expect(parts[0].style, style.copyWith(cutEnd: true));
+      expect(parts[1].style.copyWith(startPhase: 0), style);
+      expect(parts[1].style.startPhase, inExclusiveRange(0, 1.0 + 1e-12));
       expect(parts.every((p) => p.createdAt == s.createdAt && p.id != s.id), isTrue);
     });
 

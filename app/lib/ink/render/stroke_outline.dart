@@ -19,6 +19,8 @@ class OutlineSpec {
     this.unit = 0,
     this.taperStart = 0,
     this.taperEnd = 0,
+    this.startPhase = 0,
+    this.cutEnd = false,
   });
 
   /// Nominal diameter at medium (0.5) pressure, in world units.
@@ -40,6 +42,12 @@ class OutlineSpec {
   final double taperStart;
   final double taperEnd;
 
+  /// A cut start's resampling phase, in steps (`StrokeStyle.startPhase`;
+  /// 0: the pen's start), and whether the end is a cut
+  /// (`StrokeStyle.cutEnd`). Cut ends keep their hooks.
+  final double startPhase;
+  final bool cutEnd;
+
   /// World units per screen pixel the stroke was written at
   /// (`StrokeStyle.unit`); 0: estimated from the points
   /// ([StrokeOutline.unitOf]).
@@ -53,7 +61,9 @@ class OutlineSpec {
       flatCaps == other.flatCaps &&
       unit == other.unit &&
       taperStart == other.taperStart &&
-      taperEnd == other.taperEnd;
+      taperEnd == other.taperEnd &&
+      startPhase == other.startPhase &&
+      cutEnd == other.cutEnd;
 
   /// Whether [other] draws the same outline while the stroke is drawn:
   /// all but the end taper, which forms at pen-up.
@@ -70,6 +80,8 @@ class OutlineSpec {
           unit: unit,
           taperStart: taperStart,
           taperEnd: taperEnd,
+          startPhase: startPhase,
+          cutEnd: cutEnd,
         );
 
   /// Outline radius at [pressure]: half the [width] at medium pressure,
@@ -77,6 +89,13 @@ class OutlineSpec {
   double radiusFor(double pressure) {
     final t = (0.5 - thinning * (0.5 - pressure)).clamp(0.0, 1.0);
     return (width * t).clamp(math.min(0.25, width / 2), width);
+  }
+
+  /// The pressure [radiusFor] gives [radius] at (as near as 0..1 allows;
+  /// any without [thinning]).
+  double pressureFor(double radius) {
+    if (thinning <= 0) return 0.5;
+    return (0.5 - (0.5 - radius / width) / thinning).clamp(0.0, 1.0);
   }
 
   // The stabiliser ([streamline], 0..1) is the single control for all
@@ -263,11 +282,26 @@ abstract final class StrokeOutline {
   static ShapeParams paramsOf(List<StrokePoint> points, OutlineSpec spec) =>
       spec.paramsFor(unitOf(points, spec));
 
+  /// The shaper of a complete stroke of [points], updated (its line, and
+  /// where its samples fall: `StrokeShaper.phaseAt`).
+  static StrokeShaper shaperOf(List<StrokePoint> points, OutlineSpec spec) =>
+      _shape(points, spec, true);
+
   static StrokeShaper _shape(List<StrokePoint> points, OutlineSpec spec, bool complete) {
-    final shaper = feed(StrokeShaper(paramsOf(points, spec)), points, spec);
+    final params = paramsOf(points, spec);
+    final cutStart = spec.startPhase > 0;
+    final shaper = feed(
+      StrokeShaper(
+        params,
+        start: cutStart ? 0 : null,
+        phase: cutStart ? spec.startPhase * params.step : null,
+      ),
+      points,
+      spec,
+    );
     if (complete) {
       shaper.taperEnd = spec.taperEnd;
-      shaper.update(ended: true, keep: shaper.endKeep());
+      shaper.update(ended: true, keep: spec.cutEnd ? null : shaper.endKeep());
     } else {
       // Too short to decide its start: provisionally from the first point.
       shaper.update();

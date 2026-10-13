@@ -64,7 +64,7 @@ typedef RibbonCursor = ({int at, bool cut});
 /// stroke can [freeze] final pieces once and only rebuild its tail.
 class RibbonEmitter {
   RibbonEmitter(this.line, {required this.flatCaps, required this.width, required double step})
-    : tolerance = math.min(0.004, 0.002 * (1 + width)),
+    : tolerance = toleranceFor(width),
       block = math.max(16, (24 / step).ceil());
 
   final RibbonLine line;
@@ -77,6 +77,9 @@ class RibbonEmitter {
   /// whole span (up to [_maxSpan] samples), so it is kept well below a
   /// physical pixel even when zoomed in 8×.
   final double tolerance;
+
+  /// The [tolerance] for a pen [width] wide.
+  static double toleranceFor(double width) => math.min(0.004, 0.002 * (1 + width));
 
   /// Runs are split into pieces at sample indices that are multiples of
   /// this (forced curve keys, where the live stroke may cut).
