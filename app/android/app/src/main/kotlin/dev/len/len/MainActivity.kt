@@ -30,9 +30,11 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Cold start with files ("Open with" / "Share"); a recreated
-        // activity has handled its intent already.
-        if (savedInstanceState == null) incoming?.handle(intent)
+        // Cold start with files ("Open with" / "Share"). A recreated
+        // activity has handled its intent already, and one started from
+        // the recent apps gets the intent it was first started with again.
+        val fromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (savedInstanceState == null && !fromHistory) incoming?.handle(intent)
     }
 
     override fun onStart() {
@@ -53,6 +55,18 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         incoming?.dispose()
         incoming = null
         super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    /**
+     * Back with nothing left to pop (Flutter's `SystemNavigator.pop`): move
+     * Len to the back as Android 12+ does with launcher activities, instead
+     * of FlutterActivity's `finish()`, which would destroy the engine — and
+     * with it a recording going on in the background and the open notebook.
+     * (With predictive back, Android 13+, the system does the same itself.)
+     */
+    override fun popSystemNavigator(): Boolean {
+        moveTaskToBack(true)
+        return true
     }
 
     override fun flutterView(): View? = findViewById(FLUTTER_VIEW_ID)

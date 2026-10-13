@@ -63,7 +63,7 @@ class RecordingServicePlugin :
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         RecordingService.listener = null
-        RecordingService.instance?.finish()
+        stopService()
         channel?.setMethodCallHandler(null)
         channel = null
         context = null
@@ -80,12 +80,25 @@ class RecordingServicePlugin :
                 ),
             )
             "hide" -> {
-                val service = RecordingService.instance
-                if (service != null) service.finish() else RecordingService.stopWhenStarted = true
+                stopService()
                 result.success(null)
             }
             "openAppSettings" -> result.success(openAppSettings())
             else -> result.notImplemented()
+        }
+    }
+
+    /**
+     * Stops the service. One created but not started yet must still go
+     * foreground first (startForegroundService's contract), so it is told
+     * to end once started.
+     */
+    private fun stopService() {
+        val service = RecordingService.instance
+        if (service != null && service.started) {
+            service.finish()
+        } else {
+            RecordingService.stopWhenStarted = true
         }
     }
 

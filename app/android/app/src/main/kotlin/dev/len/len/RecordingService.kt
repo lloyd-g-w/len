@@ -67,6 +67,10 @@ class RecordingService : Service() {
     private var paused = false
     private var elapsedMs = 0L
     private var foreground = false
+
+    /** Whether [onStartCommand] ran: until then, stopping must wait (see [stopWhenStarted]). */
+    var started = false
+        private set
     private var wakeLock: PowerManager.WakeLock? = null
     private val main = Handler(Looper.getMainLooper())
 
@@ -78,6 +82,7 @@ class RecordingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        started = true
         when (intent?.action) {
             ACTION_PAUSE -> forward("pause")
             ACTION_RESUME -> forward("resume")

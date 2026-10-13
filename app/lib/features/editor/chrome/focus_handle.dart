@@ -109,9 +109,9 @@ class _FocusHandleState extends State<FocusHandle> {
 }
 
 /// Hides the system bars too (Android) in focus mode, for a truly
-/// distraction-free page; [on] false shows them again.
+/// distraction-free page; [on] false shows them again, back edge to edge as
+/// the app starts (`SystemBars`): `manual` would make Android 14 and older
+/// lay the app out between the bars from then on.
 void setImmersive(bool on) => unawaited(
-  on
-      ? SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky)
-      : SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values),
+  SystemChrome.setEnabledSystemUIMode(on ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge),
 );

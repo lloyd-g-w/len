@@ -64,7 +64,7 @@ class IncomingFiles(private val context: Context, messenger: BinaryMessenger) {
             send("link", data.toString())
             return
         }
-        val uris = urisOf(intent)
+        val uris = urisOf(intent).filter(::readable)
         if (uris.isEmpty()) return
         val fallbackMime = intent.type
         io.execute {
@@ -109,18 +109,32 @@ class IncomingFiles(private val context: Context, messenger: BinaryMessenger) {
             intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)
         }.orEmpty().filterNotNull()
 
+    /**
+     * Whether [uri] is another app's content. `file:` URIs and Len's own
+     * providers would let any app make Len read (and import) its own
+     * private files ("dirty stream"); no app may send `file:` URIs anyway.
+     */
+    private fun readable(uri: Uri): Boolean {
+        val authority = uri.authority
+        val own = authority != null && try {
+            context.packageManager.resolveContentProvider(authority, 0)?.packageName ==
+                context.packageName
+        } catch (e: RuntimeException) {
+            true
+        }
+        val ok = IncomingNames.acceptsScheme(uri.scheme) && !own
+        if (!ok) Log.w("Len", "Ignored incoming $uri")
+        return ok
+    }
+
     /** Copies [uri] into the cache; null (logged) if it can't be read. */
     private fun copy(uri: Uri, fallbackMime: String?): Map<String, String?>? = try {
         val resolver = context.contentResolver
         val mime = resolver.getType(uri) ?: fallbackMime?.takeUnless { it.endsWith("/*") }
-        val name = safeName(displayName(resolver, uri) ?: uri.lastPathSegment ?: "file")
+        val name = IncomingNames.safe(displayName(resolver, uri) ?: uri.lastPathSegment ?: "file")
         val target = File(File(dir, UUID.randomUUID().toString()), name)
         target.parentFile?.mkdirs()
-        val input = if (uri.scheme == ContentResolver.SCHEME_FILE) {
-            File(uri.path ?: throw IllegalArgumentException("no path")).inputStream()
-        } else {
-            resolver.openInputStream(uri) ?: throw IllegalStateException("no stream")
-        }
+        val input = resolver.openInputStream(uri) ?: throw IllegalStateException("no stream")
         input.use { from -> target.outputStream().use { to -> from.copyTo(to) } }
         mapOf("path" to target.absolutePath, "name" to name, "mime" to mime)
     } catch (e: Exception) {
@@ -130,7 +144,6 @@ class IncomingFiles(private val context: Context, messenger: BinaryMessenger) {
     }
 
     private fun displayName(resolver: ContentResolver, uri: Uri): String? {
-        if (uri.scheme != ContentResolver.SCHEME_CONTENT) return null
         return try {
             resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
                 if (it.moveToFirst() && !it.isNull(0)) it.getString(0) else null
@@ -138,12 +151,6 @@ class IncomingFiles(private val context: Context, messenger: BinaryMessenger) {
         } catch (e: Exception) {
             null
         }
-    }
-
-    /** A file name without path separators (names come from other apps). */
-    private fun safeName(name: String): String {
-        val clean = name.substringAfterLast('/').replace(Regex("[\\\\:*?\"<>|\\x00-\\x1f]"), "_")
-        return clean.trim().trimStart('.').ifEmpty { "file" }.takeLast(120)
     }
 
     companion object {
