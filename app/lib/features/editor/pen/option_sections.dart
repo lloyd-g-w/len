@@ -17,7 +17,7 @@ class OptionDisclosure extends StatelessWidget {
 
   final String label;
 
-  /// What the section holds, at a glance ("3 colours · 3 sizes").
+  /// What the section holds, at a glance ("3 colours, 3 sizes").
   final String? summary;
   final bool open;
   final VoidCallback onToggle;
@@ -29,7 +29,11 @@ class OptionDisclosure extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Divider(height: 1, color: theme.colorScheme.outlineVariant),
+        Divider(
+          height: Hairline.width,
+          thickness: Hairline.width,
+          color: theme.colorScheme.outlineVariant,
+        ),
         Semantics(
           button: true,
           expanded: open,

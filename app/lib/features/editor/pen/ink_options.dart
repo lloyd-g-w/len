@@ -116,7 +116,7 @@ class _InkOptionsState extends State<InkOptions> {
             OptionDisclosure(
               label: 'Toolbar',
               summary:
-                  '${_count(config.colors.length, 'colour')} · '
+                  '${_count(config.colors.length, 'colour')}, '
                   '${_count(config.widths.length, 'size')}',
               open: _toolbarOpen,
               onToggle: () => setState(() => _toolbarOpen = !_toolbarOpen),

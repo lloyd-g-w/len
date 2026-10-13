@@ -11,6 +11,7 @@ import 'pen/highlighter_options_panel.dart';
 import 'pen/ink_options.dart';
 import 'pen/ink_slots.dart';
 import 'pen/ink_strip.dart';
+import 'pen/option_controls.dart';
 import 'pen/pen_options_panel.dart';
 import 'toolbar/tool_options_popover.dart';
 import 'tools/laser_options_panel.dart';
@@ -152,6 +153,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ShapeOptionsPanel(tools: tools),
+            const OptionRule(),
             HoldToSnapSwitch(tools: tools),
           ],
         ),
