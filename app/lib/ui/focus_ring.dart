@@ -103,6 +103,17 @@ class _RingPainter extends CustomPainter {
 
   /// The rect to ring, or null when nothing should show.
   static Rect? target(Size window) {
+    // Painting can run while the focused element is inactive (moved or
+    // being removed, still `mounted`); its tree lookups then assert. There
+    // is no public way to ask whether it is active, so skip the frame.
+    try {
+      return _target(window);
+    } on FlutterError {
+      return null;
+    }
+  }
+
+  static Rect? _target(Size window) {
     final manager = FocusManager.instance;
     if (manager.highlightMode != FocusHighlightMode.traditional) return null;
     final node = manager.primaryFocus;

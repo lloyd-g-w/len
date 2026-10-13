@@ -138,13 +138,18 @@ void soft(bool ok, String what) {
   print('E2E SOFT FAILURE: $what (focus: ${FocusManager.instance.primaryFocus})');
 }
 
+/// Log lines the e2e environment causes by design: Xvfb has no D-Bus
+/// session, so no keyring (the sync token falls back to the database).
+const _environment = ['Secure store unavailable, sync token kept in the database'];
+
 /// Fails if the app logged an error, a failure or an exception (caught
 /// ones included: they are bugs the user only sees as "nothing happened").
 void expectCleanLog({List<Pattern> allowed = const []}) {
   final bad = RegExp(r'error|exception|failed|unhandled', caseSensitive: false);
   final problems = [
     for (final line in logged)
-      if (bad.hasMatch(line) && !allowed.any(line.contains)) line,
+      if (bad.hasMatch(line) && !allowed.any(line.contains) && !_environment.any(line.contains))
+        line,
   ];
   expect(softFailures, isEmpty, reason: 'checks that failed along the way');
   expect(problems, isEmpty, reason: 'the app logged problems');
