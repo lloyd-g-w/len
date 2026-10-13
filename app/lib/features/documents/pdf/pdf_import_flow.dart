@@ -39,6 +39,8 @@ Future<Notebook?> importPdfFlow(BuildContext context, {XFile? file}) async {
     if (sha != null) await importer.discard(sha!);
     return null;
   } on Object catch (e, stack) {
+    // A file that can't be read is not kept either.
+    if (sha != null) await importer.discard(sha!);
     // Errors too (a malformed file can trip a parser): never fail silently.
     if (context.mounted) showMessage(context, _failure(picked.name, e, stack));
     return null;
@@ -78,6 +80,8 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
     if (sha != null) await importer.discard(sha!);
     return null;
   } on Object catch (e, stack) {
+    // A file that can't be read is not kept either.
+    if (sha != null) await importer.discard(sha!);
     // Errors too (a malformed file can trip a parser): never fail silently.
     if (context.mounted) showMessage(context, _failure(picked.name, e, stack));
     return null;

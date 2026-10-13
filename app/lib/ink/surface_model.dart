@@ -214,6 +214,7 @@ class SurfaceModel extends ChangeNotifier {
   /// or a text editor). An item is hidden while any owner hides it, so two
   /// owners never un-hide each other's items.
   void setHidden(Set<String> ids, {Object? owner}) {
+    if (_disposed) return;
     if (ids.isEmpty) {
       _hiddenBy.remove(owner);
     } else {
@@ -507,8 +508,10 @@ class SurfaceModel extends ChangeNotifier {
 
   /// Applies [edit] (persisted immediately) and records it for undo. With
   /// [merge], it joins the previous undo step (one continuous gesture).
+  ///
+  /// Ignored once disposed (its page is gone): nothing is written to it.
   void commit(InkEdit edit, {bool merge = false}) {
-    if (edit.isEmpty) return;
+    if (edit.isEmpty || _disposed) return;
     _apply(edit);
     history.record(edit, merge: merge);
     onCommit?.call();
@@ -553,11 +556,13 @@ class SurfaceModel extends ChangeNotifier {
   }
 
   void undo() {
+    if (_disposed) return;
     final edit = history.takeUndo();
     if (edit != null) _apply(edit.inverse);
   }
 
   void redo() {
+    if (_disposed) return;
     final edit = history.takeRedo();
     if (edit != null) _apply(edit);
   }

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/sync/sync_engine.dart';
 
 import 'content_documents_test.dart' show ctrl, elementsOf;
 import 'content_tools_ui_test.dart' show key, mouseDrag;
@@ -130,6 +131,31 @@ void main() {
     await tester.pump();
     expect(ids(inkOf(s, pages[0])), {'w1'});
     expect(elementsOf(s, pages[1].id).single.id, box.id);
+    expect(tester.takeException(), isNull);
+    await closeEditor(tester);
+  });
+
+  testWidgets('a page deleted elsewhere under a selection spanning it drops the selection', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    await _measure(tester);
+    final pages = s.pages.pagesOf(nb.id);
+    await drawAt(tester, up(const [Offset(300, 880)]).single); // Page 1.
+    await drawAt(tester, up(const [Offset(300, 1010)]).single); // Page 2.
+    final kept = inkOf(s, pages[0]).where((st) => st.id != 'w1').single;
+    await key(tester, LogicalKeyboardKey.keyL);
+    await lasso(tester, const Rect.fromLTRB(250, 850, 440, 1060).translate(0, -_up));
+    expect(find.byTooltip('Delete (Del)'), findsOneWidget);
+
+    // Page 2 is deleted on another device.
+    s.pages.delete(pages[1].id);
+    s.sync.debugAnnounce(RemoteChanges()..pagesOfNotebooks.add(nb.id));
+    await tester.pump();
+    expect(find.byTooltip('Delete (Del)'), findsNothing);
+    await key(tester, LogicalKeyboardKey.delete); // Nothing selected: nothing goes.
+    expect(ids(inkOf(s, pages[0])), {'w1', kept.id});
+    expect(s.pages.get(pages[1].id), isNull);
     expect(tester.takeException(), isNull);
     await closeEditor(tester);
   });

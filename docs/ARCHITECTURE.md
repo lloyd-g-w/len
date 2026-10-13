@@ -229,7 +229,9 @@ columns added later are copied too), delete (with an Undo snack bar that
 re-saves the page's strokes; the overview's selection goes through
 `DocumentCommands.deleteMany` → `PageActions.deleteAll`, one step with one Undo
 that restores every page in place — at least one page always remains), reorder (fractional sort keys, `PageOrder`;
-the list is renumbered only when a gap is exhausted), bookmarks, templates.
+the list is renumbered only when a gap is exhausted; inserting finds the page to follow by
+id), bookmarks, templates (a change has an Undo snack bar that gives each page its own
+template back).
 
 ## Editor screen (`features/editor/`)
 
@@ -1136,7 +1138,9 @@ surface.
   undoes each page's part backwards and redoes it forwards. The selection
   picture is clipped to all page frames (not just the active page), so it
   shows on every page it covers and while dragged between pages. With one
-  page laid out (single-page flow) nothing else is reachable.
+  page laid out (single-page flow) nothing else is reachable. A page that
+  goes (deleted here or elsewhere) first drops a selection reaching onto
+  it; a disposed `SurfaceModel` ignores edits.
 - **Text** (`elements/text_edit_session.dart`): tapping with the Text tool
   creates or edits a box; double-tapping a box with the lasso edits it too.
   While editing, the element is hidden and a real `TextField` is laid out

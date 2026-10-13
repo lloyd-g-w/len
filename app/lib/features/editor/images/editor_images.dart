@@ -130,8 +130,10 @@ class EditorImages {
     }
     // Plain text newer than the copied ink becomes a new text box.
     final text = await _clipboardText();
+    if (!context.mounted) return; // The editor closed meanwhile.
     if (text != null && (services.clipboard.isEmpty || text != _textBeforeInkCopy)) {
       final html = plain || RichTextController.isOwnClip(text) ? null : await _readHtml();
+      if (!context.mounted) return;
       final rich = html == null ? null : textFromHtml(html, tools.textStyle);
       content.pasteText(rich ?? RichTextController.pasted(text, tools.textStyle));
     } else {
@@ -191,6 +193,11 @@ class EditorImages {
           name == null ? 'That image can’t be opened' : 'Couldn’t open “$name” as an image',
         );
       }
+      return null;
+    } on Object catch (e) {
+      // Storing it failed (e.g. the disk is full): say so, don't crash.
+      debugPrint('Image import failed: $e');
+      if (context.mounted) showMessage(context, 'Couldn’t add the image');
       return null;
     }
   }

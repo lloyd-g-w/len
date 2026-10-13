@@ -86,18 +86,16 @@ class PageRepository extends SyncableTable {
     });
   }
 
+  /// Keys for [count] pages after [after] (found by id, as its sort key may
+  /// be stale: renumbered, or moved by a sync), at the end when null or
+  /// gone.
   List<double>? _keysFor(String notebookId, int count, {NotebookPage? after}) {
-    final keys = pagesOf(notebookId).map((p) => p.sortKey).toList();
-    final index = after == null ? -1 : _indexOfKey(keys, after.sortKey);
+    final pages = pagesOf(notebookId);
+    final keys = [for (final p in pages) p.sortKey];
+    final index = after == null ? -1 : pages.indexWhere((p) => p.id == after.id);
     if (index == -1) return PageOrder.spread(keys.isEmpty ? null : keys.last, null, count);
-    return PageOrder.spread(
-      index >= 0 ? keys[index] : null,
-      index + 1 < keys.length ? keys[index + 1] : null,
-      count,
-    );
+    return PageOrder.spread(keys[index], index + 1 < keys.length ? keys[index + 1] : null, count);
   }
-
-  static int _indexOfKey(List<double> keys, double key) => keys.indexOf(key);
 
   /// Moves [page] to position [toIndex] of its notebook.
   void move(NotebookPage page, int toIndex) {

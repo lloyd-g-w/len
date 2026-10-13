@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/blob_backend.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/surface_element.dart';
@@ -80,6 +81,28 @@ void main() {
     expect(services.openNotebooks.activeId, board.id);
   });
 
+  testWidgets('an image that can\'t be stored (disk full) is reported, not a crash', (
+    tester,
+  ) async {
+    final services = await pumpLibrary(
+      tester,
+      services: AppServices.create(AppDatabase.inMemory(), blobBackend: _FullDisk()),
+    );
+    final board = services.notebooks.create(
+      title: 'Board',
+      kind: NotebookKind.canvas,
+      paper: PaperStyle.blank,
+      coverColor: 0xFF3B5BDB,
+    );
+    await openFromLibrary(tester, board);
+    services.incomingFiles.add([png('a.png')]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add to this canvas'));
+    await settleReal(tester, () => find.text('Couldn’t add the image').evaluate().isNotEmpty);
+    expect(liveElements(services, board.id), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('with a notebook open, "New canvas" opens the images in a new tab', (tester) async {
     final services = await pumpLibrary(tester);
     final lecture = services.notebooks.create(
@@ -138,6 +161,25 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('a damaged PDF is refused and leaves no blob behind', skip: pdfium == null, (
+      tester,
+    ) async {
+      final services = AppServices.create(
+        AppDatabase.inMemory(),
+        blobBackend: FileBlobBackend(dir.path),
+      );
+      await pumpLibrary(tester, services: services);
+      final file = (await tester.runAsync(() async {
+        return File('${dir.path}/broken.pdf')..writeAsStringSync('%PDF-1.7 not really');
+      }))!;
+      services.incomingFiles.add([XFile(file.path)]);
+      final failure = find.textContaining('Couldn’t open “broken.pdf”');
+      await settleReal(tester, () => failure.evaluate().isNotEmpty);
+      expect(notebooks(services), isEmpty);
+      expect(services.database.db.select('SELECT * FROM blobs'), isEmpty);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('into the open notebook: pages after the current one', skip: pdfium == null, (
       tester,
     ) async {
@@ -165,4 +207,11 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
   });
+}
+
+/// A blob backend whose writes fail, as on a full disk.
+class _FullDisk extends MemoryBlobBackend {
+  @override
+  Future<void> write(String sha, Stream<List<int>> data) async =>
+      throw const FileSystemException('No space left on device');
 }

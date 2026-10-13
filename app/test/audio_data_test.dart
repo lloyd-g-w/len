@@ -126,6 +126,28 @@ void main() {
       expect(tombstone.deleted, isTrue);
     });
 
+    test('a recording saved after its notebook was deleted is not revived', () {
+      final nb = _notebook(s);
+      final r = _record(s, nb.id); // The first part, while recording.
+      s.notebooks.delete(nb.id); // Deleted forever on another device.
+      s.recordings.save(
+        id: r.id,
+        notebookId: nb.id,
+        parts: [...r.parts, RecordingPart(_sha, 3000)],
+        mime: r.mime,
+        title: r.title,
+        segments: r.segments,
+      );
+      expect(s.recordings.get(r.id), isNull);
+      expect(s.recordings.dirtyRecords(10).singleWhere((x) => x.id == r.id).deleted, isTrue);
+      // A trashed notebook keeps what is recorded into it.
+      final trashed = _notebook(s);
+      s.notebooks.trash(trashed.id);
+      expect(s.recordings.listOf(trashed.id), isEmpty);
+      _record(s, trashed.id);
+      expect(s.recordings.listOf(trashed.id), hasLength(1));
+    });
+
     test('duplicating a notebook copies its recordings (same blob)', () {
       final nb = _notebook(s, kind: NotebookKind.canvas);
       final r = _record(s, nb.id);

@@ -166,7 +166,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
 
   /// Forgets that blobs were unavailable, e.g. after a sync.
   void retryMissing() {
-    if (_missing.isEmpty) return;
+    if (_disposed || _missing.isEmpty) return; // (A relink may finish after the editor closed.)
     _missing.clear();
     notifyListeners();
   }

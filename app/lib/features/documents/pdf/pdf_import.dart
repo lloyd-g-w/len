@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cross_file/cross_file.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../app_services.dart';
 import '../../../data/blob_references.dart';
@@ -29,9 +30,17 @@ class PdfImporter {
       services.blobs.putFile(file, mime: 'application/pdf', cancel: cancel);
 
   /// Deletes blob [sha] again if nothing uses it (an import was cancelled
-  /// after [store]).
-  Future<void> discard(String sha) =>
-      services.blobs.discardIfUnreferenced(sha, BlobReferences(services.database).all);
+  /// or failed after [store]). Closes the file first (Windows can't delete
+  /// open files); a blob that can't be deleted is left to the garbage
+  /// collector.
+  Future<void> discard(String sha) async {
+    await _renderer.dispose();
+    try {
+      await services.blobs.discardIfUnreferenced(sha, BlobReferences(services.database).all);
+    } on Object catch (e) {
+      debugPrint('Could not discard PDF blob $sha: $e');
+    }
+  }
 
   /// Page specs (one per PDF page) for blob [sha].
   Future<List<PageSpec>> specsFor(String sha) async {

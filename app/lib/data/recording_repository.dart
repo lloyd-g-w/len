@@ -59,7 +59,8 @@ class RecordingRepository extends SyncableTable {
 
   /// Adds a recording of [notebookId] whose audio is [parts] — or, given
   /// [id], replaces that recording's audio, keeping its title (a recording
-  /// still being made gains parts as they are finished).
+  /// still being made gains parts as they are finished). Nothing is stored
+  /// for a deleted notebook.
   Recording save({
     String? id,
     required String notebookId,
@@ -84,7 +85,10 @@ class RecordingRepository extends SyncableTable {
       waveform: waveform,
       segments: segments,
     );
-    _write(recording, deviceId: deviceId, dirty: true);
+    // A notebook deleted (on another device) while recording keeps no
+    // recordings: a row written now would be live audio nobody can reach.
+    final gone = db.select('SELECT 1 FROM notebooks WHERE id = ? AND deleted = 1', [notebookId]);
+    if (gone.isEmpty) _write(recording, deviceId: deviceId, dirty: true);
     return recording;
   }
 

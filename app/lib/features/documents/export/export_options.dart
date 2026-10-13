@@ -76,13 +76,15 @@ NotebookPage exportedPage(NotebookPage page, {required bool includeTemplate}) =>
   final pages = <int>{};
   final single = RegExp(r'^(\d+)$');
   final span = RegExp(r'^(\d+)\s*[-–]\s*(\d+)$');
+  // Numbers too long for an int count as out of range.
+  int number(String digits) => int.tryParse(digits) ?? -1;
   for (final part in parts) {
     final int from, to;
     if (single.firstMatch(part) case final m?) {
-      from = to = int.parse(m[1]!);
+      from = to = number(m[1]!);
     } else if (span.firstMatch(part) case final m?) {
-      from = int.parse(m[1]!);
-      to = int.parse(m[2]!);
+      from = number(m[1]!);
+      to = number(m[2]!);
     } else {
       return (pages: null, error: '“$part” is not a page or range');
     }

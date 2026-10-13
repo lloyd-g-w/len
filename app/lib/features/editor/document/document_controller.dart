@@ -168,16 +168,20 @@ class DocumentController extends ChangeNotifier {
     final activeId = _pages[_active].id;
     final oldFrame = _layout.frameOf(_current);
     final screenTop = oldFrame == null ? null : viewport.toScreen(oldFrame.topLeft).dy;
-    if (!pages.any((p) => p.id == activeId)) {
+    final ids = {for (final p in pages) p.id};
+    if (!ids.contains(activeId)) {
       // The active page is going away: drop what the tools hold on it
       // before its surface is released.
       input
         ?..cancelDraw()
         ..content?.selection.clear()
         ..content?.text.discard();
+    } else if (_pages.any((p) => !ids.contains(p.id) && _holdsHidden(p.id))) {
+      // A selection reaching onto a page that goes lets go of it first.
+      input?.content?.selection.clear();
     }
     _pages = pages;
-    surfaces.retain({for (final p in pages) p.id});
+    surfaces.retain(ids);
     final index = pages.indexWhere((p) => p.id == keep);
     _current = index == -1 ? _current.clamp(0, pages.length - 1) : index;
     final active = pages.indexWhere((p) => p.id == activeId);
@@ -192,6 +196,9 @@ class DocumentController extends ChangeNotifier {
     _refreshVisible();
     notifyListeners();
   }
+
+  /// Whether some owner (a selection) hides items on page [pageId].
+  bool _holdsHidden(String pageId) => surfaces.models.peek(pageId)?.hasHidden ?? false;
 
   void setFlow(PageFlow flow) {
     if (flow == _flow) return;

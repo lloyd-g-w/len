@@ -75,8 +75,10 @@ class PageActions {
   /// Undoes [delete].
   void restore(DeletedPage deleted) => restoreAll([deleted]);
 
-  /// Undoes [deleteAll] (or several [delete]s) in one transaction.
+  /// Undoes [deleteAll] (or several [delete]s) in one transaction; not
+  /// once the notebook itself is deleted (its snack bar may outlive it).
   void restoreAll(List<DeletedPage> deleted) {
+    if (services.notebooks.get(notebookId) == null) return;
     services.database.transaction(() {
       for (final d in deleted) {
         services.pages.restore(d.page.id);
@@ -91,17 +93,38 @@ class PageActions {
 
   /// Changes the template of [targets] (paper and colour; size stays):
   /// page i gets `papers[i]` (default: [template]'s paper for all).
-  void setTemplate(List<NotebookPage> targets, PageTemplate template, {List<Paper>? papers}) {
+  /// Returns the pages as they were, for [restoreTemplates] (undo).
+  List<NotebookPage> setTemplate(
+    List<NotebookPage> targets,
+    PageTemplate template, {
+    List<Paper>? papers,
+  }) => services.database.transaction(() {
+    final before = [for (final t in targets) ?services.pages.get(t.id)];
+    for (var i = 0; i < targets.length; i++) {
+      services.pages.setPaper(
+        [targets[i].id],
+        paper: papers?[i] ?? template.paper,
+        color: template.color,
+      );
+    }
+    return before;
+  });
+
+  /// Gives [pages] back the paper and colour they have there (undoes
+  /// [setTemplate]); pages deleted meanwhile stay deleted.
+  void restoreTemplates(List<NotebookPage> pages) {
     services.database.transaction(() {
-      for (var i = 0; i < targets.length; i++) {
-        services.pages.setPaper(
-          [targets[i].id],
-          paper: papers?[i] ?? template.paper,
-          color: template.color,
-        );
+      for (final page in pages) {
+        if (services.pages.get(page.id) == null) continue;
+        services.pages.setPaper([page.id], paper: page.paper, color: page.paperColor);
       }
     });
   }
 
-  void toggleBookmark(NotebookPage page) => services.pages.setBookmarked(page.id, !page.bookmarked);
+  /// Bookmarks [page] or removes its bookmark, as stored now ([page] may
+  /// be a stale copy, e.g. toggled in another view meanwhile).
+  void toggleBookmark(NotebookPage page) {
+    final stored = services.pages.get(page.id);
+    if (stored != null) services.pages.setBookmarked(page.id, !stored.bookmarked);
+  }
 }
