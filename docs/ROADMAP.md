@@ -140,7 +140,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   swipe or wheel notch and settles back otherwise; arrow keys scroll / move, `+` `-` zoom pages
 - ✅ Single-page flow: the page follows a sideways finger, glides back or carries on into the
   next page (`SinglePageTurns.follow`)
-- ⬜ Persistent LOD tiles; LOD for paged documents
+- ✅ LOD for paged documents (per-page chunk rasters when zoomed out far)
+- ⬜ Persistent LOD tiles
 
 ## Library
 - ✅ Folders (nested, synced), move to folder (menu + drag and drop), breadcrumbs, folder tree

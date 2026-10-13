@@ -222,12 +222,32 @@ void main() {
       scene.viewport.zoomAt(const Offset(300, 200), 1 / 2);
       final canvas = CountingCanvas();
       scene.painter().paint(canvas, scene.size);
-      // The middle is drawn from the old tiles; only the uncovered rim
-      // falls back to vectors, and the new tiles are on their way.
+      // The middle is drawn from the old tiles; the uncovered rim stays
+      // empty (no vectors) while the new tiles are on their way.
       expect(canvas.images, greaterThan(0));
+      expect(canvas.pictures, 0);
+      expect(scene.tiles.lastPaint.blankPixels, greaterThan(0));
       expect(scene.tiles.isBusy, isTrue);
       await scene.warm();
       expect(imageDiff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.003));
+      scene.dispose();
+    });
+  });
+
+  testWidgets('after a zoom, an erase still shows in the very next frame', (tester) async {
+    await tester.runAsync(() async {
+      final strokes = scribbles(300, const Rect.fromLTWH(0, 0, 1200, 800), seed: 12);
+      final scene = InkScene(strokes);
+      await scene.warm();
+      scene.viewport.zoomAt(Offset.zero, 1 / 2);
+      await scene.warm();
+      final target = strokes.firstWhere((s) => s.bounds.right < 300 && s.bounds.bottom < 300);
+      scene.model.commit(InkEdit(removed: [target]));
+      // Drawn from vectors at once (not left empty until re-rendered).
+      final frame = await scene.render();
+      expect(scene.tiles.lastPaint.vectorTiles, greaterThan(0));
+      expect(scene.tiles.lastPaint.blankPixels, 0);
+      expect(imageDiff(frame, await scene.render(tiled: false)).$2, lessThan(0.003));
       scene.dispose();
     });
   });

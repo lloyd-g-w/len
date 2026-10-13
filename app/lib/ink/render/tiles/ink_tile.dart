@@ -13,12 +13,15 @@ class TilePaintStats {
   /// Images drawn that predate a change (standing in until re-rendered).
   int staleImages = 0;
 
+  /// Screen area (device pixels) left empty until its tiles are rendered.
+  double blankPixels = 0;
+
   /// Screen area (device pixels) drawn from vectors.
   double vectorPixels = 0;
 
   void reset() {
     images = vectorTiles = overlayStrokes = staleImages = 0;
-    vectorPixels = 0;
+    vectorPixels = blankPixels = 0;
   }
 }
 
@@ -47,6 +50,10 @@ class InkTile implements PooledTile {
   /// Whether [image] predates stored content that arrived since (it stands
   /// in until the tile is rendered again).
   bool stale = false;
+
+  /// Whether the image was dropped by an edit since the tile was last
+  /// rendered: until it is again, only vectors show it as it is.
+  bool edited = false;
 
   /// Whether the next render is part of a large edit's batch (see
   /// InkTileCache's batches).

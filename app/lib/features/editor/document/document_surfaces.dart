@@ -7,6 +7,7 @@ import '../../../data/element_repository.dart';
 import '../../../data/stroke_repository.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/chunk_picture_cache.dart';
+import '../../../ink/render/chunk_raster_cache.dart';
 import '../../../ink/render/outline_preparer.dart';
 import '../../../ink/render/tiles/ink_tile_cache.dart';
 import '../../../ink/surface_model.dart';
@@ -18,6 +19,7 @@ import 'undo_target.dart';
 class PageSurface {
   PageSurface(this.model) : cache = ChunkPictureCache(model) {
     tiles = InkTileCache(cache);
+    rasters = ChunkRasterCache(cache, maxBytes: maxRasterBytes);
   }
 
   final SurfaceModel model;
@@ -25,6 +27,14 @@ class PageSurface {
 
   /// Rendered tiles of the page's ink.
   late final InkTileCache tiles;
+
+  /// Level-of-detail rasters of the page's chunks, drawn instead of tiles
+  /// when zoomed out far (many pages on screen).
+  late final ChunkRasterCache rasters;
+
+  /// Memory a page's rasters may take (an A4 page is 2 × 3 chunks: all
+  /// four levels of them take 2 MB).
+  static const int maxRasterBytes = 4 << 20;
 
   bool get hasHistory => model.history.canUndo || model.history.canRedo;
 
@@ -35,6 +45,7 @@ class PageSurface {
   /// Disposes the cache; the model is released to [PageModels].
   void dispose() {
     tiles.dispose();
+    rasters.dispose();
     cache.dispose();
   }
 }
@@ -82,7 +93,8 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
 
   final Map<String, PageSurface> _surfaces = {};
 
-  /// Notifies when a page's ink tiles were rendered (repaint only).
+  /// Notifies when a page's ink tiles or rasters were rendered (repaint
+  /// only).
   Listenable get rendered => _rendered;
   final _rendered = ChangeNotifier();
 
@@ -120,7 +132,10 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
 
     _liftedListeners[pageId] = onLifted;
     model.liftedChanges.addListener(onLifted);
-    return _surfaces[pageId] = PageSurface(model)..tiles.addListener(_rendered.notifyListeners);
+    final surface = _surfaces[pageId] = PageSurface(model);
+    surface.tiles.addListener(_rendered.notifyListeners);
+    surface.rasters.addListener(_rendered.notifyListeners);
+    return surface;
   }
 
   /// The page receiving input; its surface is never released while idle
@@ -169,6 +184,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     final onLifted = _liftedListeners.remove(id);
     if (onLifted != null) s.model.liftedChanges.removeListener(onLifted);
     s.tiles.removeListener(_rendered.notifyListeners);
+    s.rasters.removeListener(_rendered.notifyListeners);
     s.dispose();
     models.release(id);
   }

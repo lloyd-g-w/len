@@ -72,6 +72,22 @@ void main() {
     });
   }, timeout: const Timeout(Duration(minutes: 3)));
 
+  testWidgets('pinch out to 12 % across the level-of-detail threshold, rest', (tester) async {
+    await tester.runAsync(() async {
+      final scene = _scene(dense, lod: true);
+      await scene.warm();
+      final run = _Run.of(scene);
+      final focal = view.center(Offset.zero);
+      for (var i = 0; i < 30; i++) {
+        await run.frame(() => scene.viewport.zoomAt(focal, math.pow(0.12, 1 / 30).toDouble()));
+      }
+      await run.report('pinch out to 12 % (LOD)');
+      await run.rest();
+      await run.report('pinch out to 12 % (LOD), rest');
+      scene.dispose();
+    });
+  }, timeout: const Timeout(Duration(minutes: 3)));
+
   testWidgets('write 20 strokes on a dense page', (tester) async {
     await tester.runAsync(() async {
       final scene = _scene(dense);
@@ -111,68 +127,39 @@ void main() {
 
   testWidgets('scroll a notebook of handwritten pages', (tester) async {
     await tester.runAsync(() async {
-      final db = AppDatabase.inMemory();
-      final repository = StrokeRepository(db, deviceId: 'd');
-      final pages = [
-        for (var i = 0; i < 8; i++)
-          NotebookPage(
-            id: 'p$i',
-            notebookId: 'nb',
-            sortKey: i.toDouble(),
-            width: 794,
-            height: 1123,
-            paper: Paper(PaperStyle.blank),
-          ),
-      ];
-      for (final page in pages) {
-        repository.save([
-          for (final s in scribbles(1200, const Rect.fromLTWH(40, 40, 700, 1040), points: 14))
-            _onPage(s, page.id),
-        ]);
-      }
-      final layout = DocumentLayout.continuous([for (final p in pages) p.size]);
-      final surfaces = DocumentSurfaces(repository);
-      final viewport = ViewportController(minScale: 0.1, maxScale: 8)
-        ..setSize(view)
-        ..setView(scale: 1.53, offset: const Offset(32.7, 24));
-      void show() {
-        // As DocumentController does.
-        final ahead = DocumentLayout.lookahead(viewport.visibleWorld);
-        surfaces.showPages({
-          for (final i in layout.visiblePages(ahead))
-            pages[i].id: ahead.shift(-layout.frameOf(i)!.topLeft),
-        });
-      }
-
-      show();
-      final run = _Run(
-        size: view,
-        dpr: 2,
-        painter: () => DocumentInkPainter(
-          layout: layout,
-          pages: pages,
-          surfaces: surfaces,
-          viewport: viewport,
-          devicePixelRatio: 2,
-        ),
-        tiles: () => [for (final s in surfaces.all) s.tiles],
-        busy: () => surfaces.all.any((s) => s.tiles.isBusy || s.model.isLoading),
-        summary: () => 'pages held=${surfaces.all.length}',
-      );
-      await run.rest();
-      await run.report('notebook warm-up');
+      final nb = _Notebook(8, scale: 1.53, offset: const Offset(32.7, 24));
+      await nb.run.rest();
+      await nb.run.report('notebook warm-up');
       // A fling: two pages down in 90 frames, slowing.
       for (var i = 0; i < 90; i++) {
-        await run.frame(() {
-          viewport.panBy(Offset(0, -61.7 * (1 - i / 90)));
-          show();
-        });
+        await nb.run.frame(() => nb.panBy(Offset(0, -61.7 * (1 - i / 90))));
       }
-      await run.report('notebook scroll');
-      await run.rest();
-      await run.report('notebook scroll, rest');
-      surfaces.dispose();
-      db.close();
+      await nb.run.report('notebook scroll');
+      await nb.run.rest();
+      await nb.run.report('notebook scroll, rest');
+      nb.dispose();
+    });
+  }, timeout: const Timeout(Duration(minutes: 3)));
+
+  testWidgets('zoom a notebook out to many pages, then scroll', (tester) async {
+    await tester.runAsync(() async {
+      final nb = _Notebook(16, scale: 0.6, offset: const Offset(200, 24));
+      await nb.run.rest();
+      await nb.run.report('notebook 60 %');
+      // Pinch out to 12 % (six pages on screen) around the top middle.
+      for (var i = 0; i < 30; i++) {
+        await nb.run.frame(() => nb.zoomAt(const Offset(640, 100), math.pow(0.2, 1 / 30)));
+      }
+      await nb.run.report('notebook pinch out to 12 %');
+      await nb.run.rest();
+      await nb.run.report('notebook pinch out to 12 %, rest');
+      for (var i = 0; i < 40; i++) {
+        await nb.run.frame(() => nb.panBy(const Offset(0, -12.3)));
+      }
+      await nb.run.report('notebook scroll at 12 %');
+      await nb.run.rest();
+      await nb.run.report('notebook scroll at 12 %, rest');
+      nb.dispose();
     });
   }, timeout: const Timeout(Duration(minutes: 3)));
 
@@ -286,6 +273,83 @@ void main() {
   }, timeout: const Timeout(Duration(minutes: 3)));
 }
 
+/// A notebook of [count] handwritten A4 pages (1 200 strokes each) in a
+/// 1280 × 800 view at 2×, painted as the editor does.
+class _Notebook {
+  _Notebook(int count, {required double scale, required Offset offset}) {
+    pages = [
+      for (var i = 0; i < count; i++)
+        NotebookPage(
+          id: 'p$i',
+          notebookId: 'nb',
+          sortKey: i.toDouble(),
+          width: 794,
+          height: 1123,
+          paper: Paper(PaperStyle.blank),
+        ),
+    ];
+    for (final page in pages) {
+      repository.save([
+        for (final s in scribbles(1200, const Rect.fromLTWH(40, 40, 700, 1040), points: 14))
+          _onPage(s, page.id),
+      ]);
+    }
+    layout = DocumentLayout.continuous([for (final p in pages) p.size]);
+    surfaces = DocumentSurfaces(repository);
+    viewport
+      ..setSize(_view)
+      ..setView(scale: scale, offset: offset);
+    _show();
+    run = _Run(
+      size: _view,
+      dpr: 2,
+      painter: () => DocumentInkPainter(
+        layout: layout,
+        pages: pages,
+        surfaces: surfaces,
+        viewport: viewport,
+        devicePixelRatio: 2,
+      ),
+      tiles: () => [for (final s in surfaces.all) s.tiles],
+      busy: () => surfaces.all.any((s) => s.tiles.isBusy || s.rasters.isBusy || s.model.isLoading),
+      summary: () => 'pages held=${surfaces.all.length}',
+    );
+  }
+
+  static const _view = Size(1280, 800);
+  final db = AppDatabase.inMemory();
+  late final repository = StrokeRepository(db, deviceId: 'd');
+  late final List<NotebookPage> pages;
+  late final DocumentLayout layout;
+  late final DocumentSurfaces surfaces;
+  final viewport = ViewportController(minScale: 0.1, maxScale: 8);
+  late final _Run run;
+
+  /// Loads the pages in and near the view, as DocumentController does.
+  void _show() {
+    final ahead = DocumentLayout.lookahead(viewport.visibleWorld);
+    surfaces.showPages({
+      for (final i in layout.visiblePages(ahead))
+        pages[i].id: ahead.shift(-layout.frameOf(i)!.topLeft),
+    });
+  }
+
+  void panBy(Offset by) {
+    viewport.panBy(by);
+    _show();
+  }
+
+  void zoomAt(Offset focal, num factor) {
+    viewport.zoomAt(focal, factor.toDouble());
+    _show();
+  }
+
+  void dispose() {
+    surfaces.dispose();
+    db.close();
+  }
+}
+
 /// A 1280 × 800 view at 2× with the editor's settle delay.
 InkScene _scene(List<Stroke> strokes, {double scale = 1, bool lod = false}) => InkScene(
   strokes,
@@ -365,12 +429,21 @@ class _Run {
   /// Screens' worth of tile area drawn as vectors.
   double _vectorScreens = 0;
 
+  /// Screens' worth of area left empty until its tiles render.
+  double _blankScreens = 0;
+
   /// Frames showing an image that predates a change.
   int _staleFrames = 0;
   final List<int> _chunkDraws = [];
   int _drawsBefore = 0;
   final Map<String, int> _base = {};
-  static const _counters = ['chunkDraws', 'tileRenders', 'tileAppends', 'chunkRecords'];
+  static const _counters = [
+    'chunkDraws',
+    'tileRenders',
+    'tileAppends',
+    'chunkRecords',
+    'lodRasters',
+  ];
 
   void _mark() {
     for (final c in _counters) {
@@ -393,6 +466,7 @@ class _Run {
     if (tiles().any((t) => t.lastPaint.staleImages > 0)) _staleFrames++;
     for (final t in tiles()) {
       _vectorScreens += t.lastPaint.vectorPixels / (size.width * size.height * dpr * dpr);
+      _blankScreens += t.lastPaint.blankPixels / (size.width * size.height * dpr * dpr);
       t.lastPaint.reset();
     }
     final draws = PerfProbe.counter('chunkDraws');
@@ -436,13 +510,16 @@ class _Run {
       'vector frames=${_chunkDraws.where((d) => d > 0).length} '
       'chunkDraws=${_chunkDraws.fold(0, (a, b) => a + b)} '
       'vector screens=${_vectorScreens.toStringAsFixed(2)} '
+      'blank screens=${_blankScreens.toStringAsFixed(2)} '
       'stale frames=$_staleFrames '
       'tileRenders=${_count('tileRenders')} '
       'tileAppends=${_count('tileAppends')} '
       'chunkRecords=${_count('chunkRecords')} '
+      'lodRasters=${_count('lodRasters')} '
       '${summary()}',
     );
     _vectorScreens = 0;
+    _blankScreens = 0;
     _staleFrames = 0;
     _chunkDraws.clear();
     _mark();
