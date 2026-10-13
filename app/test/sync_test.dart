@@ -211,6 +211,7 @@ void main() {
       final controller = SyncController(
         engine: a.sync.engine,
         settings: a.settings,
+        tokens: a.sync.tokens,
         apiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: target.client),
       );
       final notices = <String>[];
@@ -249,6 +250,7 @@ void main() {
       final controller = SyncController(
         engine: a.sync.engine,
         settings: a.settings,
+        tokens: a.sync.tokens,
         apiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
       );
       controller.configure(url: 'http://sync.test', token: FakeServer.token);
@@ -265,6 +267,7 @@ void main() {
       final controller = SyncController(
         engine: a.sync.engine,
         settings: a.settings,
+        tokens: a.sync.tokens,
         apiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
       );
       controller.configure(url: 'http://sync.test', token: FakeServer.token);
@@ -285,6 +288,7 @@ void main() {
       final controller = SyncController(
         engine: a.sync.engine,
         settings: a.settings,
+        tokens: a.sync.tokens,
         apiFactory: (url, token) => throw StateError('boom'),
       );
       controller.configure(url: 'http://sync.test', token: FakeServer.token);

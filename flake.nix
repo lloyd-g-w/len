@@ -27,7 +27,10 @@
         let
           # PDFium (PDF import via `pdfrx`) needs no system package: the
           # `pdfium_dart` build hook downloads a prebuilt library at build time.
-          linuxDesktop = with pkgs; [ cmake ninja pkg-config clang gtk3 sqlite ] ++ linuxAudio;
+          # libsecret: the sync token in the desktop's keyring
+          # (`flutter_secure_storage_linux`, platform/secure_store.dart); its
+          # pkg-config file requires libgcrypt.
+          linuxDesktop = with pkgs; [ cmake ninja pkg-config clang gtk3 sqlite libsecret libgcrypt ] ++ linuxAudio;
 
           # Audio (features/audio): `audioplayers_linux` builds against
           # GStreamer and plays through its plugins (qtdemux in -good, AAC via

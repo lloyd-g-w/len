@@ -15,6 +15,8 @@ defaults, unknown fields and values tolerated.
   `Authorization: Bearer <token>`, where `<token>` equals the server's `LEN_SYNC_TOKEN`
   (clients send it to `/v1/health` too, which ignores it, so a proxy guarding every path works).
 - Token comparison must be constant-time.
+- The app keeps the token in the platform's secure store (Keystore, Secret Service, DPAPI;
+  in the database only as a fallback and in browsers), see ARCHITECTURE "Sync" → Sync token.
 
 ## Record
 

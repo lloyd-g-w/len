@@ -16,6 +16,7 @@ import 'platform/incoming_files.dart';
 import 'platform/outline_preparer.dart';
 import 'platform/page_lifecycle.dart';
 import 'platform/raster_store.dart';
+import 'platform/secure_store.dart';
 import 'platform/single_instance.dart';
 import 'ui/open_elsewhere.dart';
 import 'ui/startup_error.dart';
@@ -60,6 +61,8 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
       writes: writes,
       // Canvases far zoomed out reopen from stored rasters.
       rasterStore: await openRasterStore(format: StoredRasters.format),
+      // The sync token: Android Keystore, Secret Service, DPAPI.
+      secureStore: platformSecureStore(),
     );
   } on Object catch (error, stack) {
     debugPrint('Cannot open storage: $error\n$stack');
@@ -76,7 +79,9 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
     );
     return;
   }
-  services.sync.start();
+  // Sync starts once the token is read from the secure store (which may
+  // ask to unlock a keyring, so the app doesn't wait for it).
+  unawaited(services.sync.tokens.load().whenComplete(services.sync.start));
   if (PerfProbe.requested) PerfProbe.start();
   runApp(LenApp(services: services));
   // Throttled to once a day; deletes blobs unreferenced for a week.

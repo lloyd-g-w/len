@@ -10,7 +10,6 @@ class SettingsRepository {
 
   static const _deviceId = 'device_id';
   static const _syncUrl = 'sync_url';
-  static const _syncToken = 'sync_token';
   static const _syncLastSeq = 'sync_last_seq';
   static const _stylusOnly = 'stylus_only';
   static const _toolPrefs = 'tool_prefs';
@@ -27,8 +26,27 @@ class SettingsRepository {
   String get syncUrl => _get(_syncUrl) ?? '';
   set syncUrl(String value) => _set(_syncUrl, value);
 
-  String get syncToken => _get(_syncToken) ?? '';
-  set syncToken(String value) => _set(_syncToken, value);
+  /// The sync access token while it can't be in the secure store, else
+  /// null (owned by `SyncTokenStore`; always here in a browser).
+  String? get syncTokenFallback => _get('sync_token');
+  set syncTokenFallback(String? value) {
+    if (value != null) return _set('sync_token', value);
+    // Overwrite the freed bytes too, so the token doesn't linger in the file.
+    final before = _database.db.select('PRAGMA secure_delete').first.columnAt(0);
+    _database.db.execute('PRAGMA secure_delete = ON');
+    try {
+      _remove('sync_token');
+    } finally {
+      _database.db.execute('PRAGMA secure_delete = $before');
+    }
+  }
+
+  /// Names this installation's token in the secure store (which other
+  /// installations of Len may share, e.g. one Linux keyring); null until
+  /// the token is first stored there.
+  String? get syncTokenSlot => _get('sync_token_slot');
+  set syncTokenSlot(String? value) =>
+      value == null ? _remove('sync_token_slot') : _set('sync_token_slot', value);
 
   /// Highest server change number already pulled.
   int get syncLastSeq => int.tryParse(_get(_syncLastSeq) ?? '') ?? 0;

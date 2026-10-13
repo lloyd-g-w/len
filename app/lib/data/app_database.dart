@@ -128,7 +128,7 @@ class AppDatabase {
     final (backup, kept) = SchemaCheck.reset(db, path: path, version: version);
     _schemaReset = SchemaReset(
       backupPath: backup,
-      keptSync: kept.length == SchemaCheck.keptSettings.length,
+      keptSync: SchemaCheck.keepsSync(kept),
       fromNewer: version > SchemaMigrations.all.length,
     );
     debugPrint('Database schema (version $version) not usable; started fresh (backup: $backup)');

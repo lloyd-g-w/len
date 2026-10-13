@@ -5,6 +5,7 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/features/settings/sync_settings.dart';
+import 'package:len/platform/secure_store.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/sync/sync_controller.dart';
 import 'package:len/ui/app_theme.dart';
@@ -141,6 +142,32 @@ void main() {
       expect(s.sync.isConfigured, isFalse);
       expect(s.sync.state, SyncState.disabled);
       expect(find.text('Server URL'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('a token kept out of secure storage is mentioned once', (tester) async {
+      final secure = MemorySecureStore()..available = false;
+      final s = AppServices.create(AppDatabase.inMemory(), secureStore: secure);
+      addTearDown(s.dispose);
+      s.sync.configure(url: 'http://sync.test', token: FakeServer.token);
+      await tester.runAsync(() => s.sync.tokens.save(FakeServer.token));
+      expect(s.sync.tokens.inDatabase, isTrue);
+      Future<void> show() => tester.pumpWidget(
+        AppScope(
+          services: s,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const Scaffold(body: SingleChildScrollView(child: SyncSettings())),
+          ),
+        ),
+      );
+      final note = find.textContaining('secure storage isn\'t available');
+      await show();
+      expect(note, findsOneWidget);
+      expect(s.sync.isConfigured, isTrue, reason: 'sync goes on');
+      await tester.pumpWidget(const SizedBox());
+      await show();
+      expect(note, findsNothing);
       await tester.pumpWidget(const SizedBox());
     });
   });

@@ -47,7 +47,7 @@ class SyncSettings extends StatefulWidget {
 class _SyncSettingsState extends State<SyncSettings> {
   late final AppServices _services = AppScope.read(context);
   late final _url = TextEditingController(text: _services.settings.syncUrl);
-  late final _token = TextEditingController(text: _services.settings.syncToken);
+  late final _token = TextEditingController(text: _sync.tokens.token);
   bool _obscureToken = true;
   bool _busy = false;
 
@@ -62,9 +62,15 @@ class _SyncSettingsState extends State<SyncSettings> {
 
   SyncController get _sync => _services.sync;
 
+  /// Said once: the secure store failed, so the token is in the database.
+  static const _tokenNoteTip = 'sync_token_in_database';
+  late final bool _tokenNote =
+      _sync.tokens.inDatabase && !_services.settings.seenTips.contains(_tokenNoteTip);
+
   @override
   void initState() {
     super.initState();
+    if (_tokenNote) _services.settings.markTipSeen(_tokenNoteTip);
     if (!widget.reveal) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -131,7 +137,7 @@ class _SyncSettingsState extends State<SyncSettings> {
 
   void _cancelEditing() => setState(() {
     _url.text = _services.settings.syncUrl;
-    _token.text = _services.settings.syncToken;
+    _token.text = _sync.tokens.token;
     _editing = false;
     _testError = _urlError = null;
   });
@@ -170,6 +176,14 @@ class _SyncSettingsState extends State<SyncSettings> {
                 style: theme.textTheme.bodySmall,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (_tokenNote) ...[
+                const SizedBox(height: Gaps.sm),
+                Text(
+                  'This device\'s secure storage isn\'t available right now, so the access '
+                  'token is kept with Len\'s data. Len moves it there once it can.',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: Gaps.md),
               _actions(context),
             ],

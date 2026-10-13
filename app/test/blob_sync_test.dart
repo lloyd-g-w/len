@@ -357,7 +357,7 @@ void main() {
 
       await connect('http://sync.test', 'wrong-token', answer: SyncException.rejectedToken.message);
       expect(find.text(SyncException.rejectedToken.message), findsOneWidget);
-      expect(a.settings.syncToken, FakeServer.token, reason: 'not saved');
+      expect(a.sync.tokens.token, FakeServer.token, reason: 'not saved');
 
       server.serverId = '';
       await connect(

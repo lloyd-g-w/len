@@ -1651,8 +1651,10 @@ optional FTS index aside) with that of a freshly migrated in-memory
 database. A newer `user_version`, a failing migration or a different shape
 (pre-release migrations were rewritten) resets the database: the file is
 copied to `<path>.schema-<version>-<time>.bak` (native only), everything is
-dropped and recreated, the sync login is carried over (so synced notebooks
-come back), and the library says so once (`AppDatabase.schemaReset`).
+dropped and recreated, the sync login is carried over (the server URL and
+the token's secure-store slot, or the token while it is in the database; so
+synced notebooks come back), and the library says so once
+(`AppDatabase.schemaReset`).
 All writes go straight to SQLite; in-memory state is a cache.
 
 ## Platforms (`platform/`)
@@ -1679,6 +1681,7 @@ the web:
 | Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux / Windows: command line + forwarding from a second instance | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`, `low_latency_ink`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
+| Secrets (`secure_store`) | `flutter_secure_storage`: Android Keystore-wrapped keys, Linux Secret Service via libsecret (the desktop keyring; in a Flatpak the secret portal), Windows DPAPI | none: the sync token stays in the database (see *Sync token*) |
 | Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
 
 **Why web canvas reads are not in a Web Worker.** The IndexedDB VFS keeps
@@ -2151,6 +2154,25 @@ while `waitsForSettings` (the server rejected the token: retrying can't help);
 saving settings or Sync now tries again. A failed status opens Settings at
 Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
 
+Sync token (`data/sync_token_store.dart`, `platform/secure_store.dart`): the
+access token lives in the platform's secure store under a per-installation
+slot (`sync_token_slot` in settings, so installations sharing one keyring
+don't share a token); `SyncTokenStore.token` is a synchronous in-memory copy.
+Startup reads it without waiting for it (a locked keyring may prompt), then
+starts sync. When the secure store fails (no Secret Service in a Linux
+session, a locked or refused keyring, a Keystore error) sync goes on: the
+token is kept in the settings table (`sync_token`), Settings → Sync says so
+once, calmly, and the move is retried at the next start and at most hourly
+before a sync. A token found in the database at start (also one saved by an
+older build) moves the same way; it is deleted with `secure_delete`. Turning
+sync off forgets the slot, so an entry the store couldn't delete is never
+read again. In a browser nothing is secret from the origin's own scripts (an
+encrypted entry would sit next to its key), so there is no secure store: the
+token stays in the database in IndexedDB, readable by anyone with access to
+the browser profile. On Android the store's data is not useful in a device
+backup (its key stays in the Keystore): after a restore the token is asked for
+again.
+
 ## Known limitations / next steps
 
 - Canvas chunk reads run in a background isolate, but writes, page surfaces,
@@ -2175,8 +2197,9 @@ Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
   Small floating panels over the canvas (audio player, search)
   are not cut out of its clip. Stylus tilt/orientation are received but
   unused.
-- The sync token is stored in the app's SQLite database; move it to secure
-  storage before shipping.
+- The web keeps the sync token in IndexedDB (no secure store in browsers);
+  the Linux keyring is read synchronously on the platform thread, so an
+  unlock prompt may hold up the window until it is answered.
 - PDF: tiles are not persisted (re-rendered after reopening) and stop at
   65536 px page width; exported
   PDFs drop the source's form fields (their looks are kept) and links with
