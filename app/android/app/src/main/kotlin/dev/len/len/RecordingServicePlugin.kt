@@ -5,7 +5,9 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -25,6 +27,8 @@ import io.flutter.plugin.common.PluginRegistry
  * - `show {title, paused, elapsedMs}` starts the service or updates its
  *   notification; answers false when it could not start.
  * - `hide` stops it.
+ * - `openAppSettings` opens Len's page in the system settings (to allow
+ *   the microphone after it was refused); answers whether it opened.
  *
  * The notification's buttons arrive in Dart as `action` calls ("pause",
  * "resume", "stop", or "failed"). Registered as an engine plugin by
@@ -80,7 +84,23 @@ class RecordingServicePlugin :
                 if (service != null) service.finish() else RecordingService.stopWhenStarted = true
                 result.success(null)
             }
+            "openAppSettings" -> result.success(openAppSettings())
             else -> result.notImplemented()
+        }
+    }
+
+    private fun openAppSettings(): Boolean {
+        val context = context ?: return false
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", context.packageName, null),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try {
+            context.startActivity(intent)
+            true
+        } catch (e: RuntimeException) {
+            Log.w("Len", "app settings unavailable", e)
+            false
         }
     }
 

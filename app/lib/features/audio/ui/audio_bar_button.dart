@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../platform/system_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/messages.dart';
 import '../../editor/chrome/bar_button.dart';
@@ -84,7 +85,16 @@ Future<void> startRecording(BuildContext context, NotebookAudio audio) async {
   if (audio.playback.playing) await audio.playback.pause();
   if (await audio.recorder.start()) return;
   final error = audio.recorder.lastError;
-  if (error != null && context.mounted) showMessage(context, error);
+  if (error == null || !context.mounted) return;
+  // A refused microphone: straight to where it is allowed, where possible.
+  final denied = error == RecordingController.microphoneDenied && canOpenMicrophoneSettings;
+  showMessage(
+    context,
+    error,
+    action: denied
+        ? SnackBarAction(label: 'Settings', onPressed: () => unawaited(openMicrophoneSettings()))
+        : null,
+  );
 }
 
 /// Stops recording and confirms (or explains a failure) in a snack bar.
