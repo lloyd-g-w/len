@@ -18,6 +18,9 @@
     <!-- usesCleartextTraffic: self-hosted sync servers often run over plain
          http on a home LAN (e.g. http://192.168.1.10:8080). Use https for
          anything reachable from the internet.
+         enableOnBackInvokedCallback: predictive back on Android 13-15 too
+         (the default from Android 16 at target SDK 36); Flutter's routes
+         follow the gesture, and back at the root goes home with Len kept.
          Auto Backup keeps only the database (res/xml/backup_rules.xml, and
          data_extraction_rules.xml on Android 12+); a restored database gets a
          new device id at its first start (data/install_identity.dart). -->
@@ -30,6 +33,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
+        android:enableOnBackInvokedCallback="true"
         android:resizeableActivity="true">
         <activity
             android:name=".MainActivity"

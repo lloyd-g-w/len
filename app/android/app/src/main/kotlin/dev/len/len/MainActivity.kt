@@ -55,6 +55,18 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
+    /**
+     * Back with nothing left to pop (Flutter's `SystemNavigator.pop`): move
+     * Len to the back as Android 12+ does with launcher activities, instead
+     * of FlutterActivity's `finish()`, which would destroy the engine — and
+     * with it a recording going on in the background and the open notebook.
+     * (With predictive back, Android 13+, the system does the same itself.)
+     */
+    override fun popSystemNavigator(): Boolean {
+        moveTaskToBack(true)
+        return true
+    }
+
     override fun flutterView(): View? = findViewById(FLUTTER_VIEW_ID)
 
     /**
