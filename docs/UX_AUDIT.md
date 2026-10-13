@@ -374,6 +374,10 @@ everywhere.**
 - *Done (`fix/r8-data`):* the estimate is a few aggregate queries per 500
   notebooks; the writer yields between blobs. (Blobs are still hashed by
   `ZipEncoder.add` synchronously, one at a time.)
+  *Then (`fix/r8-followups`):* natively, each blob file is checksummed
+  (CRC-32) in a worker isolate first and handed to the encoder as stored with
+  its checksum, so the UI thread only copies it (`fileCrc32`); browsers keep
+  checksumming as they write (their blobs are in memory one at a time anyway).
 
 ✅ **R8-20 P2 · Backup, restore and Len export each have several names.**
 - *What:*

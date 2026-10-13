@@ -17,6 +17,11 @@ import 'len_stores.dart';
 /// not files (browsers): they are then read into memory one at a time.
 typedef BlobFileOpener = InputStream? Function(String path);
 
+/// The zip checksum (CRC-32) of blob file [path], worked out off the UI
+/// thread; null where that isn't possible (then it is worked out as the
+/// blob is written).
+typedef BlobFileChecksum = Future<int?> Function(String path);
+
 /// Downloads blob [sha] if it isn't here yet; whether it is now.
 typedef BlobFetcher = Future<bool> Function(String sha);
 
@@ -47,6 +52,7 @@ class LenArchiveWriter {
     this.stores,
     this.blobs, {
     this.openBlobFile,
+    this.checksumBlobFile,
     this.fetchBlob,
     this.clock = const Clock(),
   });
@@ -54,6 +60,10 @@ class LenArchiveWriter {
   final LenStores stores;
   final BlobStore blobs;
   final BlobFileOpener? openBlobFile;
+
+  /// Checksums blob files off the UI thread (natively, UX_AUDIT R8-19), so
+  /// adding one only copies it.
+  final BlobFileChecksum? checksumBlobFile;
 
   /// Downloads blobs not here yet (from the sync server), so a backup
   /// holds them too (UX_AUDIT R8-22).
@@ -130,7 +140,7 @@ class LenArchiveWriter {
     var done = 0;
     for (final sha in included.keys) {
       cancel?.check();
-      await _addBlob(zip, sha);
+      await _addBlob(zip, sha, cancel);
       await drain?.call();
       done++;
       onProgress?.call(0.5 + 0.5 * done / included.length);
@@ -140,9 +150,26 @@ class LenArchiveWriter {
     return LenWriteReport(records: records, blobs: included.length, missingBlobs: missing);
   }
 
-  Future<void> _addBlob(ZipEncoder zip, String sha) async {
+  Future<void> _addBlob(ZipEncoder zip, String sha, CancellationToken? cancel) async {
     final path = blobs.localPath(sha);
+    final checksum = checksumBlobFile;
+    final crc = path == null || checksum == null ? null : await checksum(path);
+    cancel?.check();
     var input = path == null ? null : openBlobFile?.call(path);
+    if (input != null && crc != null) {
+      try {
+        // Stored with its checksum known: the encoder only copies it.
+        zip.add(
+          ArchiveFile.file(LenFormat.blobName(sha), input.length, _Checksummed(input))
+            ..compression = CompressionType.none
+            ..crc32 = crc,
+          autoClose: false,
+        );
+      } finally {
+        await input.close();
+      }
+      return;
+    }
     if (input == null) {
       final bytes = await blobs.read(sha);
       if (bytes == null) throw StateError('Blob $sha vanished while exporting');
@@ -183,4 +210,31 @@ class _PartWriter {
     _parts++;
     _zip.add(ArchiveFile.bytes(LenFormat.recordsName(_parts), _part.takeBytes()));
   }
+}
+
+/// A blob file's content whose checksum is already known: to the encoder
+/// it is "compressed" (stored), so it writes it as it is without reading
+/// it twice or checksumming it.
+class _Checksummed extends FileContent {
+  _Checksummed(this._input);
+
+  final InputStream _input;
+
+  @override
+  bool get isCompressed => true;
+
+  @override
+  int get length => _input.length;
+
+  @override
+  InputStream getStream({bool decompress = true}) => _input;
+
+  @override
+  void write(OutputStream output) => output.writeStream(_input);
+
+  @override
+  Future<void> close() => _input.close();
+
+  @override
+  void closeSync() => _input.closeSync();
 }

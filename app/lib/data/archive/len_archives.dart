@@ -14,7 +14,7 @@ import 'len_source.dart';
 import 'len_stores.dart';
 
 export 'len_archive_reader.dart' show LenImportResult;
-export 'len_archive_writer.dart' show BlobFetcher, BlobFileOpener, LenWriteReport;
+export 'len_archive_writer.dart' show BlobFetcher, BlobFileChecksum, BlobFileOpener, LenWriteReport;
 export 'len_format.dart';
 export 'len_scope.dart' show LenScope;
 export 'len_source.dart' show LenSource;
@@ -27,6 +27,7 @@ class LenArchives extends ChangeNotifier {
     required this.blobs,
     required this.deviceId,
     this.openBlobFile,
+    this.checksumBlobFile,
     this.fetchBlob,
     this.clock = const Clock(),
   }) : stores = LenStores(tables);
@@ -37,6 +38,9 @@ class LenArchives extends ChangeNotifier {
 
   /// Reads blob files in chunks where the platform has files.
   BlobFileOpener? openBlobFile;
+
+  /// Checksums blob files off the UI thread where the platform can.
+  BlobFileChecksum? checksumBlobFile;
 
   /// Downloads blobs not here yet, so exports hold them.
   BlobFetcher? fetchBlob;
@@ -53,6 +57,7 @@ class LenArchives extends ChangeNotifier {
     stores,
     blobs,
     openBlobFile: openBlobFile,
+    checksumBlobFile: checksumBlobFile,
     fetchBlob: fetchBlob,
     clock: clock,
   ).write(scope, output, cancel: cancel, onProgress: onProgress, drain: drain);

@@ -1782,7 +1782,9 @@ A notebook, a folder or the whole library can be written as a Len file
 files"). `LenArchives` (`AppServices.lenFiles`) writes a `LenScope` through
 `LenArchiveWriter` and imports through `LenArchiveReader`: records go out in
 ~4 MB parts and blobs one at a time, read natively straight from their files
-(`platform/len_file_io_native.dart` opens them as `InputFileStream`s); blobs
+(`platform/len_file_io_native.dart` opens them as `InputFileStream`s and
+checksums them in a worker isolate first, `fileCrc32`, so the zip encoder only
+copies them; in browsers the encoder checksums each as it writes it); blobs
 not downloaded yet are fetched first through sync where it can. The file is
 never held in memory whole (`createLenFileOutput`): desktops ask where to
 save first and write there (a `.part` file until done), phones write a
@@ -1804,7 +1806,8 @@ name is taken). A restore keeps the ids of what isn't here, and its Undo
 Entry points: the export sheet's Len format (a notebook or canvas, always
 whole), a folder's "Export…", ⊕▾ "Import Len file…", "Open
 with" / share / drop (`ImportRouter`, `IncomingKind.len`) and Settings →
-Backup ("Back up library…", which records `last_backup_at`, and "Restore
+Backup ("Back up library…", which records `last_backup_at` when nothing was
+left out, and "Restore
 from backup…"). With sync off, Settings → Backup and the sidebar ("On this
 device only") say the notes are only here; the library says so once
 (`LibraryNotices`, tip `notes_device_only`) when notebooks are a day old and

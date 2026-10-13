@@ -14,6 +14,9 @@ import 'file_export_web.dart';
 /// Browsers keep blobs in IndexedDB, not files.
 InputStream? openFileInput(String path) => null;
 
+/// No files here: the checksum is worked out as a blob is written.
+Future<int?> fileCrc32(String path) async => null;
+
 /// [file] read into memory.
 Future<InputStream> openPickedInput(XFile file) async =>
     InputMemoryStream(await file.readAsBytes());
