@@ -55,7 +55,21 @@ class CommittedInkPainter extends CustomPainter {
     this.rasters,
     this.tiles,
     this.devicePixelRatio = 1,
-  }) : super(repaint: Listenable.merge([model, viewport, rasters, tiles]));
+    this.self = const {},
+  }) : super(
+         repaint: Listenable.merge([
+           model,
+           viewport,
+           rasters,
+           tiles,
+           ForeignLiftedChanges(model.liftedChanges, () => model.lastLiftedOwner, self),
+         ]),
+       );
+
+  /// This view's own selection and text editor: what they lift out of the
+  /// surface they draw themselves; other owners' (another view of it) is
+  /// drawn here, over the ink.
+  final Set<Object?> self;
 
   final SurfaceModel model;
   final ChunkPictureCache cache;
@@ -85,6 +99,18 @@ class CommittedInkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _paintInk(canvas, size);
+    if (!model.hasLiftedExcept(self)) return;
+    canvas
+      ..save()
+      ..translate(viewport.offset.dx, viewport.offset.dy)
+      ..scale(viewport.scale);
+    if (clip != null) canvas.clipRect(clip!);
+    model.paintLifted(canvas, except: self);
+    canvas.restore();
+  }
+
+  void _paintInk(Canvas canvas, Size size) {
     final visible = viewport.visibleWorldFor(size);
     final chunks = model.chunksIn(ChunkGrid.rangeFor(visible));
     if (chunks.isEmpty) return;
@@ -149,7 +175,8 @@ class CommittedInkPainter extends CustomPainter {
       old.clip != clip ||
       old.rasters != rasters ||
       old.tiles != tiles ||
-      old.devicePixelRatio != devicePixelRatio;
+      old.devicePixelRatio != devicePixelRatio ||
+      !setEquals(old.self, self);
 }
 
 /// Paints the in-progress stroke and the eraser cursor. Repaints on every

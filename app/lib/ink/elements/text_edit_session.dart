@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/clock.dart';
 import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
+import '../render/content_painter.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
 import 'text_layout.dart';
@@ -187,7 +188,23 @@ class TextEditSession extends ChangeNotifier {
   }
 
   @override
+  /// Also tells the surface what to draw in place of the box being
+  /// edited, for other views of it (split view): the box as typed.
+  @override
+  void notifyListeners() {
+    _model.setLifted(this, _current == null ? null : _paintLifted);
+    _model.liftedChanged(this);
+    super.notifyListeners();
+  }
+
+  void _paintLifted(Canvas canvas) {
+    final current = _current;
+    if (current != null) ContentPainter.paint(canvas, const [], [current]);
+  }
+
+  @override
   void dispose() {
+    _model.setLifted(this, null);
     _model.removeListener(_onModelChanged);
     super.dispose();
   }

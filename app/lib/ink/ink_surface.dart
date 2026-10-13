@@ -156,6 +156,7 @@ class _InkSurfaceState extends State<InkSurface> {
                       rasters: _rasters,
                       tiles: _tiles,
                       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                      self: {input.content?.selection, input.content?.text},
                     ),
                   ),
                 ),

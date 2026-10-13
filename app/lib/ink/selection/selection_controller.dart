@@ -115,7 +115,28 @@ abstract class _SelectionCore extends ChangeNotifier {
     _frame = isEmpty ? null : frame ?? _frameAround(_strokes, _elements);
     if (!isEmpty) _picture = _record();
     _hide();
+    // Other views of this surface (split view) draw the selection from
+    // here instead of a hole where it was.
+    _model.setLifted(this, isEmpty ? null : _paintLifted);
     notifyListeners();
+  }
+
+  /// Draws the selected content as shown (with the gesture in progress),
+  /// in the selection surface's coordinates.
+  void _paintLifted(Canvas canvas) {
+    final picture = _picture;
+    if (picture == null) return;
+    canvas
+      ..save()
+      ..transform(_preview.matrix4)
+      ..drawPicture(picture)
+      ..restore();
+  }
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    _model.liftedChanged(this); // Moved, resized, recoloured…
   }
 
   /// Selects what [lasso] (this surface's coordinates) encloses here and
@@ -317,6 +338,7 @@ abstract class _SelectionCore extends ChangeNotifier {
 
   @override
   void dispose() {
+    _model.setLifted(this, null);
     _model.removeListener(_onModelChanged);
     for (final model in _others) {
       model.removeListener(_onModelChanged);

@@ -86,6 +86,13 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
   Listenable get rendered => _rendered;
   final _rendered = ChangeNotifier();
 
+  /// Notifies when lifted content on a held page changed; whose it was is
+  /// [lastLiftedOwner].
+  Listenable get lifted => _lifted;
+  final _lifted = ChangeNotifier();
+  Object? lastLiftedOwner;
+  final Map<String, VoidCallback> _liftedListeners = {};
+
   /// Least recently visible first.
   final List<String> _recency = [];
 
@@ -104,6 +111,15 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
         outlines: outlines,
       ),
     )..addListener(notifyListeners);
+    // Content an owner lifted out (a selection, a text editor) repaints
+    // the ink painter, unless the owner is this view's own (see self).
+    void onLifted() {
+      lastLiftedOwner = model.lastLiftedOwner;
+      _lifted.notifyListeners();
+    }
+
+    _liftedListeners[pageId] = onLifted;
+    model.liftedChanges.addListener(onLifted);
     return _surfaces[pageId] = PageSurface(model)..tiles.addListener(_rendered.notifyListeners);
   }
 
@@ -150,6 +166,8 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     final s = _surfaces.remove(id);
     if (s == null) return;
     s.model.removeListener(notifyListeners);
+    final onLifted = _liftedListeners.remove(id);
+    if (onLifted != null) s.model.liftedChanges.removeListener(onLifted);
     s.tiles.removeListener(_rendered.notifyListeners);
     s.dispose();
     models.release(id);
@@ -177,6 +195,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
       _release(id);
     }
     _rendered.dispose();
+    _lifted.dispose();
     models.removeListener(notifyListeners);
     if (_ownsModels) models.dispose();
     super.dispose();
