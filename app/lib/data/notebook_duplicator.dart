@@ -1,10 +1,16 @@
+import 'dart:convert';
+
+import '../domain/link_target.dart';
 import '../domain/notebook.dart';
+import '../domain/surface_element.dart';
 import 'notebook_repository.dart';
 import 'row_copier.dart';
+import 'stroke_queries.dart';
 
 /// Deep-copies a notebook: its row, its pages, every live stroke and
 /// element (with their chunk indexes) and its audio recordings, all under
-/// new ids and marked dirty for sync.
+/// new ids and marked dirty for sync; links to its own pages lead to the
+/// copies.
 ///
 /// Rows are copied column-by-column ([RowCopier]), so attributes added by
 /// later migrations (page templates, stroke kinds, …) are carried over.
@@ -43,10 +49,36 @@ class NotebookDuplicator {
         _copyContent(copier, 'strokes', 'stroke_chunks', 'stroke_id', from, to, stamp);
         _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp);
       });
+      _relink(id, copyId, surfaces);
       _copyRecordings(copier, id, copyId, stamp);
       repo.outline?.copyAll(id, copyId, surfaces);
     });
     return repo.get(copyId);
+  }
+
+  /// Points the copied link elements that lead to a page of notebook
+  /// [from] at that page's copy in [to], so the copy's links stay inside
+  /// it (links to other notebooks, or to pages since deleted, are kept).
+  void _relink(String from, String to, Map<String, String> surfaces) {
+    final db = _notebooks.db;
+    for (final copied in surfaces.values) {
+      final rows = db.select(
+        'SELECT id, data FROM elements WHERE surface_id = ? AND type = ? AND deleted = 0',
+        [copied, ElementType.link.name],
+      );
+      for (final row in rows) {
+        final data = StrokeQueries.decodeElementData(row['data'] as String);
+        final target = LinkTarget.fromJson(data?['target']);
+        if (target is! PageLinkTarget || target.notebookId != from) continue;
+        final page = surfaces[target.pageId];
+        if (page == null) continue;
+        final relinked = PageLinkTarget(notebookId: to, pageId: page);
+        db.execute('UPDATE elements SET data = ? WHERE id = ?', [
+          jsonEncode({...?data, 'target': relinked.toJson()}),
+          row['id'],
+        ]);
+      }
+    }
   }
 
   /// Copies the recordings of notebook [from] to [to]. The audio blobs are
