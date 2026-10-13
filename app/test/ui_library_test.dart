@@ -133,12 +133,12 @@ void main() {
     await tester.tap(swatch);
     await tester.pumpAndSettle();
     // The summary reflects the choice.
-    expect(find.text('Small grid · White · A4 portrait'), findsOneWidget);
+    expect(find.text('Small grid, white, A4 portrait'), findsOneWidget);
 
     // Canvases have a paper colour but no page size.
     await tester.tap(find.text('Canvas'));
     await tester.pumpAndSettle();
-    expect(find.text('Small grid · White · Infinite canvas'), findsOneWidget);
+    expect(find.text('Small grid, white, infinite canvas'), findsOneWidget);
     expect(find.text('Page size'), findsNothing);
     await tester.tap(find.text('Notebook'));
     await tester.pumpAndSettle();
@@ -180,7 +180,7 @@ void main() {
     await tester.pumpAndSettle();
     final now = DateTime.now();
     final days = PlannerDates.daysInMonth(now.year, now.month);
-    expect(find.text('Daily planner · White · A4 portrait · $days pages'), findsOneWidget);
+    expect(find.text('Daily planner, white, A4 portrait, $days pages'), findsOneWidget);
 
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
