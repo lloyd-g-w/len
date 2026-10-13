@@ -11,7 +11,9 @@ import 'package:len/domain/text/text_data.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
 import 'package:len/ink/selection/lasso_path.dart';
+import 'package:len/ink/selection/selection_chrome.dart';
 import 'package:len/ink/selection/selection_controller.dart';
+import 'package:len/ink/selection/selection_frame.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/tools/laser.dart';
@@ -131,6 +133,31 @@ void main() {
       expect(model.history.canUndo, isTrue);
       model.undo();
       expect(model.strokeById('a'), isNotNull);
+    });
+
+    test('a frame past the screen edge keeps its handles inside; they resize without a jump', () {
+      model.commit(InkEdit(added: [line('a', const Offset(-50, 100), const Offset(850, 400))]));
+      tap(const Offset(400, 250));
+      final frame = selection.frame!;
+      final before = frame.rect;
+      expect(before.right, greaterThan(800));
+      // As if the true corner, off screen, had been dragged 100 px left.
+      final expected = frame.resized(
+        SelectionHandle.bottomRight,
+        before.bottomRight - const Offset(100, 0),
+      );
+      final handle = SelectionChrome.handles(
+        selection.frame!,
+        lasso.viewport,
+      )[SelectionHandle.bottomRight]!;
+      expect(handle.dx, 800 - SelectionChrome.edgeInset);
+      lasso
+        ..down(at(handle))
+        ..move(at(handle - const Offset(50, 0)))
+        ..move(at(handle - const Offset(100, 0)))
+        ..up();
+      expect(selection.frame!.rect.right, closeTo(expected.frame.rect.right, 1e-6));
+      expect(selection.frame!.rect.left, closeTo(before.left, 1e-6));
     });
   });
 

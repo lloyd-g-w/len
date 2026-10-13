@@ -69,6 +69,9 @@ class LassoTool implements PointerTool {
   Offset _lastWorld = Offset.zero;
   Offset _lastScreen = Offset.zero;
   bool _dragged = false;
+
+  /// From the pointer to the grabbed resize handle's true spot (world).
+  Offset _grab = Offset.zero;
   Timer? _longPressTimer;
   ({String id, int time})? _lastTap;
 
@@ -84,6 +87,11 @@ class LassoTool implements PointerTool {
         _mode = _Mode.transform;
         _handle = handle;
         _startFrame = frame;
+        // Resizing follows the pointer from where the handle really is: a
+        // handle kept inside the view (or grabbed off-centre) doesn't jump.
+        _grab = handle == null || handle == SelectionHandle.rotate
+            ? Offset.zero
+            : frame.at(handle.fraction) - p.world;
         return;
       }
     }
@@ -112,7 +120,7 @@ class LassoTool implements PointerTool {
         final result = switch (_handle) {
           null => frame.moved(p.world - _startWorld),
           SelectionHandle.rotate => frame.rotatedTowards(p.world),
-          final handle => frame.resized(handle, p.world),
+          final handle => frame.resized(handle, p.world + _grab),
         };
         selection.setPreview(result.transform, result.frame);
         if (_handle == null) dragOut?.dragging(p.screen, _centreOnScreen);
