@@ -6,6 +6,9 @@ import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:len/ui/group_header.dart';
+import 'package:len/ui/hit_overhang.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'screenshots/screenshot_harness.dart';
 
@@ -59,6 +62,7 @@ Future<AppServices> pumpScreen(
         theme: _theme(AppTheme.light()),
         darkTheme: _theme(AppTheme.dark()),
         themeMode: mode,
+        builder: (context, child) => HitOverhangScope(child: child!),
         home: home(services),
       ),
     ),
@@ -227,6 +231,41 @@ void main() {
     }
   }
 
+  // Controls whose hit area hangs past their box (HitOverhang): the
+  // guideline skips them where they touch a scrollable's edge, so check
+  // them here: the full touch target, and taps anywhere on it count.
+  group('overhanging hit areas on touch', () {
+    testWidgets('Reset and Custom in tool popovers', (tester) async {
+      await pumpScreen(tester, (s) => EditorScreen(notebook: physics(s)), size: tablet);
+      await tapAll(tester, toolOptions('Eraser (E)'));
+      expectTouchTarget(tester, find.widgetWithText(EndTextButton, 'Reset'));
+      await tester.tapAt(const Offset(1, 1)); // Closes the popover.
+      await settle(tester);
+      await tapAll(tester, toolOptions('Pen (P)'));
+      final custom = find.widgetWithText(EndTextButton, 'Custom');
+      final plate = expectTouchTarget(tester, custom);
+      // The header keeps the button's visual height.
+      expect(tester.getSize(custom).height, plate.height);
+      final hit = tester.getRect(_buttonIn(custom));
+      // A tap on the overhang, above the plate and past the content edge.
+      await tester.tapAt(hit.topRight + const Offset(-1, 1));
+      await settle(tester);
+      expect(find.byIcon(Symbols.expand_less_sharp), findsOneWidget);
+    });
+
+    testWidgets('a sheet’s ✕ past the content edge', (tester) async {
+      await pumpScreen(tester, (_) => const LibraryScreen(), size: phone);
+      await tapAll(tester, [find.bySemanticsLabel('New notebook')]);
+      final close = find.byTooltip('Close');
+      final rect = tester.getRect(close);
+      expect(rect.width, greaterThanOrEqualTo(Targets.touch));
+      expect(rect.height, greaterThanOrEqualTo(Targets.touch));
+      await tester.tapAt(rect.centerRight - const Offset(1, 0));
+      await settle(tester);
+      expect(close, findsNothing);
+    });
+  });
+
   // Large text (the largest Android font size is 2×): nothing overflows,
   // and the guidelines still hold.
   for (final (name, size) in [('phone', phone), ('tablet', tablet)]) {
@@ -245,3 +284,21 @@ void main() {
     }
   }
 }
+
+/// Checks that [button] (an [EndTextButton]) is [Targets.touch] square to a
+/// finger while its plate keeps the button's visual height; returns the
+/// plate.
+Rect expectTouchTarget(WidgetTester tester, Finder button) {
+  final hit = tester.getRect(_buttonIn(button));
+  expect(hit.width, greaterThanOrEqualTo(Targets.touch));
+  expect(hit.height, greaterThanOrEqualTo(Targets.touch));
+  final semantics = tester.getSemantics(_buttonIn(button));
+  expect(semantics.rect.height, greaterThanOrEqualTo(Targets.touch));
+  final plate = tester.getRect(find.descendant(of: button, matching: find.byType(Material)).first);
+  expect(plate.height, EndTextButton.height);
+  return plate;
+}
+
+/// The button (padded to its hit area) inside [finder].
+Finder _buttonIn(Finder finder) =>
+    find.descendant(of: finder, matching: find.byWidgetPredicate((w) => w is TextButton));

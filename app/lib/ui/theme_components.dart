@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
 import 'field_border.dart';
+import 'group_header.dart';
 import 'theme_controls.dart';
 
 /// Component themes shared by the light and dark [AppTheme]s (DESIGN §6):
@@ -152,10 +153,9 @@ extension ThemeComponents on ThemeData {
         labelTextStyle: WidgetStatePropertyAll(textTheme.labelLarge),
       ),
       menuTheme: MenuThemeData(
-        // A sharp chevron, not Material's filled triangle.
-        submenuIcon: const WidgetStatePropertyAll(
-          Icon(Symbols.chevron_right_sharp, size: Glyphs.menu),
-        ),
+        // A sharp chevron, not Material's filled triangle, its tip on the
+        // row's end edge.
+        submenuIcon: const WidgetStatePropertyAll(MenuChevron()),
         style: MenuStyle(
           backgroundColor: WidgetStatePropertyAll(overlay),
           surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
+import 'hit_overhang.dart';
 import 'section_label.dart';
 
 /// The heading of a group inside a popover or sheet (DESIGN §6.2:
@@ -54,9 +56,11 @@ class GroupHeader extends StatelessWidget {
 
 /// A quiet text button at the end of a row (a popover's Reset, a group's
 /// Custom): its label sits flush with the content's end edge, the padding
-/// of its hover plate hanging past it, like a value readout's. It is
-/// [height] tall whatever the input, so rows holding one keep one height
-/// (a title's baseline doesn't move with or without it).
+/// of its hover plate hanging past it, like a value readout's. It takes
+/// [height] whatever the input, so rows holding one keep one height (a
+/// title's baseline doesn't move with or without it); on touch its hit
+/// area still reaches [Targets.touch], hanging over the gaps around the
+/// row ([HitOverhang]), like a bar button's padding.
 class EndTextButton extends StatelessWidget {
   const EndTextButton({super.key, required this.label, required this.onPressed, this.icon});
 
@@ -77,11 +81,13 @@ class EndTextButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hit = Targets.of(context, height);
     final style = TextButton.styleFrom(
-      minimumSize: Size(0, height),
+      minimumSize: Size(hit, height),
       maximumSize: Size(double.infinity, height),
       padding: const EdgeInsets.symmetric(horizontal: _pad),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      // Padded to 48 on touch, as bar buttons are.
+      tapTargetSize: hit > height ? MaterialTapTargetSize.padded : MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.standard,
     );
     final button = switch (icon) {
@@ -93,8 +99,10 @@ class EndTextButton extends StatelessWidget {
       ),
       null => TextButton(onPressed: onPressed, style: style, child: Text(label)),
     };
-    final rtl = Directionality.of(context) == TextDirection.rtl;
-    return Transform.translate(offset: Offset(rtl ? -_pad : _pad, 0), child: button);
+    return HitOverhang(
+      overhang: EdgeInsetsDirectional.fromSTEB(0, (hit - height) / 2, _pad, (hit - height) / 2),
+      child: button,
+    );
   }
 }
 
@@ -109,5 +117,27 @@ class EndChevron extends StatelessWidget {
   Widget build(BuildContext context) {
     final rtl = Directionality.of(context) == TextDirection.rtl;
     return Transform.translate(offset: Offset(rtl ? -Gaps.xs : Gaps.xs, 0), child: child);
+  }
+}
+
+/// A menu row's trailing chevron (a submenu): its glyph's tip, not the
+/// glyph's empty margin, on the row's end edge, where a switch, a shortcut
+/// or a check mark ends too.
+class MenuChevron extends StatelessWidget {
+  const MenuChevron({super.key});
+
+  /// The empty margin each side of the chevron glyph, as a share of its
+  /// size (Material Symbols Sharp `chevron_right`).
+  static const double _margin = 0.37;
+
+  @override
+  Widget build(BuildContext context) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    const nudge = Glyphs.menu * _margin;
+    // Painted past its box: the row, not the glyph, takes the taps.
+    return Transform.translate(
+      offset: Offset(rtl ? -nudge : nudge, 0),
+      child: const Icon(Symbols.chevron_right_sharp, size: Glyphs.menu),
+    );
   }
 }

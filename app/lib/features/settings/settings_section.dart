@@ -7,7 +7,9 @@ import '../../ui/section_label.dart';
 /// Board, no plate and no shadow. A hairline opens the section; the
 /// heading (Small label, Graphite) hangs in the left margin column on wide
 /// screens and sits above the rows on narrow ones; rows are separated by
-/// hairlines that start at the text; an optional description follows.
+/// hairlines that start at the text. An optional description says what
+/// the section is for before its rows (the explanation before the form),
+/// level with the heading.
 ///
 /// The section is laid out [SettingsTile.edge] wider than the margin on
 /// each side, so a row's hover and press plate overhangs the text a
@@ -41,6 +43,18 @@ class SettingsSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (description case final text?)
+                  Padding(
+                    // At the rows' text; level with a hanging heading, under
+                    // one above the rows.
+                    padding: EdgeInsets.fromLTRB(
+                      hangs ? SettingsTile.textInset : edge,
+                      hangs ? Gaps.lg : 0,
+                      edge,
+                      Gaps.xs,
+                    ),
+                    child: Text(text, style: theme.textTheme.bodySmall),
+                  ),
                 for (var i = 0; i < children.length; i++) ...[
                   if (i > 0)
                     Divider(
@@ -52,18 +66,6 @@ class SettingsSection extends StatelessWidget {
                     ),
                   children[i],
                 ],
-                if (description case final text?)
-                  Padding(
-                    // Under the rows' text; a section without rows under its
-                    // heading starts at the margin.
-                    padding: EdgeInsets.fromLTRB(
-                      children.isEmpty && !hangs ? edge : SettingsTile.textInset,
-                      children.isEmpty ? Gaps.md : Gaps.xs,
-                      edge,
-                      0,
-                    ),
-                    child: Text(text, style: theme.textTheme.bodySmall),
-                  ),
               ],
             ),
           );

@@ -5,18 +5,24 @@ import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/chrome/editor_top_bar.dart';
 import 'package:len/features/editor/chrome/title_button.dart';
 import 'package:len/features/editor/tabs/notebook_tab_strip.dart';
+import 'package:len/ui/app_theme.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'split_view_test.dart';
 
-/// The opacity the chrome of pane [index] (0: left) is drawn at.
+/// How strong the chrome of pane [index] (0: left) is drawn: 1, or
+/// [Receding.opacity] while it recedes (its glyphs fade toward the bar).
 double chromeOpacity(WidgetTester tester, int index) {
   final chrome = find.byType(EditorChrome).at(index);
   final bar = find.descendant(of: chrome, matching: find.byTooltip('More options'));
-  return tester
+  final scheme = Theme.of(tester.element(bar)).colorScheme;
+  final ink = AppTheme.scheme(scheme.brightness).onSurface;
+  final faded = tester
       .widgetList<AnimatedOpacity>(find.ancestor(of: bar, matching: find.byType(AnimatedOpacity)))
       .map((o) => o.opacity)
       .fold(1.0, (a, b) => a * b);
+  final strength = (scheme.onSurface.r - scheme.surface.r) / (ink.r - scheme.surface.r);
+  return double.parse((faded * strength).toStringAsFixed(3));
 }
 
 void main() {
@@ -58,6 +64,15 @@ void main() {
       find.ancestor(of: bar, matching: find.byType(AnimatedOpacity)),
     );
     expect(above.every((o) => o.opacity == 1), isTrue, reason: 'the bar itself is not faded');
+    // Ink is content: the quick colours keep their true colour.
+    final swatch = find.descendant(
+      of: find.byType(EditorChrome).at(0),
+      matching: find.byKey(const ValueKey('color-0')),
+    );
+    final faded = tester.widgetList<AnimatedOpacity>(
+      find.ancestor(of: swatch, matching: find.byType(AnimatedOpacity)),
+    );
+    expect(faded.every((o) => o.opacity == 1), isTrue, reason: 'ink swatches are not faded');
   });
 
   testWidgets('split view: both bars name their notebook; the strip marks both', (tester) async {
@@ -112,6 +127,7 @@ void main() {
       await tester.pump();
     }
     expect(find.text('Drop to copy here'), findsOneWidget);
+    await tester.pump(Motion.medium); // The chrome comes forward.
     expect(chromeOpacity(tester, 1), 1, reason: 'the drop target reads as live, not greyed');
     await drag.up();
     await tester.pumpAndSettle();

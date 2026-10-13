@@ -211,7 +211,10 @@ red. Popovers pad 16, title Heading, a hairline only between groups.
 **Dialogs:** Sheet, radius `lg`, hairline, 24 padding, Heading title
 left-aligned, Body in Graphite, actions right-aligned (quiet Cancel, Ink
 primary). **Sheets** (phones): Sheet, `lg` top corners, a 32 × 3 Pencil
-handle, full-width stacked actions, primary on top.
+handle, full-width stacked actions, primary on top. Stacked actions, in
+sheets and in dialogs too narrow for a row, follow one rule
+(`DialogActions`): primary Ink on top, alternatives outlined (Pencil),
+Cancel quiet at the bottom.
 
 **Sidebar rows:** no filled selection pill or plate; the current row gets
 the margin rule (2 × 20 dp ruling blue at its left edge) and a bold Ink
@@ -305,9 +308,8 @@ Dialog (≥ 600): Sheet over scrim         Sheet (phones)
 │ └──────────────────────────────┘ │     │ ┌──────────────────────────┐ │
 │                   Cancel  [Move] │     │ │         Create           │ │ Ink
 └──────────────────────────────────┘     │ └──────────────────────────┘ │
-                                         │ ┌──────────────────────────┐ │
-                                         │ │         Cancel           │ │ outlined
-                                         └─┴──────────────────────────┴─┘
+                                         │           Cancel             │ quiet
+                                         └──────────────────────────────┘
 ```
 
 ### 6.4 Settings
@@ -316,7 +318,11 @@ Sections are open ruled lists on Board, not cards: a hairline opens each
 section; its Small label heading (Graphite) hangs in a 160-dp margin column
 on wide screens (≥ 600 dp of column, text under 1.5×) and sits above the
 rows on narrow ones; rows are separated by hairlines that start at the text;
-controls right-aligned on wide rows, below on narrow ones. A row's press
+controls right-aligned on wide rows, below on narrow ones. A section's
+description says what it is for before its rows (the explanation before
+the form), in Caption, level with a hanging heading; a section never ends
+up as a lone sentence (where nothing can be set, a status row says what
+there is). A row's press
 plate overhangs its icon by 8 dp, so icons, headings and rules keep to the
 margin column.
 
@@ -480,7 +486,6 @@ thumb. Next, by area:
   without a caption centres its title on the ☰.
 
 Known, left as is: dark-mode screenshots render light-on-dark text a little
-heavier than on devices (rasteriser gamma); the inactive split pane fades
-its whole tool row including ink swatches (`Receding`); planner page
+heavier than on devices (rasteriser gamma); planner page
 weekday headers are capitals (printed content); the menu switch overhangs
 the submenu chevrons' glyph column by a few dp.
