@@ -60,6 +60,12 @@ abstract final class SearchSchema {
       .select("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'search_fts'")
       .isNotEmpty;
 
+  /// Whether schema object [name] belongs to the optional FTS5 index (its
+  /// virtual and shadow tables and its triggers), which [ensureFts] adds.
+  static bool isFtsObject(String name) =>
+      name.startsWith('search_fts') ||
+      const {'search_docs_ai', 'search_docs_ad', 'search_docs_au'}.contains(name);
+
   /// Creates the FTS5 index and its sync triggers if FTS5 is available.
   /// Returns whether the index exists afterwards.
   static bool ensureFts(CommonDatabase db) {
