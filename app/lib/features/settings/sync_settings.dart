@@ -184,7 +184,7 @@ class _SyncSettingsState extends State<SyncSettings> {
           spacing: Gaps.sm,
           runSpacing: Gaps.sm,
           children: [
-            FilledButton.tonalIcon(
+            OutlinedButton.icon(
               onPressed: _sync.state == SyncState.syncing ? null : () => unawaited(_sync.syncNow()),
               icon: const Icon(Symbols.sync_sharp, size: Glyphs.menu),
               label: const Text('Sync now'),

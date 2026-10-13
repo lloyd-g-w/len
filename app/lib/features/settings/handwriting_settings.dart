@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../ink/recognition/handwriting_recognizer.dart';
 import '../../ink/recognition/recognition_languages.dart';
 import '../../ink/recognition/recognition_service.dart';
+import '../../ui/app_switch.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
 import '../../ui/sheet_parts.dart';
@@ -101,9 +102,13 @@ class HandwritingSettings extends StatelessWidget {
       title: 'Search handwriting',
       subtitle: status,
       onTap: () => unawaited(recognition.setIndexingEnabled(!recognition.indexingEnabled)),
-      trailing: Switch(
-        value: recognition.indexingEnabled,
-        onChanged: (v) => unawaited(recognition.setIndexingEnabled(v)),
+      trailing: ExcludeFocus(
+        // The row is the target and the focus stop.
+        child: AppSwitch(
+          padded: false,
+          value: recognition.indexingEnabled,
+          onChanged: (v) => unawaited(recognition.setIndexingEnabled(v)),
+        ),
       ),
     );
   }
@@ -127,7 +132,7 @@ class HandwritingSettings extends StatelessWidget {
         ModelStatus.unknown => 'Checking…',
       },
       trailing: switch (status) {
-        ModelStatus.missing => FilledButton.tonal(
+        ModelStatus.missing => OutlinedButton(
           onPressed: () => unawaited(recognition.download()),
           child: Text(failed ? 'Try again' : 'Download'),
         ),

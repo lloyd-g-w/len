@@ -5,6 +5,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/features/settings/handwriting_settings.dart';
 import 'package:len/ink/recognition/handwriting_recognizer.dart';
 import 'package:len/ink/recognition/recognition_languages.dart';
+import 'package:len/ui/app_switch.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'support/fake_recognizer.dart';
@@ -51,7 +52,7 @@ void main() {
     expect(recognition.language, 'de-DE');
     expect(find.text('Deutsch'), findsOneWidget); // the tile's subtitle
 
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.byType(AppSwitch));
     await tester.pumpAndSettle();
     expect(recognition.indexingEnabled, isFalse);
     expect(recognition.indexer.isActive, isFalse);
@@ -94,7 +95,7 @@ void main() {
     final services = await pumpSettings(tester, FakeRecognizer(supported: false));
     expect(find.textContaining('written on Android is recognised there'), findsOneWidget);
     expect(find.text('Search handwriting'), findsNothing, reason: 'no row that isn\'t a control');
-    expect(find.byType(Switch), findsNothing, reason: 'no dead toggles');
+    expect(find.byType(AppSwitch), findsNothing, reason: 'no dead toggles');
     expect(find.text('Language'), findsNothing);
 
     services.database.db.execute(
