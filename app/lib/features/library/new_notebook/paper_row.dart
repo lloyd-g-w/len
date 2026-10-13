@@ -40,7 +40,7 @@ class PaperRow extends StatelessWidget {
       builder: (context, constraints) {
         // Every tile fits when it can; on phones the row scrolls.
         final fit = constraints.maxWidth / (entries.length + 1) - _tileChrome;
-        final portrait = fit.clamp(52.0, 64.0);
+        final portrait = fit.clamp(48.0, 64.0);
         return _row(current, entries, listed, landscape ? portrait * 1.3 : portrait);
       },
     );

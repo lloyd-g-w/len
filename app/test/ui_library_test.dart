@@ -131,6 +131,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('on a wide screen every paper tile fits beside the title field', (tester) async {
+    await pumpLibrary(tester, size: const Size(1440, 900));
+    await tester.tap(find.text('New notebook'));
+    await tester.pumpAndSettle();
+    // The paper row doesn't need to scroll.
+    final row = find.ancestor(of: find.text('All templates…'), matching: find.byType(Scrollable));
+    final position = tester.state<ScrollableState>(row.first).position;
+    expect(position.maxScrollExtent, lessThan(0.5));
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('a new notebook from a planner template gets one page per day', (tester) async {
     final services = await pumpLibrary(tester);
     await tester.tap(find.text('New notebook'));
