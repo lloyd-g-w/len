@@ -6,10 +6,11 @@ import '../../../ui/menus.dart';
 /// What the "Link…" menu offers.
 enum LinkChoice { page, url, remove }
 
-/// Shows the "Link…" menu under [anchor]: link to a page or a web address,
-/// and with [canRemove] remove the existing link.
+/// Shows the "Link…" menu under [anchor] (the button chosen: the selection
+/// pill's ⋯ or the PDF bar's link), rather than over it: link to a page or a
+/// web address, and with [canRemove] remove the existing link.
 Future<LinkChoice?> showLinkMenu(BuildContext anchor, {bool canRemove = false}) =>
-    showContextMenuAt<LinkChoice>(
+    showMenuBelow<LinkChoice>(
       anchor,
       items: [
         const MenuRow(

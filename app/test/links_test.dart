@@ -61,6 +61,11 @@ void main() {
 
     await selectionAction(tester, 'Link…');
     await tester.pumpAndSettle();
+    // The link menu opens below the selection pill, not over it.
+    expect(
+      tester.getRect(find.text('Link to page…')).top,
+      greaterThan(tester.getRect(find.byTooltip('More')).bottom),
+    );
     await tester.tap(find.text('Link to page…'));
     await tester.pumpAndSettle();
     expect(find.text('Page 1 (this page)'), findsOneWidget);

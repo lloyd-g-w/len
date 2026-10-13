@@ -250,6 +250,9 @@ class SurfaceModel extends ChangeNotifier {
   /// Sets (or with null, removes) what [owner] draws in place of the items
   /// it hides.
   void setLifted(Object owner, LiftedPaint? paint) {
+    // A selection or text session outliving the model (disposed later in
+    // teardown) lets go of nothing that still draws.
+    if (_disposed) return;
     if (paint == null) {
       if (_lifted.remove(owner) == null) return;
     } else {
@@ -262,7 +265,7 @@ class SurfaceModel extends ChangeNotifier {
 
   /// [owner]'s lifted content changed (it moved, was retyped).
   void liftedChanged(Object owner) {
-    if (_lifted.containsKey(owner)) _notifyLifted(owner);
+    if (!_disposed && _lifted.containsKey(owner)) _notifyLifted(owner);
   }
 
   /// Whose lifted content changed last (see [ForeignLiftedChanges]).
