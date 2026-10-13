@@ -356,6 +356,11 @@ everywhere.**
   - One date style in both names.
   - "Len opens PDFs, images and Len files".
 
+*Partly done (`fix/r8-library`):* the folder menu says "Export…" like the
+notebook menu, and the format segment says "Len file" (names only at large
+text, so it stays on one line). The backup, restore and import wording is
+`fix/r8-data`'s.
+
 **R8-21 P2 · Import errors read backwards and don't say what to do.**
 - *What:* `'${e.message}: couldn’t import $name'` (`len_file_flows.dart:125`;
   the messages are at `data/archive/len_format.dart:168,185`) gives "This

@@ -68,27 +68,23 @@ class ExportFormatPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final large = MediaQuery.textScalerOf(context).scale(1) > 1.15;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SegmentedButton<ExportFormat>(
           showSelectedIcon: false,
           segments: [
-            const ButtonSegment(
-              value: ExportFormat.pdf,
-              icon: Icon(Symbols.picture_as_pdf_sharp),
-              label: Text('PDF'),
-            ),
-            const ButtonSegment(
-              value: ExportFormat.png,
-              icon: Icon(Symbols.image_sharp),
-              label: Text('PNG'),
-            ),
-            if (len)
-              const ButtonSegment(
-                value: ExportFormat.len,
-                icon: Icon(Symbols.stylus_note_sharp),
-                label: Text('Len'),
+            for (final (value, icon) in [
+              (ExportFormat.pdf, Symbols.picture_as_pdf_sharp),
+              (ExportFormat.png, Symbols.image_sharp),
+              if (len) (ExportFormat.len, Symbols.stylus_note_sharp),
+            ])
+              ButtonSegment(
+                value: value,
+                // Large text: names only, on one line ("Len file").
+                icon: large ? null : Icon(icon),
+                label: Text(value == ExportFormat.len ? 'Len file' : value.label, maxLines: 1),
               ),
           ],
           selected: {format},

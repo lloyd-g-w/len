@@ -143,7 +143,7 @@ void main() {
   testWidgets('a Len file is the whole notebook: no pages or layers to choose', (tester) async {
     await open(tester);
     expect(find.text('Pages'), findsOneWidget);
-    await tester.tap(find.text('Len'));
+    await tester.tap(find.text('Len file'));
     await tester.pumpAndSettle();
     expect(find.text('Whole notebook, Len file'), findsOneWidget);
     expect(find.text('Pages'), findsNothing);
