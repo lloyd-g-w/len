@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/preferences.dart';
+import '../../ui/app_theme.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/audio_bar_button.dart';
 import 'chrome/chrome_metrics.dart';
@@ -9,12 +10,14 @@ import 'chrome/editor_tips.dart';
 import 'chrome/editor_top_bar.dart';
 import 'chrome/gesture_hud.dart';
 import 'chrome/missing_pdf_notice.dart';
+import 'chrome/parked_pane_notice.dart';
 import 'chrome/tool_puck.dart';
 import 'document/document_layout.dart';
 import 'editor_actions.dart';
 import 'editor_session.dart';
 import 'editor_toolbar.dart';
 import 'images/editor_images.dart';
+import 'split/split_controller.dart';
 import 'tabs/open_notebooks.dart';
 import 'toolbar/insert_menu.dart';
 import 'toolbar/toolbar_metrics.dart';
@@ -125,7 +128,11 @@ class EditorChromeHost extends StatelessWidget {
     this.splitMenu,
     this.navigatorActivity,
     this.dimmed = false,
+    this.split,
   });
+
+  /// The workspace's split view (to say when its parked pane records).
+  final SplitController? split;
 
   /// The other pane of a split view is in use: this pane's chrome dims.
   final bool dimmed;
@@ -167,6 +174,22 @@ class EditorChromeHost extends StatelessWidget {
   }
 
   /// Paged notebooks: says when a PDF their pages are drawn on is missing.
+  /// The standing notices: the parked pane recording, a missing PDF.
+  Widget? _notices() {
+    final parked = split == null || secondPane ? null : ParkedPaneNotice(split: split!);
+    final pdf = _missingPdfNotice();
+    if (parked == null) return pdf;
+    if (pdf == null) return parked;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        parked,
+        const SizedBox(height: Gaps.sm),
+        pdf,
+      ],
+    );
+  }
+
   Widget? _missingPdfNotice() {
     final doc = session.doc;
     final commands = session.commands;
@@ -195,7 +218,7 @@ class EditorChromeHost extends StatelessWidget {
         hud: hud,
         tips: tips,
         dimmed: dimmed,
-        notice: _missingPdfNotice(),
+        notice: _notices(),
         onExitFocus: commands.toggleFocus,
         floatAt: prefs.toolbarFloat,
         onFloatMoved: (at) => prefs.toolbarFloat = at,

@@ -120,6 +120,19 @@ class SplitController extends ChangeNotifier {
     return available || !pane.secondary;
   }
 
+  /// The pane alive but not on screen (the second pane while there is no
+  /// room for two, e.g. a tablet turned to portrait), if any.
+  SplitPane? get parked {
+    if (_solo != null) return null; // Focus mode shows one on purpose.
+    return _panes.where((p) => !isShown(p)).firstOrNull;
+  }
+
+  /// Shows the [parked] pane's notebook here instead (swaps the panes).
+  void showParked() {
+    if (parked == null) return;
+    tabs.swapSplit();
+  }
+
   /// Starts tracking [pane] (an editor shown in the workspace).
   void attach(SplitPane pane) {
     _panes.add(pane);

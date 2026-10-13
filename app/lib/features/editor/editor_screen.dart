@@ -532,6 +532,7 @@ class _EditorScreenState extends State<_EditorView> {
   Widget _chromeHost(ChromeLayout layout, OpenNotebooks? tabs, bool band, {required bool dimmed}) =>
       EditorChromeHost(
         dimmed: dimmed,
+        split: widget.split,
         session: _session,
         layout: layout,
         commands: _commands,

@@ -230,9 +230,12 @@ void main() {
       reason: 'files go to the shown pane',
     );
     expect(find.byTooltip('Close this pane'), findsNothing);
+    // The pane on screen says the parked one records.
+    expect(find.text('Recording in “Chemistry”'), findsOneWidget);
 
     tester.view.physicalSize = const Size(1280, 800);
     await tester.pumpAndSettle();
+    expect(find.text('Recording in “Chemistry”'), findsNothing, reason: 'both shown again');
     expect(find.byType(EditorScreen), findsNWidgets(2));
     expect(tester.state(find.byType(EditorScreen).last), same(secondEditor));
     expect(sessionsOf(tester)[1], same(right));
@@ -298,5 +301,41 @@ void main() {
       expect(tester.takeException(), isNull);
       await closeEditor(tester);
     });
+  });
+
+  testWidgets('a parked pane that records: Show swaps it in, Stop stops it', (tester) async {
+    final audio = FakeAudio();
+    final (s, physics, chemistry) = await pumpWorkspace(tester, audio: audio.backends);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    final recording = tester.widgetList<AudioBarButton>(find.byType(AudioBarButton)).last.audio;
+    await tester.runAsync(() async {
+      expect(await recording.recorder.start(), isTrue);
+    });
+    tester.view.physicalSize = const Size(800, 1280);
+    await tester.pumpAndSettle();
+    expect(find.text('Recording in “Chemistry”'), findsOneWidget);
+
+    await tester.tap(find.text('Show'));
+    await tester.pumpAndSettle();
+    expect(s.openNotebooks.activeId, chemistry.id, reason: 'Chemistry is on screen now');
+    expect(find.text('Recording in “Chemistry”'), findsNothing);
+    // Physics is parked now, and records nothing: no notice.
+    expect(find.byKey(const ValueKey('parked-recording')), findsNothing);
+
+    // Back, then Stop from the notice.
+    s.openNotebooks.swapSplit();
+    await tester.pumpAndSettle();
+    expect(find.text('Recording in “Chemistry”'), findsOneWidget);
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+    });
+    await tester.tap(find.text('Stop'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pumpAndSettle();
+    expect(recording.recorder.state, RecorderState.idle);
+    expect(find.byKey(const ValueKey('parked-recording')), findsNothing);
+    expect(s.openNotebooks.activeId, physics.id);
+    await closeEditor(tester);
   });
 }
