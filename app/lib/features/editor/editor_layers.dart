@@ -101,7 +101,7 @@ class EditorLayers extends StatelessWidget {
         Positioned.fill(
           child: EditorSearchLayer(
             controller: search,
-            top: layout.covered.top,
+            covered: layout.covered,
             onClose: focusNode.requestFocus,
           ),
         ),

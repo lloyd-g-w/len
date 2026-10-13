@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../../../app_services.dart';
 import '../../../data/search/search_index.dart';
@@ -61,7 +62,7 @@ class EditorSearchController extends ChangeNotifier {
     required this.notebookId,
     required this.host,
     required this.glyphs,
-    this.topInset = 132,
+    this.clear = const EdgeInsets.only(top: 132),
   }) {
     search.addListener(_onSearchChanged);
     glyphs.addListener(_onGlyphs);
@@ -117,9 +118,9 @@ class EditorSearchController extends ChangeNotifier {
   final EditorSearchHost host;
   final PdfGlyphCache glyphs;
 
-  /// Screen space at the top covered by the editor's chrome and the search
-  /// bar; revealed matches are kept below it.
-  double topInset;
+  /// Screen edges covered by the editor's chrome and the search bar;
+  /// revealed matches are kept clear of them.
+  EdgeInsets clear;
 
   /// Most matches listed (a very common word in a long PDF).
   static const int maxMatches = 1000;
@@ -297,14 +298,14 @@ class EditorSearchController extends ChangeNotifier {
     final rects = rectsOf(match);
     if (rects.isNotEmpty) {
       _refineWhenLoaded = null;
-      host.reveal(match.surfaceId, _union(rects), topInset: topInset);
+      host.reveal(match.surfaceId, _union(rects), clear: clear);
       return;
     }
     // PDF glyphs not loaded yet: show the page's top now, the exact spot
     // once they are.
     final size = match.pageSize ?? Size.zero;
     _refineWhenLoaded = match.pdf == null ? null : match;
-    host.reveal(match.surfaceId, Offset.zero & Size(size.width, 1), topInset: topInset);
+    host.reveal(match.surfaceId, Offset.zero & Size(size.width, 1), clear: clear);
   }
 
   static Rect _union(List<({Rect rect, double rotation})> rects) =>

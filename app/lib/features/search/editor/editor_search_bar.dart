@@ -80,15 +80,27 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
     if (compact) setState(() => _showList = false); // Let the page show.
   }
 
+  bool get _compact => MediaQuery.sizeOf(context).width < 600;
+
+  /// Next / previous match. Phones fold the list away first: it covers
+  /// half the screen, and the top of the first page can't scroll below it.
+  void _step(bool forward) {
+    if (_compact && _showList == true) setState(() => _showList = false);
+    forward ? _c.next() : _c.previous();
+  }
+
+  void _next() => _step(true);
+  void _previous() => _step(false);
+
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 600;
+    final compact = _compact;
     final showList = _showList ?? !compact;
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.f3): _c.next,
-        const SingleActivator(LogicalKeyboardKey.enter, shift: true): _c.previous,
-        const SingleActivator(LogicalKeyboardKey.f3, shift: true): _c.previous,
+        const SingleActivator(LogicalKeyboardKey.f3): _next,
+        const SingleActivator(LogicalKeyboardKey.enter, shift: true): _previous,
+        const SingleActivator(LogicalKeyboardKey.f3, shift: true): _previous,
         const SingleActivator(LogicalKeyboardKey.escape): _close,
         const SingleActivator(LogicalKeyboardKey.keyF, control: true): _focusField,
         const SingleActivator(LogicalKeyboardKey.keyF, meta: true): _focusField,
@@ -141,7 +153,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
             onChanged: _c.setQuery,
             textInputAction: TextInputAction.search,
             onSubmitted: (_) {
-              _c.next();
+              _next();
               _focus.requestFocus(); // Keep typing / pressing Enter.
             },
             decoration: const InputDecoration(
@@ -163,13 +175,13 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
         IconButton(
           tooltip: 'Previous (Shift+Enter)',
           visualDensity: density,
-          onPressed: hasMatches ? _c.previous : null,
+          onPressed: hasMatches ? _previous : null,
           icon: const Icon(Symbols.keyboard_arrow_up_rounded),
         ),
         IconButton(
           tooltip: 'Next (Enter)',
           visualDensity: density,
-          onPressed: hasMatches ? _c.next : null,
+          onPressed: hasMatches ? _next : null,
           icon: const Icon(Symbols.keyboard_arrow_down_rounded),
         ),
         IconButton(
