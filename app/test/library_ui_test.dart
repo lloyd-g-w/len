@@ -141,6 +141,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('at large text on a phone, folder names are not cut short', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpSeeded(tester, (s) {
+      s.folders.create(name: 'Sketches', color: 0xFFF08C00);
+      s.folders.create(name: 'School', color: 0xFF3B5BDB);
+    }, size: const Size(390, 844));
+    final paragraphs = tester
+        .renderObjectList<RenderParagraph>(
+          find.descendant(of: find.byType(FolderTile), matching: find.byType(RichText)),
+        )
+        .toList();
+    expect(paragraphs, isNotEmpty);
+    expect(paragraphs.where((p) => p.didExceedMaxLines), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the New… tile starts the grid and opens the create flow', (tester) async {
     final semantics = tester.ensureSemantics();
     late String folderId;
