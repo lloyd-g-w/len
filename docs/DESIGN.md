@@ -164,8 +164,8 @@ All shared; features never restyle them locally.
 Destructive primary: Correction red fill. Disabled: Rule fill, Graphite label.
 The new-notebook action (FAB) is a 56-dp Ink square, radius `md`.
 
-**Fields** (rulings): Ink 4 % tint (dark 8 %), radius `xs` on top, a 1-dp
-Pencil rule underneath; focused, the rule is 2-dp ruling blue; error,
+**Fields** (rulings): Ink 4 % tint (dark 6 %), radius `xs` on top, a 1-dp
+Graphite rule underneath; focused, the rule is 2-dp ruling blue; error,
 Correction red. Label inside the field, Caption when floating.
 
 ```
@@ -206,9 +206,12 @@ left-aligned, Body in Graphite, actions right-aligned (quiet Cancel, Ink
 primary). **Sheets** (phones): Sheet, `lg` top corners, a 32 × 3 Pencil
 handle, full-width stacked actions, primary on top.
 
-**Sidebar rows:** no filled selection pill; the current row gets the margin
-rule (2 × 20 dp ruling blue at its left edge), Ink label in 600 and an Ink
-4 % plate. Others: Graphite icons, Ink labels in 500.
+**Sidebar rows:** no filled selection pill or plate; the current row gets
+the margin rule (2 × 20 dp ruling blue at its left edge) and a bold Ink
+label. Others: Graphite icons, Ink labels in 500; hover is an Ink 4 % plate.
+
+**Dialog glyphs** (destructive and progress dialogs): the bare 28-dp glyph in
+its colour on the title's left edge, no tinted disc.
 
 ### 6.1 Library
 
@@ -342,6 +345,24 @@ primary buttons. Reviewed against the brief and the skill's list of defaults:
 | tinted near-black text | template chrome | true black ink; true neutral greys |
 | filled grey fields | stock Material look | ruled fields: tint plus a rule, thickening in blue on focus |
 
+After building, the screenshot critique (library, editor, toolbar and app
+surfaces suites, phone/tablet/desktop, light and dark) changed:
+
+| seen in the screenshots | revised |
+|---|---|
+| the current sidebar row on a grey plate read as the stock pill | plate removed: the margin rule and a bold label alone |
+| a Pencil field rule antialiased to 2.4:1 against the fill | the rule is Graphite: a line you write on, readable at a glance |
+| dark field fill (8 %) heavier than the Sheet around it | 6 % |
+| dialog glyphs in tinted circles: ornament | bare glyph |
+| dark "off" switch and slider tracks vanished into the Sheet | a lifted `#4A4A4A` off-track |
+| popovers scaling from 96 %: a soft Material bloom | fade plus a 4-dp drop from the anchor |
+| field label/hint styles fixed in the theme kept the UI font where tests swap it | left to Material's defaults (same Graphite colour) |
+
+Still open (feature-level, in the rollout): Material's stadium switch (Flutter
+offers no shape hook; an `AppSwitch` in `ui/` with a square thumb), grey
+folder tiles and gradient covers, the blue brand tile, the accent `+` on the
+new-notebook tile, white settings plates with a shadow, `·` meta strings.
+
 Also checked: no cream background, no terracotta, no acid accent on black, no
 monospace data labels, no arrows appended to buttons, no identical shadowed
 cards (settings and folders lose their plates).
@@ -383,4 +404,9 @@ thumb. Next, by area:
   hairline; text format bar on `FloatingPanel`.
 - **Copy:** remove `·` chains and any remaining all-caps; one name per action.
 - **App icon / splash:** Ink and ruling blue mark (`tool/branding`).
+- **Controls:** an `AppSwitch` in `ui/` (flat rectangular track, square
+  thumb, 44 × 24) replacing `Switch` / `SwitchListTile` (19 uses); every
+  `FilledButton.tonal` to `OutlinedButton` (the theme makes both Ink).
+- **Icons after merges:** other branches still add `Symbols.*_rounded`; re-run
+  the rename in the "Icons: Material Symbols Sharp" commit message.
 - **Tests:** refresh goldens per area as it lands.
