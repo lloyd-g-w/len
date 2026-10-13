@@ -989,31 +989,67 @@ before a tight turn, a loop) is the stroke's own and stays; clipping it
 too notched the body. The cap is square to the smoothed line over the
 last half radius: the shaper keeps the end sample where the pen was, and
 the step to it can turn 40° away from the line before it. The live tip
-is drawn as such an end too (below); pen-up redoes the end's zone with
-the settled samples (as it redoes an end taper); the start's zone freezes
-once it is settled. Round ends
-are unchanged (the Ink Lab table is the same).
+is drawn as such an end too (*A flat pen's live tip*, below); pen-up
+redoes the end's zone with the settled samples (as it redoes an end
+taper); the start's zone freezes once it is settled. Round ends are
+unchanged (the Ink Lab table is the same).
 
-**Flat ends in the overlay.** The Ink Lab's overlay metrics run with the
+**Flat ends in the overlay.** The Ink Lab's overlay metrics ran with the
 pen's round ends; with flat ends the overlay drew near-round ends, since
 its pieces are hulls of circles and the circles within a radius of a butt
 cap reach past it (`overlay.ghost` 4–9 px² on every simulated case at
 the default stabiliser, mostly at stroke starts and at the moving tip).
 The overlay's model now applies Flutter's flat-end rules
 (`lib/ink/lab/wet_ink_ends.dart`, ported to `WetInkEnds.kt`): the cap is
-square to the line over its last half radius, and the pieces next to an
-end that run its way while a circle still reaches past the cap are cut
-off at the cap's line (the start always, also when the drawn tail only
-reaches back near it; the end once Flutter has committed the stroke).
-The moving tip has no end zone in Flutter (its run just ends at its
-cross-section, or is round where the last piece folds), so there each
-piece is cut at the cross-section ahead of it, back to a fold, which
-Flutter draws round. `overlay_flat_ends_test.dart` holds every simulated
-case with flat ends to no gap and ≤ 2 px² ghost (now neither at the
-default stabiliser; at 0 and 1: ghost ≤ 2 px², no gaps but `hooks`@0, 8
-px² for one frame while its pen-down hook is undecided, and
-`fast_loops`@1, 1 px² at the start, as before). Pixel eraser fragments (F12) never reach the overlay;
-the highlighter is not drawn by it (translucent).
+square to the line over its last half radius, and within an end's zone
+(the points whose circles touch the end's, at most two widths:
+`WetInkShape.flatReach`) each piece is the flat nib's sweep between its
+cross-sections (corners included; `WetInkEnds.cutSweep` ports
+`emitSweep`), the zone's last stretch running the end's way cut off at the
+cap's line, at the start and at the moving tip alike. With a predicted tip
+the drawn line's end is not an end, so its cuts and sweeps are dropped
+there. Pixel eraser fragments (F12) never reach the overlay; the
+highlighter is not drawn by it (translucent).
+
+**A flat pen's live tip.** Flutter's live tip used to have no end zone:
+its run ended at its cross-section, square, unless the last piece folded
+back (a turn tighter than the radius, a pause, jitter), which was drawn
+round (a capsule), so the moving tip flickered between square and round
+while writing (`flat_ends_test.dart`, *moving tip*: 3 px of round ink
+past the tip coming out of a turn). Now the tip is drawn as its committed
+end will be: `RibbonEmitter.emit` treats the line's last sample as an end
+(its zone: sweeps and the cap's cut), and the live builder freezes nothing
+a tip zone may cover (two widths behind the shown tip), so the tail
+redraws that zone every frame: constant extra work. Pen-up still redoes
+the end's zone with the settled samples. The overlay mirrors it: the old
+tip rule (each piece cut at the cross-section ahead of it, back to a
+fold) is gone, the tip is an end like the start; and as Flutter's shown
+frame ends in a zone that has less ink than the line will have there
+(cut, swept), the overlay's tail now starts two widths before it.
+
+`tools/table_test.dart --dart-define=INKLAB_ENDS=both` (every entry with
+round, then flat ends, real recordings included), flat entries, before →
+after (round entries and every other flat metric unchanged, `pop.*` and
+`temporal.behindTip` 0 throughout; timings within noise):
+
+| Flat entry | before | after |
+|---|---|---|
+| `hooks@0`, `rec:sim_hooks@0` | `overlay.gap` **8 px²** | 0 |
+| `fast_loops@1` | `overlay.gap` **1 px²** | 0 |
+| `rec:real_spen_02@1` | `overlay.gap` **4 px²**, `overlay.ghost` **18 px²** | 0, 1 px² |
+| `cursive@1`, `long_stroke@1` | `overlay.ghost` 2 px² | 0 |
+| `rec:real_spen_01@0` | `overlay.ghost` 1 px² | 0 |
+| failing entries (limits: gap 0, ghost 2 px²) | 5 of 37 | **0** |
+| `perf.frameCost`, `long_stroke@0` | 80 µs | 78 µs |
+
+(With Flutter's square tip but the overlay's tip only cut at its cap, the
+overlay's round hulls stood out of the tip's sweeps: ghosts up to 13 px²
+on `real_spen_01@0`, and gaps where Flutter's shown tip zone had less ink
+than the line later has; both fixed as above.)
+`overlay_flat_ends_test.dart` holds every simulated case with flat ends
+to no gap and ≤ 2 px² ghost, and checks on Flutter's own live line, every
+frame, that the overlay's rules draw Flutter's tip (no gap, ≤ 1 px²
+ghost).
 
 ![Highlighter ends over tight turns, before (top) and now](inklab/highlighter_ends.png)
 
