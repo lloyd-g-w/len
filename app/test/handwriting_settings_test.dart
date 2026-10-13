@@ -90,10 +90,19 @@ void main() {
     await tester.pump(const Duration(seconds: 2)); // The scrollbar's fade.
   });
 
-  testWidgets('unsupported platforms explain why', (tester) async {
-    await pumpSettings(tester, FakeRecognizer(supported: false));
-    expect(find.text('Not available here'), findsOneWidget);
-    expect(find.text('Not here'), findsOneWidget);
-    expect(find.byType(Switch), findsNothing);
+  testWidgets('unsupported platforms explain that Android devices recognise', (tester) async {
+    final services = await pumpSettings(tester, FakeRecognizer(supported: false));
+    expect(find.textContaining('recognised on Android devices'), findsOneWidget);
+    expect(find.textContaining('Nothing recognised yet'), findsOneWidget);
+    expect(find.byType(Switch), findsNothing, reason: 'no dead toggles');
+    expect(find.text('Language'), findsNothing);
+
+    services.database.db.execute(
+      'INSERT INTO ink_text (surface_id, stroke_key, language, text, x, y, w, h) '
+      "VALUES ('p', 'k', 'en-US', 'hello', 0, 0, 1, 1)",
+    );
+    await tester.runAsync(services.recognition.indexer.run); // Notifies when done.
+    await tester.pump();
+    expect(find.textContaining('1 line from your Android devices'), findsOneWidget);
   });
 }

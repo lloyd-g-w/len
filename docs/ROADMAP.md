@@ -159,7 +159,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   current through undo and sync; results in the library and the editor with word highlights
 - ✅ Lasso "Convert to text": recognised text with alternatives, editable; replace the ink with a
   text box (same place, colour, size; one undo) or copy
-- ⬜ Handwriting recognition on Windows (WinRT ink analysis) / Linux / web; sync recognised text
+- ✅ Recognised handwriting syncs (`recognised_text`): Linux, Windows and web search handwriting
+  Android devices read (word highlights too); edited or erased ink loses its text everywhere at
+  once; Android devices reuse each other's readings
+- ⬜ Handwriting recognition on Windows (WinRT ink analysis) / Linux / web
 - ✅ Live cover thumbnails, ten cover colours
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
 - ✅ Create sheet with a live cover + first-page preview, Paper gallery and Cover colours, size and paper

@@ -1803,6 +1803,8 @@ boxes, the text of imported PDF pages and recognised handwriting (see
 ## Handwriting recognition (`ink/recognition/`, `platform/handwriting_recognizer*`)
 
 GoodNotes-style handwriting search and lasso "Convert to text", on-device.
+Android recognises; the text syncs (`recognised_text`), so every device
+searches it.
 
 - **Recogniser.** `HandwritingRecognizer` (strokes in writing order →
   candidates, best first; per-language model download) behind a
@@ -1817,7 +1819,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   `google_mlkit_digital_ink_recognition` (already on AGP 9 / built-in
   Kotlin); **Linux, Windows and web** get
   `UnavailableRecognizer` (WinRT ink analysis on Windows is a possible later
-  implementation). Models are BCP 47 tags (`RecognitionLanguages`); the
+  implementation) and search what Android devices recognised (synced). Models are BCP 47 tags (`RecognitionLanguages`); the
   language follows the device locale unless chosen in the settings.
 - **`RecognitionService`** (in `AppServices`) holds the language, the
   model's state (checks it at start; with indexing on, a missing model is
@@ -1825,7 +1827,9 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   demand with a progress bar — ML Kit reports no byte progress) and the
   `HandwritingIndexer`. Settings: language, "Search handwriting" (off
   forgets recognised text, on re-recognises everything) and model download
-  (Android manages removing models).
+  (Android manages removing models). Without a recogniser the section
+  explains that Android devices recognise and lists how many lines arrived
+  (no toggles); the indexer always runs there.
 - **Clustering** (`InkClustering`): a surface's strokes (highlighter
   excluded) become lines and words. The unit is the median stroke height;
   a stroke joins a line whose letter band it overlaps vertically (small
@@ -1834,17 +1838,30 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   within 1.5 s; lines on the same band are merged; words split at gaps wider
   than 0.6 × the line's letter height. A line's key is a hash of its stroke
   ids.
-- **Index.** Local, derived and **not synced** (results depend on the
-  device's model; strokes already sync, so every device can derive them —
-  syncing `ink_text` would let devices without a recogniser search, see
-  limitations): `ink_text(surface_id, stroke_key, language, text, rect,
-  words)` — one row per line, `words` = per-word boxes when the recognised
-  words match the word clusters — and `ink_text_queue(surface_id, version)`,
-  filled by **triggers on `strokes`** (insert, delete, and updates of
-  `deleted` / `points` / `surface_id`), so local edits, undo, duplicates and
-  sync all queue their surface without any call. Triggers mirror `ink_text`
-  into `search_docs` as kind `handwriting` (ref = row id), searched and
-  ranked like text boxes, with page numbers.
+- **Index.** Local and derived: `ink_text(surface_id, stroke_key,
+  language, text, rect, words)` — one row per line this device can show,
+  `words` = per-word boxes when the recognised words match the word
+  clusters — and `ink_text_queue(surface_id, version)`, filled by
+  **triggers on `strokes`** (insert, delete, and updates of `deleted` /
+  `points` / `surface_id`), so local edits, undo, duplicates and sync all
+  queue their surface without any call, and on `recognised_text` (remote
+  writes only: clean rows). Triggers mirror `ink_text` into `search_docs`
+  as kind `handwriting` (ref = row id), searched and ranked like text
+  boxes, with page numbers.
+- **Sync** (`RecognisedTextRepository`, collection `recognised_text`, one
+  record per surface: language + `[[line key, text], …]`, see
+  SYNC_PROTOCOL *Recognised handwriting*). Every device clusters its own
+  strokes and takes a line's text from the record only while a line with
+  that key exists, so edited or erased ink loses its text on every device
+  at once; boxes come from the local clustering, so records carry no
+  geometry. Per line, the indexer keeps its own row (same strokes and
+  language), else takes the synced text, else recognises (with a
+  recogniser) or leaves the line without text (without). Only recognising
+  devices write the record (`publish`: missing, other lines, or a language
+  the user chose here later — never for mere differences in reading, so
+  two phones can't ping-pong) and tombstone it when the ink is gone.
+  Without a recogniser the indexer only wakes for queued surfaces that
+  have a record and skips clustering for the others.
 - **Background work.** `HandwritingIndexer` listens to the database's commit
   stream (only on platforms with a recogniser and the model present), waits
   until no commit came for 3 s (the user stopped writing), then drains the
@@ -2035,9 +2052,12 @@ Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
 - Image bitmaps are whole-image decodes per mip level (no tiling); a 4096 px
   image is the sharpest it gets. Crop mode shows the image on its own (ink
   over it is hidden while cropping).
-- Handwriting: recognised only on Android (Linux, Windows and web find no
-  handwriting; recognised text is not synced, so they cannot borrow it
-  either); a changed surface is re-clustered from all its strokes (cheap per
+- Handwriting: recognised only on Android (Linux, Windows and web search
+  what Android devices recognised and synced; text of ink written there
+  appears once an Android device has synced and read it; a record of a
+  deleted page stays live until an Android device re-reads it, harmless as
+  it matches no ink; two Android devices online at once may both read new
+  ink before either's record arrives); a changed surface is re-clustered from all its strokes (cheap per
   page, heavier on huge canvases); a phrase is found only within one line;
   shapes drawn with the pen are recognised like writing (usually as
   nonsense); no pause while on battery.
