@@ -13,6 +13,10 @@ slim bar, one home per control, nothing parked over the page. Principles:
 
 ## 1. Design language
 
+> **Superseded by [`DESIGN.md`](DESIGN.md)** (Swiss minimal: Sofia Sans, ruling blue,
+> Material Symbols Sharp, flat chrome with hairlines). Kept for history; where they differ,
+> DESIGN.md wins.
+
 ### 1.1 Spacing, radii, surfaces, elevation
 
 **Spacing.** Keep `Gaps` (2, 4, 8, 12, 16, 24, 32, 48). In bars, controls sit 4 apart and
