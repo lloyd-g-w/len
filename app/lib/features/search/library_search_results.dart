@@ -126,9 +126,18 @@ class _LibrarySearchResultsState extends State<LibrarySearchResults> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(Gaps.xxs, Gaps.xl, 0, Gaps.md),
-              child: Text(
-                'Pages · ${count == 1 ? '1 match' : '$count matches'}',
-                style: SectionLabel.style(context),
+              // The label and the count as separate spans (DESIGN §2).
+              child: Row(
+                children: [
+                  const SectionLabel('Pages'),
+                  const SizedBox(width: Gaps.sm),
+                  Text(
+                    count == 1 ? '1 match' : '$count matches',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFeatures: AppTheme.tabularFigures,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -202,12 +211,22 @@ class _NotebookResultsState extends State<_NotebookResults> {
         children: [
           InkWell(
             onTap: () => widget.onOpen(context, notebook, null),
-            borderRadius: BorderRadius.circular(Radii.sm),
+            borderRadius: BorderRadius.circular(Radii.xs),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(Gaps.sm, Gaps.sm, Gaps.sm, Gaps.xs),
               child: Row(
                 children: [
-                  SizedBox(width: 28, height: 28 / 0.72, child: NotebookCover.of(notebook)),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(Radii.sm),
+                      boxShadow: Shadows.low(theme.brightness),
+                    ),
+                    child: SizedBox(
+                      width: 28,
+                      height: 28 / 0.72,
+                      child: NotebookCover.of(notebook, showFavorite: false),
+                    ),
+                  ),
                   const SizedBox(width: Gaps.md),
                   Expanded(
                     child: HighlightedText.of(
@@ -255,13 +274,16 @@ class _HitRow extends StatelessWidget {
   final SearchQuery query;
   final VoidCallback onTap;
 
+  /// Room for "Page 12" or "Canvas" before the snippet.
+  static const double _locationWidth = 48;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(Radii.sm),
+      borderRadius: BorderRadius.circular(Radii.xs),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.sm),
         child: Row(
@@ -269,15 +291,20 @@ class _HitRow extends StatelessWidget {
           children: [
             SizedBox(width: 28, child: SearchHitIcon(hit: hit)),
             const SizedBox(width: Gaps.md),
+            // Where the match is, as a plain label in a column of its own
+            // (no plate), so snippets line up.
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: 1),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(Radii.xs),
+              constraints: BoxConstraints(
+                minWidth: MediaQuery.textScalerOf(context).scale(_locationWidth),
               ),
+              // On the snippet's first line (16-dp label, 20-dp line).
+              padding: const EdgeInsets.only(top: Gaps.xxs),
               child: Text(
                 hitLocation(hit),
-                style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontFeatures: AppTheme.tabularFigures,
+                ),
               ),
             ),
             const SizedBox(width: Gaps.sm),
