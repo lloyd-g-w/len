@@ -99,6 +99,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
+    // The content search itself (titles, text boxes, PDF text), per query.
+    final queries = {
+      for (final q in ['m', 'meet', 'meeting a', 'zzz']) q: bestMs(() => s.search.search(q)),
+    };
+    final inNotebook = bestMs(() => s.search.search('m', notebookId: s.notebooks.list().first.id));
+    report('search: $queries ms; in one notebook ${inNotebook}ms');
     report(
       'library, 1,000 notebooks: first frame ${firstFrame}ms, settled ${settled}ms; '
       'scroll frames median ${frames[frames.length ~/ 2]}ms, max ${frames.last}ms, '
