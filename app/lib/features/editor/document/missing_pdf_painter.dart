@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/painting.dart';
 
+import '../../../ui/app_theme.dart';
+
 /// Paints what a page shows when its PDF background can't be had (UX_AUDIT
 /// #24): a quiet hatched sheet saying so, rather than a blank page that
 /// looks as if the PDF were simply empty. [page] is the page's size in page
@@ -33,7 +35,7 @@ void paintMissingPdf(Canvas canvas, Size page) {
     textDirection: TextDirection.ltr,
     text: TextSpan(
       style: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTheme.fontFamily,
         fontSize: size,
         height: 1.35,
         color: const Color(0xFF5F5F5A),

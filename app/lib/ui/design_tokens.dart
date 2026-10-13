@@ -7,24 +7,28 @@ import '../platform/coarse_pointer.dart';
 /// than literals so the app moves with one rhythm.
 abstract final class Motion {
   /// Small state changes: selection plates, icons swapping, hovers, and
-  /// popovers and menus scaling in from their anchor.
-  static const Duration fast = Duration(milliseconds: 120);
+  /// popovers and menus dropping in from their anchor.
+  static const Duration fast = Duration(milliseconds: 100);
 
   /// Chrome fading in and out, panels, chips and size changes.
-  static const Duration medium = Duration(milliseconds: 200);
+  static const Duration medium = Duration(milliseconds: 180);
 
   /// Larger surfaces entering: sheets, dialogs, route transitions.
-  static const Duration slow = Duration(milliseconds: 300);
+  static const Duration slow = Duration(milliseconds: 260);
 
   /// Travelling a distance on screen (scrolling to a page or a match).
-  static const Duration travel = Duration(milliseconds: 420);
+  static const Duration travel = Duration(milliseconds: 400);
 
   /// How far chrome slides toward its edge while it fades out (never a
   /// whole bar's height).
   static const double chromeSlide = 8;
 
-  /// The scale popovers and menus grow from, at their anchor.
-  static const double popoverScale = 0.96;
+  /// How far popovers and menus drop from their anchor while they fade in.
+  static const double popoverDrop = 4;
+
+  /// The scale menus grow from at their anchor (1: they only fade and
+  /// drop; DESIGN §5 has no scaling bloom).
+  static const double popoverScale = 1;
 
   /// Entering and settling (decelerate).
   static const Curve standard = Curves.easeOutCubic;
@@ -99,7 +103,7 @@ abstract final class Targets {
   static double menuRowHeight(BuildContext context) => touchFirst ? touch : menuRow;
 }
 
-/// Glyph sizes for Material Symbols, by where they sit.
+/// Glyph sizes for Material Symbols Sharp, by where they sit.
 abstract final class Glyphs {
   /// Bars and the toolbar.
   static const double bar = 20;
@@ -117,35 +121,48 @@ abstract final class Glyphs {
   static const double weight = 300;
 }
 
-/// Shadow levels, the only source of elevation (no Material `elevation`):
-/// level 1 ([low]) for `raised` surfaces, level 2 ([high]) for overlays.
-/// Dark mode adds a hairline border instead (see `Surfaces`).
+/// Hairlines (DESIGN §3): chrome is separated by 1-dp rules, as a ruled
+/// page separates its lines; the accent's margin rule is 2 dp.
+abstract final class Hairline {
+  /// A hairline: dividers, the edge of docked chrome, surface borders.
+  static const double width = 1;
+
+  /// The margin rule that marks where you are, and a focused field's rule.
+  static const double rule = 2;
+}
+
+/// Depth, the only source of elevation (no Material `elevation`; DESIGN
+/// §3): only paper has depth. Level 1 ([low], "contact") for paper at
+/// rest (pages, covers, thumbnails) and the floating palette; level 2
+/// ([high], "lifted") for slips over the page: popovers, menus, dialogs and
+/// dragged items. Chrome is flat. Raised and overlay surfaces also carry a
+/// hairline (see `Surfaces`).
 abstract final class Shadows {
-  /// Level 1: the floating palette, pills, the selection menu, covers.
+  /// Level 1: paper resting on the desk.
   static List<BoxShadow> low(Brightness b) => [
     BoxShadow(
-      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.30 : 0.05),
+      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.40 : 0.10),
+      blurRadius: 1,
+      offset: const Offset(0, 1),
+    ),
+    BoxShadow(
+      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.30 : 0.06),
+      blurRadius: 6,
+      offset: const Offset(0, 2),
+    ),
+  ];
+
+  /// Level 2: a slip held above the page.
+  static List<BoxShadow> high(Brightness b) => [
+    BoxShadow(
+      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.40 : 0.08),
       blurRadius: 2,
       offset: const Offset(0, 1),
     ),
     BoxShadow(
-      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.24 : 0.06),
-      blurRadius: 10,
-      offset: const Offset(0, 3),
-    ),
-  ];
-
-  /// Level 2: popovers, menus, dialogs and sheets.
-  static List<BoxShadow> high(Brightness b) => [
-    BoxShadow(
-      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.36 : 0.06),
-      blurRadius: 4,
-      offset: const Offset(0, 2),
-    ),
-    BoxShadow(
-      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.44 : 0.12),
-      blurRadius: 28,
-      offset: const Offset(0, 12),
+      color: const Color(0xFF000000).withValues(alpha: b == Brightness.dark ? 0.50 : 0.12),
+      blurRadius: 24,
+      offset: const Offset(0, 8),
     ),
   ];
 }

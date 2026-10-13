@@ -1,42 +1,47 @@
 import 'package:flutter/material.dart';
 
-/// The border of the app's filled text fields: a rounded box (outlined
-/// only when [borderSide] is visible, e.g. focused or in error) whose
-/// floating label stays *inside* the fill, as in a filled field, rather
-/// than sitting on the box's top edge as an [OutlineInputBorder] does.
-class FilledFieldBorder extends InputBorder {
-  const FilledFieldBorder({super.borderSide = BorderSide.none, required this.borderRadius});
+/// The border of the app's text fields (DESIGN §6, "fields are rulings"):
+/// a faint fill with [borderRadius] on its top corners and a rule along its
+/// bottom edge, drawn in [borderSide] (a 1-dp Pencil rule; 2-dp ruling blue
+/// when focused). The floating label stays inside the fill, as in a filled
+/// field.
+class RuledFieldBorder extends InputBorder {
+  const RuledFieldBorder({super.borderSide = BorderSide.none, required this.borderRadius});
 
-  final BorderRadius borderRadius;
+  /// The radius of the fill's top corners (the bottom ones are square, on
+  /// the rule).
+  final Radius borderRadius;
+
+  RRect _box(Rect rect) =>
+      RRect.fromRectAndCorners(rect, topLeft: borderRadius, topRight: borderRadius);
 
   @override
   bool get isOutline => false;
 
   @override
-  EdgeInsetsGeometry get dimensions => EdgeInsets.all(borderSide.width);
+  EdgeInsetsGeometry get dimensions => EdgeInsets.only(bottom: borderSide.width);
 
   @override
-  FilledFieldBorder copyWith({BorderSide? borderSide, BorderRadius? borderRadius}) =>
-      FilledFieldBorder(
-        borderSide: borderSide ?? this.borderSide,
-        borderRadius: borderRadius ?? this.borderRadius,
-      );
+  RuledFieldBorder copyWith({BorderSide? borderSide, Radius? borderRadius}) => RuledFieldBorder(
+    borderSide: borderSide ?? this.borderSide,
+    borderRadius: borderRadius ?? this.borderRadius,
+  );
 
   @override
-  FilledFieldBorder scale(double t) =>
-      FilledFieldBorder(borderSide: borderSide.scale(t), borderRadius: borderRadius * t);
+  RuledFieldBorder scale(double t) =>
+      RuledFieldBorder(borderSide: borderSide.scale(t), borderRadius: borderRadius * t);
 
   @override
   Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
-      Path()..addRRect(borderRadius.resolve(textDirection).toRRect(rect).deflate(borderSide.width));
+      Path()
+        ..addRect(Rect.fromLTRB(rect.left, rect.top, rect.right, rect.bottom - borderSide.width));
 
   @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
-      Path()..addRRect(borderRadius.resolve(textDirection).toRRect(rect));
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => Path()..addRRect(_box(rect));
 
   @override
   void paintInterior(Canvas canvas, Rect rect, Paint paint, {TextDirection? textDirection}) =>
-      canvas.drawRRect(borderRadius.resolve(textDirection).toRRect(rect), paint);
+      canvas.drawRRect(_box(rect), paint);
 
   @override
   bool get preferPaintInterior => true;
@@ -51,29 +56,31 @@ class FilledFieldBorder extends InputBorder {
     TextDirection? textDirection,
   }) {
     if (borderSide.style == BorderStyle.none || borderSide.width == 0) return;
-    final rrect = borderRadius.resolve(textDirection).toRRect(rect);
-    canvas.drawRRect(rrect.deflate(borderSide.width / 2), borderSide.toPaint());
+    canvas.drawRect(
+      Rect.fromLTRB(rect.left, rect.bottom - borderSide.width, rect.right, rect.bottom),
+      Paint()..color = borderSide.color,
+    );
   }
 
   @override
-  ShapeBorder? lerpFrom(ShapeBorder? a, double t) => a is FilledFieldBorder
-      ? FilledFieldBorder(
+  ShapeBorder? lerpFrom(ShapeBorder? a, double t) => a is RuledFieldBorder
+      ? RuledFieldBorder(
           borderSide: BorderSide.lerp(a.borderSide, borderSide, t),
-          borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
+          borderRadius: Radius.lerp(a.borderRadius, borderRadius, t)!,
         )
       : super.lerpFrom(a, t);
 
   @override
-  ShapeBorder? lerpTo(ShapeBorder? b, double t) => b is FilledFieldBorder
-      ? FilledFieldBorder(
+  ShapeBorder? lerpTo(ShapeBorder? b, double t) => b is RuledFieldBorder
+      ? RuledFieldBorder(
           borderSide: BorderSide.lerp(borderSide, b.borderSide, t),
-          borderRadius: BorderRadius.lerp(borderRadius, b.borderRadius, t)!,
+          borderRadius: Radius.lerp(borderRadius, b.borderRadius, t)!,
         )
       : super.lerpTo(b, t);
 
   @override
   bool operator ==(Object other) =>
-      other is FilledFieldBorder &&
+      other is RuledFieldBorder &&
       other.borderSide == borderSide &&
       other.borderRadius == borderRadius;
 

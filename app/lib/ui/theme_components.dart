@@ -3,66 +3,91 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
 import 'field_border.dart';
+import 'theme_controls.dart';
 
-/// Component themes shared by the light and dark [AppTheme]s: radii from
-/// [Radii], surfaces from [Surfaces], no Material elevation (menus excepted,
-/// see [menuElevation]), and a calm `onSurface` overlay instead of ripples.
+/// Component themes shared by the light and dark [AppTheme]s (DESIGN §6):
+/// radii from [Radii], surfaces from [Surfaces], hairlines instead of
+/// fills, no Material elevation (menus excepted, see [menuElevation]), Ink
+/// primary buttons, and a calm ink overlay instead of ripples. Selection
+/// controls are in `theme_controls.dart`.
 extension ThemeComponents on ThemeData {
   /// Menus are the one place Flutter offers no `BoxShadow` hook, so they
   /// keep a Material elevation, softened to match [Shadows.high].
-  static const double menuElevation = 8;
+  static const double menuElevation = 6;
 
   ThemeData applyComponentThemes(ColorScheme scheme) {
     final dark = scheme.brightness == Brightness.dark;
     final control = RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm));
     final overlay = Surfaces.overlay(scheme.brightness);
     final menuShape = Surfaces.shape(scheme, Radii.md);
-    final shadow = Colors.black.withValues(alpha: dark ? 0.5 : 0.16);
+    final shadow = Colors.black.withValues(alpha: dark ? 0.6 : 0.22);
     final calm = calmOverlay(scheme);
     final scrim = Surfaces.scrim(scheme.brightness);
-    FilledFieldBorder field(BorderSide side) =>
-        FilledFieldBorder(borderSide: side, borderRadius: BorderRadius.circular(Radii.sm));
+    final hairline = BorderSide(color: scheme.outlineVariant, width: Hairline.width);
+    RuledFieldBorder field(BorderSide side) =>
+        RuledFieldBorder(borderSide: side, borderRadius: const Radius.circular(Radii.xs));
     return copyWith(
       cardTheme: CardThemeData(
         elevation: 0,
-        color: scheme.surfaceContainerLow,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
+        color: scheme.surfaceContainerLowest,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.sm),
+          side: hairline,
+        ),
         clipBehavior: Clip.antiAlias,
         margin: EdgeInsets.zero,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        // A tint of the text colour, so fields stand out on any container
-        // (dialogs, sheets, cards) in both themes.
-        fillColor: scheme.onSurface.withValues(alpha: dark ? 0.08 : 0.055),
-        contentPadding: const EdgeInsets.symmetric(horizontal: Gaps.md + 2, vertical: Gaps.md),
-        border: field(BorderSide.none),
-        enabledBorder: field(BorderSide.none),
-        focusedBorder: field(BorderSide(color: scheme.primary, width: 1.5)),
+        // A tint of the ink, so fields read on any surface in both themes.
+        fillColor: scheme.onSurface.withValues(alpha: dark ? 0.08 : 0.04),
+        hoverColor: scheme.onSurface.withValues(alpha: dark ? 0.04 : 0.02),
+        contentPadding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.md),
+        border: field(BorderSide(color: scheme.outline)),
+        enabledBorder: field(BorderSide(color: scheme.outline)),
+        focusedBorder: field(BorderSide(color: scheme.primary, width: Hairline.rule)),
+        disabledBorder: field(BorderSide(color: scheme.outlineVariant)),
         errorBorder: field(BorderSide(color: scheme.error)),
-        focusedErrorBorder: field(BorderSide(color: scheme.error, width: 1.5)),
+        focusedErrorBorder: field(BorderSide(color: scheme.error, width: Hairline.rule)),
+        labelStyle: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+        hintStyle: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+        helperStyle: textTheme.bodySmall,
+        errorStyle: textTheme.bodySmall?.copyWith(color: scheme.error),
+        prefixIconColor: scheme.onSurfaceVariant,
+        suffixIconColor: scheme.onSurfaceVariant,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        // The primary button's colours (dark mode lifts the accent).
-        backgroundColor: scheme.primary,
-        foregroundColor: scheme.onPrimary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg)),
+        // An Ink square: the primary button's colours.
+        backgroundColor: scheme.onSurface,
+        foregroundColor: scheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
         elevation: 0,
         focusElevation: 0,
         hoverElevation: 0,
         highlightElevation: 0,
         splashColor: Colors.transparent,
+        hoverColor: scheme.surface.withValues(alpha: 0.12),
+        focusColor: scheme.surface.withValues(alpha: 0.16),
       ),
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          shape: control,
-          minimumSize: const Size(64, 40),
-          padding: const EdgeInsets.symmetric(horizontal: Gaps.lg + 2),
-          elevation: 0,
-          // Disabled: no accent, but its label still reads (Material's 38 %
-          // was grey on grey on dark dialogs).
-          disabledBackgroundColor: scheme.onSurface.withValues(alpha: 0.12),
-          disabledForegroundColor: scheme.onSurfaceVariant,
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.disabled) ? scheme.outlineVariant : scheme.onSurface,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.disabled) ? scheme.onSurfaceVariant : scheme.surface,
+          ),
+          iconColor: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.disabled) ? scheme.onSurfaceVariant : scheme.surface,
+          ),
+          overlayColor: _inverseOverlay(scheme),
+          textStyle: WidgetStatePropertyAll(
+            textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          shape: WidgetStatePropertyAll(control),
+          minimumSize: const WidgetStatePropertyAll(Size(64, 40)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: Gaps.lg + 2)),
+          elevation: const WidgetStatePropertyAll(0),
           splashFactory: NoSplash.splashFactory,
         ),
       ),
@@ -70,7 +95,10 @@ extension ThemeComponents on ThemeData {
         style: OutlinedButton.styleFrom(
           shape: control,
           minimumSize: const Size(64, 40),
-          side: BorderSide(color: scheme.outlineVariant),
+          foregroundColor: scheme.onSurface,
+          side: BorderSide(color: scheme.outline),
+          textStyle: textTheme.labelLarge,
+          padding: const EdgeInsets.symmetric(horizontal: Gaps.lg + 2),
           splashFactory: NoSplash.splashFactory,
         ).copyWith(overlayColor: calm),
       ),
@@ -78,6 +106,9 @@ extension ThemeComponents on ThemeData {
         style: TextButton.styleFrom(
           shape: control,
           minimumSize: const Size(48, 40),
+          foregroundColor: scheme.onSurface,
+          textStyle: textTheme.labelLarge,
+          padding: const EdgeInsets.symmetric(horizontal: Gaps.md),
           splashFactory: NoSplash.splashFactory,
         ).copyWith(overlayColor: calm),
       ),
@@ -88,32 +119,6 @@ extension ThemeComponents on ThemeData {
           splashFactory: NoSplash.splashFactory,
         ).copyWith(overlayColor: calm),
       ),
-      segmentedButtonTheme: SegmentedButtonThemeData(
-        style: SegmentedButton.styleFrom(
-          shape: control,
-          side: BorderSide(color: scheme.outlineVariant),
-          // A firmer plate than a pressed row's, so the choice reads at a
-          // glance in both themes.
-          selectedBackgroundColor: scheme.onSurface.withValues(
-            alpha: scheme.brightness == Brightness.dark ? 0.2 : 0.12,
-          ),
-          selectedForegroundColor: scheme.onSurface,
-          foregroundColor: scheme.onSurfaceVariant,
-          disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.38),
-          splashFactory: NoSplash.splashFactory,
-        ).copyWith(overlayColor: calm),
-      ),
-      chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
-        side: BorderSide(color: scheme.outlineVariant),
-        // Unselected chips are outlined only, so they never read as holes
-        // in a lighter dialog or sheet.
-        backgroundColor: Colors.transparent,
-        selectedColor: Surfaces.pressed(scheme),
-        elevation: 0,
-        pressElevation: 0,
-        iconTheme: const IconThemeData(size: Glyphs.menu),
-      ),
       bottomSheetTheme: BottomSheetThemeData(
         showDragHandle: true,
         backgroundColor: overlay,
@@ -122,10 +127,11 @@ extension ThemeComponents on ThemeData {
         elevation: 0,
         modalElevation: 0,
         modalBarrierColor: scrim,
-        dragHandleColor: scheme.outline.withValues(alpha: 0.5),
-        dragHandleSize: const Size(36, 4),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.lg)),
+        dragHandleColor: scheme.outline,
+        dragHandleSize: const Size(32, 3),
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.lg)),
+          side: Surfaces.border(scheme) ?? BorderSide.none,
         ),
       ),
       dialogTheme: DialogThemeData(
@@ -144,13 +150,13 @@ extension ThemeComponents on ThemeData {
         elevation: menuElevation,
         shadowColor: shadow,
         shape: menuShape,
-        menuPadding: const EdgeInsets.symmetric(vertical: Gaps.xs + 2),
+        menuPadding: const EdgeInsets.symmetric(vertical: Gaps.xs),
         labelTextStyle: WidgetStatePropertyAll(textTheme.labelLarge),
       ),
       menuTheme: MenuThemeData(
-        // A rounded chevron, not Material's filled triangle.
+        // A sharp chevron, not Material's filled triangle.
         submenuIcon: const WidgetStatePropertyAll(
-          Icon(Symbols.chevron_right_rounded, size: Glyphs.menu),
+          Icon(Symbols.chevron_right_sharp, size: Glyphs.menu),
         ),
         style: MenuStyle(
           backgroundColor: WidgetStatePropertyAll(overlay),
@@ -158,16 +164,18 @@ extension ThemeComponents on ThemeData {
           shadowColor: WidgetStatePropertyAll(shadow),
           shape: WidgetStatePropertyAll(menuShape),
           elevation: const WidgetStatePropertyAll(menuElevation),
-          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: Gaps.xs + 2)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: Gaps.xs)),
         ),
       ),
       menuButtonTheme: MenuButtonThemeData(
         style: MenuItemButton.styleFrom(
           minimumSize: const Size(0, Targets.menuRow),
-          padding: const EdgeInsets.symmetric(horizontal: Gaps.md + 2),
+          padding: const EdgeInsets.symmetric(horizontal: Gaps.md),
           iconSize: Glyphs.menu,
           iconColor: scheme.onSurfaceVariant,
+          foregroundColor: scheme.onSurface,
           textStyle: textTheme.labelLarge,
+          shape: const RoundedRectangleBorder(),
           splashFactory: NoSplash.splashFactory,
         ).copyWith(overlayColor: calm),
       ),
@@ -175,16 +183,16 @@ extension ThemeComponents on ThemeData {
         behavior: SnackBarBehavior.floating,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
-        backgroundColor: dark ? scheme.surfaceContainerHighest : const Color(0xFF2A2A30),
-        contentTextStyle: textTheme.bodyMedium?.copyWith(
-          color: dark ? scheme.onSurface : Colors.white,
-        ),
-        actionTextColor: dark ? scheme.primary : const Color(0xFFB4C3FF),
+        backgroundColor: scheme.inverseSurface,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(color: scheme.onInverseSurface),
+        actionTextColor: scheme.inversePrimary,
+        closeIconColor: scheme.onInverseSurface,
         insetPadding: const EdgeInsets.all(Gaps.lg),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Surfaces.chrome(scheme),
         indicatorColor: Surfaces.pressed(scheme),
+        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
         surfaceTintColor: Colors.transparent,
         height: 64,
         elevation: 0,
@@ -197,12 +205,16 @@ extension ThemeComponents on ThemeData {
         elevation: 0,
         scrolledUnderElevation: 0,
         titleTextStyle: textTheme.titleLarge,
+        centerTitle: false,
       ),
       drawerTheme: DrawerThemeData(
         backgroundColor: Surfaces.chrome(scheme),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrimColor: scrim,
+        // Square, with a hairline edge: a sheet slid over the desk.
+        shape: Border(right: hairline),
+        endShape: Border(left: hairline),
       ),
       listTileTheme: ListTileThemeData(
         shape: control,
@@ -213,48 +225,55 @@ extension ThemeComponents on ThemeData {
         selectedColor: scheme.onSurface,
         selectedTileColor: Surfaces.pressed(scheme),
       ),
-      dividerTheme: DividerThemeData(color: scheme.outlineVariant, space: 1, thickness: 1),
-      switchTheme: SwitchThemeData(
-        thumbIcon: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected)
-              ? Icon(Symbols.check_rounded, size: 14, color: dark ? null : scheme.primary)
-              : null,
-        ),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant,
+        space: 1,
+        thickness: Hairline.width,
       ),
-      sliderTheme: SliderThemeData(overlayColor: Surfaces.pressed(scheme)),
-      tooltipTheme: TooltipThemeData(
-        waitDuration: const Duration(milliseconds: 600),
-        decoration: BoxDecoration(
-          color: dark ? scheme.surfaceContainerHighest : const Color(0xFF2A2A30),
-          borderRadius: BorderRadius.circular(Radii.xs),
+      tabBarTheme: TabBarThemeData(
+        // The current tab carries the margin rule.
+        indicator: UnderlineTabIndicator(
+          borderSide: BorderSide(color: scheme.primary, width: Hairline.rule),
         ),
-        textStyle: textTheme.bodySmall?.copyWith(color: dark ? scheme.onSurface : Colors.white),
-      ),
-      scrollbarTheme: const ScrollbarThemeData(radius: Radius.circular(Radii.pill)),
-      // A track that shows on dark dialogs too (the secondary container
-      // nearly matches them).
-      progressIndicatorTheme: ProgressIndicatorThemeData(
-        linearTrackColor: scheme.onSurface.withValues(alpha: 0.12),
+        indicatorSize: TabBarIndicatorSize.label,
+        labelColor: scheme.onSurface,
+        unselectedLabelColor: scheme.onSurfaceVariant,
+        labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+        unselectedLabelStyle: textTheme.labelLarge,
+        dividerColor: scheme.outlineVariant,
+        dividerHeight: Hairline.width,
+        overlayColor: calm,
+        splashFactory: NoSplash.splashFactory,
       ),
       // Flutter's own back, close and drawer buttons use Symbols too.
       actionIconTheme: ActionIconThemeData(
-        backButtonIconBuilder: (_) => const Icon(Symbols.arrow_back_rounded),
-        closeButtonIconBuilder: (_) => const Icon(Symbols.close_rounded),
-        drawerButtonIconBuilder: (_) => const Icon(Symbols.menu_rounded),
-        endDrawerButtonIconBuilder: (_) => const Icon(Symbols.menu_rounded),
+        backButtonIconBuilder: (_) => const Icon(Symbols.arrow_back_sharp),
+        closeButtonIconBuilder: (_) => const Icon(Symbols.close_sharp),
+        drawerButtonIconBuilder: (_) => const Icon(Symbols.menu_sharp),
+        endDrawerButtonIconBuilder: (_) => const Icon(Symbols.menu_sharp),
       ),
-    );
+    ).applyControlThemes(scheme);
   }
 
-  /// The press, hover and focus overlay of quiet controls: `onSurface` at
-  /// 8 % / 12 % (dark) when pressed or focused, half that on hover. Use it
-  /// as `overlayColor` in a custom `ButtonStyle`.
+  /// The press, hover and focus overlay of quiet controls: ink at 8 % /
+  /// 12 % (dark) when pressed or focused, half that on hover. Use it as
+  /// `overlayColor` in a custom `ButtonStyle`.
   static WidgetStateProperty<Color?> calmOverlay(ColorScheme scheme) =>
       WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.pressed) || states.contains(WidgetState.focused)) {
           return Surfaces.pressed(scheme);
         }
         if (states.contains(WidgetState.hovered)) return Surfaces.hovered(scheme);
+        return null;
+      });
+
+  /// The overlay of Ink-filled controls: the Board colour over the ink.
+  static WidgetStateProperty<Color?> _inverseOverlay(ColorScheme scheme) =>
+      WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.pressed) || states.contains(WidgetState.focused)) {
+          return scheme.surface.withValues(alpha: 0.20);
+        }
+        if (states.contains(WidgetState.hovered)) return scheme.surface.withValues(alpha: 0.12);
         return null;
       });
 }
