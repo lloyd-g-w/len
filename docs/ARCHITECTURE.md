@@ -942,9 +942,27 @@ replayed in step with the ink.
   "Reset trim" in the list restores the whole recording at any time.
   Export of raw AAC keeps the whole frames overlapping the range
   (`AdtsReader.cut`, ≈ 23 ms at 44.1 kHz, exact sample counting); browser
-  recordings (MP4 / WebM) export untrimmed. Storage is not freed: parts
-  outside the trim stay (dropping them would need the timeline and
-  waveform rewritten and would make trimming one-way).
+  recordings (MP4 / WebM files, which would need remuxing) export the whole
+  parts the trim touches (`exportGroups`; the message says so when that is
+  wider, `exportsWider`).
+- **Freeing a trim's storage** (`domain/recording_release.dart`,
+  `trim_release.dart`, `ui/free_up_space.dart`). The trim stays adjustable
+  until the user frees it: a recording whose trim leaves parts wholly
+  outside offers "Free up 12 MB…" in its menu (the bytes of those parts on
+  this device not shared with another recording, e.g. a duplicated
+  notebook's — `NotebookAudio.releasableSize`). Confirmed, the row is
+  rewritten without them (`withoutPartsOutsideTrim`): the kept parts, their
+  duration, the trim and the timeline (`RecordingTimeline.slice`, wall times
+  kept, so ink maps to the same moments) moved to begin at the first kept
+  part, and the waveform cut likewise into a new blob (`Waveform.slice`;
+  `''` if it can't be had). It is one synced row update
+  (`RecordingRepository.replace`), so other devices converge on the shorter
+  parts list (last writer wins on the whole row, so parts, trim and timeline
+  always agree); the dropped blobs are then unreferenced and freed by blob GC
+  after its grace (7 days on devices, 30 on the server), which is what makes
+  the message's Undo (`NotebookAudio.restore`, the old row as a new version)
+  safe. An open player reopens audio whose parts changed (positions moved),
+  paused at the kept start.
 - **Overview** (`recording_overview.dart`): per recording the waveform (loaded
   once, fetched when missing) and the `InkActivity` — the audio positions at
   which the notebook's strokes and elements were made
@@ -975,9 +993,9 @@ replayed in step with the ink.
   Space play / pause, ← / → ±10 s (instead of turning pages), Shift+← / → the
   previous / next burst of writing. The recordings sheet shows each
   recording's date, (kept) duration and size and the total; tap plays, ⋯
-  renames, trims (or resets the trim), exports or deletes; long press or "Select" picks several to export or
+  renames, trims (or resets the trim, or frees the space trimmed away), exports or deletes; long press or "Select" picks several to export or
   delete at once. Export hands the audio file (`.aac` with the parts
-  joined; browser recordings in parts as one `.webm` / `.m4a` per part)
+  joined; browser recordings in parts as one `.webm` / `.m4a` per part the trim touches)
   to the existing save / share path (`platform/file_export`: save dialog on
   desktop, share sheet on Android, download on the web). `NotebookAudio`
   owns all of it per open notebook (one per notebook, shared by its editors

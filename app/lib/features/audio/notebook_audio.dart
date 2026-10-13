@@ -13,6 +13,7 @@ import 'playback_controller.dart';
 import 'recording_controller.dart';
 import 'recording_export.dart';
 import 'recording_overview.dart';
+import 'trim_release.dart';
 
 /// Everything audio for one open notebook: the recorder, the player and
 /// the notebook's recordings (kept current with local edits and sync).
@@ -115,6 +116,34 @@ class NotebookAudio extends ChangeNotifier {
   /// renaming): the trim is undone by trimming back (see `TrimActions`).
   void trim(String id, int startMs, int endMs) {
     services.recordings.trim(id, startMs, endMs);
+    reload();
+  }
+
+  /// The bytes freeing [recording]'s audio outside its trim would release
+  /// on this device, or null when no part lies wholly outside it.
+  int? releasableSize(Recording recording) => releasableBytes(
+    recording,
+    blobs: services.blobs,
+    shared: services.recordings.audioBlobsBesides(recording.id),
+  );
+
+  /// Drops recording [id]'s parts lying wholly outside its trim (see
+  /// [releaseOutsideTrim]); returns the recording as it was, for [restore].
+  Future<Recording?> freeUpSpace(String id) async {
+    final released = await releaseOutsideTrim(
+      id,
+      repository: services.recordings,
+      blobs: services.blobs,
+      fetch: services.sync.fetchBlob,
+    );
+    reload();
+    return released?.before;
+  }
+
+  /// Puts back [recording] as it was before [freeUpSpace] (its blobs stay
+  /// until garbage collection's grace period has passed).
+  void restore(Recording recording) {
+    services.recordings.replace(recording);
     reload();
   }
 

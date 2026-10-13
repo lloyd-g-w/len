@@ -14,10 +14,11 @@ import '../../../ui/text_prompt.dart';
 import '../notebook_audio.dart';
 import 'audio_bar_button.dart';
 import 'audio_format.dart';
+import 'free_up_space.dart';
 import 'trim_panel.dart';
 
 /// Lists the notebook's recordings: tap to play, ⋯ to rename, trim (or
-/// reset the trim), export (on Android: share or save to device) or
+/// reset the trim, or free up the space of the audio trimmed away), export (on Android: share or save to device) or
 /// delete, long press (or "Select") to export or delete several, and a
 /// button to record a new one.
 ///
@@ -289,6 +290,8 @@ class _RecordingTile extends StatelessWidget {
                 const MenuRow(value: 'trim', icon: Symbols.content_cut_sharp, label: 'Trim…'),
                 if (recording.trimmed)
                   const MenuRow(value: 'untrim', icon: Symbols.restore_sharp, label: 'Reset trim'),
+                if (freeUpSpaceLabel(audio, recording) case final label?)
+                  MenuRow(value: 'free', icon: Symbols.delete_sweep_sharp, label: label),
                 MenuRow(
                   value: 'export',
                   icon: Symbols.ios_share_sharp,
@@ -333,6 +336,8 @@ class _RecordingTile extends StatelessWidget {
         await trimRecording(context, audio, recording);
       case 'untrim':
         audio.trim(recording.id, 0, recording.durationMs);
+      case 'free':
+        await freeUpSpace(context, audio, recording);
       case 'export':
         await audio.export(context, [recording]);
       case 'save':

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/blob_store.dart';
 import '../../domain/recording.dart';
+import '../../domain/recording_release.dart';
 import '../../platform/file_export.dart' as platform;
 import '../documents/export/export_flow.dart' show ExportFile, ExportSaver;
 import '../documents/export/export_messages.dart';
@@ -23,18 +24,29 @@ String audioExtension(String mime) => switch (mime) {
 };
 
 /// Whether [r]'s export keeps to its trim: raw AAC is cut at frame
-/// boundaries; other formats (browser recordings, whole MP4 / WebM files)
-/// would need decoding, so they export untrimmed.
+/// boundaries. Other formats (browser recordings: MP4 / WebM files) would
+/// need remuxing, so they export the whole parts the trim touches.
 bool exportsTrimmed(Recording r) => r.trimmed && r.mime == Recording.adtsMime;
+
+/// Whether [r]'s export holds more than its trim keeps: a trimmed browser
+/// recording exports whole parts (up to `RecordingController.partMs`
+/// wider at either end).
+bool exportsWider(Recording r) {
+  if (!r.trimmed || exportsTrimmed(r)) return false;
+  final kept = r.keptPartsRange;
+  return kept.fromMs < r.trimStartMs || kept.toMs > r.trimEndMs;
+}
 
 /// The files a recording exports as: its parts joined into one where they
 /// join by concatenation (see [Recording.joinable]), else one file per part
-/// (browser recordings), as lists of blobs.
-List<List<String>> exportGroups(Recording r) => r.joinable
-    ? [r.blobs.toList()]
-    : [
-        for (final sha in r.blobs) [sha],
-      ];
+/// the trim touches (browser recordings), as lists of blobs.
+List<List<String>> exportGroups(Recording r) {
+  if (r.joinable) return [r.blobs.toList()];
+  final kept = r.partsTouching(r.trimStartMs, r.trimEndMs);
+  return [
+    for (final p in r.parts.sublist(kept.first, kept.end)) [p.blob],
+  ];
+}
 
 /// File names for [recordings]' [exportGroups] ("Lecture.aac"; repeated
 /// titles numbered; parts exported separately as "Lecture (part 2).webm").
@@ -106,7 +118,15 @@ Future<void> exportRecordings(
       toDevice: toDevice,
     );
     if (saved == null || !context.mounted) return;
-    showExported(context, saved, plural: 'recordings');
+    showExported(
+      context,
+      saved,
+      plural: 'recordings',
+      note: recordings.any(exportsWider)
+          ? 'browser recordings export whole parts, so they may start earlier or end '
+                'later than the trim'
+          : null,
+    );
   } on Exception catch (e) {
     debugPrint('Recording export failed: $e');
     if (!context.mounted) return;

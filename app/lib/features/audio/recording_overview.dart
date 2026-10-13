@@ -96,9 +96,11 @@ class RecordingOverviews extends ChangeNotifier {
   /// The overview of [recording]: its ink at once, the waveform once
   /// loaded (listeners are notified then).
   RecordingOverview of(Recording recording) {
-    final ink = _ink['${recording.id}/${recording.trimStartMs}/${recording.trimEndMs}'] ??= _inkOf(
-      recording,
-    );
+    // Positions move when parts outside the trim are dropped: the duration
+    // tells those versions apart.
+    final key =
+        '${recording.id}/${recording.durationMs}/${recording.trimStartMs}/${recording.trimEndMs}';
+    final ink = _ink[key] ??= _inkOf(recording);
     final sha = recording.waveform;
     if (sha.isEmpty) return RecordingOverview(ink: ink);
     if (!_waveforms.containsKey(sha)) {
