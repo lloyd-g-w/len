@@ -156,6 +156,27 @@ class NotebookRepository extends SyncableTable {
     });
   }
 
+  /// How long a notebook stays in the trash before [purgeTrash] deletes it
+  /// forever (as long as sync keeps tombstones).
+  static const trashKeptFor = Duration(days: 30);
+
+  /// Deletes forever the notebooks trashed more than [trashKeptFor] ago;
+  /// returns how many.
+  int purgeTrash() {
+    final before = clock.nowMs() - trashKeptFor.inMilliseconds;
+    final expired = [
+      for (final n in trashed())
+        if (n.trashedAt! < before) n.id,
+    ];
+    if (expired.isEmpty) return 0;
+    database.transaction(() {
+      for (final id in expired) {
+        delete(id);
+      }
+    });
+    return expired.length;
+  }
+
   /// Permanently deletes every notebook in the trash.
   void emptyTrash() {
     database.transaction(() {

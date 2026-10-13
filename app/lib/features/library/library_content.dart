@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../data/notebook_repository.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
@@ -193,7 +194,7 @@ class LibraryContent extends StatelessWidget {
   }
 
   String _subtitle(Notebook n) {
-    if (n.isTrashed) return libraryDateAfter('Deleted', n.trashedAt!);
+    if (n.isTrashed) return trashLeftLabel(n.trashedAt!, NotebookRepository.trashKeptFor);
     if (_c.isSearching) return _c.locationOf(n);
     final kind = n.kind == NotebookKind.canvas ? 'Canvas' : pageCountLabel(_c.pageCountOf(n.id));
     final date = _c.sort == LibrarySort.created

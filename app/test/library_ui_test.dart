@@ -277,20 +277,66 @@ void main() {
     expect(find.text('“Keys” moved to the trash'), findsOneWidget);
   });
 
-  testWidgets('deleting a folder sends its notebooks to the trash', (tester) async {
+  testWidgets('deleting a folder says what goes, trashes its notebooks, and Undo restores all', (
+    tester,
+  ) async {
     final services = await pumpSeeded(tester, (s) {
       final f = s.folders.create(name: 'Old', color: 0xFF495057);
+      final sub = s.folders.create(name: 'Sub', parentId: f.id, color: 0xFF495057);
       addNotebook(s, 'Inside', folderId: f.id);
+      addNotebook(s, 'Deeper', folderId: sub.id);
     });
-    await tester.tap(find.byTooltip('Folder options'));
+    await tester.tap(
+      find.descendant(of: find.byType(FolderTile), matching: find.byTooltip('More')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete folder…'));
     await tester.pumpAndSettle();
+    expect(find.text('1 subfolder and 2 notebooks go to the trash.'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();
     expect(services.folders.list(), isEmpty);
-    expect(services.notebooks.trashed().single.title, 'Inside');
-    expect(find.text('1'), findsWidgets); // Trash count in the sidebar.
+    expect(services.notebooks.trashed().map((n) => n.title), unorderedEquals(['Inside', 'Deeper']));
+    expect(find.text('2'), findsWidgets); // Trash count in the sidebar.
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.folders.list().map((f) => f.name), unorderedEquals(['Old', 'Sub']));
+    expect(services.notebooks.trashed(), isEmpty);
+    final byTitle = {for (final n in services.notebooks.list()) n.title: n.folderId};
+    final ids = {for (final f in services.folders.list()) f.name: f.id};
+    expect(byTitle, {'Inside': ids['Old'], 'Deeper': ids['Sub']});
+  });
+
+  testWidgets('restoring and moving say where notebooks went; a move can be undone', (
+    tester,
+  ) async {
+    final services = await pumpSeeded(tester, (s) {
+      final f = s.folders.create(name: 'Work', color: 0xFF495057);
+      s.notebooks.trash(addNotebook(s, 'Old notes', folderId: f.id).id);
+      addNotebook(s, 'Plans');
+    });
+    await openMenuOf(tester, 'Plans');
+    await tester.tap(find.text('Move to folder…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Work').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Moved “Plans” to “Work”'), findsOneWidget);
+    final work = services.folders.list().single.id;
+    expect(services.notebooks.list().single.folderId, work);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list().single.folderId, isNull);
+
+    await tester.tap(find.text('Trash').first);
+    await tester.pumpAndSettle();
+    expect(find.text('30 days left'), findsOneWidget);
+    await openMenuOf(tester, 'Old notes');
+    await tester.tap(find.text('Restore'));
+    await tester.pumpAndSettle();
+    expect(find.text('Restored “Old notes” to “Work”'), findsOneWidget);
+    expect(services.notebooks.get(services.notebooks.list().first.id), isNotNull);
+    expect(services.notebooks.trashed(), isEmpty);
   });
 
   testWidgets('phone layout: the drawer goes between sections', (tester) async {

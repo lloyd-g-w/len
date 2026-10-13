@@ -101,10 +101,10 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       // The library also lists matches inside notebooks (features/search).
       LibrarySection.library when _c.isSearching => 'Titles and contents, across all folders',
       _ when _c.isSearching => '${plural(count, 'notebook')} across all folders',
-      // Phones have no room for the note (Empty trash… says it again).
-      LibrarySection.trash when count > 0 && !widget.compact =>
-        '${plural(count, 'notebook')} · deleted forever '
-            'when you empty the trash',
+      // Phones have room for the note only.
+      LibrarySection.trash when count > 0 && widget.compact => 'Kept for 30 days',
+      LibrarySection.trash when count > 0 =>
+        '${plural(count, 'notebook')} · deleted forever after 30 days',
       _ when count == 0 && folders == 0 => 'Empty',
       _ => [
         if (folders > 0) plural(folders, 'folder'),

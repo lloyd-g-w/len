@@ -134,9 +134,12 @@ class _FolderTileState extends State<FolderTile> {
                       duration: Motion.fast,
                       child: Builder(
                         builder: (anchor) => IconButton(
-                          tooltip: 'Folder options',
+                          tooltip: 'More',
                           iconSize: Glyphs.bar,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 48),
+                          constraints: BoxConstraints(
+                            minWidth: Targets.of(context, 32),
+                            minHeight: Targets.touch,
+                          ),
                           padding: EdgeInsets.zero,
                           color: scheme.onSurfaceVariant,
                           icon: const Icon(Symbols.more_horiz_rounded),

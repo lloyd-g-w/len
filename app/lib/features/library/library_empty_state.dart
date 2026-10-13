@@ -57,7 +57,7 @@ class LibraryEmptyState extends StatelessWidget {
       LibrarySection.trash => (
         const _IconArt(Symbols.delete_rounded),
         'Trash is empty',
-        'Deleted notebooks stay here until you delete them forever.',
+        'Deleted notebooks stay here for 30 days, then they’re deleted forever.',
       ),
     };
     final showCreate = onCreate != null && !searching && section == LibrarySection.library;
