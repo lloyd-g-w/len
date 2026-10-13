@@ -563,9 +563,12 @@ only: add "Use here", which takes the lock over. *Files:*
 `features/settings/storage_settings.dart`, `features/library/library_screen.dart`,
 `platform/*_web.dart`, `main.dart`, `platform/single_instance_web.dart`.
 *Partly done:* a one-time library notice when the browser may evict data and
-sync is off (Keep data / ✕). Open: quota errors on write and "Use here" for
-the other-tab screen (stealing the Web Lock needs the old tab to stop writing
-first).
+sync is off (Keep data / ✕). *Done (fix/web-robust):* quota errors on write
+keep the changes in memory and retry ("Browser storage is full: your latest
+changes are kept in this tab until there's room", once, with Try again; a
+library notice while it lasts; "Your changes are saved" after). The other-tab
+screen has "Use here": the old tab stores everything and stops writing before
+it releases the lock (ARCHITECTURE *Platforms*, *Tab handover*).
 
 ✅ **P2-31 PDF import errors are generic.** `documents/pdf/pdf_import_flow.dart:91`
 "It may be damaged or password-protected." *Fix:* tell the two apart (pdfium
