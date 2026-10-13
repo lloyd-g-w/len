@@ -11,6 +11,7 @@ import '../../../ink/viewport.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
+import '../../../ui/messages.dart';
 import 'selection_style_panel.dart';
 
 /// A command the editor adds to the selection menu (links):
@@ -51,8 +52,8 @@ class SelectionMenu extends StatelessWidget {
   /// Asked to crop an image (shown for a single selected image).
   final ValueChanged<SurfaceElement>? onCrop;
 
-  /// "Convert to text" (shown when ink is selected); disabled, with
-  /// [convertUnavailable] as its tooltip, if that is set.
+  /// "Convert to text" (offered when ink is selected). Where recognition
+  /// is unavailable ([convertUnavailable] set), choosing it says why.
   final VoidCallback? onConvertToText;
   final String? convertUnavailable;
 
@@ -121,31 +122,38 @@ class _MenuBar extends StatelessWidget {
         selection.strokes.isNotEmpty || elements.any((e) => e.knownType == ElementType.text);
     final convertible =
         onConvertToText != null && selection.strokes.any((s) => !s.tool.isHighlighter);
-    // In order of importance: what doesn't fit goes into "More", except
-    // Delete, which always stays last in the bar.
-    final actions = <_Action>[
+    // The pill (REDESIGN §2.6): Style · Cut · Copy · Delete · ⋯, with
+    // Edit text first for a single text box. The rest is in ⋯; what the
+    // pill has no room for moves there too.
+    final primary = <_Action>[
       if (singleText) _Action('Edit text', Symbols.edit_rounded, () => onEditText(elements.single)),
-      if (singleImage && onCrop != null)
-        _Action('Crop', Symbols.crop_rounded, () => onCrop!(elements.single)),
-      if (convertible)
-        _Action(
-          'Convert to text',
-          Symbols.spellcheck_rounded,
-          convertUnavailable == null ? onConvertToText : null,
-          tooltip: convertUnavailable,
-        ),
-      _Action('Cut', Symbols.content_cut_rounded, selection.cut, shortcut: 'Ctrl+X'),
-      _Action('Copy', Symbols.content_copy_rounded, selection.copy, shortcut: 'Ctrl+C'),
-      _Action('Duplicate', Symbols.library_add_rounded, selection.duplicate, shortcut: 'Ctrl+D'),
-      if (!selection.clipboard.isEmpty)
-        _Action('Paste', Symbols.content_paste_rounded, onPaste, shortcut: 'Ctrl+V'),
       if (styleable)
         _Action.anchored(
           'Style',
           Symbols.palette_rounded,
           (anchor) => showSelectionStyle(anchor, selection: selection, tools: tools),
         ),
+      _Action('Cut', Symbols.content_cut_rounded, selection.cut, shortcut: 'Ctrl+X'),
+      _Action('Copy', Symbols.content_copy_rounded, selection.copy, shortcut: 'Ctrl+C'),
+    ];
+    final secondary = <_Action>[
+      _Action('Duplicate', Symbols.library_add_rounded, selection.duplicate, shortcut: 'Ctrl+D'),
+      if (!selection.clipboard.isEmpty)
+        _Action('Paste', Symbols.content_paste_rounded, onPaste, shortcut: 'Ctrl+V'),
+      if (convertible)
+        if (convertUnavailable case final reason?)
+          // Chosen where it can't work, it says why (a disabled row in a
+          // menu couldn't).
+          _Action.anchored(
+            'Convert to text',
+            Symbols.spellcheck_rounded,
+            (anchor) => showMessage(anchor, reason),
+          )
+        else
+          _Action('Convert to text', Symbols.spellcheck_rounded, onConvertToText),
       for (final x in extras) _Action.anchored(x.label, x.icon, x.run),
+      if (singleImage && onCrop != null)
+        _Action('Crop', Symbols.crop_rounded, () => onCrop!(elements.single)),
       if (elements.isNotEmpty) ...[
         _Action('Bring to front', Symbols.flip_to_front_rounded, selection.bringToFront),
         _Action('Send to back', Symbols.flip_to_back_rounded, selection.sendToBack),
@@ -156,18 +164,16 @@ class _MenuBar extends StatelessWidget {
       builder: (context, constraints) {
         // Buttons are 48 dp; the panel adds 6 dp on each side.
         final fits = ((constraints.maxWidth - 12) / 48).floor();
-        var shown = actions;
-        var more = const <_Action>[];
-        if (actions.length + 1 > fits) {
-          final keep = (fits - 2).clamp(0, actions.length);
-          shown = actions.sublist(0, keep);
-          more = actions.sublist(keep);
-        }
+        // Delete and ⋯ always show; the primary actions as room allows.
+        final keep = (fits - 2).clamp(0, primary.length);
+        final shown = primary.sublist(0, keep);
+        final more = [...primary.sublist(keep), ...secondary];
         return FloatingPanel(
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final a in shown) a.button(),
+              delete.button(),
               if (more.isNotEmpty)
                 Builder(
                   builder: (anchor) => MenuIconButton<_Action>(
@@ -181,11 +187,11 @@ class _MenuBar extends StatelessWidget {
                           icon: a.icon,
                           label: a.label,
                           enabled: a.enabled,
+                          shortcut: a.shortcut,
                         ),
                     ],
                   ),
                 ),
-              delete.button(),
             ],
           ),
         );
@@ -229,15 +235,14 @@ class _MenuLayout extends SingleChildLayoutDelegate {
 
 /// One command of the selection menu.
 class _Action {
-  const _Action(this.label, this.icon, VoidCallback? onPressed, {this.shortcut, this.tooltip})
+  const _Action(this.label, this.icon, VoidCallback? onPressed, {this.shortcut})
     : _onPressed = onPressed,
       onPressedAt = null;
 
   /// An action whose popover anchors to the control it was started from.
   const _Action.anchored(this.label, this.icon, this.onPressedAt)
     : _onPressed = null,
-      shortcut = null,
-      tooltip = null;
+      shortcut = null;
 
   final String label;
   final IconData icon;
@@ -250,13 +255,10 @@ class _Action {
   /// Keyboard shortcut shown in the tooltip, e.g. "Ctrl+C".
   final String? shortcut;
 
-  /// Overrides the tooltip (e.g. why the action is unavailable).
-  final String? tooltip;
-
   bool get enabled => _onPressed != null || onPressedAt != null;
 
   Widget button() {
-    final hint = tooltip ?? (shortcut == null ? label : '$label ($shortcut)');
+    final hint = shortcut == null ? label : '$label ($shortcut)';
     return Tooltip(
       message: hint,
       child: Builder(

@@ -24,6 +24,7 @@ import 'content_tools_ui_test.dart'
     show key, liveElements, liveStrokes, mouseDrag, pinCanvasView, seedStroke;
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
 import 'images_test.dart' show jpegOf, pngOf;
+import 'support/selection_actions.dart';
 
 /// Opens a canvas in the editor; [seed] runs with real async (blobs are
 /// hashed in an isolate, images decoded by the engine).
@@ -153,8 +154,8 @@ void main() {
       expect(services.blobs.pendingUploads(), contains(data.blob)); // Synced as a blob.
     });
     // Selected with the lasso, with image actions.
-    expect(find.byTooltip('Crop'), findsOneWidget);
-    expect(find.byTooltip('Send to back'), findsOneWidget);
+    expect(await selectionOffers(tester, 'Crop'), isTrue);
+    expect(await selectionOffers(tester, 'Send to back'), isTrue);
     expect(find.byTooltip('Style'), findsNothing);
     await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
     await tester.pump();
@@ -197,13 +198,11 @@ void main() {
     );
     await key(tester, LogicalKeyboardKey.keyL);
     await mouseDrag(tester, const [Offset(150, 400)]);
-    expect(find.byTooltip('Crop'), findsNothing); // The ink.
+    expect(await selectionOffers(tester, 'Crop'), isFalse); // The ink.
     expect(find.byTooltip('Style'), findsOneWidget);
 
     await mouseDrag(tester, const [Offset(400, 450)]);
-    expect(find.byTooltip('Crop'), findsOneWidget);
-    await tester.tap(find.byTooltip('Crop'));
-    await tester.pumpAndSettle();
+    await selectionAction(tester, 'Crop');
     expect(find.text('Done'), findsOneWidget);
     // Drag the left edge's handle a quarter in.
     await mouseDrag(tester, const [Offset(100, 400), Offset(150, 400), Offset(200, 400)]);
@@ -217,7 +216,7 @@ void main() {
     final cropped = liveElements(services, nb.id).single;
     expect(ImageData.fromJson(cropped.data).crop.left, closeTo(0.25, 1e-6));
     expect(cropped.rect, const Rect.fromLTWH(200, 300, 300, 200));
-    expect(find.byTooltip('Crop'), findsOneWidget); // Selected again.
+    expect(await selectionOffers(tester, 'Crop'), isTrue); // Selected again.
 
     await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
     await tester.pump();

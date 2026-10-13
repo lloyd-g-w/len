@@ -13,6 +13,7 @@ import 'package:len/features/editor/tools/content_layer.dart';
 import 'package:len/ink/tool_settings.dart';
 
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
+import 'support/selection_actions.dart';
 
 SurfaceElement _link(String id, NotebookPage page, LinkTarget target, Rect rect) =>
     LinkElements.create(
@@ -58,7 +59,7 @@ void main() {
     content.selection.select([content.selection.model.strokeById(ink.id)!], const []);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Link…'));
+    await selectionAction(tester, 'Link…');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Link to page…'));
     await tester.pumpAndSettle();
@@ -119,7 +120,7 @@ void main() {
     final model = content.selection.model;
     content.selection.select([model.strokeById(inkOf(s, page).last.id)!], const []);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Link…'));
+    await selectionAction(tester, 'Link…');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Link to web address…'));
     await tester.pumpAndSettle();
@@ -155,7 +156,7 @@ void main() {
       [for (final l in links()) model.elementById(l.id)!],
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Link…'));
+    await selectionAction(tester, 'Link…');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Remove link'));
     await tester.pumpAndSettle();
