@@ -209,3 +209,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Self-hosted LWW record sync
 - ✅ Blob sync (content-addressed PDFs, images and audio)
 - ✅ Blob garbage collection (unreferenced blobs on device and server); oversized blobs no longer block sync
+- ✅ Recovery from servers that lost history (restored backup, replaced server: `serverId`, 409,
+  `server new-id`); durable server commits; errors that say what to fix (token, address, server
+  too old / new, unreachable)
+- ⬜ "Delete forever" racing an edit on an offline device: the edit's strokes end up on
+  tombstoned pages (hidden), and an edited notebook comes back without pages. Decide whether
+  unsynced edits should revive the deleted pages (edit wins) or go to the trash

@@ -96,8 +96,7 @@ class SyncEngine {
   /// Which blobs live rows reference.
   late final BlobReferences blobReferences = BlobReferences(database);
 
-  /// What the server reported in the last sync (null before the first sync
-  /// that had blobs to consider).
+  /// What the server reported in the last sync (null before the first).
   ServerInfo? serverInfo;
 
   /// Blobs whose upload failed in the last sync (they are retried).
@@ -137,14 +136,16 @@ class SyncEngine {
   Iterable<SyncableStore> get stores => _stores.values;
 
   /// Forgets the change-feed position and flags every row for upload, so a
-  /// newly configured server receives a complete copy.
-  void resetForNewServer() {
+  /// new server (or one that lost changes) receives a complete copy.
+  void resetForNewServer({String serverId = ''}) {
     database.transaction(() {
       settings.syncLastSeq = 0;
       for (final store in stores) {
         store.markAllDirty();
       }
-      settings.syncBlobsCollectedAt = 0;
+      settings
+        ..syncBlobsCollectedAt = 0
+        ..syncServerId = serverId;
       blobs?.markAllNotUploaded();
     });
     _uploadFailures.clear();
@@ -153,33 +154,54 @@ class SyncEngine {
   /// Pushes local changes, then pulls remote ones. Throws [SyncException]
   /// on network or server errors; [isCancelled] is checked after every
   /// request, before anything is written locally.
+  ///
+  /// Every cycle first reads the server's id: under a new one (another
+  /// server, or one restored from a backup) everything is uploaded again
+  /// and pulled from the start. A server that turns out to have lost
+  /// changes this device saw answers [SyncFailure.historyLost] and takes a
+  /// new id, so the cycle starts over once.
   Future<RemoteChanges> sync(SyncApi api, {CancelCheck? isCancelled}) async {
     final cancelled = isCancelled ?? () => false;
+    for (var attempt = 0; ; attempt++) {
+      try {
+        return await _cycle(api, cancelled);
+      } on SyncException catch (e) {
+        if (e.kind != SyncFailure.historyLost || attempt > 0 || cancelled()) rethrow;
+        debugPrint('The sync server lost changes; uploading everything again');
+        resetForNewServer();
+      }
+    }
+  }
+
+  Future<RemoteChanges> _cycle(SyncApi api, CancelCheck cancelled) async {
     failedBlobUploads = 0;
     blobUploadError = null;
+    final info = serverInfo = await api.serverInfo();
+    if (cancelled()) return RemoteChanges();
+    if (info.serverId != settings.syncServerId) resetForNewServer(serverId: info.serverId);
     // Blobs first: a record must not reach the server before its blob.
     final blobs = this.blobs;
-    final heldBack = blobs == null ? const <String>{} : await _uploadBlobs(api, blobs, cancelled);
+    if (blobs != null) await _uploadBlobs(api, blobs, info, cancelled);
     if (cancelled()) return RemoteChanges();
-    await _push(api, cancelled, heldBack);
+    await _push(api, cancelled);
     return _pull(api, cancelled);
   }
 
-  /// Uploads pending blobs and returns those whose records must wait: blobs
-  /// still pending (a failed upload, or stored since the upload started),
-  /// unless their upload has failed too often.
-  Future<Set<String>> _uploadBlobs(SyncApi api, BlobStore blobs, CancelCheck cancelled) async {
-    final info = serverInfo = await api.serverInfo();
-    if (cancelled()) return const {};
-    final collected = info.blobsCollectedAt;
-    if (collected != null && collected != settings.syncBlobsCollectedAt) {
+  /// Uploads pending blobs, counting failures per blob.
+  Future<void> _uploadBlobs(
+    SyncApi api,
+    BlobStore blobs,
+    ServerInfo info,
+    CancelCheck cancelled,
+  ) async {
+    if (info.blobsCollectedAt != settings.syncBlobsCollectedAt) {
       // The server deleted blobs: check that it still has ours.
       database.transaction(() {
         blobs.recheckUploads();
-        settings.syncBlobsCollectedAt = collected;
+        settings.syncBlobsCollectedAt = info.blobsCollectedAt;
       });
     }
-    if (info.maxBlobBytes case final limit?) blobs.retryTooLarge(newLimit: limit);
+    blobs.retryTooLarge(newLimit: info.maxBlobBytes);
     final report = await BlobSync(blobs).uploadPending(
       api,
       cancelled,
@@ -192,31 +214,37 @@ class SyncEngine {
     }
     failedBlobUploads = report.failed.length;
     blobUploadError = report.error;
-    return {
-      for (final sha in blobs.pendingUploads())
-        if ((_uploadFailures[sha] ?? 0) < maxHoldBackAttempts) sha,
-    };
   }
 
-  Future<void> _push(SyncApi api, CancelCheck cancelled, Set<String> heldBackBlobs) async {
+  /// Blobs whose records must wait: blobs still pending (a failed upload,
+  /// or stored since the upload phase), unless their upload has failed too
+  /// often. Read again for every page of records, so a record written
+  /// during the push cannot overtake a blob stored with it.
+  Set<String> _heldBackBlobs() => {
+    for (final sha in blobs?.pendingUploads() ?? const <String>[])
+      if ((_uploadFailures[sha] ?? 0) < maxHoldBackAttempts) sha,
+  };
+
+  Future<void> _push(SyncApi api, CancelCheck cancelled) async {
     for (final store in stores) {
       String? after;
       while (!cancelled()) {
         final rows = store.dirtyRecords(_pushPageSize, after: after);
         if (rows.isEmpty) break;
         after = rows.last.id;
-        final ready = heldBackBlobs.isEmpty
+        final heldBack = _heldBackBlobs();
+        final ready = heldBack.isEmpty
             ? rows
             : [
                 for (final r in rows)
-                  if (!BlobReferences.inValue(r.data).any(heldBackBlobs.contains)) r,
+                  if (!BlobReferences.inValue(r.data).any(heldBack.contains)) r,
               ];
-        final oversized = ready.isEmpty ? const <SyncRecord>[] : await api.push(ready);
+        // Records the API could not send (too large, not encodable) stay dirty.
+        final unsent = ready.isEmpty
+            ? const <SyncRecord>[]
+            : await api.push(ready, since: settings.syncLastSeq);
         if (cancelled()) return;
-        for (final r in oversized) {
-          debugPrint('Not syncing oversized ${r.collection}/${r.id}');
-        }
-        final skipped = {for (final r in oversized) r.id};
+        final skipped = {for (final r in unsent) r.id};
         store.markClean([
           for (final r in ready)
             if (!skipped.contains(r.id)) (id: r.id, updatedAt: r.updatedAt),

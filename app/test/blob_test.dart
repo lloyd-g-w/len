@@ -49,6 +49,13 @@ class FakeBlobServer {
           return http.Response(jsonEncode({'sha256': sha, 'size': request.bodyBytes.length}), 200);
       }
     }
+    if (path == '/v1/health') {
+      return http.Response(
+        '{"status":"ok","protocol":1,"maxBlobBytes":1000000,"blobsCollectedAt":0,'
+        '"serverId":"blob-server"}',
+        200,
+      );
+    }
     if (path == '/v1/push') {
       log.add('push');
       return http.Response('{"applied":0,"ignored":0,"serverSeq":0}', 200);

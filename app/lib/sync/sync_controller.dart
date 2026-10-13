@@ -90,18 +90,16 @@ class SyncController extends ChangeNotifier {
     unawaited(syncNow());
   }
 
-  /// Stores a new server configuration. Switching servers resets the change
-  /// feed position and re-uploads everything, so the new server gets a
-  /// complete copy. A sync already running is abandoned at its next
-  /// checkpoint; call [syncNow] to sync with the new settings.
+  /// Stores a new server configuration. A sync already running is
+  /// abandoned at its next checkpoint; call [syncNow] to sync with the new
+  /// settings. Whether this is another server is told by its id at the next
+  /// sync ([SyncEngine.sync]): then the change feed position is reset and
+  /// everything uploaded, so the new server gets a complete copy, while a
+  /// new address of the same server (or a new token) changes nothing.
   void configure({required String url, required String token}) {
-    final normalizedUrl = _normalizeUrl(url);
-    final changedServer = normalizedUrl != _normalizeUrl(settings.syncUrl);
     settings
-      ..syncUrl = normalizedUrl
+      ..syncUrl = _normalizeUrl(url)
       ..syncToken = token.trim();
-    if (changedServer) engine.resetForNewServer();
-    _refreshTooLarge();
     _configGeneration++;
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
   }

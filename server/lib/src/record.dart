@@ -72,9 +72,7 @@ class SyncRecord {
     if (data != null && data is! Map<String, Object?>) {
       throw RecordValidationException('data must be an object or null');
     }
-    if (!deleted && data != null && _exceedsDepth(data, maxDataDepth)) {
-      throw RecordValidationException('data must not be nested deeper than $maxDataDepth levels');
-    }
+    if (!deleted && data != null) _checkData(data);
     return SyncRecord(
       collection: collection,
       id: _requireId(json, 'id'),
@@ -119,9 +117,11 @@ class SyncRecord {
     return value;
   }
 
-  /// Whether [value] nests maps/lists deeper than [maxDepth]. Iterative, so
-  /// arbitrarily deep input cannot overflow the stack.
-  static bool _exceedsDepth(Object value, int maxDepth) {
+  /// Rejects data nesting maps/lists deeper than [maxDataDepth], or holding
+  /// numbers JSON cannot represent (`1e400` decodes to infinity, which could
+  /// not be stored). Iterative, so arbitrarily deep input cannot overflow
+  /// the stack.
+  static void _checkData(Object value) {
     final stack = <(Object?, int)>[(value, 1)];
     while (stack.isNotEmpty) {
       final (node, depth) = stack.removeLast();
@@ -133,12 +133,17 @@ class SyncRecord {
       } else {
         continue;
       }
-      if (depth > maxDepth) return true;
+      if (depth > maxDataDepth) {
+        throw RecordValidationException('data must not be nested deeper than $maxDataDepth levels');
+      }
       for (final child in children) {
-        if (child is Map || child is List) stack.add((child, depth + 1));
+        if (child is Map || child is List) {
+          stack.add((child, depth + 1));
+        } else if (child is double && !child.isFinite) {
+          throw RecordValidationException('data must not contain non-finite numbers');
+        }
       }
     }
-    return false;
   }
 
   static int _requireInt(Map<String, Object?> json, String key) {

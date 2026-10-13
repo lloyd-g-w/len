@@ -2,6 +2,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:sqlite3/sqlite3.dart';
 
@@ -47,6 +48,18 @@ class UnsupportedSchemaException implements Exception {
       'than supported version ${RecordStore.schemaVersion}';
 }
 
+/// Thrown when a client has seen changes this server no longer has (its
+/// `since` is beyond the newest seq): the database was restored from a
+/// backup, lost its last transactions or was replaced. The server then takes
+/// a new [RecordStore.serverId], so every client uploads its complete copy
+/// again and pulls from the start (docs/SYNC_PROTOCOL.md, "Server identity").
+class HistoryLostException implements Exception {
+  const HistoryLostException();
+
+  @override
+  String toString() => 'HistoryLostException: a client is ahead of this server';
+}
+
 /// Stores [SyncRecord]s in a single SQLite table.
 ///
 /// All methods are synchronous, so calls from a single isolate never
@@ -55,6 +68,7 @@ class RecordStore {
   RecordStore._(this._db) {
     _configure();
     _migrate();
+    if (_meta('serverId') == null) rotateServerId();
   }
 
   /// Opens (creating if needed) the database file at [path].
@@ -71,7 +85,10 @@ class RecordStore {
   void _configure() {
     // WAL is silently ignored (stays "memory") for in-memory databases.
     _db.execute('PRAGMA journal_mode = WAL');
-    _db.execute('PRAGMA synchronous = NORMAL');
+    // FULL: a push the server has answered survives a power loss. (NORMAL
+    // may roll back the last commits, and clients that already marked
+    // those records clean would never send them again.)
+    _db.execute('PRAGMA synchronous = FULL');
     _db.execute('PRAGMA busy_timeout = 5000');
   }
 
@@ -114,7 +131,10 @@ class RecordStore {
   /// Applies [records] atomically using the LWW rule.
   ///
   /// Every stored or replaced record receives a new seq (max seq + 1).
-  PushResult push(List<SyncRecord> records) {
+  /// [since] is the newest seq the client has pulled; if it is beyond this
+  /// server's, nothing is applied and [HistoryLostException] is thrown.
+  PushResult push(List<SyncRecord> records, {int since = 0}) {
+    _checkSince(since);
     return _transaction(() {
       var seq = currentSeq();
       var applied = 0;
@@ -176,6 +196,7 @@ class RecordStore {
     required int limit,
     int maxDataBytes = defaultPullDataBytes,
   }) {
+    _checkSince(since);
     final stmt = _db.prepare(
       // `CAST(… AS BLOB)` makes length() count the UTF-8 bytes of the JSON.
       'SELECT collection, id, updated_at, device_id, deleted, data, seq, '
@@ -227,6 +248,31 @@ class RecordStore {
     }
   }
 
+  /// A random id of this database's change history, reported by
+  /// `/v1/health`. Clients that see it change upload everything again.
+  String get serverId => _meta('serverId')! as String;
+
+  /// Gives the server a new [serverId] (after it lost history).
+  void rotateServerId() {
+    final random = Random.secure();
+    final id = [
+      for (var i = 0; i < 16; i++) random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ].join();
+    _db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('serverId', ?)", [id]);
+  }
+
+  /// Throws [HistoryLostException] (after rotating [serverId]) if a client
+  /// claims to have seen seq [since], which this server never issued or
+  /// no longer has.
+  void _checkSince(int since) {
+    if (since <= currentSeq()) return;
+    rotateServerId();
+    throw const HistoryLostException();
+  }
+
+  Object? _meta(String key) =>
+      _db.select('SELECT value FROM meta WHERE key = ?', [key]).firstOrNull?['value'];
+
   /// When (ms since epoch) blobs were last deleted by garbage collection;
   /// 0 if never. Reported by `/v1/health` so clients re-check their uploads.
   int get blobsCollectedAt =>
@@ -256,6 +302,9 @@ class RecordStore {
       insert.close();
     }
   });
+
+  /// Reads `PRAGMA [name]` (for tests and diagnostics).
+  Object? pragma(String name) => _db.select('PRAGMA $name').first.values.first;
 
   /// Closes the underlying database.
   void close() => _db.close();

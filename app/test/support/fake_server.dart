@@ -28,10 +28,27 @@ class FakeServer {
   final Map<String, Uint8List> blobs = {};
   final List<String> log = [];
 
-  /// `/v1/health` fields: the advertised blob limit (null: not advertised,
-  /// like older servers) and the last garbage collection.
-  int? maxBlobBytes;
+  /// `/v1/health` fields: the advertised blob limit, the last garbage
+  /// collection and the server id (unique per fake server).
+  int maxBlobBytes = 200 * 1024 * 1024;
   int blobsCollectedAt = 0;
+  String serverId = 'server-${_servers++}';
+  static int _servers = 0;
+
+  /// Forgets every record after [seq] (keeping blobs), like a server
+  /// restored from a backup taken at that point.
+  void restoreBackup(int seq) {
+    _records.removeWhere((_, r) => (r['seq']! as int) > seq);
+    _seq = seq;
+  }
+
+  /// Rejects a request whose `since` is beyond the newest seq: the client
+  /// saw changes this server lost. Takes a new id, like the real server.
+  http.Response? _historyLost(Object? since) {
+    if (since is! int || since <= _seq) return null;
+    serverId = 'server-${_servers++}';
+    return http.Response('{"error":"history lost"}', 409);
+  }
 
   /// Blob uploads larger than this are refused with 413 (a proxy, or a
   /// server not advertising its limit).
@@ -52,8 +69,9 @@ class FakeServer {
         jsonEncode({
           'status': 'ok',
           'protocol': 1,
-          'maxBlobBytes': ?maxBlobBytes,
+          'maxBlobBytes': maxBlobBytes,
           'blobsCollectedAt': blobsCollectedAt,
+          'serverId': serverId,
         }),
         200,
       );
@@ -94,6 +112,7 @@ class FakeServer {
         }
         final body = jsonDecode(request.body) as Map<String, Object?>;
         final records = body['records']! as List;
+        if (_historyLost(body['since'] ?? 0) case final lost?) return lost;
         if (records.length > 1000) return http.Response('{"error":"too many"}', 413);
         pushes.add((bytes: request.bodyBytes.length, count: records.length));
         for (final r in (body['records']! as List).cast<Map<String, Object?>>()) {
@@ -110,6 +129,7 @@ class FakeServer {
       case '/v1/pull':
         pulls++;
         final since = int.parse(request.url.queryParameters['since'] ?? '0');
+        if (_historyLost(since) case final lost?) return lost;
         final limit = int.parse(request.url.queryParameters['limit'] ?? '500');
         final all = _records.values.where((r) => (r['seq']! as int) > since).toList()
           ..sort((a, b) => (a['seq']! as int).compareTo(b['seq']! as int));

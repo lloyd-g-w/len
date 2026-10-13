@@ -6,17 +6,16 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 
 /// Entry point: reads config, opens the store and serves the API.
-/// `server gc …` runs blob garbage collection instead (see bin/gc.dart).
+/// `server gc …` runs blob garbage collection instead (see bin/gc.dart),
+/// `server new-id` gives the server a new id (after restoring a backup).
 Future<void> main(List<String> args) async {
-  if (args.isNotEmpty && args.first == 'gc') {
-    exit(
-      runGcCommand(
-        args.sublist(1),
-        Platform.environment,
-        out: stdout,
-        err: stderr,
-      ),
-    );
+  final command = switch (args.firstOrNull) {
+    'gc' => runGcCommand,
+    'new-id' => runNewIdCommand,
+    _ => null,
+  };
+  if (command != null) {
+    exit(command(args.sublist(1), Platform.environment, out: stdout, err: stderr));
   }
   final Config config;
   try {
@@ -57,9 +56,7 @@ Future<void> main(List<String> args) async {
   final closing = server.close();
   final grace = Stopwatch()..start();
   if (!await requests.drain(_shutdownGrace)) {
-    stderr.writeln(
-      'len-sync: ${requests.inFlight} request(s) still running, closing anyway',
-    );
+    stderr.writeln('len-sync: ${requests.inFlight} request(s) still running, closing anyway');
     await server.close(force: true);
   } else {
     // A handler can return a streaming response, so the request tracker
@@ -71,9 +68,7 @@ Future<void> main(List<String> args) async {
       await closing.timeout(
         remaining,
         onTimeout: () async {
-          stderr.writeln(
-            'len-sync: forcing closed stalled client connection(s)',
-          );
+          stderr.writeln('len-sync: forcing closed stalled client connection(s)');
           await server.close(force: true);
         },
       );

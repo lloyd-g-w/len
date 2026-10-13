@@ -12,7 +12,8 @@ defaults, unknown fields and values tolerated.
 ## Transport & auth
 
 - HTTP + JSON (UTF-8). All endpoints except `/v1/health` require
-  `Authorization: Bearer <token>`, where `<token>` equals the server's `LEN_SYNC_TOKEN`.
+  `Authorization: Bearer <token>`, where `<token>` equals the server's `LEN_SYNC_TOKEN`
+  (clients send it to `/v1/health` too, which ignores it, so a proxy guarding every path works).
 - Token comparison must be constant-time.
 
 ## Record
@@ -28,7 +29,8 @@ defaults, unknown fields and values tolerated.
 }
 ```
 
-The server stores `data` opaquely (it accepts `null` for live records); the app treats a live
+The server stores `data` opaquely (it accepts `null` for live records; it rejects data nested
+deeper than 64 levels or holding numbers outside the double range, which it could not store); the app treats a live
 record without a `data` object as malformed.
 
 Records returned by the server additionally contain `"seq": <int>` — a strictly increasing,
@@ -45,16 +47,22 @@ Whenever a record is stored/replaced it gets a new `seq` (max seq + 1).
 
 ### `GET /v1/health`
 No auth.
-`200 {"status":"ok","protocol":1,"maxBlobBytes":209715200,"blobsCollectedAt":0}`
+`200 {"status":"ok","protocol":1,"maxBlobBytes":209715200,"blobsCollectedAt":0,"serverId":"9f…"}`
 
-`maxBlobBytes` is the largest blob the server accepts (`LEN_BLOB_MAX_BYTES`), so clients can skip
-blobs that are too large without sending them. `blobsCollectedAt` is when (ms since epoch) the
-server last deleted blobs by [garbage collection](#blob-garbage-collection), 0 if never. Clients
-ignore unknown fields here, and treat an answer without these fields (e.g. from a proxy) as "not
-known".
+`protocol` is the protocol version (this document: 1). `maxBlobBytes` is the largest blob the
+server accepts (`LEN_BLOB_MAX_BYTES`), so clients can skip blobs that are too large without
+sending them. `blobsCollectedAt` is when (ms since epoch) the server last deleted blobs by
+[garbage collection](#blob-garbage-collection), 0 if never. `serverId` identifies the server's
+change history, see [Server identity](#server-identity). Clients ignore unknown fields. An answer
+that is not this JSON object means the URL does not lead to a Len sync server; a higher
+`protocol` means the server is newer than the client, a lower one or missing fields that it is
+older: clients stop and say which side to update.
 
 ### `POST /v1/push`
-Body: `{"records": [Record, …]}` — at most 1000 records, body at most 32 MiB.
+Body: `{"since": <int>, "records": [Record, …]}` — at most 1000 records, body at most 32 MiB.
+`since` (optional, default 0) is the newest seq the client has pulled; if it is greater than the
+server's newest seq, the server lost changes the client has seen: it applies nothing and answers
+`409` (see [Server identity](#server-identity)).
 
 Applied atomically in one transaction. Response `200`:
 ```json
@@ -63,7 +71,9 @@ Applied atomically in one transaction. Response `200`:
 `serverSeq` is the current max seq after the push.
 
 ### `GET /v1/pull?since=<int>&limit=<int>`
-`since` defaults to 0, `limit` defaults to 500, larger values are clamped to 1000. Returns records
+`since` defaults to 0, `limit` defaults to 500, larger values are clamped to 1000. A `since`
+greater than the server's newest seq is answered with `409` (see
+[Server identity](#server-identity)). Returns records
 with `seq > since` ordered by `seq` ascending. A page may hold fewer than `limit` records: the
 server stops adding records once their payloads (the UTF-8 bytes of their stored `data` JSON) add
 up to 8 MiB (always returning at least one), so responses stay bounded when records are large.
@@ -74,8 +84,28 @@ up to 8 MiB (always returning at least one), so responses stay bounded when reco
 `hasMore` is true; a page with `hasMore: true` always advances `nextSince`.
 
 ### Errors
-`401` missing/bad token, `400` malformed request (body `{"error": "…"}`), `413` too large,
-`404` unknown route.
+`401` missing/bad token, `400` malformed request (body `{"error": "…"}`), `409` the client is
+ahead of the server (lost history), `413` too large, `404` unknown route.
+
+### Server identity
+
+Seqs only grow, so a client that has pulled up to seq *n* never needs anything at or below *n*
+again — unless the server lost its history: it was restored from a backup, or replaced by a
+new, empty one at the same address. Clients would then never receive the changes after the
+backup that other devices pulled, nor re-send their own (already marked clean). To prevent that:
+
+- The server stores a random `serverId` (created with the database, reported by `/v1/health`).
+  Clients remember the id they synced with; when it differs at the start of a cycle (including
+  the first sync with a server), they reset as when [switching servers](#client-algorithm):
+  pull from seq 0 and push every row (tombstones included) and blob again. LWW makes the
+  repeated records no-ops.
+- When a push or pull carries a `since` beyond the newest seq, the server answers `409` and takes
+  a new `serverId` (so every other client resets as well); the client resets and starts the cycle
+  over.
+- After restoring a backup, the administrator runs `server new-id`, which covers the case where
+  no client happens to be ahead of the restored server when it first syncs.
+
+Servers write with `synchronous = FULL`, so an answered push survives a power loss.
 
 ## Blobs
 
@@ -140,7 +170,7 @@ stored, `404` (empty body) if not.
   back (stay dirty), so a record does not reach the server before its blob — but only for three
   consecutive failed attempts, after which they are pushed anyway, so one blob that can never be
   uploaded cannot keep its records from syncing.
-- When the server URL changes, the "uploaded" and "too large" marks are reset along with
+- When the `serverId` changes, the "uploaded" and "too large" marks are reset along with
   `lastPulledSeq`.
 - **Lazy download.** Pulled records may reference blobs the client does not have; the client
   downloads them with `GET` only when they are needed (e.g. when a page is displayed) and verifies
@@ -179,10 +209,14 @@ record referencing it arrives later.
 
 ## Client algorithm
 
+0. **Health**: `GET /v1/health`; stop with an explanation if it is not a compatible Len server;
+   reset if its `serverId` changed ([Server identity](#server-identity)).
 1. **Push**: read locally dirty rows in pages ordered by id (keyset pagination, so rows that stay
    dirty cannot stall the loop) and send them in requests of at most 1000 records and ~4 MiB of
    JSON. A single record too large for the server's body limit is skipped (it stays dirty). After
    success, clear the dirty flag of each row whose `updatedAt` has not changed since it was read.
+   Every push carries `since` = `lastPulledSeq`; on `409` the client resets (as for a new
+   `serverId`) and starts the cycle over once.
 2. **Pull**: from the stored `lastPulledSeq`, page through `/v1/pull`, applying each record locally
    with the same LWW rule, then persist `nextSince` in the same local transaction. Malformed
    records and unknown collections are skipped (never retried), so they cannot block sync.
@@ -194,8 +228,11 @@ Records echoed back from the client's own push are harmless (LWW makes them no-o
 that version came from a device whose clock runs ahead, and two writes to a row never share a
 version (which the "unchanged since read" check of step 1 relies on).
 
-**Switching servers.** When the server URL changes, the app resets `lastPulledSeq` to 0 and marks
-every row (tombstones included) dirty, so the new server receives a complete copy.
+**Switching servers.** When the server's `serverId` differs from the one last synced with (a new
+URL leading to another server, or a server that lost its history, see
+[Server identity](#server-identity)), the app resets `lastPulledSeq` to 0 and marks every row
+(tombstones included) dirty, so the server receives a complete copy. A new URL leading to the same
+server (another host name or address) changes nothing.
 
 ## App collections (informational)
 

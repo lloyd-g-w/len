@@ -118,6 +118,7 @@ Response _health(RecordStore store, int maxBlobBytes) => _json(HttpStatus.ok, {
   'protocol': protocolVersion,
   'maxBlobBytes': maxBlobBytes,
   'blobsCollectedAt': store.blobsCollectedAt,
+  'serverId': store.serverId,
 });
 
 Response _notFound(Request request) => _json(HttpStatus.notFound, {'error': 'not found'});
@@ -140,6 +141,10 @@ Future<Response> _push(Request request, RecordStore store) async {
   if (rawRecords is! List<Object?>) {
     return _badRequest('records must be an array');
   }
+  final since = body['since'] ?? 0;
+  if (since is! int || since < 0) {
+    return _badRequest('since must be a non-negative integer');
+  }
   if (rawRecords.length > maxPushRecords) {
     return _tooLarge('at most $maxPushRecords records per push');
   }
@@ -153,7 +158,12 @@ Future<Response> _push(Request request, RecordStore store) async {
     }
   }
 
-  final result = store.push(records);
+  final PushResult result;
+  try {
+    result = store.push(records, since: since);
+  } on HistoryLostException {
+    return _historyLost();
+  }
   return _json(HttpStatus.ok, {
     'applied': result.applied,
     'ignored': result.ignored,
@@ -173,7 +183,12 @@ Response _pull(Request request, RecordStore store) {
     return _badRequest('limit must be a positive integer');
   }
 
-  final page = store.pull(since: since, limit: limit > maxPullLimit ? maxPullLimit : limit);
+  final PullResult page;
+  try {
+    page = store.pull(since: since, limit: limit > maxPullLimit ? maxPullLimit : limit);
+  } on HistoryLostException {
+    return _historyLost();
+  }
   return _json(HttpStatus.ok, {
     'records': [for (final r in page.records) r.toJson()],
     'nextSince': page.nextSince,
@@ -207,6 +222,11 @@ Future<Object?> _readJsonBody(Request request, int maxBytes) async {
   final text = utf8.decode(builder.takeBytes());
   return jsonDecode(text);
 }
+
+/// 409: the client has seen changes this server no longer has.
+Response _historyLost() => _json(HttpStatus.conflict, {
+  'error': 'history lost: the server was restored or replaced; upload everything again',
+});
 
 Response _badRequest(String message) => _json(HttpStatus.badRequest, {'error': message});
 
