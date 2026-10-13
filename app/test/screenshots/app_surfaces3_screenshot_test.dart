@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/data/archive/len_archives.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/features/backup/restore_dialogs.dart';
 import 'package:len/features/documents/import/import_flow.dart';
 import 'package:len/features/documents/import/import_router.dart';
 import 'package:len/features/documents/progress_dialog.dart';
@@ -109,6 +111,43 @@ void main() {
         await tap(tester, find.text('Delete forever…'));
       });
       await capture('empty_trash', () => tap(tester, emptyTrashButton()));
+
+      // Restoring a backup (UX_AUDIT R8-16, R8-14).
+      final manifest = LenManifest(
+        kind: LenArchiveKind.library,
+        title: 'Library',
+        createdAt: DateTime(2026, 10, 13, 14, 5).millisecondsSinceEpoch,
+      );
+      await capture('restore_confirm', () async {
+        unawaited(
+          confirmRestore(
+            ctx(tester),
+            manifest: manifest,
+            notebooks: 42,
+            present: 3,
+            intoEmpty: false,
+            syncing: true,
+          ),
+        );
+        await settle(tester);
+      });
+      await capture('restore_gaps', () async {
+        showImported(
+          ctx(tester),
+          LenImportResult(
+            manifest: manifest,
+            notebooks: const ['n'],
+            folders: const ['f'],
+            folder: 'f',
+            skipped: 3,
+            missingBlobs: 2,
+            problems: const ['Damaged file ab12'],
+          ),
+          folderName: 'Backup 13 Oct 2026',
+          undo: () {},
+        );
+        await settle(tester);
+      });
 
       if (errors.isNotEmpty) {
         // ignore: avoid_print
