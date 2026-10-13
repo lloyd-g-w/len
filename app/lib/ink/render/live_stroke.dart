@@ -95,8 +95,9 @@ class LiveStrokeBuilder {
       StrokeOutline.dot(PathSink(out), _shaper, spec);
       return LiveOutline.of(out);
     }
+    final shown = _shaper.liveLength;
     final piece = Path();
-    _cursor = _emitter.freeze(PathSink(piece), _cursor, _shaper.finalCount);
+    _cursor = _emitter.freeze(PathSink(piece), _cursor, _shaper.finalCount, shown: shown);
     if (piece.getBounds() != Rect.zero) {
       _pieces.add(piece);
       _frozen.addPath(piece, Offset.zero);
@@ -108,7 +109,6 @@ class LiveStrokeBuilder {
     // separately, two paths sharing an edge would leave a hairline seam.
     // With the stabiliser on, only the final line ([StrokeShaper.liveLength],
     // which reaches past the frozen part).
-    final shown = _shaper.liveLength;
     final emitter = shown < _shaper.length
         ? RibbonEmitter(
             RibbonPrefix(_shaper, shown),
@@ -117,7 +117,7 @@ class LiveStrokeBuilder {
             step: _shaper.p.step,
           )
         : _emitter;
-    emitter.emit(PathSink(tail), from: (at: _cursor.at, cut: false), ended: false);
+    emitter.emit(PathSink(tail), from: (at: _cursor.at, cut: false));
     return LiveOutline(_frozen, tail);
   }
 

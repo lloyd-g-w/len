@@ -215,11 +215,7 @@ class WetInkModel(
     /** Flutter has committed the stroke (`end`), with an end taper [taperEnd] long (0: none). */
     fun commit(taperEnd: Double) {
         endTaper = taperEnd
-        committed = true
     }
-
-    // Whether Flutter has committed the stroke ([commit]).
-    private var committed = false
 
     fun radiusAt(p: Double): Double {
         if (radii.size == 1) return radii[0]
@@ -393,7 +389,7 @@ class WetInkModel(
         }
         flatStart = shape.flat && start == 0 && first == 0
         if (shape.flat) {
-            val all = WetInkEnds.of(shaper.cx, shaper.cy, rr, shaper.corners, n, first, step, start == 0, ended && committed)
+            val all = WetInkEnds.of(shaper.cx, shaper.cy, rr, shaper.corners, n, first, step, start == 0)
             cuts = all.map { WetCut(it.piece - first, it.px, it.py, it.nx, it.ny, it.atStart) }
         }
         val out = DoubleArray((n - first) * 3)

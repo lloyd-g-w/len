@@ -52,8 +52,7 @@ import 'wet_ink_ends.dart';
 ///  * **Ends**: with [WetInkShape.flat], the stroke's start and the drawn
 ///    end are butt caps (a lone point a square, as Flutter's flat dot),
 ///    square to the line as Flutter's are, with the pieces next to them
-///    cut off at the cap's line or, at the pen tip until Flutter has
-///    committed the stroke, at their cross-sections ([WetInkEnds]); a
+///    cut off at the cap's line, also at the moving pen tip ([WetInkEnds]); a
 ///    start taper ([WetInkShape.taperStart]) scales the smoothed points'
 ///    radii by their arc length from the start (`Taper.factor`), and once
 ///    Flutter has committed the stroke ([commit]) the end taper it was
@@ -220,13 +219,7 @@ class WetInkModel {
 
   /// Flutter has committed the stroke (the overlay's `end`), with an end
   /// taper [taperEnd] long (0: none; in the units of the positions).
-  void commit({double taperEnd = 0}) {
-    _endTaper = taperEnd;
-    _committed = true;
-  }
-
-  // Whether Flutter has committed the stroke ([commit]).
-  bool _committed = false;
+  void commit({double taperEnd = 0}) => _endTaper = taperEnd;
 
   double radiusAt(double p) {
     if (radii.length == 1) return radii[0];
@@ -430,17 +423,7 @@ class WetInkModel {
     }
     // Flat ends: the stroke's start, if drawn, and the drawn end.
     final cuts = flat
-        ? WetInkEnds.of(
-            x,
-            y,
-            rr,
-            shaper.corners,
-            n,
-            first: first,
-            step: p.step,
-            start: start == 0,
-            ended: ended && _committed,
-          )
+        ? WetInkEnds.of(x, y, rr, shaper.corners, n, first: first, step: p.step, start: start == 0)
         : const <WetCut>[];
     return [
       for (var i = first + 1; i < n; i++)

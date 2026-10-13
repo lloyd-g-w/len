@@ -58,6 +58,36 @@ void main() {
     }
   });
 
+  test('a flat pen\'s moving tip is square in every frame, as its end will be', () {
+    // The live tip coming out of the turn (stabiliser 0: live ink reaches
+    // the pen): its last pieces fold back over the turn, which drew them
+    // round (a capsule) in some frames and square in others.
+    const spec = OutlineSpec(width: 16, thinning: 0, streamline: 0, flatCaps: true, unit: 1);
+    final builder = LiveStrokeBuilder(spec);
+    var checked = 0;
+    for (var n = 2; n <= turn.length; n++) {
+      final prefix = turn.sublist(0, n);
+      final path = builder.update(prefix).combined;
+      final line = StrokeOutline.centerline(prefix, spec, complete: false)!;
+      final e = line.live - 1, k = (0.5 * line.r[e] / line.step).ceil();
+      if (line.y[e] < 2.5) continue;
+      checked++;
+      // As at the end above: past the tip's cap, away from the body.
+      final c = Offset(line.x[e], line.y[e]);
+      final t = Offset(line.x[e - 1], line.y[e - 1]) - Offset(line.x[e - k - 1], line.y[e - k - 1]);
+      final along = t / t.distance;
+      var across = Offset(-along.dy, along.dx);
+      if (across.dx < 0) across = -across;
+      for (var u = 0.0; u <= 7; u += 0.5) {
+        for (var s = 0.3; s <= 8; s += 0.5) {
+          final p = c + along * s + across * u;
+          expect(path.contains(p), isFalse, reason: '$n points: $p');
+        }
+      }
+    }
+    expect(checked, 5);
+  });
+
   test('ink that runs past an end elsewhere stays: the body is the full width', () {
     final path = StrokeOutline.build(turn, highlighter);
     for (var x = 4.0; x <= 40; x += 1) {
