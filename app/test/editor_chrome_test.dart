@@ -237,6 +237,23 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('the phone editor meets the tap-target and label guidelines', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpEditor(tester, size: const Size(390, 844));
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    // The search bar too.
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+    semantics.dispose();
+  });
+
   testWidgets('Home goes to the first page of a paged notebook', (tester) async {
     await pumpEditor(tester, size: const Size(1280, 900));
     await tester.sendKeyEvent(LogicalKeyboardKey.end);

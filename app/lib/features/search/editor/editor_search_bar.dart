@@ -126,7 +126,9 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
         : compact
         ? '$count found'
         : (count == 1 ? '1 match' : '$count matches');
-    final density = compact ? VisualDensity.compact : null;
+    // Compact buttons save room on narrow windows, but not under fingers
+    // (they would drop below 48 dp).
+    final density = compact && !Targets.touchFirst ? VisualDensity.compact : null;
     return Row(
       children: [
         const SizedBox(width: Gaps.sm),
