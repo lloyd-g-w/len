@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/preferences.dart';
@@ -6,6 +7,7 @@ import 'package:len/features/editor/chrome/canvas_context_menu.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
+import 'package:len/features/editor/toolbar/tool_strip.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
 
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
@@ -180,6 +182,20 @@ void main() {
     expect(dock(), ToolbarDock.bottom);
     expect(find.byTooltip('Pen (P)'), findsNothing); // The switcher shows the tool.
     expect(tester.getCenter(find.byType(ToolSwitcherButton)).dy, greaterThan(760));
+    await closeEditor(tester);
+  });
+
+  testWidgets('no divider trails the tools when the tool has no quick controls', (tester) async {
+    await pumpEditor(tester, size: const Size(390, 844));
+    double opacity() => tester
+        .widget<Opacity>(
+          find.descendant(of: find.byType(StripDivider), matching: find.byType(Opacity)),
+        )
+        .opacity;
+    expect(opacity(), 1); // The pen: its colour and width slots follow.
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyL); // Lasso: nothing follows.
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
     await closeEditor(tester);
   });
 

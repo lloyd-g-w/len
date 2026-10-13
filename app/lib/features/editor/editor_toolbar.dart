@@ -69,7 +69,7 @@ class EditorToolbar extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       _cluster(),
-      const ToolbarDivider(),
+      StripDivider(tools: tools),
       ToolStrip(tools: tools, reserve: reserve),
     ],
   );
@@ -88,7 +88,7 @@ class EditorToolbar extends StatelessWidget {
             children: [
               const SizedBox(width: Gaps.xs),
               _cluster(),
-              const ToolbarDivider(),
+              StripDivider(tools: tools),
               Expanded(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -112,7 +112,7 @@ class EditorToolbar extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                const ToolbarDivider(),
+                StripDivider(tools: tools),
                 ToolStrip(tools: tools),
               ],
             ),
@@ -142,7 +142,7 @@ class EditorToolbar extends StatelessWidget {
             child: Row(
               children: [
                 ToolSwitcherButton(tools: tools, insert: insert),
-                const ToolbarDivider(),
+                StripDivider(tools: tools),
                 Expanded(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -173,7 +173,7 @@ class EditorToolbar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _cluster(),
-                const ToolbarDivider(),
+                StripDivider(tools: tools),
                 ToolStrip(tools: tools, reserve: reserve),
               ],
             ),
@@ -189,7 +189,7 @@ class EditorToolbar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           ToolSwitcherButton(tools: tools, insert: insert),
-          const ToolbarDivider(),
+          StripDivider(tools: tools),
           Flexible(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
