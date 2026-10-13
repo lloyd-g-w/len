@@ -283,7 +283,7 @@ void main() {
       exportedMime = mime;
       return ExportedFiles(ExportedTo.folder, count: files.length, path: '/home/me/Music');
     };
-    await tester.tap(find.byTooltip('Export…'));
+    await tester.tap(find.byTooltip('Share…'));
     await _settle(tester);
     expect(exported!.map((f) => f.name), ['Mitosis.m4a', 'Intro.m4a']);
     expect(exported!.map((f) => f.bytes.length), [4608, 1536]);
@@ -304,9 +304,57 @@ void main() {
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
     expect(find.text('3 KB on this device'), findsOneWidget);
-    await tester.tap(find.text('Export…'));
+    await tester.tap(find.text('Share…'));
     await _settle(tester);
     expect(exported!.single.name, 'Cells.m4a');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
+  testWidgets('Android: recordings share or save to device', (tester) async {
+    final e = await _pump(
+      tester,
+      seed: (s, nb) async {
+        for (final title in ['Intro', 'Cells']) {
+          final blob = await s.blobs.putFile(XFile.fromData(Uint8List(1536)), mime: 'audio/mp4');
+          s.recordings.save(
+            notebookId: nb.id,
+            parts: [RecordingPart(blob, 125000)],
+            mime: 'audio/mp4',
+            title: title,
+            segments: [RecordingSegment(DateTime(2024, 3, 5, 9).millisecondsSinceEpoch, 125000)],
+          );
+        }
+      },
+    );
+    await tester.tap(find.byTooltip('Recordings'));
+    await tester.pumpAndSettle();
+    final audio = tester.widget<RecordingsList>(find.byType(RecordingsList)).audio;
+    final calls = <(int, bool)>[];
+    audio
+      ..canSaveToDevice = true
+      ..saveFiles = (files, {required mime, toDevice = false}) async {
+        calls.add((files.length, toDevice));
+        return ExportedFiles(ExportedTo.device, count: files.length, name: files.first.name);
+      };
+
+    await tester.tap(find.byTooltip('More').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Share…'), findsOneWidget);
+    await tester.tap(find.text('Save to device…'));
+    await _settle(tester);
+    expect(calls, [(1, true)]);
+
+    await tester.longPress(find.text('Intro'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cells'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Share…'));
+    await _settle(tester);
+    await tester.tap(find.byTooltip('Save to device…'));
+    await _settle(tester);
+    expect(calls, [(1, true), (2, false), (2, true)]);
+    expect(e.services.recordings.listOf(e.notebook.id), hasLength(2));
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
   });
