@@ -21,7 +21,36 @@ screens pumped as the first route have no back button.
 
 No P0s: nothing is broken or loses data. Paths are under `app/lib/`.
 
-Status: ⬜ open (all items).
+Status: ✅ fixed in `fix/r5-rest` · 🟡 partly fixed (the rest is visual, left to `design/foundation`) · ⬜ open. Pen and tools items: `fix/r5-pen-tools`.
+
+**Round 5 fixes on `fix/r5-rest`** (functional and copy only; the visual
+halves wait for `design/foundation`):
+- R5-9/S11: phones show ↷ only after an undo. R5-10: one `PageCommand` glyph
+  and label for both menus. R5-12: key hints by input (`Targets.touchFirst`)
+  in ⋯ and the zoom menu. R5-13: `modifierLabel()` in the selection ⋯, list
+  styles, format bar, undo/redo and ⊕▾ (the focus puck's tooltip is left to
+  `fix/editor-followups`). R5-14: tips sit at the bottom and step aside for
+  snacks.
+- R5-18/S9: the field holds one reading and the chips the others; loading
+  says "Recognising handwriting…"; no text or a failure keep the dialog
+  with Try again and Close (the caller chose this over snacks); a minimum
+  content height keeps the dialog steady. Not done: hiding the selection
+  pill behind the dialog.
+- R5-19: a converted reading shrinks (to 70 %) to keep the ink's line count
+  before it wraps.
+- R5-24/S7: "Basic" merged into "Paper" (the selected label's colour is
+  visual, left). R5-26: "Connect", plain footnote (alignment left).
+  R5-27/S8, R5-28: caption only where nothing recognises; status-only
+  subtitle. R5-29: "The server didn’t accept the access token. Sync is
+  paused", LEN_SYNC_TOKEN under Details. R5-31, R5-32: one "Couldn’t …"
+  pattern, reasons under Details. R5-33: stops swept (also R5-8's hints),
+  guarded by `test/copy_rules_test.dart`.
+- S1–S3: ⋯ → Page is about this page (no Add page after / with template /
+  to outline); one name per command. S10: "1 of 3" / "3 matches"
+  everywhere. S12: Bring to front / Send to back only when something else
+  overlaps the selected element.
+- Open: R5-15 (search bar over the first match), R5-21 (split drag,
+  `fix/editor-followups`), R5-23 (faint thumbnails); visual items.
 
 ### Top 10 (fix first)
 
@@ -134,7 +163,7 @@ hint already has none. *Fix:* drop the stops (see also R5-33).
 
 ### Editor chrome and navigation
 
-**R5-9 P2 · The phone title gets about 120 dp.** `editor_phone_*`,
+ **R5-9 P2 · The phone title gets about 120 dp.** `editor_phone_*`,
 `e_bookmarked_phone_*`, `toolbar_text13_phone`: "Physics — Me…", and
 "Lecture n…" at 1.3×. The bar is ← ▦ title ↶ ↷ ⋯ (five 48-dp targets), and
 ↷ is disabled nearly all the time. *Fix:* on phones show ↷ only while
@@ -143,7 +172,7 @@ looking anyway), and give the title the 48 dp. The full title stays in the
 rename target's tooltip. *Files:* `chrome/editor_top_bar.dart`,
 `chrome/undo_redo_buttons.dart`.
 
-**R5-10 P2 · "Add page after" has two glyphs.** In ⋯ → Page it uses
+ **R5-10 P2 · "Add page after" has two glyphs.** In ⋯ → Page it uses
 `vertical_align_bottom_rounded` (`documents/overview/page_commands.dart:9`),
 which reads as "download" (`e_page_menu_*`). The canvas long-press menu uses
 `add_rounded` (`editor_gestures.dart:75`). *Fix:* one glyph for the command
@@ -157,7 +186,7 @@ which reads as "download" (`e_page_menu_*`). The canvas long-press menu uses
 and "Back to start" start 6 dp further left. *Fix:* reserve `Glyphs.menu`
 (or the menu theme's icon size). *Files:* `canvas/zoom_indicator.dart`.
 
-**R5-12 P1 · Shortcut hints show on touch tablets.** `e_page_menu_tablet_*`
+ **R5-12 P1 · Shortcut hints show on touch tablets.** `e_page_menu_tablet_*`
 ("Ctrl+F", "Ctrl+E", "Shift+1", "F11"), `e_zoom_menu_tablet_*`
 ("Shift+1", "Home"). The ⋯ menu gates them on `compact` (phone width,
 `chrome/editor_more_menu.dart:213,226`) and the zoom menu on
@@ -167,14 +196,14 @@ targets go by input, not width, and `MenuRow` already hides hints when
 meaningless key names. *Fix:* gate on `!Targets.touchFirst` in both places.
 *Files:* `chrome/editor_more_menu.dart`, `canvas/zoom_indicator.dart`.
 
-**R5-13 P2 · "Ctrl" is hard-coded where `modifierLabel()` exists.** The
+ **R5-13 P2 · "Ctrl" is hard-coded where `modifierLabel()` exists.** The
 selection ⋯ (`tools/selection_menu.dart:136-142`), the list styles
 (`tools/text/text_style_menus.dart:193-195`) and the tab shortcut in the
 shortcuts sheet (`settings/keyboard_shortcuts.dart:65`) say "Ctrl+…" to a
 Mac using the web app, while Settings says "⌘/". *Fix:* build the strings
 with `modifierLabel()`. *Files:* as listed.
 
-**R5-14 P2 · One-time tips sit on the first lines of writing.**
+ **R5-14 P2 · One-time tips sit on the first lines of writing.**
 `e_tip_pen_button_phone_*`: "Hold the pen’s side button to erase" is placed
 under the HUD at the top of the canvas (`chrome/editor_chrome.dart:226`),
 over the first written line, just when the user starts writing there.
@@ -210,7 +239,7 @@ bars in `onErrorContainer` (now `scheme.error`, `audio_bar_button.dart:157`).
 
 ### Writing, selection, text, convert
 
-**R5-18 P1 · Convert to text shows the reading twice, has a bare spinner, and ends in modal dead ends.**
+ **R5-18 P1 · Convert to text shows the reading twice, has a bare spinner, and ends in modal dead ends.**
 `e_convert_tablet_*`, `e_convert_phone_*`: the "Recognised text" field and
 the first, ticked "Alternatives" chip say the same thing. The chips stack one
 per line on a wide dialog. `e_convert_loading_*`: title, a small spinner and
@@ -225,7 +254,7 @@ selection", "Couldn’t read this handwriting · Try again"). Keep the dialog's
 height across states, and hide the selection pill while a dialog is up.
 *Files:* `editor/recognition/convert_to_text_dialog.dart`.
 
-**R5-19 P1 · Replaced text can grow over the next line.** `e_convert_*_replaced`:
+ **R5-19 P1 · Replaced text can grow over the next line.** `e_convert_*_replaced`:
 one line of ink becomes a box two lines tall ("Newton’s second law: / F =
 ma"). The font comes from the letter height and the box wraps at the ink's
 width, so its bottom cuts through the next handwritten line. *Fix:* when
@@ -265,7 +294,7 @@ looks like Blank. *Fix:* a minimum stroke width and alpha for pattern lines
 when rendering below a scale (thumbnail pass). *Files:*
 `domain/templates/*` (pattern painting), `features/editor/document/page_thumbnail.dart`.
 
-**R5-24 P2 · Template categories: "Basic" and "Paper" overlap.**
+ **R5-24 P2 · Template categories: "Basic" and "Paper" overlap.**
 `templates_picker_tablet_all`: Basic holds Blank and Dotted, and Paper holds
 the grids, isometric, music and storyboard. Dotted is a grid's sibling, and
 two one-word categories for "plain papers" make you guess. The selected
@@ -284,7 +313,7 @@ selected label stays `onSurface` (the ring and check carry the selection).
 
 ### Settings, sync, handwriting
 
-**R5-26 P1 · Settings → Sync doesn't line up with the other cards.**
+ **R5-26 P1 · Settings → Sync doesn't line up with the other cards.**
 `s_settings_sync_*`, `settings2_*`, `settings_tall_*`: the "Sync is off" icon
 and text sit about 15 dp right of every other row's icon and title columns.
 The Server URL and Access token fields bring a third column (icons inside
@@ -296,7 +325,7 @@ server", with the setup link in About or the README. *Files:*
 `features/settings/sync_settings.dart`, `sync_status_line.dart`,
 `settings_section.dart`.
 
-**R5-27 P1 · Handwriting where nothing recognises (new): a row that isn't a control, and "Android" twice.**
+ **R5-27 P1 · Handwriting where nothing recognises (new): a row that isn't a control, and "Android" twice.**
 `s_settings_handwriting_phone_*` / `_tablet_*` (Linux, Windows, web): a
 "Search handwriting" row with a search glyph says "Nothing recognised yet."
 (with a full stop) and reads like a disabled switch. The footnote says
@@ -306,7 +335,7 @@ Android is recognised there and synced, so search finds it here", plus
 "· 312 lines" once there are any. *Files:*
 `features/settings/handwriting_settings.dart:41-61`.
 
-**R5-28 P2 · "Search handwriting" (Android) mixes a description with a status.**
+ **R5-28 P2 · "Search handwriting" (Android) mixes a description with a status.**
 `s_settings_handwriting_on_*`: "Recognises handwriting in the background
 while you are not writing. Up to date: no handwriting yet." wraps to four
 lines beside the switch at 1.3×. *Fix:* the subtitle is the status only ("Up
@@ -314,7 +343,7 @@ to date · 312 lines", "Recognising… 3 pages to go"), and the description
 moves into the section's footnote, which already explains search.
 *Files:* `handwriting_settings.dart:95-113`.
 
-**R5-29 P2 · The sync error is technical.** `f_sync_rejected_*`: "…check that
+ **R5-29 P2 · The sync error is technical.** `f_sync_rejected_*`: "…check that
 it matches LEN_SYNC_TOKEN. Sync is paused until you fix the token."
 Users who set up a server know the variable, but the sentence is three
 clauses long. On phones "Turn off sync…" wraps to its own line, indented
@@ -339,19 +368,19 @@ It also shows on:
 
 *Fix:* `onSurface` with `fill: 1` or the pressed plate, as for tools.
 
-**R5-31 P2 · "Could not" and raw reasons in user templates.** `documents/templates/user_templates.dart:65`:
+ **R5-31 P2 · "Could not" and raw reasons in user templates.** `documents/templates/user_templates.dart:65`:
 "Could not import x: <FormatException message>" (everywhere else says
 "Couldn’t", and raw messages moved under Details in round 4). *Fix:*
 "Couldn’t import “x”" with the reason under Details (`ui/error_details.dart`).
 *Files:* `features/documents/templates/user_templates.dart`.
 
-**R5-32 P2 · Import messages disagree.** `s_import_failed_*` says "Couldn’t
+ **R5-32 P2 · Import messages disagree.** `s_import_failed_*` says "Couldn’t
 open “scan.pdf”: it may be damaged, or not a PDF". `s_import_unsupported_*`
 says "“Budget 2026.xlsx” can’t be opened: Len opens PDFs and images." (with a
 full stop). *Fix:* one pattern, "Couldn’t open “Budget 2026.xlsx”: Len opens
 PDFs and images". *Files:* `features/documents/import/import_router.dart:64-65`.
 
-**R5-33 P2 · Full-stop sweep.** Besides R5-8, R5-18 and R5-27, single
+ **R5-33 P2 · Full-stop sweep.** Besides R5-8, R5-18 and R5-27, single
 sentences that end in a stop: "One document with sharp, zoomable ink."
 (`documents/export/export_sheet_sections.dart:82`), "No text was found in the selection." and "The
 handwriting could not be recognised." (`convert_to_text_dialog.dart:216,223`),
@@ -371,18 +400,18 @@ and snacks are dark. Over cream paper it barely separates. *Fix:* the HUD on
 
 | # | Proposal | Why | Files |
 |---|---|---|---|
-| S1 | ⋯ → Page drops "Add page after" and "Add page with template…" | Adding a page already has five homes: the Add page footer, Insert ⊕ → "Page with template…", the canvas long-press, the overview's Add page tile and its ⋯. Page ▸ goes from 8 rows to 6 and reads as "this page" | `chrome/editor_more_menu.dart` |
-| S2 | ⋯ → Page drops "Add page to outline…" | The outline panel has "Add page N to outline", and the dialog names it differently ("…to the outline") | `editor_more_menu.dart`, `outline/outline_panel.dart` |
-| S3 | One name per command: "Page with template…" (Insert) vs "Add page with template…" (Page ▸); "Add page N to outline" vs the dialog's "Add page N to the outline" | Two names for one thing | `toolbar/insert_menu.dart`, `outline/outline_entry_dialog.dart` |
+| ✅ S1 | ⋯ → Page drops "Add page after" and "Add page with template…" | Adding a page already has five homes: the Add page footer, Insert ⊕ → "Page with template…", the canvas long-press, the overview's Add page tile and its ⋯. Page ▸ goes from 8 rows to 6 and reads as "this page" | `chrome/editor_more_menu.dart` |
+| ✅ S2 | ⋯ → Page drops "Add page to outline…" | The outline panel has "Add page N to outline", and the dialog names it differently ("…to the outline") | `editor_more_menu.dart`, `outline/outline_panel.dart` |
+| ✅ S3 | One name per command: "Page with template…" (Insert) vs "Add page with template…" (Page ▸); "Add page N to outline" vs the dialog's "Add page N to the outline" | Two names for one thing | `toolbar/insert_menu.dart`, `outline/outline_entry_dialog.dart` |
 | S4 | Ink popovers: Reset becomes "Reset feel" inside Feel (R5-5) | Quick colours are choices, not settings; one reset scope | `pen/ink_options.dart` |
 | S5 | Quick colour and size counts fold under a collapsed "Toolbar" disclosure ("3 colours · 3 sizes"); the max goes 6 → 5, as SIMPLIFY #13 decided (`PenConfig.maxSlots` is 6) | Two always-open stepper rows for a one-time choice; the popover's default view becomes Colour · Size · Feel | `pen/ink_options.dart`, `ink/pen/pen_config.dart` |
 | S6 | Pen palette: 20 → 14 presets (R5-2) | Near-twins; Recent and Custom cover the rest; halves the touch height | `ui/color_picker/color_swatches.dart` |
-| S7 | Templates: merge "Basic" into "Paper" (R5-24) | Two categories for plain papers | `domain/templates/paper_style.dart` |
-| S8 | Handwriting settings without a recogniser: a caption, no row (R5-27) | A status row with nothing to do | `settings/handwriting_settings.dart` |
-| S9 | Convert to text: no first "alternative" equal to the field; empty and failed results as snacks (R5-18) | One reading shown once; no modal for "nothing" | `recognition/convert_to_text_dialog.dart` |
-| S10 | In-notebook search: one counter format ("3 matches", "1 of 3"), not "3 found" / "1/3" on phones | One string set; at 390 dp the long form fits once R5-15 frees the field | `features/search/editor/editor_search_bar.dart:135-140` |
-| S11 | Phones: ↷ only while there's something to redo (R5-9) | A permanently disabled button in the tightest bar | `chrome/editor_top_bar.dart` |
-| S12 | Selection ⋯: "Bring to front" and "Send to back" become one "Arrange ▸" row (or go when only one element is selected and nothing overlaps) | Rare commands take two of the ⋯ menu's ~8 rows | `tools/selection_menu.dart` |
+| ✅ S7 | Templates: merge "Basic" into "Paper" (R5-24) | Two categories for plain papers | `domain/templates/paper_style.dart` |
+| ✅ S8 | Handwriting settings without a recogniser: a caption, no row (R5-27) | A status row with nothing to do | `settings/handwriting_settings.dart` |
+| ✅ S9 | Convert to text: no first "alternative" equal to the field; empty and failed results as snacks (R5-18) | One reading shown once; no modal for "nothing" | `recognition/convert_to_text_dialog.dart` |
+| ✅ S10 | In-notebook search: one counter format ("3 matches", "1 of 3"), not "3 found" / "1/3" on phones | One string set; at 390 dp the long form fits once R5-15 frees the field | `features/search/editor/editor_search_bar.dart:135-140` |
+| ✅ S11 | Phones: ↷ only while there's something to redo (R5-9) | A permanently disabled button in the tightest bar | `chrome/editor_top_bar.dart` |
+| ✅ S12 | Selection ⋯: "Bring to front" and "Send to back" become one "Arrange ▸" row (or go when only one element is selected and nothing overlaps) | Rare commands take two of the ⋯ menu's ~8 rows | `tools/selection_menu.dart` |
 
 Kept on purpose (not proposed): the toolbar pair in View ▸ (REDESIGN §2.1),
 "Draw with finger" in ⋯ and in Settings (it's situational), canvas
