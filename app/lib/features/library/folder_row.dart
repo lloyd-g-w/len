@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/folder.dart';
+import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/scroll_fade.dart';
 import 'cover_grid.dart';
 import 'folder_tile.dart';
 import 'library_actions.dart';
 import 'notebook_card.dart';
+import 'recent_row.dart';
 
 /// The library's folders (DESIGN §6.1): a ruled row of names on the
 /// covers' columns (each folder spans as many as its name needs), a
@@ -20,17 +22,24 @@ class FolderRow extends StatelessWidget {
     required this.coverWidth,
     required this.spacing,
     required this.viewportHeight,
-  }) : strip = false;
+  }) : strip = false,
+       recent = const [];
 
-  /// One scrolling line of [folders], without the hairline.
-  const FolderRow.strip({super.key, required this.folders, required this.actions})
-    : strip = true,
-      coverWidth = 0,
-      spacing = 0,
-      viewportHeight = 0;
+  /// One scrolling line of [folders], without the hairline; [recent]
+  /// notebooks first, as one Recent item that lists them.
+  const FolderRow.strip({
+    super.key,
+    required this.folders,
+    required this.actions,
+    this.recent = const [],
+  }) : strip = true,
+       coverWidth = 0,
+       spacing = 0,
+       viewportHeight = 0;
 
   final List<Folder> folders;
   final LibraryActions actions;
+  final List<Notebook> recent;
   final bool strip;
 
   /// The grid's cover width, column spacing and viewport height: folders
@@ -59,6 +68,13 @@ class FolderRow extends StatelessWidget {
       return ScrollFade(
         child: Row(
           children: [
+            if (recent.isNotEmpty) ...[
+              SizedBox(
+                width: minTile,
+                child: RecentStripTile(notebooks: recent, actions: actions),
+              ),
+              const SizedBox(width: Gaps.sm),
+            ],
             for (final (i, f) in folders.indexed) ...[
               if (i > 0) const SizedBox(width: Gaps.sm),
               SizedBox(width: minTile, child: _tile(f, dense: true)),

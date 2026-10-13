@@ -554,7 +554,7 @@ void main() {
     expect(find.text('Duplicate'), findsOneWidget);
   });
 
-  testWidgets('phones: the new-notebook sheet offers Import PDF…; wide screens use ⊕▾', (
+  testWidgets('phones: the new-notebook sheet offers both imports; wide screens use ⊕▾', (
     tester,
   ) async {
     await pumpSeeded(tester, (s) => addNotebook(s, 'Algebra'), size: const Size(390, 844));
@@ -562,6 +562,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(NewNotebookSheet), findsOneWidget);
     expect(find.text('Import PDF…'), findsOneWidget);
+    expect(find.text('Import Len file…'), findsOneWidget);
+    // Side by side, under Notebook / Canvas.
+    expect(
+      tester.getCenter(find.text('Import Len file…')).dy,
+      tester.getCenter(find.text('Import PDF…')).dy,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the sheet\'s Import Len file… closes it and hands over', (tester) async {
+    await pumpSeeded(tester, (s) {}, size: const Size(390, 844));
+    SheetImport? chosen;
+    final context = tester.element(find.byType(Scaffold).first);
+    final request = NewNotebookSheet.show(context, onImport: (kind) => chosen = kind);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Import Len file…'));
+    await tester.pumpAndSettle();
+    expect(await request, isNull);
+    expect(chosen, SheetImport.len);
+    expect(find.byType(NewNotebookSheet), findsNothing);
   });
 
   testWidgets('phones: a long press on ⊕ offers a folder, a canvas or a PDF', (tester) async {

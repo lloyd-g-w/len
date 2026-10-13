@@ -90,21 +90,27 @@ class LibraryActions with _NotebookActions, _FolderActions {
 
   /// Opens the new-notebook sheet (starting as a [kind]) and then the new
   /// notebook. Where the library has no ⊕▾ (phones), the sheet offers
-  /// Import PDF… too.
+  /// Import PDF… and Import Len file… too.
   Future<void> createNotebook(
     BuildContext context, {
     NotebookKind kind = NotebookKind.paged,
   }) async {
-    var import = false;
+    SheetImport? import;
     final request = await NewNotebookSheet.show(
       context,
       kind: kind,
-      onImportPdf: Breakpoints.libraryCompact(MediaQuery.sizeOf(context))
-          ? () => import = true
+      onImport: Breakpoints.libraryCompact(MediaQuery.sizeOf(context))
+          ? (kind) => import = kind
           : null,
     );
     if (!context.mounted) return;
-    if (import) return importPdf(context);
+    switch (import) {
+      case SheetImport.pdf:
+        return importPdf(context);
+      case SheetImport.len:
+        return importLen(context);
+      case null:
+    }
     if (request == null) return;
     final style = request.template.style;
     if (style != PaperStyle.image) controller.services.preferences.notePaperUsed(style.name);

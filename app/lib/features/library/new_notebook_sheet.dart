@@ -26,6 +26,9 @@ export 'new_notebook/new_notebook_request.dart';
 
 part 'new_notebook/new_notebook_layout.dart';
 
+/// What the phone's new-notebook sheet imports instead.
+enum SheetImport { pdf, len }
+
 /// Creates a notebook or an infinite canvas, in one column: title;
 /// Notebook / Canvas; paper (the recent ones, then "More…");
 /// cover colour; page size; Create. A dialog with a live preview beside
@@ -37,12 +40,13 @@ class NewNotebookSheet extends StatefulWidget {
     this.wide = false,
     this.today,
     this.kind = NotebookKind.paged,
-    this.onImportPdf,
+    this.onImport,
   });
 
-  /// Offers "Import PDF…" under Notebook / Canvas, which closes the sheet
-  /// and calls this: where phones, which have no ⊕▾, find importing.
-  final VoidCallback? onImportPdf;
+  /// Offers "Import PDF…" and "Import Len file…" under Notebook / Canvas,
+  /// which close the sheet and call this: where phones, which have no ⊕▾,
+  /// find importing.
+  final ValueChanged<SheetImport>? onImport;
 
   /// Dialog layout, the preview beside the form.
   final bool wide;
@@ -56,14 +60,14 @@ class NewNotebookSheet extends StatefulWidget {
   static Future<NewNotebookRequest?> show(
     BuildContext context, {
     NotebookKind kind = NotebookKind.paged,
-    VoidCallback? onImportPdf,
+    ValueChanged<SheetImport>? onImport,
   }) {
     return showDialogOrSheet<NewNotebookRequest>(
       context: context,
       maxWidth: 840,
       maxHeight: 720,
       minHeight: 560,
-      builder: (_, wide) => NewNotebookSheet(wide: wide, kind: kind, onImportPdf: onImportPdf),
+      builder: (_, wide) => NewNotebookSheet(wide: wide, kind: kind, onImport: onImport),
     );
   }
 
@@ -208,19 +212,27 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         selected: {_kind},
         onSelectionChanged: (s) => _setKind(s.single),
       ),
-      if (widget.onImportPdf case final onImportPdf?)
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: TextButton.icon(
-            // On the form's edge, like the fields and labels.
-            style: TextButton.styleFrom(padding: const EdgeInsetsDirectional.only(end: Gaps.md)),
-            onPressed: () {
-              Navigator.of(context).pop();
-              onImportPdf();
-            },
-            icon: const Icon(Symbols.picture_as_pdf_sharp, size: Glyphs.menu),
-            label: const Text('Import PDF…'),
-          ),
+      if (widget.onImport case final onImport?)
+        // On the form's edge, like the fields and labels.
+        Wrap(
+          spacing: Gaps.md,
+          children: [
+            for (final (kind, icon, label) in [
+              (SheetImport.pdf, Symbols.picture_as_pdf_sharp, 'Import PDF…'),
+              (SheetImport.len, Symbols.file_open_sharp, 'Import Len file…'),
+            ])
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsetsDirectional.only(end: Gaps.md),
+                ),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onImport(kind);
+                },
+                icon: Icon(icon, size: Glyphs.menu),
+                label: Text(label),
+              ),
+          ],
         ),
       const SizedBox(height: Gaps.xl),
       PickerLabel('Paper', key: const ValueKey('template-summary'), trailing: _summary),

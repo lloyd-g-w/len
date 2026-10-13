@@ -163,8 +163,11 @@ folders. No setting, no new section in the sidebar.
 notebooks opened lately (`WorkspaceMemory.recent`), as names with a small
 cover and where they live on the covers' columns, ruled like the folder row
 above which it sits; one line that scrolls sideways, the next name peeking
-in. Hidden in folders, while searching or selecting, in short windows and
-while none of them lives in a folder.
+in. Hidden in folders, while searching or selecting and while none of them
+lives in a folder. Short windows (a phone held sideways, one row of chrome)
+have no room for the row: Recent is the first item of the folder strip
+beside the title ("Recent, 3 notebooks"), listing them in a menu
+(`RecentStripTile`, `fix/r7-followups`).
 
 ✅ **R7-7 P1 · Nothing reopens where you were writing.** `OpenNotebooks`
 keeps tabs in memory only (`features/editor/tabs/open_notebooks.dart`, no
@@ -211,8 +214,11 @@ notebook picker (recent first) with Move and Copy (`editor/document/
 page_transfer_flow.dart`). `NotebookDuplicator.copyPages` copies pages,
 content, links among them, their outline entries and the recordings their
 ink was written during; a move deletes the originals. One history step, one
-Undo. Not done: "New notebook" as a destination; links from pages left
-behind to moved pages still point at the originals (deleted, until Undo).
+Undo. *Follow-ups (`fix/r7-followups`):* "New notebook…" heads the picker
+(named first; made beside the source with its paper, paper colour and
+cover, holding just the pages; Undo takes it away too). A move retargets
+every live link to a moved page (from pages left behind or other notebooks)
+at its copy, and Undo points them back (`ElementRepository.retargetLinks`).
 
 ### Studying and PDFs
 
@@ -319,7 +325,9 @@ this branch:* the lines now describe the fixed toolbar.
    (`ink/input/scribble_detector.dart`); zero hits on the Ink Lab's real and
    simulated writing. Erases strokes mostly inside the scribble; over blank
    paper it stays ink. Pen only (not the highlighter); "Scribble to erase"
-   in Pen › Feel, on by default.
+   in Pen › Feel, on by default. Follow-up: once recognised, the strokes it
+   will erase dim (30 %, fading in over 100 ms) while the scribble goes on,
+   and come back if it is cancelled; still one undo.
 6. ✅ **Text-aware highlighter on PDFs** (high for students · M). A
    highlighter stroke whose length lies mostly over one or more lines of
    PDF text becomes the same snapped strokes `highlightSelection` makes

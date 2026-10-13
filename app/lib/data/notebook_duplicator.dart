@@ -93,7 +93,7 @@ class NotebookDuplicator {
       _relink(from, to, surfaces);
       final outline = repo.outline?.copyAll(from, to, surfaces, onlyPages: true) ?? const [];
       return CopiedPages(
-        pages: surfaces.values.toList(),
+        copies: surfaces,
         outline: outline,
         recordings: _copyRecordingsOf(copier, from, to, surfaces.values, stamp),
       );
@@ -232,9 +232,14 @@ class NotebookDuplicator {
 /// What [NotebookDuplicator.copyPages] made: page, outline entry and
 /// recording ids.
 class CopiedPages {
-  const CopiedPages({required this.pages, required this.outline, required this.recordings});
+  const CopiedPages({required this.copies, required this.outline, required this.recordings});
 
-  final List<String> pages;
+  /// Each copied page's id → its copy's, in page order.
+  final Map<String, String> copies;
+
+  /// The copies' ids, in page order.
+  List<String> get pages => copies.values.toList();
+
   final List<String> outline;
   final List<String> recordings;
 }

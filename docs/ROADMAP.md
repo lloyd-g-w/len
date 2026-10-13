@@ -22,7 +22,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   scrolls keep tiles, large edits swap in together, pages render ahead, rasterised page
   thumbnails); tablet numbers in docs/INK_LAB.md (the last round measured headless only)
 - ✅ Pixel (partial) eraser, eraser size, "erase highlighter only"
-- ✅ Scribble to erase: a quick back-and-forth pen scribble over ink erases it (Pen › Feel)
+- ✅ Scribble to erase: a quick back-and-forth pen scribble over ink erases it (Pen › Feel); what
+  will go dims while scribbling
 
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
@@ -92,7 +93,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   insert before/after, go to page, "Add page" tile, selection mode (bookmark / duplicate / delete
   several pages, one Undo)
 - ✅ Move or copy pages to another notebook (overview selection and page menu): ink, elements,
-  links among them, outline entries and the recordings they were written during go along; one Undo
+  links among them, outline entries and the recordings they were written during go along; links
+  to moved pages follow them; or into a new notebook with the source's paper and cover; one Undo
 - ✅ Bookmarks (synced) with a bookmarks filter in the overview
 - ✅ Continuous vertical scrolling of pages (default) or one page at a time (swipe / arrows)
 - ✅ Page navigation: smooth scroll-to-page, whole-page fit + slide in single-page flow, "Add page"
@@ -182,7 +184,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Create sheet with a live cover + first-page preview, Paper gallery and Cover colours, size and paper
   colour (dialog on wide screens, tall sheet on phones); grouped template gallery
 - ✅ Selection mode: favourite, move, export, trash (undo), restore, delete forever for many notebooks
-- ✅ Recent row at the library root (the 8 notebooks opened lately, wherever they are filed)
+- ✅ Recent row at the library root (the 8 notebooks opened lately, wherever they are filed); in
+  short windows the first item of the folder strip, a menu
 - ✅ Export from the library (notebook menu and selection: one file per notebook)
 - ✅ Recordings seen from the library: a mic on cards, "2 recordings" in the list, search finds
   recording titles

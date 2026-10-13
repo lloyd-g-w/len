@@ -40,6 +40,11 @@ void main() {
     final services = seededServices();
     addTearDown(services.dispose);
     await pumpApp(tester, services, const LibraryScreen());
+    await tester.tap(find.text('Recent'));
+    await settle(tester);
+    await shoot(tester, 'library_phone_sideways_recent');
+    await tester.tapAt(const Offset(400, 370)); // Closes the menu.
+    await settle(tester);
     await tester.tap(find.byTooltip('Search'));
     await settle(tester);
     await tester.enterText(find.byType(TextField), 'o');

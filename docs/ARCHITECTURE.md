@@ -1235,7 +1235,12 @@ band at most half their length wide (cursive m / n / u / w reverses as
 sharply but moves on) — erases instead of becoming ink when it crosses
 ink: `SurfaceModel.eraseScribbled` removes the strokes it touches that lie
 mostly inside its bounds (a long line under a scribbled word stays), as
-one `InkEdit`. Over blank paper it stays ink (shading). It is held to zero
+one `InkEdit`. Over blank paper it stays ink (shading). `ScribbleErase`
+(`input/scribble_erase.dart`) runs it for `InkDrawing`: once the stroke so
+far is a scribble it previews what will go (`SurfaceModel.scribbled`),
+hiding those strokes as an owner (`setHidden`) and drawing them at 30 % as
+its lifted content (fading in over 100 ms, frame callbacks only while
+fading); the stroke ending any way un-hides them before the erase. It is held to zero
 false positives on the Ink Lab's real S Pen recordings and simulated
 writing at 1–4× (`test/scribble_detector_test.dart`).
 

@@ -75,7 +75,8 @@ class NotebookRepository extends SyncableTable {
   /// [firstPage] (default: an A4 page of [paper]) — or with one page per
   /// entry of [papers] (e.g. a generated planner), sized and coloured like
   /// [firstPage]. [paper] must be a style without parameters (the notebook's
-  /// default for new pages and canvas background).
+  /// default for new pages and canvas background). An [empty] one has no
+  /// pages yet (pages are about to be copied in).
   Notebook create({
     required String title,
     required NotebookKind kind,
@@ -86,6 +87,7 @@ class NotebookRepository extends SyncableTable {
     String? folderId,
     PageTemplate? firstPage,
     List<Paper> papers = const [],
+    bool empty = false,
   }) {
     assert(!paper.needsParams, 'A notebook default paper has no parameters');
     final now = clock.nowMs();
@@ -102,7 +104,7 @@ class NotebookRepository extends SyncableTable {
     );
     database.transaction(() {
       _write(notebook, deviceId: deviceId, dirty: true);
-      if (kind == NotebookKind.paged) {
+      if (kind == NotebookKind.paged && !empty) {
         final first = firstPage ?? PageTemplate(paper: notebook.paper, color: paperColor);
         if (papers.isEmpty) {
           pages.addPage(notebook.id, template: first);

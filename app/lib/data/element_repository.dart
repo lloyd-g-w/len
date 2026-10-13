@@ -5,6 +5,7 @@ import 'package:sqlite3/common.dart';
 
 import '../domain/chunk_digest.dart';
 import '../domain/chunk_grid.dart';
+import '../domain/link_target.dart';
 import '../domain/stroke_chunks.dart';
 import '../domain/surface_element.dart';
 import 'record_fields.dart';
@@ -84,6 +85,31 @@ class ElementRepository extends SyncableTable {
       [before, limit],
     );
     return db.updatedRows;
+  }
+
+  /// Points the live links that lead to a page in [pages] (old page id →
+  /// new page id) at the new page in notebook [notebookId] (pages moved
+  /// there). Returns the links as they were: [save] them to take it back.
+  List<SurfaceElement> retargetLinks(Map<String, String> pages, String notebookId) {
+    if (pages.isEmpty) return const [];
+    final before = <SurfaceElement>[];
+    database.transaction(() {
+      final rows = db.select('SELECT * FROM elements WHERE type = ? AND deleted = 0', [
+        ElementType.link.name,
+      ]);
+      final moved = <SurfaceElement>[];
+      for (final link in rows.map(StrokeQueries.rowToElement).nonNulls) {
+        final target = LinkElements.targetOf(link);
+        if (target is! PageLinkTarget) continue;
+        final page = pages[target.pageId];
+        if (page == null) continue;
+        before.add(link);
+        final to = PageLinkTarget(notebookId: notebookId, pageId: page);
+        moved.add(link.copyWith(data: {...link.data, 'target': to.toJson()}));
+      }
+      save(moved);
+    });
+    return before;
   }
 
   /// Surface id of a stored element (live or tombstoned), if known.

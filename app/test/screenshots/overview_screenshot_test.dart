@@ -32,6 +32,7 @@ void main() {
             if (n.kind == NotebookKind.paged && n.id != notebookId) n,
         ],
         caption: (n) => n.folderId == null ? 'Library' : s.folders.get(n.folderId!)!.name,
+        cover: Color(s.notebooks.get(notebookId)!.coverColor),
       ),
     ),
   );
