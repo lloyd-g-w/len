@@ -104,7 +104,7 @@ grew apart.
   Move and says "A notebook keeps at least one page" under it. Then drop
   the check after the picker.
 
-*Done (`fix/r8-library`):* `pickPageDestination(canMove: false)` when every page is sent: Move is disabled and the picker says "A notebook keeps at least one page, so these can only be copied". A guard stays after the picker for pages a sync removed meanwhile.
+*Done (`fix/r8-library`):* `pickPageDestination(noMove: …)` when every page is sent: Move is disabled and the picker says why ("A notebook keeps at least one page, so this one can only be copied"). A guard stays after the picker for pages a sync removed meanwhile.
 
 **✅ R8-4 P2 · One action, three names, and a borrowed icon.**
 - *What:* the menu and the selection bar say "Move to…"
@@ -523,6 +523,14 @@ template typography.**
   will drift unseen.
 - *Fix:* add them to `organise_screenshot_test.dart`,
   `app_surfaces3_screenshot_test.dart` and `toolbar_screenshot_test.dart`.
+
+*Partly done (`fix/r8-library`):* `organise_screenshot_test.dart` renders
+Recent at its edges (`o_recent_*`: an empty library, all at the top level,
+trashed entries, inside a folder, the sideways strip's menu, an empty
+library sideways) and moving or copying from the editor (`o_page_menu_move_phone`,
+`o_move_copy_only_phone`, `o_move_new_notebook_phone`; the overview's picker
+was already in `overview_move_*`). Backup progress and the restore result
+are `fix/r8-data`'s; the scribble preview `fix/r8-pen`'s.
 
 **✅ R8-35 P2 · Small drift from DESIGN.md.**
 - *What:*

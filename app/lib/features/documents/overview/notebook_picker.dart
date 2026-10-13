@@ -17,15 +17,15 @@ typedef PageDestination = ({Notebook? notebook, String title, bool copy});
 /// Asks which of [notebooks] pages go to (UX_AUDIT R7-9), [title] above
 /// the list ("Move 3 pages"), each row captioned by [caption] (where it
 /// lives), or a new notebook (with [cover], asking for its name): pick
-/// one, then Move or Copy. Without [canMove] (every page of a notebook)
-/// only Copy is offered, and the picker says why. Null if cancelled.
+/// one, then Move or Copy. With [noMove] (every page of a notebook) only
+/// Copy is offered, and the picker says why: [noMove]. Null if cancelled.
 Future<PageDestination?> pickPageDestination(
   BuildContext context, {
   required String title,
   required List<Notebook> notebooks,
   required String Function(Notebook notebook) caption,
   required Color cover,
-  bool canMove = true,
+  String? noMove,
 }) => showDialogOrSheet<PageDestination>(
   context: context,
   maxWidth: 480,
@@ -36,7 +36,7 @@ Future<PageDestination?> pickPageDestination(
     notebooks: notebooks,
     caption: caption,
     cover: cover,
-    canMove: canMove,
+    noMove: noMove,
     wide: wide,
   ),
 );
@@ -47,7 +47,7 @@ class _DestinationPicker extends StatefulWidget {
     required this.notebooks,
     required this.caption,
     required this.cover,
-    required this.canMove,
+    required this.noMove,
     required this.wide,
   });
 
@@ -55,7 +55,7 @@ class _DestinationPicker extends StatefulWidget {
   final List<Notebook> notebooks;
   final String Function(Notebook notebook) caption;
   final Color cover;
-  final bool canMove;
+  final String? noMove;
   final bool wide;
 
   @override
@@ -125,7 +125,7 @@ class _DestinationPickerState extends State<_DestinationPicker> {
           // Dialogs close with Cancel; sheets with the ✕ (DESIGN §6.3).
           child: SheetHeader(
             title: widget.title,
-            subtitle: 'They go after the last page',
+            subtitle: 'Added after the last page',
             onClose: widget.wide ? null : () => Navigator.pop(context),
           ),
         ),
@@ -152,13 +152,10 @@ class _DestinationPickerState extends State<_DestinationPicker> {
             ),
           ),
         Flexible(child: _list(theme, shown)),
-        if (!widget.canMove)
+        if (widget.noMove case final why?)
           Padding(
             padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.md, Gaps.xl, 0),
-            child: Text(
-              'A notebook keeps at least one page, so these can only be copied',
-              style: theme.textTheme.bodySmall,
-            ),
+            child: Text(why, style: theme.textTheme.bodySmall),
           ),
         Padding(
           padding: EdgeInsets.fromLTRB(Gaps.xl, Gaps.md, Gaps.xl, Gaps.xl + bottom),
@@ -170,7 +167,7 @@ class _DestinationPickerState extends State<_DestinationPicker> {
                 child: const Text('Copy'),
               ),
               FilledButton(
-                onPressed: chosen && widget.canMove ? () => _done(copy: false) : null,
+                onPressed: chosen && widget.noMove == null ? () => _done(copy: false) : null,
                 child: const Text('Move'),
               ),
             ],

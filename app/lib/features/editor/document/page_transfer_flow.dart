@@ -22,7 +22,10 @@ extension PageTransferFlow on DocumentCommands {
       context,
       title: 'Move or copy $what',
       // Every page: a notebook keeps at least one, so only Copy (R8-3).
-      canMove: pages.length < actions.pages.length,
+      noMove: pages.length < actions.pages.length
+          ? null
+          : 'A notebook keeps at least one page, so '
+                '${pages.length == 1 ? 'this one' : 'these'} can only be copied',
       notebooks: _destinations(here),
       caption: _locations(),
       cover: Color(here.coverColor),
