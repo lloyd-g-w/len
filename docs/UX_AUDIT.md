@@ -1,5 +1,308 @@
 # Len — UX/UI audit
 
+## Round 6 audit (`review/round6`)
+
+Scope: the app after the Swiss-minimal redesign (DESIGN.md) and rounds 4–5.
+Method: all 687 renders from `test/screenshots/` (phone 390×844, phone
+sideways 844×390, tablet portrait and landscape, desktop; light, dark, 1.3×
+and 2× text), viewed as contact sheets and cropped where something looked
+off, plus a code walk of the core flows as a new user and as a daily S Pen
+user. Every item was checked in the code; paths are under `app/lib/`.
+
+Not repeated (`design/followups` is on them): 48-dp hit areas for popover
+Reset/Custom and the sheet ✕, the split pane fading ink swatches, the
+settings Handwriting/Sync structure, phone Cancel buttons in import dialogs,
+the teal ∞ cover badge, the ⋯-menu switch overhang. Still-open round 5 items
+(R5-11, R5-16, R5-17, R5-20, R5-21, R5-22, R5-30) are not restated.
+Harness artefacts aren't reported (the import question naming a notebook
+while the library is shown; "Take photo" and Share on desktop renders).
+
+No P0s: nothing is broken or loses data. The redesign reads as one app
+now; what's left is mostly layout on short windows, a few seams between
+pickers and dialogs, and commands that have no feedback or no Undo.
+
+### Top 10 (fix first)
+
+1. R6-1 Dragging a notebook onto a folder moves it silently, with no Undo.
+2. R6-2 A phone held sideways gets tablet chrome: up to 140 dp of a 390-dp screen.
+3. R6-3 A phone held sideways shows the library without a single notebook title.
+4. R6-4 Tablet portrait with tabs: three chrome rows, the middle one nearly empty.
+5. R6-5 Phones: Import PDF hides behind a long press on the FAB.
+6. R6-6 Text colour and recolour open an HSV-first picker with a ragged 9 + 5 grid of 36-dp swatches.
+7. R6-7 Rename, cover, favourite, folder edits and Duplicate in the library have no Undo.
+8. R6-8 Wide task dialogs offer both ✕ and Cancel.
+9. R6-9 Settings' three-way "Draw with" for a state that lasts until the first pen touch.
+10. R6-10 Every quick notebook is called "Untitled notebook".
+
+### Library and organising
+
+⬜ **R6-1 P1 · Dragging a notebook onto a folder moves it silently, with no
+Undo.** `LibraryActions.drop` (`features/library/library_actions.dart:118-127`)
+calls `controller.moveNotebook` and returns. The notebook disappears from the
+grid with no message. The Move dialog path goes through `move()` (`:279-297`),
+which says "Moved “X” to “Y”" and offers Undo. Folders dropped into folders
+get no feedback either. A drop that misses by one tile loses a notebook into
+the wrong folder. *Fix:* route notebook drops through `move(context, [id],
+folderId)`. For folders, add a "Moved “School” into “Work” · Undo" snack
+(`moveFolder` back to the old parent).
+
+⬜ **R6-3 P1 · A phone held sideways shows no notebook titles.**
+`library_phone_sideways_*`: four covers about 190 dp wide fill the 390-dp
+height, the titles are below the fold, and the FAB sits on the fourth cover.
+The column count depends only on width (`CoverGridDelegate.columnsFor`,
+`features/library/library_content.dart:58,317-318`; `coverWidth = 150`, at
+least two columns). *Fix:* cap the cover height on short windows. When
+`Breakpoints.libraryCompact` is true because of height, take `coverWidth`
+from the height (a cover plus its caption at most about 60 % of the
+viewport, so about 110 dp at 390), which gives six columns with titles in
+view. Alternative: switch to the list view below `shortHeight`.
+
+⬜ **R6-5 P1 · Phones: Import PDF hides behind a long press on the FAB.**
+After the first notebook, phones offer importing a PDF only through a long
+press on the FAB (`features/library/library_screen.dart:281-305`,
+`onLongPressHint: 'More: canvas, PDF, folder'`). The empty state shows
+"Import PDF…" once (`library_empty_state.dart:73-79`), and wide screens have
+⊕▾. On Android you can also share a PDF to Len, but you can't find it from
+inside the app. *Fix:* put the source into the New notebook sheet, the one
+place phones go to create: Notebook | Canvas | PDF… as the segmented control
+(`new_notebook_sheet.dart`), with PDF… opening the file picker. Keep the
+long press as a shortcut.
+
+⬜ **R6-7 P2 · Library edits without Undo.** Rename, cover, favourite and
+folder edits write straight away (`library_actions.dart:154-172, 204-214`).
+Duplicate shows a plain toast (`:173-175`). Trash, move and folder delete
+already offer Undo. CONVENTIONS says every visible edit is undoable, and a
+cover change or a mis-tapped favourite is the kind of edit you want back.
+*Fix:* reuse the move pattern: remember the old `Notebook`/`Folder` and show
+"Cover changed · Undo", "Renamed to “X” · Undo" and "Duplicated as “X” ·
+Undo" (Undo trashes the copy).
+
+⬜ **R6-10 P2 · Every quick notebook is "Untitled notebook".** An empty title
+becomes `'Untitled notebook'` or `'Untitled canvas'`
+(`features/library/new_notebook_sheet.dart:101,113`). A week of quick lecture
+notes then fills the grid with identical names, and library search can't
+tell them apart. *Fix:* default to the date, as a planner does ("Notes 13
+October", or "13 October" for a canvas), and number repeats on the same
+day ("13 October 2").
+
+⬜ **R6-11 P2 · The favourite star is amber chrome on a white plate.**
+`_FavoriteBadge` (`features/library/notebook_cover.dart:163-178`) draws a
+`Palette.favourite` (`#F5A524`, `ui/app_theme.dart:208`) star on a paper
+square. The list tile also tints the star amber (`notebook_list_tile.dart:149`).
+DESIGN §1 allows no orange in chrome, and this badge has the same "sticker"
+look as the ∞ badge being fixed on `design/followups`. *Fix:* give it the
+same treatment as the ∞ badge (an Ink filled star, no plate, or a paper
+label), and use `onSurface` in the list.
+
+⬜ **R6-12 P2 · Library selection bar: bare icons; the overview's has labels.**
+`LibrarySelectionBar` is icon-only (select all, ☆, folder, 🗑, with tooltips;
+`features/library/selection/selection_bar.dart:35-44`).
+The overview's `SelectionBar` puts a label under each icon (Bookmark,
+Duplicate, Delete; `features/documents/overview/overview_parts.dart:38-50`).
+On touch, tooltips need a long press, so "☆" (favourite or unfavourite?) and
+the folder glyph (move? new folder?) are guesses. *Fix:* one selection bar
+pattern: labelled actions on touch (Favourite, Move, Trash; Restore and
+Delete in the trash), icons only with a pointer.
+
+⬜ **R6-13 P2 · The library's "View" button looks like Sort and holds
+Select.** The header's menu uses `Symbols.swap_vert_sharp` with the tooltip
+"View" and holds Sort by, Show as and Select
+(`features/library/library_header.dart:410-439`). The glyph promises sorting
+only, so grid/list and multi-select are hard to find on phones. *Fix:* a
+neutral glyph (`tune` or `view_agenda`) and the label "View". Multi-select
+already starts with a long press then Select. Consider dropping "Select" from
+this menu once the context menu's Select is the documented way (one home).
+
+### Editor chrome
+
+⬜ **R6-2 P1 · A phone held sideways gets tablet chrome.** Dock and tab strip
+are chosen by width only: `dockFor` (`features/editor/editor_chrome_host.dart:50-59`)
+returns `row` at 844 dp (two rows: bar 52 + tools 48), and `showsStrip`
+(`chrome/editor_top_bar.dart:84-86`) adds the 40-dp tab strip with two or
+more notebooks open. That is 140 dp plus the status bar on a 390-dp screen,
+over a third of the height, just when you turn the phone to write wider.
+The library already treats short windows as compact (`Breakpoints.libraryCompact`).
+No screenshot covers it. *Fix:* below `Breakpoints.shortHeight` use one row:
+the inline dock (tools centred; `fitsOneRow` with the title dropped first)
+and no tab strip (tabs move to ⋯ → Open notebooks, as on phones). Add
+`editor_phone_sideways` renders.
+
+⬜ **R6-4 P1 · Tablet portrait with tabs: three chrome rows.**
+`e_tabs_tablet_portrait_*`: tab strip (40), then a bar that hides its title
+(`showTitle: !strip || split`, `chrome/editor_top_bar.dart:132`) and keeps only
+← ▦ on the left and 🎙 ↶ ↷ ⋯ on the right, then the tool row (48). About
+52 dp of a 1280-dp-tall tablet is an almost empty row. *Fix:* when the strip
+shows and the dock is `row`, drop the middle bar. Put ← ▦ at the start of
+the tool row and 🎙 ↶ ↷ ⋯ at its end (the row is centred and has room at
+800 dp), or put them at the ends of the tab strip.
+
+⬜ **R6-14 P2 · Gesture undo is never taught.** Tap to undo (two fingers) and
+redo (three) are on by default, but the only tip is the side button
+(`features/editor/chrome/editor_tips.dart:12-15`). The gestures are described
+only in Settings ("Two fingers undo, three redo"). A daily S Pen user keeps
+reaching for ↶ at the top of a phone, the farthest point from the bottom
+tool row. *Fix:* a second tip, offered after the third ↶ tap on a touch
+device: "Tap with two fingers to undo, three to redo". Same
+`TipsController`, once per device.
+
+### Pens, colours, tools
+
+⬜ **R6-6 P2 · Text colour and recolour open a different, cramped picker.**
+The text bar's colour (`features/editor/tools/text_format_bar.dart:214-230`)
+and the selection's recolour (`tools/selection_style_panel.dart`) go through
+`pickColour` → `pickColor`, the generic `ColorPicker`. It leads with the HSV
+square, hue band and hex field (`ui/color_picker/color_picker.dart:95-140`),
+and its palette is a `Wrap` of dots clamped to 36 dp
+(`_SwatchGrid`, `:209-235`). That's 9 + 5 per row on a phone (`e_text_colour_phone_*`),
+with 36-dp targets. The ink popovers show the palette first, 2 × 7 with
+48-dp cells on touch, plus Recent and a Custom disclosure (R5-2). Changing a
+text colour is the frequent case, and a custom colour the rare one. *Fix:*
+build `pickColor` on the ink popovers' `ColorChoices` (palette, Recent,
+Custom ▸ HSV), laid out with `EvenGrid`. One colour picker everywhere.
+
+⬜ **R6-15 P2 · "Hold to snap shapes" lives in three places, one of them
+above a Reset that ignores it.** `HoldToSnapSwitch` is one global setting.
+It shows in the pen's Feel (`features/editor/pen/pen_options_panel.dart:50`),
+the highlighter's Feel (`highlighter_options_panel.dart:52`) and the Shapes
+popover (`features/editor/editor_tools.dart:157`). In the pen popover it sits
+right above "Reset feel" (`pen/ink_options.dart:102-114`), which resets only
+the pen's own feel (`withFeelDefaults`), so the switch looks per-pen and
+resettable but is neither. *Fix:* one home, the Shapes popover (where shapes
+are). Or, if it stays in Feel for discoverability, move it out of the
+disclosure into its own row under Size, so Reset feel covers exactly what's
+above it.
+
+⬜ **R6-16 P2 · The lasso popover is three lines of hints.** Tapping the
+active lasso opens a popover with no controls
+(`features/editor/tools/lasso_options_panel.dart`): "Circle ink, text or
+images…", "Drag to move them…", "To select PDF text, long-press it". Every
+other popover is a place to change something, and you open this one again
+and again by habit. *Fix:* show the hints once as a tip the first time the
+lasso is picked, and either give the lasso a real option (GoodNotes-style:
+what it selects: ink, images, text; or freeform/rectangle) or open nothing.
+
+### Pages, templates
+
+⬜ **R6-17 P2 · The overview's selection can't export or retemplate.**
+`SelectionAction` is bookmark, duplicate, delete
+(`features/documents/overview/overview_parts.dart:9`). To send three pages
+to a classmate, a user notes their numbers, leaves the overview and types a
+range into Export. The export sheet already takes custom pages
+(`ExportRange.custom`, `features/documents/export/export_options.dart:17`),
+and Change template already has "All pages". *Fix:* add Export… (opens the
+export sheet with the selection as the custom range) and Change template…
+(applied to the selection) to the bar, or behind a ⋯ in it.
+
+⬜ **R6-18 P2 · The primary button names the same act two ways.** The template
+picker says "Apply" in Change template and "Use template" in Canvas
+background and when creating (`features/documents/template_picker.dart:231-233`).
+Background… on a canvas is a change too. *Fix:* "Apply" for every change of
+an existing page or canvas. "Use template" stays only where the picker
+chooses for something not created yet (the new notebook's More…).
+
+⬜ **R6-19 P2 · Template filter chips repeat the gallery's headings and cut
+mid-word on phones.** The chooser has search, a chip row (All, Paper,
+Writing, Planners, My templates; `features/documents/templates/template_chooser.dart:213-245`)
+and a gallery grouped under the same headings. On a 390-dp sheet the row
+scrolls off as "My t" (`e_dialog_add_page_template_phone_*`,
+`templates_picker_*`). *Fix:* see S3. Drop the chips, keep search, and let
+the headings be the categories (jump links in the wide dialog's left column
+if anything).
+
+### Dialogs, fields and copy
+
+⬜ **R6-8 P2 · Wide task dialogs offer both ✕ and Cancel.** On dialogs,
+`SheetHeader(onClose:)` and `SheetActions(onCancel:)` both show: New folder
+and Edit folder (`features/library/dialogs/folder_dialog.dart:91,121-124`),
+Cover (`dialogs/cover_sheet.dart:71,91`), New notebook
+(`library/new_notebook_sheet.dart:173`), and the template picker. DESIGN §6.3
+draws the dialog without a ✕ (quiet Cancel, Ink primary); the ✕ belongs to
+the phone sheet. *Fix:* `SheetHeader` shows its ✕ only when not `wide`.
+
+⬜ **R6-20 P2 · Some fields carry a leading icon, most don't.** "Save as
+template" puts `dashboard_customize` inside its field
+(`ui/text_prompt.dart:75`, passed from
+`features/documents/templates/user_templates.dart:148`), and the export page
+range a numbered-list glyph (`documents/export/export_sheet_sections.dart:168`).
+Rename, folder, sync and title fields have none, and R5-26 removed them from
+sync. DESIGN §6 fields are rulings: label, value, rule. *Fix:* drop both
+prefix icons and the `icon` parameter of `showTextPrompt`.
+
+⬜ **R6-21 P2 · Full stops and a heavy button in empty states; a toast with a
+stop.** Single-sentence messages end in "." in the library's empty states
+("Nothing matches “zzz”.", "Create a notebook to start writing, or import a
+PDF to write on.", "Star notebooks you use often to find them here.";
+`features/library/library_empty_state.dart:44-68`), the canvas hint
+(`features/editor/canvas/canvas_empty_hint.dart:85`), and the toast "A
+folder can’t be moved into itself." (`library_actions.dart:125`). "Clear
+search" is an Ink `FilledButton` (`library_empty_state.dart:126-133`), the
+loudest thing on an empty screen for the least important act. *Fix:* drop
+the stops. Make Clear search a quiet `TextButton`. Extend
+`test/copy_rules_test.dart` to the record/switch tuples and `_toast` calls
+it misses today.
+
+⬜ **R6-22 P2 · The trash's subtitle differs by width.** "Kept for 30 days" on
+phones, "1 notebook, deleted forever after 30 days" on wide screens
+(`features/library/library_header.dart:106-108`). The phone loses the count,
+and the two sentences sound like different policies. *Fix:* one string, "1
+notebook, deleted after 30 days" (short enough for 390 dp).
+
+### Sync and settings
+
+⬜ **R6-9 P2 · Settings' "Draw with: Automatic / Stylus / Both" models a
+passing state.** Automatic (`stylusOnly == null`) lasts until the first pen
+contact. `_onStylusDetected` then sets Stylus and offers "Keep finger drawing"
+(`features/editor/editor_screen.dart:322-340`). Meanwhile the ⋯ menu shows
+the same preference as a switch, "Draw with finger"
+(`chrome/editor_more_menu.dart:104-111`), and one round trip through it
+leaves Automatic for good. So Settings carries a three-way control
+(`features/settings/writing_settings.dart:41`) whose first option the user
+can't usefully choose after day one, and the two homes disagree on its
+shape. *Fix:* see S1. Settings shows the same "Draw with finger" switch, and
+Automatic stays the unseen first-run default.
+
+⬜ **R6-23 P2 · Setting up the second device means retyping a URL and a
+token.** Sync setup is two text fields and Connect
+(`features/settings/sync_settings.dart:220-280`). There is no link, code or
+QR to carry the setup from a connected device (no such code in the app).
+Typing a long access token with an S Pen on a tablet is the worst part of
+setup. *Fix:* on a connected device, "Copy setup link" (a `len://sync?url=…&token=…`
+link, also shown as a QR on wide screens). On a new device, "Paste setup
+link" fills both fields, or opening the link does. The server stays the
+same.
+
+### Simplify (one home per command; defaults over settings)
+
+| # | Proposal | Why | Files |
+|---|---|---|---|
+| S1 | Settings "Draw with" becomes the "Draw with finger" switch (R6-9) | Automatic is a first-run state, not a choice; one control shape in both homes | `features/settings/writing_settings.dart`, `chrome/editor_more_menu.dart` |
+| S2 | No ✕ on wide dialogs that have Cancel (R6-8) | Two exits on one form; DESIGN §6.3 | `ui/sheet_parts.dart` (`SheetHeader`) |
+| S3 | Template chooser: drop the category chips (R6-19) | Search plus headings already filter; the chips repeat the headings and cut off on phones | `features/documents/templates/template_chooser.dart` |
+| S4 | Folder delete: no confirm (or none for empty folders); the snack's Undo restores it | Trashing a notebook has no confirm and relies on Undo; deleting an empty folder asks "The folder is empty." (`library_actions.dart:241-252`) | `features/library/library_actions.dart` |
+| S5 | Lasso: no hint popover (R6-16) | A popover with nothing to set | `features/editor/tools/lasso_options_panel.dart`, `editor_tools.dart` |
+| S6 | "Hold to snap shapes" in one place (R6-15) | One global switch, three homes | `pen/pen_options_panel.dart`, `pen/highlighter_options_panel.dart`, `editor_tools.dart` |
+| S7 | Cover: the colour applies on tap, Undo in a snack; no Apply/Cancel | The preview is the result; four taps for one colour | `features/library/dialogs/cover_sheet.dart`, `library_actions.dart:168-172` |
+| S8 | `showTextPrompt` loses its `icon` parameter (R6-20) | One field style | `ui/text_prompt.dart` |
+| S9 | One colour picker (R6-6): `pickColor` built on `ColorChoices` | Two pickers with different layouts, sizes and order | `ui/color_picker/` |
+
+Kept on purpose: the long press on the FAB (it stays as a shortcut once
+R6-5 lands), the toolbar pair in View ▸ and Settings (REDESIGN §2.1), and
+Bookmark and Duplicate in the overview bar.
+
+### What's good now
+
+The redesign holds together across all 687 renders. Hairlines, Board/Sheet/Desk
+steps, Ink primaries and the margin rule read the same in the library,
+editor, dialogs and settings, in light and dark. Dark mode keeps paper
+light, and the dark snack slab works over it. Large text reflows properly:
+stacked segmented controls in Settings, stacked dialog actions, and the
+search bar's second row. The phone bar's previous-tool button, the 2 × 7 pen
+palette and the empty library's three covers are calm and clear. The
+destructive confirms, ruled progress, the convert-to-text states and the
+startup error screen are consistent and specific.
+
+---
+
 ## Design review (`design/polish`, the Swiss-minimal redesign as a whole)
 
 A design lead's last critique before showing the client: all 687 renders
