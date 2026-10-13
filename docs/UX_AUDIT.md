@@ -294,8 +294,10 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
     with a margin, the background grid aligned as on screen.
 26. ⬜ Desktop: folder cards and the notebook grid end at different right
     edges, and titles are limited to one line.
-27. ⬜ Bookmark colour differs between the editor (orange), the overview
-    (brown or peach) and the app bar (primary).
+27. ✅ Bookmark colour differs between the editor (orange), the overview
+    (brown or peach) and the app bar (primary). → One colour,
+    `Palette.bookmark`: the page ribbon, overview tiles, Go to page strip,
+    the selected Bookmarks filter and the link picker.
 
 ### What changed (round 3)
 

@@ -9,6 +9,7 @@ import '../../../ink/render/ink_painters.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/tiles/tile_space.dart';
 import '../../../ink/viewport.dart';
+import '../../../ui/app_theme.dart';
 import 'document_layout.dart';
 import 'document_surfaces.dart';
 import 'page_backgrounds.dart';
@@ -34,7 +35,7 @@ void paintBookmark(Canvas canvas, Size page) {
     ..lineTo(x + width / 2, height - 8)
     ..lineTo(x, height)
     ..close();
-  canvas.drawPath(path, Paint()..color = const Color(0xFFE8590C));
+  canvas.drawPath(path, Paint()..color = Palette.bookmark);
 }
 
 /// Paints the desk, the visible pages' paper, backgrounds and templates.

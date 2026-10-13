@@ -44,7 +44,13 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: [
         FilterChip(
-          avatar: Icon(Symbols.bookmark_rounded, size: 18, fill: bookmarksOnly ? 1 : 0),
+          // The bookmark's colour, as on the pages and tiles.
+          avatar: Icon(
+            Symbols.bookmark_rounded,
+            size: 18,
+            fill: bookmarksOnly ? 1 : 0,
+            color: bookmarksOnly ? Palette.bookmark : null,
+          ),
           showCheckmark: false,
           label: const Text('Bookmarks'),
           selected: bookmarksOnly,
