@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/ink/input/scribble_detector.dart';
@@ -75,6 +76,66 @@ void main() {
       expect(motionScribbles(scribble(passMs: 300)), isFalse, reason: 'slow');
       expect(motionScribbles(scribble(width: 10, drift: 1)), isFalse, reason: 'jitter-sized');
       expect(motionScribbles(scribble(width: 30, drift: 12)), isFalse, reason: 'a zigzag line');
+    });
+  });
+
+  group('only the zigzag counts (R8-25, R8-32)', () {
+    /// A detector fed [points], [stepMs] apart.
+    ScribbleDetector fed(List<Offset> points, {int stepMs = 4}) {
+      final d = ScribbleDetector()..begin(points.first, 0);
+      for (var i = 1; i < points.length; i++) {
+        d.add(points[i], i * stepMs);
+      }
+      return d;
+    }
+
+    List<Offset> line(Offset a, Offset b) {
+      final n = ((b - a).distance / 4).ceil();
+      return [for (var i = 1; i <= n; i++) Offset.lerp(a, b, i / n)!];
+    }
+
+    List<Offset> zigzag(double x0, double x1, double y, {int passes = 8}) => [
+      for (var k = 0; k < passes; k++)
+        ...line(Offset(k.isEven ? x0 : x1, y + k * 2), Offset(k.isEven ? x1 : x0, y + k * 2 + 2)),
+    ];
+
+    Rect bounds(List<Offset> path) => path
+        .skip(1)
+        .fold(
+          Rect.fromPoints(path.first, path.first),
+          (r, p) => r.expandToInclude(Rect.fromPoints(p, p)),
+        );
+
+    test('a lead-in along the axis and a run-on are cut off', () {
+      final d = fed([
+        ...line(const Offset(0, 100), const Offset(300, 100)),
+        ...zigzag(300, 380, 100),
+        ...line(const Offset(300, 116), const Offset(700, 116)),
+      ]);
+      expect(d.isScribble, isTrue);
+      final b = bounds(d.paths.expand((p) => p).toList());
+      expect(b.left, greaterThan(290));
+      expect(b.right, lessThan(390));
+    });
+
+    test('a scribble stays found however long the stroke goes on', () {
+      final d = fed([
+        ...zigzag(100, 180, 100),
+        // Five seconds of wandering on.
+        for (var i = 0; i < 1250; i++) Offset(200 + i * 0.4, 100 + 20 * math.sin(i / 20)),
+      ]);
+      expect(d.isScribble, isTrue);
+      expect(d.windows, hasLength(1));
+      expect(bounds(d.paths.single).right, lessThan(190));
+    });
+
+    test('two scribbles in one stroke are two zigzags', () {
+      final d = fed([
+        ...zigzag(100, 180, 100),
+        ...line(const Offset(100, 116), const Offset(400, 116)),
+        ...zigzag(400, 480, 116),
+      ]);
+      expect(d.windows, hasLength(2));
     });
   });
 

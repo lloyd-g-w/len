@@ -225,6 +225,7 @@ class _EditorScreenState extends State<_EditorView> {
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
     _audio.onNotice = _onAudioNotice;
+    _session.input.events.scribbleMissed = _onScribbleMissed;
     _services.incomingFiles.targets.add(_importTarget);
     // Of two editors (split view), files go to the one used last.
     _focusNode.addListener(_onFocus);

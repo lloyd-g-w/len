@@ -16,6 +16,7 @@ import '../viewport.dart';
 import 'bounce_filter.dart';
 import 'highlight_snap.dart';
 import 'hold_to_straighten.dart';
+import 'ink_events.dart';
 import 'lift_speed.dart';
 import 'live_ink.dart';
 import 'sample_source.dart';
@@ -57,6 +58,9 @@ class InkDrawing {
   /// Snaps highlighter strokes over text to it.
   HighlightSnap? highlightSnap;
 
+  /// Moments the editor may react to.
+  final InkEvents events = InkEvents();
+
   /// The pointer tool handling the current drawing pointer, if any.
   PointerTool? _tool;
 
@@ -67,7 +71,8 @@ class InkDrawing {
   late final StrokeSampler _sampler = StrokeSampler(viewport, _keep);
 
   /// Erases what a pen scribble crosses.
-  late final ScribbleErase _scribble = ScribbleErase(viewport: viewport, tools: tools, live: live);
+  late final ScribbleErase _scribble = ScribbleErase(viewport: viewport, tools: tools, live: live)
+    ..onMissed = () => events.scribbleMissed?.call();
 
   /// The pen's speed at the lift, for an end taper that follows it.
   final LiftSpeed _liftSpeed = LiftSpeed();
@@ -212,12 +217,14 @@ class InkDrawing {
     } else if (_erasing) {
       showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
-      // A snapped shape's end follows no speed (the pen rested to snap it).
-      if (live.straightened) _endFollowsSpeed = false;
+      // A snapped shape's end follows no speed (the pen rested to snap it),
+      // and it is no scribble.
+      final snapped = live.straightened;
+      if (snapped) _endFollowsSpeed = false;
       final points = StrokeSampler.settleEnd(live.finish());
       // A bounce was shown while it touched (under the nib, where the pen
       // just lifted, for less than `BounceFilter.maxContact`) and goes now.
-      if (points.isNotEmpty && !_isBounce(liftTime) && !_scribble.erase(model, points)) {
+      if (points.isNotEmpty && !_isBounce(liftTime) && !_scribble.erase(model, snapped: snapped)) {
         _commit(points, liftTime);
       }
       _recordLift(liftTime);

@@ -48,7 +48,7 @@ grew apart.
 4. R8-15 (P1) Restoring on a new or empty device buries the whole library
    in a "Backup 13 Oct 2026" folder.
 5. ✅ R8-24 (P1) Highlighted PDF text can't be selected with the pen any more.
-6. R8-25 (P1) A scribble erases along the whole stroke, not just where it
+6. ✅ R8-25 (P1) A scribble erases along the whole stroke, not just where it
    zigzagged, and can wipe an outline it filled in.
 7. R8-7 (P1) Phones: the notice, Recent and folders push the first cover
    below the middle of the screen. Held sideways, the notice takes 27 % of
@@ -386,7 +386,7 @@ purge at once.**
   over it still wins. A highlight is selected with a lasso loop
   (`fix/r8-pen`).
 
-**R8-25 P1 · A scribble erases along the whole stroke.**
+✅ **R8-25 P1 · A scribble erases along the whole stroke.**
 - *What:* `ScribbleDetector` answers yes or no for the whole stroke
   (`ink/input/scribble_detector.dart:63-72`). At pen-up
   `ScribbleErase.erase` hands every point to `eraseScribbled`
@@ -397,6 +397,15 @@ purge at once.**
   that contains the outline, so the outline is erased.
 - *Fix:* `detect` returns the matched window (first and last index), and
   only that sub-path erases. Skip strokes whose bounds enclose the window.
+- *Done:* `ScribbleDetector.windows` gives the runs of passes that make
+  a scribble, their outer passes cut to the span of the inner ones (and
+  inner passes may be at most twice the median, so two scribbles joined by
+  a line are two). Only those zigzags erase and preview
+  (`ScribbleHits`). A stroke whose bounds hold a zigzag's (give or take
+  20 %) with no ink in its middle is an outline being filled in, and
+  stays. Tests: a lead-in, a run-on, a filled checkbox and a boxed word
+  (`scribble_to_erase_test.dart`); the Ink Lab recordings still never
+  scribble (`fix/r8-pen`).
 
 **R8-26 P1 · Gestures that change every stroke are hidden and never
 taught.**
@@ -427,7 +436,7 @@ taught.**
   caption to "Hold the pen still at the end of a stroke for a clean line
   or shape".
 
-**R8-28 P2 · A snapped line can be erased as a scribble.**
+✅ **R8-28 P2 · A snapped line can be erased as a scribble.**
 - *What:* `_enabled` checks `!live.straightened`
   (`ink/input/scribble_erase.dart:142-143`). But `finish()` calls
   `live.finish()` first, which resets the flag (`ink/input/live_ink.dart:76`,
@@ -435,14 +444,21 @@ taught.**
   snap.
 - *Fix:* latch "not a scribble" in `ScribbleErase.add` once `straightened`
   is seen.
+- *Done:* `ScribbleErase` latches "snapped" while the stroke goes on,
+  and `InkDrawing` reads `straightened` before `LiveInk.finish` clears it
+  (`fix/r8-pen`).
 
-**R8-29 P2 · Scribbling over a text box or image leaves a zigzag.**
+✅ **R8-29 P2 · Scribbling over a text box or image leaves a zigzag.**
 - *What:* `scribbled` only looks at strokes
   (`ink/surface_model_editing.dart:86-91`). When it erases nothing, the
   scribble is committed as ink. Nothing dims, so there is no warning.
 - *Fix:* when a recognised scribble lies mostly over an element and hits
   no ink, drop it and say "Scribble erases ink only". Over blank paper it
   stays ink, as now.
+- *Done:* a recognised scribble that erases nothing and lies mostly
+  (70 %) over text boxes or images is dropped, and the editor says
+  "Scribble erases ink only" (`InkEvents.scribbleMissed`). Over blank
+  paper it stays ink (`fix/r8-pen`).
 
 ✅ **R8-30 P2 · Underlines become highlights; turned pages are untested.**
 - *What:* `_Line.holds` accepts points up to 0.85 line heights from the
@@ -473,7 +489,7 @@ word.**
 - *Fix:* no selected semantics (and no ring: order shows the current
   colour). On wide windows the label "Highlight" replaces the glyph.
 
-**R8-32 P2 · The scribble detector's per-move cost grows with the stroke.**
+✅ **R8-32 P2 · The scribble detector's per-move cost grows with the stroke.**
 - *What:* every 4th kept point, `detect` re-scans the whole stroke
   (`ink/input/scribble_erase.dart:69,104`, `scribble_detector.dart:68`).
   Once a scribble is recognised, `_follow` copies all live points and
@@ -482,6 +498,9 @@ word.**
 - *Fix:* only the last 1.2 s can be a scribble (`maxDuration`), so keep a
   window of that and test only the segments added since the last
   `_follow` (the set only grows).
+- *Done:* the detector looks every 4 points at the last 1.2 s only and
+  keeps the zigzags it found; the preview asks the model again only when
+  they grew, and only along them (`fix/r8-pen`).
 
 **R8-33 P2 · The Shapes caption points to a switch that may be off, in
 template typography.**

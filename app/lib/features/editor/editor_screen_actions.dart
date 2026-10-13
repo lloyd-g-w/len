@@ -30,6 +30,11 @@ extension _EditorActions on _EditorScreenState {
     );
   }
 
+  /// A scribble over a text box or image erased nothing and was dropped.
+  void _onScribbleMissed() {
+    if (mounted && !_closing) showMessage(context, 'Scribble erases ink only');
+  }
+
   void _onMultiFingerTap(int fingers) => runMultiFingerTap(_session, fingers, _hud);
 
   void _setStylusOnly(bool value) {

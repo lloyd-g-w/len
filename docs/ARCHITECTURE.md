@@ -1228,21 +1228,33 @@ ones a rectangle (axis-aligned or rotated), ellipse/circle, triangle or
 polygon; scribbles stay freehand. Only the clean shape is committed.
 
 **Scribble to erase** (`input/scribble_detector.dart`, on by default, a
-switch in Pen › Feel): a pen (ballpoint) stroke holding a fast
+switch in Settings → Writing): a pen (ballpoint) stroke holding a fast
 back-and-forth scribble — `ScribbleDetector`: ≥ 6 passes within 1.2 s, each
-nearly reversing the last, ≥ 14 screen px and fairly straight, all in a
-band at most half their length wide (cursive m / n / u / w reverses as
-sharply but moves on) — erases instead of becoming ink when it crosses
-ink: `SurfaceModel.eraseScribbled` removes the strokes it touches that lie
-mostly inside its bounds (a long line under a scribbled word stays), as
-one `InkEdit`. Over blank paper it stays ink (shading). `ScribbleErase`
-(`input/scribble_erase.dart`) runs it for `InkDrawing`: once the stroke so
-far is a scribble it previews what will go (`SurfaceModel.scribbled`),
-hiding those strokes as an owner (`setHidden`) and drawing them at 30 % as
-its lifted content (fading in over 100 ms, frame callbacks only while
-fading); the stroke ending any way un-hides them before the erase. It is held to zero
-false positives on the Ink Lab's real S Pen recordings and simulated
-writing at 1–4× (`test/scribble_detector_test.dart`).
+nearly reversing the last, ≥ 14 screen px, the inner ones at most twice the
+median, fairly straight, all in a band at most half their length wide
+(cursive m / n / u / w reverses as sharply but moves on) — erases instead
+of becoming ink when it crosses ink. Only the part that zigzags counts
+(`ScribbleDetector.windows`: each run of passes that makes a scribble, its
+outer passes cut to the span of the inner ones, overlapping runs joined),
+so a lead-in or a run-on erases nothing. The detector looks every 4
+points at the stroke's last 1.2 s only, so its cost doesn't grow with the
+stroke. `SurfaceModel.eraseScribbled` (`ink/scribble_hits.dart`) removes
+the strokes a zigzag touches that lie mostly inside its bounds (a long
+line under a scribbled word stays) and are not an outline around it (a
+stroke whose bounds hold the zigzag's, give or take 20 %, with no ink in
+the zigzag's middle half: a checkbox being filled in), as one `InkEdit`.
+Over blank paper it stays ink (shading); over text boxes or images only,
+it is dropped and the editor says "Scribble erases ink only"
+(`InkEvents.scribbleMissed`). A stroke hold to snap made a line or shape
+is never a scribble (latched, as the pen-up clears `LiveInk.straightened`).
+`ScribbleErase` (`input/scribble_erase.dart`) runs it for `InkDrawing`:
+once the stroke so far holds a scribble it previews what will go
+(`SurfaceModel.scribbled`, again only when the zigzags grew), hiding
+those strokes as an owner (`setHidden`) and drawing them at 30 % as its
+lifted content (fading in over 100 ms, frame callbacks only while
+fading); the stroke ending any way un-hides them before the erase. It is
+held to zero false positives on the Ink Lab's real S Pen recordings and
+simulated writing at 1–4× (`test/scribble_detector_test.dart`).
 
 **Text-aware highlighter** (`input/highlight_snap.dart`, set by paged
 editors to `features/editor/pdf/PdfHighlightSnap`): always (it needs no

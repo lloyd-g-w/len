@@ -2,11 +2,15 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/element_repository.dart';
 import 'package:len/data/stroke_repository.dart';
+import 'package:len/domain/surface_element.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/tool_settings.dart';
+import 'package:len/ink/undo_history.dart';
 import 'package:len/ink/viewport.dart';
 
 void main() {
@@ -20,6 +24,7 @@ void main() {
     model = SurfaceModel(
       surfaceId: 's',
       repository: StrokeRepository(db, deviceId: 'd'),
+      elementRepository: ElementRepository(db, deviceId: 'd'),
     );
     tools = ToolSettings(stylusOnly: true);
     input = InkInputController(
@@ -128,5 +133,100 @@ void main() {
     model.undo();
     expect(model.strokeById(word.id), isNotNull);
     expect(model.isHidden(word.id), isFalse);
+  });
+
+  testWidgets('only the part that zigzags erases, not a lead-in (R8-25)', (tester) async {
+    draw(line(const Offset(100, 105), const Offset(140, 110)));
+    draw(line(const Offset(300, 105), const Offset(360, 110)));
+    final word = model.strokesNear(Rect.largest).singleWhere((s) => s.bounds.left > 200);
+    // From the first word, across to the second and scribbling there.
+    draw([...line(const Offset(80, 104), const Offset(290, 100)), ...scribble(290, 370, 100)]);
+    expect(model.loadedStrokeCount, 1, reason: 'the first word stays');
+    expect(model.strokeById(word.id), isNull);
+
+    // Running on after the zigzag doesn't count either.
+    draw(line(const Offset(300, 205), const Offset(360, 210)));
+    draw(line(const Offset(500, 210), const Offset(560, 212)));
+    final after = model.strokesNear(Rect.largest).singleWhere((s) => s.bounds.left > 450);
+    draw([...scribble(290, 370, 200), ...line(const Offset(290, 214), const Offset(600, 214))]);
+    expect(model.strokeById(after.id), isNotNull);
+    expect(model.loadedStrokeCount, 2);
+  });
+
+  testWidgets('filling in a small outline quickly keeps the outline (R8-25)', (tester) async {
+    // A checkbox, then a quick fill that overshoots it a little.
+    draw([
+      ...line(const Offset(100, 100), const Offset(140, 100)),
+      ...line(const Offset(140, 100), const Offset(140, 140)).skip(1),
+      ...line(const Offset(140, 140), const Offset(100, 140)).skip(1),
+      ...line(const Offset(100, 140), const Offset(100, 101)).skip(1),
+    ]);
+    final box = model.strokesNear(Rect.largest).single;
+    draw([
+      for (var k = 0; k < 10; k++)
+        ...line(
+          Offset(k.isEven ? 97 : 143, 102 + k * 3.6),
+          Offset(k.isEven ? 143 : 97, 102 + (k + 1) * 3.6),
+        ).skip(k == 0 ? 0 : 1),
+    ], stepMs: 4);
+    expect(model.strokeById(box.id), isNotNull, reason: 'the outline stays');
+    expect(model.loadedStrokeCount, 2, reason: 'the fill is ink');
+
+    // A word in a box scribbled out goes; the box stays.
+    draw(line(const Offset(300, 118), const Offset(330, 122)));
+    final word = model.strokesNear(Rect.largest).singleWhere((s) => s.bounds.left > 250);
+    draw([
+      ...line(const Offset(280, 100), const Offset(350, 100)),
+      ...line(const Offset(350, 100), const Offset(350, 140)).skip(1),
+      ...line(const Offset(350, 140), const Offset(280, 140)).skip(1),
+      ...line(const Offset(280, 140), const Offset(280, 101)).skip(1),
+    ]);
+    draw(scribble(295, 335, 112), stepMs: 4);
+    expect(model.strokeById(word.id), isNull);
+    expect(model.loadedStrokeCount, 3, reason: 'both outlines and the first fill');
+  });
+
+  testWidgets('a scribble snapped to a line by holding is no scribble (R8-28)', (tester) async {
+    draw(line(const Offset(100, 105), const Offset(160, 110)));
+    draw(scribble(90, 170, 100), stepMs: 4, lift: false);
+    // Hold still: hold to snap makes it a line.
+    await tester.pump(const Duration(milliseconds: 700));
+    input.handleUp(
+      PointerUpEvent(
+        pointer: 1,
+        kind: PointerDeviceKind.stylus,
+        position: const Offset(90, 116),
+        timeStamp: Duration(milliseconds: clockMs += 700),
+      ),
+    );
+    expect(model.loadedStrokeCount, 2, reason: 'the word stays; the line is ink');
+  });
+
+  testWidgets('a scribble over a text box only is dropped, and says so (R8-29)', (tester) async {
+    var missed = 0;
+    input.events.scribbleMissed = () => missed++;
+    model.commit(
+      InkEdit(
+        addedElements: [
+          SurfaceElement(
+            id: 't',
+            surfaceId: 's',
+            type: ElementType.text.name,
+            rect: const Rect.fromLTWH(80, 90, 120, 40),
+            z: 1,
+            createdAt: 0,
+            data: const TextData(text: 'Mitosis').toJson(),
+          ),
+        ],
+      ),
+    );
+    draw(scribble(90, 170, 100), stepMs: 4);
+    expect(model.loadedStrokeCount, 0, reason: 'not left as a zigzag');
+    expect(missed, 1);
+    expect(model.elementById('t'), isNotNull);
+    // Over blank paper it is ink, as before.
+    draw(scribble(390, 470, 300), stepMs: 4);
+    expect(model.loadedStrokeCount, 1);
+    expect(missed, 1);
   });
 }

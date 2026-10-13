@@ -56,41 +56,41 @@ mixin _SurfaceEditing on _SurfaceState {
     return true;
   }
 
-  /// Scribble to erase: removes the strokes the scribble [path] (world)
-  /// crosses ([scribbled]), as one undoable edit. Returns how many went.
-  int eraseScribbled(List<Offset> path, double radius) {
-    final removed = scribbled(path, radius);
+  /// Scribble to erase: removes the strokes the zigzags [paths] (world)
+  /// take ([scribbled]), as one undoable edit. Returns how many went.
+  int eraseScribbled(List<List<Offset>> paths, double radius) {
+    final removed = scribbled(paths, radius);
     commit(InkEdit(removed: removed));
     return removed.length;
   }
 
-  /// The strokes the scribble [path] (world) crosses, within [radius],
-  /// that lie mostly inside its bounds (so a long line under a scribbled
-  /// word stays). Hidden strokes don't count, except those in [preview]
-  /// (hidden to show them about to go).
-  List<Stroke> scribbled(List<Offset> path, double radius, {Set<String> preview = const {}}) {
-    if (path.length < 2) return const [];
-    var area = Rect.fromPoints(path.first, path.first);
-    for (final p in path) {
-      area = area.expandToInclude(Rect.fromPoints(p, p));
-    }
-    area = area.inflate(radius);
-    final box = Lasso([area.topLeft, area.topRight, area.bottomRight, area.bottomLeft]);
-    bool crossed(Stroke stroke) {
-      for (var i = 1; i < path.length; i++) {
-        if (StrokeHitTest.sweepHits(stroke, path[i - 1], path[i], radius)) return true;
+  /// The strokes the zigzags [paths] (world) take within [radius]
+  /// ([ScribbleHits]). Hidden strokes don't count, except those in
+  /// [preview] (hidden to show them about to go).
+  List<Stroke> scribbled(
+    List<List<Offset>> paths,
+    double radius, {
+    Set<String> preview = const {},
+  }) {
+    final taken = <String, Stroke>{};
+    for (final path in paths) {
+      if (path.length < 2) continue;
+      final candidates = _strokes
+          .query(ScribbleHits.area(path, radius))
+          .where((s) => !_hidden.contains(s.id) || preview.contains(s.id));
+      for (final s in ScribbleHits.taken(path, radius, candidates)) {
+        taken[s.id] = s;
       }
-      return false;
     }
-
-    return [
-      for (final stroke in _strokes.query(area))
-        if ((!_hidden.contains(stroke.id) || preview.contains(stroke.id)) &&
-            box.insideShare(stroke) >= Lasso.strokeShare &&
-            crossed(stroke))
-          stroke,
-    ];
+    return taken.values.toList();
   }
+
+  /// Whether the zigzags [paths] (world) lie mostly over text boxes or
+  /// images (a scribble there erases nothing).
+  bool scribbledOnElements(List<List<Offset>> paths) => ScribbleHits.overElements(paths, [
+    for (final path in paths)
+      if (path.length > 1) ..._elements.query(ScribbleHits.area(path, 0)),
+  ]);
 
   void undo() {
     if (_disposed) return;
