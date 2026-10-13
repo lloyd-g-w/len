@@ -212,6 +212,6 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Recovery from servers that lost history (restored backup, replaced server: `serverId`, 409,
   `server new-id`); durable server commits; errors that say what to fix (token, address, server
   too old / new, unreachable)
-- ⬜ "Delete forever" racing an edit on an offline device: the edit's strokes end up on
-  tombstoned pages (hidden), and an edited notebook comes back without pages. Decide whether
-  unsynced edits should revive the deleted pages (edit wins) or go to the trash
+- ✅ Deletions racing edits on another device lose nothing: a deleted page written on elsewhere
+  comes back into its notebook, a notebook deleted forever comes back into the trash with all
+  its content (and blobs)

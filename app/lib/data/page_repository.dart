@@ -149,18 +149,21 @@ class PageRepository extends SyncableTable {
   void setBookmarked(String pageId, bool bookmarked) =>
       _update(pageId, 'bookmarked = ?', [bookmarked ? 1 : 0]);
 
-  /// Tombstones one page. Its strokes are the caller's business.
-  void delete(String pageId) => _update(pageId, 'deleted = 1', const []);
+  /// Tombstones one page, at [version] if given. Its strokes are the
+  /// caller's business (see `NotebookRepository.deletePage`).
+  void delete(String pageId, {int? version}) =>
+      _update(pageId, 'deleted = 1', const [], version: version);
 
   /// Revives a page deleted with [delete] (undo).
   void restore(String pageId) => _update(pageId, 'deleted = 0', const []);
 
-  /// Tombstones all pages of [notebookId]; returns their ids.
-  List<String> deleteAllOf(String notebookId) {
+  /// Tombstones all pages of [notebookId], at [version] if given; returns
+  /// their ids.
+  List<String> deleteAllOf(String notebookId, {int? version}) {
     final ids = pagesOf(notebookId).map((p) => p.id).toList();
     database.transaction(() {
       for (final id in ids) {
-        delete(id);
+        delete(id, version: version);
       }
     });
     return ids;
@@ -189,10 +192,10 @@ class PageRepository extends SyncableTable {
   }
 
   /// A local edit of some columns: bumps the version and marks it dirty.
-  void _update(String id, String assignments, List<Object?> args) {
+  void _update(String id, String assignments, List<Object?> args, {int? version}) {
     db.execute(
       'UPDATE pages SET $assignments, dirty = 1, updated_at = ?, device_id = ? WHERE id = ?',
-      [...args, nextVersion(id), deviceId, id],
+      [...args, version ?? nextVersion(id), deviceId, id],
     );
   }
 

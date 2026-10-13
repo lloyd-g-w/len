@@ -496,8 +496,8 @@ server before its blob. Blobs are fetched lazily when a page needs them
 (`SyncController.fetchBlob`).
 
 `BlobReferences` is the reference graph (live page backgrounds, elements and
-recordings; the trash is live, "delete forever" releases). `LocalBlobGc`
-(started at launch, at most daily) deletes blobs unreferenced for 7 days
+recordings; the trash is live, "delete forever" releases after 30 days, see
+*Sync*). `LocalBlobGc` (started at launch, at most daily) deletes blobs unreferenced for 7 days
 (`blobs.unreferenced_since`); it runs exclusively with `BlobStore`'s `put`
 methods, and storing a blob again restarts its grace period. The server has its
 own admin-run collector (server/README.md).
@@ -1856,6 +1856,17 @@ and the cycle starts over once. Failures are `SyncException`s with a
 `SyncFailure` kind and a message that says what to do
 (`sync/sync_errors.dart`): wrong token, unreachable / refused / unknown host /
 certificate, not a Len server, server too old or too new.
+
+Deletion conflicts (`data/deletion_conflicts.dart`): a page or notebook deleted
+on one device while another kept writing in it comes back (a notebook into the
+trash) with everything that deletion removed. Each deletion stamps all its
+tombstones with one version (`NotebookRepository.delete` / `deletePage`), so the
+rows of one deletion are recognisable on every device; tombstoned strokes and
+elements keep their payload, and tombstones their blobs, for 30 days
+(`TombstonePayloads`, purged by `LocalBlobGc`). After a pull the engine revives
+deleted pages / notebooks that hold live content and notebooks / pages whose
+tombstone a live record replaced, then pushes the revived rows. Tombstones are
+pushed children first, so a half-finished push never looks like a conflict.
 
 ## Known limitations / next steps
 

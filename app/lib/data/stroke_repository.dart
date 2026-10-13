@@ -71,8 +71,9 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
     });
   }
 
-  /// Tombstones every stroke on the given surfaces (e.g. a deleted notebook).
-  void deleteSurfaces(Iterable<String> surfaceIds) {
+  /// Tombstones every stroke on the given surfaces (e.g. a deleted notebook),
+  /// all at [version] if given (one deletion, see `NotebookRepository.delete`).
+  void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) {
     final now = clock.nowMs();
     database.transaction(() {
       for (final surfaceId in surfaceIds) {
@@ -81,11 +82,35 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
             .map((r) => r['id'] as String)
             .toList();
         for (final id in ids) {
-          _tombstone(id, updatedAt: nextVersion(id, now), deviceId: deviceId, dirty: true);
+          _tombstone(
+            id,
+            updatedAt: version ?? nextVersion(id, now),
+            deviceId: deviceId,
+            dirty: true,
+          );
         }
       }
     });
   }
+
+  /// Brings back tombstoned strokes whose points are still kept.
+  @override
+  void revive(Iterable<String> ids) {
+    final now = clock.nowMs();
+    for (final id in ids) {
+      final rows = db.select('SELECT * FROM strokes WHERE id = ? AND deleted = 1', [id]);
+      final stroke = rows.isEmpty ? null : StrokeQueries.rowToStroke(rows.first);
+      if (stroke == null) continue; // Its points were purged.
+      _upsert(stroke, updatedAt: nextVersion(id, now), deviceId: deviceId, dirty: true);
+    }
+  }
+
+  /// Drops the points of strokes tombstoned before [before] (ms): they can
+  /// no longer be revived (see `TombstonePayloads`).
+  void purgeTombstones(int before) => db.execute(
+    "UPDATE strokes SET points = x'' WHERE deleted = 1 AND updated_at < ? AND length(points) > 0",
+    [before],
+  );
 
   // ---------------------------------------------------------------------------
   // Sync
@@ -168,14 +193,15 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
     required bool dirty,
   }) {
     // Insert a bare tombstone if the stroke was never seen locally, so an
-    // older live version arriving later cannot resurrect it.
+    // older live version arriving later cannot resurrect it. A known stroke
+    // keeps its points for a while, so a deletion that raced an edit on
+    // another device can be undone (`DeletionConflicts`).
     db.execute(
       '''
       INSERT INTO strokes (id, surface_id, tool, color, width, points,
                            created_at, updated_at, device_id, deleted, dirty)
       VALUES (?, '', 'pen', 0, 0, x'', 0, ?, ?, 1, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        points = x'', updated_at = excluded.updated_at,
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at,
         device_id = excluded.device_id, deleted = 1, dirty = excluded.dirty''',
       [id, updatedAt, deviceId, dirty ? 1 : 0],
     );

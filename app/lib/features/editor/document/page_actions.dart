@@ -60,9 +60,7 @@ class PageActions {
     return services.database.transaction(() {
       final strokes = _copier.loadAll(page.id);
       final elements = _copier.loadAllElements(page.id);
-      services.strokes.deleteSurfaces([page.id]);
-      services.elements.deleteSurfaces([page.id]);
-      services.pages.delete(page.id);
+      services.notebooks.deletePage(page.id);
       return DeletedPage(page, strokes, elements);
     });
   }

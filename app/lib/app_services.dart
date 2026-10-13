@@ -22,6 +22,7 @@ import 'data/settings_repository.dart';
 import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
 import 'data/template_repository.dart';
+import 'data/tombstone_payloads.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
 import 'features/documents/import/incoming_files.dart';
@@ -214,6 +215,7 @@ class AppServices {
     blobs: blobs,
     references: BlobReferences(database),
     settings: settings,
+    tombstones: TombstonePayloads(database: database, strokes: strokes, elements: elements),
   );
 
   /// Decoded bitmaps of image elements, shared by editors and previews.

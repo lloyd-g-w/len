@@ -119,18 +119,23 @@ class RecordingRepository extends SyncableTable {
   /// Tombstones several recordings at once.
   void deleteAll(Iterable<String> ids) => database.transaction(() => ids.forEach(_tombstone));
 
-  /// Tombstones every recording of [notebookId] (notebook deletion).
-  void deleteAllOf(String notebookId) {
+  /// Tombstones every recording of [notebookId] (notebook deletion), at
+  /// [version] if given.
+  void deleteAllOf(String notebookId, {int? version}) {
     final ids = db
         .select('SELECT id FROM recordings WHERE notebook_id = ? AND deleted = 0', [notebookId])
         .map((r) => r['id'] as String)
         .toList();
-    database.transaction(() => ids.forEach(_tombstone));
+    database.transaction(() {
+      for (final id in ids) {
+        _tombstone(id, version);
+      }
+    });
   }
 
-  void _tombstone(String id) => db.execute(
+  void _tombstone(String id, [int? version]) => db.execute(
     'UPDATE recordings SET deleted = 1, dirty = 1, updated_at = ?, device_id = ? WHERE id = ?',
-    [nextVersion(id), deviceId, id],
+    [version ?? nextVersion(id), deviceId, id],
   );
 
   // ---------------------------------------------------------------------------

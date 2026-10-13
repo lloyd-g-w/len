@@ -3,16 +3,26 @@ import 'package:flutter/foundation.dart';
 import 'blob_references.dart';
 import 'blob_store.dart';
 import 'settings_repository.dart';
+import 'tombstone_payloads.dart';
 
 /// Local blob garbage collection, run occasionally (docs/SYNC_PROTOCOL.md,
-/// "Blob garbage collection"): blobs no live row has referenced for
-/// [BlobStore.gcGrace] are deleted from this device.
+/// "Blob garbage collection"): blobs no live row (nor a recent tombstone,
+/// see [TombstonePayloads]) has referenced for [BlobStore.gcGrace] are
+/// deleted from this device. Also drops the payloads of old tombstones.
 class LocalBlobGc {
-  LocalBlobGc({required this.blobs, required this.references, required this.settings});
+  LocalBlobGc({
+    required this.blobs,
+    required this.references,
+    required this.settings,
+    this.tombstones,
+  });
 
   final BlobStore blobs;
   final BlobReferences references;
   final SettingsRepository settings;
+
+  /// Payloads of old tombstones are dropped first when set.
+  final TombstonePayloads? tombstones;
 
   /// Minimum time between two runs of [runIfDue].
   static const interval = Duration(days: 1);
@@ -33,5 +43,11 @@ class LocalBlobGc {
 
   /// Marks newly unreferenced blobs and deletes those past the grace period;
   /// returns the deleted ids.
-  Future<List<String>> run() => blobs.collectGarbage(references.all);
+  Future<List<String>> run() {
+    final now = blobs.clock.nowMs();
+    tombstones?.purge(now);
+    return blobs.collectGarbage(
+      () => references.all(tombstonesSince: TombstonePayloads.keptSince(now)),
+    );
+  }
 }

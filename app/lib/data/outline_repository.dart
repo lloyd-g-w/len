@@ -63,12 +63,13 @@ class OutlineRepository extends SyncableTable {
     _tombstone(id);
   });
 
-  /// Tombstones every entry of notebook [notebookId] (deleted forever).
-  void deleteAllOf(String notebookId) => database.transaction(() {
+  /// Tombstones every entry of notebook [notebookId] (deleted forever), at
+  /// [version] if given.
+  void deleteAllOf(String notebookId, {int? version}) => database.transaction(() {
     for (final r in db.select('SELECT id FROM outline WHERE notebook_id = ? AND deleted = 0', [
       notebookId,
     ])) {
-      _tombstone(r['id'] as String);
+      _tombstone(r['id'] as String, version);
     }
   });
 
@@ -94,9 +95,9 @@ class OutlineRepository extends SyncableTable {
     }
   });
 
-  void _tombstone(String id) => db.execute(
+  void _tombstone(String id, [int? version]) => db.execute(
     'UPDATE outline SET deleted = 1, dirty = 1, updated_at = ?, device_id = ? WHERE id = ?',
-    [nextVersion(id), deviceId, id],
+    [version ?? nextVersion(id), deviceId, id],
   );
 
   /// The notebook of entry [id] (live or not), for sync notifications.

@@ -171,21 +171,57 @@ class NotebookRepository extends SyncableTable {
       NotebookDuplicator(this).duplicate(id, title: title);
 
   /// Permanently tombstones the notebook together with its pages, strokes,
-  /// elements and recordings.
+  /// elements, recordings and outline, all at one version: every device can
+  /// then tell this deletion's tombstones from earlier ones, and bring them
+  /// back if the deletion raced an edit (`DeletionConflicts`).
   void delete(String id) {
     database.transaction(() {
+      final pageIds = [for (final p in pages.pagesOf(id)) p.id];
+      // A canvas notebook is itself a surface; pages are surfaces too.
+      final surfaces = [id, ...pageIds];
+      final onSurfaces = 'surface_id IN (${List.filled(surfaces.length, '?').join(',')})';
+      final version = _batchVersion([
+        latestVersion('id = ?', [id]),
+        pages.latestVersion('notebook_id = ?', [id]),
+        strokes.latestVersion(onSurfaces, surfaces),
+        ?elements?.latestVersion(onSurfaces, surfaces),
+        ?recordings?.latestVersion('notebook_id = ?', [id]),
+        ?outline?.latestVersion('notebook_id = ?', [id]),
+      ]);
       db.execute(
         'UPDATE notebooks SET deleted = 1, dirty = 1, updated_at = ?, device_id = ? '
         'WHERE id = ?',
-        [nextVersion(id), deviceId, id],
+        [version, deviceId, id],
       );
-      final pageIds = pages.deleteAllOf(id);
-      // A canvas notebook is itself a surface; pages are surfaces too.
-      strokes.deleteSurfaces([id, ...pageIds]);
-      elements?.deleteSurfaces([id, ...pageIds]);
-      recordings?.deleteAllOf(id);
-      outline?.deleteAllOf(id);
+      pages.deleteAllOf(id, version: version);
+      strokes.deleteSurfaces(surfaces, version: version);
+      elements?.deleteSurfaces(surfaces, version: version);
+      recordings?.deleteAllOf(id, version: version);
+      outline?.deleteAllOf(id, version: version);
     });
+  }
+
+  /// Tombstones page [pageId] with its strokes and elements, all at one
+  /// version (like [delete]).
+  void deletePage(String pageId) {
+    database.transaction(() {
+      final version = _batchVersion([
+        pages.latestVersion('id = ?', [pageId]),
+        strokes.latestVersion('surface_id = ?', [pageId]),
+        ?elements?.latestVersion('surface_id = ?', [pageId]),
+      ]);
+      strokes.deleteSurfaces([pageId], version: version);
+      elements?.deleteSurfaces([pageId], version: version);
+      pages.delete(pageId, version: version);
+    });
+  }
+
+  /// A version for writes replacing rows whose newest version is the
+  /// largest of [latest]: now, but later than all of them.
+  int _batchVersion(List<int> latest) {
+    final now = clock.nowMs();
+    final newest = latest.fold(0, (a, b) => a > b ? a : b);
+    return now > newest ? now : newest + 1;
   }
 
   void _change(String id, Notebook Function(Notebook) change) {

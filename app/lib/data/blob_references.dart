@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'app_database.dart';
 import 'blob_store.dart';
+import 'tombstone_payloads.dart';
 
 /// Which blobs the local data references: the reference graph behind blob
 /// uploads and garbage collection (docs/SYNC_PROTOCOL.md, "Blob garbage
@@ -17,29 +18,38 @@ class BlobReferences {
 
   final AppDatabase database;
 
-  /// Ids of all blobs live rows reference.
-  Set<String> all() => {
-    for (final row in database.db.select(
-      'SELECT background FROM pages WHERE deleted = 0 AND background IS NOT NULL',
-    ))
-      ...inJson(row['background'] as String),
-    for (final row in database.db.select(
-      "SELECT paper_data FROM pages WHERE deleted = 0 AND paper_data <> '{}'",
-    ))
-      ...inJson(row['paper_data'] as String),
-    // Any element type: image elements today, but unknown types from newer
-    // app versions are kept with their data, references included.
-    for (final row in database.db.select('SELECT data FROM elements WHERE deleted = 0'))
-      ...inJson(row['data'] as String),
-    for (final row in database.db.select('SELECT audio FROM recordings WHERE deleted = 0'))
-      ...inJson(row['audio'] as String),
-    for (final row in database.db.select(
-      "SELECT DISTINCT waveform FROM recordings WHERE deleted = 0 AND waveform <> ''",
-    ))
-      row['waveform'] as String,
-    for (final row in database.db.select('SELECT DISTINCT blob FROM templates WHERE deleted = 0'))
-      row['blob'] as String,
-  };
+  /// Ids of all blobs live rows reference, and with [tombstonesSince] (ms)
+  /// also those of pages, elements and recordings tombstoned since then:
+  /// sync may still bring them back ([TombstonePayloads.retention]).
+  Set<String> all({int? tombstonesSince}) {
+    final kept = tombstonesSince == null ? 'deleted = 0' : '(deleted = 0 OR updated_at >= ?)';
+    final args = [?tombstonesSince];
+    return {
+      for (final row in database.db.select(
+        'SELECT background FROM pages WHERE $kept AND background IS NOT NULL',
+        args,
+      ))
+        ...inJson(row['background'] as String),
+      for (final row in database.db.select(
+        "SELECT paper_data FROM pages WHERE $kept AND paper_data <> '{}'",
+        args,
+      ))
+        ...inJson(row['paper_data'] as String),
+      // Any element type: image elements today, but unknown types from newer
+      // app versions are kept with their data, references included.
+      for (final row in database.db.select('SELECT data FROM elements WHERE $kept', args))
+        ...inJson(row['data'] as String),
+      for (final row in database.db.select('SELECT audio FROM recordings WHERE $kept', args))
+        ...inJson(row['audio'] as String),
+      for (final row in database.db.select(
+        "SELECT DISTINCT waveform FROM recordings WHERE $kept AND waveform <> ''",
+        args,
+      ))
+        row['waveform'] as String,
+      for (final row in database.db.select('SELECT DISTINCT blob FROM templates WHERE deleted = 0'))
+        row['blob'] as String,
+    };
+  }
 
   /// The blob ids among the strings of a JSON document (malformed: none).
   static Set<String> inJson(String json) {

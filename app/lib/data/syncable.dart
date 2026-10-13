@@ -83,8 +83,9 @@ abstract interface class SyncableStore {
 
   /// Up to [limit] rows with unpushed local changes, ordered by id and
   /// starting after id [after] (keyset pagination, so rows that stay dirty
-  /// cannot make a push loop spin on the same page).
-  List<SyncRecord> dirtyRecords(int limit, {String? after});
+  /// cannot make a push loop spin on the same page). [deleted] limits them
+  /// to tombstones (true) or live rows (false).
+  List<SyncRecord> dirtyRecords(int limit, {String? after, bool? deleted});
 
   /// Clears the dirty flag of rows still at the given versions.
   void markClean(List<RowVersion> versions);

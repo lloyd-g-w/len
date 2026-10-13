@@ -43,18 +43,19 @@ class ElementRepository extends SyncableTable {
     });
   }
 
-  /// Tombstones elements by id.
-  void delete(Iterable<String> ids) {
+  /// Tombstones elements by id, all at [version] if given.
+  void delete(Iterable<String> ids, {int? version}) {
     final now = clock.nowMs();
     database.transaction(() {
       for (final id in ids) {
-        _tombstone(id, updatedAt: nextVersion(id, now), deviceId: deviceId, dirty: true);
+        _tombstone(id, updatedAt: version ?? nextVersion(id, now), deviceId: deviceId, dirty: true);
       }
     });
   }
 
-  /// Tombstones every element on the given surfaces (e.g. a deleted notebook).
-  void deleteSurfaces(Iterable<String> surfaceIds) {
+  /// Tombstones every element on the given surfaces (e.g. a deleted notebook),
+  /// all at [version] if given.
+  void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) {
     database.transaction(() {
       for (final surfaceId in surfaceIds) {
         delete(
@@ -62,10 +63,33 @@ class ElementRepository extends SyncableTable {
               .select('SELECT id FROM elements WHERE surface_id = ? AND deleted = 0', [surfaceId])
               .map((r) => r['id'] as String)
               .toList(),
+          version: version,
         );
       }
     });
   }
+
+  /// Brings back tombstoned elements whose data is still kept.
+  @override
+  void revive(Iterable<String> ids) {
+    final now = clock.nowMs();
+    for (final id in ids) {
+      final rows = db.select(
+        "SELECT * FROM elements WHERE id = ? AND deleted = 1 AND data <> '{}'",
+        [id],
+      );
+      final element = rows.isEmpty ? null : StrokeQueries.rowToElement(rows.first);
+      if (element == null) continue; // Its data was purged.
+      _upsert(element, updatedAt: nextVersion(id, now), deviceId: deviceId, dirty: true);
+    }
+  }
+
+  /// Drops the data of elements tombstoned before [before] (ms): they can
+  /// no longer be revived (see `TombstonePayloads`).
+  void purgeTombstones(int before) => db.execute(
+    "UPDATE elements SET data = '{}' WHERE deleted = 1 AND updated_at < ? AND data <> '{}'",
+    [before],
+  );
 
   /// Surface id of a stored element (live or tombstoned), if known.
   String? surfaceOf(String elementId) {
@@ -188,13 +212,13 @@ class ElementRepository extends SyncableTable {
     required bool dirty,
   }) {
     // A bare tombstone for never-seen rows stops older versions reviving them.
+    // A known element keeps its data for a while (see `DeletionConflicts`).
     db.execute(
       '''
       INSERT INTO elements (id, surface_id, type, x, y, w, h, data,
                             created_at, updated_at, device_id, deleted, dirty)
       VALUES (?, '', '', 0, 0, 0, 0, '{}', 0, ?, ?, 1, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        data = '{}', updated_at = excluded.updated_at,
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at,
         device_id = excluded.device_id, deleted = 1, dirty = excluded.dirty''',
       [id, updatedAt, deviceId, dirty ? 1 : 0],
     );

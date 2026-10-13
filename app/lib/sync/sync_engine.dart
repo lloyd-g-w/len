@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../data/app_database.dart';
 import '../data/blob_references.dart';
 import '../data/blob_store.dart';
+import '../data/deletion_conflicts.dart';
 import '../data/element_repository.dart';
 import '../data/folder_repository.dart';
 import '../data/notebook_repository.dart';
@@ -14,41 +15,10 @@ import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
 import '../data/template_repository.dart';
 import 'blob_sync.dart';
+import 'remote_changes.dart';
 import 'sync_api.dart';
 
-/// What a pull changed locally, so open screens can refresh.
-class RemoteChanges {
-  RemoteChanges();
-
-  bool notebooks = false;
-
-  /// Whether any library folder changed.
-  bool folders = false;
-
-  /// Whether any of the user's templates changed.
-  bool templates = false;
-
-  /// Notebooks whose page list changed.
-  final Set<String> pagesOfNotebooks = {};
-
-  /// Surfaces (pages / canvases) whose content (strokes or elements) changed.
-  final Set<String> strokeSurfaces = {};
-
-  /// Notebooks whose own outline changed.
-  final Set<String> outlineOfNotebooks = {};
-
-  /// Notebooks whose audio recordings changed.
-  final Set<String> recordingsOfNotebooks = {};
-
-  bool get isEmpty =>
-      !notebooks &&
-      !folders &&
-      !templates &&
-      pagesOfNotebooks.isEmpty &&
-      strokeSurfaces.isEmpty &&
-      recordingsOfNotebooks.isEmpty &&
-      outlineOfNotebooks.isEmpty;
-}
+export 'remote_changes.dart';
 
 /// Returns true once a running sync should stop without persisting more
 /// (e.g. the server was switched or the app is shutting down).
@@ -95,6 +65,9 @@ class SyncEngine {
 
   /// Which blobs live rows reference.
   late final BlobReferences blobReferences = BlobReferences(database);
+
+  /// Brings back deletions that raced edits elsewhere.
+  late final DeletionConflicts _conflicts = DeletionConflicts(notebooks);
 
   /// What the server reported in the last sync (null before the first).
   ServerInfo? serverInfo;
@@ -184,7 +157,10 @@ class SyncEngine {
     if (blobs != null) await _uploadBlobs(api, blobs, info, cancelled);
     if (cancelled()) return RemoteChanges();
     await _push(api, cancelled);
-    return _pull(api, cancelled);
+    final changes = await _pull(api, cancelled);
+    // Content brought back by a deletion conflict goes out right away.
+    if (changes.revived && !cancelled()) await _push(api, cancelled);
+    return changes;
   }
 
   /// Uploads pending blobs, counting failures per blob.
@@ -225,32 +201,48 @@ class SyncEngine {
       if ((_uploadFailures[sha] ?? 0) < maxHoldBackAttempts) sha,
   };
 
+  /// Pushes live rows parents first and tombstones children first: however
+  /// much of a push reaches the server, it never holds content whose parent
+  /// it lacks, nor a deleted page or notebook whose content is still live
+  /// (which other devices would take for a deletion conflict).
   Future<void> _push(SyncApi api, CancelCheck cancelled) async {
     for (final store in stores) {
-      String? after;
-      while (!cancelled()) {
-        final rows = store.dirtyRecords(_pushPageSize, after: after);
-        if (rows.isEmpty) break;
-        after = rows.last.id;
-        final heldBack = _heldBackBlobs();
-        final ready = heldBack.isEmpty
-            ? rows
-            : [
-                for (final r in rows)
-                  if (!BlobReferences.inValue(r.data).any(heldBack.contains)) r,
-              ];
-        // Records the API could not send (too large, not encodable) stay dirty.
-        final unsent = ready.isEmpty
-            ? const <SyncRecord>[]
-            : await api.push(ready, since: settings.syncLastSeq);
-        if (cancelled()) return;
-        final skipped = {for (final r in unsent) r.id};
-        store.markClean([
-          for (final r in ready)
-            if (!skipped.contains(r.id)) (id: r.id, updatedAt: r.updatedAt),
-        ]);
-        if (rows.length < _pushPageSize) break;
-      }
+      await _pushStore(api, cancelled, store, deleted: false);
+    }
+    for (final store in stores.toList().reversed) {
+      await _pushStore(api, cancelled, store, deleted: true);
+    }
+  }
+
+  Future<void> _pushStore(
+    SyncApi api,
+    CancelCheck cancelled,
+    SyncableStore store, {
+    required bool deleted,
+  }) async {
+    String? after;
+    while (!cancelled()) {
+      final rows = store.dirtyRecords(_pushPageSize, after: after, deleted: deleted);
+      if (rows.isEmpty) break;
+      after = rows.last.id;
+      final heldBack = _heldBackBlobs();
+      final ready = heldBack.isEmpty
+          ? rows
+          : [
+              for (final r in rows)
+                if (!BlobReferences.inValue(r.data).any(heldBack.contains)) r,
+            ];
+      // Records the API could not send (too large, not encodable) stay dirty.
+      final unsent = ready.isEmpty
+          ? const <SyncRecord>[]
+          : await api.push(ready, since: settings.syncLastSeq);
+      if (cancelled()) return;
+      final skipped = {for (final r in unsent) r.id};
+      store.markClean([
+        for (final r in ready)
+          if (!skipped.contains(r.id)) (id: r.id, updatedAt: r.updatedAt),
+      ]);
+      if (rows.length < _pushPageSize) break;
     }
   }
 
@@ -263,19 +255,23 @@ class SyncEngine {
       if (page.malformed > 0) {
         debugPrint('Skipped ${page.malformed} malformed records after seq $since');
       }
+      final revival = Revival();
       database.transaction(() {
         for (final record in page.records) {
-          _apply(record, changes);
+          _apply(record, changes, revival);
         }
+        // Once everything is in: deletions that raced edits come back.
+        if (!page.hasMore && !changes.isEmpty) _conflicts.resolve(revival);
         settings.syncLastSeq = page.nextSince;
       });
+      changes.addRevival(revival);
       since = page.nextSince;
       if (!page.hasMore) break;
     }
     return changes;
   }
 
-  void _apply(SyncRecord record, RemoteChanges changes) {
+  void _apply(SyncRecord record, RemoteChanges changes, Revival revival) {
     final store = _stores[record.collection];
     if (store == null) return; // A collection this app does not know.
     try {
@@ -288,7 +284,12 @@ class SyncEngine {
         OutlineRepository() => outline.notebookOf(record.id),
         _ => null,
       };
+      // A deleted notebook or page edited elsewhere: see DeletionConflicts.
+      final deletion = record.deleted ? null : _conflicts.tombstoneOf(record.collection, record.id);
       if (!store.applyRemote(record)) return;
+      if (deletion != null) {
+        _conflicts.reviveDeleted(record.collection, record.id, deletion, revival);
+      }
       switch (store) {
         case FolderRepository():
           changes.folders = true;
