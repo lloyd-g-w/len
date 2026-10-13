@@ -233,7 +233,9 @@ void main() {
         await settle(tester);
         expect(tester.takeException(), isNull);
         await shoot(tester, 'templates_${mode.name}_$name');
-        await tester.tap(find.text('Cancel'));
+        // Phones changing a template have no Cancel: the header's ✕ closes.
+        final cancel = find.text('Cancel');
+        await tester.tap(cancel.evaluate().isEmpty ? find.byTooltip('Close') : cancel);
         await settle(tester);
       }
     });
