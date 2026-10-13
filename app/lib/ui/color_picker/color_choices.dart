@@ -57,7 +57,8 @@ class _ColorChoicesState extends State<ColorChoices> {
           itemExtent: size,
           minSpacing: _gap,
           runSpacing: _gap,
-          maxSpacing: _gap,
+          // Touch cells spread to fill the row; a pointer keeps the 4-dp grid.
+          maxSpacing: Targets.touchFirst ? Gaps.lg : _gap,
           touchTargets: true,
           children: [
             for (final c in colours)
