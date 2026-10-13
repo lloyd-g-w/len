@@ -70,7 +70,7 @@ void main() {
 
         pdf.selection.clear();
         await settle(tester);
-        await tester.tap(find.byTooltip('More options'));
+        await tester.tap(find.byTooltip('All pages'));
         await settle(tester);
         await tester.tap(find.text('Outline'));
         await wait(tester, 10);

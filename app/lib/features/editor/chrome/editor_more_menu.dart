@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/preferences.dart';
+import '../../../ui/app_theme.dart';
 import '../document/document_layout.dart';
 import '../document/page_fit.dart';
 import '../document/page_overview.dart';
@@ -71,19 +72,20 @@ class EditorMoreMenu extends StatelessWidget {
             shortcut: const SingleActivator(LogicalKeyboardKey.keyE, control: true),
           ),
         const Divider(),
-        if (a.isPaged) ...[
-          _pageMenu(),
-          if (a.onOutline case final onOutline?) _item(Symbols.toc_rounded, 'Outline', onOutline),
-        ] else
+        if (a.isPaged)
+          _pageMenu()
+        else
           _item(Symbols.wallpaper_rounded, 'Background…', a.onBackground),
         _viewMenu(),
         ?split,
         const Divider(),
-        if (a.stylusOnly case final stylusOnly?)
+        // Automatic (null) draws with a finger until a stylus is seen; with
+        // a mouse the switch shows once a stylus was.
+        if (a.stylusOnly != null || Targets.touchFirst)
           MenuItemButton(
             leadingIcon: const Icon(Symbols.draw_rounded),
-            trailingIcon: _MenuSwitch(value: !stylusOnly),
-            onPressed: () => a.onStylusOnly(!stylusOnly),
+            trailingIcon: _MenuSwitch(value: !(a.stylusOnly ?? false)),
+            onPressed: () => a.onStylusOnly(!(a.stylusOnly ?? false)),
             child: const Text('Draw with finger'),
           ),
         _item(Symbols.settings_rounded, 'Settings…', a.onSettings),

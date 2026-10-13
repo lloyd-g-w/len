@@ -227,9 +227,13 @@ class EditorTopBar extends StatelessWidget {
     );
   }
 
+  /// ← ▦ title ↶ ↷ ⋯ (▦ for paged notebooks: the page overview, whose
+  /// filters hold bookmarks and the outline).
   Widget _phone() => Row(
     children: [
       _back(),
+      if (actions.onOverview case final onOverview?)
+        BarButton(tooltip: 'All pages', icon: Symbols.grid_view_rounded, onPressed: onOverview),
       Expanded(
         child: Align(alignment: AlignmentDirectional.centerStart, child: _title()),
       ),

@@ -49,18 +49,8 @@ class PaperColor {
     Color(0xFFE0D3B8),
     Color(0xFF6E5F45),
   );
-  static const grey = PaperColor._(
-    'grey',
-    Color(0xFFE8E9EC),
-    Color(0xFFC7CBD3),
-    Color(0xFF555B66),
-  );
-  static const dark = PaperColor._(
-    'dark',
-    Color(0xFF202226),
-    Color(0xFF3D4149),
-    Color(0xFFA3A9B4),
-  );
+  static const grey = PaperColor._('grey', Color(0xFFE8E9EC), Color(0xFFC7CBD3), Color(0xFF555B66));
+  static const dark = PaperColor._('dark', Color(0xFF202226), Color(0xFF3D4149), Color(0xFFA3A9B4));
 
   /// The colours offered as chips.
   static const List<PaperColor> presets = [white, cream, grey, dark];

@@ -99,33 +99,22 @@ class _OutlinePanelState extends State<OutlinePanel> {
       listenable: _outline,
       builder: (context, _) {
         final current = _outline.doc.currentPage;
+        final rows = _outline.tree.rows(collapsed: _collapsed).toList();
+        // One row marks the page on screen: the deepest (last) entry for it.
+        final highlighted = rows.where((r) => r.page == current).lastOrNull;
         return ListView(
           controller: widget.scroll,
           padding: const EdgeInsets.only(bottom: Gaps.xl),
           children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                Gaps.xl,
-                widget.showTitle ? 0 : Gaps.md,
-                Gaps.lg,
-                Gaps.sm,
+            if (widget.showTitle)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(Gaps.xl, 0, Gaps.lg, Gaps.sm),
+                child: Text('Outline', style: theme.textTheme.titleLarge),
               ),
-              child: Row(
-                children: [
-                  if (widget.showTitle)
-                    Expanded(child: Text('Outline', style: theme.textTheme.titleLarge)),
-                  FilledButton.tonalIcon(
-                    onPressed: () => _outline.addCurrentPage(context),
-                    icon: const Icon(Symbols.add_rounded),
-                    label: Text('Add page ${current + 1}'),
-                  ),
-                ],
-              ),
-            ),
             if (hasPdf) _label('This notebook'),
             if (_outline.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Gaps.xl, vertical: Gaps.md),
+                padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.md, Gaps.xl, 0),
                 child: Text(
                   'Add pages to build a table of contents. Entries can be nested.',
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -133,13 +122,30 @@ class _OutlinePanelState extends State<OutlinePanel> {
                   ),
                 ),
               ),
-            for (final row in _outline.tree.rows(collapsed: _collapsed))
+            // Adds the page on screen as an entry (not a new page).
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                Gaps.lg,
+                widget.showTitle || hasPdf ? Gaps.xs : Gaps.md,
+                Gaps.lg,
+                Gaps.sm,
+              ),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: () => _outline.addCurrentPage(context),
+                  icon: const Icon(Symbols.playlist_add_rounded),
+                  label: Text('Add page ${current + 1} to outline'),
+                ),
+              ),
+            ),
+            for (final row in rows)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
-                child: _row(row, current),
+                child: _row(row, current, marked: row == highlighted),
               ),
             if (hasPdf) ...[
-              _label('PDF'),
+              _label('PDF outline'),
               PdfOutlineSection(interaction: pdf!, onPage: widget.onPage),
             ],
           ],
@@ -153,7 +159,8 @@ class _OutlinePanelState extends State<OutlinePanel> {
     child: SectionLabel(text),
   );
 
-  Widget _row(OutlineTreeRow row, int current) {
+  /// An entry; [marked] if it marks [current], the page on screen.
+  Widget _row(OutlineTreeRow row, int current, {required bool marked}) {
     final theme = Theme.of(context);
     final page = row.page;
     final entry = row.entry;
@@ -161,7 +168,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
     final tree = _outline.tree;
     return ListTile(
       key: ValueKey('user-outline-${entry.id}'),
-      selected: page == current,
+      selected: marked,
       selectedTileColor: Surfaces.pressed(theme.colorScheme),
       // Inset by Gaps.sm (below) so the highlight doesn't meet the edge.
       contentPadding: EdgeInsetsDirectional.only(start: row.depth * 24.0, end: 0),
@@ -181,8 +188,8 @@ class _OutlinePanelState extends State<OutlinePanel> {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: (row.depth == 0 ? theme.textTheme.labelLarge : theme.textTheme.bodyMedium)?.copyWith(
-          color: page == current ? theme.colorScheme.primary : null,
-          fontWeight: page == current ? FontWeight.w600 : null,
+          color: marked ? theme.colorScheme.primary : null,
+          fontWeight: marked ? FontWeight.w600 : null,
         ),
       ),
       subtitle: page == null ? const Text('Page deleted') : null,

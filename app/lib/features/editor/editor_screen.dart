@@ -327,7 +327,7 @@ class _EditorScreenState extends State<_EditorView> {
     showMessage(
       context,
       'Stylus detected: fingers now pan and zoom',
-      action: SnackBarAction(label: 'Undo', onPressed: () => _setStylusOnly(false)),
+      action: SnackBarAction(label: 'Keep finger drawing', onPressed: () => _setStylusOnly(false)),
     );
   }
 

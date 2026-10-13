@@ -59,8 +59,11 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final side = compact ? Gaps.lg : Gaps.xxl;
+    final back = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
     return AppBar(
       toolbarHeight: kToolbarHeight + 8,
+      // Without a back button the title starts where the filter and grid do.
+      titleSpacing: back ? NavigationToolbar.kMiddleSpacing : side,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

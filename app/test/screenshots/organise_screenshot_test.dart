@@ -61,7 +61,7 @@ void main() {
         await pumpApp(tester, s, EditorScreen(notebook: nb), mode: mode);
         await shoot(tester, 'o_editor_link_${name}_${mode.name}');
 
-        await tap(tester, find.byTooltip('More options'));
+        await tap(tester, find.byTooltip('All pages'));
         await tap(tester, find.text('Outline'));
         await shoot(tester, 'o_outline_panel_${name}_${mode.name}');
         await tester.binding.handlePopRoute();

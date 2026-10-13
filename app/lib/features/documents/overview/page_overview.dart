@@ -193,13 +193,10 @@ class _PageOverviewState extends State<PageOverview> {
         body: _filter == OverviewFilter.outline
             // A readable column under the filter, not the full width.
             ? Align(
-                alignment: AlignmentDirectional.topStart,
+                alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Padding(
-                    padding: EdgeInsetsDirectional.only(start: compact ? 0 : Gaps.sm),
-                    child: widget.outline!(context, (page) => Navigator.of(context).pop(page)),
-                  ),
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: widget.outline!(context, (page) => Navigator.of(context).pop(page)),
                 ),
               )
             : shown.isEmpty
