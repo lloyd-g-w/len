@@ -1852,7 +1852,9 @@ restored one) resets the feed position and marks every row and blob for
 upload, so the server gets a complete copy; a changed address of the same
 server costs nothing. Push and pull send the last pulled seq; a server that
 no longer has it (restored from a backup) answers 409 and takes a new id,
-and the cycle starts over once. Failures are `SyncException`s with a
+and the cycle starts over once. Either reset is explained once, after the
+sync that recovered, by a calm message in the library
+(`SyncController.notices`; not on the first sync with a server). Failures are `SyncException`s with a
 `SyncFailure` kind and a message that says what to do
 (`sync/sync_errors.dart`): wrong token, unreachable / refused / unknown host /
 certificate, not a Len server, server too old or too new.

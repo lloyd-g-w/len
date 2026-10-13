@@ -213,6 +213,8 @@ void main() {
         settings: a.settings,
         apiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: target.client),
       );
+      final notices = <String>[];
+      controller.notices.listen(notices.add);
       controller.configure(url: 'http://one.test', token: FakeServer.token);
       a.notebooks.create(
         title: 'N',
@@ -228,6 +230,7 @@ void main() {
       controller.configure(url: 'http://192.168.1.10:8080/', token: FakeServer.token);
       await controller.syncNow();
       expect(first.pushes, hasLength(1));
+      expect(notices, isEmpty, reason: 'nothing to explain on the first sync');
 
       target = second;
       controller.configure(url: 'http://two.test', token: FakeServer.token);
@@ -235,6 +238,8 @@ void main() {
       expect(controller.state, SyncState.idle);
       expect(second.pushes.single.count, 1);
       expect(a.settings.syncServerId, second.serverId);
+      await controller.syncNow();
+      expect(notices, ['The sync server changed, so everything was synced again']);
       controller.dispose();
     });
 

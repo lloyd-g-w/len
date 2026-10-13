@@ -58,6 +58,8 @@ void main() {
       _notebook(b, 'New on B');
       await b.sync();
       expect(b.s.settings.syncServerId, server.serverId);
+      expect(b.s.sync.engine.takeResync(), contains('lost recent changes'));
+      expect(b.s.sync.engine.takeResync(), isNull, reason: 'said once');
       await a.sync();
       await b.sync();
 

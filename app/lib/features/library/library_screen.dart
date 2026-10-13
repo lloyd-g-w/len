@@ -9,6 +9,7 @@ import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/menus.dart';
+import '../../ui/messages.dart';
 import '../audio/ui/recover_recording_dialog.dart';
 import '../documents/import/import_flow.dart';
 import '../settings/keyboard_shortcuts.dart';
@@ -48,6 +49,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   /// Files opened with / shared to Len, and dropped onto the library.
   late ImportFlow _imports;
   StreamSubscription<Object?>? _remoteChanges;
+
+  /// Notices from sync (e.g. everything was synced again), shown once.
+  StreamSubscription<Object?>? _syncNotices;
   final _search = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'Library search');
 
@@ -97,6 +101,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (c.strokeSurfaces.isNotEmpty || c.pagesOfNotebooks.isNotEmpty) _thumbnails.invalidate();
       if (c.notebooks || c.folders) _controller.reload();
     });
+    _syncNotices = services.sync.notices.listen((notice) {
+      if (mounted) showMessage(context, notice);
+    });
   }
 
   /// Where the library is: section and folder (not the search, which only
@@ -119,6 +126,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _disposeServices() {
     _services?.incomingFiles.handler = null;
     unawaited(_remoteChanges?.cancel());
+    unawaited(_syncNotices?.cancel());
     _actions.selection.dispose();
     _controller.dispose();
     _thumbnails.dispose();

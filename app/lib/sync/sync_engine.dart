@@ -78,6 +78,18 @@ class SyncEngine {
   /// Why the first of them failed, for the sync status.
   String? blobUploadError;
 
+  /// Why this device last synced everything again from scratch, until the
+  /// controller has told the user ([takeResync]); null if it has not.
+  String? _resync;
+
+  /// Says (once) why everything was synced again: the server changed or
+  /// lost history. Null if nothing happened since the last call.
+  String? takeResync() {
+    final reason = _resync;
+    _resync = null;
+    return reason;
+  }
+
   /// Consecutive failed upload attempts per blob in this app run.
   final Map<String, int> _uploadFailures = {};
 
@@ -142,6 +154,7 @@ class SyncEngine {
         if (e.kind != SyncFailure.historyLost || attempt > 0 || cancelled()) rethrow;
         debugPrint('The sync server lost changes; uploading everything again');
         resetForNewServer();
+        _resync = 'The sync server lost recent changes, so everything was synced again';
       }
     }
   }
@@ -151,7 +164,14 @@ class SyncEngine {
     blobUploadError = null;
     final info = serverInfo = await api.serverInfo();
     if (cancelled()) return RemoteChanges();
-    if (info.serverId != settings.syncServerId) resetForNewServer(serverId: info.serverId);
+    if (info.serverId != settings.syncServerId) {
+      // Not on the first sync with a server: nothing to explain then.
+      if (settings.syncServerId.isNotEmpty) {
+        debugPrint('Another sync server (or a restored one); syncing everything again');
+        _resync ??= 'The sync server changed, so everything was synced again';
+      }
+      resetForNewServer(serverId: info.serverId);
+    }
     // Blobs first: a record must not reach the server before its blob.
     final blobs = this.blobs;
     if (blobs != null) await _uploadBlobs(api, blobs, info, cancelled);
