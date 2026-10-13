@@ -91,14 +91,30 @@ class PageActions {
 
   /// Changes the template of [targets] (paper and colour; size stays):
   /// page i gets `papers[i]` (default: [template]'s paper for all).
-  void setTemplate(List<NotebookPage> targets, PageTemplate template, {List<Paper>? papers}) {
+  /// Returns the pages as they were, for [restoreTemplates] (undo).
+  List<NotebookPage> setTemplate(
+    List<NotebookPage> targets,
+    PageTemplate template, {
+    List<Paper>? papers,
+  }) => services.database.transaction(() {
+    final before = [for (final t in targets) ?services.pages.get(t.id)];
+    for (var i = 0; i < targets.length; i++) {
+      services.pages.setPaper(
+        [targets[i].id],
+        paper: papers?[i] ?? template.paper,
+        color: template.color,
+      );
+    }
+    return before;
+  });
+
+  /// Gives [pages] back the paper and colour they have there (undoes
+  /// [setTemplate]); pages deleted meanwhile stay deleted.
+  void restoreTemplates(List<NotebookPage> pages) {
     services.database.transaction(() {
-      for (var i = 0; i < targets.length; i++) {
-        services.pages.setPaper(
-          [targets[i].id],
-          paper: papers?[i] ?? template.paper,
-          color: template.color,
-        );
+      for (final page in pages) {
+        if (services.pages.get(page.id) == null) continue;
+        services.pages.setPaper([page.id], paper: page.paper, color: page.paperColor);
       }
     });
   }

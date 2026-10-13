@@ -156,9 +156,25 @@ class DocumentCommands {
     );
     if (choice == null) return;
     final targets = choice.allPages ? doc.pages : [page];
-    actions.setTemplate(targets, choice.template, papers: choice.papersForPages(targets.length));
+    final before = actions.setTemplate(
+      targets,
+      choice.template,
+      papers: choice.papersForPages(targets.length),
+    );
     changed = true;
     reload();
+    if (!context.mounted) return;
+    showMessage(
+      context,
+      targets.length == 1 ? 'Template changed' : 'Template changed on ${targets.length} pages',
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () {
+          actions.restoreTemplates(before);
+          reload();
+        },
+      ),
+    );
   }
 
   Future<void> _delete(BuildContext context, NotebookPage page) async {

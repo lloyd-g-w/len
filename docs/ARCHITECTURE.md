@@ -227,7 +227,9 @@ columns added later are copied too), delete (with an Undo snack bar that
 re-saves the page's strokes; the overview's selection goes through
 `DocumentCommands.deleteMany` → `PageActions.deleteAll`, one step with one Undo
 that restores every page in place — at least one page always remains), reorder (fractional sort keys, `PageOrder`;
-the list is renumbered only when a gap is exhausted), bookmarks, templates.
+the list is renumbered only when a gap is exhausted; inserting finds the page to follow by
+id), bookmarks, templates (a change has an Undo snack bar that gives each page its own
+template back).
 
 ## Editor screen (`features/editor/`)
 

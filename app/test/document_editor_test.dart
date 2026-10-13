@@ -204,6 +204,17 @@ void main() {
     await tester.tap(find.text('Apply to all pages'));
     await tester.pumpAndSettle();
     expect(pages().every((p) => p.paper.style == PaperStyle.music), isTrue);
+    // Undo puts every page's own template back.
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(pages().map((p) => p.paper.style), [
+      PaperStyle.collegeRuled,
+      PaperStyle.collegeRuled,
+      PaperStyle.collegeRuled,
+      PaperStyle.gridLarge,
+      PaperStyle.dotted,
+    ]);
+    expect(pages().map((p) => p.paperColor).skip(3), [PaperColor.cream, PaperColor.dark]);
 
     final doomed = pages()[2].id;
     await menu('Delete page');
