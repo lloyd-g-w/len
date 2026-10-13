@@ -129,14 +129,16 @@ class _PopoverRoute<T> extends PopupRoute<T> {
     final curved = CurvedAnimation(parent: animation, curve: Motion.standard);
     final fade = FadeTransition(opacity: curved, child: child);
     if (Motion.reduced(context)) return fade;
+    // Drops a few dp from the anchor: down from below it, up from above it.
+    final below = anchor.center.dy < MediaQuery.sizeOf(context).height / 2;
     return FadeTransition(
       opacity: curved,
-      child: ScaleTransition(
-        scale: Tween(begin: Motion.popoverScale, end: 1.0).animate(curved),
-        // Grows from the anchor: down from below it, up from above it.
-        alignment: anchor.center.dy < MediaQuery.sizeOf(context).height / 2
-            ? Alignment.topCenter
-            : Alignment.bottomCenter,
+      child: AnimatedBuilder(
+        animation: curved,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, (below ? -1 : 1) * Motion.popoverDrop * (1 - curved.value)),
+          child: child,
+        ),
         child: child,
       ),
     );
@@ -153,7 +155,7 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
   final EdgeInsets padding;
 
   static const double _margin = 8;
-  static const double _gap = 8;
+  static const double _gap = 4;
 
   double _spaceBelow(Size size) => size.height - padding.bottom - anchor.bottom - _gap - _margin;
   double _spaceAbove() => anchor.top - padding.top - _gap - _margin;

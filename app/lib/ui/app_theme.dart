@@ -3,16 +3,19 @@ import 'package:flutter/material.dart';
 import 'design_tokens.dart';
 import 'surfaces.dart';
 import 'theme_components.dart';
+import 'tones.dart';
 
 export 'design_tokens.dart';
 export 'surfaces.dart';
+export 'tones.dart';
 
-/// Visual language (REDESIGN §1): calm, paper-like neutrals with one fixed
-/// ink-blue accent, Inter in a six-role type scale, Material Symbols
-/// Rounded, flat chrome and shadows only from [Shadows].
+/// Visual language (DESIGN.md): Swiss minimal from the notebook. True
+/// neutral greys, black ink, one accent (ruling blue) for state, Sofia Sans
+/// in a six-role scale, Material Symbols Sharp, flat chrome with hairlines,
+/// and depth only for paper ([Shadows]).
 abstract final class AppTheme {
-  /// The accent: ink blue.
-  static const Color seed = Color(0xFF3B5BDB);
+  /// The accent: ruling blue (light theme).
+  static const Color seed = Color(0xFF0068C9);
 
   /// The light theme.
   static ThemeData light() => _build(Brightness.light);
@@ -20,58 +23,57 @@ abstract final class AppTheme {
   /// The dark theme.
   static ThemeData dark() => _build(Brightness.dark);
 
-  /// The colour scheme for [brightness]: accent roles from [seed], quiet
-  /// neutral surfaces so notebook covers carry the colour.
+  /// The colour scheme for [brightness]: every role Len uses set from
+  /// [Tones], so no generated tonal colour shows up.
   static ColorScheme scheme(Brightness brightness) {
-    final base = ColorScheme.fromSeed(
-      seedColor: seed,
-      brightness: brightness,
-      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+    final t = Tones.of(brightness);
+    final light = brightness == Brightness.light;
+    final base = ColorScheme.fromSeed(seedColor: seed, brightness: brightness);
+    // Containers between Board and Sheet, for the few plates left.
+    final containers = light
+        ? const [0xFFFFFFFF, 0xFFEEEEEE, 0xFFE9E9E9, 0xFFE3E3E3, 0xFFDDDDDD]
+        : const [0xFF141414, 0xFF1F1F1F, 0xFF232323, 0xFF2B2B2B, 0xFF333333];
+    final plate = Color(containers[3]);
+    return base.copyWith(
+      primary: t.accent,
+      onPrimary: t.onAccent,
+      // Tonal roles stay neutral: the accent is kept for state.
+      primaryContainer: plate,
+      onPrimaryContainer: t.ink,
+      secondary: t.ink,
+      onSecondary: t.board,
+      secondaryContainer: plate,
+      onSecondaryContainer: t.ink,
+      tertiary: t.graphite,
+      onTertiary: t.board,
+      tertiaryContainer: plate,
+      onTertiaryContainer: t.ink,
+      error: t.error,
+      onError: light ? const Color(0xFFFFFFFF) : const Color(0xFF000000),
+      surface: t.board,
+      onSurface: t.ink,
+      onSurfaceVariant: t.graphite,
+      surfaceDim: t.desk,
+      surfaceBright: t.sheet,
+      surfaceContainerLowest: Color(containers[0]),
+      surfaceContainerLow: Color(containers[1]),
+      surfaceContainer: Color(containers[2]),
+      surfaceContainerHigh: Color(containers[3]),
+      surfaceContainerHighest: Color(containers[4]),
+      outline: t.pencil,
+      outlineVariant: t.rule,
+      inverseSurface: t.ink,
+      onInverseSurface: t.board,
+      inversePrimary: Tones.of(light ? Brightness.dark : Brightness.light).accent,
+      shadow: const Color(0xFF000000),
+      scrim: const Color(0xFF000000),
+      surfaceTint: Colors.transparent,
     );
-    return brightness == Brightness.light
-        ? base.copyWith(
-            primary: seed,
-            onPrimary: const Color(0xFFFFFFFF),
-            surface: const Color(0xFFF9F9F7),
-            onSurface: const Color(0xFF1B1B1F),
-            onSurfaceVariant: const Color(0xFF66666E),
-            surfaceContainerLowest: const Color(0xFFFFFFFF),
-            surfaceContainerLow: const Color(0xFFF3F3F0),
-            surfaceContainer: const Color(0xFFEDEDEA),
-            surfaceContainerHigh: const Color(0xFFE7E7E4),
-            surfaceContainerHighest: const Color(0xFFE0E0DD),
-            outline: const Color(0xFFADADB4),
-            outlineVariant: const Color(0xFFE1E1DE),
-            // Tonal roles stay neutral: the accent is kept for primary actions.
-            secondaryContainer: const Color(0xFFE7E7E4),
-            onSecondaryContainer: const Color(0xFF1B1B1F),
-            surfaceTint: Colors.transparent,
-          )
-        : base.copyWith(
-            // The same ink blue, lifted so text and links in it stay above
-            // 4.5:1 on raised surfaces; labels on it are dark ink.
-            primary: const Color(0xFF748FFC),
-            onPrimary: const Color(0xFF0F1530),
-            error: const Color(0xFFFF6B6B),
-            onError: const Color(0xFF1B1B1F),
-            surface: const Color(0xFF131316),
-            onSurface: const Color(0xFFECECF0),
-            onSurfaceVariant: const Color(0xFF9F9FA9),
-            surfaceContainerLowest: const Color(0xFF0E0E10),
-            surfaceContainerLow: const Color(0xFF18181C),
-            surfaceContainer: const Color(0xFF1E1E22),
-            surfaceContainerHigh: const Color(0xFF26262B),
-            surfaceContainerHighest: const Color(0xFF2F2F35),
-            outline: const Color(0xFF5C5C66),
-            outlineVariant: const Color(0xFF2C2C32),
-            secondaryContainer: const Color(0xFF2F2F35),
-            onSecondaryContainer: const Color(0xFFECECF0),
-            surfaceTint: Colors.transparent,
-          );
   }
 
-  /// The UI font on every platform (bundled; see `pubspec.yaml`).
-  static const String fontFamily = 'Inter';
+  /// The UI font on every platform (bundled; see `pubspec.yaml`). Text
+  /// boxes and planner labels keep their own faces (`TextFont`).
+  static const String fontFamily = 'Sofia Sans';
 
   static ThemeData _build(Brightness brightness) {
     final scheme = AppTheme.scheme(brightness);
@@ -80,8 +82,9 @@ abstract final class AppTheme {
     return base
         .copyWith(
           scaffoldBackgroundColor: scheme.surface,
+          canvasColor: scheme.surface,
           textTheme: _textTheme(base.textTheme, scheme),
-          // Taps: no ripple or sparkle, a calm onSurface highlight instead.
+          // Taps: no ripple or sparkle, a calm ink highlight instead.
           splashFactory: NoSplash.splashFactory,
           splashColor: Colors.transparent,
           highlightColor: pressed,
@@ -96,6 +99,11 @@ abstract final class AppTheme {
             opticalSize: 20,
           ),
           visualDensity: VisualDensity.standard,
+          textSelectionTheme: TextSelectionThemeData(
+            cursorColor: scheme.primary,
+            selectionColor: scheme.primary.withValues(alpha: 0.24),
+            selectionHandleColor: scheme.primary,
+          ),
           pageTransitionsTheme: const PageTransitionsTheme(
             builders: {
               TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
@@ -108,10 +116,11 @@ abstract final class AppTheme {
         .applyComponentThemes(scheme);
   }
 
-  /// The type scale (REDESIGN §1.2): six roles, all Inter. Title
-  /// (`titleLarge`), Heading (`titleMedium`), Body (`bodyMedium`), Label
-  /// (`labelLarge`), Caption (`bodySmall`) and Overline (`labelSmall`).
-  /// Material's other slots alias onto them, so built-in widgets match.
+  /// The type scale (DESIGN §2): six roles, all Sofia Sans, one size up
+  /// from the usual UI scale for its small x-height. Title (`titleLarge`),
+  /// Heading (`titleMedium`), Body (`bodyMedium`), Label (`labelLarge`),
+  /// Caption (`bodySmall`) and Small label (`labelSmall`). Material's other
+  /// slots alias onto them, so built-in widgets match.
   static TextTheme _textTheme(TextTheme t, ColorScheme scheme) {
     TextStyle style(double size, double line, FontWeight weight, [double tracking = 0]) =>
         TextStyle(
@@ -123,12 +132,12 @@ abstract final class AppTheme {
           color: scheme.onSurface,
           leadingDistribution: TextLeadingDistribution.even,
         );
-    final title = style(20, 26, FontWeight.w600, -0.2);
-    final heading = style(16, 22, FontWeight.w600);
-    final body = style(14, 20, FontWeight.w400);
-    final label = style(14, 20, FontWeight.w500);
-    final caption = style(12, 16, FontWeight.w400).copyWith(color: scheme.onSurfaceVariant);
-    final overline = style(11, 14, FontWeight.w600, 0.3);
+    final title = style(24, 28, FontWeight.w600, -0.4);
+    final heading = style(18, 24, FontWeight.w600, -0.2);
+    final body = style(15, 20, FontWeight.w400);
+    final label = style(15, 20, FontWeight.w500);
+    final caption = style(13, 16, FontWeight.w400, 0.1).copyWith(color: scheme.onSurfaceVariant);
+    final small = style(12, 16, FontWeight.w600, 0.2);
     return t.merge(
       TextTheme(
         displayLarge: title,
@@ -145,7 +154,7 @@ abstract final class AppTheme {
         bodySmall: caption,
         labelLarge: label,
         labelMedium: caption.copyWith(fontWeight: FontWeight.w500),
-        labelSmall: overline,
+        labelSmall: small,
       ),
     );
   }
@@ -154,7 +163,7 @@ abstract final class AppTheme {
   static const List<FontFeature> tabularFigures = [FontFeature.tabularFigures()];
 }
 
-/// Spacing scale used for padding and gaps.
+/// Spacing on a 4-dp grid (2 only inside controls).
 abstract final class Gaps {
   static const double xxs = 2;
   static const double xs = 4;
@@ -166,21 +175,22 @@ abstract final class Gaps {
   static const double xxxl = 48;
 }
 
-/// Corner radii used across the app.
+/// Corner radii (DESIGN §3): tight, by object size. A page's corner is
+/// square; nothing uses one radius for everything.
 abstract final class Radii {
-  /// Chips, badges, the plate behind the selected tool.
-  static const double xs = 6;
+  /// Chips, badges, plates, tooltips, the plate behind the selected tool.
+  static const double xs = 2;
 
-  /// Buttons, fields, quick slots, covers, page thumbnails.
-  static const double sm = 10;
+  /// Buttons, fields, segmented controls, covers, thumbnails, focus ring.
+  static const double sm = 4;
 
   /// Menus, popovers, the floating palette, snack bars.
-  static const double md = 14;
+  static const double md = 6;
 
-  /// Dialogs and bottom sheets.
-  static const double lg = 20;
+  /// Dialogs and the top of bottom sheets.
+  static const double lg = 8;
 
-  /// The page indicator, zoom pill and focus puck.
+  /// Colour dots and the page indicator.
   static const double pill = 999;
 }
 

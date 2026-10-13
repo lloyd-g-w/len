@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_font.dart';
+import 'package:len/ui/app_theme.dart';
 
 /// Runs before every test file: plugins without a platform side in tests
 /// and the platform channel answer like an empty system clipboard, and the bundled fonts
@@ -25,9 +26,9 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
 void mockEmptyClipboard() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
     .setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
 
-/// Loads every bundled text-box font family, Inter's UI weights (500,
-/// 600) and the Material Symbols Rounded icon font, so goldens show real
-/// text and icons.
+/// Loads the UI font (Sofia Sans), every bundled text-box font family and
+/// the Material Symbols Sharp icon font, so goldens show real text and
+/// icons.
 Future<void> loadTextFonts() async {
   for (final font in TextFont.values) {
     final loader = FontLoader(font.family);
@@ -35,16 +36,15 @@ Future<void> loadTextFonts() async {
       if (italic && !font.hasItalic) continue;
       loader.addFont(rootBundle.load(font.asset(bold: bold, italic: italic)));
     }
-    if (font == TextFont.inter) {
-      loader
-        ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
-        ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'));
-    }
     await loader.load();
   }
-  final symbols = FontLoader('packages/material_symbols_icons/MaterialSymbolsRounded')
-    ..addFont(
-      rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf'),
-    );
+  final ui = FontLoader(AppTheme.fontFamily);
+  for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
+    ui.addFont(rootBundle.load('assets/fonts/SofiaSans-$weight.ttf'));
+  }
+  await ui.load();
+  final symbols = FontLoader(
+    'packages/material_symbols_icons/MaterialSymbolsSharp',
+  )..addFont(rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsSharp.ttf'));
   await symbols.load();
 }
