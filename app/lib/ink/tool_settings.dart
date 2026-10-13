@@ -42,6 +42,7 @@ class ToolSettings extends ChangeNotifier {
   LaserConfig _laser = const LaserConfig();
   TextData _text = const TextData();
   bool _holdToStraighten = true;
+  bool _scribbleToErase = true;
   List<int> _recent = const [];
 
   /// The tools used, most recent first: [tool], then the ones before it.
@@ -175,6 +176,13 @@ class ToolSettings extends ChangeNotifier {
     _changed();
   }
 
+  /// A quick back-and-forth scribble with the pen over ink erases it.
+  bool get scribbleToErase => _scribbleToErase;
+  set scribbleToErase(bool value) {
+    _scribbleToErase = value;
+    _changed();
+  }
+
   /// Colours recently picked for quick colour slots (opaque ARGB), most
   /// recent first, at most [RecentColors.max].
   List<int> get recentColors => _recent;
@@ -208,6 +216,7 @@ class ToolSettings extends ChangeNotifier {
         _laser == other._laser &&
         identical(_text, other._text) &&
         _holdToStraighten == other._holdToStraighten &&
+        _scribbleToErase == other._scribbleToErase &&
         identical(_recent, other._recent) &&
         inks.every((t) => identical(_configs[t], other._configs[t]));
     if (same) return;
@@ -219,6 +228,7 @@ class ToolSettings extends ChangeNotifier {
     _laser = other._laser;
     _text = other._text;
     _holdToStraighten = other._holdToStraighten;
+    _scribbleToErase = other._scribbleToErase;
     _recent = other._recent;
     notifyListeners();
   }
@@ -231,6 +241,7 @@ class ToolSettings extends ChangeNotifier {
     'pens': {for (final e in _configs.entries) e.key.name: e.value.toJson()},
     'eraser': _eraser.toJson(),
     'straighten': _holdToStraighten,
+    'scribble': _scribbleToErase,
     'recent': _recent,
     'shape': _shape.name,
     'laser': _laser.toJson(),
@@ -255,6 +266,7 @@ class ToolSettings extends ChangeNotifier {
     }
     if (EraserConfig.fromJson(data['eraser']) case final eraser?) _eraser = eraser;
     if (data['straighten'] case final bool straighten) _holdToStraighten = straighten;
+    if (data['scribble'] case final bool scribble) _scribbleToErase = scribble;
     if (RecentColors.parse(data['recent']) case final recent?) _recent = recent;
     _shape = ShapeKind.parse(data['shape']);
     _laser = LaserConfig.fromJson(data['laser']);

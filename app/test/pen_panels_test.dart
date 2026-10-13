@@ -104,6 +104,12 @@ void main() {
     await tester.pump();
     expect(tools.configOf(InkTool.ballpoint).thinning, isNot(0));
     expect(tools.holdToStraighten, isFalse, reason: 'Reset feel covers what is above it');
+    // Scribble to erase sits with it, on by default.
+    expect(tools.scribbleToErase, isTrue);
+    await tester.ensureVisible(find.text('Scribble to erase'));
+    await tester.tap(find.text('Scribble to erase'));
+    await tester.pump();
+    expect(tools.scribbleToErase, isFalse);
   });
 
   testWidgets('a picked slot colour becomes recent; a recent colour applies', (tester) async {
