@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../data/app_preferences.dart';
 import '../../domain/preferences.dart';
+import '../../ui/fit_segments.dart';
 import '../../ui/segment_label.dart';
 import 'settings_section.dart';
 
@@ -31,8 +32,9 @@ class WritingSettings extends StatelessWidget {
               false => 'Both draw; two fingers pan and zoom',
             },
             // "Draw with: Automatic / Stylus / Both", short enough to trail.
-            control: ShrinkToFit(
-              child: SegmentedButton<bool?>(
+            control: FitSegments(
+              builder: (direction) => SegmentedButton<bool?>(
+                direction: direction,
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: null, label: SegmentLabel('Automatic')),
@@ -51,8 +53,9 @@ class WritingSettings extends StatelessWidget {
               icon: Symbols.ads_click_rounded,
               title: 'Side button',
               subtitle: 'While you hold the S Pen (or stylus) button',
-              control: ShrinkToFit(
-                child: SegmentedButton<PenButtonAction>(
+              control: FitSegments(
+                builder: (direction) => SegmentedButton<PenButtonAction>(
+                  direction: direction,
                   showSelectedIcon: false,
                   segments: const [
                     ButtonSegment(value: PenButtonAction.eraser, label: SegmentLabel('Erases')),
@@ -81,8 +84,9 @@ class WritingSettings extends StatelessWidget {
               ToolbarPlacement.docked => 'Along the top; at the bottom on phones',
               ToolbarPlacement.floating => 'Floating; drag it anywhere by its grip',
             },
-            control: ShrinkToFit(
-              child: SegmentedButton<ToolbarPlacement>(
+            control: FitSegments(
+              builder: (direction) => SegmentedButton<ToolbarPlacement>(
+                direction: direction,
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: ToolbarPlacement.docked, label: SegmentLabel('Docked')),
