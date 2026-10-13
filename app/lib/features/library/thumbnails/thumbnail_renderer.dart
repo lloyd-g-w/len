@@ -205,6 +205,7 @@ class ThumbnailRenderer {
       paperColor: color,
       page: page,
       images: _paperImage,
+      miniature: true,
     ).paint(canvas, size);
     canvas
       ..save()

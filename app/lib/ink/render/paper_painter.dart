@@ -38,6 +38,15 @@ abstract final class PaperRenderer {
   /// The smallest on-screen pitch drawn in miniatures.
   static const double minMiniatureSpacing = 1.5;
 
+  /// Below this scale page thumbnails strengthen their pattern (fully from
+  /// [faintScaleFull] down), so faint dots and fine rulings still read in
+  /// page thumbnails rather than dropping out to look blank.
+  static const double faintScale = 0.5, faintScaleFull = 0.2;
+
+  /// The thinnest pattern line (and the smallest dot radius) in a page
+  /// thumbnail, in screen pixels.
+  static const double minMiniatureLine = 1, minMiniatureDot = 0.8;
+
   static double _threshold(PaperStyle style) => switch (style) {
     // Staves are dense by design; dots are counted per area, not per line.
     PaperStyle.music => minScreenSpacing / 2,
@@ -68,7 +77,8 @@ abstract final class PaperRenderer {
   /// Draws the template [paper] within [area] (world units). The canvas
   /// must already map world units to device pixels at [scale]. Repeating
   /// lines too dense to read are skipped; [always] (miniature previews)
-  /// keeps them down to [minMiniatureSpacing]. Image templates are drawn
+  /// keeps them down to [minMiniatureSpacing]; a [thumbnail] of a page
+  /// also strengthens them when small. Image templates are drawn
   /// over [page] from [images] once decoded.
   static void paintPattern(
     Canvas canvas,
@@ -79,6 +89,7 @@ abstract final class PaperRenderer {
     required double scale,
     PaperColors colors = const PaperColors(),
     bool always = false,
+    bool thumbnail = false,
     PaperImageLookup? images,
   }) {
     final style = paper.style;
@@ -89,17 +100,24 @@ abstract final class PaperRenderer {
       if (image != null) _paintImage(canvas, image, page!);
       return;
     }
-    final minPitch = (always ? minMiniatureSpacing : _threshold(style)) / scale;
+    // Staves stay as grey bands in thumbnails (they read as music).
+    final miniPitch = thumbnail && style == PaperStyle.music
+        ? minMiniatureSpacing / 2
+        : minMiniatureSpacing;
+    final mini = always || thumbnail;
+    final minPitch = (mini ? miniPitch : _threshold(style)) / scale;
     final pattern = PaperPattern.of(paper, area, page: page, minPitch: minPitch);
     if (pattern.isEmpty) return;
     final look = paper.look;
-    final ink = look.patternOn(color.pattern);
+    final faint = thumbnail ? _faintness(scale) : 0.0;
+    final ink = _strengthen(look.patternOn(color.pattern), color, faint);
     for (final f in pattern.fills) {
       canvas.drawRect(f.rect, Paint()..color = ink.withValues(alpha: ink.a * f.opacity));
     }
     // One device pixel in world units (thinner in miniatures), times the
     // look's weight.
-    final px = (always ? math.min(1.0, 0.5 + scale) : 1) / scale * look.lineWeight;
+    final px = (mini ? math.min(1.0, 0.5 + scale) : 1) / scale * look.lineWeight;
+    final minLine = minMiniatureLine / scale * faint;
     for (final weight in PatternWeight.values) {
       final points = <Offset>[
         for (final l in pattern.lines)
@@ -109,21 +127,23 @@ abstract final class PaperRenderer {
       final paint = Paint()
         ..color = switch (weight) {
           PatternWeight.margin => colors.margin,
-          PatternWeight.fine => ink.withValues(alpha: ink.a * 0.6),
+          PatternWeight.fine => ink.withValues(alpha: ink.a * (0.6 + 0.4 * faint)),
           PatternWeight.normal => ink,
           PatternWeight.heavy => heavyColor(ink, color),
         }
-        ..strokeWidth = switch (weight) {
+        ..strokeWidth = math.max(minLine, switch (weight) {
           PatternWeight.fine => 0.7 * px,
           PatternWeight.normal => px,
           PatternWeight.heavy => 1.6 * px,
           PatternWeight.margin => 1.5 * px,
-        };
+        });
       canvas.drawPoints(ui.PointMode.lines, points, paint);
     }
     if (pattern.dots.isNotEmpty) {
-      final radius =
-          math.max(1.0, 1.4 * math.min(1.0, scale)) * px / look.lineWeight * look.dotSize;
+      final radius = math.max(
+        minMiniatureDot / scale * faint,
+        math.max(1.0, 1.4 * math.min(1.0, scale)) * px / look.lineWeight * look.dotSize,
+      );
       canvas.drawPoints(
         ui.PointMode.points,
         pattern.dots,
@@ -136,13 +156,26 @@ abstract final class PaperRenderer {
     for (final label in pattern.labels) {
       // Text smaller than ~3 device pixels is unreadable: skip it (keep it
       // as texture in miniatures).
-      if (label.size * scale < (always ? 1.2 : 3)) continue;
+      if (label.size * scale < (mini ? 1.2 : 3)) continue;
       PatternText.paint(
         canvas,
         label,
         label.muted ? color.text.withValues(alpha: PatternLabel.mutedOpacity) : color.text,
       );
     }
+  }
+
+  /// How much a page thumbnail at [scale] strengthens its pattern: 0 from
+  /// [faintScale] up, 1 from [faintScaleFull] down.
+  static double _faintness(double scale) =>
+      ((faintScale - scale) / (faintScale - faintScaleFull)).clamp(0.0, 1.0);
+
+  /// The pattern colour [ink] moved towards the paper's text colour (and
+  /// made more opaque) by [faint], for contrast at small sizes.
+  static Color _strengthen(Color ink, PaperColor color, double faint) {
+    if (faint == 0) return ink;
+    final darker = Color.lerp(ink.withValues(alpha: 1), color.text, 0.2 * faint)!;
+    return darker.withValues(alpha: ink.a + (1 - ink.a) * 0.3 * faint);
   }
 
   /// Structural lines: the pattern colour [ink] a little towards the
@@ -218,6 +251,7 @@ class PaperPainter extends CustomPainter {
     this.page,
     this.colors = const PaperColors(),
     this.images,
+    this.miniature = false,
   }) : paper = paper ?? Paper(style),
        super(repaint: viewport);
 
@@ -231,6 +265,10 @@ class PaperPainter extends CustomPainter {
   /// Page rectangle in world units, or null for an infinite canvas.
   final Rect? page;
   final PaperColors colors;
+
+  /// A page thumbnail: dense patterns stay (strengthened when small)
+  /// rather than hidden.
+  final bool miniature;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -256,6 +294,7 @@ class PaperPainter extends CustomPainter {
         page: page,
         scale: scale,
         colors: colors,
+        thumbnail: miniature,
         images: images,
       );
     }
@@ -269,5 +308,6 @@ class PaperPainter extends CustomPainter {
       old.images != images ||
       old.paperColor != paperColor ||
       old.page != page ||
-      old.colors != colors;
+      old.colors != colors ||
+      old.miniature != miniature;
 }
