@@ -81,7 +81,7 @@ filled `Icons.*_rounded` are no longer mixed in. Redraw `EraserIcon`, `ShapeGlyp
 | where | glyph | visual | hit area |
 |---|---|---|---|
 | bars, toolbar | 20 | 40 × 40 | 48 on touch, 40 with a pointer |
-| menu rows | 18 | – | 44 high (48 on phones) |
+| menu rows | 18 | – | 44 high (48 on touch) |
 | quick slots | 22 dot | 36 × 36 | 44 on touch |
 | empty states | 40 | – | – |
 
@@ -408,7 +408,7 @@ Every surface uses exactly one of five primitives. `features/` may not use
   right-aligned. On phones they are full width and stacked, primary on top, pinned while
   the body scrolls.
 - **Popovers** have no buttons: changes apply live, and outside taps or Esc close them.
-- **Menus:** rows 44 dp (48 on phones), 18-dp icons with the leading slot always
+- **Menus:** rows 44 dp (48 on touch), 18-dp icons with the leading slot always
   reserved, shortcut hints only where a keyboard is likely, submenus that drill in on
   phones, 8 dp from the screen edges.
 - **Moving onto the system:** done — `features/` has no `PopupMenuButton`,

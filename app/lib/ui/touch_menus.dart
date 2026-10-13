@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 
-/// Makes menu rows 48 dp high on phones (REDESIGN §5; 44 elsewhere, from
-/// the theme). Wraps the app (`MaterialApp.builder`).
-class PhoneMenus extends StatelessWidget {
-  const PhoneMenus({super.key, required this.child});
+/// Makes menu rows 48 dp high on touch devices (REDESIGN §5; 44 with a
+/// pointer, from the theme): [Targets.menuRowHeight], by input, not width.
+/// Wraps the app (`MaterialApp.builder`).
+class TouchMenus extends StatelessWidget {
+  const TouchMenus({super.key, required this.child});
 
   final Widget child;
 
