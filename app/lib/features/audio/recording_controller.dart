@@ -5,28 +5,19 @@ import 'package:flutter/foundation.dart';
 import '../../core/clock.dart';
 import '../../data/blob_store.dart';
 import '../../data/recording_repository.dart';
+import '../../data/spool_storage.dart';
 import '../../domain/recording.dart';
 import '../../domain/waveform.dart';
 import 'backends/audio_backends.dart';
 import 'keep_alive_link.dart';
+import 'recorder_state.dart';
 import 'recording_journal.dart';
 import 'recording_parts.dart';
+import 'recording_stopwatch.dart';
 
-/// Where a [RecordingController] is.
-enum RecorderState {
-  idle,
+export 'recorder_state.dart';
 
-  /// Asking for permission / starting the recorder.
-  starting,
-  recording,
-  paused,
-
-  /// Storing the finished recording.
-  saving;
-
-  /// Recording or paused (the bar shows the recording controls).
-  bool get isActive => this == recording || this == paused;
-}
+part 'recording_storage.dart';
 
 /// Records audio for one notebook: start / pause / resume / stop, the
 /// elapsed time and the input level. The audio is stored in parts of
@@ -110,11 +101,8 @@ class RecordingController extends ChangeNotifier {
   StreamSubscription<double>? _levels;
   Timer? _ticker;
 
-  /// Closed segments of the current recording.
-  final List<RecordingSegment> _segments = [];
-
-  /// Wall time the running segment started (while recording).
-  int? _segmentStart;
+  /// The stretches recorded between pauses.
+  late final RecordingStopwatch _stopwatch = RecordingStopwatch(clock);
 
   double _level = 0;
 
@@ -134,11 +122,7 @@ class RecordingController extends ChangeNotifier {
   String? lastError;
 
   /// Audio recorded so far, in ms.
-  int get elapsedMs {
-    final closed = _segments.fold(0, (sum, s) => sum + s.durationMs);
-    final start = _segmentStart;
-    return start == null ? closed : closed + (clock.nowMs() - start).clamp(0, 1 << 30);
-  }
+  int get elapsedMs => _stopwatch.elapsedMs;
 
   /// Starts a new recording. Returns false (with [lastError]) if it could
   /// not start.
@@ -157,21 +141,7 @@ class RecordingController extends ChangeNotifier {
       final format = await capture.format();
       final spool = format.recoverable ? await backends.spool?.call() : null;
       if (_disposed) throw const _ShutDown();
-      final now = clock.nowMs();
-      final parts = _parts = RecordingParts(
-        RecordingJournal(
-          recordingId: clock.newId(),
-          notebookId: notebookId,
-          title: defaultTitle(now),
-          mime: format.mime,
-          openSince: now,
-        ),
-        blobs: blobs,
-        repository: repository,
-        spool: spool,
-        extension: format.extension,
-      );
-      active.add(parts.journal.recordingId);
+      final parts = _openParts(format, spool);
       await capture.start(await parts.nextFile());
       if (_disposed) {
         // Shut down while starting (the editor closed during the
@@ -190,10 +160,10 @@ class RecordingController extends ChangeNotifier {
       _set(RecorderState.idle);
       return false;
     }
-    _segments.clear();
+    _stopwatch.clear();
     _waveform.clear();
     _fileStartMs = 0;
-    _segmentStart = clock.nowMs();
+    _stopwatch.run();
     await _journalTimeline();
     _levels = capture.levels.listen((l) {
       if (_state != RecorderState.recording) return;
@@ -238,7 +208,7 @@ class RecordingController extends ChangeNotifier {
       _switching = false;
     }
     if (_state != RecorderState.recording) return false; // Stopped meanwhile.
-    _closeSegment();
+    _stopwatch.halt();
     _level = 0;
     _set(RecorderState.paused);
     unawaited(_journalTimeline());
@@ -263,7 +233,7 @@ class RecordingController extends ChangeNotifier {
       _switching = false;
     }
     if (_state != RecorderState.paused) return false; // Stopped meanwhile.
-    _segmentStart = clock.nowMs();
+    _stopwatch.run();
     _set(RecorderState.recording);
     unawaited(_journalTimeline());
     await _showKeepAlive();
@@ -274,31 +244,18 @@ class RecordingController extends ChangeNotifier {
   /// kept (too short, or the recorder failed).
   Future<Recording?> stop() async {
     if (!_state.isActive) return null;
-    _closeSegment();
+    _stopwatch.halt();
     _ticker?.cancel();
     unawaited(_levels?.cancel());
     _levels = null;
     _level = 0;
     _set(RecorderState.saving);
-    final segments = List.of(_segments);
-    _segments.clear();
+    final segments = _stopwatch.closed;
+    _stopwatch.clear();
     final parts = _parts;
     var failed = false;
     try {
-      await _work;
-      final audio = await _capture?.stop();
-      if (parts == null) return null;
-      final measured = segments.fold(0, (sum, s) => sum + s.durationMs) - _fileStartMs;
-      if (!parts.saved && (audio?.durationMs ?? measured) < minimumMs) {
-        if (audio != null) await _capture?.discard(audio);
-        return null;
-      }
-      await parts.timeline(segments, null);
-      await parts.store(audio, measured, waveform: _waveform.build, capture: _capture!);
-      if (!parts.saved) return null;
-      final recording = repository.get(parts.journal.recordingId);
-      if (recording != null) onSaved?.call(recording);
-      return recording;
+      return await _storeLast(parts, segments);
     } on Object catch (e) {
       debugPrint('Recording failed to save: $e');
       lastError = 'The recording could not be saved';
@@ -310,20 +267,6 @@ class RecordingController extends ChangeNotifier {
       // Saved (or failed): the app may be suspended again from here on.
       await _keepAlive.hide();
       _set(RecorderState.idle);
-    }
-  }
-
-  /// Forgets the recording's spool files (stored, or not worth keeping).
-  Future<void> _closeParts({bool keepFiles = false}) async {
-    final parts = _parts;
-    _parts = null;
-    if (parts == null) return;
-    active.remove(parts.journal.recordingId);
-    if (keepFiles) return;
-    try {
-      await parts.close();
-    } on Object {
-      // Left for the next start's recovery check to clean up.
     }
   }
 
@@ -346,44 +289,11 @@ class RecordingController extends ChangeNotifier {
     }
   }
 
-  /// Moves the capture on to a new file and stores the finished one.
-  Future<void> _split() async {
-    final parts = _parts, capture = _capture;
-    if (parts == null || capture == null) return;
-    try {
-      final at = elapsedMs;
-      final audio = await capture.split(await parts.nextFile());
-      final measured = at - _fileStartMs;
-      _fileStartMs = at;
-      await parts.store(audio, measured, waveform: _waveform.build, capture: capture);
-    } on Object catch (e) {
-      // The audio stays in its file; stop stores what it can.
-      debugPrint('Recording part failed to store: $e');
-      lastError = 'Part of the recording could not be stored';
-    }
-  }
-
-  /// Journals the capture's stretches (for recovery).
-  Future<void> _journalTimeline() async {
-    try {
-      await _parts?.timeline(List.of(_segments), _segmentStart);
-    } on Object {
-      // Recovery only: never stop a recording over it.
-    }
-  }
-
   /// "Recording 14:05".
   static String defaultTitle(int epochMs) {
     final at = DateTime.fromMillisecondsSinceEpoch(epochMs);
     String two(int n) => n.toString().padLeft(2, '0');
     return 'Recording ${two(at.hour)}:${two(at.minute)}';
-  }
-
-  void _closeSegment() {
-    final start = _segmentStart;
-    if (start == null) return;
-    _segments.add(RecordingSegment(start, (clock.nowMs() - start).clamp(0, 1 << 30)));
-    _segmentStart = null;
   }
 
   bool _disposed = false;
