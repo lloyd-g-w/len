@@ -72,7 +72,7 @@ PenEnds? suiteEnds() {
 
 /// Long real-device recordings (`real_*`) replay thousands of frames through
 /// pixel metrics and take many minutes, so the routine suite skips them;
-/// run them with `--dart-define=INKLAB_REAL=true` (CI for pen work does).
+/// run them with `--dart-define=INKLAB_REAL=true` (pen-engine work must).
 const bool includeRealRecordings = bool.fromEnvironment('INKLAB_REAL');
 
 List<File> recordingFiles() {

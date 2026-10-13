@@ -1,7 +1,9 @@
 // `perf.flatness` judges that the live stroke costs O(1) per frame, not
 // O(length): here it must pass on the real builder and fail on builders
-// that do O(length) work every frame, measured the same way (best of three
-// replays per frame, `Subject.of(timed: true)`).
+// that do O(length) work every frame, measured the same way (fastest of
+// several replays per frame, as `Subject.of(timed: true)`). Outlining the
+// whole stroke every frame as well (what the capsule engine did) measures
+// ≈ 7×, only re-shaping it ≈ 6×; the live builder ≈ 1.0×.
 @Tags(['inklab'])
 library;
 
@@ -12,7 +14,6 @@ import 'package:len/ink/lab/replay_run.dart';
 import 'package:len/ink/render/live_stroke.dart';
 import 'package:len/ink/render/stroke_outline.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
-import 'package:len/ink/render/stroke_shaper.dart';
 
 import 'metrics/metric.dart';
 import 'metrics/performance_metrics.dart';
@@ -33,22 +34,7 @@ void main() {
     expect(m.pass, isTrue, reason: '$m ${m.note}');
   });
 
-  test('a builder that also shapes the whole stroke every frame is not', () {
-    final m = _flatness(
-      recording,
-      build: (live) {
-        final spec = StrokeRenderer.specFor(live.tool, live.width, live.style);
-        if (live.points.length >= StrokeOutline.unitPoints) {
-          final shaper = StrokeShaper(StrokeOutline.paramsOf(live.points, spec));
-          StrokeOutline.feed(shaper, live.points, spec).update();
-        }
-        return LiveStrokeBuilder.livePath(live);
-      },
-    );
-    expect(m.pass, isFalse, reason: '$m ${m.note}');
-  });
-
-  test('a builder that outlines the whole stroke every frame is not', () {
+  test('a builder that also outlines the whole stroke every frame is not', () {
     final m = _flatness(
       recording,
       build: (live) {

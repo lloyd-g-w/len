@@ -35,6 +35,42 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
+  wet-ink-kotlin:
+    # The low-latency overlay's Kotlin model (android/.../WetInk*.kt) on a
+    # plain JVM, no Gradle: its unit tests (shared goldens, flat ends'
+    # cuts, prediction replay) and the parity check against the Dart model
+    # the Ink Lab measures, over every case and recording with round, flat
+    # and tapered ends (docs/INK_LAB.md, "Running").
+    name: App · wet-ink Kotlin parity
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    env:
+      LEN_NO_NIX: "1"
+      KOTLIN_VERSION: "2.4.20" # nixpkgs' kotlin, as tool/wet_ink_check runs locally
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Kotlin compiler
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -sSfL -o kotlin.zip \
+            "https://github.com/JetBrains/kotlin/releases/download/v$KOTLIN_VERSION/kotlin-compiler-$KOTLIN_VERSION.zip"
+          unzip -q kotlin.zip
+          echo "$PWD/kotlinc/bin" >> "$GITHUB_PATH"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: tool/wet_ink_check/unit_test.sh
+      - run: tool/wet_ink_check/check.sh
+
   server-test:
     name: Server · analyze + test
     runs-on: ubuntu-latest

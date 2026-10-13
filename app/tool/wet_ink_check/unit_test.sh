@@ -2,9 +2,10 @@
 # Runs the Kotlin wet-ink unit tests: the model's (android/app/src/test/.../
 # WetInkModelTest.kt, against the shared golden in src/test/resources), the
 # flat ends' and the prediction's, on a plain JVM, without Gradle. Run from
-# app/:  tool/wet_ink_check/unit_test.sh
+# app/:  tool/wet_ink_check/unit_test.sh   (LEN_NO_NIX=1: kotlinc, java from PATH)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+. tool/wet_ink_check/env.sh
 jars="${XDG_CACHE_HOME:-$HOME/.cache}/len/junit"
 mkdir -p "$jars"
 for j in junit/junit/4.13.2/junit-4.13.2.jar org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar; do
@@ -13,7 +14,7 @@ done
 cp="$jars/junit-4.13.2.jar:$jars/hamcrest-core-1.3.jar"
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
-tool/light.sh nix shell nixpkgs#kotlin nixpkgs#jdk -c bash -c "
+"${kotlin_cmd[@]}" "
   stdlib=\$(dirname \$(dirname \$(readlink -f \$(which kotlinc))))/lib/kotlin-stdlib.jar
   kotlinc -nowarn -cp '$cp' android/app/src/main/kotlin/dev/len/len/WetInkModel.kt \
     android/app/src/main/kotlin/dev/len/len/WetInkEnds.kt \
