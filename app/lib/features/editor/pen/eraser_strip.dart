@@ -29,8 +29,8 @@ class EraserStrip extends StatelessWidget {
           SlotButton(
             key: ValueKey('eraser-size-$i'),
             selected: eraser.radius == size,
-            tooltip: 'Eraser size ${(size * 2).round()} px',
-            semanticLabel: 'Eraser size ${(size * 2).round()} pixels',
+            tooltip: 'Eraser size ${i + 1}',
+            semanticLabel: 'Eraser size ${i + 1}',
             onSelect: () => tools.eraser = eraser.copyWith(radius: size),
             onEdit: (anchor) {
               tools.eraser = tools.eraser.copyWith(radius: size);

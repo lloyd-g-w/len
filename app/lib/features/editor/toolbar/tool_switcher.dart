@@ -10,7 +10,8 @@ import 'tool_cluster.dart';
 
 /// The phone toolbar's tool button `[✎▾]`: the active tool on the neutral
 /// plate with a chevron. Tap: the [ToolSwitcherPanel] (every tool and
-/// Insert in a 4 × 2 grid); long press: the active tool's options.
+/// Insert in a 4 × 2 grid); long press: the active tool's options. A
+/// [PreviousToolButton] usually sits beside it.
 class ToolSwitcherButton extends StatelessWidget {
   const ToolSwitcherButton({super.key, required this.tools, this.insert});
 
@@ -20,7 +21,7 @@ class ToolSwitcherButton extends StatelessWidget {
   final InsertActions? insert;
 
   /// Width of the button (tool glyph plus chevron).
-  static const double width = 60;
+  static const double width = 52;
 
   @override
   Widget build(BuildContext context) {
@@ -29,30 +30,51 @@ class ToolSwitcherButton extends StatelessWidget {
       listenable: tools,
       builder: (context, _) {
         final active = editorTools(tools).firstWhere((d) => d.tool == tools.tool);
+        void open() => _open(context);
+        void options() => active.openOptions(context);
+        // A 40-dp plate in a 48-dp hit area on touch.
         return Tooltip(
           message: '${active.label}: tap to switch tools',
           child: Semantics(
             button: true,
             label: 'Tool: ${active.label}. Switch tools',
-            child: Material(
-              color: Surfaces.pressed(scheme),
-              borderRadius: BorderRadius.circular(Radii.xs),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(Radii.xs),
-                onTap: () => _open(context),
-                onLongPress: () => active.openOptions(context),
-                child: SizedBox(
-                  width: width,
-                  height: Targets.bar,
-                  child: IconTheme.merge(
-                    data: IconThemeData(color: scheme.onSurface),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ToolGlyph(descriptor: active, filled: true),
-                        const SizedBox(width: Gaps.xxs),
-                        Icon(Symbols.expand_more_rounded, size: 16, color: scheme.onSurfaceVariant),
-                      ],
+            excludeSemantics: true,
+            onTap: open,
+            onLongPress: options,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: open,
+              onLongPress: options,
+              child: SizedBox(
+                width: width,
+                height: Targets.barHit(context),
+                child: Center(
+                  child: Material(
+                    color: Surfaces.pressed(scheme),
+                    borderRadius: BorderRadius.circular(Radii.xs),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(Radii.xs),
+                      onTap: open,
+                      onLongPress: options,
+                      child: SizedBox(
+                        width: width,
+                        height: Targets.bar,
+                        child: IconTheme.merge(
+                          data: IconThemeData(color: scheme.onSurface),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ToolGlyph(descriptor: active, filled: true),
+                              const SizedBox(width: Gaps.xxs),
+                              Icon(
+                                Symbols.expand_more_rounded,
+                                size: 16,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -70,6 +92,53 @@ class ToolSwitcherButton extends StatelessWidget {
     sheetOnPhones: false,
     builder: (popover) => ToolSwitcherPanel(tools: tools, insert: insert, anchor: anchor),
   );
+}
+
+/// The phone toolbar's previous tool, next to the [ToolSwitcherButton]:
+/// one tap swaps it with the active tool (pen ↔ eraser, pen ↔
+/// highlighter), as GoodNotes' and Notewise's phone bars switch tools.
+class PreviousToolButton extends StatelessWidget {
+  const PreviousToolButton({super.key, required this.tools});
+
+  final ToolSettings tools;
+
+  /// The button's width: a full touch target.
+  static double get width => Targets.touchFirst ? Targets.touch : Targets.bar;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListenableBuilder(
+      listenable: tools,
+      builder: (context, _) {
+        final previous = editorTools(tools).firstWhere((d) => d.tool == tools.previousTool);
+        return Tooltip(
+          message: 'Switch to ${previous.label.toLowerCase()}',
+          child: Semantics(
+            button: true,
+            label: 'Switch to ${previous.label.toLowerCase()}',
+            excludeSemantics: true,
+            onTap: tools.togglePrevious,
+            child: InkWell(
+              key: const ValueKey('previous-tool'),
+              borderRadius: BorderRadius.circular(Radii.xs),
+              onTap: tools.togglePrevious,
+              child: SizedBox(
+                width: width,
+                height: width,
+                child: Center(
+                  child: IconTheme.merge(
+                    data: IconThemeData(color: scheme.onSurfaceVariant),
+                    child: ToolGlyph(descriptor: previous),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 /// Every tool and Insert ⊕ as labelled tiles, 4 × 2. Tapping a tool

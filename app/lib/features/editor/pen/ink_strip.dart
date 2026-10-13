@@ -6,16 +6,14 @@ import '../toolbar/toolbar_metrics.dart';
 import 'ink_slots.dart';
 
 /// The pen's or highlighter's quick controls: its colour slots, then its
-/// width slots, 12 apart. Independent, so one tap changes either; slot
-/// counts (1–6 each) are set in the tool's options.
+/// width slots, 12 apart. Independent, so one tap changes either; the
+/// selected one tapped again edits that slot alone. Slot counts (1–5
+/// each) are set in the tool's options.
 class InkStrip extends StatelessWidget {
-  const InkStrip({super.key, required this.tools, required this.ink, required this.onEdit});
+  const InkStrip({super.key, required this.tools, required this.ink});
 
   final ToolSettings tools;
   final InkTool ink;
-
-  /// Opens the tool's options anchored to a slot.
-  final SlotEdit onEdit;
 
   /// Width the strip needs for [config] with [slot] cells.
   static double widthFor(PenConfig config, double slot) =>
@@ -27,9 +25,9 @@ class InkStrip extends StatelessWidget {
       direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
       children: [
-        ColorSlots(tools: tools, ink: ink, onEdit: onEdit),
+        ColorSlots(tools: tools, ink: ink),
         ToolbarAxis.gap(context, ToolbarMetrics.groupGap),
-        WidthSlots(tools: tools, ink: ink, onEdit: onEdit),
+        WidthSlots(tools: tools, ink: ink),
       ],
     );
   }

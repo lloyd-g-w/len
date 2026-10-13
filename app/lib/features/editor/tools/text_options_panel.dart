@@ -7,7 +7,8 @@ import '../../../ui/color_picker/color_choices.dart';
 import '../pen/option_controls.dart';
 import 'text/text_style_menus.dart';
 
-/// Default formatting for new text boxes: size, font and colour.
+/// Default formatting for new text boxes: colour, size and font (in the
+/// ink popovers' order).
 class TextOptionsPanel extends StatelessWidget {
   const TextOptionsPanel({super.key, required this.tools});
 
@@ -31,6 +32,12 @@ class TextOptionsPanel extends StatelessWidget {
                 onChanged: (s) => tools.textStyle = s,
               ),
             ),
+            const SizedBox(height: Gaps.md),
+            ColorChoices(
+              color: style.color,
+              recent: tools.recentColors,
+              onChanged: (c) => tools.textStyle = style.copyWith(color: c),
+            ),
             const SizedBox(height: Gaps.sm),
             OptionSlider(
               label: 'Size',
@@ -48,12 +55,6 @@ class TextOptionsPanel extends StatelessWidget {
                   onSelected: (f) => tools.textStyle = style.copyWith(font: f),
                 ),
               ],
-            ),
-            const SizedBox(height: Gaps.md),
-            ColorChoices(
-              color: style.color,
-              recent: tools.recentColors,
-              onChanged: (c) => tools.textStyle = style.copyWith(color: c),
             ),
             const SizedBox(height: Gaps.sm),
             Text(

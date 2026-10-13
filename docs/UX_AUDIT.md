@@ -71,7 +71,7 @@ halves wait for `design/foundation`):
 
 ### Pen and tools
 
-**R5-1 P1 · The pen palette never shows the current colour.** `phone_pen_sheet`,
+✅ **R5-1 P1 · The pen palette never shows the current colour.** `phone_pen_sheet`,
 `popover_pen_*`, `popover_from_slot_*`: no swatch has a ring, while the
 highlighter, text and laser palettes do. The pen defaults
 (`ink/pen/pen_defaults.dart:52`: `0xFF1A2233`, `0xFF1C4ED8`, `0xFFDC2626`)
@@ -82,8 +82,9 @@ palette around the defaults (put the three defaults in the palette, dropping
 their near-twins) and add a test that every tool's default slot colours are
 in its palette. *Files:* `ui/color_picker/color_swatches.dart`,
 `ink/pen/pen_defaults.dart`.
+*Done (fix/r5-pen-tools):* the palette is built around the defaults (pen, highlighter, text); a test keeps every default colour in its palette.
 
-**R5-2 P1 · The 4×5 touch palette makes the phone pen sheet cover most of the screen.**
+✅ **R5-2 P1 · The 4×5 touch palette makes the phone pen sheet cover most of the screen.**
 `phone_pen_sheet`, `phone_highlighter_sheet_text13`: on touch the 20 pen
 colours are now 4 rows of 48-dp cells (192 dp tall, against about 70 for the
 old 2×10). The sheet starts 130 dp below the top of an 844-dp phone, so you
@@ -103,16 +104,18 @@ heads that expands to shades (one more tap for every colour change); a
 horizontally scrolling row (hides half the colours with no cue). *Files:*
 `ui/color_picker/color_swatches.dart`, `ui/color_picker/color_choices.dart`,
 `ui/adaptive_popover.dart`.
+*Done:* 14 colours in 2 × 7, spread across the full width on touch (48-dp cells), the tool popover 368 dp wide on touch; the highlighter keeps 2 × 5.
 
-**R5-3 P2 · One sheet, two selection rings.** `phone_highlighter_sheet_text13`,
+✅ **R5-3 P2 · One sheet, two selection rings.** `phone_highlighter_sheet_text13`,
 `popover_highlighter_*`: the quick slots ring the current colour in
 `onSurface` (`pen/slot_button.dart:82`), but the palette below rings the
 same colour in the accent (`ui/color_dot.dart:76`). The accent is for focus
 and handles, and selected states are neutral (CONVENTIONS). *Fix:* use the
 `onSurface` ring in `ColorDot` (covers palettes, covers and folder colours).
 *Files:* `ui/color_dot.dart`.
+*Done:* `ColorDot` rings in `onSurface`.
 
-**R5-4 P1 · Phones: switching pen ↔ eraser takes two taps each way.** The
+✅ **R5-4 P1 · Phones: switching pen ↔ eraser takes two taps each way.** The
 phone bar is `[✎▾] | colours | sizes`, and every tool change goes through
 the 4 × 2 switcher grid (`toolbar/tool_switcher.dart:43`). The pen's options
 hide behind a long press on the switcher, or a tap on the active slot.
@@ -124,8 +127,9 @@ spare with 3 + 3 slots; take the rest from the gap between the colour and
 size groups. Hide the button when the slots need the room (5 + 5).
 *Files:* `toolbar/tool_switcher.dart`, `editor_toolbar.dart`,
 `ink/tool_settings.dart` (previous tool).
+*Done:* a 48-dp previous-tool button beside the switcher (`PreviousToolButton`, `ToolSettings.previousTool`, the eraser at first); the slots give up to 4 dp of their cells for it (41 dp at 390), and it steps aside when they would go under 40 (narrow phones, 5 + 5).
 
-**R5-5 P1 · Reset in ink popovers is a big hammer with a short-lived Undo.**
+✅ **R5-5 P1 · Reset in ink popovers is a big hammer with a short-lived Undo.**
 `ResetButton` (`pen/option_controls.dart:186-237`) restores
 `PenConfig.defaultsFor(ink)`: the quick colours you chose, their sizes, the
 slot counts and Feel. Undo lives only in the button's `State`: closing the
@@ -137,8 +141,9 @@ choices, not settings to reset. If the whole-tool Reset stays, keep the
 pre-reset config on `ToolSettings` for the session so Undo survives closing.
 *Files:* `pen/option_controls.dart`, `pen/ink_options.dart`,
 `pen/pen_options_panel.dart`.
+*Done:* "Reset feel" at the end of Feel; nothing resets the quick colours and sizes. Quick slots now edit only themselves (a colour slot: palette, Recent, Custom; a size slot: a size slider with a live preview); the full options open from the tool button only.
 
-**R5-6 P2 · Tool sizes use three units.** Pen and highlighter show mm
+✅ **R5-6 P2 · Tool sizes use three units.** Pen and highlighter show mm
 ("0.66 mm"), the eraser and laser px (`pen/eraser_options_panel.dart:61`,
 `tools/laser_options_panel.dart:73`, also the eraser slot tooltip), and text
 a bare "24" (`tools/text_options_panel.dart:40`). Below 1 mm the pen shows
@@ -147,8 +152,9 @@ steps. *Fix:* text "24 pt"; the eraser and laser sizes in mm too if they're
 on the page, else no unit (a dot preview is enough); round sub-millimetre
 sizes to 0.05 mm ("0.65 mm"). *Files:* the three panels, `pen/ink_slots.dart`
 (`formatWidth`).
+*Done:* sub-millimetre sizes round to 0.05 mm ("0.65 mm"); the eraser and laser sliders show no px (the eraser's dot shows the size; screen readers get a percentage); eraser slots read "Eraser size 1…3". Text keeps the bare "24": its unit is the page's 1/96 in, not pt, and the text bar shows the same number.
 
-**R5-7 P2 · The text popover differs from the ink popovers.** `popover_text_*`:
+✅ **R5-7 P2 · The text popover differs from the ink popovers.** `popover_text_*`:
 Size → Font → Colour, while pen and highlighter go Colour → Size. Font is a
 row with a Material filled triangle (`tools/text/text_style_menus.dart:59`,
 `arrow_drop_down_rounded`), which round 4 replaced with rounded chevrons
@@ -157,13 +163,15 @@ still has one too. *Fix:* Colour, then Size, then Font, as in the ink
 popovers; `expand_more_rounded` for every drop-down affordance. *Files:*
 `tools/text_options_panel.dart`, `tools/text/text_style_menus.dart`,
 `features/audio/ui/audio_bar_button.dart`.
+*Done:* Colour → Size → Font; `expand_more_rounded` in the font menu and the audio split button.
 
-**R5-8 P2 · Hints in tool popovers break the copy rule.** Single sentences
+✅ **R5-8 P2 · Hints in tool popovers break the copy rule.** Single sentences
 ending in a full stop: "Drag to draw, in the pen’s colour and size."
 (`tools/shape_options_panel.dart:55`), "Tap the page to add a text box; tap a
 text box to edit it." (`tools/text_options_panel.dart:60`), "To select PDF
 text, long-press it." (`tools/lasso_options_panel.dart:23`). The stabiliser
 hint already has none. *Fix:* drop the stops (see also R5-33).
+*Done:* the three hints lose their full stops.
 
 ### Editor chrome and navigation
 
@@ -361,7 +369,7 @@ Lay the actions out in a `Wrap` with one start edge. *Files:*
 **R5-30 P2 · The accent marks plain states.** Accent is for primary buttons,
 focus, handles, links, switches, progress and the selected sidebar row.
 It also shows on:
-- the palette's selection ring (R5-3);
+- ✅ the palette's selection ring (R5-3);
 - the active tab's notebook glyph (`tabs/notebook_tab_strip.dart:196`);
 - the selected template's label (`documents/templates/template_gallery.dart:245`);
 - the audio "tap ink to play" toggle and a non-1× speed
@@ -407,9 +415,9 @@ and snacks are dark. Over cream paper it barely separates. *Fix:* the HUD on
 | ✅ S1 | ⋯ → Page drops "Add page after" and "Add page with template…" | Adding a page already has five homes: the Add page footer, Insert ⊕ → "Page with template…", the canvas long-press, the overview's Add page tile and its ⋯. Page ▸ goes from 8 rows to 6 and reads as "this page" | `chrome/editor_more_menu.dart` |
 | ✅ S2 | ⋯ → Page drops "Add page to outline…" | The outline panel has "Add page N to outline", and the dialog names it differently ("…to the outline") | `editor_more_menu.dart`, `outline/outline_panel.dart` |
 | ✅ S3 | One name per command: "Page with template…" (Insert) vs "Add page with template…" (Page ▸); "Add page N to outline" vs the dialog's "Add page N to the outline" | Two names for one thing | `toolbar/insert_menu.dart`, `outline/outline_entry_dialog.dart` |
-| S4 | Ink popovers: Reset becomes "Reset feel" inside Feel (R5-5) | Quick colours are choices, not settings; one reset scope | `pen/ink_options.dart` |
-| S5 | Quick colour and size counts fold under a collapsed "Toolbar" disclosure ("3 colours · 3 sizes"); the max goes 6 → 5, as SIMPLIFY #13 decided (`PenConfig.maxSlots` is 6) | Two always-open stepper rows for a one-time choice; the popover's default view becomes Colour · Size · Feel | `pen/ink_options.dart`, `ink/pen/pen_config.dart` |
-| S6 | Pen palette: 20 → 14 presets (R5-2) | Near-twins; Recent and Custom cover the rest; halves the touch height | `ui/color_picker/color_swatches.dart` |
+| ✅ S4 | Ink popovers: Reset becomes "Reset feel" inside Feel (R5-5) | Quick colours are choices, not settings; one reset scope | `pen/ink_options.dart` |
+| ✅ S5 | Quick colour and size counts fold under a collapsed "Toolbar" disclosure ("3 colours · 3 sizes"); the max goes 6 → 5, as SIMPLIFY #13 decided (`PenConfig.maxSlots` is 6) | Two always-open stepper rows for a one-time choice; the popover's default view becomes Colour · Size · Feel | `pen/ink_options.dart`, `ink/pen/pen_config.dart` |
+| ✅ S6 | Pen palette: 20 → 14 presets (R5-2) | Near-twins; Recent and Custom cover the rest; halves the touch height | `ui/color_picker/color_swatches.dart` |
 | ✅ S7 | Templates: merge "Basic" into "Paper" (R5-24) | Two categories for plain papers | `domain/templates/paper_style.dart` |
 | ✅ S8 | Handwriting settings without a recogniser: a caption, no row (R5-27) | A status row with nothing to do | `settings/handwriting_settings.dart` |
 | ✅ S9 | Convert to text: no first "alternative" equal to the field; empty and failed results as snacks (R5-18) | One reading shown once; no modal for "nothing" | `recognition/convert_to_text_dialog.dart` |

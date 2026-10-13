@@ -5,7 +5,7 @@ import '../toolbar/toolbar_metrics.dart';
 
 /// One quick slot in the toolbar (a colour, a width or an eraser size):
 /// tap to select it; tap it again when selected, long-press or right-click
-/// to open the tool's options on it ([onEdit]).
+/// to edit it ([onEdit]).
 ///
 /// A selected colour slot gets a 2-px `onSurface` ring with a 2-px gap
 /// around its swatch, so it reads on any colour (white and black included)
@@ -21,6 +21,7 @@ class SlotButton extends StatelessWidget {
     required this.onSelect,
     required this.child,
     this.onEdit,
+    this.editHint = 'Double tap for options',
     this.plate = false,
   });
 
@@ -32,9 +33,12 @@ class SlotButton extends StatelessWidget {
   final String semanticLabel;
   final VoidCallback onSelect;
 
-  /// Opens the slot's options anchored to the given context; null: a tap
-  /// on the selected slot does nothing more (slots inside the popover).
+  /// Edits the slot, anchored to the given context; null: a tap on the
+  /// selected slot does nothing more (slots inside the popover).
   final void Function(BuildContext anchor)? onEdit;
+
+  /// What a screen reader says a double tap on the selected slot does.
+  final String editHint;
 
   final Widget child;
 
@@ -53,7 +57,7 @@ class SlotButton extends StatelessWidget {
         button: true,
         selected: selected,
         label: semanticLabel,
-        hint: selected && edit != null ? 'Double tap for options' : null,
+        hint: selected && edit != null ? editHint : null,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: GestureDetector(

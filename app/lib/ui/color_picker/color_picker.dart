@@ -212,7 +212,7 @@ class _SwatchGrid extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onTap;
 
-  static const int columns = 10;
+  static const int columns = 7;
   static const double gap = 4;
 
   @override

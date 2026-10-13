@@ -70,7 +70,10 @@ class LaserOptionsPanel extends StatelessWidget {
               value: laser.size,
               min: LaserConfig.minSize,
               max: LaserConfig.maxSize,
-              display: (v) => '${v.round()} px',
+              // On screen, whatever the zoom: no unit to read.
+              showValue: false,
+              display: (v) =>
+                  percent((v - LaserConfig.minSize) / (LaserConfig.maxSize - LaserConfig.minSize)),
               onChanged: (v) => update(laser.copyWith(size: v.roundToDouble())),
             ),
             if (laser.mode == LaserMode.trail)

@@ -116,7 +116,8 @@ void main() {
   });
 
   test('sizes read in millimetres on the page', () {
-    expect(formatWidth(2.5), '0.66 mm');
+    expect(formatWidth(2.5), '0.65 mm', reason: 'to 0.05 mm below 1 mm');
+    expect(formatWidth(2.27), '0.6 mm');
     expect(formatWidth(4), '1.1 mm');
     expect(formatWidth(48), '13 mm');
   });

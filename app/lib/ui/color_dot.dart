@@ -73,7 +73,7 @@ class ColorDot extends StatelessWidget {
     decoration: BoxDecoration(
       shape: BoxShape.circle,
       border: Border.all(
-        color: selected ? scheme.primary : Colors.transparent,
+        color: selected ? scheme.onSurface : Colors.transparent,
         width: size * 0.075,
       ),
     ),

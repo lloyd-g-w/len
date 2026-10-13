@@ -122,14 +122,16 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('tapping the selected colour opens the options on that slot; '
+    testWidgets('tapping the selected colour edits that slot alone; '
         'a new colour becomes a recent one', (tester) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
       await tester.tap(find.byKey(const ValueKey('color-2')));
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('color-2')));
       await tester.pumpAndSettle();
-      expect(find.byType(ToolOptionsPopover), findsOneWidget);
+      expect(find.byKey(const ValueKey('color-slot-editor')), findsOneWidget);
+      expect(find.byType(ToolOptionsPopover), findsNothing, reason: 'not the pen options');
+      expect(find.text('Feel'), findsNothing);
       expect(find.byType(BottomSheet), findsNothing, reason: 'a popover on tablets');
       await tester.tap(find.text('Custom'));
       await tester.pumpAndSettle();
@@ -138,39 +140,57 @@ void main() {
       expect(tools.activeConfig.colors[2], 0xFFFF0000);
       expect(tools.activeConfig.color, 0xFFFF0000);
       expect(tools.activeConfig.colors[0], PenDefaults.pen.colors[0]);
-      expect(tools.recentColors, isEmpty, reason: 'noted when the popover closes');
+      expect(tools.recentColors, isEmpty, reason: 'noted when the editor closes');
       await tester.tapAt(const Offset(1200, 700));
       await tester.pumpAndSettle();
       expect(tools.recentColors, [0xFFFF0000]);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('long-press a width for the options: its slider, with a live preview', (
+    testWidgets('long-press a size to edit it: a slider in mm with a live preview, nothing else', (
       tester,
     ) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
       await tester.longPress(find.byKey(const ValueKey('width-0')));
       await tester.pumpAndSettle();
       expect(tools.activeConfig.widthIndex, 0);
+      expect(find.byKey(const ValueKey('width-slot-editor')), findsOneWidget);
       expect(find.byType(StrokePreview), findsOneWidget);
+      expect(find.byType(Slider), findsOneWidget);
+      expect(find.text('Custom'), findsNothing);
       await tester.drag(find.byType(Slider), const Offset(60, 0));
       await tester.pump();
       expect(tools.activeConfig.widths[0], greaterThan(PenDefaults.pen.widths[0]));
+      expect(tools.activeConfig.widths[1], PenDefaults.pen.widths[1]);
     });
 
-    testWidgets('quick colours and sizes: 3 each by default, 1 to 6, independent', (tester) async {
+    testWidgets('phones: slot editors are compact sheets', (tester) async {
+      await pumpToolbar(tester, const Size(390, 800));
+      await tester.tap(find.byKey(const ValueKey('color-0')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byKey(const ValueKey('color-slot-editor')), findsOneWidget);
+      expect(tester.getSize(find.byType(BottomSheet)).height, lessThan(320));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('quick colours and sizes: 3 each by default, 1 to 5, independent', (tester) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
       expect(tools.activeConfig.colors, hasLength(3));
       expect(tools.activeConfig.widths, hasLength(3));
       await tester.tap(find.byTooltip('Pen (P)'));
       await tester.pumpAndSettle();
+      expect(find.byTooltip('More quick colours'), findsNothing, reason: 'folded under Toolbar');
+      await tester.ensureVisible(find.text('Toolbar'));
+      await tester.tap(find.text('Toolbar'));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.byTooltip('More quick colours'));
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 4; i++) {
         await tester.tap(find.byTooltip('More quick colours'));
         await tester.pump();
       }
-      expect(tools.activeConfig.colors, hasLength(6));
-      expect(tools.activeConfig.colors.toSet(), hasLength(6), reason: 'new colours differ');
+      expect(tools.activeConfig.colors, hasLength(5));
+      expect(tools.activeConfig.colors.toSet(), hasLength(5), reason: 'new colours differ');
       expect(tools.activeConfig.widths, hasLength(3));
       final more = tester.widget<IconButton>(
         find.ancestor(of: find.byTooltip('More quick colours'), matching: find.byType(IconButton)),
@@ -181,12 +201,12 @@ void main() {
         await tester.pump();
       }
       expect(tools.activeConfig.widths, hasLength(1));
-      expect(tools.activeConfig.colors, hasLength(6));
+      expect(tools.activeConfig.colors, hasLength(5));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('width-1')), findsNothing);
       // The anchored popover leaves the slots to the toolbar right above it.
-      expect(find.byKey(const ValueKey('color-5')), findsOneWidget);
-      expect(inPopover(find.byKey(const ValueKey('color-5'))), findsNothing);
+      expect(find.byKey(const ValueKey('color-4')), findsOneWidget);
+      expect(inPopover(find.byKey(const ValueKey('color-4'))), findsNothing);
     });
 
     testWidgets('the highlighter has its own slots', (tester) async {
@@ -197,6 +217,33 @@ void main() {
       await tester.pump();
       expect(tools.configOf(InkTool.highlighter).colorIndex, 2);
       expect(tools.configOf(InkTool.ballpoint).colorIndex, 0);
+    });
+
+    testWidgets('phones: one tap swaps the pen and the previous tool', (tester) async {
+      final tools = await pumpToolbar(tester, const Size(390, 800));
+      final previous = find.byKey(const ValueKey('previous-tool'));
+      expect(find.byTooltip('Switch to eraser'), findsOneWidget);
+      await tester.tap(previous);
+      await tester.pump();
+      expect(tools.tool, EditorTool.eraser);
+      expect(find.byTooltip('Switch to pen'), findsOneWidget);
+      await tester.tap(previous);
+      await tester.pump();
+      expect(tools.tool, EditorTool.pen);
+      tools.tool = EditorTool.highlighter;
+      await tester.pump();
+      await tester.tap(previous);
+      await tester.pump();
+      expect(tools.tool, EditorTool.pen);
+      // Slots stay at least 40 dp beside it; with 5 + 5 it steps aside.
+      expect(tester.getSize(find.byKey(const ValueKey('color-0'))).width, greaterThanOrEqualTo(40));
+      tools.updateConfig(
+        InkTool.ballpoint,
+        (c) => c.addColor(0xFF00AA00).addColor(0xFF7048E8).addWidth(6).addWidth(8),
+      );
+      await tester.pump();
+      expect(previous, findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('phones: the tool switcher changes tools; the active one opens its options', (

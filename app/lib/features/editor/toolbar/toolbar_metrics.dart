@@ -33,7 +33,7 @@ abstract final class ToolbarMetrics {
 
   /// The slot cell where [context] is.
   static double slotOf(BuildContext context) =>
-      slotCell(compact: ToolbarDensity.compactOf(context));
+      ToolbarDensity.slotOf(context) ?? slotCell(compact: ToolbarDensity.compactOf(context));
 
   /// The tool cell where [context] is.
   static double toolOf(BuildContext context) =>
@@ -57,8 +57,11 @@ abstract final class ToolbarMetrics {
 
   /// Width of the widest quick-control strip any tool shows, so the strip
   /// keeps one place (and the tools never move) as tools change.
-  static double strip(ToolSettings tools, {bool compact = false}) {
-    final slot = slotCell(compact: compact);
+  static double strip(ToolSettings tools, {bool compact = false}) =>
+      stripAt(tools, slotCell(compact: compact));
+
+  /// [strip] with [slot] cells.
+  static double stripAt(ToolSettings tools, double slot) {
     var widest = 0.0;
     for (final d in editorTools(tools)) {
       final w = d.stripWidth?.call(slot) ?? 0;
@@ -109,11 +112,20 @@ class ToolbarDensity extends InheritedWidget {
     super.key,
     required this.compact,
     this.minimal = false,
+    this.slot,
     required super.child,
   });
 
   final bool compact;
   final bool minimal;
+
+  /// A slot cell between the compact and the full one, when the row fits
+  /// exactly that (the phone row with its previous-tool button).
+  final double? slot;
+
+  /// The slot cell set at [context], if any.
+  static double? slotOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ToolbarDensity>()?.slot;
 
   /// Whether the toolbar at [context] is compact.
   static bool compactOf(BuildContext context) =>
@@ -125,7 +137,7 @@ class ToolbarDensity extends InheritedWidget {
 
   @override
   bool updateShouldNotify(ToolbarDensity oldWidget) =>
-      oldWidget.compact != compact || oldWidget.minimal != minimal;
+      oldWidget.compact != compact || oldWidget.minimal != minimal || oldWidget.slot != slot;
 }
 
 /// The direction a toolbar runs: across (docked, floating) or down (a

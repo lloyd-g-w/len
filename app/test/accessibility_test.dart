@@ -164,10 +164,13 @@ final Map<String, List<Finder> Function()> editorStates = {
 };
 
 /// The phone's states: the toolbar sits at the bottom, a switcher holds
-/// the tools, and options open from the quick slots as sheets.
+/// the tools (the active one opens its options), and the quick slots
+/// open their editors as sheets.
 final Map<String, List<Finder> Function()> phoneEditorStates = {
   'editor': () => [],
-  'pen options': () => [find.byKey(const ValueKey('color-0'))],
+  'pen options': () => [find.byTooltip('Pen: tap to switch tools'), find.text('Pen')],
+  'colour slot': () => [find.byKey(const ValueKey('color-0'))],
+  'size slot': () => [find.byKey(const ValueKey('width-1'))],
   'export sheet': () => [find.byTooltip('More options'), find.text('Export…')],
 };
 
