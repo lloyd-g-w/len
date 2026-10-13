@@ -19,7 +19,7 @@ Download the latest build from
 | Android 7+ | `len-X.Y.Z-android-arm64-v8a.apk` (most phones/tablets; `-universal` if unsure) | Open the APK and allow installing from your browser/file manager. |
 | Windows 10/11 (x64) | `len-X.Y.Z-windows-x64-setup.exe` | Run the installer (no administrator rights needed; it is not code-signed yet, so SmartScreen asks: *More info → Run anyway*). Adds Len to the Start menu and to "Open with" for PDFs and images; uninstall from *Settings → Apps*. Portable alternative: `len-X.Y.Z-windows-x64.zip`, unzip and run `len.exe` (no file associations). |
 | Linux (x64) | `len-X.Y.Z-linux-x64.flatpak` | `flatpak install --user len-X.Y.Z-linux-x64.flatpak` (fetches the GNOME runtime from Flathub). Audio recording does not work in the Flatpak yet. |
-| Linux (x64) | `len-X.Y.Z-linux-x64.tar.gz` | Unpack, run `./len`; `./install-desktop-entry.sh` adds it to your application menu (`--uninstall` removes it). Needs GTK 3 and GStreamer (with the -good and an AAC plugin, for audio playback); recording uses `parecord` and `ffmpeg`. |
+| Linux (x64) | `len-X.Y.Z-linux-x64.tar.gz` | Unpack, run `./len`; `./install-desktop-entry.sh` adds it to your application menu (`--uninstall` removes it). Needs GTK 3, libsecret (the sync token goes to the desktop's keyring) and GStreamer (with the -good and an AAC plugin, for audio playback); recording uses `parecord` and `ffmpeg`. |
 | Web | `len-X.Y.Z-web.zip` | Static site: unzip and serve it over HTTPS with any web server (headers: see *Develop*). Install it from the browser (PWA) to use it offline. |
 
 For sync, run the server: [server/README.md](server/README.md) (Docker image
