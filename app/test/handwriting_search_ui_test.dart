@@ -31,6 +31,7 @@ void main() {
     final indexer = HandwritingIndexer(
       services.database,
       recognizer: FakeRecognizer(words: {...words}),
+      shared: services.recognition.indexer.shared,
       language: () => 'en-US',
       idleDelay: Duration.zero,
       pauseBetweenLines: Duration.zero,

@@ -528,6 +528,10 @@ where a stylus can be (Android, or once seen); the toolbar subtitle follows the
 choice; hide the how-to where recognition is unavailable; status as a plain row
 with an icon; the title in the app bar on wide screens. *Files:*
 `features/settings/*`.
+*Update (synced handwriting):* where nothing recognises, Handwriting now
+says Android devices recognise and their text is found here after sync, with
+a "Search handwriting" row counting the lines that arrived — no "Not
+available here", no toggles.
 
 ✅ **P2-26 Snack bars still collide.** `e_snack_saved_template_phone_*` (two lines
 grow down over the bottom toolbar), `e_snack_stylus_detected_phone_*` (snack

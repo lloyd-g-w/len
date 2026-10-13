@@ -24,28 +24,41 @@ class HandwritingSettings extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: Listenable.merge([recognition, recognition.indexer]),
-      builder: (context, _) => SettingsSection(
-        title: 'Handwriting',
-        // How to use it, only where it can be used.
-        description: recognition.isSupported
-            ? 'Search your handwriting and convert it to text: select it with the lasso, '
-                  'then choose Convert to text. Recognition runs on this device; nothing is '
-                  'sent anywhere.'
-            : null,
-        children: recognition.isSupported
-            ? [
+      builder: (context, _) => recognition.isSupported
+          ? SettingsSection(
+              title: 'Handwriting',
+              description:
+                  'Search your handwriting and convert it to text: select it with the lasso, '
+                  'then choose Convert to text. Recognition runs on this device; the text syncs '
+                  'with your notes, so your other devices find your handwriting too.',
+              children: [
                 _indexing(context),
                 _language(context),
                 if (recognition.modelStatus != ModelStatus.downloaded) _model(context),
-              ]
-            : [
-                SettingsTile(
-                  icon: Symbols.info_rounded,
-                  title: 'Not available here',
-                  subtitle: recognition.unsupportedReason,
-                ),
               ],
-      ),
+            )
+          : SettingsSection(
+              title: 'Handwriting',
+              description:
+                  'Handwriting is recognised on Android devices running Len and synced as text, '
+                  'so search finds it here too. Converting handwriting to text works on Android.',
+              children: [_synced()],
+            ),
+    );
+  }
+
+  /// Where nothing recognises: what came from devices that do.
+  Widget _synced() {
+    final indexer = recognition.indexer;
+    final lines = indexer.lineCount;
+    return SettingsTile(
+      icon: Symbols.manage_search_rounded,
+      title: 'Search handwriting',
+      subtitle: indexer.isIndexing
+          ? 'Adding handwriting recognised on your other devices…'
+          : lines == 0
+          ? 'Nothing recognised yet.'
+          : '$lines line${lines == 1 ? '' : 's'} from your Android devices can be found here.',
     );
   }
 

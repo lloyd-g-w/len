@@ -9,6 +9,7 @@ import '../data/folder_repository.dart';
 import '../data/notebook_repository.dart';
 import '../data/outline_repository.dart';
 import '../data/page_repository.dart';
+import '../data/recognised_text_repository.dart';
 import '../data/recording_repository.dart';
 import '../data/settings_repository.dart';
 import '../data/stroke_repository.dart';
@@ -41,6 +42,7 @@ class SyncEngine {
     required this.recordings,
     required this.templates,
     required this.outline,
+    required this.recognisedText,
   });
 
   final AppDatabase database;
@@ -62,6 +64,9 @@ class SyncEngine {
 
   /// Notebooks' own outlines.
   final OutlineRepository outline;
+
+  /// Handwriting recognised on devices with a recogniser.
+  final RecognisedTextRepository recognisedText;
 
   /// Which blobs live rows reference.
   late final BlobReferences blobReferences = BlobReferences(database);
@@ -113,6 +118,7 @@ class SyncEngine {
       strokes,
       elements,
       recordings,
+      recognisedText,
     ])
       s.collection: s,
   };
