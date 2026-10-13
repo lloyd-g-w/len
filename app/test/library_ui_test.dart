@@ -17,6 +17,7 @@ import 'package:len/features/library/new_notebook_tile.dart';
 import 'package:len/features/library/notebook_card.dart';
 import 'package:len/features/library/notebook_list_tile.dart';
 import 'package:len/features/settings/settings_screen.dart';
+import 'package:len/ui/app_theme.dart';
 import 'package:len/ui/menus.dart';
 import 'package:len/ui/sidebar_item.dart';
 
@@ -342,6 +343,25 @@ void main() {
     expect(services.notebooks.trashed(), isEmpty);
   });
 
+  testWidgets('a cover colour applies on tap; closing offers Undo', (tester) async {
+    final services = await pumpSeeded(tester, (s) => addNotebook(s, 'Plans'));
+    final before = services.notebooks.list().single.coverColor;
+    await openMenuOf(tester, 'Plans');
+    await tester.tap(find.text('Change cover…'));
+    await tester.pumpAndSettle();
+    expect(find.text('Apply'), findsNothing);
+    final other = Palette.covers.indexWhere((c) => c != before);
+    await tester.tap(find.byKey(ValueKey('cover-$other')));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list().single.coverColor, Palette.covers[other]);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cover changed'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list().single.coverColor, before);
+  });
+
   testWidgets('phone layout: the drawer goes between sections', (tester) async {
     await pumpSeeded(tester, (s) => addNotebook(s, 'Pocket'), size: const Size(390, 844));
     expect(find.byType(LibrarySidebar), findsNothing);
@@ -461,10 +481,16 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Draw with'), findsOneWidget);
+    // No touch screen, no stylus seen: nothing about fingers or buttons.
+    expect(find.text('Draw with finger'), findsNothing);
     expect(find.text('Side button'), findsNothing);
-    await tester.tap(find.text('Stylus'));
+    services.preferences.stylusOnly = true; // A stylus was seen.
     await tester.pumpAndSettle();
+    expect(find.text('Draw with finger'), findsOneWidget);
+    expect(find.text('Side button'), findsOneWidget);
+    await tester.tap(find.text('Draw with finger'));
+    await tester.pumpAndSettle();
+    expect(services.preferences.stylusOnly, isFalse);
     expect(find.text('Side button'), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });

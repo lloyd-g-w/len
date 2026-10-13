@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app.dart';
 import 'package:len/app_services.dart';
@@ -8,7 +9,9 @@ import 'package:len/features/settings/sync_settings.dart';
 import 'package:len/platform/secure_store.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/sync/sync_controller.dart';
+import 'package:len/sync/sync_setup_link.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:len/ui/qr_code_view.dart';
 import 'package:len/ui/sync_status_button.dart';
 
 import 'support/fake_server.dart';
@@ -168,6 +171,108 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await show();
       expect(note, findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+  group('setup links (UX_AUDIT R6-23)', () {
+    const link = SyncSetupLink(url: 'http://192.168.1.10:8080/len', token: 'a+b/c=&d e');
+
+    test('round-trip, and only len://sync links with a URL count', () {
+      expect(link.link, startsWith('len://sync?url='));
+      expect(SyncSetupLink.parse('  ${link.link}\n'), link);
+      expect(SyncSetupLink.parse('https://len.example'), isNull);
+      expect(SyncSetupLink.parse('len://sync?token=x'), isNull);
+      expect(SyncSetupLink.parse('len://other?url=x'), isNull);
+      expect(link.toString(), isNot(contains('a+b')), reason: 'no token in logs');
+    });
+
+    Future<void> show(WidgetTester tester, AppServices s) async {
+      tester.view
+        ..physicalSize = const Size(800, 1400)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        AppScope(
+          services: s,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const Scaffold(body: SingleChildScrollView(child: SyncSettings())),
+          ),
+        ),
+      );
+    }
+
+    String field(WidgetTester tester, String label) =>
+        tester.widget<TextField>(find.widgetWithText(TextField, label)).controller!.text;
+
+    testWidgets('a link pasted into Server URL fills both fields', (tester) async {
+      final s = AppServices.create(AppDatabase.inMemory());
+      addTearDown(s.dispose);
+      await show(tester, s);
+      await tester.enterText(find.widgetWithText(TextField, 'Server URL'), link.link);
+      await tester.pump();
+      expect(field(tester, 'Server URL'), link.url);
+      expect(field(tester, 'Access token'), link.token);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('a link opened with Len fills the form, even when connected', (tester) async {
+      final s = _device(FakeServer(), token: FakeServer.token);
+      addTearDown(s.dispose);
+      await show(tester, s);
+      expect(find.text('Server URL'), findsNothing);
+      s.incomingFiles.addLink(link.link);
+      await tester.pump();
+      expect(field(tester, 'Server URL'), link.url);
+      expect(field(tester, 'Access token'), link.token);
+      expect(s.incomingFiles.syncSetup.value, isNull, reason: 'taken');
+      expect(s.settings.syncUrl, 'http://sync.test', reason: 'only once connected');
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('a link opened with Len opens Settings on its form', (tester) async {
+      final s = AppServices.create(AppDatabase.inMemory());
+      addTearDown(s.dispose);
+      s.incomingFiles.addLink(link.link); // A cold start: before the library.
+      await tester.pumpWidget(LenApp(services: s));
+      await tester.pumpAndSettle();
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(field(tester, 'Server URL'), link.url);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(SettingsScreen), findsNothing, reason: 'once');
+    });
+
+    testWidgets('a connected device shows a QR code and copies the link', (tester) async {
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+        call,
+      ) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map<Object?, Object?>)['text'] as String?;
+        }
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      final s = _device(FakeServer(), token: FakeServer.token);
+      addTearDown(s.dispose);
+      await show(tester, s);
+      await tester.tap(find.text('Set up another device…'));
+      await tester.pumpAndSettle();
+      final qr = tester.widget<QrCodeView>(find.byType(QrCodeView));
+      expect(
+        SyncSetupLink.parse(qr.data),
+        SyncSetupLink(url: 'http://sync.test', token: FakeServer.token),
+      );
+      expect(find.textContaining('includes your access token'), findsOneWidget);
+      await tester.tap(find.text('Copy link'));
+      await tester.pumpAndSettle();
+      expect(copied, qr.data);
       await tester.pumpWidget(const SizedBox());
     });
   });

@@ -4,11 +4,11 @@ import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/color_picker/color_choices.dart';
 import '../pen/ink_paper.dart';
 
-/// The tool options popover's width on touch: seven 48-dp swatch cells
-/// and its 16-dp padding on each side.
-const double toolOptionsTouchWidth = 7 * Targets.touch + 2 * Gaps.lg;
+/// The tool options popover's width on touch (fits [ColorChoices]).
+const double toolOptionsTouchWidth = colorChoicesTouchWidth;
 
 /// Opens the options of [tool] — the one popover every tool shares — at
 /// [anchor] (the tool's button, or an eraser or laser slot): anchored on

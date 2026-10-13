@@ -3,26 +3,51 @@ import 'package:flutter/material.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_or_sheet.dart';
+import '../../../ui/messages.dart';
 import '../../../ui/sheet_parts.dart';
 import '../../documents/templates/page_setup.dart' show PickerLabel;
+import '../library_controller.dart';
 import '../new_notebook/cover_row.dart';
 import '../notebook_cover.dart';
 
-/// Recolours a notebook's cover: live preview, colours,
-/// Apply (and Cancel in the dialog; ✕ on phones). A dialog on wide screens, a bottom sheet on phones.
-/// Returns the chosen ARGB colour.
-Future<int?> showCoverSheet(BuildContext context, Notebook notebook) {
-  return showDialogOrSheet<int>(
+/// Recolours [notebook]'s cover: a live preview and the colours, each
+/// applied on tap (no Apply; a dialog on wide screens, a bottom sheet on
+/// phones, both closed with their ✕). Once it closes on a new colour,
+/// "Cover changed" offers Undo.
+Future<void> changeCover(
+  BuildContext context,
+  LibraryController controller,
+  Notebook notebook,
+) async {
+  void apply(int color) {
+    // Re-read: it may have changed (or gone) while the sheet was open.
+    final current = controller.services.notebooks.get(notebook.id);
+    if (current != null && current.coverColor != color) {
+      controller.updateNotebook(current.copyWith(coverColor: color));
+    }
+  }
+
+  final before = notebook.coverColor;
+  var after = before;
+  await showDialogOrSheet<void>(
     context: context,
     maxWidth: 640,
-    builder: (context, wide) => _CoverSheet(notebook: notebook, wide: wide),
+    builder: (context, wide) =>
+        _CoverSheet(notebook: notebook, wide: wide, onColor: (c) => apply(after = c)),
+  );
+  if (after == before || !context.mounted) return;
+  showMessage(
+    context,
+    'Cover changed',
+    action: SnackBarAction(label: 'Undo', onPressed: () => apply(before)),
   );
 }
 
 class _CoverSheet extends StatefulWidget {
-  const _CoverSheet({required this.notebook, required this.wide});
+  const _CoverSheet({required this.notebook, required this.wide, required this.onColor});
 
   final Notebook notebook;
+  final ValueChanged<int> onColor;
 
   /// In a dialog (no drag handle above).
   final bool wide;
@@ -51,7 +76,13 @@ class _CoverSheetState extends State<_CoverSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         PickerLabel('Colour', trailing: Palette.coverName(_color)),
-        CoverRow(color: _color, onColor: (c) => setState(() => _color = c)),
+        CoverRow(
+          color: _color,
+          onColor: (c) {
+            setState(() => _color = c);
+            widget.onColor(c);
+          },
+        ),
       ],
     );
     return SingleChildScrollView(
@@ -84,16 +115,6 @@ class _CoverSheetState extends State<_CoverSheet> {
                 Expanded(child: picker),
               ],
             ),
-          const SizedBox(height: Gaps.xl),
-          // Like the folder sheet: ✕ cancels on phones.
-          SheetActions(
-            stacked: !widget.wide,
-            onCancel: widget.wide ? () => Navigator.pop(context) : null,
-            primary: FilledButton(
-              onPressed: () => Navigator.pop<int>(context, _color),
-              child: const Text('Apply'),
-            ),
-          ),
         ],
       ),
     );

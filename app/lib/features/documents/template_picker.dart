@@ -174,7 +174,8 @@ class _TemplatePickerState extends State<TemplatePicker> {
               canvas: widget.mode == TemplatePickerMode.canvas,
               generate: _generates,
             ),
-            onClose: () => Navigator.of(context).pop(),
+            // Dialogs close with Cancel; sheets with the ✕ (DESIGN §6.3).
+            onClose: widget.wide ? null : () => Navigator.of(context).pop(),
           ),
         ),
         if (split)

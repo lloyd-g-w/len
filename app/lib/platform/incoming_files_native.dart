@@ -28,11 +28,18 @@ Stream<List<XFile>> openIncomingFiles(List<String> args) {
   return controller.stream;
 }
 
-/// Receives `files` calls (lists of `{path, name, mime}`) once Dart says
-/// it is `ready`; on Android, files of the launch intent arrive first.
+/// Links Len was opened with (Android: `len://sync?…` setup links, by the
+/// intent filter in `AndroidManifest.xml`), kept until listened to.
+final StreamController<String> _links = StreamController<String>();
+Stream<String> get incomingLinks => _links.stream;
+
+/// Receives `files` calls (lists of `{path, name, mime}`) and `link` calls
+/// (a string) once Dart says it is `ready`; on Android, those of the launch
+/// intent arrive first.
 void _listen(StreamController<List<XFile>> controller) {
   const channel = MethodChannel(incomingFilesChannel);
   channel.setMethodCallHandler((call) async {
+    if (call.method == 'link') return _links.add(call.arguments as String);
     if (call.method != 'files') return;
     final files = [
       for (final entry in (call.arguments as List<Object?>).cast<Map<Object?, Object?>>())

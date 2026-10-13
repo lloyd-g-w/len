@@ -145,7 +145,6 @@ abstract final class UserTemplates {
       label: 'Name',
       initialValue: name,
       confirmLabel: 'Save',
-      icon: Symbols.dashboard_customize_sharp,
     );
     if (chosen == null || chosen.isEmpty || !context.mounted) return null;
     final blob = await services.blobs.putBytes(png, mime: 'image/png');

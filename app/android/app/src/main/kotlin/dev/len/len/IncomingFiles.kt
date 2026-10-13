@@ -27,12 +27,16 @@ import java.util.concurrent.Executors
  * own storage. Batches wait until Dart has called `ready` (a cold start
  * delivers the launch intent's files before the UI is up). The copies
  * are deleted when the next engine starts.
+ *
+ * `len://` links (sync setup links, opened from a QR code or a message)
+ * go to Dart as a `link` call with the link, queued the same way.
  */
 class IncomingFiles(private val context: Context, messenger: BinaryMessenger) {
     private val channel = MethodChannel(messenger, CHANNEL)
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
-    private val pending = mutableListOf<List<Map<String, String?>>>()
+    /** Calls (method, arguments) waiting for Dart's `ready`. */
+    private val pending = mutableListOf<Pair<String, Any>>()
     private var ready = false
     private var disposed = false
     private val dir = File(context.cacheDir, "incoming")
@@ -41,7 +45,7 @@ class IncomingFiles(private val context: Context, messenger: BinaryMessenger) {
         channel.setMethodCallHandler { call, result ->
             if (call.method == "ready") {
                 ready = true
-                pending.forEach(::send)
+                pending.forEach { (method, args) -> channel.invokeMethod(method, args) }
                 pending.clear()
                 result.success(null)
             } else {
@@ -54,14 +58,20 @@ class IncomingFiles(private val context: Context, messenger: BinaryMessenger) {
 
     /** Copies the files [intent] carries, if any, and hands them to Dart. */
     fun handle(intent: Intent?) {
-        val uris = urisOf(intent ?: return)
+        if (intent == null) return
+        val data = intent.data
+        if (intent.action == Intent.ACTION_VIEW && data?.scheme == LINK_SCHEME) {
+            send("link", data.toString())
+            return
+        }
+        val uris = urisOf(intent)
         if (uris.isEmpty()) return
         val fallbackMime = intent.type
         io.execute {
             val files = uris.mapNotNull { copy(it, fallbackMime) }
             main.post {
                 if (disposed || files.isEmpty()) return@post
-                if (ready) send(files) else pending.add(files)
+                send("files", files)
             }
         }
     }
@@ -72,7 +82,9 @@ class IncomingFiles(private val context: Context, messenger: BinaryMessenger) {
         io.shutdown()
     }
 
-    private fun send(files: List<Map<String, String?>>) = channel.invokeMethod("files", files)
+    private fun send(method: String, args: Any) {
+        if (ready) channel.invokeMethod(method, args) else pending.add(method to args)
+    }
 
     private fun urisOf(intent: Intent): List<Uri> = when (intent.action) {
         Intent.ACTION_VIEW -> listOfNotNull(intent.data)
@@ -136,5 +148,6 @@ class IncomingFiles(private val context: Context, messenger: BinaryMessenger) {
 
     companion object {
         const val CHANNEL = "len/incoming_files"
+        const val LINK_SCHEME = "len"
     }
 }

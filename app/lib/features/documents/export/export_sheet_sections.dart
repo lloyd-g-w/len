@@ -165,7 +165,6 @@ class ExportPagesPicker extends StatelessWidget {
         hintText: 'e.g. 1-3, 5',
         helperText: 'Pages 1–$pageCount, separated by commas',
         errorText: rangeError,
-        prefixIcon: const Icon(Symbols.format_list_numbered_sharp),
       ),
     ),
   );

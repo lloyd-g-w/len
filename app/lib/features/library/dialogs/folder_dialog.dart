@@ -88,7 +88,11 @@ class _FolderDialogState extends State<_FolderDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SheetHeader(title: widget.title, onClose: () => Navigator.pop(context)),
+          SheetHeader(
+            title: widget.title,
+            // Dialogs close with Cancel; sheets with the ✕ (DESIGN §6.3).
+            onClose: widget.wide ? null : () => Navigator.pop(context),
+          ),
           const SizedBox(height: Gaps.lg),
           Row(
             children: [

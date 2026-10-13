@@ -147,7 +147,7 @@ device: "Tap with two fingers to undo, three to redo". Same
 
 ### Pens, colours, tools
 
-⬜ **R6-6 P2 · Text colour and recolour open a different, cramped picker.**
+✅ **R6-6 P2 · Text colour and recolour open a different, cramped picker.**
 The text bar's colour (`features/editor/tools/text_format_bar.dart:214-230`)
 and the selection's recolour (`tools/selection_style_panel.dart`) go through
 `pickColour` → `pickColor`, the generic `ColorPicker`. It leads with the HSV
@@ -159,6 +159,11 @@ with 36-dp targets. The ink popovers show the palette first, 2 × 7 with
 text colour is the frequent case, and a custom colour the rare one. *Fix:*
 build `pickColor` on the ink popovers' `ColorChoices` (palette, Recent,
 Custom ▸ HSV), laid out with `EvenGrid`. One colour picker everywhere.
+*Done (`fix/r6-pickers`):* `pickColor` is `ColorChoices` in a popover
+(touch width as the tool popovers); the lasso Style panel embeds
+`ColorChoices` itself (a custom colour applies once it rests, one Undo
+step); paper/pattern "Custom colour…" swatches open `pickCustomColor`
+(square, hue, hex). The old picker's swatch grid and recent row are gone.
 
 ⬜ **R6-15 P2 · "Hold to snap shapes" lives in three places, one of them
 above a Reset that ignores it.** `HoldToSnapSwitch` is one global setting.
@@ -211,15 +216,19 @@ if anything).
 
 ### Dialogs, fields and copy
 
-⬜ **R6-8 P2 · Wide task dialogs offer both ✕ and Cancel.** On dialogs,
+✅ **R6-8 P2 · Wide task dialogs offer both ✕ and Cancel.** On dialogs,
 `SheetHeader(onClose:)` and `SheetActions(onCancel:)` both show: New folder
 and Edit folder (`features/library/dialogs/folder_dialog.dart:91,121-124`),
 Cover (`dialogs/cover_sheet.dart:71,91`), New notebook
 (`library/new_notebook_sheet.dart:173`), and the template picker. DESIGN §6.3
 draws the dialog without a ✕ (quiet Cancel, Ink primary); the ✕ belongs to
 the phone sheet. *Fix:* `SheetHeader` shows its ✕ only when not `wide`.
+*Done (`fix/r6-pickers`):* one rule, per caller (the header can't see the
+footer): a dialog with Cancel has no ✕ (folder, new notebook, template
+picker, Export without Save to device); dialogs without Cancel (Move,
+Cover, shortcuts, languages) and every phone sheet keep it.
 
-⬜ **R6-20 P2 · Some fields carry a leading icon, most don't.** "Save as
+✅ **R6-20 P2 · Some fields carry a leading icon, most don't.** "Save as
 template" puts `dashboard_customize` inside its field
 (`ui/text_prompt.dart:75`, passed from
 `features/documents/templates/user_templates.dart:148`), and the export page
@@ -249,7 +258,7 @@ notebook, deleted after 30 days" (short enough for 390 dp).
 
 ### Sync and settings
 
-⬜ **R6-9 P2 · Settings' "Draw with: Automatic / Stylus / Both" models a
+✅ **R6-9 P2 · Settings' "Draw with: Automatic / Stylus / Both" models a
 passing state.** Automatic (`stylusOnly == null`) lasts until the first pen
 contact. `_onStylusDetected` then sets Stylus and offers "Keep finger drawing"
 (`features/editor/editor_screen.dart:322-340`). Meanwhile the ⋯ menu shows
@@ -260,8 +269,12 @@ leaves Automatic for good. So Settings carries a three-way control
 can't usefully choose after day one, and the two homes disagree on its
 shape. *Fix:* see S1. Settings shows the same "Draw with finger" switch, and
 Automatic stays the unseen first-run default.
+*Done (`fix/r6-pickers`):* Settings has the menu's switch (same visibility:
+touch devices, or once a stylus was seen); its subtitle explains the
+first-run behaviour ("Until a stylus touches the screen; then fingers pan
+and zoom"). The side button shows on desktops once a stylus was seen.
 
-⬜ **R6-23 P2 · Setting up the second device means retyping a URL and a
+✅ **R6-23 P2 · Setting up the second device means retyping a URL and a
 token.** Sync setup is two text fields and Connect
 (`features/settings/sync_settings.dart:220-280`). There is no link, code or
 QR to carry the setup from a connected device (no such code in the app).
@@ -270,20 +283,26 @@ setup. *Fix:* on a connected device, "Copy setup link" (a `len://sync?url=…&to
 link, also shown as a QR on wide screens). On a new device, "Paste setup
 link" fills both fields, or opening the link does. The server stays the
 same.
+*Done (`fix/r6-pickers`):* Settings → Sync on a connected device has "Set
+up another device…": a QR code of `len://sync?url=…&token=…` (pure-Dart
+`qr`, painted in `ui/qr_code_view.dart`), Copy link, and a note that the
+link holds the token. Pasting the link into Server URL fills both fields;
+on Android the `len://sync` intent filter opens Len, which opens Settings
+with the form filled (`IncomingFiles.syncSetup`). Connect stays the user's.
 
 ### Simplify (one home per command; defaults over settings)
 
 | # | Proposal | Why | Files |
 |---|---|---|---|
-| S1 | Settings "Draw with" becomes the "Draw with finger" switch (R6-9) | Automatic is a first-run state, not a choice; one control shape in both homes | `features/settings/writing_settings.dart`, `chrome/editor_more_menu.dart` |
-| S2 | No ✕ on wide dialogs that have Cancel (R6-8) | Two exits on one form; DESIGN §6.3 | `ui/sheet_parts.dart` (`SheetHeader`) |
+| S1 ✅ | Settings "Draw with" becomes the "Draw with finger" switch (R6-9) | Automatic is a first-run state, not a choice; one control shape in both homes | `features/settings/writing_settings.dart`, `chrome/editor_more_menu.dart` |
+| S2 ✅ | No ✕ on wide dialogs that have Cancel (R6-8) | Two exits on one form; DESIGN §6.3 | `ui/sheet_parts.dart` (`SheetHeader`) |
 | S3 | Template chooser: drop the category chips (R6-19) | Search plus headings already filter; the chips repeat the headings and cut off on phones | `features/documents/templates/template_chooser.dart` |
 | S4 | Folder delete: no confirm (or none for empty folders); the snack's Undo restores it | Trashing a notebook has no confirm and relies on Undo; deleting an empty folder asks "The folder is empty." (`library_actions.dart:241-252`) | `features/library/library_actions.dart` |
 | S5 | Lasso: no hint popover (R6-16) | A popover with nothing to set | `features/editor/tools/lasso_options_panel.dart`, `editor_tools.dart` |
 | S6 | "Hold to snap shapes" in one place (R6-15) | One global switch, three homes | `pen/pen_options_panel.dart`, `pen/highlighter_options_panel.dart`, `editor_tools.dart` |
-| S7 | Cover: the colour applies on tap, Undo in a snack; no Apply/Cancel | The preview is the result; four taps for one colour | `features/library/dialogs/cover_sheet.dart`, `library_actions.dart:168-172` |
-| S8 | `showTextPrompt` loses its `icon` parameter (R6-20) | One field style | `ui/text_prompt.dart` |
-| S9 | One colour picker (R6-6): `pickColor` built on `ColorChoices` | Two pickers with different layouts, sizes and order | `ui/color_picker/` |
+| S7 ✅ | Cover: the colour applies on tap, Undo in a snack; no Apply/Cancel | The preview is the result; four taps for one colour | `features/library/dialogs/cover_sheet.dart`, `library_actions.dart:168-172` |
+| S8 ✅ | `showTextPrompt` loses its `icon` parameter (R6-20) | One field style | `ui/text_prompt.dart` |
+| S9 ✅ | One colour picker (R6-6): `pickColor` built on `ColorChoices` | Two pickers with different layouts, sizes and order | `ui/color_picker/` |
 
 Kept on purpose: the long press on the FAB (it stays as a shortcut once
 R6-5 lands), the toolbar pair in View ▸ and Settings (REDESIGN §2.1), and

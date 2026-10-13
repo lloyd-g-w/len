@@ -166,10 +166,7 @@ class LibraryActions {
       case NotebookAction.favorite:
         controller.setFavorite(notebook.id, !notebook.favorite);
       case NotebookAction.cover:
-        final color = await showCoverSheet(context, notebook);
-        final current = controller.services.notebooks.get(notebook.id);
-        if (color == null || current == null) return;
-        controller.updateNotebook(current.copyWith(coverColor: color));
+        await changeCover(context, controller, notebook);
       case NotebookAction.duplicate:
         final copy = controller.duplicate(notebook.id);
         if (copy != null && context.mounted) _toast(context, 'Duplicated as “${copy.title}”');

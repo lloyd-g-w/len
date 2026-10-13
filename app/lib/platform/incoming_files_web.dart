@@ -6,6 +6,9 @@ import 'package:cross_file/cross_file.dart';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 
+/// Links Len was opened with: none on the web.
+Stream<String> get incomingLinks => const Stream.empty();
+
 /// Files the installed PWA was opened with (File Handling API: "Open with
 /// Len" in the OS, see `file_handlers` in `web/manifest.json`). Browsers
 /// without `launchQueue` deliver nothing. [args] are unused.

@@ -5,7 +5,10 @@ import 'package:len/data/app_database.dart';
 import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/features/settings/settings_section.dart';
 
+import 'package:len/sync/sync_api.dart';
+
 import '../support/fake_recognizer.dart';
+import '../support/fake_server.dart';
 import 'screenshot_harness.dart';
 
 /// Settings, section by section: the column on tablets, desktop and phones
@@ -85,6 +88,26 @@ void main() {
         expect(find.textContaining('Enter a web address'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await shoot(tester, 's_settings_sync_error_${name}_${mode.name}');
+      });
+
+      testWidgets('sync connected, set up another device $name ${mode.name}', (tester) async {
+        setWindow(tester, size, dpr: dpr);
+        final server = FakeServer();
+        final s = AppServices.create(
+          AppDatabase.inMemory(),
+          syncApiFactory: (url, t) => SyncApi(baseUrl: url, token: t, client: server.client),
+        );
+        addTearDown(s.dispose);
+        s.sync.configure(url: 'https://len.example.org', token: FakeServer.token);
+        await pumpApp(tester, s, const SettingsScreen(), mode: mode);
+        await scrollTo(tester, 'Sync');
+        await shoot(tester, 's_settings_sync_connected_${name}_${mode.name}');
+        await tester.tap(find.text('Set up another device…'));
+        await settle(tester);
+        expect(tester.takeException(), isNull);
+        await shoot(tester, 's_dialog_sync_setup_${name}_${mode.name}');
+        await tester.tap(find.text('Close'));
+        await settle(tester);
       });
 
       testWidgets('handwriting supported $name ${mode.name}', (tester) async {

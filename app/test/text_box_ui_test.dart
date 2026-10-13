@@ -49,13 +49,32 @@ void main() {
     expect(find.byTooltip('Colour'), findsNothing); // Folded into Style.
     await tester.tap(find.byTooltip('Style'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('More colours'), findsOneWidget);
+    expect(find.text('Custom'), findsOneWidget); // The pen's colour block.
     final other = find.byWidgetPredicate((w) => w is ColorDot && w.color != 0xFF1F2937).first;
     final colour = tester.widget<ColorDot>(other).color;
     await tester.tap(other);
     await tester.pumpAndSettle();
     expect(liveStrokes(services, nb.id).single.color, colour);
     expect(tester.widget<ColorDot>(other).selected, isTrue);
+  });
+
+  testWidgets('lasso Style: a custom colour applies once it rests', (tester) async {
+    final (services, nb) = await openCanvas(
+      tester,
+      seed: (s, nb) => s.strokes.save([seedStroke(nb.id)]),
+    );
+    await key(tester, LogicalKeyboardKey.keyL);
+    await mouseDrag(tester, const [Offset(150, 400)]);
+    await tester.tap(find.byTooltip('Style'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '00AA00');
+    await tester.pump();
+    expect(liveStrokes(services, nb.id).single.color, isNot(0xFF00AA00), reason: 'not yet');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(liveStrokes(services, nb.id).single.color, 0xFF00AA00);
   });
 
   testWidgets('Ctrl+V pastes plain text as a new, selected text box; copied ink wins after', (
