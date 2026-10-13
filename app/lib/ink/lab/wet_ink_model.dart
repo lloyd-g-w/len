@@ -3,10 +3,12 @@ import 'dart:ui';
 
 import '../input/stroke_sampler.dart';
 import '../input/wet_ink.dart';
+import '../render/flat_ends.dart';
 import '../render/growable.dart';
 import '../render/hooks.dart';
 import '../render/stroke_shaper.dart';
 import '../render/taper.dart';
+import 'wet_ink_ends.dart';
 
 /// A Dart model of what the experimental low-latency overlay
 /// (`android/.../WetInkOverlay.kt`) draws, so its geometry and timing can
@@ -48,7 +50,10 @@ import '../render/taper.dart';
 ///    one point is a dot, and so is a whole line shorter than half its
 ///    width, with the contact's largest radius (as Flutter draws it).
 ///  * **Ends**: with [WetInkShape.flat], the stroke's start and the drawn
-///    end are butt caps (a lone point a square, as Flutter's flat dot); a
+///    end are butt caps (a lone point a square, as Flutter's flat dot),
+///    square to the line as Flutter's are, with the pieces next to them
+///    cut off at the cap's line or, at the pen tip until Flutter has
+///    committed the stroke, at their cross-sections ([WetInkEnds]); a
 ///    start taper ([WetInkShape.taperStart]) scales the smoothed points'
 ///    radii by their arc length from the start (`Taper.factor`), and once
 ///    Flutter has committed the stroke ([commit]) the end taper it was
@@ -215,7 +220,13 @@ class WetInkModel {
 
   /// Flutter has committed the stroke (the overlay's `end`), with an end
   /// taper [taperEnd] long (0: none; in the units of the positions).
-  void commit({double taperEnd = 0}) => _endTaper = taperEnd;
+  void commit({double taperEnd = 0}) {
+    _endTaper = taperEnd;
+    _committed = true;
+  }
+
+  // Whether Flutter has committed the stroke ([commit]).
+  bool _committed = false;
 
   double radiusAt(double p) {
     if (radii.length == 1) return radii[0];
@@ -417,6 +428,20 @@ class WetInkModel {
       final c = Offset(x[i], y[i]);
       return [WetSegment(c, c, rr[i], rr[i], flatA: flat, flatB: flat)];
     }
+    // Flat ends: the stroke's start, if drawn, and the drawn end.
+    final cuts = flat
+        ? WetInkEnds.of(
+            x,
+            y,
+            rr,
+            shaper.corners,
+            n,
+            first: first,
+            step: p.step,
+            start: start == 0,
+            ended: ended && _committed,
+          )
+        : const <WetCut>[];
     return [
       for (var i = first + 1; i < n; i++)
         WetSegment(
@@ -426,6 +451,10 @@ class WetInkModel {
           rr[i],
           flatA: flat && start == 0 && i == 1,
           flatB: flat && i == n - 1,
+          cuts: [
+            for (final c in cuts)
+              if (c.piece == i - 1) c.line,
+          ],
         ),
     ];
   }
@@ -512,11 +541,24 @@ class WetSample {
 
 /// One piece the overlay draws: the hull of two circles.
 class WetSegment {
-  const WetSegment(this.a, this.b, this.ra, this.rb, {this.flatA = false, this.flatB = false});
+  const WetSegment(
+    this.a,
+    this.b,
+    this.ra,
+    this.rb, {
+    this.flatA = false,
+    this.flatB = false,
+    this.cuts = const [],
+  });
   final Offset a, b;
   final double ra, rb;
 
-  /// A butt cap at [a] / [b] (square to the piece) instead of the round
-  /// one; a dot (a == b) with both is a square.
+  /// A butt cap at [a] / [b] (the stroke's start, the drawn end); a dot
+  /// (a == b) with both is a square.
   final bool flatA, flatB;
+
+  /// The lines of the flat ends' butt caps this piece is cut off at
+  /// (`WetInkEnds`): what lies beyond one, on the side its normal faces,
+  /// is not drawn.
+  final List<EndLine> cuts;
 }

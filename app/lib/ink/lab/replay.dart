@@ -72,6 +72,7 @@ class ReplayDriver {
     required this.live,
     required this.viewport,
     PenSettings? pen,
+    PenEnds? ends,
   }) : pen = pen ?? recording.meta.pen,
        clock = ReplayClock(recording.meta.createdAtMs) {
     final meta = recording.meta;
@@ -79,7 +80,7 @@ class ReplayDriver {
       ..setSize(meta.viewSize)
       ..setView(scale: meta.viewScale, offset: meta.viewOffset);
     tools = ToolSettings(stylusOnly: meta.stylusOnly)..holdToStraighten = false;
-    applyPen(tools, this.pen);
+    applyPen(tools, this.pen, ends: ends);
     controller = InkInputController(
       model: model,
       viewport: viewport,
@@ -172,8 +173,9 @@ class ReplayDriver {
     }
   }
 
-  /// Configures [tools] to draw with [pen] (one colour and width slot).
-  static void applyPen(ToolSettings tools, PenSettings pen) {
+  /// Configures [tools] to draw with [pen] (one colour and width slot) and
+  /// [ends] (default: the tool's).
+  static void applyPen(ToolSettings tools, PenSettings pen, {PenEnds? ends}) {
     tools.tool = pen.tool.isHighlighter ? EditorTool.highlighter : EditorTool.pen;
     tools.updateConfig(
       pen.tool,
@@ -185,6 +187,7 @@ class ReplayDriver {
         opacity: pen.opacity,
         thinning: pen.thinning,
         streamline: pen.streamline,
+        ends: ends,
       ),
     );
   }

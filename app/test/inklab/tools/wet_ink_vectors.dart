@@ -13,7 +13,8 @@ import 'package:len/ink/render/stroke_renderer.dart';
 /// Events (`S` radii, `H` shape, `B` a new contact, `A` sample, `Q`
 /// query; after every [queryEvery]th sample and the last) and the model's
 /// answer to each query (tail start, then the ends — 1: flat start, 2: flat
-/// end — and the (x, y, r) triples drawn). [maxContacts] limits the
+/// end —, the cuts at flat ends (how many, then each one's piece and line:
+/// point and normal) and the (x, y, r) triples drawn). [maxContacts] limits the
 /// contacts used; [ends] replaces the pen's end style (the end taper is the
 /// one a committed stroke carries, `WetInkModel.commit`).
 (String, String) wetInkVectors(
@@ -64,7 +65,17 @@ import 'package:len/ink/render/stroke_renderer.dart';
         final segments = m.segments(from, m.samples.length);
         final first = segments.first;
         final flags = (first.flatA ? 1 : 0) + (segments.last.flatB ? 2 : 0);
-        out.write(' $flags ${first.a.dx} ${first.a.dy} ${first.ra}');
+        out.write(' $flags');
+        // The cuts at flat ends: how many, then each one's piece and line.
+        final cuts = [
+          for (var k = 0; k < segments.length; k++)
+            for (final l in segments[k].cuts) '$k ${l.px} ${l.py} ${l.nx} ${l.ny}',
+        ];
+        out.write(' ${cuts.length}');
+        for (final c in cuts) {
+          out.write(' $c');
+        }
+        out.write(' ${first.a.dx} ${first.a.dy} ${first.ra}');
         if (first.a != first.b || segments.length > 1) {
           for (final g in segments) {
             out.write(' ${g.b.dx} ${g.b.dy} ${g.rb}');

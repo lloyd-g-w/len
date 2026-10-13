@@ -50,6 +50,8 @@ class WetInkModelTest {
                     if (from < m.samples.size) {
                         val segments = m.segments(from, m.samples.size)
                         got.add((if (m.flatStart) 1.0 else 0.0) + (if (m.flatEnd) 2.0 else 0.0))
+                        got.add(m.cuts.size.toDouble())
+                        for (c in m.cuts) got.addAll(listOf(c.piece.toDouble(), c.px, c.py, c.nx, c.ny))
                         got.addAll(segments.toList())
                     }
                     val want = expected[q++].split(' ').map { it.toDouble() }

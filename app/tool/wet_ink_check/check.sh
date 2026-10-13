@@ -10,5 +10,6 @@ tool/light.sh nix develop ..# -c flutter test test/inklab/tools/wet_ink_vectors_
   --dart-define=INKLAB_WET_VECTORS="$out" --dart-define=INKLAB_REAL=true >/dev/null
 tool/light.sh nix shell nixpkgs#kotlin nixpkgs#jdk -c bash -c "
   kotlinc -nowarn android/app/src/main/kotlin/dev/len/len/WetInkModel.kt \
+    android/app/src/main/kotlin/dev/len/len/WetInkEnds.kt \
     tool/wet_ink_check/Check.kt -include-runtime -d '$out/check.jar' &&
   java -cp '$out/check.jar' CheckKt '$out'/*.ev"

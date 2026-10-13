@@ -180,7 +180,16 @@ internal class WetContact(val device: Int, val downMs: Long) {
         val hulls = toFloats(m.segments(from, n))
         val tip = tipOf(hulls)
         // Flat ends: the stroke's start, and the end of what is drawn (the
-        // tip's, when there is one).
+        // tip's, when there is one: the hulls' end is not cut then).
+        val cuts = m.cuts.filter { it.atStart || tip.isEmpty() }
+        val cutValues = FloatArray(cuts.size * 5)
+        for ((k, c) in cuts.withIndex()) {
+            cutValues[5 * k] = c.piece.toFloat()
+            cutValues[5 * k + 1] = c.px.toFloat()
+            cutValues[5 * k + 2] = c.py.toFloat()
+            cutValues[5 * k + 3] = c.nx.toFloat()
+            cutValues[5 * k + 4] = c.ny.toFloat()
+        }
         ink = WetInkLayer.Ink(
             color,
             clip,
@@ -189,6 +198,7 @@ internal class WetContact(val device: Int, val downMs: Long) {
             flatStart = m.flatStart,
             flatEnd = m.flatEnd && tip.isEmpty(),
             flatTipEnd = m.flatEnd,
+            cuts = cutValues,
         )
         return ink
     }

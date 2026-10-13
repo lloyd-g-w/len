@@ -1099,7 +1099,9 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   the pen-down and pen-up hooks (`HookFinder`), the dot rule and the
   shaper's position smoothing — in screen pixels (a view is a translation
   and a uniform scale, so the rules scale with it). Each piece is the hull
-  of two circles. With the stabiliser on, it draws what Flutter's live
+  of two circles; with flat ends, those next to an end are cut off at the
+  butt cap's line, or at the moving tip at their cross-sections, as
+  Flutter's flat ends are (`WetInkEnds`). With the stabiliser on, it draws what Flutter's live
   ink does: only the final, smoothed line (the shaper's `finalCount`,
   ported), from where Flutter's shown frame ends (the lag reach before
   its newest input), and no predicted tip or line to the raw sample
@@ -1110,7 +1112,7 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   the Kotlin model against it: `tool/wet_ink_check/unit_test.sh`, or
   Gradle `:app:testDebugUnitTest`) and
   `tool/wet_ink_check/check.sh` (every Ink Lab case and recording, equal
-  to 1e-15).
+  to ≈ 1e-13).
 - **Prediction** (`WetInkTip`, `WetInkPrediction`): androidx.input's
   `MotionEventPredictor` (Android's own predictor where the device has
   one, else a Kalman filter) extrapolates the pen; `WetInkPrediction`

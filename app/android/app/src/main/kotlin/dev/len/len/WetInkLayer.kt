@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.max
 
 /**
  * The surface of the low-latency ink: a translucent [SurfaceView] above the
@@ -40,7 +41,10 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
     /**
      * One stroke's ink: (x, y, radius) triples of the hulls to fill and of
      * the predicted tip, drawn only inside [clip]; butt caps at the hulls'
-     * start, their end and the tip's end where flagged.
+     * start, their end and the tip's end where flagged: the hulls' pieces
+     * are cut off at the flat ends' lines in [cuts] ([WetInkEnds]: piece,
+     * then the line's point and normal, five values each), a lone flagged
+     * point is a square.
      */
     class Ink(
         val color: Int,
@@ -50,6 +54,7 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
         val flatStart: Boolean = false,
         val flatEnd: Boolean = false,
         val flatTipEnd: Boolean = false,
+        val cuts: FloatArray = FloatArray(0),
     )
 
     /**
@@ -183,7 +188,7 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
                 canvas.clipRect(ink.clip)
                 paint.color = ink.color
                 path.rewind()
-                addHulls(path, ink.hulls, ink.flatStart, ink.flatEnd)
+                addHulls(path, ink.hulls, ink.flatStart, ink.flatEnd, ink.cuts)
                 addHulls(path, ink.tip, false, ink.flatTipEnd)
                 canvas.drawPath(path, paint)
                 canvas.restore()
@@ -231,11 +236,19 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
          * one triple a dot. Every piece winds the same way, so filling the
          * path (non-zero rule) covers their union once: antialiased edges are
          * not darkened by pieces overlapping, as they would be if each were
-         * filled alone. With [flatStart] / [flatEnd] the first / last point
-         * has a butt cap (its piece ends square, without its circle); a lone
-         * point with either is a square (Flutter's flat dot).
+         * filled alone. A lone point with [flatStart] or [flatEnd] is a
+         * square (Flutter's flat dot). With [cuts] (see [Ink.cuts]) the
+         * pieces listed are cut off at their lines, which makes the flat
+         * ends; without, [flatStart] / [flatEnd] give the first / last
+         * piece a butt end square to it (the predicted tip's end).
          */
-        fun addHulls(path: Path, xyr: FloatArray, flatStart: Boolean = false, flatEnd: Boolean = false) {
+        fun addHulls(
+            path: Path,
+            xyr: FloatArray,
+            flatStart: Boolean = false,
+            flatEnd: Boolean = false,
+            cuts: FloatArray? = null,
+        ) {
             val n = xyr.size / 3
             if (n == 0) return
             if (n == 1 && (flatStart || flatEnd)) {
@@ -243,7 +256,21 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
                 path.addRect(xyr[0] - r, xyr[1] - r, xyr[0] + r, xyr[1] + r, Path.Direction.CW)
                 return
             }
-            if (!flatStart) path.addCircle(xyr[0], xyr[1], xyr[2], Path.Direction.CW)
+            // The lines each piece is cut off at. A cut piece is a polygon;
+            // an uncut one is its quad and both circles (a circle shared
+            // with the uncut piece before is added once).
+            val lines = arrayOfNulls<FloatArray>(max(0, n - 1))
+            if (cuts != null) {
+                for (k in 0 until cuts.size / 5) {
+                    val piece = cuts[5 * k].toInt()
+                    if (piece < 0 || piece >= n - 1) continue
+                    lines[piece] = (lines[piece] ?: FloatArray(0)) + cuts.copyOfRange(5 * k + 1, 5 * k + 5)
+                }
+            }
+            fun cut(piece: Int) = piece >= 0 && piece < n - 1 && lines[piece] != null
+            val buttStart = cuts == null && flatStart
+            val buttEnd = cuts == null && flatEnd
+            if (!buttStart && !cut(0)) path.addCircle(xyr[0], xyr[1], xyr[2], Path.Direction.CW)
             for (i in 1 until n) {
                 val o = i * 3
                 val ax = xyr[o - 3]
@@ -252,8 +279,14 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
                 val bx = xyr[o]
                 val by = xyr[o + 1]
                 val rb = xyr[o + 2]
-                val squareA = flatStart && i == 1
-                val squareB = flatEnd && i == n - 1
+                val l = lines[i - 1]
+                if (l != null) {
+                    addPolygon(path, WetInkEnds.cutHull(ax, ay, ra, bx, by, rb, l, ARC_TOLERANCE))
+                    continue
+                }
+                val squareA = buttStart && i == 1
+                val squareB = buttEnd && i == n - 1
+                if (i >= 2 && cut(i - 2)) path.addCircle(ax, ay, ra, Path.Direction.CW)
                 if (!squareB) path.addCircle(bx, by, rb, Path.Direction.CW)
                 val dx = bx - ax
                 val dy = by - ay
@@ -281,6 +314,17 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
                 path.lineTo(ax + ra * n1x, ay + ra * n1y)
                 path.close()
             }
+        }
+
+        /** Arcs of cut pieces stay this close to their circles (px). */
+        private const val ARC_TOLERANCE = 0.1f
+
+        /** Adds the polygon [xy] (x, y pairs) as a closed contour. */
+        private fun addPolygon(path: Path, xy: FloatArray) {
+            if (xy.size < 6) return
+            path.moveTo(xy[0], xy[1])
+            for (k in 1 until xy.size / 2) path.lineTo(xy[2 * k], xy[2 * k + 1])
+            path.close()
         }
 
         /**
