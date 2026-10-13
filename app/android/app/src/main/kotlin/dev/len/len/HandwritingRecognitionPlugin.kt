@@ -32,7 +32,8 @@ import java.util.concurrent.Executors
  */
 class HandwritingRecognitionPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private var channel: MethodChannel? = null
-    private var executor: ExecutorService? = null
+    // Read on the channel's background queue, set on the main thread.
+    @Volatile private var executor: ExecutorService? = null
 
     /** Recognisers by language tag; only touched on the executor. */
     private val recognizers = HashMap<String, DigitalInkRecognizer>()
@@ -141,8 +142,9 @@ class HandwritingRecognitionPlugin : FlutterPlugin, MethodChannel.MethodCallHand
         private fun buildContext(call: MethodCall): RecognitionContext {
             val builder = RecognitionContext.builder()
                 .setPreContext(call.argument<String>("preContext") ?: "")
-            val width = call.argument<Double>("width")
-            val height = call.argument<Double>("height")
+            // Any number (a whole one arrives as an Int).
+            val width = call.argument<Number>("width")?.toDouble()
+            val height = call.argument<Number>("height")?.toDouble()
             if (width != null && height != null && width > 0 && height > 0) {
                 builder.setWritingArea(WritingArea(width.toFloat(), height.toFloat()))
             }
