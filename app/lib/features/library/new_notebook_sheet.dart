@@ -25,8 +25,8 @@ export 'new_notebook/new_notebook_request.dart';
 /// Creates a notebook or an infinite canvas, in one column: title;
 /// Notebook / Canvas; paper (the recent ones, then "All templates…");
 /// cover colour; page size; Create. A dialog with a live preview beside
-/// the form on wide screens; a full-height sheet with a preview strip on
-/// phones.
+/// the form on wide screens; a full-height sheet on phones, its preview
+/// strip scrolling away with the form.
 class NewNotebookSheet extends StatefulWidget {
   const NewNotebookSheet({
     super.key,
@@ -291,6 +291,8 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
     // With the keyboard up, or in a short window (a phone held sideways),
     // the preview yields its space to the form.
     final keyboard = media.viewInsets.bottom > 0 || media.size.height < 520;
+    // Large text needs the room more than the preview does.
+    final previewHeight = media.textScaler.scale(10) > 11.5 ? 88.0 : 120.0;
     return Padding(
       padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
       child: Column(
@@ -303,24 +305,36 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
               trailing: TextButton(onPressed: _importPdf, child: const Text('Import PDF…')),
             ),
           ),
-          AnimatedSize(
-            duration: Motion.medium,
-            curve: Motion.standard,
-            child: keyboard
-                ? const SizedBox(width: double.infinity)
-                : Container(
-                    height: 120 + Gaps.lg * 2,
-                    color: scheme.surfaceContainerLow,
-                    padding: const EdgeInsets.symmetric(vertical: Gaps.lg),
-                    child: _preview(120),
-                  ),
-          ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(Gaps.xl),
+              padding: const EdgeInsets.only(bottom: Gaps.xl),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: _form(context, wide: false),
+                children: [
+                  // The preview scrolls away with the form, so the form
+                  // keeps the screen when it is long (large text).
+                  AnimatedSize(
+                    duration: Motion.medium,
+                    curve: Motion.standard,
+                    child: keyboard
+                        ? const SizedBox(width: double.infinity)
+                        : ClipRect(
+                            child: Container(
+                              height: previewHeight + Gaps.lg * 2,
+                              color: scheme.surfaceContainerLow,
+                              padding: const EdgeInsets.symmetric(vertical: Gaps.lg),
+                              child: _preview(previewHeight),
+                            ),
+                          ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.xl, Gaps.xl, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: _form(context, wide: false),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

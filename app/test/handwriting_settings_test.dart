@@ -4,6 +4,7 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/features/settings/handwriting_settings.dart';
 import 'package:len/ink/recognition/handwriting_recognizer.dart';
+import 'package:len/ink/recognition/recognition_languages.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'support/fake_recognizer.dart';
@@ -65,6 +66,28 @@ void main() {
     await tester.tap(find.text('Download'));
     await tester.pumpAndSettle();
     expect(recognition.modelStatus, ModelStatus.downloaded);
+  });
+
+  testWidgets('the language sheet opens at the current language; ✕ keeps it', (tester) async {
+    final services = await pumpSettings(tester, FakeRecognizer());
+    final recognition = services.recognition;
+    final last = RecognitionLanguages.all.last;
+    await recognition.setLanguage(last.tag);
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(390, 700);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Language'));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(BottomSheet);
+    final row = find.descendant(of: sheet, matching: find.text(last.name));
+    expect(row, findsOneWidget);
+    expect(tester.getRect(row).bottom, lessThan(700), reason: 'scrolled to the current one');
+    expect(find.descendant(of: sheet, matching: find.byType(Scrollbar)), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    expect(recognition.language, last.tag);
+    await tester.pump(const Duration(seconds: 2)); // The scrollbar's fade.
   });
 
   testWidgets('unsupported platforms explain why', (tester) async {

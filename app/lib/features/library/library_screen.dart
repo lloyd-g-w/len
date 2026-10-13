@@ -245,15 +245,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
   );
 
   /// The "New" button (phones only: wide screens have the "New…" tile and
-  /// ⊕▾); hidden in the trash and when the empty state already offers one
-  /// (library and folders).
+  /// ⊕▾). Like ⊕▾ it belongs to the library and its folders, so it hides in
+  /// favourites, the trash, search and selection, and when the empty state
+  /// already offers to create one.
   Widget? _fab(BuildContext context) =>
       _actions.selection.active ||
-          _controller.section == LibrarySection.trash ||
-          (_controller.section == LibrarySection.library &&
-              !_controller.isSearching &&
-              _controller.visibleFolders.isEmpty &&
-              _controller.visibleNotebooks.isEmpty)
+          _controller.section != LibrarySection.library ||
+          _controller.isSearching ||
+          (_controller.visibleFolders.isEmpty && _controller.visibleNotebooks.isEmpty)
       ? null
       // Tap: a new notebook. Long press: everything ⊕▾ offers on wide
       // screens (a canvas, a PDF, a folder), which phones have no room for.
