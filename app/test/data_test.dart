@@ -78,6 +78,23 @@ void main() {
       expect(dirty.single.data, isNull);
     });
 
+    test('deleting a surface tombstones its live strokes, each at a newer version', () {
+      strokes.save([stroke('a', Offset.zero), stroke('b', const Offset(5e5, 5e5))]);
+      strokes.markClean([(id: 'a', updatedAt: clock.now), (id: 'b', updatedAt: clock.now)]);
+      final saved = clock.now;
+      clock.now -= 50; // A clock that went back: still later than each version.
+      strokes.deleteSurfaces(['s']);
+      final dirty = strokes.dirtyRecords(10);
+      expect(dirty.map((r) => (r.id, r.deleted, r.updatedAt)), [
+        ('a', true, saved + 1),
+        ('b', true, saved + 1),
+      ]);
+      expect(strokes.populatedChunks('s', ChunkGrid.rangeFor(Rect.largest)), isEmpty);
+      // A tombstone keeps its points (a deletion conflict may revive it).
+      strokes.revive(['a']);
+      expect(strokes.loadChunks('s', [(x: 0, y: 0)]).single.points, isNotEmpty);
+    });
+
     test('markClean keeps rows that changed after being read', () {
       strokes.save([stroke('a', Offset.zero)]);
       final pushed = strokes.dirtyRecords(10).single;

@@ -56,19 +56,8 @@ class ElementRepository extends SyncableTable {
 
   /// Tombstones every element on the given surfaces (e.g. a deleted notebook),
   /// all at [version] if given.
-  void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) {
-    database.transaction(() {
-      for (final surfaceId in surfaceIds) {
-        delete(
-          db
-              .select('SELECT id FROM elements WHERE surface_id = ? AND deleted = 0', [surfaceId])
-              .map((r) => r['id'] as String)
-              .toList(),
-          version: version,
-        );
-      }
-    });
-  }
+  void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) =>
+      tombstoneSurfaces(surfaceIds, chunkTable: 'element_chunks', version: version);
 
   /// Brings back tombstoned elements whose data is still kept.
   @override

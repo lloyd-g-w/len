@@ -52,6 +52,28 @@ abstract class SyncableTable implements SyncableStore {
       db.select('SELECT MAX(updated_at) AS v FROM $table WHERE $where', args).first['v'] as int? ??
       0;
 
+  /// Tombstones every live row on the surfaces [surfaceIds] (a table with
+  /// `surface_id` and a chunk index [chunkTable]), stamped like
+  /// [nextVersion] would stamp each, or all with [version]. One statement
+  /// per surface rather than per row: a deleted notebook may hold hundreds
+  /// of thousands of strokes. Tombstones keep their payload (see
+  /// `DeletionConflicts`).
+  void tombstoneSurfaces(Iterable<String> surfaceIds, {required String chunkTable, int? version}) {
+    final now = clock.nowMs();
+    database.transaction(() {
+      for (final surfaceId in surfaceIds) {
+        db.execute(
+          'UPDATE $table SET deleted = 1, dirty = 1, device_id = ?, '
+          'updated_at = ${version == null ? 'MAX(?, updated_at + 1)' : '?'} '
+          'WHERE surface_id = ? AND deleted = 0',
+          [deviceId, version ?? now, surfaceId],
+        );
+        // Only live rows are in the chunk index.
+        db.execute('DELETE FROM $chunkTable WHERE surface_id = ?', [surfaceId]);
+      }
+    });
+  }
+
   /// Brings tombstoned rows [ids] back as local edits (a deletion that
   /// raced an edit, see `DeletionConflicts`). Tables whose tombstones keep
   /// every column revive them as they were.

@@ -268,5 +268,18 @@ int bestUs(void Function() action, {int runs = 3}) {
   return best;
 }
 
+/// Lets the event loop run until [done], returning the longest time (ms)
+/// one turn of it took: how long work in between blocked the UI thread.
+Future<int> longestTurnUntil(bool Function() done) async {
+  var longest = 0;
+  final turn = Stopwatch()..start();
+  while (!done()) {
+    await Future<void>.delayed(Duration.zero);
+    longest = math.max(longest, turn.elapsedMilliseconds);
+    turn.reset();
+  }
+  return longest;
+}
+
 // ignore: avoid_print
 void report(String line) => print(line);

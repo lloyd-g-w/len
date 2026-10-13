@@ -78,25 +78,8 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
 
   /// Tombstones every stroke on the given surfaces (e.g. a deleted notebook),
   /// all at [version] if given (one deletion, see `NotebookRepository.delete`).
-  void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) {
-    final now = clock.nowMs();
-    database.transaction(() {
-      for (final surfaceId in surfaceIds) {
-        final ids = db
-            .select('SELECT id FROM strokes WHERE surface_id = ? AND deleted = 0', [surfaceId])
-            .map((r) => r['id'] as String)
-            .toList();
-        for (final id in ids) {
-          _tombstone(
-            id,
-            updatedAt: version ?? nextVersion(id, now),
-            deviceId: deviceId,
-            dirty: true,
-          );
-        }
-      }
-    });
-  }
+  void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) =>
+      tombstoneSurfaces(surfaceIds, chunkTable: 'stroke_chunks', version: version);
 
   /// Brings back tombstoned strokes whose points are still kept.
   @override
