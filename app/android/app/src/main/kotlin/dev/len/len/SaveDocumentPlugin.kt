@@ -142,8 +142,15 @@ class SaveDocumentPlugin :
     }
 
     private fun copy(resolver: ContentResolver, path: String, target: Uri) {
-        val out = resolver.openOutputStream(target, "wt")
-            ?: throw IllegalStateException("Cannot write $target")
+        // "wt" truncates a file picked to be replaced; some providers (cloud
+        // drives) only know "w", fine for the new, empty documents they make.
+        val out = try {
+            resolver.openOutputStream(target, "wt")
+        } catch (e: java.io.FileNotFoundException) {
+            resolver.openOutputStream(target, "w")
+        } catch (e: IllegalArgumentException) {
+            resolver.openOutputStream(target, "w")
+        } ?: throw IllegalStateException("Cannot write $target")
         out.use { sink -> File(path).inputStream().use { it.copyTo(sink) } }
     }
 
@@ -160,13 +167,19 @@ class SaveDocumentPlugin :
         binding.addActivityResultListener(this)
     }
 
-    override fun onDetachedFromActivityForConfigChanges() = onDetachedFromActivity()
+    /** The system dialog may still answer the recreated activity: [pending] stays. */
+    override fun onDetachedFromActivityForConfigChanges() {
+        activity?.removeActivityResultListener(this)
+        activity = null
+    }
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) =
         onAttachedToActivity(binding)
 
+    /** No activity left to answer: Dart's `save` ends as cancelled, not never. */
     override fun onDetachedFromActivity() {
-        activity?.removeActivityResultListener(this)
-        activity = null
+        onDetachedFromActivityForConfigChanges()
+        pending?.result?.success(null)
+        pending = null
     }
 }
