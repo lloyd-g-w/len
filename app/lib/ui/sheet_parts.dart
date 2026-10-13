@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
+import 'hit_overhang.dart';
 
 /// The header of a task sheet or dialog (REDESIGN §5): a left-aligned
 /// Heading ([TextTheme.titleMedium]) title, an optional Caption [subtitle]
@@ -54,8 +55,8 @@ class SheetHeader extends StatelessWidget {
   /// hangs into the sheet's margin), wherever the header sits.
   static Widget _close(BuildContext context, VoidCallback onClose) {
     final hit = Targets.barHit(context);
-    return Transform.translate(
-      offset: Offset((hit - Glyphs.bar) / 2, 0),
+    return HitOverhang(
+      overhang: EdgeInsetsDirectional.only(end: (hit - Glyphs.bar) / 2),
       child: SizedBox.square(
         dimension: hit,
         child: IconButton(

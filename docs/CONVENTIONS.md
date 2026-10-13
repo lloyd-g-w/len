@@ -77,7 +77,12 @@ hairlines, one accent, depth only for paper).
   pointer on the web); `Targets.of(context, visual)`, `Targets.barHit` (48 on
   touch, 40 with a pointer), `Targets.slotHit` (44 / 36),
   `Targets.menuRowHeight` (48 on touch, 44 with a pointer). Bar buttons keep a 40-dp
-  visual and pad their hit area (`MaterialTapTargetSize.padded`).
+  visual and pad their hit area (`MaterialTapTargetSize.padded`). Where the
+  padding must not move the layout (a header's Reset, a sheet's ✕ on the
+  content edge), wrap the padded control in `HitOverhang`: it hangs over the
+  gaps and margins around it, and the `HitOverhangScope` in
+  `MaterialApp.builder` routes taps there to it (never `Transform` a control
+  out of its box: taps outside a parent's bounds are lost).
 - **Motion:** `Motion.fast` 100 (state changes, popovers dropping
   `Motion.popoverDrop` 4 dp from their anchor), `medium` 180 (chrome fades,
   panels), `slow` 260 (sheets, routes), `travel` 400. Chrome shows and hides
