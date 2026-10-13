@@ -246,7 +246,13 @@ void main() {
     await tester.tap(find.text('Add page after'));
     await tester.pumpAndSettle();
     expect(s.pages.pagesOf(nb.id), hasLength(pages + 1));
-    // Reopened, the menu starts at the top again.
+    // Reopened (also after Esc in a submenu), the menu starts at the top.
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
     expect(find.text('Search in notebook'), findsOneWidget);

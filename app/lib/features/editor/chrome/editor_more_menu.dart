@@ -72,7 +72,6 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
         ),
     ];
     return ChromeMenuAnchor(
-      onClose: () => _drilled = null,
       menuChildren: drilled != null
           ? [_back(drilled), const Divider(), ...drilled.children]
           : [
@@ -112,7 +111,12 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
       builder: (context, menu, _) => BarButton(
         tooltip: 'More options',
         icon: Symbols.more_horiz_rounded,
-        onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+        onPressed: () {
+          if (menu.isOpen) return menu.close();
+          // Always opens at the top, not in the submenu last drilled into.
+          if (_drilled != null) setState(() => _drilled = null);
+          menu.open();
+        },
       ),
     );
   }

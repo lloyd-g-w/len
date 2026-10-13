@@ -117,6 +117,11 @@ void main() {
           await tester.tap(find.byTooltip('Next (Enter)'));
           await settle(tester);
           await shoot(tester, '${shot}_next');
+          if (screen == phoneScreen) {
+            // Stepping folded the list away on the phone.
+            await tester.tap(find.byTooltip('Show results'));
+            await settle(tester);
+          }
           await _type(tester, 'zebra');
           expect(find.text('No matches'), findsOneWidget);
           await shoot(tester, '${shot}_none');
