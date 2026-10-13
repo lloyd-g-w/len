@@ -64,10 +64,12 @@ TROUBLE = re.compile(r'fail|error|exception|unsupported|could ?n.t|can.t ', re.I
 EXPECTED_TROUBLE = [r'^Save picker unavailable']
 
 
-def png(width, height):
-    """A small opaque PNG (a gradient), no imaging library needed."""
-    rows = b''.join(b'\0' + b''.join(bytes((x * 255 // width, y * 255 // height, 160))
-                                     for x in range(width)) for y in range(height))
+def png(width, height, noise=False):
+    """An opaque PNG (a gradient; [noise]: random, so it doesn't compress),
+    no imaging library needed."""
+    rows = b''.join(b'\0' + (os.urandom(width * 3) if noise else b''.join(
+        bytes((x * 255 // width, y * 255 // height, 160)) for x in range(width)))
+        for y in range(height))
     chunk = lambda kind, data: (struct.pack('>I', len(data)) + kind + data
                                 + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff))
     return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
@@ -93,6 +95,74 @@ def pdf(pages):
     out += f'xref\n0 {len(objs) + 1}\n0000000000 65535 f \n'.encode()
     out += b''.join(f'{o:010d} 00000 n \n'.encode() for o in offsets)
     return out + f'trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n'.encode()
+
+
+BIG = 'Big backup'
+BIG_PAGES, BIG_STROKES, BIG_IMAGES = 40, 100, 4  # Strokes per page; images ~3.6 MB each.
+
+
+def big_backup(src, dst):
+    """[src] (a backup the app wrote) plus notebook BIG: BIG_PAGES pages of
+    BIG_STROKES long strokes and BIG_IMAGES incompressible images, in
+    records parts of ~4 MB like the app's: some 30 MB, enough for the web
+    restore to read in slices (Blob.slice) and to take a while."""
+    import hashlib, random, uuid
+    rnd = random.Random(7)
+    with zipfile.ZipFile(src) as z:
+        records = [json.loads(line) for name in sorted(z.namelist()) if name.startswith('records/')
+                   for line in z.read(name).decode().splitlines() if line.strip()]
+        blobs = json.loads(z.read('blobs.json'))
+        files = {n: z.read(n) for n in z.namelist() if n.startswith('blobs/')}
+    like = {r['collection']: r for r in records}
+    now = int(time.time() * 1000)
+
+    def record(collection, **data):
+        r = json.loads(json.dumps(like[collection]))
+        r.update(id=str(uuid.uuid4()), updatedAt=now)
+        r['data'].update(data)
+        return r
+
+    notebook = record('notebooks', title=BIG, createdAt=now, editedAt=now, folderId=None,
+                      favorite=False, trashedAt=None)
+    pages = [record('pages', notebookId=notebook['id'], sortKey=i + 1, background=None, paper='blank')
+             for i in range(BIG_PAGES)]
+    strokes, elements = [], []
+    for page in pages:
+        for k in range(BIG_STROKES):
+            x, y, pts = rnd.uniform(60, 700), rnd.uniform(60, 1050), []
+            for _ in range(150):
+                x, y = x + rnd.uniform(-3, 4), y + rnd.uniform(-3, 3)
+                pts.append(struct.pack('<fff', x, y, 0.5))
+            strokes.append(record('strokes', surfaceId=page['id'], createdAt=now + k,
+                                  points=base64.b64encode(b''.join(pts)).decode()))
+    for i in range(BIG_IMAGES):
+        data = png(1200, 1000, noise=True)
+        sha = hashlib.sha256(data).hexdigest()
+        blobs[sha], files[f'blobs/{sha}'] = {'mime': 'image/png', 'size': len(data)}, data
+        elements.append(record('elements', type='image', surfaceId=pages[i * BIG_PAGES // BIG_IMAGES]['id'], x=100,
+                               y=600, w=480, h=400, createdAt=now, data={'blob': sha, 'width': 1200,
+                                                                          'height': 1000}))
+    order = ['folders', 'templates', 'notebooks', 'pages', 'outline', 'recordings', 'strokes', 'elements']
+    added = [notebook] + pages + strokes + elements
+    lines = [json.dumps(r, separators=(',', ':')) for r in
+             sorted(records + added, key=lambda r: order.index(r['collection']))]
+    with zipfile.ZipFile(dst, 'w') as z:
+        z.writestr('manifest.json', json.dumps({'format': 'len', 'version': 1, 'kind': 'library',
+                                                'title': 'Library', 'createdAt': now}),
+                   zipfile.ZIP_DEFLATED)
+        part, size, n = [], 0, 0
+        for line in lines + [None]:
+            if line is None or size + len(line) > 4 << 20:
+                n += 1
+                z.writestr(f'records/{n:06}.jsonl', '\n'.join(part) + '\n', zipfile.ZIP_DEFLATED)
+                part, size = [], 0
+            if line is not None:
+                part.append(line)
+                size += len(line) + 1
+        z.writestr('blobs.json', json.dumps(blobs), zipfile.ZIP_DEFLATED)
+        for name, data in files.items():
+            z.writestr(name, data, zipfile.ZIP_STORED)
+    return dst
 
 
 # --- Watching the page -----------------------------------------------------
@@ -139,7 +209,7 @@ class Watch:
         page.on('requestfailed', lambda r: None if self.offline else self.problem(
             f'request failed: {r.url} {r.failure}'))
         page.on('response', lambda r: r.status >= 400 and self.problem(f'HTTP {r.status}: {r.url}'))
-        page.on('download', self.downloads.append)
+        page.on('download', lambda d: self.downloads.append(d))
 
     offline = False
 
@@ -170,6 +240,14 @@ async def type_text(page, text):
     await page.keyboard.type(text, delay=20)
     value = await page.evaluate('document.activeElement.value')
     w.expect(value.endswith(text), f'typed {text!r}: field holds {value!r}')
+
+
+async def go_to_page(page, number):
+    await page.keyboard.press('Control+g')
+    await page.wait_for_function('document.activeElement && document.activeElement.tagName === "INPUT"',
+                                 timeout=15000)
+    await page.keyboard.type(str(number))
+    await page.keyboard.press('Enter')
 
 
 async def expect_text(page, text, timeout=30000):
@@ -269,6 +347,12 @@ async def wheel(page, dy, times=1):
         await page.wait_for_timeout(150)
 
 
+_NODES = '''() => [...document.querySelectorAll('flt-semantics-host flt-semantics')].map((e) =>
+    [e.getAttribute('role') || '', e.getAttribute('aria-label') || '',
+     [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('')]
+    .join(' | ')).filter((l) => l.replace(/[ |]/g, ''))'''
+
+
 # --- The walk ----------------------------------------------------------------
 
 class Walk:
@@ -293,6 +377,13 @@ class Walk:
                 self.watch.problems.append({'browser': self.name, 'step': title, 'problem': str(e)})
             ok = False
         page = self.page
+        if not ok:  # What a screen reader would find there, to see why.
+            try:
+                nodes = await page.evaluate(_NODES)
+                with open(os.path.join(OUT, f'{self.name}-{self.n:02}-{title}.txt'), 'w') as f:
+                    f.write('\n'.join(nodes))
+            except Exception:
+                pass
         try:
             await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-{title}.png'))
             tasks = await page.evaluate('window.lenLongTasks || []')
@@ -425,11 +516,7 @@ class Walk:
         page = self.page
         for key in 'phelp':
             await page.keyboard.press(key)
-        await page.keyboard.press('Control+g')
-        await page.wait_for_function('document.activeElement && document.activeElement.tagName === "INPUT"',
-                                     timeout=15000)
-        await page.keyboard.type('2')
-        await page.keyboard.press('Enter')
+        await go_to_page(page, 2)
         await expect_text(page, 'Page 2 of 2')
         await page.keyboard.press('F11')
         await page.get_by_role('button', name='Show toolbars (F11)').wait_for(timeout=15000)
@@ -508,20 +595,43 @@ class Walk:
             w.expect(heaps[-1] - heaps[0] < HEAP_GROWTH_MB, f'the heap settles: {heaps} MB')
 
     async def restore(self):
-        """A fresh profile (a new device) restores the backup."""
+        """A fresh profile (a new device) restores the backup, made big."""
         page = self.page
+        backup = big_backup(self.fx['backup'], os.path.join(OUT, f'{self.name}-big.len'))
         await w.open_app(page)
         await w.accessible(page)
         await expect_text(page, 'No notebooks yet', timeout=60000)
         await tap(page, 'Settings')
         await wheel(page, 400, times=6)
-        await pick_file(page, self.fx['backup'], lambda: tap(page, 'Restore from backup', exact=False))
+        started = time.monotonic()
+        await pick_file(page, backup, lambda: tap(page, 'Restore from backup', exact=False))
         await expect_text(page, 'Restore this backup?')
         await tap(page, 'Restore')
-        await expect_text(page, 'Restored your backup', timeout=60000)
+        await expect_text(page, 'Restored your backup', timeout=300000)
+        print(f'  restored {os.path.getsize(backup) >> 20} MB in {time.monotonic() - started:.0f} s')
         await wait_query(page, STROKES, lambda r: r[0][0] == 3, 'the restored notebook\'s strokes')
         await wait_query(page, ELEMENTS, lambda r: sorted(t for (t,) in r) == ['image', 'text'],
                          'its text box and image')
+        big = STROKES.replace("'Explore'", f"'{BIG}'")
+        await wait_query(page, big, lambda r: r[0][0] == BIG_PAGES * BIG_STROKES, f'{BIG}\'s strokes')
+        await wait_query(page, ELEMENTS.replace("'Explore'", f"'{BIG}'"),
+                         lambda r: [t for (t,) in r] == ['image'] * BIG_IMAGES, f'{BIG}\'s images')
+
+    async def open_big(self):
+        """The restored big notebook opens, its last page too."""
+        page = self.page
+        await page.keyboard.press('Escape')
+        await tap(page, 'Back')
+        await tap(page, BIG, exact=False)
+        await page.get_by_role('button', name='Back', exact=True).wait_for(timeout=60000)
+        last_image = (BIG_IMAGES - 1) * BIG_PAGES // BIG_IMAGES + 1  # A page with an image.
+        for number in (last_image, BIG_PAGES):
+            await go_to_page(page, number)
+            await expect_text(page, f'Page {number} of {BIG_PAGES}')
+            await page.wait_for_timeout(1500)  # Painted, for the screenshot.
+            await page.screenshot(path=os.path.join(OUT, f'{self.name}-big-page-{number}.png'))
+        await tap(page, 'Back')
+        await expect_text(page, 'Explore')
 
     def main_steps(self):
         return [self.first_launch, self.new_notebook, self.draw_mouse, self.draw_pen, self.undo_redo,
@@ -555,8 +665,10 @@ async def explore(p, browser, fixtures):
         ctx, page, cdp = await launch(p, browser, profile)
         watch.attach(page)
         walk = Walk(browser, page, cdp, watch, fixtures)
+        if os.environ.get('LEN_EXPLORE_BACKUP'):  # Only the restore, of this backup.
+            fixtures['backup'] = os.environ['LEN_EXPLORE_BACKUP']
         try:
-            for step in walk.main_steps():
+            for step in [] if os.environ.get('LEN_EXPLORE_BACKUP') else walk.main_steps():
                 if not await walk.step(step.__name__, step):
                     break
         finally:
@@ -567,7 +679,8 @@ async def explore(p, browser, fixtures):
             watch.attach(page)
             walk.page, walk.cdp, walk.tasks_seen = page, cdp, 0
             try:
-                await walk.step('restore', walk.restore)
+                if await walk.step('restore', walk.restore):
+                    await walk.step('open_big', walk.open_big)
             finally:
                 await ctx.close()
     finally:
