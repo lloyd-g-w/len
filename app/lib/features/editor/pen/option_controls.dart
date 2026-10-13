@@ -15,9 +15,14 @@ class OptionSlider extends StatelessWidget {
     required this.display,
     required this.onChanged,
     this.hint,
+    this.showValue = true,
   });
 
   final String label;
+
+  /// Whether the value shows at the end of the row (it is still read out);
+  /// false for sizes on screen, which a preview shows better than a number.
+  final bool showValue;
 
   static const double _overlay = 14;
 
@@ -49,7 +54,7 @@ class OptionSlider extends StatelessWidget {
               Expanded(
                 child: Text(label, style: text.labelLarge?.copyWith(color: faded)),
               ),
-              Text(display(value), style: text.labelMedium?.copyWith(color: faded)),
+              if (showValue) Text(display(value), style: text.labelMedium?.copyWith(color: faded)),
             ],
           ),
           SliderTheme(

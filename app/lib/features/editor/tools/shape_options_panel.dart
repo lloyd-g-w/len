@@ -52,7 +52,7 @@ class ShapeOptionsPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: Gaps.sm),
-          Text('Drag to draw, in the pen’s colour and size.', style: text.bodySmall),
+          Text('Drag to draw, in the pen’s colour and size', style: text.bodySmall),
           // Only a keyboard has Shift.
           if (!Targets.touchFirst)
             Text('Hold Shift for squares, circles and 15° lines.', style: text.bodySmall),

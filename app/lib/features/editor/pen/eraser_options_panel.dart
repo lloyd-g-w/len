@@ -58,7 +58,12 @@ class EraserOptionsPanel extends StatelessWidget {
                     value: eraser.radius,
                     min: EraserConfig.minRadius,
                     max: EraserConfig.maxRadius,
-                    display: (v) => '${(v * 2).round()} px',
+                    // On screen, whatever the zoom: the dot beside it shows it.
+                    showValue: false,
+                    display: (v) => percent(
+                      (v - EraserConfig.minRadius) /
+                          (EraserConfig.maxRadius - EraserConfig.minRadius),
+                    ),
                     onChanged: (v) => update(eraser.copyWith(radius: v)),
                   ),
                 ),

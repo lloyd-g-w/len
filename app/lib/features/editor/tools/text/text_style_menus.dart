@@ -56,7 +56,7 @@ class FontMenuButton extends StatelessWidget {
                   style: current == null ? null : sample(current),
                 ),
               ),
-            const Icon(Symbols.arrow_drop_down_rounded, size: Glyphs.bar),
+            const Icon(Symbols.expand_more_rounded, size: Glyphs.bar),
           ],
         ),
       ),

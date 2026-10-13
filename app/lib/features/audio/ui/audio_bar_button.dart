@@ -58,7 +58,7 @@ class AudioBarButton extends StatelessWidget {
         fixedSize: const Size(20, 40),
         padding: EdgeInsets.zero,
       ),
-      icon: const Icon(Symbols.arrow_drop_down_rounded),
+      icon: const Icon(Symbols.expand_more_rounded),
     );
     return Row(mainAxisSize: MainAxisSize.min, children: [record, list]);
   }
