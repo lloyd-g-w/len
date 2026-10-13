@@ -2,56 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_dialogs.dart';
-import '../../../ui/app_theme.dart';
-import '../../../ui/labelled_action.dart';
+import '../../../ui/selection_bar.dart';
+import 'page_commands.dart';
 
 /// What can be done to the pages selected in the overview.
 enum SelectionAction { bookmark, duplicate, send, template, export, delete }
 
-/// The app bar in selection mode: count, select all, done.
-class SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const SelectionAppBar({
+/// The overview's selection mode in the shared [SelectionBar] (the
+/// library's too, UX_AUDIT R8-13): done, count, select all, and the
+/// actions for the selected pages; Template, Bookmark and Duplicate give
+/// way to ⋯ in that order on phones.
+class PageSelectionBar extends StatelessWidget {
+  const PageSelectionBar({
     super.key,
     required this.count,
     required this.total,
     required this.onClose,
     required this.onSelectAll,
-  });
-
-  final int count;
-  final int total;
-  final VoidCallback onClose;
-  final VoidCallback onSelectAll;
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 8);
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(
-      toolbarHeight: kToolbarHeight + 8,
-      leading: IconButton(
-        tooltip: 'Done',
-        icon: const Icon(Symbols.close_sharp),
-        onPressed: onClose,
-      ),
-      title: Text(count == 0 ? 'Select pages' : '$count selected'),
-      actions: [
-        TextButton(
-          onPressed: onSelectAll,
-          child: Text(count == total ? 'Select none' : 'Select all'),
-        ),
-        const SizedBox(width: Gaps.sm),
-      ],
-    );
-  }
-}
-
-/// Actions for the selected pages, along the bottom (thumb reach).
-class SelectionBar extends StatelessWidget {
-  const SelectionBar({
-    super.key,
-    required this.count,
     required this.onAction,
     this.allBookmarked = false,
     this.offered = const {
@@ -62,6 +29,11 @@ class SelectionBar extends StatelessWidget {
   });
 
   final int count;
+
+  /// How many pages there are (all selected: Select none).
+  final int total;
+  final VoidCallback onClose;
+  final VoidCallback onSelectAll;
 
   /// The actions shown (the notebook's handlers decide).
   final Set<SelectionAction> offered;
@@ -84,74 +56,54 @@ class SelectionBar extends StatelessWidget {
     if (ok) onAction(SelectionAction.delete);
   }
 
+  SelectionCommand _command(BuildContext context, SelectionAction a) => switch (a) {
+    SelectionAction.bookmark => SelectionCommand(
+      icon: allBookmarked ? Symbols.bookmark_remove_sharp : Symbols.bookmark_sharp,
+      label: allBookmarked ? 'Remove bookmark' : 'Bookmark',
+      overflow: 2,
+      onPressed: () => onAction(a),
+    ),
+    SelectionAction.duplicate => SelectionCommand(
+      icon: Symbols.library_add_sharp,
+      label: 'Duplicate',
+      overflow: 3,
+      onPressed: () => onAction(a),
+    ),
+    SelectionAction.send => SelectionCommand(
+      icon: PageCommand.moveTo.icon,
+      label: PageCommand.moveTo.label,
+      onPressed: () => onAction(a),
+    ),
+    SelectionAction.template => SelectionCommand(
+      icon: Symbols.grid_on_sharp,
+      label: 'Template…',
+      tooltip: 'Change template…',
+      overflow: 1,
+      onPressed: () => onAction(a),
+    ),
+    SelectionAction.export => SelectionCommand(
+      icon: Symbols.ios_share_sharp,
+      label: 'Export…',
+      onPressed: () => onAction(a),
+    ),
+    SelectionAction.delete => SelectionCommand(
+      icon: Symbols.delete_sharp,
+      label: 'Delete',
+      destructive: true,
+      onPressed: () => _delete(context),
+    ),
+  };
+
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final enabled = count > 0;
-    Widget action(IconData icon, String label, VoidCallback onTap, {Color? color}) => Expanded(
-      child: LabelledAction(
-        icon: icon,
-        label: label,
-        color: color,
-        onPressed: enabled ? onTap : null,
-      ),
-    );
-    return Material(
-      color: Surfaces.chrome(scheme),
-      child: SafeArea(
-        top: false,
-        child: DecoratedBox(
-          decoration: BoxDecoration(border: Border(top: Surfaces.chromeEdge(scheme))),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
-            child: Align(
-              heightFactor: 1,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Row(
-                  children: [
-                    for (final a in SelectionAction.values)
-                      if (offered.contains(a))
-                        switch (a) {
-                          SelectionAction.bookmark => action(
-                            allBookmarked ? Symbols.bookmark_remove_sharp : Symbols.bookmark_sharp,
-                            allBookmarked ? 'Remove bookmark' : 'Bookmark',
-                            () => onAction(a),
-                          ),
-                          SelectionAction.duplicate => action(
-                            Symbols.library_add_sharp,
-                            'Duplicate',
-                            () => onAction(a),
-                          ),
-                          SelectionAction.send => action(
-                            Symbols.drive_file_move_sharp,
-                            'Move to…',
-                            () => onAction(a),
-                          ),
-                          SelectionAction.template => action(
-                            Symbols.grid_on_sharp,
-                            'Template…',
-                            () => onAction(a),
-                          ),
-                          SelectionAction.export => action(
-                            Symbols.ios_share_sharp,
-                            'Export…',
-                            () => onAction(a),
-                          ),
-                          SelectionAction.delete => action(
-                            Symbols.delete_sharp,
-                            'Delete',
-                            () => _delete(context),
-                            color: scheme.error,
-                          ),
-                        },
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SelectionBar(
+    title: count == 0 ? 'Select pages' : '$count selected',
+    onDone: onClose,
+    allSelected: count == total,
+    onSelectAll: onSelectAll,
+    enabled: count > 0,
+    commands: [
+      for (final a in SelectionAction.values)
+        if (offered.contains(a)) _command(context, a),
+    ],
+  );
 }

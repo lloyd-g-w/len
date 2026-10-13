@@ -133,6 +133,7 @@ void main() {
       final services = seededServices();
       addTearDown(services.dispose);
       await pumpApp(tester, services, const LibraryScreen());
+      await revealSideways(tester, find.text('Work').last); // Phones: the folder strip.
       await tester.longPress(find.text('Work').last);
       await settle(tester);
       await tester.tap(find.text('Edit folder…'));

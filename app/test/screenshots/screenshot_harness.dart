@@ -296,3 +296,13 @@ Future<void> openSearch(WidgetTester tester) async {
   await tester.tap(button);
   await settle(tester);
 }
+
+/// Scrolls [finder]'s sideways strip (the phone's folder strip) until it
+/// shows, without moving the page under it.
+Future<void> revealSideways(WidgetTester tester, Finder finder) async {
+  final element = finder.evaluate().single;
+  final scrollable = Scrollable.maybeOf(element);
+  if (scrollable == null || scrollable.position.axis != Axis.horizontal) return;
+  await scrollable.position.ensureVisible(element.renderObject!, alignment: 0.5);
+  await tester.pumpAndSettle();
+}

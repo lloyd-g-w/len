@@ -237,7 +237,7 @@ for being offline.**
   - Keep red for auth and incompatible failures. Write "just now" in
     lower case inside a sentence.
 
-**R8-13 P2 · Two selection bars that grew apart.**
+**✅ R8-13 P2 · Two selection bars that grew apart.**
 - *What:* the library's selection (`library/selection/selection_bar.dart`)
   is a floating panel holding "3 selected", Select all and four labelled
   actions without ellipses ("Move", "Export").
@@ -253,6 +253,8 @@ for being offline.**
   - One label size: if the labels don't fit, drop all of them to icons
     with tooltips rather than shrinking some.
   - At most five actions on phones: Bookmark and Template go into a ⋯.
+
+*Done (`fix/r8-library`):* one shared `ui/selection_bar.dart` (`SelectionBar`, `SelectionCommand`) for the library and the overview: a floating panel with ✕, the count, Select all and the commands; one row where it fits, else a second row where each command is as wide as its name needs. Names keep one size (no `FittedBox`): commands with an `overflow` rank go into ⋯ (overview: Template, Bookmark, Duplicate), and if that is not enough the bar shows glyphs with tooltips. Library labels gained their ellipses ("Move to folder…", "Export…"); the overview keeps its bar in selection mode (no separate selection app bar).
 
 ### Backup and Len files
 

@@ -173,8 +173,21 @@ class _PageOverviewState extends State<PageOverview> {
         if (!didPop) setState(() => _selection = null);
       },
       child: Scaffold(
-        appBar: _selecting
-            ? SelectionAppBar(
+        // Selecting keeps the bar (the filter still narrows the pages); the
+        // selection's own bar floats at the bottom, as in the library.
+        appBar: OverviewAppBar(
+          pageCount: _pages.length,
+          filter: _filter,
+          compact: compact,
+          outline: widget.outline != null,
+          textScale: MediaQuery.textScalerOf(context).scale(1),
+          onFilter: (f) => setState(() => _filter = f),
+          onSelect: _filter == OverviewFilter.outline || _selecting
+              ? null
+              : () => setState(() => _selection = {}),
+        ),
+        bottomNavigationBar: _selecting
+            ? PageSelectionBar(
                 count: _selection!.length,
                 total: _pages.length,
                 onClose: () => setState(() => _selection = null),
@@ -182,21 +195,6 @@ class _PageOverviewState extends State<PageOverview> {
                   final all = _selection!.length == _pages.length;
                   _selection = all ? {} : {for (final p in _pages) p.id};
                 }),
-              )
-            : OverviewAppBar(
-                pageCount: _pages.length,
-                filter: _filter,
-                compact: compact,
-                outline: widget.outline != null,
-                textScale: MediaQuery.textScalerOf(context).scale(1),
-                onFilter: (f) => setState(() => _filter = f),
-                onSelect: _filter == OverviewFilter.outline
-                    ? null
-                    : () => setState(() => _selection = {}),
-              ),
-        bottomNavigationBar: _selecting
-            ? SelectionBar(
-                count: _selection!.length,
                 allBookmarked: _selected.isNotEmpty && _selected.every((p) => p.bookmarked),
                 offered: {
                   SelectionAction.bookmark,
