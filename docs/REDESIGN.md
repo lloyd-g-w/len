@@ -473,3 +473,11 @@ Phase 1 comes first because every later phase then gets smaller.
   60 % (deviation: they don't collapse to the puck, which would re-lay out
   the page each time focus moves). A two-finger long press in focus mode hides the puck and the exit button
   too (presenting; again to bring them back; F11 / Esc still leave).
+
+- Phases 7 and 8 checked against §3–§5 (library and settings screenshot
+  suites, all sizes): sidebar / drawer, header with caption, search, ⊕▾ and
+  ⇅, folder tiles, 0.72 covers, the one-column new-notebook sheet (the paper
+  row now fits the wide form), single-column settings; `features/` has no
+  `showModalBottomSheet`, `AlertDialog`, `SimpleDialog` or
+  `PopupMenuButton` left. Deviation: the phone sheet's preview strip is
+  ~150 dp rather than 120.
