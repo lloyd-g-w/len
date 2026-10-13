@@ -75,8 +75,6 @@ class DocumentCommands {
     if (index != -1) doc.goToPage(index);
   }
 
-  void _changedAndShow(NotebookPage page) => _shown(keep: page.id);
-
   /// Adds a page like the current one (same paper and size; a planner's
   /// next day, week or month) after it.
   void addPage() => edits.add([PageActions.blankAfter(_current)], after: _current);
@@ -242,6 +240,7 @@ class DocumentCommands {
             move: edits.move,
             bookmarkMany: (pages, {required on}) => edits.setBookmarks(pages, on: on),
             deleteMany: deleteMany,
+            duplicateMany: edits.duplicateAll,
           ),
         ),
       ),
@@ -304,7 +303,7 @@ class DocumentCommands {
       file: file,
     );
     if (inserted == null || inserted.isEmpty) return;
-    _changedAndShow(inserted.first);
+    edits.added(inserted);
   }
 
   /// Opens the export sheet with [range] (all pages or the current one)

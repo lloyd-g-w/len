@@ -224,7 +224,7 @@ history entry, no Undo snack (delete page has one). "Apply to all pages" on a
 does), or better push page-level commands into the editor history so Ctrl+Z
 works. *Files:* `document/document_commands.dart`, `document/page_actions.dart`,
 `features/documents/overview/page_commands.dart`.
-→ ✅ Templates, moves, bookmarks (many as one step), added, duplicated and deleted pages are steps of the notebook-wide undo history (`PageEdits` → `PageModels.record`), so Ctrl+Z and ↶ take them back in order with ink. "Template changed on N pages · Undo"; snack-bar Undo goes through the same history (`PageModels.undoEdit`). PDF page inserts are not undoable yet.
+→ ✅ Templates, moves, bookmarks (many as one step), added, duplicated and deleted pages are steps of the notebook-wide undo history (`PageEdits` → `PageModels.record`), so Ctrl+Z and ↶ take them back in order with ink. "Template changed on N pages · Undo"; snack-bar Undo goes through the same history (`PageModels.undoEdit`). Pages inserted from a PDF are one step too, and so is duplicating several pages in the overview.
 
 ✅ **P1-8 Phones: the selection bar and handles get clipped at the edge.**
 `e_shape_selected_phone_*` (handles cut at the screen edge),
