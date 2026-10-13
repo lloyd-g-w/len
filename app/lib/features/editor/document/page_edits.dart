@@ -44,23 +44,21 @@ class PageEdits {
   }
 
   /// Inserts a copy of [page] after it; undo deletes the copy.
-  NotebookPage duplicate(NotebookPage page) => duplicateAll([page]).single;
+  PageEdit duplicate(NotebookPage page) => duplicateAll([page]);
 
-  /// Inserts a copy of each of [pages] right after it, as one step; undo
-  /// deletes the copies. Returns the copies in page order.
-  List<NotebookPage> duplicateAll(List<NotebookPage> pages) {
-    if (pages.isEmpty) return const [];
+  /// Inserts a copy of each of [pages] (not empty) right after it, as one
+  /// step; undo deletes the copies.
+  PageEdit duplicateAll(List<NotebookPage> pages) {
     // Last first, so each copy lands after its page.
     final copies = [for (final p in pages.reversed) actions.duplicate(p)].reversed.toList();
-    added(copies);
-    return copies;
+    return added(copies);
   }
 
   /// Makes adding [pages] (already added elsewhere, e.g. from a PDF)
   /// undoable and shows the first.
-  void added(List<NotebookPage> pages) {
+  PageEdit added(List<NotebookPage> pages) {
     var deleted = <DeletedPage>[];
-    _record(
+    return _record(
       () => deleted = actions.deleteAll(pages),
       () => actions.restoreAll(deleted),
       keep: pages.first.id,

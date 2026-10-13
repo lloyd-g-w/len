@@ -126,7 +126,7 @@ class _PageOverviewState extends State<PageOverview> {
         }
       case SelectionAction.duplicate:
         if (widget.handlers.duplicateMany case final many?) {
-          many(pages);
+          await many(context, pages);
         } else {
           for (final p in pages.reversed) {
             if (!mounted) return;
