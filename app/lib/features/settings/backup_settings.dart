@@ -29,6 +29,17 @@ class BackupSettings extends StatefulWidget {
           'are not.',
   ].join(' ');
 
+  /// When the library was last backed up ([at], ms since epoch; null:
+  /// never): "Last backup today at 14:05", "Last backup 3 Oct".
+  static String lastBackup(int? at, {DateTime? now}) {
+    if (at == null) {
+      return 'One Len file with every notebook, folder and template. Not backed up yet';
+    }
+    final label = formatEdited(at, now: now);
+    if (label == 'Just now') return 'Backed up just now';
+    return label.contains(':') ? 'Last backup today at $label' : 'Last backup $label';
+  }
+
   @override
   State<BackupSettings> createState() => _BackupSettingsState();
 }
@@ -56,12 +67,7 @@ class _BackupSettingsState extends State<BackupSettings> {
           SettingsTile(
             icon: Symbols.backup_sharp,
             title: 'Back up library…',
-            subtitle: last == null
-                ? 'One Len file with every notebook, folder and template. Not backed up yet'
-                : switch (formatEdited(last)) {
-                    'Just now' => 'Backed up just now',
-                    final day => 'Last backup $day',
-                  },
+            subtitle: BackupSettings.lastBackup(last),
             onTap: () => unawaited(_backUp()),
           ),
           SettingsTile(

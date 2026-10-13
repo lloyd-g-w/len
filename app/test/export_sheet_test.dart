@@ -140,6 +140,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('a Len file is the whole notebook: no pages or layers to choose', (tester) async {
+    await open(tester);
+    expect(find.text('Pages'), findsOneWidget);
+    await tester.tap(find.text('Len'));
+    await tester.pumpAndSettle();
+    expect(find.text('Whole notebook, Len file'), findsOneWidget);
+    expect(find.text('Pages'), findsNothing);
+    expect(find.text('Include'), findsNothing);
+  });
+
   testWidgets('a page range exports exactly those pages', (tester) async {
     await open(tester);
     expect(find.text('5 pages, PDF'), findsOneWidget); // All pages preselected.
