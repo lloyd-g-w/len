@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../ink/tool_settings.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/floating_panel.dart';
+import '../../ui/scroll_fade.dart';
 import 'toolbar/insert_menu.dart';
 import 'toolbar/tool_cluster.dart';
 import 'toolbar/tool_strip.dart';
@@ -90,10 +91,7 @@ class EditorToolbar extends StatelessWidget {
               _cluster(),
               StripDivider(tools: tools),
               Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ToolStrip(tools: tools),
-                ),
+                child: ScrollFade(child: ToolStrip(tools: tools)),
               ),
             ],
           );
@@ -144,10 +142,7 @@ class EditorToolbar extends StatelessWidget {
                 ToolSwitcherButton(tools: tools, insert: insert),
                 StripDivider(tools: tools),
                 Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: ToolStrip(tools: tools),
-                  ),
+                  child: ScrollFade(child: ToolStrip(tools: tools)),
                 ),
               ],
             ),
@@ -191,10 +186,7 @@ class EditorToolbar extends StatelessWidget {
           ToolSwitcherButton(tools: tools, insert: insert),
           StripDivider(tools: tools),
           Flexible(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ToolStrip(tools: tools),
-            ),
+            child: ScrollFade(child: ToolStrip(tools: tools)),
           ),
         ],
       ),

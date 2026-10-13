@@ -214,6 +214,16 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('quick controls cut off by a narrow bar fade at the edge', (tester) async {
+    await pumpEditor(tester, size: const Size(390, 844));
+    expect(find.byKey(const ValueKey('scroll-fade')), findsNothing); // Everything fits.
+    await closeEditor(tester);
+    await pumpEditor(tester, size: const Size(280, 700));
+    expect(find.byKey(const ValueKey('scroll-fade')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await closeEditor(tester);
+  });
+
   testWidgets('Home goes to the first page of a paged notebook', (tester) async {
     await pumpEditor(tester, size: const Size(1280, 900));
     await tester.sendKeyEvent(LogicalKeyboardKey.end);
