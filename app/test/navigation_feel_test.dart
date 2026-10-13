@@ -152,6 +152,37 @@ void main() {
     });
   });
 
+  group('fling', () {
+    testWidgets('glides at the finger\'s speed, slows down, stops on touch', (tester) async {
+      // 1500 px/s: 12 px every 8 ms.
+      input.handleDown(down(1, const Offset(400, 500)));
+      for (var i = 1; i <= 15; i++) {
+        input.handleMove(move(1, Offset(400, 500 - 12.0 * i), t: 8 * i));
+      }
+      input.handleUp(up(1, const Offset(400, 320), t: 124));
+      expect(animator.isAnimating, isTrue);
+      final released = viewport.offset.dy;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      final first = viewport.offset.dy;
+      await tester.pump(const Duration(milliseconds: 20));
+      final speed = (viewport.offset.dy - first) / 0.02;
+      expect(speed, closeTo(-1500, 150));
+      await tester.pump(const Duration(milliseconds: 200));
+      final later = viewport.offset.dy;
+      await tester.pump(const Duration(milliseconds: 20));
+      expect((viewport.offset.dy - later) / 0.02, greaterThan(speed)); // slower
+      expect(released - viewport.offset.dy, lessThan(750)); // still gliding
+      // A finger landing catches it, and doesn't move the page by itself.
+      input.handleDown(down(2, const Offset(400, 400), t: 500));
+      final caught = viewport.offset;
+      await tester.pump(const Duration(milliseconds: 100));
+      input.handleUp(up(2, const Offset(400, 400), t: 560));
+      await tester.pumpAndSettle();
+      expect(viewport.offset, caught);
+    });
+  });
+
   group('limits', () {
     testWidgets('zoom gives way past the limit and springs back', (tester) async {
       // 4× is the limit: pinch 8×.

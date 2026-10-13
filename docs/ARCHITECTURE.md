@@ -373,14 +373,20 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
 - **Page navigation**: `DocumentController.scrollToPage` animates the viewport with
   `DocumentScroller` (centre point glides, zoom eases; jumps longer than two screens
   start near the target); it stops an inertial glide first (`beforeJump`). Single-page
-  flow fits the whole page and slides it in.
+  flow fits the whole page and slides it in. At the whole-page zoom it turns pages by
+  gesture (`document/single_page_turns.dart`): a one-finger swipe or a trackpad swipe
+  (`PageSwipe`: a flick ≥ 32 px at ≥ 300 px/s, or a drag across 30 % of the width,
+  mostly sideways; event timestamps), or the wheel (one 50 px step turns one page,
+  then it rests 300 ms so one flick turns one page). Zoomed in, they pan.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
   P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
   Ctrl/⌘+E export, Ctrl/⌘+G go to page (paged), Ctrl+F search;
-  Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
-  `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
-  Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
-  while text is edited.
+  Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases (`canvas/canvas_shortcuts.dart`):
+  arrows move around (15 % of the screen, gliding), `+` / `-` (also with Ctrl/⌘),
+  `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks
+  (`document/document_shortcuts.dart`): ← / → and Page Up / Down turn pages, ↑ / ↓
+  scroll (turn pages in single-page flow), `+` / `-` zoom 1.25× steps, **Home first
+  page**, End last page. Single keys are ignored while text is edited.
 
 ## Templates (`domain/templates/`, `domain/paper_pattern.dart`)
 
@@ -907,9 +913,29 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
 - **Touch**: with *stylus only* (palm rejection) on, fingers pan/zoom; off,
   one finger draws and a second finger turns it into a pinch.
   Stylus-only switches on automatically the first time a stylus is used.
+  **Palm**: a touch landing while the pen touches, hovers, or lifted < 300 ms ago
+  (`InkInputController.palmQuiet`, `StylusProximity`) neither navigates nor draws —
+  between strokes the pen only lifts briefly.
 - **Mouse**: left draws, middle/right drag pans (a right click without dragging opens the
-  context menu), wheel scrolls, Ctrl+wheel zooms.
-- **Trackpad**: two-finger pan, pinch zoom.
+  context menu), wheel scrolls (stops a glide), Ctrl+wheel zooms about the cursor
+  (`exp(-dy/400)` per event, at most 2× per event).
+- **Trackpad**: two-finger pan, pinch zoom about the cursor (the event's total scale, so
+  it follows the fingers exactly); fingers back on the pad (`PointerScrollInertiaCancel`)
+  catch a glide.
+- **Navigation feel** (`input/pointer_navigation.dart`, `navigation/kinetic_pan.dart`):
+  the fingers' centroid pans and their spread zooms about it, so the point under the
+  fingers stays there; fingers landing or lifting never jump the view. Like native
+  scroll views a gesture moves the view only once a finger passes `kTouchSlop` (the
+  view then lags by the slop, never jumps), and zooms only once the spread changes by
+  8 px — taps and resting fingers never nudge the page, two-finger pans never drift in
+  zoom (and glide). A gesture that moves the view is never a tap, double tap or long
+  press (`CanvasGestures.navigated`). Past the zoom limits a pinch stretches the zoom
+  with resistance (`ViewportController.stretchAt`, at most 1.25×) and springs back on
+  release. When a gesture lets go, `KineticPan` first asks `settle` (a pinch ending
+  within 8 % of the home zoom — page fit, 100 % on canvases — snaps to it,
+  `DoubleTapZoom.snap`; single-page flow glides back to the whole page unless zoomed in,
+  `DocumentController.settleSingle`), then springs back, then glides (iOS-like decay:
+  travels v/2, stopped by any touch, wheel or page jump).
 - **Canvas gestures** (`input/canvas_gestures.dart`) watch the same events without
   claiming them: a quick, still two-/three-finger tap (`MultiFingerTapDetector`:
   ≤ 300 ms, ≤ 24 px travel) → undo / redo; a still one-finger long press with a
