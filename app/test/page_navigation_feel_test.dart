@@ -151,6 +151,53 @@ void main() {
       await _close(tester);
     });
 
+    testWidgets('a wheel flick turns one page; a trackpad swipe turns too', (tester) async {
+      await _pump(tester, flow: PageFlow.single);
+      final doc = _doc(tester);
+      Future<void> wheel(double dy, int t) async {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: const Offset(400, 600),
+            scrollDelta: Offset(0, dy),
+            timeStamp: ms(t),
+          ),
+        );
+        await tester.pump();
+      }
+
+      // One notch turns; the rest of the flick (and its inertia) doesn't.
+      for (var i = 0; i < 6; i++) {
+        await wheel(53, 1000 + 40 * i);
+      }
+      await tester.pumpAndSettle();
+      expect(doc.currentPage, 1);
+      await wheel(-53, 2000);
+      await tester.pumpAndSettle();
+      expect(doc.currentPage, 0);
+
+      const cursor = Offset(400, 600);
+      await tester.sendEventToBinding(
+        PointerPanZoomStartEvent(pointer: 7, position: cursor, timeStamp: ms(3000)),
+      );
+      for (var i = 1; i <= 6; i++) {
+        await tester.sendEventToBinding(
+          PointerPanZoomUpdateEvent(
+            pointer: 7,
+            position: cursor,
+            pan: Offset(-20.0 * i, 0),
+            panDelta: const Offset(-20, 0),
+            timeStamp: ms(3000 + 16 * i),
+          ),
+        );
+      }
+      await tester.sendEventToBinding(
+        PointerPanZoomEndEvent(pointer: 7, position: cursor, timeStamp: ms(3110)),
+      );
+      await tester.pumpAndSettle();
+      expect(doc.currentPage, 1);
+      await _close(tester);
+    });
+
     testWidgets('a palm next to a hovering pen never turns the page', (tester) async {
       await _pump(tester, flow: PageFlow.single);
       final doc = _doc(tester);

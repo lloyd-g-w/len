@@ -12,7 +12,7 @@ import 'document_layout.dart';
 import 'document_painters.dart';
 import 'page_backgrounds.dart';
 import 'page_painting.dart';
-import 'page_swipe.dart';
+import 'single_page_turns.dart';
 
 /// Shows a paged notebook as a scrollable stack of pages (or one page at a
 /// time) and routes input to the page under the pointer.
@@ -98,8 +98,8 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
     _shownPage = page;
   }
 
-  /// Start of a possible page-turning swipe (single-page flow).
-  ({Offset at, Duration time})? _swipeStart;
+  /// Swipes, trackpad swipes and the wheel turn pages in single-page flow.
+  late final SinglePageTurns _turns = SinglePageTurns(_doc);
 
   DocumentController get _doc => widget.controller;
 
@@ -121,44 +121,33 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
     if ((_pointers.isEmpty || stylus) && !held) _doc.activateAt(e.localPosition);
     _pointers.add(e.pointer);
     widget.input.handleDown(e);
-    _trackSwipeStart(e);
+    // One finger that pans (palm rejection on; not a palm) may swipe.
+    final finger = e.kind == PointerDeviceKind.touch && widget.input.navigates(e.pointer);
+    _turns.fingerDown(e, alone: finger && _pointers.length == 1);
   }
 
   void _up(PointerUpEvent e) {
-    // Only a finger still navigating swipes (not a palm, nor one a pen
+    // Only the last finger, still navigating, swipes (not one a pen
     // landing stopped).
     final navigating = widget.input.navigates(e.pointer);
     widget.input.handleUp(e);
     _pointers.remove(e.pointer);
-    if (navigating) _maybeSwipe(e);
-    _swipeStart = null;
+    if (navigating && _pointers.isEmpty) {
+      _turns.fingerUp(e);
+    } else {
+      _turns.cancelSwipe();
+    }
   }
 
   void _cancel(PointerCancelEvent e) {
     widget.input.handleCancel(e);
     _pointers.remove(e.pointer);
-    _swipeStart = null;
+    _turns.cancelSwipe();
   }
 
-  void _trackSwipeStart(PointerDownEvent e) {
-    // One finger that pans (palm rejection on) may turn pages.
-    final swipeable =
-        _doc.flow == PageFlow.single &&
-        e.kind == PointerDeviceKind.touch &&
-        _pointers.length == 1 &&
-        widget.input.navigates(e.pointer);
-    _swipeStart = swipeable ? (at: e.localPosition, time: e.timeStamp) : null;
-  }
-
-  void _maybeSwipe(PointerUpEvent e) {
-    final start = _swipeStart;
-    if (start == null || _pointers.isNotEmpty) return;
-    // Zoomed in on the page, a swipe pans it instead.
-    final fit = _doc.frameTarget(_doc.currentPage)?.scale;
-    if (fit == null || _doc.viewport.scale > fit * DocumentController.singleZoomedIn) return;
-    final size = _doc.viewport.size;
-    final turn = PageSwipe.turn(e.localPosition - start.at, e.timeStamp - start.time, size.width);
-    if (turn != 0) _doc.goToPage(_doc.currentPage + turn);
+  void _signal(PointerSignalEvent e) {
+    if (e is PointerScrollEvent && _turns.wheel(e)) return;
+    widget.input.handleSignal(e);
   }
 
   @override
@@ -180,11 +169,20 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
             onPointerCancel: _cancel,
             onPointerHover: input.handleHover,
             onPointerSignal: (e) {
-              GestureBinding.instance.pointerSignalResolver.register(e, input.handleSignal);
+              GestureBinding.instance.pointerSignalResolver.register(e, _signal);
             },
-            onPointerPanZoomStart: input.handlePanZoomStart,
-            onPointerPanZoomUpdate: input.handlePanZoomUpdate,
-            onPointerPanZoomEnd: input.handlePanZoomEnd,
+            onPointerPanZoomStart: (e) {
+              input.handlePanZoomStart(e);
+              _turns.trackpadStart(e);
+            },
+            onPointerPanZoomUpdate: (e) {
+              input.handlePanZoomUpdate(e);
+              _turns.trackpadUpdate(e);
+            },
+            onPointerPanZoomEnd: (e) {
+              input.handlePanZoomEnd(e);
+              _turns.trackpadEnd(e);
+            },
             child: AnimatedBuilder(
               animation: _turn,
               builder: (context, child) {
