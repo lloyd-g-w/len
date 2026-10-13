@@ -543,6 +543,12 @@ template typography.**
   will drift unseen.
 - *Fix:* add them to `organise_screenshot_test.dart`,
   `app_surfaces3_screenshot_test.dart` and `toolbar_screenshot_test.dart`.
+- *Partly done (pen, \`fix/r8-pen\`):* \`toolbar_screenshot_test.dart\`
+  renders the scribble preview mid-stroke and the scribble tip
+  (\`scribble_preview_*\`, \`tip_scribble_*\`); \`pdf_screenshot_test.dart\`
+  a highlighter stroke snapped to PDF text on a tablet and a phone
+  (\`pdf_highlight_snapped_*\`). The other surfaces belong to other
+  branches.
 
 **R8-35 P2 · Small drift from DESIGN.md.**
 - *What:*

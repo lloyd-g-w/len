@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,7 +7,9 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/editor/chrome/editor_tips.dart';
 import 'package:len/features/editor/chrome/editor_top_bar.dart';
+import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
@@ -276,6 +279,57 @@ void main() {
       await tester.tap(find.byTooltip('More options'));
       await settle(tester);
       await shoot(tester, 'phone_more_menu_${mode.name}');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    testWidgets('scribble to erase: the preview and its tip ${mode.name}', (tester) async {
+      final m = mode.name;
+      await openEditor(
+        tester,
+        tablet,
+        2,
+        mode,
+        setUp: (s) {
+          s.preferences.stylusOnly = true;
+          s.settings.markTipSeen(EditorTip.penButton.name);
+        },
+      );
+      // Scribble over the second line's first word, the pen still down.
+      final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
+      final frame = doc.layout.frameOf(0)!;
+      final word = doc.surfaces.surfaceOf(doc.pages.first.id).model.strokeById('w5')!;
+      final box = Rect.fromPoints(
+        doc.viewport.toScreen(word.bounds.topLeft + frame.topLeft),
+        doc.viewport.toScreen(word.bounds.bottomRight + frame.topLeft),
+      ).inflate(4);
+      final pen = await tester.startGesture(box.topLeft, kind: PointerDeviceKind.stylus);
+      var ms = 0;
+      for (var k = 0; k < 8; k++) {
+        final y = box.top + box.height * (k + 1) / 9;
+        for (var i = 1; i <= 10; i++) {
+          final t = k.isEven ? i / 10 : 1 - i / 10;
+          await pen.moveTo(
+            Offset(box.left + box.width * t, y),
+            timeStamp: Duration(milliseconds: ms += 6),
+          );
+        }
+        await tester.pump();
+      }
+      final model = doc.surfaces.surfaceOf(doc.pages.first.id).model;
+      expect(model.isHidden(word.id), isTrue, reason: 'drawn dimmed instead');
+      // Let the dimming fade in.
+      await tester.pump(const Duration(milliseconds: 200));
+      await shoot(tester, 'scribble_preview_$m');
+      await pen.up(timeStamp: Duration(milliseconds: ms + 6));
+      await settle(tester);
+      // The second pick of the eraser teaches the gesture once.
+      for (final tool in ['Eraser (E)', 'Pen (P)', 'Eraser (E)']) {
+        await tester.tap(find.byTooltip(tool));
+        await settle(tester);
+      }
+      await shoot(tester, 'tip_scribble_$m');
       expect(tester.takeException(), isNull);
     });
   }
