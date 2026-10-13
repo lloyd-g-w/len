@@ -199,6 +199,21 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('a chrome menu keeps 8 dp from the screen edge on a phone', (tester) async {
+    await pumpEditor(tester, size: const Size(390, 844));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    final items = find.byType(MenuItemButton);
+    final panel = tester.getRect(
+      find.ancestor(of: items.first, matching: find.byType(Material)).first,
+    );
+    expect(panel.right, lessThanOrEqualTo(390 - 8));
+    expect(panel.left, greaterThanOrEqualTo(8));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
   testWidgets('Home goes to the first page of a paged notebook', (tester) async {
     await pumpEditor(tester, size: const Size(1280, 900));
     await tester.sendKeyEvent(LogicalKeyboardKey.end);

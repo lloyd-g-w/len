@@ -93,14 +93,16 @@ class _ChromeMenuAnchorState extends State<ChromeMenuAnchor> {
   @override
   Widget build(BuildContext context) {
     final guard = CanvasGuardScope.maybeOf(context);
-    return MenuAnchor(
-      controller: _controller,
-      reservedPadding: menuReservedPadding(context),
-      consumeOutsideTap: true,
-      onOpen: () => guard?.opened(_controller),
-      onClose: () => guard?.closed(_controller),
-      menuChildren: widget.menuChildren,
-      builder: widget.builder,
+    return MenuEdgeMargin(
+      child: MenuAnchor(
+        controller: _controller,
+        reservedPadding: menuReservedPadding(context),
+        consumeOutsideTap: true,
+        onOpen: () => guard?.opened(_controller),
+        onClose: () => guard?.closed(_controller),
+        menuChildren: widget.menuChildren,
+        builder: widget.builder,
+      ),
     );
   }
 }

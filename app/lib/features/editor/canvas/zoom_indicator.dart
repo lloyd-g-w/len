@@ -113,47 +113,49 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
         opacity: _visible ? 1 : 0,
         duration: Motion.medium,
         curve: Motion.standard,
-        child: MenuAnchor(
-          controller: _menu,
-          reservedPadding: menuReservedPadding(context),
-          onClose: _scheduleHide,
-          menuChildren: [
-            // A leading slot on every row keeps the labels aligned; the
-            // current zoom is checked.
-            for (final preset in ZoomIndicator.presets)
+        child: MenuEdgeMargin(
+          child: MenuAnchor(
+            controller: _menu,
+            reservedPadding: menuReservedPadding(context),
+            onClose: _scheduleHide,
+            menuChildren: [
+              // A leading slot on every row keeps the labels aligned; the
+              // current zoom is checked.
+              for (final preset in ZoomIndicator.presets)
+                MenuItemButton(
+                  leadingIcon: (_scale - preset).abs() < 0.005
+                      ? const Icon(Symbols.check_rounded)
+                      : const SizedBox(width: 24),
+                  onPressed: () => widget.onZoomTo(preset),
+                  child: Text(_label(preset)),
+                ),
+              const Divider(),
               MenuItemButton(
-                leadingIcon: (_scale - preset).abs() < 0.005
-                    ? const Icon(Symbols.check_rounded)
-                    : const SizedBox(width: 24),
-                onPressed: () => widget.onZoomTo(preset),
-                child: Text(_label(preset)),
+                leadingIcon: const Icon(Symbols.fit_screen_rounded),
+                onPressed: widget.onFit,
+                shortcut: const SingleActivator(LogicalKeyboardKey.digit1, shift: true),
+                child: const Text('Fit content'),
               ),
-            const Divider(),
-            MenuItemButton(
-              leadingIcon: const Icon(Symbols.fit_screen_rounded),
-              onPressed: widget.onFit,
-              shortcut: const SingleActivator(LogicalKeyboardKey.digit1, shift: true),
-              child: const Text('Fit content'),
-            ),
-            MenuItemButton(
-              leadingIcon: const Icon(Symbols.home_rounded),
-              onPressed: widget.onBackToStart,
-              shortcut: const SingleActivator(LogicalKeyboardKey.home),
-              child: const Text('Back to start'),
-            ),
-          ],
-          child: FloatingPanel(
-            radius: Radii.pill,
-            padding: EdgeInsets.zero,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(Radii.pill),
-              onTap: () => _menu.isOpen ? _menu.close() : _menu.open(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.sm),
-                child: Text(
-                  _label(_scale),
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
+              MenuItemButton(
+                leadingIcon: const Icon(Symbols.home_rounded),
+                onPressed: widget.onBackToStart,
+                shortcut: const SingleActivator(LogicalKeyboardKey.home),
+                child: const Text('Back to start'),
+              ),
+            ],
+            child: FloatingPanel(
+              radius: Radii.pill,
+              padding: EdgeInsets.zero,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(Radii.pill),
+                onTap: () => _menu.isOpen ? _menu.close() : _menu.open(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.sm),
+                  child: Text(
+                    _label(_scale),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
               ),
