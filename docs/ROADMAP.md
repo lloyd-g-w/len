@@ -204,16 +204,15 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   toolbar with a tool switcher, title left-aligned with the folder on every size, open-notebook
   transition from the cover, export options, a one-time pen side-button tip,
   empty-canvas hint, Escape closes chrome menus
-- ✅ Customisable toolbar: reorder and hide tools, favourite pens (tool + colour + width, GoodNotes
-  favourites row; also in the phone tool switcher), edit mode from "⋯" → Toolbar, saved per device
-  (in-editor search: ✅ text and PDF, see Library)
+- ✅ Fixed toolbar order (customising and favourite pens removed, SIMPLIFY #9, #10); quick colour
+  and width slots per ink instead (in-editor search: ✅ text and PDF, see Library)
 - ✅ Split view (tablets in landscape, desktops): two notebooks — or two places in one — side by
   side, resizable, each pane a full editor (tools linked); drag a lasso selection across
   to copy it; from a tab's menu or the top bar
 - ✅ Presenting: F5 is focus mode (no chrome, full screen on web, Linux and Windows,
   immersive on Android) with the laser pointer; Space / ← / → turn pages
 - ⬜ Presentation on a second display as a separate audience view (Android Presentation API,
-  desktop multi-window once Flutter supports it); synced favourite pens
+  desktop multi-window once Flutter supports it)
 - ✅ App identity: one icon design for all platforms (Android adaptive + themed icon), splash
   screen, edge-to-edge system bars, Linux desktop entry, Windows window placement
 - ✅ CI (analyze, tests, Linux/Android/Web/Windows builds, server image) and tagged releases
