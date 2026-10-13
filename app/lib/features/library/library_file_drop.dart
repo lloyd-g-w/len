@@ -50,7 +50,7 @@ class _LibraryFileDropState extends State<LibraryFileDrop> {
                     borderRadius: BorderRadius.circular(Radii.sm),
                   ),
                   child: Center(
-                    child: Card(
+                    child: OverlaySurface(
                       child: Padding(
                         padding: const EdgeInsets.all(Gaps.lg),
                         child: Text(

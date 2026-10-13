@@ -28,7 +28,7 @@ class SearchHighlightPainter extends CustomPainter {
     if (!controller.isOpen) return;
     final screen = Offset.zero & size;
     final fill = Paint()..color = matchColor.withValues(alpha: 0.35);
-    final currentFill = Paint()..color = matchColor.withValues(alpha: 0.6);
+    final currentFill = Paint()..color = matchColor.withValues(alpha: 0.5);
     final outline = Paint()
       ..color = currentColor
       ..style = PaintingStyle.stroke

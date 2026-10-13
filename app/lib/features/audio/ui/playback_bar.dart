@@ -111,7 +111,10 @@ class PlaybackBar extends StatelessWidget {
                 style: ThemeComponents.inkIconButton(Theme.of(context).colorScheme),
                 tooltip: playback.playing ? 'Pause (Space)' : 'Play (Space)',
                 onPressed: playback.loading ? null : () => unawaited(playback.toggle()),
-                icon: Icon(playback.playing ? Symbols.pause_sharp : Symbols.play_arrow_sharp),
+                icon: Icon(
+                  playback.playing ? Symbols.pause_sharp : Symbols.play_arrow_sharp,
+                  fill: 1,
+                ),
               ),
               _skip(playback, back: false),
               const SizedBox(width: Gaps.xs),

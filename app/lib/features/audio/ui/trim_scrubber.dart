@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../ui/app_theme.dart';
 import '../recording_overview.dart';
 import '../trim_range.dart';
 import 'audio_format.dart';
@@ -212,7 +213,7 @@ class TrimFramePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const tab = TrimScrubber.tab;
-    const r = Radius.circular(6);
+    const r = Radius.circular(Radii.sm);
     final fill = Paint()..color = color;
     // The frame surrounds the waveform; the ink strip below stays clear.
     const top = -1.0, bottom = WaveformScrubber.waveHeight + 1;

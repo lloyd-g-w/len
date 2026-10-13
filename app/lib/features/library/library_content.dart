@@ -113,8 +113,7 @@ class LibraryContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final compact = width < Breakpoints.medium;
+    final compact = Breakpoints.libraryCompact(MediaQuery.sizeOf(context));
     final gutter = compact ? Gaps.lg + Gaps.xs : Gaps.xxl;
     final gridSpacing = gridSpacingFor(compact: compact);
     final folders = _c.visibleFolders;
