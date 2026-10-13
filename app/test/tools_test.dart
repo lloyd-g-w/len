@@ -282,6 +282,40 @@ void main() {
     trail.dispose();
   });
 
+  test('a hovering mouse shows the laser dot without a trail or frames', () {
+    final trail = LaserTrail();
+    trail.hover(const Offset(10, 20));
+    expect(trail.head, const Offset(10, 20));
+    expect(trail.headAlpha, 1);
+    expect(trail.isEmpty, isTrue, reason: 'hovering leaves no trail');
+    expect(trail.animating, isFalse, reason: 'a still dot needs no frames');
+    trail
+      ..hover(const Offset(30, 20))
+      ..tick(1000);
+    expect(trail.headAlpha, 1, reason: 'stays while hovering');
+    expect(trail.head, const Offset(30, 20));
+    // Pressing draws as usual; lifting with the mouse still there fades
+    // until the next hover shows it again.
+    trail
+      ..down(const Offset(30, 20))
+      ..move(const Offset(60, 20))
+      ..up();
+    expect(trail.animating, isTrue);
+    // Leaving the canvas fades the dot.
+    trail
+      ..hover(const Offset(60, 20))
+      ..tick(5000);
+    expect(trail.headAlpha, 1);
+    trail
+      ..hover(null)
+      ..tick(6000) // Stamped on the first frame after leaving, like a lift.
+      ..tick(6000 + trail.lifetime.inMilliseconds / 2);
+    expect(trail.headAlpha, closeTo(0.5, 1e-9));
+    trail.tick(20000);
+    expect(trail.isVisible, isFalse);
+    trail.dispose();
+  });
+
   test('the laser tool records samples a few pixels apart; the dot follows all', () {
     final trail = LaserTrail();
     final tool = LaserTool(trail, config: () => const LaserConfig(size: 9))

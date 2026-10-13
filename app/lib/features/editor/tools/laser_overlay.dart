@@ -44,15 +44,17 @@ class _LaserOverlayState extends State<LaserOverlay> with SingleTickerProviderSt
     super.dispose();
   }
 
+  // Frames only while something fades: a dot held under a still (pressed
+  // or hovering) pointer repaints when it moves, not every frame.
   void _onTrail() {
-    if (widget.trail.isVisible && !_ticker.isActive) _ticker.start();
+    if (widget.trail.animating && !_ticker.isActive) _ticker.start();
   }
 
   void _tick() {
     // Frame time (monotonic; fake time in tests).
     final now = SchedulerBinding.instance.currentFrameTimeStamp.inMicroseconds / 1000;
     widget.trail.tick(now);
-    if (!widget.trail.isVisible) _ticker.stop();
+    if (!widget.trail.animating) _ticker.stop();
   }
 
   @override

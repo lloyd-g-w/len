@@ -121,8 +121,10 @@ laser pointer was not customisable and "crazy slow". Reviewed from
   length in its options popup; soft glow with a bright core on a smooth,
   fading, thinning curve. Fast: no blur filters, a ring buffer and a
   self-contained repaint (see ARCHITECTURE *Editing tools*).
-- ⬜ The laser dot shows only while pressed; a hover dot for mouse
-  presenters would be nice.
+- ✅ The laser dot shows only while pressed; a hover dot for mouse
+  presenters would be nice. → With the laser and a mouse, the dot follows
+  the pointer without a press (no trail; frames only while something
+  fades); it fades on leaving the page or switching tools.
 
 ## Workspace features (`feat/workspace`)
 

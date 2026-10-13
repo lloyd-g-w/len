@@ -40,6 +40,9 @@ class LaserTrail extends ChangeNotifier {
   Offset? _head;
   bool _pressed = false;
 
+  /// A mouse hovers with the laser: the dot follows it, unpressed.
+  bool _hovering = false;
+
   /// Frame time the pointer lifted ([_pending] until the next frame).
   double? _liftedAt;
 
@@ -73,10 +76,11 @@ class LaserTrail extends ChangeNotifier {
   /// Where the dot is (world), while it shows.
   Offset? get head => _head;
 
-  /// Opacity of the dot: 1 while the pointer is down, then fading.
+  /// Opacity of the dot: 1 while the pointer is down or a mouse hovers,
+  /// then fading.
   double get headAlpha {
     if (_head == null) return 0;
-    if (_pressed) return 1;
+    if (_pressed || _hovering) return 1;
     return _fade(_liftedAt ?? _pending, config.mode == LaserMode.dot ? dotFade : lifetime);
   }
 
@@ -84,6 +88,26 @@ class LaserTrail extends ChangeNotifier {
       time == _pending ? 1 : (1 - (_now - time) / over.inMilliseconds).clamp(0.0, 1.0);
 
   int _index(int i) => (_first + i) % capacity;
+
+  /// Whether a hovering mouse shows the dot ([hover]).
+  bool get hovering => _hovering;
+
+  /// A mouse hovers at [world] (a presenter pointing without pressing):
+  /// the dot follows it, leaving no trail. Null: it left; the dot fades.
+  void hover(Offset? world) {
+    if (world == null) {
+      if (!_hovering) return;
+      _hovering = false;
+      if (!_pressed) _liftedAt = _pending;
+      notifyListeners();
+      return;
+    }
+    if (_pressed) return; // The press draws.
+    _hovering = true;
+    _liftedAt = null;
+    _head = world;
+    notifyListeners();
+  }
 
   /// The pointer went down at [world].
   void down(Offset world) {
@@ -142,11 +166,16 @@ class LaserTrail extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether frames change anything: trail points fading or the dot
+  /// fading. A dot held still (pressed or hovering) needs none.
+  bool get animating => _length > 0 || (_head != null && !_pressed && !_hovering && headAlpha > 0);
+
   void clear() {
     _first = 0;
     _length = 0;
     _head = null;
     _pressed = false;
+    _hovering = false;
     _liftedAt = null;
     notifyListeners();
   }
