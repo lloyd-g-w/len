@@ -37,6 +37,10 @@ class AppPreferences extends ChangeNotifier {
   (double, double)? get toolbarFloat => _settings.toolbarFloat;
   set toolbarFloat((double, double)? value) => _update(() => _settings.toolbarFloat = value);
 
+  /// Where the focus-mode tool puck sits, as fractions of the editor's size.
+  (double, double)? get puckFloat => _settings.puckFloat;
+  set puckFloat((double, double)? value) => _update(() => _settings.puckFloat = value);
+
   LibraryLayout get libraryLayout => _settings.libraryLayout;
   set libraryLayout(LibraryLayout value) => _update(() => _settings.libraryLayout = value);
 

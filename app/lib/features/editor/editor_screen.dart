@@ -290,6 +290,7 @@ class _EditorScreenState extends State<_EditorView> {
 
   void _onFocus() {
     if (!_focusNode.hasFocus) return;
+    if (_pane case final pane?) widget.split!.use(pane);
     _services.incomingFiles.targets.add(_importTarget);
     _services.routeOwners.current = this; // Dialogs opened by keyboard.
   }
@@ -494,6 +495,9 @@ class _EditorScreenState extends State<_EditorView> {
         onPointerDown: (e) {
           // What opens from here (dialogs, sheets) belongs to this editor.
           _services.routeOwners.current = this;
+          // Its first contact also gives this pane the split's full chrome
+          // (the contact itself still draws, scrolls or taps as usual).
+          if (_pane case final pane?) widget.split!.use(pane);
         },
         child: EditorLayers(
           key: _areaKey,
@@ -514,21 +518,34 @@ class _EditorScreenState extends State<_EditorView> {
     );
   }
 
-  Widget _buildChrome(ChromeLayout layout, OpenNotebooks? tabs, bool band) => EditorChromeHost(
-    session: _session,
-    layout: layout,
-    commands: _commands,
-    title: _notebook.title,
-    subtitle: folderNameOf(_services, _notebook),
-    audio: _audio,
-    hud: _hud,
-    tips: _tips,
-    tabs: tabs,
-    secondPane: widget.secondPane,
-    band: band,
-    splitMenu: (widget.split?.available ?? false) && !widget.secondPane
-        ? SplitViewMenu(tabs: _services.openNotebooks, notebookId: _notebook.id)
-        : null,
-    navigatorActivity: _session.doc?.viewport,
-  );
+  /// The chrome; in a split view it dims while the other pane is in use.
+  Widget _buildChrome(ChromeLayout layout, OpenNotebooks? tabs, bool band) {
+    final split = widget.split;
+    final pane = _pane;
+    if (split == null || pane == null) return _chromeHost(layout, tabs, band, dimmed: false);
+    return ListenableBuilder(
+      listenable: split,
+      builder: (context, _) => _chromeHost(layout, tabs, band, dimmed: split.isDimmed(pane)),
+    );
+  }
+
+  Widget _chromeHost(ChromeLayout layout, OpenNotebooks? tabs, bool band, {required bool dimmed}) =>
+      EditorChromeHost(
+        dimmed: dimmed,
+        session: _session,
+        layout: layout,
+        commands: _commands,
+        title: _notebook.title,
+        subtitle: folderNameOf(_services, _notebook),
+        audio: _audio,
+        hud: _hud,
+        tips: _tips,
+        tabs: tabs,
+        secondPane: widget.secondPane,
+        band: band,
+        splitMenu: (widget.split?.available ?? false) && !widget.secondPane
+            ? SplitViewMenu(tabs: _services.openNotebooks, notebookId: _notebook.id)
+            : null,
+        navigatorActivity: _session.doc?.viewport,
+      );
 }

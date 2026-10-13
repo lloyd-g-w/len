@@ -93,6 +93,25 @@ class SplitController extends ChangeNotifier {
 
   bool get isSplit => available && tabs.splitId != null;
 
+  /// The pane used last (its first pointer contact or keyboard focus);
+  /// null: none yet, the first pane counts.
+  SplitPane? _active;
+
+  /// [pane] was used: it gets full chrome, the other dims (REDESIGN §2.8).
+  void use(SplitPane pane) {
+    if (_active == pane) return;
+    _active = pane;
+    notifyListeners();
+  }
+
+  /// Whether [pane]'s chrome is dimmed: both panes are on screen and the
+  /// other one was used last.
+  bool isDimmed(SplitPane pane) {
+    if (!isSplit || _solo != null || _panes.length < 2) return false;
+    final active = _active ?? _panes.where((p) => !p.secondary).firstOrNull;
+    return active != null && active != pane;
+  }
+
   /// Whether [pane] is on screen: the pane in focus mode alone, else the
   /// first pane, and the second while there is room for it.
   bool isShown(SplitPane pane) {
@@ -121,6 +140,7 @@ class SplitController extends ChangeNotifier {
     if (listener != null) pane.session.tools.removeListener(listener);
     if (_dropTarget == pane) _dropTarget = null;
     if (_dragSource == pane) _dragSource = null;
+    if (_active == pane) _active = null;
     if (_solo == pane) {
       // The editor in focus mode went (its tab closed or switched, the split
       // closed): show the other pane again. Deferred, as editors detach

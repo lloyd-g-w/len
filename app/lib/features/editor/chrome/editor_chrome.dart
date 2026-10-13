@@ -88,7 +88,15 @@ class EditorChrome extends StatelessWidget {
     this.navigatorActivity,
     this.floatAt,
     this.onFloatMoved,
+    this.puck,
+    this.puckAt,
+    this.onPuckMoved,
+    this.dimmed = false,
   });
+
+  /// The other pane of a split view is in use: the top bar and toolbar
+  /// recede to 60 % ([Motion.fast]); a touch here brings them back.
+  final bool dimmed;
 
   final ChromeLayout layout;
 
@@ -114,17 +122,29 @@ class EditorChrome extends StatelessWidget {
   final (double, double)? floatAt;
   final ValueChanged<(double, double)>? onFloatMoved;
 
+  /// Focus mode's tool puck (`ToolPuck`), where it was left ([puckAt],
+  /// bottom centre by default).
+  final Widget? puck;
+  final (double, double)? puckAt;
+  final ValueChanged<(double, double)>? onPuckMoved;
+
   @override
   Widget build(BuildContext context) {
     final focus = layout.focus;
     final safe = layout.safe;
     final scheme = Theme.of(context).colorScheme;
+    Widget recede(Widget child) => AnimatedOpacity(
+      opacity: dimmed ? 0.6 : 1,
+      duration: Motion.fast,
+      curve: Motion.standard,
+      child: child,
+    );
     return Stack(
       children: [
         if (layout.dock == ToolbarDock.floating)
           Positioned.fill(
             child: ToolbarSlot(
-              toolbar: toolbar,
+              toolbar: recede(toolbar),
               insets: EdgeInsets.only(
                 top: layout.barBottom,
                 bottom: safe.bottom,
@@ -151,7 +171,7 @@ class EditorChrome extends StatelessWidget {
                 ),
                 child: Padding(
                   padding: EdgeInsets.only(bottom: safe.bottom, left: safe.left, right: safe.right),
-                  child: toolbar,
+                  child: recede(toolbar),
                 ),
               ),
             ),
@@ -188,7 +208,7 @@ class EditorChrome extends StatelessWidget {
           top: 0,
           left: 0,
           right: 0,
-          child: ChromeFade(visible: !focus, edge: const Offset(0, -1), child: topBar),
+          child: ChromeFade(visible: !focus, edge: const Offset(0, -1), child: recede(topBar)),
         ),
         Positioned(
           top: layout.covered.top + Gaps.xl,
@@ -211,6 +231,18 @@ class EditorChrome extends StatelessWidget {
             ],
           ),
         ),
+        // Only in focus mode: otherwise its controls would sit (hidden) in
+        // the tree beside the toolbar's own.
+        if (puck case final puck? when focus)
+          Positioned.fill(
+            child: ToolbarSlot(
+              toolbar: puck,
+              insets: safe,
+              floatAt: puckAt ?? const (0.5, 1.0),
+              onFloatMoved: onPuckMoved,
+              visible: focus,
+            ),
+          ),
         Positioned(
           top: safe.top + Gaps.sm,
           right: safe.right + Gaps.sm,
