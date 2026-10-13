@@ -132,7 +132,7 @@ class _AllTemplatesTile extends StatelessWidget {
                   border: Border.all(color: scheme.outlineVariant),
                 ),
                 child: Icon(
-                  Symbols.grid_view_sharp,
+                  Symbols.grid_view_rounded,
                   size: Glyphs.bar,
                   color: scheme.onSurfaceVariant,
                 ),

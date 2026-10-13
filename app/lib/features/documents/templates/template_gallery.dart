@@ -145,7 +145,7 @@ class _ImportTile extends StatelessWidget {
                   border: Border.all(color: scheme.outline.withValues(alpha: 0.6)),
                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
                 ),
-                child: Icon(Symbols.add_photo_alternate_sharp, color: scheme.primary),
+                child: Icon(Symbols.add_photo_alternate_rounded, color: scheme.primary),
               ),
               const SizedBox(height: Gaps.xs),
               SizedBox(
@@ -275,7 +275,7 @@ class _CheckBadge extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
       ),
-      child: Icon(Symbols.check_sharp, size: 12, color: Theme.of(context).colorScheme.onPrimary),
+      child: Icon(Symbols.check_rounded, size: 12, color: Theme.of(context).colorScheme.onPrimary),
     );
   }
 }

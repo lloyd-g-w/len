@@ -44,7 +44,7 @@ class AudioBarButton extends StatelessWidget {
   Widget _idle(BuildContext context) {
     final record = BarButton(
       tooltip: 'Record audio',
-      icon: Symbols.mic_sharp,
+      icon: Symbols.mic_rounded,
       onPressed: () => unawaited(startRecording(context, audio)),
     );
     if (audio.recordings.isEmpty) return record;
@@ -58,7 +58,7 @@ class AudioBarButton extends StatelessWidget {
         fixedSize: const Size(20, 40),
         padding: EdgeInsets.zero,
       ),
-      icon: const Icon(Symbols.arrow_drop_down_sharp),
+      icon: const Icon(Symbols.arrow_drop_down_rounded),
     );
     return Row(mainAxisSize: MainAxisSize.min, children: [record, list]);
   }
@@ -69,7 +69,7 @@ class AudioBarButton extends StatelessWidget {
 /// Record audio, and Recordings once there are any (as the bar's ▾).
 List<Widget> audioMenuItems(BuildContext context, NotebookAudio audio) => [
   MenuItemButton(
-    leadingIcon: const Icon(Symbols.mic_sharp),
+    leadingIcon: const Icon(Symbols.mic_rounded),
     onPressed: () => unawaited(startRecording(context, audio)),
     child: const Text('Record audio'),
   ),
@@ -79,7 +79,7 @@ List<Widget> audioMenuItems(BuildContext context, NotebookAudio audio) => [
     builder: (_, _) => audio.recordings.isEmpty
         ? const SizedBox.shrink()
         : MenuItemButton(
-            leadingIcon: const Icon(Symbols.graphic_eq_sharp),
+            leadingIcon: const Icon(Symbols.graphic_eq_rounded),
             onPressed: () => unawaited(showRecordingsSheet(context, audio)),
             child: const Text('Recordings'),
           ),
@@ -168,12 +168,12 @@ class RecordingPill extends StatelessWidget {
           const SizedBox(width: Gaps.xxs),
           _PillButton(
             tooltip: paused ? 'Resume recording' : 'Pause recording',
-            icon: paused ? Symbols.play_arrow_sharp : Symbols.pause_sharp,
+            icon: paused ? Symbols.play_arrow_rounded : Symbols.pause_rounded,
             onPressed: () => unawaited(togglePause(context, recorder)),
           ),
           _PillButton(
             tooltip: 'Stop recording',
-            icon: Symbols.stop_sharp,
+            icon: Symbols.stop_rounded,
             onPressed: () => unawaited(stopRecording(context, recorder)),
           ),
         ],

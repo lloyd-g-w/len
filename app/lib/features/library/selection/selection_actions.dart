@@ -76,7 +76,7 @@ extension SelectionActions on LibraryActions {
       message: 'They will be removed from all synced devices. This can’t be undone.',
       confirmLabel: 'Delete forever',
       destructive: true,
-      icon: Symbols.delete_forever_sharp,
+      icon: Symbols.delete_forever_rounded,
     );
     if (!ok) return;
     for (final id in ids) {

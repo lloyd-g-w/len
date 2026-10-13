@@ -111,7 +111,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
             builder: (anchor) => IconButton(
               tooltip: 'More colours',
               padding: EdgeInsets.zero,
-              icon: const Icon(Symbols.add_sharp, size: Glyphs.bar),
+              icon: const Icon(Symbols.add_rounded, size: Glyphs.bar),
               onPressed: () async {
                 final colour = await pickColour(
                   anchor,
@@ -148,7 +148,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           IconButton(
             tooltip: 'Smaller',
             onPressed: () => step(-1),
-            icon: const Icon(Symbols.text_decrease_sharp, size: Glyphs.bar),
+            icon: const Icon(Symbols.text_decrease_rounded, size: Glyphs.bar),
           ),
           SizedBox(
             width: 40,
@@ -157,7 +157,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           IconButton(
             tooltip: 'Larger',
             onPressed: () => step(1),
-            icon: const Icon(Symbols.text_increase_sharp, size: Glyphs.bar),
+            icon: const Icon(Symbols.text_increase_rounded, size: Glyphs.bar),
           ),
         ],
       ),
@@ -174,11 +174,11 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
       OptionHeader(strokes.length == 1 ? 'Ink' : '${strokes.length} strokes'),
       SegmentedButton<bool>(
         segments: const [
-          ButtonSegment(value: false, label: Text('Pen'), icon: Icon(Symbols.edit_sharp)),
+          ButtonSegment(value: false, label: Text('Pen'), icon: Icon(Symbols.edit_rounded)),
           ButtonSegment(
             value: true,
             label: Text('Highlighter'),
-            icon: Icon(Symbols.border_color_sharp),
+            icon: Icon(Symbols.border_color_rounded),
           ),
         ],
         selected: {?tool},

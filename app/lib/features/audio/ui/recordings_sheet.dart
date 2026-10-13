@@ -109,7 +109,7 @@ class _RecordingsListState extends State<RecordingsList> {
             IconButton(
               tooltip: 'Select',
               onPressed: () => setState(() => _selected = {}),
-              icon: const Icon(Symbols.checklist_sharp),
+              icon: const Icon(Symbols.checklist_rounded),
             ),
           const SizedBox(width: Gaps.xs),
           FilledButton.tonalIcon(
@@ -117,7 +117,7 @@ class _RecordingsListState extends State<RecordingsList> {
               Navigator.of(context).pop();
               unawaited(startRecording(context, audio));
             },
-            icon: const Icon(Symbols.mic_sharp),
+            icon: const Icon(Symbols.mic_rounded),
             label: const Text('Record'),
           ),
         ],
@@ -146,7 +146,7 @@ class _RecordingsListState extends State<RecordingsList> {
           IconButton(
             tooltip: 'Cancel selection',
             onPressed: () => setState(() => _selected = null),
-            icon: const Icon(Symbols.close_sharp),
+            icon: const Icon(Symbols.close_rounded),
           ),
           Expanded(
             child: Text(
@@ -158,23 +158,23 @@ class _RecordingsListState extends State<RecordingsList> {
             tooltip: all ? 'Select none' : 'Select all',
             onPressed: () =>
                 setState(() => _selected = all ? {} : {for (final r in recordings) r.id}),
-            icon: Icon(all ? Symbols.deselect_sharp : Symbols.select_all_sharp),
+            icon: Icon(all ? Symbols.deselect_rounded : Symbols.select_all_rounded),
           ),
           IconButton(
             tooltip: audio.canSaveToDevice ? 'Share…' : 'Export…',
             onPressed: chosen.isEmpty ? null : () => unawaited(_export(chosen)),
-            icon: const Icon(Symbols.ios_share_sharp),
+            icon: const Icon(Symbols.ios_share_rounded),
           ),
           if (audio.canSaveToDevice)
             IconButton(
               tooltip: 'Save to device…',
               onPressed: chosen.isEmpty ? null : () => unawaited(_export(chosen, toDevice: true)),
-              icon: const Icon(Symbols.download_sharp),
+              icon: const Icon(Symbols.download_rounded),
             ),
           IconButton(
             tooltip: 'Delete…',
             onPressed: chosen.isEmpty ? null : () => unawaited(_deleteAll(chosen)),
-            icon: const Icon(Symbols.delete_sharp),
+            icon: const Icon(Symbols.delete_rounded),
           ),
         ],
       ),
@@ -241,7 +241,9 @@ class _RecordingTile extends StatelessWidget {
       leading: selecting
           ? Checkbox(value: selected, onChanged: (_) => onSelect())
           : Icon(
-              open && audio.playback.playing ? Symbols.graphic_eq_sharp : Symbols.play_circle_sharp,
+              open && audio.playback.playing
+                  ? Symbols.graphic_eq_rounded
+                  : Symbols.play_circle_rounded,
             ),
       title: Text(recording.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(details, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -256,34 +258,38 @@ class _RecordingTile extends StatelessWidget {
           ? null
           : MenuIconButton<String>(
               tooltip: 'More',
-              icon: const Icon(Symbols.more_horiz_sharp),
+              icon: const Icon(Symbols.more_horiz_rounded),
               onSelected: (action) => unawaited(_run(context, action)),
               items: () => [
                 if (size != null)
                   MenuRow(
                     value: 'size',
-                    icon: Symbols.storage_sharp,
+                    icon: Symbols.storage_rounded,
                     label: '${formatBytes(size)} on this device',
                     enabled: false,
                   ),
-                const MenuRow(value: 'rename', icon: Symbols.edit_sharp, label: 'Rename…'),
-                const MenuRow(value: 'trim', icon: Symbols.content_cut_sharp, label: 'Trim…'),
+                const MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),
+                const MenuRow(value: 'trim', icon: Symbols.content_cut_rounded, label: 'Trim…'),
                 if (recording.trimmed)
-                  const MenuRow(value: 'untrim', icon: Symbols.restore_sharp, label: 'Reset trim'),
+                  const MenuRow(
+                    value: 'untrim',
+                    icon: Symbols.restore_rounded,
+                    label: 'Reset trim',
+                  ),
                 MenuRow(
                   value: 'export',
-                  icon: Symbols.ios_share_sharp,
+                  icon: Symbols.ios_share_rounded,
                   label: audio.canSaveToDevice ? 'Share…' : 'Export…',
                 ),
                 if (audio.canSaveToDevice)
                   const MenuRow(
                     value: 'save',
-                    icon: Symbols.download_sharp,
+                    icon: Symbols.download_rounded,
                     label: 'Save to device…',
                   ),
                 const MenuRow(
                   value: 'delete',
-                  icon: Symbols.delete_sharp,
+                  icon: Symbols.delete_rounded,
                   label: 'Delete…',
                   destructive: true,
                 ),

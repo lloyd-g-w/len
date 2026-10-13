@@ -6,12 +6,12 @@ import '../../../ui/menus.dart';
 
 /// Something the user asked for on one page in the overview.
 enum PageCommand {
-  insertAfter('Add page after', Symbols.vertical_align_bottom_sharp),
-  duplicate('Duplicate', Symbols.library_add_sharp),
-  template('Change template…', Symbols.grid_on_sharp),
-  saveAsTemplate('Save as template…', Symbols.dashboard_customize_sharp),
-  bookmark('Bookmark', Symbols.bookmark_sharp),
-  delete('Delete', Symbols.delete_sharp);
+  insertAfter('Add page after', Symbols.vertical_align_bottom_rounded),
+  duplicate('Duplicate', Symbols.library_add_rounded),
+  template('Change template…', Symbols.grid_on_rounded),
+  saveAsTemplate('Save as template…', Symbols.dashboard_customize_rounded),
+  bookmark('Bookmark', Symbols.bookmark_rounded),
+  delete('Delete', Symbols.delete_rounded);
 
   const PageCommand(this.label, this.icon);
   final String label;
@@ -59,7 +59,7 @@ List<PopupMenuEntry<PageCommand>> pageMenuItems(NotebookPage page) => [
     if (c == PageCommand.delete) const PopupMenuDivider(),
     MenuRow(
       value: c,
-      icon: c == PageCommand.bookmark && page.bookmarked ? Symbols.bookmark_remove_sharp : c.icon,
+      icon: c == PageCommand.bookmark && page.bookmarked ? Symbols.bookmark_remove_rounded : c.icon,
       label: c == PageCommand.bookmark && page.bookmarked ? 'Remove bookmark' : c.label,
       destructive: c == PageCommand.delete,
     ),

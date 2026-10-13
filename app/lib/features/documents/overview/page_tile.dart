@@ -154,7 +154,7 @@ class _Thumb extends StatelessWidget {
                 Positioned(
                   top: 0,
                   right: 14,
-                  child: Icon(Symbols.bookmark_sharp, fill: 1, size: 26, color: Palette.bookmark),
+                  child: Icon(Symbols.bookmark_rounded, fill: 1, size: 26, color: Palette.bookmark),
                 ),
               if (tile.selecting)
                 Positioned(top: 10, left: 10, child: _Check(selected: tile.selected)),
@@ -199,7 +199,7 @@ class _Check extends StatelessWidget {
         boxShadow: Shadows.low(Brightness.light),
       ),
       child: selected
-          ? Icon(Symbols.check_sharp, size: Glyphs.menu, color: scheme.onPrimary)
+          ? Icon(Symbols.check_rounded, size: Glyphs.menu, color: scheme.onPrimary)
           : null,
     );
   }
@@ -242,7 +242,7 @@ class _Footer extends StatelessWidget {
               child: MenuIconButton<PageCommand>(
                 tooltip: 'Page ${tile.index + 1} options',
                 icon: Icon(
-                  Symbols.more_horiz_sharp,
+                  Symbols.more_horiz_rounded,
                   size: Glyphs.bar,
                   color: scheme.onSurfaceVariant,
                 ),

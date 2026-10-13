@@ -40,7 +40,7 @@ class OptionDisclosure extends StatelessWidget {
                     turns: open ? 0.5 : 0,
                     duration: Motion.fast,
                     child: Icon(
-                      Symbols.expand_more_sharp,
+                      Symbols.expand_more_rounded,
                       size: Glyphs.bar,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -94,7 +94,7 @@ class SlotCountRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(child: Text('Quick $noun', style: text.labelLarge)),
-        step(Symbols.remove_sharp, 'Fewer quick $noun', count > min ? onRemove : null),
+        step(Symbols.remove_rounded, 'Fewer quick $noun', count > min ? onRemove : null),
         SizedBox(
           width: Gaps.xl,
           child: Text(
@@ -104,7 +104,7 @@ class SlotCountRow extends StatelessWidget {
             style: text.labelLarge?.copyWith(fontFeatures: AppTheme.tabularFigures),
           ),
         ),
-        step(Symbols.add_sharp, 'More quick $noun', count < max ? onAdd : null),
+        step(Symbols.add_rounded, 'More quick $noun', count < max ? onAdd : null),
       ],
     );
   }

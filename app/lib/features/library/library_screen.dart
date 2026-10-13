@@ -301,7 +301,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               triggerMode: TooltipTriggerMode.manual,
               child: FloatingActionButton(
                 onPressed: () => unawaited(_actions.createNotebook(context)),
-                child: const Icon(Symbols.add_sharp, semanticLabel: 'New notebook'),
+                child: const Icon(Symbols.add_rounded, semanticLabel: 'New notebook'),
               ),
             ),
           ),
@@ -368,7 +368,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 icon: Badge(
                   isLabelVisible: failing,
                   smallSize: 8,
-                  child: const Icon(Symbols.menu_sharp),
+                  child: const Icon(Symbols.menu_rounded),
                 ),
                 onPressed: Scaffold.of(context).openDrawer,
               );

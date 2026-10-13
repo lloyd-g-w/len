@@ -30,7 +30,7 @@ class SelectionMark extends StatelessWidget {
         boxShadow: Shadows.low(Brightness.light),
       ),
       child: selected
-          ? Icon(Symbols.check_sharp, size: compact ? 14 : 18, color: scheme.onPrimary)
+          ? Icon(Symbols.check_rounded, size: compact ? 14 : 18, color: scheme.onPrimary)
           : null,
     );
     return IgnorePointer(

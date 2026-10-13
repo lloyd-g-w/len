@@ -194,7 +194,7 @@ class _Grip extends StatelessWidget {
       width: axis == Axis.horizontal ? 28 : (framed ? 48 : null),
       height: axis == Axis.horizontal ? (framed ? 48 : null) : 28,
       child: Icon(
-        axis == Axis.horizontal ? Symbols.drag_indicator_sharp : Symbols.drag_handle_sharp,
+        axis == Axis.horizontal ? Symbols.drag_indicator_rounded : Symbols.drag_handle_rounded,
         size: Glyphs.bar,
         color: scheme.onSurfaceVariant,
       ),

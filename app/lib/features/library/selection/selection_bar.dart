@@ -60,7 +60,7 @@ class LibrarySelectionBar extends StatelessWidget {
                   children: [
                     IconButton(
                       tooltip: 'Done',
-                      icon: const Icon(Symbols.close_sharp),
+                      icon: const Icon(Symbols.close_rounded),
                       onPressed: selection.clear,
                     ),
                     Expanded(
@@ -73,37 +73,37 @@ class LibrarySelectionBar extends StatelessWidget {
                     ),
                     action(
                       all ? 'Select none' : 'Select all',
-                      all ? Symbols.deselect_sharp : Symbols.select_all_sharp,
+                      all ? Symbols.deselect_rounded : Symbols.select_all_rounded,
                       () => all ? selection.selectAll(const []) : selection.selectAll(visible),
                       always: true,
                     ),
                     if (trash) ...[
                       action(
                         'Restore',
-                        Symbols.restore_sharp,
+                        Symbols.restore_rounded,
                         () => actions.restoreSelected(context, selection),
                       ),
                       action(
                         'Delete forever',
-                        Symbols.delete_forever_sharp,
+                        Symbols.delete_forever_rounded,
                         () => unawaited(actions.deleteSelectedForever(context, selection)),
                         color: scheme.error,
                       ),
                     ] else ...[
                       action(
                         allStarred ? 'Remove from favourites' : 'Add to favourites',
-                        Symbols.star_sharp,
+                        Symbols.star_rounded,
                         () => actions.favoriteSelected(selection),
                         filled: allStarred,
                       ),
                       action(
                         'Move to folder…',
-                        Symbols.drive_file_move_sharp,
+                        Symbols.drive_file_move_rounded,
                         () => unawaited(actions.moveSelected(context, selection)),
                       ),
                       action(
                         'Move to trash',
-                        Symbols.delete_sharp,
+                        Symbols.delete_rounded,
                         () => actions.trashSelected(context, selection),
                         color: scheme.error,
                       ),

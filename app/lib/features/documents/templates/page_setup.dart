@@ -70,12 +70,12 @@ class PageSizeRow extends StatelessWidget {
             segments: const [
               ButtonSegment(
                 value: PageOrientation.portrait,
-                icon: Icon(Symbols.crop_portrait_sharp),
+                icon: Icon(Symbols.crop_portrait_rounded),
                 label: Text('Portrait'),
               ),
               ButtonSegment(
                 value: PageOrientation.landscape,
-                icon: Icon(Symbols.crop_landscape_sharp),
+                icon: Icon(Symbols.crop_landscape_rounded),
                 label: Text('Landscape'),
               ),
             ],

@@ -45,12 +45,12 @@ class LaserOptionsPanel extends StatelessWidget {
               segments: const [
                 ButtonSegment(
                   value: LaserMode.dot,
-                  icon: Icon(Symbols.circle_sharp, fill: 1, size: 12),
+                  icon: Icon(Symbols.circle_rounded, fill: 1, size: 12),
                   label: Text('Dot'),
                 ),
                 ButtonSegment(
                   value: LaserMode.trail,
-                  icon: Icon(Symbols.gesture_sharp),
+                  icon: Icon(Symbols.gesture_rounded),
                   label: Text('Trail'),
                 ),
               ],

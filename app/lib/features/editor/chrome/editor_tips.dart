@@ -49,12 +49,12 @@ class TipsController extends ValueNotifier<TipMessage?> {
       EditorTip.penButton => switch (penButton) {
         PenButtonAction.eraser => TipMessage(
           tip,
-          Symbols.draw_sharp,
+          Symbols.draw_rounded,
           'Hold the pen’s side button to erase',
         ),
         PenButtonAction.lasso => TipMessage(
           tip,
-          Symbols.highlight_alt_sharp,
+          Symbols.highlight_alt_rounded,
           'Hold the pen’s side button to select with the lasso',
         ),
         PenButtonAction.none => null,
@@ -132,7 +132,7 @@ class TipBanner extends StatelessWidget {
                             iconSize: Glyphs.menu,
                             visualDensity: VisualDensity.compact,
                             onPressed: controller.dismiss,
-                            icon: const Icon(Symbols.close_sharp),
+                            icon: const Icon(Symbols.close_rounded),
                           ),
                         ],
                       ),

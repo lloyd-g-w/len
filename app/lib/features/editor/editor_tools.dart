@@ -84,7 +84,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
   final pen = ToolDescriptor(
     settings: tools,
     tool: EditorTool.pen,
-    icon: const Icon(Symbols.edit_sharp),
+    icon: const Icon(Symbols.edit_rounded),
     label: 'Pen',
     shortcut: 'P',
     inkColor: () => tools.configOf(InkTool.ballpoint).color,
@@ -103,7 +103,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.highlighter,
-      icon: const Icon(Symbols.border_color_sharp),
+      icon: const Icon(Symbols.border_color_rounded),
       label: 'Highlighter',
       shortcut: 'H',
       inkColor: () => tools.configOf(InkTool.highlighter).color,

@@ -105,7 +105,7 @@ class _FolderRow extends StatelessWidget {
       contentPadding: EdgeInsets.only(left: Gaps.md + depth * 24.0, right: Gaps.md),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
       leading: Icon(
-        folder == null ? Symbols.auto_stories_sharp : Symbols.folder_sharp,
+        folder == null ? Symbols.auto_stories_rounded : Symbols.folder_rounded,
         fill: folder == null ? 0 : 1,
         color: folder == null ? scheme.onSurfaceVariant : Color(folder.color),
         size: 28,

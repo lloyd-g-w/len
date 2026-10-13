@@ -37,12 +37,12 @@ class EraserOptionsPanel extends StatelessWidget {
               segments: const [
                 ButtonSegment(
                   value: EraserMode.stroke,
-                  icon: Icon(Symbols.gesture_sharp),
+                  icon: Icon(Symbols.gesture_rounded),
                   label: Text('Whole stroke'),
                 ),
                 ButtonSegment(
                   value: EraserMode.pixel,
-                  icon: Icon(Symbols.blur_on_sharp),
+                  icon: Icon(Symbols.blur_on_rounded),
                   label: Text('Partial'),
                 ),
               ],

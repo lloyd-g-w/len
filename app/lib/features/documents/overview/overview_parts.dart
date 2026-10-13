@@ -10,9 +10,9 @@ enum SelectionAction { bookmark, duplicate, delete }
 
 /// What the page overview shows (REDESIGN §2.4).
 enum OverviewFilter {
-  all('All', Symbols.grid_view_sharp),
-  bookmarked('Bookmarked', Symbols.bookmark_sharp),
-  outline('Outline', Symbols.toc_sharp);
+  all('All', Symbols.grid_view_rounded),
+  bookmarked('Bookmarked', Symbols.bookmark_rounded),
+  outline('Outline', Symbols.toc_rounded);
 
   const OverviewFilter(this.label, this.icon);
 
@@ -149,7 +149,7 @@ class SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
       foregroundColor: scheme.onSurface,
       leading: IconButton(
         tooltip: 'Done',
-        icon: const Icon(Symbols.close_sharp),
+        icon: const Icon(Symbols.close_rounded),
         onPressed: onClose,
       ),
       title: Text(count == 0 ? 'Select pages' : '$count selected'),
@@ -188,7 +188,7 @@ class SelectionBar extends StatelessWidget {
           message: 'Their ink, text and images are deleted with them.',
           confirmLabel: 'Delete',
           destructive: true,
-          icon: Symbols.delete_sharp,
+          icon: Symbols.delete_rounded,
         );
     if (ok) onAction(SelectionAction.delete);
   }
@@ -231,17 +231,17 @@ class SelectionBar extends StatelessWidget {
                 child: Row(
                   children: [
                     action(
-                      allBookmarked ? Symbols.bookmark_remove_sharp : Symbols.bookmark_sharp,
+                      allBookmarked ? Symbols.bookmark_remove_rounded : Symbols.bookmark_rounded,
                       allBookmarked ? 'Remove bookmark' : 'Bookmark',
                       () => onAction(SelectionAction.bookmark),
                     ),
                     action(
-                      Symbols.library_add_sharp,
+                      Symbols.library_add_rounded,
                       'Duplicate',
                       () => onAction(SelectionAction.duplicate),
                     ),
                     action(
-                      Symbols.delete_sharp,
+                      Symbols.delete_rounded,
                       'Delete',
                       () => _delete(context),
                       color: scheme.error,
@@ -288,7 +288,7 @@ class AddPageTile extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Symbols.add_sharp, size: 32, color: scheme.primary),
+                          Icon(Symbols.add_rounded, size: 32, color: scheme.primary),
                           const SizedBox(height: Gaps.xs),
                           Text('Add page', style: theme.textTheme.labelLarge),
                         ],
@@ -319,7 +319,7 @@ class NoBookmarks extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.bookmark_sharp, size: Glyphs.empty, color: theme.colorScheme.outline),
+            Icon(Symbols.bookmark_rounded, size: Glyphs.empty, color: theme.colorScheme.outline),
             const SizedBox(height: Gaps.lg),
             Text('No bookmarked pages yet', style: theme.textTheme.titleMedium),
             const SizedBox(height: Gaps.xs),

@@ -116,7 +116,7 @@ class _StartupErrorScreenState extends State<StartupErrorScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    Symbols.folder_off_sharp,
+                    Symbols.folder_off_rounded,
                     size: Glyphs.empty,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -143,7 +143,7 @@ class _StartupErrorScreenState extends State<StartupErrorScreen> {
                       ),
                       TextButton.icon(
                         onPressed: () => unawaited(_copy()),
-                        icon: const Icon(Symbols.content_copy_sharp, size: Glyphs.menu),
+                        icon: const Icon(Symbols.content_copy_rounded, size: Glyphs.menu),
                         label: const Text('Copy details'),
                       ),
                     ],

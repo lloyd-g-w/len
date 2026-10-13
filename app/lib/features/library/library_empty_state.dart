@@ -41,12 +41,12 @@ class LibraryEmptyState extends StatelessWidget {
     final searching = query.trim().isNotEmpty;
     final (Widget art, String title, String message) = switch (section) {
       _ when searching => (
-        const _IconArt(Symbols.search_off_sharp),
+        const _IconArt(Symbols.search_off_rounded),
         'No results',
         'Nothing matches “${query.trim()}”.',
       ),
       LibrarySection.library when inFolder => (
-        const _IconArt(Symbols.folder_open_sharp),
+        const _IconArt(Symbols.folder_open_rounded),
         'This folder is empty',
         Targets.touchFirst
             ? 'Create a notebook here, or move notebooks into it with Move to folder.'
@@ -58,12 +58,12 @@ class LibraryEmptyState extends StatelessWidget {
         'Create a notebook or an infinite canvas to start writing.',
       ),
       LibrarySection.favorites => (
-        const _IconArt(Symbols.star_sharp),
+        const _IconArt(Symbols.star_rounded),
         'No favourites yet',
         'Star notebooks you use often to find them here.',
       ),
       LibrarySection.trash => (
-        const _IconArt(Symbols.delete_sharp),
+        const _IconArt(Symbols.delete_rounded),
         'Trash is empty',
         'Deleted notebooks stay here for 30 days, then they’re deleted forever.',
       ),
@@ -74,13 +74,13 @@ class LibraryEmptyState extends StatelessWidget {
       if (firstLaunch && onImportPdf != null)
         TextButton.icon(
           onPressed: onImportPdf,
-          icon: const Icon(Symbols.picture_as_pdf_sharp, size: Glyphs.menu),
+          icon: const Icon(Symbols.picture_as_pdf_rounded, size: Glyphs.menu),
           label: const Text('Import PDF…'),
         ),
       if (firstLaunch && onSetUpSync != null)
         TextButton.icon(
           onPressed: onSetUpSync,
-          icon: const Icon(Symbols.sync_sharp, size: Glyphs.menu),
+          icon: const Icon(Symbols.sync_rounded, size: Glyphs.menu),
           label: const Text('Set up sync…'),
         ),
     ];
@@ -118,7 +118,7 @@ class LibraryEmptyState extends StatelessWidget {
                   const SizedBox(height: Gaps.xl),
                   FilledButton.icon(
                     onPressed: onCreate,
-                    icon: const Icon(Symbols.add_sharp),
+                    icon: const Icon(Symbols.add_rounded),
                     label: const Text('New notebook'),
                   ),
                   if (secondary.isNotEmpty) ...[
@@ -130,7 +130,7 @@ class LibraryEmptyState extends StatelessWidget {
                   const SizedBox(height: Gaps.xl),
                   FilledButton.icon(
                     onPressed: onClearSearch,
-                    icon: const Icon(Symbols.close_sharp),
+                    icon: const Icon(Symbols.close_rounded),
                     label: const Text('Clear search'),
                   ),
                 ],

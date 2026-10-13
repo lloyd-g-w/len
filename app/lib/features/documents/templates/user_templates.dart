@@ -133,7 +133,7 @@ abstract final class UserTemplates {
       label: 'Name',
       initialValue: name,
       confirmLabel: 'Save',
-      icon: Symbols.dashboard_customize_sharp,
+      icon: Symbols.dashboard_customize_rounded,
     );
     if (chosen == null || chosen.isEmpty || !context.mounted) return null;
     final blob = await services.blobs.putBytes(png, mime: 'image/png');
@@ -149,8 +149,8 @@ abstract final class UserTemplates {
       context,
       at: at,
       items: const [
-        MenuRow(value: 'rename', icon: Symbols.edit_sharp, label: 'Rename…'),
-        MenuRow(value: 'delete', icon: Symbols.delete_sharp, label: 'Delete…', destructive: true),
+        MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),
+        MenuRow(value: 'delete', icon: Symbols.delete_rounded, label: 'Delete…', destructive: true),
       ],
     );
     if (action == null || !context.mounted) return false;

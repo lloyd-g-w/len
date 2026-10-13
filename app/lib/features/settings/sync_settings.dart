@@ -167,7 +167,7 @@ class _SyncSettingsState extends State<SyncSettings> {
             SizedBox(
               width: Targets.touch,
               child: Icon(
-                Symbols.dns_sharp,
+                Symbols.dns_rounded,
                 size: Glyphs.bar,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -188,7 +188,7 @@ class _SyncSettingsState extends State<SyncSettings> {
           children: [
             FilledButton.tonalIcon(
               onPressed: _sync.state == SyncState.syncing ? null : () => unawaited(_sync.syncNow()),
-              icon: const Icon(Symbols.sync_sharp, size: Glyphs.menu),
+              icon: const Icon(Symbols.sync_rounded, size: Glyphs.menu),
               label: const Text('Sync now'),
             ),
             TextButton(
@@ -219,7 +219,7 @@ class _SyncSettingsState extends State<SyncSettings> {
           decoration: InputDecoration(
             labelText: 'Server URL',
             hintText: 'len.example.com',
-            prefixIcon: const Icon(Symbols.dns_sharp),
+            prefixIcon: const Icon(Symbols.dns_rounded),
             errorText: _urlError,
             errorMaxLines: 3,
           ),
@@ -235,11 +235,13 @@ class _SyncSettingsState extends State<SyncSettings> {
           },
           decoration: InputDecoration(
             labelText: 'Access token',
-            prefixIcon: const Icon(Symbols.key_sharp),
+            prefixIcon: const Icon(Symbols.key_rounded),
             suffixIcon: IconButton(
               tooltip: _obscureToken ? 'Show' : 'Hide',
               onPressed: () => setState(() => _obscureToken = !_obscureToken),
-              icon: Icon(_obscureToken ? Symbols.visibility_sharp : Symbols.visibility_off_sharp),
+              icon: Icon(
+                _obscureToken ? Symbols.visibility_rounded : Symbols.visibility_off_rounded,
+              ),
             ),
           ),
         ),

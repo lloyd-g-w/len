@@ -24,7 +24,7 @@ class GeneralSettings extends StatelessWidget {
         title: 'General',
         children: [
           SettingsTile(
-            icon: Symbols.contrast_sharp,
+            icon: Symbols.contrast_rounded,
             title: 'Theme',
             subtitle: 'Paper keeps its colour in both themes',
             control: FitSegments(
@@ -43,11 +43,11 @@ class GeneralSettings extends StatelessWidget {
           ),
           if (!Targets.touchFirst || MediaQuery.sizeOf(context).width >= Breakpoints.medium)
             SettingsTile(
-              icon: Symbols.keyboard_sharp,
+              icon: Symbols.keyboard_rounded,
               title: 'Keyboard shortcuts',
               subtitle: 'Also ${modifierLabel()}+/ anywhere',
               trailing: Icon(
-                Symbols.chevron_right_sharp,
+                Symbols.chevron_right_rounded,
                 size: Glyphs.bar,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

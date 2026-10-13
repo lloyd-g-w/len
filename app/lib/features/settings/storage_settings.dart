@@ -67,7 +67,7 @@ class _StorageSettingsState extends State<StorageSettings> {
       children: [
         if (!widget.filesKept)
           SettingsTile(
-            icon: Symbols.error_sharp,
+            icon: Symbols.error_rounded,
             title: 'Files aren\'t kept in this window',
             subtitle:
                 'This browser doesn\'t let Len store files, so PDFs, images and recordings '
@@ -75,7 +75,7 @@ class _StorageSettingsState extends State<StorageSettings> {
                 'data for Len, or turn on sync.',
           ),
         SettingsTile(
-          icon: Symbols.verified_user_sharp,
+          icon: Symbols.verified_user_rounded,
           title: 'Keep data on this device',
           subtitle: switch (persisted) {
             null => 'Checking…',
@@ -89,7 +89,7 @@ class _StorageSettingsState extends State<StorageSettings> {
                 )
               : persisted == true
               ? Icon(
-                  Symbols.check_circle_sharp,
+                  Symbols.check_circle_rounded,
                   fill: 1,
                   color: Theme.of(context).colorScheme.primary,
                 )
@@ -110,7 +110,7 @@ class _UsageTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final fraction = usage.quota <= 0 ? 0.0 : (usage.usage / usage.quota).clamp(0.0, 1.0);
     return SettingsTile(
-      icon: Symbols.pie_chart_sharp,
+      icon: Symbols.pie_chart_rounded,
       title: 'Space used',
       // Includes the app's own offline copy (service worker cache).
       subtitle:

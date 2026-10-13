@@ -86,7 +86,7 @@ class NotebookCover extends StatelessWidget {
               right: 10,
               bottom: 10,
               child: Icon(
-                Symbols.all_inclusive_sharp,
+                Symbols.all_inclusive_rounded,
                 color: Colors.white.withValues(alpha: 0.9),
                 size: 20,
               ),
@@ -197,7 +197,7 @@ class _CanvasTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.pill),
         boxShadow: Shadows.low(Brightness.light),
       ),
-      child: const Icon(Symbols.all_inclusive_sharp, size: 14, color: Colors.white),
+      child: const Icon(Symbols.all_inclusive_rounded, size: 14, color: Colors.white),
     );
   }
 }
@@ -215,7 +215,7 @@ class _FavoriteBadge extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: Shadows.low(Brightness.light),
       ),
-      child: const Icon(Symbols.star_sharp, fill: 1, size: 16, color: Palette.favourite),
+      child: const Icon(Symbols.star_rounded, fill: 1, size: 16, color: Palette.favourite),
     );
   }
 }

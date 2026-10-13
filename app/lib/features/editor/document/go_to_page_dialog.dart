@@ -256,7 +256,7 @@ class _StripPage extends StatelessWidget {
                           top: 0,
                           right: Gaps.xs,
                           child: Icon(
-                            Symbols.bookmark_sharp,
+                            Symbols.bookmark_rounded,
                             fill: 1,
                             size: 16,
                             color: Palette.bookmark,

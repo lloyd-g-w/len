@@ -126,7 +126,7 @@ class _PagePickerState extends State<_PagePicker> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    icon: const Icon(Symbols.expand_more_sharp),
+                    icon: const Icon(Symbols.expand_more_rounded),
                     key: const ValueKey('link-notebook-field'),
                     initialValue: _notebookId,
                     isExpanded: true,
@@ -159,7 +159,9 @@ class _PagePickerState extends State<_PagePicker> {
                           dense: true,
                           selected: i == current,
                           leading: Icon(
-                            page.bookmarked ? Symbols.bookmark_sharp : Symbols.description_sharp,
+                            page.bookmarked
+                                ? Symbols.bookmark_rounded
+                                : Symbols.description_rounded,
                             fill: page.bookmarked ? 1 : 0,
                             size: 20,
                             color: page.bookmarked ? Palette.bookmark : null,

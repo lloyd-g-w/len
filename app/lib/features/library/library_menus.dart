@@ -29,41 +29,49 @@ enum FolderAction { open, edit, move, delete }
 List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
   if (notebook.isTrashed) {
     return const [
-      MenuRow(value: NotebookAction.restore, icon: Symbols.restore_sharp, label: 'Restore'),
+      MenuRow(value: NotebookAction.restore, icon: Symbols.restore_rounded, label: 'Restore'),
       PopupMenuDivider(),
       MenuRow(
         value: NotebookAction.deleteForever,
-        icon: Symbols.delete_forever_sharp,
+        icon: Symbols.delete_forever_rounded,
         label: 'Delete forever…',
         destructive: true,
       ),
     ];
   }
   return [
-    const MenuRow(value: NotebookAction.open, icon: Symbols.open_in_new_sharp, label: 'Open'),
-    const MenuRow(value: NotebookAction.rename, icon: Symbols.edit_sharp, label: 'Rename…'),
+    const MenuRow(value: NotebookAction.open, icon: Symbols.open_in_new_rounded, label: 'Open'),
+    const MenuRow(value: NotebookAction.rename, icon: Symbols.edit_rounded, label: 'Rename…'),
     MenuRow(
       value: NotebookAction.favorite,
-      icon: Symbols.star_sharp,
+      icon: Symbols.star_rounded,
       filledIcon: notebook.favorite,
       label: notebook.favorite ? 'Remove from favourites' : 'Add to favourites',
     ),
-    const MenuRow(value: NotebookAction.cover, icon: Symbols.palette_sharp, label: 'Change cover…'),
+    const MenuRow(
+      value: NotebookAction.cover,
+      icon: Symbols.palette_rounded,
+      label: 'Change cover…',
+    ),
     const MenuRow(
       value: NotebookAction.duplicate,
-      icon: Symbols.library_add_sharp,
+      icon: Symbols.library_add_rounded,
       label: 'Duplicate',
     ),
     const MenuRow(
       value: NotebookAction.move,
-      icon: Symbols.drive_file_move_sharp,
+      icon: Symbols.drive_file_move_rounded,
       label: 'Move to folder…',
     ),
-    const MenuRow(value: NotebookAction.select, icon: Symbols.check_circle_sharp, label: 'Select'),
+    const MenuRow(
+      value: NotebookAction.select,
+      icon: Symbols.check_circle_rounded,
+      label: 'Select',
+    ),
     const PopupMenuDivider(),
     const MenuRow(
       value: NotebookAction.trash,
-      icon: Symbols.delete_sharp,
+      icon: Symbols.delete_rounded,
       label: 'Move to trash',
       destructive: true,
     ),
@@ -71,13 +79,17 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
 }
 
 const List<PopupMenuEntry<FolderAction>> folderMenuItems = [
-  MenuRow(value: FolderAction.open, icon: Symbols.folder_open_sharp, label: 'Open'),
-  MenuRow(value: FolderAction.edit, icon: Symbols.edit_sharp, label: 'Edit folder…'),
-  MenuRow(value: FolderAction.move, icon: Symbols.drive_file_move_sharp, label: 'Move to folder…'),
+  MenuRow(value: FolderAction.open, icon: Symbols.folder_open_rounded, label: 'Open'),
+  MenuRow(value: FolderAction.edit, icon: Symbols.edit_rounded, label: 'Edit folder…'),
+  MenuRow(
+    value: FolderAction.move,
+    icon: Symbols.drive_file_move_rounded,
+    label: 'Move to folder…',
+  ),
   PopupMenuDivider(),
   MenuRow(
     value: FolderAction.delete,
-    icon: Symbols.delete_sharp,
+    icon: Symbols.delete_rounded,
     label: 'Delete folder…',
     destructive: true,
   ),
