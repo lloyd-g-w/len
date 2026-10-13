@@ -170,7 +170,8 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
 
   Widget _header(BuildContext context) => SheetHeader(
     title: _canvas ? 'New canvas' : 'New notebook',
-    onClose: () => Navigator.of(context).pop(),
+    // Dialogs close with Cancel; sheets with the ✕ (DESIGN §6.3).
+    onClose: widget.wide ? null : () => Navigator.of(context).pop(),
   );
 
   Widget _preview(double height) => Center(

@@ -180,7 +180,11 @@ class _ExportSheetState extends State<ExportSheet> {
             child: SheetHeader(
               title: 'Export',
               subtitle: widget.title,
-              onClose: () => Navigator.of(context).pop(),
+              // Dialogs close with Cancel (none beside Save to device);
+              // sheets with the ✕ (DESIGN §6.3).
+              onClose: widget.wide && !widget.offerSaveToDevice
+                  ? null
+                  : () => Navigator.of(context).pop(),
             ),
           ),
         ),

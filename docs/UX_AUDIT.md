@@ -216,13 +216,17 @@ if anything).
 
 ### Dialogs, fields and copy
 
-⬜ **R6-8 P2 · Wide task dialogs offer both ✕ and Cancel.** On dialogs,
+✅ **R6-8 P2 · Wide task dialogs offer both ✕ and Cancel.** On dialogs,
 `SheetHeader(onClose:)` and `SheetActions(onCancel:)` both show: New folder
 and Edit folder (`features/library/dialogs/folder_dialog.dart:91,121-124`),
 Cover (`dialogs/cover_sheet.dart:71,91`), New notebook
 (`library/new_notebook_sheet.dart:173`), and the template picker. DESIGN §6.3
 draws the dialog without a ✕ (quiet Cancel, Ink primary); the ✕ belongs to
 the phone sheet. *Fix:* `SheetHeader` shows its ✕ only when not `wide`.
+*Done (`fix/r6-pickers`):* one rule, per caller (the header can't see the
+footer): a dialog with Cancel has no ✕ (folder, new notebook, template
+picker, Export without Save to device); dialogs without Cancel (Move,
+Cover, shortcuts, languages) and every phone sheet keep it.
 
 ⬜ **R6-20 P2 · Some fields carry a leading icon, most don't.** "Save as
 template" puts `dashboard_customize` inside its field

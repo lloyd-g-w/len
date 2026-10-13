@@ -161,7 +161,7 @@ void main() {
     );
     final position = tester.state<ScrollableState>(row.first).position;
     expect(position.maxScrollExtent, lessThan(0.5));
-    await tester.tap(find.byTooltip('Close'));
+    await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
   });
 
