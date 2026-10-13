@@ -124,7 +124,8 @@ class AppDialog extends StatelessWidget {
   }
 }
 
-/// A dialog's leading symbol in a softly tinted circle.
+/// A dialog's leading symbol: the bare glyph in [color], on the title's
+/// left edge (no tinted disc; DESIGN §6).
 class DialogIcon extends StatelessWidget {
   const DialogIcon(this.icon, {super.key, required this.color});
 
@@ -132,12 +133,7 @@ class DialogIcon extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: 40,
-    height: 40,
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
-    child: Icon(icon, color: color, size: 22),
-  );
+  Widget build(BuildContext context) => Icon(icon, color: color, size: 28);
 }
 
 /// Standard width of form dialogs (rename, folder, …).

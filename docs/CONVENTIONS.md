@@ -26,35 +26,47 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
   case; commands that ask something first end in …; single-sentence messages
   have no full stop.
 
-## Design tokens (REDESIGN §1)
+## Design tokens (DESIGN.md)
 
-No magic numbers or ad-hoc colours in `features/`: pick a token.
+No magic numbers or ad-hoc colours in `features/`: pick a token. The design
+language is `docs/DESIGN.md` (Swiss minimal from the notebook: flat chrome,
+hairlines, one accent, depth only for paper).
 
-- **Spacing:** `Gaps` (2, 4, 8, 12, 16, 24, 32, 48). **Radii:** `xs` 6 (chips,
-  badges, the selected-tool plate), `sm` 10 (buttons, fields, covers,
-  thumbnails), `md` 14 (menus, popovers, floating panels, snack bars), `lg` 20
-  (dialogs, sheets), `pill`.
-- **Type:** Inter only, six roles from `Theme.of(context).textTheme`:
-  `titleLarge` (screen titles), `titleMedium` (dialog titles, the notebook
-  title), `bodyMedium` (rows), `labelLarge` (buttons, menu rows, card titles),
-  `bodySmall` (captions; already `onSurfaceVariant`), `labelSmall`
-  (`SectionLabel`). Don't set `fontSize` / `fontWeight` on UI text; numbers
-  that change in place use `AppTheme.tabularFigures`.
-- **Colour:** the accent (`colorScheme.primary`, ink blue) only for primary
-  buttons, focus rings, selection handles, links, switches, progress and the
-  selected sidebar row. Selected states otherwise use the neutral plate
-  `Surfaces.pressed` with `onSurface`; hovers `Surfaces.hovered`. Ink and
-  covers are never themed; fixed marker colours live in `Palette`.
+- **Spacing:** `Gaps` on a 4-dp grid (2, 4, 8, 12, 16, 24, 32, 48; 2 only
+  inside controls). **Radii:** `xs` 2 (chips, badges, plates, tooltips, the
+  selected-tool plate), `sm` 4 (buttons, fields, segmented controls, covers,
+  thumbnails), `md` 6 (menus, popovers, floating panels, snack bars), `lg` 8
+  (dialogs, sheets), `pill` (colour dots, the page indicator only).
+  **Hairlines:** `Hairline.width` 1 (dividers, chrome edges, surface borders),
+  `Hairline.rule` 2 (the margin rule, a focused field's rule).
+- **Type:** Sofia Sans (`AppTheme.fontFamily`) only, six roles from
+  `Theme.of(context).textTheme`: `titleLarge` (screen titles, 24),
+  `titleMedium` (dialog titles, the notebook title, 18), `bodyMedium` (rows,
+  15), `labelLarge` (buttons, menu rows, card titles, 15/500), `bodySmall`
+  (captions, 13; already Graphite), `labelSmall` (`SectionLabel`, 12/600).
+  Don't set `fontSize` / `fontWeight` on UI text; numbers that change in
+  place use `AppTheme.tabularFigures`. Text boxes and planner labels keep
+  their own fonts (`TextFont`: Inter, Lora, JetBrains Mono, Caveat).
+- **Colour:** named in `Tones` (Ink, Graphite, Pencil, Rule, Sheet, Board,
+  Desk, ruling blue, correction red); features use the `ColorScheme` roles
+  they map to. Primary buttons are Ink (`FilledButton`); the accent
+  (`colorScheme.primary`, ruling blue) only marks state: focus, the margin
+  rule, switches, sliders, progress, links, selection handles, a checked
+  menu row. Selected states otherwise use the ink plates `Surfaces.pressed`
+  / `Surfaces.selected` with `onSurface`; hovers `Surfaces.hovered`. Ink,
+  paper and covers are never themed; fixed marker colours live in `Palette`.
   Destructive commands are `colorScheme.error`, last in menus.
-- **Surfaces:** `Surfaces.canvasBackdrop` around pages; `Surfaces.chrome` +
-  `Surfaces.chromeEdge` hairline for docked bars; `raised` (`FloatingPanel`,
-  `Surfaces.raisedDecoration`, `Shadows.low`) for floating palettes, pills and
-  menus over the canvas; `overlay` (`OverlaySurface`,
-  `Surfaces.overlayDecoration`, `Shadows.high`) for popovers, menus, dialogs
-  and sheets. Shadows only from `Shadows`; never Material `elevation`
-  (menus excepted: Flutter offers no shadow hook there). No outlines in light
-  mode; dark mode adds the hairline (`Surfaces.border`).
-- **Icons:** Material Symbols Rounded only (`Symbols.*_rounded` from
+- **Surfaces:** `Surfaces.canvasBackdrop` (Desk) around pages;
+  `Surfaces.chrome` (Board) + `Surfaces.chromeEdge` hairline for docked bars,
+  never a shadow; `raised` (`FloatingPanel`, `Surfaces.raisedDecoration`,
+  `Shadows.low`) for floating palettes, pills and menus over the canvas;
+  `overlay` (`OverlaySurface`, `Surfaces.overlayDecoration`, `Shadows.high`)
+  for popovers, menus, dialogs and sheets. Raised and overlay surfaces carry
+  the `Surfaces.border` hairline in both themes. Shadows only from `Shadows`
+  and only on paper (pages, covers, thumbnails) and slips over it; never
+  Material `elevation` (menus excepted: Flutter offers no shadow hook there).
+  No filled cards for grouping: use hairlines.
+- **Icons:** Material Symbols Sharp only (`Symbols.*_sharp` from
   `package:material_symbols_icons/symbols.dart`; never `Icons.*`). Weight 300
   and fill 0 come from the theme; active or selected states pass `fill: 1`.
   Sizes from `Glyphs`: `bar` 20, `menu` 18, `empty` 40. Always reference
@@ -65,12 +77,12 @@ No magic numbers or ad-hoc colours in `features/`: pick a token.
   touch, 40 with a pointer), `Targets.slotHit` (44 / 36),
   `Targets.menuRowHeight` (48 on touch, 44 with a pointer). Bar buttons keep a 40-dp
   visual and pad their hit area (`MaterialTapTargetSize.padded`).
-- **Motion:** `Motion.fast` 120 (state changes, popovers scaling from
-  `Motion.popoverScale`), `medium` 200 (chrome fades, panels), `slow` 300
-  (sheets, routes), `travel` 420. Chrome shows and hides with `ChromeFade`
-  (fade + `Motion.chromeSlide` 8 px toward its edge; fades only when
-  `Motion.reduced`). Taps never ripple: the theme uses `NoSplash` and a calm
-  `onSurface` overlay (`ThemeComponents.calmOverlay` for custom button
+- **Motion:** `Motion.fast` 100 (state changes, popovers dropping
+  `Motion.popoverDrop` 4 dp from their anchor), `medium` 180 (chrome fades,
+  panels), `slow` 260 (sheets, routes), `travel` 400. Chrome shows and hides
+  with `ChromeFade` (fade + `Motion.chromeSlide` 8 px toward its edge; fades
+  only when `Motion.reduced`). Taps never ripple: the theme uses `NoSplash`
+  and a calm ink overlay (`ThemeComponents.calmOverlay` for custom button
   styles).
 
 ## Pre-release: breaking changes are fine

@@ -55,10 +55,10 @@ class _SidebarItemState extends State<SidebarItem> {
     final scheme = theme.colorScheme;
     final selected = widget.selected;
     // The current row carries the margin rule (DESIGN §6): a short accent
-    // rule at its left edge on a faint ink plate, the label in ink.
+    // rule at its left edge and the label in 600; no plate.
     final background = widget.dropActive
         ? scheme.primary.withValues(alpha: 0.12)
-        : selected || _hovered
+        : _hovered
         ? Surfaces.hovered(scheme)
         : Colors.transparent;
     final foreground = scheme.onSurface;

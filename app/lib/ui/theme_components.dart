@@ -40,19 +40,17 @@ extension ThemeComponents on ThemeData {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         // A tint of the ink, so fields read on any surface in both themes.
-        fillColor: scheme.onSurface.withValues(alpha: dark ? 0.08 : 0.04),
+        fillColor: scheme.onSurface.withValues(alpha: dark ? 0.06 : 0.04),
         hoverColor: scheme.onSurface.withValues(alpha: dark ? 0.04 : 0.02),
         contentPadding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.md),
-        border: field(BorderSide(color: scheme.outline)),
-        enabledBorder: field(BorderSide(color: scheme.outline)),
+        // The rule a field is written on: Graphite, so it reads as a line
+        // (and a field's edge) at a glance.
+        border: field(BorderSide(color: scheme.onSurfaceVariant)),
+        enabledBorder: field(BorderSide(color: scheme.onSurfaceVariant)),
         focusedBorder: field(BorderSide(color: scheme.primary, width: Hairline.rule)),
         disabledBorder: field(BorderSide(color: scheme.outlineVariant)),
         errorBorder: field(BorderSide(color: scheme.error)),
         focusedErrorBorder: field(BorderSide(color: scheme.error, width: Hairline.rule)),
-        labelStyle: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-        hintStyle: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-        helperStyle: textTheme.bodySmall,
-        errorStyle: textTheme.bodySmall?.copyWith(color: scheme.error),
         prefixIconColor: scheme.onSurfaceVariant,
         suffixIconColor: scheme.onSurfaceVariant,
       ),
