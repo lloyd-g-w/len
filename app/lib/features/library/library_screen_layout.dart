@@ -32,24 +32,27 @@ extension _LibraryLayout on _LibraryScreenState {
       ? null
       // Tap: a new notebook. Long press: everything ⊕▾ offers on wide
       // screens (a canvas, a PDF, a folder), which phones have no room for.
-      : Semantics(
-          onLongPressHint: 'More: canvas, PDF, folder',
-          child: GestureDetector(
-            onLongPress: () async {
-              final choice = await showContextMenuAt<NewChoice>(context, items: newMenuItems());
-              if (choice != null && context.mounted) {
-                unawaited(runNewChoice(context, _actions, choice));
-              }
-            },
-            child: Tooltip(
-              message: 'New notebook',
-              // A touch long press opens the menu, not the tooltip.
-              triggerMode: TooltipTriggerMode.manual,
-              // The icon names the button (the tooltip would name the screen).
-              excludeFromSemantics: true,
-              child: FloatingActionButton(
-                onPressed: () => unawaited(_actions.createNotebook(context)),
-                child: const Icon(Symbols.add_sharp, semanticLabel: 'New notebook'),
+      // One node for screen readers: the button with its long press (apart,
+      // the long press and the tooltip landed on the whole screen).
+      : MergeSemantics(
+          child: Semantics(
+            onLongPressHint: 'More: canvas, PDF, folder',
+            child: GestureDetector(
+              onLongPress: () async {
+                final choice = await showContextMenuAt<NewChoice>(context, items: newMenuItems());
+                if (choice != null && context.mounted) {
+                  unawaited(runNewChoice(context, _actions, choice));
+                }
+              },
+              child: Tooltip(
+                message: 'New notebook',
+                // A touch long press opens the menu, not the tooltip.
+                triggerMode: TooltipTriggerMode.manual,
+                excludeFromSemantics: true, // The icon names the button.
+                child: FloatingActionButton(
+                  onPressed: () => unawaited(_actions.createNotebook(context)),
+                  child: const Icon(Symbols.add_sharp, semanticLabel: 'New notebook'),
+                ),
               ),
             ),
           ),
