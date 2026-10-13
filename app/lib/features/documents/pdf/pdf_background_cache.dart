@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../data/blob_store.dart';
 import '../../../domain/notebook_page.dart';
+import '../../editor/document/missing_pdf_painter.dart';
 import '../../editor/document/page_backgrounds.dart';
 import 'pdf_renderer.dart';
 import 'pdf_tiles.dart';
@@ -93,6 +94,10 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   ) {
     final pixelWidth = page.width * pixelsPerUnit;
     final base = imageFor(background, math.min(pixelWidth, maxWidth.toDouble()));
+    if (base == null && isMissing(background)) {
+      paintMissingPdf(canvas, page);
+      return;
+    }
     if (base != null) _draw(canvas, base, ui.Offset.zero & page, antiAlias: true);
     if (pixelWidth <= maxWidth) return;
     final level = PdfTiling.levelFor(pixelWidth);
@@ -152,6 +157,12 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   /// How many tiles are cached (for tests).
   @visibleForTesting
   int get debugTileCount => _images.keys.whereType<PdfTile>().length;
+
+  @override
+  bool isMissing(PageBackground background) => _missing.contains(background.blob);
+
+  /// The PDFs (blob ids) that couldn't be had so far.
+  Set<String> get missingBlobs => Set.unmodifiable(_missing);
 
   /// Forgets that blobs were unavailable, e.g. after a sync.
   void retryMissing() {
@@ -253,6 +264,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     } catch (e) {
       debugPrint('Cannot render PDF page ${background.pageIndex} of $sha: $e');
       _missing.add(sha);
+      if (!_disposed) notifyListeners(); // Show the placeholder.
     }
   }
 

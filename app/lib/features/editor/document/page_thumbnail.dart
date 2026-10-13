@@ -10,6 +10,7 @@ import '../../../domain/surface_element.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/content_painter.dart';
 import '../../../ink/render/paper_painter.dart';
+import 'missing_pdf_painter.dart';
 import 'page_backgrounds.dart';
 import 'page_painting.dart';
 
@@ -200,6 +201,9 @@ class _ThumbnailPainter extends CustomPainter {
       miniature: true,
       paperImages: (blob, _) => paperImage(blob, size.width * dpr),
     );
+    if (bg != null && image == null && (backgrounds?.isMissing(bg) ?? false)) {
+      paintMissingPdf(canvas, page.size);
+    }
     if (ink case final ink?) {
       canvas
         ..clipRect(Offset.zero & page.size)

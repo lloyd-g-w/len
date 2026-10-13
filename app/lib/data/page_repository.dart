@@ -129,6 +129,23 @@ class PageRepository extends SyncableTable {
     });
   }
 
+  /// Points the pages of [notebookId] whose background is a page of PDF
+  /// [from] at the same page of PDF [to] (relinking a PDF that went
+  /// missing). Returns the pages changed.
+  List<String> relinkBackground(String notebookId, {required String from, required String to}) {
+    final changed = <String>[];
+    database.transaction(() {
+      for (final page in pagesOf(notebookId)) {
+        final bg = page.background;
+        if (bg == null || bg.blob != from) continue;
+        final relinked = PageBackground.pdf(blob: to, pageIndex: bg.pageIndex);
+        _update(page.id, 'background = ?', [jsonEncode(relinked.toJson())]);
+        changed.add(page.id);
+      }
+    });
+    return changed;
+  }
+
   void setBookmarked(String pageId, bool bookmarked) =>
       _update(pageId, 'bookmarked = ?', [bookmarked ? 1 : 0]);
 

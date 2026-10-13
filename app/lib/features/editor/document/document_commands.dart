@@ -9,7 +9,9 @@ import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
 import '../../documents/export/export_flow.dart';
 import '../../documents/export/notebook_exporter.dart';
+import '../../documents/pdf/pdf_background_cache.dart';
 import '../../documents/pdf/pdf_import_flow.dart';
+import '../../documents/pdf/pdf_relink_flow.dart';
 import '../../documents/progress_dialog.dart';
 import '../../documents/template_picker.dart';
 import '../../documents/templates/user_templates.dart';
@@ -247,6 +249,32 @@ class DocumentCommands {
     // Pages may have changed meanwhile (a sync): go to the page picked.
     final now = doc.pages.indexWhere((p) => p.id == pages[index].id);
     doc.goToPage(now == -1 ? index.clamp(0, doc.pages.length - 1) : now);
+  }
+
+  /// Lets the user pick a file for PDF [blob], which pages of this notebook
+  /// are drawn on but which can't be had (UX_AUDIT #24).
+  Future<void> relinkPdf(
+    BuildContext context,
+    String blob,
+    PdfBackgroundCache backgrounds, {
+    XFile? file,
+  }) async {
+    final result = await relinkPdfFlow(
+      context,
+      notebookId: notebook().id,
+      missing: blob,
+      file: file,
+    );
+    switch (result) {
+      case RelinkResult.restored:
+        backgrounds.retryMissing();
+        if (context.mounted) showMessage(context, 'PDF found');
+      case RelinkResult.replaced:
+        changed = true;
+        reload();
+        if (context.mounted) showMessage(context, 'PDF relinked');
+      case RelinkResult.none:
+    }
   }
 
   /// Inserts the pages of PDF [file] (picked by the user if null) after
