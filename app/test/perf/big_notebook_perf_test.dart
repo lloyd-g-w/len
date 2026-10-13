@@ -183,12 +183,15 @@ void _overview() {
     final settled = watch.elapsedMilliseconds;
     final rss = ProcessInfo.currentRss;
     final frames = <int>[];
+    // One long, fast drag (25,000 px/s), then letting go.
+    final drag = await tester.startGesture(tester.getCenter(find.byType(Scrollable).first));
     for (var i = 0; i < 80; i++) {
       final frame = Stopwatch()..start();
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+      await drag.moveBy(const Offset(0, -400));
       await tester.pump(const Duration(milliseconds: 16));
       frames.add(frame.elapsedMilliseconds);
     }
+    await drag.up();
     await tester.pumpAndSettle();
     frames.sort();
     final built = find.byType(PageThumbnail, skipOffstage: false).evaluate().length;

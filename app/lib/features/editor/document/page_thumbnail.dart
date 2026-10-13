@@ -11,7 +11,7 @@ import 'page_thumbnail_cache.dart';
 export 'page_thumbnail_cache.dart';
 
 /// A read-only miniature of a page: paper, background, template and ink.
-class PageThumbnail extends StatelessWidget {
+class PageThumbnail extends StatefulWidget {
   const PageThumbnail({super.key, required this.page, required this.cache, this.backgrounds});
 
   final NotebookPage page;
@@ -19,7 +19,33 @@ class PageThumbnail extends StatelessWidget {
   final PageBackgrounds? backgrounds;
 
   @override
+  State<PageThumbnail> createState() => _PageThumbnailState();
+}
+
+class _PageThumbnailState extends State<PageThumbnail> {
+  @override
+  void initState() {
+    super.initState();
+    widget.cache.shown(widget.page.id);
+  }
+
+  @override
+  void didUpdateWidget(PageThumbnail old) {
+    super.didUpdateWidget(old);
+    if (old.cache == widget.cache && old.page.id == widget.page.id) return;
+    old.cache.hidden(old.page.id);
+    widget.cache.shown(widget.page.id);
+  }
+
+  @override
+  void dispose() {
+    widget.cache.hidden(widget.page.id);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final PageThumbnail(:page, :cache, :backgrounds) = widget;
     return AspectRatio(
       aspectRatio: page.width / page.height,
       child: ListenableBuilder(

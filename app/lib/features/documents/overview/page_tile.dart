@@ -254,6 +254,7 @@ class _Footer extends StatelessWidget {
               ),
               onSelected: tile.onCommand,
               items: () => pageMenuItems(tile.page),
+              staggered: true,
             ),
         ],
       ),

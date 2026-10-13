@@ -70,6 +70,25 @@ class ThumbnailCache extends ChangeNotifier {
     if (_ink.containsKey(pageId)) _enqueue(pageId);
   }
 
+  /// How many thumbnails show each page ([shown] / [hidden]).
+  final Map<String, int> _showing = {};
+
+  /// A thumbnail of [pageId] is on screen (until [hidden]).
+  void shown(String pageId) => _showing.update(pageId, (n) => n + 1, ifAbsent: () => 1);
+
+  /// A thumbnail of [pageId] is gone. When none is left, the page is no
+  /// longer recorded if it still waits: scrolling fast through a long
+  /// notebook records only the pages it stops at.
+  void hidden(String pageId) {
+    final n = (_showing[pageId] ?? 1) - 1;
+    if (n > 0) {
+      _showing[pageId] = n;
+    } else {
+      _showing.remove(pageId);
+      _queue.remove(pageId);
+    }
+  }
+
   void _enqueue(String pageId) {
     _queue.add(pageId);
     _loading ??= Timer(Duration.zero, _loadSome);

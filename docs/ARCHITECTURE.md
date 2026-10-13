@@ -242,6 +242,11 @@ Two more things keep pen-up and first show off the frame:
   (`ThumbnailCache`: page overview, go to page) do the same below 2.5 px
   (the regular pens) and are rasterised once at the size shown (48 MB LRU),
   so scrolling the overview draws images instead of every page's outlines.
+  A page waiting to be recorded is dropped from the queue once no
+  thumbnail shows it (scrolled past). Each overview tile's ⋯ is a
+  `MenuIconButton(staggered: true)`: the glyph first (it opens the menu
+  too), the IconButton with its tooltip completed by `StaggeredBuild` (a
+  few a frame, not while the grid scrolls).
 
 Measuring: `test/perf/ink_render_perf_test.dart` replays the scenarios
 headlessly and counts the work (see docs/INK_LAB.md); profile builds with
