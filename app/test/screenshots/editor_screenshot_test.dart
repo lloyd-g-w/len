@@ -104,7 +104,13 @@ void main() {
     await tester.tap(find.byType(ToolSwitcherButton));
     await settle(tester);
     await shoot(tester, 'editor_phone_sideways_switcher');
-    await tester.tapAt(const Offset(422, 350));
+    // The active tool again: its options.
+    await tester.tap(find.text('Pen').last);
+    await settle(tester);
+    await shoot(tester, 'editor_phone_sideways_pen');
+    await tester.tapAt(const Offset(20, 200)); // Beside the sheet: closes it.
+    await settle(tester);
+    expect(find.text('Colour'), findsNothing);
     await settle(tester);
     await tester.tap(find.byTooltip('More options'));
     await settle(tester);

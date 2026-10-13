@@ -27,6 +27,10 @@ import 'screenshots/screenshot_harness.dart';
 const phone = Size(390, 844);
 const tablet = Size(1280, 800);
 
+/// A phone held sideways: the library's phone layout with folders beside
+/// the title, the editor's one-row chrome (`Breakpoints.shortHeight`).
+const sideways = Size(844, 390);
+
 /// A screen state to check: pumps it (see [pumpScreen]) and opens what it
 /// needs to.
 typedef Scenario = Future<void> Function(WidgetTester tester);
@@ -98,11 +102,13 @@ String? _withoutKnown(String reason, Map<String, String> known) {
 }
 
 /// Runs [scenario] and checks the guidelines on what it shows; fails with
-/// every violation found.
+/// every violation found. [contrastHere] adds [knownContrast] entries for
+/// this scenario only.
 Future<void> expectAccessible(
   WidgetTester tester, {
   required Size size,
   required Scenario scenario,
+  Map<String, String> contrastHere = const {},
 }) async {
   final failures = <String>[];
   Future<void> check(List<AccessibilityGuideline> guidelines) async {
@@ -112,7 +118,10 @@ Future<void> expectAccessible(
       if (result.passed) continue;
       final reason = switch (g) {
         MinimumTapTargetGuideline() => _withoutKnown(result.reason!, knownSmallTargets),
-        _ when g == textContrastGuideline => _withoutKnown(result.reason!, knownContrast),
+        _ when g == textContrastGuideline => _withoutKnown(result.reason!, {
+          ...knownContrast,
+          ...contrastHere,
+        }),
         _ => result.reason,
       };
       if (reason != null) failures.add('${g.description}\n$reason');
@@ -232,6 +241,42 @@ void main() {
     }
   }
 
+  // A phone held sideways: short-window chrome, Android's targets.
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    final label = 'phone sideways ${mode.name}';
+    testWidgets('library $label', (tester) async {
+      await expectAccessible(
+        tester,
+        size: sideways,
+        scenario: (t) => pumpScreen(t, (_) => const LibraryScreen(), size: sideways, mode: mode),
+      );
+    });
+
+    for (final MapEntry(key: state, value: taps) in phoneEditorStates.entries) {
+      testWidgets('$state $label', (tester) async {
+        await expectAccessible(
+          tester,
+          size: sideways,
+          // The options sheet scrolls: its next group fades out at the
+          // window's bottom edge, by design.
+          contrastHere: const {
+            'label: "Size"': 'the pen sheet\'s Size group, inside its scroll fade',
+            'label: "0.65 mm"': 'the pen sheet\'s size readout, inside its scroll fade',
+          },
+          scenario: (t) async {
+            await pumpScreen(
+              t,
+              (s) => EditorScreen(notebook: physics(s)),
+              size: sideways,
+              mode: mode,
+            );
+            await tapAll(t, taps());
+          },
+        );
+      });
+    }
+  }
+
   // Controls whose hit area hangs past their box (HitOverhang): the
   // guideline skips them where they touch a scrollable's edge, so check
   // them here: the full touch target, and taps anywhere on it count.
@@ -269,7 +314,7 @@ void main() {
 
   // Large text (the largest Android font size is 2×): nothing overflows,
   // and the guidelines still hold.
-  for (final (name, size) in [('phone', phone), ('tablet', tablet)]) {
+  for (final (name, size) in [('phone', phone), ('phone sideways', sideways), ('tablet', tablet)]) {
     for (final (screen, home) in <(String, Widget Function(AppServices))>[
       ('library', (_) => const LibraryScreen()),
       ('settings', (_) => const SettingsScreen()),
