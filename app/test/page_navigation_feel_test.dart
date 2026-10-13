@@ -140,6 +140,52 @@ void main() {
       await _close(tester);
     });
 
+    testWidgets('the page follows a sideways finger, and settles back if it did not turn', (
+      tester,
+    ) async {
+      await _pump(tester, flow: PageFlow.single);
+      final doc = _doc(tester);
+      // The page's sideways shift on screen beyond the view's own scroll.
+      double shift() {
+        final t = tester.widget<Transform>(
+          find
+              .descendant(of: find.byType(PagedDocumentView), matching: find.byType(Transform))
+              .first,
+        );
+        return t.transform.getTranslation().x;
+      }
+
+      final g = await tester.createGesture(kind: PointerDeviceKind.touch);
+      await g.down(const Offset(500, 600), timeStamp: ms(0));
+      for (var i = 1; i <= 10; i++) {
+        await g.moveTo(Offset(500 - 12.0 * i, 602), timeStamp: ms(100 * i));
+        await tester.pump();
+      }
+      expect(shift(), lessThan(-60), reason: 'the page went with the finger');
+      await g.up(timeStamp: ms(1100)); // Slow and short: no turn.
+      await tester.pumpAndSettle();
+      expect(doc.currentPage, 0);
+      expect(shift(), 0);
+
+      // Swiping right on the first page only gives a little.
+      final h = await tester.createGesture(kind: PointerDeviceKind.touch);
+      await h.down(const Offset(300, 600), timeStamp: ms(2000));
+      for (var i = 1; i <= 10; i++) {
+        await h.moveTo(Offset(300 + 12.0 * i, 600), timeStamp: ms(2000 + 100 * i));
+        await tester.pump();
+      }
+      expect(shift(), inInclusiveRange(1, 120 * 0.3 + 1));
+      await h.up(timeStamp: ms(3100));
+      await tester.pumpAndSettle();
+      expect(shift(), 0);
+
+      // A flick turns: the next page slides in and comes to rest.
+      await _swipe(tester, const Offset(500, 600), const Offset(-80, 0), duration: 120);
+      expect(doc.currentPage, 1);
+      expect(shift(), 0);
+      await _close(tester);
+    });
+
     testWidgets('a pinch below the whole page springs back to it', (tester) async {
       await _pump(tester, flow: PageFlow.single);
       final doc = _doc(tester);
