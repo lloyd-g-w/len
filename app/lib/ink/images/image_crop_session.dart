@@ -43,7 +43,7 @@ class ImageCropSession extends ChangeNotifier {
     imageRect = Rect.fromLTWH(r.left - c.left * w, r.top - c.top * h, w, h);
     _crop = r;
     model
-      ..setHidden({element.id})
+      ..setHidden({element.id}, owner: this)
       ..addListener(_onModelChanged);
     _imageChanges = model.images?.changes.listen((blob) {
       if (blob == data.blob) notifyListeners();
@@ -153,7 +153,7 @@ class ImageCropSession extends ChangeNotifier {
     _ended = true;
     model
       ..removeListener(_onModelChanged)
-      ..setHidden(const {});
+      ..setHidden(const {}, owner: this);
   }
 
   @override
