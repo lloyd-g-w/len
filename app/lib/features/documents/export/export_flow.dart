@@ -9,6 +9,7 @@ import '../../../platform/file_export.dart' as platform;
 import '../progress_dialog.dart';
 import 'export_messages.dart';
 import 'export_options.dart';
+import 'export_report.dart';
 import 'export_sheet.dart';
 import 'notebook_exporter.dart';
 
@@ -73,6 +74,7 @@ Future<void> runExport(
   final names = exportFileNames(notebook.title, options.format, options.pages, pages.length);
   final worker = exporter ?? NotebookExporter(AppScope.read(context));
   final subject = names.length == 1 ? names.single : '${names.length} images';
+  final report = ExportReport();
   try {
     final files = await runWithSteps(context, 'Exporting', subject: subject, cancellable: true, (
       progress,
@@ -83,6 +85,7 @@ Future<void> runExport(
           selected,
           title: notebook.title,
           backgrounds: options.includeBackgrounds,
+          report: report,
           onProgress: (stage, done, total) => progress.step(
             done,
             total,
@@ -105,7 +108,7 @@ Future<void> runExport(
     if (!context.mounted) return;
     final saved = await save(files, mime: options.format.mime, toDevice: options.toDevice);
     if (saved == null || !context.mounted) return;
-    showExported(context, saved, plural: 'images');
+    showExported(context, saved, plural: 'images', note: report.summary);
   } on Cancelled {
     return; // Nothing was saved; rendered pages are already disposed.
   } on Object catch (e, stack) {
@@ -141,6 +144,7 @@ Future<void> exportCanvasFlow(
   ExportSaver save = platform.saveOrShareAll,
 }) async {
   final worker = exporter ?? NotebookExporter(AppScope.read(context));
+  final report = ExportReport();
   try {
     final preview = worker.canvasPage(notebook);
     if (preview == null) {
@@ -164,7 +168,7 @@ Future<void> exportCanvasFlow(
       final canvas = worker.canvasPage(notebook, template: options.includeTemplates);
       if (canvas == null) return const <ExportFile>[];
       final bytes = options.format == ExportFormat.pdf
-          ? await worker.canvasPdf(canvas, title: notebook.title)
+          ? await worker.canvasPdf(canvas, title: notebook.title, report: report)
           : await worker.canvasPng(canvas, scale: pngScale);
       progress.check(); // Cancelled meanwhile.
       return [(bytes: bytes, name: name)];
@@ -172,7 +176,7 @@ Future<void> exportCanvasFlow(
     if (files.isEmpty || !context.mounted) return;
     final saved = await save(files, mime: options.format.mime, toDevice: options.toDevice);
     if (saved == null || !context.mounted) return;
-    showExported(context, saved, plural: 'images');
+    showExported(context, saved, plural: 'images', note: report.summary);
   } on Cancelled {
     return;
   } on Object catch (e, stack) {

@@ -14,6 +14,7 @@ import '../../../domain/surface_element.dart';
 import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
+import 'export_report.dart';
 import 'pdf_images.dart';
 import 'pdf_links.dart';
 import 'pdf_template.dart';
@@ -96,7 +97,8 @@ abstract final class PdfExporter {
   /// The PDF document of [pages]; [onPage] hears how many are written (and
   /// may throw to abandon the export). Image elements are read through
   /// [readBlob]. [onRasterized] hears the index of each page whose PDF
-  /// background had to be embedded as an image.
+  /// background had to be embedded as an image. [report] collects what was
+  /// left out or simplified.
   static Future<Uint8List> build(
     List<ExportPage> pages, {
     String? title,
@@ -104,6 +106,7 @@ abstract final class PdfExporter {
     Future<Uint8List?> Function(String sha)? readBlob,
     void Function(int index)? onRasterized,
     FontAssetLoader? loadFont,
+    ExportReport? report,
   }) async {
     final doc = PdfDocument();
     PdfInfo(doc, title: title, creator: 'Len'); // Registers itself.
@@ -117,8 +120,12 @@ abstract final class PdfExporter {
     );
     for (var i = 0; i < pages.length; i++) {
       onPage?.call(i);
-      if (!await _addPage(writer, pages[i])) onRasterized?.call(i);
+      if (!await _addPage(writer, pages[i])) {
+        onRasterized?.call(i);
+        report?.rasterizedPages++;
+      }
     }
+    report?.missingImages += writer.images.missing;
     PdfLinkWriter.write(doc, pages, writer.written, writer.links);
     return doc.save();
   }

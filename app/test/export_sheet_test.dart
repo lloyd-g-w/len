@@ -10,6 +10,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/documents/export/export_flow.dart';
+import 'package:len/features/documents/export/export_report.dart';
 import 'package:len/features/documents/export/notebook_exporter.dart';
 import 'package:len/platform/file_export.dart';
 
@@ -24,6 +25,9 @@ class _FakeExporter extends NotebookExporter {
 
   /// When set, [pdf] fails with it.
   Object? error;
+
+  /// Images [pdf] reports as left out.
+  int missingImages = 0;
   final pngCalls = <(NotebookPage, double, bool)>[];
 
   @override
@@ -33,9 +37,11 @@ class _FakeExporter extends NotebookExporter {
     ExportProgress? onProgress,
     bool backgrounds = true,
     void Function(int index)? onRasterized,
+    ExportReport? report,
   }) async {
     pdfCalls.add(pages);
     if (error case final e?) throw e;
+    report?.missingImages += missingImages;
     for (var i = 0; gate != null && i < pages.length; i++) {
       onProgress?.call(ExportStage.writing, i, pages.length);
       await gate!.future;
@@ -193,6 +199,14 @@ void main() {
     expect(saved, isEmpty);
   });
 
+  testWidgets('what an export leaves out is said at the end (UX_AUDIT P2-29)', (tester) async {
+    exporter.missingImages = 2;
+    await open(tester);
+    await tester.tap(_exportButton);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('· 2 images couldn’t be included'), findsOneWidget);
+  });
+
   testWidgets('a failed export says so in words, the error under Details', (tester) async {
     exporter.error = const FileSystemException('No space left on device', '/tmp/x');
     await open(tester);
@@ -223,4 +237,17 @@ void main() {
     expect(find.text('Saved “Lab.pdf”'), findsOneWidget);
     expect(find.widgetWithText(SnackBarAction, 'Show in folder'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  test('the report reads as one line', () {
+    expect(ExportReport().summary, isNull);
+    final report = ExportReport()
+      ..missingBackgrounds = 1
+      ..missingImages = 3
+      ..rasterizedPages = 2;
+    expect(
+      report.summary,
+      '1 PDF page not on this device was left out; 3 images couldn’t be included; '
+      '2 PDF pages were included as a picture',
+    );
+  });
 }
