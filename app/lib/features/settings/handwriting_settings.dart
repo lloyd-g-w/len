@@ -26,9 +26,12 @@ class HandwritingSettings extends StatelessWidget {
       listenable: Listenable.merge([recognition, recognition.indexer]),
       builder: (context, _) => SettingsSection(
         title: 'Handwriting',
-        description:
-            'Search your handwriting and convert it to text: select it with the lasso, '
-            'then choose Convert to text. Recognition runs on this device; nothing is sent anywhere.',
+        // How to use it, only where it can be used.
+        description: recognition.isSupported
+            ? 'Search your handwriting and convert it to text: select it with the lasso, '
+                  'then choose Convert to text. Recognition runs on this device; nothing is '
+                  'sent anywhere.'
+            : null,
         children: recognition.isSupported
             ? [
                 _indexing(context),

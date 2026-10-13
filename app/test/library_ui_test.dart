@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -15,6 +16,7 @@ import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/features/library/new_notebook_tile.dart';
 import 'package:len/features/library/notebook_card.dart';
 import 'package:len/features/library/notebook_list_tile.dart';
+import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/ui/menus.dart';
 import 'package:len/ui/sidebar_item.dart';
 
@@ -446,6 +448,25 @@ void main() {
     expect(find.byType(SidebarItem), findsNothing);
     expect(find.text('Theme'), findsOneWidget);
     expect(find.text('Tap to undo and redo'), findsOneWidget);
+    expect(find.text('Side button'), findsOneWidget); // Tests run as Android.
+  });
+
+  testWidgets('desktops show the side button only for stylus users', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppScope(services: services, child: const SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Draw with'), findsOneWidget);
+    expect(find.text('Side button'), findsNothing);
+    await tester.tap(find.text('Stylus'));
+    await tester.pumpAndSettle();
+    expect(find.text('Side button'), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('long-press on touch opens the context menu; right-click too', (tester) async {

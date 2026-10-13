@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -43,23 +44,26 @@ class WritingSettings extends StatelessWidget {
               ),
             ),
           ),
-          SettingsTile(
-            icon: Symbols.ads_click_rounded,
-            title: 'Side button',
-            subtitle: 'While you hold the S Pen (or stylus) button',
-            control: ShrinkToFit(
-              child: SegmentedButton<PenButtonAction>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: PenButtonAction.eraser, label: SegmentLabel('Erases')),
-                  ButtonSegment(value: PenButtonAction.lasso, label: SegmentLabel('Selects')),
-                  ButtonSegment(value: PenButtonAction.none, label: SegmentLabel('Nothing')),
-                ],
-                selected: {preferences.penButtonAction},
-                onSelectionChanged: (s) => preferences.penButtonAction = s.single,
+          // Only where a stylus with a button is likely: Android (S Pen), or
+          // where the user said they draw with one.
+          if (defaultTargetPlatform == TargetPlatform.android || preferences.stylusOnly == true)
+            SettingsTile(
+              icon: Symbols.ads_click_rounded,
+              title: 'Side button',
+              subtitle: 'While you hold the S Pen (or stylus) button',
+              control: ShrinkToFit(
+                child: SegmentedButton<PenButtonAction>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: PenButtonAction.eraser, label: SegmentLabel('Erases')),
+                    ButtonSegment(value: PenButtonAction.lasso, label: SegmentLabel('Selects')),
+                    ButtonSegment(value: PenButtonAction.none, label: SegmentLabel('Nothing')),
+                  ],
+                  selected: {preferences.penButtonAction},
+                  onSelectionChanged: (s) => preferences.penButtonAction = s.single,
+                ),
               ),
             ),
-          ),
           SettingsTile(
             icon: Symbols.undo_rounded,
             title: 'Tap to undo and redo',
