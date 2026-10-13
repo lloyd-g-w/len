@@ -164,6 +164,7 @@ class _PagePickerState extends State<_PagePicker> {
                                 : Symbols.description_rounded,
                             fill: page.bookmarked ? 1 : 0,
                             size: 20,
+                            color: page.bookmarked ? Palette.bookmark : null,
                           ),
                           title: Text(i == current ? 'Page ${i + 1} (this page)' : 'Page ${i + 1}'),
                           subtitle: names == null
