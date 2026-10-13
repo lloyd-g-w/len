@@ -136,6 +136,8 @@ tip stays for `visibleFor` (`features/editor/chrome/editor_tips.dart:45,
 under the selection menu, above the bottom bar. *Fix:* dismiss
 `EditorTip.lasso` when the first selection is made (listen to the
 selection in `TipsController.followTools`) or the tool changes.
+*Done (`fix/r7-pen`):* it goes with the first selection (ink, elements or
+PDF text) or another tool, and isn't offered while something is selected.
 
 ### Organising and finding
 

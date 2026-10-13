@@ -49,20 +49,42 @@ class TipsController extends ValueNotifier<TipMessage?> {
   ToolSettings? _tools;
   EditorTool? _tool;
   bool Function()? _hasPdf;
+  Listenable? _selection;
+  bool Function() _selected = _nothing;
+
+  static bool _nothing() => false;
 
   /// Offers [EditorTip.lasso] the first time [tools] switch to the lasso
-  /// (mentioning PDF text where the notebook [hasPdf]).
-  void followTools(ToolSettings tools, {bool Function()? hasPdf}) {
+  /// (mentioning PDF text where the notebook [hasPdf]). The tip never
+  /// covers a selection: it waits while something is [selected] and goes
+  /// as soon as a selection is made (the user did what it says; [selection]
+  /// notifies) or another tool is picked.
+  void followTools(
+    ToolSettings tools, {
+    bool Function()? hasPdf,
+    Listenable? selection,
+    bool Function()? selected,
+  }) {
     _tools = tools..addListener(_onTools);
     _tool = tools.tool;
     _hasPdf = hasPdf;
+    _selection = selection?..addListener(_onSelection);
+    _selected = selected ?? _nothing;
   }
 
   void _onTools() {
     final tool = _tools!.tool;
     if (tool == _tool) return;
     _tool = tool;
-    if (tool == EditorTool.lasso) offer(EditorTip.lasso, pdf: _hasPdf?.call() ?? false);
+    if (tool != EditorTool.lasso) {
+      if (value?.tip == EditorTip.lasso) dismiss();
+    } else if (!_selected()) {
+      offer(EditorTip.lasso, pdf: _hasPdf?.call() ?? false);
+    }
+  }
+
+  void _onSelection() {
+    if (value?.tip == EditorTip.lasso && _selected()) dismiss();
   }
 
   /// The ↶ button was tapped. On a touch device with finger-tap undo on,
@@ -128,6 +150,7 @@ class TipsController extends ValueNotifier<TipMessage?> {
   @override
   void dispose() {
     _tools?.removeListener(_onTools);
+    _selection?.removeListener(_onSelection);
     _timer?.cancel();
     super.dispose();
   }

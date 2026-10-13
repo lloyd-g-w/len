@@ -150,10 +150,17 @@ class _EditorScreenState extends State<_EditorView> {
   NotebookAudio get _audio => _shared.audio;
 
   /// One-time tips (stylus side button, the undo gesture, the lasso).
-  late final TipsController _tips = TipsController(
-    seen: (id) => _services.settings.seenTips.contains(id),
-    markSeen: _services.settings.markTipSeen,
-  )..followTools(_session.tools, hasPdf: () => _session.pdf?.hasPdf ?? false);
+  late final TipsController _tips =
+      TipsController(
+        seen: (id) => _services.settings.seenTips.contains(id),
+        markSeen: _services.settings.markTipSeen,
+      )..followTools(
+        _session.tools,
+        hasPdf: () => _session.pdf?.hasPdf ?? false,
+        selection: Listenable.merge([_session.content.selection, _session.pdf?.selection]),
+        selected: () =>
+            !_session.content.selection.isEmpty || !(_session.pdf?.selection.isEmpty ?? true),
+      );
 
   /// In-notebook search, Ctrl+F (features/search).
   late final EditorSearchController _search;

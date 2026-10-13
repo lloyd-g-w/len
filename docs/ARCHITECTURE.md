@@ -345,12 +345,14 @@ or deleted pages in order with ink. Snack bars' Undo calls
   selection instead).
 - **Hints** (shown sparingly, never blocking): an empty infinite canvas shows a quiet
   "Draw anywhere" note with how to move around (`canvas/canvas_empty_hint.dart`; gone at
-  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows a one-time tip under
-  the top bar, for 10 s or until dismissed, remembered per device
+  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows a one-time tip at
+  the bottom, above the toolbar, for 10 s or until dismissed, remembered per device
   (`SettingsRepository.seenTips`): the stylus side button (after the first pen contact,
   phrased for `PenButtonAction`; none if it does nothing); tap with two / three fingers
   to undo / redo (the third ↶ tap in an editor on touch with finger-tap undo on); what
-  the lasso does (the first time it is picked). The gesture HUD names multi-finger taps
+  the lasso does (the first time it is picked; it waits while something is selected
+  and goes with the first selection, ink or PDF text, or another tool, so it never
+  covers a selection or its menu). The gesture HUD names multi-finger taps
   when they happen.
 - **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
   the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
