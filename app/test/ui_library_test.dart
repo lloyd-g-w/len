@@ -103,7 +103,7 @@ void main() {
     await createNotebook(tester, 'Physics');
     expect(find.byType(EditorScreen), findsOneWidget);
     expect(find.text('Physics'), findsOneWidget);
-    expect(find.text('1 / 1'), findsOneWidget);
+    expect(find.text('1 / 1'), findsNothing); // One page: no indicator pill.
 
     await drawStroke(tester);
     await addPageAfter(tester);
