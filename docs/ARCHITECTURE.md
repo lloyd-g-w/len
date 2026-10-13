@@ -113,9 +113,11 @@ draws a few dozen images, however much ink is on screen.
   (pages, clipped to the page) call `paintTiled`: tile images where they
   exist; for the rest (`VectorFallback`) the chunk pictures as before,
   clipped to the missing tiles. Renders are queued (on screen first, then a
-  ring one tile around it), at most two in flight, recordings time-boxed to
-  4 ms per batch, and run after the frame that asked for them; the painter
-  repaints when they land (`InkTileCache` / `DocumentSurfaces.rendered`).
+  ring one tile around it), at most two in flight (edits: all at once),
+  recordings time-boxed to 4 ms per batch, and run after the frame that
+  asked for them; the painter repaints when they land (`InkTileCache` /
+  `DocumentSurfaces.rendered`). Requests the view has moved away from are
+  dropped.
 - **Pen-up** (`SurfaceChange.appended`): `SurfaceModel.addStroke` reports a
   new stroke that lies over everything in its chunks (no highlighter, no
   element above) as an *append*. Tiles keep their images; the stroke is
@@ -127,20 +129,34 @@ draws a few dozen images, however much ink is on screen.
   images of the tiles they touch as stale stand-ins until re-rendered (that
   content was not on screen yet), so a loading canvas never drops to
   vectors.
-- **Other edits** (erase, undo, lasso) invalidate only the tiles over the
-  changed chunks; those are drawn from vectors for a frame or two.
+- **Other edits** (erase, undo, lasso) touch only the tiles under the edited
+  items' bounds (`SurfaceChange.areas`, not whole chunks). Up to two tiles
+  are dropped and drawn from vectors for a frame or two (an eraser stroke
+  shows at once); larger edits (undoing a lasso move) keep the old images
+  until the new ones, all rendered at once, replace them together — a
+  frame or two late, but never frames of vectors over the whole screen and
+  never half done.
 - **Idle caches**: a cache not painted for 500 ms (its view zoomed out to
   level-of-detail images, say) renders nothing on edits; appended strokes
   wait as overlays until it is painted again, so it never takes raster
   time from what is on screen.
-- **Zoom and pan**: panning by whole device pixels keeps the space and its
-  tiles. Zooming, or a sub-pixel shift, draws the current tiles transformed
-  (`FilterQuality.medium`) while the gesture lasts; after 150 ms still the
-  new space is adopted and rendered, the old tiles standing in for each
-  area until all its new ones exist, so nothing goes blank.
+- **Pan**: panning keeps the space and its tiles, by fractions of a pixel
+  too: the view is aligned to the tiles (`TileView.alignedTo`, committed
+  ink off by under half a device pixel) rather than every tile re-rendered
+  when a scroll stops; the ring renders while panning.
+- **Zoom**: the current tiles are drawn transformed (`FilterQuality.medium`)
+  while the gesture lasts, rendering only those missing on screen (and the
+  ring when zooming out); zooming out more than 1.5× from the tiles adopts
+  the new zoom at once. After 150 ms still the new zoom is adopted and
+  rendered; old tiles stand in wherever they exist (vectors only for the
+  parts they do not cover), so nothing goes blank.
 - **Memory**: tile images live in one `TilePool` (LRU by bytes, 160 MB =
   160 tiles of 1 MB) shared by every surface and view; evicted tiles are
-  re-rendered when needed.
+  re-rendered when needed. Beyond 256 tiles known per cache, those without
+  an image or pending work are forgotten.
+- **Pages ahead**: paged documents load (`DocumentController`) and render
+  (`InkTileCache.prefetch`) the pages within half a screen of the view, so
+  a page scrolls in complete and without vector frames.
 - **Split view**: page models are shared between the panes of a notebook
   (`PageModels`), tile caches are not — each view has its own zoom and its
   own `PageSurface` (chunk pictures + tiles), all listening to the shared
@@ -174,9 +190,14 @@ Two more things keep pen-up and first show off the frame:
   outlines are being built count as loaded for the next read.
 - **Previews** (`ThumbnailRenderer`): ink thinner than 1.5 px in the
   preview is drawn as plain lines along its points
-  (`StrokeRenderer.drawSketch`), without building outlines.
+  (`StrokeRenderer.drawSketch`), without building outlines. Page thumbnails
+  (`ThumbnailCache`: page overview, go to page) do the same below 2.5 px
+  (the regular pens) and are rasterised once at the size shown (48 MB LRU),
+  so scrolling the overview draws images instead of every page's outlines.
 
-Measuring: profile builds with `--dart-define=LEN_PERF=true` log frame and
+Measuring: `test/perf/ink_render_perf_test.dart` replays the scenarios
+headlessly and counts the work (see docs/INK_LAB.md); profile builds with
+`--dart-define=LEN_PERF=true` log frame and
 pen-up latency summaries (`PerfProbe`, see docs/INK_LAB.md, *Rendering
 performance*); timeline markers `len.renderTile`, `len.commitStroke`,
 `len.persistStrokes`, `len.recordChunk`, `len.handwritingCluster`,

@@ -613,6 +613,33 @@ writing, now run on a background executor and never start while a pointer
 is down; see ARCHITECTURE, *Handwriting recognition*. Not yet measured on
 the tablet.)
 
+### Headless benchmark
+
+`test/perf/ink_render_perf_test.dart` (`tool/light.sh flutter test
+test/perf/ink_render_perf_test.dart`, ≈ 1.5 min) replays the scenarios on a
+1280 × 800 view at 2× (9 000 scribbles; 8 pages of 1 200; a 40 000-stroke
+canvas at 6 %) and counts the work: *vector screens* (screens' worth of
+area drawn from chunk pictures instead of tiles), frames with vectors, tile
+renders, frames showing stale images. Frames are 16 ms apart and tile
+renders started in one frame finish before the next, as on a GPU (they
+rasterise on the CPU here, so its frame times only compare runs on the same
+machine). Round 3 (perf/ink-render), main at 85e43c5 → after:
+
+| Scenario | before | after |
+| --- | --- | --- |
+| pan at 100 %, 40 frames, then rest | 0 renders, then 48 renders at rest | 6 (ring), then 0 |
+| scroll a notebook (fling of 1.5 pages) | 25 vector frames, 5.4 vector screens, 116 + 48 renders | 0, 0, 78 + 0 |
+| pinch out to 40 % (30 frames) | 19 vector frames, 10.4 vector screens | 17, 4–8 (old tiles cover what they can) |
+| undo a lasso move of 2 000 strokes | 6 vector frames, 4.6 vector screens | 0 vector frames; the new tiles appear together 6–7 frames later (CPU raster) |
+| write 20 strokes on the dense page | 0 vector frames, 28 incremental renders | same |
+| page overview, 16 pages of 1 500 strokes | recording 16.6 s (outlines), frame 562 ms (pictures) | 0.3 s (plain lines), 67 ms (rasters) |
+
+(Recording times are desktop JIT in a test; the tablet is several times
+faster but on the UI thread all the same.) Still open: zooming out fast on
+dense ink draws the newly exposed rim from vectors until its tiles render;
+far zoom-out of a canvas records up to 8 chunk pictures per frame for its
+level-of-detail rasters (by design). Not yet measured on the tablet.
+
 ## Low-latency ink
 
 The overlay (ARCHITECTURE, *Low-latency ink*) is always on for opaque pen
