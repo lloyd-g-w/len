@@ -210,7 +210,8 @@ red. Popovers pad 16, title Heading, a hairline only between groups.
 
 **Dialogs:** Sheet, radius `lg`, hairline, 24 padding, Heading title
 left-aligned, Body in Graphite, actions right-aligned (quiet Cancel, Ink
-primary). **Sheets** (phones): Sheet, `lg` top corners, a 32 × 3 Pencil
+primary). A dialog with Cancel has no ✕; one without (Move, Cover,
+Keyboard shortcuts) keeps it, and phone sheets always do. **Sheets** (phones): Sheet, `lg` top corners, a 32 × 3 Pencil
 handle, full-width stacked actions, primary on top. Stacked actions, in
 sheets and in dialogs too narrow for a row, follow one rule
 (`DialogActions`): primary Ink on top, alternatives outlined (Pencil),
