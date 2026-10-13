@@ -16,7 +16,7 @@
   folder column.
 - ✅ Settings: "Up to date: 0 lines recognised." → "no handwriting yet".
 
-## Peeking page indicator (REDESIGN phase 5, in progress)
+## Peeking page indicator (REDESIGN phase 5)
 
 - ✅ The page control is now a compact `3 / 12` pill on every screen. It
   appears when the pages move, fades after 1.5 seconds and leaves no
