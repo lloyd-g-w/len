@@ -249,6 +249,10 @@ class InkInputController {
     _nav.add(e.pointer, e.localPosition, slop: kTouchSlop);
   }
 
+  /// Whether [pointer] currently pans/zooms the view (rather than drawing,
+  /// or being ignored as a palm).
+  bool navigates(int pointer) => _nav.contains(pointer);
+
   /// Abandons the current stroke without committing it.
   void cancelDraw() => _draw.cancel();
 

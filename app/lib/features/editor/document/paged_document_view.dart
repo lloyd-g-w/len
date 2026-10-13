@@ -12,6 +12,7 @@ import 'document_layout.dart';
 import 'document_painters.dart';
 import 'page_backgrounds.dart';
 import 'page_painting.dart';
+import 'page_swipe.dart';
 
 /// Shows a paged notebook as a scrollable stack of pages (or one page at a
 /// time) and routes input to the page under the pointer.
@@ -26,17 +27,12 @@ class PagedDocumentView extends StatefulWidget {
     required this.input,
     required this.live,
     this.backgrounds,
-    this.fingersNavigate,
   });
 
   final DocumentController controller;
   final InkInputController input;
   final LiveInk live;
   final PageBackgrounds? backgrounds;
-
-  /// Whether one-finger touches pan rather than draw (palm rejection on);
-  /// enables swiping between pages in single-page flow.
-  final bool Function()? fingersNavigate;
 
   @override
   State<PagedDocumentView> createState() => _PagedDocumentViewState();
@@ -103,8 +99,7 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
   }
 
   /// Start of a possible page-turning swipe (single-page flow).
-  Offset? _swipeStart;
-  DateTime? _swipeTime;
+  ({Offset at, Duration time})? _swipeStart;
 
   DocumentController get _doc => widget.controller;
 
@@ -125,14 +120,18 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
     final held = widget.input.content?.holds(e.localPosition) ?? false;
     if ((_pointers.isEmpty || stylus) && !held) _doc.activateAt(e.localPosition);
     _pointers.add(e.pointer);
-    _trackSwipeStart(e);
     widget.input.handleDown(e);
+    _trackSwipeStart(e);
   }
 
   void _up(PointerUpEvent e) {
+    // Only a finger still navigating swipes (not a palm, nor one a pen
+    // landing stopped).
+    final navigating = widget.input.navigates(e.pointer);
     widget.input.handleUp(e);
     _pointers.remove(e.pointer);
-    _maybeSwipe(e);
+    if (navigating) _maybeSwipe(e);
+    _swipeStart = null;
   }
 
   void _cancel(PointerCancelEvent e) {
@@ -142,26 +141,24 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
   }
 
   void _trackSwipeStart(PointerDownEvent e) {
+    // One finger that pans (palm rejection on) may turn pages.
     final swipeable =
         _doc.flow == PageFlow.single &&
         e.kind == PointerDeviceKind.touch &&
         _pointers.length == 1 &&
-        (widget.fingersNavigate?.call() ?? false);
-    _swipeStart = swipeable ? e.localPosition : null;
-    _swipeTime = DateTime.now();
+        widget.input.navigates(e.pointer);
+    _swipeStart = swipeable ? (at: e.localPosition, time: e.timeStamp) : null;
   }
 
   void _maybeSwipe(PointerUpEvent e) {
     final start = _swipeStart;
-    _swipeStart = null;
     if (start == null || _pointers.isNotEmpty) return;
-    final delta = e.localPosition - start;
-    final quick = DateTime.now().difference(_swipeTime!) < const Duration(milliseconds: 700);
-    final pageFits = _doc.layout.bounds.width * _doc.viewport.scale <= _doc.viewport.size.width;
-    if (!quick || !pageFits || delta.dx.abs() < 80 || delta.dx.abs() < 2 * delta.dy.abs()) {
-      return;
-    }
-    _doc.goToPage(_doc.currentPage + (delta.dx < 0 ? 1 : -1));
+    // Zoomed in on the page, a swipe pans it instead.
+    final fit = _doc.frameTarget(_doc.currentPage)?.scale;
+    if (fit == null || _doc.viewport.scale > fit * DocumentController.singleZoomedIn) return;
+    final size = _doc.viewport.size;
+    final turn = PageSwipe.turn(e.localPosition - start.at, e.timeStamp - start.time, size.width);
+    if (turn != 0) _doc.goToPage(_doc.currentPage + turn);
   }
 
   @override
