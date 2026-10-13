@@ -8,6 +8,7 @@ class SyncRecord {
     required this.deviceId,
     required this.deleted,
     required this.data,
+    this.prepared,
   });
 
   final String collection;
@@ -18,6 +19,11 @@ class SyncRecord {
 
   /// Collection-specific payload; null for tombstones.
   final Map<String, Object?>? data;
+
+  /// The record already parsed into what its store writes (a `StrokeRow`),
+  /// done while decoding a pulled page; null when not. [data] then holds
+  /// only what the sync engine reads itself (`surfaceId`).
+  final Object? prepared;
 
   /// Whether this record should replace a local row with the given version
   /// under the last-write-wins rule.

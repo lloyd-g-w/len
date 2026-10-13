@@ -274,10 +274,14 @@ class SyncEngine {
 
   Future<RemoteChanges> _pull(SyncApi api, CancelCheck cancelled) async {
     final changes = RemoteChanges();
-    var since = settings.syncLastSeq;
+    var next = api.pull(since: settings.syncLastSeq);
     while (!cancelled()) {
-      final page = await api.pull(since: since);
+      final since = settings.syncLastSeq;
+      final page = await next;
       if (cancelled()) break;
+      // Fetch (and decode) the next page while this one is applied. Unused
+      // when this one is cut short; its failure surfaces only once awaited.
+      if (page.hasMore) next = api.pull(since: page.nextSince)..ignore();
       if (page.malformed > 0) {
         debugPrint('Skipped ${page.malformed} malformed records after seq $since');
       }
@@ -285,15 +289,15 @@ class SyncEngine {
       final records = page.records;
       var applied = 0;
       while (true) {
-        // A slice per transaction, with a turn of the event loop between
+        // A slice (a few ms) per transaction, with a turn of the event loop between
         // them: applying a whole page at once held the UI thread for a
         // frame or more. Only the last slice moves the feed position, so a
         // page cut short is pulled again (applying a record twice is a
         // no-op under last-write-wins).
-        final end = applied + applySlice < records.length ? applied + applySlice : records.length;
+        final slice = Stopwatch()..start();
         database.transaction(() {
-          for (; applied < end; applied++) {
-            _apply(records[applied], changes, revival);
+          while (applied < records.length && slice.elapsedMicroseconds < applyBudgetUs) {
+            _apply(records[applied++], changes, revival);
           }
           if (applied < records.length) return;
           // Once everything is in: deletions that raced edits come back.
@@ -305,15 +309,17 @@ class SyncEngine {
         if (cancelled()) break;
       }
       changes.addRevival(revival);
-      if (applied < records.length) break;
-      since = page.nextSince;
-      if (!page.hasMore) break;
+      if (applied < records.length || !page.hasMore) break;
+      // The next page is often in already: still let a frame in first.
+      await Future<void>.delayed(Duration.zero);
     }
     return changes;
   }
 
-  /// Pulled records applied per transaction (see [_pull]).
-  static const applySlice = 64;
+  /// How long (µs) a slice of pulled records may run before it commits and
+  /// yields (see [_pull]): a quarter of a frame, as the commit (and the
+  /// garbage collector) add to it.
+  static const applyBudgetUs = 4000;
 
   void _apply(SyncRecord record, RemoteChanges changes, Revival revival) {
     final store = _stores[record.collection];

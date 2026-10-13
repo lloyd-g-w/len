@@ -108,6 +108,9 @@ class AppDatabase {
     }
     db.execute('PRAGMA foreign_keys = OFF');
     db.execute('PRAGMA synchronous = NORMAL');
+    // 16 MB of page cache (default 2 MB): writing many rows at random ids
+    // (a first sync) otherwise rereads index pages all the time.
+    db.execute('PRAGMA cache_size = -16384');
   }
 
   void _migrate() {

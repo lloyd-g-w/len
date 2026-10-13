@@ -7,10 +7,9 @@ import 'package:sqlite3/common.dart';
 import '../domain/chunk_digest.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
-import '../domain/stroke_chunks.dart';
-import 'stroke_codec.dart';
 import 'stroke_queries.dart';
 import 'stroke_reader.dart';
+import 'stroke_row.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
@@ -18,10 +17,6 @@ import 'syncable_table.dart';
 /// to load only the visible part of a surface.
 class StrokeRepository extends SyncableTable implements StrokeReader {
   StrokeRepository(super.database, {required super.deviceId, super.clock});
-
-  /// Widest stroke accepted from sync (far above any pen's range). Guards
-  /// against corrupt records whose bounds would index millions of chunks.
-  static const double maxWidth = 1000;
 
   @override
   String get collection => 'strokes';
@@ -137,8 +132,12 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
       _tombstone(record.id, updatedAt: record.updatedAt, deviceId: record.deviceId, dirty: false);
       return;
     }
-    final stroke = _strokeFromData(record.id, record.data!);
-    _upsert(stroke, updatedAt: record.updatedAt, deviceId: record.deviceId, dirty: false);
+    // Usually prepared while the page was decoded (see `decodePullPage`).
+    final row = switch (record.prepared) {
+      final StrokeRow row => row,
+      _ => StrokeRow.fromRecord(record.id, record.data!),
+    };
+    _write(row, updatedAt: record.updatedAt, deviceId: record.deviceId, dirty: false);
   }
 
   /// Surface id of a stored stroke (live or tombstoned), if known.
@@ -150,7 +149,15 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
   // ---------------------------------------------------------------------------
   // Internals
 
-  void _upsert(Stroke s, {required int updatedAt, required String deviceId, required bool dirty}) {
+  void _upsert(Stroke s, {required int updatedAt, required String deviceId, required bool dirty}) =>
+      _write(StrokeRow.of(s), updatedAt: updatedAt, deviceId: deviceId, dirty: dirty);
+
+  void _write(
+    StrokeRow s, {
+    required int updatedAt,
+    required String deviceId,
+    required bool dirty,
+  }) {
     database.execute(
       '''
       INSERT INTO strokes (id, surface_id, tool, color, width, points,
@@ -165,15 +172,15 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
       [
         s.id,
         s.surfaceId,
-        s.tool.name,
+        s.tool,
         s.color,
         s.width,
-        StrokeCodec.encode(s.points),
+        s.points,
         s.createdAt,
         updatedAt,
         deviceId,
         dirty ? 1 : 0,
-        jsonEncode(s.style.toJson()),
+        s.style,
       ],
     );
     _reindex(s);
@@ -201,49 +208,15 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
     database.execute('DELETE FROM stroke_chunks WHERE stroke_id = ?', [id]);
   }
 
-  void _reindex(Stroke s) {
+  void _reindex(StrokeRow s) {
     database.execute('DELETE FROM stroke_chunks WHERE stroke_id = ?', [s.id]);
     final digest = ChunkDigest.ofStroke(s.id);
-    for (final key in StrokeChunks.of(s)) {
+    for (final key in s.chunks) {
       database.execute(
         'INSERT OR IGNORE INTO stroke_chunks (surface_id, cx, cy, stroke_id, digest) '
         'VALUES (?, ?, ?, ?, ?)',
         [s.surfaceId, key.x, key.y, s.id, digest],
       );
     }
-  }
-
-  static Stroke _strokeFromData(String id, Map<String, Object?> data) {
-    final surfaceId = data['surfaceId'];
-    final tool = data['tool'];
-    final color = data['color'];
-    final width = data['width'];
-    final points = data['points'];
-    final createdAt = data['createdAt'];
-    if (surfaceId is! String ||
-        tool is! String ||
-        color is! int ||
-        width is! num ||
-        points is! String ||
-        createdAt is! int) {
-      throw FormatException('Malformed stroke $id');
-    }
-    final decoded = StrokeCodec.decode(base64Decode(points));
-    if (decoded.isEmpty || !width.isFinite || width <= 0 || width > maxWidth) {
-      throw FormatException('Invalid stroke geometry $id');
-    }
-    if (!WorldLimits.accepts(Stroke.computeBounds(decoded, width.toDouble()))) {
-      throw FormatException('Stroke $id is out of bounds');
-    }
-    return Stroke(
-      id: id,
-      surfaceId: surfaceId,
-      tool: InkTool.parse(tool),
-      color: color,
-      width: width.toDouble(),
-      points: decoded,
-      createdAt: createdAt,
-      style: StrokeStyle.fromJson(data['style']),
-    );
   }
 }

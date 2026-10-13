@@ -2250,12 +2250,18 @@ malformed record is skipped. Open screens subscribe to
 `SyncController.remoteChanges` and reload only the affected surfaces.
 
 Robustness (`SyncEngine`): rows are marked clean only for the exact version
-the server confirmed (`markClean` by `updatedAt`), and each pulled page is
-applied in slices of 64 records, one transaction each with a turn of the event
-loop between (so a first sync of a large library never holds the UI for a
-frame); only the last slice moves the feed position, so a dropped connection
-never loses anything: a page cut short is pulled again (re-applying a record is
-a no-op); the next cycle resumes.
+the server confirmed (`markClean` by `updatedAt`). Pulls ask for the server's
+largest page (1,000 records) and fetch the next page while one is applied.
+Natively a page is decoded in a worker isolate (`platform/pull_decoder.dart`;
+the web decodes on the UI thread): JSON, the record checks, and live strokes
+parsed into the rows they are stored as (`StrokeRow`, `SyncRecord.prepared`;
+a stroke within one chunk is checked on its encoded points without being
+built). The UI thread then applies the page in slices of about 4 ms, one
+transaction each with a turn of the event loop between (also between pages),
+so a first sync of a large library never holds the UI for a frame; only the
+last slice moves the feed position, so a dropped connection never loses
+anything: a page cut short is pulled again (re-applying a record is a no-op);
+the next cycle resumes.
 Each cycle starts with `/v1/health`: its `serverId` decides whether this is
 the server last synced with — a new id (another server, or a wiped or
 restored one) resets the feed position and marks every row and blob for
