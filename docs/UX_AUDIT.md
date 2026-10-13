@@ -11,10 +11,12 @@
   refreshed); phones centre the pill, wider screens tuck it bottom-right.
 - ✅ Page Up / Page Down and the arrow keys still turn pages in single-page
   flow; the indicator itself no longer repeats those controls.
-- ⬜ The canvas's persistent Fit button stays for discoverability: the zoom
+- ✅ The canvas's persistent Fit button stays for discoverability: the zoom
   pill is hidden at rest, so removing Fit would leave no visible way to
   reach its menu without first zooming. Make that menu discoverable before
-  removing the button.
+  removing the button. → The zoom pill now peeks like the page indicator:
+  when the canvas opens and while the view moves (pans too), so its menu
+  (with Fit content, also Shift+1) is found; the Fit button is gone.
 - ✅ Go to page (`document/go_to_page_dialog.dart`) has the spec's number
   field over a thumbnail strip: typing a number rings and scrolls to that
   page, a thumbnail tap goes there at once, and a number out of range

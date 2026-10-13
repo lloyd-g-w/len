@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ink/ink_surface.dart';
@@ -7,12 +6,11 @@ import '../../../ink/input/ink_input_controller.dart';
 import '../../../ink/input/live_ink.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ui/app_theme.dart';
-import '../../../ui/floating_panel.dart';
 import 'canvas_navigation.dart';
 import 'zoom_indicator.dart';
 
-/// An infinite canvas with its navigation overlays: the zoom indicator
-/// (shown while zooming) and a button to fit the content.
+/// An infinite canvas with its navigation overlay: the zoom indicator,
+/// which peeks while the view moves and holds Fit content in its menu.
 class CanvasView extends StatelessWidget {
   const CanvasView({
     super.key,
@@ -66,17 +64,6 @@ class CanvasView extends StatelessWidget {
                     onFit: nav.fitContent,
                     onBackToStart: nav.goToOrigin,
                     quiet: () => nav.opening,
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: FloatingPanel(
-                    radius: Radii.pill,
-                    child: IconButton(
-                      tooltip: 'Fit content (Shift+1)',
-                      onPressed: nav.fitContent,
-                      icon: const Icon(Symbols.fit_screen_rounded),
-                    ),
                   ),
                 ),
               ],

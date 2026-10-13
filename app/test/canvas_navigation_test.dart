@@ -207,6 +207,10 @@ void main() {
           find.descendant(of: indicator, matching: find.byType(AnimatedOpacity)),
         )
         .opacity;
+    // Shown as the canvas opens (so its menu is found), then out of the way.
+    expect(opacity(), 1);
+    await tester.pump(ZoomIndicator.linger);
+    await tester.pumpAndSettle();
     expect(opacity(), 0);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.equal);
@@ -230,8 +234,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(viewport.scale, 1);
 
-    // Fit content: all three waves on screen.
-    await tester.tap(find.byTooltip('Fit content (Shift+1)'));
+    // Fit content, from the indicator's menu (it peeks while the view
+    // moves, panning too): all three waves on screen.
+    viewport.panBy(const Offset(0, 40));
+    await tester.pump();
+    expect(opacity(), 1);
+    await tester.tap(find.text('100%').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fit content'));
     await tester.pumpAndSettle();
     final shown = viewport.visibleWorld;
     for (final p in const [Offset(100, 200), Offset(3390, 1500), Offset(-1800, 2600)]) {
