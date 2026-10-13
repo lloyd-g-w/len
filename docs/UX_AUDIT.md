@@ -269,7 +269,7 @@ the denial snack (open app settings); await pause/resume, revert state and
 `showMessage` on failure; drop `($e)` from copy (log it). *Files:*
 `features/audio/recording_controller.dart`, `features/audio/ui/audio_bar_button.dart`,
 `features/audio/playback_controller.dart`.
-→ ✅ Denial says "Allow microphone access for Len in system settings" (browser: site settings); a Settings button would need `permission_handler` (not added). Pause/resume wait for the recorder, ignore double taps, keep the real state and show a message on failure. No raw exceptions in copy (logged).
+→ ✅ Denial says "Allow microphone access for Len in system settings" (browser: site settings). The message's Settings button opens Len's app settings on Android and the microphone privacy page on Windows. Pause/resume wait for the recorder, ignore double taps, keep the real state and show a message on failure. No raw exceptions in copy (logged).
 
 ✅ **P2-9 Paste with nothing to paste does nothing.** `ink/tools/content_tools.dart:136`
 returns silently; Ctrl+V and the canvas menu's Paste give no feedback. *Fix:*
@@ -356,17 +356,19 @@ Jan". *Files:* `domain/templates/patterns_planner.dart`, planner label tables.
 
 ### Library
 
-**P1-13 The floating selection bar covers cards.** `select_tablet*` (over card
+✅ **P1-13 The floating selection bar covers cards.** `select_tablet*` (over card
 titles), `select_phone*` (over the bottom row): the grid has no bottom padding
 for it. *Fix:* pad the grid by the bar's height while selecting (as results
 are padded for the FAB). *Files:* `features/library/selection/*`,
 `library_content.dart`.
+→ ✅ The grid and list end with 120 dp of room (160 on phones), so the selection bar, ⊕ and a snack bar above it clear the last row.
 
-**P1-14 Phone FAB covers the last card's ⋯.** `library_phone_*`: the + sits on
+✅ **P1-14 Phone FAB covers the last card's ⋯.** `library_phone_*`: the + sits on
 the last card's caption and menu button. *Fix:* bottom padding = FAB + 16 dp in
 grid and list (search already does). *Files:* `library_content.dart`.
+→ ✅ Same end room in grid, list and search (`library_content.dart`).
 
-**P1-15 Trash never empties itself, and restore loses the folder.**
+✅ **P1-15 Trash never empties itself, and restore loses the folder.**
 `library_empty_state.dart:60` "stay here until you delete them forever"; no
 purge anywhere. Restoring a notebook whose folder was deleted puts it at the
 root (`data/notebook_repository.dart:141-147`) silently; Restore and Move show
@@ -375,15 +377,17 @@ no message (`library_actions.dart:182`, `selection/selection_actions.dart:41`).
 School" / "Moved 3 notebooks to Work · Undo". *Files:*
 `features/library/library_actions.dart`, `library_controller.dart`,
 `data/notebook_repository.dart`.
+→ ✅ The trash deletes notebooks forever after 30 days (cards count down, header and empty state say so); Restore says where notebooks went, Move says so with Undo.
 
-**P1-16 Deleting a folder doesn't say how much goes, and can't be undone.**
+✅ **P1-16 Deleting a folder doesn't say how much goes, and can't be undone.**
 `library_actions.dart:225-231`: "Its subfolders are deleted too; notebooks
 inside move to the trash." No counts and no Undo; restored notebooks lose
 their folders. *Fix:* "Delete “School”? 2 subfolders and 14 notebooks go to
 the trash." plus an Undo snack (folders are soft-deleted already). *Files:*
 `features/library/library_actions.dart`, `library_controller.dart`.
+→ ✅ "Delete “School”? 2 subfolders and 14 notebooks go to the trash." and an Undo snack that brings the folders back with their notebooks.
 
-**P2-16 Empty states disagree.** `empty_phone_light`, `empty_folder_phone`,
+✅ **P2-16 Empty states disagree.** `empty_phone_light`, `empty_folder_phone`,
 `empty_search_phone`, `s_library_favourites_empty*`, `s_library_trash_empty*`:
 illustration vs grey disc; "New notebook" vs "New notebook here" (filled) vs
 "Clear search" (outlined); the header caption says "Empty" above "This folder
@@ -393,53 +397,62 @@ copy "drag notebooks onto this folder" can't be done on a phone. *Fix:* one
 and no search/⇅ while empty; touch copy "Move notebooks here from their ⋯
 menu". *Files:* `features/library/library_empty_state.dart`,
 `library_header.dart`.
+→ ✅ One empty-state style (disc icon, title, line, one filled action; New notebook everywhere); no caption, search or ⇅ while a view is empty; touch copy for folders.
 
-**P2-17 First launch offers only "New notebook".** `library_empty_state.dart:92-97`:
+✅ **P2-17 First launch offers only "New notebook".** `library_empty_state.dart:92-97`:
 no Import PDF, no hint that sync exists (a user with a server sees an empty
 library). *Fix:* secondary actions "Import PDF…" and "Set up sync…" under the
 primary. *Files:* `features/library/library_empty_state.dart`.
+→ ✅ First launch offers Import PDF… and Set up sync… under New notebook.
 
-**P2-18 The phone folder header stacks breadcrumbs over ☰.** `empty_folder_phone.png`:
+✅ **P2-18 The phone folder header stacks breadcrumbs over ☰.** `empty_folder_phone.png`:
 "Library ›" above "☰ Sketches"; ☰ inside a folder reads as "you're at the top".
 *Fix:* in folders on phones, ← (up one level) replaces ☰; no breadcrumb row.
 *Files:* `features/library/library_header.dart`.
+→ ✅ Phones go up from folders with ← (no breadcrumb row).
 
-**P2-19 Three ways to start a notebook on wide screens.** `desktop_folder`,
+✅ **P2-19 Three ways to start a notebook on wide screens.** `desktop_folder`,
 `large_library_tablet`: the "New…" tile, ⊕▾ and, in the sheet, "Import PDF…".
 The tile's label "New…" is vague and low-contrast in dark. *Fix:* label the
 tile "New notebook"; keep ⊕▾ for the other kinds. *Files:*
 `features/library/new_notebook_tile.dart`.
+→ ✅ The tile says New notebook; Import PDF… only in ⊕▾ and the empty state.
 
-**P2-20 The ⇅ View menu has no group labels.** `s_library_view_menu*`: sort,
+✅ **P2-20 The ⇅ View menu has no group labels.** `s_library_view_menu*`: sort,
 layout and Select… run together with a ragged icon column; the current sort
 isn't shown in the header. *Fix:* "Sort by" / "Show as" `SectionLabel`s, the
 leading slot always reserved; caption "7 notebooks · by name" when not the
 default. *Files:* `features/library/library_header.dart`, `library_menus.dart`.
+→ ✅ Sort by / Show as headings; the caption names a non-default order; Select without an ellipsis.
 
-**P2-21 List view.** `desktop_list.png`, `s_library_list*`: an outline star on
+✅ **P2-21 List view.** `desktop_list.png`, `s_library_list*`: an outline star on
 every row (the grid only marks favourites) and the star and ⋯ sit 1300 px from
 the title on desktop. *Fix:* stars only on favourites (hover shows the toggle);
 cap the list at 960 dp or add a "Edited" column. *Files:*
 `features/library/notebook_list_tile.dart`.
+→ ✅ Rows star only favourites (the toggle on hover); the list stops at 960 dp.
 
-**P2-22 Search results mix two layouts.** `s_library_search*`, `desktop_search.png`:
+✅ **P2-22 Search results mix two layouts.** `s_library_search*`, `desktop_search.png`:
 title matches are big grid cards, content matches list rows, and every row
 says "1 match". *Fix:* sections "Notebooks" and "Pages" as rows; omit "1
 match". *Files:* `features/search/library_search_results.dart`.
+→ ✅ Titles as rows under Notebooks, matches under Pages; no "1 match".
 
-**P2-23 Small touch targets on cards and folders.** `notebook_card.dart:199`
+✅ **P2-23 Small touch targets on cards and folders.** `notebook_card.dart:199`
 (`height: Targets.touchFirst ? 36 : 28`) and the folder ⋯
 (`folder_tile.dart:133`, about 32 dp wide). *Fix:* 48-dp hit area with the same
 visual; tooltip "More" on both (not "Folder options"). *Files:*
 `features/library/notebook_card.dart`, `folder_tile.dart`.
+→ ✅ 48-dp ⋯ targets on touch; folder ⋯ is "More".
 
-**P2-24 Covers flash flat colours, then thumbnails.** On loading, notebooks
+✅ **P2-24 Covers flash flat colours, then thumbnails.** On loading, notebooks
 show their cover colour before their thumbnail. *Fix:* neutral placeholder and
 a `Motion.fast` cross-fade. *Files:* `features/library/thumbnails/*`.
+→ ✅ A neutral placeholder until the preview is checked (`ThumbnailCache.isPending`), cross-fading (`Motion.medium`) to the thumbnail or the plain cover.
 
 ### Dialogs, sheets and settings
 
-**P1-17 Sheets and dialogs still disagree on their footer and close controls.**
+✅ **P1-17 Sheets and dialogs still disagree on their footer and close controls.**
 `folder_dialog_phone` (full-width Save, no Cancel) vs `s_dialog_cover*` (✕ +
 Cancel + Apply) vs `export_phone_*` (Cancel + Export) vs rename (no ✕) vs move
 (✕, no footer) vs the new-notebook sheet (no drag handle, unlike the others).
@@ -448,14 +461,16 @@ primary; Confirms have no ✕. *Fix:* apply that in `SheetActions` /
 `SheetHeader` everywhere; pickers that commit on tap (move) keep only ✕.
 *Files:* `ui/sheet_parts.dart`, `ui/dialog_or_sheet.dart`,
 `features/library/dialogs/*`, `features/library/new_notebook_sheet.dart`.
+→ ✅ One rule: task sheets have ✕; wide ones add Cancel + one filled primary, on phones ✕ is Cancel and the primary is full width (folder, cover, change template, export on Android); pickers that commit on tap (move) keep only ✕; Confirms (rename) have no ✕; the new-notebook sheet has the drag handle. Stacked secondary buttons are outlined.
 
-**P1-18 Ten cover colours wrap 9 + 1.** `desktop_cover_sheet.png`,
+✅ **P1-18 Ten cover colours wrap 9 + 1.** `desktop_cover_sheet.png`,
 `dialog_cover_light/dark.png`: Sand alone on a second row with empty space
 below, while the new-notebook form fits all ten in one row. *Fix:* the same
 `EvenGrid` row as the new-notebook form (10 × 1 wide, 5 × 2 on phones).
 *Files:* `features/library/dialogs/cover_sheet.dart`, `cover_picker.dart`.
+→ ✅ One `CoverRow` for the cover sheet and the new-notebook form: ten in a row, two rows of five spread across the width on touch where one row would shrink targets under 48 dp.
 
-**P1-19 The wide new-notebook dialog clips Portrait / Landscape.**
+✅ **P1-19 The wide new-notebook dialog clips Portrait / Landscape.**
 `desktop_new_sheet.png`, `new_desktop_*`, `large_new_tablet*`: the form scrolls
 inside a short dialog and the orientation control is cut in half above the
 footer, with no fade; at 1.3× "All templates…" breaks mid-word ("All tem /
@@ -463,8 +478,9 @@ plates…"). *Fix:* let the dialog grow to the window (max 720 dp tall) and add
 `ScrollFade` above the footer; never break the tile label mid-word (wrap on
 spaces, or "More…"). *Files:* `features/library/new_notebook_sheet.dart`,
 `features/library/new_notebook/*`.
+→ ✅ The form fades where it runs under the footer; the tile says More… (never breaks mid-word).
 
-**P1-20 Template side panels clip and wrap.** `e_dialog_add_page_template_desktop_*`,
+✅ **P1-20 Template side panels clip and wrap.** `e_dialog_add_page_template_desktop_*`,
 `e_dialog_canvas_background_desktop_dark`, `templates_*`: chips half cut at
 the panel bottom with no scroll cue; the custom-colour button wraps alone
 (6 + 1); two previews; spacing presets repeat the ruled templates. Searching
@@ -474,20 +490,23 @@ preview; drop the presets (the slider plus the templates cover them); clear
 the category on search; selected chips use `Surfaces.pressed` + a check.
 *Files:* `features/documents/templates/paper_options.dart`,
 `paper_option_rows.dart`, `template_chooser.dart`, `template_gallery.dart`.
+→ ✅ Both chooser columns fade under the footer (`ScrollFade`); swatch rows stay on one line with the custom colour; one preview (the page preview when shown, else the actual-size swatch); no spacing presets. A search already selects All; selected chips use `Surfaces.pressed` (no check: it would shift the row).
 
-**P1-21 Change template on phones: three stacked buttons eat a third of the sheet.**
+✅ **P1-21 Change template on phones: three stacked buttons eat a third of the sheet.**
 `e_dialog_change_template_phone_*`: Apply to this page, Apply to all pages and
 Cancel (plus ✕) leave 1.5 rows of templates. *Fix:* a "This page · All pages"
 segmented control and one Apply; ✕ is Cancel. *Files:*
 `features/documents/template_picker.dart`.
+→ ✅ "This page · All pages" segments and one Apply (phones: full width, ✕ cancels; wide: Cancel + Apply).
 
-**P2-25 Settings copy and controls.** `settings_*`, `s_settings_*`:
+✅ **P2-25 Settings copy and controls.** `settings_*`, `s_settings_*`:
 - "Draw with" segments are shrunk to a smaller size than the others (`ShrinkToFit`).
 - "Side button: While you hold the S Pen (or stylus) button" shows on desktops and the web.
 - "Toolbar: Along the top; at the bottom on phones" describes Docked even when Floating is chosen.
 - Handwriting "Not available here" is followed by a paragraph on how to use it.
 - "Sync is off" is a grey pill that looks like a disabled field.
 - On wide screens the "Settings" title scrolls away under an empty app bar.
+→ ✅ Segments sit under their text at full size; side button only on Android or for stylus users; the toolbar subtitle follows the choice; no how-to where recognition is unavailable; sync status is a plain row with an icon; the title is in the pinned app bar.
 
 *Fix:* two-row segments rather than shrunk text; the side-button row only
 where a stylus can be (Android, or once seen); the toolbar subtitle follows the
@@ -495,15 +514,16 @@ choice; hide the how-to where recognition is unavailable; status as a plain row
 with an icon; the title in the app bar on wide screens. *Files:*
 `features/settings/*`.
 
-**P2-26 Snack bars still collide.** `e_snack_saved_template_phone_*` (two lines
+✅ **P2-26 Snack bars still collide.** `e_snack_saved_template_phone_*` (two lines
 grow down over the bottom toolbar), `e_snack_stylus_detected_phone_*` (snack
 and the side-button tip at once), `e_missing_planner_page_phone` (PDF notice
 and snack at once). *Fix:* `MessageInsets` anchors the snack's bottom edge,
 so it grows upward; queue tips behind snacks; shorten "Saved “Physics —
 Mechanics, page 1” to My templates" → "Page saved as a template". *Files:*
 `ui/messages.dart`, `chrome/editor_tips.dart`, `document/document_commands.dart`.
+→ ✅ Snack bars are anchored by their bottom margin and grow upward; the side-button tip waits for the stylus-detected snack bar; "Saved to My templates". Not done: the missing-planner notice and a snack at once.
 
-**P2-27 Export sheet polish.** `export_*_range`, `export_narrow_large_text_scrolled`,
+🟡 **P2-27 Export sheet polish.** `export_*_range`, `export_narrow_large_text_scrolled`,
 `export_tablet_portrait_*`: the range error shows in the field and again in
 the footer ("Check the page range", wraps on phones); disabled Export is grey
 on grey in dark; content scrolls under the header with no divider; 800-dp
@@ -511,12 +531,14 @@ tablets get a bottom sheet while 1280 gets a dialog. *Fix:* error in the field
 only, helper "e.g. 1–3, 5"; theme disabled colours; header divider when
 scrolled; `showDialogOrSheet` threshold at 600 dp. *Files:*
 `features/documents/export/export_sheet*.dart`, `ui/dialog_or_sheet.dart`.
+→ 🟡 The range error shows in its field only (helper "Pages 1–N, separated by commas", hint "e.g. 1-3, 5"). Open: header divider when scrolled, dark disabled Export, and the 600-dp `showDialogOrSheet` threshold (left at 840: it would move every task sheet on 800-dp tablets).
 
-**P2-28 Missing-PDF notice copy.** `e_missing_pdf_background_*`: "A PDF these
+✅ **P2-28 Missing-PDF notice copy.** `e_missing_pdf_background_*`: "A PDF these
 pages are drawn on isn't on this device" / "Relink…" is awkward and repeats
 the hatched placeholder. *Fix:* "The PDF for these pages isn't on this
 device." with "Locate file…" and "Try again". *Files:*
 `chrome/missing_pdf_notice.dart`.
+→ ✅ "The PDF for these pages isn’t on this device" with Try again and Locate file….
 
 ### Sync, storage and files
 
