@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/data/write_back.dart';
 import 'package:len/features/settings/storage_settings.dart';
 import 'package:len/platform/browser_storage_api.dart';
 import 'package:len/ui/app_theme.dart';
@@ -25,12 +26,40 @@ class _FakeStorage implements BrowserStorage {
   Future<StorageUsage?> usage() async => (usage: 5 * 1024 * 1024, quota: 2 * 1024 * 1024 * 1024);
 }
 
-Future<void> _pump(WidgetTester tester, BrowserStorage storage) async {
+/// A write-back store whose failure the test sets.
+class _Store with ChangeNotifier implements WriteBackStore {
+  @override
+  bool pending = false;
+
+  @override
+  WriteFailure? failure;
+
+  int flushes = 0;
+
+  void set(WriteFailure? failure) {
+    this.failure = failure;
+    pending = failure != null;
+    notifyListeners();
+  }
+
+  @override
+  Future<bool> flush() async {
+    flushes++;
+    return failure == null;
+  }
+
+  @override
+  Future<bool> close() async => true;
+}
+
+Future<void> _pump(WidgetTester tester, BrowserStorage storage, {StorageWrites? writes}) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light(),
       home: Scaffold(
-        body: SingleChildScrollView(child: StorageSettings(storage: storage)),
+        body: SingleChildScrollView(
+          child: StorageSettings(storage: storage, writes: writes),
+        ),
       ),
     ),
   );
@@ -58,5 +87,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('The browser declined'), findsOneWidget);
     expect(find.text('Turn on'), findsOneWidget);
+  });
+
+  testWidgets('says while changes can\'t be saved, like the library', (tester) async {
+    final store = _Store();
+    await _pump(tester, _FakeStorage(grant: true), writes: StorageWrites()..add(store));
+    expect(find.textContaining('aren\'t saved yet'), findsNothing);
+
+    store.set(WriteFailure.full);
+    await tester.pump();
+    expect(find.text('Your latest changes aren\'t saved yet'), findsOneWidget);
+    expect(find.textContaining('Browser storage is full'), findsOneWidget);
+    await tester.tap(find.text('Try again'));
+    expect(store.flushes, 1);
+
+    store.set(null);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('aren\'t saved yet'), findsNothing);
   });
 }

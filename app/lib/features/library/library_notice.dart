@@ -5,9 +5,9 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
 import '../../data/schema_reset.dart';
-import '../../data/write_back.dart';
 import '../../platform/browser_storage.dart';
 import '../../ui/app_theme.dart';
+import '../storage/storage_attention.dart';
 
 /// Puts a notice above the library's [child] while something needs the
 /// user's attention: changes that can't be saved yet (a full browser
@@ -67,12 +67,8 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     if (_services.writes.failure case final failure?) {
       return LibraryNotice(
         icon: Symbols.save_rounded,
-        title: 'Your latest changes aren\'t saved yet',
-        body: failure == WriteFailure.full
-            ? 'Browser storage is full. Len keeps the changes in this tab and saves them '
-                  'once there\'s room: free up space, and keep this tab open until then.'
-            : 'Len keeps the changes in this tab and keeps trying to save them. Keep this '
-                  'tab open until then.',
+        title: StorageAttention.unsavedTitle,
+        body: StorageAttention.unsavedBody(failure),
         action: TextButton(
           onPressed: () => unawaited(_services.writes.flush()),
           child: const Text('Try again'),
