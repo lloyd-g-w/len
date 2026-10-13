@@ -7,7 +7,6 @@ import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/features/settings/sync_settings.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/sync/sync_controller.dart';
-import 'package:len/sync/sync_errors.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:len/ui/sync_status_button.dart';
 
