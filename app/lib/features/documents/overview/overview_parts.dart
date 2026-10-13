@@ -142,11 +142,8 @@ class SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return AppBar(
       toolbarHeight: kToolbarHeight + 8,
-      backgroundColor: scheme.surfaceContainerHigh,
-      foregroundColor: scheme.onSurface,
       leading: IconButton(
         tooltip: 'Done',
         icon: const Icon(Symbols.close_sharp),
@@ -215,13 +212,11 @@ class SelectionBar extends StatelessWidget {
       ),
     );
     return Material(
-      color: scheme.surfaceContainerLow,
+      color: Surfaces.chrome(scheme),
       child: SafeArea(
         top: false,
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: scheme.outlineVariant)),
-          ),
+          decoration: BoxDecoration(border: Border(top: Surfaces.chromeEdge(scheme))),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
             child: Align(
@@ -274,21 +269,24 @@ class AddPageTile extends StatelessWidget {
             child: AspectRatio(
               aspectRatio: 794 / 1123,
               child: Padding(
-                padding: const EdgeInsets.all(5.5),
+                // Where a page tile's paper sits inside its selection ring.
+                padding: const EdgeInsets.all(Hairline.rule + Gaps.xxs),
+                // A secondary button the size of a page, like the library's
+                // New tile: a Pencil edge, no plate, an Ink "+".
                 child: Material(
-                  color: scheme.surfaceContainerLow,
+                  type: MaterialType.transparency,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(Radii.xs),
-                    side: BorderSide(color: scheme.outlineVariant, width: 1.5),
+                    borderRadius: BorderRadius.circular(Radii.sm),
+                    side: BorderSide(color: scheme.outline),
                   ),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(Radii.xs),
+                    borderRadius: BorderRadius.circular(Radii.sm),
                     onTap: onTap,
                     child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Symbols.add_sharp, size: 32, color: scheme.primary),
+                          Icon(Symbols.add_sharp, size: Glyphs.empty, color: scheme.onSurface),
                           const SizedBox(height: Gaps.xs),
                           Text('Add page', style: theme.textTheme.labelLarge),
                         ],
@@ -319,7 +317,11 @@ class NoBookmarks extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Symbols.bookmark_sharp, size: Glyphs.empty, color: theme.colorScheme.outline),
+            Icon(
+              Symbols.bookmark_sharp,
+              size: Glyphs.empty,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: Gaps.lg),
             Text('No bookmarked pages yet', style: theme.textTheme.titleMedium),
             const SizedBox(height: Gaps.xs),
