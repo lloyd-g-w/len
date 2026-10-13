@@ -99,7 +99,8 @@ tool's options popover; Insert and ⋯ menus; floating; 1.3× text) and the
 - ✅ **Fast:** switching tools, picking slots and opening the popover rebuild
   only the toolbar's parts (checked by a rebuild-count test).
 - ⬜ The floating palette doesn't snap to edges or go vertical yet (phase 6).
-- ⬜ The page navigator is still the old pill (phase 5: peeking indicator).
+- ✅ The page navigator is still the old pill (phase 5: peeking indicator).
+  → Replaced by the peeking `3 / 12` indicator (see the top of this file).
 - ⬜ Keyboard: no arrow-key navigation inside the tool cluster.
 
 ## Paper and laser pointer (`feat/paper`)
@@ -511,8 +512,10 @@ settings — at the four sizes, light and dark, and at 1.3× text.
     shrinks it into the cover (wherever it is now), else fades.
 16. ✅ Folder colours only; GoodNotes allows folder icons/emoji. → Won't do:
     folders keep colour only (icons were added, then removed in SIMPLIFY #43).
-17. ⬜ Long PDF imports/exports can't be cancelled (the progress dialog has
+17. ✅ Long PDF imports/exports can't be cancelled (the progress dialog has
     no Cancel; needs cancellation in `PdfImporter` / `NotebookExporter`).
+    → `runWithSteps(…, cancellable: true)` for import, insert, relink and
+    export; a cancelled import discards its copy, an export saves nothing.
 18. ✅ No export options sheet (page range, PNG resolution, flatten
     template) like GoodNotes' export dialog. → `ExportSheet` (dialog / bottom
     sheet): format, pages or range, templates & PDF backgrounds (PNGs at 288 dpi).
