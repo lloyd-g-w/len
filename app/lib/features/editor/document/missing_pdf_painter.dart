@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show Brightness;
 
 import 'package:flutter/painting.dart';
 
@@ -10,19 +11,21 @@ import '../../../ui/app_theme.dart';
 /// units; the canvas is in page units at its origin.
 ///
 /// The colours are fixed, not themed: PDF pages are white paper in both
-/// themes, like the PDF they stand in for.
+/// themes, like the PDF they stand in for. True greys from the light
+/// [Tones] (DESIGN §1): Board paper, Desk hatching, Graphite words.
 void paintMissingPdf(Canvas canvas, Size page) {
+  final tones = Tones.of(Brightness.light);
   final rect = Offset.zero & page;
   canvas
     ..save()
     ..clipRect(rect)
-    ..drawRect(rect, Paint()..color = const Color(0xFFF3F3F0));
+    ..drawRect(rect, Paint()..color = tones.board);
 
   // Diagonal hatching, spaced by the page's size so it reads the same on a
   // thumbnail and on screen.
   final step = page.shortestSide / 18;
   final hatch = Paint()
-    ..color = const Color(0xFFE4E4DF)
+    ..color = tones.desk
     ..strokeWidth = step / 6;
   for (var x = -page.height; x < page.width; x += step) {
     canvas.drawLine(Offset(x, page.height), Offset(x + page.height, 0), hatch);
@@ -38,7 +41,7 @@ void paintMissingPdf(Canvas canvas, Size page) {
         fontFamily: AppTheme.fontFamily,
         fontSize: size,
         height: 1.35,
-        color: const Color(0xFF5F5F5A),
+        color: tones.graphite,
         fontWeight: FontWeight.w600,
       ),
       children: [
@@ -57,7 +60,7 @@ void paintMissingPdf(Canvas canvas, Size page) {
   );
   canvas.drawRRect(
     RRect.fromRectAndRadius(plate, Radius.circular(size * 0.6)),
-    Paint()..color = const Color(0xFFF3F3F0),
+    Paint()..color = tones.board,
   );
   text
     ..paint(canvas, rect.center - Offset(text.width / 2, text.height / 2))

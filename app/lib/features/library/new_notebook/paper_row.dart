@@ -120,7 +120,10 @@ class _AllTemplatesTile extends StatelessWidget {
             children: [
               Container(
                 // Where a template tile has its page (and margin rule).
-                margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: TemplateTile.ruleRoom,
+                  vertical: TemplateTile.pageRoom,
+                ),
                 width: width,
                 height: height,
                 // An outline like the library's New tile, not a grey plate.
@@ -132,7 +135,7 @@ class _AllTemplatesTile extends StatelessWidget {
               ),
               const SizedBox(height: Gaps.xs),
               Padding(
-                padding: const EdgeInsets.only(left: 5),
+                padding: const EdgeInsets.only(left: TemplateTile.ruleRoom),
                 // One short name on every width: "All templates…" broke
                 // or swapped names on narrow tiles with large text.
                 child: Text('More…', maxLines: 1, style: theme.textTheme.bodySmall),

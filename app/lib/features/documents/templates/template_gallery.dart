@@ -159,7 +159,10 @@ class _ImportTile extends StatelessWidget {
               // A secondary button the size of a page: a Pencil edge, an Ink
               // glyph.
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: TemplateTile.ruleRoom,
+                  vertical: TemplateTile.pageRoom,
+                ),
                 child: Container(
                   width: width,
                   height: height,
@@ -172,8 +175,8 @@ class _ImportTile extends StatelessWidget {
               ),
               const SizedBox(height: Gaps.xs),
               Container(
-                width: width + 10,
-                padding: const EdgeInsets.only(left: 5),
+                width: width + 2 * TemplateTile.ruleRoom,
+                padding: const EdgeInsets.only(left: TemplateTile.ruleRoom),
                 child: Text(
                   'Import…',
                   maxLines: 2,
@@ -235,7 +238,7 @@ class TemplateTile extends StatelessWidget {
               Stack(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: _ruleRoom, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: ruleRoom, vertical: pageRoom),
                     // A page: square corners, a hairline edge on the sheet
                     // and the contact shadow.
                     child: DecoratedBox(
@@ -249,8 +252,8 @@ class TemplateTile extends StatelessWidget {
                   ),
                   Positioned(
                     left: 0,
-                    top: 3,
-                    bottom: 3,
+                    top: pageRoom,
+                    bottom: pageRoom,
                     child: AnimatedContainer(
                       duration: Motion.fast,
                       width: Hairline.rule,
@@ -263,9 +266,9 @@ class TemplateTile extends StatelessWidget {
               SizedBox(
                 // The name may run into the gap after the miniature, and
                 // the tile grows rather than break a word (large text).
-                width: math.max(width + labelOverhang, wordWidth(context, label)) + _ruleRoom,
+                width: math.max(width + labelOverhang, wordWidth(context, label)) + ruleRoom,
                 child: Padding(
-                  padding: const EdgeInsets.only(left: _ruleRoom),
+                  padding: const EdgeInsets.only(left: ruleRoom),
                   child: Text(
                     label,
                     maxLines: 2,
@@ -281,17 +284,21 @@ class TemplateTile extends StatelessWidget {
     );
   }
 
-  /// Room on each side of the miniature: the margin rule and its gap.
-  static const double _ruleRoom = 5;
+  /// Room on each side of the miniature: the margin rule and its gap (on
+  /// the 4-dp grid, UX_AUDIT R8-35).
+  static const double ruleRoom = Gaps.xs;
+
+  /// Room above and below the miniature, for its contact shadow.
+  static const double pageRoom = Gaps.xxs;
 
   /// How far the miniature sits inside the tile: its padding and the room
   /// for the margin rule. The gallery hangs tiles out by this much so the
   /// miniatures align with the content's left edge (the rule sits in the
   /// margin, like the sidebar's).
-  static const double inset = Gaps.xs + _ruleRoom;
+  static const double inset = Gaps.xs + ruleRoom;
 
   /// How far a name may run past its miniature (into the tile's padding).
-  static const double labelOverhang = _ruleRoom;
+  static const double labelOverhang = ruleRoom;
 
   static TextStyle? _labelStyle(BuildContext context, {required bool selected}) {
     final theme = Theme.of(context);

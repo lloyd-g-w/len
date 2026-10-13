@@ -515,7 +515,7 @@ template typography.**
 - *Fix:* add them to `organise_screenshot_test.dart`,
   `app_surfaces3_screenshot_test.dart` and `toolbar_screenshot_test.dart`.
 
-**R8-35 P2 · Small drift from DESIGN.md.**
+**✅ R8-35 P2 · Small drift from DESIGN.md.**
 - *What:*
   - Off-grid paddings of 5 and 3 dp in the template gallery's Import tile
     (`documents/templates/template_gallery.dart:162,176`) and the paper
@@ -529,6 +529,8 @@ template typography.**
   - the accent is used for state only;
   - there are no `·` chains.
 - *Fix:* use `Gaps.xs` and `Gaps.xxs`, and true greys.
+
+*Done (`fix/r8-library`):* the template tiles, the gallery's Import tile and the paper row share `TemplateTile.ruleRoom` (`Gaps.xs`) and `pageRoom` (`Gaps.xxs`) instead of 5 and 3; the missing-PDF page paints with the light `Tones` (Board, Desk hatching, Graphite). Goldens `pdf_missing`, `template_picker*` refreshed.
 
 ### Simplify
 
