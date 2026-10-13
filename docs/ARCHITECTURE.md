@@ -1110,7 +1110,9 @@ surface.
   undoes each page's part backwards and redoes it forwards. The selection
   picture is clipped to all page frames (not just the active page), so it
   shows on every page it covers and while dragged between pages. With one
-  page laid out (single-page flow) nothing else is reachable.
+  page laid out (single-page flow) nothing else is reachable. A page that
+  goes (deleted here or elsewhere) first drops a selection reaching onto
+  it; a disposed `SurfaceModel` ignores edits.
 - **Text** (`elements/text_edit_session.dart`): tapping with the Text tool
   creates or edits a box; double-tapping a box with the lasso edits it too.
   While editing, the element is hidden and a real `TextField` is laid out
