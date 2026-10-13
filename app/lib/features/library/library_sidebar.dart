@@ -159,7 +159,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     return Row(
       children: [
         Expanded(child: settings),
-        sync,
+        Flexible(child: sync),
       ],
     );
   }

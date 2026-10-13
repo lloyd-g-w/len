@@ -266,7 +266,11 @@ class LibraryNotice extends StatelessWidget {
             if (onDismiss case final dismiss?)
               IconButton(
                 tooltip: 'Dismiss',
-                visualDensity: VisualDensity.compact,
+                // 48 on touch, 40 with a pointer.
+                constraints: BoxConstraints.tightFor(
+                  width: Targets.barHit(context),
+                  height: Targets.barHit(context),
+                ),
                 icon: const Icon(Symbols.close_sharp, size: Glyphs.menu),
                 onPressed: dismiss,
               ),

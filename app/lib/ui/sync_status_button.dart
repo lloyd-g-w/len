@@ -7,12 +7,12 @@ import '../sync/sync_controller.dart';
 import 'app_theme.dart';
 
 /// The short sync status the sidebar shows (REDESIGN §3): "Synced 2m",
-/// "Synced just now", "Syncing…", "Sync failed", and without sync "On this
-/// device only" (where the notes are, UX_AUDIT R7-12).
+/// "Synced just now", "Syncing…", "Sync failed", and without sync "Local
+/// only" (where the notes are, UX_AUDIT R7-12; the tooltip says it in full).
 String syncCaption(SyncState state, DateTime? lastSuccess, DateTime now) {
   switch (state) {
     case SyncState.disabled:
-      return 'On this device only';
+      return 'Local only';
     case SyncState.syncing:
       return 'Syncing…';
     case SyncState.error:
@@ -77,7 +77,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
       builder: (context, _) {
         final tooLarge = sync.state == SyncState.disabled ? null : sync.tooLargeSummary;
         final (icon, status) = switch (sync.state) {
-          SyncState.disabled => (Symbols.cloud_off_sharp, 'Set up sync'),
+          SyncState.disabled => (Symbols.cloud_off_sharp, 'Your notes are only on this device: set up sync'),
           SyncState.idle => (Symbols.cloud_done_sharp, 'Synced — tap to sync now'),
           SyncState.syncing => (Symbols.cloud_sync_sharp, 'Syncing…'),
           SyncState.error => (Symbols.cloud_off_sharp, '${sync.lastError}\nTap for details'),
