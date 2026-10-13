@@ -144,7 +144,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
     return Row(
       children: [
         const SizedBox(width: Gaps.sm),
-        Icon(Symbols.search_rounded, size: Glyphs.bar, color: theme.colorScheme.onSurfaceVariant),
+        Icon(Symbols.search_sharp, size: Glyphs.bar, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: Gaps.sm),
         Expanded(
           child: TextField(
@@ -176,26 +176,26 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
           tooltip: 'Previous (Shift+Enter)',
           visualDensity: density,
           onPressed: hasMatches ? _previous : null,
-          icon: const Icon(Symbols.keyboard_arrow_up_rounded),
+          icon: const Icon(Symbols.keyboard_arrow_up_sharp),
         ),
         IconButton(
           tooltip: 'Next (Enter)',
           visualDensity: density,
           onPressed: hasMatches ? _next : null,
-          icon: const Icon(Symbols.keyboard_arrow_down_rounded),
+          icon: const Icon(Symbols.keyboard_arrow_down_sharp),
         ),
         IconButton(
           tooltip: showList ? 'Hide results' : 'Show results',
           visualDensity: density,
           isSelected: showList,
           onPressed: () => setState(() => _showList = !showList),
-          icon: const Icon(Symbols.list_rounded),
+          icon: const Icon(Symbols.list_sharp),
         ),
         IconButton(
           tooltip: 'Close (Esc)',
           visualDensity: density,
           onPressed: _close,
-          icon: const Icon(Symbols.close_rounded),
+          icon: const Icon(Symbols.close_sharp),
         ),
       ],
     );

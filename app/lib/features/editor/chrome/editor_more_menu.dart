@@ -67,7 +67,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
       ...widget.compactItems,
       if (tabs != null)
         _item(
-          Symbols.filter_none_rounded,
+          Symbols.filter_none_sharp,
           'Open notebooks (${tabs.length})',
           () => showTabSwitcher(context, tabs),
         ),
@@ -78,14 +78,14 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           : [
               if (top.isNotEmpty) ...[...top, const Divider()],
               _item(
-                Symbols.search_rounded,
+                Symbols.search_sharp,
                 'Search in notebook',
                 a.onSearch,
                 shortcut: const SingleActivator(LogicalKeyboardKey.keyF, control: true),
               ),
               if (a.onExport case final onExport?)
                 _item(
-                  Symbols.ios_share_rounded,
+                  Symbols.ios_share_sharp,
                   'Export…',
                   onExport,
                   shortcut: const SingleActivator(LogicalKeyboardKey.keyE, control: true),
@@ -94,7 +94,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
               if (a.isPaged)
                 _submenu(_pageMenu())
               else
-                _item(Symbols.wallpaper_rounded, 'Background…', a.onBackground),
+                _item(Symbols.wallpaper_sharp, 'Background…', a.onBackground),
               _submenu(_viewMenu()),
               ?widget.split,
               const Divider(),
@@ -102,16 +102,16 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
               // a mouse the switch shows once a stylus was.
               if (a.stylusOnly != null || Targets.touchFirst)
                 MenuItemButton(
-                  leadingIcon: const Icon(Symbols.draw_rounded),
+                  leadingIcon: const Icon(Symbols.draw_sharp),
                   trailingIcon: _MenuSwitch(value: !(a.stylusOnly ?? false)),
                   onPressed: () => a.onStylusOnly(!(a.stylusOnly ?? false)),
                   child: const Text('Draw with finger'),
                 ),
-              _item(Symbols.settings_rounded, 'Settings', a.onSettings),
+              _item(Symbols.settings_sharp, 'Settings', a.onSettings),
             ],
       builder: (context, menu, _) => BarButton(
         tooltip: 'More options',
-        icon: Symbols.more_horiz_rounded,
+        icon: Symbols.more_horiz_sharp,
         onPressed: () {
           if (menu.isOpen) return menu.close();
           // Always opens at the top, not in the submenu last drilled into.
@@ -125,20 +125,20 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
   _Drill _pageMenu() {
     final a = actions;
     return (
-      icon: Symbols.description_rounded,
+      icon: Symbols.description_sharp,
       label: 'Page',
       children: [
         _command(PageCommand.insertAfter, 'Add page after'),
-        _item(Symbols.note_add_rounded, 'Add page with template…', a.onAddWithTemplate),
+        _item(Symbols.note_add_sharp, 'Add page with template…', a.onAddWithTemplate),
         _command(PageCommand.duplicate, 'Duplicate page'),
         _item(
-          a.bookmarked ? Symbols.bookmark_remove_rounded : Symbols.bookmark_add_rounded,
+          a.bookmarked ? Symbols.bookmark_remove_sharp : Symbols.bookmark_add_sharp,
           a.bookmarked ? 'Remove bookmark' : 'Bookmark page',
           a.onToggleBookmark,
         ),
         _command(PageCommand.template, 'Change template…'),
         _command(PageCommand.saveAsTemplate, 'Save as template…'),
-        _item(Symbols.playlist_add_rounded, 'Add page to outline…', a.onAddToOutline),
+        _item(Symbols.playlist_add_sharp, 'Add page to outline…', a.onAddToOutline),
         const Divider(),
         _command(PageCommand.delete, 'Delete page', destructive: true),
       ],
@@ -148,7 +148,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
   _Drill _viewMenu() {
     final a = actions;
     return (
-      icon: Symbols.visibility_rounded,
+      icon: Symbols.visibility_sharp,
       label: 'View',
       children: [
         if (a.isPaged) ...[
@@ -183,7 +183,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
         ),
         const Divider(),
         _item(
-          Symbols.fullscreen_rounded,
+          Symbols.fullscreen_sharp,
           'Focus mode',
           a.onFocusMode,
           shortcut: const SingleActivator(LogicalKeyboardKey.f11),
@@ -222,7 +222,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
   Widget _radio(bool selected, String label, VoidCallback onPressed, {SingleActivator? shortcut}) =>
       MenuItemButton(
         leadingIcon: Icon(
-          selected ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded,
+          selected ? Symbols.radio_button_checked_sharp : Symbols.radio_button_unchecked_sharp,
           fill: selected ? 1 : 0,
         ),
         shortcut: compact ? null : shortcut,
@@ -235,7 +235,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
   Widget _submenu(_Drill d) => compact
       ? MenuItemButton(
           leadingIcon: Icon(d.icon),
-          trailingIcon: const Icon(Symbols.chevron_right_rounded),
+          trailingIcon: const Icon(Symbols.chevron_right_sharp),
           closeOnActivate: false,
           onPressed: () => setState(() => _drilled = d.label),
           child: Text(d.label),
@@ -244,7 +244,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
 
   /// The drilled-in submenu's title row; goes back to the menu.
   Widget _back(_Drill d) => MenuItemButton(
-    leadingIcon: const Icon(Symbols.chevron_left_rounded),
+    leadingIcon: const Icon(Symbols.chevron_left_sharp),
     closeOnActivate: false,
     onPressed: () => setState(() => _drilled = null),
     child: Text(d.label),

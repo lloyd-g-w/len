@@ -62,12 +62,12 @@ class ExportFormatPicker extends StatelessWidget {
           segments: const [
             ButtonSegment(
               value: ExportFormat.pdf,
-              icon: Icon(Symbols.picture_as_pdf_rounded),
+              icon: Icon(Symbols.picture_as_pdf_sharp),
               label: Text('PDF'),
             ),
             ButtonSegment(
               value: ExportFormat.png,
-              icon: Icon(Symbols.image_rounded),
+              icon: Icon(Symbols.image_sharp),
               label: Text('PNG'),
             ),
           ],
@@ -160,7 +160,7 @@ class ExportPagesPicker extends StatelessWidget {
         hintText: 'e.g. 1-3, 5',
         helperText: 'Pages 1–$pageCount, separated by commas',
         errorText: rangeError,
-        prefixIcon: const Icon(Symbols.format_list_numbered_rounded),
+        prefixIcon: const Icon(Symbols.format_list_numbered_sharp),
       ),
     ),
   );
@@ -210,7 +210,7 @@ class ExportSheetFooter extends StatelessWidget {
     final export = FilledButton.icon(
       key: const ValueKey('export-button'),
       onPressed: onExport,
-      icon: const Icon(Symbols.ios_share_rounded, size: Glyphs.bar),
+      icon: const Icon(Symbols.ios_share_sharp, size: Glyphs.bar),
       label: Text(offersSaveToDevice ? 'Share' : 'Export'),
     );
     // Android: both ways out, side by side under the summary (the header's
@@ -218,7 +218,7 @@ class ExportSheetFooter extends StatelessWidget {
     final saveToDevice = OutlinedButton.icon(
       key: const ValueKey('save-to-device-button'),
       onPressed: onSaveToDevice,
-      icon: const Icon(Symbols.download_rounded, size: Glyphs.bar),
+      icon: const Icon(Symbols.download_sharp, size: Glyphs.bar),
       label: const Text('Save to device'),
     );
     Widget pair(double width) => width / MediaQuery.textScalerOf(context).scale(1) < 340

@@ -18,10 +18,10 @@ class InsertActions {
   final VoidCallback? templatePage;
 
   List<(IconData, String, VoidCallback)> get _entries => [
-    (Symbols.image_rounded, 'Image…', image),
-    if (photo case final photo?) (Symbols.photo_camera_rounded, 'Take photo', photo),
-    if (pdfPages case final pdf?) (Symbols.picture_as_pdf_rounded, 'Pages from PDF…', pdf),
-    if (templatePage case final page?) (Symbols.note_add_rounded, 'Page with template…', page),
+    (Symbols.image_sharp, 'Image…', image),
+    if (photo case final photo?) (Symbols.photo_camera_sharp, 'Take photo', photo),
+    if (pdfPages case final pdf?) (Symbols.picture_as_pdf_sharp, 'Pages from PDF…', pdf),
+    if (templatePage case final page?) (Symbols.note_add_sharp, 'Page with template…', page),
   ];
 
   /// The entries as menu items of a [ChromeMenuAnchor].
@@ -79,7 +79,7 @@ class InsertButton extends StatelessWidget {
                   : MaterialTapTargetSize.shrinkWrap,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
             ),
-            icon: const Icon(Symbols.add_circle_rounded),
+            icon: const Icon(Symbols.add_circle_sharp),
           ),
         ),
       ),

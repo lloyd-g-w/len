@@ -84,11 +84,11 @@ class TextFormatBar extends StatelessWidget {
     // Delete in a trailing ⋯ (REDESIGN §2.6): out of the way of ✓.
     final more = MenuIconButton<bool>(
       tooltip: 'More',
-      icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
+      icon: const Icon(Symbols.more_horiz_sharp, size: Glyphs.bar),
       items: () => const [
         MenuRow(
           value: true,
-          icon: Symbols.delete_rounded,
+          icon: Symbols.delete_sharp,
           label: 'Delete text box',
           destructive: true,
         ),
@@ -98,7 +98,7 @@ class TextFormatBar extends StatelessWidget {
     final done = IconButton(
       tooltip: 'Done (Esc)',
       onPressed: onDone,
-      icon: const Icon(Symbols.check_rounded, size: Glyphs.bar),
+      icon: const Icon(Symbols.check_sharp, size: Glyphs.bar),
     );
     // Phones: two rows, so every control shows (font, size and paragraph
     // over the character formats), with ⋯ above ✓ at the end. Elsewhere
@@ -173,7 +173,7 @@ class TextFormatBar extends StatelessWidget {
         IconButton(
           tooltip: 'Smaller',
           onPressed: () => _setSize(step(size, -1)),
-          icon: const Icon(Symbols.text_decrease_rounded, size: Glyphs.bar),
+          icon: const Icon(Symbols.text_decrease_sharp, size: Glyphs.bar),
         ),
         SizedBox(
           width: 28,
@@ -187,21 +187,21 @@ class TextFormatBar extends StatelessWidget {
         IconButton(
           tooltip: 'Larger',
           onPressed: () => _setSize(step(size, 1)),
-          icon: const Icon(Symbols.text_increase_rounded, size: Glyphs.bar),
+          icon: const Icon(Symbols.text_increase_sharp, size: Glyphs.bar),
         ),
       ],
       [
-        toggle('Bold (Ctrl+B)', Symbols.format_bold_rounded, style.bold, c.toggleBold),
-        toggle('Italic (Ctrl+I)', Symbols.format_italic_rounded, style.italic, c.toggleItalic),
+        toggle('Bold (Ctrl+B)', Symbols.format_bold_sharp, style.bold, c.toggleBold),
+        toggle('Italic (Ctrl+I)', Symbols.format_italic_sharp, style.italic, c.toggleItalic),
         toggle(
           'Underline (Ctrl+U)',
-          Symbols.format_underlined_rounded,
+          Symbols.format_underlined_sharp,
           style.underline,
           c.toggleUnderline,
         ),
         toggle(
           'Strikethrough (Ctrl+Shift+X)',
-          Symbols.format_strikethrough_rounded,
+          Symbols.format_strikethrough_sharp,
           style.strike,
           c.toggleStrike,
         ),
@@ -259,9 +259,9 @@ class TextFormatBar extends StatelessWidget {
           tooltip: 'Align ${nextAlign.name}',
           onPressed: () => _box(box.copyWith(align: nextAlign)),
           icon: Icon(switch (box.align) {
-            TextAlignment.left => Symbols.format_align_left_rounded,
-            TextAlignment.center => Symbols.format_align_center_rounded,
-            TextAlignment.right => Symbols.format_align_right_rounded,
+            TextAlignment.left => Symbols.format_align_left_sharp,
+            TextAlignment.center => Symbols.format_align_center_sharp,
+            TextAlignment.right => Symbols.format_align_right_sharp,
           }, size: Glyphs.bar),
         ),
       ],

@@ -31,7 +31,7 @@ class CustomColorSwatch extends StatelessWidget {
         padding: EdgeInsets.zero,
         iconSize: Glyphs.menu,
         onPressed: () => onTap(context),
-        icon: const Icon(Symbols.palette_rounded),
+        icon: const Icon(Symbols.palette_sharp),
       ),
     );
   }

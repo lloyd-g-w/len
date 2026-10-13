@@ -185,7 +185,7 @@ class ProgressDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AppDialog(
-      icon: Symbols.hourglass_top_rounded,
+      icon: Symbols.hourglass_top_sharp,
       title: title,
       content: ConstrainedBox(
         // As wide as the other dialogs (on phones, the screen allows less).

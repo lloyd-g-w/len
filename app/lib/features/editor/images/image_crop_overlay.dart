@@ -173,7 +173,7 @@ class _CropBar extends StatelessWidget {
           IconButton(
             tooltip: 'Show whole image',
             onPressed: cropped ? onReset : null,
-            icon: const Icon(Symbols.crop_free_rounded, size: Glyphs.bar),
+            icon: const Icon(Symbols.crop_free_sharp, size: Glyphs.bar),
           ),
           TextButton(onPressed: onCancel, child: const Text('Cancel')),
           FilledButton(onPressed: onDone, child: const Text('Done')),

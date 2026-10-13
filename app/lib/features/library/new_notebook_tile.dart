@@ -60,7 +60,7 @@ class _NewNotebookTileState extends State<NewNotebookTile> {
                     child: AnimatedScale(
                       scale: lifted ? 1.1 : 1,
                       duration: Motion.fast,
-                      child: Icon(Symbols.add_rounded, size: Glyphs.empty, color: scheme.primary),
+                      child: Icon(Symbols.add_sharp, size: Glyphs.empty, color: scheme.primary),
                     ),
                   ),
                 ),

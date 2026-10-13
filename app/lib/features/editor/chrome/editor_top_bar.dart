@@ -141,12 +141,8 @@ class EditorTopBar extends StatelessWidget {
   }
 
   Widget _back() => secondPane
-      ? BarButton(
-          tooltip: 'Close this pane',
-          icon: Symbols.close_rounded,
-          onPressed: actions.onBack,
-        )
-      : BarButton(tooltip: 'Back', icon: Symbols.arrow_back_rounded, onPressed: actions.onBack);
+      ? BarButton(tooltip: 'Close this pane', icon: Symbols.close_sharp, onPressed: actions.onBack)
+      : BarButton(tooltip: 'Back', icon: Symbols.arrow_back_sharp, onPressed: actions.onBack);
 
   Widget _title() => TitleButton(title: title, subtitle: subtitle, onRename: actions.onRename);
 
@@ -154,7 +150,7 @@ class EditorTopBar extends StatelessWidget {
   List<Widget> _nav({required bool showTitle}) => [
     _back(),
     if (actions.onOverview case final onOverview?)
-      BarButton(tooltip: 'All pages', icon: Symbols.grid_view_rounded, onPressed: onOverview),
+      BarButton(tooltip: 'All pages', icon: Symbols.grid_view_sharp, onPressed: onOverview),
     Flexible(
       child: Align(
         alignment: AlignmentDirectional.centerStart,
@@ -233,7 +229,7 @@ class EditorTopBar extends StatelessWidget {
     children: [
       _back(),
       if (actions.onOverview case final onOverview?)
-        BarButton(tooltip: 'All pages', icon: Symbols.grid_view_rounded, onPressed: onOverview),
+        BarButton(tooltip: 'All pages', icon: Symbols.grid_view_sharp, onPressed: onOverview),
       Expanded(
         child: Align(alignment: AlignmentDirectional.centerStart, child: _title()),
       ),

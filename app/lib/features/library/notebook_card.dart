@@ -218,7 +218,7 @@ class _NotebookCardState extends State<NotebookCard> {
                                 color: scheme.onSurfaceVariant,
                                 // Reachable by keyboard and screen readers even
                                 // while hidden.
-                                icon: const Icon(Symbols.more_horiz_rounded),
+                                icon: const Icon(Symbols.more_horiz_sharp),
                                 onPressed: () => unawaited(_showMenu(anchor: anchor)),
                               ),
                             ),

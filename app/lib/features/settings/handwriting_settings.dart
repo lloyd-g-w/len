@@ -52,7 +52,7 @@ class HandwritingSettings extends StatelessWidget {
     final indexer = recognition.indexer;
     final lines = indexer.lineCount;
     return SettingsTile(
-      icon: Symbols.manage_search_rounded,
+      icon: Symbols.manage_search_sharp,
       title: 'Search handwriting',
       subtitle: indexer.isIndexing
           ? 'Adding handwriting recognised on your other devices…'
@@ -63,13 +63,13 @@ class HandwritingSettings extends StatelessWidget {
   }
 
   Widget _language(BuildContext context) => SettingsTile(
-    icon: Symbols.translate_rounded,
+    icon: Symbols.translate_sharp,
     title: 'Language',
     subtitle: recognition.isAutomaticLanguage
         ? 'Same as the device · ${_name(recognition.language)}'
         : _name(recognition.language),
     onTap: () => unawaited(_pickLanguage(context)),
-    trailing: const Icon(Symbols.chevron_right_rounded),
+    trailing: const Icon(Symbols.chevron_right_sharp),
   );
 
   Future<void> _pickLanguage(BuildContext context) async {
@@ -108,7 +108,7 @@ class HandwritingSettings extends StatelessWidget {
           : 'Up to date: $lines line${lines == 1 ? '' : 's'} recognised.';
     }
     return SettingsTile(
-      icon: Symbols.manage_search_rounded,
+      icon: Symbols.manage_search_sharp,
       title: 'Search handwriting',
       subtitle: 'Recognises handwriting in the background while you are not writing. $status',
       onTap: () => unawaited(recognition.setIndexingEnabled(!recognition.indexingEnabled)),
@@ -125,8 +125,8 @@ class HandwritingSettings extends StatelessWidget {
     final failed = recognition.downloadError != null && status == ModelStatus.missing;
     return SettingsTile(
       icon: status == ModelStatus.downloaded
-          ? Symbols.offline_pin_rounded
-          : Symbols.download_for_offline_rounded,
+          ? Symbols.offline_pin_sharp
+          : Symbols.download_for_offline_sharp,
       title: 'Language model',
       subtitle: switch (status) {
         ModelStatus.downloaded => '$name is on this device.',

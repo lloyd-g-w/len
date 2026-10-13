@@ -78,7 +78,7 @@ class PlannerOptions extends StatelessWidget {
           tilePadding: EdgeInsets.zero,
           childrenPadding: const EdgeInsets.only(bottom: Gaps.sm),
           dense: true,
-          trailing: const Icon(Symbols.expand_more_rounded, size: Glyphs.bar),
+          trailing: const Icon(Symbols.expand_more_sharp, size: Glyphs.bar),
           shape: const Border(),
           collapsedShape: const Border(),
           children: [_CalendarRow(calendar: selection.plan.calendar, onChanged: _setCalendar)],
@@ -124,8 +124,8 @@ class PlannerOptions extends StatelessWidget {
           _Stepper(
             key: const ValueKey('planner-months'),
             label: plan.months == 1 ? '1 month' : '${plan.months} months',
-            previousIcon: Symbols.remove_rounded,
-            nextIcon: Symbols.add_rounded,
+            previousIcon: Symbols.remove_sharp,
+            nextIcon: Symbols.add_sharp,
             previousTooltip: 'Fewer months',
             nextTooltip: 'More months',
             onPrevious: plan.months > 1
@@ -226,8 +226,8 @@ class _Stepper extends StatelessWidget {
     required this.label,
     required this.onPrevious,
     required this.onNext,
-    this.previousIcon = Symbols.chevron_left_rounded,
-    this.nextIcon = Symbols.chevron_right_rounded,
+    this.previousIcon = Symbols.chevron_left_sharp,
+    this.nextIcon = Symbols.chevron_right_sharp,
     this.previousTooltip = 'Previous',
     this.nextTooltip = 'Next',
   });

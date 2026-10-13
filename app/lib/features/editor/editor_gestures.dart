@@ -54,36 +54,36 @@ List<CanvasAction> canvasActions(
   final clipboard = content.selection.clipboard;
   return [
     if (link != null && onFollowLink != null)
-      CanvasAction(Symbols.event_rounded, 'Go to ${link.period}', () => onFollowLink(link)),
+      CanvasAction(Symbols.event_sharp, 'Go to ${link.period}', () => onFollowLink(link)),
     if (!clipboard.isEmpty)
-      CanvasAction(Symbols.content_paste_rounded, 'Paste here', () {
+      CanvasAction(Symbols.content_paste_sharp, 'Paste here', () {
         session.tools.tool = EditorTool.lasso;
         content.selection.paste(world);
       }),
     CanvasAction(
-      Symbols.select_all_rounded,
+      Symbols.select_all_sharp,
       doc == null ? 'Select all in view' : 'Select all on page',
       () => content.selectAllIn(doc?.pageViewport.contentBounds ?? viewport.visibleWorld),
     ),
-    CanvasAction(Symbols.text_fields_rounded, 'Add text here', () {
+    CanvasAction(Symbols.text_fields_sharp, 'Add text here', () {
       final tools = session.tools;
       tools.tool = EditorTool.text;
       content.textTool.startBox(world);
     }),
     if (doc != null) ...[
       CanvasAction(
-        Symbols.add_rounded,
+        Symbols.add_sharp,
         'Add page after',
         () => onPageCommand(PageCommand.insertAfter),
         dividerBefore: true,
       ),
       CanvasAction(
-        bookmarked ? Symbols.bookmark_remove_rounded : Symbols.bookmark_add_rounded,
+        bookmarked ? Symbols.bookmark_remove_sharp : Symbols.bookmark_add_sharp,
         bookmarked ? 'Remove bookmark' : 'Bookmark page',
         () => onPageCommand(PageCommand.bookmark),
       ),
       CanvasAction(
-        Symbols.grid_on_rounded,
+        Symbols.grid_on_sharp,
         'Change template…',
         () => onPageCommand(PageCommand.template),
       ),
@@ -99,10 +99,10 @@ void runMultiFingerTap(EditorSession session, int fingers, HudController hud) {
   if (fingers == 2) {
     final could = undo.canUndo;
     if (could) undo.undo();
-    hud.show(Symbols.undo_rounded, could ? 'Undo' : 'Nothing to undo', counts: could);
+    hud.show(Symbols.undo_sharp, could ? 'Undo' : 'Nothing to undo', counts: could);
   } else if (fingers == 3) {
     final could = undo.canRedo;
     if (could) undo.redo();
-    hud.show(Symbols.redo_rounded, could ? 'Redo' : 'Nothing to redo', counts: could);
+    hud.show(Symbols.redo_sharp, could ? 'Redo' : 'Nothing to redo', counts: could);
   }
 }

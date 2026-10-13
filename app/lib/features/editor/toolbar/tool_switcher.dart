@@ -51,7 +51,7 @@ class ToolSwitcherButton extends StatelessWidget {
                       children: [
                         ToolGlyph(descriptor: active, filled: true),
                         const SizedBox(width: Gaps.xxs),
-                        Icon(Symbols.expand_more_rounded, size: 16, color: scheme.onSurfaceVariant),
+                        Icon(Symbols.expand_more_sharp, size: 16, color: scheme.onSurfaceVariant),
                       ],
                     ),
                   ),
@@ -121,7 +121,7 @@ class ToolSwitcherPanel extends StatelessWidget {
               dimension: 26,
               child: Align(
                 alignment: Alignment.topCenter,
-                child: Icon(Symbols.add_circle_rounded, size: Glyphs.bar),
+                child: Icon(Symbols.add_circle_sharp, size: Glyphs.bar),
               ),
             ),
             onTap: () {
