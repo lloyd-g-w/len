@@ -2,16 +2,24 @@
 // on the engine):
 //
 //   flutter test test/inklab/tools/table_test.dart --dart-define=INKLAB_TABLE=true \
-//     [--dart-define=INKLAB_ONLY=<regex on entry names>]
+//     [--dart-define=INKLAB_ONLY=<regex on entry names>] \
+//     [--dart-define=INKLAB_ENDS=both|flat|round|tapered]
+//
+// INKLAB_ENDS writes every entry with those pen ends (`cursive@0.4/flat`);
+// `both` runs the table with the pen's round ends, then with flat ends
+// (butt caps: the overlay's flat-end rules, `WetInkEnds`).
 @Tags(['inklab'])
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/domain/stroke.dart';
+import 'package:len/ink/pen/pen_ends.dart';
 
 import '../suite.dart';
 
 const bool _enabled = bool.fromEnvironment('INKLAB_TABLE');
 const String _only = String.fromEnvironment('INKLAB_ONLY');
+const String _ends = String.fromEnvironment('INKLAB_ENDS');
 
 void main() {
   test(
@@ -19,7 +27,10 @@ void main() {
     () {
       final filter = RegExp(_only);
       var fails = 0;
-      for (final e in suiteEntries()) {
+      final entries = _ends == 'both'
+          ? [...suiteEntries(), ...suiteEntries(ends: const PenEnds(style: StrokeEnds.flat))]
+          : suiteEntries(ends: suiteEnds());
+      for (final e in entries) {
         if (!filter.hasMatch(e.name)) continue;
         final cells = <String>[];
         // Every judged metric, also the ones reported without a limit
