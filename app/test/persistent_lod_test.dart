@@ -162,9 +162,7 @@ void main() {
     final stored = view.strokes.chunkDigests('s', range);
     expect(stored, isNotEmpty);
     for (final MapEntry(:key, :value) in stored.entries) {
-      // Images look different until decoded: never stored.
-      final expected = key == (x: 10, y: 0) ? null : value;
-      expect(view.model.digestOf(key), expected, reason: '$key');
+      expect(view.model.digestOf(key), value, reason: '$key');
     }
     expect(stored.containsKey((x: 10, y: 0)), isTrue);
     expect(stored[(x: 0, y: 0)]!.elements, 1);

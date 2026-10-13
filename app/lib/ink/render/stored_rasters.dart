@@ -1,13 +1,12 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
 import '../../data/raster_store.dart';
 import '../../domain/chunk_digest.dart';
 import '../../domain/chunk_grid.dart';
-import '../lab/perf_probe.dart';
 import '../surface_model.dart';
+import 'stored_raster_io.dart';
 
 /// Level-of-detail rasters of a surface's chunks kept across restarts, so
 /// a canvas reopened far zoomed out shows its ink from a few small images
@@ -47,12 +46,8 @@ class StoredRasters {
   int _generation = 0;
   bool _disposed = false;
 
-  /// Rasters known to be stored (read or written this session).
-  final Set<String> _stored = {};
-
-  /// Rasters being encoded and written.
-  int get writing => _writing;
-  int _writing = 0;
+  /// Reads and writes the files.
+  late final StoredRasterIo io = StoredRasterIo(store);
 
   /// The stored chunks within [range], asking storage for the digests
   /// around it when [range] goes beyond those known.
@@ -144,46 +139,10 @@ class StoredRasters {
   String nameOf(ChunkKey chunk, int level, ChunkDigest digest) =>
       '${model.surfaceId}_${chunk.x}_${chunk.y}_${level}_${digest.name}.png';
 
-  /// Reads and decodes raster [name]; null if it is not stored.
-  Future<ui.Image?> read(String name) async {
-    PerfProbe.count('lodStoreReads');
-    final bytes = await store.read(name);
-    if (bytes == null || _disposed) return null;
-    try {
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-      codec.dispose();
-      _stored.add(name);
-      PerfProbe.count('lodStoreHits');
-      return frame.image;
-    } on Object {
-      return null; // Corrupt: drawn again (and stored over).
-    }
+  void dispose() {
+    _disposed = true;
+    io.dispose();
   }
-
-  /// Stores [image] as [name] (unless it is known to be stored), encoded
-  /// off the UI thread. Takes ownership of [image].
-  void write(String name, ui.Image image) {
-    if (_disposed || !_stored.add(name)) return image.dispose();
-    PerfProbe.count('lodStoreWrites');
-    unawaited(_write(name, image));
-  }
-
-  Future<void> _write(String name, ui.Image image) async {
-    _writing++;
-    try {
-      final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (data != null) await store.write(name, data.buffer.asUint8List());
-    } on Object catch (error, stack) {
-      _stored.remove(name);
-      _report(error, stack);
-    } finally {
-      _writing--;
-      image.dispose();
-    }
-  }
-
-  void dispose() => _disposed = true;
 
   void _report(Object error, StackTrace stack) => FlutterError.reportError(
     FlutterErrorDetails(exception: error, stack: stack, library: 'len rendering'),
