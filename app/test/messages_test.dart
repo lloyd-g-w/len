@@ -39,4 +39,39 @@ void main() {
     expect(snack.width, messageMaxWidth);
     expect(snack.center.dx, closeTo(240 + (1440 - 240) / 2, 1));
   });
+
+  testWidgets('a standing notice steps aside while a snack bar shows', (tester) async {
+    late BuildContext context;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: Builder(
+            builder: (c) {
+              context = c;
+              return MessageQueue.stepAside(child: const Text('The PDF is missing'));
+            },
+          ),
+        ),
+      ),
+    );
+    double opacity() => tester
+        .widget<Opacity>(
+          find.ancestor(of: find.text('The PDF is missing'), matching: find.byType(Opacity)),
+        )
+        .opacity;
+    expect(opacity(), 1);
+    showMessage(context, 'Page saved', duration: const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
+    expect(find.text('Page saved'), findsOneWidget);
+    // Replacing the message keeps the notice away; it comes back after.
+    showMessage(context, 'Page moved', duration: const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.text('Page moved'), findsNothing);
+    expect(opacity(), 1);
+  });
 }

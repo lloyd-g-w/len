@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../data/app_preferences.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/fit_segments.dart';
 import '../../ui/segment_label.dart';
 import 'keyboard_shortcuts.dart';
 import 'settings_section.dart';
@@ -26,8 +27,9 @@ class GeneralSettings extends StatelessWidget {
             icon: Symbols.contrast_rounded,
             title: 'Theme',
             subtitle: 'Paper keeps its colour in both themes',
-            control: ShrinkToFit(
-              child: SegmentedButton<ThemePreference>(
+            control: FitSegments(
+              builder: (direction) => SegmentedButton<ThemePreference>(
+                direction: direction,
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: ThemePreference.system, label: SegmentLabel('System')),

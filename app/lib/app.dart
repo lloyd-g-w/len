@@ -61,7 +61,10 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     volatile.onWrite = null;
     final context = _messenger.currentContext;
     if (context == null) return;
-    _messenger.currentState?.showSnackBar(
+    final state = _messenger.currentState;
+    if (state == null) return;
+    MessageQueue.show(
+      state,
       appSnackBar(
         context,
         'This browser won\'t keep this file once the tab is closed',

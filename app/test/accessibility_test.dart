@@ -71,31 +71,16 @@ Future<AppServices> pumpScreen(
 /// semantics node's description, and why it is still allowed. Remove an
 /// entry once its fix lands.
 const Map<String, String> knownSmallTargets = {
-  // fix/library-r4 makes the card ⋯ 48 dp on touch (UX_AUDIT P2-23).
-  'tooltip: "More"': 'card ⋯, P2-23',
-  // The library sidebar on tablets: 40-dp rows, New folder, the footer's
-  // Settings and Sync, and the 40-dp search field (UX_AUDIT A11Y-1).
-  'Size(223.0, 42.0)': 'sidebar rows, A11Y-1',
-  'tooltip: "New folder"': 'sidebar New folder, A11Y-1',
-  'label: "Settings"': 'sidebar footer, A11Y-1',
-  'label: "Sync off"': 'sidebar footer, A11Y-1',
-  'label: "Search"': 'search field, A11Y-1',
   // Quick slots are 44 dp on touch by design (CONVENTIONS "Targets"); the
   // phone's options sheet repeats them.
   'label: "Colour ': 'quick colour slots, 44 dp',
   'label: "Size ': 'quick size slots, 44 dp',
-  // Settings on phones: segmented buttons shrink to fit (ShrinkToFit),
-  // so their 48-dp height scales down (UX_AUDIT A11Y-2).
-  'isInMutuallyExclusiveGroup': 'shrunk segmented buttons, A11Y-2',
 };
 
 /// Text the contrast check can't measure: set in its own font, which the
 /// test can't swap for boxes, so it measures anti-aliased glyph edges.
 const Map<String, String> knownContrast = {
   'label: "Sans", tooltip: "Font"': 'the font menu shows the font in itself',
-  // At 2× text the library sidebar's footer (Settings beside the sync
-  // caption) squeezes the Settings label away (UX_AUDIT A11Y-1).
-  'label: "Settings"': 'sidebar footer at 2× text, A11Y-1',
 };
 
 /// [reason] without the nodes [known] allows; null if none is left.

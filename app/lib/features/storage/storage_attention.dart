@@ -32,15 +32,17 @@ class StorageAttention {
     if (failure == null) {
       if (_told && !writes.pending && context != null) {
         _told = false;
-        messenger.currentState
-          ?..hideCurrentSnackBar()
-          ..showSnackBar(appSnackBar(context, 'Your changes are saved'));
+        final state = messenger.currentState?..hideCurrentSnackBar();
+        if (state != null) MessageQueue.show(state, appSnackBar(context, 'Your changes are saved'));
       }
       return;
     }
     if (_told || context == null) return;
     _told = true;
-    messenger.currentState?.showSnackBar(
+    final state = messenger.currentState;
+    if (state == null) return;
+    MessageQueue.show(
+      state,
       appSnackBar(
         context,
         messageFor(failure),

@@ -325,16 +325,19 @@ class _EditorScreenState extends State<_EditorView> {
     _setStylusOnly(true);
     // The side-button tip waits for the message, rather than both at once.
     final messenger = ScaffoldMessenger.maybeOf(context)?..removeCurrentSnackBar();
-    final shown = messenger?.showSnackBar(
-      appSnackBar(
-        context,
-        'Stylus detected: fingers now pan and zoom',
-        action: SnackBarAction(
-          label: 'Keep finger drawing',
-          onPressed: () => _setStylusOnly(false),
-        ),
-      ),
-    );
+    final shown = messenger == null
+        ? null
+        : MessageQueue.show(
+            messenger,
+            appSnackBar(
+              context,
+              'Stylus detected: fingers now pan and zoom',
+              action: SnackBarAction(
+                label: 'Keep finger drawing',
+                onPressed: () => _setStylusOnly(false),
+              ),
+            ),
+          );
     unawaited(
       (shown?.closed ?? Future<void>.value()).then((_) {
         if (mounted && !_closing) _offerTip(EditorTip.penButton);
