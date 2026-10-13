@@ -36,6 +36,13 @@ flutter run -d linux   # or: -d chrome, -d <android-device-id>
 flutter analyze && flutter test
 ```
 
+**End-to-end tests** drive the real Linux app (real SQLite, files, plugins,
+rendering and a local sync server, two devices) under a virtual display:
+`tool/e2e.sh` from `app/` inside `nix develop` (it takes `xvfb-run` and Mesa
+from nixpkgs; on a shared machine wrap it in `tool/heavy.sh`). The flows are
+in `app/integration_test/`; pictures of each step and the logs go to
+`$LEN_E2E_OUT` (default under `/tmp`), and any logged error fails the run.
+
 > **NixOS note:** run the Linux build from inside `nix develop`. nixpkgs' Flutter
 > engine library carries its own RUNPATH, which hides the bundled
 > `libsqlite3.so`; the dev shell supplies SQLite via `LD_LIBRARY_PATH`.
