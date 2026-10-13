@@ -65,13 +65,17 @@ Future<void> main(List<String> args) async {
     if (remaining <= Duration.zero) {
       await server.close(force: true);
     } else {
-      await closing.timeout(
-        remaining,
-        onTimeout: () async {
-          stderr.writeln('len-sync: forcing closed stalled client connection(s)');
-          await server.close(force: true);
-        },
-      );
+      // (`closing` is a Future<ServerSocket> at runtime: time out a void
+      // view of it, or the void callback fails the type check.)
+      await closing
+          .then<void>((_) {})
+          .timeout(
+            remaining,
+            onTimeout: () async {
+              stderr.writeln('len-sync: forcing closed stalled client connection(s)');
+              await server.close(force: true);
+            },
+          );
     }
   }
   // close(force: true) also finishes the original close() future.

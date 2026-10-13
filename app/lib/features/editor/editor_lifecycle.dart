@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 
@@ -41,13 +42,21 @@ class EditorLifecycle {
 
   /// Commits a text box being typed and saves where the editor looks when
   /// the app goes to the background (it may be killed there without
-  /// [dispose]).
+  /// [dispose]) and when a desktop window is closed (the app exits
+  /// without hiding or disposing anything).
   late final AppLifecycleListener _app = AppLifecycleListener(
-    onHide: () {
-      session.content.text.end();
-      saveView();
+    onHide: _keep,
+    onExitRequested: () async {
+      _keep();
+      return AppExitResponse.exit;
     },
   );
+
+  void _keep() {
+    if (closing) return;
+    session.content.text.end();
+    saveView();
+  }
 
   void start() {
     _app; // Starts listening.

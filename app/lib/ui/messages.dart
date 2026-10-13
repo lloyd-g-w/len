@@ -88,6 +88,9 @@ SnackBar appSnackBar(
     action: action,
     behavior: SnackBarBehavior.floating,
     duration: duration ?? const Duration(milliseconds: 4000),
+    // Flutter keeps snack bars with an action until dismissed; ours are
+    // short notes (an Undo is a convenience, Ctrl+Z still works): they go.
+    persist: false,
     margin: EdgeInsets.fromLTRB(
       left + side,
       0,

@@ -2,15 +2,18 @@
 """Checks the offline PWA in headless Chromium (see README "Develop").
 
   tool/build_web.sh
-  nix-shell -p "python3.withPackages(p:[p.playwright])" chromium \\
-    --run "python3 tool/web_offline_check.py build/web"
+  nix shell --impure --expr 'with import (builtins.getFlake "nixpkgs") {};
+    [ (python3.withPackages (p: [p.playwright])) chromium ]' \\
+    -c python3 tool/web_offline_check.py build/web
 
 1. Serves the build on localhost, opens it in a fresh profile, waits for the
    service worker, creates a notebook ("Offline test") and draws a stroke.
 2. Stops the server, sets the browser offline, starts it again with the same
-   profile: the app must load from the worker's cache and list the notebook.
-Screenshots go to $LEN_CHECK_OUT (default /tmp/len-offline-check). Click positions assume the
-1200×800 window used here.
+   profile: the app must load from the worker's cache and list the notebook
+   (from IndexedDB). Both must hold for exit code 0.
+The app is driven by keyboard shortcuts (no click positions), so layout
+changes don't break the check. Screenshots go to $LEN_CHECK_OUT (default
+/tmp/len-offline-check).
 """
 import asyncio, functools, http.server, json, os, shutil, sys, tempfile, threading
 
@@ -63,11 +66,16 @@ async def main():
         await page.goto(URL)
         await started(page, '1-online.png')
         await page.wait_for_function('navigator.serviceWorker.controller !== null', timeout=60000)
-        await page.mouse.click(735, 565)  # "New notebook"
+        await page.mouse.click(600, 400)  # Focus the page (nothing there).
+        await page.keyboard.press('Control+n')  # New notebook; the title has focus.
+        await page.wait_for_timeout(1500)
+        # (Key presses into Flutter's hidden input lose all but the last
+        # character in headless Chromium, even in a bare Flutter app.)
+        await page.keyboard.insert_text('Offline test')
+        await page.wait_for_timeout(300)
+        await page.keyboard.press('Enter')  # Create
         await page.wait_for_timeout(2500)
-        await page.keyboard.type('Offline test')
-        await page.mouse.click(1000, 706)  # "Create"
-        await page.wait_for_timeout(2500)
+        await page.screenshot(path=os.path.join(OUT, '1-editor.png'))
         await page.mouse.move(500, 400)
         await page.mouse.down()
         for i in range(30):
@@ -86,11 +94,17 @@ async def main():
         await page.goto(URL)
         await started(page, '2-offline.png')
         controlled = await page.evaluate('navigator.serviceWorker.controller !== null')
+        # Flutter's semantics tree puts the library's text into the DOM.
+        await page.evaluate("document.querySelector('flt-semantics-placeholder')?.click()")
+        await page.wait_for_timeout(1500)
+        listed = await page.get_by_text('Offline test').count() > 0
         await ctx.close()
     shutil.rmtree(profile, ignore_errors=True)
     print('offline start served by the worker:', controlled)
-    print('screenshots:', OUT, '(2-offline.png should list "Offline test")')
-    sys.exit(0 if controlled else 1)
+    print('the notebook is still there:', listed)
+    print('screenshots:', OUT)
+    sys.exit(0 if controlled and listed else 1)
 
 
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(main())
