@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/document/document_controller.dart';
 import 'package:len/features/editor/document/page_models.dart';
 import 'package:len/features/editor/document/page_overview.dart';
+import 'package:len/features/editor/document/page_thumbnail.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ui/app_theme.dart';
@@ -22,6 +24,7 @@ import 'support/big_library.dart';
 /// device, so they show as missing; their cost here is the page model).
 void main() {
   _longSession();
+  _overview();
   testWidgets('500 pages: open, go to the end, page overview', (tester) async {
     tester.view
       ..physicalSize = const Size(1200, 900)
@@ -150,6 +153,53 @@ void main() {
     }
   });
   return (s, nb);
+}
+
+void _overview() {
+  testWidgets('500 pages: the page overview renders what is on screen, bounded', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1200, 900)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final (s, nb) = _lectures();
+    addTearDown(s.dispose);
+    final watch = Stopwatch()..start();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: PageOverview(
+          currentPage: 0,
+          copier: SurfaceCopier(s.strokes, elements: s.elements),
+          handlers: OverviewHandlers(
+            load: () => s.pages.pagesOf(nb.id),
+            move: s.pages.move,
+            command: (context, command, page) async {},
+          ),
+        ),
+      ),
+    );
+    final firstFrame = watch.elapsedMilliseconds;
+    await tester.pumpAndSettle();
+    final settled = watch.elapsedMilliseconds;
+    final rss = ProcessInfo.currentRss;
+    final frames = <int>[];
+    for (var i = 0; i < 80; i++) {
+      final frame = Stopwatch()..start();
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+      await tester.pump(const Duration(milliseconds: 16));
+      frames.add(frame.elapsedMilliseconds);
+    }
+    await tester.pumpAndSettle();
+    frames.sort();
+    final built = find.byType(PageThumbnail, skipOffstage: false).evaluate().length;
+    expect(built, lessThan(80), reason: 'a lazy grid');
+    report(
+      'overview, 500 pages: first frame ${firstFrame}ms, settled ${settled}ms; scroll frames '
+      'median ${frames[frames.length ~/ 2]}ms, max ${frames.last}ms; $built thumbnails '
+      'built; RSS +${(ProcessInfo.currentRss - rss) >> 20} MB after scrolling through all',
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
 }
 
 void _longSession() {
