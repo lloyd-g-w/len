@@ -177,17 +177,28 @@ class ElementImages {
   /// Decodes the first frame of an encoded image, scaled to [width] pixels
   /// wide (never wider than the image itself).
   static Future<ui.Image> decode(Uint8List bytes, {int? width}) async {
+    final codec = await ui.instantiateImageCodec(bytes, targetWidth: width, allowUpscaling: false);
+    try {
+      return (await codec.getNextFrame()).image;
+    } finally {
+      codec.dispose();
+    }
+  }
+
+  /// The natural size of an encoded image. Natively only its header is
+  /// read; browsers can't do that (`ImageDescriptor.width` throws on the
+  /// web), so there the first frame is decoded.
+  static Future<({int width, int height})> measure(Uint8List bytes) async {
     final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
     final descriptor = await ui.ImageDescriptor.encoded(buffer);
     buffer.dispose();
     try {
-      final target = width == null || width >= descriptor.width ? null : width;
-      final codec = await descriptor.instantiateCodec(targetWidth: target);
-      try {
-        return (await codec.getNextFrame()).image;
-      } finally {
-        codec.dispose();
-      }
+      return (width: descriptor.width, height: descriptor.height);
+    } on UnsupportedError {
+      final image = await decode(bytes);
+      final size = (width: image.width, height: image.height);
+      image.dispose();
+      return size;
     } finally {
       descriptor.dispose();
     }

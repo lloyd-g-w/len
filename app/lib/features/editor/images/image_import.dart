@@ -89,16 +89,12 @@ abstract final class ImageImport {
   /// Prepares [bytes] for storage (see class docs).
   static Future<PreparedImage> prepare(Uint8List bytes) async {
     final mime = sniff(bytes);
-    final ui.ImageDescriptor descriptor;
+    final int width, height;
     try {
-      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-      descriptor = await ui.ImageDescriptor.encoded(buffer);
-      buffer.dispose();
+      (:width, :height) = await ElementImages.measure(bytes);
     } catch (_) {
       throw const ImageImportException('Unsupported or damaged image');
     }
-    final width = descriptor.width, height = descriptor.height;
-    descriptor.dispose();
     if (width <= 0 || height <= 0) throw const ImageImportException('Empty image');
     final keep =
         keptMimes.contains(mime) &&
