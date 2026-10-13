@@ -301,7 +301,7 @@ Rename, folder, sync and title fields have none, and R5-26 removed them from
 sync. DESIGN §6 fields are rulings: label, value, rule. *Fix:* drop both
 prefix icons and the `icon` parameter of `showTextPrompt`.
 
-⬜ **R6-21 P2 · Full stops and a heavy button in empty states; a toast with a
+✅ **R6-21 P2 · Full stops and a heavy button in empty states; a toast with a
 stop.** Single-sentence messages end in "." in the library's empty states
 ("Nothing matches “zzz”.", "Create a notebook to start writing, or import a
 PDF to write on.", "Star notebooks you use often to find them here.";
@@ -313,9 +313,11 @@ loudest thing on an empty screen for the least important act. *Fix:* drop
 the stops. Make Clear search a quiet `TextButton`. Extend
 `test/copy_rules_test.dart` to the record/switch tuples and `_toast` calls
 it misses today.
-*Partly done (`fix/r6-editor`):* the canvas hint lost its stops; the
-library's strings, Clear search and the copy test are left to the library
-branch.
+*Done:* the canvas hint lost its stops (`fix/r6-editor`); in the library,
+no stops in its empty states or the folder toast; Clear search is a quiet
+`TextButton`; `copy_rules_test` also reads `_toast` and
+`showOverviewMessage`. Left: the record tuples, which the scanner can't
+tell from non-UI literals.
 
 ✅ **R6-22 P2 · The trash's subtitle differs by width.** "Kept for 30 days" on
 phones, "1 notebook, deleted forever after 30 days" on wide screens

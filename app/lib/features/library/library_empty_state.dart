@@ -43,29 +43,29 @@ class LibraryEmptyState extends StatelessWidget {
       _ when searching => (
         const _IconArt(Symbols.search_off_sharp),
         'No results',
-        'Nothing matches “${query.trim()}”.',
+        'Nothing matches “${query.trim()}”',
       ),
       LibrarySection.library when inFolder => (
         const _IconArt(Symbols.folder_open_sharp),
         'This folder is empty',
         Targets.touchFirst
-            ? 'Create a notebook here, or move notebooks into it with Move to folder.'
-            : 'Create a notebook here, or drag notebooks onto this folder.',
+            ? 'Create a notebook here, or move notebooks into it with Move to folder'
+            : 'Create a notebook here, or drag notebooks onto this folder',
       ),
       LibrarySection.library => (
         const _CoverRow(),
         'No notebooks yet',
-        'Create a notebook to start writing, or import a PDF to write on.',
+        'Create a notebook to start writing, or import a PDF to write on',
       ),
       LibrarySection.favorites => (
         const _IconArt(Symbols.star_sharp),
         'No favourites yet',
-        'Star notebooks you use often to find them here.',
+        'Star notebooks you use often to find them here',
       ),
       LibrarySection.trash => (
         const _IconArt(Symbols.delete_sharp),
         'Trash is empty',
-        'Deleted notebooks stay here for 30 days, then they’re deleted forever.',
+        'Deleted notebooks stay here for 30 days, then they’re deleted forever',
       ),
     };
     final showCreate = onCreate != null && !searching && section == LibrarySection.library;
@@ -126,7 +126,8 @@ class LibraryEmptyState extends StatelessWidget {
                 ],
                 if (searching && onClearSearch != null) ...[
                   const SizedBox(height: Gaps.xl),
-                  FilledButton.icon(
+                  // Quiet: the least important act on the screen.
+                  TextButton.icon(
                     onPressed: onClearSearch,
                     icon: const Icon(Symbols.close_sharp),
                     label: const Text('Clear search'),

@@ -67,12 +67,14 @@ int _afterArgument(String source, int i) {
   return -1;
 }
 
-/// The copy shown by `Text(…)` and as `showMessage(context, …)` in
-/// [source], where it is written as string literals.
+/// The copy shown by `Text(…)` and as `showMessage(context, …)` (or the
+/// `_toast` / `showOverviewMessage` wrappers) in [source], where it is
+/// written as string literals.
 Iterable<String> uiCopy(String source) sync* {
-  for (final m in RegExp(r'\b(Text|showMessage)\(').allMatches(source)) {
+  final calls = RegExp(r'\b(Text|showMessage|_toast|showOverviewMessage)\(');
+  for (final m in calls.allMatches(source)) {
     var at = m.end;
-    if (m.group(1) == 'showMessage') {
+    if (m.group(1) != 'Text') {
       at = _afterArgument(source, at);
       if (at == -1) continue;
     }
@@ -102,6 +104,7 @@ void main() {
       showMessage(anchor, 'Moved ' // why
         'to the end.', action: undo);
       showMessage(context, reason);
+      _toast(context, 'Can’t do that.');
     ''';
     expect(uiCopy(source).where(singleSentenceWithStop), [
       'One line.',
@@ -109,6 +112,7 @@ void main() {
       r'Interpolated $name.',
       'Saved.',
       'Moved to the end.',
+      'Can’t do that.',
     ]);
   });
 
