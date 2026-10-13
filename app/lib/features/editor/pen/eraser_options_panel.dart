@@ -80,11 +80,13 @@ class EraserOptionsPanel extends StatelessWidget {
               onChanged: (v) => update(eraser.copyWith(highlighterOnly: v)),
             ),
             // The gesture that saves picking the eraser (Settings → Writing).
-            if (tools.scribbleToErase)
+            if (tools.scribbleToErase) ...[
+              const OptionRule(),
               Text(
                 'Or scribble over ink with the pen',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+            ],
           ],
         );
       },
