@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../data/app_preferences.dart';
 import '../../domain/preferences.dart';
+import '../../ui/app_switch.dart';
 import '../../ui/fit_segments.dart';
 import '../../ui/segment_label.dart';
 import 'settings_section.dart';
@@ -72,9 +73,13 @@ class WritingSettings extends StatelessWidget {
             title: 'Tap to undo and redo',
             subtitle: 'Two fingers undo, three redo',
             onTap: () => preferences.fingerTapUndo = !preferences.fingerTapUndo,
-            trailing: Switch(
-              value: preferences.fingerTapUndo,
-              onChanged: (v) => preferences.fingerTapUndo = v,
+            trailing: ExcludeFocus(
+              // The row is the target and the focus stop.
+              child: AppSwitch(
+                padded: false,
+                value: preferences.fingerTapUndo,
+                onChanged: (v) => preferences.fingerTapUndo = v,
+              ),
             ),
           ),
           SettingsTile(

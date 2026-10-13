@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/preferences.dart';
+import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
 import '../document/document_layout.dart';
 import '../document/page_fit.dart';
@@ -257,13 +258,8 @@ class _MenuSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IgnorePointer(
-    child: Transform.scale(
-      scale: 0.8,
-      child: Switch(
-        value: value,
-        onChanged: (_) {},
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+    child: ExcludeFocus(
+      child: AppSwitch(value: value, onChanged: (_) {}, padded: false),
     ),
   );
 }

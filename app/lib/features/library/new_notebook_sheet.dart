@@ -141,7 +141,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
     });
   }
 
-  /// "College ruled · White · A4 portrait", with the page count of a
+  /// "College ruled, white, A4 portrait", with the page count of a
   /// planner.
   String get _summary {
     final chosen = _chosenPapers;
@@ -149,7 +149,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
       return describeSelection(_selection, canvas: _canvas);
     }
     final pages = chosen.length;
-    return '${describeTemplate(_template.copyWith(paper: Paper(_paper)))} · '
+    return '${describeTemplate(_template.copyWith(paper: Paper(_paper)))}, '
         '$pages ${pages == 1 ? 'page' : 'pages'}';
   }
 

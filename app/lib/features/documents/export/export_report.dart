@@ -1,5 +1,5 @@
 /// What an export had to leave out or simplify, to tell the user at the
-/// end ("Saved “Lecture.pdf” · 2 images couldn't be included") instead of
+/// end ("Saved “Lecture.pdf”; 2 images couldn't be included") instead of
 /// dropping it silently.
 class ExportReport {
   /// PDF pages under the ink whose file isn't on this device (left out).

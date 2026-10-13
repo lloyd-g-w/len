@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
+import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/segment_label.dart';
 import 'page_setup.dart';
@@ -144,25 +145,20 @@ class PlannerOptions extends StatelessWidget {
     final plan = selection.plan;
     return [
       const SizedBox(height: Gaps.sm),
-      SwitchListTile(
+      AppSwitchTile(
         key: const ValueKey('planner-linked'),
-        contentPadding: EdgeInsets.zero,
-        dense: true,
+        padding: EdgeInsets.zero,
         value: plan.linked,
         onChanged: (v) => _setPlan(plan.copyWith(linked: v)),
-        title: const Text('Add week and day pages'),
-        subtitle: Text(
-          'Tap a day or week on the calendar to jump to its page',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        title: 'Add week and day pages',
+        subtitle: 'Tap a day or week on the calendar to jump to its page',
       ),
-      SwitchListTile(
+      AppSwitchTile(
         key: const ValueKey('planner-year'),
-        contentPadding: EdgeInsets.zero,
-        dense: true,
+        padding: EdgeInsets.zero,
         value: plan.yearOverview,
         onChanged: (v) => _setPlan(plan.copyWith(yearOverview: v)),
-        title: const Text('Start with a year overview'),
+        title: 'Start with a year overview',
       ),
     ];
   }

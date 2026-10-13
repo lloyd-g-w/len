@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/section_label.dart';
 import 'export_options.dart';
 
-/// A titled group of the export sheet: a small label above a rounded card.
+/// A titled group of the export sheet: a Small label heading over an open
+/// ruled list (DESIGN §6: hairlines, not plates).
 class ExportSection extends StatelessWidget {
   const ExportSection({super.key, required this.title, required this.children, this.trailing});
 
@@ -17,31 +19,34 @@ class ExportSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(Gaps.xs, 0, Gaps.xs, Gaps.sm),
+          padding: const EdgeInsets.only(bottom: Gaps.sm),
           child: Row(
             children: [
-              Expanded(child: Text(title, style: theme.textTheme.labelLarge)),
-              if (trailing != null) Text(trailing!, style: muted),
+              Expanded(child: SectionLabel(title)),
+              if (trailing != null) Text(trailing!, style: theme.textTheme.bodySmall),
             ],
           ),
         ),
-        Material(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(Radii.sm),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: Gaps.xs),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
-          ),
-        ),
+        for (final child in children) ...[const ExportRule(), child],
       ],
     );
   }
+}
+
+/// The hairline between the rows of an [ExportSection].
+class ExportRule extends StatelessWidget {
+  const ExportRule({super.key});
+
+  @override
+  Widget build(BuildContext context) => Divider(
+    height: Hairline.width,
+    thickness: Hairline.width,
+    color: Theme.of(context).colorScheme.outlineVariant,
+  );
 }
 
 /// PDF / PNG choice with a line on what each produces.
@@ -75,14 +80,11 @@ class ExportFormatPicker extends StatelessWidget {
           onSelectionChanged: (s) => onChanged(s.single),
         ),
         const SizedBox(height: Gaps.sm),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
-          child: Text(
-            format == ExportFormat.pdf
-                ? 'One document with sharp, zoomable ink'
-                : 'One image per page, for slides and messages',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
+        Text(
+          format == ExportFormat.pdf
+              ? 'One document with sharp, zoomable ink'
+              : 'One image per page, for slides and messages',
+          style: theme.textTheme.bodySmall,
         ),
       ],
     );
@@ -125,7 +127,9 @@ class ExportPagesPicker extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _option(ExportRange.current, 'Current page', 'Page ${currentPage + 1}'),
+          const ExportRule(),
           _option(ExportRange.all, 'All pages', '$pageCount pages'),
+          const ExportRule(),
           _option(ExportRange.custom, 'Page range', 'Choose which pages'),
           AnimatedSize(
             duration: Motion.medium,
@@ -144,10 +148,11 @@ class ExportPagesPicker extends StatelessWidget {
     subtitle: Text(detail),
     controlAffinity: ListTileControlAffinity.trailing,
     visualDensity: VisualDensity.compact,
+    contentPadding: EdgeInsets.zero,
   );
 
   Widget _rangeField() => Padding(
-    padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.xs, Gaps.lg, Gaps.md),
+    padding: const EdgeInsets.only(top: Gaps.xs, bottom: Gaps.md),
     child: TextField(
       key: const ValueKey('export-range'),
       controller: rangeController,

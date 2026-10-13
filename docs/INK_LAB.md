@@ -194,7 +194,8 @@ are for stabiliser 0 / 0.4 / 1, linear in between (`byStabiliser`).
 The overlay metrics use `WetInkModel` (`lib/ink/lab/wet_ink_model.dart`).
 `android/.../WetInkModel.kt` is its line-for-line port, which the overlay
 draws with; `tool/wet_ink_check/check.sh` feeds both every case and
-recording and compares their answers (they agree to 1e-15). A moment at
+recording and compares their answers (they agree to within a rounding
+step of a coordinate, ≈ 1e-13). A moment at
 depth *d* is the screen when Flutter's frame *k* is shown, *d* − 1 frame
 intervals after it was built (in time: after a lift the app idles and the
 next recorded frames come much later).
@@ -988,6 +989,27 @@ keeps its pieces until pen-up, which redoes the end's zone (as it redoes
 an end taper); the start's zone freezes once it is settled. Round ends
 are unchanged (the Ink Lab table is the same).
 
+**Flat ends in the overlay.** The Ink Lab's overlay metrics run with the
+pen's round ends; with flat ends the overlay drew near-round ends, since
+its pieces are hulls of circles and the circles within a radius of a butt
+cap reach past it (`overlay.ghost` 4–9 px² on every simulated case at
+the default stabiliser, mostly at stroke starts and at the moving tip).
+The overlay's model now applies Flutter's flat-end rules
+(`lib/ink/lab/wet_ink_ends.dart`, ported to `WetInkEnds.kt`): the cap is
+square to the line over its last half radius, and the pieces next to an
+end that run its way while a circle still reaches past the cap are cut
+off at the cap's line (the start always, also when the drawn tail only
+reaches back near it; the end once Flutter has committed the stroke).
+The moving tip has no end zone in Flutter (its run just ends at its
+cross-section, or is round where the last piece folds), so there each
+piece is cut at the cross-section ahead of it, back to a fold, which
+Flutter draws round. `overlay_flat_ends_test.dart` holds every simulated
+case with flat ends to no gap and ≤ 2 px² ghost (now neither at the
+default stabiliser; at 0 and 1: ghost ≤ 2 px², no gaps but `hooks`@0, 8
+px² for one frame while its pen-down hook is undecided, and
+`fast_loops`@1, 1 px² at the start, as before). Pixel eraser fragments (F12) never reach the overlay;
+the highlighter is not drawn by it (translucent).
+
 ![Highlighter ends over tight turns, before (top) and now](inklab/highlighter_ends.png)
 
 *A turn, a curl, a hook and a short squiggle with the 16-wide
@@ -1008,6 +1030,7 @@ start stability, the pen-up transition, and eraser fragments.
 `test/inklab/wet_ink_golden_test.dart` and the Kotlin unit tests share
 goldens for each style on the simulated hooks and real S Pen writing.
 The vector check compares the overlay's Dart and Kotlin geometry across
-the complete Ink Lab suite and both recordings. No device check was
+the complete Ink Lab suite and both recordings, the flat ends' cuts
+included (`WetInkEndsTest.kt` checks the cut polygon the layer draws). No device check was
 possible in the container; the Android front buffer and pen-up handover
 still need a visual check on a real tablet.

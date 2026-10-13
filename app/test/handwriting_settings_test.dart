@@ -5,6 +5,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/features/settings/handwriting_settings.dart';
 import 'package:len/ink/recognition/handwriting_recognizer.dart';
 import 'package:len/ink/recognition/recognition_languages.dart';
+import 'package:len/ui/app_switch.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'support/fake_recognizer.dart';
@@ -42,7 +43,7 @@ void main() {
     // Indexing is on by default, so the model came over "Wi-Fi" at start.
     expect(recognizer.downloads, 1);
     // Once on the device, the model needs no row of its own.
-    expect(find.text('Language model'), findsNothing);
+    expect(find.text('Handwriting model'), findsNothing);
 
     await tester.tap(find.text('Language'));
     await tester.pumpAndSettle();
@@ -51,18 +52,18 @@ void main() {
     expect(recognition.language, 'de-DE');
     expect(find.text('Deutsch'), findsOneWidget); // the tile's subtitle
 
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.byType(AppSwitch));
     await tester.pumpAndSettle();
     expect(recognition.indexingEnabled, isFalse);
     expect(recognition.indexer.isActive, isFalse);
-    expect(find.textContaining('Off · search finds'), findsOneWidget);
+    expect(find.textContaining('Off: search finds'), findsOneWidget);
 
     // Missing (e.g. removed by Android): offered for download.
     recognizer.downloaded = false;
     await tester.runAsync(recognition.refreshModel);
     await tester.pumpAndSettle();
     expect(recognition.modelStatus, ModelStatus.missing);
-    expect(find.text('Language model'), findsOneWidget);
+    expect(find.text('Handwriting model'), findsOneWidget);
     await tester.tap(find.text('Download'));
     await tester.pumpAndSettle();
     expect(recognition.modelStatus, ModelStatus.downloaded);
@@ -94,7 +95,7 @@ void main() {
     final services = await pumpSettings(tester, FakeRecognizer(supported: false));
     expect(find.textContaining('written on Android is recognised there'), findsOneWidget);
     expect(find.text('Search handwriting'), findsNothing, reason: 'no row that isn\'t a control');
-    expect(find.byType(Switch), findsNothing, reason: 'no dead toggles');
+    expect(find.byType(AppSwitch), findsNothing, reason: 'no dead toggles');
     expect(find.text('Language'), findsNothing);
 
     services.database.db.execute(
@@ -103,6 +104,6 @@ void main() {
     );
     await tester.runAsync(services.recognition.indexer.run); // Notifies when done.
     await tester.pump();
-    expect(find.textContaining('finds it here · 1 line'), findsOneWidget);
+    expect(find.textContaining('finds it here. 1 line so far'), findsOneWidget);
   });
 }

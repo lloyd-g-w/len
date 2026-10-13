@@ -111,6 +111,13 @@ class WetInkModel(
     var flatEnd = false
         private set
 
+    /**
+     * Where the pieces of the last [segments] are cut off at flat ends
+     * ([WetInkEnds]); their pieces count from its first triple.
+     */
+    var cuts: List<WetCut> = emptyList()
+        private set
+
     private var pressure = -1.0
     private var hasLast = false
     private var lastX = 0.0
@@ -208,7 +215,11 @@ class WetInkModel(
     /** Flutter has committed the stroke (`end`), with an end taper [taperEnd] long (0: none). */
     fun commit(taperEnd: Double) {
         endTaper = taperEnd
+        committed = true
     }
+
+    // Whether Flutter has committed the stroke ([commit]).
+    private var committed = false
 
     fun radiusAt(p: Double): Double {
         if (radii.size == 1) return radii[0]
@@ -319,6 +330,7 @@ class WetInkModel(
         val r = pointRadii()
         flatStart = shape.flat
         flatEnd = shape.flat
+        cuts = emptyList()
         if (to - from == 1) {
             val s = samples[from]
             val whole = from == 0 && to == samples.size
@@ -380,6 +392,10 @@ class WetInkModel(
             return doubleArrayOf(shaper.cx[i], shaper.cy[i], rr[i])
         }
         flatStart = shape.flat && start == 0 && first == 0
+        if (shape.flat) {
+            val all = WetInkEnds.of(shaper.cx, shaper.cy, rr, shaper.corners, n, first, step, start == 0, ended && committed)
+            cuts = all.map { WetCut(it.piece - first, it.px, it.py, it.nx, it.ny, it.atStart) }
+        }
         val out = DoubleArray((n - first) * 3)
         for (i in first until n) {
             val o = (i - first) * 3
@@ -565,6 +581,10 @@ class WetShaper(
     var finalCount = 0
         private set
 
+    /** Corner sample indices of the last [update] (`StrokeShaper.corners`). */
+    var corners = IntArray(0)
+        private set
+
     // Resampled samples from final segments (`StrokeShaper._resFinal`) and
     // the corner scan over them: where it stopped, and the run of sharp
     // turns it is in (its best sample, -1: none).
@@ -600,11 +620,12 @@ class WetShaper(
         if (n <= start) {
             length = 0
             finalCount = 0
+            corners = IntArray(0)
             return
         }
         resample(n, ended)
         val count = rx.size
-        val corners = findCorners(count)
+        corners = findCorners(count)
         smooth(count, corners)
         length = count
         val known = if (runBest >= 0) runBest else scan

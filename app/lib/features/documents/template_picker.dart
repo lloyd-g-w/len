@@ -216,8 +216,8 @@ class _TemplatePickerState extends State<TemplatePicker> {
 
   /// Cancel and the primary (filled) last; stacked, primary on top, when
   /// they don't fit in a row (large text). Changing a template leads with
-  /// "This page · All pages" and one Apply; on phones that is full width,
-  /// and the header's ✕ cancels.
+  /// "This page" / "All pages" and one Apply. On phones the primary is full
+  /// width (DESIGN §6.3) and the header's ✕ cancels.
   Widget _actions() {
     final cancel = TextButton(
       onPressed: () => Navigator.of(context).pop(),
@@ -241,7 +241,9 @@ class _TemplatePickerState extends State<TemplatePicker> {
       overflowDirection: VerticalDirection.up,
       children: [cancel, primary],
     );
-    if (widget.mode != TemplatePickerMode.change) return buttons;
+    if (widget.mode != TemplatePickerMode.change) {
+      return widget.wide ? buttons : SizedBox(height: Targets.touch, child: primary);
+    }
     final scope = SegmentedButton<bool>(
       key: const ValueKey('template-scope'),
       showSelectedIcon: false,

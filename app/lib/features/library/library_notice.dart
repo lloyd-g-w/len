@@ -136,17 +136,19 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   );
 }
 
-/// How a [LibraryNotice] is tinted.
+/// The colour of a [LibraryNotice]'s glyph.
 enum NoticeTone {
-  /// Something is being lost: error-tinted.
+  /// Something is being lost: a red glyph.
   warning,
 
-  /// Worth knowing: accent-tinted.
+  /// Worth knowing: an accent glyph.
   info,
 }
 
-/// A calm, tinted banner: an icon, a title and a sentence or two, with an
-/// optional [action] and ✕.
+/// A calm strip docked above the library (DESIGN §0: chrome is ruled
+/// paper): flat on the Board with a hairline under it, a glyph in the
+/// tone's colour on the margin column, a title and a sentence or two, with
+/// an optional [action] and ✕. No tinted plate.
 class LibraryNotice extends StatelessWidget {
   const LibraryNotice({
     super.key,
@@ -179,25 +181,29 @@ class LibraryNotice extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final tint = tone == NoticeTone.warning ? scheme.error : scheme.primary;
+    // The screen's margin column (DESIGN §3).
+    final margin = MediaQuery.sizeOf(context).width < Breakpoints.medium ? Gaps.lg : Gaps.xl;
     return Semantics(
       container: true,
       liveRegion: true,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(Gaps.md, Gaps.md, Gaps.md, 0),
         padding: EdgeInsets.fromLTRB(
+          margin,
           Gaps.md,
-          Gaps.md,
-          onDismiss == null ? Gaps.md : Gaps.xs,
+          onDismiss == null ? margin : Gaps.sm,
           action == null ? Gaps.md : Gaps.xs,
         ),
         decoration: BoxDecoration(
-          color: tint.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(Radii.sm),
+          color: Surfaces.chrome(scheme),
+          border: Border(bottom: Surfaces.chromeEdge(scheme)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: Glyphs.menu, color: tint),
+            Padding(
+              padding: const EdgeInsets.only(top: Gaps.xxs),
+              child: Icon(icon, size: Glyphs.bar, color: tint),
+            ),
             const SizedBox(width: Gaps.md),
             Expanded(
               child: Column(
@@ -205,7 +211,10 @@ class LibraryNotice extends StatelessWidget {
                 children: [
                   Text(title, style: theme.textTheme.labelLarge),
                   const SizedBox(height: Gaps.xxs),
-                  Text(body, style: theme.textTheme.bodySmall),
+                  Text(
+                    body,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
                   if (detail case final detail?) ...[
                     const SizedBox(height: Gaps.xxs),
                     SelectableText(detail, style: theme.textTheme.bodySmall),

@@ -35,23 +35,26 @@ Contour hullPolygon(Offset a, Offset b, double ra, double rb, {int n = 16}) {
   ];
 }
 
-/// The overlay's piece [g] as a polygon: [hullPolygon], or with its butt
-/// caps (square to the piece; a dot with them is a square).
+/// The overlay's piece [g] as a polygon: [hullPolygon] cut off at its flat
+/// ends' lines (a dot with butt caps is a square).
 Contour segmentPolygon(WetSegment g, {int n = 16}) {
-  if (!g.flatA && !g.flatB) return hullPolygon(g.a, g.b, g.ra, g.rb, n: n);
-  final d = g.b - g.a;
-  if (d.distance < 1e-9) {
+  if ((g.flatA || g.flatB) && (g.b - g.a).distance < 1e-9) {
     final r = g.ra;
     return [g.a + Offset(-r, -r), g.a + Offset(r, -r), g.a + Offset(r, r), g.a + Offset(-r, r)];
   }
-  final angle = math.atan2(d.dy, d.dx);
-  Iterable<Offset> end(Offset c, double r, double from, bool flat) => flat
-      ? [c + Offset.fromDirection(from, r), c + Offset.fromDirection(from + math.pi, r)]
-      : [for (var i = 0; i <= n; i++) c + Offset.fromDirection(from + math.pi * i / n, r)];
-  return [
-    ...end(g.b, g.rb, angle - math.pi / 2, g.flatB),
-    ...end(g.a, g.ra, angle + math.pi / 2, g.flatA),
-  ];
+  var poly = hullPolygon(g.a, g.b, g.ra, g.rb, n: n);
+  for (final l in g.cuts) {
+    double side(Offset p) => (p.dx - l.px) * l.nx + (p.dy - l.py) * l.ny;
+    final next = <Offset>[];
+    for (var i = 0; i < poly.length; i++) {
+      final a = poly[(i + poly.length - 1) % poly.length], p = poly[i];
+      final sa = side(a), sp = side(p);
+      if ((sa <= 0) != (sp <= 0)) next.add(a + (p - a) * (sa / (sa - sp)));
+      if (sp <= 0) next.add(p);
+    }
+    poly = next;
+  }
+  return poly;
 }
 
 /// Median interval between consecutive frames (µs).

@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../ink/recognition/handwriting_recognizer.dart';
 import '../../ink/recognition/recognition_languages.dart';
 import '../../ink/recognition/recognition_service.dart';
+import '../../ui/app_switch.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
 import '../../ui/sheet_parts.dart';
@@ -49,15 +50,15 @@ class HandwritingSettings extends StatelessWidget {
     final lines = indexer.lineCount;
     const base =
         'Handwriting written on Android is recognised there and synced, so search finds it here';
-    if (indexer.isIndexing) return '$base · adding handwriting from your other devices…';
-    return lines == 0 ? base : '$base · $lines line${lines == 1 ? '' : 's'}';
+    if (indexer.isIndexing) return '$base. Adding handwriting from your other devices…';
+    return lines == 0 ? base : '$base. $lines line${lines == 1 ? '' : 's'} so far';
   }
 
   Widget _language(BuildContext context) => SettingsTile(
     icon: Symbols.translate_sharp,
     title: 'Language',
     subtitle: recognition.isAutomaticLanguage
-        ? 'Same as the device · ${_name(recognition.language)}'
+        ? 'Same as the device, ${_name(recognition.language)}'
         : _name(recognition.language),
     onTap: () => unawaited(_pickLanguage(context)),
     trailing: const Icon(Symbols.chevron_right_sharp),
@@ -72,7 +73,7 @@ class HandwritingSettings extends StatelessWidget {
       maxHeight: 640,
       builder: (context, wide) => _LanguageSheet(
         current: current,
-        automaticLabel: 'Same as the device · ${_name(recognition.automaticLanguage)}',
+        automaticLabel: 'Same as the device, ${_name(recognition.automaticLanguage)}',
         wide: wide,
       ),
     );
@@ -85,25 +86,29 @@ class HandwritingSettings extends StatelessWidget {
     final pending = indexer.pendingCount;
     final String status;
     if (!recognition.indexingEnabled) {
-      status = 'Off · search finds typed text and PDFs only';
+      status = 'Off: search finds typed text and PDFs only';
     } else if (recognition.modelStatus != ModelStatus.downloaded) {
-      status = 'Waits for the language model';
+      status = 'Waits for the handwriting model';
     } else if (pending > 0) {
       status = indexer.isIndexing
           ? 'Recognising… $pending page${pending == 1 ? '' : 's'} to go'
           : '$pending page${pending == 1 ? '' : 's'} waiting for a quiet moment';
     } else {
       final lines = indexer.lineCount;
-      status = lines == 0 ? 'Up to date' : 'Up to date · $lines line${lines == 1 ? '' : 's'}';
+      status = lines == 0 ? 'Up to date' : 'Up to date, $lines line${lines == 1 ? '' : 's'}';
     }
     return SettingsTile(
       icon: Symbols.manage_search_sharp,
       title: 'Search handwriting',
       subtitle: status,
       onTap: () => unawaited(recognition.setIndexingEnabled(!recognition.indexingEnabled)),
-      trailing: Switch(
-        value: recognition.indexingEnabled,
-        onChanged: (v) => unawaited(recognition.setIndexingEnabled(v)),
+      trailing: ExcludeFocus(
+        // The row is the target and the focus stop.
+        child: AppSwitch(
+          padded: false,
+          value: recognition.indexingEnabled,
+          onChanged: (v) => unawaited(recognition.setIndexingEnabled(v)),
+        ),
       ),
     );
   }
@@ -116,7 +121,7 @@ class HandwritingSettings extends StatelessWidget {
       icon: status == ModelStatus.downloaded
           ? Symbols.offline_pin_sharp
           : Symbols.download_for_offline_sharp,
-      title: 'Language model',
+      title: 'Handwriting model',
       subtitle: switch (status) {
         ModelStatus.downloaded => '$name is on this device',
         ModelStatus.downloading => 'Downloading $name…',
@@ -127,7 +132,7 @@ class HandwritingSettings extends StatelessWidget {
         ModelStatus.unknown => 'Checking…',
       },
       trailing: switch (status) {
-        ModelStatus.missing => FilledButton.tonal(
+        ModelStatus.missing => OutlinedButton(
           onPressed: () => unawaited(recognition.download()),
           child: Text(failed ? 'Try again' : 'Download'),
         ),

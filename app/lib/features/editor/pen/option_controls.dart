@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
+import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
 
 /// A labelled slider row used in the tool option panels.
@@ -108,12 +109,11 @@ class OptionSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SwitchListTile(
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-      visualDensity: VisualDensity.compact,
-      title: Text(label, style: Theme.of(context).textTheme.labelLarge),
-      subtitle: subtitle == null ? null : Text(subtitle!),
+    return AppSwitchTile(
+      padding: EdgeInsets.zero,
+      title: label,
+      titleStyle: Theme.of(context).textTheme.labelLarge,
+      subtitle: subtitle,
       value: value,
       onChanged: onChanged,
     );

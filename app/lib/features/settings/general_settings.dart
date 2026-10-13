@@ -9,7 +9,7 @@ import '../../ui/segment_label.dart';
 import 'keyboard_shortcuts.dart';
 import 'settings_section.dart';
 
-/// General: the theme (System · Light · Dark) and, where a keyboard is
+/// General: the theme (System, Light, Dark) and, where a keyboard is
 /// likely (not a touch-first phone), the keyboard shortcuts.
 class GeneralSettings extends StatelessWidget {
   const GeneralSettings({super.key, required this.preferences});

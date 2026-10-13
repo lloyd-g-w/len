@@ -112,7 +112,7 @@ class _RecordingsListState extends State<RecordingsList> {
               icon: const Icon(Symbols.checklist_sharp),
             ),
           const SizedBox(width: Gaps.xs),
-          FilledButton.tonalIcon(
+          OutlinedButton.icon(
             onPressed: () {
               Navigator.of(context).pop();
               unawaited(startRecording(context, audio));
