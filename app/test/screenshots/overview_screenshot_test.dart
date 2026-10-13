@@ -19,6 +19,9 @@ void main() {
       load: () => s.pages.pagesOf(notebookId),
       command: (context, command, page) async {},
       move: (page, to) => s.pages.move(page, to),
+      // As in the editor: the selection can be exported and retemplated.
+      exportMany: (context, pages) async {},
+      templateMany: (context, pages) async {},
     ),
   );
 

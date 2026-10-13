@@ -163,14 +163,20 @@ class DocumentCommands {
     }
   }
 
-  Future<void> _changeTemplate(BuildContext context, NotebookPage page) async {
+  Future<void> _changeTemplate(BuildContext context, NotebookPage page) =>
+      changeTemplateOf(context, [page]);
+
+  /// Asks for a template and applies it to [pages] (or every page, if
+  /// chosen) as one step; several get a message with Undo.
+  Future<void> changeTemplateOf(BuildContext context, List<NotebookPage> pages) async {
+    if (pages.isEmpty) return;
     final choice = await showTemplatePicker(
       context,
-      initial: page.template,
+      initial: pages.first.template,
       mode: TemplatePickerMode.change,
     );
     if (choice == null) return;
-    final targets = choice.allPages ? doc.pages : [page];
+    final targets = choice.allPages ? doc.pages : pages;
     final edit = edits.setTemplate(
       targets,
       choice.template,
@@ -254,6 +260,8 @@ class DocumentCommands {
             bookmarkMany: (pages, {required on}) => edits.setBookmarks(pages, on: on),
             deleteMany: deleteMany,
             duplicateMany: duplicateMany,
+            exportMany: exportPages,
+            templateMany: changeTemplateOf,
           ),
         ),
       ),
@@ -317,6 +325,23 @@ class DocumentCommands {
     );
     if (inserted == null || inserted.isEmpty) return;
     edits.added(inserted);
+  }
+
+  /// Opens the export sheet with [pages] (the overview's selection) as
+  /// its page range, then exports.
+  Future<void> exportPages(BuildContext context, List<NotebookPage> pages) {
+    final all = doc.pages;
+    final ids = {for (final p in pages) p.id};
+    return exportFlow(
+      context,
+      notebook: notebook(),
+      pages: all,
+      currentPage: doc.currentPage,
+      initialPages: [
+        for (var i = 0; i < all.length; i++)
+          if (ids.contains(all[i].id)) i,
+      ],
+    );
   }
 
   /// Opens the export sheet with [range] (all pages or the current one)

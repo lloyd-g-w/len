@@ -161,7 +161,7 @@ void main() {
             find.descendant(of: find.byType(LibrarySidebar), matching: find.text('Work')),
           );
           await settle(tester);
-          expect(find.text('Delete folder…'), findsOneWidget);
+          expect(find.text('Delete folder'), findsOneWidget);
           await shoot(tester, 's_library_sidebar_folder_menu_${name}_$m');
           await dismiss(tester);
         }

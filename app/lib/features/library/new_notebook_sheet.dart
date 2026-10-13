@@ -16,6 +16,7 @@ import '../documents/templates/page_setup.dart';
 import '../documents/templates/planner_options.dart';
 import '../documents/templates/template_catalog.dart';
 import 'new_notebook/cover_row.dart';
+import 'new_notebook/default_title.dart';
 import 'new_notebook/new_notebook_request.dart';
 import 'new_notebook/notebook_preview.dart';
 import 'new_notebook/paper_row.dart';
@@ -34,7 +35,12 @@ class NewNotebookSheet extends StatefulWidget {
     this.wide = false,
     this.today,
     this.kind = NotebookKind.paged,
+    this.onImportPdf,
   });
+
+  /// Offers "Import PDF…" under Notebook / Canvas, which closes the sheet
+  /// and calls this: where phones, which have no ⊕▾, find importing.
+  final VoidCallback? onImportPdf;
 
   /// Dialog layout, the preview beside the form.
   final bool wide;
@@ -48,13 +54,14 @@ class NewNotebookSheet extends StatefulWidget {
   static Future<NewNotebookRequest?> show(
     BuildContext context, {
     NotebookKind kind = NotebookKind.paged,
+    VoidCallback? onImportPdf,
   }) {
     return showDialogOrSheet<NewNotebookRequest>(
       context: context,
       maxWidth: 840,
       maxHeight: 720,
       minHeight: 560,
-      builder: (_, wide) => NewNotebookSheet(wide: wide, kind: kind),
+      builder: (_, wide) => NewNotebookSheet(wide: wide, kind: kind, onImportPdf: onImportPdf),
     );
   }
 
@@ -78,6 +85,9 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   int _cover = Palette.covers.first;
   List<String> _recent = const [];
 
+  /// The title when none is typed: today's date (numbered if taken).
+  String _defaultTitle = '';
+
   PageTemplate get _template => _selection.template;
   PaperStyle get _paper => _template.style;
   bool get _canvas => _kind == NotebookKind.canvas;
@@ -85,7 +95,11 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _recent = AppScope.maybeRead(context)?.preferences.recentPapers ?? const [];
+    final services = AppScope.maybeRead(context);
+    _recent = services?.preferences.recentPapers ?? const [];
+    _defaultTitle = defaultNotebookTitle(_today, [
+      for (final n in services?.notebooks.list() ?? const <Notebook>[]) n.title,
+    ], language: defaultPlannerCalendar().language);
   }
 
   @override
@@ -109,8 +123,6 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
       ),
     );
   }
-
-  String get _defaultTitle => _canvas ? 'Untitled canvas' : 'Untitled notebook';
 
   void _setKind(NotebookKind kind) => setState(() {
     _kind = kind;
@@ -209,6 +221,20 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         selected: {_kind},
         onSelectionChanged: (s) => _setKind(s.single),
       ),
+      if (widget.onImportPdf case final onImportPdf?)
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            // On the form's edge, like the fields and labels.
+            style: TextButton.styleFrom(padding: const EdgeInsetsDirectional.only(end: Gaps.md)),
+            onPressed: () {
+              Navigator.of(context).pop();
+              onImportPdf();
+            },
+            icon: const Icon(Symbols.picture_as_pdf_sharp, size: Glyphs.menu),
+            label: const Text('Import PDF…'),
+          ),
+        ),
       const SizedBox(height: Gaps.xl),
       PickerLabel('Paper', key: const ValueKey('template-summary'), trailing: _summary),
       PaperRow(

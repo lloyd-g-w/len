@@ -204,9 +204,6 @@ abstract final class Palette {
   /// themed).
   static const Color bookmark = Color(0xFFE8590C);
 
-  /// The star of favourite notebooks.
-  static const Color favourite = Color(0xFFF5A524);
-
   static const List<int> covers = [
     0xFF3B5BDB, // ink blue
     0xFF0CA678, // teal

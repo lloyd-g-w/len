@@ -133,6 +133,10 @@ class _PageOverviewState extends State<PageOverview> {
             await widget.handlers.command(context, PageCommand.duplicate, p);
           }
         }
+      case SelectionAction.template:
+        await widget.handlers.templateMany?.call(context, pages);
+      case SelectionAction.export:
+        await widget.handlers.exportMany?.call(context, pages);
       case SelectionAction.delete:
         if (pages.length >= _pages.length) {
           showOverviewMessage(context, 'A notebook needs at least one page');
@@ -191,6 +195,13 @@ class _PageOverviewState extends State<PageOverview> {
             ? SelectionBar(
                 count: _selection!.length,
                 allBookmarked: _selected.isNotEmpty && _selected.every((p) => p.bookmarked),
+                offered: {
+                  SelectionAction.bookmark,
+                  SelectionAction.duplicate,
+                  if (widget.handlers.templateMany != null) SelectionAction.template,
+                  if (widget.handlers.exportMany != null) SelectionAction.export,
+                  SelectionAction.delete,
+                },
                 onAction: _runOnSelection,
               )
             : null,

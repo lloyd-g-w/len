@@ -362,7 +362,8 @@ Tablet / desktop (≥ 840)                                       Phone (< 840)
   row of compact tiles above the notebooks (a 36-dp glyph in the folder colour, name).
 - **New notebook** (`new_notebook_sheet.dart`): opened from the New… tile (wide), the FAB
   (phones only; hidden while an empty state shows its own button), ⊕▾ or Ctrl+N. One
-  column: title; Notebook / Canvas; Paper (6 most recent + "All templates…" →
+  column: title; Notebook / Canvas (and, where the library has no ⊕▾, a quiet
+  "Import PDF…" under it: phones' home for importing; R6-5); Paper (6 most recent + "All templates…" →
   `TemplateChooser`); Cover (one row of 10 colours); size and orientation; Create. The
   preview sits beside the form when wide and is a 120-dp strip on phones. The Cover/Paper
   tabs and the pattern gallery go.

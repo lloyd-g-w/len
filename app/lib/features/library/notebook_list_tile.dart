@@ -146,10 +146,10 @@ class _NotebookListTileState extends State<NotebookListTile> {
                       icon: Icon(
                         Symbols.star_sharp,
                         fill: _notebook.favorite ? 1 : 0,
-                        color: _notebook.favorite ? Palette.favourite : scheme.onSurfaceVariant,
+                        color: _notebook.favorite ? scheme.onSurface : scheme.onSurfaceVariant,
                       ),
                       onPressed: () =>
-                          widget.actions.controller.setFavorite(_notebook.id, !_notebook.favorite),
+                          widget.actions.setFavorite(context, [_notebook.id], !_notebook.favorite),
                     ),
                   ),
                 Builder(

@@ -36,7 +36,7 @@ pickers and dialogs, and commands that have no feedback or no Undo.
 
 ### Library and organising
 
-⬜ **R6-1 P1 · Dragging a notebook onto a folder moves it silently, with no
+✅ **R6-1 P1 · Dragging a notebook onto a folder moves it silently, with no
 Undo.** `LibraryActions.drop` (`features/library/library_actions.dart:118-127`)
 calls `controller.moveNotebook` and returns. The notebook disappears from the
 grid with no message. The Move dialog path goes through `move()` (`:279-297`),
@@ -45,8 +45,11 @@ get no feedback either. A drop that misses by one tile loses a notebook into
 the wrong folder. *Fix:* route notebook drops through `move(context, [id],
 folderId)`. For folders, add a "Moved “School” into “Work” · Undo" snack
 (`moveFolder` back to the old parent).
+*Done:* notebook drops go through `move()` (same message and Undo);
+folder drops say "Moved “School” to “Work”" with Undo; a drop where the
+item already is does nothing.
 
-⬜ **R6-3 P1 · A phone held sideways shows no notebook titles.**
+✅ **R6-3 P1 · A phone held sideways shows no notebook titles.**
 `library_phone_sideways_*`: four covers about 190 dp wide fill the 390-dp
 height, the titles are below the fold, and the FAB sits on the fourth cover.
 The column count depends only on width (`CoverGridDelegate.columnsFor`,
@@ -56,8 +59,14 @@ least two columns). *Fix:* cap the cover height on short windows. When
 from the height (a cover plus its caption at most about 60 % of the
 viewport, so about 110 dp at 390), which gives six columns with titles in
 view. Alternative: switch to the list view below `shortHeight`.
+*Done:* `CoverGridDelegate.columnsFor` (now `cover_grid.dart`) adds
+columns until a cover and its caption take at most 60 % of the viewport's
+height (never narrower than 96 dp); the folder row follows the same
+columns. Sideways: seven covers about 100 dp wide, titles in view. Card
+titles break only between words; a word too long for the line ends in
+"…" on one line.
 
-⬜ **R6-5 P1 · Phones: Import PDF hides behind a long press on the FAB.**
+✅ **R6-5 P1 · Phones: Import PDF hides behind a long press on the FAB.**
 After the first notebook, phones offer importing a PDF only through a long
 press on the FAB (`features/library/library_screen.dart:281-305`,
 `onLongPressHint: 'More: canvas, PDF, folder'`). The empty state shows
@@ -67,8 +76,14 @@ inside the app. *Fix:* put the source into the New notebook sheet, the one
 place phones go to create: Notebook | Canvas | PDF… as the segmented control
 (`new_notebook_sheet.dart`), with PDF… opening the file picker. Keep the
 long press as a shortcut.
+*Done:* where the library is compact (no ⊕▾), the New notebook sheet has a
+quiet "Import PDF…" under Notebook / Canvas; it closes the sheet and opens
+the file picker. Chosen over a third segment (a segment that opens a
+picker isn't a choice of kind) and over a menu on ⊕ (an extra tap on the
+most frequent command). One home per width: ⊕▾ when wide, the sheet when
+compact; the empty state's button and the long press stay as shortcuts.
 
-⬜ **R6-7 P2 · Library edits without Undo.** Rename, cover, favourite and
+✅ **R6-7 P2 · Library edits without Undo.** Rename, cover, favourite and
 folder edits write straight away (`library_actions.dart:154-172, 204-214`).
 Duplicate shows a plain toast (`:173-175`). Trash, move and folder delete
 already offer Undo. CONVENTIONS says every visible edit is undoable, and a
@@ -76,16 +91,26 @@ cover change or a mis-tapped favourite is the kind of edit you want back.
 *Fix:* reuse the move pattern: remember the old `Notebook`/`Folder` and show
 "Cover changed · Undo", "Renamed to “X” · Undo" and "Duplicated as “X” ·
 Undo" (Undo trashes the copy).
+*Done:* rename, cover, favourite (menu, list star, sidebar drop, selection
+bar) and folder edits say what changed with Undo (Undo puts back only the
+field that changed); Duplicate's Undo trashes the copy. Favouriting a
+selection ends it, like move and trash, so the message takes the bar's
+place.
 
-⬜ **R6-10 P2 · Every quick notebook is "Untitled notebook".** An empty title
+✅ **R6-10 P2 · Every quick notebook is "Untitled notebook".** An empty title
 becomes `'Untitled notebook'` or `'Untitled canvas'`
 (`features/library/new_notebook_sheet.dart:101,113`). A week of quick lecture
 notes then fills the grid with identical names, and library search can't
 tell them apart. *Fix:* default to the date, as a planner does ("Notes 13
 October", or "13 October" for a canvas), and number repeats on the same
 day ("13 October 2").
+*Done:* an empty title becomes the day in the device's date format
+("13 October", "October 13", "13. Oktober"; `intl` via the planner
+languages), for notebooks and canvases alike (the cover shows the kind),
+with no English word in front; a taken title is numbered "13 October (2)"
+(a bare "2" read like part of the date). The field's hint shows it.
 
-⬜ **R6-11 P2 · The favourite star is amber chrome on a white plate.**
+✅ **R6-11 P2 · The favourite star is amber chrome on a white plate.**
 `_FavoriteBadge` (`features/library/notebook_cover.dart:163-178`) draws a
 `Palette.favourite` (`#F5A524`, `ui/app_theme.dart:208`) star on a paper
 square. The list tile also tints the star amber (`notebook_list_tile.dart:149`).
@@ -93,8 +118,11 @@ DESIGN §1 allows no orange in chrome, and this badge has the same "sticker"
 look as the ∞ badge being fixed on `design/followups`. *Fix:* give it the
 same treatment as the ∞ badge (an Ink filled star, no plate, or a paper
 label), and use `onSurface` in the list.
+*Done:* the badge is the ∞ tag's twin (paper plate, Rule-ish edge, filled
+light-Ink star); the list's star is `onSurface`; `Palette.favourite` is
+gone.
 
-⬜ **R6-12 P2 · Library selection bar: bare icons; the overview's has labels.**
+✅ **R6-12 P2 · Library selection bar: bare icons; the overview's has labels.**
 `LibrarySelectionBar` is icon-only (select all, ☆, folder, 🗑, with tooltips;
 `features/library/selection/selection_bar.dart:35-44`).
 The overview's `SelectionBar` puts a label under each icon (Bookmark,
@@ -103,8 +131,13 @@ On touch, tooltips need a long press, so "☆" (favourite or unfavourite?) and
 the folder glyph (move? new folder?) are guesses. *Fix:* one selection bar
 pattern: labelled actions on touch (Favourite, Move, Trash; Restore and
 Delete in the trash), icons only with a pointer.
+*Done:* one pattern, `ui/labelled_action.dart` (`LabelledAction`), in both
+bars: every command named under its glyph (Favourite / Unfavourite, Move,
+Trash; Restore, Delete), with pointer and touch alike; the long names stay
+as tooltips. Select all is a quiet text button by the count, as in the
+overview. Narrower than 520 dp (phones) the commands take a second row.
 
-⬜ **R6-13 P2 · The library's "View" button looks like Sort and holds
+✅ **R6-13 P2 · The library's "View" button looks like Sort and holds
 Select.** The header's menu uses `Symbols.swap_vert_sharp` with the tooltip
 "View" and holds Sort by, Show as and Select
 (`features/library/library_header.dart:410-439`). The glyph promises sorting
@@ -112,6 +145,8 @@ only, so grid/list and multi-select are hard to find on phones. *Fix:* a
 neutral glyph (`tune` or `view_agenda`) and the label "View". Multi-select
 already starts with a long press then Select. Consider dropping "Select" from
 this menu once the context menu's Select is the documented way (one home).
+*Done:* the glyph is `tune` (tooltip "View"). Select stays in View: on
+phones it is the only visible way into multi-select.
 
 ### Editor chrome
 
@@ -208,7 +243,7 @@ text" in notebooks with PDF pages). The tip's ✕ is a full touch target now.
 
 ### Pages, templates
 
-⬜ **R6-17 P2 · The overview's selection can't export or retemplate.**
+✅ **R6-17 P2 · The overview's selection can't export or retemplate.**
 `SelectionAction` is bookmark, duplicate, delete
 (`features/documents/overview/overview_parts.dart:9`). To send three pages
 to a classmate, a user notes their numbers, leaves the overview and types a
@@ -217,6 +252,11 @@ range into Export. The export sheet already takes custom pages
 and Change template already has "All pages". *Fix:* add Export… (opens the
 export sheet with the selection as the custom range) and Change template…
 (applied to the selection) to the bar, or behind a ⋯ in it.
+*Done:* the bar is Bookmark, Duplicate, Template…, Export…, Delete.
+Export… opens the export sheet at Page range with the selection filled in
+("1-3, 5"; `initialPages`); Template… is Change template on the selected
+pages (one undoable step, "All pages" still widens it). Bar labels scale
+down rather than cut off on phones.
 
 ✅ **R6-18 P2 · The primary button names the same act two ways.** The template
 picker says "Apply" in Change template and "Use template" in Canvas
@@ -261,7 +301,7 @@ Rename, folder, sync and title fields have none, and R5-26 removed them from
 sync. DESIGN §6 fields are rulings: label, value, rule. *Fix:* drop both
 prefix icons and the `icon` parameter of `showTextPrompt`.
 
-⬜ **R6-21 P2 · Full stops and a heavy button in empty states; a toast with a
+✅ **R6-21 P2 · Full stops and a heavy button in empty states; a toast with a
 stop.** Single-sentence messages end in "." in the library's empty states
 ("Nothing matches “zzz”.", "Create a notebook to start writing, or import a
 PDF to write on.", "Star notebooks you use often to find them here.";
@@ -273,15 +313,18 @@ loudest thing on an empty screen for the least important act. *Fix:* drop
 the stops. Make Clear search a quiet `TextButton`. Extend
 `test/copy_rules_test.dart` to the record/switch tuples and `_toast` calls
 it misses today.
-*Partly done (`fix/r6-editor`):* the canvas hint lost its stops; the
-library's strings, Clear search and the copy test are left to the library
-branch.
+*Done:* the canvas hint lost its stops (`fix/r6-editor`); in the library,
+no stops in its empty states or the folder toast; Clear search is a quiet
+`TextButton`; `copy_rules_test` also reads `_toast` and
+`showOverviewMessage`. Left: the record tuples, which the scanner can't
+tell from non-UI literals.
 
-⬜ **R6-22 P2 · The trash's subtitle differs by width.** "Kept for 30 days" on
+✅ **R6-22 P2 · The trash's subtitle differs by width.** "Kept for 30 days" on
 phones, "1 notebook, deleted forever after 30 days" on wide screens
 (`features/library/library_header.dart:106-108`). The phone loses the count,
 and the two sentences sound like different policies. *Fix:* one string, "1
 notebook, deleted after 30 days" (short enough for 390 dp).
+*Done* as proposed.
 
 ### Sync and settings
 
@@ -324,12 +367,15 @@ with the form filled (`IncomingFiles.syncSetup`). Connect stays the user's.
 | S1 ✅ | Settings "Draw with" becomes the "Draw with finger" switch (R6-9) | Automatic is a first-run state, not a choice; one control shape in both homes | `features/settings/writing_settings.dart`, `chrome/editor_more_menu.dart` |
 | S2 ✅ | No ✕ on wide dialogs that have Cancel (R6-8) | Two exits on one form; DESIGN §6.3 | `ui/sheet_parts.dart` (`SheetHeader`) |
 | S3 ✅ | Template chooser: drop the category chips (R6-19) | Search plus headings already filter; the chips repeat the headings and cut off on phones | `features/documents/templates/template_chooser.dart` |
-| S4 | Folder delete: no confirm (or none for empty folders); the snack's Undo restores it | Trashing a notebook has no confirm and relies on Undo; deleting an empty folder asks "The folder is empty." (`library_actions.dart:241-252`) | `features/library/library_actions.dart` |
+| S4 ✅ | Folder delete: no confirm (or none for empty folders); the snack's Undo restores it | Trashing a notebook has no confirm and relies on Undo; deleting an empty folder asks "The folder is empty." (`library_actions.dart:241-252`) | `features/library/library_actions.dart` |
 | S5 ✅ | Lasso: no hint popover (R6-16) | A popover with nothing to set | `features/editor/tools/lasso_options_panel.dart`, `editor_tools.dart` |
 | S6 ✅ | "Hold to snap shapes" in one place (R6-15) | One global switch, three homes | `pen/pen_options_panel.dart`, `pen/highlighter_options_panel.dart`, `editor_tools.dart` |
 | S7 ✅ | Cover: the colour applies on tap, Undo in a snack; no Apply/Cancel | The preview is the result; four taps for one colour | `features/library/dialogs/cover_sheet.dart`, `library_actions.dart:168-172` |
 | S8 ✅ | `showTextPrompt` loses its `icon` parameter (R6-20) | One field style | `ui/text_prompt.dart` |
 | S9 ✅ | One colour picker (R6-6): `pickColor` built on `ColorChoices` | Two pickers with different layouts, sizes and order | `ui/color_picker/` |
+
+S4 done: "Delete folder" (no …) deletes at once; the message says what
+went ("“Work” deleted, 1 notebook to the trash") and Undo restores all.
 
 Kept on purpose: the long press on the FAB (it stays as a shortcut once
 R6-5 lands), the toolbar pair in View ▸ and Settings (REDESIGN §2.1), and

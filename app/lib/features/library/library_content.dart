@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -12,6 +11,7 @@ import '../../ui/app_theme.dart';
 import '../../ui/section_label.dart';
 import '../search/library_search_results.dart';
 import '../settings/settings_screen.dart';
+import 'cover_grid.dart';
 import 'folder_tile.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
@@ -21,7 +21,6 @@ import 'library_header.dart';
 import 'new_notebook_tile.dart';
 import 'notebook_card.dart';
 import 'notebook_list_tile.dart';
-import 'thumbnails/thumbnail_renderer.dart';
 
 /// The scrolling main area of the library: header, folders, notebooks.
 class LibraryContent extends StatelessWidget {
@@ -63,10 +62,20 @@ class LibraryContent extends StatelessWidget {
   /// Folders as a ruled row (DESIGN §6.1): names on the covers' columns
   /// (each folder spans as many as its name needs), a hairline under the
   /// row.
-  Widget _folderRow(List<Folder> folders, {required double spacing}) => LayoutBuilder(
+  Widget _folderRow(
+    List<Folder> folders, {
+    required double spacing,
+    required double viewportHeight,
+  }) => LayoutBuilder(
     builder: (context, constraints) {
       final width = constraints.maxWidth;
-      final columns = CoverGridDelegate.columnsFor(width, coverWidth, spacing);
+      final columns = CoverGridDelegate.columnsFor(
+        width,
+        coverWidth,
+        spacing,
+        height: viewportHeight,
+        captionHeight: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
+      );
       final column = (width - spacing * (columns - 1)) / columns;
       double spanWidth(int span) => column * span + spacing * (span - 1);
       // Large text or narrow columns: a folder spans two or more columns
@@ -111,8 +120,13 @@ class LibraryContent extends StatelessWidget {
     return n == 0 ? 'Empty' : '$n ${n == 1 ? 'item' : 'items'}';
   }
 
+  // The viewport's height sizes covers in short windows; the grid reads it
+  // from its sliver constraints, the folder row (on the same columns) here.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      LayoutBuilder(builder: (context, box) => _content(context, box.maxHeight));
+
+  Widget _content(BuildContext context, double viewportHeight) {
     final compact = Breakpoints.libraryCompact(MediaQuery.sizeOf(context));
     final gutter = compact ? Gaps.lg + Gaps.xs : Gaps.xxl;
     final gridSpacing = gridSpacingFor(compact: compact);
@@ -175,7 +189,9 @@ class LibraryContent extends StatelessWidget {
           if (folders.isNotEmpty)
             SliverPadding(
               padding: EdgeInsets.fromLTRB(gutter, Gaps.md, gutter, 0),
-              sliver: SliverToBoxAdapter(child: _folderRow(folders, spacing: gridSpacing)),
+              sliver: SliverToBoxAdapter(
+                child: _folderRow(folders, spacing: gridSpacing, viewportHeight: viewportHeight),
+              ),
             ),
           if (notebooks.isNotEmpty || newTile) ...[
             SliverToBoxAdapter(child: SizedBox(height: folders.isEmpty ? Gaps.lg : Gaps.xl)),
@@ -297,43 +313,4 @@ class LibraryContent extends StatelessWidget {
       ),
     );
   }
-}
-
-/// The notebook grid's layout: covers of about [coverWidth] (at least two
-/// columns, stretched to the width) at [ThumbnailRenderer.aspect], with
-/// [captionHeight] below each for the title and caption.
-class CoverGridDelegate extends SliverGridDelegate {
-  const CoverGridDelegate({
-    required this.coverWidth,
-    required this.spacing,
-    required this.captionHeight,
-  });
-
-  final double coverWidth;
-  final double spacing;
-  final double captionHeight;
-
-  /// How many columns of about [coverWidth] fit [width] (at least two).
-  static int columnsFor(double width, double coverWidth, double spacing) =>
-      math.max(2, ((width + spacing) / (coverWidth + spacing)).floor());
-
-  @override
-  SliverGridLayout getLayout(SliverConstraints constraints) {
-    final width = constraints.crossAxisExtent;
-    final columns = columnsFor(width, coverWidth, spacing);
-    final tile = (width - spacing * (columns - 1)) / columns;
-    final height = tile / ThumbnailRenderer.aspect + captionHeight;
-    return SliverGridRegularTileLayout(
-      crossAxisCount: columns,
-      mainAxisStride: height + Gaps.lg,
-      crossAxisStride: tile + spacing,
-      childMainAxisExtent: height,
-      childCrossAxisExtent: tile,
-      reverseCrossAxis: axisDirectionIsReversed(constraints.crossAxisDirection),
-    );
-  }
-
-  @override
-  bool shouldRelayout(CoverGridDelegate old) =>
-      old.coverWidth != coverWidth || old.spacing != spacing || old.captionHeight != captionHeight;
 }

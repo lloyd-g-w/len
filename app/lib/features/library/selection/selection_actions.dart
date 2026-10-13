@@ -17,14 +17,14 @@ extension SelectionActions on LibraryActions {
 
   String _count(int n) => n == 1 ? '1 notebook' : '$n notebooks';
 
-  /// Stars every selected notebook, or unstars them if all are starred.
-  void favoriteSelected(LibrarySelection selection) {
+  /// Stars every selected notebook, or unstars them if all are starred,
+  /// and ends the selection (as move and trash do): the message with its
+  /// Undo takes the bar's place.
+  void favoriteSelected(BuildContext context, LibrarySelection selection) {
     final ids = _ids(selection);
     final notebooks = controller.visibleNotebooks.where((n) => ids.contains(n.id));
-    final star = !notebooks.every((n) => n.favorite);
-    for (final id in ids) {
-      controller.setFavorite(id, star);
-    }
+    setFavorite(context, ids, !notebooks.every((n) => n.favorite));
+    selection.clear();
   }
 
   Future<void> moveSelected(BuildContext context, LibrarySelection selection) async {

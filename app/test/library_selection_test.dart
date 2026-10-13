@@ -33,7 +33,17 @@ void main() {
     expect(s.notebooks.get(id('Algebra'))!.favorite, isTrue);
     expect(s.notebooks.get(id('Biology'))!.favorite, isTrue);
     expect(s.notebooks.get(id('Chemistry'))!.favorite, isFalse);
+    // Done after favouriting; the message offers Undo.
+    expect(find.text('Added 2 notebooks to favourites'), findsOneWidget);
+    expect(find.text('2 selected'), findsNothing);
 
+    await tester.tap(find.byTooltip('View'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Algebra'));
+    await tester.tap(find.text('Biology'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Move to folder…'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('School').last);
@@ -46,7 +56,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Select').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Select all'));
+    await tester.tap(find.text('Select all'));
     await tester.pumpAndSettle();
     expect(find.text('1 selected'), findsOneWidget); // Only Chemistry is here now.
     await tester.tap(find.byTooltip('Move to trash'));

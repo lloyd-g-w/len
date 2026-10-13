@@ -29,7 +29,8 @@ typedef ExportSaver = Future<platform.ExportedFiles?> Function(
 });
 
 /// Asks what to export from [pages] of [notebook] (the export sheet,
-/// starting at [initialRange]; [currentPage] is zero-based), exports with
+/// starting at [initialRange], or at [initialPages] as a page range;
+/// [currentPage] is zero-based), exports with
 /// a progress dialog and lets the user save (desktop), share (mobile) or
 /// download (web) the file(s). [exporter] and [save] are for tests.
 Future<void> exportFlow(
@@ -38,6 +39,7 @@ Future<void> exportFlow(
   required List<NotebookPage> pages,
   required int currentPage,
   ExportRange initialRange = ExportRange.all,
+  List<int>? initialPages,
   NotebookExporter? exporter,
   ExportSaver save = platform.saveOrShareAll,
 }) async {
@@ -47,6 +49,7 @@ Future<void> exportFlow(
     pages: pages,
     currentPage: currentPage,
     initialRange: initialRange,
+    initialPages: initialPages,
   );
   if (options == null || !context.mounted) return;
   await runExport(

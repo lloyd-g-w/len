@@ -27,6 +27,7 @@ void main() {
     }
     final commands = <(PageCommand, String)>[];
     List<String>? deletedMany;
+    List<String>? exported;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light(),
@@ -43,6 +44,7 @@ void main() {
               }
             },
             deleteMany: (context, pages) async => deletedMany = [for (final p in pages) p.id],
+            exportMany: (context, pages) async => exported = [for (final p in pages) p.id],
           ),
         ),
       ),
@@ -70,6 +72,12 @@ void main() {
       pages[1].id,
       pages[3].id,
     ]);
+
+    // Export… hands the selection on (the sheet takes it as the range).
+    await tester.tap(find.text('Export…'));
+    await tester.pumpAndSettle();
+    expect(exported, [pages[1].id, pages[3].id]);
+    expect(find.text('Template…'), findsNothing); // No handler, no command.
 
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();

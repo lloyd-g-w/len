@@ -18,6 +18,7 @@ Future<ExportOptions?> showExportSheet(
   required List<NotebookPage> pages,
   required int currentPage,
   ExportRange initialRange = ExportRange.all,
+  List<int>? initialPages,
   bool canvas = false,
 }) {
   ExportSheet sheet({required bool wide}) => ExportSheet(
@@ -25,6 +26,7 @@ Future<ExportOptions?> showExportSheet(
     pages: pages,
     currentPage: currentPage,
     initialRange: initialRange,
+    initialPages: initialPages,
     wide: wide,
     canvas: canvas,
     offerSaveToDevice: platform.canSaveToDevice,
@@ -45,6 +47,7 @@ class ExportSheet extends StatefulWidget {
     required this.pages,
     required this.currentPage,
     this.initialRange = ExportRange.all,
+    this.initialPages,
     this.wide = false,
     this.canvas = false,
     this.offerSaveToDevice = false,
@@ -61,6 +64,10 @@ class ExportSheet extends StatefulWidget {
   final int currentPage;
   final ExportRange initialRange;
 
+  /// Zero-based pages to start the page range with (the overview's
+  /// selection): the sheet then starts at [ExportRange.custom].
+  final List<int>? initialPages;
+
   /// Dialog layout (else bottom sheet).
   final bool wide;
 
@@ -74,8 +81,17 @@ class ExportSheet extends StatefulWidget {
 
 class _ExportSheetState extends State<ExportSheet> {
   ExportFormat _format = ExportFormat.pdf;
-  late ExportRange _range = widget.pages.length == 1 ? ExportRange.all : widget.initialRange;
-  late final _rangeText = TextEditingController(text: '${widget.currentPage + 1}');
+  late ExportRange _range = widget.pages.length == 1
+      ? ExportRange.all
+      : widget.initialPages != null
+      ? ExportRange.custom
+      : widget.initialRange;
+  late final _rangeText = TextEditingController(
+    text: switch (widget.initialPages) {
+      final pages? => formatPageRange(pages, separator: ', '),
+      null => '${widget.currentPage + 1}',
+    },
+  );
   final _rangeFocus = FocusNode();
   bool _templates = true;
   bool _backgrounds = true;

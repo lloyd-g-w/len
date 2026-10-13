@@ -1899,14 +1899,26 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   stretched to the width) with a fixed caption area (`NotebookCard.captionHeight`: two title
   lines and a caption), so every cover in a row is as tall. The columns come from the delegate,
   not a layout builder above the grid: that rebuilt every card on every scroll frame
-  (`test/perf/library_perf_test.dart` builds 200 notebooks and counts card builds). Folders are
-  a wrapping row of equal compact tiles above the notebooks.
+  (`test/perf/library_perf_test.dart` builds 200 notebooks and counts card builds). In a short
+  viewport the delegate adds columns until a cover and its caption take at most 60 % of the
+  height (`cover_grid.dart`; not under 96 dp), so a row with its titles fits a phone held
+  sideways; the folder row reads the viewport height from a box `LayoutBuilder` around the
+  scroll view (it rebuilds on resize only). Folders are a wrapping row of equal compact tiles
+  above the notebooks.
+- **Undo.** Every library edit says what it did with Undo (`LibraryActions._undoable`): move
+  and drop, rename, cover, favourite, folder edit and delete (no confirmation), duplicate
+  (Undo trashes the copy), trash. A notebook without a title is named after the day
+  (`new_notebook/default_title.dart`, the device's date format, numbered when taken).
+- **Selection bars.** The library's floating bar and the overview's docked bar name each
+  command under its glyph (`ui/labelled_action.dart`); the library's takes a second row
+  under 520 dp. The overview's selection also exports (the export sheet's page range starts
+  as the selection, `initialPages`) and retemplates.
 - **New… tile.** On wide screens the notebook grid starts with a cover-sized "New…" tile
   (`NewNotebookTile`, `LibraryContent.showsNewTile`) in the library root and in folders (not
   in favourites, trash, search, selection or list layout); ⊕▾ creates everywhere else. Phones
   get the FAB instead, hidden while an empty state offers its own button.
 - **New notebook sheet** (`new_notebook_sheet.dart`, `new_notebook/`): one column (title,
-  Notebook / Canvas, `PaperRow` with the recent papers and "All templates…" → the template
+  Notebook / Canvas (and "Import PDF…" where the library has no ⊕▾), `PaperRow` with the recent papers and "All templates…" → the template
   picker, `CoverRow`, page size) with `NotebookPreview` beside it in the dialog and as a strip
   on phones. The papers come from `recentPapers` (`AppPreferences.recentPapers`, filled up with
   defaults; canvases only tiling papers); creating a notebook records its paper.

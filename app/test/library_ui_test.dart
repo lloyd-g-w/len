@@ -66,19 +66,29 @@ void main() {
     expect(find.byType(FolderTile), findsOneWidget);
 
     // Drag the notebook onto the folder with a mouse.
-    final from = tester.getCenter(find.byType(NotebookCard));
-    final to = tester.getCenter(find.byType(FolderTile));
-    final gesture = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
-    for (var i = 1; i <= 10; i++) {
-      await gesture.moveTo(Offset.lerp(from, to, i / 10)!);
-      await tester.pump();
+    Future<void> dragIntoFolder() async {
+      final from = tester.getCenter(find.byType(NotebookCard));
+      final to = tester.getCenter(find.byType(FolderTile));
+      final gesture = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
+      for (var i = 1; i <= 10; i++) {
+        await gesture.moveTo(Offset.lerp(from, to, i / 10)!);
+        await tester.pump();
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
     }
-    await gesture.up();
-    await tester.pumpAndSettle();
 
+    await dragIntoFolder();
     final folder = services.folders.list().single;
     expect(services.notebooks.list().single.folderId, folder.id);
     expect(find.byType(NotebookCard), findsNothing);
+    // A drop says where the notebook went and can be undone, like Move.
+    expect(find.text('Moved “Algebra” to “School”'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list().single.folderId, isNull);
+    await dragIntoFolder();
+    expect(services.notebooks.list().single.folderId, folder.id);
 
     await tester.tap(find.byType(FolderTile));
     await tester.pumpAndSettle();
@@ -128,6 +138,40 @@ void main() {
     // Search results are rows.
     expect(find.byType(NotebookListTile), findsNWidgets(2));
     expect(find.text('School'), findsWidgets); // Location subtitle.
+  });
+
+  testWidgets('rename, favourite and duplicate say what they did and can be undone', (
+    tester,
+  ) async {
+    final services = await pumpSeeded(tester, (s) => addNotebook(s, 'Physics'));
+    final id = services.notebooks.list().single.id;
+
+    await openMenuOf(tester, 'Physics');
+    await tester.tap(find.text('Rename…'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Optics');
+    await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
+    await tester.pumpAndSettle();
+    expect(find.text('Renamed to “Optics”'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.get(id)!.title, 'Physics');
+
+    await openMenuOf(tester, 'Physics');
+    await tester.tap(find.text('Add to favourites'));
+    await tester.pumpAndSettle();
+    expect(find.text('Added “Physics” to favourites'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.get(id)!.favorite, isFalse);
+
+    await openMenuOf(tester, 'Physics');
+    await tester.tap(find.text('Duplicate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Duplicated as “Physics (copy)”'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list().map((n) => n.title), ['Physics']);
   });
 
   testWidgets('at large text on a phone, card captions use the full width', (tester) async {
@@ -184,6 +228,7 @@ void main() {
     await tester.tap(tile);
     await tester.pumpAndSettle();
     expect(find.byType(NewNotebookSheet), findsOneWidget);
+    expect(find.text('Import PDF…'), findsNothing); // Wide screens: in ⊕▾.
     Navigator.of(tester.element(find.byType(NewNotebookSheet))).pop();
     await tester.pumpAndSettle();
 
@@ -281,7 +326,7 @@ void main() {
     expect(find.text('“Keys” moved to the trash'), findsOneWidget);
   });
 
-  testWidgets('deleting a folder says what goes, trashes its notebooks, and Undo restores all', (
+  testWidgets('deleting a folder says what went, trashes its notebooks, and Undo restores all', (
     tester,
   ) async {
     final services = await pumpSeeded(tester, (s) {
@@ -294,11 +339,10 @@ void main() {
       find.descendant(of: find.byType(FolderTile), matching: find.byTooltip('More')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete folder…'));
+    await tester.tap(find.text('Delete folder'));
     await tester.pumpAndSettle();
-    expect(find.text('1 subfolder and 2 notebooks go to the trash.'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-    await tester.pumpAndSettle();
+    // No confirmation: the message says what went and offers Undo.
+    expect(find.text('“Old” deleted, 1 subfolder and 2 notebooks to the trash'), findsOneWidget);
     expect(services.folders.list(), isEmpty);
     expect(services.notebooks.trashed().map((n) => n.title), unorderedEquals(['Inside', 'Deeper']));
     expect(find.text('2'), findsWidgets); // Trash count in the sidebar.
@@ -507,6 +551,16 @@ void main() {
     await tester.tap(find.byType(NotebookCard), buttons: kSecondaryMouseButton);
     await tester.pumpAndSettle();
     expect(find.text('Duplicate'), findsOneWidget);
+  });
+
+  testWidgets('phones: the new-notebook sheet offers Import PDF…; wide screens use ⊕▾', (
+    tester,
+  ) async {
+    await pumpSeeded(tester, (s) => addNotebook(s, 'Algebra'), size: const Size(390, 844));
+    await tester.tap(find.byTooltip('New notebook'));
+    await tester.pumpAndSettle();
+    expect(find.byType(NewNotebookSheet), findsOneWidget);
+    expect(find.text('Import PDF…'), findsOneWidget);
   });
 
   testWidgets('phones: a long press on ⊕ offers a folder, a canvas or a PDF', (tester) async {
