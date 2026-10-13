@@ -97,7 +97,11 @@ Tools for working on the engine (opt-in tests):
 # "!!" marks failures
 tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_test.dart \
   --dart-define=INKLAB_TABLE=true --dart-define=INKLAB_REAL=true \
-  [--dart-define=INKLAB_ONLY=<regex on entry names>]'
+  [--dart-define=INKLAB_ONLY=<regex on entry names>] \
+  [--dart-define=INKLAB_ENDS=flat|both]'
+# INKLAB_ENDS writes every entry with flat pen ends (`cursive@0.4/flat`);
+# `both` runs the round entries, then the flat ones. Pen-engine and overlay
+# work runs `both`: the overlay's flat-end rules only show with flat ends.
 # the stabiliser against a shaky hand (F10): committed, live and overlay ink
 # at stabiliser 0 / 0.5 / 1, as a table
 nix develop ..# -c bash -c 'flutter test test/inklab/stabiliser_test.dart \
@@ -984,9 +988,10 @@ bulge past the end. Ink further back that crosses that line (the body
 before a tight turn, a loop) is the stroke's own and stays; clipping it
 too notched the body. The cap is square to the smoothed line over the
 last half radius: the shaper keeps the end sample where the pen was, and
-the step to it can turn 40° away from the line before it. A live tip
-keeps its pieces until pen-up, which redoes the end's zone (as it redoes
-an end taper); the start's zone freezes once it is settled. Round ends
+the step to it can turn 40° away from the line before it. The live tip
+is drawn as such an end too (below); pen-up redoes the end's zone with
+the settled samples (as it redoes an end taper); the start's zone freezes
+once it is settled. Round ends
 are unchanged (the Ink Lab table is the same).
 
 **Flat ends in the overlay.** The Ink Lab's overlay metrics run with the

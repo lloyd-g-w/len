@@ -67,7 +67,7 @@ class RibbonEmitter {
   RibbonEmitter(this.line, {required this.flatCaps, required this.width, required double step})
     : tolerance = toleranceFor(width),
       block = math.max(16, (24 / step).ceil()),
-      _endReach = (2 * width / step).ceil(),
+      _endReach = endReachFor(width, step),
       _step = step;
 
   final RibbonLine line;
@@ -95,6 +95,10 @@ class RibbonEmitter {
   /// With [flatCaps], how far (samples) an end's zone may reach
   /// (`FlatEnds`): two widths.
   final int _endReach;
+
+  /// How far (samples [step] apart) a flat end's zone may reach on a line
+  /// [width] wide: two widths.
+  static int endReachFor(double width, double step) => (2 * width / step).ceil();
 
   /// Within a run, a side may not run backwards by more than this many
   /// centre-line steps per step (a mild fold of the inner side, at a bend

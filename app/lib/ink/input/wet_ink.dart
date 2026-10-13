@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/painting.dart';
 
 import '../../domain/stroke.dart';
+import '../render/ribbon_emitter.dart';
 import '../render/shape_params.dart';
 import '../render/stroke_outline.dart';
 import '../render/stroke_renderer.dart';
@@ -139,6 +140,7 @@ class WetInkShape {
     required this.lag,
     required this.startReach,
     required this.flat,
+    required this.flatReach,
     required this.taperStart,
   });
 
@@ -169,6 +171,7 @@ class WetInkShape {
       lag: params.lag,
       startReach: params.startReach,
       flat: spec.flatCaps,
+      flatReach: RibbonEmitter.endReachFor(spec.width, params.step),
       taperStart: spec.taperStart * scale,
     );
   }
@@ -202,6 +205,10 @@ class WetInkShape {
 
   /// Butt caps instead of round ones.
   final bool flat;
+
+  /// With [flat] ends, how many samples an end's zone may reach
+  /// (`RibbonEmitter`, `FlatEnds`: two widths).
+  final int flatReach;
 
   /// Length over which the start narrows to a point (`Taper`; 0: none).
   /// The end's is known only once Flutter has committed the stroke (the
@@ -246,6 +253,7 @@ class WetInkShape {
     lag: lag,
     startReach: startReach,
     flat: flat,
+    flatReach: flatReach,
     taperStart: taperStart * f,
   );
 
@@ -273,6 +281,7 @@ class WetInkShape {
     startReach.toDouble(),
     flat ? 1 : 0,
     taperStart,
+    flatReach.toDouble(),
     ...kernel,
   ]);
 }
