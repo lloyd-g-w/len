@@ -1957,7 +1957,9 @@ a reload of the first keeps Len there, and *Use here* brings the latest
 edit along. `app/tool/web_upgrade_check.py OLD NEW` checks that a build
 opens (and writes to) the data of an older one after a service-worker
 update; run against the build before the write-back VFS, the data opened
-intact.
+intact. `app/tool/web_explore.py` walks through the whole app in Chromium
+and Firefox (README, Develop) and fails on anything the console or the
+network reports.
 
 **Storage.** At start the web app requests persistent storage
 (`navigator.storage.persist()`) where browsers decide silently (Chromium,

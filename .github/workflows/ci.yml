@@ -189,6 +189,42 @@ jobs:
           path: app/build/web
           retention-days: 7
 
+  web-explore:
+    # The web build walked through like a user in Chromium and Firefox
+    # (app/tool/web_explore.py, README "Develop"): any console error,
+    # exception or failed request fails it.
+    name: Web · walk-through (Chromium, Firefox)
+    needs: build-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: len-web
+          path: app/build/web
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Playwright, browsers, virtual display
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium firefox
+          sudo apt-get install -y xvfb xauth
+      - run: python tool/web_explore.py build/web
+        env:
+          LEN_EXPLORE_BUNDLED: "1"
+          LEN_EXPLORE_OUT: ${{ runner.temp }}/web-explore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-explore-screenshots
+          path: ${{ runner.temp }}/web-explore
+          retention-days: 7
+
   build-windows:
     name: Build · Windows
     runs-on: windows-latest
