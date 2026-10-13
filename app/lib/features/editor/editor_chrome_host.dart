@@ -10,13 +10,13 @@ import 'chrome/editor_tips.dart';
 import 'chrome/editor_top_bar.dart';
 import 'chrome/gesture_hud.dart';
 import 'chrome/missing_pdf_notice.dart';
-import 'chrome/parked_pane_notice.dart';
 import 'chrome/tool_puck.dart';
 import 'document/document_layout.dart';
 import 'editor_actions.dart';
 import 'editor_session.dart';
 import 'editor_toolbar.dart';
 import 'images/editor_images.dart';
+import 'split/parked_pane_notice.dart';
 import 'split/split_controller.dart';
 import 'tabs/open_notebooks.dart';
 import 'toolbar/insert_menu.dart';
@@ -178,7 +178,7 @@ class EditorChromeHost extends StatelessWidget {
   }
 
   /// Paged notebooks: says when a PDF their pages are drawn on is missing.
-  /// The standing notices: the parked pane recording, a missing PDF.
+  /// The standing notices: the parked pane (and its recording), a missing PDF.
   Widget? _notices() {
     final parked = split == null || secondPane ? null : ParkedPaneNotice(split: split!);
     final pdf = _missingPdfNotice();

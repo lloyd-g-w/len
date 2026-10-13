@@ -89,19 +89,23 @@ class SelectionPlan {
   }
 
   /// Commits every surface's edits; through [batch] (one undo step) when
-  /// more than one commit is needed.
-  void commit(void Function(void Function() edits) batch) {
+  /// more than one commit is needed. With [mergeInto], a change that only
+  /// edits that surface joins its previous undo step (a burst of nudges).
+  /// Returns the surface when only one was edited.
+  SurfaceModel? commit(void Function(void Function() edits) batch, {SurfaceModel? mergeInto}) {
     final edits = [
       for (final e in _first.entries) (e.key, e.value.build()),
       for (final e in _arrivals.entries) (e.key, e.value.build()),
     ].where((e) => !e.$2.isEmpty).toList();
+    final merge = edits.length == 1 && edits.single.$1 == mergeInto;
     void run() {
       for (final (model, edit) in edits) {
-        model.commit(edit);
+        model.commit(edit, merge: merge);
       }
     }
 
     edits.length > 1 ? batch(run) : run();
+    return edits.length == 1 ? edits.single.$1 : null;
   }
 
   static _Edit _edit(Map<SurfaceModel, _Edit> edits, SurfaceModel model) =>

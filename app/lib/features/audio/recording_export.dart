@@ -59,14 +59,16 @@ List<String> recordingFileNames(List<Recording> recordings) {
 }
 
 /// Hands [recordings]' audio to the user through the app's export path:
-/// a save dialog on desktop, the share sheet on Android, a download in
-/// browsers. Missing audio is fetched from the sync server first.
+/// a save dialog on desktop, the share sheet on Android (with [toDevice]
+/// the system's save dialog), a download in browsers. Missing audio is
+/// fetched from the sync server first.
 Future<void> exportRecordings(
   BuildContext context,
   List<Recording> recordings, {
   required BlobStore blobs,
   required Future<bool> Function(String sha) fetch,
   ExportSaver save = platform.saveOrShareAll,
+  bool toDevice = false,
 }) async {
   if (recordings.isEmpty) return;
   final names = recordingFileNames(recordings);
@@ -98,7 +100,11 @@ Future<void> exportRecordings(
   if (!context.mounted) return;
   final mimes = recordings.map((r) => r.mime).toSet();
   try {
-    final saved = await save(files, mime: mimes.length == 1 ? mimes.single : 'audio/*');
+    final saved = await save(
+      files,
+      mime: mimes.length == 1 ? mimes.single : 'audio/*',
+      toDevice: toDevice,
+    );
     if (saved == null || !context.mounted) return;
     showExported(context, saved, plural: 'recordings');
   } on Exception catch (e) {

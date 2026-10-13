@@ -125,9 +125,13 @@ class _PageOverviewState extends State<PageOverview> {
           }
         }
       case SelectionAction.duplicate:
-        for (final p in pages.reversed) {
-          if (!mounted) return;
-          await widget.handlers.command(context, PageCommand.duplicate, p);
+        if (widget.handlers.duplicateMany case final many?) {
+          many(pages);
+        } else {
+          for (final p in pages.reversed) {
+            if (!mounted) return;
+            await widget.handlers.command(context, PageCommand.duplicate, p);
+          }
         }
       case SelectionAction.delete:
         if (pages.length >= _pages.length) {

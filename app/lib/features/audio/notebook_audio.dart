@@ -131,14 +131,21 @@ class NotebookAudio extends ChangeNotifier {
   @visibleForTesting
   ExportSaver saveFiles = platform.saveOrShareAll;
 
-  /// Exports [recordings]' audio (save dialog, share sheet or download).
-  Future<void> export(BuildContext context, List<Recording> recordings) => exportRecordings(
-    context,
-    recordings,
-    blobs: services.blobs,
-    fetch: services.sync.fetchBlob,
-    save: saveFiles,
-  );
+  /// Whether recordings can also be saved through the system's save dialog
+  /// ("Save to device" beside Share, Android; tests set it).
+  bool canSaveToDevice = platform.canSaveToDevice;
+
+  /// Exports [recordings]' audio (save dialog, share sheet or download;
+  /// with [toDevice] the system's save dialog, see [canSaveToDevice]).
+  Future<void> export(BuildContext context, List<Recording> recordings, {bool toDevice = false}) =>
+      exportRecordings(
+        context,
+        recordings,
+        blobs: services.blobs,
+        fetch: services.sync.fetchBlob,
+        save: saveFiles,
+        toDevice: toDevice,
+      );
 
   /// Size of [recording]'s audio on this device (null while not here).
   int? sizeOf(Recording recording) {

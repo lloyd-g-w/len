@@ -105,9 +105,10 @@ class SplitController extends ChangeNotifier {
   }
 
   /// Whether [pane]'s chrome is dimmed: both panes are on screen and the
-  /// other one was used last.
+  /// other one was used last — but not while a selection dragged from the
+  /// other pane would drop into it (its chrome would read as greyed out).
   bool isDimmed(SplitPane pane) {
-    if (!isSplit || _solo != null || _panes.length < 2) return false;
+    if (!isSplit || _solo != null || _panes.length < 2 || _dropTarget == pane) return false;
     final active = _active ?? _panes.where((p) => !p.secondary).firstOrNull;
     return active != null && active != pane;
   }

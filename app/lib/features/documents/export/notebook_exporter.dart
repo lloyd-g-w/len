@@ -96,19 +96,25 @@ class NotebookExporter {
 
   /// A PNG of [page] at [scale] pixels per page unit (2 ≈ 192 dpi);
   /// without [backgrounds], an imported PDF page is left out (an image
-  /// template stays: it is the page's paper).
-  Future<Uint8List> png(NotebookPage page, {double scale = 2, bool backgrounds = true}) async {
+  /// template stays: it is the page's paper). [report] collects what was
+  /// left out.
+  Future<Uint8List> png(
+    NotebookPage page, {
+    double scale = 2,
+    bool backgrounds = true,
+    ExportReport? report,
+  }) async {
     SurfaceModel.flushAll(); // Ink drawn a moment ago.
     final paperOnly = page.background == null && page.paper.image != null;
     final background = backgrounds || paperOnly
         ? await _background(page, page.width * scale)
         : null;
-    final elements = _copier.loadAllElements(page.id);
-    // Decode images first: painting only uses what is ready.
-    for (final e in elements.where((e) => e.knownType == ElementType.image)) {
-      final data = ImageData.fromJson(e.data);
-      await services.images.load(data, e.rect.width * scale / data.crop.width);
+    if (background == null && paperOnly) report?.missingImages++;
+    if (background == null && backgrounds && page.background != null) {
+      report?.missingBackgrounds++;
     }
+    final elements = _copier.loadAllElements(page.id);
+    await _loadImages(elements, scale, report);
     final image = await renderPageImage(
       page,
       strokes: _copier.loadAll(page.id),
@@ -175,13 +181,11 @@ class NotebookExporter {
 
   /// A PNG of a canvas's drawing ([canvasPage]) at [scale] pixels per
   /// world unit, or less for a drawing too large for [maxCanvasPixels].
-  Future<Uint8List> canvasPng(ExportPage canvas, {double scale = 2}) async {
+  /// [report] collects images left out.
+  Future<Uint8List> canvasPng(ExportPage canvas, {double scale = 2, ExportReport? report}) async {
     final page = canvas.page;
     final fitted = math.min(scale, maxCanvasPixels / math.max(page.width, page.height));
-    for (final e in canvas.elements.where((e) => e.knownType == ElementType.image)) {
-      final data = ImageData.fromJson(e.data);
-      await services.images.load(data, e.rect.width * fitted / data.crop.width);
-    }
+    await _loadImages(canvas.elements, fitted, report);
     final image = await renderPageImage(
       page,
       strokes: canvas.strokes,
@@ -195,6 +199,21 @@ class NotebookExporter {
       return data!.buffer.asUint8List();
     } finally {
       image.dispose();
+    }
+  }
+
+  /// Decodes the images among [elements] for drawing at [scale] pixels per
+  /// unit (painting only uses what is ready), counting those that can't be
+  /// had in [report].
+  Future<void> _loadImages(
+    List<SurfaceElement> elements,
+    double scale,
+    ExportReport? report,
+  ) async {
+    for (final e in elements.where((e) => e.knownType == ElementType.image)) {
+      final data = ImageData.fromJson(e.data);
+      final image = await services.images.load(data, e.rect.width * scale / data.crop.width);
+      if (image == null) report?.missingImages++;
     }
   }
 

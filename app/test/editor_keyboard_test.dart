@@ -25,7 +25,7 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('Ctrl+A selects the page; arrows nudge it, one undo step each', (tester) async {
+  testWidgets('Ctrl+A selects the page; arrows nudge it, a burst is one undo step', (tester) async {
     final (s, nb) = await pumpEditor(tester);
     final page = s.pages.pagesOf(nb.id).first;
     final seeded = {for (final st in inkOf(s, page)) st.id};
@@ -48,7 +48,6 @@ void main() {
     expect(first().y - drawn.points.first.y, closeTo(10, 1e-6));
     expect(find.byTooltip('Delete (Del)'), findsOneWidget, reason: 'still selected');
 
-    await ctrl(tester, LogicalKeyboardKey.keyZ);
     await ctrl(tester, LogicalKeyboardKey.keyZ);
     expect(mine().single.id, drawn.id);
     await closeEditor(tester);

@@ -244,7 +244,7 @@ history entry, no Undo snack (delete page has one). "Apply to all pages" on a
 does), or better push page-level commands into the editor history so Ctrl+Z
 works. *Files:* `document/document_commands.dart`, `document/page_actions.dart`,
 `features/documents/overview/page_commands.dart`.
-→ ✅ Templates, moves, bookmarks (many as one step), added, duplicated and deleted pages are steps of the notebook-wide undo history (`PageEdits` → `PageModels.record`), so Ctrl+Z and ↶ take them back in order with ink. "Template changed on N pages · Undo"; snack-bar Undo goes through the same history (`PageModels.undoEdit`). PDF page inserts are not undoable yet.
+→ ✅ Templates, moves, bookmarks (many as one step), added, duplicated and deleted pages are steps of the notebook-wide undo history (`PageEdits` → `PageModels.record`), so Ctrl+Z and ↶ take them back in order with ink. "Template changed on N pages · Undo"; snack-bar Undo goes through the same history (`PageModels.undoEdit`). Pages inserted from a PDF are one step too, and so is duplicating several pages in the overview.
 
 ✅ **P1-8 Phones: the selection bar and handles get clipped at the edge.**
 `e_shape_selected_phone_*` (handles cut at the screen edge),
@@ -572,7 +572,8 @@ and end with "Exported · 2 images couldn't be included". *Files:*
 `features/documents/export/*`.
 *Done:* `ExportReport` collects missing PDF pages, images that couldn't be
 embedded and PDF pages included as pictures; the success message ends "· 2
-images couldn’t be included".
+images couldn’t be included". PNG exports (pages and canvases) report images
+and PDF pages they couldn't include too.
 
 ✅ **P2-30 Web: storage warnings live only in Settings.** Unpersisted storage with
 sync off is shown in Settings → Storage only; there is no handling of quota
@@ -606,7 +607,8 @@ password-protected") from damaged files, in import and relink.
   F2 rename; arrow keys between cards rely on Flutter's default directional
   focus (not checked with a real grid).
 *Done:* Ctrl/⌘+A selects all on the page (or in view); arrows nudge a
-selection 1 pt (Shift 10 pt), one undo step each, and only turn pages without
+selection 1 pt (Shift 10 pt), a burst of nudges (≤ 1 s apart, nothing else
+edited between) one undo step, and only turn pages without
 one; +/−, Ctrl/⌘+= / − and Ctrl/⌘+0 zoom paged notebooks; F2 renames and ⌘⌫
 trashes the focused notebook; all in the shortcuts sheet. Arrow keys between
 library cards still use Flutter's directional focus.
@@ -616,7 +618,7 @@ selection exists) and list them in the shortcuts sheet. *Files:*
 `features/editor/editor_shortcuts.dart`, `tools/content_shortcuts.dart`,
 `features/library/library_screen.dart`, `features/settings/keyboard_shortcuts.dart`.
 
-**P1-25 A parked pane and the second pane's header are unclear.** `split_parked_portrait_*`:
+◐ **P1-25 A parked pane and the second pane's header are unclear.** `split_parked_portrait_*`:
 the parked pane is an unlabelled pill cut at the bottom edge; `split_*`: the
 two panes' headers differ (the second has ✕ and a title, the first no title
 while tabs show), and the tab strip shows the right-hand notebook as an
@@ -624,15 +626,20 @@ inactive tab. *Fix:* a labelled chip "Biology · in split view" with Show;
 show the title in both panes; mark both split notebooks in the strip.
 *Files:* `features/editor/split/*`, `chrome/parked_pane_notice.dart`,
 `tabs/notebook_tab_strip.dart`.
-*Left open by fix/robust-feedback:* split-view chrome is being reworked
-on the editor branches.
+*Done (fix/followups-1):* the pane on screen shows a chip "“Biology” in split
+view · Show" while the other is parked (with Stop while it records;
+`split/parked_pane_notice.dart`). *Left open:* the title in the first pane's
+bar and marking both split notebooks in the tab strip (the strip and bar
+were being reworked on fix/editor-chrome-r4 at the same time).
 
-**P2-32 Dragging a selection across panes.** `split_drag_*`: the dragged ink is
+✅ **P2-32 Dragging a selection across panes.** `split_drag_*`: the dragged ink is
 a full-size, full-opacity copy over the target, and the target goes flat grey
 in dark. *Fix:* 60 % opacity preview, a tinted (not grey) drop target.
 *Files:* `features/editor/split/*`.
-*Left open by fix/robust-feedback:* split-view chrome is being reworked
-on the editor branches.
+*Done (fix/followups-1):* the preview is drawn at 60 %; the drop target is
+tinted with the accent and its chrome is no longer dimmed while a drop
+would land there (a dimmed bar over a light canvas read as flat grey in
+dark); the "Drop to copy here" pill uses the text roles and `Shadows.low`.
 
 ### Accessibility and simplification notes
 

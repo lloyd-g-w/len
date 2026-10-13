@@ -17,7 +17,8 @@ import 'audio_format.dart';
 import 'trim_panel.dart';
 
 /// Lists the notebook's recordings: tap to play, ⋯ to rename, trim (or
-/// reset the trim), export or delete, long press (or "Select") to export or delete several, and a
+/// reset the trim), export (on Android: share or save to device) or
+/// delete, long press (or "Select") to export or delete several, and a
 /// button to record a new one.
 ///
 /// A popover (REDESIGN §5): a sheet on phones, anchored to the button that
@@ -160,10 +161,16 @@ class _RecordingsListState extends State<RecordingsList> {
             icon: Icon(all ? Symbols.deselect_rounded : Symbols.select_all_rounded),
           ),
           IconButton(
-            tooltip: 'Export…',
+            tooltip: audio.canSaveToDevice ? 'Share…' : 'Export…',
             onPressed: chosen.isEmpty ? null : () => unawaited(_export(chosen)),
             icon: const Icon(Symbols.ios_share_rounded),
           ),
+          if (audio.canSaveToDevice)
+            IconButton(
+              tooltip: 'Save to device…',
+              onPressed: chosen.isEmpty ? null : () => unawaited(_export(chosen, toDevice: true)),
+              icon: const Icon(Symbols.download_rounded),
+            ),
           IconButton(
             tooltip: 'Delete…',
             onPressed: chosen.isEmpty ? null : () => unawaited(_deleteAll(chosen)),
@@ -187,7 +194,8 @@ class _RecordingsListState extends State<RecordingsList> {
     );
   }
 
-  Future<void> _export(List<Recording> recordings) => audio.export(context, recordings);
+  Future<void> _export(List<Recording> recordings, {bool toDevice = false}) =>
+      audio.export(context, recordings, toDevice: toDevice);
 
   Future<void> _deleteAll(List<Recording> recordings) async {
     final one = recordings.length == 1;
@@ -268,7 +276,17 @@ class _RecordingTile extends StatelessWidget {
                     icon: Symbols.restore_rounded,
                     label: 'Reset trim',
                   ),
-                const MenuRow(value: 'export', icon: Symbols.ios_share_rounded, label: 'Export…'),
+                MenuRow(
+                  value: 'export',
+                  icon: Symbols.ios_share_rounded,
+                  label: audio.canSaveToDevice ? 'Share…' : 'Export…',
+                ),
+                if (audio.canSaveToDevice)
+                  const MenuRow(
+                    value: 'save',
+                    icon: Symbols.download_rounded,
+                    label: 'Save to device…',
+                  ),
                 const MenuRow(
                   value: 'delete',
                   icon: Symbols.delete_rounded,
@@ -304,6 +322,8 @@ class _RecordingTile extends StatelessWidget {
         audio.trim(recording.id, 0, recording.durationMs);
       case 'export':
         await audio.export(context, [recording]);
+      case 'save':
+        await audio.export(context, [recording], toDevice: true);
       case 'delete':
         final confirmed = await confirmAction(
           context,

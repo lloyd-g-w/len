@@ -217,7 +217,7 @@ void main() {
     };
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Export…'));
+    await tester.tap(find.text('Share…'));
     await _settle(tester);
     expect(exported!.single.name, 'Mitosis.aac');
     expect(exported!.single.bytes, AdtsReader.cut(_audio, 5000, 25000));
