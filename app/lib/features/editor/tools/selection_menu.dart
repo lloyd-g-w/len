@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../app_services.dart';
 import '../../../domain/surface_element.dart';
 import '../../../ink/selection/selection_chrome.dart';
 import '../../../ink/selection/selection_controller.dart';
@@ -26,7 +27,8 @@ class SelectionExtraAction {
 }
 
 /// The floating context menu of a lasso selection, placed above it (or
-/// below when there is no room). Hidden while the selection is dragged.
+/// below when there is no room). Hidden while the selection is dragged
+/// and while a dialog or sheet is open over it (e.g. Convert to text).
 class SelectionMenu extends StatelessWidget {
   const SelectionMenu({
     super.key,
@@ -60,8 +62,9 @@ class SelectionMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dialogOpen = AppScope.of(context).routeOwners.dialogOpen;
     return ListenableBuilder(
-      listenable: Listenable.merge([selection, viewport, selection.clipboard]),
+      listenable: Listenable.merge([selection, viewport, selection.clipboard, dialogOpen]),
       builder: (context, _) {
         final frame = selection.frame;
         if (frame == null || selection.isEmpty || !selection.preview.isIdentity) {
@@ -75,15 +78,20 @@ class SelectionMenu extends StatelessWidget {
         }
         return CustomSingleChildLayout(
           delegate: _MenuLayout(box, MediaQuery.paddingOf(context)),
-          child: _MenuBar(
-            selection: selection,
-            tools: tools,
-            onEditText: onEditText,
-            onPaste: onPaste,
-            onCrop: onCrop,
-            onConvertToText: onConvertToText,
-            convertUnavailable: convertUnavailable,
-            extras: extraActions?.call() ?? const [],
+          // Kept in the tree (just not shown) so the command that opened
+          // the dialog can still use its anchor.
+          child: Visibility.maintain(
+            visible: !dialogOpen.value,
+            child: _MenuBar(
+              selection: selection,
+              tools: tools,
+              onEditText: onEditText,
+              onPaste: onPaste,
+              onCrop: onCrop,
+              onConvertToText: onConvertToText,
+              convertUnavailable: convertUnavailable,
+              extras: extraActions?.call() ?? const [],
+            ),
           ),
         );
       },

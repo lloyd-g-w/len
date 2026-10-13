@@ -70,7 +70,7 @@ Future<RelinkResult> relinkPdfFlow(
       showMessage(
         context,
         '“${picked.name}” has ${_pages(pageCount)}; these notes use page $needed of the '
-        'missing PDF.',
+        'missing PDF',
       );
       return await _discard(importer, renderer, sha);
     }

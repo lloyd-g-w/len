@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show EdgeInsets;
+import 'package:flutter/scheduler.dart';
 
 import '../../../app_services.dart';
 import '../../../data/search/search_index.dart';
@@ -158,6 +159,7 @@ class EditorSearchController extends ChangeNotifier {
     _query = query ?? _query;
     // Refresh: text may have been edited since the last search.
     if (_query.trim().isNotEmpty) _run();
+    _showAfterLayout(currentMatch);
     notifyListeners();
   }
 
@@ -165,6 +167,7 @@ class EditorSearchController extends ChangeNotifier {
     if (!_open) return;
     _open = false;
     _timer?.cancel();
+    host.releaseRoom();
     notifyListeners();
   }
 
@@ -176,6 +179,7 @@ class EditorSearchController extends ChangeNotifier {
     _timer = Timer(_debounce, () {
       if (_disposed) return;
       _run();
+      _showAfterLayout(currentMatch);
       notifyListeners();
     });
   }
@@ -190,6 +194,7 @@ class EditorSearchController extends ChangeNotifier {
     if (index < 0 || index >= _matches.length) return;
     _current = index;
     _reveal(_matches[index]);
+    _showAfterLayout(_matches[index]); // Again if the bar changed height.
     notifyListeners();
   }
 
@@ -306,6 +311,19 @@ class EditorSearchController extends ChangeNotifier {
     final size = match.pageSize ?? Size.zero;
     _refineWhenLoaded = match.pdf == null ? null : match;
     host.reveal(match.surfaceId, Offset.zero & Size(size.width, 1), clear: clear);
+  }
+
+  /// Brings [match] (or else the first match) into view once the bar has
+  /// been laid out, so it lands below the bar's measured height.
+  void _showAfterLayout(EditorSearchMatch? match) {
+    final target = match ?? (_matches.isEmpty ? null : _matches.first);
+    if (target == null) return;
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) {
+        if (_disposed || !_open || !_matches.contains(target)) return;
+        if (currentMatch == null || currentMatch == target) _reveal(target);
+      })
+      ..scheduleFrame();
   }
 
   static Rect _union(List<({Rect rect, double rotation})> rects) =>

@@ -50,7 +50,7 @@ void paintWholePage(
       page.paperColor,
       rect.shift(origin),
       scale: scale,
-      always: miniature,
+      thumbnail: miniature,
       images: lookup,
     );
     canvas.restore();
@@ -62,7 +62,7 @@ void paintWholePage(
       rect,
       page: rect,
       scale: scale,
-      always: miniature,
+      thumbnail: miniature,
       images: lookup,
     );
   }

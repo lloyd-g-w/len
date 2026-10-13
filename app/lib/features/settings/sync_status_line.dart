@@ -99,7 +99,7 @@ class _TooLargeNotice extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${sync.tooLargeSummary}.', style: theme.textTheme.bodyMedium),
+                Text(sync.tooLargeSummary ?? '', style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 2),
                 Text(
                   '${files.length == 1 ? 'It is' : 'The largest is'} ${formatBytes(largest)}; '

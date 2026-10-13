@@ -116,6 +116,17 @@ class DocumentController extends ChangeNotifier {
   /// it is re-fitted when the chrome or the screen size changes.
   ({double scale, Offset offset, Size size})? _fitted;
 
+  /// Extra screen space at the top covered by a transient overlay (the
+  /// search bar): pages can scroll clear of it, but fits ignore it.
+  double get overlayTop => _overlayTop;
+  double _overlayTop = 0;
+
+  void setOverlayTop(double top) {
+    if (top == _overlayTop) return;
+    _overlayTop = top;
+    _updateBounds();
+  }
+
   void setInsets(EdgeInsets insets) {
     if (insets == _insets) return;
     // Asked before the new bounds may nudge the view.
@@ -334,7 +345,7 @@ class DocumentController extends ChangeNotifier {
     final footer = _flow == PageFlow.continuous ? footerExtent : 0;
     viewport.contentBounds = Rect.fromLTRB(
       b.left,
-      b.top - _insets.top / s,
+      b.top - math.max(_insets.top, _overlayTop) / s,
       b.right,
       b.bottom + (_insets.bottom + footer + _endRoom) / s,
     );
