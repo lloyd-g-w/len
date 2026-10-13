@@ -112,6 +112,25 @@ class _MenuBar extends StatelessWidget {
   final VoidCallback? onConvertToText;
   final String? convertUnavailable;
 
+  /// Whether a selected element overlaps anything not selected (ink or
+  /// another element), which is when Bring to front / Send to back do
+  /// something visible.
+  bool _overlapsOthers() {
+    final elements = selection.elements;
+    if (elements.isEmpty) return false;
+    final model = selection.model;
+    final ids = {for (final e in elements) e.id};
+    final strokeIds = {for (final s in selection.strokes) s.id};
+    for (final e in elements) {
+      final box = e.bounds;
+      if (model.elementsNear(box).any((o) => !ids.contains(o.id))) return true;
+      if (model.strokesNear(box).any((s) => !strokeIds.contains(s.id) && s.bounds.overlaps(box))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final elements = selection.elements;
@@ -165,7 +184,8 @@ class _MenuBar extends StatelessWidget {
       for (final x in extras) _Action.anchored(x.label, x.icon, x.run),
       if (singleImage && onCrop != null)
         _Action('Crop', Symbols.crop_rounded, () => onCrop!(elements.single)),
-      if (elements.isNotEmpty) ...[
+      // Arranging only matters where something else overlaps.
+      if (_overlapsOthers()) ...[
         _Action('Bring to front', Symbols.flip_to_front_rounded, selection.bringToFront),
         _Action('Send to back', Symbols.flip_to_back_rounded, selection.sendToBack),
       ],

@@ -159,7 +159,8 @@ void main() {
     });
     // Selected with the lasso, with image actions.
     expect(await selectionOffers(tester, 'Crop'), isTrue);
-    expect(await selectionOffers(tester, 'Send to back'), isTrue);
+    // Nothing else overlaps it, so there is nothing to arrange.
+    expect(await selectionOffers(tester, 'Send to back'), isFalse);
     expect(find.byTooltip('Style'), findsNothing);
     await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
     await tester.pump();
@@ -206,6 +207,7 @@ void main() {
     expect(find.byTooltip('Style'), findsOneWidget);
 
     await mouseDrag(tester, const [Offset(400, 450)]);
+    expect(await selectionOffers(tester, 'Bring to front'), isTrue); // The ink overlaps it.
     await selectionAction(tester, 'Crop');
     expect(find.text('Done'), findsOneWidget);
     // Drag the left edge's handle a quarter in.
