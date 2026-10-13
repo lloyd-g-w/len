@@ -10,8 +10,10 @@ import 'app_theme.dart';
 /// the end when they fit, otherwise a stack of full-width buttons with the
 /// primary on top and Cancel at the bottom (each at least [Targets.touch]
 /// tall). Unlike an [OverflowBar] it never leaves stacked buttons at their
-/// own, ragged widths. Stacked, the buttons under the primary get an
-/// outline (a lone text label in a full-width slot reads as plain text).
+/// own, ragged widths. Stacked, the alternatives between the primary and
+/// Cancel get an outline, a secondary button's Pencil edge (a text label in
+/// a full-width slot between buttons reads as plain text); Cancel stays
+/// quiet, as in a row and in every other dialog and sheet.
 /// It reports intrinsic sizes, so it works inside dialogs that size to
 /// their content.
 class DialogActions extends MultiChildRenderObjectWidget {
@@ -32,8 +34,8 @@ class DialogActions extends MultiChildRenderObjectWidget {
     ..textDirection = Directionality.of(context)
     ..outline = _outline(context);
 
-  /// The outlined buttons' border colour.
-  static Color _outline(BuildContext context) => Theme.of(context).colorScheme.outlineVariant;
+  /// The outlined buttons' border colour (an [OutlinedButton]'s).
+  static Color _outline(BuildContext context) => Theme.of(context).colorScheme.outline;
 }
 
 class _ActionsParentData extends ContainerBoxParentData<RenderBox> {}
@@ -159,13 +161,14 @@ class RenderDialogActions extends RenderBox
   @override
   void paint(PaintingContext context, Offset offset) {
     if (_stacked) {
-      // Outline the buttons under the primary (the last child, on top).
+      // Outline the alternatives: neither the primary (the last child, on
+      // top) nor Cancel (the first, at the bottom).
       final paint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
         ..color = _outline;
       final kids = _children;
-      for (final child in kids.take(kids.length - 1)) {
+      for (final child in kids.skip(1).take(kids.length - 2)) {
         final at = offset + (child.parentData! as _ActionsParentData).offset;
         final rect = (at & child.size).deflate(0.5);
         context.canvas.drawRRect(

@@ -71,7 +71,7 @@ class SheetHeader extends StatelessWidget {
 
 /// The footer of a task sheet or a Confirm (REDESIGN §5): Cancel as a text
 /// button and one filled [primary], right-aligned; on phones ([stacked])
-/// both are full width, primary on top.
+/// both are full width, primary on top, Cancel still quiet.
 class SheetActions extends StatelessWidget {
   const SheetActions({
     super.key,
@@ -93,11 +93,11 @@ class SheetActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cancel = onCancel == null
+        ? null
+        : TextButton(onPressed: onCancel, child: Text(cancelLabel));
     if (stacked) {
-      // Full width, Cancel outlined: a bare label would read as text.
-      final cancel = onCancel == null
-          ? null
-          : OutlinedButton(onPressed: onCancel, child: Text(cancelLabel));
+      // Full width; Cancel stays quiet, as in dialogs (`DialogActions`).
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -110,9 +110,6 @@ class SheetActions extends StatelessWidget {
         ],
       );
     }
-    final cancel = onCancel == null
-        ? null
-        : TextButton(onPressed: onCancel, child: Text(cancelLabel));
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [

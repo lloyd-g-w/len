@@ -56,13 +56,25 @@ void main() {
       expect(r.left, moreOrLessEquals(primary.left));
       expect(r.height, greaterThanOrEqualTo(Targets.touch));
     }
-    // The buttons under the primary are outlined; in a row they are not.
+    // The alternative under the primary is outlined; Cancel stays quiet,
+    // as everywhere (one outline); in a row nothing is.
     final actions = find.byType(DialogActions);
     expect(
       actions,
-      paints
-        ..rrect()
-        ..rrect(),
+      paints..rrect(
+        rrect: RRect.fromRectAndRadius(
+          other.shift(-tester.getTopLeft(actions)).deflate(0.5),
+          const Radius.circular(Radii.sm),
+        ),
+      ),
+    );
+    expect(
+      actions,
+      isNot(
+        paints
+          ..rrect()
+          ..rrect(),
+      ),
     );
   });
 

@@ -211,7 +211,10 @@ red. Popovers pad 16, title Heading, a hairline only between groups.
 **Dialogs:** Sheet, radius `lg`, hairline, 24 padding, Heading title
 left-aligned, Body in Graphite, actions right-aligned (quiet Cancel, Ink
 primary). **Sheets** (phones): Sheet, `lg` top corners, a 32 × 3 Pencil
-handle, full-width stacked actions, primary on top.
+handle, full-width stacked actions, primary on top. Stacked actions, in
+sheets and in dialogs too narrow for a row, follow one rule
+(`DialogActions`): primary Ink on top, alternatives outlined (Pencil),
+Cancel quiet at the bottom.
 
 **Sidebar rows:** no filled selection pill or plate; the current row gets
 the margin rule (2 × 20 dp ruling blue at its left edge) and a bold Ink
@@ -305,9 +308,8 @@ Dialog (≥ 600): Sheet over scrim         Sheet (phones)
 │ └──────────────────────────────┘ │     │ ┌──────────────────────────┐ │
 │                   Cancel  [Move] │     │ │         Create           │ │ Ink
 └──────────────────────────────────┘     │ └──────────────────────────┘ │
-                                         │ ┌──────────────────────────┐ │
-                                         │ │         Cancel           │ │ outlined
-                                         └─┴──────────────────────────┴─┘
+                                         │           Cancel             │ quiet
+                                         └──────────────────────────────┘
 ```
 
 ### 6.4 Settings
