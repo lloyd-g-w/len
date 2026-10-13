@@ -154,6 +154,10 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
           ..isAntiAlias = antiAlias,
       );
 
+  /// Whether renders (or downloads) are queued or running (for tests).
+  @visibleForTesting
+  bool get isBusy => _working || _queue.isNotEmpty;
+
   /// How many tiles are cached (for tests).
   @visibleForTesting
   int get debugTileCount => _images.keys.whereType<PdfTile>().length;

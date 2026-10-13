@@ -22,6 +22,8 @@ import 'package:len/ui/app_theme.dart';
 import 'package:pdf/pdf.dart' as pw;
 import 'package:pdfrx/pdfrx.dart';
 
+import 'support/real_async.dart';
+
 /// A two-page PDF: a red square on an A4 page, then a Letter page.
 Future<Uint8List> samplePdf() {
   final doc = pw.PdfDocument();
@@ -270,11 +272,8 @@ void main() {
       ),
     );
     await tester.pump();
-    // Rendering happens on PDFium's worker; give it real time.
-    for (var i = 0; i < 20; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
-      await tester.pump();
-    }
+    // Rendering happens on PDFium's worker, in real time.
+    await pumpUntilPdfRendered(tester);
     await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/editor_pdf.png'));
     await tester.pumpWidget(const SizedBox());
   });

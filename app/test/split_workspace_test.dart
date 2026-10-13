@@ -20,6 +20,7 @@ import 'package:len/ui/text_prompt.dart';
 import 'document_editor_test.dart' show closeEditor;
 import 'split_view_test.dart';
 import 'support/fake_audio.dart';
+import 'support/real_async.dart';
 
 /// The sessions of the shown editors, left to right.
 List<EditorSession> sessionsOf(WidgetTester tester) =>
@@ -331,7 +332,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 600));
     });
     await tester.tap(find.text('Stop'));
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await pumpUntil(tester, () => recording.recorder.state == RecorderState.idle);
     await tester.pumpAndSettle();
     expect(recording.recorder.state, RecorderState.idle);
     expect(find.byKey(const ValueKey('parked-recording')), findsNothing);

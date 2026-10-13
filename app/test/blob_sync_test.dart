@@ -18,6 +18,7 @@ import 'package:len/ui/app_theme.dart';
 import 'package:len/ui/sync_status_button.dart';
 
 import 'support/fake_server.dart';
+import 'support/real_async.dart';
 
 AppServices _device(FakeServer server) {
   final s = AppServices.create(
@@ -346,22 +347,24 @@ void main() {
       expect(find.text('Server URL'), findsNothing);
       await tester.tap(find.text('Change…'));
       await tester.pump();
-      Future<void> connect(String url, String token) async {
+      Future<void> connect(String url, String token, {required String answer}) async {
         await tester.enterText(find.widgetWithText(TextField, 'Server URL'), url);
         await tester.enterText(find.widgetWithText(TextField, 'Access token'), token);
-        await tester.runAsync(() async {
-          await tester.tap(find.text('Connect'));
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-        });
+        await tester.runAsync(() => tester.tap(find.text('Connect')));
+        await pumpUntil(tester, () => find.text(answer).evaluate().isNotEmpty, reason: answer);
         await tester.pump(Motion.medium);
       }
 
-      await connect('http://sync.test', 'wrong-token');
+      await connect('http://sync.test', 'wrong-token', answer: SyncException.rejectedToken.message);
       expect(find.text(SyncException.rejectedToken.message), findsOneWidget);
       expect(a.settings.syncToken, FakeServer.token, reason: 'not saved');
 
       server.serverId = '';
-      await connect('http://sync.test', FakeServer.token);
+      await connect(
+        'http://sync.test',
+        FakeServer.token,
+        answer: SyncException.serverTooOld.message,
+      );
       expect(find.text(SyncException.serverTooOld.message), findsOneWidget);
     });
 

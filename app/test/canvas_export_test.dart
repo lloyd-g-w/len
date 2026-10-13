@@ -16,6 +16,7 @@ import 'package:len/features/documents/export/pdf_export.dart';
 import 'package:len/platform/file_export.dart';
 
 import 'content_tools_ui_test.dart' show openCanvas;
+import 'support/real_async.dart';
 
 /// A stroke on [surface] from [from] to [to] (world units).
 Stroke line(String id, String surface, Offset from, Offset to) => Stroke(
@@ -164,10 +165,7 @@ void main() {
     expect(find.text('Pages'), findsNothing, reason: 'no page choice');
     expect(find.text('Background'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('export-button')));
-    for (var i = 0; i < 20 && saved.isEmpty; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
-      await tester.pump();
-    }
+    await pumpUntil(tester, () => saved.isNotEmpty, reason: 'the export');
     await tester.pumpAndSettle();
     await done;
     expect(saved.single.$1, ['Board.pdf']);

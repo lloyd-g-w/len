@@ -27,6 +27,7 @@ import 'content_tools_ui_test.dart'
     show key, liveElements, liveStrokes, mouseDrag, pinCanvasView, seedStroke;
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
 import 'images_test.dart' show jpegOf, pngOf;
+import 'support/real_async.dart';
 import 'support/selection_actions.dart';
 
 /// Opens a canvas in the editor; [seed] runs with real async (blobs are
@@ -99,13 +100,7 @@ Future<SurfaceElement> seedImage(
 
 /// Lets real async work (decoding, hashing) finish while frames pump,
 /// until [done] holds.
-Future<void> settleReal(WidgetTester tester, bool Function() done) async {
-  for (var i = 0; i < 100 && !done(); i++) {
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
-    await tester.pump();
-  }
-  expect(done(), isTrue, reason: 'timed out waiting');
-}
+Future<void> settleReal(WidgetTester tester, bool Function() done) => pumpUntil(tester, done);
 
 /// Makes the system clipboard hold [bytes] as an image (for this test).
 void mockClipboardImage(Uint8List? bytes) {
@@ -263,7 +258,7 @@ void main() {
   });
 
   testWidgets('golden: images beneath and above ink, rotated, cropped, selected', (tester) async {
-    await openImageCanvas(
+    final (services, _) = await openImageCanvas(
       tester,
       fonts: true,
       seed: (s, nb) async {
@@ -312,7 +307,13 @@ void main() {
         ]);
       },
     );
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+    // Decoding (and finding the missing blob missing) takes real time.
+    await pumpUntil(
+      tester,
+      () => services.images.isMissing('f' * 64) && !services.images.isBusy,
+      stable: 3,
+      reason: 'images to decode',
+    );
     await tester.pumpAndSettle();
     await key(tester, LogicalKeyboardKey.keyL);
     await mouseDrag(tester, const [Offset(900, 250)]); // Select the rotated image.

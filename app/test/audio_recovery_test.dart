@@ -17,6 +17,7 @@ import 'package:len/ui/app_theme.dart';
 import 'content_golden_test.dart' show loadFonts;
 import 'data_test.dart' show FakeClock;
 import 'support/fake_audio.dart';
+import 'support/real_async.dart';
 
 /// Services with a spool of native-like (raw AAC) recordings.
 class _Device {
@@ -168,7 +169,7 @@ void main() {
         ),
       ),
     );
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await pumpUntil(tester, () => find.text('Recover recording?').evaluate().isNotEmpty);
     await tester.pumpAndSettle();
     expect(find.text('Recover recording?'), findsOneWidget);
     expect(find.textContaining('3:12 of audio were not saved yet'), findsOneWidget);
@@ -176,7 +177,7 @@ void main() {
     await expectLater(find.byType(Dialog), matchesGoldenFile('goldens/audio_recover.png'));
 
     await tester.tap(find.text('Recover'));
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await pumpUntil(tester, () => find.textContaining('Recovered “').evaluate().isNotEmpty);
     await tester.pumpAndSettle();
     expect(find.text('Recovered “Recording 14:05” (5:20)'), findsOneWidget);
     expect(d.services.recordings.get(id)!.durationMs, 320000);

@@ -19,6 +19,7 @@ import 'package:pdfrx/pdfrx.dart';
 
 import 'content_golden_test.dart' show loadFonts;
 import 'pdf_test.dart' show pdfium;
+import 'support/real_async.dart';
 
 /// A two-page A4 PDF with real (Helvetica) text.
 Future<Uint8List> textPdf() {
@@ -128,13 +129,17 @@ void main() {
     expect(find.text('2 matches'), findsOneWidget);
     await tester.tap(find.byTooltip('Next (Enter)'));
     await tester.tap(find.byTooltip('Next (Enter)'));
-    // Glyphs and the page render on PDFium's worker; give it real time.
-    for (var i = 0; i < 20; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
-      await tester.pump();
-    }
-    expect(find.text('2 of 2'), findsOneWidget);
+    // Glyphs and the page render on PDFium's worker, in real time.
     final controller = tester.widget<EditorSearchBar>(find.byType(EditorSearchBar)).controller;
+    await pumpUntil(
+      tester,
+      () =>
+          find.text('2 of 2').evaluate().isNotEmpty &&
+          controller.rectsOf(controller.currentMatch!).isNotEmpty,
+      reason: 'the second match with its glyphs',
+    );
+    await pumpUntilPdfRendered(tester);
+    expect(find.text('2 of 2'), findsOneWidget);
     final rects = controller.rectsOf(controller.currentMatch!);
     expect(rects, hasLength(1));
     expect(controller.currentMatch!.pageIndex, 1);

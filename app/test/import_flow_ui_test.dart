@@ -21,6 +21,7 @@ import 'content_tools_ui_test.dart' show liveElements;
 import 'images_test.dart' show pngOf;
 import 'images_ui_test.dart' show settleReal;
 import 'pdf_test.dart' show pdfium, samplePdf;
+import 'support/real_async.dart';
 import 'ui_library_test.dart' show pumpLibrary;
 
 /// Native `XFile.fromData` takes its name from [path].
@@ -154,10 +155,7 @@ void main() {
       expect(notebook.title, 'Lecture 3');
       expect(services.pages.pagesOf(notebook.id), hasLength(2));
       // Let PDFium finish rendering the pages before the editor goes.
-      for (var i = 0; i < 10; i++) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
-        await tester.pump();
-      }
+      await pumpUntilPdfRendered(tester);
       await tester.pumpWidget(const SizedBox());
     });
 
