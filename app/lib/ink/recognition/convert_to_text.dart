@@ -55,7 +55,10 @@ abstract final class ConvertToText {
 
   /// A text box showing [text] where [strokes] were: at their top left,
   /// in their (most common) colour, its font sized like the handwriting,
-  /// at least as wide as the ink.
+  /// as wide as the ink (wrapping; wider only for a long word).
+  ///
+  /// [area] (surface coordinates; the visible part of the page or canvas)
+  /// keeps the box inside: it wraps narrower or moves left to fit.
   static SurfaceElement textBox(
     List<Stroke> strokes,
     String text, {
@@ -63,6 +66,7 @@ abstract final class ConvertToText {
     required String surfaceId,
     required double z,
     required int createdAt,
+    Rect? area,
   }) {
     final ink = [
       for (final s in strokes)
@@ -84,17 +88,35 @@ abstract final class ConvertToText {
           .toDouble(),
       color: _commonColour(source),
     );
-    final width = math.max(bounds.width, TextLayout.naturalWidth(data));
+    // The ink's width, but no narrower than the longest word.
+    var width = math.max(bounds.width, _longestWord(data));
+    var left = bounds.left;
+    if (area != null) {
+      final inside = area.deflate(math.min(_margin, area.shortestSide / 8));
+      width = math.min(width, math.max(inside.width, TextLayout.minWidth));
+      if (left + width > inside.right) left = math.max(inside.left, inside.right - width);
+    }
     final height = TextLayout.heightOf(data, width);
     return SurfaceElement(
       id: id,
       surfaceId: surfaceId,
       type: ElementType.text.name,
-      rect: Rect.fromLTWH(bounds.left, bounds.top, width, height),
+      rect: Rect.fromLTWH(left, bounds.top, width, height),
       z: z,
       createdAt: createdAt,
       data: data.toJson(),
     );
+  }
+
+  /// Room kept between a converted box and the edge of its area.
+  static const double _margin = 12;
+
+  /// The width of [data]'s longest word (it can't wrap narrower).
+  static double _longestWord(TextData data) {
+    final layout = TextBoxLayout(data, double.infinity);
+    final width = layout.painter.minIntrinsicWidth;
+    layout.dispose();
+    return (width + TextLayout.autoWidthSlack).ceilToDouble();
   }
 
   static int _commonColour(List<Stroke> strokes) {

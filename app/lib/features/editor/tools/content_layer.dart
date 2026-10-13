@@ -57,6 +57,16 @@ class _ContentLayerState extends State<ContentLayer> {
 
   ContentTools get _content => widget.content;
 
+  /// The part of the active surface on screen (world): the visible part of
+  /// the page (its frame starts at the page viewport's origin), or of the
+  /// canvas.
+  Rect _visibleSurface() {
+    final visible = widget.viewport.visibleWorld;
+    final page = widget.pages?.where((r) => r.contains(const Offset(1, 1))).firstOrNull;
+    if (page == null || !page.overlaps(visible)) return visible;
+    return visible.intersect(page);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -162,6 +172,7 @@ class _ContentLayerState extends State<ContentLayer> {
             context,
             recognition: recognition,
             selection: _content.selection,
+            area: _visibleSurface,
           ),
           convertUnavailable: recognition.isSupported ? null : recognition.unsupportedReason,
           extraActions: widget.selectionActions,
