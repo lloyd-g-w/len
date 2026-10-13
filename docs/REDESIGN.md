@@ -181,7 +181,9 @@ button in `images/image_entry_points.dart`. Drop the `selectText` descriptor fro
 **Slots** (`pen/ink_slots.dart`, `pen/slot_button.dart`): colour slots are 22-dp dots in
 36-dp cells; width slots are dots at real size (4–20 dp) in the same cells, without the
 recessed track. The selected slot gets a 2-px `onSurface` ring with a 2-px gap. Tap to
-select; tap the selected slot, long-press or right-click to open the popover on it.
+select; tap the selected slot, long-press or right-click to edit that slot alone (a colour
+slot: palette, Recent, Custom; a size slot: a size slider with a preview). The full
+options open from the tool button.
 
 **Options popover.** Tapping the active tool again opens it, for every tool.
 `showAdaptivePopover`: anchored to the tool and 320 dp wide; a bottom sheet on phones.
