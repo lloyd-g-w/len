@@ -1291,8 +1291,11 @@ quick widths** (1–6 slots each, one of each selected) and feel settings
 (pressure sensitivity, stabiliser, straight lines; opacity for the
 highlighter — the pen is always opaque), plus eraser options,
 hold-to-straighten and the 8 **recent colours** (`RecentColors`: colours
-newly put into an ink's quick slots, noted when the tool options popover
-closes; shown in its palette and in the selection's Style colours).
+newly put into an ink's quick slots or given to text or the laser, noted when
+the tool options popover closes, and colours picked with `pickColour`; shown in
+the popovers' colour block and in the selection's Style colours). Stroke
+widths are shown as millimetres on the page (`formatWidth`: world units are
+96 per inch, so "0.66 mm" is the printed size and the size at 100 % zoom).
 Parsing is strict (`PenConfigJson`,
 `EraserConfig.fromJson`): a part with a missing or invalid field keeps its
 defaults as a whole.
@@ -1334,23 +1337,33 @@ Page with template…).
 - **`ToolStrip`** (`toolbar/tool_strip.dart`): the active tool's quick
   controls, cross-fading as it changes: Pen and Highlighter, their **colour
   slots then width slots** (`pen/ink_strip.dart`; 3 + 3 by default, 1–6 each,
-  independent); Eraser, three size slots; Shapes, a kind button and the pen's
-  slots; Laser, three colour slots (red, green, blue); Lasso and Text, none.
+  independent); Eraser, three size slots; Shapes, the pen's slots (the kind
+  is picked in its options; the Shapes button shows it); Laser, three colour
+  slots (red, green, blue); Lasso and Text, none.
   Slots (`pen/slot_button.dart`) are 22-dp swatches or neutral dots at real
-  size (4–20 dp) in 36-dp cells (44 on touch); the selected one gets a 2-px
-  `onSurface` ring with a 2-px gap. Tapping the selected slot, a long press or
+  size (4–20 dp) in 36-dp cells (44 on touch); the selected colour gets a
+  2-px `onSurface` ring with a 2-px gap, the selected size (and eraser size)
+  the neutral `Surfaces.pressed` plate, so the two never look alike. Tapping the selected slot, a long press or
   a right click opens the tool's options on it. Picking a quick colour or width
   from a tool that draws no ink switches to the pen.
 - **One options popover** (`toolbar/tool_options_popover.dart`,
   `showToolOptions`): `showAdaptivePopover`, anchored and 320 dp wide, a
-  sheet on phones; edits apply live. Sections: inks (`InkOptions`: title and
-  Reset, live preview, Colour with − n + for the slot count, the selected
-  slot's colour from the palette, recent colours or Custom (HSV, inline),
-  Width with − n + and a slider for the selected slot, then *Feel* collapsed);
-  `EraserOptionsPanel`; `LassoOptionsPanel` (what it does); Shapes
-  (`ShapeOptionsPanel` and "Hold to snap shapes"); `TextOptionsPanel`;
+  sheet on phones (the sheet covers the toolbar, so only it repeats the
+  quick slots); the body scrolls with a fading edge (`ScrollFade`); edits
+  apply live. Every section starts with its title and Reset (`OptionHeader`;
+  none where there is nothing to reset) and picks colours with one block,
+  `ColorChoices` (`ui/color_picker/color_choices.dart`: "Colour" with Custom,
+  which opens the HSV picker in place, a palette, recent colours). Sections:
+  inks (`InkOptions`: live preview, the selected slot's colour — the pen
+  palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
+  logarithmic slider in mm, then *Feel* collapsed, then "Quick colours /
+  Quick sizes − n +" for the slot counts); `EraserOptionsPanel`;
+  `LassoOptionsPanel` (what it does); Shapes (`ShapeOptionsPanel`: seven
+  kinds in one row, and "Hold to snap shapes"); `TextOptionsPanel`;
   `LaserOptionsPanel` (`ToolSettings.laser`: dot / trail, colours, size,
-  trail length).
+  trail length). `pickColour` (`tools/colour_sheet.dart`; text and
+  selection colours) is a popover too: no Apply, it previews live and
+  closing it keeps the last colour picked.
 - **Where it goes** (`ToolbarDock`, decided by `ToolbarMeasure.dockFor` from
   the *pane's* width, so split panes lay out on their own): with
   `ToolbarPlacement.docked` it sits **inside the top bar** when the bar fits
@@ -1489,7 +1502,7 @@ cuts the ink under the eraser out (`geometry/stroke_splitter.dart`): the stroke
 is removed and its surviving fragments are added as new strokes (keeping the
 original `createdAt`, so paint order is unchanged). One drag is one undoable
 `InkEdit`; fragments cut and erased again within the drag cancel out.
-Optionally only highlighter ink is erased. With *auto-deselect*
+Optionally only highlighter ink is erased. With *switch back after erasing*
 (`EraserConfig.autoDeselect`, off by default) an erase stroke made with the
 Eraser tool switches back to the ink used before it, pen or highlighter
 (`ToolSettings.eraserStrokeEnded`); the S Pen side button and the eraser end

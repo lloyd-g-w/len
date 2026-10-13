@@ -127,7 +127,7 @@ via ⋯ → Go to page only when there are pages to go to. *Files:*
 
 ### Pen and tools
 
-**P1-4 The tool options popover is hard to read and runs off short screens.**
+✅ **P1-4 The tool options popover is hard to read and runs off short screens.**
 `popover_from_slot_light.png`, `popover_pen_*`, `phone_pen_sheet*`:
 - "Colour − 3 +" and "Width − 3 +" are the *number of quick slots*, but read
   as a value; the slider below is "Width 2 … 2.5" (slot index plus value).
@@ -140,8 +140,14 @@ row at the bottom (or under Feel). Label the slider "Size" with a unit
 ("0.8 mm"). Add `ScrollFade` to the popover body. *Files:*
 `features/editor/pen/ink_options.dart`, `pen/option_controls.dart`,
 `ui/adaptive_popover.dart`.
+*Done:* Size slider with mm on the page (log scale, "0.66 mm", also in slot
+tooltips and the selection's Style); "Quick colours / Quick sizes − n +" rows
+at the bottom; the popover body scrolls with `ScrollFade` (vertical; it now
+keeps its content's state when the fade appears); the slot row shows only in
+the phone sheet, which covers the toolbar; "Ends" uses the row label style and
+slider tracks line up with their labels.
 
-**P1-5 Shapes: the selected kind looks switched off, and the panel says the snap tip twice.**
+✅ **P1-5 Shapes: the selected kind looks switched off, and the panel says the snap tip twice.**
 `e_shape_picker_tablet_light.png` / `_dark`, `popover_shapes*`: unselected
 kinds have a grey plate and the selected one is the light one (inverted from
 every other picker). Seven kinds wrap 5 + 2. The help paragraph repeats the
@@ -152,31 +158,45 @@ kind button □ with no chevron, a second home for the same choice. *Fix:*
 `EvenGrid` 4 + 3); one help line, the Shift hint only with a keyboard; give
 the strip's kind button a ▾ or drop it. *Files:* `tools/shape_options_panel.dart`,
 `tools/shape_strip.dart`.
+*Done:* seven kinds in one row of 40-dp tiles, `Surfaces.pressed` only on the
+selected one; one help line, the Shift line only with a pointer (not
+touch-first); the snap switch subtitle says "Hold still…"; the strip's kind
+button is gone (the Shapes button shows the kind).
 
-**P1-6 The selected width slot looks like the selected black colour.**
+✅ **P1-6 The selected width slot looks like the selected black colour.**
 `toolbar_pen_more_slots*`, `editor_phone_paged_light.png`: both selections are
 a ring around a dark dot ("◉ ● ●   · ◉ ●"); at a glance there are two black
 colours. *Fix:* width slots show a short stroke or a hollow plate selection
 (`Surfaces.pressed`) instead of the colour's ring. *Files:*
 `pen/slot_button.dart`, `pen/ink_slots.dart`.
+*Done:* size and eraser slots select with the neutral pressed plate
+(`SlotButton.plate`); colours keep the ring.
 
-**P2-6 The highlighter offers the pen palette.** `popover_highlighter*`: black,
+✅ **P2-6 The highlighter offers the pen palette.** `popover_highlighter*`: black,
 navy and white highlighters are useless at 30 % opacity. *Fix:* a highlighter
 palette of light, saturated colours (the existing default yellow, green,
 pink, blue, orange, purple) plus recent and Custom. *Files:*
 `pen/ink_options.dart`, `ui/color_picker/*`.
+*Done:* `ColorSwatches.highlighter`, ten light hues in one row (new
+highlighter slots start from it too).
 
-**P2-7 Popovers disagree on their header and colour controls.** `popover_laser*`
+✅ **P2-7 Popovers disagree on their header and colour controls.** `popover_laser*`
 (no Reset; a bare palette icon instead of "Custom"), `popover_text*` (15 swatches
 wrap 9 + 6, another palette, no Reset), `e_text_colour_tablet_*` (text colour
 needs an "Apply" while every other colour applies live). *Fix:* one header
 (title + Reset) and one `ColourChoices` block for all tool popovers; text
 colour applies live. *Files:* `tools/laser_options_panel.dart`,
 `tools/text_options_panel.dart`, `tools/colour_sheet.dart`.
+*Done:* title + Reset on pen, highlighter, eraser, text and laser (lasso and
+shapes have nothing to reset); one `ColorChoices` block ("Colour" + Custom,
+palette, recent) in ink, text and laser; `pickColour` has no Apply: live, and
+closing keeps the last pick (and notes it as recent).
 
-**P2-8 Copy in tool popovers.** "Auto-deselect" (eraser) is jargon → "Switch
+✅ **P2-8 Copy in tool popovers.** "Auto-deselect" (eraser) is jargon → "Switch
 back after erasing"; the lasso help is a long paragraph → two short lines.
 *Files:* `pen/eraser_options_panel.dart`, `tools/lasso_options_panel.dart`.
+*Done:* "Switch back after erasing / Returns to your pen or highlighter";
+lasso: two short lines plus the PDF hint.
 
 ### Writing, selection, text, images
 
