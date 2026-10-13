@@ -202,10 +202,10 @@ void main() {
     final choice = await _open(tester, mode: TemplatePickerMode.change);
     await _tapText(tester, 'Dotted');
     expect(find.byKey(const ValueKey('paper-margin')), findsNothing); // Dots have no margin.
-    await _tapKey(tester, 'spacing-5 mm');
+    await _dragSpacing(tester, -1000); // To the slider's minimum.
     await _tapKey(tester, 'pattern-${PaperOptions.patternColors[1]}');
     await _tapKey(tester, 'paper-header');
-    expect(find.text('5.0 mm'), findsOneWidget);
+    expect(find.text('3.0 mm'), findsOneWidget);
     await _tapText(tester, 'Wide ruled'); // Another template keeps the look, not the spacing.
     expect(find.text('8.5 mm'), findsOneWidget);
     await _tapKey(tester, 'paper-margin');
@@ -223,7 +223,7 @@ void main() {
     final choice = await _open(tester, mode: TemplatePickerMode.change);
     await _tapText(tester, 'Small grid');
     expect(find.text('Reset'), findsNothing);
-    await _tapKey(tester, 'spacing-1 cm');
+    await _dragSpacing(tester, 1000);
     await _tapText(tester, 'Reset');
     expect(find.text('Reset'), findsNothing);
     await tester.tap(find.text('Apply to this page'));
@@ -329,4 +329,14 @@ void main() {
     expect(services.templates.list(), isEmpty);
     expect(find.text('Lab'), findsNothing);
   });
+}
+
+Future<void> _dragSpacing(WidgetTester tester, double dx) async {
+  final slider = find.descendant(
+    of: find.byKey(const ValueKey('spacing-slider')),
+    matching: find.byType(Slider),
+  );
+  await tester.ensureVisible(slider);
+  await tester.drag(slider, Offset(dx, 0));
+  await tester.pumpAndSettle();
 }

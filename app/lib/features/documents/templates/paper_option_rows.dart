@@ -79,14 +79,20 @@ class PaperSliderRow extends StatelessWidget {
   }
 }
 
+/// A row of colour swatches, the custom colour last: one line always,
+/// scaled down a little where it would otherwise wrap one swatch alone
+/// (a narrow side panel).
 class SwatchWrap extends StatelessWidget {
   const SwatchWrap({super.key, required this.children});
 
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) =>
-      Wrap(spacing: Gaps.xs, runSpacing: Gaps.xs, children: children);
+  Widget build(BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    alignment: AlignmentDirectional.centerStart,
+    child: Row(mainAxisSize: MainAxisSize.min, spacing: Gaps.xs, children: children),
+  );
 }
 
 class PaperExtraChip extends StatelessWidget {

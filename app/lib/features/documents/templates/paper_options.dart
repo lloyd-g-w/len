@@ -5,14 +5,14 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
 import '../../../ui/color_picker/custom_color_swatch.dart';
 import '../../../ui/color_picker/pick_color.dart';
-import 'even_choices.dart';
 import 'page_setup.dart';
 import 'paper_option_rows.dart';
 import 'paper_swatch.dart';
 
-/// The "Paper" section of the template picker: an actual-size preview, the
-/// paper and pattern colours, the pattern's spacing (presets and a slider),
-/// line weight or dot size, and the margin line and header area — only
+/// The "Paper" section of the template picker: an actual-size preview
+/// (unless the picker shows a page preview already), the paper and pattern
+/// colours, the pattern's spacing (a slider; the templates cover the usual
+/// spacings), line weight or dot size, and the margin line and header area — only
 /// what the selected template uses.
 class PaperOptions extends StatelessWidget {
   const PaperOptions({
@@ -20,9 +20,13 @@ class PaperOptions extends StatelessWidget {
     required this.template,
     required this.onChanged,
     this.canvas = false,
+    this.swatch = true,
   });
 
   final PageTemplate template;
+
+  /// Shows the actual-size [PaperSwatch] (one preview per picker).
+  final bool swatch;
   final ValueChanged<PageTemplate> onChanged;
 
   /// Options for a canvas background (no header or margin).
@@ -82,7 +86,7 @@ class PaperOptions extends StatelessWidget {
               ),
           ],
         ),
-        if (!image) ...[
+        if (!image && swatch) ...[
           PaperSwatch(template: template, canvas: canvas),
           const SizedBox(height: Gaps.sm),
         ],
@@ -139,20 +143,6 @@ class PaperOptions extends StatelessWidget {
         max: kind.max,
         display: (v) => '${v.toStringAsFixed(1)} mm',
         onChanged: (v) => _setLook(_look.copyWith(spacing: (v * 10).round() / 10)),
-      ),
-      Padding(
-        padding: const EdgeInsets.only(bottom: Gaps.xs),
-        child: EvenChoices(
-          choices: [
-            for (final (label, value) in kind.presets)
-              EvenChoice(
-                key: ValueKey('spacing-$label'),
-                label: label,
-                selected: (mm - value).abs() < 0.05,
-                onTap: () => _setLook(_look.copyWith(spacing: value)),
-              ),
-          ],
-        ),
       ),
     ];
   }
