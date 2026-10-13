@@ -1,15 +1,26 @@
 import 'package:sqlite3/wasm.dart';
 
+import '../data/write_back.dart';
+import 'idb_block_store_web.dart';
+import 'write_back_vfs.dart';
+
 /// IndexedDB-backed VFS has no shared memory, so no WAL.
 const bool sqliteSupportsWal = false;
 
 /// Opens database [name] in the browser: SQLite compiled to WebAssembly
-/// (`web/sqlite3.wasm`) with an IndexedDB-backed virtual file system, so
-/// data persists across reloads. [directory] is ignored.
-Future<CommonDatabase> openSqlite({required String name, required String directory}) async {
+/// (`web/sqlite3.wasm`) on a [WriteBackFileSystem] that keeps the database
+/// in memory and writes it back to IndexedDB (database `len`) after each
+/// transaction; added to [writes], which tells when that is done or
+/// failing. [directory] is ignored.
+Future<CommonDatabase> openSqlite({
+  required String name,
+  required String directory,
+  StorageWrites? writes,
+}) async {
   final sqlite = await WasmSqlite3.loadFromUrl(Uri.parse('sqlite3.wasm'));
-  final fs = await IndexedDbFileSystem.open(dbName: 'len');
+  final fs = await WriteBackFileSystem.open(await IdbBlockStore.open('len'));
   sqlite.registerVirtualFileSystem(fs, makeDefault: true);
+  writes?.add(fs);
   return sqlite.open('/$name');
 }
 

@@ -1588,12 +1588,13 @@ the web:
 
 | Concern            | Android / Linux / Windows                     | Web                                              |
 |--------------------|-----------------------------------------------|--------------------------------------------------|
-| SQLite (`sqlite_connection`) | FFI, bundled SQLite, WAL, `<app support>/len.db` | `sqlite3.wasm` + IndexedDB VFS (`len`), no WAL |
-| Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs`; if it can't open, memory (`VolatileBlobBackend`), which the library, Settings and a first-write snack say |
+| SQLite (`sqlite_connection`) | FFI, bundled SQLite, WAL, `<app support>/len.db` | `sqlite3.wasm` + our write-back VFS over IndexedDB (`len`), no WAL; see *Writes on the web* |
+| Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs` behind `WriteBackBlobBackend` (blobs it can't store wait in memory); if it can't open, memory (`VolatileBlobBackend`), which the library, Settings and a first-write snack say |
 | App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread, time-budgeted slices (`SlicedStrokeReader`) |
 | Export (`file_export`) | save dialog + Show in folder / share sheet or Save to device | browser download                                 |
-| Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock: a second tab waits ("open in another tab") |
+| Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock + BroadcastChannel: a second tab waits ("open in another tab") or takes over (*Use here*, `TabHandover`) |
+| Page lifecycle (`page_lifecycle`) | nothing (writes are synchronous) | flush on hide / `pagehide`, `beforeunload` guard while a write is pending |
 | Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux / Windows: command line + forwarding from a second instance | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`, `low_latency_ink`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
@@ -1614,9 +1615,44 @@ yield to the event loop after each 6 ms, and their result arrives
 asynchronously through `SurfaceLoader`, like a native background read.
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
-(`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
+(`app/tool/fetch_sqlite_wasm.sh` refreshes it). The VFS keeps the
 database in memory and writes changes back asynchronously, hence the
-one-tab lock. The sync server must allow the app's origin (CORS,
+one-tab lock.
+
+**Writes on the web** (`data/write_back.dart`, `platform/write_back_vfs.dart`,
+`platform/idb_block_store_web.dart`). `WriteBackFileSystem` replaces
+package:sqlite3's `IndexedDbFileSystem` (same IndexedDB layout: `files` +
+4 KiB `blocks`), because that one drops a failed write from its queue and
+later writes only the blocks they touch, leaving a torn database behind a
+full storage. Ours keeps a set of dirty blocks per file and stores them in one
+IndexedDB transaction per flush (a microtask after the change, so a whole
+SQLite transaction at once; never while a rollback journal exists, i.e.
+never mid-transaction; the journal itself stays in memory). A failed flush
+puts its blocks back into the dirty set, so the next one rewrites them from
+memory: nothing is dropped and the stored database is always a committed
+state. Failures are classified (`QuotaExceededError` → `WriteFailure.full`)
+and retried after 2, 5, 15, then every 30 s, and when the tab is shown again.
+Blobs go through `WriteBackBlobBackend`: one the storage refuses stays in
+memory (readable) and is retried. `StorageWrites` (in `AppServices.writes`;
+empty natively) sums both up: `pending`, `failure`, `flush()`, `close()`.
+While it fails, `StorageAttention` says so once in a snack bar (Try again;
+"Your changes are saved" once it works) and the library shows a notice.
+`platform/page_lifecycle` flushes when the tab is hidden or on `pagehide`, and
+registers a `beforeunload` guard (the browser's "Leave site?") only while a
+write is pending, so idle pages stay eligible for the back/forward cache.
+
+**Tab handover** (`platform/tab_handover.dart`, browser APIs behind
+`TabLock` / `TabChannel`, unit-tested with fakes). The tab holding the Web
+Lock `len-database` owns the data; other tabs queue for it and show "Len is
+open in another tab" (`ui/open_elsewhere.dart`). *Use here* posts `take:<id>`
+on the BroadcastChannel; the holder flushes (if storage is failing it posts
+`refused` and keeps running, with its changes), then closes its stores
+(later writes fail) and only after everything is stored releases the lock,
+posts `released` and reloads, so it waits in turn. The lock is granted in
+request order, so a different waiting tab that gets it first gives it back
+before opening anything (it saw the other tab's `take`). The new holder posts
+`holding`. A holder still starting answers once it is ready; no answer in
+5 s shows "isn't answering" (a frozen background tab). The sync server must allow the app's origin (CORS,
 `LEN_CORS_ORIGINS`, default `*`).
 
 **Offline (installed PWA).** `web/flutter_bootstrap.js` (our own; it loads
@@ -2052,8 +2088,14 @@ Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
   browsers may evict IndexedDB under storage pressure unless persistent
   storage is granted (requested at start, except in Firefox, where it
   waits for Settings → Storage, as it prompts) and quotas vary. Writes reach
-  IndexedDB asynchronously, so closing the tab within milliseconds of an edit
-  can lose it. Canvas chunk reads run on the UI thread (in time-budgeted
+  IndexedDB a few milliseconds after an edit; closing the tab in that window
+  asks first (`beforeunload`), but a crash or a killed browser can still lose
+  it, and while storage is full the latest changes live only in the tab (said
+  in a snack bar and the library). Reloading the active tab while another tab
+  waits hands Len to the waiting tab (lock requests are granted in order). A
+  holder whose final store fails after it stopped writing (storage filling up
+  within milliseconds) keeps the lock and retries, but stays stopped until
+  reloaded. Canvas chunk reads run on the UI thread (in time-budgeted
   slices; a single large chunk still decodes in one go).
 - Open with: Android shares mixing PDFs and images arrive as `*/*`, which
   Len does not register for; PDFs dropped onto an open editor are ignored (only
