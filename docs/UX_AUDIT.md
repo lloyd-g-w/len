@@ -15,6 +15,11 @@
   caption takes the full width under ⋯; folder names cut ("Sket…") → one
   folder column.
 - ✅ Settings: "Up to date: 0 lines recognised." → "no handwriting yet".
+- ✅ A phone held sideways (844 × 390) was never tested: the empty library's
+  button was pushed off screen and Go to page overflowed → windows under
+  520 / 480 px drop the picture, the new sheet's preview and the page strip.
+  `short_window_test` now opens the main surfaces at that size.
+- ✅ Keyboard shortcuts had no list → a reference (Ctrl/⌘+/, Settings).
 
 ## Peeking page indicator (REDESIGN phase 5)
 
