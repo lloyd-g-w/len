@@ -240,7 +240,7 @@ void main() {
       original[1].id,
     ]);
 
-    await tester.tap(find.text('Bookmarks'));
+    await tester.tap(find.text('Bookmarked'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('page-tile-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('page-tile-1')), findsNothing);

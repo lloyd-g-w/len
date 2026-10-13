@@ -9,41 +9,40 @@ import '../editor_session.dart';
 import '../pdf/pdf_outline_sheet.dart';
 import 'notebook_outline.dart';
 
-/// Shows the notebook's outline: the user's own entries and, with PDF
-/// pages, the PDFs' bookmarks. Picking an entry goes to its page.
-Future<void> showOutline(BuildContext context, EditorSession session) async {
-  final doc = session.doc!;
-  final outline = NotebookOutline(
-    repository: session.services.outline,
-    notebookId: session.notebook.id,
-    doc: doc,
-    sync: session.services.sync,
+/// The notebook's outline as the page overview's Outline filter (REDESIGN
+/// §2.4): the user's own entries and, with PDF pages, the PDFs' bookmarks.
+/// Picking an entry calls [onPage] with its page.
+class NotebookOutlineView extends StatefulWidget {
+  const NotebookOutlineView({super.key, required this.session, required this.onPage});
+
+  final EditorSession session;
+  final ValueChanged<int> onPage;
+
+  @override
+  State<NotebookOutlineView> createState() => _NotebookOutlineViewState();
+}
+
+class _NotebookOutlineViewState extends State<NotebookOutlineView> {
+  late final NotebookOutline _outline = NotebookOutline(
+    repository: widget.session.services.outline,
+    notebookId: widget.session.notebook.id,
+    doc: widget.session.doc!,
+    sync: widget.session.services.sync,
   );
-  try {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      constraints: const BoxConstraints(maxWidth: 560),
-      builder: (context) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.92,
-        builder: (context, scroll) => OutlinePanel(
-          outline: outline,
-          session: session,
-          scroll: scroll,
-          onPage: (page) {
-            Navigator.of(context).pop();
-            doc.scrollToPage(page);
-          },
-        ),
-      ),
-    );
-  } finally {
-    outline.dispose();
+
+  @override
+  void dispose() {
+    _outline.dispose();
+    super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) => OutlinePanel(
+    outline: _outline,
+    session: widget.session,
+    onPage: widget.onPage,
+    showTitle: false,
+  );
 }
 
 /// Adds the current page of [session] to its outline (menu command).
@@ -71,12 +70,16 @@ class OutlinePanel extends StatefulWidget {
     required this.session,
     required this.onPage,
     this.scroll,
+    this.showTitle = true,
   });
 
   final NotebookOutline outline;
   final EditorSession session;
   final ValueChanged<int> onPage;
   final ScrollController? scroll;
+
+  /// Whether the "Outline" heading leads (not where the screen says so).
+  final bool showTitle;
 
   @override
   State<OutlinePanel> createState() => _OutlinePanelState();
@@ -101,10 +104,16 @@ class _OutlinePanelState extends State<OutlinePanel> {
           padding: const EdgeInsets.only(bottom: Gaps.xl),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(Gaps.xl, 0, Gaps.lg, Gaps.sm),
+              padding: EdgeInsets.fromLTRB(
+                Gaps.xl,
+                widget.showTitle ? 0 : Gaps.md,
+                Gaps.lg,
+                Gaps.sm,
+              ),
               child: Row(
                 children: [
-                  Expanded(child: Text('Outline', style: theme.textTheme.titleLarge)),
+                  if (widget.showTitle)
+                    Expanded(child: Text('Outline', style: theme.textTheme.titleLarge)),
                   FilledButton.tonalIcon(
                     onPressed: () => _outline.addCurrentPage(context),
                     icon: const Icon(Symbols.add_rounded),

@@ -8,30 +8,57 @@ import '../../../ui/messages.dart';
 /// What can be done to the pages selected in the overview.
 enum SelectionAction { bookmark, duplicate, delete }
 
-/// The overview's app bar: page count, bookmarks filter, "Select".
+/// What the page overview shows (REDESIGN §2.4).
+enum OverviewFilter {
+  all('All', Symbols.grid_view_rounded),
+  bookmarked('Bookmarked', Symbols.bookmark_rounded),
+  outline('Outline', Symbols.toc_rounded);
+
+  const OverviewFilter(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+}
+
+/// The overview's app bar: page count, "Select", and the All / Bookmarked
+/// / Outline filter below ([outline] false leaves Outline out).
 class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
   const OverviewAppBar({
     super.key,
     required this.pageCount,
-    required this.bookmarksOnly,
+    required this.filter,
     required this.compact,
-    required this.onBookmarksOnly,
+    required this.onFilter,
     required this.onSelect,
+    this.outline = true,
+    this.textScale = 1,
   });
 
   final int pageCount;
-
-  final bool bookmarksOnly;
+  final OverviewFilter filter;
   final bool compact;
-  final ValueChanged<bool> onBookmarksOnly;
-  final VoidCallback onSelect;
+  final ValueChanged<OverviewFilter> onFilter;
+
+  /// Starts selection mode; null hides "Select" (the outline has none).
+  final VoidCallback? onSelect;
+
+  /// Whether the Outline filter is offered.
+  final bool outline;
+
+  /// Height of the filter row at [textScale] (it grows with large text).
+  static double filterHeight(double textScale) => 48 + 12 * (textScale - 1).clamp(0.0, 1.0);
+
+  /// The text scale the bar is laid out for (preferredSize is asked
+  /// without a context).
+  final double textScale;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 8);
+  Size get preferredSize => Size.fromHeight(kToolbarHeight + 8 + filterHeight(textScale));
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final side = compact ? Gaps.lg : Gaps.xxl;
     return AppBar(
       toolbarHeight: kToolbarHeight + 8,
       title: Column(
@@ -43,23 +70,51 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
-        FilterChip(
-          // The bookmark's colour, as on the pages and tiles.
-          avatar: Icon(
-            Symbols.bookmark_rounded,
-            size: 18,
-            fill: bookmarksOnly ? 1 : 0,
-            color: bookmarksOnly ? Palette.bookmark : null,
-          ),
-          showCheckmark: false,
-          label: const Text('Bookmarks'),
-          selected: bookmarksOnly,
-          onSelected: onBookmarksOnly,
-        ),
-        const SizedBox(width: Gaps.xs),
-        TextButton(onPressed: onSelect, child: const Text('Select')),
+        if (onSelect case final onSelect?)
+          TextButton(onPressed: onSelect, child: const Text('Select')),
         SizedBox(width: compact ? Gaps.xs : Gaps.md),
       ],
+      bottom: PreferredSize(
+        preferredSize: Size.fromHeight(filterHeight(textScale)),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(side, 0, side, Gaps.sm),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SegmentedButton<OverviewFilter>(
+              key: const ValueKey('overview-filter'),
+              showSelectedIcon: false,
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              segments: [
+                for (final f in OverviewFilter.values)
+                  if (outline || f != OverviewFilter.outline)
+                    ButtonSegment(
+                      value: f,
+                      // One line always: large text scales it down rather
+                      // than breaking a word.
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(f.label, maxLines: 1, softWrap: false),
+                      ),
+                      // Phones: labels only, so three fit.
+                      icon: compact
+                          ? null
+                          : Icon(
+                              f.icon,
+                              size: 18,
+                              fill: f == filter ? 1 : 0,
+                              // The bookmark's colour, as on the pages and tiles.
+                              color: f == OverviewFilter.bookmarked && f == filter
+                                  ? Palette.bookmark
+                                  : null,
+                            ),
+                    ),
+              ],
+              selected: {filter},
+              onSelectionChanged: (s) => onFilter(s.single),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

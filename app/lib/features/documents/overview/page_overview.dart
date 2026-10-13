@@ -10,6 +10,7 @@ import 'overview_parts.dart';
 import 'page_commands.dart';
 import 'page_tile.dart';
 
+export 'overview_parts.dart' show OverviewFilter;
 export 'page_commands.dart';
 
 /// Grid of live page thumbnails: go to, reorder (long-press and drag),
@@ -24,6 +25,8 @@ class PageOverview extends StatefulWidget {
     this.backgrounds,
     this.images,
     this.changes,
+    this.outline,
+    this.initialFilter = OverviewFilter.all,
   });
 
   final OverviewHandlers handlers;
@@ -38,6 +41,13 @@ class PageOverview extends StatefulWidget {
   /// a sync); the overview then reloads.
   final Listenable? changes;
 
+  /// Builds the Outline filter's view; [goTo] shows a page (closing the
+  /// overview). Null: no Outline filter.
+  final Widget Function(BuildContext context, ValueChanged<int> goTo)? outline;
+
+  /// The filter shown first.
+  final OverviewFilter initialFilter;
+
   @override
   State<PageOverview> createState() => _PageOverviewState();
 }
@@ -45,7 +55,12 @@ class PageOverview extends StatefulWidget {
 class _PageOverviewState extends State<PageOverview> {
   late final ThumbnailCache _cache = ThumbnailCache(widget.copier, images: widget.images);
   late List<NotebookPage> _pages = widget.handlers.load();
-  bool _bookmarksOnly = false;
+  late OverviewFilter _filter =
+      widget.outline == null && widget.initialFilter == OverviewFilter.outline
+      ? OverviewFilter.all
+      : widget.initialFilter;
+
+  bool get _bookmarksOnly => _filter == OverviewFilter.bookmarked;
 
   /// Ids of selected pages; null outside selection mode.
   Set<String>? _selection;
@@ -154,15 +169,31 @@ class _PageOverviewState extends State<PageOverview> {
               )
             : OverviewAppBar(
                 pageCount: _pages.length,
-                bookmarksOnly: _bookmarksOnly,
+                filter: _filter,
                 compact: compact,
-                onBookmarksOnly: (v) => setState(() => _bookmarksOnly = v),
-                onSelect: () => setState(() => _selection = {}),
+                outline: widget.outline != null,
+                textScale: MediaQuery.textScalerOf(context).scale(1),
+                onFilter: (f) => setState(() => _filter = f),
+                onSelect: _filter == OverviewFilter.outline
+                    ? null
+                    : () => setState(() => _selection = {}),
               ),
         bottomNavigationBar: _selecting
             ? SelectionBar(count: _selection!.length, onAction: _runOnSelection)
             : null,
-        body: shown.isEmpty
+        body: _filter == OverviewFilter.outline
+            // A readable column under the filter, not the full width.
+            ? Align(
+                alignment: AlignmentDirectional.topStart,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Padding(
+                    padding: EdgeInsetsDirectional.only(start: compact ? 0 : Gaps.sm),
+                    child: widget.outline!(context, (page) => Navigator.of(context).pop(page)),
+                  ),
+                ),
+              )
+            : shown.isEmpty
             ? const NoBookmarks()
             : GridView.builder(
                 padding: EdgeInsets.fromLTRB(

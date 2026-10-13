@@ -207,8 +207,14 @@ class DocumentCommands {
     );
   }
 
-  /// Opens the page overview; shows the page picked there.
-  Future<void> openOverview(BuildContext context, {PageBackgrounds? backgrounds}) async {
+  /// Opens the page overview (on [filter]); shows the page picked there.
+  /// [outline] builds its Outline filter.
+  Future<void> openOverview(
+    BuildContext context, {
+    PageBackgrounds? backgrounds,
+    Widget Function(BuildContext context, ValueChanged<int> goTo)? outline,
+    OverviewFilter filter = OverviewFilter.all,
+  }) async {
     final index = await Navigator.of(context).push<int>(
       MaterialPageRoute(
         builder: (_) => PageOverview(
@@ -217,6 +223,8 @@ class DocumentCommands {
           backgrounds: backgrounds,
           images: services.images,
           changes: doc,
+          outline: outline,
+          initialFilter: filter,
           handlers: OverviewHandlers(
             load: () => actions.pages,
             command: run,

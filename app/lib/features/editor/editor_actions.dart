@@ -41,9 +41,7 @@ EditorMenuActions editorMenuActions(
     onSearch: onSearch,
     bookmarked: page?.bookmarked ?? false,
     onToggleBookmark: paged ? () => commands.run(context, PageCommand.bookmark, page) : null,
-    onOverview: paged
-        ? () => commands.openOverview(context, backgrounds: session.backgrounds)
-        : null,
+    onOverview: paged ? () => openPageOverview(context, session) : null,
     onPageCommand: paged ? (c) => commands.run(context, c, page) : null,
     onAddWithTemplate: paged ? () => commands.addPageWithTemplate(context) : null,
     onExport: paged
@@ -51,7 +49,9 @@ EditorMenuActions editorMenuActions(
         : nav != null
         ? () => exportCanvasFlow(context, notebook: session.notebook)
         : null,
-    onOutline: paged ? () => showOutline(context, session) : null,
+    onOutline: paged
+        ? () => openPageOverview(context, session, filter: OverviewFilter.outline)
+        : null,
     onAddToOutline: paged ? () => addPageToOutline(context, session) : null,
     flow: doc?.flow,
     onFlow: paged ? onFlow : null,
@@ -70,7 +70,20 @@ Widget? editorPageNavigator(BuildContext context, EditorSession session) {
     index: doc.currentPage,
     count: doc.pages.length,
     bookmarked: doc.pages[doc.currentPage].bookmarked,
-    onOverview: () => commands.openOverview(context, backgrounds: session.backgrounds),
+    onOverview: () => openPageOverview(context, session),
     onGoTo: () => commands.goToPagePrompt(context, backgrounds: session.backgrounds),
   );
 }
+
+/// Opens the page overview of paged [session] on [filter], with its
+/// Outline filter (the notebook's and its PDFs' outlines).
+Future<void> openPageOverview(
+  BuildContext context,
+  EditorSession session, {
+  OverviewFilter filter = OverviewFilter.all,
+}) => session.commands!.openOverview(
+  context,
+  backgrounds: session.backgrounds,
+  filter: filter,
+  outline: (context, goTo) => NotebookOutlineView(session: session, onPage: goTo),
+);

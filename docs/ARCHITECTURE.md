@@ -637,9 +637,13 @@ search highlights use the same boxes.
   link**). Internal links scroll to the notebook page showing the target PDF page (the next
   one after the link's page if the PDF appears twice); web links ask first
   ("Open link?") and open in the browser (`url_launcher`).
-- **Outline** — "⋯" → *PDF outline* (`PdfOutlinePanel`, a draggable bottom
-  sheet): the bookmarks of every PDF in the notebook as a collapsible tree
+- **Outline** — the page overview's *Outline* filter (▦ → Outline, or
+  "⋯" → *Outline*, which opens the overview on it; `NotebookOutlineView`
+  hosting `OutlinePanel`): the notebook's own entries (add, nest, rename,
+  relink, delete) and the bookmarks of every PDF in it as collapsible trees
   with notebook page numbers; entries whose page was deleted are disabled.
+  Picking one closes the overview on its page. The overview's filter is
+  All / Bookmarked / Outline (`OverviewFilter`; labels only on phones).
 
 ## Images (`ink/images/`, `features/editor/images/`)
 

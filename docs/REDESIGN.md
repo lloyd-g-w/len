@@ -449,8 +449,10 @@ Phase 1 comes first because every later phase then gets smaller.
   Short / Long; `ToolSettings.laser` already existed.
 - The lasso's popover explains the tool instead of being empty, so tapping
   any active tool behaves the same.
-- Outline stays in ⋯ and *Add page to outline…* in Page ▸ (SIMPLIFY lead
-  decision: user outline kept) until phase 5's overview filter.
+- Outline: now the overview's All / Bookmarked / Outline filter (phase 5);
+  the user outline is kept (SIMPLIFY lead decision) inside it, with the
+  PDFs' outlines. ⋯ → *Outline* stays as a route that opens the overview on
+  that filter (phones have no ▦), and *Add page to outline…* stays in Page ▸.
 - View ▸ lists *Toolbar docked* / *Toolbar floating* as two choices rather than
   a nested menu. Audio's ▾ shows once the notebook has recordings (as before).
 - The phone bar's tab switcher button went with this phase (no room in

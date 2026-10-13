@@ -88,4 +88,33 @@ void main() {
     expect(find.text('Start'), findsNothing);
     await closeEditor(tester);
   });
+
+  testWidgets('the overview\'s Outline filter shows the outline in place of the grid', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
+    await _menu(tester, 'Add page to outline…');
+    await tester.enterText(find.byKey(const ValueKey('outline-title-field')), 'Intro');
+    await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+    await tester.pumpAndSettle();
+    _doc(tester).scrollToPage(2);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('All pages'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('page-tile-0')), findsOneWidget);
+    expect(find.text('Select'), findsOneWidget);
+    await tester.tap(find.text('Outline'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OutlinePanel), findsOneWidget);
+    expect(find.byKey(const ValueKey('page-tile-0')), findsNothing);
+    expect(find.text('Select'), findsNothing, reason: 'nothing to select in the outline');
+    // Picking an entry closes the overview on its page.
+    await tester.tap(find.text('Intro'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OutlinePanel), findsNothing);
+    expect(_doc(tester).currentPage, 0);
+    expect(s.outline.entriesOf(nb.id), hasLength(1));
+    await closeEditor(tester);
+  });
 }
