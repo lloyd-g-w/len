@@ -479,5 +479,4 @@ Phase 1 comes first because every later phase then gets smaller.
   ⇅, folder tiles, 0.72 covers, the one-column new-notebook sheet (the paper
   row now fits the wide form), single-column settings; `features/` has no
   `showModalBottomSheet`, `AlertDialog`, `SimpleDialog` or
-  `PopupMenuButton` left. Deviation: the phone sheet's preview strip is
-  ~150 dp rather than 120.
+  `PopupMenuButton` left.
