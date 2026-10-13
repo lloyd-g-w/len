@@ -110,23 +110,27 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
           return IconButton(tooltip: tooltip, icon: glyph, onPressed: onPressed);
         }
         final theme = Theme.of(context);
-        return Tooltip(
-          message: tooltip,
-          child: TextButton.icon(
-            key: const ValueKey('sync-status'),
-            onPressed: onPressed,
-            style: TextButton.styleFrom(
-              foregroundColor: color ?? scheme.onSurfaceVariant,
-              disabledForegroundColor: scheme.onSurfaceVariant,
-              textStyle: theme.textTheme.bodySmall,
-              padding: const EdgeInsetsDirectional.only(start: Gaps.sm, end: Gaps.md),
-              minimumSize: Size.square(Targets.menuRowHeight(context)),
-            ),
-            icon: glyph,
-            label: Text(
-              syncCaption(sync.state, sync.lastSuccess, DateTime.now()),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+        // Merged, so the tooltip describes the button to screen readers (on
+        // its own it named the whole screen).
+        return MergeSemantics(
+          child: Tooltip(
+            message: tooltip,
+            child: TextButton.icon(
+              key: const ValueKey('sync-status'),
+              onPressed: onPressed,
+              style: TextButton.styleFrom(
+                foregroundColor: color ?? scheme.onSurfaceVariant,
+                disabledForegroundColor: scheme.onSurfaceVariant,
+                textStyle: theme.textTheme.bodySmall,
+                padding: const EdgeInsetsDirectional.only(start: Gaps.sm, end: Gaps.md),
+                minimumSize: Size.square(Targets.menuRowHeight(context)),
+              ),
+              icon: glyph,
+              label: Text(
+                syncCaption(sync.state, sync.lastSuccess, DateTime.now()),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
         );

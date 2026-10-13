@@ -45,6 +45,8 @@ extension _LibraryLayout on _LibraryScreenState {
               message: 'New notebook',
               // A touch long press opens the menu, not the tooltip.
               triggerMode: TooltipTriggerMode.manual,
+              // The icon names the button (the tooltip would name the screen).
+              excludeFromSemantics: true,
               child: FloatingActionButton(
                 onPressed: () => unawaited(_actions.createNotebook(context)),
                 child: const Icon(Symbols.add_sharp, semanticLabel: 'New notebook'),
