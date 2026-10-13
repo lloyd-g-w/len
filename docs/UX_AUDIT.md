@@ -264,6 +264,9 @@ loudest thing on an empty screen for the least important act. *Fix:* drop
 the stops. Make Clear search a quiet `TextButton`. Extend
 `test/copy_rules_test.dart` to the record/switch tuples and `_toast` calls
 it misses today.
+*Partly done (`fix/r6-editor`):* the canvas hint lost its stops; the
+library's strings, Clear search and the copy test are left to the library
+branch.
 
 ⬜ **R6-22 P2 · The trash's subtitle differs by width.** "Kept for 30 days" on
 phones, "1 notebook, deleted forever after 30 days" on wide screens

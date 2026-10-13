@@ -82,8 +82,8 @@ class _CanvasEmptyHintState extends State<CanvasEmptyHint> {
                   // By input, not platform: a tablet with a mouse, or a
                   // touch screen on the web, gets its own words.
                   Targets.touchFirst
-                      ? 'Two fingers move and zoom.\nLong-press for more options.'
-                      : 'Scroll to move, Ctrl + scroll to zoom.\nRight-click for more options.',
+                      ? 'Two fingers move and zoom\nLong-press for more options'
+                      : 'Scroll to move, Ctrl + scroll to zoom\nRight-click for more options',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(color: colour),
                 ),
