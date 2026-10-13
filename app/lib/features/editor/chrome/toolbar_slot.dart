@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -6,6 +8,7 @@ import '../../../ui/chrome_fade.dart';
 import '../../../ui/floating_panel.dart';
 import '../toolbar/toolbar_metrics.dart';
 import 'chrome_metrics.dart';
+import 'puck_clearance.dart';
 
 /// Hosts the floating toolbar where the user dragged it by its grip
 /// (REDESIGN §2.1). Released within [snapDistance] of an edge, it snaps to
@@ -21,9 +24,16 @@ class ToolbarSlot extends StatefulWidget {
     this.onFloatMoved,
     this.visible = true,
     this.joined = false,
+    this.blocked,
   });
 
   final Widget toolbar;
+
+  /// Whether something the palette must not cover lies under a rectangle
+  /// (in this slot's coordinates, which are the editor's). Released over
+  /// it, the palette moves to the nearest clear spot along the edges
+  /// ([PuckClearance]): focus mode's puck stays clear of the writing.
+  final bool Function(Rect rect)? blocked;
 
   /// Whether [toolbar] is bare and shares one capsule with the grip (focus
   /// mode's puck), instead of a panel of its own beside the grip's.
@@ -105,9 +115,27 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
   void _endDrag() {
     final a = _dragging;
     if (a == null) return;
-    final at = ToolbarSlot.snap(((a.x + 1) / 2, (a.y + 1) / 2), _free(_area));
+    var at = ToolbarSlot.snap(((a.x + 1) / 2, (a.y + 1) / 2), _free(_area));
+    if (widget.blocked case final blocked?) {
+      at = PuckClearance.settle(at, rectAt: _rectAt, blocked: blocked);
+    }
     widget.onFloatMoved?.call(at);
     setState(() => _dragging = null);
+  }
+
+  /// The palette's rectangle at [at] (fractions of the free area), in this
+  /// slot's coordinates; turned to run down a side, it turns its size.
+  Rect _rectAt((double, double) at) {
+    var size = _panel.currentContext?.size ?? Size.zero;
+    if (ToolbarSlot.isVertical(at) != ToolbarSlot.isVertical(widget.floatAt)) {
+      size = size.flipped;
+    }
+    final padding = widget.insets + const EdgeInsets.all(ChromeMetrics.edge);
+    final free = Size(
+      math.max(0, _area.width - size.width),
+      math.max(0, _area.height - size.height),
+    );
+    return Offset(padding.left + free.width * at.$1, padding.top + free.height * at.$2) & size;
   }
 
   @override

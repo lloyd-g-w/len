@@ -92,6 +92,7 @@ class EditorChrome extends StatelessWidget {
     this.puck,
     this.puckAt,
     this.onPuckMoved,
+    this.puckBlocked,
     this.dimmed = false,
     this.presenting = false,
   });
@@ -134,6 +135,10 @@ class EditorChrome extends StatelessWidget {
   final Widget? puck;
   final (double, double)? puckAt;
   final ValueChanged<(double, double)>? onPuckMoved;
+
+  /// Whether ink lies under a rectangle of the editor: the puck released
+  /// over it moves clear (`ToolbarSlot.blocked`).
+  final bool Function(Rect rect)? puckBlocked;
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +253,7 @@ class EditorChrome extends StatelessWidget {
                 insets: safe,
                 floatAt: puckAt ?? const (0.5, 1.0),
                 onFloatMoved: onPuckMoved,
+                blocked: puckBlocked,
                 visible: focus,
               ),
             ),
