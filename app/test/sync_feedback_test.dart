@@ -106,6 +106,13 @@ void main() {
         ),
       ),
     );
+    // One button for screen readers, its tooltip with it.
+    final semantics = tester.ensureSemantics();
+    final node = tester.getSemantics(find.text('Sync failed')).getSemanticsData();
+    expect(node.label, contains('Sync failed'));
+    expect(node.tooltip, isNotEmpty);
+    expect(node.flagsCollection.isButton, isTrue);
+    semantics.dispose();
     await tester.tap(find.text('Sync failed'));
     expect(opened, 1);
     expect(s.sync.state, SyncState.error);

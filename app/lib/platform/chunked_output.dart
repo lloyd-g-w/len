@@ -11,6 +11,16 @@ import 'package:archive/archive.dart';
 class ChunkedOutput extends OutputStream {
   ChunkedOutput(this.sink, {this.chunkSize = 4 << 20}) : super(byteOrder: ByteOrder.littleEndian);
 
+  /// Always little-endian, as zip is: archive's web zlib encoder sets the
+  /// output it deflates into big-endian (for zlib's trailer) and leaves it
+  /// so, which byte-swapped every zip header after the first deflated
+  /// entry, so browsers wrote Len files that couldn't be opened.
+  @override
+  ByteOrder get byteOrder => ByteOrder.littleEndian;
+
+  @override
+  set byteOrder(ByteOrder _) {}
+
   /// Gets each chunk, in order.
   final void Function(Uint8List chunk) sink;
   final int chunkSize;

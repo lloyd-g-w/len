@@ -185,6 +185,17 @@ void main() {
       expect(ElementImages.bucketFor(40, 30), 30);
     });
 
+    test('decode scales down keeping the aspect, never up; measure reads the size', () async {
+      final png = pngOf(400, 100);
+      final small = await ElementImages.decode(png, width: 200);
+      expect((small.width, small.height), (200, 50));
+      final whole = await ElementImages.decode(png, width: 800);
+      expect((whole.width, whole.height), (400, 100));
+      small.dispose();
+      whole.dispose();
+      expect(await ElementImages.measure(png), (width: 400, height: 100));
+    });
+
     test('decodes asynchronously at the requested level, then serves it', () async {
       final blobs = {'p': pngOf(1000, 500)};
       final images = ElementImages(read: (sha) async => blobs[sha], fetch: (_) async => false);
