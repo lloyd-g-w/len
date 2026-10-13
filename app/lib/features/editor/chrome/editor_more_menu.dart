@@ -17,7 +17,8 @@ import 'editor_menu_actions.dart';
 /// (paged) or the background (canvas); view options; split view; drawing
 /// with a finger; settings. Phones ([compact]) add audio and the open
 /// notebooks at the top, and open Page and View in place of the menu
-/// (a drill-in with a back row) instead of beside it.
+/// (a drill-in with a back row) instead of beside it. Shortcut hints show
+/// only where a keyboard is likely (not on touch-first devices).
 class EditorMoreMenu extends StatefulWidget {
   const EditorMoreMenu({
     super.key,
@@ -30,7 +31,7 @@ class EditorMoreMenu extends StatefulWidget {
 
   final EditorMenuActions actions;
 
-  /// Phones: no keyboard hints, and [compactItems] and [tabs] on top.
+  /// Phones: [compactItems] and [tabs] on top, submenus drill in.
   final bool compact;
 
   /// Open notebooks to offer a switcher for (phones, where there are no
@@ -128,8 +129,6 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
       icon: Symbols.description_rounded,
       label: 'Page',
       children: [
-        _command(PageCommand.insertAfter, 'Add page after'),
-        _item(Symbols.note_add_rounded, 'Add page with template…', a.onAddWithTemplate),
         _command(PageCommand.duplicate, 'Duplicate page'),
         _item(
           a.bookmarked ? Symbols.bookmark_remove_rounded : Symbols.bookmark_add_rounded,
@@ -138,7 +137,6 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
         ),
         _command(PageCommand.template, 'Change template…'),
         _command(PageCommand.saveAsTemplate, 'Save as template…'),
-        _item(Symbols.playlist_add_rounded, 'Add page to outline…', a.onAddToOutline),
         const Divider(),
         _command(PageCommand.delete, 'Delete page', destructive: true),
       ],
@@ -212,7 +210,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
             ? MenuItemButton.styleFrom(foregroundColor: error, iconColor: error)
             : null,
         leadingIcon: Icon(icon),
-        shortcut: compact ? null : shortcut,
+        shortcut: Targets.touchFirst ? null : shortcut,
         onPressed: onPressed,
         child: Text(label),
       );
@@ -225,7 +223,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           selected ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded,
           fill: selected ? 1 : 0,
         ),
-        shortcut: compact ? null : shortcut,
+        shortcut: Targets.touchFirst ? null : shortcut,
         onPressed: onPressed,
         child: Text(label),
       );

@@ -220,7 +220,7 @@ used. Laser options need `ToolSettings.laser` (`color`, `style`, `fade`), persis
 Search in notebook            Ctrl+F
 Export…                       Ctrl+E (new)
 ────────
-Page ▸      Add page after · Add page with template… · Duplicate page · Bookmark page ·
+Page ▸      Duplicate page · Bookmark page ·
             Change template… · Save as template… · ── Delete page (red)   [paged]
 Background…                                                          [canvas]
 View ▸      Scroll pages / One page at a time · Fit width / Fit page / Automatic ·
@@ -456,7 +456,7 @@ Phase 1 comes first because every later phase then gets smaller.
 - Outline: now the overview's All / Bookmarked / Outline filter (phase 5);
   the user outline is kept (SIMPLIFY lead decision) inside it, with the
   PDFs' outlines. ⋯ → *Outline* stays as a route that opens the overview on
-  that filter (phones have no ▦), and *Add page to outline…* stays in Page ▸.
+  that filter (phones have no ▦); pages are added to it from the panel (round 5 S2).
 - View ▸ lists *Toolbar docked* / *Toolbar floating* as two choices rather than
   a nested menu. Audio's ▾ shows once the notebook has recordings (as before).
 - The phone bar's tab switcher button went with this phase (no room in

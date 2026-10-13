@@ -72,8 +72,8 @@ List<CanvasAction> canvasActions(
     }),
     if (doc != null) ...[
       CanvasAction(
-        Symbols.add_rounded,
-        'Add page after',
+        PageCommand.insertAfter.icon,
+        PageCommand.insertAfter.label,
         () => onPageCommand(PageCommand.insertAfter),
         dividerBefore: true,
       ),
@@ -83,8 +83,8 @@ List<CanvasAction> canvasActions(
         () => onPageCommand(PageCommand.bookmark),
       ),
       CanvasAction(
-        Symbols.grid_on_rounded,
-        'Change template…',
+        PageCommand.template.icon,
+        PageCommand.template.label,
         () => onPageCommand(PageCommand.template),
       ),
     ],

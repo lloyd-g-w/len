@@ -468,7 +468,7 @@ or deleted pages in order with ink. Snack bars' Undo calls
 ## Templates (`domain/templates/`, `domain/paper_pattern.dart`)
 
 - **Registry.** `PaperStyle` (`templates/paper_style.dart`) is the registry of built-in
-  templates: stored name (id), label, `TemplateCategory` (Basic, Writing, Planners, Paper; My
+  templates: stored name (id), label, `TemplateCategory` (Paper, Writing, Planners; My
   templates for the user's own), pitch, search keywords, whether it tiles an infinite canvas
   (`canvas`) and, for planners, the `PlannerPeriod` one page covers. `PaperStyle.image` stands
   for a user's image template. Built-ins: blank, dotted; narrow / college / wide ruled, Cornell,

@@ -9,6 +9,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
 import '../../../ui/scroll_fade.dart';
+import '../../settings/keyboard_shortcuts.dart' show modifierLabel;
 import 'colour_sheet.dart';
 import 'text/rich_text_controller.dart';
 import 'text/text_style_menus.dart';
@@ -191,16 +192,26 @@ class TextFormatBar extends StatelessWidget {
         ),
       ],
       [
-        toggle('Bold (Ctrl+B)', Symbols.format_bold_rounded, style.bold, c.toggleBold),
-        toggle('Italic (Ctrl+I)', Symbols.format_italic_rounded, style.italic, c.toggleItalic),
         toggle(
-          'Underline (Ctrl+U)',
+          'Bold (${modifierLabel()}+B)',
+          Symbols.format_bold_rounded,
+          style.bold,
+          c.toggleBold,
+        ),
+        toggle(
+          'Italic (${modifierLabel()}+I)',
+          Symbols.format_italic_rounded,
+          style.italic,
+          c.toggleItalic,
+        ),
+        toggle(
+          'Underline (${modifierLabel()}+U)',
           Symbols.format_underlined_rounded,
           style.underline,
           c.toggleUnderline,
         ),
         toggle(
-          'Strikethrough (Ctrl+Shift+X)',
+          'Strikethrough (${modifierLabel()}+Shift+X)',
           Symbols.format_strikethrough_rounded,
           style.strike,
           c.toggleStrike,

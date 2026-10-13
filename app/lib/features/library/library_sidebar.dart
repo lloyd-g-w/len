@@ -117,7 +117,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(Gaps.md, 0, Gaps.md, Gaps.md),
                       child: Text(
-                        'Group notebooks into folders — drag them here.',
+                        'Group notebooks into folders — drag them here',
                         style: theme.textTheme.bodySmall,
                       ),
                     ),

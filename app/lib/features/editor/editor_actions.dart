@@ -43,13 +43,11 @@ EditorMenuActions editorMenuActions(
     onToggleBookmark: paged ? () => commands.run(context, PageCommand.bookmark, page) : null,
     onOverview: paged ? () => openPageOverview(context, session) : null,
     onPageCommand: paged ? (c) => commands.run(context, c, page) : null,
-    onAddWithTemplate: paged ? () => commands.addPageWithTemplate(context) : null,
     onExport: paged
         ? () => commands.export(context)
         : nav != null
         ? () => exportCanvasFlow(context, notebook: session.notebook)
         : null,
-    onAddToOutline: paged ? () => addPageToOutline(context, session) : null,
     flow: doc?.flow,
     onFlow: paged ? onFlow : null,
     fit: doc?.fit,

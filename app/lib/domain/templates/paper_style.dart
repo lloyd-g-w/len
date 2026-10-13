@@ -1,9 +1,9 @@
 /// How the template gallery groups templates.
 enum TemplateCategory {
-  basic('Basic'),
+  /// Plain papers: blank, dotted, grids, music, storyboard.
+  paper('Paper'),
   writing('Writing'),
   planners('Planners'),
-  paper('Paper'),
 
   /// Templates the user imported (images, PDF pages, saved pages).
   mine('My templates');
@@ -43,8 +43,8 @@ enum PitchKind {
 /// The registry of built-in templates: stored and synced by [name]; the
 /// geometry of each is built by `PaperPattern.of`.
 enum PaperStyle {
-  blank('Blank', 0, TemplateCategory.basic, canvas: true),
-  dotted('Dotted', 32, TemplateCategory.basic, canvas: true),
+  blank('Blank', 0, TemplateCategory.paper, canvas: true),
+  dotted('Dotted', 32, TemplateCategory.paper, canvas: true),
 
   /// Narrow ruled (6.35 mm).
   narrowRuled('Narrow ruled', 24, TemplateCategory.writing, canvas: true, keywords: 'lined'),

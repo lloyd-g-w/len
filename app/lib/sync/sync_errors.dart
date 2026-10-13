@@ -29,16 +29,21 @@ enum SyncFailure {
 /// Thrown for any failed sync request, with a user-presentable message
 /// that says what to do about it.
 class SyncException implements Exception {
-  const SyncException(this.message, {this.kind = SyncFailure.server});
+  const SyncException(this.message, {this.kind = SyncFailure.server, this.details});
   final String message;
   final SyncFailure kind;
+
+  /// What a server admin needs to know, kept out of [message] (shown
+  /// under Details).
+  final String? details;
 
   @override
   String toString() => message;
 
   static const rejectedToken = SyncException(
-    'The server rejected the access token — check that it matches LEN_SYNC_TOKEN',
+    'The server didn’t accept the access token',
     kind: SyncFailure.auth,
+    details: 'The server answered 401: the token must match LEN_SYNC_TOKEN on the server.',
   );
 
   static const notLen = SyncException(

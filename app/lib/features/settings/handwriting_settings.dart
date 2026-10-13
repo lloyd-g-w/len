@@ -29,37 +29,28 @@ class HandwritingSettings extends StatelessWidget {
               title: 'Handwriting',
               description:
                   'Search your handwriting and convert it to text: select it with the lasso, '
-                  'then choose Convert to text. Recognition runs on this device; the text syncs '
-                  'with your notes, so your other devices find your handwriting too.',
+                  'then choose Convert to text. Recognition runs on this device in the '
+                  'background while you aren’t writing; the text syncs with your notes, so your '
+                  'other devices find your handwriting too.',
               children: [
                 _indexing(context),
                 _language(context),
                 if (recognition.modelStatus != ModelStatus.downloaded) _model(context),
               ],
             )
-          : SettingsSection(
-              title: 'Handwriting',
-              description:
-                  'Handwriting is recognised on Android devices running Len and synced as text, '
-                  'so search finds it here too. Converting handwriting to text works on Android.',
-              children: [_synced()],
-            ),
+          // Nothing recognises here: a caption, no row (nothing to do).
+          : SettingsSection(title: 'Handwriting', description: _synced(), children: const []),
     );
   }
 
   /// Where nothing recognises: what came from devices that do.
-  Widget _synced() {
+  String _synced() {
     final indexer = recognition.indexer;
     final lines = indexer.lineCount;
-    return SettingsTile(
-      icon: Symbols.manage_search_rounded,
-      title: 'Search handwriting',
-      subtitle: indexer.isIndexing
-          ? 'Adding handwriting recognised on your other devices…'
-          : lines == 0
-          ? 'Nothing recognised yet.'
-          : '$lines line${lines == 1 ? '' : 's'} from your Android devices can be found here.',
-    );
+    const base =
+        'Handwriting written on Android is recognised there and synced, so search finds it here';
+    if (indexer.isIndexing) return '$base · adding handwriting from your other devices…';
+    return lines == 0 ? base : '$base · $lines line${lines == 1 ? '' : 's'}';
   }
 
   Widget _language(BuildContext context) => SettingsTile(
@@ -94,23 +85,21 @@ class HandwritingSettings extends StatelessWidget {
     final pending = indexer.pendingCount;
     final String status;
     if (!recognition.indexingEnabled) {
-      status = 'Off: search finds typed text and PDFs only.';
+      status = 'Off · search finds typed text and PDFs only';
     } else if (recognition.modelStatus != ModelStatus.downloaded) {
-      status = 'Waits for the language model.';
+      status = 'Waits for the language model';
     } else if (pending > 0) {
       status = indexer.isIndexing
-          ? 'Recognising… $pending page${pending == 1 ? '' : 's'} to go.'
-          : '$pending page${pending == 1 ? '' : 's'} waiting for a quiet moment.';
+          ? 'Recognising… $pending page${pending == 1 ? '' : 's'} to go'
+          : '$pending page${pending == 1 ? '' : 's'} waiting for a quiet moment';
     } else {
       final lines = indexer.lineCount;
-      status = lines == 0
-          ? 'Up to date: no handwriting yet.'
-          : 'Up to date: $lines line${lines == 1 ? '' : 's'} recognised.';
+      status = lines == 0 ? 'Up to date' : 'Up to date · $lines line${lines == 1 ? '' : 's'}';
     }
     return SettingsTile(
       icon: Symbols.manage_search_rounded,
       title: 'Search handwriting',
-      subtitle: 'Recognises handwriting in the background while you are not writing. $status',
+      subtitle: status,
       onTap: () => unawaited(recognition.setIndexingEnabled(!recognition.indexingEnabled)),
       trailing: Switch(
         value: recognition.indexingEnabled,
@@ -129,7 +118,7 @@ class HandwritingSettings extends StatelessWidget {
           : Symbols.download_for_offline_rounded,
       title: 'Language model',
       subtitle: switch (status) {
-        ModelStatus.downloaded => '$name is on this device.',
+        ModelStatus.downloaded => '$name is on this device',
         ModelStatus.downloading => 'Downloading $name…',
         ModelStatus.missing when failed => 'The download failed. Check the connection.',
         ModelStatus.missing =>

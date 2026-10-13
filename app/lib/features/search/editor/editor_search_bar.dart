@@ -129,14 +129,11 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
     final theme = Theme.of(context);
     final count = _c.matches.length;
     final hasMatches = count > 0;
-    // Nothing while the list below says "No matches"; short on phones,
-    // where the field needs the room.
+    // Nothing while the list below says "No matches"; one format everywhere.
     final counter = _c.query.trim().isEmpty || (count == 0 && showList)
         ? ''
         : _c.current >= 0
-        ? (compact ? '${_c.current + 1}/$count' : '${_c.current + 1} of $count')
-        : compact
-        ? '$count found'
+        ? '${_c.current + 1} of $count'
         : (count == 1 ? '1 match' : '$count matches');
     // Compact buttons save room on narrow windows, but not under fingers
     // (they would drop below 48 dp).

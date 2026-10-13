@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
+import '../settings/keyboard_shortcuts.dart' show modifierLabel;
 import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_drag.dart';
@@ -318,21 +319,21 @@ class _SearchField extends StatelessWidget {
 enum NewChoice { notebook, canvas, pdf, folder }
 
 /// The rows of ⊕▾: New notebook, New canvas, Import PDF…, New folder.
-List<PopupMenuEntry<NewChoice>> newMenuItems() => const [
+List<PopupMenuEntry<NewChoice>> newMenuItems() => [
   MenuRow(
     value: NewChoice.notebook,
     icon: Symbols.menu_book_rounded,
     label: 'New notebook',
-    shortcut: 'Ctrl+N',
+    shortcut: '${modifierLabel()}+N',
   ),
-  MenuRow(value: NewChoice.canvas, icon: Symbols.all_inclusive_rounded, label: 'New canvas'),
-  MenuRow(value: NewChoice.pdf, icon: Symbols.picture_as_pdf_rounded, label: 'Import PDF…'),
-  PopupMenuDivider(),
+  const MenuRow(value: NewChoice.canvas, icon: Symbols.all_inclusive_rounded, label: 'New canvas'),
+  const MenuRow(value: NewChoice.pdf, icon: Symbols.picture_as_pdf_rounded, label: 'Import PDF…'),
+  const PopupMenuDivider(),
   MenuRow(
     value: NewChoice.folder,
     icon: Symbols.create_new_folder_rounded,
     label: 'New folder…',
-    shortcut: 'Ctrl+Shift+N',
+    shortcut: '${modifierLabel()}+Shift+N',
   ),
 ];
 

@@ -80,7 +80,7 @@ void main() {
       await tester.tap(find.widgetWithText(SnackBarAction, 'Settings'));
       await tester.pumpAndSettle();
       expect(find.byType(SettingsScreen), findsOneWidget);
-      expect(find.textContaining('Sync is paused until you fix the token'), findsOneWidget);
+      expect(find.textContaining('access token. Sync is paused'), findsOneWidget);
       // Trying again by hand and failing again isn't announced twice.
       await tester.pump(const Duration(seconds: 10));
       await tester.pumpAndSettle();

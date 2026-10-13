@@ -176,7 +176,7 @@ class EditorTopBar extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       if (!compact) ?audio,
-      UndoRedoButtons(target: undo),
+      UndoRedoButtons(target: undo, redoOnlyWhenAvailable: compact),
       EditorMoreMenu(
         actions: actions,
         compact: compact,
@@ -236,7 +236,7 @@ class EditorTopBar extends StatelessWidget {
     );
   }
 
-  /// ← ▦ title ↶ ↷ ⋯ (▦ for paged notebooks: the page overview, whose
+  /// ← ▦ title ↶ (↷) ⋯ (↷ only after an undo; ▦ for paged notebooks: the page overview, whose
   /// filters hold bookmarks and the outline).
   Widget _phone() => Row(
     children: [

@@ -12,6 +12,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
 import '../../../ui/messages.dart';
+import '../../settings/keyboard_shortcuts.dart' show modifierLabel;
 import 'selection_style_panel.dart';
 
 /// A command the editor adds to the selection menu (links):
@@ -111,6 +112,25 @@ class _MenuBar extends StatelessWidget {
   final VoidCallback? onConvertToText;
   final String? convertUnavailable;
 
+  /// Whether a selected element overlaps anything not selected (ink or
+  /// another element), which is when Bring to front / Send to back do
+  /// something visible.
+  bool _overlapsOthers() {
+    final elements = selection.elements;
+    if (elements.isEmpty) return false;
+    final model = selection.model;
+    final ids = {for (final e in elements) e.id};
+    final strokeIds = {for (final s in selection.strokes) s.id};
+    for (final e in elements) {
+      final box = e.bounds;
+      if (model.elementsNear(box).any((o) => !ids.contains(o.id))) return true;
+      if (model.strokesNear(box).any((s) => !strokeIds.contains(s.id) && s.bounds.overlaps(box))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final elements = selection.elements;
@@ -133,13 +153,23 @@ class _MenuBar extends StatelessWidget {
           Symbols.palette_rounded,
           (anchor) => showSelectionStyle(anchor, selection: selection, tools: tools),
         ),
-      _Action('Cut', Symbols.content_cut_rounded, selection.cut, shortcut: 'Ctrl+X'),
-      _Action('Copy', Symbols.content_copy_rounded, selection.copy, shortcut: 'Ctrl+C'),
+      _Action('Cut', Symbols.content_cut_rounded, selection.cut, shortcut: '${modifierLabel()}+X'),
+      _Action(
+        'Copy',
+        Symbols.content_copy_rounded,
+        selection.copy,
+        shortcut: '${modifierLabel()}+C',
+      ),
     ];
     final secondary = <_Action>[
-      _Action('Duplicate', Symbols.library_add_rounded, selection.duplicate, shortcut: 'Ctrl+D'),
+      _Action(
+        'Duplicate',
+        Symbols.library_add_rounded,
+        selection.duplicate,
+        shortcut: '${modifierLabel()}+D',
+      ),
       if (!selection.clipboard.isEmpty)
-        _Action('Paste', Symbols.content_paste_rounded, onPaste, shortcut: 'Ctrl+V'),
+        _Action('Paste', Symbols.content_paste_rounded, onPaste, shortcut: '${modifierLabel()}+V'),
       if (convertible)
         if (convertUnavailable case final reason?)
           // Chosen where it can't work, it says why (a disabled row in a
@@ -154,7 +184,8 @@ class _MenuBar extends StatelessWidget {
       for (final x in extras) _Action.anchored(x.label, x.icon, x.run),
       if (singleImage && onCrop != null)
         _Action('Crop', Symbols.crop_rounded, () => onCrop!(elements.single)),
-      if (elements.isNotEmpty) ...[
+      // Arranging only matters where something else overlaps.
+      if (_overlapsOthers()) ...[
         _Action('Bring to front', Symbols.flip_to_front_rounded, selection.bringToFront),
         _Action('Send to back', Symbols.flip_to_back_rounded, selection.sendToBack),
       ],

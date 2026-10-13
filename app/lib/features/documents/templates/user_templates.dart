@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -10,6 +11,7 @@ import '../../../app_services.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/templates/user_template.dart';
 import '../../../ui/app_dialogs.dart';
+import '../../../ui/error_details.dart';
 import '../../../ui/menus.dart';
 import '../../../ui/text_prompt.dart';
 import '../../editor/images/image_import.dart';
@@ -62,7 +64,17 @@ abstract final class UserTemplates {
     } on Cancelled {
       return null;
     } on Exception catch (e) {
-      if (context.mounted) showMessage(context, 'Could not import ${file.name}: ${_reason(e)}');
+      if (context.mounted) {
+        showMessage(
+          context,
+          'Couldn’t import “${file.name}”',
+          action: SnackBarAction(
+            label: 'Details',
+            onPressed: () =>
+                unawaited(showErrorDetails(context, title: 'Import failed', details: _reason(e))),
+          ),
+        );
+      }
       return null;
     }
   }

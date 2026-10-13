@@ -26,35 +26,37 @@ class SettingsSection extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(Gaps.lg, 0, Gaps.lg, Gaps.sm),
             child: SectionLabel(title),
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: dark ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(Radii.md),
-              // No outlines in light mode (REDESIGN §1.1): a soft raise instead.
-              border: dark ? Border.all(color: scheme.outlineVariant) : null,
-              boxShadow: dark ? null : Shadows.low(theme.brightness),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(Radii.md),
-              child: Material(
-                type: MaterialType.transparency,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = 0; i < children.length; i++) ...[
-                      if (i > 0)
-                        Divider(
-                          height: 1,
-                          indent: SettingsTile.textInset,
-                          color: scheme.outlineVariant.withValues(alpha: 0.6),
-                        ),
-                      children[i],
+          // No card without rows (a section can be only its caption).
+          if (children.isNotEmpty)
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: dark ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(Radii.md),
+                // No outlines in light mode (REDESIGN §1.1): a soft raise instead.
+                border: dark ? Border.all(color: scheme.outlineVariant) : null,
+                boxShadow: dark ? null : Shadows.low(theme.brightness),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(Radii.md),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < children.length; i++) ...[
+                        if (i > 0)
+                          Divider(
+                            height: 1,
+                            indent: SettingsTile.textInset,
+                            color: scheme.outlineVariant.withValues(alpha: 0.6),
+                          ),
+                        children[i],
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
           if (description case final text?)
             Padding(
               padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.sm, Gaps.lg, 0),

@@ -207,7 +207,7 @@ class SyncController extends ChangeNotifier {
       if (!changes.isEmpty) _remoteChanges.add(changes);
       if (engine.takeResync() case final notice?) _notices.add(notice);
     } on SyncException catch (e) {
-      _fail(e.message, cancelled(), kind: e.kind);
+      _fail(e.message, cancelled(), kind: e.kind, details: e.details);
     } catch (e, stack) {
       // Unexpected (e.g. a database error): report it instead of leaving
       // the state stuck on "syncing" or crashing the periodic timer.
