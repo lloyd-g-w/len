@@ -9,6 +9,7 @@ export 'src/config.dart';
 export 'src/cors.dart';
 export 'src/fs_sync.dart';
 export 'src/gc_command.dart';
+export 'src/new_id_command.dart';
 export 'src/record.dart';
 export 'src/record_store.dart';
 export 'src/shutdown.dart';

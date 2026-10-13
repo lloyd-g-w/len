@@ -165,11 +165,18 @@ void main() {
       expect(page.hasMore, isTrue);
     });
 
-    test('since beyond end returns since', () {
-      final page = store.pull(since: 42, limit: 5);
+    test('since at the end returns since', () {
+      final page = store.pull(since: 5, limit: 5);
       expect(page.records, isEmpty);
-      expect(page.nextSince, 42);
+      expect(page.nextSince, 5);
       expect(page.hasMore, isFalse);
+    });
+
+    test('since beyond the end means lost history: new server id', () {
+      final id = store.serverId;
+      expect(() => store.pull(since: 42, limit: 5), throwsA(isA<HistoryLostException>()));
+      expect(store.serverId, isNot(id));
+      expect(store.serverId, matches(RegExp(r'^[0-9a-f]{32}$')));
     });
   });
 
@@ -177,12 +184,26 @@ void main() {
     final dir = await Directory.systemTemp.createTemp('len_store_test');
     final path = '${dir.path}/len.db';
     final a = RecordStore.open(path)..push([rec('1')]);
+    final id = a.serverId;
     a.close();
     final b = RecordStore.open(path);
+    expect(b.serverId, id, reason: 'the id survives restarts');
     expect(b.currentSeq(), 1);
     expect(b.pull(since: 0, limit: 10).records.single.id, '1');
     b.close();
     await dir.delete(recursive: true);
+  });
+
+  test('commits are durable: WAL with synchronous = FULL', () async {
+    final dir = await Directory.systemTemp.createTemp('len_store_sync');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/len.db';
+    final store = RecordStore.open(path);
+    addTearDown(store.close);
+    // RecordStore keeps its connection private; a pragma on another
+    // connection would not tell, so read it through the store's own.
+    expect(store.pragma('journal_mode'), 'wal');
+    expect(store.pragma('synchronous'), 2); // FULL
   });
 
   test('creates the schema at user_version 1; reopening changes nothing', () async {

@@ -60,6 +60,7 @@ void main() {
         'protocol': 1,
         'maxBlobBytes': defaultMaxBlobBytes,
         'blobsCollectedAt': 0,
+        'serverId': store.serverId,
       });
     });
 
@@ -112,6 +113,55 @@ void main() {
     expect((page['records'] as List).single, {...record('b'), 'seq': 2});
     expect(page['nextSince'], 2);
     expect(page['hasMore'], false);
+  });
+
+  group('a client ahead of the server (restored backup, replaced server)', () {
+    test('pull is 409 and the server takes a new id', () async {
+      await send(
+        'POST',
+        '/v1/push',
+        body: {
+          'records': [record('a')],
+        },
+      );
+      final id = store.serverId;
+      final r = await send('GET', '/v1/pull?since=2');
+      expect(r.statusCode, 409);
+      expect((await jsonOf(r))['error'], contains('history lost'));
+      expect(store.serverId, isNot(id));
+      expect((await send('GET', '/v1/pull?since=1')).statusCode, 200);
+    });
+
+    test('push is 409, applies nothing, and the server takes a new id', () async {
+      final id = store.serverId;
+      final r = await send(
+        'POST',
+        '/v1/push',
+        body: {
+          'since': 5,
+          'records': [record('a')],
+        },
+      );
+      expect(r.statusCode, 409);
+      expect(store.currentSeq(), 0);
+      expect(store.serverId, isNot(id));
+      final ok = await send(
+        'POST',
+        '/v1/push',
+        body: {
+          'since': 0,
+          'records': [record('a')],
+        },
+      );
+      expect(ok.statusCode, 200);
+    });
+
+    test('push since must be a non-negative integer', () async {
+      for (final since in [-1, '1', 1.5]) {
+        final r = await send('POST', '/v1/push', body: {'since': since, 'records': <Object>[]});
+        expect(r.statusCode, 400, reason: '$since');
+      }
+    });
   });
 
   test('pull defaults since to 0', () async {
