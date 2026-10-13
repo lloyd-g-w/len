@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app.dart';
@@ -123,6 +124,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(NotebookCard), findsNWidgets(2));
     expect(find.text('School'), findsWidgets); // Location subtitle.
+  });
+
+  testWidgets('at large text on a phone, card captions use the full width', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpSeeded(tester, (s) => addNotebook(s, 'Travel plans'), size: const Size(390, 844));
+    final card = find.byType(NotebookCard).first;
+    final paragraphs = tester
+        .renderObjectList<RenderParagraph>(
+          find.descendant(of: card, matching: find.byType(RichText)),
+        )
+        .toList();
+    // Title and caption: neither cut short.
+    expect(paragraphs.where((p) => p.didExceedMaxLines), isEmpty);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the New… tile starts the grid and opens the create flow', (tester) async {
