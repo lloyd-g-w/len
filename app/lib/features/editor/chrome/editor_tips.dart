@@ -20,6 +20,13 @@ enum EditorTip {
 
   /// What the lasso does (the first time it is picked; it has no options).
   lasso,
+
+  /// Hold to snap (after a line or shape drawn by hand, once the pen has
+  /// rested a moment).
+  holdToSnap,
+
+  /// Scribble to erase (the second time the eraser is picked).
+  scribble,
 }
 
 /// What a shown tip says.
@@ -44,8 +51,15 @@ class TipsController extends ValueNotifier<TipMessage?> {
 
   static const Duration visibleFor = Duration(seconds: 10);
 
+  /// How long the pen must rest after a hand-drawn shape before
+  /// [EditorTip.holdToSnap] shows: never while writing on.
+  static const Duration calmFor = Duration(seconds: 2);
+
   Timer? _timer;
+  Timer? _calm;
   int _undoTaps = 0;
+  int _eraserPicks = 0;
+  int Function() _activity = _none;
   ToolSettings? _tools;
   EditorTool? _tool;
   bool Function()? _hasPdf;
@@ -53,34 +67,60 @@ class TipsController extends ValueNotifier<TipMessage?> {
   bool Function() _selected = _nothing;
 
   static bool _nothing() => false;
+  static int _none() => 0;
 
   /// Offers [EditorTip.lasso] the first time [tools] switch to the lasso
   /// (mentioning PDF text where the notebook [hasPdf]). The tip never
   /// covers a selection: it waits while something is [selected] and goes
   /// as soon as a selection is made (the user did what it says; [selection]
-  /// notifies) or another tool is picked.
+  /// notifies) or another tool is picked. The second pick of the eraser
+  /// offers [EditorTip.scribble] (with scribble to erase on). [activity]
+  /// changes whenever the pen writes (see [shapeDrawn]).
   void followTools(
     ToolSettings tools, {
     bool Function()? hasPdf,
     Listenable? selection,
     bool Function()? selected,
+    int Function()? activity,
   }) {
     _tools = tools..addListener(_onTools);
     _tool = tools.tool;
     _hasPdf = hasPdf;
     _selection = selection?..addListener(_onSelection);
     _selected = selected ?? _nothing;
+    _activity = activity ?? _none;
   }
 
   void _onTools() {
-    final tool = _tools!.tool;
+    final tools = _tools!;
+    final tool = tools.tool;
     if (tool == _tool) return;
     _tool = tool;
+    if (tool == EditorTool.eraser && ++_eraserPicks == 2 && tools.scribbleToErase) {
+      offer(EditorTip.scribble);
+    }
     if (tool != EditorTool.lasso) {
       if (value?.tip == EditorTip.lasso) dismiss();
     } else if (!_selected()) {
       offer(EditorTip.lasso, pdf: _hasPdf?.call() ?? false);
     }
+  }
+
+  /// Whether [EditorTip.holdToSnap] is still to be shown (the editor then
+  /// looks for hand-drawn shapes).
+  bool get wantsShapes => !seen(EditorTip.holdToSnap.name);
+
+  /// A line or shape was drawn by hand with hold to snap on: once the pen
+  /// has rested for [calmFor] (no new ink: [activity] unchanged), offers
+  /// [EditorTip.holdToSnap]. Writing on puts it off to the next shape.
+  void shapeDrawn() {
+    final tools = _tools;
+    if (!wantsShapes || (tools != null && !tools.holdToStraighten)) return;
+    final at = _activity();
+    _calm?.cancel();
+    _calm = Timer(calmFor, () {
+      if (_activity() == at && (_tools?.holdToStraighten ?? true)) offer(EditorTip.holdToSnap);
+    });
   }
 
   void _onSelection() {
@@ -126,6 +166,16 @@ class TipsController extends ValueNotifier<TipMessage?> {
         Symbols.touch_app_sharp,
         'Tap with two fingers to undo, three to redo',
       ),
+      EditorTip.holdToSnap => TipMessage(
+        tip,
+        Symbols.shape_line_sharp,
+        'Hold the pen still at the end of a line or shape to snap it clean',
+      ),
+      EditorTip.scribble => TipMessage(
+        tip,
+        Symbols.ink_eraser_sharp,
+        'Or scribble over ink with the pen to erase it',
+      ),
       EditorTip.lasso => TipMessage(
         tip,
         Symbols.highlight_alt_sharp,
@@ -152,6 +202,7 @@ class TipsController extends ValueNotifier<TipMessage?> {
     _tools?.removeListener(_onTools);
     _selection?.removeListener(_onSelection);
     _timer?.cancel();
+    _calm?.cancel();
     super.dispose();
   }
 }

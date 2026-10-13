@@ -22,8 +22,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   scrolls keep tiles, large edits swap in together, pages render ahead, rasterised page
   thumbnails); tablet numbers in docs/INK_LAB.md (the last round measured headless only)
 - ✅ Pixel (partial) eraser, eraser size, "erase highlighter only"
-- ✅ Scribble to erase: a quick back-and-forth pen scribble over ink erases it (Pen › Feel); what
-  will go dims while scribbling
+- ✅ Scribble to erase: a quick back-and-forth pen scribble over ink erases it where it zigzags
+  (Settings → Writing, taught once by a tip); what will go dims while scribbling
 
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate

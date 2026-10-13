@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/editor_tools.dart';
+import 'package:len/features/editor/pen/eraser_options_panel.dart';
 import 'package:len/features/editor/pen/highlighter_options_panel.dart';
 import 'package:len/features/editor/pen/ink_slots.dart';
 import 'package:len/features/editor/pen/pen_options_panel.dart';
@@ -74,42 +75,39 @@ void main() {
     final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
     expect(sliders.last.onChanged, isNull);
     expect(tools.configOf(InkTool.ballpoint).straight, isFalse);
-    // Hold to snap has one home, the pen's Feel.
+    // Hold to snap has one home, Settings → Writing.
     expect(find.text('Hold to snap'), findsNothing);
   });
 
-  testWidgets('shapes: one line points to hold to snap in the pen', (tester) async {
+  testWidgets('shapes: one line points to hold to snap in Settings → Writing (R8-33)', (
+    tester,
+  ) async {
     await pump(tester, ShapeOptionsPanel(tools: tools));
-    expect(find.text('Hold the pen still to snap a shape — Pen › Feel'), findsOneWidget);
+    expect(find.text('Hold the pen still to snap a shape (Settings → Writing)'), findsOneWidget);
     expect(find.byType(Switch), findsNothing);
+    tools.holdToStraighten = false;
+    await tester.pump();
+    expect(find.text('Hold to snap is off in Settings → Writing'), findsOneWidget);
   });
 
-  testWidgets('pen: hold to snap lives at the end of Feel, after Reset feel (R7-3)', (
+  testWidgets('the pen has no gesture switches: they live in Settings → Writing (R8-26)', (
     tester,
   ) async {
     final pen = editorTools(tools).first;
     await pump(tester, SingleChildScrollView(child: Builder(builder: pen.options!)));
     await tester.tap(find.text('Feel'));
     await tester.pumpAndSettle();
-    final reset = tester.getTopLeft(find.text('Reset feel')).dy;
-    expect(tester.getTopLeft(find.text('Hold to snap')).dy, greaterThan(reset));
-    tools.updateConfig(InkTool.ballpoint, (c) => c.copyWith(thinning: 0));
+    expect(find.text('Reset feel'), findsOneWidget);
+    expect(find.text('Hold to snap'), findsNothing);
+    expect(find.text('Scribble to erase'), findsNothing);
+  });
+
+  testWidgets('the eraser mentions scribbling while it is on (R8-26)', (tester) async {
+    await pump(tester, EraserOptionsPanel(tools: tools));
+    expect(find.text('Or scribble over ink with the pen'), findsOneWidget);
+    tools.scribbleToErase = false;
     await tester.pump();
-    await tester.ensureVisible(find.text('Hold to snap'));
-    await tester.tap(find.text('Hold to snap'));
-    await tester.pump();
-    expect(tools.holdToStraighten, isFalse);
-    await tester.ensureVisible(find.text('Reset feel'));
-    await tester.tap(find.text('Reset feel'));
-    await tester.pump();
-    expect(tools.configOf(InkTool.ballpoint).thinning, isNot(0));
-    expect(tools.holdToStraighten, isFalse, reason: 'Reset feel covers what is above it');
-    // Scribble to erase sits with it, on by default.
-    expect(tools.scribbleToErase, isTrue);
-    await tester.ensureVisible(find.text('Scribble to erase'));
-    await tester.tap(find.text('Scribble to erase'));
-    await tester.pump();
-    expect(tools.scribbleToErase, isFalse);
+    expect(find.text('Or scribble over ink with the pen'), findsNothing);
   });
 
   testWidgets('a picked slot colour becomes recent; a recent colour applies', (tester) async {

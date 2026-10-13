@@ -225,14 +225,14 @@ class InkDrawing {
       // A bounce was shown while it touched (under the nib, where the pen
       // just lifted, for less than `BounceFilter.maxContact`) and goes now.
       if (points.isNotEmpty && !_isBounce(liftTime) && !_scribble.erase(model, snapped: snapped)) {
-        _commit(points, liftTime);
+        _commit(points, liftTime, snapped: snapped);
       }
       _recordLift(liftTime);
     }
     _reset();
   }
 
-  void _commit(List<StrokePoint> points, Duration? liftTime) {
+  void _commit(List<StrokePoint> points, Duration? liftTime, {required bool snapped}) {
     final stroke = Stroke(
       id: clock.newId(),
       surfaceId: model.surfaceId,
@@ -252,6 +252,7 @@ class InkDrawing {
         return model.commit(InkEdit(added: snapped));
       }
     }
+    if (!snapped) _hintShape(stroke);
     // The live outline's builder completes it (cheaply) at pen-up.
     final path = LiveStrokeBuilder.finishLive(
       live,
@@ -264,6 +265,16 @@ class InkDrawing {
     _committedTaper = StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style).taperEnd;
     PerfProbe.lift(liftTime);
     developer.Timeline.timeSync('len.commitStroke', () => model.addStroke(stroke));
+  }
+
+  /// Tells [events] about a line or shape drawn without hold to snap (only
+  /// while someone listens: the recogniser isn't free).
+  void _hintShape(Stroke stroke) {
+    final hint = events.shapeDrawn;
+    if (hint == null || !tools.holdToStraighten || stroke.tool != InkTool.ballpoint) return;
+    if (HoldToStraighten.wouldSnap([for (final p in stroke.points) p.offset], viewport.scale)) {
+      hint();
+    }
   }
 
   /// Whether the contact that just ended was an accidental stylus bounce.

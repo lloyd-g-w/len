@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../domain/stroke.dart';
 import '../geometry/straighten.dart';
+import '../shapes/polyline.dart';
 import '../shapes/shape_builder.dart';
 import '../shapes/shape_kind.dart';
 import '../shapes/shape_recognizer.dart';
@@ -33,6 +34,30 @@ class HoldToStraighten {
 
   /// Strokes shorter than this (screen pixels) are never straightened.
   static const double minLength = 24;
+
+  /// The shortest open stroke (screen pixels) [wouldSnap] counts as a
+  /// line someone might have wanted straight, and the smallest closed one.
+  static const double hintLine = 120, hintShape = 48;
+
+  /// Whether [points] (world, at [scale]) were drawn as a clean line or
+  /// shape would be: a long, nearly straight stroke, or a closed one that
+  /// is recognised as a shape. For teaching hold to snap, not for snapping.
+  static bool wouldSnap(List<Offset> points, double scale) {
+    if (points.length < 2) return false;
+    final shape = ShapeRecognizer.recognize(points);
+    if (shape == null) return false;
+    final bounds = Polyline.bounds(points);
+    if (shape.kind != ShapeKind.line) return bounds.longestSide * scale >= hintShape;
+    final a = points.first, b = points.last, chord = b - a;
+    final length = chord.distance;
+    if (length * scale < hintLine) return false;
+    // Nearly straight already: no point further than 4 % of it off the chord.
+    for (final p in points) {
+      final off = (chord.dx * (p.dy - a.dy) - chord.dy * (p.dx - a.dx)).abs() / length;
+      if (off > 0.04 * length) return false;
+    }
+    return true;
+  }
 
   Timer? _timer;
   Offset? _anchor;

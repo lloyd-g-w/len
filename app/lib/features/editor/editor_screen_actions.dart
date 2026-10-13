@@ -35,6 +35,13 @@ extension _EditorActions on _EditorScreenState {
     if (mounted && !_closing) showMessage(context, 'Scribble erases ink only');
   }
 
+  /// A line or shape drawn by hand: the hold to snap tip, until it was
+  /// shown (then nothing looks for shapes any more).
+  void _onShapeDrawn() {
+    if (_tips.wantsShapes) return _tips.shapeDrawn();
+    _session.input.events.shapeDrawn = null;
+  }
+
   void _onMultiFingerTap(int fingers) => runMultiFingerTap(_session, fingers, _hud);
 
   void _setStylusOnly(bool value) {

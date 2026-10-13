@@ -149,7 +149,8 @@ class _EditorScreenState extends State<_EditorView> {
   /// notebook's editors.
   NotebookAudio get _audio => _shared.audio;
 
-  /// One-time tips (stylus side button, the undo gesture, the lasso).
+  /// One-time tips (stylus side button, the undo gesture, the lasso, hold
+  /// to snap, scribble to erase).
   late final TipsController _tips =
       TipsController(
         seen: (id) => _services.settings.seenTips.contains(id),
@@ -160,6 +161,7 @@ class _EditorScreenState extends State<_EditorView> {
         selection: Listenable.merge([_session.content.selection, _session.pdf?.selection]),
         selected: () =>
             !_session.content.selection.isEmpty || !(_session.pdf?.selection.isEmpty ?? true),
+        activity: () => _session.live.revision,
       );
 
   /// In-notebook search, Ctrl+F (features/search).
@@ -225,7 +227,9 @@ class _EditorScreenState extends State<_EditorView> {
     _services.openNotebooks.addListener(_onTabs);
     _services.preferences.addListener(_onPreferences);
     _audio.onNotice = _onAudioNotice;
-    _session.input.events.scribbleMissed = _onScribbleMissed;
+    _session.input.events
+      ..scribbleMissed = _onScribbleMissed
+      ..shapeDrawn = _tips.wantsShapes ? _onShapeDrawn : null;
     _services.incomingFiles.targets.add(_importTarget);
     // Of two editors (split view), files go to the one used last.
     _focusNode.addListener(_onFocus);
@@ -318,14 +322,18 @@ class _EditorScreenState extends State<_EditorView> {
     _services.routeOwners.current = this; // Dialogs opened by keyboard.
   }
 
-  /// Toolbar placement, stylus-only and the side button changed elsewhere
-  /// (e.g. in the settings opened from the editor).
+  /// Toolbar placement, stylus-only, the side button and the writing
+  /// gestures changed elsewhere (e.g. in the settings opened from the
+  /// editor).
   void _onPreferences() {
     if (!mounted) return;
     final prefs = _services.preferences;
     final stylusOnly = prefs.stylusOnly;
     if (stylusOnly != _session.tools.stylusOnly) _session.tools.stylusOnly = stylusOnly;
-    _session.tools.penButtonErases = prefs.penButtonAction == PenButtonAction.eraser;
+    _session.tools
+      ..penButtonErases = prefs.penButtonAction == PenButtonAction.eraser
+      ..holdToStraighten = prefs.holdToSnap
+      ..scribbleToErase = prefs.scribbleToErase;
     setState(() {});
   }
 

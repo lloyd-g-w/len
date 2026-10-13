@@ -493,6 +493,19 @@ void main() {
     await tester.tap(find.text('Tap to undo and redo'));
     await tester.pumpAndSettle();
     expect(services.preferences.fingerTapUndo, isFalse);
+    // The pen's gestures live here too (R8-26), on until turned off.
+    for (final (label, value) in [
+      ('Hold to snap', () => services.preferences.holdToSnap),
+      ('Scribble to erase', () => services.preferences.scribbleToErase),
+    ]) {
+      expect(value(), isTrue);
+      await tester.ensureVisible(find.text(label));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      expect(value(), isFalse, reason: label);
+    }
+    expect(services.settings.holdToSnap, isFalse, reason: 'kept');
   });
 
   testWidgets('narrow settings list every section in one column', (tester) async {

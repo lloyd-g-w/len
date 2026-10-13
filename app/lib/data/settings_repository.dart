@@ -116,6 +116,16 @@ class SettingsRepository {
   bool get fingerTapUndo => _get(_fingerTapUndo) != 'false';
   set fingerTapUndo(bool value) => _set(_fingerTapUndo, '$value');
 
+  /// Holding the pen still at the end of a stroke snaps it to a clean line
+  /// or shape (default on).
+  bool get holdToSnap => _get('hold_to_snap') != 'false';
+  set holdToSnap(bool value) => _set('hold_to_snap', '$value');
+
+  /// A quick back-and-forth scribble with the pen over ink erases it
+  /// (default on).
+  bool get scribbleToErase => _get('scribble_to_erase') != 'false';
+  set scribbleToErase(bool value) => _set('scribble_to_erase', '$value');
+
   /// What holding the stylus side button does (default: eraser).
   PenButtonAction get penButtonAction => PenButtonAction.parse(_get(_penButtonAction));
   set penButtonAction(PenButtonAction value) => _set(_penButtonAction, value.name);

@@ -354,8 +354,12 @@ or deleted pages in order with ink. Snack bars' Undo calls
   to undo / redo (the third ↶ tap in an editor on touch with finger-tap undo on); what
   the lasso does (the first time it is picked; it waits while something is selected
   and goes with the first selection, ink or PDF text, or another tool, so it never
-  covers a selection or its menu). The gesture HUD names multi-finger taps
-  when they happen.
+  covers a selection or its menu); hold to snap (after a pen line or shape drawn by hand
+  that it would have cleaned up, `HoldToStraighten.wouldSnap` via `InkEvents.shapeDrawn`,
+  once the pen has rested 2 s: a new stroke puts it off to the next shape, so never
+  while writing); scribble to erase (the second time the eraser is picked). Both only
+  while their switch in Settings → Writing is on. The gesture HUD names multi-finger
+  taps when they happen.
 - **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
   the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
@@ -1485,9 +1489,12 @@ defaults as a whole.
 The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
 and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
-lines); on their own, their Reset restores the feel settings. The pen's
-global gestures (`PenGestures`: hold to snap, scribble to erase) follow "Reset feel" at the
-end of the pen's Feel, under a rule; it is their only home.
+lines); on their own, their Reset restores the feel settings. The writing
+gestures hold to snap and scribble to erase are app preferences
+(`AppPreferences.holdToSnap` / `scribbleToErase`), whose one home is
+Settings → Writing beside "Tap to undo and redo"; the editor mirrors them
+into `ToolSettings` (not saved with the tools). The Shapes popover points
+there, and the eraser panel mentions scribbling while it is on.
 The preview (`StrokePreview` / `PreviewCard`, `pen/stroke_preview.dart`)
 draws with the real renderer at the real size and colour on the paper the
 user writes on (`InkPaper`, provided by the editor chrome from the current
@@ -1563,14 +1570,14 @@ Page with template…).
   inks (`InkOptions`: live preview, the selected slot's colour — the pen
   palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
   logarithmic slider in mm, then *Feel* collapsed (ending in "Reset feel",
-  which keeps the quick colours and sizes; inks have no whole-tool Reset;
-  the pen's then has `PenGestures`),
+  which keeps the quick colours and sizes; inks have no whole-tool Reset),
   then *Toolbar* collapsed ("3 colours · 3 sizes": "Quick colours / Quick
   sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
   none for the lasso (`ToolDescriptor.options` null: tapping it again does
   nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: seven
-  kinds in one row, and a caption pointing to hold to snap in Pen › Feel);
+  kinds in one row, and a caption pointing to hold to snap in Settings →
+  Writing, or saying it is off there);
   `TextOptionsPanel`;
   `LaserOptionsPanel` (`ToolSettings.laser`: dot / trail, colours, size,
   trail length). `pickColour` (`tools/colour_sheet.dart`; text and

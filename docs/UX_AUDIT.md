@@ -53,7 +53,7 @@ grew apart.
 7. R8-7 (P1) Phones: the notice, Recent and folders push the first cover
    below the middle of the screen. Held sideways, the notice takes 27 % of
    the height.
-8. R8-26 (P1) Scribble to erase and hold to snap are never taught. They sit
+8. ✅ R8-26 (P1) Scribble to erase and hold to snap are never taught. They sit
    under "Reset feel" in the collapsed Feel section, below the fold.
 9. R8-2 (P1) Move or copy pages isn't in the editor's page menu, only in
    the page overview.
@@ -407,7 +407,7 @@ purge at once.**
   (`scribble_to_erase_test.dart`); the Ink Lab recordings still never
   scribble (`fix/r8-pen`).
 
-**R8-26 P1 · Gestures that change every stroke are hidden and never
+✅ **R8-26 P1 · Gestures that change every stroke are hidden and never
 taught.**
 - *What:* "Hold to snap" and "Scribble to erase" live after "Reset feel",
   at the end of the Feel section, which starts collapsed
@@ -424,8 +424,16 @@ taught.**
     someone without a side button picks the eraser.
   - One caption in the eraser panel: "Or scribble over ink with the pen".
   - See Simplify for their home.
+- *Done (lead decision: one home):* "Hold to snap" and "Scribble to
+  erase" are writing gestures in Settings → Writing, beside "Tap to undo
+  and redo" (`AppPreferences`, mirrored into `ToolSettings`); the pen's
+  Feel no longer has them. Each is taught once with a tip: hold to snap
+  after a pen line or shape drawn by hand that it would have cleaned up,
+  once the pen has rested 2 s (writing on puts it off); scribble to erase
+  the second time the eraser is picked. The eraser panel says "Or
+  scribble over ink with the pen" while it is on (`fix/r8-pen`).
 
-**R8-27 P2 · Text snapping hangs on "Hold to snap".**
+✅ **R8-27 P2 · Text snapping hangs on "Hold to snap".**
 - *What:* highlights snap to PDF text only while `holdToStraighten` is on
   (`ink/input/ink_drawing.dart:242`). Text snapping needs no hold.
 - The highlighter's panel says nothing about it.
@@ -435,6 +443,9 @@ taught.**
 - *Fix:* make text snapping unconditional (see Simplify), and shorten the
   caption to "Hold the pen still at the end of a stroke for a clean line
   or shape".
+- *Done:* text snapping needs no hold (see R8-30 and Simplify); the
+  Settings caption reads "Hold the pen still at the end of a stroke for a
+  clean line or shape"; ROADMAP updated (`fix/r8-pen`).
 
 ✅ **R8-28 P2 · A snapped line can be erased as a scribble.**
 - *What:* `_enabled` checks `!live.straightened`
@@ -502,7 +513,7 @@ word.**
   keeps the zigzags it found; the preview asks the model again only when
   they grew, and only along them (`fix/r8-pen`).
 
-**R8-33 P2 · The Shapes caption points to a switch that may be off, in
+✅ **R8-33 P2 · The Shapes caption points to a switch that may be off, in
 template typography.**
 - *What:* "Hold the pen still to snap a shape — Pen › Feel"
   (`features/editor/tools/shape_options_panel.dart:63`) shows even when
@@ -510,6 +521,8 @@ template typography.**
   calls a tell.
 - *Fix:* "Hold the pen still to snap a shape (in the pen's options)".
   When the switch is off, say "Hold to snap is off in the pen's options".
+- *Done:* "Hold the pen still to snap a shape (Settings → Writing)", or
+  "Hold to snap is off in Settings → Writing" while it is (`fix/r8-pen`).
 
 ### Whole app
 
@@ -543,17 +556,18 @@ template typography.**
 
 ### Simplify
 
-- **Text snapping always on.** A highlight that runs ≥ 70 % along text
+- ✅ **Text snapping always on.** A highlight that runs ≥ 70 % along text
   lines (`pdf_highlight_snap.dart:26`) wants to be clean. Drop the
   `holdToStraighten` gate (`ink_drawing.dart:242`), and with it the
   coupling in R8-27.
-- **One home for writing gestures.** Settings → Writing already holds
+- ✅ **One home for writing gestures.** Settings → Writing already holds
   "Draw with finger", "Side button" and "Tap to undo and redo"
   (`settings/writing_settings.dart`). "Hold to snap" and "Scribble to
   erase" are just as global, but sit in Pen › Feel after a per-pen reset.
   Lead decision to revisit R7-3: either move both to Settings → Writing
   (the pen panel keeps one caption), or lift them out of the collapsed
   Feel to the end of the pen popover. Both on by default, as now.
+  *Done:* both in Settings → Writing (lead decision).
 - **One import destination.** What the file is decides where it goes: a
   notebook or folder goes into the open folder, a backup goes to the top
   level (R8-15). Settings → Restore stays a shortcut to the same flow.
