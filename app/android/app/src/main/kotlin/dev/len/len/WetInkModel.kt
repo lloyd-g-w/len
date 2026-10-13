@@ -60,6 +60,15 @@ class WetInkShape(v: DoubleArray) {
     }
 }
 
+/**
+ * A device pressure normalised to 0..1 as a stroke stores it: clamped to
+ * 0.05..1, then Dart's `PressureCurve` (`4p / (3p + 1)`, 0.2 is medium).
+ */
+fun strokePressure(normalised: Double): Double {
+    val p = normalised.coerceIn(0.05, 1.0)
+    return 4 * p / (3 * p + 1)
+}
+
 /** A sample as the overlay keeps it (pressure already smoothed). */
 class WetSample(val x: Double, val y: Double, var pressure: Double, val timeMs: Long)
 
@@ -113,7 +122,7 @@ class WetInkModel(
     /** Adds a digitiser sample ([pressure] normalised to 0..1); [lift] marks the pen-up one. */
     fun add(x: Double, y: Double, pressure: Double, timeMs: Long, lift: Boolean = false) {
         if (lifted) return
-        val norm = pressure.coerceIn(0.05, 1.0)
+        val norm = strokePressure(pressure)
         if (!lift || this.pressure < 0) {
             this.pressure = if (this.pressure < 0) {
                 norm

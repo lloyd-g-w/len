@@ -1,3 +1,22 @@
+/// How hard a stylus presses (its device pressure, normalised to 0..1) maps
+/// to the pressure a stroke stores, where 0.5 is medium: the pen's nominal
+/// width, and what input without pressure (fingers, a mouse) gets.
+///
+/// Handwriting presses lightly: an S Pen reports about 0.07–0.34 for most
+/// of a line of writing (median 0.13, `real_spen_01`). Taken as is, the
+/// ink came out 18 % thinner than the pen's width and barely followed the
+/// hand (5 % width change within a stroke). The curve `4p / (3p + 1)` is
+/// steep where the hand writes and flat where it presses hard: 0.2 is
+/// medium, 0.07 → 0.22, 0.13 → 0.36, 0.34 → 0.67, 1 → 1. Only +, × and ÷,
+/// so the low-latency overlay's Kotlin port computes the same bits.
+abstract final class PressureCurve {
+  /// The stored pressure for a normalised device pressure [p] (0..1).
+  static double apply(double p) => 4 * p / (3 * p + 1);
+
+  /// The device pressure that maps to medium (0.5).
+  static const double medium = 0.2;
+}
+
 /// Cleans up raw stylus pressure before it shapes a stroke.
 ///
 /// Digitisers report noisy pressure, and the sample at pen-up is unreliable:
