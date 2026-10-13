@@ -273,7 +273,7 @@ class _SearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 40,
+      height: Targets.menuRowHeight(context),
       child: ListenableBuilder(
         listenable: controller,
         builder: (context, _) => TextField(
