@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/stroke.dart';
 import '../../../ink/pen/pen_config.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/group_header.dart';
 import 'option_controls.dart';
 
 /// Per-pen cap shape. The preview above this control renders the selected
@@ -21,7 +22,7 @@ class PenEndsOptions extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Ends', style: Theme.of(context).textTheme.labelLarge),
+          const GroupHeader('Ends'),
           const SizedBox(height: Gaps.xs),
           SegmentedButton<StrokeEnds>(
             showSelectedIcon: false,

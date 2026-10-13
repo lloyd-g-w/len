@@ -11,12 +11,14 @@ import 'scroll_fade.dart';
 /// widget (e.g. the button that opened it) on tablets and desktops — or
 /// everywhere, without [sheetOnPhones] (small, quick menus such as the tool
 /// switcher). Popovers have no buttons: changes apply live, and an outside
-/// tap or Esc closes them.
+/// tap or Esc closes them. An [anchor] rectangle (global) overrides the
+/// widget's own, e.g. to keep clear of the whole bar a button sits in.
 Future<T?> showAdaptivePopover<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   double width = popoverWidth,
   bool sheetOnPhones = true,
+  Rect? anchor,
 }) {
   if (sheetOnPhones && popoverIsSheet(context)) {
     return showModalBottomSheet<T>(
@@ -27,6 +29,7 @@ Future<T?> showAdaptivePopover<T>({
       builder: (context) => ScrollFade(
         axis: Axis.vertical,
         extent: Gaps.xl,
+        scrollbar: true,
         padding: EdgeInsets.fromLTRB(
           Gaps.lg,
           0,
@@ -38,10 +41,9 @@ Future<T?> showAdaptivePopover<T>({
     );
   }
   final box = context.findRenderObject()! as RenderBox;
-  final anchor = box.localToGlobal(Offset.zero) & box.size;
   return Navigator.of(context).push(
     _PopoverRoute<T>(
-      anchor: anchor,
+      anchor: anchor ?? box.localToGlobal(Offset.zero) & box.size,
       width: width,
       builder: builder,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
@@ -110,6 +112,7 @@ class _PopoverRoute<T> extends PopupRoute<T> {
             child: ScrollFade(
               axis: Axis.vertical,
               extent: Gaps.xl,
+              scrollbar: true,
               padding: const EdgeInsets.all(Gaps.lg),
               child: Builder(builder: builder),
             ),
@@ -155,7 +158,7 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
   final EdgeInsets padding;
 
   static const double _margin = 8;
-  static const double _gap = 4;
+  static const double _gap = Motion.popoverDrop;
 
   double _spaceBelow(Size size) => size.height - padding.bottom - anchor.bottom - _gap - _margin;
   double _spaceAbove() => anchor.top - padding.top - _gap - _margin;

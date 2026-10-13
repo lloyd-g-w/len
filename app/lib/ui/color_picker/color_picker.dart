@@ -102,7 +102,6 @@ class _ColorPickerState extends State<ColorPicker> {
           label: 'Hue',
           value: _hsv.hue / 360,
           colors: GradientSlider.hues,
-          thumbColor: HSVColor.fromAHSV(1, _hsv.hue, 1, 1).toColor(),
           onChanged: (t) => _setHsv(_hsv.withHue(t * 360)),
         ),
         if (widget.showOpacity) ...[
@@ -111,7 +110,6 @@ class _ColorPickerState extends State<ColorPicker> {
             label: 'Opacity',
             value: _hsv.alpha,
             colors: [opaque.withValues(alpha: 0), opaque],
-            thumbColor: _hsv.toColor(),
             checkerboard: true,
             onChanged: (t) => _setHsv(_hsv.withAlpha(t)),
           ),
@@ -162,6 +160,8 @@ class _HexRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme.bodyMedium!
+        .copyWith(fontFeatures: AppTheme.tabularFigures);
     return Row(
       children: [
         Container(
@@ -179,13 +179,15 @@ class _HexRow extends StatelessWidget {
             controller: controller,
             onChanged: onChanged,
             maxLength: 9,
-            decoration: const InputDecoration(
-              prefixText: '# ',
+            // The UI face with tabular figures, the "#" in the same face.
+            decoration: InputDecoration(
+              prefixText: '#',
+              prefixStyle: text.copyWith(color: scheme.onSurfaceVariant),
               counterText: '',
               isDense: true,
               hintText: 'RRGGBB',
             ),
-            style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
+            style: text,
           ),
         ),
         if (alpha case final alpha?) ...[

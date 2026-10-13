@@ -11,6 +11,7 @@ Future<int?> pickColour(
   required int initial,
   required ToolSettings tools,
   ValueChanged<int>? live,
+  Rect? anchor,
 }) async {
   final picked = await pickColor(
     context,
@@ -18,6 +19,7 @@ Future<int?> pickColour(
     initial: initial,
     recent: tools.recentColors,
     live: live,
+    anchor: anchor,
   );
   if (picked case final colour?) tools.addRecentColor(colour);
   return picked;

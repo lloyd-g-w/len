@@ -57,7 +57,7 @@ class LaserOptionsPanel extends StatelessWidget {
               selected: {laser.mode},
               onSelectionChanged: (s) => update(laser.copyWith(mode: s.single)),
             ),
-            const SizedBox(height: Gaps.md),
+            const SizedBox(height: Gaps.sm),
             ColorChoices(
               color: laser.color,
               palette: LaserConfig.presets,
@@ -101,10 +101,20 @@ class LaserPreview extends StatelessWidget {
 
   final LaserConfig config;
 
+  /// The backdrop: a neutral dark grey in both themes, like a dimmed
+  /// presentation (the laser's glow needs the dark).
+  static final Color backdrop = Tones.dark.board;
+
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(Radii.sm),
+    // Framed like the ink previews: a Rule edge, radius sm.
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: backdrop,
+        borderRadius: BorderRadius.circular(Radii.sm),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
       child: SizedBox(height: 64, child: CustomPaint(painter: _PreviewPainter(config))),
     );
   }
@@ -117,7 +127,6 @@ class _PreviewPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF26282C));
     final color = Color(config.color);
     final end = Offset(size.width * 0.82, size.height * 0.5);
     if (config.mode == LaserMode.trail) {

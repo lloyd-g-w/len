@@ -10,6 +10,7 @@ class ScrollFade extends StatefulWidget {
     this.extent = 24,
     this.axis = Axis.horizontal,
     this.padding,
+    this.scrollbar = false,
   });
 
   final Widget child;
@@ -22,6 +23,10 @@ class ScrollFade extends StatefulWidget {
 
   /// Padding inside the scroller.
   final EdgeInsetsGeometry? padding;
+
+  /// Also shows the scrollbar while the content overflows (a tall popover,
+  /// where a faded end alone is easy to miss).
+  final bool scrollbar;
 
   @override
   State<ScrollFade> createState() => _ScrollFadeState();
@@ -52,6 +57,10 @@ class _ScrollFadeState extends State<ScrollFade> {
     super.dispose();
   }
 
+  Widget _scrollbar(Widget child) => widget.scrollbar
+      ? Scrollbar(controller: _controller, thumbVisibility: true, child: child)
+      : child;
+
   @override
   Widget build(BuildContext context) {
     final scroller = NotificationListener<ScrollMetricsNotification>(
@@ -65,11 +74,13 @@ class _ScrollFadeState extends State<ScrollFade> {
           _update(n.metrics);
           return false;
         },
-        child: SingleChildScrollView(
-          controller: _controller,
-          scrollDirection: widget.axis,
-          padding: widget.padding,
-          child: widget.child,
+        child: _scrollbar(
+          SingleChildScrollView(
+            controller: _controller,
+            scrollDirection: widget.axis,
+            padding: widget.padding,
+            child: widget.child,
+          ),
         ),
       ),
     );

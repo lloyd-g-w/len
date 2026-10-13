@@ -221,6 +221,7 @@ class TextFormatBar extends StatelessWidget {
                 initial: style.color ?? box.color,
                 tools: tools,
                 live: c.setColor,
+                anchor: _barAnchor(context),
               );
               if (colour != null) {
                 c.setColor(colour);
@@ -272,6 +273,22 @@ class TextFormatBar extends StatelessWidget {
         ),
       ],
     ];
+  }
+
+  /// The button at [context] widened to the bar's height, so a popover
+  /// drops its 4 dp off the bar rather than off the button inside it.
+  static Rect? _barAnchor(BuildContext context) {
+    RenderBox? panel;
+    context.visitAncestorElements((e) {
+      if (e.widget is! FloatingPanel) return true;
+      panel = e.findRenderObject() as RenderBox?;
+      return false;
+    });
+    final button = context.findRenderObject() as RenderBox?;
+    if (panel == null || button == null) return null;
+    final b = button.localToGlobal(Offset.zero) & button.size;
+    final p = panel!.localToGlobal(Offset.zero) & panel!.size;
+    return Rect.fromLTRB(b.left, p.top, b.right, p.bottom);
   }
 
   void _setSize(double size) {

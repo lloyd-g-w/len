@@ -4,6 +4,7 @@ import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/group_header.dart';
 
 /// A labelled slider row used in the tool option panels.
 class OptionSlider extends StatelessWidget {
@@ -50,21 +51,7 @@ class OptionSlider extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(label, style: text.labelLarge?.copyWith(color: faded)),
-              ),
-              if (showValue)
-                Text(
-                  display(value),
-                  style: text.bodySmall?.copyWith(
-                    color: faded,
-                    fontFeatures: AppTheme.tabularFigures,
-                  ),
-                ),
-            ],
-          ),
+          GroupHeader(label, value: showValue ? display(value) : null, enabled: onChanged != null),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               overlayShape: const RoundSliderOverlayShape(overlayRadius: _overlay),
@@ -79,10 +66,14 @@ class OptionSlider extends StatelessWidget {
               semanticFormatterCallback: display,
             ),
           ),
+          // As far from the next group as the slider's own end is.
           if (hint case final hint?)
-            Text(
-              hint,
-              style: text.bodySmall?.copyWith(color: faded ?? theme.colorScheme.onSurfaceVariant),
+            Padding(
+              padding: const EdgeInsets.only(bottom: Gaps.sm),
+              child: Text(
+                hint,
+                style: text.bodySmall?.copyWith(color: faded ?? theme.colorScheme.onSurfaceVariant),
+              ),
             ),
         ],
       ),
@@ -145,11 +136,15 @@ class OptionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
-        ?trailing,
-      ],
+    // One height with or without a button, so the title never moves.
+    return SizedBox(
+      height: EndTextButton.height,
+      child: Row(
+        children: [
+          Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+          ?trailing,
+        ],
+      ),
     );
   }
 }
@@ -243,23 +238,23 @@ class _ResetButtonState<T extends Object> extends State<ResetButton<T>> {
   Widget build(BuildContext context) {
     final before = _before;
     if (before != null) {
-      return TextButton(
+      return EndTextButton(
         onPressed: () {
           setState(() => _before = null);
           widget.onChanged(before);
         },
-        child: const Text('Undo'),
+        label: 'Undo',
       );
     }
     final atDefaults = widget.value == widget.defaults;
-    return TextButton(
+    return EndTextButton(
       onPressed: atDefaults
           ? null
           : () {
               setState(() => _before = widget.value);
               widget.onChanged(widget.defaults);
             },
-      child: const Text('Reset'),
+      label: 'Reset',
     );
   }
 }

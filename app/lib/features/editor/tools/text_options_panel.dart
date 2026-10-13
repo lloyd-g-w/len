@@ -32,7 +32,7 @@ class TextOptionsPanel extends StatelessWidget {
                 onChanged: (s) => tools.textStyle = s,
               ),
             ),
-            const SizedBox(height: Gaps.md),
+            const SizedBox(height: Gaps.sm),
             ColorChoices(
               color: style.color,
               recent: tools.recentColors,
@@ -47,16 +47,11 @@ class TextOptionsPanel extends StatelessWidget {
               display: (v) => v.round().toString(),
               onChanged: (v) => tools.textStyle = style.copyWith(fontSize: v.roundToDouble()),
             ),
-            Row(
-              children: [
-                Expanded(child: Text('Font', style: Theme.of(context).textTheme.labelLarge)),
-                FontMenuButton(
-                  font: style.font,
-                  onSelected: (f) => tools.textStyle = style.copyWith(font: f),
-                ),
-              ],
+            FontMenuRow(
+              font: style.font,
+              onSelected: (f) => tools.textStyle = style.copyWith(font: f),
             ),
-            const SizedBox(height: Gaps.sm),
+            const SizedBox(height: Gaps.xs),
             Text(
               'Tap the page to add a text box; tap a text box to edit it',
               style: Theme.of(context).textTheme.bodySmall,
