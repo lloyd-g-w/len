@@ -105,7 +105,8 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       LibrarySection.trash when count > 0 && widget.compact => 'Kept for 30 days',
       LibrarySection.trash when count > 0 =>
         '${plural(count, 'notebook')} · deleted forever after 30 days',
-      _ when count == 0 && folders == 0 => 'Empty',
+      // The empty state says it.
+      _ when count == 0 && folders == 0 => '',
       _ => [
         if (folders > 0) plural(folders, 'folder'),
         if (count > 0 || folders == 0) plural(count, 'notebook'),
@@ -116,6 +117,19 @@ class _LibraryHeaderState extends State<LibraryHeader> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final caption = _caption;
+    // Nothing to search or sort while a view is empty (a search that found
+    // nothing keeps its field).
+    final empty = caption.isEmpty && !_c.isSearching;
+    final inFolder = _c.section == LibrarySection.library && _c.folderId != null;
+    // Phones: ← up a level inside folders (☰ reads as "at the top").
+    final leading = inFolder && widget.compact
+        ? IconButton(
+            tooltip: 'Up to ${_c.folderById(_c.parentOf(_c.folder!))?.name ?? 'Library'}',
+            icon: const Icon(Symbols.arrow_back_rounded),
+            onPressed: _c.goUp,
+          )
+        : widget.leading;
     final titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -137,7 +151,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
         ),
         const SizedBox(height: Gaps.xxs),
         Text(
-          _caption,
+          caption,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall,
@@ -156,7 +170,9 @@ class _LibraryHeaderState extends State<LibraryHeader> {
         );
         final searchOpen = !wideSearch && (_searchOpen || _c.isSearching);
         final tools = <Widget>[
-          if (wideSearch) ...[
+          if (empty)
+            const SizedBox.shrink()
+          else if (wideSearch) ...[
             SizedBox(width: 280, child: search),
             const SizedBox(width: Gaps.sm),
           ] else if (!searchOpen)
@@ -166,14 +182,15 @@ class _LibraryHeaderState extends State<LibraryHeader> {
               onPressed: _openSearch,
             ),
           if (!widget.compact && _c.section == LibrarySection.library) _NewMenu(actions: _actions),
-          _ViewMenu(actions: _actions),
+          if (!empty) _ViewMenu(actions: _actions),
           if (_c.section == LibrarySection.trash && _c.trash.isNotEmpty)
             _emptyTrash(theme, wideSearch),
         ];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_c.section == LibrarySection.library && _c.folderId != null && !searchOpen) ...[
+            // Phones go up with ← instead.
+            if (inFolder && !widget.compact && !searchOpen) ...[
               _Breadcrumbs(actions: _actions),
               const SizedBox(height: Gaps.xxs),
             ],
@@ -181,7 +198,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
               constraints: const BoxConstraints(minHeight: 52),
               child: Row(
                 children: [
-                  if (widget.leading case final leading? when !searchOpen) ...[
+                  if (leading case final leading? when !searchOpen) ...[
                     leading,
                     const SizedBox(width: Gaps.xs),
                   ],
@@ -384,7 +401,7 @@ class _ViewMenu extends StatelessWidget {
       onSelected: (choice) => switch (choice) {
         _Sort(:final sort) => c.sort = sort,
         _Layout(:final layout) => c.layout = layout,
-        _Select() => actions.selection.start(),
+        _Select() => actions.startSelection(context),
       },
       items: () => [
         if (c.section != LibrarySection.trash) ...[

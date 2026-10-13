@@ -73,7 +73,7 @@ void main() {
       await pumpApp(tester, services, const LibraryScreen(), mode: mode);
 
       Future<void> menu(String item, String shot) async {
-        await tester.tap(find.byTooltip('More').first);
+        await tester.tap(firstCardMore());
         await settle(tester);
         await tester.tap(find.text(item));
         await settle(tester);
@@ -149,7 +149,7 @@ void main() {
     await tester.tap(find.text('Sketches'));
     await settle(tester);
     await shoot(tester, 'empty_folder_phone');
-    await tester.tap(find.text('Library').last);
+    await tester.tap(find.byTooltip('Up to Library'));
     await settle(tester);
     await openSearch(tester);
     await tester.enterText(find.byType(TextField), 'zzz');
@@ -157,7 +157,7 @@ void main() {
     await shoot(tester, 'empty_search_phone');
     await tester.enterText(find.byType(TextField), '');
     await settle(tester);
-    await tester.tap(find.byTooltip('More').first);
+    await tester.tap(firstCardMore());
     await settle(tester);
     await tester.tap(find.text('Change cover…'));
     await settle(tester);

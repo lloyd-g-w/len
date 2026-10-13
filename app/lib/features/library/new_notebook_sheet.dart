@@ -53,7 +53,6 @@ class NewNotebookSheet extends StatefulWidget {
       maxWidth: 840,
       maxHeight: 720,
       minHeight: 560,
-      sheetDragHandle: false,
       builder: (_, wide) => NewNotebookSheet(wide: wide, kind: kind),
     );
   }
@@ -153,8 +152,6 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         '$pages ${pages == 1 ? 'page' : 'pages'}';
   }
 
-  void _importPdf() => Navigator.of(context).pop(const NewNotebookRequest.importPdf());
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -171,9 +168,8 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
     border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
   );
 
-  Widget _header(BuildContext context, {Widget? trailing}) => SheetHeader(
+  Widget _header(BuildContext context) => SheetHeader(
     title: _canvas ? 'New canvas' : 'New notebook',
-    trailing: trailing,
     onClose: () => Navigator.of(context).pop(),
   );
 
@@ -270,19 +266,9 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
               Container(
                 decoration: _footerEdge(context),
                 padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.md, Gaps.xl, Gaps.lg),
-                child: Row(
-                  children: [
-                    TextButton.icon(
-                      onPressed: _importPdf,
-                      icon: const Icon(Symbols.picture_as_pdf_rounded, size: Glyphs.menu),
-                      label: const Text('Import PDF…'),
-                    ),
-                    const Spacer(),
-                    SheetActions(
-                      onCancel: () => Navigator.of(context).pop(),
-                      primary: FilledButton(onPressed: _submit, child: const Text('Create')),
-                    ),
-                  ],
+                child: SheetActions(
+                  onCancel: () => Navigator.of(context).pop(),
+                  primary: FilledButton(onPressed: _submit, child: const Text('Create')),
                 ),
               ),
             ],
@@ -310,11 +296,8 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.sm, Gaps.sm, Gaps.sm),
-              child: _header(
-                context,
-                trailing: TextButton(onPressed: _importPdf, child: const Text('Import PDF…')),
-              ),
+              padding: const EdgeInsets.fromLTRB(Gaps.xl, 0, Gaps.sm, Gaps.sm),
+              child: _header(context),
             ),
             Flexible(
               child: SingleChildScrollView(

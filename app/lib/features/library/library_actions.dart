@@ -70,6 +70,13 @@ class LibraryActions {
     return false;
   }
 
+  /// Enters selection mode (with [id] selected). A message still showing
+  /// goes: the selection bar takes its place.
+  void startSelection(BuildContext context, [String? id]) {
+    ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+    selection.start(id);
+  }
+
   /// Opens the new-notebook sheet (starting as a [kind]) and then the new
   /// notebook.
   Future<void> createNotebook(
@@ -78,7 +85,6 @@ class LibraryActions {
   }) async {
     final request = await NewNotebookSheet.show(context, kind: kind);
     if (request == null || !context.mounted) return;
-    if (request.importPdf) return importPdf(context);
     final style = request.template.style;
     if (style != PaperStyle.image) controller.services.preferences.notePaperUsed(style.name);
     final notebook = controller.createNotebook(
@@ -176,7 +182,7 @@ class LibraryActions {
         );
         if (target != null && context.mounted) move(context, [notebook.id], target.folderId);
       case NotebookAction.select:
-        selection.start(notebook.id);
+        startSelection(context, notebook.id);
       case NotebookAction.trash:
         await trash(context, notebook);
       case NotebookAction.restore:

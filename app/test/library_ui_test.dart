@@ -366,6 +366,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('phones: ← goes up from a folder; empty views drop search and ⇅', (tester) async {
+    await pumpSeeded(tester, (s) {
+      final school = s.folders.create(name: 'School', color: 0xFF495057);
+      s.folders.create(name: 'Maths', parentId: school.id, color: 0xFF495057);
+    }, size: const Size(390, 844));
+    await tester.tap(find.text('School'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Maths'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Menu'), findsNothing);
+    expect(find.byTooltip('Search'), findsNothing, reason: 'nothing to search');
+    expect(find.byTooltip('View'), findsNothing);
+    expect(find.text('This folder is empty'), findsOneWidget);
+    await tester.tap(find.byTooltip('Up to School'));
+    await tester.pumpAndSettle();
+    expect(find.text('Maths'), findsOneWidget);
+    expect(find.byTooltip('Search'), findsOneWidget);
+    await tester.tap(find.byTooltip('Up to Library'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Menu'), findsOneWidget);
+  });
+
   testWidgets('phones: searching hides ⊕', (tester) async {
     await pumpSeeded(tester, (s) => addNotebook(s, 'Pocket'), size: const Size(390, 844));
     await tester.tap(find.byTooltip('Search'));

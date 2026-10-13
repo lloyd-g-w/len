@@ -117,11 +117,16 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the new sheet sets the first page template and offers PDF import', (tester) async {
+  testWidgets('the new sheet sets the first page template (PDF import lives in ⊕▾)', (
+    tester,
+  ) async {
     final services = await pumpLibrary(tester);
     await tester.tap(find.text('New notebook'));
     await tester.pumpAndSettle();
-    expect(find.text('Import PDF…'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(NewNotebookSheet), matching: find.text('Import PDF…')),
+      findsNothing,
+    );
 
     final swatch = find.text('Small grid');
     await tester.ensureVisible(swatch);

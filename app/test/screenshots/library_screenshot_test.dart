@@ -63,7 +63,7 @@ void main() {
     await tester.tap(find.text('Grid').last);
     await settle(tester);
 
-    await tester.tap(find.byTooltip('More').first);
+    await tester.tap(firstCardMore());
     await settle(tester);
     await shoot(tester, 'desktop_menu');
 

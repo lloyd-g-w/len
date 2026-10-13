@@ -74,7 +74,7 @@ class _NewNotebookTileState extends State<NewNotebookTile> {
               onTap: widget.onPressed,
               child: Padding(
                 padding: const EdgeInsets.only(left: Gaps.xxs, top: Gaps.sm),
-                child: Text('New…', style: theme.textTheme.labelLarge, maxLines: 1),
+                child: Text('New notebook', style: theme.textTheme.labelLarge, maxLines: 1),
               ),
             ),
           ),

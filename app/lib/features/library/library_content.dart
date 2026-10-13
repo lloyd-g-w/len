@@ -10,6 +10,7 @@ import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
 import '../search/library_search_results.dart';
+import '../settings/settings_screen.dart';
 import 'folder_tile.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
@@ -143,6 +144,13 @@ class LibraryContent extends StatelessWidget {
                 searchController.clear();
                 _c.query = '';
               },
+              onImportPdf: () => unawaited(actions.importPdf(context)),
+              onSetUpSync: _c.services.sync.isConfigured
+                  ? null
+                  : () => unawaited(
+                      Navigator.of(context)
+                          .push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+                    ),
             ),
           )
         else ...[
