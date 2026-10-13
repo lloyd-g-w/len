@@ -7,6 +7,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/settings/keyboard_shortcuts.dart';
+import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
@@ -139,6 +140,23 @@ void main() {
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
     await closeEditor(tester);
+  });
+
+  testWidgets('Ctrl+/ opens the reference in Settings too ("anywhere")', (tester) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: AppScope(services: services, child: const SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(find.text('Ctrl+Shift+Z or Ctrl+Y'), findsOneWidget);
   });
 
   test('keys read as people write them', () {

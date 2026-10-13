@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app_services.dart';
@@ -7,6 +9,7 @@ import 'about_settings.dart';
 import 'backup_settings.dart';
 import 'general_settings.dart';
 import 'handwriting_settings.dart';
+import 'keyboard_shortcuts.dart';
 import 'settings_section.dart';
 import 'storage_settings.dart';
 import 'sync_settings.dart';
@@ -25,7 +28,14 @@ class SettingsScreen extends StatelessWidget {
   static const double maxWidth = 800;
 
   @override
-  Widget build(BuildContext context) => Scaffold(body: _SettingsColumn(showSync: showSync));
+  Widget build(BuildContext context) => CallbackShortcuts(
+    // "Also Ctrl+/ anywhere" (General → Keyboard shortcuts), here too.
+    bindings: keyboardShortcutsBinding(() => unawaited(showKeyboardShortcuts(context))),
+    child: Focus(
+      autofocus: true,
+      child: Scaffold(body: _SettingsColumn(showSync: showSync)),
+    ),
+  );
 }
 
 /// The sections under a pinned bar titled "Settings"; the bar gets its
