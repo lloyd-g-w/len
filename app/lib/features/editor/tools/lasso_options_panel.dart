@@ -16,13 +16,11 @@ class LassoOptionsPanel extends StatelessWidget {
       children: [
         const OptionHeader('Lasso'),
         const SizedBox(height: Gaps.sm),
-        Text(
-          'Draw around ink, text and images to select them. Drag the selection to move it; '
-          'its menu restyles, copies, converts to text or links it.',
-          style: text.bodyMedium,
-        ),
+        Text('Circle ink, text or images to select them.', style: text.bodyMedium),
+        const SizedBox(height: Gaps.xs),
+        Text('Drag to move them, or use the menu that appears.', style: text.bodyMedium),
         const SizedBox(height: Gaps.sm),
-        Text('PDF text: long press it to select.', style: text.bodySmall),
+        Text('To select PDF text, long-press it.', style: text.bodySmall),
       ],
     );
   }

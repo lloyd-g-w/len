@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/stroke.dart';
+import '../../../domain/templates/paper_look.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/color_picker/color_hex.dart';
 import '../toolbar/toolbar_metrics.dart';
@@ -58,7 +59,8 @@ class ColorSlots extends StatelessWidget {
   }
 }
 
-/// An ink's quick widths, shown as neutral dots at (scaled) real size.
+/// An ink's quick sizes (stroke widths), shown as neutral dots at (scaled)
+/// real size on a plate when selected.
 class WidthSlots extends StatelessWidget {
   const WidthSlots({super.key, required this.tools, required this.ink, this.onEdit});
 
@@ -85,8 +87,9 @@ class WidthSlots extends StatelessWidget {
           SlotButton(
             key: ValueKey('width-$i'),
             selected: active && i == config.widthIndex,
-            tooltip: 'Width ${formatWidth(config.widths[i])}',
-            semanticLabel: 'Width ${i + 1}, ${formatWidth(config.widths[i])}',
+            tooltip: 'Size ${formatWidth(config.widths[i])}',
+            semanticLabel: 'Size ${i + 1}, ${formatWidth(config.widths[i])}',
+            plate: true,
             onSelect: () => _select(i),
             onEdit: edit == null
                 ? null
@@ -112,5 +115,9 @@ class WidthSlots extends StatelessWidget {
   }
 }
 
-/// A width as shown to the user: one decimal below 10.
-String formatWidth(double w) => w.toStringAsFixed(w < 10 ? 1 : 0);
+/// A stroke width (world units) as shown to the user: millimetres on the
+/// page (as printed, and on screen at 100 %), "0.66 mm", "1.1 mm", "13 mm".
+String formatWidth(double w) {
+  final mm = w / PaperLook.unitsPerMm;
+  return '${mm.toStringAsFixed(mm < 1 ? 2 : (mm < 10 ? 1 : 0))} mm';
+}

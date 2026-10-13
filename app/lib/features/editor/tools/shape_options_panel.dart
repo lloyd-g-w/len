@@ -5,8 +5,8 @@ import '../../../ui/app_theme.dart';
 import '../pen/option_controls.dart';
 import 'tool_icons.dart';
 
-/// Picks the shape the Shape tool draws. Shapes use the current pen's
-/// colour, width and opacity.
+/// Picks the shape the Shape tool draws: one row of kinds, the selected
+/// one on the neutral pressed plate. Shapes use the pen's colour and size.
 class ShapeOptionsPanel extends StatelessWidget {
   const ShapeOptionsPanel({super.key, required this.tools});
 
@@ -15,6 +15,7 @@ class ShapeOptionsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
     return ListenableBuilder(
       listenable: tools,
       builder: (context, _) => Column(
@@ -23,35 +24,38 @@ class ShapeOptionsPanel extends StatelessWidget {
         children: [
           const OptionHeader('Shapes'),
           const SizedBox(height: Gaps.sm),
-          Wrap(
-            spacing: Gaps.xs,
-            runSpacing: Gaps.xs,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               for (final kind in ShapeKind.drawable)
-                Tooltip(
-                  message: kind.label,
-                  child: IconButton(
-                    key: ValueKey('shape-${kind.name}'),
-                    isSelected: tools.shape == kind,
-                    style: IconButton.styleFrom(
-                      backgroundColor: tools.shape == kind
-                          ? Surfaces.pressed(scheme)
-                          : scheme.surfaceContainerHighest,
-                      fixedSize: const Size.square(44),
-                    ),
-                    onPressed: () => tools.shape = kind,
-                    icon: ShapeGlyph(kind, size: 22),
+                IconButton(
+                  key: ValueKey('shape-${kind.name}'),
+                  tooltip: kind.label,
+                  isSelected: tools.shape == kind,
+                  style: IconButton.styleFrom(
+                    backgroundColor: tools.shape == kind ? Surfaces.pressed(scheme) : null,
+                    foregroundColor: scheme.onSurfaceVariant,
+                    // Seven fit one row of the 320-dp popover, on touch too.
+                    fixedSize: const Size.square(Targets.bar),
+                    minimumSize: const Size.square(Targets.bar),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
+                  ),
+                  onPressed: () => tools.shape = kind,
+                  icon: ShapeGlyph(kind, size: Glyphs.bar),
+                  selectedIcon: IconTheme.merge(
+                    data: IconThemeData(color: scheme.onSurface),
+                    child: ShapeGlyph(kind, size: Glyphs.bar),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: Gaps.md),
-          Text(
-            'Drag to draw. Hold Shift for squares, circles and 15° lines. '
-            'Colour and width come from the pen. Tip: with the pen, pause at the end '
-            'of a stroke to snap it into a clean shape.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          const SizedBox(height: Gaps.sm),
+          Text('Drag to draw, in the pen’s colour and size.', style: text.bodySmall),
+          // Only a keyboard has Shift.
+          if (!Targets.touchFirst)
+            Text('Hold Shift for squares, circles and 15° lines.', style: text.bodySmall),
         ],
       ),
     );

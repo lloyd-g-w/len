@@ -6,7 +6,7 @@ import '../../../ui/app_theme.dart';
 import 'option_controls.dart';
 
 /// Eraser options: whole-stroke vs. partial erasing, size, "highlighter
-/// only" and auto-deselect.
+/// only" and switching back to the previous tool after erasing.
 class EraserOptionsPanel extends StatelessWidget {
   const EraserOptionsPanel({super.key, required this.tools});
 
@@ -23,7 +23,13 @@ class EraserOptionsPanel extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const OptionHeader('Eraser'),
+            OptionHeader(
+              'Eraser',
+              trailing: TextButton(
+                onPressed: () => update(const EraserConfig()),
+                child: const Text('Reset'),
+              ),
+            ),
             const SizedBox(height: Gaps.md),
             SegmentedButton<EraserMode>(
               showSelectedIcon: false,
@@ -66,8 +72,8 @@ class EraserOptionsPanel extends StatelessWidget {
               onChanged: (v) => update(eraser.copyWith(highlighterOnly: v)),
             ),
             OptionSwitch(
-              label: 'Auto-deselect',
-              subtitle: 'Go back to the pen or highlighter after each erase',
+              label: 'Switch back after erasing',
+              subtitle: 'Returns to your pen or highlighter',
               value: eraser.autoDeselect,
               onChanged: (v) => update(eraser.copyWith(autoDeselect: v)),
             ),

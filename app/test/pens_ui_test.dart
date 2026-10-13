@@ -158,12 +158,13 @@ void main() {
       expect(tools.activeConfig.widths[0], greaterThan(PenDefaults.pen.widths[0]));
     });
 
-    testWidgets('quick colours and widths: 3 each by default, 1 to 6, independent', (tester) async {
+    testWidgets('quick colours and sizes: 3 each by default, 1 to 6, independent', (tester) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
       expect(tools.activeConfig.colors, hasLength(3));
       expect(tools.activeConfig.widths, hasLength(3));
       await tester.tap(find.byTooltip('Pen (P)'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byTooltip('More quick colours'));
       for (var i = 0; i < 5; i++) {
         await tester.tap(find.byTooltip('More quick colours'));
         await tester.pump();
@@ -176,17 +177,16 @@ void main() {
       );
       expect(more.onPressed, isNull);
       for (var i = 0; i < 2; i++) {
-        await tester.tap(find.byTooltip('Fewer quick widths'));
+        await tester.tap(find.byTooltip('Fewer quick sizes'));
         await tester.pump();
       }
       expect(tools.activeConfig.widths, hasLength(1));
       expect(tools.activeConfig.colors, hasLength(6));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('width-1')), findsNothing);
-      expect(find.byKey(const ValueKey('color-5')), findsNWidgets(2)); // Toolbar and popover.
-      await tester.tap(inPopover(find.byKey(const ValueKey('color-4'))));
-      await tester.pump();
-      expect(tools.activeConfig.colorIndex, 4);
+      // The anchored popover leaves the slots to the toolbar right above it.
+      expect(find.byKey(const ValueKey('color-5')), findsOneWidget);
+      expect(inPopover(find.byKey(const ValueKey('color-5'))), findsNothing);
     });
 
     testWidgets('the highlighter has its own slots', (tester) async {
@@ -221,6 +221,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(ToolOptionsPopover), findsOneWidget);
       expect(find.byType(BottomSheet), findsOneWidget);
+      // The sheet covers the toolbar, so it shows the quick slots itself.
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byKey(const ValueKey('color-0')),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Feel'));
       await tester.pumpAndSettle();
       expect(find.byType(PenOptionsPanel), findsOneWidget);

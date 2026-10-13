@@ -21,7 +21,7 @@ class PenEndsOptions extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const OptionHeader('Ends'),
+          Text('Ends', style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: Gaps.xs),
           SegmentedButton<StrokeEnds>(
             showSelectedIcon: false,

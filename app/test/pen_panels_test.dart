@@ -4,7 +4,9 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/editor_tools.dart';
 import 'package:len/features/editor/pen/eraser_options_panel.dart';
 import 'package:len/features/editor/pen/highlighter_options_panel.dart';
+import 'package:len/features/editor/pen/ink_slots.dart';
 import 'package:len/features/editor/pen/pen_options_panel.dart';
+import 'package:len/features/editor/tools/colour_sheet.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -76,10 +78,10 @@ void main() {
     expect(tools.configOf(InkTool.ballpoint).straight, isFalse);
   });
 
-  testWidgets('eraser: auto-deselect', (tester) async {
+  testWidgets('eraser: switch back after erasing', (tester) async {
     await pump(tester, EraserOptionsPanel(tools: tools));
     expect(tools.eraser.autoDeselect, isFalse);
-    await tester.tap(find.text('Auto-deselect'));
+    await tester.tap(find.text('Switch back after erasing'));
     await tester.pump();
     expect(tools.eraser.autoDeselect, isTrue);
   });
@@ -110,6 +112,60 @@ void main() {
     await tester.tapAt(const Offset(790, 590)); // Closes the popover.
     await tester.pumpAndSettle();
     expect(tools.recentColors, [0xFF0000FF, 0xFF00AA00]);
+  });
+
+  test('sizes read in millimetres on the page', () {
+    expect(formatWidth(2.5), '0.66 mm');
+    expect(formatWidth(4), '1.1 mm');
+    expect(formatWidth(48), '13 mm');
+  });
+
+  testWidgets('the highlighter offers light colours; the size slider is in mm', (tester) async {
+    await pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => editorTools(tools)[1].openOptions(context),
+          child: const Text('Edit'),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('#000000'), findsNothing, reason: 'no black highlighter');
+    expect(find.bySemanticsLabel('#facc15'), findsOneWidget);
+    expect(find.text(formatWidth(tools.configOf(InkTool.highlighter).width)), findsOneWidget);
+    expect(find.text('Size'), findsOneWidget);
+  });
+
+  testWidgets('the colour popover applies live and closing keeps the last pick', (tester) async {
+    int? result;
+    final live = <int>[];
+    await pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () async => result = await pickColour(
+            context,
+            title: 'Text colour',
+            initial: 0xFF000000,
+            tools: tools,
+            live: live.add,
+          ),
+          child: const Text('Pick'),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Pick'));
+    await tester.pumpAndSettle();
+    expect(find.text('Apply'), findsNothing);
+    await tester.enterText(find.byType(TextField), '00AA00');
+    await tester.pump();
+    expect(live.last, 0xFF00AA00);
+    await tester.tapAt(const Offset(790, 590)); // Closes the popover.
+    await tester.pumpAndSettle();
+    expect(result, 0xFF00AA00);
+    expect(tools.recentColors, [0xFF00AA00]);
   });
 
   testWidgets('golden: pen and highlighter settings', (tester) async {
