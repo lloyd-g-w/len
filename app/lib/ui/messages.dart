@@ -23,8 +23,51 @@ class MessageInsets extends InheritedWidget {
   bool updateShouldNotify(MessageInsets old) => old.bottom != bottom;
 }
 
+/// Marks the part of the window that messages belong to (the library's
+/// content beside its sidebar): snack bars shown from its route centre on
+/// it rather than on the window.
+class MessagePane extends StatefulWidget {
+  const MessagePane({super.key, required this.child});
+
+  final Widget child;
+
+  static final _panes = <_MessagePaneState>{};
+
+  /// The global rect of the pane on [context]'s route; null if none.
+  static Rect? rectOf(BuildContext context) {
+    if (_panes.isEmpty) return null;
+    final route = ModalRoute.of(context);
+    for (final pane in _panes) {
+      if (!pane.mounted || ModalRoute.of(pane.context) != route) continue;
+      final box = pane.context.findRenderObject();
+      if (box is RenderBox && box.hasSize) return box.localToGlobal(Offset.zero) & box.size;
+    }
+    return null;
+  }
+
+  @override
+  State<MessagePane> createState() => _MessagePaneState();
+}
+
+class _MessagePaneState extends State<MessagePane> {
+  @override
+  void initState() {
+    super.initState();
+    MessagePane._panes.add(this);
+  }
+
+  @override
+  void dispose() {
+    MessagePane._panes.remove(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 /// The app's snack bar: floating, at most [messageMaxWidth] wide, clear of
-/// [MessageInsets]. Copy is a short sentence; a single fragment ("Page 3
+/// [MessageInsets] and centred on the [MessagePane] if any. Copy is a short sentence; a single fragment ("Page 3
 /// deleted") has no full stop.
 SnackBar appSnackBar(
   BuildContext context,
@@ -33,13 +76,21 @@ SnackBar appSnackBar(
   Duration? duration,
 }) {
   final width = MediaQuery.sizeOf(context).width;
-  final side = ((width - messageMaxWidth) / 2).clamp(Gaps.lg, double.infinity);
+  final pane = MessagePane.rectOf(context);
+  final left = pane == null ? 0.0 : pane.left.clamp(0.0, width);
+  final right = pane == null ? width : pane.right.clamp(left, width);
+  final side = ((right - left - messageMaxWidth) / 2).clamp(Gaps.lg, double.infinity);
   return SnackBar(
     content: Text(message),
     action: action,
     behavior: SnackBarBehavior.floating,
     duration: duration ?? const Duration(milliseconds: 4000),
-    margin: EdgeInsets.fromLTRB(side, 0, side, Gaps.lg + MessageInsets.of(context)),
+    margin: EdgeInsets.fromLTRB(
+      left + side,
+      0,
+      width - right + side,
+      Gaps.lg + MessageInsets.of(context),
+    ),
   );
 }
 

@@ -103,6 +103,9 @@ class LibraryContent extends StatelessWidget {
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
     final newTile = showsNewTile(actions, compact: compact);
+    // Room after the last row: clear of the phone's ⊕ and of a snack bar
+    // above it (an Undo after trashing the last card), or of a snack bar.
+    final endRoom = compact ? 160.0 : 120.0;
     return CustomScrollView(
       key: PageStorageKey('library-${_c.section.name}-${_c.folderId}'),
       // Builds half a screen ahead, so covers render before they scroll in.
@@ -151,14 +154,13 @@ class LibraryContent extends StatelessWidget {
           if (notebooks.isNotEmpty || newTile) ...[
             SliverToBoxAdapter(child: SizedBox(height: folders.isEmpty ? Gaps.lg : Gaps.xl)),
             SliverPadding(
-              // Bottom padding keeps the last row clear of the FAB.
-              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, fullText ? 0 : 120),
+              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, fullText ? 0 : endRoom),
               sliver: _c.layout == LibraryLayout.grid
                   ? _grid(context, notebooks, compact, newTile: newTile)
                   : _list(notebooks),
             ),
           ] else if (!fullText)
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            SliverToBoxAdapter(child: SizedBox(height: endRoom)),
           // Full-text matches in text boxes and PDF pages.
           if (fullText)
             LibrarySearchResults(
@@ -187,7 +189,7 @@ class LibraryContent extends StatelessWidget {
                   : null,
             ),
           // Keeps the last result clear of the FAB.
-          if (fullText) const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          if (fullText) SliverToBoxAdapter(child: SizedBox(height: endRoom)),
         ],
       ],
     );
