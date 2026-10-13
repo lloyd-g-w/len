@@ -394,27 +394,29 @@ thumb. Next, by area:
   sidebar brand without the blue tile and a hairline right edge
   (`library_sidebar.dart`); replace `·` meta strings in `library_format.dart`
   and the header; list view rows with hairlines; empty state copy and glyph.
-- **Editor chrome:** tool plate radius `xs` and Ink 8 % everywhere
-  (`tool_cluster.dart`, `toolbar_buttons.dart`); slot rings 1.5 dp; redraw
-  `EraserIcon`, `ShapeGlyph`, `tools/tool_icons.dart` with square caps;
-  floating palette grip as two ticks; page indicator tabular figures; tabs
-  (`editor_tabs`) with a margin-rule current tab instead of a plate.
-- **Popovers:** hairlines between groups instead of spacing alone; pen
-  preview box radius `sm` with a Rule edge; Feel row as a ruled disclosure.
+- ~~**Editor chrome:**~~ done: `xs` Ink 8 % tool plates (switcher tiles
+  too), 1.5-dp slot rings, square-cap glyphs, two-tick grips (palette and
+  split divider), tabular page indicator, margin-rule current tab; zoom,
+  tips and focus exit on `md` panels (the pill is the page indicator's
+  only); the gesture HUD an Ink slab with a hairline; search a lifted slip;
+  pages rest on the Desk with the contact shadow (`Shadows.low`).
+- ~~**Popovers:**~~ done: hairlines between groups, `sm` preview with a Rule
+  edge, Feel as a ruled disclosure.
 - ~~**Settings:**~~ done: open ruled lists, hanging headings (§6.4).
 - ~~**Dialogs and sheets:**~~ done: ruled export options, margin-rule move
   dialog, flat library notices, ruled progress, full-width primary on phone
   template sheets; no `FilledButton.tonal` left.
 - **Overview, templates, PDF:** page tiles with contact shadow only;
   template gallery selection by margin rule; `overview_parts.dart` radii.
-- **Audio, images, text:** recording bar as a flat Board strip with a
-  hairline; text format bar on `FloatingPanel`.
+- ~~**Audio, images, text:**~~ done: player and phone recording controls in
+  one docked Board strip with a hairline; flat recording controls in the bar
+  (only the dot red); crop bar, selection menu and text format bar on
+  `FloatingPanel`.
 - **Copy:** remove `·` chains and any remaining all-caps; one name per action.
   Done in settings, dialogs, sheets and messages (template descriptions
   "College ruled, white, A4 portrait", export summaries "3 pages, PDF").
-  Left: the library header and cards, search results, the editor (ink
-  options, split tooltip), audio (recordings sheet, trim panel) and the
-  planner labels in `domain/templates` (`Paper.label`, `period`).
+  Done in the editor and audio too. Left: the library header and cards,
+  search results and the planner labels in `domain/templates` (`Paper.label`, `period`).
 - **App icon / splash:** Ink and ruling blue mark (`tool/branding`).
 - ~~**Controls:**~~ done: `AppSwitch` / `AppSwitchTile` in `ui/app_switch.dart`
   replace every `Switch` / `SwitchListTile`; `FilledButton.tonal` became
