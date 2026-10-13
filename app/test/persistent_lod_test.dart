@@ -137,14 +137,28 @@ void main() {
       createdAt: 1,
       data: const TextData(text: 'Persistent').toJson(),
     );
-    ElementRepository(db, deviceId: 'd').save([text]);
-    view.model.reload();
-    final range = ChunkGrid.rangeFor(const Rect.fromLTWH(-512, -512, 5000, 4000));
+    final image = SurfaceElement(
+      id: 'i',
+      surfaceId: 's',
+      type: 'image',
+      rect: const Rect.fromLTWH(5200, 100, 100, 100),
+      z: -1,
+      createdAt: 1,
+      data: const {'blob': 'ab', 'w': 10, 'h': 10},
+    );
+    ElementRepository(db, deviceId: 'd').save([text, image]);
+    view.model
+      ..reload()
+      ..ensureLoaded(const Rect.fromLTWH(0, 0, 6000, 3000));
+    final range = ChunkGrid.rangeFor(const Rect.fromLTWH(-512, -512, 6000, 4000));
     final stored = view.strokes.chunkDigests('s', range);
     expect(stored, isNotEmpty);
     for (final MapEntry(:key, :value) in stored.entries) {
-      expect(view.model.digestOf(key), value, reason: '$key');
+      // Images look different until decoded: never stored.
+      final expected = key == (x: 10, y: 0) ? null : value;
+      expect(view.model.digestOf(key), expected, reason: '$key');
     }
+    expect(stored.containsKey((x: 10, y: 0)), isTrue);
     expect(stored[(x: 0, y: 0)]!.elements, 1);
 
     SurfaceCopier(

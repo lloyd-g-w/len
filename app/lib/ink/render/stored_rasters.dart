@@ -58,7 +58,12 @@ class StoredRasters {
   /// around it when [range] goes beyond those known.
   Iterable<ChunkKey> chunksIn(ChunkRange range) {
     final known = _range;
-    if (known == null || !_covers(known, range)) _query(range);
+    if (known == null || !_covers(known, range)) {
+      // Not while painting: asking writes pending edits first.
+      scheduleMicrotask(() {
+        if (!_disposed) _query(range);
+      });
+    }
     return [
       for (final key in _digests.keys)
         if (range.contains(key)) key,
@@ -107,8 +112,7 @@ class StoredRasters {
     }
 
     if (result is Map<ChunkKey, ChunkDigest>) {
-      // Synchronous readers (tests): deliver after the paint asking.
-      scheduleMicrotask(() => done(result as Map<ChunkKey, ChunkDigest>));
+      done(result); // Synchronous readers (tests).
     } else {
       result.then(
         done,

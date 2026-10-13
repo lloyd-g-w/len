@@ -170,9 +170,9 @@ class SurfaceModel extends ChangeNotifier {
   /// Whether everything stored in [key] is in memory.
   bool isComplete(ChunkKey key) => _loaded.contains(key) && !_arriving.contains(key);
 
-  /// The digest of [key]'s content when it is all in memory and drawn as
-  /// stored: none hidden (selected, being edited) and no images (their
-  /// look depends on decoding). Null otherwise.
+  /// The digest of [key]'s content when it is all in memory, not empty
+  /// and drawn as stored: none hidden (selected, being edited) and no
+  /// images (their look depends on decoding). Null otherwise.
   ChunkDigest? digestOf(ChunkKey key) {
     if (!isComplete(key)) return null;
     final strokes = _strokes.inChunk(key);
@@ -183,7 +183,8 @@ class SurfaceModel extends ChangeNotifier {
       return null;
     }
     if (elements.any((e) => e.knownType == ElementType.image)) return null;
-    return ChunkDigest.of(strokes, elements);
+    final digest = ChunkDigest.of(strokes, elements);
+    return digest.strokes + digest.elements == 0 ? null : digest; // Emptied.
   }
 
   /// The digests of the populated chunks within [range] as stored (after

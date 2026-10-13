@@ -48,6 +48,9 @@ class FileRasterStore implements RasterStore {
   int _temp = 0;
   late final Future<void> _scanned;
 
+  /// Completes once the directory has been listed.
+  Future<void> get ready => _scanned;
+
   File _file(String name) => File(p.join(directory, name));
 
   Future<void> _scan() async {
