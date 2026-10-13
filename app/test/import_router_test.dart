@@ -93,10 +93,16 @@ void main() {
       final one = ImportRouter.plan([file('notes.docx'), file('a.pdf')]);
       expect(one.steps, hasLength(1));
       expect(one.unsupported, ['notes.docx']);
-      expect(one.unsupportedMessage, 'Couldn’t open “notes.docx”: Len opens PDFs and images');
+      expect(
+        one.unsupportedMessage,
+        'Couldn’t open “notes.docx”: Len opens PDFs, images and Len files',
+      );
       final many = ImportRouter.plan([file('a.zip'), file('b.mp3')]);
       expect(many.steps, isEmpty);
-      expect(many.unsupportedMessage, 'Couldn’t open 2 files: Len opens PDFs and images');
+      expect(
+        many.unsupportedMessage,
+        'Couldn’t open 2 files: Len opens PDFs, images and Len files',
+      );
     });
 
     test('a single image names its canvas', () {

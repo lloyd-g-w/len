@@ -8,11 +8,12 @@ import '../../app_services.dart';
 import '../../core/format.dart';
 import '../../sync/sync_controller.dart';
 import '../backup/len_file_flows.dart';
+import '../backup/len_import_flow.dart';
 import 'settings_section.dart';
 
 /// Backup: "Back up library…" (one Len file of everything, with when it was
-/// last done) and "Restore from backup…" (its notebooks come back as copies
-/// in a folder named after the backup's date, nothing here is replaced).
+/// last done; nothing to do in an empty library) and "Restore from
+/// backup…" (`importLenFlow`: asks first, nothing here is replaced).
 /// Says plainly where notes are kept: only here while sync is off
 /// (UX_AUDIT R7-12), and what Android's own backup holds (R7-13).
 class BackupSettings extends StatefulWidget {
@@ -22,8 +23,8 @@ class BackupSettings extends StatefulWidget {
   static String describe({required bool syncing, required bool android}) => [
     syncing
         ? 'Sync keeps a copy of your notes on your server. A backup is a copy you keep yourself.'
-        : 'Your notes are kept only on this device. Back up your library now and then, or '
-              'set up sync to keep a copy on your server.',
+        // Sync's own line above already says they are only here (R8-9).
+        : 'Back up your library now and then, or set up sync to keep a copy on your server.',
     if (android)
       'Handwriting and text are included in your Android backup; PDFs, images and audio '
           'are not.',
@@ -55,6 +56,7 @@ class _BackupSettingsState extends State<BackupSettings> {
   @override
   Widget build(BuildContext context) {
     final last = _services.settings.lastBackupAt;
+    final empty = _services.notebooks.list().isEmpty && _services.folders.list().isEmpty;
     return ListenableBuilder(
       listenable: _services.sync,
       builder: (context, _) => SettingsSection(
@@ -67,13 +69,13 @@ class _BackupSettingsState extends State<BackupSettings> {
           SettingsTile(
             icon: Symbols.backup_sharp,
             title: 'Back up library…',
-            subtitle: BackupSettings.lastBackup(last),
-            onTap: () => unawaited(_backUp()),
+            subtitle: empty ? 'Nothing to back up yet' : BackupSettings.lastBackup(last),
+            onTap: empty ? null : () => unawaited(_backUp()),
           ),
           SettingsTile(
             icon: Symbols.settings_backup_restore_sharp,
             title: 'Restore from backup…',
-            subtitle: 'Adds its notebooks as copies in a folder of their own; nothing is replaced',
+            subtitle: 'Brings back a Len backup; nothing here is replaced',
             onTap: () => unawaited(importLenFlow(context)),
           ),
         ],

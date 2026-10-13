@@ -38,14 +38,14 @@ grew apart.
 
 ### Top 10 (fix first)
 
-1. R8-1 (P0) Undoing a page move or copy deletes whatever was written in
+1. ✅ R8-1 (P0) Undoing a page move or copy deletes whatever was written in
    the destination since. With "New notebook…", it deletes the whole
    notebook for good.
-2. R8-14 (P1) A restore is all or nothing: one damaged blob or line, and
+2. ✅ R8-14 (P1) A restore is all or nothing: one damaged blob or line, and
    nothing comes back.
-3. R8-16 (P1) A restore has no confirmation and no Undo. Restoring twice
+3. ✅ R8-16 (P1) A restore has no confirmation and no Undo. Restoring twice
    duplicates the library on every synced device.
-4. R8-15 (P1) Restoring on a new or empty device buries the whole library
+4. ✅ R8-15 (P1) Restoring on a new or empty device buries the whole library
    in a "Backup 13 Oct 2026" folder.
 5. R8-24 (P1) Highlighted PDF text can't be selected with the pen any more.
 6. R8-25 (P1) A scribble erases along the whole stroke, not just where it
@@ -57,7 +57,7 @@ grew apart.
    under "Reset feel" in the collapsed Feel section, below the fold.
 9. R8-2 (P1) Move or copy pages isn't in the editor's page menu, only in
    the page overview.
-10. R8-17 (P1) On the web, a backup is built entirely in memory. A library
+10. ✅ R8-17 (P1) On the web, a backup is built entirely in memory. A library
     full of PDFs crashes the tab.
 
 ### Pages between notebooks
@@ -250,7 +250,7 @@ for being offline.**
 
 ### Backup and Len files
 
-**R8-14 P1 · One damaged byte loses the whole restore.**
+✅ **R8-14 P1 · One damaged byte loses the whole restore.**
 - *What:*
   - A blob whose hash doesn't match throws (`data/blob_store.dart:105`) and
     becomes `LenArchiveException.damaged`
@@ -263,8 +263,13 @@ for being offline.**
 - *Fix:* count a damaged blob as missing and an unparsable line as
   skipped, and carry on. The success message already reports both. Keep
   the rollback for Cancel and for errors that aren't about the file.
+- *Done (`fix/r8-data`):* a damaged blob counts as missing, a bad line as
+  skipped, an unreadable records part is skipped whole and a damaged
+  `blobs.json` falls back to the blobs in the zip. A complete import says so
+  in a snack; one with gaps opens one dialog ("Restored, with gaps": what
+  was left out) with Details listing the damage (`restore_dialogs.dart`).
 
-**R8-15 P1 · Restoring on a new device nests the library, and the
+✅ **R8-15 P1 · Restoring on a new device nests the library, and the
 destination depends on where you start.**
 - *What:* every library restore goes into a new "Backup 13 Oct 2026"
   folder (`features/backup/len_file_flows.dart:112-113`,
@@ -276,8 +281,13 @@ destination depends on where you start.**
 - *Fix:* into an empty library, restore at the top level as it was
   (`folderName: null`). Otherwise put the backup folder at the top level,
   whatever the entry point.
+- *Done (`fix/r8-data`), lead decisions:* into an empty library a backup
+  comes back at the top level with its folders; otherwise into "Backup 13
+  Oct 2026" at the top level. What the file is decides where it goes: a
+  notebook or folder Len file lands in the library's open folder wherever
+  the import started (`LenArchives.openFolder`, set by the library).
 
-**R8-16 P1 · A restore has no confirmation, no Undo, and duplicates
+✅ **R8-16 P1 · A restore has no confirmation, no Undo, and duplicates
 everywhere.**
 - *What:* "Restore from backup…" goes from the file picker straight into
   the import (`settings/backup_settings.dart:77`). The success snack has
@@ -293,8 +303,15 @@ everywhere.**
   - Offer Undo in the snack (delete the folder it made, like the
     library's undoable deletes).
   - Add the time to the folder name when the name is taken.
+- *Done (`fix/r8-data`):* `confirmRestore` asks first (date, count, where it
+  goes, nothing replaced, syncs). A restore keeps the ids of what isn't here
+  (`LenRemap.keep`), so restoring again finds the notebooks already here
+  (`LenArchives.present`) and offers "Skip those" or "Restore all" (as
+  copies); skipping everything makes no empty folder. Undo (snack, or the
+  gaps dialog) puts the restored notebooks in the Trash and removes its
+  folders (`undoRestore`). The folder name gets the time when taken.
 
-**R8-17 P1 · The web builds the whole backup in memory.**
+✅ **R8-17 P1 · The web builds the whole backup in memory.**
 - *What:* `platform/len_file_io_web.dart:96-103` writes into an
   `OutputMemoryStream` and hands `getBytes()` to the download. Blobs are
   read whole (`data/archive/len_archive_writer.dart:124-127`). Import
@@ -305,8 +322,14 @@ everywhere.**
 - *Fix:* stream to `showSaveFilePicker` where the browser has it.
   Otherwise add up the blob sizes first, and above about 500 MB say so
   and suggest backing up folders one by one, or sync.
+- *Done (`fix/r8-data`):* browsers with `showSaveFilePicker` ask where first
+  and stream into the file (`ChunkedOutput`, awaiting each write between
+  steps); others build a blob of 4 MB chunks (the browser may keep it on
+  disk) and, above 500 MB of files, ask first with the size, pointing to
+  per-folder export or sync. Import still reads the file into memory on the
+  web.
 
-**R8-18 P2 · Desktop writes the backup, then asks where to save it.**
+✅ **R8-18 P2 · Desktop writes the backup, then asks where to save it.**
 - *What:* `createLenFileOutput` writes to a temporary folder
   (`platform/len_file_io_native.dart:30-41`). Only afterwards does
   `saveOrShareFile` ask for a location and copy the file
@@ -314,8 +337,9 @@ everywhere.**
 - *Why:* minutes of work, then a save dialog. Cancelling it throws the
   work away, and the disk briefly holds twice the size.
 - *Fix:* on desktop, ask first and write straight to the chosen path.
+- *Done (`fix/r8-data`):* asks first, writes `<path>.part`, renames when done.
 
-**R8-19 P2 · Writing a big library freezes the UI.**
+✅ **R8-19 P2 · Writing a big library freezes the UI.**
 - *What:* `ResolvedScope._estimate` runs synchronous `COUNT(*)` queries
   per notebook and per page before the first `await`
   (`data/archive/len_scope.dart:105-150`). `ZipEncoder.add` is
@@ -325,8 +349,11 @@ everywhere.**
 - *Fix:* a few aggregate queries (`… WHERE surface_id IN (SELECT id FROM
   pages WHERE notebook_id IN …)`), and yield between blobs (or write in
   an isolate on native).
+- *Done (`fix/r8-data`):* the estimate is a few aggregate queries per 500
+  notebooks; the writer yields between blobs. (Blobs are still hashed by
+  `ZipEncoder.add` synchronously, one at a time.)
 
-**R8-20 P2 · Backup, restore and Len export each have several names.**
+✅ **R8-20 P2 · Backup, restore and Len export each have several names.**
 - *What:*
   - A restore shows "Importing…", then "Couldn’t import …" / "Import
     failed", and only success says "Restored" (`len_file_flows.dart:103,
@@ -347,8 +374,10 @@ everywhere.**
   - "Export…" everywhere, and "Len file" in the format segment.
   - One date style in both names.
   - "Len opens PDFs, images and Len files".
+- *Done (`fix/r8-data`):* all of the above; the backup file is "Len backup
+  13 Oct 2026.len".
 
-**R8-21 P2 · Import errors read backwards and don't say what to do.**
+✅ **R8-21 P2 · Import errors read backwards and don't say what to do.**
 - *What:* `'${e.message}: couldn’t import $name'` (`len_file_flows.dart:125`;
   the messages are at `data/archive/len_format.dart:168,185`) gives "This
   file was made by a newer version of Len: couldn’t import “x.len”".
@@ -356,8 +385,11 @@ everywhere.**
   - "Couldn’t import “x.len”: it was made by a newer Len. Update Len and
     try again."
   - "…: it isn’t a Len file, or it is damaged. Try the original file."
+- *Done (`fix/r8-data`):* "Couldn’t import (restore) “x.len”: it was made by
+  a newer Len. Update Len and try again", "…: it isn’t a Len file, or it is
+  damaged. Try the original file".
 
-**R8-22 P2 · A partial backup counts as a whole one.**
+✅ **R8-22 P2 · A partial backup counts as a whole one.**
 - *What:* blobs not yet downloaded are skipped. The note says only "1 file
   wasn’t on this device yet" (`len_file_flows.dart:76`). Then
   `lastBackupAt` is set and the device-only notice is dismissed for good
@@ -365,8 +397,12 @@ everywhere.**
 - *Fix:* "2 PDFs or recordings aren’t downloaded yet and aren’t in this
   backup". With sync configured, fetch them first
   (`SyncController.fetchBlob`).
+- *Done (`fix/r8-data`):* the writer fetches missing blobs through sync first
+  (stopping at the first failure, e.g. offline); what is still missing is
+  said as "2 PDFs, images or recordings aren’t downloaded yet and aren’t in
+  it". `lastBackupAt` is still set.
 
-**R8-23 P2 · Library backups include the Trash, which a restore can then
+✅ **R8-23 P2 · Library backups include the Trash, which a restore can then
 purge at once.**
 - *What:* the library scope takes every non-deleted notebook
   (`data/archive/len_scope.dart:56`), while folder scope skips trashed
@@ -374,6 +410,7 @@ purge at once.**
   so anything trashed more than 30 days before is purged on the next load
   (`data/notebook_repository.dart:163-171`).
 - *Fix:* leave the Trash out of library backups (`trashed_at IS NULL`).
+- *Done (`fix/r8-data`).*
 
 ### Pen and PDF
 
@@ -535,7 +572,7 @@ template typography.**
   Lead decision to revisit R7-3: either move both to Settings → Writing
   (the pen panel keeps one caption), or lift them out of the collapsed
   Feel to the end of the pen popover. Both on by default, as now.
-- **One import destination.** What the file is decides where it goes: a
+- ✅ **One import destination.** What the file is decides where it goes: a
   notebook or folder goes into the open folder, a backup goes to the top
   level (R8-15). Settings → Restore stays a shortcut to the same flow.
 - **Len export for several notebooks.** The export sheet hides the Len
@@ -543,7 +580,7 @@ template typography.**
   Offering it removes the folder menu's separate "Export as Len file…"
   (R8-20).
 - **One selection bar** for the library and the overview (R8-13).
-- **Disable "Back up library…" in an empty library**, and make no empty
+- ✅ **Disable "Back up library…" in an empty library**, and make no empty
   "Backup …" folder when an import brings nothing.
 - **Drop the ring on the first PDF highlight swatch** (R8-31).
 - **Reuse `locationOf`** in the move or copy picker (R8-6) instead of

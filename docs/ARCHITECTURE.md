@@ -301,7 +301,10 @@ re-saves the page's strokes; the overview's selection goes through
 `DocumentCommands.deleteMany` → `PageActions.deleteAll`, one step with one Undo
 that restores every page in place — at least one page always remains), reorder (fractional sort keys, `PageOrder`;
 the list is renumbered only when a gap is exhausted; inserting finds the page to follow by
-id), bookmarks, templates.
+id), bookmarks, templates, and moving or copying pages to another notebook
+(`PageTransfer`, one transaction; its undo never deletes work done since:
+changed copies stay, a notebook made for the pages goes to the Trash, and redo
+reuses the copies still there).
 Every page change goes through `PageEdits` (`document/page_edits.dart`), which
 records a `PageEdit` (undo / redo callbacks) as a step of the notebook-wide
 history in `PageModels`: Ctrl+Z takes back a template, a move, bookmarks, added
@@ -1751,16 +1754,27 @@ A notebook, a folder or the whole library can be written as a Len file
 files"). `LenArchives` (`AppServices.lenFiles`) writes a `LenScope` through
 `LenArchiveWriter` and imports through `LenArchiveReader`: records go out in
 ~4 MB parts and blobs one at a time, read natively straight from their files
-(`platform/len_file_io_native.dart` opens them as `InputFileStream`s); the
-file itself is written to a temporary file and copied / shared from there,
-so a backup is never held in memory (in browsers it is: blobs live in
-IndexedDB and downloads are built in memory). An import stages everything,
-remaps every id (`LenRemap`), checks each blob's hash and commits in one
-transaction (`LenImportCommit`); any damage or Cancel leaves nothing behind.
-Imports are copies: a notebook lands in the open folder and opens, a folder
-keeps its tree, a backup goes into a new folder "Backup 13 Oct 2026".
+(`platform/len_file_io_native.dart` opens them as `InputFileStream`s); blobs
+not downloaded yet are fetched first through sync where it can. The file is
+never held in memory whole (`createLenFileOutput`): desktops ask where to
+save first and write there (a `.part` file until done), phones write a
+temporary file to share or save, browsers write through the save picker
+(`showSaveFilePicker`, streamed via `ChunkedOutput`) where there is one,
+else into a blob of 4 MB chunks to download, and warn before backing up
+more than 500 MB of files. An import opens the file (`LenSource`: the
+manifest and, for a backup, the folders and notebooks it holds), stages
+everything, remaps ids (`LenRemap`), checks each blob's hash and commits in
+one transaction (`LenImportCommit`). Damage (a blob, a line, a part) is
+left out and reported, the rest imported; an error or Cancel leaves nothing
+behind. What the file is decides where it goes (`importLenFlow`): a
+notebook or folder into the library's open folder (`LenArchives.openFolder`)
+wherever the import started; a backup, after a confirmation that offers to
+skip notebooks already here, at the top level as it was into an empty
+library, else into a folder "Backup 13 Oct 2026" (with the time when that
+name is taken). A restore keeps the ids of what isn't here, and its Undo
+(`undoRestore`) puts its notebooks in the Trash and its folders away.
 Entry points: the export sheet's Len format (a notebook or canvas, always
-whole), a folder's "Export as Len file…", ⊕▾ "Import Len file…", "Open
+whole), a folder's "Export…", ⊕▾ "Import Len file…", "Open
 with" / share / drop (`ImportRouter`, `IncomingKind.len`) and Settings →
 Backup ("Back up library…", which records `last_backup_at`, and "Restore
 from backup…"). With sync off, Settings → Backup and the sidebar ("On this

@@ -123,17 +123,10 @@ Future<ExportedFiles?> _mobileShare(
   return ExportedFiles(ExportedTo.shared, count: names.length, name: single);
 }
 
-/// Like [saveOrShare] for a file already written at [path] (too large to
-/// hold in memory, e.g. a library backup): desktop: copied where the user
-/// chooses; mobile: shared, or saved through the system's save dialog.
-/// Null if cancelled.
-Future<ExportedFiles?> saveOrShareFile(
-  String path, {
-  required String name,
-  required String mime,
-  bool toDevice = false,
-}) async {
-  if (_mobile) return _mobileShare([path], [name], mime, toDevice: toDevice);
+/// Desktop: asks where to save a file named [name] (before writing it,
+/// so a long export never ends in a dialog); the chosen path, or null if
+/// cancelled.
+Future<String?> askSaveLocation(String name, {required String mime}) async {
   final extension = p.extension(name).replaceFirst('.', '');
   final location = await getSaveLocation(
     suggestedName: name,
@@ -141,15 +134,18 @@ Future<ExportedFiles?> saveOrShareFile(
       XTypeGroup(label: extension.toUpperCase(), extensions: [extension], mimeTypes: [mime]),
     ],
   );
-  if (location == null) return null;
-  await File(path).copy(location.path);
-  return ExportedFiles(
-    ExportedTo.file,
-    count: 1,
-    name: p.basename(location.path),
-    path: location.path,
-  );
+  return location?.path;
 }
+
+/// Mobile: shares the file written at [path] (too large to hold in memory,
+/// e.g. a library backup), or with [toDevice] (Android) saves it through
+/// the system's save dialog. Null if cancelled.
+Future<ExportedFiles?> shareFile(
+  String path, {
+  required String name,
+  required String mime,
+  bool toDevice = false,
+}) => _mobileShare([path], [name], mime, toDevice: toDevice);
 
 /// Opens the file manager at [path] (a file: selected where the file
 /// manager allows; a folder: opened). Desktops only; never throws.
