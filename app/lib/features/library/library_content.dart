@@ -59,8 +59,14 @@ class LibraryContent extends StatelessWidget {
     builder: (context, constraints) {
       const spacing = Gaps.md;
       final width = constraints.maxWidth;
-      final columns = math.max(2, ((width + spacing) / (FolderTile.width + spacing)).floor());
-      final tile = (width - spacing * (columns - 1)) / columns;
+      double tileFor(int columns) => (width - spacing * (columns - 1)) / columns;
+      var columns = math.max(2, ((width + spacing) / (FolderTile.width + spacing)).floor());
+      // Large text on a phone: fewer, wider tiles rather than cut-off names.
+      final minTile = FolderTile.minWidth * MediaQuery.textScalerOf(context).scale(1);
+      while (columns > 1 && tileFor(columns) < minTile) {
+        columns--;
+      }
+      final tile = tileFor(columns);
       return Wrap(
         spacing: spacing,
         runSpacing: spacing,

@@ -30,6 +30,9 @@ class FolderTile extends StatefulWidget {
   /// About how wide tiles are; the row stretches them to fill it.
   static const double width = 200;
 
+  /// The narrowest a tile gets at 1× text (scaled with the text).
+  static const double minWidth = 150;
+
   @override
   State<FolderTile> createState() => _FolderTileState();
 }
