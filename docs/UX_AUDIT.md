@@ -552,7 +552,8 @@ and end with "Exported · 2 images couldn't be included". *Files:*
 `features/documents/export/*`.
 *Done:* `ExportReport` collects missing PDF pages, images that couldn't be
 embedded and PDF pages included as pictures; the success message ends "· 2
-images couldn’t be included".
+images couldn’t be included". PNG exports (pages and canvases) report images
+and PDF pages they couldn't include too.
 
 ✅ **P2-30 Web: storage warnings live only in Settings.** Unpersisted storage with
 sync off is shown in Settings → Storage only; there is no handling of quota
