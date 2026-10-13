@@ -82,6 +82,20 @@ bool isToolSelected(WidgetTester tester, String tooltip) {
 }
 
 void main() {
+  testWidgets('an empty library in a phone held sideways shows its button', (tester) async {
+    await pumpLibrary(tester, size: const Size(844, 390));
+    expect(tester.takeException(), isNull); // No overflow.
+    final button = find.widgetWithText(FilledButton, 'New notebook');
+    expect(tester.getRect(button).bottom, lessThanOrEqualTo(390));
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    // The sheet drops its preview there: the form starts in view.
+    expect(
+      tester.getRect(find.text('Canvas')).bottom,
+      lessThan(tester.getRect(find.text('Create')).top),
+    );
+  });
+
   testWidgets('create a notebook from the empty library, draw, and go back', (tester) async {
     final services = await pumpLibrary(tester);
     expect(find.text('Nothing here yet'), findsOneWidget);
