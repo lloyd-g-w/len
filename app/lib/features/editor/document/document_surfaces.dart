@@ -36,11 +36,11 @@ class PageSurface {
   /// four levels of them take 2 MB).
   static const int maxRasterBytes = 4 << 20;
 
-  bool get hasHistory => model.history.canUndo || model.history.canRedo;
-
-  /// Whether the surface must stay while off screen: it has undo history,
-  /// or holds items of a selection made on another page.
-  bool get pinned => hasHistory || model.hasHidden;
+  /// Whether the surface must stay while off screen: it holds items of a
+  /// selection made on another page. (A page with undo history may go:
+  /// [PageModels] keeps its model while undo reaches it, without the
+  /// render caches.)
+  bool get pinned => model.hasHidden;
 
   /// Disposes the cache; the model is released to [PageModels].
   void dispose() {
@@ -54,8 +54,9 @@ class PageSurface {
 /// while visible.
 ///
 /// A page's surface is created when it scrolls into view and released
-/// again once it is off-screen — unless it has undo history, which must
-/// survive scrolling. Notifies whenever any held surface changes.
+/// again once it is off-screen (its model stays while notebook-wide undo
+/// reaches it, see [PageModels]). Notifies whenever any held surface
+/// changes.
 ///
 /// The models come from [models], which every view of the notebook shares
 /// (and with it the notebook-wide undo this forwards to); each view keeps
@@ -88,7 +89,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
   /// Builds loaded strokes' outlines off the UI thread (optional).
   final OutlinePreparer? outlines;
 
-  /// Off-screen surfaces without history kept around for quick returns.
+  /// Off-screen surfaces kept around for quick returns.
   final int keepIdle;
 
   final Map<String, PageSurface> _surfaces = {};

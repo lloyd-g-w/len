@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -6,6 +9,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/document/document_controller.dart';
+import 'package:len/features/editor/document/page_models.dart';
 import 'package:len/features/editor/document/page_overview.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -17,6 +21,7 @@ import 'support/big_library.dart';
 /// full of handwriting, the others pages of an imported PDF (not on this
 /// device, so they show as missing; their cost here is the page model).
 void main() {
+  _longSession();
   testWidgets('500 pages: open, go to the end, page overview', (tester) async {
     tester.view
       ..physicalSize = const Size(1200, 900)
@@ -117,6 +122,91 @@ void main() {
       jumpSettled: jumpSettled,
       frames: frames,
     ));
+  });
+}
+
+/// A 500-page notebook of handwriting.
+(AppServices, Notebook) _lectures({int pages = 500, int lines = 20}) {
+  final clock = BenchClock();
+  final s = AppServices.create(AppDatabase.inMemory(), clock: clock);
+  final nb = s.notebooks.create(
+    title: 'Lectures',
+    kind: NotebookKind.paged,
+    paper: PaperStyle.collegeRuled,
+    coverColor: 0,
+  );
+  s.database.transaction(() {
+    s.pages.insertPages(nb.id, [
+      for (var i = 1; i < pages; i++)
+        (
+          size: const Size(595, 842),
+          paper: Paper(PaperStyle.collegeRuled),
+          color: PaperColor.white,
+          background: null,
+        ),
+    ]);
+    for (final p in s.pages.pagesOf(nb.id)) {
+      s.strokes.save(pageOfInk(p.id, clock, lines: lines, seed: 3));
+    }
+  });
+  return (s, nb);
+}
+
+void _longSession() {
+  testWidgets('a long session: writing on 300 pages keeps few pages in memory', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1200, 900)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final (s, nb) = _lectures(lines: 10);
+    addTearDown(s.dispose);
+    await tester.pumpWidget(
+      AppScope(
+        services: s,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: EditorScreen(notebook: nb),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
+    final pages = doc.pages;
+    int alive() => pages.where((p) => doc.surfaces.models.peek(p.id) != null).length;
+    final rss = ProcessInfo.currentRss;
+    final watch = Stopwatch()..start();
+    for (var i = 0; i < 300; i++) {
+      doc.goToPage(i);
+      await tester.pump();
+      final at = tester.getCenter(find.byType(PagedDocumentView));
+      final pen = await tester.startGesture(at, kind: PointerDeviceKind.stylus);
+      for (var k = 0; k < 6; k++) {
+        await pen.moveBy(const Offset(8, 2));
+      }
+      await pen.up();
+      await tester.pump();
+    }
+    final perPage = watch.elapsedMilliseconds ~/ 300;
+    final models = alive();
+    final held = doc.surfaces.all.length;
+    // Pages undo can reach, and those the view keeps near the screen.
+    expect(models, lessThanOrEqualTo(PageModels.maxPages + 1));
+    expect(held, lessThanOrEqualTo(10));
+    final grown = (ProcessInfo.currentRss - rss) >> 20;
+    // Every stroke is still undoable, as far back as the history reaches.
+    final undo = doc.surfaces.models;
+    var steps = 0;
+    while (undo.canUndo && steps < 1000) {
+      undo.undo();
+      steps++;
+    }
+    report(
+      'long session, 300 pages written on: $models page models alive ($held with render '
+      'caches), RSS +$grown MB, '
+      '$steps undo steps, ${perPage}ms a page',
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
   });
 }
 

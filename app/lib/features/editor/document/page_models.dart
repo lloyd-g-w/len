@@ -27,8 +27,16 @@ class PageEdit {
 /// selection changes) counts, whether or not it came from a pointer, and
 /// in whichever view it was made. Page-level changes ([PageEdit]s: a
 /// template, the page order, bookmarks, pages deleted) are steps of the
-/// same history, so Ctrl+Z takes back whatever was done last.
+/// same history, so Ctrl+Z takes back whatever was done last. It reaches
+/// back [maxSteps] steps on at most [maxPages] pages: every page it reaches
+/// keeps its model (all its ink, loaded) in memory.
 class PageModels extends ChangeNotifier implements UndoTarget {
+  /// Most undo steps kept across the notebook (a page keeps as many).
+  static const maxSteps = 200;
+
+  /// Most pages the undo history reaches; older steps are dropped.
+  static const maxPages = 24;
+
   final Map<String, SurfaceModel> _models = {};
   final Map<String, int> _users = {};
 
@@ -142,7 +150,21 @@ class PageModels extends ChangeNotifier implements UndoTarget {
 
   void _add(Object entry) {
     final group = _grouping;
-    group == null ? _undoPages.add([entry]) : group.add(entry);
+    if (group != null) return group.add(entry);
+    _undoPages.add([entry]);
+    _trim();
+  }
+
+  /// Drops the oldest undo steps beyond [maxSteps] or [maxPages], and the
+  /// models only they kept.
+  void _trim() {
+    var dropped = false;
+    while (_undoPages.length > maxSteps ||
+        {for (final step in _undoPages) ...step.whereType<String>()}.length > maxPages) {
+      _undoPages.removeAt(0);
+      dropped = true;
+    }
+    if (dropped) _collect();
   }
 
   void _clearRedo() {
@@ -161,7 +183,10 @@ class PageModels extends ChangeNotifier implements UndoTarget {
       edits();
     } finally {
       _grouping = null;
-      if (group.isNotEmpty) _undoPages.add(group);
+      if (group.isNotEmpty) {
+        _undoPages.add(group);
+        _trim();
+      }
       notifyListeners();
     }
   }
