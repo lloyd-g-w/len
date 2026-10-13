@@ -23,7 +23,10 @@ Future<T?> showAdaptivePopover<T>({
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (context) => SingleChildScrollView(
+      // A cut-off end fades here too, so a tall sheet shows it scrolls.
+      builder: (context) => ScrollFade(
+        axis: Axis.vertical,
+        extent: Gaps.xl,
         padding: EdgeInsets.fromLTRB(
           Gaps.lg,
           0,
