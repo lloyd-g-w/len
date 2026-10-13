@@ -250,6 +250,16 @@ void main() {
       expect((await s.blobGc.run()).toSet(), {pdf, img, audio});
     });
 
+    test('old tombstones lose their payload in batches, all of them', () async {
+      final page = pdfPage(notebook(), await blob('pdf'));
+      final ids = [for (var i = 0; i < TombstonePayloads.batch * 2 + 1; i++) 'ink $i'];
+      s.strokes.save([for (final id in ids) bigStroke(id, page.id, 2)]);
+      s.strokes.delete(ids);
+      clock.advance(TombstonePayloads.retention + const Duration(days: 1));
+      await s.blobGc.run();
+      expect(s.database.db.select('SELECT id FROM strokes WHERE length(points) > 0'), isEmpty);
+    });
+
     test('runIfDue runs at most once a day', () async {
       final sha = await blob('orphan');
       await s.blobGc.runIfDue(); // Marks.

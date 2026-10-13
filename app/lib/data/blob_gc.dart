@@ -46,9 +46,9 @@ class LocalBlobGc {
 
   /// Marks newly unreferenced blobs and deletes those past the grace period;
   /// returns the deleted ids.
-  Future<List<String>> run() {
+  Future<List<String>> run() async {
     final now = blobs.clock.nowMs();
-    tombstones?.purge(now);
+    await tombstones?.purge(now);
     return blobs.collectGarbage(
       () => references.all(tombstonesSince: TombstonePayloads.keptSince(now)),
     );

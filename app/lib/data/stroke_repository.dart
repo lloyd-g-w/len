@@ -94,11 +94,16 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
   }
 
   /// Drops the points of strokes tombstoned before [before] (ms): they can
-  /// no longer be revived (see `TombstonePayloads`).
-  void purgeTombstones(int before) => db.execute(
-    "UPDATE strokes SET points = x'' WHERE deleted = 1 AND updated_at < ? AND length(points) > 0",
-    [before],
-  );
+  /// no longer be revived (see `TombstonePayloads`), at most [limit] (-1:
+  /// all); returns how many.
+  int purgeTombstones(int before, {int limit = -1}) {
+    db.execute(
+      'UPDATE strokes SET points = zeroblob(0) WHERE rowid IN (SELECT rowid FROM strokes '
+      'WHERE deleted = 1 AND updated_at < ? AND length(points) > 0 LIMIT ?)',
+      [before, limit],
+    );
+    return db.updatedRows;
+  }
 
   // ---------------------------------------------------------------------------
   // Sync

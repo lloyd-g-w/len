@@ -66,7 +66,10 @@ void main() {
     timings['longest purge step'] = blocked;
     time('library reload', controller.reload);
     final gc = Stopwatch()..start();
-    await s.blobGc.run();
+    var collected = false;
+    final collecting = s.blobGc.run().whenComplete(() => collected = true);
+    timings['longest blob GC step'] = await longestTurnUntil(() => collected);
+    await collecting;
     timings['blob GC (purges 30k old tombstones)'] = gc.elapsedMilliseconds;
     gc.reset();
     await s.blobGc.run();

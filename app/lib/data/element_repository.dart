@@ -75,11 +75,16 @@ class ElementRepository extends SyncableTable {
   }
 
   /// Drops the data of elements tombstoned before [before] (ms): they can
-  /// no longer be revived (see `TombstonePayloads`).
-  void purgeTombstones(int before) => db.execute(
-    "UPDATE elements SET data = '{}' WHERE deleted = 1 AND updated_at < ? AND data <> '{}'",
-    [before],
-  );
+  /// no longer be revived (see `TombstonePayloads`), at most [limit] (-1:
+  /// all); returns how many.
+  int purgeTombstones(int before, {int limit = -1}) {
+    db.execute(
+      "UPDATE elements SET data = '{}' WHERE rowid IN (SELECT rowid FROM elements "
+      "WHERE deleted = 1 AND updated_at < ? AND data <> '{}' LIMIT ?)",
+      [before, limit],
+    );
+    return db.updatedRows;
+  }
 
   /// Surface id of a stored element (live or tombstoned), if known.
   String? surfaceOf(String elementId) {
