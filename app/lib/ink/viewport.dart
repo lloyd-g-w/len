@@ -112,7 +112,7 @@ class ViewportController extends ChangeNotifier {
   }
 
   /// Keeps bounded content reachable: centred along an axis when it fits,
-  /// otherwise never scrolled further than [_overscroll] past its edges.
+  /// otherwise never scrolled further than [overscroll] past its edges.
   void _constrain() {
     final content = contentBounds;
     if (content == null || _size.isEmpty) return;
@@ -122,15 +122,16 @@ class ViewportController extends ChangeNotifier {
     );
   }
 
-  static const double _overscroll = 48;
+  /// How far (screen pixels) bounded content scrolls past its edges.
+  static const double overscroll = 48;
 
   double _constrainAxis(double offset, double start, double end, double viewport) {
     final extent = (end - start) * _scale;
-    if (extent <= viewport - 2 * _overscroll) {
+    if (extent <= viewport - 2 * overscroll) {
       return (viewport - extent) / 2 - start * _scale; // centre
     }
-    final maxOffset = _overscroll - start * _scale;
-    final minOffset = viewport - _overscroll - end * _scale;
+    final maxOffset = overscroll - start * _scale;
+    final minOffset = viewport - overscroll - end * _scale;
     return math.min(maxOffset, math.max(minOffset, offset));
   }
 }

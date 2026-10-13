@@ -150,6 +150,25 @@ class DocumentController extends ChangeNotifier {
     fit: _fit == PageFit.auto ? null : _fit.name,
   );
 
+  /// Extra room (screen pixels) past the end for controls floating over
+  /// the bottom of the document (the recording pill, the player), so the
+  /// "add page" footer can scroll clear of them.
+  double get endRoom => _endRoom;
+  double _endRoom = 0;
+
+  /// Sets [endRoom]; scrolled to the end, the view stays at the end (so
+  /// the footer moves up out of the way).
+  void setEndRoom(double room) {
+    if (room == _endRoom) return;
+    final grow = room - _endRoom;
+    final bounds = viewport.contentBounds;
+    final end = viewport.size.height - ViewportController.overscroll;
+    final atEnd = bounds != null && (viewport.toScreen(bounds.bottomLeft).dy - end).abs() < 0.5;
+    _endRoom = room;
+    _updateBounds();
+    if (atEnd && grow > 0) viewport.panBy(Offset(0, -grow));
+  }
+
   /// The frame of the last page on screen, for the "add page" footer.
   Rect? get lastPageOnScreen {
     final frame = _layout.frameOf(_pages.length - 1);
@@ -294,7 +313,7 @@ class DocumentController extends ChangeNotifier {
       b.left,
       b.top - _insets.top / s,
       b.right,
-      b.bottom + (_insets.bottom + footer) / s,
+      b.bottom + (_insets.bottom + footer + _endRoom) / s,
     );
   }
 
