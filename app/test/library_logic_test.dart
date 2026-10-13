@@ -8,6 +8,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/library/cover_grid.dart';
 import 'package:len/features/library/library_controller.dart';
 import 'package:len/features/library/library_query.dart';
 import 'package:len/features/library/new_notebook/default_title.dart';
@@ -29,6 +30,23 @@ Notebook nb(String title, {int created = 0, int edited = 0}) => Notebook(
 );
 
 void main() {
+  test('a short viewport narrows covers so a whole row with titles fits', () {
+    // A phone upright: covers of about 150 dp, two columns.
+    expect(CoverGridDelegate.columnsFor(358, 150, 16, height: 844, captionHeight: 68), 2);
+    // Held sideways: 804 dp wide, 390 high. Without the height, four
+    // covers about 190 dp wide (264 dp tall); with it, a cover and its
+    // caption take at most 60 % of the height.
+    expect(CoverGridDelegate.columnsFor(804, 150, 16), 4);
+    final columns = CoverGridDelegate.columnsFor(804, 150, 16, height: 390, captionHeight: 68);
+    final tile = (804 - 16 * (columns - 1)) / columns;
+    expect(tile / 0.72 + 68, lessThanOrEqualTo(390 * 0.6));
+    // Large text: covers stop narrowing at 96 dp.
+    final big = CoverGridDelegate.columnsFor(804, 150, 16, height: 390, captionHeight: 124);
+    expect((804 - 16 * (big - 1)) / big, greaterThanOrEqualTo(96));
+    // Tall windows are unaffected.
+    expect(CoverGridDelegate.columnsFor(1100, 150, 24, height: 800, captionHeight: 68), 6);
+  });
+
   test('a notebook without a title is named after the day, numbered when taken', () {
     final day = DateTime(2026, 10, 13);
     expect(defaultNotebookTitle(day, const []), '13 October');

@@ -49,7 +49,7 @@ folderId)`. For folders, add a "Moved “School” into “Work” · Undo" snac
 folder drops say "Moved “School” to “Work”" with Undo; a drop where the
 item already is does nothing.
 
-⬜ **R6-3 P1 · A phone held sideways shows no notebook titles.**
+✅ **R6-3 P1 · A phone held sideways shows no notebook titles.**
 `library_phone_sideways_*`: four covers about 190 dp wide fill the 390-dp
 height, the titles are below the fold, and the FAB sits on the fourth cover.
 The column count depends only on width (`CoverGridDelegate.columnsFor`,
@@ -59,6 +59,12 @@ least two columns). *Fix:* cap the cover height on short windows. When
 from the height (a cover plus its caption at most about 60 % of the
 viewport, so about 110 dp at 390), which gives six columns with titles in
 view. Alternative: switch to the list view below `shortHeight`.
+*Done:* `CoverGridDelegate.columnsFor` (now `cover_grid.dart`) adds
+columns until a cover and its caption take at most 60 % of the viewport's
+height (never narrower than 96 dp); the folder row follows the same
+columns. Sideways: seven covers about 100 dp wide, titles in view. Card
+titles break only between words; a word too long for the line ends in
+"…" on one line.
 
 ⬜ **R6-5 P1 · Phones: Import PDF hides behind a long press on the FAB.**
 After the first notebook, phones offer importing a PDF only through a long

@@ -180,12 +180,7 @@ class _NotebookCardState extends State<NotebookCard> {
                                 padding: EdgeInsets.only(
                                   right: _selecting ? 0 : NotebookCard._moreWidth,
                                 ),
-                                child: Text(
-                                  _notebook.title,
-                                  style: theme.textTheme.labelLarge,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                child: _CardTitle(_notebook.title),
                               ),
                               Text(
                                 widget.subtitle,
@@ -253,3 +248,34 @@ Widget fadedCover(Widget cover) => Opacity(
     child: cover,
   ),
 );
+
+/// A card's title in up to two lines, broken only between words: a word
+/// wider than the line (narrow covers in a short window) ends in an
+/// ellipsis on one line rather than splitting ("Whitebo / ard").
+class _CardTitle extends StatelessWidget {
+  const _CardTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.labelLarge;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        );
+        final splits = title.split(' ').any((word) {
+          painter
+            ..text = TextSpan(text: word, style: style)
+            ..layout();
+          return painter.width > constraints.maxWidth;
+        });
+        painter.dispose();
+        return Text(title, style: style, maxLines: splits ? 1 : 2, overflow: TextOverflow.ellipsis);
+      },
+    );
+  }
+}
