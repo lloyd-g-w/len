@@ -7,6 +7,7 @@ import 'package:len/features/editor/pen/highlighter_options_panel.dart';
 import 'package:len/features/editor/pen/ink_slots.dart';
 import 'package:len/features/editor/pen/pen_options_panel.dart';
 import 'package:len/features/editor/tools/colour_sheet.dart';
+import 'package:len/features/editor/tools/shape_options_panel.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:len/ui/color_dot.dart';
@@ -70,13 +71,20 @@ void main() {
     await tester.tap(find.text('Straight lines'));
     await tester.pump();
     expect(tools.configOf(InkTool.highlighter).straight, isTrue);
-    // Neither the stabiliser nor hold to snap applies to straight lines.
+    // The stabiliser doesn't apply to straight lines.
     final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
     expect(sliders.last.onChanged, isNull);
+    expect(tools.configOf(InkTool.ballpoint).straight, isFalse);
+    // Hold to snap has one home, the Shapes popover.
+    expect(find.text('Hold to snap shapes'), findsNothing);
+  });
+
+  testWidgets('shapes: hold to snap lives here', (tester) async {
+    await pump(tester, ShapeOptionsPanel(tools: tools));
+    final before = tools.holdToStraighten;
     await tester.tap(find.text('Hold to snap shapes'));
     await tester.pump();
-    expect(tools.holdToStraighten, isTrue);
-    expect(tools.configOf(InkTool.ballpoint).straight, isFalse);
+    expect(tools.holdToStraighten, !before);
   });
 
   testWidgets('eraser: switch back after erasing', (tester) async {

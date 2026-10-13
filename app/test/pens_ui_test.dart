@@ -279,10 +279,7 @@ void main() {
       await tester.tap(find.text('Feel'));
       await tester.pumpAndSettle();
       expect(find.byType(PenOptionsPanel), findsOneWidget);
-      await tester.ensureVisible(find.text('Hold to snap shapes'));
-      await tester.tap(find.text('Hold to snap shapes'));
-      await tester.pump();
-      expect(tools.holdToStraighten, isFalse);
+      expect(find.text('Hold to snap shapes'), findsNothing); // In Shapes only.
       expect(tester.takeException(), isNull);
     });
 

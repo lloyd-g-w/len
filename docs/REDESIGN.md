@@ -453,9 +453,8 @@ Phase 1 comes first because every later phase then gets smaller.
 - The popover's palette is the existing 20-colour `ColorSwatches.palette`
   (two rows of ten), then up to six recent colours and Custom.
 - The pen and highlighter panels are hosted unchanged under *Feel* (so the
-  pen's end style from feat/pen5 merges in): "Hold to snap shapes" therefore
-  shows in the pen's Feel as well as in the Shapes popover, and the eraser
-  keeps *Auto-deselect*. The laser's trail length is a slider (0.3–3 s), not
+  pen's end style from feat/pen5 merges in); "Hold to snap shapes" lives
+  only in the Shapes popover (R6-15), and the eraser keeps *Auto-deselect*. The laser's trail length is a slider (0.3–3 s), not
   Short / Long; `ToolSettings.laser` already existed.
 - The lasso's popover explains the tool instead of being empty, so tapping
   any active tool behaves the same.

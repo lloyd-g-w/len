@@ -7,6 +7,8 @@ import 'tool_icons.dart';
 
 /// Picks the shape the Shape tool draws: one row of kinds, the selected
 /// one on the neutral pressed plate. Shapes use the pen's colour and size.
+/// Under a rule, "Hold to snap shapes": the one home of that global
+/// switch (it turns a held pen or highlighter stroke into a shape).
 class ShapeOptionsPanel extends StatelessWidget {
   const ShapeOptionsPanel({super.key, required this.tools});
 
@@ -56,6 +58,13 @@ class ShapeOptionsPanel extends StatelessWidget {
           // Only a keyboard has Shift.
           if (!Targets.touchFirst)
             Text('Hold Shift for squares, circles and 15° lines', style: text.bodySmall),
+          const OptionRule(),
+          OptionSwitch(
+            label: 'Hold to snap shapes',
+            subtitle: 'Hold the pen still at the end of a stroke for a clean line or shape',
+            value: tools.holdToStraighten,
+            onChanged: (v) => tools.holdToStraighten = v,
+          ),
         ],
       ),
     );

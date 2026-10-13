@@ -8,7 +8,7 @@ import 'pen_ends_options.dart';
 import 'stroke_preview.dart';
 
 /// The pen's settings popover: a live preview, pressure sensitivity,
-/// stabiliser and hold to snap. Edits apply live; Reset restores the feel
+/// stabiliser and the pen's ends. Edits apply live; Reset restores the feel
 /// defaults. Quick colours and widths live in the toolbar itself.
 class PenOptionsPanel extends StatelessWidget {
   const PenOptionsPanel({super.key, required this.tools});
@@ -47,27 +47,9 @@ class PenOptionsPanel extends StatelessWidget {
               config: config,
               onChanged: (ends) => update((c) => c.copyWith(ends: ends)),
             ),
-            HoldToSnapSwitch(tools: tools),
           ],
         );
       },
     );
   }
-}
-
-/// "Hold to snap shapes" (one setting for both inks); [enabled] false
-/// greys it out where it does not apply.
-class HoldToSnapSwitch extends StatelessWidget {
-  const HoldToSnapSwitch({super.key, required this.tools, this.enabled = true});
-
-  final ToolSettings tools;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) => OptionSwitch(
-    label: 'Hold to snap shapes',
-    subtitle: 'Hold still at the end of a stroke for a clean line or shape',
-    value: tools.holdToStraighten,
-    onChanged: enabled ? (v) => tools.holdToStraighten = v : null,
-  );
 }

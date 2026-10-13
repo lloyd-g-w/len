@@ -173,7 +173,7 @@ text colour is the frequent case, and a custom colour the rare one. *Fix:*
 build `pickColor` on the ink popovers' `ColorChoices` (palette, Recent,
 Custom ▸ HSV), laid out with `EvenGrid`. One colour picker everywhere.
 
-⬜ **R6-15 P2 · "Hold to snap shapes" lives in three places, one of them
+✅ **R6-15 P2 · "Hold to snap shapes" lives in three places, one of them
 above a Reset that ignores it.** `HoldToSnapSwitch` is one global setting.
 It shows in the pen's Feel (`features/editor/pen/pen_options_panel.dart:50`),
 the highlighter's Feel (`highlighter_options_panel.dart:52`) and the Shapes
@@ -184,6 +184,9 @@ resettable but is neither. *Fix:* one home, the Shapes popover (where shapes
 are). Or, if it stays in Feel for discoverability, move it out of the
 disclosure into its own row under Size, so Reset feel covers exactly what's
 above it.
+*Done (`fix/r6-editor`):* one home, the Shapes popover (`ShapeOptionsPanel`,
+under a rule); gone from the pen's and the highlighter's Feel, so Reset feel
+covers only per-pen settings.
 
 ⬜ **R6-16 P2 · The lasso popover is three lines of hints.** Tapping the
 active lasso opens a popover with no controls

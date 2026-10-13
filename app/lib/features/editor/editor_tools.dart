@@ -11,7 +11,6 @@ import 'pen/highlighter_options_panel.dart';
 import 'pen/ink_options.dart';
 import 'pen/ink_slots.dart';
 import 'pen/ink_strip.dart';
-import 'pen/option_controls.dart';
 import 'pen/pen_options_panel.dart';
 import 'toolbar/tool_options_popover.dart';
 import 'tools/laser_options_panel.dart';
@@ -146,18 +145,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       inkColor: () => tools.configOf(InkTool.ballpoint).color,
       strip: (_, _) => ShapeStrip(tools: tools),
       stripWidth: (slot) => ShapeStrip.widthFor(tools, slot),
-      options: (_) => ListenableBuilder(
-        listenable: tools,
-        builder: (context, _) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ShapeOptionsPanel(tools: tools),
-            const OptionRule(),
-            HoldToSnapSwitch(tools: tools),
-          ],
-        ),
-      ),
+      options: (_) => ShapeOptionsPanel(tools: tools),
     ),
     ToolDescriptor(
       settings: tools,
