@@ -228,6 +228,7 @@ class _ExportSheetState extends State<ExportSheet> {
 
   Widget _switch(String title, String subtitle, bool value, void Function(bool) set) =>
       AppSwitchTile(
+        padding: EdgeInsets.zero,
         title: title,
         subtitle: subtitle,
         value: value,

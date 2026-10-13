@@ -104,6 +104,6 @@ void main() {
     );
     await tester.runAsync(services.recognition.indexer.run); // Notifies when done.
     await tester.pump();
-    expect(find.textContaining('finds it here · 1 line'), findsOneWidget);
+    expect(find.textContaining('finds it here. 1 line so far'), findsOneWidget);
   });
 }

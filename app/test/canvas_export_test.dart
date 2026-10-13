@@ -160,7 +160,7 @@ void main() {
       },
     );
     await tester.pumpAndSettle();
-    expect(find.text('Whole canvas · PDF'), findsOneWidget);
+    expect(find.text('Whole canvas, PDF'), findsOneWidget);
     expect(find.text('Pages'), findsNothing, reason: 'no page choice');
     expect(find.text('Background'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('export-button')));

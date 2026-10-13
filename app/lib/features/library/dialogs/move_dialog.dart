@@ -5,6 +5,7 @@ import '../../../domain/folder.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_or_sheet.dart';
 import '../../../ui/sheet_parts.dart';
+import '../../../ui/sidebar_item.dart';
 import '../library_controller.dart';
 
 /// The destination chosen in [showMoveDialog]; `folderId` null = root.
@@ -100,32 +101,46 @@ class _FolderRow extends StatelessWidget {
     final scheme = theme.colorScheme;
     final folder = this.folder;
 
-    return ListTile(
-      minTileHeight: 52,
-      contentPadding: EdgeInsets.only(left: Gaps.md + depth * 24.0, right: Gaps.md),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
-      leading: Icon(
-        folder == null ? Symbols.auto_stories_sharp : Symbols.folder_sharp,
-        fill: folder == null ? 0 : 1,
-        color: folder == null ? scheme.onSurfaceVariant : Color(folder.color),
-        size: 28,
+    final label = Text(
+      folder?.name ?? 'Library',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.labelLarge?.copyWith(
+        color: scheme.onSurface,
+        fontWeight: current ? FontWeight.w600 : null,
       ),
-      title: Text(folder?.name ?? 'Library', maxLines: 1, overflow: TextOverflow.ellipsis),
-      enabled: !current,
-      trailing: current
-          ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xxs),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(Radii.xs),
+    );
+    // The current location carries the margin rule (DESIGN §6.3) and is not
+    // a destination.
+    return Semantics(
+      selected: current,
+      button: !current,
+      child: CustomPaint(
+        foregroundPainter: current ? MarginRulePainter(scheme.primary) : null,
+        child: InkWell(
+          onTap: current ? null : onTap,
+          borderRadius: BorderRadius.circular(Radii.xs),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: Targets.menuRowHeight(context)),
+            child: Padding(
+              padding: EdgeInsetsDirectional.only(start: Gaps.lg + depth * Gaps.xl, end: Gaps.lg),
+              child: Row(
+                children: [
+                  Icon(
+                    folder == null ? Symbols.auto_stories_sharp : Symbols.folder_sharp,
+                    fill: folder == null ? 0 : 1,
+                    color: folder == null ? scheme.onSurfaceVariant : Color(folder.color),
+                    size: Glyphs.bar,
+                  ),
+                  const SizedBox(width: Gaps.md),
+                  Expanded(child: label),
+                  if (current) Text('Current', style: theme.textTheme.bodySmall),
+                ],
               ),
-              child: Text(
-                'Current',
-                style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-            )
-          : null,
-      onTap: onTap,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

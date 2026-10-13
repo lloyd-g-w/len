@@ -168,7 +168,7 @@ class _PagePickerState extends State<_PagePicker> {
                           subtitle: names == null
                               ? null
                               : Text(
-                                  names.join(' · '),
+                                  names.join(', '),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodySmall,
