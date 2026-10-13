@@ -222,15 +222,22 @@ class SurfaceModel extends ChangeNotifier {
     final hidden = {for (final set in _hiddenBy.values) ...set};
     if (setEquals(hidden, _hidden)) return;
     final changed = <ChunkKey>{};
+    final areas = <Rect>[];
     for (final id in {..._hidden, ...hidden}) {
       if (_hidden.contains(id) && hidden.contains(id)) continue;
       final stroke = _strokes[id];
       final element = _elements[id];
-      if (stroke != null) changed.addAll(StrokeChunks.of(stroke));
-      if (element != null) changed.addAll(ElementChunks.of(element));
+      if (stroke != null) {
+        changed.addAll(StrokeChunks.of(stroke));
+        areas.add(stroke.bounds);
+      }
+      if (element != null) {
+        changed.addAll(ElementChunks.of(element));
+        areas.add(element.bounds);
+      }
     }
     _hidden = Set.unmodifiable(hidden);
-    _changed(changed);
+    _changed(changed, areas: areas);
   }
 
   /// The ids each owner hides (see [setHidden]).
@@ -584,15 +591,18 @@ class SurfaceModel extends ChangeNotifier {
         ..addAll(edit.removed.map((s) => s.id))
         ..addAll(edit.removedElements.map((e) => e.id));
     }
+    final areas = <Rect>[];
     for (final s in edit.removed) {
       final current = _strokes[s.id];
       if (current != null) _removeStroke(current);
       changed.addAll(StrokeChunks.of(s));
+      areas.add(s.bounds);
     }
     final appended = _isAppend(edit);
     for (final s in edit.added) {
       _strokes.insert(s);
       changed.addAll(StrokeChunks.of(s));
+      areas.add(s.bounds);
     }
 
     // An element replaced by a new value keeps its id: only delete the
@@ -609,14 +619,17 @@ class SurfaceModel extends ChangeNotifier {
       if (current != null) {
         _removeElement(current);
         changed.addAll(ElementChunks.of(current));
+        areas.add(current.bounds);
       }
       changed.addAll(ElementChunks.of(e));
+      areas.add(e.bounds);
     }
     for (final e in edit.addedElements) {
       _elements.insert(e);
       changed.addAll(ElementChunks.of(e));
+      areas.add(e.bounds);
     }
-    _changed(changed, appended: appended ? edit.added : null);
+    _changed(changed, appended: appended ? edit.added : null, areas: areas);
   }
 
   /// Whether [edit] only adds pen strokes painted over everything already
@@ -688,8 +701,13 @@ class SurfaceModel extends ChangeNotifier {
     _loading.noteRemoved(element.id);
   }
 
-  void _changed(Set<ChunkKey> chunks, {List<Stroke>? appended, bool loaded = false}) {
-    _changes.add(SurfaceChange(chunks, appended: appended, loaded: loaded));
+  void _changed(
+    Set<ChunkKey> chunks, {
+    List<Stroke>? appended,
+    bool loaded = false,
+    List<Rect>? areas,
+  }) {
+    _changes.add(SurfaceChange(chunks, appended: appended, loaded: loaded, areas: areas));
     notifyListeners();
   }
 
@@ -707,9 +725,13 @@ class SurfaceModel extends ChangeNotifier {
 /// A change of what a surface renders: the [chunks] whose rendering is
 /// stale (null: everything).
 class SurfaceChange {
-  const SurfaceChange(this.chunks, {this.appended, this.loaded = false});
+  const SurfaceChange(this.chunks, {this.appended, this.loaded = false, this.areas});
 
   final Set<ChunkKey>? chunks;
+
+  /// The world rectangles within [chunks] whose rendering changed (the
+  /// bounds of the items edited), when known; null: all of [chunks].
+  final List<Rect>? areas;
 
   /// Set when the change only appends these strokes on top of everything
   /// in [chunks] (pen ink, nothing above it there): a rendering of the

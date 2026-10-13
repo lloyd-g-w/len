@@ -8,11 +8,13 @@ typedef TileIndex = ({int x, int y});
 /// A world point `w` lands on device pixel `w * k + origin` on screen
 /// (`k` = device pixels per world unit, `origin` = where the world origin
 /// is). Tiles are [size]-pixel squares of the grid `w * k + phase`, where
-/// [phase] is the fractional part of `origin`: every tile then sits on
-/// whole device pixels on screen (at `index * size + floor(origin)`), so a
-/// tile image shows exactly what drawing the vectors would. Moving the view
-/// by whole pixels keeps the space (and its tiles); zooming or moving by a
-/// fraction of a pixel makes a new one.
+/// [phase] is the fractional part of the origin the space was made for:
+/// every tile sits on whole device pixels on screen, so a tile image shows
+/// exactly what drawing the vectors would. Panning keeps the space (and
+/// its tiles) — by a fraction of a pixel too: the view is then drawn
+/// aligned to the space ([TileView.alignedTo]), off by under half a device
+/// pixel, rather than every tile re-rendered for the new fraction. Only
+/// zooming makes a new space.
 class TileSpace {
   const TileSpace(this.k, this.phase);
 
@@ -31,11 +33,8 @@ class TileSpace {
   /// Sub-pixel offset of the grid, each coordinate in [0, 1).
   final Offset phase;
 
-  /// Whether tiles of [other] line up pixel for pixel with this space's.
-  bool matches(TileSpace other) =>
-      k == other.k &&
-      (phase.dx - other.phase.dx).abs() < 1e-3 &&
-      (phase.dy - other.phase.dy).abs() < 1e-3;
+  /// Whether tiles of this space serve a view of [other]'s zoom unscaled.
+  bool matches(TileSpace other) => k == other.k;
 
   /// The world rectangle tile [t] covers.
   Rect worldRectOf(TileIndex t) =>
@@ -75,6 +74,14 @@ class TileView {
   final Rect? clip;
 
   TileSpace get space => TileSpace.of(k, origin);
+
+  /// This view moved by under half a device pixel so that [space]'s tiles
+  /// sit on whole device pixels in it (same zoom: [TileSpace.matches]).
+  TileView alignedTo(TileSpace space) {
+    final dx = (origin.dx - space.phase.dx).roundToDouble() + space.phase.dx;
+    final dy = (origin.dy - space.phase.dy).roundToDouble() + space.phase.dy;
+    return TileView(k: k, origin: Offset(dx, dy), visible: visible, clip: clip);
+  }
 
   /// The device rectangle of the world rectangle [world].
   Rect toDevice(Rect world) => Rect.fromLTRB(

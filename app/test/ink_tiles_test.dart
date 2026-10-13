@@ -1,6 +1,3 @@
-import 'dart:typed_data';
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
@@ -14,127 +11,9 @@ import 'package:len/ink/render/tiles/tile_pool.dart';
 import 'package:len/ink/render/tiles/tile_space.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/undo_history.dart';
-import 'package:len/ink/viewport.dart';
 
 import 'support/canvas_fixtures.dart';
-
-/// Counts the draw calls a painter issues.
-class _CountingCanvas implements Canvas {
-  int pictures = 0;
-  int images = 0;
-  int paths = 0;
-
-  @override
-  void drawPicture(ui.Picture picture) => pictures++;
-
-  @override
-  void drawImageRect(ui.Image image, Rect src, Rect dst, Paint paint) => images++;
-
-  @override
-  void drawPath(Path path, Paint paint) => paths++;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => null;
-}
-
-/// A surface with its caches, viewed at [scale] with [dpr].
-class _Scene {
-  _Scene(
-    List<Stroke> strokes, {
-    double scale = 1,
-    this.dpr = 1,
-    Offset pan = Offset.zero,
-    this.size = const Size(600, 400),
-    TilePool? pool,
-  }) {
-    model = SurfaceModel(
-      surfaceId: 's',
-      repository: StrokeRepository(db, deviceId: 'd'),
-      reader: MemoryStrokeReader(strokes),
-      maxLoadedChunks: 1 << 20,
-    );
-    viewport
-      ..setSize(size)
-      ..zoomAt(Offset.zero, scale)
-      ..panBy(pan);
-    model.ensureLoaded(viewport.visibleWorld);
-    tiles = InkTileCache(
-      pictures,
-      pool: pool ?? TilePool(),
-      settleDelay: const Duration(milliseconds: 20),
-    );
-  }
-
-  final double dpr;
-  final Size size;
-  final db = AppDatabase.inMemory();
-  final viewport = ViewportController(minScale: 0.01);
-  late final SurfaceModel model;
-  late final pictures = ChunkPictureCache(model, devicePixelRatio: dpr);
-  late final InkTileCache tiles;
-
-  CommittedInkPainter painter({bool tiled = true}) => CommittedInkPainter(
-    model: model,
-    cache: pictures,
-    viewport: viewport,
-    tiles: tiled ? tiles : null,
-    devicePixelRatio: dpr,
-  );
-
-  /// Paints until no tile render is pending.
-  Future<void> warm() async {
-    for (var i = 0; i < 50; i++) {
-      painter().paint(_CountingCanvas(), size);
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-      await settle(() => !tiles.isBusy);
-      painter().paint(_CountingCanvas(), size);
-      if (!tiles.isBusy &&
-          tiles.lastPaint.vectorTiles == 0 &&
-          tiles.lastPaint.overlayStrokes == 0) {
-        return;
-      }
-    }
-    fail('tiles never settled');
-  }
-
-  /// Renders the committed ink in device pixels.
-  Future<Uint8List> render({bool tiled = true}) async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder)
-      ..scale(dpr)
-      ..drawColor(Colors.white, BlendMode.src);
-    painter(tiled: tiled).paint(canvas, size);
-    final picture = recorder.endRecording();
-    final image = await picture.toImage((size.width * dpr).ceil(), (size.height * dpr).ceil());
-    picture.dispose();
-    final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
-    image.dispose();
-    return bytes.buffer.asUint8List();
-  }
-
-  void dispose() {
-    tiles.dispose();
-    pictures.dispose();
-    model.dispose();
-    db.close();
-  }
-}
-
-/// Largest per-channel difference and the share of pixels that differ by
-/// more than [tolerance].
-(int, double) _diff(Uint8List a, Uint8List b, {int tolerance = 8}) {
-  var worst = 0, off = 0;
-  for (var i = 0; i < a.length; i += 4) {
-    var d = 0;
-    for (var c = 0; c < 4; c++) {
-      final x = (a[i + c] - b[i + c]).abs();
-      if (x > d) d = x;
-    }
-    if (d > worst) worst = d;
-    if (d > tolerance) off++;
-  }
-  return (worst, off / (a.length / 4));
-}
+import 'support/ink_scene.dart';
 
 Stroke _line(String id, Offset from, Offset to, {int createdAt = 1 << 40, InkTool? tool}) => Stroke(
   id: id,
@@ -168,13 +47,13 @@ void main() {
         (1.0, 1.0, Offset.zero),
         (1.37, 2.125, const Offset(-13.3, 7.61)),
       ]) {
-        final scene = _Scene(strokes, scale: scale, dpr: dpr, pan: pan);
+        final scene = InkScene(strokes, scale: scale, dpr: dpr, pan: pan);
         final vector = await scene.render(tiled: false);
         await scene.warm();
         final tiled = await scene.render();
         expect(scene.tiles.lastPaint.images, greaterThan(0));
         expect(scene.tiles.lastPaint.vectorTiles, 0);
-        final (worst, share) = _diff(vector, tiled);
+        final (worst, share) = imageDiff(vector, tiled);
         // Same rasteriser, same pixel grid: at most rounding differences.
         expect(share, lessThan(0.0015), reason: 'scale $scale dpr $dpr worst $worst');
         scene.dispose();
@@ -185,9 +64,9 @@ void main() {
   testWidgets('a settled frame draws only images, however much ink', (tester) async {
     await tester.runAsync(() async {
       final strokes = scribbles(5000, const Rect.fromLTWH(0, 0, 1200, 900), points: 12);
-      final scene = _Scene(strokes, size: const Size(1200, 900));
+      final scene = InkScene(strokes, size: const Size(1200, 900));
       await scene.warm();
-      final canvas = _CountingCanvas();
+      final canvas = CountingCanvas();
       scene.painter().paint(canvas, scene.size);
       expect(canvas.pictures, 0);
       expect(canvas.paths, 0);
@@ -202,26 +81,26 @@ void main() {
   ) async {
     await tester.runAsync(() async {
       final strokes = scribbles(800, const Rect.fromLTWH(0, 0, 600, 400), seed: 2);
-      final scene = _Scene(strokes);
+      final scene = InkScene(strokes);
       await scene.warm();
       final before = await scene.render();
       final stroke = _line('new', const Offset(40, 300), const Offset(560, 330));
       scene.model.addStroke(stroke);
       // Same frame: tiles stay, the stroke is drawn over them as a vector.
-      final canvas = _CountingCanvas();
+      final canvas = CountingCanvas();
       scene.painter().paint(canvas, scene.size);
       expect(canvas.pictures, 0, reason: 'no chunk re-recorded or replayed');
       expect(scene.tiles.lastPaint.vectorTiles, 0);
       expect(scene.tiles.lastPaint.overlayStrokes, greaterThan(0));
       final overlaid = await scene.render();
-      expect(_diff(before, overlaid).$2, greaterThan(0.001), reason: 'stroke visible');
+      expect(imageDiff(before, overlaid).$2, greaterThan(0.001), reason: 'stroke visible');
       // Afterwards it is part of the tiles; the picture matches the vectors.
       await scene.warm();
       expect(scene.tiles.lastPaint.overlayStrokes, 0);
       final baked = await scene.render();
       final vector = await scene.render(tiled: false);
-      expect(_diff(baked, vector).$2, lessThan(0.001));
-      expect(_diff(baked, overlaid).$2, lessThan(0.001));
+      expect(imageDiff(baked, vector).$2, lessThan(0.001));
+      expect(imageDiff(baked, overlaid).$2, lessThan(0.001));
       scene.dispose();
     });
   });
@@ -230,13 +109,13 @@ void main() {
     tester,
   ) async {
     await tester.runAsync(() async {
-      final scene = _Scene(scribbles(200, const Rect.fromLTWH(0, 0, 600, 400), seed: 3));
+      final scene = InkScene(scribbles(200, const Rect.fromLTWH(0, 0, 600, 400), seed: 3));
       await scene.warm();
       // The view went to level-of-detail images (or away): no paints.
       await Future<void>.delayed(InkTileCache.inUseFor + const Duration(milliseconds: 100));
       scene.model.addStroke(_line('new', const Offset(40, 300), const Offset(560, 330)));
       await Future<void>.delayed(const Duration(milliseconds: 200));
-      scene.painter().paint(_CountingCanvas(), scene.size);
+      scene.painter().paint(CountingCanvas(), scene.size);
       expect(scene.tiles.lastPaint.overlayStrokes, greaterThan(0), reason: 'not rendered yet');
       await scene.warm();
       expect(scene.tiles.lastPaint.overlayStrokes, 0);
@@ -247,18 +126,108 @@ void main() {
   testWidgets('erase and undo re-render only the affected tiles, correctly', (tester) async {
     await tester.runAsync(() async {
       final strokes = scribbles(300, const Rect.fromLTWH(0, 0, 1500, 1000), seed: 4);
-      final scene = _Scene(strokes, size: const Size(1500, 1000));
+      final scene = InkScene(strokes, size: const Size(1500, 1000));
       await scene.warm();
       final target = strokes.firstWhere((s) => s.bounds.right < 400 && s.bounds.bottom < 400);
       scene.model.commit(InkEdit(removed: [target]));
-      scene.painter().paint(_CountingCanvas(), scene.size);
+      scene.painter().paint(CountingCanvas(), scene.size);
       // Only the tile(s) under the erased stroke fall back to vectors.
       expect(scene.tiles.lastPaint.vectorTiles, inInclusiveRange(1, 2));
       await scene.warm();
-      expect(_diff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.001));
+      expect(imageDiff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.001));
       scene.model.undo();
       await scene.warm();
-      expect(_diff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.001));
+      expect(imageDiff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.001));
+      scene.dispose();
+    });
+  });
+
+  testWidgets('panning by fractions of a pixel keeps the tiles: nothing re-rendered', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final strokes = scribbles(400, const Rect.fromLTWH(0, 0, 900, 700), seed: 9);
+      final scene = InkScene(strokes, dpr: 2.125, pan: const Offset(-3.3, 1.7));
+      await scene.warm();
+      final held = scene.tiles.imageCount;
+      scene.viewport.panBy(const Offset(-0.37, 0.61));
+      await Future<void>.delayed(const Duration(milliseconds: 60)); // Settled.
+      final canvas = CountingCanvas();
+      scene.painter().paint(canvas, scene.size);
+      expect(scene.tiles.isBusy, isFalse, reason: 'no re-render for the new fraction');
+      expect(scene.tiles.imageCount, held);
+      expect(canvas.pictures, 0);
+      // Aligned to the tiles: within half a device pixel of the vectors.
+      final (_, share) = imageDiff(await scene.render(), await scene.render(tiled: false));
+      expect(share, lessThan(0.08));
+      scene.dispose();
+    });
+  });
+
+  testWidgets('a large edit keeps the old images until the new ones replace them', (tester) async {
+    await tester.runAsync(() async {
+      final strokes = scribbles(1500, const Rect.fromLTWH(0, 0, 1200, 900), seed: 10);
+      final scene = InkScene(strokes, size: const Size(1200, 900));
+      await scene.warm();
+      final fresh = _line('fresh', const Offset(40, 300), const Offset(560, 330));
+      scene.model.addStroke(fresh); // Pending as an overlay.
+      final picked = strokes.take(600).toList();
+      final moved = [
+        for (final s in picked)
+          Stroke(
+            id: '${s.id}m',
+            surfaceId: 's',
+            tool: s.tool,
+            color: s.color,
+            width: s.width,
+            points: [for (final p in s.points) StrokePoint(p.x + 60, p.y + 30, p.pressure)],
+            createdAt: s.createdAt,
+            style: s.style,
+          ),
+      ];
+      scene.model.commit(InkEdit(removed: [fresh, ...picked], added: moved));
+      final canvas = CountingCanvas();
+      scene.painter().paint(canvas, scene.size);
+      expect(scene.tiles.lastPaint.vectorTiles, 0, reason: 'no screen of vectors');
+      expect(canvas.pictures, 0);
+      expect(scene.tiles.lastPaint.overlayStrokes, 0, reason: 'the erased stroke is not drawn');
+      // The new images replace the old ones all together.
+      final stale = scene.tiles.lastPaint.staleImages;
+      expect(stale, greaterThan(2));
+      final seen = <int>{};
+      while (scene.tiles.isBusy) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+        scene.painter().paint(CountingCanvas(), scene.size);
+        seen.add(scene.tiles.lastPaint.staleImages);
+      }
+      expect(seen.difference({0, stale}), isEmpty, reason: 'never half done');
+      await scene.warm();
+      expect(imageDiff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.001));
+      scene.model.undo();
+      scene.painter().paint(CountingCanvas(), scene.size);
+      expect(scene.tiles.lastPaint.vectorTiles, 0);
+      await scene.warm();
+      expect(imageDiff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.001));
+      scene.dispose();
+    });
+  });
+
+  testWidgets('zooming out far adopts the new zoom at once, keeping the old tiles meanwhile', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final strokes = scribbles(300, const Rect.fromLTWH(-600, -400, 1800, 1200), seed: 11);
+      final scene = InkScene(strokes);
+      await scene.warm();
+      scene.viewport.zoomAt(const Offset(300, 200), 1 / 2);
+      final canvas = CountingCanvas();
+      scene.painter().paint(canvas, scene.size);
+      // The middle is drawn from the old tiles; only the uncovered rim
+      // falls back to vectors, and the new tiles are on their way.
+      expect(canvas.images, greaterThan(0));
+      expect(scene.tiles.isBusy, isTrue);
+      await scene.warm();
+      expect(imageDiff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.003));
       scene.dispose();
     });
   });
@@ -266,14 +235,14 @@ void main() {
   testWidgets('zooming re-renders tiles sharp at the new scale', (tester) async {
     await tester.runAsync(() async {
       final strokes = scribbles(200, const Rect.fromLTWH(0, 0, 600, 400), seed: 6);
-      final scene = _Scene(strokes);
+      final scene = InkScene(strokes);
       await scene.warm();
       for (final zoom in [4.0, 4.0]) {
         scene.viewport.zoomAt(const Offset(300, 200), zoom);
         // Mid-gesture: the old tiles are drawn scaled, nothing re-rendered.
-        scene.painter().paint(_CountingCanvas(), scene.size);
+        scene.painter().paint(CountingCanvas(), scene.size);
         await scene.warm();
-        final (worst, share) = _diff(await scene.render(), await scene.render(tiled: false));
+        final (worst, share) = imageDiff(await scene.render(), await scene.render(tiled: false));
         // Sharp (rendered at the new scale, not magnified): only the odd
         // anti-aliased edge pixel differs (float rounding of the transform).
         expect(share, lessThan(0.003), reason: 'at ${scene.viewport.scale}×, worst $worst');
@@ -287,7 +256,7 @@ void main() {
   ) async {
     await tester.runAsync(() async {
       final strokes = scribbles(300, const Rect.fromLTWH(0, 0, 600, 400), seed: 3);
-      final scene = _Scene(strokes);
+      final scene = InkScene(strokes);
       // A second view (another pane) of the same model with its own caches.
       final pictures = ChunkPictureCache(scene.model);
       final tiles = InkTileCache(pictures, settleDelay: const Duration(milliseconds: 20));
@@ -300,9 +269,9 @@ void main() {
       );
       Future<void> warmOther() async {
         for (var i = 0; i < 50 && (tiles.isBusy || i == 0); i++) {
-          other().paint(_CountingCanvas(), scene.size);
+          other().paint(CountingCanvas(), scene.size);
           await settle(() => !tiles.isBusy);
-          other().paint(_CountingCanvas(), scene.size);
+          other().paint(CountingCanvas(), scene.size);
         }
       }
 
@@ -310,8 +279,8 @@ void main() {
       await warmOther();
       // A stroke drawn in the first view shows in both, right away.
       scene.model.addStroke(_line('new', const Offset(40, 300), const Offset(560, 330)));
-      scene.painter().paint(_CountingCanvas(), scene.size);
-      other().paint(_CountingCanvas(), scene.size);
+      scene.painter().paint(CountingCanvas(), scene.size);
+      other().paint(CountingCanvas(), scene.size);
       expect(scene.tiles.lastPaint.overlayStrokes, greaterThan(0));
       expect(tiles.lastPaint.overlayStrokes, greaterThan(0));
       // Closing the second view leaves the first one working.
@@ -319,7 +288,7 @@ void main() {
       tiles.dispose();
       pictures.dispose();
       await scene.warm();
-      expect(_diff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.001));
+      expect(imageDiff(await scene.render(), await scene.render(tiled: false)).$2, lessThan(0.001));
       scene.dispose();
     });
   });
@@ -329,13 +298,19 @@ void main() {
       const tileBytes = TileSpace.size * TileSpace.size * 4;
       final pool = TilePool(maxBytes: 4 * tileBytes);
       final strokes = scribbles(400, const Rect.fromLTWH(0, 0, 3000, 2000), seed: 8);
-      final scene = _Scene(strokes, size: const Size(1000, 1000), pool: pool);
+      final scene = InkScene(strokes, size: const Size(1000, 1000), pool: pool);
       for (var i = 0; i < 4; i++) {
         scene.viewport.panBy(const Offset(-512, 0));
-        scene.painter().paint(_CountingCanvas(), scene.size);
+        scene.painter().paint(CountingCanvas(), scene.size);
         await settle(() => !scene.tiles.isBusy);
         expect(pool.bytes, lessThanOrEqualTo(4 * tileBytes));
       }
+      // Panning on and on does not pile up tiles either.
+      for (var i = 0; i < 80; i++) {
+        scene.viewport.panBy(const Offset(-700, -300));
+        scene.painter().paint(CountingCanvas(), scene.size);
+      }
+      expect(scene.tiles.tileCount, lessThan(InkTileCache.maxTiles + 40));
       scene.dispose();
     });
   });

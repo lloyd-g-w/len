@@ -378,9 +378,11 @@ class DocumentController extends ChangeNotifier {
   void _refreshVisible() {
     if (viewport.size.isEmpty) return;
     final visible = viewport.visibleWorld;
+    // Pages about to scroll into view load ahead, so they show complete.
+    final ahead = DocumentLayout.lookahead(visible);
     surfaces.showPages({
-      for (final index in _layout.visiblePages(visible))
-        _pages[index].id: visible.shift(-_layout.frameOf(index)!.topLeft),
+      for (final index in _layout.visiblePages(ahead))
+        _pages[index].id: ahead.shift(-_layout.frameOf(index)!.topLeft),
     });
     if (_flow == PageFlow.continuous) {
       final current = _layout.currentPage(visible);

@@ -39,6 +39,15 @@ class DocumentLayout {
   /// Space between pages, in world units.
   static const double defaultGap = 28;
 
+  /// The area around [visible] whose pages are loaded and rendered ahead
+  /// of scrolling into view: half a screen above and below.
+  static Rect lookahead(Rect visible) => Rect.fromLTRB(
+    visible.left,
+    visible.top - visible.height / 2,
+    visible.right,
+    visible.bottom + visible.height / 2,
+  );
+
   /// Frames of the laid-out pages, in document coordinates.
   final List<Rect> frames;
 

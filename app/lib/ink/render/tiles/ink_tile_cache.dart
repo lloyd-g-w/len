@@ -5,17 +5,19 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 
 import '../../../domain/chunk_grid.dart';
-import '../../../domain/stroke.dart';
 import '../../lab/perf_probe.dart';
 import '../../surface_model.dart';
 import '../chunk_picture_cache.dart';
 import '../stroke_renderer.dart';
+import 'ink_tile.dart';
 import 'tile_pool.dart';
 import 'tile_space.dart';
 
-/// Draws ink as vectors into the given world rectangles (clipped to them),
-/// where no tile image can stand in yet.
-typedef VectorFallback = void Function(ui.Canvas canvas, List<ui.Rect> world);
+export 'ink_tile.dart' show TilePaintStats;
+
+/// Draws ink as vectors in [view] into the given world rectangles (clipped
+/// to them), where no tile image can stand in yet.
+typedef VectorFallback = void Function(ui.Canvas canvas, TileView view, List<ui.Rect> world);
 
 /// A raster cache of a surface's committed ink: the screen is split into
 /// [TileSpace.size]² device-pixel tiles rendered to GPU images at the
@@ -31,10 +33,14 @@ typedef VectorFallback = void Function(ui.Canvas canvas, List<ui.Rect> world);
 ///   touch as stale stand-ins until those are rendered again.
 /// - **Other edits** (erasing, undo, selections) drop the tiles they
 ///   touch; those areas are drawn as vectors until rendered again.
-/// - **Zooming and panning** by fractions of a pixel draw the existing tiles
-///   transformed; once the view has been still for [settleDelay] the new
-///   space is adopted and rendered, with the old tiles standing in until
-///   then.
+/// - **Panning** keeps the tiles, by fractions of a pixel too (the view is
+///   aligned to them, see [TileView.alignedTo]); tiles coming into view are
+///   rendered ahead, a ring around the screen.
+/// - **Zooming** draws the existing tiles scaled, rendering only those
+///   missing on screen, until the view has been still for [settleDelay]:
+///   then the new zoom is adopted and rendered, with the old tiles standing
+///   in until then. Zooming out further than [maxZoomOut] adopts the
+///   current zoom at once (fewer, larger tiles than the old zoom needs).
 ///
 /// Rendering is asynchronous ([ui.Picture.toImage]), newest and most
 /// urgent first, a few at a time. Images live in a [TilePool] (LRU by
@@ -57,7 +63,7 @@ class InkTileCache extends ChangeNotifier {
   /// How long the view must stay still before tiles are re-rendered for it.
   final Duration settleDelay;
 
-  /// Tile renders running at once.
+  /// Tile renders running at once (more for edits on screen).
   final int maxInFlight;
 
   /// Time one batch of render recordings may take before yielding.
@@ -69,11 +75,11 @@ class InkTileCache extends ChangeNotifier {
   TileSpace? _space;
   TileSpace? _pendingSpace;
   Timer? _settle;
-  Map<TileIndex, _Tile> _tiles = {};
+  Map<TileIndex, InkTile> _tiles = {};
 
   /// Tiles of the space before [_space], standing in until it is rendered.
   TileSpace? _oldSpace;
-  Map<TileIndex, _Tile> _old = {};
+  Map<TileIndex, InkTile> _old = {};
   ui.Rect? _clip;
 
   /// Requested renders of [_space] tiles: index → priority (lower first).
@@ -89,6 +95,10 @@ class InkTileCache extends ChangeNotifier {
   /// so it never competes with the raster thread for what is on screen.
   final Stopwatch _sincePaint = Stopwatch();
 
+  /// How far a view may zoom out from the tiles' zoom before it is adopted
+  /// mid-gesture.
+  static const double maxZoomOut = 1.5;
+
   /// How recently the cache must have been painted to render on edits.
   static const Duration inUseFor = Duration(milliseconds: 500);
 
@@ -100,8 +110,38 @@ class InkTileCache extends ChangeNotifier {
   /// Whether renders are queued or running.
   bool get isBusy => _requests.isNotEmpty || _inFlight > 0 || _settle != null;
 
+  /// Tile renders running.
+  @visibleForTesting
+  int get rendering => _inFlight;
+
+  /// Tiles known (with or without an image).
+  @visibleForTesting
+  int get tileCount => _tiles.length;
+
+  /// Tiles known beyond which those without an image or pending work are
+  /// forgotten (panning far would otherwise pile them up).
+  static const int maxTiles = 256;
+
   /// Tile images held.
   int get imageCount => _tiles.values.where((t) => t.image != null).length;
+
+  /// Renders the tiles of [view] ahead of time, after those the screen
+  /// waits for: [view] is about to come into view (a page below the
+  /// screen). Nothing is drawn; the surface must have finished loading.
+  void prefetch(TileView view) {
+    if (view.clip != _clip) {
+      _dropAll();
+      _clip = view.clip;
+    }
+    final space = _space ??= view.space;
+    if (!space.matches(view.space) || model.isLoading) return;
+    final area = view.clip == null ? view.visible : view.visible.intersect(view.clip!);
+    if (area.isEmpty) return;
+    for (final index in space.covering(area)) {
+      final tile = _tiles[index];
+      if (tile == null || tile.needsRender) _request(index, 2);
+    }
+  }
 
   /// Paints the ink in [view] onto [canvas], which must be in device
   /// pixels (the view's origin relative to it).
@@ -115,23 +155,32 @@ class InkTileCache extends ChangeNotifier {
       _clip = view.clip;
     }
     final target = view.space;
-    final space = _space ??= target;
+    var space = _space ??= target;
+    if (!space.matches(target) && target.k * maxZoomOut < space.k) {
+      _adopt(target); // Zoomed far out: the old tiles cover too little.
+      space = target;
+    }
     final same = space.matches(target);
     if (same) {
       _settle?.cancel();
       _settle = null;
+      view = view.alignedTo(space);
     } else {
       _scheduleSettle(target);
     }
     final area = view.clip == null ? view.visible : view.visible.intersect(view.clip!);
     if (area.isEmpty) return;
-    // Moving keeps rendering the current space (its tiles stay useful);
-    // zooming waits for the new one.
-    final canRender = same || target.k == space.k;
+    // Requests for tiles the view has moved away from are dropped (edits'
+    // stay: they may be on screen again soon).
+    final ring = area.inflate(TileSpace.size / space.k);
+    _requests.removeWhere((index, p) => p > 0 && !space.worldRectOf(index).overlaps(ring));
+    // Where tile (0, 0) of [space] sits, on whole device pixels.
+    final x0 = (view.origin.dx - space.phase.dx).roundToDouble();
+    final y0 = (view.origin.dy - space.phase.dy).roundToDouble();
     final missing = <ui.Rect>[];
-    final overlays = <_Tile>[];
+    final overlays = <InkTile>[];
     for (final index in space.covering(area)) {
-      final tile = _tiles[index] ??= _Tile(this, space, index);
+      final tile = _tiles[index] ??= InkTile(pool, space, index);
       final rect = space.worldRectOf(index);
       tile.blank ??= model.chunksIn(ChunkGrid.rangeFor(rect)).isEmpty;
       if (tile.blank! && tile.overlay.isEmpty) continue;
@@ -139,8 +188,8 @@ class InkTileCache extends ChangeNotifier {
       if (image != null) {
         final dst = same
             ? ui.Rect.fromLTWH(
-                index.x * TileSpace.size + view.origin.dx.floorToDouble(),
-                index.y * TileSpace.size + view.origin.dy.floorToDouble(),
+                index.x * TileSpace.size + x0,
+                index.y * TileSpace.size + y0,
                 TileSpace.size.toDouble(),
                 TileSpace.size.toDouble(),
               )
@@ -148,26 +197,35 @@ class InkTileCache extends ChangeNotifier {
         _drawImage(canvas, image, dst, exact: same);
         pool.touch(tile);
         lastPaint.images++;
-        if (tile.stale && canRender) _request(index, 1);
+        if (tile.stale) {
+          lastPaint.staleImages++;
+          _request(index, 1);
+        }
         if (tile.overlay.isNotEmpty) overlays.add(tile);
         continue;
       }
-      if (canRender) _request(index, 1);
-      if (_drawOld(canvas, view, rect)) continue;
-      missing.add(rect);
+      _request(index, 1);
+      missing.addAll(_drawOld(canvas, view, rect));
     }
     if (missing.isNotEmpty) {
       lastPaint.vectorTiles = missing.length;
-      fallback(canvas, missing);
+      for (final rect in missing) {
+        final area = view.clip == null ? rect : rect.intersect(view.clip!);
+        lastPaint.vectorPixels += area.width * area.height * view.k * view.k;
+      }
+      fallback(canvas, view, missing);
     }
     for (final tile in overlays) {
       _drawOverlay(canvas, view, tile);
     }
-    if (same && _settle == null) {
-      for (final index in space.covering(area.inflate(TileSpace.size / space.k))) {
+    // Tiles about to come into view: around the screen (panning, zooming
+    // out), rendered after the visible ones.
+    if (target.k <= space.k) {
+      for (final index in space.covering(ring)) {
         if (!_tiles.containsKey(index) || _tiles[index]!.needsRender) _request(index, 2);
       }
     }
+    if (_tiles.length > maxTiles) _prune();
     PerfProbe.count('tileImages', lastPaint.images);
     PerfProbe.count('tileVector', lastPaint.vectorTiles);
     PerfProbe.count('tileOverlays', lastPaint.overlayStrokes);
@@ -181,32 +239,36 @@ class InkTileCache extends ChangeNotifier {
     canvas.drawImageRect(image, src, dst, exact ? _exactPaint : _scaledPaint);
   }
 
-  /// Draws tiles of the previous space over [rect] if they cover all of it.
-  bool _drawOld(ui.Canvas canvas, TileView view, ui.Rect rect) {
+  /// Draws the tiles of the previous space over [rect] (scaled); returns
+  /// the parts of [rect] they do not cover.
+  List<ui.Rect> _drawOld(ui.Canvas canvas, TileView view, ui.Rect rect) {
     final old = _oldSpace;
-    if (old == null) return false;
-    final tiles = <_Tile>[];
+    if (old == null) return [rect];
+    final uncovered = <ui.Rect>[];
+    var clipped = false;
     for (final index in old.covering(rect)) {
       final tile = _old[index];
-      if (tile == null || tile.overlay.isNotEmpty) return false;
-      if (tile.image == null && tile.blank != true) return false;
-      tiles.add(tile);
-    }
-    canvas
-      ..save()
-      ..clipRect(view.toDevice(rect));
-    for (final tile in tiles) {
-      final image = tile.image;
-      if (image == null) continue;
-      _drawImage(canvas, image, view.toDevice(old.worldRectOf(tile.index)), exact: false);
+      final image = tile?.image;
+      if (tile == null || (image == null && tile.blank != true)) {
+        uncovered.add(old.worldRectOf(index).intersect(rect));
+        continue;
+      }
+      if (image == null) continue; // Blank.
+      if (!clipped) {
+        clipped = true;
+        canvas
+          ..save()
+          ..clipRect(view.toDevice(rect));
+      }
+      _drawImage(canvas, image, view.toDevice(old.worldRectOf(index)), exact: false);
       pool.touch(tile);
       lastPaint.images++;
     }
-    canvas.restore();
-    return true;
+    if (clipped) canvas.restore();
+    return uncovered;
   }
 
-  void _drawOverlay(ui.Canvas canvas, TileView view, _Tile tile) {
+  void _drawOverlay(ui.Canvas canvas, TileView view, InkTile tile) {
     var rect = tile.space.worldRectOf(tile.index);
     if (_clip != null) rect = rect.intersect(_clip!);
     canvas
@@ -219,6 +281,17 @@ class InkTileCache extends ChangeNotifier {
     }
     lastPaint.overlayStrokes += tile.overlay.length;
     canvas.restore();
+  }
+
+  void _prune() {
+    _tiles.removeWhere(
+      (index, tile) =>
+          tile.image == null &&
+          tile.parked == null &&
+          !tile.rendering &&
+          tile.overlay.isEmpty &&
+          !_requests.containsKey(index),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -264,66 +337,74 @@ class InkTileCache extends ChangeNotifier {
       _notify();
       return;
     }
+    final areas = change.areas ?? [for (final c in chunks) ChunkGrid.rectOf(c)];
+    // Tiles of the previous zoom no longer show the content.
+    for (final tile in _touching(_old, areas)) {
+      _old.remove(tile.index);
+      tile.release();
+    }
     final appended = change.appended;
     if (appended != null && _space != null) {
       for (final stroke in appended) {
         final bounds = _clip == null ? stroke.bounds : stroke.bounds.intersect(_clip!);
         if (bounds.isEmpty) continue;
         for (final index in _space!.covering(bounds)) {
-          final tile = _tiles[index] ??= _Tile(this, _space!, index);
+          final tile = _tiles[index] ??= InkTile(pool, _space!, index);
           tile
             ..overlay.add(stroke)
             ..blank = false;
           if (_inUse) _request(index, 0);
         }
       }
-      _dropTouching(_old, chunks, all: true);
       return;
     }
+    final hit = _touching(_tiles, areas);
     if (change.loaded) {
-      _staleTouching(chunks);
+      // Stored content arrived: it was not on screen before, so nothing
+      // the user did lingers while the old images stand in.
+      _restale(hit, 1);
+    } else if (hit.where((t) => t.image != null).length <= maxVectorTiles) {
+      for (final tile in hit) {
+        tile.invalidate();
+      }
     } else {
-      _dropTouching(_tiles, chunks);
+      // A large edit (undo of a lasso move, say): rather than frames of
+      // vectors over much of the screen, the old images stay until the new
+      // ones, all rendered at once, replace them together a frame or two
+      // later (see [_flushBatch]).
+      _restale(hit, 0);
     }
-    _dropTouching(_old, chunks, all: true);
   }
 
-  /// Stored content arrived in [chunks]: tiles over them that have an
-  /// image keep showing it until they are rendered again (the content was
-  /// not on screen before, so nothing the user did lingers); the others
-  /// are invalidated.
-  void _staleTouching(Set<ChunkKey> chunks) {
-    if (_tiles.isEmpty || chunks.isEmpty) return;
-    final rects = [for (final c in chunks) ChunkGrid.rectOf(c)];
-    for (final tile in _tiles.values) {
-      if (!rects.any(tile.space.worldRectOf(tile.index).overlaps)) continue;
+  /// Edits over at most this many tiles drop their images (drawn as vectors
+  /// until rendered: shown at once); larger ones keep them as stand-ins.
+  static const int maxVectorTiles = 2;
+
+  /// The tiles of [tiles] overlapping any of [areas].
+  List<InkTile> _touching(Map<TileIndex, InkTile> tiles, List<ui.Rect> areas) {
+    if (tiles.isEmpty || areas.isEmpty) return const [];
+    return [
+      for (final tile in tiles.values)
+        if (areas.any(tile.space.worldRectOf(tile.index).overlaps)) tile,
+    ];
+  }
+
+  /// Tiles whose content changed keep showing their image until rendered
+  /// again (requested at [priority]); those without one are invalidated.
+  void _restale(List<InkTile> tiles, int priority) {
+    for (final tile in tiles) {
       if (tile.image == null) {
         tile.invalidate();
-      } else {
-        tile
-          ..version += 1
-          ..stale = true;
-        if (_inUse) _request(tile.index, 1);
+        continue;
       }
-    }
-  }
-
-  /// Drops the images of tiles overlapping [chunks] ([all]: forgets the
-  /// tiles too).
-  void _dropTouching(Map<TileIndex, _Tile> tiles, Set<ChunkKey> chunks, {bool all = false}) {
-    if (tiles.isEmpty || chunks.isEmpty) return;
-    final rects = [for (final c in chunks) ChunkGrid.rectOf(c)];
-    final hit = [
-      for (final tile in tiles.values)
-        if (rects.any(tile.space.worldRectOf(tile.index).overlaps)) tile,
-    ];
-    for (final tile in hit) {
-      if (all) {
-        tiles.remove(tile.index);
-        tile.release();
-      } else {
-        tile.invalidate();
-      }
+      tile
+        ..dropParked()
+        ..version += 1
+        ..stale = true
+        // Strokes appended since, unless erased or hidden by this change.
+        ..overlay.removeWhere((s) => model.strokeById(s.id) != s || model.isHidden(s.id));
+      tile.batched = priority == 0;
+      if (_inUse) _request(tile.index, priority);
     }
   }
 
@@ -337,7 +418,7 @@ class InkTileCache extends ChangeNotifier {
     _requests.clear();
   }
 
-  void _releaseAll(Map<TileIndex, _Tile> tiles) {
+  void _releaseAll(Map<TileIndex, InkTile> tiles) {
     for (final tile in tiles.values) {
       tile.release();
     }
@@ -363,18 +444,19 @@ class InkTileCache extends ChangeNotifier {
   void _pump() {
     _pumpTimer = null;
     if (_disposed || _space == null) return;
-    // While zooming, renders wait for the new space.
-    if (_settle != null && _pendingSpace?.k != _space!.k) return;
     final watch = Stopwatch()..start();
-    while (_requests.isNotEmpty && _inFlight < maxInFlight && watch.elapsed < batchBudget) {
+    while (_requests.isNotEmpty && watch.elapsed < batchBudget) {
       final index = _next();
+      // Urgent renders (edits on screen) all start at once.
+      if (_inFlight >= maxInFlight && _requests[index]! > 0) break;
       _requests.remove(index);
-      final tile = _tiles[index] ??= _Tile(this, _space!, index);
+      final tile = _tiles[index] ??= InkTile(pool, _space!, index);
       if (tile.rendering) continue; // Requested again when it completes.
       tile.blank ??= model.chunksIn(ChunkGrid.rangeFor(tile.space.worldRectOf(index))).isEmpty;
       if (!tile.needsRender) continue;
       _render(tile);
     }
+    _flushBatch();
   }
 
   /// The most urgent request (lowest priority value, newest first).
@@ -390,7 +472,7 @@ class InkTileCache extends ChangeNotifier {
     return best!;
   }
 
-  void _render(_Tile tile) {
+  void _render(InkTile tile) {
     developer.Timeline.startSync('len.renderTile');
     final space = tile.space;
     final rect = space.worldRectOf(tile.index);
@@ -442,16 +524,56 @@ class InkTileCache extends ChangeNotifier {
             if (!_disposed && tile.needsRender && _tiles[tile.index] == tile) {
               _request(tile.index, tile.overlay.isEmpty ? 1 : 0);
             }
+            _flushBatch();
             _schedulePump();
           }),
     );
   }
 
-  void _store(_Tile tile, int version, int included, ui.Image image) {
+  void _store(InkTile tile, int version, int included, ui.Image image) {
     if (_disposed || tile.version != version || _tiles[tile.index] != tile) {
       image.dispose(); // Changed (or gone) while rendering.
       return;
     }
+    if (tile.batched) {
+      // Shown with the rest of its edit's tiles.
+      tile.parked?.image.dispose();
+      tile.parked = (image: image, version: version, included: included);
+      _parked.add(tile);
+      return;
+    }
+    _install(tile, image, included);
+  }
+
+  /// Tiles rendered for a large edit, waiting for the rest of it.
+  final List<InkTile> _parked = [];
+
+  /// Shows the images rendered for a large edit together, once none of its
+  /// tiles is still waiting for a render, so the edit never shows half
+  /// done.
+  void _flushBatch() {
+    if (_parked.isEmpty) return;
+    for (final tile in _tiles.values) {
+      if (tile.batched && (tile.rendering || _requests.containsKey(tile.index))) return;
+    }
+    for (final tile in _tiles.values) {
+      tile.batched = false;
+    }
+    for (final tile in _parked) {
+      final parked = tile.parked;
+      tile.parked = null;
+      if (parked == null) continue; // Released meanwhile.
+      if (_disposed || tile.version != parked.version || _tiles[tile.index] != tile) {
+        parked.image.dispose();
+        continue;
+      }
+      _install(tile, parked.image, parked.included);
+      if (tile.needsRender) _request(tile.index, 0); // Strokes appended since.
+    }
+    _parked.clear();
+  }
+
+  void _install(InkTile tile, ui.Image image, int included) {
     pool.remove(tile);
     tile.image?.dispose();
     tile
@@ -482,77 +604,5 @@ class InkTileCache extends ChangeNotifier {
     _tiles = {};
     _old = {};
     super.dispose();
-  }
-}
-
-/// Counts of what one [InkTileCache.paint] drew.
-class TilePaintStats {
-  int images = 0;
-  int vectorTiles = 0;
-  int overlayStrokes = 0;
-
-  void reset() => images = vectorTiles = overlayStrokes = 0;
-}
-
-class _Tile implements PooledTile {
-  _Tile(this.owner, this.space, this.index);
-
-  final InkTileCache owner;
-  final TileSpace space;
-  final TileIndex index;
-
-  ui.Image? image;
-
-  /// Whether no ink is under the tile (null: not checked yet).
-  bool? blank;
-
-  /// Pen strokes appended since [image] was rendered, in paint order.
-  final List<Stroke> overlay = [];
-
-  /// Bumped when the content changes in other ways than appends, so a
-  /// render in flight is discarded.
-  int version = 0;
-  bool rendering = false;
-
-  /// Whether [image] predates stored content that arrived since (it stands
-  /// in until the tile is rendered again).
-  bool stale = false;
-
-  bool get needsRender =>
-      image == null ? blank != true || overlay.isNotEmpty : overlay.isNotEmpty || stale;
-
-  @override
-  int get bytes => TileSpace.size * TileSpace.size * 4;
-
-  /// Content changed: the image is stale.
-  void invalidate() {
-    version++;
-    blank = null;
-    stale = false;
-    overlay.clear();
-    _dropImage();
-  }
-
-  /// The tile is forgotten.
-  void release() {
-    version++;
-    stale = false;
-    overlay.clear();
-    _dropImage();
-  }
-
-  @override
-  void evict() {
-    image?.dispose();
-    image = null;
-    stale = false;
-    // An evicted tile with pending strokes is rendered in full next time.
-  }
-
-  void _dropImage() {
-    if (image == null) return;
-    owner.pool.remove(this);
-    image!.dispose();
-    image = null;
   }
 }

@@ -19,7 +19,7 @@ void paintTiled(Canvas canvas, InkTileCache tiles, TileView view, double deviceP
   canvas
     ..save()
     ..scale(1 / devicePixelRatio);
-  tiles.paint(canvas, view, (canvas, rects) {
+  tiles.paint(canvas, view, (canvas, view, rects) {
     final clip = Path();
     final chunks = <ChunkKey>{};
     for (final rect in rects) {
@@ -161,9 +161,11 @@ class CommittedInkPainter extends CustomPainter {
       final picture = level == null
           ? cache.pictureFor(key)
           : cache.peek(key) ?? (fresh-- > 0 ? cache.pictureFor(key) : null);
-      if (picture != null) canvas.drawPicture(picture);
+      if (picture != null) {
+        canvas.drawPicture(picture);
+        PerfProbe.count('chunkDraws');
+      }
     }
-    PerfProbe.count('chunkDraws', chunks.length);
     canvas.restore();
   }
 

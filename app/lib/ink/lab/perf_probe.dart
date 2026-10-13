@@ -46,6 +46,14 @@ abstract final class PerfProbe {
     _counters[name] = (_counters[name] ?? 0) + n;
   }
 
+  /// Counts [count]s without collecting frames or logging (tests).
+  @visibleForTesting
+  static void startCounting() => _running = true;
+
+  /// Counter [name] of the current burst (tests).
+  @visibleForTesting
+  static int counter(String name) => _counters[name] ?? 0;
+
   /// A stroke lifted at [liftTime] (pointer event time stamp) was just
   /// committed.
   static void lift(Duration? liftTime) {
