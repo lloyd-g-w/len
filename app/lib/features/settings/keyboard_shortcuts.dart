@@ -9,7 +9,7 @@ import '../../ui/sheet_parts.dart';
 
 /// One line of the shortcut reference: what it does and the keys that do
 /// it (alternatives shown with "or"). [shown] replaces the keys' text where
-/// one entry stands for several bindings ("1 – 6").
+/// one entry stands for several bindings ("1 – 5").
 class ShortcutHelp {
   const ShortcutHelp(this.label, this.keys, {this.shown});
 
@@ -76,8 +76,8 @@ final List<ShortcutGroup> shortcutGroups = [
     ShortcutHelp('Laser pointer', [SingleActivator(LogicalKeyboardKey.keyK)]),
     ShortcutHelp('Quick colour', [
       SingleActivator(LogicalKeyboardKey.digit1),
-      SingleActivator(LogicalKeyboardKey.digit6),
-    ], shown: '1 – 6'),
+      SingleActivator(LogicalKeyboardKey.digit5),
+    ], shown: '1 – 5'),
     ShortcutHelp('Thinner / thicker', [
       SingleActivator(LogicalKeyboardKey.bracketLeft),
       SingleActivator(LogicalKeyboardKey.bracketRight),

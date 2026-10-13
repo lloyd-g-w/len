@@ -444,7 +444,7 @@ or deleted pages in order with ink. Snack bars' Undo calls
   mostly sideways; event timestamps), or the wheel (one 50 px step turns one page,
   then it rests 300 ms so one flick turns one page). Zoomed in, they pan.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
-  P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
+  P / H / E / L / S / T / K; 1–5 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
   Ctrl/⌘+E export, Ctrl/⌘+G go to page (paged), Ctrl+F search;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases (`canvas/canvas_shortcuts.dart`):
   arrows move around (15 % of the screen, gliding), `+` / `-` (also with Ctrl/⌘),
@@ -1479,7 +1479,7 @@ Page with template…).
   notifies only when the reserved strip width changes (slots added or
   removed), which may move the toolbar between the bar and its row.
 
-Shortcuts: P / H / E / L / S / T / K, 1–6 colour slots, [ / ] thinner /
+Shortcuts: P / H / E / L / S / T / K, 1–5 colour slots, [ / ] thinner /
 thicker (plus the canvas keys `+` `-` `0` Shift+1 Home). Palm rejection is
 automatic (on at the first stylus contact); "⋯" → *Draw with finger* turns it
 off once a stylus has been seen.

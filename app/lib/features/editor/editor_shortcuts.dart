@@ -30,7 +30,6 @@ const _digitKeys = [
   LogicalKeyboardKey.digit3,
   LogicalKeyboardKey.digit4,
   LogicalKeyboardKey.digit5,
-  LogicalKeyboardKey.digit6,
 ];
 
 /// The editor's keyboard shortcuts: undo/redo, tools, quick colours and
@@ -110,7 +109,7 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
     const SingleActivator(LogicalKeyboardKey.keyE): unlessTyping(
       () => tools.tool = EditorTool.eraser,
     ),
-    // 1–6: quick colours of the pen / highlighter; [ and ]: thinner / thicker.
+    // 1–5: quick colours of the pen / highlighter; [ and ]: thinner / thicker.
     // (Shift+1 and 0 belong to the canvas shortcuts.)
     for (final (i, key) in _digitKeys.indexed)
       SingleActivator(key): unlessTyping(() => tools.selectColor(i)),
