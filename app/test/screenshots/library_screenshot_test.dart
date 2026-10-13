@@ -72,7 +72,7 @@ void main() {
     await tester.tap(find.text('Change cover…'));
     await settle(tester);
     await shoot(tester, 'desktop_cover_sheet');
-    await tester.tap(find.text('Apply'));
+    await tester.tap(find.byTooltip('Close'));
     await settle(tester);
 
     await tester.enterText(find.byType(TextField), 'o');
