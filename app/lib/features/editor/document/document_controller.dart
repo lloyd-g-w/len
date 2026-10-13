@@ -241,6 +241,22 @@ class DocumentController extends ChangeNotifier {
     );
   }
 
+  /// Single-page flow, after a gesture let go: unless zoomed in on the
+  /// page, glides back to the whole page (a drag that did not turn the
+  /// page, a pinch that ended near or below the fit). Returns whether it
+  /// does.
+  bool settleSingle() {
+    final target = frameTarget(_current);
+    if (_flow != PageFlow.single || target == null) return false;
+    if (viewport.scale > target.scale * singleZoomedIn) return false;
+    scrollToPage(_current, animateSamePage: true);
+    return true;
+  }
+
+  /// In single-page flow, a zoom this much larger than the page fit counts
+  /// as zoomed in (free to pan; a swipe no longer turns the page).
+  static const double singleZoomedIn = 1.08;
+
   /// The planner page a link at [screen] leads to (a day, week or month
   /// printed on a planner page), or null when there is no link there.
   Paper? plannerLinkAt(Offset screen) {

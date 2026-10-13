@@ -69,6 +69,9 @@ class PageViewport extends ViewportController {
   void zoomAt(Offset focal, double factor) => document.zoomAt(focal, factor);
 
   @override
+  void stretchAt(Offset focal, double scale) => document.stretchAt(focal, scale);
+
+  @override
   void fitWidth({double padding = 24}) {}
 
   @override

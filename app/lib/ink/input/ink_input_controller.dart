@@ -14,6 +14,7 @@ import 'live_ink.dart';
 import 'pointer_navigation.dart';
 import 'sample_source.dart';
 import 'stylus_buttons.dart';
+import 'stylus_proximity.dart';
 
 /// Turns raw pointer events into drawing, erasing and navigation.
 ///
@@ -22,8 +23,9 @@ import 'stylus_buttons.dart';
 ///    barrel button held (S Pen side button) does [penButtonAction] (erase,
 ///    lasso or nothing). A stylus landing cancels a stroke a palm may have
 ///    started and stops any finger navigation.
-///  * **Touch** is ignored while a stylus is down (it is almost certainly
-///    the palm). Otherwise it navigates when palm rejection
+///  * **Touch** is ignored while a stylus is down or was near within
+///    [palmQuiet] (it is almost certainly the palm: between strokes the
+///    pen lifts only briefly). Otherwise it navigates when palm rejection
 ///    ([ToolSettings.stylusOnly]) is on; if off, one finger draws and a
 ///    second finger turns the gesture into pan/zoom.
 ///  * **Mouse**: left button draws, middle/right drag pans, wheel scrolls,
@@ -107,10 +109,17 @@ class InkInputController {
 
   bool _stylusSeen = false;
 
+  /// Touches landing this soon after the pen was touching or hovering are
+  /// taken for the writing hand's palm: they neither navigate nor draw.
+  static const Duration palmQuiet = Duration(milliseconds: 300);
+
+  final StylusProximity _stylus = StylusProximity();
+
   // ---------------------------------------------------------------------------
   // Pointer lifecycle
 
   void handleDown(PointerDownEvent e) {
+    _stylus.note(e);
     kinetic?.begin();
     gestures?.down(e, navigates: tools.stylusOnly ?? false);
     switch (e.kind) {
@@ -130,21 +139,26 @@ class InkInputController {
   }
 
   void handleMove(PointerMoveEvent e) {
+    _stylus.note(e);
     gestures?.move(e);
     if (e.pointer == _draw.pointer) {
       _draw.move(e);
     } else if (_nav.contains(e.pointer)) {
       _nav.move(e);
+      // A gesture that moves the view is no tap, double tap or long press.
+      if (_nav.moving) gestures?.navigated();
     }
   }
 
   void handleUp(PointerUpEvent e) {
+    _stylus.note(e);
     if (e.pointer == _draw.pointer) _draw.up(e);
     _nav.up(e);
     gestures?.up(e);
   }
 
   void handleCancel(PointerCancelEvent e) {
+    _stylus.note(e);
     if (e.pointer == _draw.pointer) _draw.cancel();
     _nav.remove(e.pointer);
     gestures?.cancel(e);
@@ -154,6 +168,7 @@ class InkInputController {
   /// and the laser's dot under a hovering mouse (presenting with a mouse
   /// needs no button held).
   void handleHover(PointerHoverEvent e) {
+    _stylus.note(e);
     gestures?.hover(e);
     if (_draw.pointer != null) return; // Don't fight the active pointer.
     samples?.hover(e);
@@ -210,13 +225,14 @@ class InkInputController {
   }
 
   void _touchDown(PointerDownEvent e) {
-    if (_draw.byStylus) return; // Palm while writing.
+    // A palm while writing, or between strokes.
+    if (_draw.byStylus || _stylus.isNear(e.timeStamp, within: palmQuiet)) return;
     // Android reports no hover exit for a stylus leaving range, so a stale
     // eraser cursor would linger; a finger is a good moment to clear it.
     _draw.showEraser(null);
     final palmRejection = tools.stylusOnly ?? false;
     if (palmRejection) {
-      _nav.add(e.pointer, e.localPosition);
+      _nav.add(e.pointer, e.localPosition, slop: kTouchSlop);
       return;
     }
     final drawing = _draw.pointer;
@@ -228,9 +244,9 @@ class InkInputController {
       // A second finger: the first one was the start of a pinch, not ink.
       final firstPosition = _draw.lastScreen!;
       _draw.cancel();
-      _nav.add(drawing, firstPosition);
+      _nav.add(drawing, firstPosition, slop: kTouchSlop);
     }
-    _nav.add(e.pointer, e.localPosition);
+    _nav.add(e.pointer, e.localPosition, slop: kTouchSlop);
   }
 
   /// Abandons the current stroke without committing it.

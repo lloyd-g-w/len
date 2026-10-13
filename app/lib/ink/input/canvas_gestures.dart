@@ -93,6 +93,15 @@ class CanvasGestures {
     _rightClick.cancel();
   }
 
+  /// The navigating pointers started moving the view (a pan or a pinch):
+  /// what they do is not a tap, double tap or long press.
+  void navigated() {
+    taps.spoil();
+    doubleTap.reset();
+    _longPress.reset();
+    _twoFingerHold.reset();
+  }
+
   /// A stylus hovers: the hand is near, so touches are likely the palm.
   void hover(PointerHoverEvent e) {
     if (e.kind == PointerDeviceKind.stylus || e.kind == PointerDeviceKind.invertedStylus) {
