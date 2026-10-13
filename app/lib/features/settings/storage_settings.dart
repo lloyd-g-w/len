@@ -116,10 +116,7 @@ class _StorageSettingsState extends State<StorageSettings> {
             false => 'Off: the browser may clear Len\'s data when storage runs low.',
           },
           trailing: persisted == false
-              ? OutlinedButton(
-                  onPressed: _asking ? null : _request,
-                  child: const Text('Turn on'),
-                )
+              ? OutlinedButton(onPressed: _asking ? null : _request, child: const Text('Turn on'))
               : persisted == true
               ? Icon(
                   Symbols.check_circle_sharp,

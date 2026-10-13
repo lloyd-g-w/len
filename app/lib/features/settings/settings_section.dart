@@ -3,8 +3,15 @@ import 'package:flutter/material.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/section_label.dart';
 
-/// A titled group of settings (REDESIGN §4): a quiet heading, the rows on
-/// one rounded plate separated by hairlines, then an optional description.
+/// A titled group of settings (DESIGN §6.4): an open ruled list on the
+/// Board, no plate and no shadow. A hairline opens the section; the
+/// heading (Small label, Graphite) hangs in the left margin column on wide
+/// screens and sits above the rows on narrow ones; rows are separated by
+/// hairlines that start at the text; an optional description follows.
+///
+/// The section is laid out [SettingsTile.edge] wider than the margin on
+/// each side, so a row's hover and press plate overhangs the text a
+/// little while icons, headings and rules keep to the margin.
 class SettingsSection extends StatelessWidget {
   const SettingsSection({super.key, required this.title, required this.children, this.description});
 
@@ -12,63 +19,90 @@ class SettingsSection extends StatelessWidget {
   final String? description;
   final List<Widget> children;
 
+  /// The margin column holding the headings on wide screens.
+  static const double headingColumn = 160;
+
+  /// The narrowest section whose heading hangs in the margin column.
+  static const double hangsFrom = 600;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final dark = theme.brightness == Brightness.dark;
+    const edge = SettingsTile.edge;
     return Padding(
       padding: const EdgeInsets.only(bottom: Gaps.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Gaps.lg, 0, Gaps.lg, Gaps.sm),
-            child: SectionLabel(title),
-          ),
-          // No card without rows (a section can be only its caption).
-          if (children.isNotEmpty)
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: dark ? scheme.surfaceContainerLow : scheme.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(Radii.md),
-                // No outlines in light mode (REDESIGN §1.1): a soft raise instead.
-                border: dark ? Border.all(color: scheme.outlineVariant) : null,
-                boxShadow: dark ? null : Shadows.low(theme.brightness),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(Radii.md),
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var i = 0; i < children.length; i++) ...[
-                        if (i > 0)
-                          Divider(
-                            height: 1,
-                            indent: SettingsTile.textInset,
-                            color: scheme.outlineVariant.withValues(alpha: 0.6),
-                          ),
-                        children[i],
-                      ],
-                    ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final hangs =
+              constraints.maxWidth >= hangsFrom && MediaQuery.textScalerOf(context).scale(1) < 1.5;
+          final rows = Material(
+            type: MaterialType.transparency,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: Hairline.width,
+                      thickness: Hairline.width,
+                      indent: SettingsTile.textInset,
+                      endIndent: edge,
+                      color: scheme.outlineVariant,
+                    ),
+                  children[i],
+                ],
+                if (description case final text?)
+                  Padding(
+                    // Under the rows' text; a section without rows under its
+                    // heading starts at the margin.
+                    padding: EdgeInsets.fromLTRB(
+                      children.isEmpty && !hangs ? edge : SettingsTile.textInset,
+                      children.isEmpty ? Gaps.md : Gaps.xs,
+                      edge,
+                      0,
+                    ),
+                    child: Text(text, style: theme.textTheme.bodySmall),
                   ),
-                ),
+              ],
+            ),
+          );
+          final heading = Padding(
+            padding: const EdgeInsets.fromLTRB(edge, Gaps.lg, edge, 0),
+            child: SectionLabel(title),
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Divider(
+                height: Hairline.width,
+                thickness: Hairline.width,
+                indent: edge,
+                endIndent: edge,
+                color: scheme.outlineVariant,
               ),
-            ),
-          if (description case final text?)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.sm, Gaps.lg, 0),
-              child: Text(text, style: theme.textTheme.bodySmall),
-            ),
-        ],
+              if (hangs)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: edge + headingColumn, child: heading),
+                    Expanded(child: rows),
+                  ],
+                )
+              else ...[
+                heading,
+                const SizedBox(height: Gaps.xs),
+                rows,
+              ],
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-/// A settings row (REDESIGN §4): an 18-dp leading icon, a Body title and a
+/// A settings row (DESIGN §6.4): an 18-dp leading icon, a Body title and a
 /// Caption subtitle. Its [control] (a segmented button, a switch) trails on
 /// wide rows and goes below the text on narrow ones; [trailing] always
 /// trails and [below] always goes below.
@@ -84,11 +118,14 @@ class SettingsTile extends StatelessWidget {
     this.icon,
   });
 
+  /// How far a row's plate overhangs its icon and its control.
+  static const double edge = Gaps.sm;
+
   /// Where the text starts (after the icon), for hairlines.
-  static const double textInset = Gaps.lg + Glyphs.menu + Gaps.lg;
+  static const double textInset = edge + Glyphs.menu + Gaps.lg;
 
   /// The narrowest row whose [control] trails.
-  static const double controlTrailsFrom = 560;
+  static const double controlTrailsFrom = 520;
 
   /// Leading symbol, aligned with the title.
   final IconData? icon;
@@ -124,8 +161,9 @@ class SettingsTile extends StatelessWidget {
         final below = this.below ?? (controlTrails ? null : control);
         final tile = InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(Radii.xs),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.md),
+            padding: const EdgeInsets.symmetric(horizontal: edge, vertical: Gaps.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

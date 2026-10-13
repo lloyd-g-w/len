@@ -255,12 +255,19 @@ class _ShortcutsSheet extends StatelessWidget {
             children: [
               for (final group in shortcutGroups) ...[
                 Padding(
-                  padding: const EdgeInsets.only(top: Gaps.lg, bottom: Gaps.xs),
+                  padding: const EdgeInsets.only(top: Gaps.xl, bottom: Gaps.xs),
                   child: SectionLabel(group.title),
                 ),
-                for (final item in group.items)
+                // A ruled table: a hairline between lines.
+                for (final (i, item) in group.items.indexed) ...[
+                  if (i > 0)
+                    Divider(
+                      height: Hairline.width,
+                      thickness: Hairline.width,
+                      color: theme.colorScheme.outlineVariant,
+                    ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: Gaps.xs),
+                    padding: const EdgeInsets.symmetric(vertical: Gaps.sm),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -272,13 +279,14 @@ class _ShortcutsSheet extends StatelessWidget {
                             textAlign: TextAlign.end,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFeatures: AppTheme.tabularFigures,
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
+                ],
               ],
             ],
           ),

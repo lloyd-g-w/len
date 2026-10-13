@@ -50,15 +50,15 @@ class HandwritingSettings extends StatelessWidget {
     final lines = indexer.lineCount;
     const base =
         'Handwriting written on Android is recognised there and synced, so search finds it here';
-    if (indexer.isIndexing) return '$base · adding handwriting from your other devices…';
-    return lines == 0 ? base : '$base · $lines line${lines == 1 ? '' : 's'}';
+    if (indexer.isIndexing) return '$base. Adding handwriting from your other devices…';
+    return lines == 0 ? base : '$base. $lines line${lines == 1 ? '' : 's'} so far';
   }
 
   Widget _language(BuildContext context) => SettingsTile(
     icon: Symbols.translate_sharp,
     title: 'Language',
     subtitle: recognition.isAutomaticLanguage
-        ? 'Same as the device · ${_name(recognition.language)}'
+        ? 'Same as the device, ${_name(recognition.language)}'
         : _name(recognition.language),
     onTap: () => unawaited(_pickLanguage(context)),
     trailing: const Icon(Symbols.chevron_right_sharp),
@@ -73,7 +73,7 @@ class HandwritingSettings extends StatelessWidget {
       maxHeight: 640,
       builder: (context, wide) => _LanguageSheet(
         current: current,
-        automaticLabel: 'Same as the device · ${_name(recognition.automaticLanguage)}',
+        automaticLabel: 'Same as the device, ${_name(recognition.automaticLanguage)}',
         wide: wide,
       ),
     );
@@ -86,7 +86,7 @@ class HandwritingSettings extends StatelessWidget {
     final pending = indexer.pendingCount;
     final String status;
     if (!recognition.indexingEnabled) {
-      status = 'Off · search finds typed text and PDFs only';
+      status = 'Off: search finds typed text and PDFs only';
     } else if (recognition.modelStatus != ModelStatus.downloaded) {
       status = 'Waits for the language model';
     } else if (pending > 0) {
@@ -95,7 +95,7 @@ class HandwritingSettings extends StatelessWidget {
           : '$pending page${pending == 1 ? '' : 's'} waiting for a quiet moment';
     } else {
       final lines = indexer.lineCount;
-      status = lines == 0 ? 'Up to date' : 'Up to date · $lines line${lines == 1 ? '' : 's'}';
+      status = lines == 0 ? 'Up to date' : 'Up to date, $lines line${lines == 1 ? '' : 's'}';
     }
     return SettingsTile(
       icon: Symbols.manage_search_sharp,

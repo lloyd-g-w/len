@@ -56,7 +56,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(recognition.indexingEnabled, isFalse);
     expect(recognition.indexer.isActive, isFalse);
-    expect(find.textContaining('Off · search finds'), findsOneWidget);
+    expect(find.textContaining('Off: search finds'), findsOneWidget);
 
     // Missing (e.g. removed by Android): offered for download.
     recognizer.downloaded = false;

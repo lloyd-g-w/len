@@ -145,7 +145,7 @@ class _SyncSettingsState extends State<SyncSettings> {
         ListenableBuilder(
           listenable: _sync,
           builder: (context, _) => Padding(
-            padding: const EdgeInsets.all(Gaps.lg),
+            padding: const EdgeInsets.symmetric(horizontal: SettingsTile.edge, vertical: Gaps.md),
             child: _sync.isConfigured && !_editing ? _connected(context) : _form(context),
           ),
         ),
@@ -159,110 +159,111 @@ class _SyncSettingsState extends State<SyncSettings> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SyncStatusLine(sync: _sync),
-        const SizedBox(height: Gaps.md),
-        Row(
-          children: [
-            SizedBox(
-              width: Targets.touch,
-              child: Icon(
-                Symbols.dns_sharp,
-                size: Glyphs.bar,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            Expanded(
-              child: Text(
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: SyncStatusLine.iconColumn),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: Gaps.xxs),
+              Text(
                 _services.settings.syncUrl,
-                style: theme.textTheme.bodyMedium,
+                style: theme.textTheme.bodySmall,
                 overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: Gaps.md),
-        Wrap(
-          spacing: Gaps.sm,
-          runSpacing: Gaps.sm,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _sync.state == SyncState.syncing ? null : () => unawaited(_sync.syncNow()),
-              icon: const Icon(Symbols.sync_sharp, size: Glyphs.menu),
-              label: const Text('Sync now'),
-            ),
-            TextButton(
-              onPressed: () => setState(() => _editing = true),
-              child: const Text('Change…'),
-            ),
-            TextButton(onPressed: () => unawaited(_turnOff()), child: const Text('Turn off sync…')),
-          ],
+              const SizedBox(height: Gaps.md),
+              _actions(context),
+            ],
+          ),
         ),
       ],
     );
   }
 
+  Widget _actions(BuildContext context) => Wrap(
+    spacing: Gaps.sm,
+    runSpacing: Gaps.sm,
+    children: [
+      OutlinedButton.icon(
+        onPressed: _sync.state == SyncState.syncing ? null : () => unawaited(_sync.syncNow()),
+        icon: const Icon(Symbols.sync_sharp, size: Glyphs.menu),
+        label: const Text('Sync now'),
+      ),
+      TextButton(onPressed: () => setState(() => _editing = true), child: const Text('Change…')),
+      TextButton(onPressed: () => unawaited(_turnOff()), child: const Text('Turn off sync…')),
+    ],
+  );
+
   Widget _form(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!_sync.isConfigured) ...[SyncStatusLine(sync: _sync), const SizedBox(height: Gaps.md)],
-        TextField(
-          controller: _url,
-          keyboardType: TextInputType.url,
-          textInputAction: TextInputAction.next,
-          autocorrect: false,
-          onChanged: (_) {
-            if (_urlError != null) setState(() => _urlError = null);
-          },
-          decoration: InputDecoration(
-            labelText: 'Server URL',
-            hintText: 'len.example.com',
-            prefixIcon: const Icon(Symbols.dns_sharp),
-            errorText: _urlError,
-            errorMaxLines: 3,
-          ),
-        ),
-        const SizedBox(height: Gaps.md),
-        TextField(
-          controller: _token,
-          obscureText: _obscureToken,
-          autocorrect: false,
-          enableSuggestions: false,
-          onSubmitted: (_) {
-            if (!_busy) unawaited(_testAndSave());
-          },
-          decoration: InputDecoration(
-            labelText: 'Access token',
-            prefixIcon: const Icon(Symbols.key_sharp),
-            suffixIcon: IconButton(
-              tooltip: _obscureToken ? 'Show' : 'Hide',
-              onPressed: () => setState(() => _obscureToken = !_obscureToken),
-              icon: Icon(_obscureToken ? Symbols.visibility_sharp : Symbols.visibility_off_sharp),
-            ),
-          ),
-        ),
-        if (_testError case final error?) ...[
-          const SizedBox(height: Gaps.md),
-          Text(error, style: TextStyle(color: scheme.error)),
-        ],
-        const SizedBox(height: Gaps.lg),
-        Wrap(
-          spacing: Gaps.sm,
-          runSpacing: Gaps.sm,
-          children: [
-            FilledButton(
-              onPressed: _busy ? null : _testAndSave,
-              child: _busy
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Connect'),
-            ),
-            if (_editing) TextButton(onPressed: _cancelEditing, child: const Text('Cancel')),
-          ],
+        if (!_sync.isConfigured) ...[SyncStatusLine(sync: _sync), const SizedBox(height: Gaps.sm)],
+        Padding(
+          // Fields and buttons under the status's text, like a row's.
+          padding: const EdgeInsetsDirectional.only(start: SyncStatusLine.iconColumn),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _fields(context)),
         ),
       ],
     );
+  }
+
+  List<Widget> _fields(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return [
+      TextField(
+        controller: _url,
+        keyboardType: TextInputType.url,
+        textInputAction: TextInputAction.next,
+        autocorrect: false,
+        onChanged: (_) {
+          if (_urlError != null) setState(() => _urlError = null);
+        },
+        decoration: InputDecoration(
+          labelText: 'Server URL',
+          hintText: 'len.example.com',
+          errorText: _urlError,
+          errorMaxLines: 3,
+        ),
+      ),
+      const SizedBox(height: Gaps.md),
+      TextField(
+        controller: _token,
+        obscureText: _obscureToken,
+        autocorrect: false,
+        enableSuggestions: false,
+        onSubmitted: (_) {
+          if (!_busy) unawaited(_testAndSave());
+        },
+        decoration: InputDecoration(
+          labelText: 'Access token',
+          suffixIcon: IconButton(
+            tooltip: _obscureToken ? 'Show' : 'Hide',
+            onPressed: () => setState(() => _obscureToken = !_obscureToken),
+            icon: Icon(_obscureToken ? Symbols.visibility_sharp : Symbols.visibility_off_sharp),
+          ),
+        ),
+      ),
+      if (_testError case final error?) ...[
+        const SizedBox(height: Gaps.md),
+        Text(error, style: TextStyle(color: scheme.error)),
+      ],
+      const SizedBox(height: Gaps.lg),
+      Wrap(
+        spacing: Gaps.sm,
+        runSpacing: Gaps.sm,
+        children: [
+          FilledButton(
+            onPressed: _busy ? null : _testAndSave,
+            child: _busy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Connect'),
+          ),
+          if (_editing) TextButton(onPressed: _cancelEditing, child: const Text('Cancel')),
+        ],
+      ),
+    ];
   }
 }

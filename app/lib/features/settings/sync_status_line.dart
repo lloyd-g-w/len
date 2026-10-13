@@ -15,6 +15,9 @@ class SyncStatusLine extends StatelessWidget {
 
   final SyncController sync;
 
+  /// The icon and the gap after it, as in a settings row.
+  static const double iconColumn = Glyphs.menu + Gaps.lg;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -38,15 +41,17 @@ class SyncStatusLine extends StatelessWidget {
             last == null ? 'Ready' : 'Last synced ${formatEdited(last.millisecondsSinceEpoch)}',
           ),
         };
-        // A plain status line, its icon in the fields' icon column (not a
-        // filled chip, which read as one more field).
+        // A plain status line, its icon in the settings rows' icon column.
         final status = Semantics(
           liveRegion: true,
           child: Row(
             children: [
               SizedBox(
-                width: Targets.touch,
-                child: Icon(icon, size: Glyphs.bar, color: color),
+                width: SyncStatusLine.iconColumn,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Icon(icon, size: Glyphs.menu, color: color),
+                ),
               ),
               Expanded(child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
               if (sync.state == SyncState.error && sync.lastErrorDetails != null)
@@ -81,43 +86,43 @@ class _TooLargeNotice extends StatelessWidget {
     final files = sync.tooLargeFiles;
     final largest = files.map((f) => f.size).reduce((a, b) => a > b ? a : b);
     final limit = sync.serverMaxBlobBytes;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm + 2, Gaps.sm, Gaps.sm),
-      decoration: BoxDecoration(
-        color: scheme.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(Radii.sm),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(Symbols.cloud_upload_sharp, size: Glyphs.menu, color: scheme.primary),
-          ),
-          const SizedBox(width: Gaps.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(sync.tooLargeSummary ?? '', style: theme.textTheme.bodyMedium),
-                const SizedBox(height: 2),
-                Text(
-                  '${files.length == 1 ? 'It is' : 'The largest is'} ${formatBytes(largest)}; '
-                  'the server accepts ${limit == null ? 'less' : 'up to ${formatBytes(limit)}'}. '
-                  'It stays on this device and other devices show it as missing. '
-                  'Raise LEN_BLOB_MAX_BYTES on the server (and the upload limit of any proxy), '
-                  'then retry.',
-                  style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                ),
-              ],
+    // No plate (DESIGN: hairlines, not tinted panels): a second line in
+    // the status's icon column.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: SyncStatusLine.iconColumn,
+          child: Align(
+            alignment: AlignmentDirectional.topStart,
+            child: Padding(
+              padding: const EdgeInsets.only(top: Gaps.xxs),
+              child: Icon(Symbols.cloud_upload_sharp, size: Glyphs.menu, color: scheme.primary),
             ),
           ),
-          TextButton(
-            onPressed: () => unawaited(sync.retryTooLargeFiles()),
-            child: const Text('Retry'),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(sync.tooLargeSummary ?? '', style: theme.textTheme.bodyMedium),
+              const SizedBox(height: Gaps.xxs),
+              Text(
+                '${files.length == 1 ? 'It is' : 'The largest is'} ${formatBytes(largest)}; '
+                'the server accepts ${limit == null ? 'less' : 'up to ${formatBytes(limit)}'}. '
+                'It stays on this device and other devices show it as missing. '
+                'Raise LEN_BLOB_MAX_BYTES on the server (and the upload limit of any proxy), '
+                'then retry.',
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        TextButton(
+          onPressed: () => unawaited(sync.retryTooLargeFiles()),
+          child: const Text('Retry'),
+        ),
+      ],
     );
   }
 }
