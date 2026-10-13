@@ -14,6 +14,8 @@ import '../lab/perf_probe.dart';
 import 'handwriting_recognizer.dart';
 import 'ink_clustering.dart';
 
+part 'handwriting_indexer_steps.dart';
+
 /// Recognises handwriting in the background and stores it in `ink_text`
 /// (see `InkTextSchema`), which triggers feed into the search index.
 ///
@@ -241,56 +243,17 @@ class HandwritingIndexer extends ChangeNotifier {
       before = text;
     }
     if (_disposed) return;
-    var changed = fresh.isNotEmpty;
-    _ownTransaction(() {
-      final stale = [
-        for (final r in _db.select('SELECT id FROM ink_text WHERE surface_id = ?', [surfaceId]))
-          if (!keep.contains(r['id'])) r['id'] as int,
-      ];
-      if (stale.isNotEmpty) changed = true;
-      for (final id in stale) {
-        _db.execute('DELETE FROM ink_text WHERE id = ?', [id]);
-      }
-      for (final f in fresh) {
-        final b = f.line.bounds;
-        _db.execute(
-          'INSERT INTO ink_text (surface_id, stroke_key, language, text, x, y, w, h, words) '
-          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            surfaceId,
-            f.line.key,
-            f.language,
-            f.text,
-            b.left,
-            b.top,
-            b.width,
-            b.height,
-            InkTextBoxes.encode(wordBoxes(f.line, f.text)),
-          ],
-        );
-      }
-      if (recognise) shared.publish(surfaceId, lang, read, languageChangedAt: languageChangedAt());
-      _db.execute(
-        'DELETE FROM ink_text_queue WHERE surface_id = ? ${version == null ? '' : 'AND version = ?'}',
-        [surfaceId, ?version],
-      );
-    });
+    final removed = _store(
+      surfaceId,
+      keep: keep,
+      fresh: fresh,
+      read: read,
+      lang: lang,
+      recognise: recognise,
+      version: version,
+    );
     notifyListeners();
-    if (changed) onIndexed?.call();
-  }
-
-  /// The lines of the live strokes on [surfaceId].
-  List<InkLine> _cluster(String surfaceId) {
-    developer.Timeline.startSync('len.handwritingCluster');
-    final strokes = _db
-        .select('SELECT * FROM strokes WHERE surface_id = ? AND deleted = 0', [surfaceId])
-        .map(StrokeQueries.rowToStroke)
-        .nonNulls;
-    final watch = Stopwatch()..start();
-    final lines = InkClustering.lines(strokes);
-    PerfProbe.count('handwritingClusterMs', watch.elapsedMilliseconds);
-    developer.Timeline.finishSync();
-    return lines;
+    if (fresh.isNotEmpty || removed) onIndexed?.call();
   }
 
   /// Boxes for the words of [text] if the line has as many word clusters
@@ -302,48 +265,6 @@ class HandwritingIndexer extends ChangeNotifier {
   }
 
   static String _tail(String text) => text.length <= 20 ? text : text.substring(text.length - 20);
-
-  /// Waits (after [pauseBetweenLines] if [pause]) until neither the
-  /// database nor the pointers ([activity]) saw activity for [idleDelay].
-  Future<void> _untilQuiet({bool pause = true}) async {
-    if (pause && pauseBetweenLines > Duration.zero) {
-      await Future<void>.delayed(pauseBetweenLines);
-    }
-    while (!_disposed) {
-      final pointers = activity;
-      final busy = pointers != null && pointers.isActive;
-      var last = _lastActivity;
-      if (pointers != null && pointers.lastActivity.isAfter(last)) last = pointers.lastActivity;
-      final quietFor = DateTime.now().difference(last);
-      if (!busy && quietFor >= idleDelay) return;
-      // While a pointer is down, poll: its release is not a commit.
-      final wait = busy ? _busyPoll : idleDelay - quietFor;
-      await Future<void>.delayed(wait > Duration.zero ? wait : _busyPoll);
-    }
-  }
-
-  static const _busyPoll = Duration(milliseconds: 250);
-
-  /// Runs [action] in a transaction whose commit [_onCommit] ignores.
-  void _ownTransaction(void Function() action) {
-    final watched = _commits != null;
-    if (watched) _ownCommits++;
-    try {
-      database.transaction(action);
-    } catch (_) {
-      if (watched) _ownCommits--;
-      rethrow;
-    }
-  }
-
-  void _onCommit() {
-    if (_ownCommits > 0) {
-      _ownCommits--;
-      return;
-    }
-    _lastActivity = DateTime.now();
-    if (!_running && (_timer?.isActive == true || _hasWork)) schedule();
-  }
 
   /// Forgets all recognised text (indexing switched off).
   void clear() {
