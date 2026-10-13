@@ -213,12 +213,14 @@ and Change template already has "All pages". *Fix:* add Export… (opens the
 export sheet with the selection as the custom range) and Change template…
 (applied to the selection) to the bar, or behind a ⋯ in it.
 
-⬜ **R6-18 P2 · The primary button names the same act two ways.** The template
+✅ **R6-18 P2 · The primary button names the same act two ways.** The template
 picker says "Apply" in Change template and "Use template" in Canvas
 background and when creating (`features/documents/template_picker.dart:231-233`).
 Background… on a canvas is a change too. *Fix:* "Apply" for every change of
 an existing page or canvas. "Use template" stays only where the picker
 chooses for something not created yet (the new notebook's More…).
+*Done (`fix/r6-editor`):* "Apply" for Change template and Canvas
+background; "Use template" only when creating.
 
 ⬜ **R6-19 P2 · Template filter chips repeat the gallery's headings and cut
 mid-word on phones.** The chooser has search, a chip row (All, Paper,

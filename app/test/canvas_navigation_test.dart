@@ -269,7 +269,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const ValueKey('paper-dark')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('paper-dark')));
-    await tester.tap(find.text('Use template'));
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(services.notebooks.get(nb.id)!.paperColor, PaperColor.dark);
     await _close(tester);
