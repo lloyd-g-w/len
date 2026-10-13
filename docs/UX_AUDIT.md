@@ -428,6 +428,9 @@ text, so it stays on one line). The backup, restore and import wording is
   (stopping at the first failure, e.g. offline); what is still missing is
   said as "2 PDFs, images or recordings aren’t downloaded yet and aren’t in
   it". `lastBackupAt` is still set.
+  *Then (`fix/r8-followups`):* only a complete backup sets `lastBackupAt`
+  and dismisses the device-only notice; one with files missing is saved
+  and says so, but the library keeps suggesting a backup.
 
 ✅ **R8-23 P2 · Library backups include the Trash, which a restore can then
 purge at once.**
