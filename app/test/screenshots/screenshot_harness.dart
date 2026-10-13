@@ -38,12 +38,20 @@ Future<void> loadRealFonts() async {
 
 Future<ByteData> _bytes(File f) async => ByteData.sublistView(await f.readAsBytes());
 
-/// Sets the test window to [size] logical pixels at [dpr].
-void setWindow(WidgetTester tester, Size size, {double dpr = 1}) {
+/// Windows at least this wide are desktops: [setWindow] renders them with
+/// a pointer (pointer wording, 44-dp menu rows, 40-dp bar targets); phones
+/// and tablets stay touch-first.
+const double desktopWidth = 1400;
+
+/// Sets the test window to [size] logical pixels at [dpr], used with a
+/// pointer when it is a desktop's ([desktopWidth]) unless [pointer] says.
+void setWindow(WidgetTester tester, Size size, {double dpr = 1, bool? pointer}) {
   tester.view
     ..physicalSize = size * dpr
     ..devicePixelRatio = dpr;
   addTearDown(tester.view.reset);
+  Targets.debugTouchFirst = !(pointer ?? size.width >= desktopWidth);
+  addTearDown(() => Targets.debugTouchFirst = null);
 }
 
 /// Pumps [home] with [services] in a real-looking app shell.
