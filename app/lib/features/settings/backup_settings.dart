@@ -23,7 +23,7 @@ class BackupSettings extends StatefulWidget {
   static String describe({required bool syncing, required bool android}) => [
     syncing
         ? 'Sync keeps a copy of your notes on your server. A backup is a copy you keep yourself.'
-        // Sync's own line above already says they are only here (R8-9).
+        // Sync's line just above says the notes are only on this device (R8-9).
         : 'Back up your library now and then, or set up sync to keep a copy on your server.',
     if (android)
       'Handwriting and text are included in your Android backup; PDFs, images and audio '

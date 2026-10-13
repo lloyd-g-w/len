@@ -50,12 +50,12 @@ grew apart.
 5. R8-24 (P1) Highlighted PDF text can't be selected with the pen any more.
 6. R8-25 (P1) A scribble erases along the whole stroke, not just where it
    zigzagged, and can wipe an outline it filled in.
-7. R8-7 (P1) Phones: the notice, Recent and folders push the first cover
+7. ✅ R8-7 (P1) Phones: the notice, Recent and folders push the first cover
    below the middle of the screen. Held sideways, the notice takes 27 % of
    the height.
 8. R8-26 (P1) Scribble to erase and hold to snap are never taught. They sit
    under "Reset feel" in the collapsed Feel section, below the fold.
-9. R8-2 (P1) Move or copy pages isn't in the editor's page menu, only in
+9. ✅ R8-2 (P1) Move or copy pages isn't in the editor's page menu, only in
    the page overview.
 10. ✅ R8-17 (P1) On the web, a backup is built entirely in memory. A library
     full of PDFs crashes the tab.
@@ -94,7 +94,7 @@ grew apart.
   the notebook out of the Trash), so nothing doubles; once the Trash is
   emptied it makes a new one. Tests: `page_transfer_undo_test.dart`.
 
-**R8-2 P1 · Move or copy pages is missing from the editor.**
+**✅ R8-2 P1 · Move or copy pages is missing from the editor.**
 - *What:* ⋯ → Page (`features/editor/chrome/editor_more_menu.dart:128-145`)
   and the page long-press actions (`editor_gestures.dart:73-89`) have no
   entry for it. It exists only in the overview (`page_commands.dart:14`,
@@ -103,7 +103,9 @@ grew apart.
 - *Fix:* add `PageCommand.moveTo` after "Duplicate page" in ⋯ → Page.
   `DocumentCommands` already dispatches it (`document_commands.dart:137`).
 
-**R8-3 P2 · Moving every page is refused only after the user has picked.**
+*Done (`fix/r8-library`):* ⋯ → Page → "Move or copy page…" (after Duplicate page) runs `PageCommand.moveTo` on the current page: the same picker and flow as the overview (`test/page_transfer_menu_test.dart`).
+
+**✅ R8-3 P2 · Moving every page is refused only after the user has picked.**
 - *What:* the check runs after the picker has closed
   (`page_transfer_flow.dart:35-38`), and with one page the message reads
   "…copy them instead".
@@ -111,7 +113,9 @@ grew apart.
   Move and says "A notebook keeps at least one page" under it. Then drop
   the check after the picker.
 
-**R8-4 P2 · One action, three names, and a borrowed icon.**
+*Done (`fix/r8-library`):* `pickPageDestination(noMove: …)` when every page is sent: Move is disabled and the picker says why ("A notebook keeps at least one page, so this one can only be copied"). A guard stays after the picker for pages a sync removed meanwhile.
+
+**✅ R8-4 P2 · One action, three names, and a borrowed icon.**
 - *What:* the menu and the selection bar say "Move to…"
   (`page_commands.dart:14`, `overview_selection.dart:128`). It opens
   "Move or copy N pages" with Move and Copy (`page_transfer_flow.dart:22`).
@@ -121,6 +125,8 @@ grew apart.
   bar, R8-2), so Copy is discoverable. Keep the snack's "Moved 3 pages to
   “X”". Give it a different glyph from the folder move
   (`Symbols.move_group_sharp` or similar).
+
+*Done (`fix/r8-library`):* pages: "Move or copy…" everywhere it opens the picker (overview menu and selection bar; "Move or copy page…" in the editor's Page menu), with `Symbols.move_group_sharp`; notebooks and folders keep "Move to folder…" with `drive_file_move`.
 
 ✅ **R8-5 P2 · A move isn't one database transaction.**
 - *What:* `send()` calls `copyPages` (its own transaction), then
@@ -133,7 +139,7 @@ grew apart.
 - *Fix:* wrap `send` in `services.database.transaction`.
 - *Done (`fix/r8-data`):* `PageTransfer.send` is one transaction.
 
-**R8-6 P2 · The destination picker loses its way in a big library.**
+**✅ R8-6 P2 · The destination picker loses its way in a big library.**
 - *What:* captions show only the parent folder's name
   (`page_transfer_flow.dart:97-101`). The Recent row and search show the
   path via `LibraryController.locationOf` (`library_controller.dart:281-289`),
@@ -144,9 +150,11 @@ grew apart.
 - *Fix:* share `locationOf`, use `ListView.builder`, and add a filter
   field once there are more than about 12 notebooks.
 
+*Done (`fix/r8-library`):* captions use the library's path (`LibraryQuery.pathOf`, shared with Recent and search: "School › Maths"); the list is a `ListView.builder`; over 12 notebooks a "Find a notebook" filter field shows.
+
 ### Library
 
-**R8-7 P1 · Phones: chrome pushes the notebooks off the screen.**
+**✅ R8-7 P1 · Phones: chrome pushes the notebooks off the screen.**
 - *What:* `library_phone_light.png` stacks four bands above the first
   cover, which starts 55 % of the way down the screen:
   - the "only on this device" notice: four lines, with "Back up…" on a
@@ -167,7 +175,9 @@ grew apart.
   - On phones, folders take one sideways-scrolling row (`FolderRow.strip`)
     when the Recent row is shown.
 
-**R8-8 P2 · The device-only notice: parenthetical copy, one action, and
+*Done (`fix/r8-library`):* on phones and short windows the device-only notice is one line (`LibraryNotice.shortTitle`: "Only on this device", Back up…, ✕; 49 dp), and under the Recent row the folders take one sideways line (`FolderRow.strip`). The first covers start at about 36 % of a portrait phone, under one row of chrome sideways.
+
+**✅ R8-8 P2 · The device-only notice: parenthetical copy, one action, and
 it never comes back.**
 - *What:* the body ends with "(Settings)" and offers only "Back up…"
   (`library_notice.dart:128-140`). After one backup, `lastBackupAt != null`
@@ -179,7 +189,9 @@ it never comes back.**
   - With sync off, show the notice again (once) when the last backup is
     over 30 days old and notebooks have changed since.
 
-**R8-9 P2 · "Local only" against "only on this device".**
+*Done (`fix/r8-library`):* the body reads "Back up your library now and then, or set up sync", with Back up… and Set up sync…. Without sync, the notice comes back once per backup when it is over 30 days old and a notebook changed since (`LibraryNotices.staleAfter`, tip id `notes_device_only@<time>`), saying when the last backup was.
+
+**✅ R8-9 P2 · "Local only" against "only on this device".**
 - *What:* the sidebar says "Local only" (`ui/sync_status_button.dart:15`).
   The notice, Settings → Sync (`sync_status_line.dart:32`) and Settings →
   Backup (`backup_settings.dart:25`) say "only on this device". R7-12
@@ -191,7 +203,9 @@ it never comes back.**
   - With sync off, Backup's description drops its first sentence and
     starts with "Back up your library now and then…".
 
-**R8-10 P2 · Recent: noise and lost slots.**
+*Done (`fix/r8-library`):* one phrase, `deviceOnlyCaption` "Only on this device" (sidebar caption, one-line notice; sentences say "only on this device"). The sidebar stacks the caption under Settings while sync is off, so it is never cut. Backup's description starts with "Back up your library now and then…" with sync off. The sync tooltip lost its dash ("Synced: tap to sync now").
+
+**✅ R8-10 P2 · Recent: noise and lost slots.**
 - *What:* notebooks at the root are captioned "Library"
   (`library_controller.dart:288`), which says nothing when you are standing
   in the Library. Trashed and deleted notebooks keep their slots, since
@@ -206,7 +220,9 @@ it never comes back.**
   - The strip item's caption names the latest notebook, and its menu
     entries carry the location the row shows.
 
-**R8-11 P2 · A recording match doesn't say why it matched.**
+*Done (`fix/r8-library`):* Recent tiles at the top level have no caption (`LibraryController.folderPathOf`); the workspace remembers 16 notebooks and the row shows the first 8 live ones; the sideways strip item is captioned with the latest notebook, and its menu rows carry the folder (`MenuRow.caption`).
+
+**✅ R8-11 P2 · A recording match doesn't say why it matched.**
 - *What:* recording titles match in the library's title filter
   (`library_controller.dart:257`). While searching, the caption becomes
   the path only (`library_content.dart:248`), and list rows lose
@@ -216,7 +232,9 @@ it never comes back.**
   result kind to `library_search_results.dart` that opens the recordings
   sheet at it.
 
-**R8-12 P2 · The sync alert says "Not synced since Just now" and goes red
+*Done (`fix/r8-library`):* a notebook found only by a recording's title is captioned "Recording “Lecture 4”" (`LibraryController.recordingMatchOf`). A recording result kind in the full-text results is left for later.
+
+**✅ R8-12 P2 · The sync alert says "Not synced since Just now" and goes red
 for being offline.**
 - *What:* when everything synced except a few file uploads, `lastSuccess`
   is set but `_failingSince` stays (`sync/sync_controller.dart:218-231`).
@@ -231,7 +249,9 @@ for being offline.**
   - Keep red for auth and incompatible failures. Write "just now" in
     lower case inside a sentence.
 
-**R8-13 P2 · Two selection bars that grew apart.**
+*Done (`fix/r8-library`):* `syncAlert`: files left to upload say "3 files not uploaded yet" (`SyncController.filesNotUploaded`), being offline "Offline: not synced since Monday" with the cloud-off glyph, both in Graphite; red only for failures Settings can fix. "just now" is lower case after "since" (`libraryDateAfter`).
+
+**✅ R8-13 P2 · Two selection bars that grew apart.**
 - *What:* the library's selection (`library/selection/selection_bar.dart`)
   is a floating panel holding "3 selected", Select all and four labelled
   actions without ellipses ("Move", "Export").
@@ -247,6 +267,8 @@ for being offline.**
   - One label size: if the labels don't fit, drop all of them to icons
     with tooltips rather than shrinking some.
   - At most five actions on phones: Bookmark and Template go into a ⋯.
+
+*Done (`fix/r8-library`):* one shared `ui/selection_bar.dart` (`SelectionBar`, `SelectionCommand`) for the library and the overview: a floating panel with ✕, the count, Select all and the commands; one row where it fits, else a second row where each command is as wide as its name needs. Names keep one size (no `FittedBox`): commands with an `overflow` rank go into ⋯ (overview: Template, Bookmark, Duplicate), and if that is not enough the bar shows glyphs with tooltips. Library labels gained their ellipses ("Move to folder…", "Export…"); the overview keeps its bar in selection mode (no separate selection app bar).
 
 ### Backup and Len files
 
@@ -376,6 +398,11 @@ everywhere.**
   - "Len opens PDFs, images and Len files".
 - *Done (`fix/r8-data`):* all of the above; the backup file is "Len backup
   13 Oct 2026.len".
+
+*Partly done (`fix/r8-library`):* the folder menu says "Export…" like the
+notebook menu, and the format segment says "Len file" (names only at large
+text, so it stays on one line). The backup, restore and import wording is
+`fix/r8-data`'s.
 
 ✅ **R8-21 P2 · Import errors read backwards and don't say what to do.**
 - *What:* `'${e.message}: couldn’t import $name'` (`len_file_flows.dart:125`;
@@ -544,7 +571,15 @@ template typography.**
 - *Fix:* add them to `organise_screenshot_test.dart`,
   `app_surfaces3_screenshot_test.dart` and `toolbar_screenshot_test.dart`.
 
-**R8-35 P2 · Small drift from DESIGN.md.**
+*Partly done (`fix/r8-library`):* `organise_screenshot_test.dart` renders
+Recent at its edges (`o_recent_*`: an empty library, all at the top level,
+trashed entries, inside a folder, the sideways strip's menu, an empty
+library sideways) and moving or copying from the editor (`o_page_menu_move_phone`,
+`o_move_copy_only_phone`, `o_move_new_notebook_phone`; the overview's picker
+was already in `overview_move_*`). Backup progress and the restore result
+are `fix/r8-data`'s; the scribble preview `fix/r8-pen`'s.
+
+**✅ R8-35 P2 · Small drift from DESIGN.md.**
 - *What:*
   - Off-grid paddings of 5 and 3 dp in the template gallery's Import tile
     (`documents/templates/template_gallery.dart:162,176`) and the paper
@@ -558,6 +593,8 @@ template typography.**
   - the accent is used for state only;
   - there are no `·` chains.
 - *Fix:* use `Gaps.xs` and `Gaps.xxs`, and true greys.
+
+*Done (`fix/r8-library`):* the template tiles, the gallery's Import tile and the paper row share `TemplateTile.ruleRoom` (`Gaps.xs`) and `pageRoom` (`Gaps.xxs`) instead of 5 and 3; the missing-PDF page paints with the light `Tones` (Board, Desk hatching, Graphite). Goldens `pdf_missing`, `template_picker*` refreshed.
 
 ### Simplify
 

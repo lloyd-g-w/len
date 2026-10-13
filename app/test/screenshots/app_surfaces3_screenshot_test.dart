@@ -71,6 +71,7 @@ void main() {
       }
 
       Future<void> folderMenu(String item) async {
+        await revealSideways(tester, find.text('Work').last); // Phones: the folder strip.
         await tester.longPress(find.text('Work').last);
         await settle(tester);
         await tap(tester, find.text(item));

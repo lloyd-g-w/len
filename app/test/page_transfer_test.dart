@@ -131,7 +131,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('page-tile-1')));
       await tester.tap(find.byKey(const ValueKey('page-tile-2')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Move to…'));
+      await tester.tap(find.text('Move or copy…'));
       await tester.pumpAndSettle();
       expect(find.text('Move or copy 2 pages'), findsOneWidget);
       expect(find.text('Other'), findsOneWidget);
@@ -226,7 +226,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('page-tile-1')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Move to…'));
+    await tester.tap(find.text('Move or copy…'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('New notebook…'));
     await tester.pumpAndSettle();

@@ -106,6 +106,9 @@ class _LibraryContentState extends State<LibraryContent> {
         ? FolderRow.strip(folders: folders, actions: actions, recent: recent)
         : null;
     final inlineFolders = strip != null && !_c.isSearching;
+    // Phones under the Recent row: the folders take one line that scrolls
+    // sideways too, so the first covers stay above the fold (R8-7).
+    final folderStrip = compact && recent.isNotEmpty;
     final rule = Theme.of(context).colorScheme.outlineVariant;
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
@@ -197,7 +200,21 @@ class _LibraryContentState extends State<LibraryContent> {
                   ),
                 ),
               ),
-            if (folders.isNotEmpty)
+            if (folders.isNotEmpty && folderStrip)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(gutter, Gaps.sm, gutter, 0),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FolderRow.strip(folders: folders, actions: actions),
+                      const SizedBox(height: Gaps.sm),
+                      Divider(height: Hairline.width, color: rule),
+                    ],
+                  ),
+                ),
+              )
+            else if (folders.isNotEmpty)
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(gutter, Gaps.md, gutter, 0),
                 sliver: SliverToBoxAdapter(
@@ -270,7 +287,11 @@ class _LibraryContentState extends State<LibraryContent> {
   /// mic glyph instead).
   String _subtitle(Notebook n, {bool list = false}) {
     if (n.isTrashed) return trashLeftLabel(n.trashedAt!, NotebookRepository.trashKeptFor);
-    if (_c.isSearching) return _c.locationOf(n);
+    if (_c.isSearching) {
+      // Found by a recording: say which ("Recording “Lecture 4”").
+      if (_c.recordingMatchOf(n) case final title?) return 'Recording “$title”';
+      return _c.locationOf(n);
+    }
     final kind = n.kind == NotebookKind.canvas ? 'canvas' : pageCountLabel(_c.pageCountOf(n.id));
     final date = _c.sort == LibrarySort.created
         ? libraryDateAfter('Created', n.createdAt)

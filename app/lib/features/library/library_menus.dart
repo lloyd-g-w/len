@@ -76,6 +76,7 @@ const List<PopupMenuEntry<FolderAction>> folderMenuItems = [
   MenuRow(value: FolderAction.open, icon: Symbols.folder_open_sharp, label: 'Open'),
   MenuRow(value: FolderAction.edit, icon: Symbols.edit_sharp, label: 'Edit folder…'),
   MenuRow(value: FolderAction.move, icon: Symbols.drive_file_move_sharp, label: 'Move to folder…'),
+  // A folder exports as a Len file (one name for every Export, R8-20).
   MenuRow(value: FolderAction.export, icon: Symbols.ios_share_sharp, label: 'Export…'),
   PopupMenuDivider(),
   MenuRow(

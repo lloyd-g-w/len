@@ -277,27 +277,42 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
   /// lately, most recent first. Only at the root and not while searching,
   /// and only while one of them lives in a folder (else they are all in
   /// the grid below anyway).
+  /// Trashed and deleted notebooks are skipped, and the next ones fill
+  /// their places (R8-10).
   List<Notebook> get recentNotebooks {
     if (_section != LibrarySection.library || _folderId != null || isSearching) return const [];
     final byId = {for (final n in _notebooks) n.id: n};
-    final recent = [for (final id in _recentIds) ?byId[id]];
+    final recent = [for (final id in _recentIds) ?byId[id]].take(recentShown).toList();
     return recent.any((n) => LibraryQuery.folderOf(n, _folderById) != null) ? recent : const [];
+  }
+
+  /// How many notebooks the Recent row shows (of the more the workspace
+  /// remembers, so trashed ones leave no gaps).
+  static const int recentShown = 8;
+
+  /// While searching, the title of [notebook]'s recording that matched,
+  /// when its own title didn't (the result says why it is there, R8-11).
+  String? recordingMatchOf(Notebook notebook) {
+    if (!isSearching) return null;
+    final matches = LibraryQuery.matcher(_query);
+    if (matches(notebook.title)) return null;
+    for (final title in _recordingTitles[notebook.id] ?? const <String>[]) {
+      if (matches(title)) return title;
+    }
+    return null;
   }
 
   /// Number of notebooks and subfolders directly in [folderId].
   int itemCountIn(String folderId) =>
       childrenOf(folderId).length + (_notebookCountByFolder[folderId] ?? 0);
 
-  /// "School › Maths" location of a notebook (for search results).
-  String locationOf(Notebook notebook) {
-    final names = <String>[];
-    var current = _folderById[LibraryQuery.folderOf(notebook, _folderById)];
-    while (current != null && names.length <= _folders.length) {
-      names.insert(0, current.name);
-      current = _folderById[parentOf(current)];
-    }
-    return names.isEmpty ? 'Library' : names.join(' › ');
-  }
+  /// "School › Maths" location of a notebook (for search results);
+  /// "Library" at the top level.
+  String locationOf(Notebook notebook) => folderPathOf(notebook) ?? 'Library';
+
+  /// "School › Maths", the folders a notebook is filed in; null at the top
+  /// level (the Recent row says nothing there).
+  String? folderPathOf(Notebook notebook) => LibraryQuery.pathOf(notebook, _folderById);
 
   Folder? folderById(String? id) => _folderById[id];
 }

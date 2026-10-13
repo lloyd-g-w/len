@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
@@ -271,12 +270,8 @@ class EditorChromeHost extends StatelessWidget {
             audio: AudioBarButton(audio: audio),
             status: SyncAlertButton(
               sync: session.services.sync,
-              button: (tooltip, color, onPressed) => BarButton(
-                tooltip: tooltip,
-                icon: Symbols.cloud_alert_sharp,
-                color: color,
-                onPressed: onPressed,
-              ),
+              button: (tooltip, icon, color, onPressed) =>
+                  BarButton(tooltip: tooltip, icon: icon, color: color, onPressed: onPressed),
             ),
             compactMenuItems: audioMenuItems(context, audio),
             toolbar: inBar ? toolbar : null,

@@ -17,6 +17,7 @@ class MenuRow<T> extends PopupMenuItem<T> {
     this.icon,
     this.leading,
     required this.label,
+    this.caption,
     this.labelStyle,
     this.destructive = false,
     this.checked = false,
@@ -31,6 +32,9 @@ class MenuRow<T> extends PopupMenuItem<T> {
   /// swatch).
   final Widget? leading;
   final String label;
+
+  /// A caption under the label (e.g. where a notebook lives).
+  final String? caption;
 
   /// The label's style over the menu's (e.g. a font shown in itself).
   final TextStyle? labelStyle;
@@ -77,13 +81,26 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
           ),
           const SizedBox(width: Gaps.md),
           Expanded(
-            child: Text(
-              widget.label,
-              style: Theme.of(context).textTheme.labelLarge
-                  ?.merge(widget.labelStyle)
-                  .copyWith(color: color),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.label,
+                  style: Theme.of(context).textTheme.labelLarge
+                      ?.merge(widget.labelStyle)
+                      .copyWith(color: color),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (widget.caption case final caption?)
+                  Text(
+                    caption,
+                    style: Theme.of(context).textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
           ),
           if (widget.shortcut case final shortcut? when !Targets.touchFirst) ...[

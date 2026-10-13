@@ -1,3 +1,4 @@
+import '../../data/folder_repository.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
@@ -48,5 +49,18 @@ abstract final class LibraryQuery {
   static String? folderOf(Notebook notebook, Map<String, Folder> folders) {
     final id = notebook.folderId;
     return id != null && folders.containsKey(id) ? id : null;
+  }
+
+  /// "School › Maths", the folders [notebook] is filed in (of [folders] by
+  /// id); null at the top level. The library's Recent row and search, and
+  /// the pages' move or copy picker, say it alike (UX_AUDIT R8-6).
+  static String? pathOf(Notebook notebook, Map<String, Folder> folders) {
+    final names = <String>[];
+    var current = folders[folderOf(notebook, folders)];
+    while (current != null && names.length <= folders.length) {
+      names.insert(0, current.name);
+      current = folders[FolderRepository.effectiveParentOf(current, folders)];
+    }
+    return names.isEmpty ? null : names.join(' › ');
   }
 }

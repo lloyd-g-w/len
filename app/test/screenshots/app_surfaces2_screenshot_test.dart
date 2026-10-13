@@ -149,6 +149,7 @@ void main() {
             find.descendant(of: find.byType(FolderTile), matching: find.byTooltip('More')).first,
           );
         } else {
+          await revealSideways(tester, find.text('Work').last); // Phones: the folder strip.
           await tester.longPress(find.text('Work').last);
           await settle(tester);
         }
@@ -192,6 +193,8 @@ void main() {
         await shoot(tester, 's_library_trash_empty_${name}_$m');
 
         await openLibrarySection(tester, 'Library');
+        await tester.drag(find.byType(CustomScrollView).first, const Offset(0, 800)); // To the top.
+        await settle(tester);
         await tap(tester, find.byTooltip('View'));
         await tap(tester, find.text('Select').last);
         for (final title in ['Ideas', 'Recipes', 'Travel plans']) {

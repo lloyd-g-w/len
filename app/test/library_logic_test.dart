@@ -7,6 +7,7 @@ import 'package:len/data/surface_stats.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
+import 'package:len/domain/recording.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/library/cover_grid.dart';
 import 'package:len/features/library/library_controller.dart';
@@ -113,6 +114,31 @@ void main() {
       expect(c.folderId, school.id);
       expect(c.goUp(), isTrue);
       expect(c.goUp(), isFalse);
+    });
+
+    test('a search found by a recording says which (R8-11)', () {
+      final lecture = c.createNotebook(
+        title: 'Physics',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      services.recordings.save(
+        notebookId: lecture.id,
+        parts: [RecordingPart('cd' * 32, 1000)],
+        mime: 'audio/mp4',
+        title: 'Lecture 4',
+        segments: const [RecordingSegment(0, 1000)],
+      );
+      c.reload();
+      c.query = 'lecture';
+      expect(c.visibleNotebooks.map((n) => n.title), ['Physics']);
+      expect(c.recordingMatchOf(lecture), 'Lecture 4');
+      c.query = 'phys';
+      expect(c.recordingMatchOf(lecture), isNull); // Its title matched.
+      // Recent shows no caption at the top level.
+      expect(c.folderPathOf(lecture), isNull);
+      expect(c.locationOf(lecture), 'Library');
     });
 
     test('search spans folders; favourites and trash have their own views', () {

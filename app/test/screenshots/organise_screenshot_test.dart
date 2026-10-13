@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/app_services.dart';
+import 'package:len/data/app_database.dart';
 import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/link_target.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/tools/content_layer.dart';
+import 'package:len/features/library/library_screen.dart';
+import 'package:len/features/library/recent_row.dart';
 
 import '../support/selection_actions.dart';
 import 'screenshot_harness.dart';
 
 /// Organisation features with real fonts: the editor's outline panel and
-/// links, on tablet and phone, light and dark.
+/// links, on tablet and phone, light and dark; the library's Recent row
+/// at its edges; moving or copying pages from the editor.
 void main() {
   setUpAll(loadRealFonts);
 
@@ -105,6 +110,82 @@ void main() {
     await shoot(tester, 'o_link_menu_tablet_light');
     await tap(tester, find.text('Link to page…'));
     await shoot(tester, 'o_link_page_picker_tablet_light');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  // Recent's edge cases (UX_AUDIT R8-34): nothing in an empty library or
+  // when everything is at the top level, gaps filled after trashing, not
+  // inside a folder; held sideways, the strip's menu says where each is.
+  testWidgets('recent edge cases (phone light)', (tester) async {
+    setWindow(tester, phone.$2, dpr: phone.$3);
+    final empty = AppServices.create(AppDatabase.inMemory());
+    addTearDown(empty.dispose);
+    empty.settings.recentNotebooks = ['gone-1', 'gone-2'];
+    await pumpApp(tester, empty, const LibraryScreen());
+    expect(find.byType(RecentRow), findsNothing);
+    await shoot(tester, 'o_recent_empty_library_phone');
+
+    await tester.pumpWidget(const SizedBox()); // A fresh library.
+    final s = seededServices();
+    addTearDown(s.dispose);
+    final byTitle = {for (final n in s.notebooks.list()) n.title: n};
+    final trashed = byTitle['Recipes']!;
+    s.notebooks.trash(trashed.id);
+    s.settings.recentNotebooks = [
+      trashed.id,
+      byTitle['Meeting notes']!.id,
+      byTitle['Ideas']!.id,
+      byTitle['Physics — Mechanics']!.id,
+    ];
+    await pumpApp(tester, s, const LibraryScreen());
+    expect(find.byType(RecentTile), findsNWidgets(3));
+    await shoot(tester, 'o_recent_trashed_phone');
+    await tap(tester, find.text('School').last);
+    expect(find.byType(RecentRow), findsNothing);
+    await shoot(tester, 'o_recent_in_folder_phone');
+
+    s.settings.recentNotebooks = [byTitle['Ideas']!.id, byTitle['Travel plans']!.id];
+    await tester.pumpWidget(const SizedBox());
+    await pumpApp(tester, s, const LibraryScreen());
+    expect(find.byType(RecentRow), findsNothing);
+    await shoot(tester, 'o_recent_all_at_top_phone');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('recent sideways: the strip and its menu', (tester) async {
+    setWindow(tester, const Size(844, 390), dpr: 2);
+    final s = seededServices();
+    addTearDown(s.dispose);
+    await pumpApp(tester, s, const LibraryScreen());
+    await tap(tester, find.byType(RecentStripTile));
+    await shoot(tester, 'o_recent_sideways_menu');
+    final empty = AppServices.create(AppDatabase.inMemory());
+    addTearDown(empty.dispose);
+    await tester.pumpWidget(const SizedBox());
+    await pumpApp(tester, empty, const LibraryScreen());
+    await shoot(tester, 'o_recent_empty_sideways');
+    expect(tester.takeException(), isNull);
+  });
+
+  // Move or copy pages from the editor's page menu (R8-2, R8-34): the
+  // menu, a new notebook chosen, and a notebook's only page (Copy only).
+  testWidgets('move or copy page from the editor (phone light)', (tester) async {
+    setWindow(tester, phone.$2, dpr: phone.$3);
+    final s = seededServices();
+    addTearDown(s.dispose);
+    final nb = s.notebooks.list().firstWhere((n) => n.title == 'Physics — Mechanics');
+    await pumpApp(tester, s, EditorScreen(notebook: nb));
+    await tap(tester, find.byTooltip('More options'));
+    await tap(tester, find.text('Page'));
+    await shoot(tester, 'o_page_menu_move_phone');
+    await tap(tester, find.text('Move or copy page…'));
+    await shoot(tester, 'o_move_copy_only_phone');
+    await tap(tester, find.text('New notebook…'));
+    await tester.enterText(find.byType(TextField).last, 'Forces');
+    await tester.pump();
+    await tap(tester, find.widgetWithText(FilledButton, 'OK'));
+    await shoot(tester, 'o_move_new_notebook_phone');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

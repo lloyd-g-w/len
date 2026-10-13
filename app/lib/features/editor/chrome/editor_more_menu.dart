@@ -132,6 +132,8 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
       label: 'Page',
       children: [
         _command(PageCommand.duplicate, 'Duplicate page'),
+        // To another notebook, the overview's picker (UX_AUDIT R8-2).
+        _command(PageCommand.moveTo, 'Move or copy page…'),
         _item(
           a.bookmarked ? Symbols.bookmark_remove_sharp : Symbols.bookmark_add_sharp,
           a.bookmarked ? 'Remove bookmark' : 'Bookmark page',

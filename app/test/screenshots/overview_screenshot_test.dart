@@ -71,7 +71,7 @@ void main() {
         await settle(tester);
         expect(find.text('2 selected'), findsOneWidget);
         await shoot(tester, 'overview_select_${name}_${mode.name}');
-        await tester.tap(find.text('Move to…'));
+        await tester.tap(find.text('Move or copy…'));
         await settle(tester);
         await tester.tap(find.text('Meeting notes'));
         await settle(tester);
