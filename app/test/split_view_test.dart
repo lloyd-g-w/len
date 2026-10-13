@@ -137,7 +137,7 @@ void main() {
     expect(tester.getCenter(paneOf(1)).dx, greaterThan(720));
 
     // Drag the divider: the first pane widens.
-    final divider = find.byTooltip('Drag to resize · double-tap for halves');
+    final divider = find.byTooltip('Drag to resize, double-tap for halves');
     final before = tester.getSize(paneOf(0)).width;
     await tester.drag(divider, const Offset(120, 0));
     await tester.pumpAndSettle();
