@@ -1803,7 +1803,11 @@ messages (`messages.dart`: `showMessage`). Floating chrome: `floating_panel.dart
 (`ChromeFade`: fade plus an 8-px slide toward the edge). Also `text_prompt.dart`,
 `sidebar_item.dart` (library sidebar; the selected row carries the accent). Menus opened from a
 button use `MenuIconButton` / `showMenuBelow` (`menus.dart`; `MenuRow.shortcut` hints show only
-where a keyboard is likely), never `PopupMenuButton`. Settings (`features/settings/`): General,
+where a keyboard is likely), never `PopupMenuButton`. The chrome's `MenuAnchor`s (⋯, Insert,
+zoom) sit in `MenuEdgeMargin`, which adds 8-dp side strips as display features (the anchor's
+`MediaQuery` padding never reaches its overlay; display features do). Rows of controls that
+scroll sideways (the text format bar, the toolbar's quick slots in a narrow bar) use
+`ScrollFade` (`scroll_fade.dart`): an end fades out while content lies beyond it. Settings (`features/settings/`): General,
 Writing, Handwriting, Sync, Storage (web) and About in one centred 640-dp column;
 `SettingsSection` is a quiet `SectionLabel` heading over a rounded plate of `SettingsTile`s
 (18-dp icon, Body title, Caption subtitle; a `control` trails on wide rows and goes below the
