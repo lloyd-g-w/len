@@ -57,8 +57,13 @@ class SyncController extends ChangeNotifier {
   SyncFailure? _lastFailure;
   DateTime? _lastSuccess;
   DateTime? _failingSince;
+  int _filesNotUploaded = 0;
 
   SyncState get state => _state;
+
+  /// Files that couldn't be uploaded when the rest of the last sync worked
+  /// (retried next time); 0 unless that is all that failed.
+  int get filesNotUploaded => _state == SyncState.error ? _filesNotUploaded : 0;
 
   /// What went wrong in the last sync, in plain words (null after a
   /// successful one).
@@ -229,6 +234,7 @@ class SyncController extends ChangeNotifier {
           '${_files(failed)} could not be uploaded and will be retried',
           false,
           details: engine.blobUploadError,
+          files: failed,
         );
       }
       if (!changes.isEmpty) _remoteChanges.add(changes);
@@ -256,8 +262,10 @@ class SyncController extends ChangeNotifier {
     bool cancelled, {
     SyncFailure kind = SyncFailure.server,
     String? details,
+    int files = 0,
   }) {
     if (cancelled) return;
+    _filesNotUploaded = files;
     _refreshTooLarge();
     _lastError = message;
     _lastErrorDetails = details;

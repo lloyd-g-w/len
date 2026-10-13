@@ -8,6 +8,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/settings/settings_screen.dart';
+import 'package:len/features/settings/sync_alert_button.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -117,5 +118,22 @@ void main() {
     await tester.runAsync(s.sync.syncNow);
     await tester.pump();
     expect(find.textContaining('Not synced since'), findsNothing); // Once.
+  });
+
+  test('offline is grey and says so; a refused token is red (R8-12)', () async {
+    final offline = _failing(lastSuccess: DateTime.now());
+    addTearDown(offline.dispose);
+    await offline.sync.syncNow();
+    final quiet = syncAlert(offline.sync);
+    expect(quiet.fix, isFalse);
+    expect(quiet.offline, isTrue);
+    expect(quiet.tooltip, 'Offline: not synced since just now');
+
+    final refused = _failing(auth: true);
+    addTearDown(refused.dispose);
+    await refused.sync.syncNow();
+    final red = syncAlert(refused.sync);
+    expect(red.fix, isTrue);
+    expect(red.tooltip, 'Not synced yet: open Sync settings');
   });
 }

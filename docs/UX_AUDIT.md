@@ -224,7 +224,7 @@ it never comes back.**
 
 *Done (`fix/r8-library`):* a notebook found only by a recording's title is captioned "Recording “Lecture 4”" (`LibraryController.recordingMatchOf`). A recording result kind in the full-text results is left for later.
 
-**R8-12 P2 · The sync alert says "Not synced since Just now" and goes red
+**✅ R8-12 P2 · The sync alert says "Not synced since Just now" and goes red
 for being offline.**
 - *What:* when everything synced except a few file uploads, `lastSuccess`
   is set but `_failingSince` stays (`sync/sync_controller.dart:218-231`).
@@ -238,6 +238,8 @@ for being offline.**
     Monday".
   - Keep red for auth and incompatible failures. Write "just now" in
     lower case inside a sentence.
+
+*Done (`fix/r8-library`):* `syncAlert`: files left to upload say "3 files not uploaded yet" (`SyncController.filesNotUploaded`), being offline "Offline: not synced since Monday" with the cloud-off glyph, both in Graphite; red only for failures Settings can fix. "just now" is lower case after "since" (`libraryDateAfter`).
 
 **✅ R8-13 P2 · Two selection bars that grew apart.**
 - *What:* the library's selection (`library/selection/selection_bar.dart`)

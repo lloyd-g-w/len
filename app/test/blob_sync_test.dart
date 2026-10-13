@@ -10,6 +10,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
+import 'package:len/features/settings/sync_alert_button.dart';
 import 'package:len/features/settings/sync_settings.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/sync/sync_controller.dart';
@@ -160,12 +161,16 @@ void main() {
       expect(server.stored('notebooks', failing.recording.notebookId), isNotNull);
       expect(a.sync.state, SyncState.error);
       expect(a.sync.lastError, contains('1 file could not be uploaded'));
+      expect(a.sync.filesNotUploaded, 1);
+      expect(syncAlert(a.sync).tooltip, '1 file not uploaded yet'); // Not "since just now".
+      expect(syncAlert(a.sync).fix, isFalse);
       expect(a.sync.lastErrorDetails, contains('disk full'));
       expect(a.sync.tooLargeFiles, isEmpty);
 
       server.failingPuts.clear();
       await a.sync.syncNow();
       expect(a.sync.state, SyncState.idle);
+      expect(a.sync.filesNotUploaded, 0);
       expect(server.blobs.keys, containsAll([failing.sha, fine.sha]));
       expect(pushed(failing.recording), isTrue);
     });
