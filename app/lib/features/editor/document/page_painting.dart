@@ -15,7 +15,9 @@ import 'document_painters.dart';
 /// elements (images beneath the ink, text above) — in page units onto
 /// [canvas], which must already be scaled by [scale] device pixels per
 /// unit. Used for thumbnails and raster export. Images are drawn from
-/// [images] as far as they are decoded (placeholders otherwise).
+/// [images] as far as they are decoded (placeholders otherwise). With
+/// [worldOrigin], the page is the part of an infinite canvas whose top-left
+/// is there, and the pattern is aligned as on the canvas.
 void paintWholePage(
   Canvas canvas,
   NotebookPage page, {
@@ -27,6 +29,7 @@ void paintWholePage(
   PaperImageLookup? paperImages,
   bool miniature = false,
   bool showBookmark = false,
+  Offset? worldOrigin,
 }) {
   final rect = Offset.zero & page.size;
   canvas
@@ -34,16 +37,35 @@ void paintWholePage(
     ..clipRect(rect);
   PaperRenderer.paintSheet(canvas, rect, page.paperColor, scale: scale, shadow: false);
   if (background != null) paintBackgroundImage(canvas, background, rect);
-  PaperRenderer.paintPattern(
-    canvas,
-    page.paper,
-    page.paperColor,
-    rect,
-    page: rect,
-    scale: scale,
-    always: miniature,
-    images: paperImages ?? (images == null ? null : paperImagesOf(images)),
-  );
+  final lookup = paperImages ?? (images == null ? null : paperImagesOf(images));
+  if (worldOrigin case final origin?) {
+    // A piece of an infinite canvas: its pattern runs from the world's
+    // origin, as on screen, not from this rectangle's corner.
+    canvas
+      ..save()
+      ..translate(-origin.dx, -origin.dy);
+    PaperRenderer.paintPattern(
+      canvas,
+      page.paper,
+      page.paperColor,
+      rect.shift(origin),
+      scale: scale,
+      always: miniature,
+      images: lookup,
+    );
+    canvas.restore();
+  } else {
+    PaperRenderer.paintPattern(
+      canvas,
+      page.paper,
+      page.paperColor,
+      rect,
+      page: rect,
+      scale: scale,
+      always: miniature,
+      images: lookup,
+    );
+  }
   if (showBookmark && page.bookmarked) paintBookmark(canvas, page.size);
   ContentPainter.paint(canvas, strokes, elements, images: images, pixelScale: scale);
   canvas.restore();
@@ -61,6 +83,7 @@ Future<ui.Image> renderPageImage(
   required double scale,
   ui.Image? background,
   ElementImages? images,
+  Offset? worldOrigin,
 }) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder)..scale(scale);
@@ -72,6 +95,7 @@ Future<ui.Image> renderPageImage(
     scale: scale,
     background: background,
     images: images,
+    worldOrigin: worldOrigin,
   );
   final picture = recorder.endRecording();
   try {

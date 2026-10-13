@@ -16,6 +16,7 @@ Future<ExportOptions?> showExportSheet(
   required List<NotebookPage> pages,
   required int currentPage,
   ExportRange initialRange = ExportRange.all,
+  bool canvas = false,
 }) {
   ExportSheet sheet({required bool wide}) => ExportSheet(
     title: title,
@@ -23,6 +24,7 @@ Future<ExportOptions?> showExportSheet(
     currentPage: currentPage,
     initialRange: initialRange,
     wide: wide,
+    canvas: canvas,
   );
   return showDialogOrSheet<ExportOptions>(
     context: context,
@@ -41,6 +43,7 @@ class ExportSheet extends StatefulWidget {
     required this.currentPage,
     this.initialRange = ExportRange.all,
     this.wide = false,
+    this.canvas = false,
   });
 
   /// The notebook's title.
@@ -53,6 +56,10 @@ class ExportSheet extends StatefulWidget {
 
   /// Dialog layout (else bottom sheet).
   final bool wide;
+
+  /// An infinite canvas's drawing ([pages] is that one page): no page
+  /// choice, and the pattern is the canvas's background.
+  final bool canvas;
 
   @override
   State<ExportSheet> createState() => _ExportSheetState();
@@ -90,6 +97,7 @@ class _ExportSheetState extends State<ExportSheet> {
       pages: pages,
       includeTemplates: _templates,
       includeBackgrounds: _backgrounds,
+      canvas: widget.canvas,
     );
   }
 
@@ -172,7 +180,7 @@ class _ExportSheetState extends State<ExportSheet> {
 
   List<Widget> _includes(bool hasBackground) => [
     _switch(
-      'Page templates',
+      widget.canvas ? 'Background' : 'Page templates',
       _templates ? 'Lines, grid or dots and paper colour' : 'Plain white paper',
       _templates,
       (v) => _templates = v,

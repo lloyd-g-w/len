@@ -23,10 +23,21 @@ import 'vector/pdf_source_reader.dart';
 
 /// A page to export with its ink, elements and (pre-rendered) background.
 class ExportPage {
-  const ExportPage(this.page, this.strokes, {this.elements = const [], this.background});
+  const ExportPage(
+    this.page,
+    this.strokes, {
+    this.elements = const [],
+    this.background,
+    this.worldOrigin,
+  });
 
   final NotebookPage page;
   final List<Stroke> strokes;
+
+  /// Set when [page] is the part of an infinite canvas whose top-left is
+  /// here (its content already moved to the page): the pattern then runs
+  /// from the world's origin, as on the canvas.
+  final Offset? worldOrigin;
 
   /// Text boxes, images and other elements on the page (each beneath or
   /// above the ink, see [SurfaceElement.belowInk]).
@@ -140,7 +151,7 @@ abstract final class PdfExporter {
     if (page.paper.image case final blob?) {
       await images.drawPage(g, blob, format.width, format.height);
     }
-    await _drawPattern(pen, page, templates);
+    await _drawPattern(pen, page, templates, worldOrigin: export.worldOrigin);
     final elements = [...export.elements]..sort(SurfaceElement.paintOrder);
     Future<void> drawElements(bool belowInk) async {
       for (final element in elements.where((e) => e.belowInk == belowInk)) {
@@ -261,15 +272,23 @@ abstract final class PdfExporter {
     return rgb;
   }
 
-  static Future<void> _drawPattern(_Pen pen, NotebookPage page, PdfTemplateWriter templates) {
+  static Future<void> _drawPattern(
+    _Pen pen,
+    NotebookPage page,
+    PdfTemplateWriter templates, {
+    Offset? worldOrigin,
+  }) {
     final rect = Offset.zero & page.size;
+    final origin = worldOrigin;
     return templates.draw(
       pen.g,
-      PaperPattern.of(page.paper, rect, page: rect),
+      origin == null
+          ? PaperPattern.of(page.paper, rect, page: rect)
+          : PaperPattern.of(page.paper, rect.shift(origin)),
       page.paperColor,
       look: page.paper.look,
       margin: const PaperColors().margin,
-      map: pen.map,
+      map: origin == null ? pen.map : (p) => pen.map(p - origin),
       k: pointsPerUnit,
     );
   }

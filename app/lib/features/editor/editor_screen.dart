@@ -11,6 +11,7 @@ import '../../platform/fullscreen.dart';
 import '../../ui/messages.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/playback_keys.dart';
+import '../documents/export/export_flow.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../settings/settings_screen.dart';
 import 'chrome/canvas_guard.dart';
@@ -425,9 +426,11 @@ class _EditorScreenState extends State<_EditorView> {
                 : tabs == null
                 ? null
                 : () => tabs.close(_notebook.id),
-            export: _session.commands == null
-                ? null
-                : () => unawaited(_session.commands!.export(context)),
+            export: _session.commands != null
+                ? () => unawaited(_session.commands!.export(context))
+                : _session.canvasNav != null
+                ? () => unawaited(exportCanvasFlow(context, notebook: _session.notebook))
+                : null,
             goToPage: _session.commands == null
                 ? null
                 : () => unawaited(

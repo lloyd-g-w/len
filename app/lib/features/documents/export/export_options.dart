@@ -31,6 +31,7 @@ class ExportOptions {
     required this.pages,
     this.includeTemplates = true,
     this.includeBackgrounds = true,
+    this.canvas = false,
   });
 
   final ExportFormat format;
@@ -42,15 +43,20 @@ class ExportOptions {
   /// Imported PDF pages under the ink.
   final bool includeBackgrounds;
 
+  /// The whole drawing of an infinite canvas (one page, sized to fit it).
+  final bool canvas;
+
   /// The notebook pages to export, as they should be drawn.
   List<NotebookPage> resolve(List<NotebookPage> all) => [
     for (final i in pages)
       if (i >= 0 && i < all.length) exportedPage(all[i], includeTemplate: includeTemplates),
   ];
 
-  /// "3 pages · PDF", "1 page · PNG · 288 dpi".
+  /// "3 pages · PDF", "1 page · PNG · 288 dpi", "Whole canvas · PDF".
   String get summary {
-    final count = '${pages.length} ${pages.length == 1 ? 'page' : 'pages'}';
+    final count = canvas
+        ? 'Whole canvas'
+        : '${pages.length} ${pages.length == 1 ? 'page' : 'pages'}';
     return switch (format) {
       ExportFormat.pdf => '$count · PDF',
       ExportFormat.png => '$count · PNG · $pngDpi dpi',
