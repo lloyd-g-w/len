@@ -225,26 +225,41 @@ void main() {
   });
 
   test('building a 1000-point stroke stays fast', () {
-    final long = [
-      for (var i = 0; i < 1000; i++)
+    List<StrokePoint> stroke(int n) => [
+      for (var i = 0; i < n; i++)
         StrokePoint(
           i * 0.8 + 3 * math.sin(i / 9),
           12 * math.sin(i / 14) + 0.15 * math.sin(i * 2.3),
           0.5 + 0.2 * math.sin(i / 30),
         ),
     ];
-    for (var i = 0; i < 20; i++) {
-      StrokeOutline.build(long, ballpoint, complete: false);
+    // Milliseconds per build: the best of many small batches, short and
+    // long strokes taking turns, so a busy machine (preemption, a GC
+    // pause, another process starting) slows both alike or not at all.
+    final short = stroke(250), long = stroke(1000);
+    double batch(List<StrokePoint> points) {
+      final watch = Stopwatch()..start();
+      for (var i = 0; i < 5; i++) {
+        StrokeOutline.build(points, ballpoint, complete: false);
+      }
+      return watch.elapsedMicroseconds / 5 / 1000;
     }
-    final watch = Stopwatch()..start();
-    const runs = 50;
-    for (var i = 0; i < runs; i++) {
-      StrokeOutline.build(long, ballpoint, complete: false);
+
+    var shortMs = double.infinity, longMs = double.infinity;
+    for (var round = 0; round < 24; round++) {
+      final (s, l) = (batch(short), batch(long));
+      if (round < 4) continue; // Warm-up (JIT).
+      shortMs = math.min(shortMs, s);
+      longMs = math.min(longMs, l);
     }
-    final ms = watch.elapsedMicroseconds / runs / 1000;
     // ignore: avoid_print
-    print('1000-point outline: ${ms.toStringAsFixed(2)} ms');
-    expect(ms, lessThan(4));
+    print(
+      'outline: 250 points ${shortMs.toStringAsFixed(2)} ms, 1000 ${longMs.toStringAsFixed(2)} ms',
+    );
+    // ≈ 2 ms on the dev machine (JIT): generous, it catches blow-ups.
+    expect(longMs, lessThan(10));
+    // Linear in length (4×; quadratic would be 16×), whatever the machine's speed.
+    expect(longMs / shortMs, lessThan(8));
   });
 }
 

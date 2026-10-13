@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/platform/tab_handover.dart';
 
@@ -114,6 +115,27 @@ class _Tab {
 
 Future<void> _settle() => Future<void>.delayed(const Duration(milliseconds: 400));
 
+/// A test on fake time: the protocol's timeouts (100 ms here) and the
+/// waits between steps are exact, however busy the machine is.
+void _test(String description, Future<void> Function() body) => test(description, () {
+  FakeAsync().run((async) {
+    var done = false;
+    Object? error;
+    StackTrace? stack;
+    body().then(
+      (_) => done = true,
+      onError: (Object e, StackTrace s) {
+        (error, stack, done) = (e, s, true);
+      },
+    );
+    for (var i = 0; i < 10000 && !done; i++) {
+      async.elapse(const Duration(milliseconds: 10));
+    }
+    if (error != null) Error.throwWithStackTrace(error!, stack!);
+    expect(done, isTrue, reason: 'still running after 100 s of fake time');
+  });
+});
+
 void main() {
   late _Locks locks;
   late _Bus bus;
@@ -128,7 +150,7 @@ void main() {
   _Tab tab(String name, {bool reclaim = false}) => _Tab(name, locks, bus, log, reclaim: reclaim);
   List<String> started() => log.where((e) => e.endsWith('started')).toList();
 
-  test('the first tab starts; a second one waits', () async {
+  _test('the first tab starts; a second one waits', () async {
     final a = tab('a');
     await a.claim();
     final b = tab('b');
@@ -140,7 +162,7 @@ void main() {
     expect(b.h.state.value, WaitState.waiting);
   });
 
-  test('Use here: the holder saves and stops before the new tab starts', () async {
+  _test('Use here: the holder saves and stops before the new tab starts', () async {
     final a = tab('a')..canHandOver();
     await a.claim();
     final b = tab('b');
@@ -164,7 +186,7 @@ void main() {
     expect(b.h.holding, isTrue);
   });
 
-  test('a holder that cannot save keeps the lock and says so', () async {
+  _test('a holder that cannot save keeps the lock and says so', () async {
     final a = tab('a')..canHandOver(stored: false);
     await a.claim();
     final b = tab('b');
@@ -182,7 +204,7 @@ void main() {
     expect(b.started, isTrue);
   });
 
-  test('a holder still starting hands over once it is ready', () async {
+  _test('a holder still starting hands over once it is ready', () async {
     final a = tab('a');
     await a.claim();
     final b = tab('b');
@@ -196,7 +218,7 @@ void main() {
     expect(b.started, isTrue);
   });
 
-  test('with several tabs waiting, the one that asked gets it', () async {
+  _test('with several tabs waiting, the one that asked gets it', () async {
     final a = tab('a')..canHandOver();
     await a.claim();
     final b = tab('b');
@@ -217,7 +239,7 @@ void main() {
     expect(started(), ['a started', 'c started', 'b started']);
   });
 
-  test('closing the holder lets a waiting tab start', () async {
+  _test('closing the holder lets a waiting tab start', () async {
     final a = tab('a');
     await a.claim();
     final b = tab('b');
@@ -230,7 +252,7 @@ void main() {
     expect(b.started, isTrue);
   });
 
-  test('a reload of the holder takes it back from a waiting tab', () async {
+  _test('a reload of the holder takes it back from a waiting tab', () async {
     final a = tab('a');
     await a.claim();
     final b = tab('b');
@@ -246,7 +268,7 @@ void main() {
     expect(locks.holder, reloaded.lock);
   });
 
-  test('a slow reload of the holder takes it back once the other tab saved', () async {
+  _test('a slow reload of the holder takes it back once the other tab saved', () async {
     final a = tab('a');
     await a.claim();
     final b = tab('b');
@@ -263,7 +285,7 @@ void main() {
     expect(locks.holder, reloaded.lock);
   });
 
-  test('a second request while handing over is ignored', () async {
+  _test('a second request while handing over is ignored', () async {
     final a = tab('a')..canHandOver();
     await a.claim();
     final b = tab('b');

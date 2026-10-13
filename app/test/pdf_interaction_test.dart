@@ -21,6 +21,7 @@ import 'package:pdf/pdf.dart' as pw;
 import 'package:pdfrx/pdfrx.dart' show Pdfrx;
 
 import 'pdf_test.dart' show pdfium;
+import 'support/real_async.dart';
 
 /// Two A4 pages: text, a web link and a link to page 2 on the first, a
 /// heading on the second; an outline with a nested entry.
@@ -157,16 +158,9 @@ void main() {
       await tester.pump();
       final pdf = tester.widget<PdfLayer>(find.byType(PdfLayer)).interaction;
       final bg = pdf.doc.pages.first.background!;
-      // PDFium works on its own thread: give it real time.
-      for (var i = 0; i < 50 && !pdf.info.isLoaded(bg.blob, 0); i++) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-        await tester.pump();
-      }
-      for (var i = 0; i < 10; i++) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-        await tester.pump();
-      }
-      expect(pdf.info.glyphs(bg.blob, 0), isNotNull);
+      // PDFium works on its own thread, in real time.
+      await pumpUntil(tester, () => pdf.info.glyphs(bg.blob, 0) != null, reason: 'glyphs');
+      await pumpUntilPdfRendered(tester);
       return pdf;
     }
 
@@ -246,10 +240,12 @@ void main() {
       view.panBy(Offset(0, -view.toScreen(const Offset(0, 40)).dy));
       await tester.pump();
       final second = pdf.doc.pages[1];
-      for (var i = 0; i < 50 && !pdf.info.isLoaded(second.background!.blob, 1); i++) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-        await tester.pump();
-      }
+      await pumpUntil(
+        tester,
+        () => pdf.info.glyphs(second.background!.blob, 1) != null,
+        reason: 'glyphs of page 2',
+      );
+      await pumpUntilPdfRendered(tester);
       await tester.pumpAndSettle();
       Offset onPage(int index, String text, {bool right = false}) {
         final page = pdf.doc.pages[index];
@@ -349,10 +345,11 @@ void main() {
       await tester.tap(find.byTooltip('All pages'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Outline'));
-      for (var i = 0; i < 10; i++) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
-        await tester.pump();
-      }
+      await pumpUntil(
+        tester,
+        () => find.text('Introduction').evaluate().isNotEmpty,
+        reason: 'the outline',
+      );
       await tester.pumpAndSettle();
       expect(find.text('Introduction'), findsOneWidget);
       expect(find.text('Details'), findsOneWidget);

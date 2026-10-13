@@ -24,6 +24,7 @@ import 'package:pdf/pdf.dart' as pw;
 import 'package:pdfrx/pdfrx.dart' show Pdfrx;
 
 import 'pdf_test.dart' show pdfium;
+import 'support/real_async.dart';
 
 /// One A4 page per entry of [turns], shown turned clockwise by that many
 /// quarter turns (`/Rotate`): two lines of text, a web link over the first
@@ -209,14 +210,8 @@ void main() {
       final pdf = tester.widget<PdfLayer>(find.byType(PdfLayer)).interaction;
       final page = pdf.doc.pages.first;
       final bg = page.background!;
-      for (var i = 0; i < 60 && !pdf.info.isLoaded(bg.blob, 0); i++) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-        await tester.pump();
-      }
-      for (var i = 0; i < 10; i++) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-        await tester.pump();
-      }
+      await pumpUntil(tester, () => pdf.info.glyphs(bg.blob, 0) != null, reason: 'glyphs');
+      await pumpUntilPdfRendered(tester);
       final glyphs = pdf.info.glyphs(bg.blob, 0)!;
       final frame = pdf.doc.layout.frameOf(0)!;
       Offset screenOf(Offset n) => pdf.doc.viewport.toScreen(

@@ -23,6 +23,7 @@ import 'package:pdf/pdf.dart' as pw;
 import 'package:pdfrx/pdfrx.dart';
 
 import 'pdf_test.dart' show pdfium, samplePdf;
+import 'support/real_async.dart';
 
 /// A one-page PDF, different from [samplePdf].
 Future<Uint8List> otherPdf({int pages = 2}) {
@@ -149,10 +150,12 @@ void main() {
         ),
       ),
     );
-    for (var i = 0; i < 10; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
-      await tester.pump();
-    }
+    await pumpUntil(
+      tester,
+      () => find.byType(MissingPdfNotice).evaluate().isNotEmpty,
+      reason: 'the missing PDF notice',
+    );
+    await pumpUntilPdfRendered(tester);
     return nb;
   }
 
@@ -191,10 +194,11 @@ void main() {
         file: XFile(file.path),
       );
     });
-    for (var i = 0; i < 20; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-      await tester.pump();
-    }
+    await pumpUntil(
+      tester,
+      () => s.backgrounds!.missingBlobs.isEmpty && find.text('Locate file…').evaluate().isEmpty,
+      reason: 'the PDF to be found',
+    );
     expect(s.backgrounds!.missingBlobs, isEmpty);
     expect(find.text('Locate file…'), findsNothing);
     expect(find.text('PDF found'), findsOneWidget);
@@ -217,12 +221,7 @@ void main() {
       final done = s.commands!
           .relinkPdf(context, missing, s.backgrounds!, file: XFile(file.path))
           .whenComplete(() => finished = true);
-      Future<void> settle(bool Function() until) async {
-        for (var i = 0; i < 100 && !until(); i++) {
-          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-          await tester.pump();
-        }
-      }
+      Future<void> settle(bool Function() until) => pumpUntil(tester, until);
 
       await settle(() => find.text('Use a different PDF?').evaluate().isNotEmpty);
       expect(find.text('Use a different PDF?'), findsOneWidget);

@@ -45,6 +45,10 @@ class ElementImages {
   /// Blobs whose best available bitmap (or missing state) changed.
   Stream<String> get changes => _changes.stream;
 
+  /// Whether decodes (or downloads) are running (for tests).
+  @visibleForTesting
+  bool get isBusy => _pending.isNotEmpty;
+
   /// Bytes held by cached bitmaps.
   int get bytes => _bytes;
 

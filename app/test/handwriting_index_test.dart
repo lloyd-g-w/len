@@ -20,6 +20,7 @@ import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/undo_history.dart';
 
 import 'handwriting_clustering_test.dart' show twoLines;
+import 'support/canvas_fixtures.dart' show settle;
 import 'support/fake_recognizer.dart';
 import 'support/fake_server.dart' show FakeServer, apiFor, device;
 
@@ -137,7 +138,8 @@ void main() {
       recognizer: fake,
       shared: s.recognition.indexer.shared,
       language: () => 'en-US',
-      idleDelay: const Duration(milliseconds: 60),
+      // Far longer than the 20 ms checked below, even on a busy machine.
+      idleDelay: const Duration(seconds: 1),
       pauseBetweenLines: Duration.zero,
       activity: activity,
     );
@@ -162,9 +164,7 @@ void main() {
   test('a commit wakes a started indexer (no explicit call)', () async {
     indexer.start();
     s.strokes.save(twoLines(page));
-    for (var i = 0; i < 100 && lines().isEmpty; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
+    await settle(() => lines().isNotEmpty);
     expect(lines(), ['alpha beta gamma', 'delta eps']);
   });
 

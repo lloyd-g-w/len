@@ -124,6 +124,11 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
 - Strokes are immutable: editing = remove old + add new (works with undo + sync).
 - Every user-visible edit on a surface must be undoable via `UndoHistory`.
 - Write unit tests for logic, widget tests for non-trivial UI flows.
+- Tests must pass on a busy machine: never assert after a fixed real-time wait.
+  Wait for the condition (`pumpUntil` / `pumpUntilPdfRendered` in
+  `test/support/real_async.dart`, `settle` in `canvas_fixtures.dart`), use fake
+  time (`tester.pump(duration)`, `fake_async`), and keep timing checks relative
+  (best of interleaved batches, generous limits); benchmarks go in `test/perf/`.
 - Format with `dart format -l 100`.
 
 ## Tooling (NixOS)

@@ -63,11 +63,10 @@ void main() {
 
       // The view moves to the right half: the left half is not read.
       io.view = const ChunkRange(6, 0, 15, 9);
-      for (var i = 0; i < 100 && io.reading; i++) {
+      await settle(() {
         store.releaseAll();
-        await Future<void>.delayed(const Duration(milliseconds: 1));
-      }
-      expect(io.reading, isFalse);
+        return !io.reading;
+      });
       final read = store.asked.skip(4).map((n) => int.parse(n.split('_')[1]));
       expect(read, everyElement(greaterThanOrEqualTo(5))); // The view, one chunk around.
       expect(store.asked.length, lessThan(60));
@@ -79,7 +78,8 @@ void main() {
   testWidgets('writes wait until the view is idle, and go when it closes', (tester) async {
     await tester.runAsync(() async {
       final store = MemoryRasterStore();
-      final io = StoredRasterIo(store, idleDelay: const Duration(milliseconds: 60));
+      // Long enough that a busy machine never stalls a 10 ms wait past it.
+      final io = StoredRasterIo(store, idleDelay: const Duration(seconds: 1));
       io.write('a.png', await _image());
       expect(io.saving, isTrue);
       // Frames keep coming (a pinch): nothing is written.
@@ -98,7 +98,8 @@ void main() {
         ..write('b.png', await _image())
         ..noteActivity()
         ..dispose(); // The canvas closes.
-      await settle(() => !io.saving, limit: const Duration(milliseconds: 50));
+      // At once, not after [idleDelay] (generous for a busy machine).
+      await settle(() => !io.saving, limit: const Duration(milliseconds: 500));
       expect(store.names, ['a.png', 'b.png']);
     });
   });

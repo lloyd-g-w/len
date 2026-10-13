@@ -106,7 +106,9 @@ void main() {
           return recorder.endRecording().toImage(400, 400);
         }
 
-        for (var i = 0; i < 100 && cache.debugTileCount < 2; i++) {
+        // Until the two tiles the view needs are rendered (real time: PDFium).
+        final watch = Stopwatch()..start();
+        while (cache.debugTileCount < 2 && watch.elapsed < const Duration(seconds: 60)) {
           await frame();
           await Future<void>.delayed(const Duration(milliseconds: 20));
         }

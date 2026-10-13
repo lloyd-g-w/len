@@ -23,6 +23,7 @@ import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/undo_history.dart';
 
 import 'data_test.dart' show FakeClock, stroke;
+import 'support/canvas_fixtures.dart' show settle;
 
 /// An encoded test image: a solid colour, or (with [alpha] < 255) a
 /// translucent one.
@@ -465,7 +466,8 @@ void main() {
       final placeholder = cache.pictureFor(key);
       expect(identical(cache.pictureFor(key), placeholder), isTrue);
       await images.load(const ImageData(blob: 'p', width: 512, height: 512), 100);
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      // The decoded bitmap reaches the model as an event: wait for it.
+      await settle(() => invalidated.any((c) => c != null && c.length == 1 && c.contains(key)));
       expect(invalidated, contains(equals({key}))); // Re-recorded with the bitmap.
       final sharp = cache.pictureFor(key);
       expect(identical(sharp, placeholder), isFalse);
