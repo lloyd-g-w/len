@@ -22,11 +22,15 @@ class FolderTile extends StatefulWidget {
     required this.folder,
     required this.subtitle,
     required this.actions,
+    this.dense = false,
   });
 
   final Folder folder;
   final String subtitle;
   final LibraryActions actions;
+
+  /// Short windows: as low as a touch target, beside the library's title.
+  final bool dense;
 
   /// The narrowest a tile gets at 1× text (scaled with the text).
   static const double minWidth = 150;
@@ -79,7 +83,9 @@ class _FolderTileState extends State<FolderTile> {
     return AnimatedContainer(
       duration: Motion.fast,
       // Grows with large text: the name and caption, plus padding.
-      height: math.max(52, MediaQuery.textScalerOf(context).scale(20 + 16) + Gaps.lg),
+      height: widget.dense
+          ? math.max(Targets.touch, MediaQuery.textScalerOf(context).scale(20 + 16) + Gaps.sm)
+          : math.max(52, MediaQuery.textScalerOf(context).scale(20 + 16) + Gaps.lg),
       decoration: feedback
           ? Surfaces.overlayDecoration(scheme, radius: Radii.sm)
           : BoxDecoration(

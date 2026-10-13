@@ -62,6 +62,10 @@ abstract final class Breakpoints {
 
   /// Whether a window of [size] gets the library's phone layout.
   static bool libraryCompact(Size size) => size.width < medium || size.height < shortHeight;
+
+  /// Whether a window of [size] is short (a phone held sideways): chrome
+  /// packs into one row so the content keeps the height.
+  static bool short(Size size) => size.height < shortHeight;
 }
 
 /// Touch target sizes, decided by input rather than width: touch-first
