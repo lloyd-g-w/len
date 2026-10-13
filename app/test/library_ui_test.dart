@@ -481,10 +481,16 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Draw with'), findsOneWidget);
+    // No touch screen, no stylus seen: nothing about fingers or buttons.
+    expect(find.text('Draw with finger'), findsNothing);
     expect(find.text('Side button'), findsNothing);
-    await tester.tap(find.text('Stylus'));
+    services.preferences.stylusOnly = true; // A stylus was seen.
     await tester.pumpAndSettle();
+    expect(find.text('Draw with finger'), findsOneWidget);
+    expect(find.text('Side button'), findsOneWidget);
+    await tester.tap(find.text('Draw with finger'));
+    await tester.pumpAndSettle();
+    expect(services.preferences.stylusOnly, isFalse);
     expect(find.text('Side button'), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });

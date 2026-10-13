@@ -258,7 +258,7 @@ notebook, deleted after 30 days" (short enough for 390 dp).
 
 ### Sync and settings
 
-⬜ **R6-9 P2 · Settings' "Draw with: Automatic / Stylus / Both" models a
+✅ **R6-9 P2 · Settings' "Draw with: Automatic / Stylus / Both" models a
 passing state.** Automatic (`stylusOnly == null`) lasts until the first pen
 contact. `_onStylusDetected` then sets Stylus and offers "Keep finger drawing"
 (`features/editor/editor_screen.dart:322-340`). Meanwhile the ⋯ menu shows
@@ -269,6 +269,10 @@ leaves Automatic for good. So Settings carries a three-way control
 can't usefully choose after day one, and the two homes disagree on its
 shape. *Fix:* see S1. Settings shows the same "Draw with finger" switch, and
 Automatic stays the unseen first-run default.
+*Done (`fix/r6-pickers`):* Settings has the menu's switch (same visibility:
+touch devices, or once a stylus was seen); its subtitle explains the
+first-run behaviour ("Until a stylus touches the screen; then fingers pan
+and zoom"). The side button shows on desktops once a stylus was seen.
 
 ⬜ **R6-23 P2 · Setting up the second device means retyping a URL and a
 token.** Sync setup is two text fields and Connect
@@ -284,7 +288,7 @@ same.
 
 | # | Proposal | Why | Files |
 |---|---|---|---|
-| S1 | Settings "Draw with" becomes the "Draw with finger" switch (R6-9) | Automatic is a first-run state, not a choice; one control shape in both homes | `features/settings/writing_settings.dart`, `chrome/editor_more_menu.dart` |
+| S1 ✅ | Settings "Draw with" becomes the "Draw with finger" switch (R6-9) | Automatic is a first-run state, not a choice; one control shape in both homes | `features/settings/writing_settings.dart`, `chrome/editor_more_menu.dart` |
 | S2 ✅ | No ✕ on wide dialogs that have Cancel (R6-8) | Two exits on one form; DESIGN §6.3 | `ui/sheet_parts.dart` (`SheetHeader`) |
 | S3 | Template chooser: drop the category chips (R6-19) | Search plus headings already filter; the chips repeat the headings and cut off on phones | `features/documents/templates/template_chooser.dart` |
 | S4 | Folder delete: no confirm (or none for empty folders); the snack's Undo restores it | Trashing a notebook has no confirm and relies on Undo; deleting an empty folder asks "The folder is empty." (`library_actions.dart:241-252`) | `features/library/library_actions.dart` |
