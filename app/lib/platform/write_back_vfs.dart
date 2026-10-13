@@ -269,6 +269,20 @@ final class WriteBackFileSystem extends BaseVirtualFileSystem
   }
 }
 
+/// Copies [file] from [offset] into [target], as much as there is; returns
+/// how many bytes. Only that range is handed to [target]: with dart2wasm,
+/// [target] is a view of SQLite's wasm memory, whose `setRange` from a Dart
+/// list copied the whole rest of the list first (`skip(offset).toList()`),
+/// which made every page read cost the size of the database (a restore of
+/// 20 MB took minutes).
+@visibleForTesting
+int readFileRange(Uint8List file, Uint8List target, int offset) {
+  if (offset >= file.length) return 0;
+  final count = min(target.length, file.length - offset);
+  target.setRange(0, count, Uint8List.sublistView(file, offset, offset + count));
+  return count;
+}
+
 class _WriteBackFile implements VirtualFileSystemFileV1 {
   _WriteBackFile(this._fs, this._file, this._path);
 
@@ -279,7 +293,16 @@ class _WriteBackFile implements VirtualFileSystemFileV1 {
   bool get _stored => !_fs._memoryOnly.contains(_path);
 
   @override
-  void xRead(Uint8List target, int fileOffset) => _file.xRead(target, fileOffset);
+  void xRead(Uint8List target, int fileOffset) {
+    final data = _fs._memory.fileData[_path];
+    final read = data == null
+        ? 0
+        : readFileRange(data.buffer.asUint8List(0, data.length), target, fileOffset);
+    if (read < target.length) {
+      target.fillRange(read, target.length, 0);
+      throw const VfsException(SqlExtendedError.SQLITE_IOERR_SHORT_READ);
+    }
+  }
 
   @override
   void xWrite(Uint8List buffer, int fileOffset) {
