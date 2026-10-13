@@ -3,11 +3,19 @@ import 'package:flutter/material.dart';
 import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/adaptive_popover.dart';
+import '../../../ui/app_theme.dart';
+import '../pen/ink_paper.dart';
+
+/// The tool options popover's width on touch: seven 48-dp swatch cells
+/// and its 16-dp padding on each side.
+const double toolOptionsTouchWidth = 7 * Targets.touch + 2 * Gaps.lg;
 
 /// Opens the options of [tool] — the one popover every tool shares — at
-/// [anchor] (the tool's button or one of its quick slots): anchored and
-/// 320 dp wide on tablets and desktops, a sheet on phones. Edits apply
-/// live; an outside tap or Esc closes it.
+/// [anchor] (the tool's button, or an eraser or laser slot): anchored on
+/// tablets and desktops (320 dp wide, or [toolOptionsTouchWidth] on touch
+/// so a row of seven 48-dp swatches fits), a sheet on phones. Edits apply
+/// live; an outside tap or Esc closes it. The pen's and highlighter's
+/// quick slots open their own small editors instead (`slot_editors.dart`).
 ///
 /// Colours newly put into the ink's quick slots, or newly given to text or
 /// the laser, become recent colours when it closes (not while the custom
@@ -28,7 +36,9 @@ Future<void> showToolOptions(
   final before = colours();
   await showAdaptivePopover<void>(
     context: anchor,
-    builder: (context) => ToolOptionsPopover(tool: tool, body: body),
+    width: Targets.touchFirst ? toolOptionsTouchWidth : popoverWidth,
+    // Ink previews show the paper being written on.
+    builder: InkPaper.carry(anchor, (context) => ToolOptionsPopover(tool: tool, body: body)),
   );
   for (final c in colours().reversed) {
     if (!before.contains(c)) tools.addRecentColor(c);

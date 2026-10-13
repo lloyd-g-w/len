@@ -88,7 +88,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
     label: 'Pen',
     shortcut: 'P',
     inkColor: () => tools.configOf(InkTool.ballpoint).color,
-    strip: (_, open) => InkStrip(tools: tools, ink: InkTool.ballpoint, onEdit: open),
+    strip: (_, _) => InkStrip(tools: tools, ink: InkTool.ballpoint),
     stripWidth: (slot) => InkStrip.widthFor(tools.configOf(InkTool.ballpoint), slot),
     options: (_) => InkOptions(
       tools: tools,
@@ -107,7 +107,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       label: 'Highlighter',
       shortcut: 'H',
       inkColor: () => tools.configOf(InkTool.highlighter).color,
-      strip: (_, open) => InkStrip(tools: tools, ink: InkTool.highlighter, onEdit: open),
+      strip: (_, _) => InkStrip(tools: tools, ink: InkTool.highlighter),
       stripWidth: (slot) => InkStrip.widthFor(tools.configOf(InkTool.highlighter), slot),
       options: (_) => InkOptions(
         tools: tools,
@@ -143,7 +143,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       shortcut: 'S',
       // Shapes are drawn with the pen's quick colour and width.
       inkColor: () => tools.configOf(InkTool.ballpoint).color,
-      strip: (_, _) => ShapeStrip(tools: tools, onEditInk: pen.openOptions),
+      strip: (_, _) => ShapeStrip(tools: tools),
       stripWidth: (slot) => ShapeStrip.widthFor(tools, slot),
       options: (_) => ListenableBuilder(
         listenable: tools,

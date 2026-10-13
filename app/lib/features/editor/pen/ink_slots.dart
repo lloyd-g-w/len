@@ -6,27 +6,28 @@ import '../../../ink/tool_settings.dart';
 import '../../../ui/color_picker/color_names.dart';
 import '../toolbar/toolbar_metrics.dart';
 import 'slot_button.dart';
+import 'slot_editors.dart';
 
-/// Opens the tool's options anchored to a slot (see [SlotButton.onEdit]).
+/// Opens something anchored to a slot (see [SlotButton.onEdit]).
 typedef SlotEdit = void Function(BuildContext anchor);
 
-/// An ink's quick colours: tap to use one; tap the selected one again
-/// (or long-press / right-click any) for the options ([onEdit]).
+/// An ink's quick colours: tap to use one; tap the selected one again (or
+/// long-press / right-click any) to change that slot's colour
+/// ([editColorSlot]). The ink's other options open from its tool button.
 class ColorSlots extends StatelessWidget {
-  const ColorSlots({super.key, required this.tools, required this.ink, this.onEdit});
+  const ColorSlots({super.key, required this.tools, required this.ink, this.editable = true});
 
   final ToolSettings tools;
   final InkTool ink;
 
-  /// Opens the options on a slot (it is selected first); null inside the
-  /// options popover itself.
-  final SlotEdit? onEdit;
+  /// Whether a slot opens its editor; false for the copy inside the tool
+  /// options sheet, whose colour block edits the selected slot already.
+  final bool editable;
 
   @override
   Widget build(BuildContext context) {
     final config = tools.configOf(ink);
-    final active = onEdit == null || tools.tool.usesInk;
-    final edit = onEdit;
+    final active = !editable || tools.tool.usesInk;
     return Flex(
       direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
@@ -37,13 +38,14 @@ class ColorSlots extends StatelessWidget {
             selected: active && i == config.colorIndex,
             tooltip: i < 9 ? 'Colour ${i + 1} (${i + 1})' : 'Colour ${i + 1}',
             semanticLabel: 'Colour ${i + 1}, ${colorName(config.colors[i])}',
+            editHint: 'Double tap to change this colour',
             onSelect: () => _select(i),
-            onEdit: edit == null
-                ? null
-                : (anchor) {
+            onEdit: editable
+                ? (anchor) {
                     _select(i);
-                    edit(anchor);
-                  },
+                    editColorSlot(anchor, tools: tools, ink: ink, index: i);
+                  }
+                : null,
             child: SlotSwatch(color: config.colors[i]),
           ),
       ],
@@ -60,15 +62,16 @@ class ColorSlots extends StatelessWidget {
 }
 
 /// An ink's quick sizes (stroke widths), shown as neutral dots at (scaled)
-/// real size on a plate when selected.
+/// real size on a plate when selected. Tap the selected one again (or
+/// long-press / right-click any) to change that size ([editWidthSlot]).
 class WidthSlots extends StatelessWidget {
-  const WidthSlots({super.key, required this.tools, required this.ink, this.onEdit});
+  const WidthSlots({super.key, required this.tools, required this.ink, this.editable = true});
 
   final ToolSettings tools;
   final InkTool ink;
 
-  /// As [ColorSlots.onEdit].
-  final SlotEdit? onEdit;
+  /// As [ColorSlots.editable].
+  final bool editable;
 
   /// Dot diameter for [width] of [ink], in logical pixels (4–20).
   static double dotSize(InkTool ink, double width) =>
@@ -77,8 +80,7 @@ class WidthSlots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final config = tools.configOf(ink);
-    final active = onEdit == null || tools.tool.usesInk;
-    final edit = onEdit;
+    final active = !editable || tools.tool.usesInk;
     return Flex(
       direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
@@ -89,14 +91,15 @@ class WidthSlots extends StatelessWidget {
             selected: active && i == config.widthIndex,
             tooltip: 'Size ${formatWidth(config.widths[i])}',
             semanticLabel: 'Size ${i + 1}, ${formatWidth(config.widths[i])}',
+            editHint: 'Double tap to change this size',
             plate: true,
             onSelect: () => _select(i),
-            onEdit: edit == null
-                ? null
-                : (anchor) {
+            onEdit: editable
+                ? (anchor) {
                     _select(i);
-                    edit(anchor);
-                  },
+                    editWidthSlot(anchor, tools: tools, ink: ink, index: i);
+                  }
+                : null,
             child: SlotDot(
               diameter: dotSize(ink, config.widths[i]),
               selected: active && i == config.widthIndex,
@@ -116,8 +119,14 @@ class WidthSlots extends StatelessWidget {
 }
 
 /// A stroke width (world units) as shown to the user: millimetres on the
-/// page (as printed, and on screen at 100 %), "0.66 mm", "1.1 mm", "13 mm".
+/// page (as printed, and on screen at 100 %), to 0.05 mm below 1 mm:
+/// "0.65 mm", "1.1 mm", "13 mm".
 String formatWidth(double w) {
   final mm = w / PaperLook.unitsPerMm;
-  return '${mm.toStringAsFixed(mm < 1 ? 2 : (mm < 10 ? 1 : 0))} mm';
+  final fine = (mm * 20).round() / 20;
+  if (fine < 1) {
+    final s = fine.toStringAsFixed(2);
+    return '${s.endsWith('0') ? s.substring(0, s.length - 1) : s} mm';
+  }
+  return '${mm.toStringAsFixed(mm < 10 ? 1 : 0)} mm';
 }
