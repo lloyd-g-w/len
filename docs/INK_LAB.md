@@ -494,6 +494,90 @@ more than one step per step (was two, which left slivers uncovered:
 capsules: `perf.subpaths` reaches 84 on the 8 s `long_stroke` at 1 (limit
 there 96; 22–31 at 0 and 0.4). Every other metric passes unchanged, real recordings included.
 
+### F11 (resolved): the pen barely answered to a writing hand's pressure
+
+Measured on `real_spen_01` (a minute of S Pen handwriting): the device
+pressure is 0.07–0.34 for most of a line (median 0.13; the scribbles of
+`real_spen_02`, pressed hard, 0.43–0.69). Stroke pressure was the device
+pressure as is, with 0.5 as the pen's width, so this hand drew
+**0.82 × the width its toolbar slot shows**, and a stroke's width varied
+by 5 % (p90 ÷ p10 of the body, median stroke): nearly monoline, whatever
+the hand did. The simulated pen pressed 0.45–0.5, which hid it.
+
+Now stylus pressure goes through `PressureCurve` (`4p / (3p + 1)`,
+`input/pressure_filter.dart`) before the filter, in the input sampler
+and in the overlay's model (Kotlin `strokePressure`; `check.sh` 0
+mismatches): device 0.2 is medium (0.5, the pen's width), 0.07 → 0.22,
+0.13 → 0.36, 0.34 → 0.67, 1 → 1; steep where hands write, flat where
+they press hard. Fingers and the mouse stay 0.5. No setting: "pressure
+sensitivity" (thinning) still scales the response. Stored stroke
+pressure is the curved value, so rendering, erasing and the overlay's
+radius table are unchanged.
+
+| `real_spen_01` (median) | before | now |
+|---|---|---|
+| ink width ÷ the pen's width | 0.82 (p10–p90 0.78–0.89) | 0.95 (0.84–1.05) |
+| width change within a stroke (p90 ÷ p10) | 5 % | 9 % |
+| `real_spen_02` (hard scribbles), width ÷ the pen's | 1.02 | 1.16 |
+
+`pressure_response_test.dart` keeps this (width 0.9–1.1 ×, change
+> 7 %). The simulated pen now presses like a hand (the digitiser reports
+the device pressure that gives each case's intended pressure, 0.2 for
+0.5), so the simulated cases draw as before; `sim_cursive` and
+`sim_hooks` were regenerated. Suite, worst per group, before → now (all
+within limits; spen_02 at 1 from the run before the sim change):
+
+| Metric | sim @0 | sim @0.4 | sim @1 | sim recordings | real |
+|---|---|---|---|---|---|
+| `fidelity.width` | 7.5 → 6.7 % | 18.9 → 14.2 | 21.5 → 15.7 | 16.4 → 12.1 | 22.8 → 26.4 |
+| `smooth.widthBump16x` | 0.018 → 0.031 px | 0.0017 → 0.0020 | 0.0003 → 0.0004 | 0.014 → 0.023 | 0.006 → 0.011 |
+| `smooth.edgeBump16x` | 0.71 → 0.71 px | 0.20 → 0.20 | 0.04 → 0.04 | 0.55 → 0.55 | 0.93 → 0.97 |
+| `ends.blob` | 1.03 → 1.03 × | 1.03 → 1.03 | 1.03 → 1.03 | 1.02 → 1.01 | 1.09 → 1.02 |
+| `ends.dotSize` | 22.5 → 16.9 % | 22.5 → 16.9 | 22.5 → 16.9 | – | – |
+
+On the real recordings `fidelity.width` rises (`real_spen_01@0`
+4.0 → 9.4 %, `real_spen_02@0` 9.0 → 13.0 %, limit 15; `@1` 22.8 → 26.4,
+limit 40): the truth there is the raw, noisy pressure, whose noise the
+curve's slope (2× at 0.13) doubles and the ink smooths out. Everything
+else is unchanged or within noise (timings).
+
+`ends.blob` compared an end with the body only. `real_spen_01` has a
+stroke landing at 0.23 and writing on at about 0.1: the pen now shows
+that (1.12 ×, the metric's limit 1.1), a genuine heavier entry, not an
+artefact. A blob is now an end wider than both the body and what the
+true pressure there gives; pen-up spikes (never in the truth) still
+count.
+
+![real_spen_01, before and after](inklab/pressure_real_spen_01.png)
+
+*`real_spen_01` at the device's resolution × 2, before (left) and now.*
+The same hand: the strokes are closer to the pen's width and swell and
+thin with it (the bowl of the R, the cross).
+
+### F12 (open): the pixel eraser nudges the rest of a stroke
+
+`tools/erase_stability_test.dart` cuts a 4 px eraser dab into the middle
+of every stroke and compares the original with its fragments, beyond the
+eraser, 1.5 widths and 3 px from the cut:
+
+| Recording | strokes that move | worst |
+|---|---|---|
+| `real_spen_01` | 12 of 50 | 7 px², 39 %, up to 178 px away |
+| `real_spen_02` | 3 of 19 | 5 px², 41 %, up to 130 px away |
+| `sim_cursive` | 1 of 2 | 29 px², 100 %, 17 px away |
+
+Cause: a fragment is a new stroke, resampled from its own first point,
+so its samples fall elsewhere along the line (the resampling phase), and
+where a loop's top is about as sharp as the corner test's 100°, the
+corner decision can flip: the top of an `l` grows or loses about one
+physical pixel (below: blue gained, red lost, the hole itself red). On
+real writing it is antialiasing at a few pixels. A fix would keep the
+original's phase and a lead-in point in the fragment (the shaper already
+supports both for the overlay, `StrokeShaper(start:, phase:)`), which
+needs them stored with the stroke.
+
+![sim_cursive: an l's top moves after erasing nearby](inklab/erase_sim_cursive.png)
+
 ### Real S Pen recordings
 
 ![real_spen_01 at stabiliser 0, 16x](inklab/rec_real_spen_01_0.0-16x.png)
