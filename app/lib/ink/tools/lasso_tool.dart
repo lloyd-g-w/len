@@ -28,10 +28,28 @@ abstract interface class SelectionDragOut {
   void end();
 }
 
+/// Text the lasso selects besides ink: PDF text in a paged editor.
+/// Positions are in the lasso's screen coordinates.
+abstract interface class LassoText {
+  /// Whether there is text right under [screen].
+  bool hasTextAt(Offset screen);
+
+  /// Selects the word under [screen], with its menu.
+  void selectWordAt(Offset screen);
+
+  /// Selects the text from [from] to [to]; offers the menu when [done].
+  void selectBetween(Offset from, Offset to, {required bool done});
+}
+
 /// The lasso: draw a loop to select, tap to select one item, drag the
 /// selection to move it, drag its handles to resize or rotate it. A long
 /// press on empty space asks to paste ([onLongPress]); a double tap on a
 /// text box edits it ([onEditText]).
+///
+/// On [text] (PDF text) where no ink or element is hit: a tap selects the
+/// word; a press held still selects it and dragging on extends it; a quick
+/// open drag (not a loop) that selects no ink selects the text it spans.
+/// A loop starting on text still selects the ink it circles.
 class LassoTool implements PointerTool {
   LassoTool({
     required this.selection,
@@ -56,6 +74,9 @@ class LassoTool implements PointerTool {
   /// Lets a moved selection be dropped into another editor (split view).
   SelectionDragOut? dragOut;
 
+  /// PDF text under the ink, if any (paged editors).
+  LassoText? text;
+
   /// Movement (pixels) that turns a press into a drag.
   static const double slop = 6;
   static const Duration longPress = Duration(milliseconds: 500);
@@ -74,6 +95,9 @@ class LassoTool implements PointerTool {
   Offset _grab = Offset.zero;
   Timer? _longPressTimer;
   ({String id, int time})? _lastTap;
+
+  /// The press started on [text], with no ink or element there.
+  bool _onText = false;
 
   @override
   void down(ToolPointer p) {
@@ -96,11 +120,19 @@ class LassoTool implements PointerTool {
       }
     }
     _mode = _Mode.lasso;
+    _onText = (text?.hasTextAt(p.screen) ?? false) && !_hitsContent(p.world);
     path.begin(p.world);
     _longPressTimer = Timer(longPress, () {
       if (_dragged || _mode != _Mode.lasso) return;
-      _mode = _Mode.idle;
       path.clear();
+      if (_onText) {
+        // Held on text: select its word; dragging on extends it.
+        _mode = _Mode.text;
+        selection.clear();
+        text!.selectWordAt(_startScreen);
+        return;
+      }
+      _mode = _Mode.idle;
       onLongPress?.call(_startScreen, _startWorld);
     });
   }
@@ -115,6 +147,8 @@ class LassoTool implements PointerTool {
     switch (_mode) {
       case _Mode.lasso:
         path.add(p.world);
+      case _Mode.text:
+        text!.selectBetween(_startScreen, p.screen, done: false);
       case _Mode.transform:
         final frame = _startFrame!;
         final result = switch (_handle) {
@@ -134,8 +168,21 @@ class LassoTool implements PointerTool {
     _longPressTimer?.cancel();
     switch (_mode) {
       case _Mode.lasso:
-        _dragged ? _selectLasso() : _tap(_startWorld);
+        if (!_dragged) {
+          _onText ? _tapText() : _tap(_startWorld);
+        } else {
+          _selectLasso();
+          if (_onText && selection.isEmpty && !_closed) {
+            text!.selectBetween(_startScreen, _lastScreen, done: true);
+          }
+        }
         path.clear();
+      case _Mode.text:
+        if (_dragged) {
+          text!.selectBetween(_startScreen, _lastScreen, done: true);
+        } else {
+          text!.selectWordAt(_startScreen);
+        }
       case _Mode.transform:
         if (_dragged && _droppedElsewhere()) {
           selection.cancelPreview();
@@ -170,6 +217,30 @@ class LassoTool implements PointerTool {
     path.clear();
     selection.cancelPreview();
     _mode = _Mode.idle;
+  }
+
+  /// Whether ink or an element lies under [world].
+  bool _hitsContent(Offset world) {
+    final model = selection.model;
+    return ContentHitTest.elementAt(model, world) != null ||
+        ContentHitTest.strokeAt(model, world, 8 / viewport.scale) != null;
+  }
+
+  /// A tap on text: its word, and the ink selection goes.
+  void _tapText() {
+    _lastTap = null;
+    selection.clear();
+    text!.selectWordAt(_startScreen);
+  }
+
+  /// Whether the lasso path came back near its start (a loop): its ends are
+  /// closer than half its extent. An open drag over text selects text.
+  bool get _closed {
+    final points = path.points;
+    if (points.length < 3) return false;
+    final bounds = Rect.fromPoints(points.first, points.first);
+    final extent = points.fold(bounds, (r, p) => r.expandToInclude(Rect.fromPoints(p, p)));
+    return (points.last - points.first).distance < extent.longestSide / 2;
   }
 
   void _selectLasso() {
@@ -216,4 +287,4 @@ class LassoTool implements PointerTool {
   }
 }
 
-enum _Mode { idle, lasso, transform }
+enum _Mode { idle, lasso, text, transform }

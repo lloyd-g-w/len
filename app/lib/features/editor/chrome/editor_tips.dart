@@ -130,7 +130,7 @@ class TipsController extends ValueNotifier<TipMessage?> {
         tip,
         Symbols.highlight_alt_sharp,
         pdf
-            ? 'Circle ink, text or images to select them; long-press PDF text'
+            ? 'Circle ink, text or images to select them; tap PDF text to select it'
             : 'Circle ink, text or images to select them',
       ),
     };

@@ -717,7 +717,12 @@ search highlights use the same boxes.
 
 - **Select text** — there is no text tool: a finger long press or right
   click on PDF text with any tool selects the word instead of opening the
-  canvas menu, and dragging the selection's handles (`PdfSelectionHandles`,
+  canvas menu. With the lasso the pen selects text too (`PdfInteraction`
+  is the lasso's `LassoText`, `ink/tools/lasso_tool.dart`): where no ink or
+  element is hit, a tap on text selects the word, a press held still
+  selects it and dragging on extends it, and a quick open drag (not a
+  loop) that selects no ink selects the text it spans; a loop starting on
+  text still selects the ink it circles. Dragging the selection's handles (`PdfSelectionHandles`,
   touch targets over the painted knobs that keep the press from the canvas)
   extends it — also onto other PDF pages: `PdfSelection` is a list of
   per-page `PdfSpan`s (`PdfInteraction.selectRange`: the anchor's page from

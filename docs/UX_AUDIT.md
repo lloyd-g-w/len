@@ -89,6 +89,11 @@ press-and-drag that starts on text extends the selection (in
 `PdfInteraction.selectWordAt` when `contentAt` finds nothing). Update the
 tip to "Circle ink to select it; tap PDF text to select text". The bigger
 win is the text-aware highlighter under Missing features.
+*Done (`fix/r7-pen`):* with the lasso (any pointer), where no ink or
+element is hit: a tap on PDF text selects the word, a held press selects it
+and a drag extends it, and a quick open drag that circles no ink selects the
+text it spans. Loops starting on text still lasso ink. Finger long-press is
+unchanged. The tip says "…; tap PDF text to select it".
 
 **R7-2 P1 · Phones: the only quick tool slot goes to the eraser the S Pen
 button already gives.** The phone bar is `[tool▾][previous]` plus the

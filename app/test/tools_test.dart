@@ -115,6 +115,57 @@ void main() {
       expect(selection.isEmpty, isTrue);
     });
 
+    group('on PDF text (R7-1)', () {
+      late _FakeText text;
+      setUp(() => lasso.text = text = _FakeText(const Rect.fromLTRB(0, 0, 400, 40)));
+
+      test('a tap on text selects its word; on ink, the ink', () {
+        model.commit(InkEdit(added: [line('a', const Offset(10, 20), const Offset(90, 20))]));
+        tap(const Offset(200, 20));
+        expect(text.log, ['word (200.0, 20.0)']);
+        expect(selection.isEmpty, isTrue);
+        tap(const Offset(50, 21));
+        expect(selection.strokes.single.id, 'a', reason: 'ink over text wins');
+        expect(text.log, hasLength(1));
+      });
+
+      test('an open drag from text selects text; a loop selects ink', () {
+        lasso
+          ..down(at(const Offset(100, 20)))
+          ..move(at(const Offset(200, 22)))
+          ..move(at(const Offset(300, 24)))
+          ..up();
+        expect(text.log, ['between (100.0, 20.0) (300.0, 24.0) done']);
+        model.commit(InkEdit(added: [line('a', const Offset(150, 100), const Offset(200, 100))]));
+        text.log.clear();
+        for (final p in const [Offset(120, 20), Offset(250, 20), Offset(250, 150)]) {
+          p == const Offset(120, 20) ? lasso.down(at(p)) : lasso.move(at(p));
+        }
+        lasso
+          ..move(at(const Offset(120, 150)))
+          ..move(at(const Offset(120, 30)))
+          ..up();
+        expect(selection.strokes.single.id, 'a');
+        expect(text.log, isEmpty);
+      });
+
+      testWidgets('held on text: the word, then a drag extends it', (tester) async {
+        Offset? pasteAt;
+        lasso.onLongPress = (screen, world) => pasteAt = world;
+        lasso.down(at(const Offset(100, 20)));
+        await tester.pump(LassoTool.longPress + const Duration(milliseconds: 10));
+        lasso
+          ..move(at(const Offset(200, 20)))
+          ..up();
+        expect(text.log, [
+          'word (100.0, 20.0)',
+          'between (100.0, 20.0) (200.0, 20.0)',
+          'between (100.0, 20.0) (200.0, 20.0) done',
+        ]);
+        expect(pasteAt, isNull, reason: 'no paste menu on text');
+      });
+    });
+
     test('dragging a selection by a corner scales it in one undo step', () {
       model.commit(InkEdit(added: [line('a', const Offset(100, 100), const Offset(200, 200))]));
       tap(const Offset(150, 150));
@@ -400,4 +451,24 @@ void main() {
     expect(tools.tool, EditorTool.shape);
     expect(tools.activeInk, InkTool.ballpoint);
   });
+}
+
+/// PDF text filling [area], recording what the lasso asks of it.
+class _FakeText implements LassoText {
+  _FakeText(this.area);
+
+  final Rect area;
+  final List<String> log = [];
+
+  String _p(Offset o) => '(${o.dx}, ${o.dy})';
+
+  @override
+  bool hasTextAt(Offset screen) => area.contains(screen);
+
+  @override
+  void selectWordAt(Offset screen) => log.add('word ${_p(screen)}');
+
+  @override
+  void selectBetween(Offset from, Offset to, {required bool done}) =>
+      log.add('between ${_p(from)} ${_p(to)}${done ? ' done' : ''}');
 }

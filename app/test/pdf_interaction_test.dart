@@ -50,6 +50,73 @@ Future<List<int>> interactivePdf() {
   return doc.save();
 }
 
+/// Opens [interactivePdf] imported into [services] (files in [dir]) in an
+/// editor of [size]; text copied to the clipboard goes to [copied].
+Future<PdfInteraction> openPdfEditor(
+  WidgetTester tester,
+  AppServices services,
+  Directory dir, {
+  Size size = const Size(900, 1200),
+  List<String>? copied,
+}) async {
+  tester.view
+    ..physicalSize = size
+    ..devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+    call,
+  ) async {
+    if (call.method == 'Clipboard.setData') {
+      copied?.add((call.arguments as Map)['text'] as String);
+    }
+    return null;
+  });
+  addTearDown(
+    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      null,
+    ),
+  );
+  final nb = await tester.runAsync(() async {
+    final file = File('${dir.path}/doc.pdf')..writeAsBytesSync(await interactivePdf());
+    final importer = PdfImporter(services);
+    final notebook = await importer.createNotebook(
+      await importer.store(XFile(file.path)),
+      title: 'PDF',
+      cover: 0,
+    );
+    await importer.dispose();
+    return notebook;
+  });
+  await tester.pumpWidget(
+    AppScope(
+      services: services,
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        home: EditorScreen(notebook: nb!),
+      ),
+    ),
+  );
+  await tester.pump();
+  final pdf = tester.widget<PdfLayer>(find.byType(PdfLayer)).interaction;
+  final bg = pdf.doc.pages.first.background!;
+  // PDFium works on its own thread, in real time.
+  await pumpUntil(tester, () => pdf.info.glyphs(bg.blob, 0) != null, reason: 'glyphs');
+  await pumpUntilPdfRendered(tester);
+  return pdf;
+}
+
+/// The screen position of character [i] of [text] on page 1 (its middle,
+/// or its [right] edge).
+Offset pdfTextAt(PdfInteraction pdf, String text, {int i = 0, bool right = false}) {
+  final page = pdf.doc.pages.first;
+  final glyphs = pdf.info.glyphs(page.background!.blob, 0)!;
+  final box = glyphs.boxes[glyphs.text.indexOf(text) + i];
+  final frame = pdf.doc.layout.frameOf(0)!;
+  final n = right ? Offset(box.right - 0.001, box.center.dy) : box.center;
+  return pdf.doc.viewport.toScreen(frame.topLeft + Offset(n.dx * frame.width, n.dy * frame.height));
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -116,66 +183,11 @@ void main() {
       dir.deleteSync(recursive: true);
     });
 
-    Future<PdfInteraction> open(WidgetTester tester, {Size size = const Size(900, 1200)}) async {
-      tester.view
-        ..physicalSize = size
-        ..devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
-        call,
-      ) async {
-        if (call.method == 'Clipboard.setData') {
-          copied.add((call.arguments as Map)['text'] as String);
-        }
-        return null;
-      });
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
-          null,
-        ),
-      );
-      final nb = await tester.runAsync(() async {
-        final file = File('${dir.path}/doc.pdf')..writeAsBytesSync(await interactivePdf());
-        final importer = PdfImporter(services);
-        final notebook = await importer.createNotebook(
-          await importer.store(XFile(file.path)),
-          title: 'PDF',
-          cover: 0,
-        );
-        await importer.dispose();
-        return notebook;
-      });
-      await tester.pumpWidget(
-        AppScope(
-          services: services,
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: EditorScreen(notebook: nb!),
-          ),
-        ),
-      );
-      await tester.pump();
-      final pdf = tester.widget<PdfLayer>(find.byType(PdfLayer)).interaction;
-      final bg = pdf.doc.pages.first.background!;
-      // PDFium works on its own thread, in real time.
-      await pumpUntil(tester, () => pdf.info.glyphs(bg.blob, 0) != null, reason: 'glyphs');
-      await pumpUntilPdfRendered(tester);
-      return pdf;
-    }
+    Future<PdfInteraction> open(WidgetTester tester, {Size size = const Size(900, 1200)}) =>
+        openPdfEditor(tester, services, dir, size: size, copied: copied);
 
-    /// The screen position of character [i] of [text] on page 1 (its middle,
-    /// or its [right] edge).
-    Offset at(PdfInteraction pdf, String text, {int i = 0, bool right = false}) {
-      final page = pdf.doc.pages.first;
-      final glyphs = pdf.info.glyphs(page.background!.blob, 0)!;
-      final box = glyphs.boxes[glyphs.text.indexOf(text) + i];
-      final frame = pdf.doc.layout.frameOf(0)!;
-      final n = right ? Offset(box.right - 0.001, box.center.dy) : box.center;
-      return pdf.doc.viewport.toScreen(
-        frame.topLeft + Offset(n.dx * frame.width, n.dy * frame.height),
-      );
-    }
+    Offset at(PdfInteraction pdf, String text, {int i = 0, bool right = false}) =>
+        pdfTextAt(pdf, text, i: i, right: right);
 
     testWidgets('right click / long press selects a word; copy', skip: pdfium == null, (
       tester,

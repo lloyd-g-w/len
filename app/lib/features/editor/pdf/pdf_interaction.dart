@@ -6,6 +6,7 @@ import '../../../core/clock.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
+import '../../../ink/tools/lasso_tool.dart';
 import '../../../ink/undo_history.dart';
 import '../document/document_controller.dart';
 import 'pdf_page_info.dart';
@@ -19,9 +20,10 @@ typedef PdfPagePoint = ({int index, NotebookPage page, PageBackground pdf, Offse
 typedef PdfTextPoint = ({int index, NotebookPage page, PdfGlyphs glyphs, int glyph});
 
 /// The interactive side of imported PDF pages in one paged editor: text
-/// selection (a long press or right click, then the handles), copying, highlighting
-/// the selection with highlighter strokes, links and the outline.
-class PdfInteraction extends ChangeNotifier {
+/// selection (a long press or right click, or the lasso: [LassoText]; then
+/// the handles), copying, highlighting the selection with highlighter
+/// strokes, links and the outline.
+class PdfInteraction extends ChangeNotifier implements LassoText {
   PdfInteraction({
     required this.doc,
     required this.tools,
@@ -199,8 +201,26 @@ class PdfInteraction extends ChangeNotifier {
     onLink?.call(link, bg);
   }
 
-  /// Selects the word under [screen] and offers the menu (long press);
-  /// returns whether there was text there.
+  /// Whether a character of PDF text lies under [screen] (or just beside
+  /// it on its line).
+  @override
+  bool hasTextAt(Offset screen) {
+    final at = pageAt(screen);
+    if (at == null) return false;
+    return info.glyphs(at.pdf.blob, at.pdf.pageIndex)?.indexAt(at.normalized, slop: 0.005) != null;
+  }
+
+  /// Selects the text from the character nearest [from] to the one nearest
+  /// [to] (a lasso drag), offering the menu when [done].
+  @override
+  void selectBetween(Offset from, Offset to, {required bool done}) {
+    final a = textPointAt(from), b = textPointAt(to);
+    if (a != null && b != null) selectRange(a, b, menu: done);
+  }
+
+  /// Selects the word under [screen] and offers the menu (long press, a
+  /// lasso tap); returns whether there was text there.
+  @override
   bool selectWordAt(Offset screen) {
     final at = pageAt(screen);
     if (at == null) return false;
