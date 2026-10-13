@@ -39,4 +39,29 @@ class WetInkEndsTest {
         val p = WetInkEnds.cutHull(5f, 0f, 1f, 6f, 0f, 1f, floatArrayOf(0f, 0f, 1f, 0f), 0.01f)
         assertEquals(0, p.size)
     }
+
+    @Test
+    fun aSweepWithoutTurningIsTheQuadBetweenItsSections() {
+        // Sections across x = 0 and x = 3, 2 to each side: a 3 × 4 rectangle.
+        val a = doubleArrayOf(0.0, 0.0, 0.0, -2.0, 0.0, 2.0)
+        val b = doubleArrayOf(3.0, 0.0, 3.0, -2.0, 3.0, 2.0)
+        val p = WetInkEnds.cutSweep(a, b, FloatArray(0), 0.01f)
+        assertEquals(1, p.size)
+        assertEquals(12.0, area(p[0]), 1e-4)
+        // Cut off at x = 1 (facing +x): 1 × 4 is left.
+        val cut = WetInkEnds.cutSweep(a, b, floatArrayOf(1f, 0f, 1f, 0f), 0.01f)
+        assertEquals(4.0, cut.sumOf { area(it) }, 1e-4)
+    }
+
+    @Test
+    fun aNibTurningOnAPointSweepsTwoTriangles() {
+        // The nib turns a quarter about its centre: two quarter discs,
+        // approximated by triangles in steps, all wound as the hulls.
+        val a = doubleArrayOf(0.0, 0.0, 0.0, -2.0, 0.0, 2.0)
+        val b = doubleArrayOf(0.0, 0.0, 2.0, 0.0, -2.0, 0.0)
+        val p = WetInkEnds.cutSweep(a, b, FloatArray(0), 0.01f)
+        assertTrue(p.isNotEmpty())
+        for (poly in p) assertTrue(area(poly) > 0)
+        assertEquals(2 * Math.PI, p.sumOf { area(it) }, 0.05)
+    }
 }

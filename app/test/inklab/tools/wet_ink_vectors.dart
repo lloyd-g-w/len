@@ -8,13 +8,16 @@ import 'package:len/ink/lab/input_recording.dart';
 import 'package:len/ink/lab/raw_samples.dart';
 import 'package:len/ink/lab/replay_run.dart';
 import 'package:len/ink/lab/wet_ink_model.dart';
+import 'package:len/ink/render/flat_ends.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
 
 /// Events (`S` radii, `H` shape, `B` a new contact, `A` sample, `Q`
 /// query; after every [queryEvery]th sample and the last) and the model's
 /// answer to each query (tail start, then the ends — 1: flat start, 2: flat
 /// end —, the cuts at flat ends (how many, then each one's piece and line:
-/// point and normal) and the (x, y, r) triples drawn). [maxContacts] limits the
+/// point and normal), the flat nib sweeps (how many, then each one's piece
+/// and its two cross-sections: centre, left and right end) and the (x, y,
+/// r) triples drawn). [maxContacts] limits the
 /// contacts used; [ends] replaces the pen's end style (the end taper is the
 /// one a committed stroke carries, `WetInkModel.commit`).
 (String, String) wetInkVectors(
@@ -74,6 +77,16 @@ import 'package:len/ink/render/stroke_renderer.dart';
         out.write(' ${cuts.length}');
         for (final c in cuts) {
           out.write(' $c');
+        }
+        // The flat nib sweeps: how many, then each one's piece and sections.
+        String section(CrossSection c) => '${c.cx} ${c.cy} ${c.lx} ${c.ly} ${c.rx} ${c.ry}';
+        final sweeps = [
+          for (var k = 0; k < segments.length; k++)
+            for (final (a, b) in segments[k].sweeps) '$k ${section(a)} ${section(b)}',
+        ];
+        out.write(' ${sweeps.length}');
+        for (final w in sweeps) {
+          out.write(' $w');
         }
         out.write(' ${first.a.dx} ${first.a.dy} ${first.ra}');
         if (first.a != first.b || segments.length > 1) {

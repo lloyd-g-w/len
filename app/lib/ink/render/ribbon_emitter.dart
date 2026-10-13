@@ -67,7 +67,7 @@ class RibbonEmitter {
   RibbonEmitter(this.line, {required this.flatCaps, required this.width, required double step})
     : tolerance = toleranceFor(width),
       block = math.max(16, (24 / step).ceil()),
-      _endReach = (2 * width / step).ceil(),
+      _endReach = endReachFor(width, step),
       _step = step;
 
   final RibbonLine line;
@@ -96,6 +96,10 @@ class RibbonEmitter {
   /// (`FlatEnds`): two widths.
   final int _endReach;
 
+  /// How far (samples [step] apart) a flat end's zone may reach on a line
+  /// [width] wide: two widths.
+  static int endReachFor(double width, double step) => (2 * width / step).ceil();
+
   /// Within a run, a side may not run backwards by more than this many
   /// centre-line steps per step (a mild fold of the inner side, at a bend
   /// tighter than the radius, is fine: the non-zero fill still covers
@@ -109,16 +113,23 @@ class RibbonEmitter {
 
   /// Emits the whole outline from [from] to the end of the line. With
   /// [cut], the outline starts at [from] with a straight cut (the frozen
-  /// part of a live stroke ends there). Unless [ended], the line's last
-  /// sample is a moving pen tip, not yet an end (no flat end's zone).
-  void emit(OutlineSink sink, {RibbonCursor from = (at: 0, cut: false), bool ended = true}) =>
-      _walk(sink, from, null, ended: ended);
+  /// part of a live stroke ends there). The line's last sample is an end,
+  /// also a live stroke's moving tip: a flat pen's tip is drawn as its
+  /// committed end will be (`FlatEnds`), so it does not turn round and
+  /// square from frame to frame as the last pieces fold or not.
+  void emit(OutlineSink sink, {RibbonCursor from = (at: 0, cut: false)}) =>
+      _walk(sink, from, null, ended: true);
 
   /// Emits the pieces from [from] whose geometry only depends on the first
   /// [finalCount] samples, each as its own contour; returns where the
-  /// frozen part now ends.
-  RibbonCursor freeze(OutlineSink sink, RibbonCursor from, int finalCount) =>
-      _walk(sink, from, finalCount, ended: false);
+  /// frozen part now ends. With [flatCaps], none that a flat end's zone at
+  /// the tip [shown] samples long (the live line, by default all of it)
+  /// may cover, so the tail draws the tip's zone whole, as [emit] does.
+  RibbonCursor freeze(OutlineSink sink, RibbonCursor from, int finalCount, {int? shown}) {
+    final tip = (shown ?? line.length) - 1;
+    final limit = flatCaps ? math.min(finalCount, tip - _endReach) : finalCount;
+    return _walk(sink, from, limit, ended: false);
+  }
 
   RibbonCursor _walk(OutlineSink sink, RibbonCursor from, int? limit, {required bool ended}) {
     final n = line.length;

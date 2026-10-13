@@ -1101,9 +1101,11 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   the pen-down and pen-up hooks (`HookFinder`), the dot rule and the
   shaper's position smoothing — in screen pixels (a view is a translation
   and a uniform scale, so the rules scale with it). Each piece is the hull
-  of two circles; with flat ends, those next to an end are cut off at the
-  butt cap's line, or at the moving tip at their cross-sections, as
-  Flutter's flat ends are (`WetInkEnds`). With the stabiliser on, it draws what Flutter's live
+  of two circles; with flat ends, the pieces in an end's zone (the
+  stroke's start, the moving tip) are flat nib sweeps cut off at the butt
+  cap's line, as Flutter's flat ends are (`WetInkEnds`), and the tail
+  starts two widths before Flutter's shown tip, whose zone has less ink
+  than the line will have there. With the stabiliser on, it draws what Flutter's live
   ink does: only the final, smoothed line (the shaper's `finalCount`,
   ported), from where Flutter's shown frame ends (the lag reach before
   its newest input), and no predicted tip or line to the raw sample
@@ -1581,12 +1583,14 @@ does not grow with the stroke's length.
    end's) folds are the area a flat nib sweeps between cross-sections
    instead of round capsules, and the stretch running the end's way is
    cut off at the end's line (`HalfPlaneClip`), so tight curls do not
-   round the end off.
+   round the end off. A live stroke's moving tip is such an end too, so a
+   flat pen's tip is square in every frame, as its committed end will be.
 5. **Live stroke** (`live_stroke.dart`, `LiveStrokeBuilder`): per frame,
    only new points are fed to the shaper; pieces that became final are
    appended to a **frozen path** once, and only the **tail** after them is
-   rebuilt (≈ 20 µs per frame on desktop, flat with length). The tail
-   starts with a round cap inside the frozen part, so opaque ink fills
+   rebuilt (≈ 20 µs per frame on desktop, flat with length; with flat
+   ends nothing within two widths of the tip, its end's zone, is frozen).
+   The tail starts with a round cap inside the frozen part, so opaque ink fills
    the two without a seam (`LiveInkPainter`); translucent ink fills one
    combined path. **With the stabiliser on** (> 0) live ink shows only
    the final line (`StrokeShaper.liveLength`, `ShapeParams.lag`): it

@@ -6,6 +6,8 @@ import 'package:len/ink/input/wet_ink.dart';
 import 'package:len/ink/lab/raw_samples.dart';
 import 'package:len/ink/lab/replay_run.dart';
 import 'package:len/ink/lab/wet_ink_model.dart';
+import 'package:len/ink/render/flat_ends.dart';
+import 'package:len/ink/render/outline_sink.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
 
 import 'metric.dart';
@@ -35,15 +37,35 @@ Contour hullPolygon(Offset a, Offset b, double ra, double rb, {int n = 16}) {
   ];
 }
 
-/// The overlay's piece [g] as a polygon: [hullPolygon] cut off at its flat
-/// ends' lines (a dot with butt caps is a square).
-Contour segmentPolygon(WetSegment g, {int n = 16}) {
+/// The overlay's piece [g] as polygons: [hullPolygon] (or, in a flat
+/// end's zone, its nib sweeps) cut off at its flat ends' lines (a dot with
+/// butt caps is a square). All wind like [hullPolygon].
+List<Contour> segmentPolygons(WetSegment g, {int n = 16}) {
   if ((g.flatA || g.flatB) && (g.b - g.a).distance < 1e-9) {
     final r = g.ra;
-    return [g.a + Offset(-r, -r), g.a + Offset(r, -r), g.a + Offset(r, r), g.a + Offset(-r, r)];
+    return [
+      [g.a + Offset(-r, -r), g.a + Offset(r, -r), g.a + Offset(r, r), g.a + Offset(-r, r)],
+    ];
   }
-  var poly = hullPolygon(g.a, g.b, g.ra, g.rb, n: n);
-  for (final l in g.cuts) {
+  final polygons = <Contour>[];
+  if (g.sweeps.isEmpty) {
+    polygons.add(hullPolygon(g.a, g.b, g.ra, g.rb, n: n));
+  } else {
+    final sink = _PolygonSink();
+    for (final (a, b) in g.sweeps) {
+      emitSweep(sink, a, b, 0.05);
+    }
+    polygons.addAll(sink.polygons);
+  }
+  return [
+    for (var poly in polygons)
+      if ((poly = _cut(poly, g.cuts)).length > 2) poly,
+  ];
+}
+
+Contour _cut(Contour polygon, List<EndLine> lines) {
+  var poly = polygon;
+  for (final l in lines) {
     double side(Offset p) => (p.dx - l.px) * l.nx + (p.dy - l.py) * l.ny;
     final next = <Offset>[];
     for (var i = 0; i < poly.length; i++) {
@@ -55,6 +77,32 @@ Contour segmentPolygon(WetSegment g, {int n = 16}) {
     poly = next;
   }
   return poly;
+}
+
+/// Collects the polygons `emitSweep` emits, wound like [hullPolygon].
+class _PolygonSink implements OutlineSink {
+  final List<Contour> polygons = [];
+  List<Offset> _open = [];
+
+  @override
+  void moveTo(double x, double y) => _open = [Offset(x, y)];
+  @override
+  void lineTo(double x, double y) => _open.add(Offset(x, y));
+  @override
+  void cubicTo(double x1, double y1, double x2, double y2, double x3, double y3) =>
+      throw UnsupportedError('sweeps are polygons');
+  @override
+  void arc(double cx, double cy, double radius, double start, double sweep) =>
+      throw UnsupportedError('sweeps are polygons');
+  @override
+  void close() {
+    var area = 0.0;
+    for (var i = 0; i < _open.length; i++) {
+      final a = _open[i], b = _open[(i + 1) % _open.length];
+      area += a.dx * b.dy - b.dx * a.dy;
+    }
+    polygons.add(area < 0 ? _open.reversed.toList() : _open);
+  }
 }
 
 /// Median interval between consecutive frames (µs).
@@ -185,7 +233,7 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
         );
         final overlay = from >= model.samples.length
             ? <Contour>[]
-            : [for (final g in model.segments(from, model.samples.length)) segmentPolygon(g)];
+            : [for (final g in model.segments(from, model.samples.length)) ...segmentPolygons(g)];
         final tip = model.samples.last.position;
         final reach = radii.last * 2 + 2;
         var window = Rect.fromCircle(center: tip, radius: reach);

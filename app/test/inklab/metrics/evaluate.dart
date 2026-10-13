@@ -1,5 +1,6 @@
 import 'package:len/ink/lab/input_recording.dart';
 import 'package:len/ink/lab/replay_run.dart';
+import 'package:len/ink/pen/pen_ends.dart';
 
 import 'contacts.dart';
 import 'edge_metrics.dart';
@@ -15,7 +16,8 @@ import 'truth.dart';
 class Subject {
   Subject(this.name, this.replay, this.truths);
 
-  /// Replays [recording] (with [pen], default: as recorded). Without
+  /// Replays [recording] (with [pen], default: as recorded; with [ends],
+  /// default: the pen's round ends). Without
   /// [truths], the raw samples of each committed contact stand in.
   ///
   /// With [timed], the replay runs once to warm up first and each live
@@ -25,10 +27,11 @@ class Subject {
     InputRecording recording, {
     List<Truth>? truths,
     PenSettings? pen,
+    PenEnds? ends,
     bool timed = false,
   }) {
-    if (timed) ReplayResult.run(recording, pen: pen);
-    final replay = ReplayResult.run(recording, pen: pen, timingRepeats: timed ? 3 : 1);
+    if (timed) ReplayResult.run(recording, pen: pen, ends: ends);
+    final replay = ReplayResult.run(recording, pen: pen, ends: ends, timingRepeats: timed ? 3 : 1);
     return Subject(name, replay, truths ?? rawTruths(recording));
   }
 

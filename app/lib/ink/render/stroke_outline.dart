@@ -181,7 +181,7 @@ abstract final class StrokeOutline {
       flatCaps: spec.flatCaps,
       width: spec.width,
       step: shaper.p.step,
-    ).emit(sink, ended: !live);
+    ).emit(sink);
   }
 
   /// Whether the line is too short for anything but a dot.

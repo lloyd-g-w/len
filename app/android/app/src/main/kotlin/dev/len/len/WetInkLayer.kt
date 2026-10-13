@@ -43,7 +43,8 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
      * the predicted tip, drawn only inside [clip]; butt caps at the hulls'
      * start, their end and the tip's end where flagged: the hulls' pieces
      * are cut off at the flat ends' lines in [cuts] ([WetInkEnds]: piece,
-     * then the line's point and normal, five values each), a lone flagged
+     * then the line's point and normal, five values each) and, in a flat
+     * end's zone, drawn as the flat nib sweeps in [sweeps]; a lone flagged
      * point is a square.
      */
     class Ink(
@@ -55,6 +56,7 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
         val flatEnd: Boolean = false,
         val flatTipEnd: Boolean = false,
         val cuts: FloatArray = FloatArray(0),
+        val sweeps: List<WetSweep> = emptyList(),
     )
 
     /**
@@ -188,7 +190,7 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
                 canvas.clipRect(ink.clip)
                 paint.color = ink.color
                 path.rewind()
-                addHulls(path, ink.hulls, ink.flatStart, ink.flatEnd, ink.cuts)
+                addHulls(path, ink.hulls, ink.flatStart, ink.flatEnd, ink.cuts, ink.sweeps)
                 addHulls(path, ink.tip, false, ink.flatTipEnd)
                 canvas.drawPath(path, paint)
                 canvas.restore()
@@ -239,7 +241,8 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
          * filled alone. A lone point with [flatStart] or [flatEnd] is a
          * square (Flutter's flat dot). With [cuts] (see [Ink.cuts]) the
          * pieces listed are cut off at their lines, which makes the flat
-         * ends; without, [flatStart] / [flatEnd] give the first / last
+         * ends, and those in [sweeps] are their flat nib sweeps instead of
+         * hulls; without, [flatStart] / [flatEnd] give the first / last
          * piece a butt end square to it (the predicted tip's end).
          */
         fun addHulls(
@@ -248,6 +251,7 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
             flatStart: Boolean = false,
             flatEnd: Boolean = false,
             cuts: FloatArray? = null,
+            sweeps: List<WetSweep> = emptyList(),
         ) {
             val n = xyr.size / 3
             if (n == 0) return
@@ -267,7 +271,13 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
                     lines[piece] = (lines[piece] ?: FloatArray(0)) + cuts.copyOfRange(5 * k + 1, 5 * k + 5)
                 }
             }
-            fun cut(piece: Int) = piece >= 0 && piece < n - 1 && lines[piece] != null
+            val swept = arrayOfNulls<ArrayList<WetSweep>>(max(0, n - 1))
+            for (w in sweeps) {
+                if (w.piece < 0 || w.piece >= n - 1) continue
+                (swept[w.piece] ?: ArrayList<WetSweep>().also { swept[w.piece] = it }).add(w)
+            }
+            // Whether a piece is drawn as polygons (cut or swept), without its circles.
+            fun cut(piece: Int) = piece >= 0 && piece < n - 1 && (lines[piece] != null || swept[piece] != null)
             val buttStart = cuts == null && flatStart
             val buttEnd = cuts == null && flatEnd
             if (!buttStart && !cut(0)) path.addCircle(xyr[0], xyr[1], xyr[2], Path.Direction.CW)
@@ -280,6 +290,13 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
                 val by = xyr[o + 1]
                 val rb = xyr[o + 2]
                 val l = lines[i - 1]
+                val w = swept[i - 1]
+                if (w != null) {
+                    for (sweep in w) {
+                        for (p in WetInkEnds.cutSweep(sweep.a, sweep.b, l ?: FloatArray(0), ARC_TOLERANCE)) addPolygon(path, p)
+                    }
+                    continue
+                }
                 if (l != null) {
                     addPolygon(path, WetInkEnds.cutHull(ax, ay, ra, bx, by, rb, l, ARC_TOLERANCE))
                     continue

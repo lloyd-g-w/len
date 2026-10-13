@@ -1,6 +1,8 @@
 import 'dart:io';
 
+import 'package:len/domain/stroke.dart';
 import 'package:len/ink/lab/recording_codec.dart';
+import 'package:len/ink/pen/pen_ends.dart';
 
 import 'metrics/evaluate.dart';
 import 'metrics/metric.dart';
@@ -37,16 +39,35 @@ class SuiteEntry {
 const String recordingsDir = 'test/inklab/recordings';
 
 /// Every simulated case at every stabiliser, then every recording as
-/// recorded and at stabiliser 0.
-List<SuiteEntry> suiteEntries() => [
-  for (final c in simCases)
-    for (final st in stabilisers)
-      SuiteEntry('${c.name}@$st', c.name, st, () {
-        final rec = c.record(defaultPen.copyWith(streamline: st));
-        return Subject.of(c.name, rec.recording, truths: rec.truth, timed: c.name == 'long_stroke');
-      }),
-  for (final file in recordingFiles()) ...recordingEntries(file),
-];
+/// recorded and at stabiliser 0. With [ends] (e.g. flat), every entry is
+/// written with those pen ends instead of the pen's round ones, and its
+/// name ends in `/` and the style (`cursive@0.4/flat`).
+List<SuiteEntry> suiteEntries({PenEnds? ends}) {
+  final suffix = ends == null ? '' : '/${ends.style.name}';
+  return [
+    for (final c in simCases)
+      for (final st in stabilisers)
+        SuiteEntry('${c.name}@$st$suffix', c.name, st, () {
+          final rec = c.record(defaultPen.copyWith(streamline: st));
+          return Subject.of(
+            c.name,
+            rec.recording,
+            truths: rec.truth,
+            ends: ends,
+            timed: c.name == 'long_stroke',
+          );
+        }),
+    for (final file in recordingFiles()) ...recordingEntries(file, ends: ends),
+  ];
+}
+
+/// The pen ends `--dart-define=INKLAB_ENDS=<round|flat|tapered>` asks for
+/// (null: the pen's own, round).
+PenEnds? suiteEnds() {
+  const name = String.fromEnvironment('INKLAB_ENDS');
+  if (name.isEmpty) return null;
+  return PenEnds(style: StrokeEnds.values.byName(name));
+}
 
 /// Long real-device recordings (`real_*`) replay thousands of frames through
 /// pixel metrics and take many minutes, so the routine suite skips them;
@@ -65,23 +86,25 @@ List<File> recordingFiles() {
     ..sort((a, b) => a.path.compareTo(b.path));
 }
 
-List<SuiteEntry> recordingEntries(File file) {
+List<SuiteEntry> recordingEntries(File file, {PenEnds? ends}) {
   final name = 'rec:${file.uri.pathSegments.last.replaceAll('.leninput', '')}';
+  final suffix = ends == null ? '' : '/${ends.style.name}';
   final recording = RecordingCodec.decode(file.readAsBytesSync());
   final pen = recording.meta.pen;
   return [
     SuiteEntry(
-      '$name@${pen.streamline}',
+      '$name@${pen.streamline}$suffix',
       name,
       pen.streamline,
-      () => Subject.of(name, recording, timed: true),
+      () => Subject.of(name, recording, ends: ends, timed: true),
     ),
     if (pen.streamline != 0)
       SuiteEntry(
-        '$name@0.0',
+        '$name@0.0$suffix',
         name,
         0,
-        () => Subject.of(name, recording, pen: pen.copyWith(streamline: 0), timed: true),
+        () =>
+            Subject.of(name, recording, pen: pen.copyWith(streamline: 0), ends: ends, timed: true),
       ),
   ];
 }

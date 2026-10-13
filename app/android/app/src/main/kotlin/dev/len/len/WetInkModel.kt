@@ -48,11 +48,14 @@ class WetInkShape(v: DoubleArray) {
 
     /** Length over which the start narrows to a point ([Taper]; 0: none). */
     val taperStart = v[20]
+
+    /** With [flat] ends, how many points an end's zone may reach (two widths). */
+    val flatReach = v[21].toInt()
     val kernel: DoubleArray = v.copyOfRange(FIELDS, v.size)
     val kernelK = (kernel.size - 1) / 2
 
     companion object {
-        const val FIELDS = 21
+        const val FIELDS = 22
 
         /** The rules in [v], or null when it is not a valid list. */
         fun of(v: DoubleArray): WetInkShape? =
@@ -116,6 +119,13 @@ class WetInkModel(
      * ([WetInkEnds]); their pieces count from its first triple.
      */
     var cuts: List<WetCut> = emptyList()
+        private set
+
+    /**
+     * The pieces of the last [segments] drawn as flat nib sweeps in a flat
+     * end's zone ([WetInkEnds]), counted as [cuts]' are.
+     */
+    var sweeps: List<WetSweep> = emptyList()
         private set
 
     private var pressure = -1.0
@@ -215,11 +225,7 @@ class WetInkModel(
     /** Flutter has committed the stroke (`end`), with an end taper [taperEnd] long (0: none). */
     fun commit(taperEnd: Double) {
         endTaper = taperEnd
-        committed = true
     }
-
-    // Whether Flutter has committed the stroke ([commit]).
-    private var committed = false
 
     fun radiusAt(p: Double): Double {
         if (radii.size == 1) return radii[0]
@@ -305,8 +311,11 @@ class WetInkModel(
         if (trimmedAtMs >= 0 && trimmedAtMs > shownUpToMs && samples.isNotEmpty()) return 0
         if (from == samples.size) return from
         from = max(0, from - 1)
-        // Stabiliser on: Flutter's ink ends further back than its newest input.
-        if (shape.lag > 0) from = back(from, (shape.kernelK + shape.cornerK + shape.lag + 2) * shape.step)
+        // Stabiliser on: Flutter's ink ends further back than its newest
+        // input; flat ends: its end's zone has less ink than the line will.
+        val lagReach = if (shape.lag > 0) (shape.kernelK + shape.cornerK + shape.lag + 2) * shape.step else 0.0
+        val reach = lagReach + (if (shape.flat) shape.flatReach * shape.step else 0.0)
+        if (reach > 0) from = back(from, reach)
         return from
     }
 
@@ -331,6 +340,7 @@ class WetInkModel(
         flatStart = shape.flat
         flatEnd = shape.flat
         cuts = emptyList()
+        sweeps = emptyList()
         if (to - from == 1) {
             val s = samples[from]
             val whole = from == 0 && to == samples.size
@@ -393,8 +403,9 @@ class WetInkModel(
         }
         flatStart = shape.flat && start == 0 && first == 0
         if (shape.flat) {
-            val all = WetInkEnds.of(shaper.cx, shaper.cy, rr, shaper.corners, n, first, step, start == 0, ended && committed)
-            cuts = all.map { WetCut(it.piece - first, it.px, it.py, it.nx, it.ny, it.atStart) }
+            val ends = WetInkEnds.of(shaper.cx, shaper.cy, rr, shaper.corners, n, first, step, start == 0, shape.flatReach)
+            cuts = ends.cuts.map { WetCut(it.piece - first, it.px, it.py, it.nx, it.ny, it.atStart) }
+            sweeps = ends.sweeps.map { WetSweep(it.piece - first, it.a, it.b, it.atStart) }
         }
         val out = DoubleArray((n - first) * 3)
         for (i in first until n) {

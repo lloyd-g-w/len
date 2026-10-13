@@ -52,6 +52,12 @@ class WetInkModelTest {
                         got.add((if (m.flatStart) 1.0 else 0.0) + (if (m.flatEnd) 2.0 else 0.0))
                         got.add(m.cuts.size.toDouble())
                         for (c in m.cuts) got.addAll(listOf(c.piece.toDouble(), c.px, c.py, c.nx, c.ny))
+                        got.add(m.sweeps.size.toDouble())
+                        for (w in m.sweeps) {
+                            got.add(w.piece.toDouble())
+                            got.addAll(w.a.toList())
+                            got.addAll(w.b.toList())
+                        }
                         got.addAll(segments.toList())
                     }
                     val want = expected[q++].split(' ').map { it.toDouble() }

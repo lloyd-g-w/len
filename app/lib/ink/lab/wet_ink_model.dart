@@ -52,8 +52,7 @@ import 'wet_ink_ends.dart';
 ///  * **Ends**: with [WetInkShape.flat], the stroke's start and the drawn
 ///    end are butt caps (a lone point a square, as Flutter's flat dot),
 ///    square to the line as Flutter's are, with the pieces next to them
-///    cut off at the cap's line or, at the pen tip until Flutter has
-///    committed the stroke, at their cross-sections ([WetInkEnds]); a
+///    cut off at the cap's line, also at the moving pen tip ([WetInkEnds]); a
 ///    start taper ([WetInkShape.taperStart]) scales the smoothed points'
 ///    radii by their arc length from the start (`Taper.factor`), and once
 ///    Flutter has committed the stroke ([commit]) the end taper it was
@@ -67,7 +66,9 @@ import 'wet_ink_ends.dart';
 ///    before the latest are drawn (Flutter presents a frame about two
 ///    frames after building it; counting messages rather than time keeps
 ///    this right when frames are late), plus the point before them (the
-///    segment leading in); after the lift at least the last point; and
+///    segment leading in; with the stabiliser on, from where Flutter's ink
+///    ends, and with flat ends from before its end's zone); after the lift
+///    at least the last point; and
 ///    every point while Flutter's frame still shows a pen-down hook the
 ///    model has trimmed (so the start Flutter will show is drawn). New
 ///    points are drawn into the front buffer as they arrive. After `end`,
@@ -220,13 +221,7 @@ class WetInkModel {
 
   /// Flutter has committed the stroke (the overlay's `end`), with an end
   /// taper [taperEnd] long (0: none; in the units of the positions).
-  void commit({double taperEnd = 0}) {
-    _endTaper = taperEnd;
-    _committed = true;
-  }
-
-  // Whether Flutter has committed the stroke ([commit]).
-  bool _committed = false;
+  void commit({double taperEnd = 0}) => _endTaper = taperEnd;
 
   double radiusAt(double p) {
     if (radii.length == 1) return radii[0];
@@ -324,10 +319,16 @@ class WetInkModel {
     if (from == samples.length) return from;
     from = math.max(0, from - 1);
     // With the stabiliser on, Flutter's ink ends further back than its
-    // newest input (as far as the line was final then): draw from there.
-    if (shape.lag > 0) from = _back(from, _lagReach);
+    // newest input (as far as the line was final then); with flat ends, its
+    // end's zone, cut off at the cap and swept by a flat nib, has less ink
+    // than the line will have there once it goes on: draw from before them.
+    final reach = (shape.lag > 0 ? _lagReach : 0.0) + (shape.flat ? _flatReach : 0.0);
+    if (reach > 0) from = _back(from, reach);
     return from;
   }
+
+  /// How far (arc length) a flat end's zone reaches at most: two widths.
+  double get _flatReach => shape.flatReach * shape.step;
 
   /// How far (arc length) behind its newest input Flutter's live ink ends
   /// at most with the stabiliser on: the resampling's last final segments
@@ -429,7 +430,7 @@ class WetInkModel {
       return [WetSegment(c, c, rr[i], rr[i], flatA: flat, flatB: flat)];
     }
     // Flat ends: the stroke's start, if drawn, and the drawn end.
-    final cuts = flat
+    final ends = flat
         ? WetInkEnds.of(
             x,
             y,
@@ -439,9 +440,9 @@ class WetInkModel {
             first: first,
             step: p.step,
             start: start == 0,
-            ended: ended && _committed,
+            reach: shape.flatReach,
           )
-        : const <WetCut>[];
+        : null;
     return [
       for (var i = first + 1; i < n; i++)
         WetSegment(
@@ -452,8 +453,12 @@ class WetInkModel {
           flatA: flat && start == 0 && i == 1,
           flatB: flat && i == n - 1,
           cuts: [
-            for (final c in cuts)
+            for (final c in ends?.cuts ?? const <WetCut>[])
               if (c.piece == i - 1) c.line,
+          ],
+          sweeps: [
+            for (final w in ends?.sweeps ?? const <WetSweep>[])
+              if (w.piece == i - 1) (w.a, w.b),
           ],
         ),
     ];
@@ -549,6 +554,7 @@ class WetSegment {
     this.flatA = false,
     this.flatB = false,
     this.cuts = const [],
+    this.sweeps = const [],
   });
   final Offset a, b;
   final double ra, rb;
@@ -561,4 +567,9 @@ class WetSegment {
   /// (`WetInkEnds`): what lies beyond one, on the side its normal faces,
   /// is not drawn.
   final List<EndLine> cuts;
+
+  /// Within a flat end's zone, the piece is the area a flat nib sweeps
+  /// between these cross-sections (`emitSweep`), not the hull of its
+  /// circles; then cut off at [cuts].
+  final List<(CrossSection, CrossSection)> sweeps;
 }
