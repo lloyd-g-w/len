@@ -148,17 +148,16 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
               ),
             ],
             child: FloatingPanel(
-              radius: Radii.pill,
               padding: EdgeInsets.zero,
               child: InkWell(
-                borderRadius: BorderRadius.circular(Radii.pill),
+                borderRadius: BorderRadius.circular(Radii.md),
                 onTap: () => _menu.isOpen ? _menu.close() : _menu.open(),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Gaps.lg, vertical: Gaps.sm),
                   child: Text(
                     _label(_scale),
                     style: theme.textTheme.labelLarge?.copyWith(
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                      fontFeatures: AppTheme.tabularFigures,
                     ),
                   ),
                 ),

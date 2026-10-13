@@ -110,23 +110,15 @@ class TipBanner extends StatelessWidget {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: FloatingPanel(
-                    radius: Radii.pill,
                     padding: EdgeInsets.zero,
                     child: Padding(
                       padding: const EdgeInsets.only(left: Gaps.md, right: Gaps.xxs),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(message.icon, size: Glyphs.menu, color: scheme.primary),
+                          Icon(message.icon, size: Glyphs.menu, color: scheme.onSurfaceVariant),
                           const SizedBox(width: Gaps.sm),
-                          Flexible(
-                            child: Text(
-                              message.text,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
+                          Flexible(child: Text(message.text, style: theme.textTheme.bodyMedium)),
                           IconButton(
                             tooltip: 'Dismiss tip',
                             iconSize: Glyphs.menu,
