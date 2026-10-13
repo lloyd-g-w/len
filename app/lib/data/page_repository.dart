@@ -169,7 +169,7 @@ class PageRepository extends SyncableTable {
 
   /// Notebook id of a stored page, if known.
   String? notebookOf(String pageId) {
-    final rows = db.select('SELECT notebook_id FROM pages WHERE id = ?', [pageId]);
+    final rows = database.select('SELECT notebook_id FROM pages WHERE id = ?', [pageId]);
     return rows.isEmpty ? null : rows.first['notebook_id'] as String;
   }
 
@@ -229,7 +229,7 @@ class PageRepository extends SyncableTable {
   @override
   void writeRemote(SyncRecord record) {
     if (record.deleted) {
-      db.execute(
+      database.execute(
         '''
         INSERT INTO pages (id, notebook_id, sort_key, width, height, paper,
                            updated_at, device_id, deleted, dirty)
@@ -276,7 +276,7 @@ class PageRepository extends SyncableTable {
     required bool dirty,
   }) {
     final background = page.background;
-    db.execute(
+    database.execute(
       '''
       INSERT OR REPLACE INTO pages (id, notebook_id, sort_key, width, height, paper,
                                     paper_data, paper_color, bookmarked, background,

@@ -325,11 +325,10 @@ class SyncEngine {
           changes.notebooks = true;
         case PageRepository():
           _addKnown(changes.pagesOfNotebooks, pages.notebookOf(record.id));
-        case StrokeRepository():
-          _addKnown(changes.strokeSurfaces, strokes.surfaceOf(record.id));
-          _addKnown(changes.strokeSurfaces, previousOwner);
-        case ElementRepository():
-          _addKnown(changes.strokeSurfaces, elements.surfaceOf(record.id));
+        // A live stroke or element is now on the surface its record names
+        // (written as such); a tombstone stays where it was.
+        case StrokeRepository() || ElementRepository():
+          _addKnown(changes.strokeSurfaces, record.data?['surfaceId'] as String?);
           _addKnown(changes.strokeSurfaces, previousOwner);
         case OutlineRepository():
           _addKnown(changes.outlineOfNotebooks, outline.notebookOf(record.id));

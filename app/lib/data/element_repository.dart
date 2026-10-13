@@ -83,7 +83,7 @@ class ElementRepository extends SyncableTable {
 
   /// Surface id of a stored element (live or tombstoned), if known.
   String? surfaceOf(String elementId) {
-    final rows = db.select('SELECT surface_id FROM elements WHERE id = ?', [elementId]);
+    final rows = database.select('SELECT surface_id FROM elements WHERE id = ?', [elementId]);
     return rows.isEmpty ? null : rows.first['surface_id'] as String;
   }
 
@@ -164,7 +164,7 @@ class ElementRepository extends SyncableTable {
     required String deviceId,
     required bool dirty,
   }) {
-    db.execute(
+    database.execute(
       '''
       INSERT INTO elements (id, surface_id, type, x, y, w, h, rotation, z, data,
                             created_at, updated_at, device_id, deleted, dirty)
@@ -203,7 +203,7 @@ class ElementRepository extends SyncableTable {
   }) {
     // A bare tombstone for never-seen rows stops older versions reviving them.
     // A known element keeps its data for a while (see `DeletionConflicts`).
-    db.execute(
+    database.execute(
       '''
       INSERT INTO elements (id, surface_id, type, x, y, w, h, data,
                             created_at, updated_at, device_id, deleted, dirty)
@@ -212,22 +212,18 @@ class ElementRepository extends SyncableTable {
         device_id = excluded.device_id, deleted = 1, dirty = excluded.dirty''',
       [id, updatedAt, deviceId, dirty ? 1 : 0],
     );
-    db.execute('DELETE FROM element_chunks WHERE element_id = ?', [id]);
+    database.execute('DELETE FROM element_chunks WHERE element_id = ?', [id]);
   }
 
   void _reindex(SurfaceElement e) {
-    db.execute('DELETE FROM element_chunks WHERE element_id = ?', [e.id]);
-    final insert = db.prepare(
-      'INSERT OR IGNORE INTO element_chunks (surface_id, cx, cy, element_id, digest) '
-      'VALUES (?, ?, ?, ?, ?)',
-    );
+    database.execute('DELETE FROM element_chunks WHERE element_id = ?', [e.id]);
     final digest = ChunkDigest.ofElement(e);
-    try {
-      for (final key in ElementChunks.of(e)) {
-        insert.execute([e.surfaceId, key.x, key.y, e.id, digest]);
-      }
-    } finally {
-      insert.close();
+    for (final key in ElementChunks.of(e)) {
+      database.execute(
+        'INSERT OR IGNORE INTO element_chunks (surface_id, cx, cy, element_id, digest) '
+        'VALUES (?, ?, ?, ?, ?)',
+        [e.surfaceId, key.x, key.y, e.id, digest],
+      );
     }
   }
 }

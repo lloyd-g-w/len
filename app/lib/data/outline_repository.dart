@@ -102,7 +102,7 @@ class OutlineRepository extends SyncableTable {
 
   /// The notebook of entry [id] (live or not), for sync notifications.
   String? notebookOf(String id) {
-    final rows = db.select('SELECT notebook_id FROM outline WHERE id = ?', [id]);
+    final rows = database.select('SELECT notebook_id FROM outline WHERE id = ?', [id]);
     return rows.isEmpty ? null : rows.first['notebook_id'] as String;
   }
 

@@ -58,6 +58,18 @@ void main() {
 
   tearDown(() => db.close());
 
+  test('cached statements run with their arguments, also past the cache size', () {
+    db.execute('CREATE TABLE t (k INTEGER, v TEXT)');
+    for (var i = 0; i < 100; i++) {
+      // A different statement each time: older ones are closed and dropped.
+      db.execute('INSERT INTO t (k, v) VALUES (?, ?) -- $i', [i, 'v$i']);
+    }
+    for (var round = 0; round < 2; round++) {
+      expect(db.select('SELECT v FROM t WHERE k = ?', [42]).single['v'], 'v42');
+    }
+    expect(db.select('SELECT COUNT(*) AS n FROM t').single['n'], 100);
+  });
+
   group('StrokeRepository', () {
     test('loads only strokes in the requested chunks', () {
       strokes.save([stroke('near', const Offset(10, 10)), stroke('far', const Offset(5e5, 5e5))]);

@@ -40,7 +40,7 @@ abstract class SyncableTable implements SyncableStore {
   /// `markClean` wrongly clears it.
   int nextVersion(String id, [int? now]) {
     final time = now ?? clock.nowMs();
-    final rows = db.select('SELECT updated_at FROM $table WHERE id = ?', [id]);
+    final rows = database.select('SELECT updated_at FROM $table WHERE id = ?', [id]);
     if (rows.isEmpty) return time;
     final previous = rows.first['updated_at'] as int;
     return time > previous ? time : previous + 1;
@@ -122,7 +122,9 @@ abstract class SyncableTable implements SyncableStore {
     if (!record.deleted && record.data == null) {
       throw FormatException('Live ${record.collection}/${record.id} has no data');
     }
-    final local = db.select('SELECT updated_at, device_id FROM $table WHERE id = ?', [record.id]);
+    final local = database.select('SELECT updated_at, device_id FROM $table WHERE id = ?', [
+      record.id,
+    ]);
     if (local.isNotEmpty &&
         !record.supersedes(
           updatedAt: local.first['updated_at'] as int,

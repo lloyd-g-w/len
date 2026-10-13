@@ -62,12 +62,40 @@ class AppDatabase {
     }
   }
 
+  /// Runs the query [sql] with [args] through a prepared statement kept
+  /// for reuse. For constant SQL on hot paths (sync, chunk indexes):
+  /// preparing a statement costs as much as running a small one.
+  ResultSet select(String sql, [List<Object?> args = const []]) => _statement(sql).select(args);
+
+  /// Like [select], for statements that return no rows.
+  void execute(String sql, [List<Object?> args = const []]) => _statement(sql).execute(args);
+
+  /// Prepared statements by their SQL, least recently used first.
+  final _statements = <String, CommonPreparedStatement>{};
+
+  /// How many prepared statements [select] and [execute] keep.
+  static const _maxStatements = 64;
+
+  CommonPreparedStatement _statement(String sql) {
+    final cached = _statements.remove(sql);
+    if (cached != null) return _statements[sql] = cached;
+    if (_statements.length >= _maxStatements) {
+      final oldest = _statements.keys.first;
+      _statements.remove(oldest)!.close();
+    }
+    return _statements[sql] = db.prepare(sql, persistent: true);
+  }
+
   /// Whether [close] was called.
   bool get isClosed => _closed;
   bool _closed = false;
 
   void close() {
     _closed = true;
+    for (final statement in _statements.values) {
+      statement.close();
+    }
+    _statements.clear();
     db.close();
   }
 

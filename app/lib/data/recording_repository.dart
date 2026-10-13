@@ -36,7 +36,9 @@ class RecordingRepository extends SyncableTable {
 
   /// The notebook of recording [id] (deleted rows included), if known.
   String? notebookOf(String id) =>
-      db.select('SELECT notebook_id FROM recordings WHERE id = ?', [id]).firstOrNull?['notebook_id']
+      database.select('SELECT notebook_id FROM recordings WHERE id = ?', [
+            id,
+          ]).firstOrNull?['notebook_id']
           as String?;
 
   /// Creation times (epoch ms, sorted) of the live strokes and elements of
