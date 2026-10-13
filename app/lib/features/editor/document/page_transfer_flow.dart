@@ -7,6 +7,7 @@ import '../../../ink/surface_model.dart';
 import '../../../ui/messages.dart';
 import '../../documents/overview/notebook_picker.dart';
 import 'document_commands.dart';
+import 'page_transfer.dart';
 
 /// Moving and copying pages to another notebook (UX_AUDIT R7-9).
 extension PageTransferFlow on DocumentCommands {
@@ -42,9 +43,17 @@ extension PageTransferFlow on DocumentCommands {
     final edit = edits.sendTo(
       sent,
       open: () => to?.id ?? _create(here, destination.title).id,
-      discard: to == null ? services.notebooks.delete : null,
+      made: to == null,
       copy: copy,
       changed: _changed,
+      kept: (id, kept) {
+        if (!context.mounted) return;
+        final title = services.notebooks.get(id)?.title ?? destination.title;
+        showMessage(context, switch (kept) {
+          TransferKept.trashed => '“$title” changed since, so it went to the Trash',
+          TransferKept.copies => 'The copies in “$title” changed since, so they stay',
+        });
+      },
     );
     if (!context.mounted) return;
     final count = sent.length == 1 ? '1 page' : '${sent.length} pages';

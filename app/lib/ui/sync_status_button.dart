@@ -77,7 +77,10 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
       builder: (context, _) {
         final tooLarge = sync.state == SyncState.disabled ? null : sync.tooLargeSummary;
         final (icon, status) = switch (sync.state) {
-          SyncState.disabled => (Symbols.cloud_off_sharp, 'Your notes are only on this device: set up sync'),
+          SyncState.disabled => (
+            Symbols.cloud_off_sharp,
+            'Your notes are only on this device: set up sync',
+          ),
           SyncState.idle => (Symbols.cloud_done_sharp, 'Synced — tap to sync now'),
           SyncState.syncing => (Symbols.cloud_sync_sharp, 'Syncing…'),
           SyncState.error => (Symbols.cloud_off_sharp, '${sync.lastError}\nTap for details'),

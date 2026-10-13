@@ -62,7 +62,7 @@ grew apart.
 
 ### Pages between notebooks
 
-**R8-1 P0 · Undoing a page transfer deletes later work.**
+✅ **R8-1 P0 · Undoing a page transfer deletes later work.**
 - *What:* `PageEdits.sendTo` (`features/editor/document/page_edits.dart:87-126`)
   records the transfer as a step in the source notebook's history. Its
   undo runs `removeCopies` (`data/notebook_duplicator.dart`). That deletes
@@ -84,6 +84,15 @@ grew apart.
     “Biology” since: move them back from there".
   - Never `delete` a notebook in an undo. Trash it, and only when it is
     untouched.
+- *Done (`fix/r8-data`):* `PageTransfer` (`editor/document/page_transfer.dart`)
+  marks the copies' state (`data/change_mark.dart`) when it makes them.
+  Undo restores the originals. It removes the copies only while that mark
+  is unchanged; changed copies stay, and the snack says "The copies in
+  “Biology” changed since, so they stay". A notebook made by "New
+  notebook…" always goes to the Trash with everything in it (and the
+  snack says so if it changed). Redo reuses copies still there (taking
+  the notebook out of the Trash), so nothing doubles; once the Trash is
+  emptied it makes a new one. Tests: `page_transfer_undo_test.dart`.
 
 **R8-2 P1 · Move or copy pages is missing from the editor.**
 - *What:* ⋯ → Page (`features/editor/chrome/editor_more_menu.dart:128-145`)
@@ -113,7 +122,7 @@ grew apart.
   “X”". Give it a different glyph from the folder move
   (`Symbols.move_group_sharp` or similar).
 
-**R8-5 P2 · A move isn't one database transaction.**
+✅ **R8-5 P2 · A move isn't one database transaction.**
 - *What:* `send()` calls `copyPages` (its own transaction), then
   `deleteAll`, `retargetLinks` and `touch` separately
   (`page_edits.dart:100-109`). The undo does run in one transaction
@@ -122,6 +131,7 @@ grew apart.
   left with duplicate pages, or links pointing at copies while the
   originals still exist, and sync uploads that state.
 - *Fix:* wrap `send` in `services.database.transaction`.
+- *Done (`fix/r8-data`):* `PageTransfer.send` is one transaction.
 
 **R8-6 P2 · The destination picker loses its way in a big library.**
 - *What:* captions show only the parent folder's name
