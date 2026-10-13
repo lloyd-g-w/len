@@ -84,6 +84,13 @@ final List<ShortcutGroup> shortcutGroups = [
     ], shown: '[ / ]'),
   ]),
   ShortcutGroup('Selection', [
+    ShortcutHelp('Select all on the page (or in view)', [_ctrl(LogicalKeyboardKey.keyA)]),
+    const ShortcutHelp('Nudge 1 pt / 10 pt', [
+      SingleActivator(LogicalKeyboardKey.arrowLeft),
+      SingleActivator(LogicalKeyboardKey.arrowUp),
+      SingleActivator(LogicalKeyboardKey.arrowRight, shift: true),
+      SingleActivator(LogicalKeyboardKey.arrowDown, shift: true),
+    ], shown: 'Arrows / Shift+arrows'),
     ShortcutHelp('Copy', [_ctrl(LogicalKeyboardKey.keyC)]),
     ShortcutHelp('Cut', [_ctrl(LogicalKeyboardKey.keyX)]),
     ShortcutHelp('Paste', [_ctrl(LogicalKeyboardKey.keyV)]),
@@ -95,22 +102,31 @@ final List<ShortcutGroup> shortcutGroups = [
     ]),
     const ShortcutHelp('Deselect', [SingleActivator(LogicalKeyboardKey.escape)]),
   ]),
-  const ShortcutGroup('Pages', [
-    ShortcutHelp('Next page', [
+  ShortcutGroup('Pages', [
+    const ShortcutHelp('Next page', [
       SingleActivator(LogicalKeyboardKey.arrowRight),
       SingleActivator(LogicalKeyboardKey.pageDown),
     ]),
-    ShortcutHelp('Previous page', [
+    const ShortcutHelp('Previous page', [
       SingleActivator(LogicalKeyboardKey.arrowLeft),
       SingleActivator(LogicalKeyboardKey.pageUp),
     ]),
-    ShortcutHelp('First / last page', [
+    const ShortcutHelp('First / last page', [
       SingleActivator(LogicalKeyboardKey.home),
       SingleActivator(LogicalKeyboardKey.end),
     ], shown: 'Home / End'),
-    ShortcutHelp('Automatic zoom', [SingleActivator(LogicalKeyboardKey.digit0)]),
-    ShortcutHelp('Whole page', [SingleActivator(LogicalKeyboardKey.digit1, shift: true)]),
-    ShortcutHelp('Page width', [SingleActivator(LogicalKeyboardKey.digit2, shift: true)]),
+    ShortcutHelp('Zoom in / out', [
+      const SingleActivator(LogicalKeyboardKey.equal),
+      const SingleActivator(LogicalKeyboardKey.minus),
+      _ctrl(LogicalKeyboardKey.equal),
+      _ctrl(LogicalKeyboardKey.minus),
+    ], shown: '+ / −'),
+    ShortcutHelp('Automatic zoom', [
+      const SingleActivator(LogicalKeyboardKey.digit0),
+      _ctrl(LogicalKeyboardKey.digit0),
+    ]),
+    const ShortcutHelp('Whole page', [SingleActivator(LogicalKeyboardKey.digit1, shift: true)]),
+    const ShortcutHelp('Page width', [SingleActivator(LogicalKeyboardKey.digit2, shift: true)]),
   ]),
   ShortcutGroup('Canvas', [
     ShortcutHelp('Zoom in / out', const [
@@ -151,6 +167,7 @@ final List<ShortcutGroup> shortcutGroups = [
     ShortcutHelp('New folder', [_ctrl(LogicalKeyboardKey.keyN, shift: true)]),
     ShortcutHelp('Search', [_ctrl(LogicalKeyboardKey.keyF)]),
     ShortcutHelp('Select all', [_ctrl(LogicalKeyboardKey.keyA)]),
+    const ShortcutHelp('Rename', [SingleActivator(LogicalKeyboardKey.f2)]),
     const ShortcutHelp('Move to trash', [SingleActivator(LogicalKeyboardKey.delete)]),
   ]),
 ];

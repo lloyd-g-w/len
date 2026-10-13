@@ -32,6 +32,16 @@ class SelectionController extends _SelectionCore {
     clear();
   }
 
+  /// Moves the selection by [delta] (world units, e.g. points on a page)
+  /// as one undoable edit: arrow-key nudges.
+  void nudge(Offset delta) {
+    final frame = this.frame;
+    if (isEmpty || frame == null || delta == Offset.zero) return;
+    final moved = frame.moved(delta);
+    setPreview(moved.transform, moved.frame);
+    commitPreview();
+  }
+
   void copy() {
     if (isEmpty) return;
     clipboard.put(_strokes, _elements, boundsOf(_strokes, _elements));

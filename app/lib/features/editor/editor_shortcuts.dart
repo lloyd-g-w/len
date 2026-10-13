@@ -6,6 +6,7 @@ import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
 import '../settings/keyboard_shortcuts.dart';
 import 'canvas/canvas_shortcuts.dart';
+import 'document/document_key_zoom.dart';
 import 'document/page_fit.dart';
 import 'editor_session.dart';
 import 'pdf/pdf_layer.dart';
@@ -34,9 +35,15 @@ const _digitKeys = [
 ];
 
 /// The editor's keyboard shortcuts: undo/redo, tools, quick colours and
-/// widths, selection, focus mode and tabs, plus canvas navigation (zoom,
-/// fit, Home = back to start) or page navigation (arrows, Page Up/Down,
-/// Home = first page, End = last page).
+/// widths, selection (Ctrl/⌘+A selects all on the page or in view; arrows
+/// nudge a selection 1 pt, Shift+arrows 10 pt), focus mode and tabs, plus
+/// canvas navigation (zoom, fit, Home = back to start) or page navigation
+/// (←/→ without a selection, Page Up/Down, Home = first page, End = last
+/// page) and zoom.
+
+/// How far an arrow key nudges a selection (world units: points on a page),
+/// and with Shift.
+const double nudgeStep = 1, nudgeStepLarge = 10;
 Map<ShortcutActivator, VoidCallback> editorShortcuts(
   EditorSession session, {
   required VoidCallback toggleFocus,
@@ -48,6 +55,18 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
 }) {
   final undo = session.undo;
   final tools = session.tools;
+  final selection = session.content.selection;
+  final doc = session.doc;
+  void selectAll() =>
+      session.content.selectAllIn(doc?.pageViewport.contentBounds ?? session.viewport.visibleWorld);
+  // Arrows: nudge the selection, else (←/→ in a notebook) turn the page.
+  VoidCallback arrow(Offset direction, {required bool large, int? page}) => unlessTyping(() {
+    if (!selection.isEmpty) {
+      selection.nudge(direction * (large ? nudgeStepLarge : nudgeStep));
+    } else if (doc != null && page != null && !large) {
+      doc.scrollToPage(doc.currentPage + page);
+    }
+  });
   return {
     for (final mod in [(control: true, meta: false), (control: false, meta: true)]) ...{
       SingleActivator(LogicalKeyboardKey.keyZ, control: mod.control, meta: mod.meta): undo.undo,
@@ -55,6 +74,18 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
           undo.redo,
       SingleActivator(LogicalKeyboardKey.period, control: mod.control, meta: mod.meta): toggleFocus,
       SingleActivator(LogicalKeyboardKey.keyW, control: mod.control, meta: mod.meta): ?closeTab,
+      SingleActivator(LogicalKeyboardKey.keyA, control: mod.control, meta: mod.meta): unlessTyping(
+        selectAll,
+      ),
+    },
+    for (final (key, direction, page) in [
+      (LogicalKeyboardKey.arrowLeft, const Offset(-1, 0), -1),
+      (LogicalKeyboardKey.arrowRight, const Offset(1, 0), 1),
+      (LogicalKeyboardKey.arrowUp, const Offset(0, -1), null),
+      (LogicalKeyboardKey.arrowDown, const Offset(0, 1), null),
+    ]) ...{
+      SingleActivator(key): arrow(direction, large: false, page: page),
+      SingleActivator(key, shift: true): arrow(direction, large: true),
     },
     const SingleActivator(LogicalKeyboardKey.keyY, control: true): undo.redo,
     const SingleActivator(LogicalKeyboardKey.f11): toggleFocus,
@@ -75,11 +106,14 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
     const SingleActivator(LogicalKeyboardKey.bracketRight): unlessTyping(() => tools.stepWidth(1)),
     ...contentShortcuts(session.content, tools, unlessTyping, paste: paste, pastePlain: pastePlain),
     if (session.canvasNav case final nav?) ...canvasShortcuts(nav, unlessTyping),
-    if (session.doc case final doc?) ...{
-      for (final key in [LogicalKeyboardKey.pageDown, LogicalKeyboardKey.arrowRight])
-        SingleActivator(key): unlessTyping(() => doc.scrollToPage(doc.currentPage + 1)),
-      for (final key in [LogicalKeyboardKey.pageUp, LogicalKeyboardKey.arrowLeft])
-        SingleActivator(key): unlessTyping(() => doc.scrollToPage(doc.currentPage - 1)),
+    if (doc != null) ...{
+      const SingleActivator(LogicalKeyboardKey.pageDown): unlessTyping(
+        () => doc.scrollToPage(doc.currentPage + 1),
+      ),
+      const SingleActivator(LogicalKeyboardKey.pageUp): unlessTyping(
+        () => doc.scrollToPage(doc.currentPage - 1),
+      ),
+      ...documentZoomShortcuts(doc, unlessTyping),
       const SingleActivator(LogicalKeyboardKey.home): unlessTyping(() => doc.scrollToPage(0)),
       const SingleActivator(LogicalKeyboardKey.end): unlessTyping(
         () => doc.scrollToPage(doc.pages.length - 1),

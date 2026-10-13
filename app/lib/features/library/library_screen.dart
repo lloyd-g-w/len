@@ -9,7 +9,6 @@ import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
 import '../../sync/sync_controller.dart';
 import '../../ui/app_theme.dart';
-import '../../ui/menus.dart';
 import '../audio/ui/recover_recording_dialog.dart';
 import '../documents/import/import_flow.dart';
 import '../settings/keyboard_shortcuts.dart';
@@ -19,6 +18,7 @@ import 'library_content.dart';
 import 'library_controller.dart';
 import 'library_file_drop.dart';
 import 'library_header.dart';
+import 'library_menus.dart';
 import 'library_notice.dart';
 import 'library_sidebar.dart';
 import 'selection/selection_actions.dart';
@@ -31,9 +31,10 @@ import 'thumbnails/thumbnail_scope.dart';
 ///
 /// From [Breakpoints.medium] a sidebar; below it the same content in a
 /// drawer (☰). Shortcuts: Ctrl+N new notebook, Ctrl+Shift+N new folder,
-/// Ctrl+F search, Ctrl+A select all, Delete moves the focused (or selected)
-/// notebooks to the trash, Esc ends selection or clears the search. Ctrl-
-/// and Shift-click select notebooks.
+/// Ctrl+F search, Ctrl+A select all, Delete (⌘⌫ on Macs) moves the focused
+/// (or selected) notebooks to the trash, F2 renames the focused notebook,
+/// Esc ends selection or clears the search. Ctrl- and Shift-click select
+/// notebooks.
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
 
@@ -173,6 +174,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
     unawaited(_actions.trash(focusContext, notebook));
   }
 
+  /// The notebook with keyboard focus, if it is not in the trash.
+  Notebook? get _focusedNotebook {
+    final id = _controller.focusedNotebookId;
+    final notebook = id == null ? null : _services!.notebooks.get(id);
+    return notebook == null || notebook.isTrashed ? null : notebook;
+  }
+
+  void _renameFocused() {
+    final notebook = _focusedNotebook;
+    if (notebook == null) return;
+    final focusContext = FocusManager.instance.primaryFocus?.context ?? context;
+    unawaited(_actions.onNotebookAction(focusContext, notebook, NotebookAction.rename));
+  }
+
   Map<ShortcutActivator, VoidCallback> get _shortcuts => {
     // Ctrl, and ⌘ on Apple keyboards.
     for (final mod in [(control: true, meta: false), (control: false, meta: true)]) ...{
@@ -189,6 +204,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     },
     ...keyboardShortcutsBinding(() => unawaited(showKeyboardShortcuts(context))),
     const SingleActivator(LogicalKeyboardKey.delete): _trashFocused,
+    const SingleActivator(LogicalKeyboardKey.backspace, meta: true): _trashFocused,
+    const SingleActivator(LogicalKeyboardKey.f2): _renameFocused,
     const SingleActivator(LogicalKeyboardKey.keyA, control: true): _selectAll,
     const SingleActivator(LogicalKeyboardKey.keyA, meta: true): _selectAll,
     const SingleActivator(LogicalKeyboardKey.escape): _clearSearch,
