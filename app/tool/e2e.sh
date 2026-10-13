@@ -38,8 +38,19 @@ server_pid=
 cleanup() {
   [ -n "$server_pid" ] && kill "$server_pid" 2>/dev/null || true
   rm -rf "$work/a" "$work/b" "$work/server"
+  # Put pubspec back as it was (see below).
+  if [ -f "$work/pubspec.yaml" ]; then
+    cp "$work/pubspec.yaml" pubspec.yaml && cp "$work/pubspec.lock" pubspec.lock
+    flutter pub get >/dev/null || true
+  fi
 }
 trap cleanup EXIT
+
+# integration_test is not a dependency of the app: with it, Android builds
+# fail under Nix (Gradle can't configure its project in the read-only
+# store). Add it for this run only; cleanup() restores pubspec.
+cp pubspec.yaml pubspec.lock "$work/"
+flutter pub add 'dev:integration_test:{"sdk":"flutter"}' >/dev/null
 
 # --- The sync server, on a free port with a temporary database. -----------
 port=$((20000 + RANDOM % 20000))
