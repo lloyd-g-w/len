@@ -91,7 +91,7 @@ class _ColorChoicesState extends State<ColorChoices> {
                     visualDensity: Targets.touchFirst ? null : VisualDensity.compact,
                   ),
                   icon: Icon(
-                    _customOpen ? Symbols.expand_less_rounded : Symbols.palette_rounded,
+                    _customOpen ? Symbols.expand_less_sharp : Symbols.palette_sharp,
                     size: Glyphs.menu,
                   ),
                   label: const Text('Custom'),

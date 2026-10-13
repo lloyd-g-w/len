@@ -96,7 +96,7 @@ class _FolderDialogState extends State<_FolderDialog> {
               AnimatedSwitcher(
                 duration: Motion.fast,
                 child: Icon(
-                  Symbols.folder_rounded,
+                  Symbols.folder_sharp,
                   key: ValueKey(_color),
                   fill: 1,
                   color: color,

@@ -23,17 +23,17 @@ class SyncStatusLine extends StatelessWidget {
       builder: (context, _) {
         final last = sync.lastSuccess;
         final (icon, color, text) = switch (sync.state) {
-          SyncState.disabled => (Symbols.cloud_off_rounded, scheme.onSurfaceVariant, 'Sync is off'),
-          SyncState.syncing => (Symbols.cloud_sync_rounded, scheme.primary, 'Syncing…'),
+          SyncState.disabled => (Symbols.cloud_off_sharp, scheme.onSurfaceVariant, 'Sync is off'),
+          SyncState.syncing => (Symbols.cloud_sync_sharp, scheme.primary, 'Syncing…'),
           SyncState.error => (
-            Symbols.error_rounded,
+            Symbols.error_sharp,
             scheme.error,
             sync.waitsForSettings
                 ? '${sync.lastError}. Sync is paused'
                 : sync.lastError ?? 'Sync failed',
           ),
           SyncState.idle => (
-            Symbols.cloud_done_rounded,
+            Symbols.cloud_done_sharp,
             scheme.primary,
             last == null ? 'Ready' : 'Last synced ${formatEdited(last.millisecondsSinceEpoch)}',
           ),
@@ -92,7 +92,7 @@ class _TooLargeNotice extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(Symbols.cloud_upload_rounded, size: Glyphs.menu, color: scheme.primary),
+            child: Icon(Symbols.cloud_upload_sharp, size: Glyphs.menu, color: scheme.primary),
           ),
           const SizedBox(width: Gaps.sm),
           Expanded(

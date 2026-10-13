@@ -99,7 +99,7 @@ class _PdfLayerState extends State<PdfLayer> {
       title: 'Open link?',
       message: url.toString(),
       confirmLabel: 'Open',
-      icon: Symbols.open_in_new_rounded,
+      icon: Symbols.open_in_new_sharp,
     );
     if (!open || !mounted) return;
     if (!await widget.openUrl(url) && mounted) showMessage(context, 'Couldn’t open $url');
@@ -244,13 +244,13 @@ class _PdfLayerState extends State<PdfLayer> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  button('Copy', Symbols.content_copy_rounded, _copy, 'pdf-copy'),
-                  button('Highlight', Symbols.border_color_rounded, _highlight, 'pdf-highlight'),
+                  button('Copy', Symbols.content_copy_sharp, _copy, 'pdf-copy'),
+                  button('Highlight', Symbols.border_color_sharp, _highlight, 'pdf-highlight'),
                   if (_pdf.selectedLink != null)
                     IconButton(
                       key: const ValueKey('pdf-open-link'),
                       tooltip: 'Open link',
-                      icon: const Icon(Symbols.open_in_new_rounded, size: Glyphs.bar),
+                      icon: const Icon(Symbols.open_in_new_sharp, size: Glyphs.bar),
                       onPressed: _pdf.openSelectedLink,
                     ),
                   if (_pdf.onLinkSelection case final link?)
@@ -258,7 +258,7 @@ class _PdfLayerState extends State<PdfLayer> {
                       builder: (anchor) => IconButton(
                         key: const ValueKey('pdf-link'),
                         tooltip: 'Link…',
-                        icon: const Icon(Symbols.link_rounded, size: Glyphs.bar),
+                        icon: const Icon(Symbols.link_sharp, size: Glyphs.bar),
                         onPressed: () async {
                           final choice = await showLinkMenu(anchor);
                           if (choice != null) link(url: choice == LinkChoice.url);
@@ -268,7 +268,7 @@ class _PdfLayerState extends State<PdfLayer> {
                   IconButton(
                     key: const ValueKey('pdf-select-all'),
                     tooltip: 'Select all on page',
-                    icon: const Icon(Symbols.select_all_rounded, size: Glyphs.bar),
+                    icon: const Icon(Symbols.select_all_sharp, size: Glyphs.bar),
                     onPressed: _pdf.selectAll,
                   ),
                 ],

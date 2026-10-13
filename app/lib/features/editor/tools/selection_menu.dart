@@ -154,51 +154,46 @@ class _MenuBar extends StatelessWidget {
     // Edit text first for a single text box. The rest is in ⋯; what the
     // pill has no room for moves there too.
     final primary = <_Action>[
-      if (singleText) _Action('Edit text', Symbols.edit_rounded, () => onEditText(elements.single)),
+      if (singleText) _Action('Edit text', Symbols.edit_sharp, () => onEditText(elements.single)),
       if (styleable)
         _Action.anchored(
           'Style',
-          Symbols.palette_rounded,
+          Symbols.palette_sharp,
           (anchor) => showSelectionStyle(anchor, selection: selection, tools: tools),
         ),
-      _Action('Cut', Symbols.content_cut_rounded, selection.cut, shortcut: '${modifierLabel()}+X'),
-      _Action(
-        'Copy',
-        Symbols.content_copy_rounded,
-        selection.copy,
-        shortcut: '${modifierLabel()}+C',
-      ),
+      _Action('Cut', Symbols.content_cut_sharp, selection.cut, shortcut: '${modifierLabel()}+X'),
+      _Action('Copy', Symbols.content_copy_sharp, selection.copy, shortcut: '${modifierLabel()}+C'),
     ];
     final secondary = <_Action>[
       _Action(
         'Duplicate',
-        Symbols.library_add_rounded,
+        Symbols.library_add_sharp,
         selection.duplicate,
         shortcut: '${modifierLabel()}+D',
       ),
       if (!selection.clipboard.isEmpty)
-        _Action('Paste', Symbols.content_paste_rounded, onPaste, shortcut: '${modifierLabel()}+V'),
+        _Action('Paste', Symbols.content_paste_sharp, onPaste, shortcut: '${modifierLabel()}+V'),
       if (convertible)
         if (convertUnavailable case final reason?)
           // Chosen where it can't work, it says why (a disabled row in a
           // menu couldn't).
           _Action.anchored(
             'Convert to text',
-            Symbols.spellcheck_rounded,
+            Symbols.spellcheck_sharp,
             (anchor) => showMessage(anchor, reason),
           )
         else
-          _Action('Convert to text', Symbols.spellcheck_rounded, onConvertToText),
+          _Action('Convert to text', Symbols.spellcheck_sharp, onConvertToText),
       for (final x in extras) _Action.anchored(x.label, x.icon, x.run),
       if (singleImage && onCrop != null)
-        _Action('Crop', Symbols.crop_rounded, () => onCrop!(elements.single)),
+        _Action('Crop', Symbols.crop_sharp, () => onCrop!(elements.single)),
       // Arranging only matters where something else overlaps.
       if (_overlapsOthers()) ...[
-        _Action('Bring to front', Symbols.flip_to_front_rounded, selection.bringToFront),
-        _Action('Send to back', Symbols.flip_to_back_rounded, selection.sendToBack),
+        _Action('Bring to front', Symbols.flip_to_front_sharp, selection.bringToFront),
+        _Action('Send to back', Symbols.flip_to_back_sharp, selection.sendToBack),
       ],
     ];
-    final delete = _Action('Delete', Symbols.delete_rounded, selection.delete, shortcut: 'Del');
+    final delete = _Action('Delete', Symbols.delete_sharp, selection.delete, shortcut: 'Del');
     return LayoutBuilder(
       builder: (context, constraints) {
         // Buttons are 48 dp; the panel adds 6 dp on each side.
@@ -217,7 +212,7 @@ class _MenuBar extends StatelessWidget {
                 Builder(
                   builder: (anchor) => MenuIconButton<_Action>(
                     tooltip: 'More',
-                    icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
+                    icon: const Icon(Symbols.more_horiz_sharp, size: Glyphs.bar),
                     onSelected: (a) => a.run(anchor),
                     items: () => [
                       for (final a in more)

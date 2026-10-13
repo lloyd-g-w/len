@@ -66,7 +66,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   Widget? _notice() {
     if (_services.writes.failure case final failure?) {
       return LibraryNotice(
-        icon: Symbols.save_rounded,
+        icon: Symbols.save_sharp,
         title: StorageAttention.unsavedTitle,
         body: StorageAttention.unsavedBody(failure),
         action: TextButton(
@@ -77,7 +77,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     }
     if (!_services.blobsArePersistent) {
       return const LibraryNotice(
-        icon: Symbols.cloud_off_rounded,
+        icon: Symbols.cloud_off_sharp,
         title: 'Files you add won\'t be kept in this browser window',
         body:
             'This browser doesn\'t let Len store files, so PDFs, images and recordings '
@@ -88,7 +88,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     if (_services.database.schemaReset case final reset?) return _resetNotice(reset);
     if (_evictable != true || _services.sync.isConfigured) return null;
     return LibraryNotice(
-      icon: Symbols.storage_rounded,
+      icon: Symbols.storage_sharp,
       title: 'This browser may clear your notebooks',
       body:
           'Browsers can delete site data when space runs low. Let Len keep its data, '
@@ -109,7 +109,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
         ? 'The old data couldn\'t be kept in this browser.'
         : 'The old data was kept in';
     return LibraryNotice(
-      icon: Symbols.restart_alt_rounded,
+      icon: Symbols.restart_alt_sharp,
       title: 'Len started fresh',
       body: 'Len\'s storage was from $version version, so it started fresh. $sync $kept',
       detail: backup,
@@ -219,7 +219,7 @@ class LibraryNotice extends StatelessWidget {
               IconButton(
                 tooltip: 'Dismiss',
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Symbols.close_rounded, size: Glyphs.menu),
+                icon: const Icon(Symbols.close_sharp, size: Glyphs.menu),
                 onPressed: dismiss,
               ),
           ],

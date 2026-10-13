@@ -26,15 +26,13 @@ Future<void> showTabSwitcher(BuildContext context, OpenNotebooks tabs) {
               key: ValueKey('switcher-${tab.id}'),
               selected: tab.id == tabs.activeId,
               leading: Icon(
-                tab.kind == NotebookKind.canvas
-                    ? Symbols.gesture_rounded
-                    : Symbols.menu_book_rounded,
+                tab.kind == NotebookKind.canvas ? Symbols.gesture_sharp : Symbols.menu_book_sharp,
               ),
               title: Text(tab.title, maxLines: 1, overflow: TextOverflow.ellipsis),
               trailing: IconButton(
                 tooltip: 'Close tab',
                 onPressed: () => tabs.close(tab.id),
-                icon: const Icon(Symbols.close_rounded),
+                icon: const Icon(Symbols.close_sharp),
               ),
               onTap: () {
                 Navigator.of(context).pop();

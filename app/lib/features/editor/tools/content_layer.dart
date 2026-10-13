@@ -195,7 +195,7 @@ class _ContentLayerState extends State<ContentLayer> {
                   setState(() => _pasteAt = null);
                   _content.selection.paste(pasteAt.world);
                 },
-                icon: const Icon(Symbols.content_paste_rounded, size: Glyphs.menu),
+                icon: const Icon(Symbols.content_paste_sharp, size: Glyphs.menu),
                 label: const Text('Paste'),
               ),
             ),

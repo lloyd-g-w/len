@@ -24,7 +24,7 @@ class WritingSettings extends StatelessWidget {
         title: 'Writing',
         children: [
           SettingsTile(
-            icon: Symbols.stylus_rounded,
+            icon: Symbols.stylus_sharp,
             title: 'Draw with',
             subtitle: switch (preferences.stylusOnly) {
               null => 'Fingers draw until a stylus touches the screen; then they pan and zoom',
@@ -50,7 +50,7 @@ class WritingSettings extends StatelessWidget {
           // where the user said they draw with one.
           if (defaultTargetPlatform == TargetPlatform.android || preferences.stylusOnly == true)
             SettingsTile(
-              icon: Symbols.ads_click_rounded,
+              icon: Symbols.ads_click_sharp,
               title: 'Side button',
               subtitle: 'While you hold the S Pen (or stylus) button',
               control: FitSegments(
@@ -68,7 +68,7 @@ class WritingSettings extends StatelessWidget {
               ),
             ),
           SettingsTile(
-            icon: Symbols.undo_rounded,
+            icon: Symbols.undo_sharp,
             title: 'Tap to undo and redo',
             subtitle: 'Two fingers undo, three redo',
             onTap: () => preferences.fingerTapUndo = !preferences.fingerTapUndo,
@@ -78,7 +78,7 @@ class WritingSettings extends StatelessWidget {
             ),
           ),
           SettingsTile(
-            icon: Symbols.view_day_rounded,
+            icon: Symbols.view_day_sharp,
             title: 'Toolbar',
             subtitle: switch (preferences.toolbarPlacement) {
               ToolbarPlacement.docked => 'Along the top; at the bottom on phones',

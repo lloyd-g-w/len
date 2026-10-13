@@ -21,7 +21,7 @@ class InkLabPenMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return MenuIconButton<PenSettings>(
       tooltip: 'Pen',
-      icon: const Icon(Symbols.edit_rounded),
+      icon: const Icon(Symbols.edit_sharp),
       onSelected: onChanged,
       items: () => [
         MenuRow(value: pen, label: 'Stabiliser', enabled: false),

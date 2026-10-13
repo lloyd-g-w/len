@@ -134,7 +134,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
     final leading = inFolder && widget.compact
         ? IconButton(
             tooltip: 'Up to ${_c.folderById(_c.parentOf(_c.folder!))?.name ?? 'Library'}',
-            icon: const Icon(Symbols.arrow_back_rounded),
+            icon: const Icon(Symbols.arrow_back_sharp),
             onPressed: _c.goUp,
           )
         : widget.leading;
@@ -186,7 +186,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
           ] else if (!searchOpen)
             IconButton(
               tooltip: 'Search',
-              icon: const Icon(Symbols.search_rounded),
+              icon: const Icon(Symbols.search_sharp),
               onPressed: _openSearch,
             ),
           if (!widget.compact && _c.section == LibrarySection.library) _NewMenu(actions: _actions),
@@ -239,7 +239,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       return IconButton(
         tooltip: 'Empty trash…',
         color: theme.colorScheme.error,
-        icon: const Icon(Symbols.delete_sweep_rounded),
+        icon: const Icon(Symbols.delete_sweep_sharp),
         onPressed: empty,
       );
     }
@@ -248,7 +248,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       child: TextButton.icon(
         style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
         onPressed: empty,
-        icon: const Icon(Symbols.delete_sweep_rounded, size: Glyphs.menu),
+        icon: const Icon(Symbols.delete_sweep_sharp, size: Glyphs.menu),
         label: const Text('Empty trash…'),
       ),
     );
@@ -287,7 +287,7 @@ class _SearchField extends StatelessWidget {
             hintText: 'Search',
             contentPadding: EdgeInsets.zero,
             prefixIcon: Icon(
-              Symbols.search_rounded,
+              Symbols.search_sharp,
               color: scheme.onSurfaceVariant,
               size: Glyphs.bar,
             ),
@@ -298,7 +298,7 @@ class _SearchField extends StatelessWidget {
                         ? 'Clear search'
                         : 'Close search',
                     iconSize: Glyphs.menu,
-                    icon: const Icon(Symbols.close_rounded),
+                    icon: const Icon(Symbols.close_sharp),
                     onPressed: () {
                       if (controller.text.isEmpty) {
                         onClose?.call();
@@ -322,16 +322,16 @@ enum NewChoice { notebook, canvas, pdf, folder }
 List<PopupMenuEntry<NewChoice>> newMenuItems() => [
   MenuRow(
     value: NewChoice.notebook,
-    icon: Symbols.menu_book_rounded,
+    icon: Symbols.menu_book_sharp,
     label: 'New notebook',
     shortcut: '${modifierLabel()}+N',
   ),
-  const MenuRow(value: NewChoice.canvas, icon: Symbols.all_inclusive_rounded, label: 'New canvas'),
-  const MenuRow(value: NewChoice.pdf, icon: Symbols.picture_as_pdf_rounded, label: 'Import PDF…'),
+  const MenuRow(value: NewChoice.canvas, icon: Symbols.all_inclusive_sharp, label: 'New canvas'),
+  const MenuRow(value: NewChoice.pdf, icon: Symbols.picture_as_pdf_sharp, label: 'Import PDF…'),
   const PopupMenuDivider(),
   MenuRow(
     value: NewChoice.folder,
-    icon: Symbols.create_new_folder_rounded,
+    icon: Symbols.create_new_folder_sharp,
     label: 'New folder…',
     shortcut: '${modifierLabel()}+Shift+N',
   ),
@@ -359,8 +359,8 @@ class _NewMenu extends StatelessWidget {
       icon: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Symbols.add_circle_rounded),
-          Icon(Symbols.arrow_drop_down_rounded, size: Glyphs.menu),
+          Icon(Symbols.add_circle_sharp),
+          Icon(Symbols.arrow_drop_down_sharp, size: Glyphs.menu),
         ],
       ),
       items: newMenuItems,
@@ -405,7 +405,7 @@ class _ViewMenu extends StatelessWidget {
     final c = actions.controller;
     return MenuIconButton<_ViewChoice>(
       tooltip: 'View',
-      icon: const Icon(Symbols.swap_vert_rounded),
+      icon: const Icon(Symbols.swap_vert_sharp),
       onSelected: (choice) => switch (choice) {
         _Sort(:final sort) => c.sort = sort,
         _Layout(:final layout) => c.layout = layout,
@@ -421,19 +421,19 @@ class _ViewMenu extends StatelessWidget {
         const MenuHeading('Show as'),
         MenuRow(
           value: const _Layout(LibraryLayout.grid),
-          icon: Symbols.grid_view_rounded,
+          icon: Symbols.grid_view_sharp,
           label: 'Grid',
           checked: c.layout == LibraryLayout.grid,
         ),
         MenuRow(
           value: const _Layout(LibraryLayout.list),
-          icon: Symbols.view_agenda_rounded,
+          icon: Symbols.view_agenda_sharp,
           label: 'List',
           checked: c.layout == LibraryLayout.list,
         ),
         if (c.visibleNotebooks.isNotEmpty && !actions.selection.active) ...[
           const PopupMenuDivider(),
-          const MenuRow(value: _Select(), icon: Symbols.check_circle_rounded, label: 'Select'),
+          const MenuRow(value: _Select(), icon: Symbols.check_circle_sharp, label: 'Select'),
         ],
       ],
     );
@@ -482,7 +482,7 @@ class _Breadcrumbs extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Symbols.chevron_right_rounded, size: Glyphs.menu, color: scheme.outline),
+            Icon(Symbols.chevron_right_sharp, size: Glyphs.menu, color: scheme.outline),
           ],
         ],
       ),

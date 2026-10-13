@@ -74,7 +74,7 @@ class _CanvasEmptyHintState extends State<CanvasEmptyHint> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Symbols.gesture_rounded, size: Glyphs.empty, color: colour),
+                Icon(Symbols.gesture_sharp, size: Glyphs.empty, color: colour),
                 const SizedBox(height: Gaps.sm),
                 Text('Draw anywhere', style: theme.textTheme.titleMedium?.copyWith(color: colour)),
                 const SizedBox(height: Gaps.xs),

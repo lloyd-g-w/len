@@ -97,7 +97,7 @@ class EditorLinks {
           title: 'Open link?',
           message: uri.toString(),
           confirmLabel: 'Open',
-          icon: Symbols.open_in_new_rounded,
+          icon: Symbols.open_in_new_sharp,
         );
         if (!open || !context.mounted) return;
         if (!await _openUrl(uri) && context.mounted) showMessage(context, 'Couldn’t open $uri');

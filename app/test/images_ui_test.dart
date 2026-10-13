@@ -214,7 +214,7 @@ void main() {
     await mouseDrag(tester, const [Offset(100, 400), Offset(150, 400), Offset(200, 400)]);
     await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/images_crop.png'));
     final reset = tester.widget<IconButton>(
-      find.ancestor(of: find.byIcon(Symbols.crop_free_rounded), matching: find.byType(IconButton)),
+      find.ancestor(of: find.byIcon(Symbols.crop_free_sharp), matching: find.byType(IconButton)),
     );
     expect(reset.onPressed, isNotNull);
     await tester.tap(find.text('Done'));

@@ -57,7 +57,7 @@ class FontMenuButton extends StatelessWidget {
                   style: current == null ? null : sample(current),
                 ),
               ),
-            const Icon(Symbols.expand_more_rounded, size: Glyphs.bar),
+            const Icon(Symbols.expand_more_sharp, size: Glyphs.bar),
           ],
         ),
       ),
@@ -94,7 +94,7 @@ class HighlightMenuButton extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: scheme.outline),
       ),
-      child: c == null ? Icon(Symbols.block_rounded, size: 16, color: scheme.outline) : null,
+      child: c == null ? Icon(Symbols.block_sharp, size: 16, color: scheme.outline) : null,
     );
     return MenuIconButton<int>(
       tooltip: 'Highlight',
@@ -112,7 +112,7 @@ class HighlightMenuButton extends StatelessWidget {
       icon: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          const Icon(Symbols.border_color_rounded, size: Glyphs.bar),
+          const Icon(Symbols.border_color_sharp, size: Glyphs.bar),
           Container(
             width: 20,
             height: 4,
@@ -161,10 +161,10 @@ class ParagraphMenuButton extends StatelessWidget {
   final ValueChanged<ParagraphChoice> onSelected;
 
   static IconData iconOf(ListKind kind) => switch (kind) {
-    ListKind.none => Symbols.notes_rounded,
-    ListKind.bullet => Symbols.format_list_bulleted_rounded,
-    ListKind.number => Symbols.format_list_numbered_rounded,
-    ListKind.check => Symbols.checklist_rounded,
+    ListKind.none => Symbols.notes_sharp,
+    ListKind.bullet => Symbols.format_list_bulleted_sharp,
+    ListKind.number => Symbols.format_list_numbered_sharp,
+    ListKind.check => Symbols.checklist_sharp,
   };
 
   @override
@@ -207,9 +207,9 @@ class ParagraphMenuButton extends StatelessWidget {
         current != null
             ? iconOf(current)
             : switch (heading) {
-                1 => Symbols.title_rounded,
-                2 => Symbols.text_fields_rounded,
-                _ => Symbols.notes_rounded,
+                1 => Symbols.title_sharp,
+                2 => Symbols.text_fields_sharp,
+                _ => Symbols.notes_sharp,
               },
         size: 20,
       ),

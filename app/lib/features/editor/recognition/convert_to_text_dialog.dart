@@ -228,7 +228,7 @@ class _ConvertDialogState extends State<_ConvertDialog> {
           constraints: const BoxConstraints(minHeight: _minHeight),
           child: switch ((result, _error)) {
             (_, final Object _) => status(
-              Icon(Symbols.error_rounded, color: theme.colorScheme.error),
+              Icon(Symbols.error_sharp, color: theme.colorScheme.error),
               'Couldn’t read this handwriting',
             ),
             (null, _) => status(
@@ -239,7 +239,7 @@ class _ConvertDialogState extends State<_ConvertDialog> {
               'Recognising handwriting…',
             ),
             (final r?, _) when r.isEmpty => status(
-              const Icon(Symbols.draw_rounded),
+              const Icon(Symbols.draw_sharp),
               'No handwriting found in the selection',
             ),
             (final r?, _) => _reading(theme, r),

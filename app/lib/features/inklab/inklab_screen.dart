@@ -136,31 +136,31 @@ class _InkLabScreenState extends State<InkLabScreen> with TickerProviderStateMix
       listenable: session,
       builder: (context, _) => InkLabPenMenu(pen: session.pen, onChanged: (p) => session.pen = p),
     ),
-    IconButton(tooltip: 'Clear', icon: const Icon(Symbols.delete_sweep_rounded), onPressed: _clear),
+    IconButton(tooltip: 'Clear', icon: const Icon(Symbols.delete_sweep_sharp), onPressed: _clear),
     IconButton(
       tooltip: _replaying ? 'Stop replay' : 'Replay',
-      icon: Icon(_replaying ? Symbols.stop_rounded : Symbols.replay_rounded),
+      icon: Icon(_replaying ? Symbols.stop_sharp : Symbols.replay_sharp),
       onPressed: _replaying ? _stopReplay : _replayLatest,
     ),
     IconButton(
       tooltip: 'Open recording',
-      icon: const Icon(Symbols.file_open_rounded),
+      icon: const Icon(Symbols.file_open_sharp),
       onPressed: _open,
     ),
     IconButton(
       tooltip: 'Save recording',
-      icon: const Icon(Symbols.ios_share_rounded),
+      icon: const Icon(Symbols.ios_share_sharp),
       onPressed: _replaying ? null : _save,
     ),
     MenuIconButton<bool>(
       tooltip: 'Perf test notebooks',
-      icon: const Icon(Symbols.speed_rounded),
+      icon: const Icon(Symbols.speed_sharp),
       onSelected: _perfNotebooks,
       items: () => const [
-        MenuRow(value: true, icon: Symbols.add_rounded, label: 'Create perf test notebooks'),
+        MenuRow(value: true, icon: Symbols.add_sharp, label: 'Create perf test notebooks'),
         MenuRow(
           value: false,
-          icon: Symbols.delete_rounded,
+          icon: Symbols.delete_sharp,
           label: 'Delete perf test notebooks',
           destructive: true,
         ),

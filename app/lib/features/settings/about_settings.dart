@@ -22,10 +22,10 @@ class AboutSettings extends StatelessWidget {
       children: [
         const _VersionTile(),
         SettingsTile(
-          icon: Symbols.license_rounded,
+          icon: Symbols.license_sharp,
           title: 'Open-source licences',
           trailing: Icon(
-            Symbols.chevron_right_rounded,
+            Symbols.chevron_right_sharp,
             size: Glyphs.bar,
             color: scheme.onSurfaceVariant,
           ),
@@ -66,7 +66,7 @@ class _VersionTileState extends State<_VersionTile> {
 
   @override
   Widget build(BuildContext context) => SettingsTile(
-    icon: Symbols.info_rounded,
+    icon: Symbols.info_sharp,
     title: 'Len ${AboutSettings.version}',
     subtitle: 'Handwriting-first notes with an infinite canvas and self-hosted sync',
     onTap: _onTap,

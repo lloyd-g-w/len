@@ -21,7 +21,7 @@ Future<bool> confirmAction(
     context: context,
     builder: (context) {
       final scheme = Theme.of(context).colorScheme;
-      final symbol = destructive ? icon ?? Symbols.warning_rounded : null;
+      final symbol = destructive ? icon ?? Symbols.warning_sharp : null;
       return AppDialog(
         icon: symbol,
         iconColor: destructive ? scheme.error : null,

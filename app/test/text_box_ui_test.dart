@@ -133,7 +133,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('paragraph-menu')),
-        matching: find.byIcon(Symbols.checklist_rounded),
+        matching: find.byIcon(Symbols.checklist_sharp),
       ),
       findsOneWidget,
     );
