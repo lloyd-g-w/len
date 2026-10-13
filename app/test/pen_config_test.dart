@@ -70,12 +70,7 @@ void main() {
         ..tool = EditorTool.highlighter
         ..updateConfig(InkTool.highlighter, (c) => c.copyWith(opacity: 0.5))
         ..updateConfig(InkTool.highlighter, (c) => c.copyWith(streamline: 0.8, straight: true))
-        ..eraser = const EraserConfig(
-          mode: EraserMode.pixel,
-          radius: 20,
-          highlighterOnly: true,
-          autoDeselect: true,
-        )
+        ..eraser = const EraserConfig(mode: EraserMode.pixel, radius: 20, highlighterOnly: true)
         ..addRecentColor(0xFF00AA00)
         ..holdToStraighten = false;
       a.dispose(); // flushes the debounced save
@@ -91,7 +86,6 @@ void main() {
       expect(highlighter.straight, isTrue);
       expect(b.eraser.mode, EraserMode.pixel);
       expect(b.eraser.highlighterOnly, isTrue);
-      expect(b.eraser.autoDeselect, isTrue);
       expect(b.recentColors, [0xFF00AA00]);
       expect(b.holdToStraighten, isFalse);
       b.dispose();
@@ -120,7 +114,7 @@ void main() {
           },
           'highlighter': valid,
         },
-        'eraser': {...const EraserConfig().toJson(), 'autoDeselect': 'yes'},
+        'eraser': {...const EraserConfig().toJson(), 'highlighterOnly': 'yes'},
         'recent': [0x00FF0000],
       });
       expect(t.configOf(InkTool.ballpoint), PenConfig.defaultsFor(InkTool.ballpoint));
@@ -182,21 +176,6 @@ void main() {
       expect(t.recentColors, hasLength(RecentColors.max));
       expect(t.recentColors.toSet(), hasLength(RecentColors.max));
       expect(t.recentColors.take(3), [0xFF000005, 0xFF000009, 0xFF000008]);
-    });
-
-    test('auto-deselect returns to the ink used before the eraser', () {
-      final t = ToolSettings()..tool = EditorTool.highlighter;
-      t.tool = EditorTool.lasso;
-      t.tool = EditorTool.eraser;
-      expect(t.eraserStrokeEnded(), isFalse, reason: 'off by default');
-      expect(t.tool, EditorTool.eraser);
-      t.eraser = t.eraser.copyWith(autoDeselect: true);
-      expect(t.eraserStrokeEnded(), isTrue);
-      expect(t.tool, EditorTool.highlighter);
-      t.tool = EditorTool.pen;
-      t.tool = EditorTool.eraser;
-      t.eraserStrokeEnded();
-      expect(t.tool, EditorTool.pen);
     });
 
     test('Reset restores the feel settings and keeps the slots', () {

@@ -145,15 +145,6 @@ class ToolSettings extends ChangeNotifier {
     _changed();
   }
 
-  /// An erase stroke made with the eraser tool ended. With
-  /// [EraserConfig.autoDeselect] the ink used before it (pen or
-  /// highlighter) becomes the tool again; returns whether it did.
-  bool eraserStrokeEnded() {
-    if (_tool != EditorTool.eraser || !_eraser.autoDeselect) return false;
-    tool = _lastInk;
-    return true;
-  }
-
   /// Eraser radius in screen pixels (independent of zoom).
   double get eraserRadius => _eraser.radius;
 

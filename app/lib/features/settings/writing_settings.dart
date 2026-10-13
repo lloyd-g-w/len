@@ -10,9 +10,9 @@ import '../../ui/fit_segments.dart';
 import '../../ui/segment_label.dart';
 import 'settings_section.dart';
 
-/// Writing: whether a finger draws, the side button, finger taps
-/// to undo and redo, and where the editor's toolbar sits (also changeable
-/// from the editor menu).
+/// Writing: whether a finger draws, the side button and finger taps to
+/// undo and redo. Where the toolbar sits is set in the editor (⋯ → View),
+/// where its effect shows.
 class WritingSettings extends StatelessWidget {
   const WritingSettings({super.key, required this.preferences});
 
@@ -79,26 +79,6 @@ class WritingSettings extends StatelessWidget {
                 padded: false,
                 value: preferences.fingerTapUndo,
                 onChanged: (v) => preferences.fingerTapUndo = v,
-              ),
-            ),
-          ),
-          SettingsTile(
-            icon: Symbols.view_day_sharp,
-            title: 'Toolbar',
-            subtitle: switch (preferences.toolbarPlacement) {
-              ToolbarPlacement.docked => 'Along the top; at the bottom on phones',
-              ToolbarPlacement.floating => 'Floating; drag it anywhere by its grip',
-            },
-            control: FitSegments(
-              builder: (direction) => SegmentedButton<ToolbarPlacement>(
-                direction: direction,
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: ToolbarPlacement.docked, label: SegmentLabel('Docked')),
-                  ButtonSegment(value: ToolbarPlacement.floating, label: SegmentLabel('Floating')),
-                ],
-                selected: {preferences.toolbarPlacement},
-                onSelectionChanged: (s) => preferences.toolbarPlacement = s.single,
               ),
             ),
           ),

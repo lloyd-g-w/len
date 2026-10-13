@@ -290,7 +290,7 @@ collaboration.
 - **"Switch back after erasing"** (`pen/eraser_options_panel.dart`) is
   covered by the side button (temporary eraser), the phone's previous-tool
   slot and the one-tap tablet bar. Candidate for removal, with the
-  `autoDeselect` field.
+  `autoDeselect` field. *Done (`fix/r7-pen`):* removed, setting and code.
 - **Hold to snap** gets one home in the pen's Feel (R7-3), not a second
   switch.
 - **Don't add new settings for R7-2, R7-6, R7-7 or R7-12:** each is a

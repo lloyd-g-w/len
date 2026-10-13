@@ -1520,7 +1520,7 @@ Page with template…).
   `ToolbarDensity`, and shorter still the strip scrolls); in panes under 600 dp in a
   **56-dp bottom row** (`ToolSwitcherButton` `[✎▾]`, whose popover is a 4 × 2
   grid of the tools and Insert, then the strip, scrolling if needed). With
-  `ToolbarPlacement.floating` (⋯ → View, or Settings → Writing) it is a
+  `ToolbarPlacement.floating` (⋯ → View, its only home) it is a
   `raised` palette dragged by its grip (`ToolbarSlot`; it covers no edge).
   The strip's width is reserved at its widest across tools, so switching
   tools moves nothing and never changes the layout.
@@ -1664,11 +1664,10 @@ cuts the ink under the eraser out (`geometry/stroke_splitter.dart`): the stroke
 is removed and its surviving fragments are added as new strokes (keeping the
 original `createdAt`, so paint order is unchanged). One drag is one undoable
 `InkEdit`; fragments cut and erased again within the drag cancel out.
-Optionally only highlighter ink is erased. With *switch back after erasing*
-(`EraserConfig.autoDeselect`, off by default) an erase stroke made with the
-Eraser tool switches back to the ink used before it, pen or highlighter
-(`ToolSettings.eraserStrokeEnded`); the S Pen side button and the eraser end
-are temporary anyway and leave the tool alone. Both modes test against the ink as
+Optionally only highlighter ink is erased. The Eraser tool stays the tool
+after an erase stroke; quick erasing comes from the S Pen side button and the
+eraser end (temporary), the phone's previous-tool slot and the one-tap tablet
+bar. Both modes test against the ink as
 rendered: its radius at each point depends on pressure, thinning and the pen's
 easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 

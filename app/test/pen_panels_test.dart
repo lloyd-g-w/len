@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/editor_tools.dart';
-import 'package:len/features/editor/pen/eraser_options_panel.dart';
 import 'package:len/features/editor/pen/highlighter_options_panel.dart';
 import 'package:len/features/editor/pen/ink_slots.dart';
 import 'package:len/features/editor/pen/pen_options_panel.dart';
@@ -85,14 +84,6 @@ void main() {
     await tester.tap(find.text('Hold to snap shapes'));
     await tester.pump();
     expect(tools.holdToStraighten, !before);
-  });
-
-  testWidgets('eraser: switch back after erasing', (tester) async {
-    await pump(tester, EraserOptionsPanel(tools: tools));
-    expect(tools.eraser.autoDeselect, isFalse);
-    await tester.tap(find.text('Switch back after erasing'));
-    await tester.pump();
-    expect(tools.eraser.autoDeselect, isTrue);
   });
 
   testWidgets('a picked slot colour becomes recent; a recent colour applies', (tester) async {

@@ -219,7 +219,6 @@ class InkInputController {
     _draw.start(
       e,
       erase: route == StylusRoute.eraser || eraserTool,
-      eraserTool: eraserTool,
       lasso: route == StylusRoute.lasso,
     );
   }

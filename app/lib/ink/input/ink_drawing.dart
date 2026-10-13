@@ -76,9 +76,6 @@ class InkDrawing {
   double _drawTravel = 0;
   bool _erasing = false;
   bool _eraseStarted = false;
-
-  /// The eraser tool (not the side button or eraser end) is erasing.
-  bool _erasingWithTool = false;
   Offset? _lastScreen;
 
   /// The drawing pointer, if a contact is in progress.
@@ -93,9 +90,9 @@ class InkDrawing {
   /// The contact's latest screen position.
   Offset? get lastScreen => _lastScreen;
 
-  /// Starts a contact; [eraserTool] (default: [erase]) says whether the
-  /// eraser tool rather than a stylus button or end erases.
-  void start(PointerDownEvent e, {required bool erase, bool? eraserTool, bool lasso = false}) {
+  /// Starts a contact; [erase] erases (the eraser tool, a stylus button or
+  /// end), [lasso] selects (the side button set to the lasso).
+  void start(PointerDownEvent e, {required bool erase, bool lasso = false}) {
     // Zoomed far out the view may show stored rasters only: what is
     // erased, selected or written over must be in memory.
     model.loadVisible(view: viewport);
@@ -108,7 +105,6 @@ class InkDrawing {
     _sampler.reset();
     _liftSpeed.reset();
     _erasing = erase;
-    _erasingWithTool = eraserTool ?? erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
     final tool = erase ? null : content?.toolAt(tools.tool, e.localPosition, lasso: lasso);
@@ -201,8 +197,7 @@ class InkDrawing {
       _tool = null;
       tool.up();
     } else if (_erasing) {
-      final deselected = _erasingWithTool && tools.eraserStrokeEnded();
-      showEraser(_drawKind == PointerDeviceKind.touch || deselected ? null : _lastScreen);
+      showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
       // A snapped shape's end follows no speed (the pen rested to snap it).
       if (live.straightened) _endFollowsSpeed = false;
