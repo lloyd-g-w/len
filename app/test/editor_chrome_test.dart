@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/features/editor/chrome/canvas_context_menu.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
@@ -260,6 +261,21 @@ void main() {
     expect(find.text('Record audio'), findsOneWidget);
     expect(find.text('Recordings'), findsNothing);
     expect(find.text('Settings'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
+  testWidgets('wide ⋯ submenus show one rounded chevron, not a second arrow', (tester) async {
+    await pumpEditor(tester, size: const Size(1280, 800));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    final view = find.ancestor(of: find.text('View'), matching: find.byType(SubmenuButton));
+    expect(
+      find.descendant(of: view, matching: find.byIcon(Symbols.chevron_right_rounded)),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.arrow_right), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     await closeEditor(tester);

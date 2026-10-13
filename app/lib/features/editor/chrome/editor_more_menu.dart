@@ -239,12 +239,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           onPressed: () => setState(() => _drilled = d.label),
           child: Text(d.label),
         )
-      : SubmenuButton(
-          leadingIcon: Icon(d.icon),
-          trailingIcon: const Icon(Symbols.chevron_right_rounded),
-          menuChildren: d.children,
-          child: Text(d.label),
-        );
+      : SubmenuButton(leadingIcon: Icon(d.icon), menuChildren: d.children, child: Text(d.label));
 
   /// The drilled-in submenu's title row; goes back to the menu.
   Widget _back(_Drill d) => MenuItemButton(
