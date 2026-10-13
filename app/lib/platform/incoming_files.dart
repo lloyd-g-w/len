@@ -9,6 +9,10 @@
 ///   line, e.g. `len notes.pdf` or the desktop entry's `%F`.
 /// * **Web:** the PWA's File Handling API (`launchQueue`, `file_handlers`
 ///   in `manifest.json`).
+///
+/// And links (`incomingLinks`): `len://sync?…` setup links opened on
+/// Android (the `len` scheme's intent filter; a `link` call on the same
+/// channel).
 library;
 
 export 'incoming_files_native.dart' if (dart.library.js_interop) 'incoming_files_web.dart';

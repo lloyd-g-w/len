@@ -76,7 +76,8 @@ class AppServices {
   /// substitute the sync transport. Blobs (PDFs) are kept in [blobBackend]
   /// (in memory if omitted, e.g. in tests). [audio] replaces the
   /// recorder and player (tests use fakes). [incomingFiles] are files
-  /// handed to the app from outside (`platform/incoming_files`). The sync
+  /// handed to the app from outside, [incomingLinks] links it was opened
+  /// with (`platform/incoming_files`). The sync
   /// token goes to [secureStore] (`platformSecureStore`); without one (a
   /// browser, tests) it is kept in the database.
   factory AppServices.create(
@@ -87,6 +88,7 @@ class AppServices {
     SyncApi Function(String url, String token)? syncApiFactory,
     HandwritingRecognizer? recognizer,
     Stream<List<XFile>>? incomingFiles,
+    Stream<String>? incomingLinks,
     OutlinePreparer outlines = const InlineOutlinePreparer(),
     StorageWrites? writes,
     RasterStore? rasterStore,
@@ -163,7 +165,7 @@ class AppServices {
       pointerActivity: pointerActivity,
       recordings: recordings,
       audio: audio ?? platformAudioBackends(),
-      incomingFiles: IncomingFiles(incomingFiles),
+      incomingFiles: IncomingFiles(incomingFiles, incomingLinks),
       templates: templates,
       outlines: outlines,
       outline: outline,

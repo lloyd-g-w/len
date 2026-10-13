@@ -825,6 +825,13 @@ search highlights use the same boxes.
   its handler (cold start) and holds `ImportTargets`: the shown editor
   registers an `EditorImportTarget` (insert PDF pages after the current page /
   images on the current page or canvas).
+- **Sync setup links** (`sync/sync_setup_link.dart`): `len://sync?url=…&token=…`.
+  Android's `len://sync` intent filter reaches `IncomingFiles.kt`, which sends
+  `link(<link>)` on the same channel (queued until `ready`); the Dart side
+  (`incomingLinks`) feeds `IncomingFiles.syncSetup`, which the library turns into
+  Settings → Sync and `SyncSettings` takes to fill its form (pasting the link
+  into Server URL does the same). A connected device shows the link as a QR
+  code (`ui/qr_code_view.dart`, the pure-Dart `qr` package) and Copy link.
 - **`ImportRouter`** (pure, tested) classifies files by MIME type, else
   extension (PDF, image, unsupported) and plans `ImportStep`s: with nothing open,
   each PDF becomes a notebook (existing PDF import flow) and all images one new

@@ -66,6 +66,14 @@
                 <data android:mimeType="application/pdf"/>
                 <data android:mimeType="image/*"/>
             </intent-filter>
+            <!-- Sync setup links (len://sync?url=…&token=…) from another
+                 device's QR code or a message fill Settings → Sync. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="len" android:host="sync"/>
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
                 <action android:name="android.intent.action.SEND_MULTIPLE"/>

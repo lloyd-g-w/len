@@ -96,9 +96,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       show: _showImported,
     );
     services.incomingFiles.handler = (files) => unawaited(_imports.enqueue(context, files));
+    services.incomingFiles.syncSetup.addListener(_onSyncSetup);
     // A recording cut off by the app being killed: offer to recover it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(offerRecordingRecovery(context, services));
+      _onSyncSetup(); // Launched with a setup link.
     });
     _remoteChanges = services.sync.remoteChanges.listen((c) {
       if (c.strokeSurfaces.isNotEmpty || c.pagesOfNotebooks.isNotEmpty) _thumbnails.invalidate();
@@ -126,7 +128,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!editorShown) unawaited(_actions.openNotebook(context, notebooks.last));
   }
 
+  /// A sync setup link opened with Len: Settings → Sync fills its form
+  /// with it, opened here unless it is shown already (and took the link).
+  void _onSyncSetup() => scheduleMicrotask(() {
+    if (mounted && _services?.incomingFiles.syncSetup.value != null) _openSettings(sync: true);
+  });
+
   void _disposeServices() {
+    _services?.incomingFiles.syncSetup.removeListener(_onSyncSetup);
     _services?.incomingFiles.handler = null;
     unawaited(_remoteChanges?.cancel());
     unawaited(_syncNotices?.cancel());

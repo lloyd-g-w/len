@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:cross_file/cross_file.dart';
+import 'package:flutter/foundation.dart';
+
+import '../../../sync/sync_setup_link.dart';
 
 import 'import_targets.dart';
 
@@ -12,12 +15,28 @@ import 'import_targets.dart';
 /// Batches arriving before anyone handles them (a cold start: the app is
 /// launched *with* files, before the library is built) are kept and
 /// delivered as soon as a [handler] is set.
+///
+/// Links opened with Len ([links]; `len://sync?…` on Android) arrive the
+/// same way: a sync setup link waits in [syncSetup] until Settings takes it.
 class IncomingFiles {
-  IncomingFiles([Stream<List<XFile>>? source]) {
+  IncomingFiles([Stream<List<XFile>>? source, Stream<String>? links]) {
     _subscription = source?.listen(add);
+    _links = links?.listen(addLink);
   }
 
   StreamSubscription<List<XFile>>? _subscription;
+  StreamSubscription<String>? _links;
+
+  /// A sync setup link opened with Len and not yet shown in Settings
+  /// (Settings fills the sync form with it and clears it).
+  final ValueNotifier<SyncSetupLink?> syncSetup = ValueNotifier(null);
+
+  /// Hands over a link opened with Len; links other than sync setup ones
+  /// are ignored.
+  void addLink(String link) {
+    if (SyncSetupLink.parse(link) case final setup?) syncSetup.value = setup;
+  }
+
   final List<List<XFile>> _pending = [];
   void Function(List<XFile> files)? _handler;
 
@@ -44,5 +63,9 @@ class IncomingFiles {
     }
   }
 
-  void dispose() => unawaited(_subscription?.cancel());
+  void dispose() {
+    unawaited(_subscription?.cancel());
+    unawaited(_links?.cancel());
+    syncSetup.dispose();
+  }
 }

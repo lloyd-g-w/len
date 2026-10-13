@@ -6,14 +6,17 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../app_services.dart';
 import '../../sync/sync_api.dart';
 import '../../sync/sync_controller.dart';
+import '../../sync/sync_setup_link.dart';
 import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 import 'settings_section.dart';
+import 'sync_setup_dialog.dart';
 import 'sync_status_line.dart';
 
-/// Sync: once connected the server, its status, Sync now, Change… and Turn
-/// off sync…; otherwise (or while changing) the URL and token form, with a
-/// connection test.
+/// Sync: once connected the server, its status, Sync now, Change…, Set up
+/// another device… and Turn off sync…; otherwise (or while changing) the
+/// URL and token form, with a connection test. A setup link fills the form:
+/// pasted into the URL field, or opened with Len ([IncomingFiles.syncSetup]).
 class SyncSettings extends StatefulWidget {
   const SyncSettings({super.key, this.reveal = false});
 
@@ -67,10 +70,14 @@ class _SyncSettingsState extends State<SyncSettings> {
   late final bool _tokenNote =
       _sync.tokens.inDatabase && !_services.settings.seenTips.contains(_tokenNoteTip);
 
+  ValueNotifier<SyncSetupLink?> get _incoming => _services.incomingFiles.syncSetup;
+
   @override
   void initState() {
     super.initState();
     if (_tokenNote) _services.settings.markTipSeen(_tokenNoteTip);
+    _incoming.addListener(_takeIncoming);
+    _takeIncoming();
     if (!widget.reveal) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -80,9 +87,34 @@ class _SyncSettingsState extends State<SyncSettings> {
 
   @override
   void dispose() {
+    _incoming.removeListener(_takeIncoming);
     _url.dispose();
     _token.dispose();
     super.dispose();
+  }
+
+  /// Fills the form from a setup link opened with Len (and takes it).
+  void _takeIncoming() {
+    final link = _incoming.value;
+    if (link == null) return;
+    _incoming.value = null;
+    _fill(link);
+    if (mounted) setState(() {});
+  }
+
+  /// Fills both fields from [link] (the form opens if sync is set up); the
+  /// user still connects.
+  void _fill(SyncSetupLink link) {
+    _url.text = link.url;
+    _token.text = link.token;
+    _editing = _sync.isConfigured;
+    _testError = _urlError = null;
+  }
+
+  /// A setup link pasted into the URL field fills both fields.
+  void _onUrlChanged(String text) {
+    if (SyncSetupLink.parse(text) case final link?) return setState(() => _fill(link));
+    if (_urlError != null) setState(() => _urlError = null);
   }
 
   Future<void> _testAndSave() async {
@@ -203,6 +235,15 @@ class _SyncSettingsState extends State<SyncSettings> {
         label: const Text('Sync now'),
       ),
       TextButton(onPressed: () => setState(() => _editing = true), child: const Text('Change…')),
+      TextButton(
+        onPressed: () => unawaited(
+          showSyncSetupDialog(
+            context,
+            SyncSetupLink(url: _services.settings.syncUrl, token: _sync.tokens.token),
+          ),
+        ),
+        child: const Text('Set up another device…'),
+      ),
       TextButton(onPressed: () => unawaited(_turnOff()), child: const Text('Turn off sync…')),
     ],
   );
@@ -229,12 +270,11 @@ class _SyncSettingsState extends State<SyncSettings> {
         keyboardType: TextInputType.url,
         textInputAction: TextInputAction.next,
         autocorrect: false,
-        onChanged: (_) {
-          if (_urlError != null) setState(() => _urlError = null);
-        },
+        onChanged: _onUrlChanged,
         decoration: InputDecoration(
           labelText: 'Server URL',
           hintText: 'len.example.com',
+          helperText: 'Or paste a setup link from a connected device',
           errorText: _urlError,
           errorMaxLines: 3,
         ),

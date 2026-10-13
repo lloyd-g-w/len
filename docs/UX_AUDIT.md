@@ -274,7 +274,7 @@ touch devices, or once a stylus was seen); its subtitle explains the
 first-run behaviour ("Until a stylus touches the screen; then fingers pan
 and zoom"). The side button shows on desktops once a stylus was seen.
 
-⬜ **R6-23 P2 · Setting up the second device means retyping a URL and a
+✅ **R6-23 P2 · Setting up the second device means retyping a URL and a
 token.** Sync setup is two text fields and Connect
 (`features/settings/sync_settings.dart:220-280`). There is no link, code or
 QR to carry the setup from a connected device (no such code in the app).
@@ -283,6 +283,12 @@ setup. *Fix:* on a connected device, "Copy setup link" (a `len://sync?url=…&to
 link, also shown as a QR on wide screens). On a new device, "Paste setup
 link" fills both fields, or opening the link does. The server stays the
 same.
+*Done (`fix/r6-pickers`):* Settings → Sync on a connected device has "Set
+up another device…": a QR code of `len://sync?url=…&token=…` (pure-Dart
+`qr`, painted in `ui/qr_code_view.dart`), Copy link, and a note that the
+link holds the token. Pasting the link into Server URL fills both fields;
+on Android the `len://sync` intent filter opens Len, which opens Settings
+with the form filled (`IncomingFiles.syncSetup`). Connect stays the user's.
 
 ### Simplify (one home per command; defaults over settings)
 
