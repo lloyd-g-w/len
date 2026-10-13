@@ -75,8 +75,10 @@ class PageActions {
   /// Undoes [delete].
   void restore(DeletedPage deleted) => restoreAll([deleted]);
 
-  /// Undoes [deleteAll] (or several [delete]s) in one transaction.
+  /// Undoes [deleteAll] (or several [delete]s) in one transaction; not
+  /// once the notebook itself is deleted (its snack bar may outlive it).
   void restoreAll(List<DeletedPage> deleted) {
+    if (services.notebooks.get(notebookId) == null) return;
     services.database.transaction(() {
       for (final d in deleted) {
         services.pages.restore(d.page.id);

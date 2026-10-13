@@ -95,6 +95,19 @@ void main() {
       expect(dirty['ink'], isFalse);
     });
 
+    test('undoing a page deletion after the notebook was deleted revives nothing', () {
+      final nb = paged();
+      final actions = PageActions(s, nb.id);
+      final first = s.pages.pagesOf(nb.id).single;
+      final second = actions.add(PageActions.blankAfter(first));
+      s.strokes.save([stroke('ink', const Offset(10, 10), surface: second.id)]);
+      final deleted = actions.delete(second);
+      s.notebooks.delete(nb.id);
+      actions.restore(deleted);
+      expect(s.pages.get(second.id), isNull);
+      expect(SurfaceCopier(s.strokes).loadAll(second.id), isEmpty);
+    });
+
     test('a duplicated page copies ink and text under new ids, right after it', () {
       final nb = paged();
       final actions = PageActions(s, nb.id);
