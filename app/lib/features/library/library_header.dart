@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
+import '../settings/sync_alert_button.dart';
 import 'library_actions.dart';
 import 'library_breadcrumbs.dart';
 import 'library_controller.dart';
@@ -203,6 +204,8 @@ class _LibraryHeaderState extends State<LibraryHeader> {
               : KeyedSubtree(key: const ValueKey('title'), child: titleBlock),
         );
         final tools = <Widget>[
+          // Phones: the sidebar's sync status is in the drawer.
+          if (widget.compact && !searchOpen) SyncAlertButton(sync: _c.services.sync),
           if (empty)
             const SizedBox.shrink()
           else if (wideSearch) ...[

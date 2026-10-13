@@ -13,7 +13,11 @@ class BarButton extends StatelessWidget {
     required this.onPressed,
     this.selected = false,
     this.selectedIcon,
+    this.color,
   });
+
+  /// The glyph's colour when not selected (default Graphite).
+  final Color? color;
 
   final IconData icon;
   final IconData? selectedIcon;
@@ -30,7 +34,7 @@ class BarButton extends StatelessWidget {
       isSelected: selected,
       iconSize: Glyphs.bar,
       style: IconButton.styleFrom(
-        foregroundColor: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+        foregroundColor: selected ? scheme.onSurface : color ?? scheme.onSurfaceVariant,
         backgroundColor: selected ? Surfaces.pressed(scheme) : null,
         minimumSize: const Size.square(Targets.bar),
         fixedSize: const Size.square(Targets.bar),

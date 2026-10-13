@@ -46,7 +46,11 @@ class EditorTopBar extends StatelessWidget {
     this.band = false,
     this.short = false,
     this.onUndoTapped,
+    this.status,
   });
+
+  /// Before the actions: a mark that sync is failing, if it is.
+  final Widget? status;
 
   final String title;
 

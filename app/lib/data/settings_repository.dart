@@ -52,6 +52,11 @@ class SettingsRepository {
   int get syncLastSeq => int.tryParse(_get(_syncLastSeq) ?? '') ?? 0;
   set syncLastSeq(int value) => _set(_syncLastSeq, '$value');
 
+  /// When (ms) sync last succeeded, or null if never.
+  int? get syncLastSuccess => int.tryParse(_get('sync_last_success') ?? '');
+  set syncLastSuccess(int? value) =>
+      value == null ? _remove('sync_last_success') : _set('sync_last_success', '$value');
+
   /// The `serverId` (`/v1/health`) of the server last synced with; when it
   /// changes (another server, or one restored from a backup), everything is
   /// uploaded again and pulled from the start. Empty before the first sync.

@@ -103,22 +103,13 @@ extension _LibraryLayout on _LibraryScreenState {
         ),
       ),
       body: _content(
+        // A failing sync is marked in the header (SyncAlertButton), not
+        // with a dot on ☰: one mark, and only once it has lasted.
         headerLeading: Builder(
-          builder: (context) => ListenableBuilder(
-            listenable: _services!.sync,
-            // A dot while sync fails: the status is in the drawer.
-            builder: (context, _) {
-              final failing = _services!.sync.state == SyncState.error;
-              return IconButton(
-                tooltip: failing ? 'Menu (sync failed)' : 'Menu',
-                icon: Badge(
-                  isLabelVisible: failing,
-                  smallSize: 8,
-                  child: const Icon(Symbols.menu_sharp),
-                ),
-                onPressed: Scaffold.of(context).openDrawer,
-              );
-            },
+          builder: (context) => IconButton(
+            tooltip: 'Menu',
+            icon: const Icon(Symbols.menu_sharp),
+            onPressed: Scaffold.of(context).openDrawer,
           ),
         ),
       ),

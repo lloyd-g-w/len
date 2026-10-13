@@ -7,7 +7,6 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../app_services.dart';
 import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
-import '../../sync/sync_controller.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/messages.dart';
 import '../audio/ui/recover_recording_dialog.dart';

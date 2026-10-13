@@ -20,6 +20,9 @@ class SyncController extends ChangeNotifier {
     this.apiFactory = _defaultApi,
   }) {
     _state = isConfigured ? SyncState.idle : SyncState.disabled;
+    if (settings.syncLastSuccess case final ms?) {
+      _lastSuccess = DateTime.fromMillisecondsSinceEpoch(ms);
+    }
     _refreshTooLarge();
     tokens.addListener(_tokenChanged);
   }
@@ -53,6 +56,7 @@ class SyncController extends ChangeNotifier {
   String? _lastErrorDetails;
   SyncFailure? _lastFailure;
   DateTime? _lastSuccess;
+  DateTime? _failingSince;
 
   SyncState get state => _state;
 
@@ -71,7 +75,21 @@ class SyncController extends ChangeNotifier {
   /// access token, which retrying cannot fix. Saving settings (or "Sync
   /// now") tries again.
   bool get waitsForSettings => lastFailure == SyncFailure.auth;
+
+  /// When sync last succeeded (kept across launches), or null if never.
   DateTime? get lastSuccess => _lastSuccess;
+
+  /// When syncs began failing, through the retries since (null while they
+  /// work, and while sync is off).
+  DateTime? get failingSince => _failingSince;
+
+  /// Whether sync has failed for at least [after] (or waits for the
+  /// settings): worth a quiet mark outside Settings (UX_AUDIT R7-14).
+  bool failingFor(Duration after, {DateTime? now}) {
+    if (waitsForSettings) return true;
+    final since = _failingSince;
+    return since != null && (now ?? DateTime.now()).difference(since) >= after;
+  }
 
   List<({String sha, int size})> _tooLarge = const [];
 
@@ -133,6 +151,7 @@ class SyncController extends ChangeNotifier {
     unawaited(tokens.save(token.trim()));
     _configGeneration++;
     _lastError = _lastErrorDetails = _lastFailure = null;
+    _failingSince = null;
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
   }
 
@@ -198,9 +217,11 @@ class SyncController extends ChangeNotifier {
       if (cancelled()) return;
       _refreshTooLarge();
       _lastSuccess = DateTime.now();
+      settings.syncLastSuccess = _lastSuccess!.millisecondsSinceEpoch;
       final failed = engine.failedBlobUploads;
       if (failed == 0) {
         _lastError = _lastErrorDetails = _lastFailure = null;
+        _failingSince = null;
         _setState(SyncState.idle);
       } else {
         // Everything else synced; the files are retried next time.
@@ -241,6 +262,7 @@ class SyncController extends ChangeNotifier {
     _lastError = message;
     _lastErrorDetails = details;
     _lastFailure = kind;
+    _failingSince ??= DateTime.now();
     _setState(SyncState.error);
   }
 
@@ -257,6 +279,7 @@ class SyncController extends ChangeNotifier {
 
   void _setState(SyncState state) {
     if (_disposed) return;
+    if (state == SyncState.disabled) _failingSince = null;
     _state = state;
     notifyListeners();
   }
