@@ -288,14 +288,12 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
 
 18. ✅ Motion: 26 literal durations in features/ → `Motion` tokens.
 19. ✅ Phone menus show desktop shortcut hints ("Ctrl+F", "F11").
-20. 🟡 Menus sit flush against the screen edge (no 8 dp margin). → Popup
-    menus keep 8 dp; tall chrome menus now clear the system bars by 8 dp
-    (`menuReservedPadding`). Open: Flutter's `MenuAnchor` still places a menu
-    that meets the left or right edge flush against it (the phone "⋯" menu).
-    Not fixable per anchor: `OverlayPortal` replaces the anchor's
-    `MediaQuery` padding with the overlay's (tried a `MediaQuery` around the
-    anchor: no effect). Options left: a transparent menu panel drawing its
-    own inset card, or an `Overlay` with padded `MediaQuery` around the chrome.
+20. ✅ Menus sit flush against the screen edge (no 8 dp margin). → Popup
+    menus keep 8 dp; tall chrome menus clear the system bars by 8 dp
+    (`menuReservedPadding`); the chrome's `MenuAnchor`s (⋯, Insert, zoom)
+    keep 8 dp from the sides too (`MenuEdgeMargin`: the anchor's padding
+    never reaches its overlay, but display features do, so two 8-dp side
+    strips are added as features for those menus only).
 21. ✅ Colour dots (40 dp) and selection
     checkboxes (28 dp) are under 48 dp on phones. → `EvenGrid(touchTargets:)`
     gives swatch cells 48 dp on phones (visuals unchanged, the whole

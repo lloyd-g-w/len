@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/preferences.dart';
@@ -180,6 +181,21 @@ void main() {
     expect(dock(), ToolbarDock.bottom);
     expect(find.byTooltip('Pen (P)'), findsNothing); // The switcher shows the tool.
     expect(tester.getCenter(find.byType(ToolSwitcherButton)).dy, greaterThan(760));
+    await closeEditor(tester);
+  });
+
+  testWidgets('a chrome menu keeps 8 dp from the screen edge on a phone', (tester) async {
+    await pumpEditor(tester, size: const Size(390, 844));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    final items = find.byType(MenuItemButton);
+    final panel = tester.getRect(
+      find.ancestor(of: items.first, matching: find.byType(Material)).first,
+    );
+    expect(panel.right, lessThanOrEqualTo(390 - 8));
+    expect(panel.left, greaterThanOrEqualTo(8));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
     await closeEditor(tester);
   });
 

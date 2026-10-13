@@ -1,3 +1,5 @@
+import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -200,3 +202,39 @@ class MenuButton<T> extends StatelessWidget {
 /// against it.)
 EdgeInsets menuReservedPadding(BuildContext context) =>
     MediaQuery.paddingOf(Overlay.of(context).context) + const EdgeInsets.all(Gaps.sm);
+
+/// Keeps the [MenuAnchor] below [Gaps.sm] clear of the screen's left and
+/// right edges as well. Flutter places a menu that meets one flush against
+/// it, and the anchor's own padding doesn't reach the menu (its overlay
+/// substitutes the overlay's), but display features do: menus avoid them
+/// like a hinge. So two [Gaps.sm] strips along the sides are added as
+/// features, for the anchor's menus only.
+class MenuEdgeMargin extends StatelessWidget {
+  const MenuEdgeMargin({super.key, required this.child});
+
+  final Widget child;
+
+  /// The strips for a screen [width] wide.
+  static List<DisplayFeature> strips(double width) => [
+    for (final rect in [
+      Rect.fromLTRB(-1, -1e5, Gaps.sm, 1e5),
+      Rect.fromLTRB(width - Gaps.sm, -1e5, width + 1, 1e5),
+    ])
+      DisplayFeature(
+        bounds: rect,
+        type: DisplayFeatureType.unknown,
+        state: DisplayFeatureState.unknown,
+      ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return MediaQuery(
+      data: media.copyWith(
+        displayFeatures: [...media.displayFeatures, ...strips(media.size.width)],
+      ),
+      child: child,
+    );
+  }
+}
