@@ -11,6 +11,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/outline/outline_panel.dart';
+import 'package:len/features/editor/pdf/pdf_highlights.dart';
 import 'package:len/features/editor/pdf/pdf_interaction.dart';
 import 'package:len/features/editor/pdf/pdf_layer.dart';
 import 'package:len/features/editor/pdf/pdf_page_info.dart';
@@ -153,14 +154,14 @@ void main() {
     });
 
     test('highlight strokes run along the middle of a line, end to end', () {
-      final points = PdfInteraction.highlightPoints(
+      final points = PdfHighlights.points(
         const Rect.fromLTRB(0.1, 0.1, 0.6, 0.15),
         const Size(800, 1000),
       )!;
       expect(points.first.offset, const Offset(80, 125));
       expect(points.last.offset, const Offset(480, 125));
       expect(points.length, greaterThan(100)); // One point every 2 units.
-      expect(PdfInteraction.highlightPoints(Rect.zero, const Size(800, 1000)), isNull);
+      expect(PdfHighlights.points(Rect.zero, const Size(800, 1000)), isNull);
     });
   });
 

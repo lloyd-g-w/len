@@ -15,7 +15,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/features/documents/pdf/pdf_renderer.dart';
 import 'package:len/features/editor/editor_screen.dart';
-import 'package:len/features/editor/pdf/pdf_interaction.dart';
+import 'package:len/features/editor/pdf/pdf_highlights.dart';
 import 'package:len/features/editor/pdf/pdf_layer.dart';
 import 'package:len/features/editor/pdf/pdf_text_selection.dart';
 import 'package:len/platform/blob_backend_native.dart';
@@ -119,7 +119,7 @@ void main() {
         expect(glyphs.lines.last.endCorner, offsetMoreOrLessEquals(p(0.3, 0.25)));
         // Highlights run along the line in reading order.
         final line = glyphs.linesFor(0, 2).single;
-        final points = PdfInteraction.highlightPoints(
+        final points = PdfHighlights.points(
           line.rect,
           const Size(1000, 1000),
           direction: line.direction,

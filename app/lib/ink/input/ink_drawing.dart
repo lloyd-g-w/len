@@ -14,8 +14,10 @@ import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../tools/content_tools.dart';
 import '../tools/pointer_tool.dart';
+import '../undo_history.dart';
 import '../viewport.dart';
 import 'bounce_filter.dart';
+import 'highlight_snap.dart';
 import 'hold_to_straighten.dart';
 import 'lift_speed.dart';
 import 'live_ink.dart';
@@ -29,8 +31,9 @@ import 'stylus_buttons.dart';
 ///
 /// Ink goes pen-down → points ([StrokeSampler]: thinned, pressure
 /// normalised and smoothed, end settled) → commit at pen-up, with stylus
-/// bounces dropped, [HoldToStraighten] snapping a resting pen and a pen
-/// scribble over ink erasing it ([ScribbleDetector]).
+/// bounces dropped, [HoldToStraighten] snapping a resting pen, a pen
+/// scribble over ink erasing it ([ScribbleDetector]) and highlights over
+/// PDF text snapping to it ([highlightSnap]).
 class InkDrawing {
   InkDrawing({
     required this.model,
@@ -53,6 +56,9 @@ class InkDrawing {
   final SampleSource? samples;
 
   final HoldToStraighten _straighten;
+
+  /// Snaps highlighter strokes over text to it (with hold to snap on).
+  HighlightSnap? highlightSnap;
 
   /// The pointer tool handling the current drawing pointer, if any.
   PointerTool? _tool;
@@ -249,6 +255,12 @@ class InkDrawing {
       points: points,
       createdAt: _drawStartedAt,
     );
+    // Over PDF text, a highlight snaps to the words it covers.
+    if (stroke.tool.isHighlighter && tools.holdToStraighten) {
+      if (highlightSnap?.snap(stroke) case final snapped? when snapped.isNotEmpty) {
+        return model.commit(InkEdit(added: snapped));
+      }
+    }
     // The live outline's builder completes it (cheaply) at pen-up.
     final path = LiveStrokeBuilder.finishLive(
       live,

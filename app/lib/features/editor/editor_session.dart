@@ -25,6 +25,7 @@ import 'document/undo_target.dart';
 import 'double_tap_zoom.dart';
 import 'images/editor_images.dart';
 import 'links/editor_links.dart';
+import 'pdf/pdf_highlight_snap.dart';
 import 'pdf/pdf_interaction.dart';
 import 'shared/shared_notebook.dart';
 import 'tabs/open_notebooks.dart';
@@ -105,7 +106,7 @@ class EditorSession {
           animator,
           settle: (focal, {required zoomed}) => doc.settleSingle() || (zoomed && zoom.snap(focal)),
         ),
-      );
+      )..highlightSnap = PdfHighlightSnap(doc: doc, info: shared.pdfInfo);
       // Paste onto the page in the middle of the screen.
       content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));
       undo = doc.surfaces;

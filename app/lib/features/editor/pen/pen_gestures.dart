@@ -5,7 +5,8 @@ import 'option_controls.dart';
 
 /// The pen's gestures, at the end of its Feel section, under a rule and
 /// after "Reset feel" (they are global switches, not part of the pen's
-/// feel): hold to snap, which also applies to the highlighter, and
+/// feel): hold to snap, which also applies to the highlighter (and snaps
+/// highlights on PDF text to the words they cover), and
 /// scribble to erase. This is their only home; the Shapes popover points
 /// to hold to snap here.
 class PenGestures extends StatelessWidget {
@@ -23,7 +24,9 @@ class PenGestures extends StatelessWidget {
           const OptionRule(),
           OptionSwitch(
             label: 'Hold to snap',
-            subtitle: 'Hold the pen still at the end of a stroke for a clean line or shape',
+            subtitle:
+                'Hold the pen still at the end of a stroke for a clean line or shape; '
+                'highlights on PDF text snap to it',
             value: tools.holdToStraighten,
             onChanged: (v) => tools.holdToStraighten = v,
           ),

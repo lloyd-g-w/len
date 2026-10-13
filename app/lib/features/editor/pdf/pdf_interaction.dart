@@ -9,6 +9,7 @@ import '../../../ink/tool_settings.dart';
 import '../../../ink/tools/lasso_tool.dart';
 import '../../../ink/undo_history.dart';
 import '../document/document_controller.dart';
+import 'pdf_highlights.dart';
 import 'pdf_page_info.dart';
 import 'pdf_page_info_cache.dart';
 import 'pdf_text_selection.dart';
@@ -267,21 +268,14 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
       final page = span.page;
       final strokes = [
         for (final line in span.lines)
-          if (highlightPoints(line.rect, page.size, direction: line.direction) case final points?)
-            Stroke(
-              id: clock.newId(),
-              surfaceId: page.id,
-              tool: InkTool.highlighter,
-              color: ink,
-              width:
-                  (line.thickness *
-                          (line.direction.vertical ? page.width : page.height) *
-                          highlightHeight)
-                      .clamp(2.0, 200.0),
-              style: style,
-              points: points,
-              createdAt: now,
-            ),
+          ?PdfHighlights.stroke(
+            line,
+            page,
+            id: clock.newId(),
+            color: ink,
+            style: style,
+            createdAt: now,
+          ),
       ];
       if (strokes.isEmpty) continue;
       doc.surfaces.surfaceOf(page.id).model.commit(InkEdit(added: strokes));
@@ -289,38 +283,6 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
     }
     selection.clear();
     return added;
-  }
-
-  /// A highlight's height relative to its line of text.
-  static const double highlightHeight = 1.1;
-
-  /// The points of a highlighter stroke across line [normalized] of a page
-  /// of [size] units: along its middle in reading [direction], end to end
-  /// (the highlighter's flat ends add nothing), one point every 2 units.
-  @visibleForTesting
-  static List<StrokePoint>? highlightPoints(
-    Rect normalized,
-    Size size, {
-    PdfTextDirection direction = PdfTextDirection.ltr,
-  }) {
-    final r = Rect.fromLTRB(
-      normalized.left * size.width,
-      normalized.top * size.height,
-      normalized.right * size.width,
-      normalized.bottom * size.height,
-    );
-    if (r.width <= 0 || r.height <= 0) return null;
-    final (from, to) = switch (direction) {
-      PdfTextDirection.ltr => (r.centerLeft, r.centerRight),
-      PdfTextDirection.rtl => (r.centerRight, r.centerLeft),
-      PdfTextDirection.ttb => (r.topCenter, r.bottomCenter),
-      PdfTextDirection.btt => (r.bottomCenter, r.topCenter),
-    };
-    final n = ((to - from).distance / 2).ceil().clamp(1, 2000);
-    return [
-      for (var i = 0; i <= n; i++)
-        if (Offset.lerp(from, to, i / n) case final p?) StrokePoint(p.dx, p.dy, 0.5),
-    ];
   }
 
   @override
