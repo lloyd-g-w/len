@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../ink/tool_settings.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
+import '../settings/keyboard_shortcuts.dart';
 import 'canvas/canvas_shortcuts.dart';
 import 'document/page_fit.dart';
 import 'editor_session.dart';
@@ -113,6 +114,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   VoidCallback? closeTab,
   VoidCallback? export,
   VoidCallback? goToPage,
+  VoidCallback? shortcutsHelp,
 }) => {
   ...editorShortcuts(
     session,
@@ -124,6 +126,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
     pastePlain: pastePlain,
   ),
   const SingleActivator(LogicalKeyboardKey.f5): present,
+  if (shortcutsHelp != null) ...keyboardShortcutsBinding(shortcutsHelp),
   if (export != null) ...{
     const SingleActivator(LogicalKeyboardKey.keyE, control: true): export,
     const SingleActivator(LogicalKeyboardKey.keyE, meta: true): export,

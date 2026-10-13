@@ -11,6 +11,7 @@ import '../../ui/app_theme.dart';
 import '../../ui/menus.dart';
 import '../audio/ui/recover_recording_dialog.dart';
 import '../documents/import/import_flow.dart';
+import '../settings/keyboard_shortcuts.dart';
 import '../settings/settings_screen.dart';
 import 'library_actions.dart';
 import 'library_content.dart';
@@ -170,11 +171,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Map<ShortcutActivator, VoidCallback> get _shortcuts => {
-    const SingleActivator(LogicalKeyboardKey.keyN, control: true): () =>
-        unawaited(_actions.createNotebook(context)),
-    const SingleActivator(LogicalKeyboardKey.keyN, control: true, shift: true): () =>
-        unawaited(_actions.createFolder(context)),
-    const SingleActivator(LogicalKeyboardKey.keyF, control: true): _focusSearch,
+    // Ctrl, and ⌘ on Apple keyboards.
+    for (final mod in [(control: true, meta: false), (control: false, meta: true)]) ...{
+      SingleActivator(LogicalKeyboardKey.keyN, control: mod.control, meta: mod.meta): () =>
+          unawaited(_actions.createNotebook(context)),
+      SingleActivator(
+        LogicalKeyboardKey.keyN,
+        control: mod.control,
+        meta: mod.meta,
+        shift: true,
+      ): () =>
+          unawaited(_actions.createFolder(context)),
+      SingleActivator(LogicalKeyboardKey.keyF, control: mod.control, meta: mod.meta): _focusSearch,
+    },
+    ...keyboardShortcutsBinding(() => unawaited(showKeyboardShortcuts(context))),
     const SingleActivator(LogicalKeyboardKey.delete): _trashFocused,
     const SingleActivator(LogicalKeyboardKey.keyA, control: true): _selectAll,
     const SingleActivator(LogicalKeyboardKey.keyA, meta: true): _selectAll,

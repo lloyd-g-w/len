@@ -13,6 +13,7 @@ import '../audio/notebook_audio.dart';
 import '../audio/ui/playback_keys.dart';
 import '../documents/export/export_flow.dart';
 import '../search/editor/editor_search_controller.dart';
+import '../settings/keyboard_shortcuts.dart';
 import '../settings/settings_screen.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/editor_chrome.dart';
@@ -428,6 +429,7 @@ class _EditorScreenState extends State<_EditorView> {
         body: CallbackShortcuts(
           bindings: editorScreenShortcuts(
             _session,
+            shortcutsHelp: () => unawaited(showKeyboardShortcuts(context)),
             search: _search,
             toggleFocus: _toggleFocus,
             present: _present,
