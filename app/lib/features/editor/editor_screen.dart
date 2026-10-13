@@ -160,6 +160,15 @@ class _EditorScreenState extends State<_EditorView> {
   /// Focus mode: all chrome hidden, full screen.
   bool _focus = false;
 
+  /// In focus mode, the puck and the way out hidden too (a two-finger long
+  /// press): nothing but the page, for presenting.
+  bool _presenting = false;
+
+  void _togglePresenting() {
+    if (!_focus || !mounted) return;
+    setState(() => _presenting = !_presenting);
+  }
+
   /// The tool to put back on leaving focus mode entered with the laser (F5).
   EditorTool? _toolBeforeLaser;
 
@@ -196,7 +205,8 @@ class _EditorScreenState extends State<_EditorView> {
     super.initState();
     _session.gestures
       ..onMultiFingerTap = _onMultiFingerTap
-      ..onContextMenu = _openMenu;
+      ..onContextMenu = _openMenu
+      ..onTwoFingerHold = _togglePresenting;
     _lifecycle.start();
     // Created now: it takes a result the library asked to show.
     _search = EditorSearchController.forSession(_services, _session, notebookId: _notebook.id);
@@ -369,6 +379,7 @@ class _EditorScreenState extends State<_EditorView> {
   void _setFocus(bool on, {bool disposing = false}) {
     if (on == _focus) return;
     _focus = on;
+    _presenting = false;
     if (!on) {
       final tool = _toolBeforeLaser;
       _toolBeforeLaser = null;
@@ -538,6 +549,7 @@ class _EditorScreenState extends State<_EditorView> {
   Widget _chromeHost(ChromeLayout layout, OpenNotebooks? tabs, bool band, {required bool dimmed}) =>
       EditorChromeHost(
         dimmed: dimmed,
+        presenting: _presenting,
         split: widget.split,
         session: _session,
         layout: layout,

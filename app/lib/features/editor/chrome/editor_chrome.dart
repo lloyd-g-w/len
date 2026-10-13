@@ -92,7 +92,12 @@ class EditorChrome extends StatelessWidget {
     this.puckAt,
     this.onPuckMoved,
     this.dimmed = false,
+    this.presenting = false,
   });
+
+  /// In focus mode, hides the puck and the exit button too (a two-finger
+  /// long press toggles it; F11 / Esc still leave focus mode).
+  final bool presenting;
 
   /// The other pane of a split view is in use: the top bar and toolbar
   /// recede to 60 % ([Motion.fast]); a touch here brings them back.
@@ -233,7 +238,7 @@ class EditorChrome extends StatelessWidget {
         ),
         // Only in focus mode: otherwise its controls would sit (hidden) in
         // the tree beside the toolbar's own.
-        if (puck case final puck? when focus)
+        if (puck case final puck? when focus && !presenting)
           Positioned.fill(
             child: ToolbarSlot(
               toolbar: puck,
@@ -247,7 +252,7 @@ class EditorChrome extends StatelessWidget {
           top: safe.top + Gaps.sm,
           right: safe.right + Gaps.sm,
           child: ChromeFade(
-            visible: focus,
+            visible: focus && !presenting,
             edge: const Offset(0, -1),
             child: FocusHandle(onExit: onExitFocus),
           ),
