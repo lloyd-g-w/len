@@ -98,7 +98,7 @@ class InkDrawing {
   void start(PointerDownEvent e, {required bool erase, bool? eraserTool, bool lasso = false}) {
     // Zoomed far out the view may show stored rasters only: what is
     // erased, selected or written over must be in memory.
-    model.loadVisible();
+    model.loadVisible(view: viewport);
     _drawPointer = e.pointer;
     _drawKind = e.kind;
     _drawStartTime = e.timeStamp;

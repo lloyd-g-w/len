@@ -257,6 +257,36 @@ void main() {
     });
   });
 
+  test('split view: an overview pane loads nothing a close-up pane does not need', () {
+    final db = AppDatabase.inMemory();
+    final strokes = StrokeRepository(db, deviceId: 'd')..save(ink);
+    final model = SurfaceModel(
+      surfaceId: 's',
+      repository: strokes,
+      reader: strokes,
+      maxLoadedChunks: 1 << 20,
+      rasterStore: MemoryRasterStore(),
+    );
+    final overview = Object(), closeUp = Object();
+    model.showStored(const Rect.fromLTWH(0, 0, 4000, 3000), view: overview);
+    model.ensureLoaded(const Rect.fromLTWH(0, 0, 300, 200), view: closeUp);
+    final near = model.loadedStrokeCount;
+    expect(near, inInclusiveRange(1, ink.length ~/ 3));
+    // The overview asks for a chunk without a raster; the close-up keeps
+    // what it has.
+    model.requestChunks([(x: 4, y: 3)]);
+    expect(model.isComplete((x: 4, y: 3)), isTrue);
+    expect(model.isComplete((x: 0, y: 0)), isTrue);
+    // Writing in the close-up loads nothing more; touching the overview
+    // loads all it shows.
+    model.loadVisible(view: closeUp);
+    expect(model.isComplete((x: 2, y: 2)), isFalse);
+    model.loadVisible(view: overview);
+    expect(model.loadedStrokeCount, ink.length);
+    model.dispose();
+    db.close();
+  });
+
   test('digests are 48-bit sums that change with content', () {
     final a = ChunkDigest.of([ink[0], ink[1]], const []);
     final b = ChunkDigest.of([ink[1], ink[0]], const []);

@@ -61,6 +61,9 @@ class _InkSurfaceState extends State<InkSurface> {
   @override
   void didUpdateWidget(InkSurface old) {
     super.didUpdateWidget(old);
+    if (old.model != widget.model || old.viewport != widget.viewport) {
+      old.model.forgetView(old.viewport);
+    }
     if (old.model != widget.model) {
       _tiles.dispose();
       _rasters.dispose();
@@ -79,6 +82,7 @@ class _InkSurfaceState extends State<InkSurface> {
   @override
   void dispose() {
     widget.viewport.removeListener(_loadVisible);
+    widget.model.forgetView(widget.viewport);
     _tiles.dispose();
     _rasters.dispose();
     _cache.dispose();
@@ -94,9 +98,9 @@ class _InkSurfaceState extends State<InkSurface> {
     final model = widget.model, viewport = widget.viewport;
     if (model.rasterStore != null &&
         ChunkGrid.size * viewport.scale * _devicePixelRatio <= StoredRasters.maxLevel) {
-      model.showStored(viewport.visibleWorld);
+      model.showStored(viewport.visibleWorld, view: viewport);
     } else {
-      model.ensureLoaded(viewport.visibleWorld);
+      model.ensureLoaded(viewport.visibleWorld, view: viewport);
     }
   }
 

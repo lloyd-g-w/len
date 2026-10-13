@@ -23,6 +23,7 @@ import 'pen/eraser_config.dart';
 import 'render/outline_preparer.dart';
 import 'stroke_hit_test.dart';
 import 'surface_loader.dart';
+import 'surface_views.dart';
 import 'undo_history.dart';
 
 /// The in-memory working set of one drawing surface (a page or a canvas):
@@ -141,15 +142,8 @@ class SurfaceModel extends ChangeNotifier {
   late final SurfaceLoader _loading;
   bool _disposed = false;
 
-  ChunkRange? _lastRange;
-  Rect? _lastVisible;
-
-  /// Loaded chunks outside this range may be evicted.
-  ChunkRange? _keep;
-
-  /// Set by [showStored]: only [_wanted] chunks are read.
-  bool _stored = false;
-  final Set<ChunkKey> _wanted = {};
+  /// What each view needs loaded.
+  final SurfaceViews _views = SurfaceViews();
 
   /// Emits chunks whose rendering is stale; `null` means "everything".
   Stream<Set<ChunkKey>?> get invalidations => _changes.stream.map((c) => c.chunks);
@@ -343,71 +337,66 @@ class SurfaceModel extends ChangeNotifier {
 
   /// Makes sure everything stored within (and around) [visibleWorld] is in
   /// memory, evicting far-away chunks if the working set grows too large.
+  /// [view] tells views of one surface apart (see [showStored]).
   ///
   /// With a synchronous reader (the default) the chunks are loaded on
   /// return; with an asynchronous one they arrive later (see [isLoading]).
-  void ensureLoaded(Rect visibleWorld) {
+  void ensureLoaded(Rect visibleWorld, {Object? view}) {
     if (visibleWorld.isEmpty || !visibleWorld.isFinite) return;
-    _lastVisible = visibleWorld;
-    final range = ChunkGrid.rangeFor(visibleWorld.inflate(ChunkGrid.size));
-    _keep = range;
-    if (_stored) {
-      _stored = false;
-      _wanted.clear();
-    } else if (range == _lastRange) {
-      return;
-    }
-    _lastRange = range;
-    flush(); // Reads must see every edit.
-    _loading.request(range);
+    final range = _views.show(view, visibleWorld, stored: false);
+    if (range != null) _request(range);
   }
 
-  /// Like [ensureLoaded], for a view zoomed out so far that it draws
-  /// stored rasters of the chunks ([rasterStore]): nothing is read, except
-  /// chunks asked for with [requestChunks] (those without a raster) or,
-  /// once something needs the content (a pen touching down), everything
-  /// visible ([loadVisible]).
-  void showStored(Rect visibleWorld) {
+  /// Like [ensureLoaded], for a [view] zoomed out so far that it draws
+  /// stored rasters of the chunks ([rasterStore]): nothing is read for it,
+  /// except chunks asked for with [requestChunks] (those without a raster)
+  /// or, once something needs the content (a pen touching down),
+  /// everything it shows ([loadVisible]).
+  void showStored(Rect visibleWorld, {Object? view}) {
     if (visibleWorld.isEmpty || !visibleWorld.isFinite) return;
-    _lastVisible = visibleWorld;
-    final keep = _keep = ChunkGrid.rangeFor(visibleWorld.inflate(ChunkGrid.size));
-    _wanted.removeWhere((key) => !keep.contains(key));
-    _stored = true;
-    _lastRange = null;
+    _views.show(view, visibleWorld, stored: true);
   }
 
-  /// Whether the view shows stored rasters (see [showStored]).
-  bool get showsStored => _stored;
+  /// Forgets what [view] needed (it is gone).
+  void forgetView(Object? view) => _views.forget(view);
 
-  /// Loads what the view shows, after [showStored] read only part of it:
+  /// Whether a view shows stored rasters (see [showStored]).
+  bool get showsStored => _views.anyStored;
+
+  /// Loads what [view] shows after [showStored] read only part of it:
   /// editing (erasing, selecting, writing) needs the content.
-  void loadVisible() {
-    final visible = _lastVisible;
-    if (_stored && visible != null) ensureLoaded(visible);
+  void loadVisible({Object? view}) {
+    final visible = _views.storedVisible(view);
+    if (visible != null) ensureLoaded(visible, view: view);
   }
 
   /// Reads [keys] (chunks a [showStored] view has no raster of), if not in
   /// memory yet.
   void requestChunks(Iterable<ChunkKey> keys) {
-    if (_disposed || !_stored) return;
+    if (_disposed || !_views.anyStored) return;
     var added = false;
     for (final key in keys) {
-      if (!_loaded.contains(key) && !_arriving.contains(key) && _wanted.add(key)) added = true;
+      if (!_loaded.contains(key) && !_arriving.contains(key) && _views.wanted.add(key)) {
+        added = true;
+      }
     }
-    if (!added) return;
-    // All wanted at once: a newer request replaces one still queued.
-    final first = _wanted.first;
-    var range = ChunkRange(first.x, first.y, first.x, first.y);
-    for (final k in _wanted) {
-      range = ChunkRange(
-        math.min(range.minX, k.x),
-        math.min(range.minY, k.y),
-        math.max(range.maxX, k.x),
-        math.max(range.maxY, k.y),
+    if (added) _request(_views.wantedRange!);
+  }
+
+  /// Reads the chunks of [range] not in memory — and those still wanted,
+  /// with what other views need: a newer request replaces one queued.
+  void _request(ChunkRange range) {
+    var r = range;
+    for (final other in [?_views.wantedRange, ..._views.loadedRanges]) {
+      r = ChunkRange(
+        math.min(r.minX, other.minX),
+        math.min(r.minY, other.minY),
+        math.max(r.maxX, other.maxX),
+        math.max(r.maxY, other.maxY),
       );
     }
-    flush();
-    _loading.request(range);
+    flush(); // Reads must see every edit.
+    _loading.request(r);
   }
 
   /// Whether chunks are still being read (or their outlines built).
@@ -436,10 +425,10 @@ class SurfaceModel extends ChangeNotifier {
       if (range.contains(key)) key,
     for (final key in _arriving)
       if (range.contains(key)) key,
-    // Showing stored rasters: only the chunks asked for.
-    if (_stored)
+    // Views showing stored rasters read only the chunks asked for.
+    if (_views.anyStored)
       for (final key in range.keys)
-        if (!_wanted.contains(key)) key,
+        if (_views.skips(key)) key,
   };
 
   void _onLoad(ChunkLoad load) {
@@ -505,7 +494,7 @@ class SurfaceModel extends ChangeNotifier {
   /// [strokes] grouped by the chunk of their first point, the groups
   /// ordered by their distance from the middle of the last visible area.
   List<List<Stroke>> _nearestFirst(List<Stroke> strokes) {
-    final visible = _lastVisible;
+    final visible = _views.lastVisible;
     final byChunk = <ChunkKey, List<Stroke>>{};
     for (final s in strokes) {
       final p = s.points.isEmpty ? null : s.points.first;
@@ -556,9 +545,8 @@ class SurfaceModel extends ChangeNotifier {
       _loaded.addAll(load.chunks);
       if (changed.isNotEmpty) _changed(changed, loaded: true);
     }
-    _wanted.removeAll(load.chunks);
-    final keep = _keep;
-    if (keep != null && _loaded.length > maxLoadedChunks) _evictOutside(keep);
+    _views.wanted.removeAll(load.chunks);
+    if (_loaded.length > maxLoadedChunks) _evictOutside();
   }
 
   /// Drops everything in memory and reloads from storage (e.g. after a sync
@@ -570,24 +558,23 @@ class SurfaceModel extends ChangeNotifier {
     _elements.clear();
     _loaded.clear();
     _arriving.clear();
-    _wanted.clear();
-    _lastRange = null;
+    _views.clear();
     _loading.reset();
     _changes.add(const SurfaceChange(null));
-    final visible = _lastVisible;
-    if (visible != null && !_stored) ensureLoaded(visible);
+    final ranges = _views.loadedRanges;
+    if (ranges.isNotEmpty) _request(ranges.first);
     notifyListeners();
   }
 
-  /// Unloads every chunk outside [keep]. An item stays in memory while any
+  /// Unloads every chunk away from the views. An item stays in memory while any
   /// loaded chunk still needs it. Only the affected chunks are invalidated,
   /// so cached pictures of what is on screen survive.
-  void _evictOutside(ChunkRange keep) {
+  void _evictOutside() {
     final evicted = <ChunkKey>{};
     final strokes = <Stroke>{};
     final elements = <SurfaceElement>{};
     _loaded.removeWhere((key) {
-      if (keep.contains(key)) return false;
+      if (_views.keeps(key)) return false;
       evicted.add(key);
       strokes.addAll(_strokes.inChunk(key));
       elements.addAll(_elements.inChunk(key));
