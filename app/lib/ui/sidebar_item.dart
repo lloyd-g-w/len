@@ -129,6 +129,24 @@ class _SidebarItemState extends State<SidebarItem> {
   }
 }
 
+/// Marks [child] as the current place (when [current]) with the margin rule
+/// at its left edge, no plate (DESIGN §6). The caller sets the label bold.
+class MarginRule extends StatelessWidget {
+  const MarginRule({super.key, required this.current, required this.child});
+
+  final bool current;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: current ? true : null,
+    child: CustomPaint(
+      foregroundPainter: current ? MarginRulePainter(Theme.of(context).colorScheme.primary) : null,
+      child: child,
+    ),
+  );
+}
+
 /// The margin rule (DESIGN §0): a [Hairline.rule]-wide accent rule, like an
 /// exercise book's margin line, at the left edge of the current row (or
 /// tab), vertically centred and [length] long.

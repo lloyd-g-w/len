@@ -53,12 +53,13 @@ class _AddButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // A Pencil-edged outline with an Ink +, like the library's New tile.
     return OutlinedButton.icon(
       onPressed: onAdd,
       style: OutlinedButton.styleFrom(
-        foregroundColor: scheme.onSurfaceVariant,
-        backgroundColor: scheme.surface.withValues(alpha: 0.6),
-        side: BorderSide(color: scheme.outline.withValues(alpha: 0.6)),
+        foregroundColor: scheme.onSurface,
+        backgroundColor: Colors.transparent,
+        side: BorderSide(color: scheme.outline),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
       ),
       icon: const Icon(Symbols.add_sharp),

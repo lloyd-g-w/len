@@ -255,7 +255,7 @@ void main() {
     );
     await tester.tap(find.byTooltip('Recordings'));
     await tester.pumpAndSettle();
-    expect(find.text('3 recordings, 13 min'), findsOneWidget);
+    expect(find.text('3 recordings, 13\u00A0min'), findsOneWidget);
     expect(find.text('5 Mar 2024, 11:15'), findsOneWidget);
     expect(find.text('6:15'), findsOneWidget);
     await expectLater(
@@ -298,7 +298,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();
     expect(e.services.recordings.listOf(e.notebook.id).map((r) => r.title), ['Cells']);
-    expect(find.text('1 recording, 4 min'), findsOneWidget);
+    expect(find.text('1 recording, 4\u00A0min'), findsOneWidget);
     expect(find.byTooltip('Select'), findsNothing); // One left: nothing to select.
 
     // One recording from its ⋯ menu (which shows its size).

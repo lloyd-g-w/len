@@ -5,6 +5,7 @@ import '../../../domain/outline/outline_tree.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
 import '../../../ui/section_label.dart';
+import '../../../ui/sidebar_item.dart' show MarginRule;
 import '../editor_session.dart';
 import '../pdf/pdf_outline_sheet.dart';
 import 'notebook_outline.dart';
@@ -46,6 +47,13 @@ class _NotebookOutlineViewState extends State<NotebookOutlineView> {
 }
 
 enum _EntryAction { rename, indent, outdent, repoint, delete }
+
+/// The left margin of the outline's text: headings, notes and entry titles
+/// at depth 0 start here; the caller pads the panel onto its own margin.
+const double outlineMargin = Gaps.lg;
+
+/// How far rows (and their margin rule) sit inside [outlineMargin].
+const double outlineRowInset = Gaps.xs;
 
 /// The outline panel's content.
 class OutlinePanel extends StatefulWidget {
@@ -93,13 +101,13 @@ class _OutlinePanelState extends State<OutlinePanel> {
           children: [
             if (widget.showTitle)
               Padding(
-                padding: const EdgeInsets.fromLTRB(Gaps.xl, 0, Gaps.lg, Gaps.sm),
+                padding: const EdgeInsets.fromLTRB(outlineMargin, 0, outlineMargin, Gaps.sm),
                 child: Text('Outline', style: theme.textTheme.titleLarge),
               ),
             if (hasPdf) _label('This notebook'),
             if (_outline.isEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.md, Gaps.xl, 0),
+                padding: const EdgeInsets.fromLTRB(outlineMargin, Gaps.md, outlineMargin, 0),
                 child: Text(
                   'Add pages to build a table of contents. Entries can be nested.',
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -110,9 +118,9 @@ class _OutlinePanelState extends State<OutlinePanel> {
             // Adds the page on screen as an entry (not a new page).
             Padding(
               padding: EdgeInsets.fromLTRB(
-                Gaps.lg,
+                outlineMargin - Gaps.sm,
                 widget.showTitle || hasPdf ? Gaps.xs : Gaps.md,
-                Gaps.lg,
+                outlineMargin - Gaps.sm,
                 Gaps.sm,
               ),
               child: Align(
@@ -126,7 +134,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
             ),
             for (final row in rows)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
+                padding: const EdgeInsets.symmetric(horizontal: outlineRowInset),
                 child: _row(row, current, marked: row == highlighted),
               ),
             if (hasPdf) ...[
@@ -140,7 +148,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
   }
 
   Widget _label(String text) => Padding(
-    padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.lg, Gaps.xl, Gaps.xs),
+    padding: const EdgeInsets.fromLTRB(outlineMargin, Gaps.lg, outlineMargin, Gaps.xs),
     child: SectionLabel(text),
   );
 
@@ -151,84 +159,91 @@ class _OutlinePanelState extends State<OutlinePanel> {
     final entry = row.entry;
     final collapsed = _collapsed.contains(entry.id);
     final tree = _outline.tree;
-    return ListTile(
-      key: ValueKey('user-outline-${entry.id}'),
-      selected: marked,
-      selectedTileColor: Surfaces.pressed(theme.colorScheme),
-      // Inset by Gaps.sm (below) so the highlight doesn't meet the edge.
-      contentPadding: EdgeInsetsDirectional.only(start: row.depth * 24.0, end: 0),
-      minLeadingWidth: 48,
-      horizontalTitleGap: Gaps.xs,
-      leading: row.hasChildren
-          ? IconButton(
-              tooltip: collapsed ? 'Expand' : 'Collapse',
-              icon: Icon(collapsed ? Symbols.chevron_right_sharp : Symbols.expand_more_sharp),
-              onPressed: () => setState(
-                () => collapsed ? _collapsed.remove(entry.id) : _collapsed.add(entry.id),
+    // The page on screen carries the margin rule and a bold label, no plate
+    // (DESIGN §6).
+    return MarginRule(
+      current: marked,
+      child: ListTile(
+        key: ValueKey('user-outline-${entry.id}'),
+        contentPadding: EdgeInsetsDirectional.only(start: row.depth * 24.0, end: 0),
+        minLeadingWidth: 48,
+        horizontalTitleGap: Gaps.xs,
+        leading: row.hasChildren
+            ? IconButton(
+                tooltip: collapsed ? 'Expand' : 'Collapse',
+                icon: Icon(collapsed ? Symbols.chevron_right_sharp : Symbols.expand_more_sharp),
+                onPressed: () => setState(
+                  () => collapsed ? _collapsed.remove(entry.id) : _collapsed.add(entry.id),
+                ),
+              )
+            : const SizedBox(width: 48),
+        title: Text(
+          entry.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: (row.depth == 0 ? theme.textTheme.labelLarge : theme.textTheme.bodyMedium)
+              ?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: marked ? FontWeight.w700 : null,
               ),
-            )
-          : const SizedBox(width: 48),
-      title: Text(
-        entry.title,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: (row.depth == 0 ? theme.textTheme.labelLarge : theme.textTheme.bodyMedium)?.copyWith(
-          color: marked ? theme.colorScheme.primary : null,
-          fontWeight: marked ? FontWeight.w600 : null,
         ),
-      ),
-      subtitle: page == null ? const Text('Page deleted') : null,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            page == null ? '—' : '${page + 1}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFeatures: const [FontFeature.tabularFigures()],
+        subtitle: page == null ? const Text('Page deleted') : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              page == null ? '—' : '${page + 1}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
-          ),
-          MenuIconButton<_EntryAction>(
-            tooltip: 'Entry options',
-            icon: const Icon(Symbols.more_horiz_sharp, size: Glyphs.bar),
-            onSelected: (a) => switch (a) {
-              _EntryAction.rename => _outline.rename(context, entry),
-              _EntryAction.indent => _outline.indent(entry),
-              _EntryAction.outdent => _outline.outdent(entry),
-              _EntryAction.repoint => _outline.moveToCurrentPage(entry),
-              _EntryAction.delete => _outline.delete(context, entry),
-            },
-            items: () => [
-              const MenuRow(value: _EntryAction.rename, icon: Symbols.edit_sharp, label: 'Rename…'),
-              MenuRow(
-                value: _EntryAction.indent,
-                icon: Symbols.format_indent_increase_sharp,
-                label: 'Nest under previous',
-                enabled: tree.indentTarget(entry) != null,
-              ),
-              MenuRow(
-                value: _EntryAction.outdent,
-                icon: Symbols.format_indent_decrease_sharp,
-                label: 'Move out a level',
-                enabled: tree.isNested(entry),
-              ),
-              MenuRow(
-                value: _EntryAction.repoint,
-                icon: Symbols.my_location_sharp,
-                label: 'Link to page ${current + 1}',
-                enabled: page != current,
-              ),
-              const PopupMenuDivider(),
-              const MenuRow(
-                value: _EntryAction.delete,
-                icon: Symbols.delete_sharp,
-                label: 'Delete',
-                destructive: true,
-              ),
-            ],
-          ),
-        ],
+            MenuIconButton<_EntryAction>(
+              tooltip: 'Entry options',
+              icon: const Icon(Symbols.more_horiz_sharp, size: Glyphs.bar),
+              onSelected: (a) => switch (a) {
+                _EntryAction.rename => _outline.rename(context, entry),
+                _EntryAction.indent => _outline.indent(entry),
+                _EntryAction.outdent => _outline.outdent(entry),
+                _EntryAction.repoint => _outline.moveToCurrentPage(entry),
+                _EntryAction.delete => _outline.delete(context, entry),
+              },
+              items: () => [
+                const MenuRow(
+                  value: _EntryAction.rename,
+                  icon: Symbols.edit_sharp,
+                  label: 'Rename…',
+                ),
+                MenuRow(
+                  value: _EntryAction.indent,
+                  icon: Symbols.format_indent_increase_sharp,
+                  label: 'Nest under previous',
+                  enabled: tree.indentTarget(entry) != null,
+                ),
+                MenuRow(
+                  value: _EntryAction.outdent,
+                  icon: Symbols.format_indent_decrease_sharp,
+                  label: 'Move out a level',
+                  enabled: tree.isNested(entry),
+                ),
+                MenuRow(
+                  value: _EntryAction.repoint,
+                  icon: Symbols.my_location_sharp,
+                  label: 'Link to page ${current + 1}',
+                  enabled: page != current,
+                ),
+                const PopupMenuDivider(),
+                const MenuRow(
+                  value: _EntryAction.delete,
+                  icon: Symbols.delete_sharp,
+                  label: 'Delete',
+                  destructive: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+        onTap: page == null ? null : () => widget.onPage(page),
       ),
-      onTap: page == null ? null : () => widget.onPage(page),
     );
   }
 }

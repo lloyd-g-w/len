@@ -198,7 +198,9 @@ class _PillButton extends StatelessWidget {
           ? MaterialTapTargetSize.padded
           : MaterialTapTargetSize.shrinkWrap,
     ),
-    icon: Icon(icon),
+    // Filled transport glyphs, like the player's (outlined pause reads as
+    // two empty boxes).
+    icon: Icon(icon, fill: 1),
   );
 }
 

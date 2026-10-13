@@ -51,39 +51,32 @@ class PlaybackBar extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(left: Gaps.xxs),
+            // Title, time and Trim on one line, centred on each other.
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Up to two lines (the time and Trim keep the first one's
-                // height), the whole title on hover.
+                // Up to two lines, the whole title on hover.
                 Expanded(
                   child: Tooltip(
                     message: recording.title,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        recording.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelLarge,
-                      ),
+                    child: Text(
+                      recording.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge,
                     ),
                   ),
                 ),
                 const SizedBox(width: Gaps.sm),
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    '${formatClock(playback.positionMs - playback.startMs)} / '
-                    '${formatClock(recording.lengthMs)}',
-                    style: small,
-                  ),
+                Text(
+                  '${formatClock(playback.positionMs - playback.startMs)} / '
+                  '${formatClock(recording.lengthMs)}',
+                  style: small,
                 ),
                 IconButton(
                   tooltip: 'Trim…',
                   iconSize: Glyphs.menu,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 36, height: 28),
+                  constraints: const BoxConstraints.tightFor(width: 36, height: 36),
                   color: scheme.onSurfaceVariant,
                   onPressed: playback.loading ? null : playback.beginTrim,
                   icon: const Icon(Symbols.content_cut_sharp),

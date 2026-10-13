@@ -7,13 +7,16 @@ String formatClock(int ms) {
 }
 
 /// A length in words, to the minute: "45 s", "12 min", "1 h 17 min", "2 h".
+/// Numbers and their units are joined by no-break spaces, so a line never
+/// breaks between them.
 String formatDuration(int ms) {
+  const nb = '\u00A0';
   final seconds = ((ms < 0 ? 0 : ms) / 1000).round();
-  if (seconds < 60) return '$seconds s';
+  if (seconds < 60) return '$seconds${nb}s';
   final minutes = (seconds / 60).round();
   final h = minutes ~/ 60, m = minutes % 60;
-  if (h == 0) return '$m min';
-  return m == 0 ? '$h h' : '$h h $m min';
+  if (h == 0) return '$m${nb}min';
+  return m == 0 ? '$h${nb}h' : '$h${nb}h $m${nb}min';
 }
 
 /// "0.75×", "1×", "1.5×".

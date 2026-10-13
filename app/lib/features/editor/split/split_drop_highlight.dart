@@ -33,17 +33,18 @@ class SplitDropHighlight extends StatelessWidget {
                 child: !on
                     ? const SizedBox.expand()
                     : DecoratedBox(
+                        // The 2-dp accent outline only; the pane keeps its colours.
                         decoration: BoxDecoration(
-                          // A tint of the accent, in light and dark alike.
-                          color: scheme.primary.withValues(alpha: 0.08),
                           border: Border.all(color: scheme.primary, width: Hairline.rule),
                         ),
                         child: Align(
                           alignment: const Alignment(0, -0.6),
+                          // An Ink slab, like the gesture HUD.
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: scheme.primary,
-                              borderRadius: BorderRadius.circular(Radii.xs),
+                              color: scheme.inverseSurface,
+                              borderRadius: BorderRadius.circular(Radii.md),
+                              border: Border.fromBorderSide(Surfaces.border(scheme)!),
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
@@ -56,13 +57,13 @@ class SplitDropHighlight extends StatelessWidget {
                                   Icon(
                                     Symbols.content_copy_sharp,
                                     size: Glyphs.menu,
-                                    color: scheme.onPrimary,
+                                    color: scheme.onInverseSurface,
                                   ),
                                   const SizedBox(width: Gaps.sm),
                                   Text(
                                     'Drop to copy here',
                                     style: Theme.of(context).textTheme.labelLarge
-                                        ?.copyWith(color: scheme.onPrimary),
+                                        ?.copyWith(color: scheme.onInverseSurface),
                                   ),
                                 ],
                               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
+import '../outline/outline_panel.dart' show outlineMargin, outlineRowInset;
 import 'pdf_interaction.dart';
 import 'pdf_page_info.dart';
 
@@ -74,7 +75,7 @@ class _PdfOutlineSectionState extends State<PdfOutlineSection> {
         } else if (outlines.every((o) => o.isEmpty)) {
           children.add(
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Gaps.xl, vertical: Gaps.md),
+              padding: const EdgeInsets.symmetric(horizontal: outlineMargin, vertical: Gaps.md),
               child: Text(
                 _blobs.length == 1 ? 'This PDF has no outline' : 'These PDFs have no outline',
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -98,7 +99,7 @@ class _PdfOutlineSectionState extends State<PdfOutlineSection> {
                 },
               ))
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
+                  padding: const EdgeInsets.symmetric(horizontal: outlineRowInset),
                   child: _row(context, row, i),
                 ),
             ]);
@@ -112,7 +113,7 @@ class _PdfOutlineSectionState extends State<PdfOutlineSection> {
   Widget _header(BuildContext context, int pdf) {
     final first = widget.interaction.notebookPageOf(_blobs[pdf], 0);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.lg, Gaps.xl, Gaps.xs),
+      padding: const EdgeInsets.fromLTRB(outlineMargin, Gaps.lg, outlineMargin, Gaps.xs),
       child: Text(
         first == null ? 'PDF ${pdf + 1}' : 'PDF ${pdf + 1}, from page ${first + 1}',
         style: Theme.of(context).textTheme.labelLarge,
@@ -129,8 +130,10 @@ class _PdfOutlineSectionState extends State<PdfOutlineSection> {
     return ListTile(
       key: ValueKey('outline-$key'),
       enabled: page != null,
-      // Inset by Gaps.sm (below) so the highlight doesn't meet the edge.
-      contentPadding: EdgeInsetsDirectional.only(start: row.depth * 24.0, end: Gaps.lg - Gaps.sm),
+      contentPadding: EdgeInsetsDirectional.only(
+        start: row.depth * 24.0,
+        end: outlineMargin - outlineRowInset,
+      ),
       minLeadingWidth: 48,
       horizontalTitleGap: Gaps.xs,
       leading: hasChildren

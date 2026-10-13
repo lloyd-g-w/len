@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/recognition/convert_to_text.dart';
 import '../../../ink/recognition/handwriting_recognizer.dart';
@@ -202,10 +201,6 @@ class _ConvertDialogState extends State<_ConvertDialog> {
     super.dispose();
   }
 
-  /// Every state keeps at least this height, so the dialog doesn't jump
-  /// as recognition finishes (about the field and a row or two of readings).
-  static const double _minHeight = 160;
-
   @override
   Widget build(BuildContext context) {
     final result = _result;
@@ -214,37 +209,28 @@ class _ConvertDialogState extends State<_ConvertDialog> {
     final failed = _error != null || (result != null && result.isEmpty);
     // Copy / Replace only once there is a reading to use.
     final ready = result != null && !failed;
-    Widget status(Widget lead, String message) => Row(
+    // One message line under the title, like other dialogs' states; the
+    // ruled progress line under it while recognising.
+    Widget status(String message, {Color? color, bool busy = false}) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        lead,
-        const SizedBox(width: Gaps.md),
-        Expanded(child: Text(message)),
+        Text(message, style: color == null ? null : TextStyle(color: color)),
+        if (busy) ...[const SizedBox(height: Gaps.lg), const LinearProgressIndicator()],
       ],
     );
     return AppDialog(
       title: 'Convert to text',
       content: DialogBody(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: _minHeight),
-          child: switch ((result, _error)) {
-            (_, final Object _) => status(
-              Icon(Symbols.error_sharp, color: theme.colorScheme.error),
-              'Couldn’t read this handwriting',
-            ),
-            (null, _) => status(
-              const SizedBox.square(
-                dimension: Glyphs.bar,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              'Recognising handwriting…',
-            ),
-            (final r?, _) when r.isEmpty => status(
-              const Icon(Symbols.draw_sharp),
-              'No handwriting found in the selection',
-            ),
-            (final r?, _) => _reading(theme, r),
-          },
-        ),
+        child: switch ((result, _error)) {
+          (_, final Object _) => status(
+            'Couldn’t read this handwriting',
+            color: theme.colorScheme.error,
+          ),
+          (null, _) => status('Recognising handwriting…', busy: true),
+          (final r?, _) when r.isEmpty => status('No handwriting found in the selection'),
+          (final r?, _) => _reading(theme, r),
+        },
       ),
       actions: [
         TextButton(
@@ -300,11 +286,10 @@ class _ConvertDialogState extends State<_ConvertDialog> {
               runSpacing: Gaps.xs,
               children: [
                 for (final alt in others)
+                  // As wide as the dialog allows: large text wraps no phrase
+                  // that would fit on one line.
                   ActionChip(
-                    label: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 200),
-                      child: Text(alt, maxLines: 2, overflow: TextOverflow.ellipsis),
-                    ),
+                    label: Text(alt, maxLines: 2, overflow: TextOverflow.ellipsis),
                     onPressed: () => _text.text = alt,
                   ),
               ],
