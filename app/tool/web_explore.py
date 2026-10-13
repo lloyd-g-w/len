@@ -15,26 +15,35 @@ JavaScript / WebAssembly and run in a browser; this does.
 text); Firefox, when Playwright has one, runs headless.
 
 The walk, one fresh profile per browser: first launch → new notebook →
-draw with the mouse and with a pen (pointer type pen, pressure) → undo /
-redo → add a page → lasso and move → a text box with bold → insert an image
-(file chooser) → View menu → import a PDF → search it → export it as PDF
-(download) → keyboard shortcuts (tools, go to page, focus mode, Ctrl+/) →
-settings and the dark theme → back up the library → offline reload →
-phone width and sideways phone → open and close a notebook a few times
-(memory). Then a second fresh profile restores the backup.
+draw with the mouse and with a pen (pointer type pen; its pressure is
+stored) → undo / redo → add a page → lasso and move → a text box with bold
+→ insert an image (file chooser) → View menu → import a PDF → search it →
+export it as PDF (download) → keyboard shortcuts (tools, go to page, focus
+mode, Ctrl+/) → settings and the dark theme → back up the library →
+offline reload → phone width and sideways phone → open and close a
+notebook a few times (memory). Then a second fresh profile restores that
+backup made big (big_backup: ~20 MB, 4000 strokes, large images, read in
+slices on the web) and opens the big notebook at a page with an image and
+at its last page.
 
 Collected per step: console errors and warnings, the app's own logs that
 say something failed, uncaught exceptions, failed or 4xx/5xx requests,
 long tasks (> 200 ms, PerformanceObserver; Chromium) and the JS heap after
 a forced GC (Chromium). Any of the first four fails the run, as does a
 step whose check fails or a heap that keeps growing while a notebook is
-opened and closed again. Long tasks are reported, not failed: startup and
-PDF import have some by nature.
+opened and closed again. Long tasks are reported, not failed: startup,
+PDF import and restore have some by nature. A failed step also leaves
+what a screen reader finds there (<step>.txt).
 
 What was stored is read back from IndexedDB (SQLite) like
 web_offline_check.py does. Screenshots of every step go to $LEN_EXPLORE_OUT
-(default /tmp/len-web-explore), with report.json. LEN_EXPLORE_BROWSERS=
-chromium,firefox picks browsers (default: both, Firefox if installed).
+(default /tmp/len-web-explore), with report.json. A --wasm build is served
+cross-origin isolated (README). Environment:
+  LEN_EXPLORE_BROWSERS=chromium,firefox  browsers (default both; Firefox if installed)
+  LEN_EXPLORE_BACKUP=<file.len>          only restore this backup (made big) and open it
+  LEN_EXPLORE_PROFILE=1                  CPU profile per step, its hottest functions printed
+  LEN_EXPLORE_CYCLES=5                   open/close cycles of the memory step
+  LEN_EXPLORE_BUNDLED=1                  Playwright's own Chromium (CI), not the PATH's
 Exit status 1 if anything failed.
 """
 import asyncio, base64, io, json, os, re, shutil, sqlite3, struct, subprocess, sys, tempfile, time, zipfile, zlib
@@ -49,7 +58,21 @@ import web_offline_check as w  # noqa: E402  (serves BUILD = argv[1]; the shared
 from playwright.async_api import TimeoutError as PlaywrightTimeout, async_playwright  # noqa: E402
 
 OUT = os.environ.get('LEN_EXPLORE_OUT', '/tmp/len-web-explore')
+
+if os.path.exists(os.path.join(w.BUILD, 'main.dart.wasm')):
+    class _Isolated(w.Handler):
+        """Served as README says for --wasm builds: cross-origin isolated,
+        so Skwasm renders with threads."""
+
+        def end_headers(self):
+            self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+            self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+            super().end_headers()
+
+    w.Handler = _Isolated
 LONG_TASK_MS = 200
+BUNDLED = os.environ.get('LEN_EXPLORE_BUNDLED')  # Playwright's own Chromium, not the PATH's (CI).
+PROFILE = os.environ.get('LEN_EXPLORE_PROFILE')  # CPU profile of each step (Chromium).
 HEAP_GROWTH_MB = 25  # Allowed JS heap growth over the open/close cycles.
 
 # Console lines that are the browser's or the engine's, not Len's.
@@ -218,6 +241,18 @@ class Watch:
         self.problems.append({'browser': self.browser, 'step': self.step, 'problem': what})
 
 
+def print_hot(profile, top=12):
+    """The functions that took the most time themselves in a CPU profile."""
+    nodes, own = {n['id']: n for n in profile['nodes']}, {}
+    deltas = profile.get('timeDeltas', [])
+    for sample, delta in zip(profile.get('samples', []), deltas[1:] + [0]):
+        frame = nodes[sample]['callFrame']
+        key = f"{frame['functionName'] or '(anonymous)'} {frame['url'].rsplit('/', 1)[-1]}"
+        own[key] = own.get(key, 0) + delta / 1000
+    for key, ms in sorted(own.items(), key=lambda kv: -kv[1])[:top]:
+        print(f'    {ms:8.0f} ms  {key[:150]}')
+
+
 async def heap_mb(page, cdp):
     """JS heap after a forced GC, in MB (Chromium; None elsewhere)."""
     if cdp is None:
@@ -368,6 +403,9 @@ class Walk:
         print(f'{self.name} {self.n:02} {title}')
         started = time.monotonic()
         ok = True
+        if self.cdp and PROFILE:
+            await self.cdp.send('Profiler.enable')
+            await self.cdp.send('Profiler.start')
         try:
             await body()
         except (w.CheckFailed, PlaywrightTimeout) as e:
@@ -390,6 +428,11 @@ class Walk:
         except Exception as e:  # The page is gone: the findings say why.
             self.watch.problem(f'page unusable: {e}')
             return False
+        if self.cdp and PROFILE:
+            profile = (await self.cdp.send('Profiler.stop'))['profile']
+            with open(os.path.join(OUT, f'{self.name}-{self.n:02}-{title}.cpuprofile'), 'w') as f:
+                json.dump(profile, f)
+            print_hot(profile)
         long = [t for t in tasks[self.tasks_seen:] if t[1] > LONG_TASK_MS]
         self.tasks_seen = len(tasks)
         heap = await heap_mb(page, self.cdp)
@@ -407,6 +450,10 @@ class Walk:
         await w.worker_ready(self.page)
         await w.accessible(self.page)
         await expect_text(self.page, 'No notebooks yet', timeout=60000)
+        wasm, isolated = await self.page.evaluate('''() => [performance.getEntriesByType('resource')
+            .some((e) => e.name.endsWith('.wasm') && e.name.includes('main.dart')), crossOriginIsolated]''')
+        print(f'  running {"WebAssembly" if wasm else "JavaScript"}'
+              f'{", cross-origin isolated" if isolated else ""}')
 
     async def new_notebook(self):
         await tap(self.page, 'New notebook')
@@ -652,7 +699,7 @@ async def launch(p, browser, profile):
     common = dict(viewport={'width': 1200, 'height': 800}, accept_downloads=True)
     if browser == 'chromium':
         ctx = await p.chromium.launch_persistent_context(
-            profile, executable_path=shutil.which('chromium'), headless=False,
+            profile, executable_path=None if BUNDLED else shutil.which('chromium'), headless=False,
             args=['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'], **common)
     else:
         ctx = await p.firefox.launch_persistent_context(profile, headless=True, **common)
