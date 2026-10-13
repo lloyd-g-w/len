@@ -65,6 +65,13 @@
             JAVA_HOME = pkgs.jdk17.home;
             # Gradle downloads a generic aapt2 that cannot run on NixOS; use the SDK's.
             GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdkRoot}/build-tools/${androidVersions.buildTools}/aapt2";
+            # Users that Nix's glibc cannot look up (LDAP, extrausers, containers)
+            # get user.home = "?" in the JVM, so Gradle looks for the debug
+            # keystore in ./?/.android; take the home from $HOME instead.
+            shellHook = ''
+              export JAVA_TOOL_OPTIONS="-Duser.home=$HOME ''${JAVA_TOOL_OPTIONS:-}"
+              export ANDROID_USER_HOME="''${ANDROID_USER_HOME:-$HOME/.android}"
+            '';
           };
         });
     };
