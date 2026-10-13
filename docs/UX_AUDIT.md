@@ -359,6 +359,9 @@ up another device…": a QR code of `len://sync?url=…&token=…` (pure-Dart
 link holds the token. Pasting the link into Server URL fills both fields;
 on Android the `len://sync` intent filter opens Len, which opens Settings
 with the form filled (`IncomingFiles.syncSetup`). Connect stays the user's.
+*Done (`fix/followups-r6`):* Linux and Windows too: `len "len://sync?…"`
+(or a link opened from a browser: `x-scheme-handler/len`, the installer's
+URL protocol), also forwarded to a running Len.
 
 ### Simplify (one home per command; defaults over settings)
 

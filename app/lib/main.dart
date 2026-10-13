@@ -56,7 +56,7 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
       blobBackend: blobs,
       // "Open with" / "Share to Len", command-line files, PWA file handler.
       incomingFiles: openIncomingFiles(args),
-      // `len://sync?…` setup links (Android).
+      // `len://sync?…` setup links (Android intents, desktop arguments).
       incomingLinks: incomingLinks,
       // Outlines of loaded ink are built on worker isolates.
       outlines: createOutlinePreparer(),

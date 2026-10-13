@@ -797,9 +797,9 @@ search highlights use the same boxes.
     activity is `singleTask` so a share from another app reaches the running Len
     instead of starting a second engine in that app's task. Copies are deleted
     when the next engine starts.
-  - *Linux:* paths / `file://` URIs on the command line (`Exec=len %F`;
-    `MimeType=application/pdf;image/png;image/jpeg;image/webp` in the desktop
-    entry). The GTK runner is single-instance (`G_APPLICATION_HANDLES_OPEN`): a
+  - *Linux:* paths / `file://` URIs on the command line (`Exec=len %U`;
+    `MimeType=application/pdf;image/png;image/jpeg;image/webp;x-scheme-handler/len`
+    in the desktop entry). The GTK runner is single-instance (`G_APPLICATION_HANDLES_OPEN`): a
     second `len file.pdf` forwards the files over D-Bus to the running one,
     whose `open` handler sends them on `len/incoming_files`, and exits.
     `LEN_MULTI_INSTANCE=1` or a non-default `XDG_DATA_HOME` (screenshots, tests;
@@ -830,8 +830,12 @@ search highlights use the same boxes.
   images on the current page or canvas).
 - **Sync setup links** (`sync/sync_setup_link.dart`): `len://sync?url=…&token=…`.
   Android's `len://sync` intent filter reaches `IncomingFiles.kt`, which sends
-  `link(<link>)` on the same channel (queued until `ready`); the Dart side
-  (`incomingLinks`) feeds `IncomingFiles.syncSetup`, which the library turns into
+  `link(<link>)` on the same channel (queued until `ready`). On Linux and
+  Windows the link is a command-line argument (`len "len://sync?…"`; the
+  desktop entry's `x-scheme-handler/len` and the installer's `len` URL
+  protocol open links with Len): the primary instance reads it from its
+  arguments, a second instance forwards it as a "path" as it is
+  (`isIncomingLink`). The Dart side (`incomingLinks`) feeds `IncomingFiles.syncSetup`, which the library turns into
   Settings → Sync and `SyncSettings` takes to fill its form (pasting the link
   into Server URL does the same). A connected device shows the link as a QR
   code (`ui/qr_code_view.dart`, the pure-Dart `qr` package) and Copy link.
@@ -1839,7 +1843,7 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   shrinking, `versionCode` = pubspec build number.
 - **Linux:** application id `dev.len.len` (= GTK app id = `.desktop` name =
   icon name, so Wayland docks match the window). The bundle carries `share/`
-  (desktop entry with PDF/image MIME types and `%F`, icons) and
+  (desktop entry with PDF/image MIME types, the `len` scheme and `%U`, icons) and
   `install-desktop-entry.sh`, plus AppStream metadata (`share/metainfo`); the
   runner loads its window icon from there and is single-instance (files
   opened later are forwarded to the running Len). `runner/window_state.cc`
