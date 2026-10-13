@@ -129,12 +129,14 @@ void main() {
     final finger = _Pointer(2, PointerDeviceKind.touch);
     input
       ..handleDown(finger.down(const Offset(300, 300)))
-      ..handleMove(finger.move(const Offset(310, 300)));
-    expect(viewport.offset, const Offset(10, 0));
+      ..handleMove(finger.move(const Offset(310, 300)))
+      ..handleMove(finger.move(const Offset(340, 300)));
+    // Past the touch slop (18), then following the finger.
+    expect(viewport.offset, const Offset(40 - kTouchSlop, 0));
     input
       ..handleDown(_Pointer(1, PointerDeviceKind.stylus).down(const Offset(10, 10)))
       ..handleMove(finger.move(const Offset(400, 400)));
-    expect(viewport.offset, const Offset(10, 0));
+    expect(viewport.offset, const Offset(40 - kTouchSlop, 0));
   });
 
   test('stylus cancels a stroke started by the palm', () {

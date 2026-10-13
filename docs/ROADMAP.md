@@ -133,6 +133,11 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Canvas background: template + paper colour
 - ✅ Double-tap zoom (finger, when fingers navigate): page fit / 100 % ⇄ 2× or the last zoom, about
   the tap; palm-safe, never confused with two-finger undo
+- ✅ Native-feeling gestures: touch and pinch slop (taps never nudge the page, two-finger pans
+  never drift in zoom), rubber-band zoom limits with spring back, pinches snap to the page fit /
+  100 %, palms between pen strokes ignored; single-page flow turns by flick, long drag, trackpad
+  swipe or wheel notch and settles back otherwise; arrow keys scroll / move, `+` `-` zoom pages
+- ⬜ Single-page flow: the page could follow the finger during a swipe (today it slides in after)
 - ⬜ Persistent LOD tiles; LOD for paged documents
 
 ## Library

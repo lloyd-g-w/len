@@ -80,7 +80,6 @@ class EditorCanvas extends StatelessWidget {
             input: session.input,
             live: session.live,
             backgrounds: session.backgrounds,
-            fingersNavigate: fingersNavigate,
           )
         : CanvasView(
             model: session.canvas!,

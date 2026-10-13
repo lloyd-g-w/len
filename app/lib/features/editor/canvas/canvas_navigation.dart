@@ -6,13 +6,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../../../data/stroke_reader.dart';
-import '../../../ink/navigation/kinetic_pan.dart';
 import '../../../ink/navigation/viewport_animator.dart';
 import '../../../ink/viewport.dart';
 import '../tabs/open_notebooks.dart';
 
-/// Navigation of an infinite canvas: inertial panning, animated zoom
-/// steps, "fit content" and "back to the origin".
+/// Navigation of an infinite canvas: animated zoom steps, "fit content" and "back to the origin".
 class CanvasNavigation extends ChangeNotifier {
   CanvasNavigation({required this.viewport, required this.reader, required this.surfaceId});
 
@@ -21,7 +19,6 @@ class CanvasNavigation extends ChangeNotifier {
   final String surfaceId;
 
   late final ViewportAnimator animator = ViewportAnimator(viewport);
-  late final KineticPan kinetic = KineticPan(animator);
 
   /// Zoom levels the zoom-in / zoom-out actions step through.
   static const List<double> zoomSteps = [

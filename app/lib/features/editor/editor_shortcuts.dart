@@ -6,7 +6,7 @@ import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
 import '../settings/keyboard_shortcuts.dart';
 import 'canvas/canvas_shortcuts.dart';
-import 'document/page_fit.dart';
+import 'document/document_shortcuts.dart';
 import 'editor_session.dart';
 import 'pdf/pdf_layer.dart';
 import 'tabs/open_notebooks.dart';
@@ -34,9 +34,8 @@ const _digitKeys = [
 ];
 
 /// The editor's keyboard shortcuts: undo/redo, tools, quick colours and
-/// widths, selection, focus mode and tabs, plus canvas navigation (zoom,
-/// fit, Home = back to start) or page navigation (arrows, Page Up/Down,
-/// Home = first page, End = last page).
+/// widths, selection, focus mode and tabs, plus canvas navigation
+/// ([canvasShortcuts]) or page navigation ([documentShortcuts]).
 Map<ShortcutActivator, VoidCallback> editorShortcuts(
   EditorSession session, {
   required VoidCallback toggleFocus,
@@ -75,26 +74,7 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
     const SingleActivator(LogicalKeyboardKey.bracketRight): unlessTyping(() => tools.stepWidth(1)),
     ...contentShortcuts(session.content, tools, unlessTyping, paste: paste, pastePlain: pastePlain),
     if (session.canvasNav case final nav?) ...canvasShortcuts(nav, unlessTyping),
-    if (session.doc case final doc?) ...{
-      for (final key in [LogicalKeyboardKey.pageDown, LogicalKeyboardKey.arrowRight])
-        SingleActivator(key): unlessTyping(() => doc.scrollToPage(doc.currentPage + 1)),
-      for (final key in [LogicalKeyboardKey.pageUp, LogicalKeyboardKey.arrowLeft])
-        SingleActivator(key): unlessTyping(() => doc.scrollToPage(doc.currentPage - 1)),
-      const SingleActivator(LogicalKeyboardKey.home): unlessTyping(() => doc.scrollToPage(0)),
-      const SingleActivator(LogicalKeyboardKey.end): unlessTyping(
-        () => doc.scrollToPage(doc.pages.length - 1),
-      ),
-      // Page zoom: 0 automatic, Shift+1 whole page, Shift+2 page width.
-      const SingleActivator(LogicalKeyboardKey.digit0): unlessTyping(
-        () => doc.setFit(PageFit.auto),
-      ),
-      const SingleActivator(LogicalKeyboardKey.digit1, shift: true): unlessTyping(
-        () => doc.setFit(PageFit.page),
-      ),
-      const SingleActivator(LogicalKeyboardKey.digit2, shift: true): unlessTyping(
-        () => doc.setFit(PageFit.width),
-      ),
-    },
+    if (session.doc case final doc?) ...documentShortcuts(doc, session.docAnimator!, unlessTyping),
   };
 }
 

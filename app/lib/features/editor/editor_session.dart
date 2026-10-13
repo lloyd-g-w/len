@@ -63,7 +63,13 @@ class EditorSession {
       );
       nav.open(initialView);
       content = _contentFor(model, viewport);
-      input = _inputFor(model, viewport, onStylusDetected, kinetic: nav.kinetic);
+      input = _inputFor(
+        model,
+        viewport,
+        onStylusDetected,
+        // Pinches ending near 100 % snap to it.
+        kinetic: KineticPan(nav.animator, settle: (f, {required zoomed}) => zoomed && zoom.snap(f)),
+      );
       undo = SurfaceUndo(model);
       zoom = DoubleTapZoom(viewport: viewport, animator: nav.animator, home: () => 1);
     } else {
@@ -85,8 +91,12 @@ class EditorSession {
         doc.activeModel,
         doc.pageViewport,
         onStylusDetected,
-        // Continuous scrolling glides on; single pages turn instead.
-        kinetic: KineticPan(animator, enabled: () => doc.flow == PageFlow.continuous),
+        // Single pages settle back to the whole page; pinches ending near
+        // the page fit snap to it.
+        kinetic: KineticPan(
+          animator,
+          settle: (focal, {required zoomed}) => doc.settleSingle() || (zoomed && zoom.snap(focal)),
+        ),
       );
       // Paste onto the page in the middle of the screen.
       content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));

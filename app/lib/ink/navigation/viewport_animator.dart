@@ -72,7 +72,7 @@ class ViewportAnimator {
       final t = Curves.easeOutCubic.transform(math.min(1, raw));
       final s = s0 * math.pow(s1 / s0, t);
       final w = Offset.lerp(w0, w1, t)!;
-      viewport.setView(scale: s, offset: a - w * s);
+      viewport.setView(scale: s, offset: a - w * s, stretched: true);
       if (raw >= 1) stop();
     });
   }

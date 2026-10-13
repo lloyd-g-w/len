@@ -72,10 +72,68 @@ class ViewportController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Jumps to [scale] (clamped) and [offset] in one notification.
-  void setView({required double scale, required Offset offset}) {
+  /// How far past [minScale] / [maxScale] a gesture can stretch the zoom
+  /// ([stretchAt]); it springs back when the gesture ends.
+  static const double stretch = 1.25;
+
+  /// Whether the zoom is stretched past its limits (by a gesture).
+  bool get overZoomed => scale > maxScale || scale < minScale;
+
+  /// Zooms to the [scale] a gesture asks for, keeping the world point
+  /// under [focal] fixed. Past the limits the zoom gives way with growing
+  /// resistance, never further than [stretch] (a rubber band), so the
+  /// edge is felt instead of hit; the gesture springs it back when it ends.
+  void stretchAt(Offset focal, double scale) {
+    if (!scale.isFinite || scale <= 0) return;
+    final shown = elastic(scale);
+    if (shown == _scale) return;
+    final world = toWorld(focal);
+    _scale = shown;
+    _offset = focal - world * _scale;
+    _constrain();
+    notifyListeners();
+  }
+
+  /// The zoom shown for a gesture asking for [scale]: unchanged within the
+  /// limits, then giving way half as fast and saturating at [stretch].
+  double elastic(double scale) {
+    if (scale > maxScale) return maxScale * math.exp(_give(math.log(scale / maxScale)));
+    if (scale < minScale) return minScale / math.exp(_give(math.log(minScale / scale)));
+    return scale;
+  }
+
+  /// The scale a gesture must ask for to show [shown] (the inverse of
+  /// [elastic]), e.g. to resume from a zoom caught mid spring back.
+  double inelastic(double shown) {
+    final limit = math.log(stretch) * 0.999999;
+    if (shown > maxScale) {
+      return maxScale * math.exp(_take(math.min(limit, math.log(shown / maxScale))));
+    }
+    if (shown < minScale) {
+      return minScale / math.exp(_take(math.min(limit, math.log(minScale / shown))));
+    }
+    return shown;
+  }
+
+  /// How far past a limit the zoom shows for [over] asked (log scale):
+  /// half as fast at first, never beyond [stretch].
+  static double _give(double over) {
+    final limit = math.log(stretch);
+    return limit * over / (over + 2 * limit);
+  }
+
+  static double _take(double given) {
+    final limit = math.log(stretch);
+    return 2 * limit * given / (limit - given);
+  }
+
+  /// Jumps to [scale] (clamped) and [offset] in one notification. With
+  /// [stretched], the scale may lie up to [stretch] past the limits (an
+  /// animation springing back from a stretched zoom).
+  void setView({required double scale, required Offset offset, bool stretched = false}) {
     if (!scale.isFinite || scale <= 0 || !offset.isFinite) return;
-    final clamped = scale.clamp(minScale, maxScale);
+    final give = stretched ? stretch : 1.0;
+    final clamped = scale.clamp(minScale / give, maxScale * give);
     if (clamped == _scale && offset == _offset) return;
     _scale = clamped;
     _offset = offset;

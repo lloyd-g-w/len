@@ -12,6 +12,7 @@ import 'document_layout.dart';
 import 'document_painters.dart';
 import 'page_backgrounds.dart';
 import 'page_painting.dart';
+import 'single_page_turns.dart';
 
 /// Shows a paged notebook as a scrollable stack of pages (or one page at a
 /// time) and routes input to the page under the pointer.
@@ -26,17 +27,12 @@ class PagedDocumentView extends StatefulWidget {
     required this.input,
     required this.live,
     this.backgrounds,
-    this.fingersNavigate,
   });
 
   final DocumentController controller;
   final InkInputController input;
   final LiveInk live;
   final PageBackgrounds? backgrounds;
-
-  /// Whether one-finger touches pan rather than draw (palm rejection on);
-  /// enables swiping between pages in single-page flow.
-  final bool Function()? fingersNavigate;
 
   @override
   State<PagedDocumentView> createState() => _PagedDocumentViewState();
@@ -102,9 +98,8 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
     _shownPage = page;
   }
 
-  /// Start of a possible page-turning swipe (single-page flow).
-  Offset? _swipeStart;
-  DateTime? _swipeTime;
+  /// Swipes, trackpad swipes and the wheel turn pages in single-page flow.
+  late final SinglePageTurns _turns = SinglePageTurns(_doc);
 
   DocumentController get _doc => widget.controller;
 
@@ -125,43 +120,34 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
     final held = widget.input.content?.holds(e.localPosition) ?? false;
     if ((_pointers.isEmpty || stylus) && !held) _doc.activateAt(e.localPosition);
     _pointers.add(e.pointer);
-    _trackSwipeStart(e);
     widget.input.handleDown(e);
+    // One finger that pans (palm rejection on; not a palm) may swipe.
+    final finger = e.kind == PointerDeviceKind.touch && widget.input.navigates(e.pointer);
+    _turns.fingerDown(e, alone: finger && _pointers.length == 1);
   }
 
   void _up(PointerUpEvent e) {
+    // Only the last finger, still navigating, swipes (not one a pen
+    // landing stopped).
+    final navigating = widget.input.navigates(e.pointer);
     widget.input.handleUp(e);
     _pointers.remove(e.pointer);
-    _maybeSwipe(e);
+    if (navigating && _pointers.isEmpty) {
+      _turns.fingerUp(e);
+    } else {
+      _turns.cancelSwipe();
+    }
   }
 
   void _cancel(PointerCancelEvent e) {
     widget.input.handleCancel(e);
     _pointers.remove(e.pointer);
-    _swipeStart = null;
+    _turns.cancelSwipe();
   }
 
-  void _trackSwipeStart(PointerDownEvent e) {
-    final swipeable =
-        _doc.flow == PageFlow.single &&
-        e.kind == PointerDeviceKind.touch &&
-        _pointers.length == 1 &&
-        (widget.fingersNavigate?.call() ?? false);
-    _swipeStart = swipeable ? e.localPosition : null;
-    _swipeTime = DateTime.now();
-  }
-
-  void _maybeSwipe(PointerUpEvent e) {
-    final start = _swipeStart;
-    _swipeStart = null;
-    if (start == null || _pointers.isNotEmpty) return;
-    final delta = e.localPosition - start;
-    final quick = DateTime.now().difference(_swipeTime!) < const Duration(milliseconds: 700);
-    final pageFits = _doc.layout.bounds.width * _doc.viewport.scale <= _doc.viewport.size.width;
-    if (!quick || !pageFits || delta.dx.abs() < 80 || delta.dx.abs() < 2 * delta.dy.abs()) {
-      return;
-    }
-    _doc.goToPage(_doc.currentPage + (delta.dx < 0 ? 1 : -1));
+  void _signal(PointerSignalEvent e) {
+    if (e is PointerScrollEvent && _turns.wheel(e)) return;
+    widget.input.handleSignal(e);
   }
 
   @override
@@ -183,11 +169,20 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
             onPointerCancel: _cancel,
             onPointerHover: input.handleHover,
             onPointerSignal: (e) {
-              GestureBinding.instance.pointerSignalResolver.register(e, input.handleSignal);
+              GestureBinding.instance.pointerSignalResolver.register(e, _signal);
             },
-            onPointerPanZoomStart: input.handlePanZoomStart,
-            onPointerPanZoomUpdate: input.handlePanZoomUpdate,
-            onPointerPanZoomEnd: input.handlePanZoomEnd,
+            onPointerPanZoomStart: (e) {
+              input.handlePanZoomStart(e);
+              _turns.trackpadStart(e);
+            },
+            onPointerPanZoomUpdate: (e) {
+              input.handlePanZoomUpdate(e);
+              _turns.trackpadUpdate(e);
+            },
+            onPointerPanZoomEnd: (e) {
+              input.handlePanZoomEnd(e);
+              _turns.trackpadEnd(e);
+            },
             child: AnimatedBuilder(
               animation: _turn,
               builder: (context, child) {

@@ -82,6 +82,11 @@ class MultiFingerTapDetector {
     return fingers;
   }
 
+  /// The fingers down are doing something else (e.g. pinching): no tap.
+  void spoil() {
+    if (_starts.isNotEmpty) _spoiled = true;
+  }
+
   /// A finger's gesture was cancelled by the platform.
   void cancel(int pointer) {
     if (_starts.remove(pointer) != null) _spoiled = true;
