@@ -75,6 +75,18 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('in a phone held sideways it is just the number (no overflow)', (tester) async {
+    await pumpEditor(tester, size: const Size(844, 390));
+    await _ctrlG(tester);
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const ValueKey('go-to-page-strip')), findsNothing);
+    await tester.enterText(find.byType(TextField), '3');
+    await tester.tap(find.text('Go'));
+    await tester.pumpAndSettle();
+    expect(_doc(tester).currentPage, 2);
+    await closeEditor(tester);
+  });
+
   testWidgets('the page indicator opens it too', (tester) async {
     await pumpEditor(tester);
     // Shown when the notebook opens.
