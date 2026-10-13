@@ -30,6 +30,10 @@ abstract interface class EditorSearchHost {
   /// Scrolls (or turns pages) so [local] on [surfaceId] is visible,
   /// keeping clear of the screen edges in [clear].
   void reveal(String surfaceId, Rect local, {EdgeInsets clear = EdgeInsets.zero});
+
+  /// Drops the extra scroll room [reveal] made to show a match below the
+  /// search bar (the bar closed).
+  void releaseRoom();
 }
 
 /// Screen-space panning shared by the hosts: centres [target] (screen) in
@@ -88,6 +92,8 @@ class DocumentSearchHost implements EditorSearchHost {
     if (i == -1) return;
     doc.beforeJump?.call(); // Stop any glide or page scroll.
     doc.scroller.stop();
+    // Room to scroll a match at the very top of a page below the bar.
+    doc.setOverlayTop(clear.top);
     var frame = doc.layout.frameOf(i);
     final viewport = doc.viewport;
     if (frame == null || !frame.overlaps(viewport.visibleWorld)) {
@@ -102,6 +108,9 @@ class DocumentSearchHost implements EditorSearchHost {
     );
     viewport.panBy(panToShow(screen, viewport.size, clear));
   }
+
+  @override
+  void releaseRoom() => doc.setOverlayTop(0);
 }
 
 /// [EditorSearchHost] for an infinite canvas (a single surface).
@@ -140,4 +149,7 @@ class CanvasSearchHost implements EditorSearchHost {
     );
     viewport.panBy(panToShow(screen, size, clear));
   }
+
+  @override
+  void releaseRoom() {} // Canvases are unbounded.
 }

@@ -12,6 +12,7 @@ import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/features/search/editor/editor_search_bar.dart';
+import 'package:len/features/search/editor/editor_search_controller.dart';
 import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/ui/app_theme.dart';
@@ -104,6 +105,7 @@ int currentPage(WidgetTester tester) =>
     tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller.currentPage;
 
 void main() {
+  searchBarClearsTheFirstMatch();
   testWidgets('library: full-text results grouped by notebook open the page and highlight', (
     tester,
   ) async {
@@ -305,5 +307,48 @@ void main() {
       expect(find.byTooltip('Show results'), findsOneWidget, reason: 'the list folded away');
       expect(top, greaterThan(tester.getRect(bar).bottom), reason: 'not under the bar');
     }
+  });
+}
+
+/// R5-15: a match at the very top of page 1 lands below the bar.
+void searchBarClearsTheFirstMatch() {
+  testWidgets('phone: the first match shows below the bar on open and when stepping', (
+    tester,
+  ) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final nbs = seed(services);
+    final first = services.pages.pagesOf(nbs.biology.id).first;
+    services.elements.save([textBox('top', first.id, 'Forces and motion', const Offset(90, 24))]);
+    await pumpEditorFor(tester, services, nbs.biology, size: const Size(390, 844));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    final bar = find.byType(EditorSearchBar);
+    final search = tester.widget<EditorSearchBar>(bar).controller;
+    double topOf(EditorSearchMatch match) {
+      final t = search.host.transformOf(match.surfaceId)!;
+      return search.rectsOf(match).first.rect.top * t.scale + t.offset.dy;
+    }
+
+    await typeSearch(tester, 'forces');
+    expect(find.text('1 match'), findsOneWidget);
+    expect(topOf(search.matches.first), greaterThan(tester.getRect(bar).bottom), reason: 'open');
+
+    // Away and back by stepping.
+    await tester.drag(find.byType(PagedDocumentView), const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.f3);
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 1'), findsOneWidget);
+    expect(topOf(search.currentMatch!), greaterThan(tester.getRect(bar).bottom), reason: 'step');
+
+    // Closing gives the extra room back.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
+    expect(doc.overlayTop, 0);
   });
 }
