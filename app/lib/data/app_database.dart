@@ -3,6 +3,7 @@ import 'package:sqlite3/common.dart';
 
 import '../platform/sqlite_connection.dart';
 
+import 'chunk_digest_migration.dart';
 import 'schema_reset.dart';
 import 'search/ink_text_schema.dart';
 import 'search/search_schema.dart';
@@ -173,6 +174,7 @@ class AppDatabase {
     _notebookPaperData,
     _strokeEndStyles,
     _recognisedText,
+    ChunkDigestMigration.migrate,
   ];
 
   /// Version 9: recognised handwriting, synced (collection

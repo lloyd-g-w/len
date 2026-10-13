@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../domain/chunk_digest.dart';
 import '../domain/link_target.dart';
 import '../domain/notebook.dart';
 import '../domain/surface_element.dart';
@@ -77,6 +78,14 @@ class NotebookDuplicator {
           jsonEncode({...?data, 'target': relinked.toJson()}),
           row['id'],
         ]);
+        final element = StrokeQueries.rowToElement(
+          db.select('SELECT * FROM elements WHERE id = ?', [row['id']]).first,
+        );
+        if (element == null) continue;
+        db.execute('UPDATE element_chunks SET digest = ? WHERE element_id = ?', [
+          ChunkDigest.ofElement(element),
+          row['id'],
+        ]);
       }
     }
   }
@@ -115,10 +124,11 @@ class NotebookDuplicator {
     for (final id in ids) {
       final newId = repo.clock.newId();
       copier.copy(table, id, {...stamp, 'id': newId, 'surface_id': to});
+      // A stroke's digest is its id's hash; an element's, its value's.
       repo.db.execute(
-        'INSERT OR IGNORE INTO $chunks (surface_id, cx, cy, $idColumn) '
-        'SELECT ?, cx, cy, ? FROM $chunks WHERE $idColumn = ?',
-        [to, newId, id],
+        'INSERT OR IGNORE INTO $chunks (surface_id, cx, cy, $idColumn, digest) '
+        'SELECT ?, cx, cy, ?, COALESCE(?, digest) FROM $chunks WHERE $idColumn = ?',
+        [to, newId, table == 'strokes' ? ChunkDigest.ofStroke(newId) : null, id],
       );
     }
   }

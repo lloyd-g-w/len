@@ -15,7 +15,8 @@ import 'stroke_renderer.dart';
 /// 4. elements above the ink (text, images brought to the front).
 ///
 /// Within each layer strokes keep their paint order and elements their
-/// stacking order.
+/// stacking order. Changing how content looks? Bump `StoredRasters.format`,
+/// or canvases zoomed far out keep showing rasters drawn before.
 ///
 /// With `sketchThin`, strokes narrower than `sketchBelow` pixels (at
 /// `pixelScale` pixels per unit) are drawn as plain lines

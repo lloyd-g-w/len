@@ -16,6 +16,7 @@ import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/outline_repository.dart';
 import 'data/page_repository.dart';
+import 'data/raster_store.dart';
 import 'data/recognised_text_repository.dart';
 import 'data/recording_repository.dart';
 import 'data/search/search_service.dart';
@@ -66,6 +67,7 @@ class AppServices {
     required this.outlines,
     required this.outline,
     required this.writes,
+    required this.rasterStore,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -83,6 +85,7 @@ class AppServices {
     Stream<List<XFile>>? incomingFiles,
     OutlinePreparer outlines = const InlineOutlinePreparer(),
     StorageWrites? writes,
+    RasterStore? rasterStore,
   }) {
     final settings = SettingsRepository(database);
     final deviceId = settings.deviceId(clock);
@@ -154,6 +157,7 @@ class AppServices {
       outlines: outlines,
       outline: outline,
       writes: writes ?? StorageWrites(),
+      rasterStore: rasterStore,
     );
   }
 
@@ -206,6 +210,10 @@ class AppServices {
 
   /// Notebooks' own outlines (tables of contents).
   final OutlineRepository outline;
+
+  /// Level-of-detail rasters of canvas chunks kept across restarts (none
+  /// on the web or in tests).
+  final RasterStore? rasterStore;
 
   /// Makes recorders and players (created only when used).
   final AudioBackends audio;

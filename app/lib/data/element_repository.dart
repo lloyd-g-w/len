@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:sqlite3/common.dart';
 
+import '../domain/chunk_digest.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke_chunks.dart';
 import '../domain/surface_element.dart';
@@ -228,11 +229,13 @@ class ElementRepository extends SyncableTable {
   void _reindex(SurfaceElement e) {
     db.execute('DELETE FROM element_chunks WHERE element_id = ?', [e.id]);
     final insert = db.prepare(
-      'INSERT OR IGNORE INTO element_chunks (surface_id, cx, cy, element_id) VALUES (?, ?, ?, ?)',
+      'INSERT OR IGNORE INTO element_chunks (surface_id, cx, cy, element_id, digest) '
+      'VALUES (?, ?, ?, ?, ?)',
     );
+    final digest = ChunkDigest.ofElement(e);
     try {
       for (final key in ElementChunks.of(e)) {
-        insert.execute([e.surfaceId, key.x, key.y, e.id]);
+        insert.execute([e.surfaceId, key.x, key.y, e.id, digest]);
       }
     } finally {
       insert.close();

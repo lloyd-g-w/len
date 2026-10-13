@@ -56,8 +56,8 @@ The same grid drives three things:
    empty space costs nothing. A stroke is indexed only in the chunks its ink
    passes through (`domain/stroke_chunks.dart`: each segment, cut into short
    pieces, widened by the stroke's padding plus how far neighbouring samples
-   stray — the outline smooths over them), never more than its bounding box;
-   rows written before this used the whole box and stay valid. An element is
+   stray — the outline smooths over them), never more than its bounding box
+   (each row also carries the item's hash, see *Stored rasters*). An element is
    indexed in every chunk its (rotated) bounds overlap (`ElementChunks`). The
    in-memory `ContentIndex` (one per kind, over a `SpatialIndex`) uses the
    same functions, so memory and storage agree.
@@ -93,6 +93,31 @@ The same grid drives three things:
    are drawn from vectors, a few recorded per frame at most. Measured (test
    `lod_render_test.dart`, 50 000 strokes, 1 632 visible chunks at 5 %): frame
    rasterisation 205 ms → 17 ms, cold first frame 700 ms → 2 ms.
+5. **Stored rasters** (canvases, natively): rasters of levels ≤ 128 are also
+   kept across restarts (`StoredRasters`, a `RasterStore`: PNG files in the
+   app's cache directory, `lod-<format>/`, LRU by file time within 96 MB;
+   none on the web). They are named by content: each `stroke_chunks` /
+   `element_chunks` row carries its item's hash (`ChunkDigest`: a stroke's
+   id, an element's whole value), so storage sums a chunk's digest in one
+   aggregate query (`StrokeReader.chunkDigests`) without loading it, and
+   memory computes the same from the items (`SurfaceModel.digestOf`). Same
+   digest, same content — so a raster found is right whatever was edited,
+   undone, synced or emptied since, by any device, and nothing is ever
+   invalidated: changed chunks get new names, old files age out. Zoomed out
+   until a chunk covers ≤ 128 device pixels, `InkSurface` calls
+   `SurfaceModel.showStored` instead of `ensureLoaded`: nothing is read;
+   `ChunkRasterCache` lists the populated chunks from storage, reads their
+   rasters and asks the model (`requestChunks`) only for chunks with none
+   stored, rasterising and storing those once loaded (complete chunks only;
+   none with images, whose look depends on decoding, or with hidden items).
+   A pen, eraser or lasso touching down loads what the view shows
+   (`loadVisible`), and zooming in past 128 px loads as before while the
+   stored rasters stand in. Views of one surface (split view) register
+   separately (`SurfaceViews`), so an overview pane never loads for a
+   close-up pane or the other way round. Reopening a 40 000-stroke canvas at
+   10 %: 442 chunks drawn from 442 stored rasters, no stroke loaded, versus
+   9 373 strokes loaded and 442 chunks rasterised (see INK_LAB). Changing
+   how content is drawn means bumping `StoredRasters.format`.
 
 Rendering is split into three layers, each behind a `RepaintBoundary`:
 paper (repaints on pan/zoom), committed ink (repaints on pan/zoom or edits),
@@ -1594,6 +1619,7 @@ the web:
 | Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs` behind `WriteBackBlobBackend` (blobs it can't store wait in memory); if it can't open, memory (`VolatileBlobBackend`), which the library, Settings and a first-write snack say |
 | App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread, time-budgeted slices (`SlicedStrokeReader`) |
+| LOD raster cache (`raster_store`) | PNG files in the cache directory (`lod-<format>/`, 96 MB LRU) | none: rasterised again each time |
 | Export (`file_export`) | save dialog + Show in folder / share sheet or Save to device | browser download                                 |
 | Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock + BroadcastChannel: a second tab waits ("open in another tab") or takes over (*Use here*, `TabHandover`) |
 | Page lifecycle (`page_lifecycle`) | nothing (writes are synchronous) | flush on hide / `pagehide`, `beforeunload` guard while a write is pending |
@@ -2053,9 +2079,10 @@ Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
 
 - Canvas chunk reads run in a background isolate, but writes, page surfaces,
   thumbnails and other queries still run on the UI isolate (small and indexed).
-- Far zoom-out of a huge canvas still loads every visible stroke into memory
-  (LOD caps rendering cost, not memory); LOD rasters are not persisted, so they
-  are rebuilt after reopening.
+- Far zoom-out of a huge canvas loads only chunks without a stored raster
+  natively; the web (no raster store) still loads every visible stroke and
+  rasterises again after reopening. Paged documents do not store their LOD
+  rasters. Chunks holding images are never stored (loaded when shown far out).
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
 - Text boxes: list items have no hanging indent (wrapped lines start at the

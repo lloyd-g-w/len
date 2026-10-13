@@ -144,7 +144,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Single-page flow: the page follows a sideways finger, glides back or carries on into the
   next page (`SinglePageTurns.follow`)
 - ✅ LOD for paged documents (per-page chunk rasters when zoomed out far)
-- ⬜ Persistent LOD tiles
+- ✅ Persistent LOD rasters: canvases reopened far out (chunks ≤ 128 px) draw stored rasters,
+  named by chunk content digests, and load only chunks without one (native; not the web, not
+  paged documents)
 
 ## Library
 - ✅ Folders (nested, synced), move to folder (menu + drag and drop), breadcrumbs, folder tree
