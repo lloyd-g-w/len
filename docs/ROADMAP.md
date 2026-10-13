@@ -6,7 +6,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Pressure-sensitive pen, highlighter, stroke eraser, undo/redo
 - ✅ Pressure curve fitted to real S Pen handwriting (light hands draw the pen's width and the
   ink follows their pressure; INK_LAB F11)
-- ⬜ Pixel eraser: fragments keep the original's resampling phase, so nothing else moves (F12)
+- ✅ Pixel eraser: fragments keep the original's resampling phase, so nothing else moves (F12)
+- ✅ Flat ends (highlighter, flat pen ends) stay square over curls tighter than the ink; one
+  highlighter stroke is one even layer where it crosses itself
 - ✅ Focused line-up: Pen (ballpoint) + Highlighter + Eraser (older pen types still render)
 - ✅ Smooth ink at any zoom: arc-length filtering, Bézier envelope outlines, tangent round caps
 - ✅ Independent quick colours and quick widths per ink (1–6 slots each, GoodNotes-style editing)

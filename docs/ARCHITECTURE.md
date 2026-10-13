@@ -1387,7 +1387,10 @@ does not grow with the stroke's length.
      landing (about 20 % of real strokes); otherwise nothing changes;
    - **resampling** every `step` (≈ σ/3, 0.15–0.6 screen px) along a
      centripetal Catmull-Rom spline through the points, from the stroke's
-     start, so samples never move as the stroke grows;
+     start, so samples never move as the stroke grows. A piece cut out by
+     the pixel eraser (`geometry/stroke_splitter.dart`) keeps the
+     original's phase (`StrokeStyle.startPhase`), and its cut ends trim no
+     hooks (`cutEnd`), so the rest of the ink stays where it was;
    - **corners**: where the line turns by > 100° within a short baseline
      (cusps of `n`, `v`); the corner is the run's tip (the sample furthest
      along the direction the line came in from, not the sharpest turn,
@@ -1415,8 +1418,16 @@ does not grow with the stroke's length.
    thousands of capsules before). Runs end where the envelope would fold
    (corners, bends tighter than the radius); such segments are exact
    capsules (`capsule_emitter.dart`). All contours wind the same way, so
-   the non-zero fill unions them. Runs are cut at fixed sample indices
-   (`block`, ≈ 24 screen px), so pieces can be frozen.
+   the non-zero fill unions them (and one translucent highlighter stroke
+   is one even layer where it crosses itself: every renderer fills a
+   stroke as one path). Runs are cut at fixed sample indices
+   (`block`, ≈ 24 screen px), so pieces can be frozen. **Flat ends**
+   (`flat_ends.dart`; the highlighter, the pen's flat ends) are square to
+   the smoothed line; near them (the samples whose circles touch the
+   end's) folds are the area a flat nib sweeps between cross-sections
+   instead of round capsules, and the stretch running the end's way is
+   cut off at the end's line (`HalfPlaneClip`), so tight curls do not
+   round the end off.
 5. **Live stroke** (`live_stroke.dart`, `LiveStrokeBuilder`): per frame,
    only new points are fed to the shaper; pieces that became final are
    appended to a **frozen path** once, and only the **tail** after them is

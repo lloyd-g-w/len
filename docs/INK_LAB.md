@@ -106,13 +106,12 @@ nix develop ..# -c bash -c 'flutter test test/inklab/stabiliser_test.dart \
 # and recording, then the Kotlin unit tests (shared golden; prediction replay)
 tool/wet_ink_check/check.sh
 tool/wet_ink_check/unit_test.sh
-# the pixel eraser (F12): does the rest of a stroke move when a hole is cut?
-nix develop ..# -c bash -c 'flutter test test/inklab/tools/erase_stability_test.dart \
-  --dart-define=INKLAB_TABLE=true --dart-define=INKLAB_REAL=true'
 ```
 
 `pressure_response_test.dart` (part of the suite, ≈ 10 s) checks the pen's
-answer to real S Pen pressure (F11).
+answer to real S Pen pressure (F11), `erase_stability_test.dart` (≈ 45 s)
+that the pixel eraser leaves the rest of a stroke where it was, on every
+recording, real ones included (F12).
 
 The report has, per entry:
 - the metrics table: ok / known / FAIL, and where (logical px) the worst value
@@ -554,29 +553,51 @@ count.
 The same hand: the strokes are closer to the pen's width and swell and
 thin with it (the bowl of the R, the cross).
 
-### F12 (open): the pixel eraser nudges the rest of a stroke
+### F12 (resolved): the pixel eraser nudged the rest of a stroke
 
-`tools/erase_stability_test.dart` cuts a 4 px eraser dab into the middle
-of every stroke and compares the original with its fragments, beyond the
-eraser, 1.5 widths and 3 px from the cut:
+A fragment the pixel eraser leaves was a new stroke, resampled from its
+own first point, so its samples fell elsewhere along the line (the
+resampling phase), and where a loop's top is about as sharp as the
+corner test's 100°, the corner decision could flip: the top of an `l`
+grew or lost about one physical pixel, up to 178 px from the cut (below,
+left: blue gained, red lost, the hole itself red). Its radius smoothing
+also started from the raw pressure at the cut, and a cut end could be
+trimmed as a pen hook.
 
-| Recording | strokes that move | worst |
-|---|---|---|
-| `real_spen_01` | 12 of 50 | 7 px², 39 %, up to 178 px away |
-| `real_spen_02` | 3 of 19 | 5 px², 41 %, up to 130 px away |
-| `sim_cursive` | 1 of 2 | 29 px², 100 %, 17 px away |
+Now (`StrokeSplitter`) a fragment stores the original's phase at its
+start (`StrokeStyle.startPhase`, `cs` in the sync record, in steps):
+from its second original point on, its spline is the original's, so are
+its samples, to float precision, and with them every decision of the
+shaper beyond its reach from the cut. The cut point gets the pressure of
+the original's smoothed width there, so the fragment's width does not
+swing towards the raw pressure and back. Cut ends (`cs`, `ce`) trim no
+hooks, and fragments keep the original's resolved unit.
 
-Cause: a fragment is a new stroke, resampled from its own first point,
-so its samples fall elsewhere along the line (the resampling phase), and
-where a loop's top is about as sharp as the corner test's 100°, the
-corner decision can flip: the top of an `l` grows or loses about one
-physical pixel (below: blue gained, red lost, the hole itself red). On
-real writing it is antialiasing at a few pixels. A fix would keep the
-original's phase and a lead-in point in the fragment (the shaper already
-supports both for the overlay, `StrokeShaper(start:, phase:)`), which
-needs them stored with the stroke.
+`erase_stability_test.dart`, now part of the suite, cuts a 4 px dab into
+every stroke (≥ 30 points) of every recording at ¼, ½ and ¾ of its points,
+and at 40 % with the stabiliser at 0.4 and 1, and rasterises the original
+and its fragments (32 sub-scanlines). Beyond the shaper's reach (the
+eraser, 1.5 widths, the position kernel, corner baseline and radius
+smoothing length, 3 px), no pixel may change by more than one
+sub-scanline plus 1/50 px plus twice the outline's curve tolerance (the
+fragment's cubics start at other samples; 0.06 px at `real_spen_01`'s
+7× zoom). Cuts that move ink, before → now:
 
-![sim_cursive: an l's top moves after erasing nearby](inklab/erase_sim_cursive.png)
+| Recording | as recorded | stabiliser 0.4 | stabiliser 1 |
+|---|---|---|---|
+| `real_spen_01` | 40 of 150 (27 px², 65 %, 281 px away) → 0 | 42 of 150 (409 px², 100 %, 789 px) → 0 | 24 of 150 (691 px², 100 %) → 0 |
+| `real_spen_02` | 8 of 57 (42 px², 100 %, 253 px) → 0 | 8 of 57 → 0 | 10 of 57 → 0 |
+| `sim_cursive` | 1 of 6 (14 px², 43 %, 35 px) → 0 | 1 of 6 → 0 | 0 → 0 |
+| `sim_hooks` | 0 → 0 | 0 → 0 | 0 → 0 |
+
+(The "before" column ran all three cuts at every stabiliser; the test
+now cuts once at 0.4 and 1 to stay quick.) Without the radius seed the
+width still settled visibly at stabiliser 1 (13 of 150 cuts, 47 % up to
+118 px); without the reach's radius term one cut at stabiliser 1 showed
+18 % 66 px away (the residual of the radius smoothing's memory, which is
+causal and decays over its length, ≈ 6.5 widths at stabiliser 1).
+
+![sim_cursive: an l's top moved after erasing nearby; now only the hole changes](inklab/erase_sim_cursive.png)
 
 ### Real S Pen recordings
 
@@ -872,6 +893,39 @@ widths and an optional end length that follows lift speed. The start is
 causal and never changes behind the tip; the end is finalised at pen-up.
 Highlighter caps remain flat. The chosen lengths are saved with every
 stroke and synced, so changing the pen's options does not change old ink.
+
+**Flat ends over tight curls.** A butt cap squared off the run it ended,
+but where the line turns tighter than the ink's width the envelope folds,
+and folds were round capsules, so a highlighter flicked into a curl at its
+end ended in a round blob. Now (`render/flat_ends.dart`) near a flat end,
+the samples whose circles touch the end's (at most two widths, half the
+line), folds are the area a flat nib sweeps between consecutive
+cross-sections (`emitSweep`; the nib turning on a corner too), runs end
+in straight cuts, and the stretch running the end's way (within 60°) is
+cut off at the end's line (`HalfPlaneClip`): nothing round is left to
+bulge past the end. Ink further back that crosses that line (the body
+before a tight turn, a loop) is the stroke's own and stays; clipping it
+too notched the body. The cap is square to the smoothed line over the
+last half radius: the shaper keeps the end sample where the pen was, and
+the step to it can turn 40° away from the line before it. A live tip
+keeps its pieces until pen-up, which redoes the end's zone (as it redoes
+an end taper); the start's zone freezes once it is settled. Round ends
+are unchanged (the Ink Lab table is the same).
+
+![Highlighter ends over tight turns, before (top) and now](inklab/highlighter_ends.png)
+
+*A turn, a curl, a hook and a short squiggle with the 16-wide
+highlighter, before (top) and now.* The turn's and the curl's ends are
+square; the hook (whose end is a straight run) is unchanged.
+
+**One highlighter stroke is one layer.** Like one pass of a marker, a
+highlighter stroke does not darken where it crosses itself; two strokes
+that overlap do. Every renderer fills a stroke's outline as one path with
+the non-zero rule (all contours wind the same way): chunk pictures and
+tiles, live ink (translucent ink is filled frozen part and tail in one
+go), PNG and PDF export (one `f` per stroke). `highlighter_layer_test.dart`
+checks all of them, and `flat_ends_test.dart` the flat ends, live and
+committed.
 
 `test/stroke_ends_test.dart` checks round, flat and tapered outlines,
 start stability, the pen-up transition, and eraser fragments.
