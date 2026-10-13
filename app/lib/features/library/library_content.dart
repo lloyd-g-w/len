@@ -262,7 +262,11 @@ class LibraryContent extends StatelessWidget {
   /// mic glyph instead).
   String _subtitle(Notebook n, {bool list = false}) {
     if (n.isTrashed) return trashLeftLabel(n.trashedAt!, NotebookRepository.trashKeptFor);
-    if (_c.isSearching) return _c.locationOf(n);
+    if (_c.isSearching) {
+      // Found by a recording: say which ("Recording “Lecture 4”").
+      if (_c.recordingMatchOf(n) case final title?) return 'Recording “$title”';
+      return _c.locationOf(n);
+    }
     final kind = n.kind == NotebookKind.canvas ? 'canvas' : pageCountLabel(_c.pageCountOf(n.id));
     final date = _c.sort == LibrarySort.created
         ? libraryDateAfter('Created', n.createdAt)

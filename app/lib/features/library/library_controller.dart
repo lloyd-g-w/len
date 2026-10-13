@@ -279,6 +279,18 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
   /// remembers, so trashed ones leave no gaps).
   static const int recentShown = 8;
 
+  /// While searching, the title of [notebook]'s recording that matched,
+  /// when its own title didn't (the result says why it is there, R8-11).
+  String? recordingMatchOf(Notebook notebook) {
+    if (!isSearching) return null;
+    final matches = LibraryQuery.matcher(_query);
+    if (matches(notebook.title)) return null;
+    for (final title in _recordingTitles[notebook.id] ?? const <String>[]) {
+      if (matches(title)) return title;
+    }
+    return null;
+  }
+
   /// Number of notebooks and subfolders directly in [folderId].
   int itemCountIn(String folderId) =>
       childrenOf(folderId).length + (_notebookCountByFolder[folderId] ?? 0);

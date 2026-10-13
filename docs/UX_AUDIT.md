@@ -212,7 +212,7 @@ it never comes back.**
 
 *Done (`fix/r8-library`):* Recent tiles at the top level have no caption (`LibraryController.folderPathOf`); the workspace remembers 16 notebooks and the row shows the first 8 live ones; the sideways strip item is captioned with the latest notebook, and its menu rows carry the folder (`MenuRow.caption`).
 
-**R8-11 P2 · A recording match doesn't say why it matched.**
+**✅ R8-11 P2 · A recording match doesn't say why it matched.**
 - *What:* recording titles match in the library's title filter
   (`library_controller.dart:257`). While searching, the caption becomes
   the path only (`library_content.dart:248`), and list rows lose
@@ -221,6 +221,8 @@ it never comes back.**
   "Recording “Lecture 4”" with the mic glyph. Better: add a recording
   result kind to `library_search_results.dart` that opens the recordings
   sheet at it.
+
+*Done (`fix/r8-library`):* a notebook found only by a recording's title is captioned "Recording “Lecture 4”" (`LibraryController.recordingMatchOf`). A recording result kind in the full-text results is left for later.
 
 **R8-12 P2 · The sync alert says "Not synced since Just now" and goes red
 for being offline.**
