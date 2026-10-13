@@ -105,7 +105,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       // Phones have room for the note only.
       LibrarySection.trash when count > 0 && widget.compact => 'Kept for 30 days',
       LibrarySection.trash when count > 0 =>
-        '${plural(count, 'notebook')} · deleted forever after 30 days',
+        '${plural(count, 'notebook')}, deleted forever after 30 days',
       // The empty state says it.
       _ when count == 0 && folders == 0 => '',
       _ => [
@@ -118,7 +118,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
             LibrarySort.created => 'by date created',
             LibrarySort.name => 'by name',
           },
-      ].join(' · '),
+      ].join(', '),
     };
   }
 

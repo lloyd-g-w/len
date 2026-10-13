@@ -116,10 +116,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                   if (c.allFolders.isEmpty)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(Gaps.md, 0, Gaps.md, Gaps.md),
-                      child: Text(
-                        'Group notebooks into folders — drag them here',
-                        style: theme.textTheme.bodySmall,
-                      ),
+                      child: Text('No folders yet', style: theme.textTheme.bodySmall),
                     ),
                   ..._tree(null, 0),
                 ],
@@ -272,7 +269,8 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
   }
 }
 
-/// App mark and name at the top of the sidebar.
+/// App mark and name at the top of the sidebar: the scribble in Ink beside
+/// the name, no tile (DESIGN §9; the app icon puts it on an Ink tile).
 class _Brand extends StatelessWidget {
   const _Brand();
 
@@ -280,23 +278,11 @@ class _Brand extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Gaps.xl - 2, Gaps.xl, Gaps.lg, Gaps.lg),
+      // The glyph sits where the section rows' icons do.
+      padding: const EdgeInsets.fromLTRB(Gaps.md + Gaps.md - 2, Gaps.xl, Gaps.lg, Gaps.lg),
       child: Row(
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(Radii.sm),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color.lerp(AppTheme.seed, Colors.white, 0.15)!, AppTheme.seed],
-              ),
-              boxShadow: Shadows.low(theme.brightness),
-            ),
-            child: Icon(Symbols.gesture_sharp, size: Glyphs.bar, color: Colors.white),
-          ),
+          Icon(Symbols.gesture_sharp, size: Glyphs.bar, color: theme.colorScheme.onSurface),
           const SizedBox(width: Gaps.md),
           Text('Len', style: theme.textTheme.titleMedium),
         ],

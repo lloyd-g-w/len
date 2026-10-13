@@ -57,33 +57,46 @@ class LibraryContent extends StatelessWidget {
   /// About how wide notebook covers are in the grid (REDESIGN §3).
   static const double coverWidth = 150;
 
-  /// Folders as a wrapping row of compact tiles of equal width.
-  Widget _folderRow(List<Folder> folders) => LayoutBuilder(
+  /// The gap between the grid's columns (the folder row shares them).
+  static double gridSpacingFor({required bool compact}) => compact ? Gaps.lg : Gaps.xl;
+
+  /// Folders as a ruled row (DESIGN §6.1): names on the covers' columns
+  /// (each folder spans as many as its name needs), a hairline under the
+  /// row.
+  Widget _folderRow(List<Folder> folders, {required double spacing}) => LayoutBuilder(
     builder: (context, constraints) {
-      const spacing = Gaps.md;
       final width = constraints.maxWidth;
-      double tileFor(int columns) => (width - spacing * (columns - 1)) / columns;
-      var columns = math.max(2, ((width + spacing) / (FolderTile.width + spacing)).floor());
-      // Large text on a phone: fewer, wider tiles rather than cut-off names.
+      final columns = CoverGridDelegate.columnsFor(width, coverWidth, spacing);
+      final column = (width - spacing * (columns - 1)) / columns;
+      double spanWidth(int span) => column * span + spacing * (span - 1);
+      // Large text or narrow columns: a folder spans two or more columns
+      // rather than cutting its name off.
       final minTile = FolderTile.minWidth * MediaQuery.textScalerOf(context).scale(1);
-      while (columns > 1 && tileFor(columns) < minTile) {
-        columns--;
+      var span = 1;
+      while (span < columns && spanWidth(span) < minTile) {
+        span++;
       }
-      final tile = tileFor(columns);
-      return Wrap(
-        spacing: spacing,
-        runSpacing: spacing,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final f in folders)
-            SizedBox(
-              width: tile,
-              child: FolderTile(
-                key: ValueKey('folder-${f.id}'),
-                folder: f,
-                subtitle: _folderCaption(f),
-                actions: actions,
-              ),
-            ),
+          Wrap(
+            spacing: spacing,
+            runSpacing: Gaps.xxs,
+            children: [
+              for (final f in folders)
+                SizedBox(
+                  width: spanWidth(span),
+                  child: FolderTile(
+                    key: ValueKey('folder-${f.id}'),
+                    folder: f,
+                    subtitle: _folderCaption(f),
+                    actions: actions,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: Gaps.md),
+          Divider(height: Hairline.width, color: Theme.of(context).colorScheme.outlineVariant),
         ],
       );
     },
@@ -99,6 +112,7 @@ class LibraryContent extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < Breakpoints.medium;
     final gutter = compact ? Gaps.lg + Gaps.xs : Gaps.xxl;
+    final gridSpacing = gridSpacingFor(compact: compact);
     final folders = _c.visibleFolders;
     final notebooks = _c.visibleNotebooks;
     final empty = folders.isEmpty && notebooks.isEmpty;
@@ -158,7 +172,7 @@ class LibraryContent extends StatelessWidget {
           if (folders.isNotEmpty)
             SliverPadding(
               padding: EdgeInsets.fromLTRB(gutter, Gaps.md, gutter, 0),
-              sliver: SliverToBoxAdapter(child: _folderRow(folders)),
+              sliver: SliverToBoxAdapter(child: _folderRow(folders, spacing: gridSpacing)),
             ),
           if (notebooks.isNotEmpty || newTile) ...[
             SliverToBoxAdapter(child: SizedBox(height: folders.isEmpty ? Gaps.lg : Gaps.xl)),
@@ -213,11 +227,12 @@ class LibraryContent extends StatelessWidget {
   String _subtitle(Notebook n) {
     if (n.isTrashed) return trashLeftLabel(n.trashedAt!, NotebookRepository.trashKeptFor);
     if (_c.isSearching) return _c.locationOf(n);
-    final kind = n.kind == NotebookKind.canvas ? 'Canvas' : pageCountLabel(_c.pageCountOf(n.id));
+    final kind = n.kind == NotebookKind.canvas ? 'canvas' : pageCountLabel(_c.pageCountOf(n.id));
     final date = _c.sort == LibrarySort.created
         ? libraryDateAfter('Created', n.createdAt)
         : formatLibraryDate(n.editedAt);
-    return '$date · $kind';
+    // A comma, not a `·` chain (DESIGN §2): "Saturday, 3 pages".
+    return '$date, $kind';
   }
 
   Widget _grid(
@@ -232,7 +247,7 @@ class LibraryContent extends StatelessWidget {
       // builder above the grid would rebuild every card on every scroll frame.
       gridDelegate: CoverGridDelegate(
         coverWidth: coverWidth,
-        spacing: compact ? Gaps.lg : Gaps.xl,
+        spacing: gridSpacingFor(compact: compact),
         captionHeight: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
       ),
       itemCount: notebooks.length + offset,
@@ -264,7 +279,13 @@ class LibraryContent extends StatelessWidget {
   Widget _listRows(List<Notebook> notebooks) {
     return SliverList.separated(
       itemCount: notebooks.length,
-      separatorBuilder: (_, _) => const SizedBox(height: Gaps.xxs),
+      // Rows are ruled like the folder row: a hairline that starts at
+      // the titles.
+      separatorBuilder: (context, _) => Divider(
+        height: Hairline.width,
+        indent: NotebookListTile.textInset,
+        color: Theme.of(context).colorScheme.outlineVariant,
+      ),
       itemBuilder: (context, i) => NotebookListTile(
         key: ValueKey(notebooks[i].id),
         notebook: notebooks[i],
@@ -289,10 +310,14 @@ class CoverGridDelegate extends SliverGridDelegate {
   final double spacing;
   final double captionHeight;
 
+  /// How many columns of about [coverWidth] fit [width] (at least two).
+  static int columnsFor(double width, double coverWidth, double spacing) =>
+      math.max(2, ((width + spacing) / (coverWidth + spacing)).floor());
+
   @override
   SliverGridLayout getLayout(SliverConstraints constraints) {
     final width = constraints.crossAxisExtent;
-    final columns = math.max(2, ((width + spacing) / (coverWidth + spacing)).floor());
+    final columns = columnsFor(width, coverWidth, spacing);
     final tile = (width - spacing * (columns - 1)) / columns;
     final height = tile / ThumbnailRenderer.aspect + captionHeight;
     return SliverGridRegularTileLayout(

@@ -6,7 +6,7 @@ import '../../ui/app_theme.dart';
 import 'library_controller.dart';
 import 'notebook_cover.dart';
 
-/// Friendly placeholder for an empty library view, tailored to [section].
+/// What an empty library view says and offers, tailored to [section].
 class LibraryEmptyState extends StatelessWidget {
   const LibraryEmptyState({
     super.key,
@@ -53,9 +53,9 @@ class LibraryEmptyState extends StatelessWidget {
             : 'Create a notebook here, or drag notebooks onto this folder.',
       ),
       LibrarySection.library => (
-        const _CoverFan(),
-        'Nothing here yet',
-        'Create a notebook or an infinite canvas to start writing.',
+        const _CoverRow(),
+        'No notebooks yet',
+        'Create a notebook to start writing, or import a PDF to write on.',
       ),
       LibrarySection.favorites => (
         const _IconArt(Symbols.star_sharp),
@@ -98,11 +98,9 @@ class LibraryEmptyState extends StatelessWidget {
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
             duration: Motion.slow,
-            curve: Motion.emphasized,
-            builder: (context, t, child) => Opacity(
-              opacity: t,
-              child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
-            ),
+            curve: Motion.standard,
+            // A fade only: nothing slides in on its own (DESIGN §5).
+            builder: (context, t, child) => Opacity(opacity: t, child: child),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -143,60 +141,39 @@ class LibraryEmptyState extends StatelessWidget {
   }
 }
 
+/// The section's glyph, bare (no disc; DESIGN §6 dialog glyphs).
 class _IconArt extends StatelessWidget {
   const _IconArt(this.icon);
 
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 96,
-      height: 96,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: scheme.surfaceContainerHigh,
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Icon(icon, size: Glyphs.empty, color: scheme.onSurfaceVariant),
-    );
-  }
+  Widget build(BuildContext context) =>
+      Icon(icon, size: Glyphs.empty, color: Theme.of(context).colorScheme.onSurfaceVariant);
 }
 
-/// Three fanned-out notebook covers.
-class _CoverFan extends StatelessWidget {
-  const _CoverFan();
+/// Three upright notebook covers in a row: the shelf the library becomes.
+class _CoverRow extends StatelessWidget {
+  const _CoverRow();
+
+  static const double _width = 56;
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    Widget cover(int color, double angle, Offset offset) => Transform.translate(
-      offset: offset,
-      child: Transform.rotate(
-        angle: angle,
-        child: Container(
-          width: 72,
-          height: 100,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(Radii.sm),
-            boxShadow: Shadows.low(brightness),
-          ),
-          child: NotebookCover(color: color, kind: NotebookKind.paged),
-        ),
+    Widget cover(int index) => Container(
+      width: _width,
+      height: _width / 0.72,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(Radii.sm),
+        boxShadow: Shadows.low(brightness),
       ),
+      child: NotebookCover(color: Palette.covers[index], kind: NotebookKind.paged),
     );
-    return SizedBox(
-      width: 200,
-      height: 128,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          cover(Palette.covers[1], -0.22, const Offset(-48, 8)),
-          cover(Palette.covers[2], 0.22, const Offset(48, 8)),
-          cover(Palette.covers[0], 0, Offset.zero),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: Gaps.md,
+      children: [for (var i = 0; i < 3; i++) cover(i)],
     );
   }
 }
