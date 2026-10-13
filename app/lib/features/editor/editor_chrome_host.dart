@@ -128,6 +128,7 @@ class EditorChromeHost extends StatelessWidget {
     this.splitMenu,
     this.navigatorActivity,
     this.dimmed = false,
+    this.presenting = false,
     this.split,
   });
 
@@ -136,6 +137,9 @@ class EditorChromeHost extends StatelessWidget {
 
   /// The other pane of a split view is in use: this pane's chrome dims.
   final bool dimmed;
+
+  /// Focus mode with even the puck and the way out hidden.
+  final bool presenting;
 
   final EditorSession session;
   final ChromeLayout layout;
@@ -222,6 +226,7 @@ class EditorChromeHost extends StatelessWidget {
         onExitFocus: commands.toggleFocus,
         floatAt: prefs.toolbarFloat,
         onFloatMoved: (at) => prefs.toolbarFloat = at,
+        presenting: presenting,
         puck: ToolPuck(tools: session.tools, undo: session.undo, insert: _insert(context)),
         puckAt: prefs.puckFloat,
         onPuckMoved: (at) => prefs.puckFloat = at,

@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'double_tap_detector.dart';
 import 'long_press_detector.dart';
 import 'multi_finger_tap.dart';
+import 'two_finger_hold.dart';
 
 /// Canvas-level gestures recognised alongside drawing and navigation:
 /// multi-finger taps (undo / redo), a navigating finger's double tap
@@ -14,6 +15,7 @@ import 'multi_finger_tap.dart';
 class CanvasGestures {
   CanvasGestures({this.onMultiFingerTap, this.onContextMenu, this.onDoubleTap}) {
     doubleTap = DoubleTapDetector(onDoubleTap: (at) => onDoubleTap?.call(at));
+    _twoFingerHold = TwoFingerHoldDetector(onHold: () => onTwoFingerHold?.call());
     _longPress = LongPressDetector(onLongPress: _contextMenu);
     _rightClick = SecondaryClickDetector(onClick: _contextMenu);
   }
@@ -28,6 +30,10 @@ class CanvasGestures {
   /// A double tap with one navigating finger, at a screen position.
   void Function(Offset screen)? onDoubleTap;
 
+  /// Two fingers held still together.
+  void Function()? onTwoFingerHold;
+  late final TwoFingerHoldDetector _twoFingerHold;
+
   final MultiFingerTapDetector taps = MultiFingerTapDetector();
   late final DoubleTapDetector doubleTap;
   late final LongPressDetector _longPress;
@@ -41,6 +47,7 @@ class CanvasGestures {
     switch (e.kind) {
       case PointerDeviceKind.touch:
         taps.down(e.pointer, e.localPosition, e.timeStamp);
+        _twoFingerHold.down(e.pointer, e.localPosition);
         // A still palm next to a (hovering) pen must not open a menu.
         final eligible = navigates && !taps.isStylusNear(e.timeStamp);
         _longPress.down(e.pointer, e.localPosition, eligible: eligible);
@@ -48,6 +55,7 @@ class CanvasGestures {
       case PointerDeviceKind.stylus || PointerDeviceKind.invertedStylus:
         taps.noteStylus(e.timeStamp, down: true);
         _longPress.reset();
+        _twoFingerHold.reset();
         doubleTap.reset();
       case PointerDeviceKind.mouse:
         if (e.buttons & kSecondaryMouseButton != 0) _rightClick.down(e.pointer, e.localPosition);
@@ -58,6 +66,7 @@ class CanvasGestures {
 
   void move(PointerMoveEvent e) {
     taps.move(e.pointer, e.localPosition);
+    _twoFingerHold.move(e.pointer, e.localPosition);
     doubleTap.move(e.pointer, e.localPosition);
     _longPress.move(e.pointer, e.localPosition);
     _rightClick.move(e.pointer, e.localPosition);
@@ -70,6 +79,7 @@ class CanvasGestures {
     }
     _longPress.up(e.pointer);
     _rightClick.up(e.pointer);
+    if (e.kind == PointerDeviceKind.touch) _twoFingerHold.up(e.pointer);
     if (e.kind == PointerDeviceKind.touch) doubleTap.up(e.pointer, e.localPosition, e.timeStamp);
     final fingers = taps.up(e.pointer, e.localPosition, e.timeStamp);
     if (fingers != null) onMultiFingerTap?.call(fingers);
@@ -77,6 +87,7 @@ class CanvasGestures {
 
   void cancel(PointerCancelEvent e) {
     taps.cancel(e.pointer);
+    if (e.kind == PointerDeviceKind.touch) _twoFingerHold.up(e.pointer);
     if (e.kind == PointerDeviceKind.touch) doubleTap.cancel(e.pointer);
     _longPress.up(e.pointer);
     _rightClick.cancel();
@@ -91,5 +102,8 @@ class CanvasGestures {
     }
   }
 
-  void dispose() => _longPress.dispose();
+  void dispose() {
+    _longPress.dispose();
+    _twoFingerHold.dispose();
+  }
 }

@@ -470,4 +470,5 @@ Phase 1 comes first because every later phase then gets smaller.
   or touched. In split view the pane used last (first pointer contact or
   keyboard focus) has full chrome; the other's bar and toolbar recede to
   60 % (deviation: they don't collapse to the puck, which would re-lay out
-  the page each time focus moves). Not yet: the puck's two-finger hide.
+  the page each time focus moves). A two-finger long press in focus mode hides the puck and the exit button
+  too (presenting; again to bring them back; F11 / Esc still leave).
