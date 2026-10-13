@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -7,8 +8,11 @@ import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/link_target.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/domain/stroke.dart';
 
 import 'package:len/features/editor/document/page_actions.dart';
+import 'package:len/ink/pen/eraser_config.dart';
+import 'package:len/ink/surface_model.dart';
 
 import 'data_test.dart' show FakeClock, stroke;
 import 'elements_test.dart' show textBox;
@@ -164,4 +168,70 @@ void main() {
       );
     });
   });
+
+  group('pixel eraser', () {
+    Stroke long(String id, double y) => Stroke(
+      id: id,
+      surfaceId: 'canvas',
+      tool: InkTool.ballpoint,
+      color: 0xFF000000,
+      width: 3,
+      points: [for (var x = 0.0; x <= 400; x += 4) StrokePoint(x, y, 0.5)],
+      createdAt: 7,
+    );
+
+    Map<String, List<StrokePoint>> stored() => {
+      for (final st in SurfaceCopier(s.strokes).loadAll('canvas')) st.id: st.points,
+    };
+
+    // As stored: float32 coordinates.
+    Map<String, List<StrokePoint>> shown(SurfaceModel model) => {
+      for (final st in model.strokesNear(const Rect.fromLTRB(-100, -100, 600, 600)))
+        st.id: [for (final p in st.points) StrokePoint(_f32(p.x), _f32(p.y), _f32(p.pressure))],
+    };
+
+    test('one drag cutting and re-cutting ink undoes and redoes exactly', () {
+      final model = SurfaceModel(surfaceId: 'canvas', repository: s.strokes, clock: clock)
+        ..ensureLoaded(const Rect.fromLTRB(0, 0, 500, 500));
+      model.addStroke(long('a', 50));
+      model.addStroke(long('b', 60));
+      final before = stored();
+
+      // A zigzag across both lines, then back over the fragments it cut.
+      final sweep = [
+        const Offset(100, 0),
+        const Offset(110, 120),
+        const Offset(200, 0),
+        const Offset(210, 120),
+        const Offset(105, 55),
+        const Offset(300, 55),
+      ];
+      for (var i = 1; i < sweep.length; i++) {
+        model.eraseAlong(sweep[i - 1], sweep[i], 4, continueEdit: i > 1, mode: EraserMode.pixel);
+      }
+      final after = stored();
+      expect(after.length, greaterThan(2));
+      expect(after.keys, isNot(contains('a')));
+      expect(shown(model), after);
+      expect(model.history.recorded, 3); // Two strokes, one erase.
+
+      model.undo();
+      expect(stored(), before);
+      expect(shown(model), before);
+      model.redo();
+      expect(stored(), after);
+      expect(shown(model), after);
+      // Fragments keep the stroke's time (paint order, audio replay).
+      expect(SurfaceCopier(s.strokes).loadAll('canvas').map((st) => st.createdAt).toSet(), {7});
+      model.dispose();
+
+      // As after a restart.
+      final reopened = SurfaceModel(surfaceId: 'canvas', repository: s.strokes)
+        ..ensureLoaded(const Rect.fromLTRB(0, 0, 500, 500));
+      expect(shown(reopened), after);
+      reopened.dispose();
+    });
+  });
 }
+
+double _f32(double v) => (Float32List(1)..[0] = v)[0];
