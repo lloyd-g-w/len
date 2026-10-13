@@ -255,6 +255,7 @@ class EditorChromeHost extends StatelessWidget {
           toolbarWidth: ToolbarMetrics.group(session.tools),
           splitMenu: splitMenu,
           secondPane: secondPane,
+          split: split?.isSplit ?? false,
           band: band,
         ),
         navigator: editorPageNavigator(context, session),

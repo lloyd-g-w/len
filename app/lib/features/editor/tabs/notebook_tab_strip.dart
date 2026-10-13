@@ -11,7 +11,8 @@ import 'open_notebooks.dart';
 
 /// GoodNotes-style strip of open notebooks (tablets and desktops): tap a
 /// tab to switch, × (or a middle click) to close it; right click or long
-/// press for its menu (open in split view, close).
+/// press for its menu (open in split view, close). The two notebooks of a
+/// split view carry a split glyph, the second on a quiet plate.
 class NotebookTabStrip extends StatelessWidget {
   const NotebookTabStrip({
     super.key,
@@ -59,6 +60,12 @@ class NotebookTabStrip extends StatelessWidget {
                       key: ValueKey('tab-${tab.id}'),
                       tab: tab,
                       active: tab.id == tabs.activeId,
+                      split: switch (tabs.splitId) {
+                        null => _Split.none,
+                        final id when id == tab.id && id != tabs.activeId => _Split.second,
+                        _ when tab.id == tabs.activeId => _Split.first,
+                        _ => _Split.none,
+                      },
                       onTap: () => tabs.activate(tab.id),
                       onClose: () => tabs.close(tab.id),
                       onRename: tab.id == tabs.activeId ? onRename : null,
@@ -101,6 +108,9 @@ class NotebookTabStrip extends StatelessWidget {
 
 enum _TabAction { split, close }
 
+/// A tab's part in the split view.
+enum _Split { none, first, second }
+
 class _Tab extends StatefulWidget {
   const _Tab({
     super.key,
@@ -109,11 +119,13 @@ class _Tab extends StatefulWidget {
     required this.onTap,
     required this.onClose,
     required this.onMenu,
+    this.split = _Split.none,
     this.onRename,
   });
 
   final OpenTab tab;
   final bool active;
+  final _Split split;
   final VoidCallback onTap;
   final VoidCallback onClose;
   final VoidCallback? onRename;
@@ -157,18 +169,24 @@ class _TabState extends State<_Tab> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final fg = widget.active ? scheme.onSurface : scheme.onSurfaceVariant;
+    final split = widget.split;
+    final shown = widget.active || split == _Split.second;
+    final fg = shown ? scheme.onSurface : scheme.onSurfaceVariant;
     return Semantics(
       selected: widget.active,
       button: true,
-      label: widget.tab.title,
+      label: split == _Split.none ? widget.tab.title : '${widget.tab.title}, in split view',
       child: Listener(
         // Middle click closes, as in browsers.
         onPointerDown: (e) {
           if (e.buttons == 4) widget.onClose();
         },
         child: Material(
-          color: widget.active ? Surfaces.chrome(scheme) : Colors.transparent,
+          color: widget.active
+              ? Surfaces.chrome(scheme)
+              : split == _Split.second
+              ? Surfaces.hovered(scheme)
+              : Colors.transparent,
           borderRadius: _shape,
           child: InkWell(
             onTap: widget.onTap,
@@ -189,7 +207,9 @@ class _TabState extends State<_Tab> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      widget.tab.kind == NotebookKind.canvas
+                      split != _Split.none
+                          ? Symbols.vertical_split_rounded
+                          : widget.tab.kind == NotebookKind.canvas
                           ? Symbols.gesture_rounded
                           : Symbols.menu_book_rounded,
                       size: 16,
@@ -203,7 +223,7 @@ class _TabState extends State<_Tab> {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: fg,
-                          fontWeight: widget.active ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: shown ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
                     ),

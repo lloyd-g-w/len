@@ -9,6 +9,7 @@ import 'editor_tips.dart';
 import 'focus_handle.dart';
 import 'gesture_hud.dart';
 import 'peeking.dart';
+import 'receding.dart';
 import 'toolbar_slot.dart';
 
 /// Where the chrome sits for a given pane, and how much of it the chrome
@@ -99,8 +100,9 @@ class EditorChrome extends StatelessWidget {
   /// long press toggles it; F11 / Esc still leave focus mode).
   final bool presenting;
 
-  /// The other pane of a split view is in use: the top bar and toolbar
-  /// recede to 60 % ([Motion.fast]); a touch here brings them back.
+  /// The other pane of a split view is in use: what is on the top bar and
+  /// toolbar recedes ([Receding]; the bars keep their surfaces); a touch
+  /// here brings it back.
   final bool dimmed;
 
   final ChromeLayout layout;
@@ -138,127 +140,128 @@ class EditorChrome extends StatelessWidget {
     final focus = layout.focus;
     final safe = layout.safe;
     final scheme = Theme.of(context).colorScheme;
-    Widget recede(Widget child) => AnimatedOpacity(
-      opacity: dimmed ? 0.6 : 1,
-      duration: Motion.fast,
-      curve: Motion.standard,
-      child: child,
-    );
-    return Stack(
-      children: [
-        if (layout.dock == ToolbarDock.floating)
-          Positioned.fill(
-            child: ToolbarSlot(
-              toolbar: recede(toolbar),
-              insets: EdgeInsets.only(
-                top: layout.barBottom,
-                bottom: safe.bottom,
-                left: safe.left,
-                right: safe.right,
-              ),
-              floatAt: floatAt,
-              onFloatMoved: onFloatMoved,
-              visible: !focus,
-            ),
-          ),
-        if (layout.dock == ToolbarDock.bottom)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: ChromeFade(
-              visible: !focus,
-              edge: const Offset(0, 1),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Surfaces.chrome(scheme),
-                  border: Border(top: Surfaces.chromeEdge(scheme)),
+    return RecedeScope(
+      dimmed: dimmed,
+      child: Stack(
+        children: [
+          if (layout.dock == ToolbarDock.floating)
+            Positioned.fill(
+              child: ToolbarSlot(
+                toolbar: toolbar,
+                insets: EdgeInsets.only(
+                  top: layout.barBottom,
+                  bottom: safe.bottom,
+                  left: safe.left,
+                  right: safe.right,
                 ),
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: safe.bottom, left: safe.left, right: safe.right),
-                  child: recede(toolbar),
-                ),
+                floatAt: floatAt,
+                onFloatMoved: onFloatMoved,
+                visible: !focus,
               ),
             ),
-          ),
-        if (navigator case final navigator?)
-          AnimatedPositioned(
-            duration: Motion.slow,
-            curve: Motion.emphasized,
-            left: 0,
-            right: 0,
-            bottom: layout.navigatorBottom,
-            child: Align(
-              // Phones centre the indicator under the page; wider screens
-              // tuck it into the bottom-right corner. Aligning (rather than
-              // guessing a width) keeps it centred at any text scale.
-              alignment: layout.phone ? Alignment.center : Alignment.centerRight,
-              child: Padding(
-                padding: layout.phone
-                    ? EdgeInsets.only(left: safe.left, right: safe.right)
-                    : EdgeInsets.only(right: safe.right + ChromeMetrics.edge),
-                child: ChromeFade(
-                  visible: !focus,
-                  edge: const Offset(0, 1),
-                  child: Peeking(
-                    enabled: layout.navigatorPeeks,
-                    activity: navigatorActivity,
-                    child: navigator,
+          if (layout.dock == ToolbarDock.bottom)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ChromeFade(
+                visible: !focus,
+                edge: const Offset(0, 1),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Surfaces.chrome(scheme),
+                    border: Border(top: Surfaces.chromeEdge(scheme)),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: safe.bottom,
+                      left: safe.left,
+                      right: safe.right,
+                    ),
+                    child: Receding(child: toolbar),
                   ),
                 ),
               ),
             ),
-          ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: ChromeFade(visible: !focus, edge: const Offset(0, -1), child: recede(topBar)),
-        ),
-        Positioned(
-          top: layout.covered.top + Gaps.xl,
-          left: 0,
-          right: 0,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureHud(controller: hud),
-              if (tips case final tips?)
-                Padding(
-                  padding: const EdgeInsets.only(top: Gaps.sm, left: Gaps.md, right: Gaps.md),
-                  child: TipBanner(controller: tips),
+          if (navigator case final navigator?)
+            AnimatedPositioned(
+              duration: Motion.slow,
+              curve: Motion.emphasized,
+              left: 0,
+              right: 0,
+              bottom: layout.navigatorBottom,
+              child: Align(
+                // Phones centre the indicator under the page; wider screens
+                // tuck it into the bottom-right corner. Aligning (rather than
+                // guessing a width) keeps it centred at any text scale.
+                alignment: layout.phone ? Alignment.center : Alignment.centerRight,
+                child: Padding(
+                  padding: layout.phone
+                      ? EdgeInsets.only(left: safe.left, right: safe.right)
+                      : EdgeInsets.only(right: safe.right + ChromeMetrics.edge),
+                  child: ChromeFade(
+                    visible: !focus,
+                    edge: const Offset(0, 1),
+                    child: Peeking(
+                      enabled: layout.navigatorPeeks,
+                      activity: navigatorActivity,
+                      child: navigator,
+                    ),
+                  ),
                 ),
-              if (notice case final notice?)
-                Padding(
-                  padding: const EdgeInsets.only(top: Gaps.sm, left: Gaps.md, right: Gaps.md),
-                  child: notice,
-                ),
-            ],
+              ),
+            ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ChromeFade(visible: !focus, edge: const Offset(0, -1), child: topBar),
           ),
-        ),
-        // Only in focus mode: otherwise its controls would sit (hidden) in
-        // the tree beside the toolbar's own.
-        if (puck case final puck? when focus && !presenting)
-          Positioned.fill(
-            child: ToolbarSlot(
-              toolbar: puck,
-              joined: true,
-              insets: safe,
-              floatAt: puckAt ?? const (0.5, 1.0),
-              onFloatMoved: onPuckMoved,
-              visible: focus,
+          Positioned(
+            top: layout.covered.top + Gaps.xl,
+            left: 0,
+            right: 0,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureHud(controller: hud),
+                if (tips case final tips?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Gaps.sm, left: Gaps.md, right: Gaps.md),
+                    child: TipBanner(controller: tips),
+                  ),
+                if (notice case final notice?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Gaps.sm, left: Gaps.md, right: Gaps.md),
+                    child: notice,
+                  ),
+              ],
             ),
           ),
-        Positioned(
-          top: safe.top + Gaps.sm,
-          right: safe.right + Gaps.sm,
-          child: ChromeFade(
-            visible: focus && !presenting,
-            edge: const Offset(0, -1),
-            child: FocusHandle(onExit: onExitFocus, active: focus && !presenting),
+          // Only in focus mode: otherwise its controls would sit (hidden) in
+          // the tree beside the toolbar's own.
+          if (puck case final puck? when focus && !presenting)
+            Positioned.fill(
+              child: ToolbarSlot(
+                toolbar: puck,
+                joined: true,
+                insets: safe,
+                floatAt: puckAt ?? const (0.5, 1.0),
+                onFloatMoved: onPuckMoved,
+                visible: focus,
+              ),
+            ),
+          Positioned(
+            top: safe.top + Gaps.sm,
+            right: safe.right + Gaps.sm,
+            child: ChromeFade(
+              visible: focus && !presenting,
+              edge: const Offset(0, -1),
+              child: FocusHandle(onExit: onExitFocus, active: focus && !presenting),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

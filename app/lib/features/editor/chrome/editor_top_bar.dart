@@ -12,6 +12,7 @@ import 'bar_button.dart';
 import 'chrome_metrics.dart';
 import 'editor_menu_actions.dart';
 import 'editor_more_menu.dart';
+import 'receding.dart';
 import 'title_button.dart';
 import 'undo_redo_buttons.dart';
 
@@ -36,6 +37,7 @@ class EditorTopBar extends StatelessWidget {
     this.compactMenuItems = const [],
     this.splitMenu,
     this.secondPane = false,
+    this.split = false,
     this.band = false,
   });
 
@@ -66,6 +68,11 @@ class EditorTopBar extends StatelessWidget {
   /// The bar of a split view's second pane: back closes the pane, and
   /// the tab strip stays with the first pane.
   final bool secondPane;
+
+  /// Both panes of a split view are shown: the bar names its notebook
+  /// even under the tab strip (which marks both notebooks), so the two
+  /// panes' bars match.
+  final bool split;
 
   /// An empty strip-coloured band in place of the tab strip: the second
   /// pane's bar beside a first pane that shows the strip, so both line up.
@@ -125,10 +132,12 @@ class EditorTopBar extends StatelessWidget {
                         height: ChromeMetrics.barHeight,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
-                          child: phone ? _phone() : _wide(width, showTitle: !strip),
+                          child: Receding(
+                            child: phone ? _phone() : _wide(width, showTitle: !strip || split),
+                          ),
                         ),
                       ),
-                      ?row,
+                      if (row != null) Receding(child: row),
                     ],
                   ),
                 ),
