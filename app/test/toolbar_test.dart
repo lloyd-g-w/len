@@ -187,12 +187,15 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('phones: the bottom row fits 3 + 3 slots down to 320 dp, touch-sized when it can', (
-    tester,
-  ) async {
+  testWidgets('phones: the bottom row fits 3 + 3 slots down to 320 dp, touch-sized when it can '
+      '(beside the previous tool when the slots keep 40 dp)', (tester) async {
     final tools = ToolSettings();
     addTearDown(tools.dispose);
-    for (final (width, cell) in [(390.0, 44.0), (320.0, 36.0)]) {
+    for (final (width, cell, previous) in [
+      (430.0, 44.0, true),
+      (390.0, 41.0, true),
+      (320.0, 36.0, false),
+    ]) {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -213,6 +216,11 @@ void main() {
         final row = tester.getRect(find.byType(EditorToolbar));
         expect(slot.right, lessThanOrEqualTo(row.right), reason: '$width ${tool.name}');
         expect(slot.width, cell, reason: '$width ${tool.name}');
+        expect(
+          find.byKey(const ValueKey('previous-tool')),
+          previous ? findsOneWidget : findsNothing,
+          reason: '$width',
+        );
       }
     }
   });

@@ -44,6 +44,7 @@ class ToolSettings extends ChangeNotifier {
   bool _holdToStraighten = true;
   List<int> _recent = const [];
   EditorTool _lastInk = EditorTool.pen;
+  EditorTool _previous = EditorTool.eraser;
   bool? _stylusOnly;
 
   /// The inks offered in the toolbar: the pen (ballpoint) and highlighter.
@@ -57,9 +58,17 @@ class ToolSettings extends ChangeNotifier {
   }
 
   void _select(EditorTool value) {
+    if (value != _tool) _previous = _tool;
     _tool = value;
     if (value == EditorTool.pen || value == EditorTool.highlighter) _lastInk = value;
   }
+
+  /// The tool used before [tool] (the eraser at first), for the phone's
+  /// one-tap toggle (pen ↔ eraser, pen ↔ highlighter).
+  EditorTool get previousTool => _previous;
+
+  /// Swaps [tool] and [previousTool].
+  void togglePrevious() => tool = _previous;
 
   /// The ink the colour/width controls currently edit: the highlighter
   /// while it is the tool, else the pen.
@@ -111,7 +120,7 @@ class ToolSettings extends ChangeNotifier {
   ShapeKind get shape => _shape;
   set shape(ShapeKind value) {
     _shape = value;
-    _tool = EditorTool.shape;
+    _select(EditorTool.shape);
     _changed();
   }
 
@@ -182,6 +191,7 @@ class ToolSettings extends ChangeNotifier {
     final tool = other._tool;
     final same =
         tool == _tool &&
+        _previous == other._previous &&
         _eraser == other._eraser &&
         _shape == other._shape &&
         _laser == other._laser &&
@@ -192,6 +202,7 @@ class ToolSettings extends ChangeNotifier {
     if (same) return;
     _tool = tool;
     _lastInk = other._lastInk;
+    _previous = other._previous;
     _configs.addAll(other._configs);
     _eraser = other._eraser;
     _shape = other._shape;

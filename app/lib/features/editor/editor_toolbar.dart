@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -121,36 +123,57 @@ class EditorToolbar extends StatelessWidget {
     return Center(child: _group(reserve: reserve));
   }
 
-  /// Phones: the tool switcher, then the quick controls; on narrow phones
-  /// with compact cells when that makes them fit, and scrolling when six
-  /// colours and six widths still don't.
+  /// Phones: the tool switcher and the previous tool (one tap swaps them),
+  /// then the quick controls. The slots give up a little of their 44-dp
+  /// cells for the previous tool, down to 40; short of that (narrow phones,
+  /// 5 + 5 slots) it steps aside, and the slots go compact when that makes
+  /// them fit, scrolling when they still don't.
   Widget _bottom(BuildContext context) => SizedBox(
     height: ToolbarMetrics.bottomHeight,
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
+      // Slot counts decide whether the previous tool fits.
       child: LayoutBuilder(
-        builder: (context, constraints) {
-          final room = constraints.maxWidth - ToolSwitcherButton.width - ToolbarMetrics.divider;
-          final compact =
-              ToolbarMetrics.inkStrip(tools) > room &&
-              ToolbarMetrics.inkStrip(tools, compact: true) <= room;
-          return ToolbarDensity(
-            compact: compact,
-            minimal: true,
-            child: Row(
-              children: [
-                ToolSwitcherButton(tools: tools, insert: insert),
-                StripDivider(tools: tools),
-                Expanded(
-                  child: ScrollFade(child: ToolStrip(tools: tools)),
-                ),
-              ],
-            ),
-          );
-        },
+        builder: (context, constraints) => ListenableBuilder(
+          listenable: tools,
+          builder: (context, _) {
+            final room = constraints.maxWidth - ToolSwitcherButton.width - ToolbarMetrics.divider;
+            final slot = _slotBesidePrevious(room - PreviousToolButton.width);
+            final compact =
+                slot == null &&
+                ToolbarMetrics.inkStrip(tools) > room &&
+                ToolbarMetrics.inkStrip(tools, compact: true) <= room;
+            return ToolbarDensity(
+              compact: compact,
+              minimal: true,
+              slot: slot != null && slot < ToolbarMetrics.slot ? slot : null,
+              child: Row(
+                children: [
+                  ToolSwitcherButton(tools: tools, insert: insert),
+                  if (slot != null) PreviousToolButton(tools: tools),
+                  StripDivider(tools: tools),
+                  Expanded(
+                    child: ScrollFade(child: ToolStrip(tools: tools)),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     ),
   );
+
+  /// The largest slot cell, in whole dp from the full one down to
+  /// [Targets.bar], that fits every tool's strip in [room]; null when not
+  /// even that fits.
+  double? _slotBesidePrevious(double room) {
+    final least = math.min(Targets.bar, ToolbarMetrics.slot);
+    for (var cell = ToolbarMetrics.slot; cell >= least; cell--) {
+      if (ToolbarMetrics.stripAt(tools, cell) <= room) return cell;
+    }
+    return null;
+  }
 
   /// The raised palette: the full group when it fits, else the switcher
   /// and the quick controls. Snapped to a side edge it runs down: the tools,
