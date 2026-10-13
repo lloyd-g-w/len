@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/domain/stroke.dart';
+import 'package:len/features/editor/pdf/pdf_highlight_swatches.dart';
 import 'package:len/features/editor/pdf/pdf_interaction.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/platform/blob_backend_native.dart';
@@ -14,8 +16,18 @@ import 'pdf_interaction_test.dart' show openPdfEditor, pdfTextAt;
 import 'pdf_test.dart' show pdfium;
 
 /// R7-1: with the lasso, the pen selects PDF text (a tap, a hold and drag,
-/// an open drag), while loops still select ink.
+/// an open drag), while loops still select ink. R7-4: its menu highlights
+/// in any of the highlighter's quick colours.
 void main() {
+  test('highlight swatches: the current quick colour first, then the others', () {
+    final config = PenConfig.defaultsFor(InkTool.highlighter).copyWith(colorIndex: 1);
+    final colors = PdfHighlightSwatches.colorsOf(config);
+    expect(colors.first, config.colors[1]);
+    expect(colors.toSet(), config.colors.toSet());
+    final many = config.addColor(0xFF000001).addColor(0xFF000002).addColor(0xFF000003);
+    expect(PdfHighlightSwatches.colorsOf(many), hasLength(PdfHighlightSwatches.max));
+  });
+
   late Directory dir;
   late AppServices services;
 
@@ -70,6 +82,28 @@ void main() {
     await tester.tapAt(const Offset(450, 1000), kind: PointerDeviceKind.stylus);
     await tester.pumpAndSettle();
     expect(pdf.selection.isEmpty, isTrue);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the menu highlights in a quick colour, in one tap (R7-4)', skip: pdfium == null, (
+    tester,
+  ) async {
+    final pdf = await open(tester);
+    final config = pdf.tools.configOf(InkTool.highlighter);
+    await tester.tapAt(pdfTextAt(pdf, 'Second'), kind: PointerDeviceKind.stylus);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('pdf-highlight')), findsOneWidget, reason: 'current');
+    final other = PdfHighlightSwatches.colorsOf(config)[1];
+    await tester.tap(find.byKey(const ValueKey('pdf-highlight-1')));
+    await tester.pumpAndSettle();
+    final page = pdf.doc.pages.first;
+    final strokes = pdf.doc.surfaces.surfaceOf(page.id).model.strokesNear(Offset.zero & page.size);
+    expect(strokes.single.color, other);
+    expect(
+      pdf.tools.configOf(InkTool.highlighter),
+      config,
+      reason: 'the highlighter keeps its own',
+    );
     await tester.pumpWidget(const SizedBox());
   });
 

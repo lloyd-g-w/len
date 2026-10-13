@@ -10,6 +10,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../documents/progress_dialog.dart' show showMessage;
 import '../links/link_menu.dart';
+import 'pdf_highlight_swatches.dart';
 import 'pdf_interaction.dart';
 import 'pdf_page_info.dart';
 import 'pdf_selection_handles.dart';
@@ -36,7 +37,7 @@ typedef UrlOpener = Future<bool> Function(Uri url);
 Future<bool> _launch(Uri url) => launchUrl(url, mode: LaunchMode.externalApplication);
 
 /// Shows the PDF text selection (with handles and its menu: copy,
-/// highlight, select all) over the document, follows links tapped with a
+/// highlight in one of the highlighter's quick colours, select all) over the document, follows links tapped with a
 /// navigating finger, and keeps the visible pages' text and links loaded.
 ///
 /// Pointer events pass through to the canvas beneath, except on the
@@ -146,8 +147,10 @@ class _PdfLayerState extends State<PdfLayer> {
     if (mounted) showMessage(context, 'Copied');
   }
 
-  void _highlight() {
-    if (_pdf.highlightSelection() == 0 && mounted) showMessage(context, 'Nothing to highlight');
+  void _highlight(int color) {
+    if (_pdf.highlightSelection(color: color) == 0 && mounted) {
+      showMessage(context, 'Nothing to highlight');
+    }
   }
 
   @override
@@ -220,17 +223,27 @@ class _PdfLayerState extends State<PdfLayer> {
     return rects.isEmpty ? Rect.zero : rects.reduce((a, b) => a.expandToInclude(b));
   }
 
+  /// Windows narrower than this show Copy without its label.
+  static const double _labelledWidth = 480;
+
   /// The selection's menu, above the selected lines (below them if there
   /// is no room above).
   Widget _menu(BuildContext context, Rect selected) {
     final roomAbove = MediaQuery.paddingOf(context).top + 64;
-    Widget button(String label, IconData icon, VoidCallback onPressed, String key) =>
-        TextButton.icon(
-          key: ValueKey(key),
-          onPressed: onPressed,
-          icon: Icon(icon, size: Glyphs.menu),
-          label: Text(label),
-        );
+    // Phones: Copy without its label, so the colours and a link fit.
+    final copy = MediaQuery.sizeOf(context).width < _labelledWidth
+        ? IconButton(
+            key: const ValueKey('pdf-copy'),
+            tooltip: 'Copy',
+            icon: const Icon(Symbols.content_copy_sharp, size: Glyphs.bar),
+            onPressed: _copy,
+          )
+        : TextButton.icon(
+            key: const ValueKey('pdf-copy'),
+            onPressed: _copy,
+            icon: const Icon(Symbols.content_copy_sharp, size: Glyphs.menu),
+            label: const Text('Copy'),
+          );
     return Positioned.fill(
       child: CustomSingleChildLayout(
         delegate: PdfMenuPlacement(selected, roomAbove: roomAbove),
@@ -242,8 +255,8 @@ class _PdfLayerState extends State<PdfLayer> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                button('Copy', Symbols.content_copy_sharp, _copy, 'pdf-copy'),
-                button('Highlight', Symbols.border_color_sharp, _highlight, 'pdf-highlight'),
+                copy,
+                PdfHighlightSwatches(tools: _pdf.tools, onHighlight: _highlight),
                 if (_pdf.selectedLink != null)
                   IconButton(
                     key: const ValueKey('pdf-open-link'),

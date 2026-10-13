@@ -133,6 +133,9 @@ the colour means switching to the highlighter, changing its slot, and
 selecting again. *Fix:* replace the button with the highlighter's quick
 colours as swatches in the pill (2–3 dots, the current one first). A tap
 highlights in that colour. One undo, as now.
+*Done (`fix/r7-pen`):* `PdfHighlightSwatches`, up to 3 quick colours after
+a quiet highlighter glyph, the current one ringed; Copy loses its label on
+phones so the row fits.
 
 **R7-5 P2 · The lasso's first-use tip covers the selection for 10 s.** The
 tip stays for `visibleFor` (`features/editor/chrome/editor_tips.dart:45,

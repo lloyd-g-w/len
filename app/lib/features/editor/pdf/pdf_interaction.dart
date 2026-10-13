@@ -252,12 +252,13 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
     return null;
   }
 
-  /// Covers the selected lines with highlighter strokes (the highlighter's
-  /// current colour and opacity), as one undoable edit; clears the
-  /// selection. Returns how many strokes were added.
-  int highlightSelection() {
+  /// Covers the selected lines with highlighter strokes in [color] (by
+  /// default the highlighter's current colour) and the highlighter's
+  /// opacity, as one undoable edit; clears the selection. Returns how many
+  /// strokes were added.
+  int highlightSelection({int? color}) {
     if (selection.isEmpty) return 0;
-    final config = tools.configOf(InkTool.highlighter);
+    final ink = color ?? tools.configOf(InkTool.highlighter).color;
     final style = tools.styleFor(InkTool.highlighter).copyWith(thinning: 0, streamline: 0);
     final now = clock.nowMs();
     var added = 0;
@@ -271,7 +272,7 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
               id: clock.newId(),
               surfaceId: page.id,
               tool: InkTool.highlighter,
-              color: config.color,
+              color: ink,
               width:
                   (line.thickness *
                           (line.direction.vertical ? page.width : page.height) *

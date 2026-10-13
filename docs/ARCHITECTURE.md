@@ -728,11 +728,14 @@ search highlights use the same boxes.
   per-page `PdfSpan`s (`PdfInteraction.selectRange`: the anchor's page from
   the anchor on, pages between whole, the focus's page up to the focus),
   copied with a blank line between pages and highlighted page by page. `PdfLayer` paints the selection (one box per line, with
-  handles) and a menu: **Copy** (also Ctrl/⌘+C), **Highlight**, select all
-  on the page.
+  handles) and a menu: **Copy** (also Ctrl/⌘+C; icon only under 480 dp),
+  **Highlight** as the highlighter's quick colours (`PdfHighlightSwatches`:
+  up to 3, the current one first and ringed; one tap highlights in that
+  colour, the highlighter keeps its own), select all on the page.
 - **Highlight** turns each selected line (`PdfGlyphs.rectsFor`) into one
   highlighter stroke along its middle, 1.1 × the line's height, with the
-  highlighter's colour and opacity (no pressure thinning or stabiliser),
+  colour picked (by default the highlighter's) and the highlighter's opacity
+  (no pressure thinning or stabiliser),
   committed to the page's `SurfaceModel` as one `InkEdit` — so it
   is ordinary ink: undoable, erasable, selectable, synced and exported.
 - **Links** (`loadLinks`, incl. URLs detected in the text): tapped with a
