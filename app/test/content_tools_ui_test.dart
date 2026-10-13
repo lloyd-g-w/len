@@ -149,8 +149,10 @@ void main() {
     final field = find.byKey(const ValueKey('text-box-field'));
     expect(field, findsOneWidget);
     await tester.enterText(field, 'Hello\nworld');
-    await tester.tap(find.byTooltip('Bulleted list (Ctrl+Shift+8)'));
-    await tester.pump();
+    await tester.tap(find.byTooltip('Lists and headings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bulleted list'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Done (Esc)'));
     await tester.pumpAndSettle();
 

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/ui/color_dot.dart';
 import 'package:len/ui/menus.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'content_tools_ui_test.dart';
 
@@ -100,7 +101,14 @@ void main() {
     await ctrl(tester, LogicalKeyboardKey.keyU);
     await ctrl(tester, LogicalKeyboardKey.digit9, shift: true);
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Checklist (Ctrl+Shift+9)'), findsOneWidget);
+    // The lists menu shows the paragraph is a checklist.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('paragraph-menu')),
+        matching: find.byIcon(Symbols.checklist_rounded),
+      ),
+      findsOneWidget,
+    );
 
     // Tick the second item while editing (after collapsing the selection,
     // whose handles would cover the marker).

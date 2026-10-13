@@ -53,7 +53,6 @@ void main() {
       names[1],
     );
 
-
     // Escape goes back to the page, where → turns pages again.
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
