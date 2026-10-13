@@ -191,7 +191,9 @@ void main() {
     expect(find.text('Page size'), findsNothing); // Size is fixed when changing.
     await _tapText(tester, 'Dotted');
     await _tapKey(tester, 'paper-dark');
-    await tester.tap(find.text('Apply to all pages'));
+    await tester.tap(find.text('All pages'));
+    await tester.pump();
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(choice()!.template.style, PaperStyle.dotted);
     expect(choice()!.template.color, PaperColor.dark);
@@ -209,7 +211,7 @@ void main() {
     await _tapText(tester, 'Wide ruled'); // Another template keeps the look, not the spacing.
     expect(find.text('8.5 mm'), findsOneWidget);
     await _tapKey(tester, 'paper-margin');
-    await tester.tap(find.text('Apply to this page'));
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     final paper = choice()!.template.paper;
     expect(paper.style, PaperStyle.wideRuled);
@@ -226,7 +228,7 @@ void main() {
     await _dragSpacing(tester, 1000);
     await _tapText(tester, 'Reset');
     expect(find.text('Reset'), findsNothing);
-    await tester.tap(find.text('Apply to this page'));
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(choice()!.template.paper, const Paper(PaperStyle.gridSmall));
   });
@@ -270,7 +272,9 @@ void main() {
     await tester.ensureVisible(find.byTooltip('Next'));
     await tester.tap(find.byTooltip('Next'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Apply to all pages'));
+    await tester.tap(find.text('All pages'));
+    await tester.pump();
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     final pages = choice()!.papersForPages(3).map((p) => p.date).toList();
     expect(pages, [

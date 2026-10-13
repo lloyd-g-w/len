@@ -90,7 +90,9 @@ void main() {
     await tester.ensureVisible(find.text('Music staff'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Music staff'));
-    await tester.tap(find.text('Apply to all pages'));
+    await tester.tap(find.text('All pages'));
+    await tester.pump();
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(styles(), everyElement(PaperStyle.music));
     expect(find.text('Template changed on 3 pages'), findsOneWidget);
