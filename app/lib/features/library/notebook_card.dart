@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -30,10 +31,16 @@ class NotebookCard extends StatefulWidget {
   final String subtitle;
   final LibraryActions actions;
 
-  /// Width of the ⋯ beside the title.
+  /// Width of the ⋯'s button beside the title (its target grows to 48 on
+  /// touch, over the title's end).
   static double get _moreWidth => Targets.touchFirst ? 40 : 32;
 
-  /// Height of the band the ⋯ glyph is centred in (the title's first line).
+  /// What the title leaves for the ⋯: its glyph, flush with the cover's
+  /// right edge, and a small gap (a narrow cover keeps its title).
+  static const double _moreRoom = Glyphs.bar + Gaps.xs;
+
+  /// Height of the ⋯'s button (its glyph level with the title's first
+  /// line, at its top).
   static double get _moreHeight => Targets.touchFirst ? 36 : 28;
 
   /// Height of everything below the cover: gap, two title lines, caption.
@@ -178,7 +185,7 @@ class _NotebookCardState extends State<NotebookCard> {
                             children: [
                               Padding(
                                 padding: EdgeInsets.only(
-                                  right: _selecting ? 0 : NotebookCard._moreWidth,
+                                  right: _selecting ? 0 : NotebookCard._moreRoom,
                                 ),
                                 child: _CardTitle(_notebook.title),
                               ),
@@ -209,9 +216,12 @@ class _NotebookCardState extends State<NotebookCard> {
                               builder: (anchor) => IconButton(
                                 tooltip: 'More',
                                 alignment: Alignment.topRight,
+                                // Centred on the title's first line (20 dp).
                                 padding: EdgeInsets.only(
-                                  right: (NotebookCard._moreWidth - Glyphs.bar) / 2,
-                                  top: (NotebookCard._moreHeight - Glyphs.bar) / 2,
+                                  top: math.max(
+                                    0,
+                                    (MediaQuery.textScalerOf(context).scale(20) - Glyphs.bar) / 2,
+                                  ),
                                 ),
                                 iconSize: Glyphs.bar,
                                 color: scheme.onSurfaceVariant,

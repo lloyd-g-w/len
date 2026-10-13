@@ -257,6 +257,12 @@ Tablet (840–1039): the same.  Phone (< 840 wide, or < 480 high: sideways):
                                                    │                    │ + │ │ Ink FAB
                                                    └────────────────────┴───┴─┘
 ```
+Short windows (< 480 high, a phone held sideways): one row of chrome,
+`≡  Library │ ▬ School  ▬ Sketches  ▬ Work →  ⌕  ⇅`: the title a Heading
+over its caption, a hairline, the folders as a strip that scrolls sideways
+(fading at a cut-off end), one hairline under the row; covers fill the
+height left under it.
+
 Folders are a ruled row of names (glyph, name, count), not grey tiles. Covers
 are flat colour with a darker spine band (no gradient), radius `sm`, contact
 shadow.

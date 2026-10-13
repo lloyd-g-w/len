@@ -35,6 +35,35 @@ void main() {
     }
   }
 
+  testWidgets('library phone sideways: search, a folder, large text', (tester) async {
+    setWindow(tester, phoneSideways, dpr: 2);
+    final services = seededServices();
+    addTearDown(services.dispose);
+    await pumpApp(tester, services, const LibraryScreen());
+    await tester.tap(find.byTooltip('Search'));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), 'o');
+    await settle(tester);
+    await shoot(tester, 'library_phone_sideways_search');
+    await tester.tap(find.byTooltip('Clear search'));
+    await settle(tester);
+    await tester.tap(find.byTooltip('Close search'));
+    await settle(tester);
+    await tester.tap(find.text('School').last);
+    await settle(tester);
+    await shoot(tester, 'library_phone_sideways_folder');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('library phone sideways large text', (tester) async {
+    setWindow(tester, phoneSideways, dpr: 2);
+    final services = seededServices();
+    addTearDown(services.dispose);
+    await pumpApp(tester, services, const LibraryScreen(), textScale: 1.3);
+    expect(tester.takeException(), isNull);
+    await shoot(tester, 'library_phone_sideways_light_large');
+  });
+
   testWidgets('library empty phone', (tester) async {
     setWindow(tester, phone, dpr: 2);
     final services = AppServices.create(AppDatabase.inMemory());

@@ -15,6 +15,8 @@ import 'library_menus.dart';
 /// Title (or breadcrumbs) with a caption, and the tools beside it: search
 /// (a 280-dp field when wide, a 🔍 that opens a field over the title when
 /// narrow), ⊕▾ New (wide only), ⇅ View and, in the trash, Empty trash.
+/// In a short window (a phone held sideways) the title is a heading and
+/// the [folders] sit beside it, so the chrome is one row.
 class LibraryHeader extends StatefulWidget {
   const LibraryHeader({
     super.key,
@@ -22,6 +24,8 @@ class LibraryHeader extends StatefulWidget {
     required this.searchController,
     required this.searchFocus,
     required this.compact,
+    this.short = false,
+    this.folders,
     this.leading,
   });
 
@@ -32,8 +36,18 @@ class LibraryHeader extends StatefulWidget {
   /// Phone layout: no ⊕▾ (the FAB creates), search behind 🔍.
   final bool compact;
 
+  /// A short window: a smaller title, one row.
+  final bool short;
+
+  /// Beside the title, between it and the tools (short windows: the
+  /// folders as a scroller); hidden while the search field is open.
+  final Widget? folders;
+
   /// Before the title (phone: the drawer button).
   final Widget? leading;
+
+  /// The widest the title takes beside [folders].
+  static const double inlineTitleMaxWidth = 200;
 
   /// The narrowest header with a search field always shown.
   static const double searchFieldMinWidth = 560;
@@ -151,7 +165,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
               _title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleLarge,
+              style: widget.short ? theme.textTheme.titleMedium : theme.textTheme.titleLarge,
             ),
           ),
         ),
@@ -178,6 +192,16 @@ class _LibraryHeaderState extends State<LibraryHeader> {
           onClose: wideSearch ? null : _closeSearch,
         );
         final searchOpen = !wideSearch && (_searchOpen || _c.isSearching);
+        final folders = searchOpen ? null : widget.folders;
+        final title = AnimatedSwitcher(
+          duration: Motion.fast,
+          transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+          layoutBuilder: (current, previous) =>
+              Stack(alignment: Alignment.centerLeft, children: [...previous, ?current]),
+          child: searchOpen
+              ? KeyedSubtree(key: const ValueKey('search'), child: search)
+              : KeyedSubtree(key: const ValueKey('title'), child: titleBlock),
+        );
         final tools = <Widget>[
           if (empty)
             const SizedBox.shrink()
@@ -204,25 +228,36 @@ class _LibraryHeaderState extends State<LibraryHeader> {
               const SizedBox(height: Gaps.xxs),
             ],
             ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 52),
+              constraints: BoxConstraints(minHeight: widget.short ? Targets.touch : 52),
               child: Row(
                 children: [
                   if (leading case final leading? when !searchOpen) ...[
                     leading,
                     const SizedBox(width: Gaps.xs),
                   ],
-                  Expanded(
-                    child: AnimatedSwitcher(
-                      duration: Motion.fast,
-                      transitionBuilder: (child, animation) =>
-                          FadeTransition(opacity: animation, child: child),
-                      layoutBuilder: (current, previous) =>
-                          Stack(alignment: Alignment.centerLeft, children: [...previous, ?current]),
-                      child: searchOpen
-                          ? KeyedSubtree(key: const ValueKey('search'), child: search)
-                          : KeyedSubtree(key: const ValueKey('title'), child: titleBlock),
+                  if (folders == null)
+                    Expanded(child: title)
+                  else ...[
+                    // The title as wide as it needs (up to a limit), the
+                    // folders in the rest, a hairline between (DESIGN §3).
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: LibraryHeader.inlineTitleMaxWidth,
+                      ),
+                      child: title,
                     ),
-                  ),
+                    const SizedBox(width: Gaps.md),
+                    SizedBox(
+                      height: Gaps.xl,
+                      child: VerticalDivider(
+                        width: Hairline.width,
+                        thickness: Hairline.width,
+                        color: theme.colorScheme.outlineVariant,
+                      ),
+                    ),
+                    const SizedBox(width: Gaps.xs),
+                    Expanded(child: folders),
+                  ],
                   const SizedBox(width: Gaps.md),
                   ...tools,
                 ],

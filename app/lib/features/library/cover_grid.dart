@@ -10,7 +10,9 @@ import 'thumbnails/thumbnail_renderer.dart';
 /// [captionHeight] below each for the title and caption. In a short
 /// viewport (a phone held sideways) covers narrow, by adding columns, until
 /// a cover and its caption take at most [maxRowShare] of the height, so a
-/// whole row with its titles fits under the header.
+/// whole row with its titles fits under the header. In a short window
+/// (`Breakpoints.short`) the row may take all the height the chrome above
+/// it leaves (less a margin), so covers are as large as the window allows.
 class CoverGridDelegate extends SliverGridDelegate {
   const CoverGridDelegate({
     required this.coverWidth,
@@ -56,11 +58,15 @@ class CoverGridDelegate extends SliverGridDelegate {
   @override
   SliverGridLayout getLayout(SliverConstraints constraints) {
     final width = constraints.crossAxisExtent;
+    final viewport = constraints.viewportMainAxisExtent;
     final columns = columnsFor(
       width,
       coverWidth,
       spacing,
-      height: constraints.viewportMainAxisExtent,
+      // Short: the room under the chrome, as the height whose share it is.
+      height: viewport < Breakpoints.shortHeight
+          ? (viewport - constraints.precedingScrollExtent - Gaps.lg) / maxRowShare
+          : viewport,
       captionHeight: captionHeight,
     );
     final tile = (width - spacing * (columns - 1)) / columns;

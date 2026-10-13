@@ -130,6 +130,17 @@ void main() {
     }
   }
 
+  testWidgets('sync form filled from a setup link phone', (tester) async {
+    setWindow(tester, phone.$2, dpr: phone.$3);
+    final s = services();
+    s.incomingFiles.addLink('len://sync?url=https%3A%2F%2Flen.example.org&token=secret-token');
+    await pumpApp(tester, s, const SettingsScreen());
+    await scrollTo(tester, 'Sync');
+    expect(find.textContaining('Filled from a setup link'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await shoot(tester, 's_settings_sync_from_link_phone_light');
+  });
+
   testWidgets('handwriting supported phone large text', (tester) async {
     setWindow(tester, phone.$2, dpr: phone.$3);
     await pumpApp(tester, services(handwriting: true), const SettingsScreen(), textScale: 1.3);

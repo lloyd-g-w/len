@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../data/notebook_repository.dart';
-import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
@@ -12,7 +11,7 @@ import '../../ui/section_label.dart';
 import '../search/library_search_results.dart';
 import '../settings/settings_screen.dart';
 import 'cover_grid.dart';
-import 'folder_tile.dart';
+import 'folder_row.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_empty_state.dart';
@@ -59,67 +58,6 @@ class LibraryContent extends StatelessWidget {
   /// The gap between the grid's columns (the folder row shares them).
   static double gridSpacingFor({required bool compact}) => compact ? Gaps.lg : Gaps.xl;
 
-  /// Folders as a ruled row (DESIGN §6.1): names on the covers' columns
-  /// (each folder spans as many as its name needs), a hairline under the
-  /// row.
-  Widget _folderRow(
-    List<Folder> folders, {
-    required double spacing,
-    required double viewportHeight,
-  }) => LayoutBuilder(
-    builder: (context, constraints) {
-      final width = constraints.maxWidth;
-      final columns = CoverGridDelegate.columnsFor(
-        width,
-        coverWidth,
-        spacing,
-        height: viewportHeight,
-        captionHeight: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
-      );
-      final column = (width - spacing * (columns - 1)) / columns;
-      double spanWidth(int span) => column * span + spacing * (span - 1);
-      // Large text or narrow columns: a folder spans two or more columns
-      // rather than cutting its name off.
-      final minTile = FolderTile.minWidth * MediaQuery.textScalerOf(context).scale(1);
-      var span = 1;
-      while (span < columns && spanWidth(span) < minTile) {
-        span++;
-      }
-      final rule = Theme.of(context).colorScheme.outlineVariant;
-      Widget tile(Folder f) => FolderTile(
-        key: ValueKey('folder-${f.id}'),
-        folder: f,
-        subtitle: _folderCaption(f),
-        actions: actions,
-      );
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (span == columns)
-            // One folder per line (large text, phones): ruled like list
-            // rows, a hairline between them that starts at the names.
-            for (final (i, f) in folders.indexed) ...[
-              if (i > 0) Divider(height: Hairline.width, indent: FolderTile.textInset, color: rule),
-              tile(f),
-            ]
-          else
-            Wrap(
-              spacing: spacing,
-              runSpacing: Gaps.xxs,
-              children: [for (final f in folders) SizedBox(width: spanWidth(span), child: tile(f))],
-            ),
-          const SizedBox(height: Gaps.md),
-          Divider(height: Hairline.width, color: rule),
-        ],
-      );
-    },
-  );
-
-  String _folderCaption(Folder f) {
-    final n = _c.itemCountIn(f.id);
-    return n == 0 ? 'Empty' : '$n ${n == 1 ? 'item' : 'items'}';
-  }
-
   // The viewport's height sizes covers in short windows; the grid reads it
   // from its sliver constraints, the folder row (on the same columns) here.
   @override
@@ -128,11 +66,19 @@ class LibraryContent extends StatelessWidget {
 
   Widget _content(BuildContext context, double viewportHeight) {
     final compact = Breakpoints.libraryCompact(MediaQuery.sizeOf(context));
+    // A phone held sideways: one row of chrome, folders beside the title
+    // (or, while searching, a row of their own that scrolls sideways).
+    final short = Breakpoints.short(MediaQuery.sizeOf(context));
     final gutter = compact ? Gaps.lg + Gaps.xs : Gaps.xxl;
     final gridSpacing = gridSpacingFor(compact: compact);
     final folders = _c.visibleFolders;
     final notebooks = _c.visibleNotebooks;
     final empty = folders.isEmpty && notebooks.isEmpty;
+    final strip = short && folders.isNotEmpty
+        ? FolderRow.strip(folders: folders, actions: actions)
+        : null;
+    final inlineFolders = strip != null && !_c.isSearching;
+    final rule = Theme.of(context).colorScheme.outlineVariant;
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
     final newTile = showsNewTile(actions, compact: compact);
@@ -149,9 +95,9 @@ class LibraryContent extends StatelessWidget {
           sliver: SliverPadding(
             padding: EdgeInsets.fromLTRB(
               compact ? Gaps.sm : gutter,
-              compact ? Gaps.sm : Gaps.xl,
+              short ? Gaps.xs : (compact ? Gaps.sm : Gaps.xl),
               compact ? Gaps.sm : gutter,
-              Gaps.sm,
+              short ? Gaps.xs : Gaps.sm,
             ),
             sliver: SliverToBoxAdapter(
               child: LibraryHeader(
@@ -159,6 +105,8 @@ class LibraryContent extends StatelessWidget {
                 searchController: searchController,
                 searchFocus: searchFocus,
                 compact: compact,
+                short: short,
+                folders: inlineFolders ? strip : null,
                 leading: headerLeading,
               ),
             ),
@@ -186,15 +134,44 @@ class LibraryContent extends StatelessWidget {
             ),
           )
         else ...[
-          if (folders.isNotEmpty)
+          if (inlineFolders)
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: gutter),
+              sliver: SliverToBoxAdapter(
+                child: Divider(height: Hairline.width, color: rule),
+              ),
+            )
+          else if (strip != null)
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(gutter, Gaps.xs, gutter, 0),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    strip,
+                    const SizedBox(height: Gaps.xs),
+                    Divider(height: Hairline.width, color: rule),
+                  ],
+                ),
+              ),
+            )
+          else if (folders.isNotEmpty)
             SliverPadding(
               padding: EdgeInsets.fromLTRB(gutter, Gaps.md, gutter, 0),
               sliver: SliverToBoxAdapter(
-                child: _folderRow(folders, spacing: gridSpacing, viewportHeight: viewportHeight),
+                child: FolderRow(
+                  folders: folders,
+                  actions: actions,
+                  coverWidth: coverWidth,
+                  spacing: gridSpacing,
+                  viewportHeight: viewportHeight,
+                ),
               ),
             ),
           if (notebooks.isNotEmpty || newTile) ...[
-            SliverToBoxAdapter(child: SizedBox(height: folders.isEmpty ? Gaps.lg : Gaps.xl)),
+            SliverToBoxAdapter(
+              child: SizedBox(height: short ? Gaps.md : (folders.isEmpty ? Gaps.lg : Gaps.xl)),
+            ),
             // A search lists titles and pages alike, as rows.
             if (fullText)
               SliverPadding(

@@ -102,7 +102,11 @@ end styles: the table below with `INKLAB_ENDS=both`.
 CI (`.github/workflows/ci.yml`) runs `flutter test` (the suite without
 the real recordings, flat entries included) and, in *wet-ink Kotlin
 parity*, `unit_test.sh` and `check.sh` below with `LEN_NO_NIX=1` (a JDK
-and the Kotlin compiler from PATH instead of nix). Metrics listed in `known_failures.dart` are
+and the Kotlin compiler from PATH instead of nix; the compiler zip is
+cached). The *Ink Lab* workflow (`.github/workflows/inklab.yml`, weekly
+and on demand) runs the full table below with the real recordings and
+`INKLAB_ENDS=both`; the table test fails when FAILS isn't 0, and the run
+keeps the table as an artifact. Metrics listed in `known_failures.dart` are
 **skipped with their finding as the reason**. The list is **empty**: the
 engine passes every metric on every entry, real recordings included, so any
 failure is a regression (or needs a new finding, with evidence, before an
@@ -112,7 +116,7 @@ Tools for working on the engine (opt-in tests):
 
 ```sh
 # every metric of every entry as a table (≈ 4 min with the real recordings),
-# "!!" marks failures
+# "!!" marks failures (and the test fails unless FAILS is 0)
 tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_test.dart \
   --dart-define=INKLAB_TABLE=true --dart-define=INKLAB_REAL=true \
   [--dart-define=INKLAB_ONLY=<regex on entry names>] \

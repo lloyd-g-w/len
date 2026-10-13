@@ -14,10 +14,12 @@ const String incomingFilesChannel = 'len/incoming_files';
 
 /// Batches of files handed to the app: on Android from intents; on
 /// desktops from the command-line [args] (existing files only) and files
-/// opened while Len runs.
+/// opened while Len runs. Links among the desktop [args] (`len "len://sync?…"`)
+/// go to [incomingLinks].
 Stream<List<XFile>> openIncomingFiles(List<String> args) {
   final controller = StreamController<List<XFile>>();
   if (!Platform.isAndroid) {
+    args.where(isIncomingLink).forEach(_links.add);
     final files = [
       for (final path in incomingPathsFromArgs(args, windows: Platform.isWindows))
         if (File(path).existsSync()) XFile(File(path).absolute.path),
@@ -28,8 +30,9 @@ Stream<List<XFile>> openIncomingFiles(List<String> args) {
   return controller.stream;
 }
 
-/// Links Len was opened with (Android: `len://sync?…` setup links, by the
-/// intent filter in `AndroidManifest.xml`), kept until listened to.
+/// Links Len was opened with (`len://sync?…` setup links: on Android by the
+/// intent filter in `AndroidManifest.xml`; on desktops on the command line,
+/// also forwarded from a second `len` as a "path"), kept until listened to.
 final StreamController<String> _links = StreamController<String>();
 Stream<String> get incomingLinks => _links.stream;
 
@@ -41,9 +44,14 @@ void _listen(StreamController<List<XFile>> controller) {
   channel.setMethodCallHandler((call) async {
     if (call.method == 'link') return _links.add(call.arguments as String);
     if (call.method != 'files') return;
+    final entries = (call.arguments as List<Object?>).cast<Map<Object?, Object?>>();
+    // Desktop launches forward whatever was typed after `len`: links as
+    // they are, the rest as absolute paths.
+    bool link(Map<Object?, Object?> e) =>
+        !Platform.isAndroid && isIncomingLink(e['path']! as String);
+    entries.where(link).forEach((e) => _links.add(e['path']! as String));
     final files = [
-      for (final entry in (call.arguments as List<Object?>).cast<Map<Object?, Object?>>())
-        // Desktop launches forward whatever was typed after `len`.
+      for (final entry in entries.where((e) => !link(e)))
         if (Platform.isAndroid || File(entry['path']! as String).existsSync())
           XFile(
             entry['path']! as String,

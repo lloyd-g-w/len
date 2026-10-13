@@ -61,11 +61,12 @@ class SingleInstance {
 // The window message posted for forwarded launches (WPARAM/LPARAM unused).
 UINT ForwardedFilesMessage();
 
-// Forwarded paths (UTF-8, absolute) not yet taken; thread-safe.
+// Forwarded paths (UTF-8, absolute, or `len:` links) not yet taken;
+// thread-safe.
 std::vector<std::string> TakeForwardedPaths();
 
 // Absolute paths of this process's file arguments (anything not starting
-// with '-'), resolved against its working directory.
+// with '-'), resolved against its working directory; `len:` links as given.
 std::vector<std::wstring> CommandLinePaths();
 
 #endif  // RUNNER_SINGLE_INSTANCE_H_

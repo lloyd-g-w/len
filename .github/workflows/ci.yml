@@ -55,11 +55,19 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - name: Kotlin compiler (cached)
+        id: kotlin-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kotlin.zip
+          key: kotlin-compiler-${{ env.KOTLIN_VERSION }}
       - name: Kotlin compiler
         working-directory: ${{ runner.temp }}
         run: |
-          curl -sSfL -o kotlin.zip \
-            "https://github.com/JetBrains/kotlin/releases/download/v$KOTLIN_VERSION/kotlin-compiler-$KOTLIN_VERSION.zip"
+          if [ "${{ steps.kotlin-cache.outputs.cache-hit }}" != "true" ]; then
+            curl -sSfL -o kotlin.zip \
+              "https://github.com/JetBrains/kotlin/releases/download/v$KOTLIN_VERSION/kotlin-compiler-$KOTLIN_VERSION.zip"
+          fi
           unzip -q kotlin.zip
           echo "$PWD/kotlinc/bin" >> "$GITHUB_PATH"
       - uses: subosito/flutter-action@v2

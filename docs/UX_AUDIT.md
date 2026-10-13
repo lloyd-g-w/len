@@ -65,6 +65,16 @@ height (never narrower than 96 dp); the folder row follows the same
 columns. Sideways: seven covers about 100 dp wide, titles in view. Card
 titles break only between words; a word too long for the line ends in
 "…" on one line.
+*Then (`fix/followups-r6`):* header and folder row took ~170 of the 390 dp.
+Short windows (`Breakpoints.short`) now have one row of chrome: ☰, the
+title as a heading with its caption, a hairline, the folders as a strip
+that scrolls sideways (`FolderRow.strip`; its own row while searching), 🔍
+⇅; one hairline under it (~60 dp). The grid sizes a row to the room under
+that chrome (`precedingScrollExtent`), so covers are ~150 dp wide (five
+columns, was seven at ~100). A card's ⋯ glyph sits flush with the cover's
+edge, level with the title's first line, and the title leaves it 24 dp
+(was 40; its 48-dp target overlaps the title's end). Checked by
+`accessibility_test` at 844×390 (library, editor states, 2× text).
 
 ✅ **R6-5 P1 · Phones: Import PDF hides behind a long press on the FAB.**
 After the first notebook, phones offer importing a PDF only through a long
@@ -359,6 +369,11 @@ up another device…": a QR code of `len://sync?url=…&token=…` (pure-Dart
 link holds the token. Pasting the link into Server URL fills both fields;
 on Android the `len://sync` intent filter opens Len, which opens Settings
 with the form filled (`IncomingFiles.syncSetup`). Connect stays the user's.
+*Done (`fix/followups-r6`):* Linux and Windows too: `len "len://sync?…"`
+(or a link opened from a browser: `x-scheme-handler/len`, the installer's
+URL protocol), also forwarded to a running Len. A form filled from a link
+says where links come from next time (Settings → Sync → Set up another
+device… on a connected device), under Server URL.
 
 ### Simplify (one home per command; defaults over settings)
 

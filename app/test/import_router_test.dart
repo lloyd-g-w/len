@@ -153,6 +153,7 @@ void main() {
           'notes.pdf',
           '/home/me/My%20scan.png',
           'file:///home/me/My%20scan.png',
+          'len://sync?url=https%3A%2F%2Fa&token=t',
           '',
         ], windows: false),
         ['notes.pdf', '/home/me/My%20scan.png', '/home/me/My scan.png'],
@@ -161,6 +162,13 @@ void main() {
         r'C:\Users\me\a.pdf',
         r'C:\x\b.pdf',
       ]);
+    });
+
+    test('len: links are links, not paths', () {
+      expect(isIncomingLink('len://sync?url=x&token=y'), isTrue);
+      expect(isIncomingLink('LEN://sync'), isTrue);
+      expect(isIncomingLink('/home/me/len.pdf'), isFalse);
+      expect(isIncomingLink('lens.pdf'), isFalse);
     });
   });
 }

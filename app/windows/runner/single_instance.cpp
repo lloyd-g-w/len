@@ -2,6 +2,7 @@
 
 #include <sddl.h>
 #include <shellapi.h>
+#include <wchar.h>
 
 #include <memory>
 #include <mutex>
@@ -244,6 +245,11 @@ std::vector<std::wstring> CommandLinePaths() {
   for (int i = 1; i < argc; i++) {
     const wchar_t* arg = argv[i];
     if (arg[0] == L'\0' || arg[0] == L'-') continue;
+    // `len "len://sync?…"`: links are forwarded as they are.
+    if (::_wcsnicmp(arg, L"len:", 4) == 0) {
+      paths.emplace_back(arg);
+      continue;
+    }
     const DWORD size = ::GetFullPathNameW(arg, 0, nullptr, nullptr);
     if (size == 0) continue;
     std::wstring full(size, L'\0');

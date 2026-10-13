@@ -201,13 +201,18 @@ static gboolean my_application_local_command_line(GApplication* application,
   return TRUE;
 }
 
-// Implements GApplication::open: files forwarded by a second `len <file>`.
+// Implements GApplication::open: files (and `len://` links) forwarded by a
+// second `len <file>`.
 static void my_application_open(GApplication* application, GFile** files,
                                 gint n_files, const gchar* hint) {
   MyApplication* self = MY_APPLICATION(application);
   if (self->window == nullptr) g_application_activate(application);
   for (gint i = 0; i < n_files; i++) {
     gchar* path = g_file_get_path(files[i]);
+    // `len "len://sync?…"`: links go to Dart as they are.
+    if (path == nullptr && g_file_has_uri_scheme(files[i], "len")) {
+      path = g_file_get_uri(files[i]);
+    }
     if (path != nullptr) g_ptr_array_add(self->pending_paths, path);
   }
   send_pending_files(self);

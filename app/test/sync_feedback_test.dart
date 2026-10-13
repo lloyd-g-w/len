@@ -227,6 +227,16 @@ void main() {
       expect(field(tester, 'Access token'), link.token);
       expect(s.incomingFiles.syncSetup.value, isNull, reason: 'taken');
       expect(s.settings.syncUrl, 'http://sync.test', reason: 'only once connected');
+      expect(
+        find.textContaining('Settings → Sync → Set up another device…'),
+        findsOneWidget,
+        reason: 'says where links come from, for next time',
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+      await tester.tap(find.text('Change…'));
+      await tester.pump();
+      expect(find.textContaining('Filled from a setup link'), findsNothing);
       await tester.pumpWidget(const SizedBox());
     });
 
