@@ -10,6 +10,9 @@ import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_layout.dart';
 import '../../../../platform/clipboard_html.dart';
 
+part 'rich_text_formatting.dart';
+part 'rich_text_state.dart';
+
 /// The text field controller of a text box being edited: keeps the
 /// formatted text in a [RichTextBuffer] and renders it with
 /// [TextLayout.spanOf], exactly like the canvas does.
@@ -17,33 +20,12 @@ import '../../../../platform/clipboard_html.dart';
 /// The field's text is the *display* text: the box's text with one
 /// placeholder character before each list line, where the marker widget
 /// sits, and a break plus an indent gap where a list item wraps at
-/// [wrapWidth] (hanging indents, see [MarkerOffsets] and [TextWraps]). Edits the field makes are mapped back onto
-/// the buffer; formatting commands act on the selection (or, with a
-/// collapsed caret, on what is typed next).
-class RichTextController extends TextEditingController {
-  RichTextController(TextData data) : _box = data, _buffer = RichTextBuffer(data) {
-    watchClipboardPastes();
-    _sync(const TextSelection.collapsed(offset: 0));
-  }
-
-  TextData _box;
-  RichTextBuffer _buffer;
-  late MarkerOffsets _offsets;
-  List<int> _wraps = const [];
-  double _wrapWidth = double.infinity;
-  TextData? _data;
-
-  /// Style for the next typed text at [_pendingAt] (a toggled format with a
-  /// collapsed caret).
-  SpanStyle? _pending;
-  int _pendingAt = -1;
-
-  /// Called whenever the formatted text (not just the selection) changes.
-  VoidCallback? onDataChanged;
-
-  /// Builds the widget shown for a list marker (its size is
-  /// [ListMarker.size]).
-  Widget Function(ListMarker marker)? markerBuilder;
+/// [wrapWidth] (hanging indents, see [MarkerOffsets] and [TextWraps]).
+/// Edits the field makes are mapped back onto the buffer; formatting
+/// commands act on the selection (or, with a collapsed caret, on what is
+/// typed next, see [_RichTextFormatting]).
+class RichTextController extends _RichTextState with _RichTextFormatting {
+  RichTextController(super.data);
 
   /// Text copied from a box here, with its formatting: pasting the same
   /// plain text keeps the formatting.
@@ -64,70 +46,6 @@ class RichTextController extends TextEditingController {
     if (clip == null || clip.text != clean) return base;
     return base.withFormatting(spans: TextData.compact(clip.styles));
   }
-
-  /// The formatted text with the box's defaults.
-  TextData get data => _data ??= _buffer.toData(_box);
-
-  bool get isEmpty => _buffer.length == 0;
-
-  /// The width the box wraps at (its world width), for hanging indents.
-  double get wrapWidth => _wrapWidth;
-  set wrapWidth(double width) {
-    _wrapWidth = width;
-    if (listEquals(_wrapsOf(data), _wraps)) return;
-    _sync(
-      selection.isValid ? _modelSelection(selection) : const TextSelection.collapsed(offset: 0),
-    );
-  }
-
-  TextSelection _modelSelection(TextSelection s) => s.copyWith(
-    baseOffset: _offsets.toModel(s.baseOffset),
-    extentOffset: _offsets.toModel(s.extentOffset),
-  );
-
-  /// The display offsets of [data] at [wrapWidth].
-  MarkerOffsets _offsetsOf(TextData data) {
-    _wraps = _wrapsOf(data);
-    return MarkerOffsets(data, _wraps);
-  }
-
-  /// Auto-width boxes grow instead of wrapping.
-  List<int> _wrapsOf(TextData data) => data.autoWidth ? const [] : TextWraps.of(data, _wrapWidth);
-
-  /// Replaces everything (a new box started).
-  void load(TextData data) {
-    _box = data;
-    _buffer = RichTextBuffer(data);
-    _pending = null;
-    _sync(TextSelection.collapsed(offset: data.text.length));
-  }
-
-  // ---------------------------------------------------------------------
-  // Offsets and selection.
-
-  /// The selection in box-text offsets.
-  TextRange get modelSelection {
-    final s = selection;
-    if (!s.isValid) return TextRange.collapsed(_buffer.length);
-    return TextRange(start: _offsets.toModel(s.start), end: _offsets.toModel(s.end));
-  }
-
-  /// Rebuilds the display text and selects [model] (box-text offsets).
-  void _sync(TextSelection model, {bool changed = false}) {
-    _data = null;
-    _offsets = _offsetsOf(data);
-    super.value = TextEditingValue(
-      text: _offsets.display(_buffer.text),
-      selection: model.copyWith(
-        baseOffset: _offsets.toDisplay(model.baseOffset),
-        extentOffset: _offsets.toDisplay(model.extentOffset),
-      ),
-    );
-    if (changed) onDataChanged?.call();
-  }
-
-  void _changedKeeping(TextRange model) =>
-      _sync(TextSelection(baseOffset: model.start, extentOffset: model.end), changed: true);
 
   @override
   set value(TextEditingValue next) {
@@ -318,165 +236,5 @@ class RichTextController extends TextEditingController {
     _buffer.replace(r.start, r.end, clean, currentStyle);
     _pending = null;
     _changedKeeping(TextRange.collapsed(r.start + clean.length));
-  }
-
-  // ---------------------------------------------------------------------
-  // Character formatting.
-
-  /// The format at the caret (or of the selection's first character), as
-  /// the toolbar shows it.
-  SpanStyle get currentStyle {
-    final r = modelSelection;
-    if (r.isCollapsed) {
-      if (_pending != null && _pendingAt == r.start) return _pending!;
-      return _buffer.styleAt(r.start);
-    }
-    for (var i = r.start; i < r.end; i++) {
-      if (_buffer.text.codeUnitAt(i) != 0x0A) return _buffer.charStyle(i);
-    }
-    return _buffer.styleAt(r.start);
-  }
-
-  /// The line of the caret (the selection's start).
-  int get caretLine => _buffer.lineOf(modelSelection.start);
-
-  /// The paragraph format of the caret's line.
-  ParaStyle get currentPara => _buffer.para(caretLine);
-
-  /// Font size at the caret, in world units.
-  double get currentSize => TextLayout.sizeOf(_box, currentStyle, currentPara);
-
-  /// Whether the selection (or the caret's typing style) passes [test].
-  bool selectionHas(bool Function(SpanStyle) test) {
-    final r = modelSelection;
-    if (r.isCollapsed) return test(currentStyle);
-    return _buffer.everyChar(r.start, r.end, test);
-  }
-
-  /// Applies [update] to the selected characters, or to what is typed next.
-  void updateStyle(SpanStyle Function(SpanStyle) update) {
-    final r = modelSelection;
-    if (r.isCollapsed) {
-      _pending = update(currentStyle);
-      _pendingAt = r.start;
-      notifyListeners();
-      return;
-    }
-    _buffer.updateChars(r.start, r.end, update);
-    _changedKeeping(r);
-  }
-
-  void toggleBold() {
-    final on = !selectionHas((s) => s.bold);
-    updateStyle((s) => s.copyWith(bold: on));
-  }
-
-  void toggleItalic() {
-    final on = !selectionHas((s) => s.italic);
-    updateStyle((s) => s.copyWith(italic: on));
-  }
-
-  void toggleUnderline() {
-    final on = !selectionHas((s) => s.underline);
-    updateStyle((s) => s.copyWith(underline: on));
-  }
-
-  void toggleStrike() {
-    final on = !selectionHas((s) => s.strike);
-    updateStyle((s) => s.copyWith(strike: on));
-  }
-
-  /// Text colour; in an empty box this sets the box colour.
-  void setColor(int argb) {
-    if (isEmpty) return setBox(_box.copyWith(color: argb));
-    updateStyle((s) => s.withColor(argb == _box.color ? null : argb));
-  }
-
-  /// Highlight (background) colour, null for none.
-  void setHighlight(int? argb) => updateStyle((s) => s.withHighlight(argb));
-
-  /// Font size; in an empty box this sets the box size.
-  void setSize(double size) {
-    final v = size.clamp(TextData.minFontSize, TextData.maxFontSize).toDouble();
-    if (isEmpty) return setBox(_box.copyWith(fontSize: v));
-    updateStyle((s) => s.withSize(v));
-  }
-
-  /// Font; in an empty box this sets the box font.
-  void setFont(TextFont font) {
-    if (isEmpty) return setBox(_box.copyWith(font: font));
-    updateStyle((s) => s.withFont(font == _box.font ? null : font));
-  }
-
-  /// Changes the box defaults (font, size, colour, alignment, auto width).
-  void setBox(TextData box) {
-    _box = box;
-    _changedKeeping(modelSelection);
-  }
-
-  TextData get box => _box;
-
-  /// Takes over changed box defaults made elsewhere (e.g. auto width
-  /// ended), without reporting a change.
-  void adoptBox(TextData box) {
-    _box = box;
-    _data = null;
-  }
-
-  // ---------------------------------------------------------------------
-  // Paragraph formatting.
-
-  ({int first, int last}) get _lines {
-    final r = modelSelection;
-    var last = _buffer.lineOf(r.end);
-    // A selection ending at a line's start does not include that line.
-    if (r.end > r.start && r.end == _buffer.lineStart(last) && last > 0) last--;
-    return (first: _buffer.lineOf(r.start), last: last);
-  }
-
-  bool _allLines(bool Function(ParaStyle) test) {
-    final (:first, :last) = _lines;
-    for (var l = first; l <= last; l++) {
-      if (!test(_buffer.para(l))) return false;
-    }
-    return true;
-  }
-
-  void _updateLines(ParaStyle Function(ParaStyle) update) {
-    final (:first, :last) = _lines;
-    final keep = modelSelection;
-    _buffer.updateParas(first, last, update);
-    _changedKeeping(keep);
-  }
-
-  /// Heading [level] (1, 2) for the selected lines; again → body text.
-  void toggleHeading(int level) {
-    final off = _allLines((p) => p.heading == level);
-    _updateLines((p) => p.copyWith(heading: off ? 0 : level));
-  }
-
-  /// Sets heading [level] (0 = body text) for the selected lines.
-  void setHeading(int level) => _updateLines((p) => p.copyWith(heading: level));
-
-  /// Makes the selected lines a [kind] list; again → no list.
-  void toggleList(ListKind kind) {
-    final off = _allLines((p) => p.list == kind);
-    _updateLines((p) => p.copyWith(list: off ? ListKind.none : kind));
-  }
-
-  /// Indents (or outdents, [delta] < 0) the selected list lines; false
-  /// if none of them is a list item.
-  bool indent(int delta) {
-    if (_allLines((p) => !p.isList)) return false;
-    _updateLines((p) => p.isList ? p.copyWith(indent: p.indent + delta) : p);
-    return true;
-  }
-
-  /// Ticks or unticks the checklist item on [line].
-  void toggleChecked(int line) {
-    if (line < 0 || line >= _buffer.lineCount) return;
-    final keep = modelSelection;
-    _buffer.updateParas(line, line, (p) => p.copyWith(checked: !p.checked));
-    _changedKeeping(keep);
   }
 }

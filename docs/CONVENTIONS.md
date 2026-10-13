@@ -101,7 +101,7 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
   `lib/platform/*_native.dart` (and code only those import); add a
   conditional-export abstraction instead (see ARCHITECTURE "Platforms").
   Mind web integers: no negative or â¥ 31-bit shifts, no 64-bit `ByteData`.
-- Schema changes: **append** a migration to `AppDatabase._migrations` (version 1
+- Schema changes: **append** a migration to `SchemaMigrations.all` (version 1
   creates the whole schema); never edit one that has shipped.
 - New synced data: add a collection (documented in `docs/SYNC_PROTOCOL.md`) and
   parse it strictly with `RecordFields` (every field required; malformed â

@@ -1601,8 +1601,8 @@ easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 ## Persistence
 
 `package:sqlite3` (bundles SQLite via build hooks on every platform).
-`AppDatabase._createSchema` creates the whole schema (`PRAGMA user_version`
-1). Later schema changes append a migration to `AppDatabase._migrations`;
+`InitialSchema.create` creates the whole schema (`PRAGMA user_version`
+1). Later schema changes append a migration to `SchemaMigrations.all`;
 once released, never edit one.
 After migrating, `SchemaCheck` (`data/schema_reset.dart`) compares the
 database's shape (tables with their columns, index and trigger names; the
