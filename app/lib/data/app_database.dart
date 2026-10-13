@@ -1,12 +1,15 @@
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:sqlite3/common.dart';
 
 import '../platform/sqlite_connection.dart';
 
+import 'chunk_digest_migration.dart';
+import 'schema_reset.dart';
 import 'search/ink_text_schema.dart';
 import 'search/search_schema.dart';
+import 'write_back.dart';
 
-/// Owns the SQLite connection and creates (later: migrates) the schema.
+/// Owns the SQLite connection and creates and migrates the schema.
 ///
 /// Every syncable table carries the same bookkeeping columns:
 ///   * `updated_at` / `device_id` — last-write-wins version (see
@@ -28,11 +31,15 @@ class AppDatabase {
       AppDatabase.fromConnection(openSqliteFile(path), path: path);
 
   /// Opens the app's own database `len.db` in [directory] — on the web it
-  /// lives in IndexedDB instead and [directory] is ignored.
-  static Future<AppDatabase> openDefault(String directory) async => AppDatabase.fromConnection(
-    await openSqlite(name: _defaultName, directory: directory),
-    path: sqliteFilePath(name: _defaultName, directory: directory),
-  );
+  /// lives in IndexedDB instead, [directory] is ignored and the database
+  /// joins [writes] (whose writes reach storage asynchronously).
+  static Future<AppDatabase> openDefault(String directory, {StorageWrites? writes}) async {
+    _expected ??= _shapeOfFresh(await openSqliteScratch());
+    return AppDatabase.fromConnection(
+      await openSqlite(name: _defaultName, directory: directory, writes: writes),
+      path: sqliteFilePath(name: _defaultName, directory: directory),
+    );
+  }
 
   static const _defaultName = 'len.db';
 
@@ -77,12 +84,31 @@ class AppDatabase {
   }
 
   void _migrate() {
-    var version = db.select('PRAGMA user_version').first.columnAt(0) as int;
-    if (version > _migrations.length) {
-      _resetUnknownSchema(version);
-      version = 0;
+    final version = _version;
+    var kept = const <String, String>{};
+    if (version > _migrations.length || (version == 0 && !SchemaCheck.isEmpty(db))) {
+      kept = _reset(version);
+    } else if (version > 0) {
+      try {
+        _upgrade(version);
+      } on SqliteException catch (e) {
+        debugPrint('Migrating the database from version $version failed: $e');
+        kept = _reset(version);
+      }
+      if (schemaReset == null && !SchemaCheck.shapeOf(db).containsAll(_expectedShape())) {
+        kept = _reset(version);
+      }
     }
-    for (var v = version; v < _migrations.length; v++) {
+    _upgrade(_version);
+    for (final MapEntry(:key, :value) in kept.entries) {
+      db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+    }
+  }
+
+  int get _version => db.select('PRAGMA user_version').first.columnAt(0) as int;
+
+  void _upgrade(int from) {
+    for (var v = from; v < _migrations.length; v++) {
       transaction(() {
         _migrations[v](db);
         db.execute('PRAGMA user_version = ${v + 1}');
@@ -90,29 +116,44 @@ class AppDatabase {
     }
   }
 
-  /// A database from a newer build or from before the pre-release schema
-  /// squash has a schema this build cannot interpret. Pre-release, there is
-  /// no upgrade path (see CONVENTIONS.md): the old file is copied aside
-  /// (`<path>.schema-<version>-<time>.bak`, native only) and the database is
-  /// reset to empty, instead of crashing on missing columns later.
-  void _resetUnknownSchema(int version) {
-    final file = path;
-    if (file != null) {
-      final backup = '$file.schema-$version-${DateTime.now().millisecondsSinceEpoch}.bak';
-      db.execute("VACUUM INTO '${backup.replaceAll("'", "''")}'");
-    }
-    final objects = db.select(
-      "SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' "
-      "AND type IN ('table', 'view') ORDER BY type DESC",
+  /// Set when this database was found with a schema this build can't use
+  /// and was started afresh, until [acknowledgeSchemaReset] (the library
+  /// tells the user once).
+  SchemaReset? get schemaReset => _schemaReset;
+  SchemaReset? _schemaReset;
+
+  void acknowledgeSchemaReset() => _schemaReset = null;
+
+  /// A database from a newer build, or one whose schema differs from what
+  /// the migrations produce (they were rewritten pre-release), can't be
+  /// used. Pre-release there is no upgrade path (see CONVENTIONS.md): the
+  /// old file is kept aside (native only) and the database starts empty,
+  /// instead of failing on missing tables or columns later.
+  /// Returns the settings to write back ([SchemaCheck.keptSettings]).
+  Map<String, String> _reset(int version) {
+    final (backup, kept) = SchemaCheck.reset(db, path: path, version: version);
+    _schemaReset = SchemaReset(
+      backupPath: backup,
+      keptSync: kept.length == SchemaCheck.keptSettings.length,
+      fromNewer: version > _migrations.length,
     );
-    db.execute('PRAGMA foreign_keys = OFF');
-    for (final o in objects) {
-      final name = (o['name'] as String).replaceAll('"', '""');
-      // Dropping a table drops its indexes and triggers; FTS shadow tables
-      // go with their virtual table (IF EXISTS covers both orders).
-      db.execute('DROP ${o['type'] == 'view' ? 'VIEW' : 'TABLE'} IF EXISTS "$name"');
+    debugPrint('Database schema (version $version) not usable; started fresh (backup: $backup)');
+    return kept;
+  }
+
+  /// The shape of a freshly migrated database ([SchemaCheck.shapeOf]),
+  /// computed once per run on a scratch in-memory database. [openDefault]
+  /// prepares it asynchronously (browsers can't open one synchronously).
+  static Set<String> _expectedShape() => _expected ??= _shapeOfFresh(openSqliteInMemory());
+  static Set<String>? _expected;
+
+  static Set<String> _shapeOfFresh(CommonDatabase scratch) {
+    final fresh = AppDatabase.fromConnection(scratch);
+    try {
+      return SchemaCheck.shapeOf(fresh.db);
+    } finally {
+      fresh.close();
     }
-    db.execute('PRAGMA user_version = 0');
   }
 
   /// The schema version of a fully migrated database.
@@ -132,7 +173,26 @@ class AppDatabase {
     _recordingTrim,
     _notebookPaperData,
     _strokeEndStyles,
+    _recognisedText,
+    ChunkDigestMigration.migrate,
   ];
+
+  /// Version 9: recognised handwriting, synced (collection
+  /// `recognised_text`, see `RecognisedTextRepository`); remote records
+  /// queue their surface for indexing.
+  static void _recognisedText(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE recognised_text (
+        id          TEXT PRIMARY KEY NOT NULL,
+        language    TEXT NOT NULL,
+        lines       TEXT NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    InkTextSchema.createSyncedTriggers(db);
+  }
 
   /// Version 8: make the pen's end shape explicit on stored strokes. Upgrade
   /// the on-disk JSON once rather than keeping a legacy read path in the

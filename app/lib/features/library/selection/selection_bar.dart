@@ -81,7 +81,7 @@ class LibrarySelectionBar extends StatelessWidget {
                       action(
                         'Restore',
                         Symbols.restore_rounded,
-                        () => actions.restoreSelected(selection),
+                        () => actions.restoreSelected(context, selection),
                       ),
                       action(
                         'Delete forever',

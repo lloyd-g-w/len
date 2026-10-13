@@ -127,16 +127,24 @@ class _NotebookListTileState extends State<NotebookListTile> {
                     ],
                   ),
                 ),
+                // A star marks favourites (as on covers); the toggle shows
+                // on hover, and on touch it is in ⋯.
                 if (!_notebook.isTrashed)
-                  IconButton(
-                    tooltip: _notebook.favorite ? 'Remove from favourites' : 'Add to favourites',
-                    icon: Icon(
-                      Symbols.star_rounded,
-                      fill: _notebook.favorite ? 1 : 0,
-                      color: _notebook.favorite ? Palette.favourite : scheme.onSurfaceVariant,
+                  Visibility(
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    visible: _notebook.favorite || _hovered,
+                    child: IconButton(
+                      tooltip: _notebook.favorite ? 'Remove from favourites' : 'Add to favourites',
+                      icon: Icon(
+                        Symbols.star_rounded,
+                        fill: _notebook.favorite ? 1 : 0,
+                        color: _notebook.favorite ? Palette.favourite : scheme.onSurfaceVariant,
+                      ),
+                      onPressed: () =>
+                          widget.actions.controller.setFavorite(_notebook.id, !_notebook.favorite),
                     ),
-                    onPressed: () =>
-                        widget.actions.controller.setFavorite(_notebook.id, !_notebook.favorite),
                   ),
                 Builder(
                   builder: (anchor) => IconButton(

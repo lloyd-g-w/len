@@ -16,6 +16,8 @@ import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/outline_repository.dart';
 import 'data/page_repository.dart';
+import 'data/raster_store.dart';
+import 'data/recognised_text_repository.dart';
 import 'data/recording_repository.dart';
 import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
@@ -23,6 +25,7 @@ import 'data/stroke_reader.dart';
 import 'data/stroke_repository.dart';
 import 'data/template_repository.dart';
 import 'data/tombstone_payloads.dart';
+import 'data/write_back.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
 import 'features/documents/import/incoming_files.dart';
@@ -63,6 +66,8 @@ class AppServices {
     required this.templates,
     required this.outlines,
     required this.outline,
+    required this.writes,
+    required this.rasterStore,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -79,6 +84,8 @@ class AppServices {
     HandwritingRecognizer? recognizer,
     Stream<List<XFile>>? incomingFiles,
     OutlinePreparer outlines = const InlineOutlinePreparer(),
+    StorageWrites? writes,
+    RasterStore? rasterStore,
   }) {
     final settings = SettingsRepository(database);
     final deviceId = settings.deviceId(clock);
@@ -99,6 +106,7 @@ class AppServices {
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
     final templates = TemplateRepository(database, deviceId: deviceId, clock: clock);
+    final recognisedText = RecognisedTextRepository(database, deviceId: deviceId, clock: clock);
     final blobs = BlobStore(database, blobBackend ?? MemoryBlobBackend(), clock: clock);
     final engine = SyncEngine(
       database: database,
@@ -112,6 +120,7 @@ class AppServices {
       recordings: recordings,
       templates: templates,
       outline: outline,
+      recognisedText: recognisedText,
     );
     final search = SearchService(database, readBlob: blobs.read);
     final pointerActivity = PointerActivity();
@@ -119,6 +128,7 @@ class AppServices {
       recognizer: recognizer ?? createHandwritingRecognizer(),
       settings: settings,
       database: database,
+      shared: recognisedText,
       activity: pointerActivity,
     );
     recognition.indexer.onIndexed = search.contentChanged;
@@ -146,10 +156,16 @@ class AppServices {
       templates: templates,
       outlines: outlines,
       outline: outline,
+      writes: writes ?? StorageWrites(),
+      rasterStore: rasterStore,
     );
   }
 
   final AppDatabase database;
+
+  /// Writes on their way to storage (the web's IndexedDB): whether some are
+  /// pending or failing (storage full). Empty natively and in tests.
+  final StorageWrites writes;
   final SettingsRepository settings;
 
   /// Observable user preferences (theme, accent, input gestures, library view).
@@ -194,6 +210,10 @@ class AppServices {
 
   /// Notebooks' own outlines (tables of contents).
   final OutlineRepository outline;
+
+  /// Level-of-detail rasters of canvas chunks kept across restarts (none
+  /// on the web or in tests).
+  final RasterStore? rasterStore;
 
   /// Makes recorders and players (created only when used).
   final AudioBackends audio;

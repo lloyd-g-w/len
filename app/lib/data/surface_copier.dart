@@ -1,3 +1,4 @@
+import '../domain/chunk_digest.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
 import '../domain/surface_element.dart';
@@ -62,10 +63,11 @@ class SurfaceCopier {
           'dirty = 1 WHERE id = ?',
           [newId, to, now, strokes.deviceId, oldId],
         );
+        // A stroke's digest is its id's hash; an element's, its value's.
         db.execute(
-          'INSERT OR IGNORE INTO $chunks (surface_id, cx, cy, $idColumn) '
-          'SELECT ?, cx, cy, ? FROM $chunks WHERE $idColumn = ?',
-          [to, newId, oldId],
+          'INSERT OR IGNORE INTO $chunks (surface_id, cx, cy, $idColumn, digest) '
+          'SELECT ?, cx, cy, ?, COALESCE(?, digest) FROM $chunks WHERE $idColumn = ?',
+          [to, newId, table == 'strokes' ? ChunkDigest.ofStroke(newId) : null, oldId],
         );
       }
       db.execute('INSERT INTO $table SELECT * FROM temp.surface_copy');

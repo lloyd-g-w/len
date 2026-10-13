@@ -9,6 +9,7 @@ import 'package:len/features/editor/pen/pen_options_panel.dart';
 import 'package:len/features/editor/tools/colour_sheet.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:len/ui/color_dot.dart';
 
 import 'content_golden_test.dart' show loadFonts;
 
@@ -103,7 +104,7 @@ void main() {
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
     expect(find.text('Recent'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('#00aa00').first);
+    await tester.tap(dot(0xFF00AA00).first);
     await tester.pump();
     expect(tools.configOf(InkTool.ballpoint).colors[1], 0xFF00AA00);
     expect(tools.recentColors, [0xFF00AA00], reason: 'noted when the popover closes');
@@ -132,8 +133,8 @@ void main() {
     );
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
-    expect(find.bySemanticsLabel('#000000'), findsNothing, reason: 'no black highlighter');
-    expect(find.bySemanticsLabel('#facc15'), findsOneWidget);
+    expect(dot(0xFF000000), findsNothing, reason: 'no black highlighter');
+    expect(dot(0xFFFACC15), findsOneWidget);
     expect(find.text(formatWidth(tools.configOf(InkTool.highlighter).width)), findsOneWidget);
     expect(find.text('Size'), findsOneWidget);
   });
@@ -197,3 +198,6 @@ void main() {
     await expectLater(find.byType(Scaffold), matchesGoldenFile('goldens/pen_panels.png'));
   });
 }
+
+/// The colour swatch of [argb].
+Finder dot(int argb) => find.byWidgetPredicate((w) => w is ColorDot && w.color == argb);

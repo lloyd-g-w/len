@@ -67,6 +67,10 @@ class ThumbnailCache extends ChangeNotifier {
     return entry?.image;
   }
 
+  /// Whether [notebook]'s preview hasn't been checked yet (its cover shows
+  /// a neutral placeholder, not a flat colour that a thumbnail replaces).
+  bool isPending(Notebook notebook) => !_entries.containsKey(notebook.id);
+
   /// Forces previews of [notebookIds] (or all, when null) to be re-checked
   /// on next use — e.g. after an editor closed or strokes arrived by sync.
   void invalidate([Iterable<String>? notebookIds]) {

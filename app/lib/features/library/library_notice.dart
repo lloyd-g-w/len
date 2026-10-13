@@ -4,13 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
+import '../../data/schema_reset.dart';
+import '../../data/write_back.dart';
 import '../../platform/browser_storage.dart';
 import '../../ui/app_theme.dart';
 
 /// Puts a notice above the library's [child] while something needs the
-/// user's attention: files that won't be kept (a browser that refused
-/// storage, UX_AUDIT P0-1); else, once, a browser that may clear Len's
-/// data while sync is off (P2-30).
+/// user's attention: changes that can't be saved yet (a full browser
+/// storage); files that won't be kept (a browser that refused storage,
+/// UX_AUDIT P0-1); else, once, storage from another Len version that was
+/// started afresh (`AppDatabase.schemaReset`); else, once, a browser that
+/// may clear Len's data while sync is off (P2-30).
 class LibraryNotices extends StatefulWidget {
   const LibraryNotices({super.key, required this.child, this.storage});
 
@@ -29,6 +33,7 @@ class LibraryNotices extends StatefulWidget {
 class _LibraryNoticesState extends State<LibraryNotices> {
   late final AppServices _services = AppScope.read(context);
   late final BrowserStorage? _storage = widget.storage ?? browserStorage;
+  late final Listenable _changes = Listenable.merge([_services.sync, _services.writes]);
 
   /// Whether the browser may evict Len's data (null until known).
   bool? _evictable;
@@ -59,6 +64,21 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   }
 
   Widget? _notice() {
+    if (_services.writes.failure case final failure?) {
+      return LibraryNotice(
+        icon: Symbols.save_rounded,
+        title: 'Your latest changes aren\'t saved yet',
+        body: failure == WriteFailure.full
+            ? 'Browser storage is full. Len keeps the changes in this tab and saves them '
+                  'once there\'s room: free up space, and keep this tab open until then.'
+            : 'Len keeps the changes in this tab and keeps trying to save them. Keep this '
+                  'tab open until then.',
+        action: TextButton(
+          onPressed: () => unawaited(_services.writes.flush()),
+          child: const Text('Try again'),
+        ),
+      );
+    }
     if (!_services.blobsArePersistent) {
       return const LibraryNotice(
         icon: Symbols.cloud_off_rounded,
@@ -69,6 +89,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
             'window, allow site data, or turn on sync.',
       );
     }
+    if (_services.database.schemaReset case final reset?) return _resetNotice(reset);
     if (_evictable != true || _services.sync.isConfigured) return null;
     return LibraryNotice(
       icon: Symbols.storage_rounded,
@@ -82,9 +103,28 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     );
   }
 
+  LibraryNotice _resetNotice(SchemaReset reset) {
+    final version = reset.fromNewer ? 'a newer' : 'an older';
+    final sync = reset.keptSync
+        ? 'Notebooks you synced come back from your server.'
+        : 'Notebooks you synced come back from your server when you turn on sync again.';
+    final backup = reset.backupPath;
+    final kept = backup == null
+        ? 'The old data couldn\'t be kept in this browser.'
+        : 'The old data was kept in';
+    return LibraryNotice(
+      icon: Symbols.restart_alt_rounded,
+      title: 'Len started fresh',
+      body: 'Len\'s storage was from $version version, so it started fresh. $sync $kept',
+      detail: backup,
+      tone: NoticeTone.info,
+      onDismiss: () => setState(_services.database.acknowledgeSchemaReset),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _services.sync,
+    listenable: _changes,
     builder: (context, _) {
       final notice = _notice();
       if (notice == null) return widget.child;
@@ -117,6 +157,7 @@ class LibraryNotice extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    this.detail,
     this.action,
     this.onDismiss,
     this.tone = NoticeTone.warning,
@@ -125,6 +166,9 @@ class LibraryNotice extends StatelessWidget {
   final IconData icon;
   final String title;
   final String body;
+
+  /// Shown selectable under [body] (e.g. a file path to copy).
+  final String? detail;
 
   /// A button at the end (e.g. "Keep data").
   final Widget? action;
@@ -166,6 +210,10 @@ class LibraryNotice extends StatelessWidget {
                   Text(title, style: theme.textTheme.labelLarge),
                   const SizedBox(height: Gaps.xxs),
                   Text(body, style: theme.textTheme.bodySmall),
+                  if (detail case final detail?) ...[
+                    const SizedBox(height: Gaps.xxs),
+                    SelectableText(detail, style: theme.textTheme.bodySmall),
+                  ],
                   if (action case final action?)
                     Align(alignment: AlignmentDirectional.centerEnd, child: action),
                 ],

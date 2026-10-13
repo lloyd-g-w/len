@@ -27,3 +27,13 @@ String libraryDateAfter(String verb, int epochMs, {DateTime? now}) {
   final lower = date == 'Yesterday' || date == 'Just now';
   return '$verb ${lower ? date.toLowerCase() : date}';
 }
+
+/// How long a trashed notebook has left before it is deleted forever
+/// ([keptFor] after [trashedAt]): `29 days left`, `1 day left`, `Last day`.
+String trashLeftLabel(int trashedAt, Duration keptFor, {DateTime? now}) {
+  final current = (now ?? DateTime.now()).millisecondsSinceEpoch;
+  final left = trashedAt + keptFor.inMilliseconds - current;
+  final days = (left / Duration.millisecondsPerDay).ceil();
+  if (days <= 1) return 'Last day';
+  return '$days days left';
+}

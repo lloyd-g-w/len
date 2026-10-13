@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import '../domain/chunk_digest.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
 import '../domain/surface_element.dart';
@@ -75,6 +76,10 @@ class SlicedStrokeReader implements StrokeReader {
       elements: elements.values.toList(),
     );
   }
+
+  @override
+  Map<ChunkKey, ChunkDigest> chunkDigests(String surfaceId, ChunkRange range) =>
+      _queries.chunkDigests(surfaceId, range);
 
   @override
   Map<ChunkKey, int> chunkDensity(String surfaceId) => _queries.chunkDensity(surfaceId);

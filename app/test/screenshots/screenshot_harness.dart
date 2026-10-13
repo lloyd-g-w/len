@@ -12,6 +12,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/library/notebook_card.dart';
 import 'package:len/ui/app_theme.dart';
 
 /// Whether to write PNGs (`flutter test --dart-define=SCREENSHOTS=true`).
@@ -268,6 +269,10 @@ List<Stroke> handwriting(String surface, Clock clock, {required int lines, requi
 }
 
 /// The library header's "Empty trash" (an icon button on phones).
+/// The ⋯ of the first notebook card (folders have one too).
+Finder firstCardMore() =>
+    find.descendant(of: find.byType(NotebookCard), matching: find.byTooltip('More')).first;
+
 Finder emptyTrashButton() {
   final icon = find.byTooltip('Empty trash…');
   return icon.evaluate().isNotEmpty ? icon : find.text('Empty trash…');

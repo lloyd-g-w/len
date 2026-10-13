@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -15,6 +16,7 @@ import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/features/library/new_notebook_tile.dart';
 import 'package:len/features/library/notebook_card.dart';
 import 'package:len/features/library/notebook_list_tile.dart';
+import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/ui/menus.dart';
 import 'package:len/ui/sidebar_item.dart';
 
@@ -122,7 +124,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'chem');
     await tester.pumpAndSettle();
-    expect(find.byType(NotebookCard), findsNWidgets(2));
+    // Search results are rows.
+    expect(find.byType(NotebookListTile), findsNWidgets(2));
     expect(find.text('School'), findsWidgets); // Location subtitle.
   });
 
@@ -206,7 +209,7 @@ void main() {
     expect(tile, findsOneWidget);
     await tester.tap(find.byTooltip('View'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Select…').last);
+    await tester.tap(find.text('Select').last);
     await tester.pumpAndSettle();
     expect(tile, findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -277,20 +280,66 @@ void main() {
     expect(find.text('“Keys” moved to the trash'), findsOneWidget);
   });
 
-  testWidgets('deleting a folder sends its notebooks to the trash', (tester) async {
+  testWidgets('deleting a folder says what goes, trashes its notebooks, and Undo restores all', (
+    tester,
+  ) async {
     final services = await pumpSeeded(tester, (s) {
       final f = s.folders.create(name: 'Old', color: 0xFF495057);
+      final sub = s.folders.create(name: 'Sub', parentId: f.id, color: 0xFF495057);
       addNotebook(s, 'Inside', folderId: f.id);
+      addNotebook(s, 'Deeper', folderId: sub.id);
     });
-    await tester.tap(find.byTooltip('Folder options'));
+    await tester.tap(
+      find.descendant(of: find.byType(FolderTile), matching: find.byTooltip('More')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete folder…'));
     await tester.pumpAndSettle();
+    expect(find.text('1 subfolder and 2 notebooks go to the trash.'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();
     expect(services.folders.list(), isEmpty);
-    expect(services.notebooks.trashed().single.title, 'Inside');
-    expect(find.text('1'), findsWidgets); // Trash count in the sidebar.
+    expect(services.notebooks.trashed().map((n) => n.title), unorderedEquals(['Inside', 'Deeper']));
+    expect(find.text('2'), findsWidgets); // Trash count in the sidebar.
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.folders.list().map((f) => f.name), unorderedEquals(['Old', 'Sub']));
+    expect(services.notebooks.trashed(), isEmpty);
+    final byTitle = {for (final n in services.notebooks.list()) n.title: n.folderId};
+    final ids = {for (final f in services.folders.list()) f.name: f.id};
+    expect(byTitle, {'Inside': ids['Old'], 'Deeper': ids['Sub']});
+  });
+
+  testWidgets('restoring and moving say where notebooks went; a move can be undone', (
+    tester,
+  ) async {
+    final services = await pumpSeeded(tester, (s) {
+      final f = s.folders.create(name: 'Work', color: 0xFF495057);
+      s.notebooks.trash(addNotebook(s, 'Old notes', folderId: f.id).id);
+      addNotebook(s, 'Plans');
+    });
+    await openMenuOf(tester, 'Plans');
+    await tester.tap(find.text('Move to folder…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Work').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Moved “Plans” to “Work”'), findsOneWidget);
+    final work = services.folders.list().single.id;
+    expect(services.notebooks.list().single.folderId, work);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(services.notebooks.list().single.folderId, isNull);
+
+    await tester.tap(find.text('Trash').first);
+    await tester.pumpAndSettle();
+    expect(find.text('30 days left'), findsOneWidget);
+    await openMenuOf(tester, 'Old notes');
+    await tester.tap(find.text('Restore'));
+    await tester.pumpAndSettle();
+    expect(find.text('Restored “Old notes” to “Work”'), findsOneWidget);
+    expect(services.notebooks.get(services.notebooks.list().first.id), isNotNull);
+    expect(services.notebooks.trashed(), isEmpty);
   });
 
   testWidgets('phone layout: the drawer goes between sections', (tester) async {
@@ -318,6 +367,28 @@ void main() {
     expect(find.byType(LibrarySidebar), findsNothing);
     expect(find.text('New folder'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('phones: ← goes up from a folder; empty views drop search and ⇅', (tester) async {
+    await pumpSeeded(tester, (s) {
+      final school = s.folders.create(name: 'School', color: 0xFF495057);
+      s.folders.create(name: 'Maths', parentId: school.id, color: 0xFF495057);
+    }, size: const Size(390, 844));
+    await tester.tap(find.text('School'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Maths'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Menu'), findsNothing);
+    expect(find.byTooltip('Search'), findsNothing, reason: 'nothing to search');
+    expect(find.byTooltip('View'), findsNothing);
+    expect(find.text('This folder is empty'), findsOneWidget);
+    await tester.tap(find.byTooltip('Up to School'));
+    await tester.pumpAndSettle();
+    expect(find.text('Maths'), findsOneWidget);
+    expect(find.byTooltip('Search'), findsOneWidget);
+    await tester.tap(find.byTooltip('Up to Library'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Menu'), findsOneWidget);
   });
 
   testWidgets('phones: searching hides ⊕', (tester) async {
@@ -377,6 +448,25 @@ void main() {
     expect(find.byType(SidebarItem), findsNothing);
     expect(find.text('Theme'), findsOneWidget);
     expect(find.text('Tap to undo and redo'), findsOneWidget);
+    expect(find.text('Side button'), findsOneWidget); // Tests run as Android.
+  });
+
+  testWidgets('desktops show the side button only for stylus users', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppScope(services: services, child: const SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Draw with'), findsOneWidget);
+    expect(find.text('Side button'), findsNothing);
+    await tester.tap(find.text('Stylus'));
+    await tester.pumpAndSettle();
+    expect(find.text('Side button'), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('long-press on touch opens the context menu; right-click too', (tester) async {

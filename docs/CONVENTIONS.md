@@ -82,6 +82,13 @@ formats, rename things, squash migrations and drop old tools freely when it
 makes the code better â just keep the code base itself consistent and the
 tests green. (Forward-compat rules below apply once we ship.)
 
+Safety net for old local data: a database whose schema doesn't match what
+the current migrations produce (or that is newer, or fails to migrate) is
+copied aside as `len.db.schema-<version>-<time>.bak` (native; browsers
+can't keep it) and started fresh, keeping the sync login; the library tells
+the user once (`SchemaCheck`, `AppDatabase.schemaReset`). So rewriting
+migrations needs no manual cleanup — but don't rely on it once we ship.
+
 ## Rules
 
 - `flutter analyze` must report **no issues**; `flutter test` must pass.

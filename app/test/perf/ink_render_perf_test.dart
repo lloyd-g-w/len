@@ -4,8 +4,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/raster_store.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/data/surface_copier.dart';
+import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
@@ -14,8 +16,12 @@ import 'package:len/features/editor/document/document_painters.dart';
 import 'package:len/features/editor/document/document_surfaces.dart';
 import 'package:len/features/editor/document/page_thumbnail_cache.dart';
 import 'package:len/ink/lab/perf_probe.dart';
+import 'package:len/ink/render/chunk_picture_cache.dart';
+import 'package:len/ink/render/chunk_raster_cache.dart';
 import 'package:len/ink/render/content_painter.dart';
+import 'package:len/ink/render/ink_painters.dart';
 import 'package:len/ink/render/tiles/ink_tile_cache.dart';
+import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/undo_history.dart';
 import 'package:len/ink/viewport.dart';
 
@@ -256,6 +262,43 @@ void main() {
     });
   }, timeout: const Timeout(Duration(minutes: 3)));
 
+  testWidgets('reopen a big canvas at 10 %', (tester) async {
+    await tester.runAsync(() async {
+      final db = AppDatabase.inMemory();
+      final repository = StrokeRepository(db, deviceId: 'd')
+        ..save(scribbles(40000, const Rect.fromLTWH(0, 0, 30000, 20000), points: 10));
+      final store = MemoryRasterStore();
+      Future<void> run(String name, RasterStore? store) async {
+        final reads = PerfProbe.counter('lodStoreReads'), hits = PerfProbe.counter('lodStoreHits');
+        final rasters = PerfProbe.counter('lodRasters');
+        final records = PerfProbe.counter('chunkRecords');
+        final writes = PerfProbe.counter('lodStoreWrites');
+        final view = _Reopened(repository, store: store, scale: 0.1);
+        final (frames, took) = await view.open();
+        final chunks = view.rasters.chunksIn(ChunkGrid.rangeFor(view.viewport.visibleWorld));
+        // ignore: avoid_print
+        print(
+          'INKPERF reopen at 10 % ($name): ${chunks.length} chunks complete after $frames frames, '
+          '${took.inMilliseconds} ms; strokes loaded=${view.model.loadedStrokeCount} '
+          'chunkRecords=${PerfProbe.counter('chunkRecords') - records} '
+          'lodRasters=${PerfProbe.counter('lodRasters') - rasters} '
+          'store reads=${PerfProbe.counter('lodStoreReads') - reads} '
+          'hits=${PerfProbe.counter('lodStoreHits') - hits} '
+          'writes=${PerfProbe.counter('lodStoreWrites') - writes}',
+        );
+        await settle(() => !view.rasters.isBusy); // Writes done.
+        view.dispose();
+      }
+
+      await run('no store, as before', null);
+      await run('first open, storing', store);
+      await run('reopened', store);
+      // ignore: avoid_print
+      print('INKPERF reopen at 10 %: ${store.length} rasters stored');
+      db.close();
+    });
+  }, timeout: const Timeout(Duration(minutes: 3)));
+
   testWidgets('pan a big canvas at 6 %', (tester) async {
     await tester.runAsync(() async {
       final big = scribbles(40000, const Rect.fromLTWH(0, 0, 30000, 20000), points: 10);
@@ -271,6 +314,71 @@ void main() {
       scene.dispose();
     });
   }, timeout: const Timeout(Duration(minutes: 3)));
+}
+
+/// A canvas opened at [scale] in a 1280 × 800 view at 2×, as the editor
+/// shows it: with a raster [store], zoomed far out, it draws stored rasters
+/// and loads only chunks without one.
+class _Reopened {
+  _Reopened(this.repository, {this.store, required double scale}) {
+    model = SurfaceModel(
+      surfaceId: 's',
+      repository: repository,
+      reader: repository,
+      maxLoadedChunks: 1 << 20,
+      rasterStore: store,
+    );
+    viewport
+      ..setSize(_size)
+      ..setView(scale: scale, offset: const Offset(-300, -200));
+    if (store != null) {
+      model.showStored(viewport.visibleWorld);
+    } else {
+      model.ensureLoaded(viewport.visibleWorld);
+    }
+  }
+
+  static const _size = Size(1280, 800);
+  final StrokeRepository repository;
+  final RasterStore? store;
+  late final SurfaceModel model;
+  final viewport = ViewportController(minScale: 0.01);
+  late final pictures = ChunkPictureCache(model, devicePixelRatio: 2);
+  late final rasters = ChunkRasterCache(pictures, maxBytes: 64 << 20);
+
+  /// Frames 16 ms apart until every visible chunk shows its own raster;
+  /// returns (frames, wall time).
+  Future<(int, Duration)> open() async {
+    final watch = Stopwatch()..start();
+    final level = ChunkRasterCache.levelFor(ChunkGrid.size * viewport.scale * 2)!;
+    for (var frame = 1; frame < 2000; frame++) {
+      CommittedInkPainter(
+        model: model,
+        cache: pictures,
+        viewport: viewport,
+        rasters: rasters,
+        devicePixelRatio: 2,
+      ).paint(CountingCanvas(), _size);
+      final chunks = rasters.chunksIn(ChunkGrid.rangeFor(viewport.visibleWorld));
+      final complete =
+          chunks.isNotEmpty &&
+          !rasters.isMaking &&
+          !model.isLoading &&
+          chunks.every((k) {
+            final image = rasters.imageFor(k, level);
+            return image != null && image.width == level && rasters.overlayOf(k, image).isEmpty;
+          });
+      if (complete) return (frame, watch.elapsed);
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
+    fail('never complete');
+  }
+
+  void dispose() {
+    rasters.dispose();
+    pictures.dispose();
+    model.dispose();
+  }
 }
 
 /// A notebook of [count] handwritten A4 pages (1 200 strokes each) in a

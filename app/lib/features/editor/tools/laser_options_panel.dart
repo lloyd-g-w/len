@@ -31,9 +31,10 @@ class LaserOptionsPanel extends StatelessWidget {
           children: [
             OptionHeader(
               'Laser pointer',
-              trailing: TextButton(
-                onPressed: () => update(const LaserConfig()),
-                child: const Text('Reset'),
+              trailing: ResetButton<LaserConfig>(
+                value: laser,
+                defaults: const LaserConfig(),
+                onChanged: update,
               ),
             ),
             const SizedBox(height: Gaps.sm),

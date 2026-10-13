@@ -7,7 +7,9 @@ import 'data/blob_backend.dart';
 import 'domain/preferences.dart';
 import 'features/library/library_screen.dart';
 import 'features/settings/sync_attention.dart';
+import 'features/storage/storage_attention.dart';
 import 'ui/app_theme.dart';
+import 'ui/focus_ring.dart';
 import 'ui/messages.dart';
 import 'ui/system_bars.dart';
 import 'ui/touch_menus.dart';
@@ -34,6 +36,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     widget.services.pointerActivity.attach();
     _syncAttention;
+    _storageAttention;
     if (widget.services.blobs.backend case final VolatileBlobBackend volatile) {
       volatile.onWrite = _warnFilesNotKept;
     }
@@ -46,6 +49,10 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     messenger: _messenger,
     navigator: _navigator,
   );
+  late final _storageAttention = StorageAttention(
+    writes: widget.services.writes,
+    messenger: _messenger,
+  );
 
   /// The first file stored in a browser that refused storage: say right
   /// away that it won't be kept (the library shows a banner too).
@@ -54,7 +61,10 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     volatile.onWrite = null;
     final context = _messenger.currentContext;
     if (context == null) return;
-    _messenger.currentState?.showSnackBar(
+    final state = _messenger.currentState;
+    if (state == null) return;
+    MessageQueue.show(
+      state,
       appSnackBar(
         context,
         'This browser won\'t keep this file once the tab is closed',
@@ -67,6 +77,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
   void dispose() {
     widget.services.pointerActivity.detach();
     _syncAttention.dispose();
+    _storageAttention.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -95,7 +106,9 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
             darkTheme: _dark,
             themeMode: themeModeOf(preferences.themeMode),
             themeAnimationDuration: Motion.medium,
-            builder: (context, child) => SystemBars(child: TouchMenus(child: child!)),
+            builder: (context, child) => FocusRing(
+              child: SystemBars(child: TouchMenus(child: child!)),
+            ),
             scaffoldMessengerKey: _messenger,
             navigatorKey: _navigator,
             navigatorObservers: [widget.services.routeOwners],

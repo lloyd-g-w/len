@@ -7,6 +7,7 @@ import 'package:sqlite3/common.dart';
 
 import '../../core/pointer_activity.dart';
 import '../../data/app_database.dart';
+import '../../data/recognised_text_repository.dart';
 import '../../data/search/ink_text_boxes.dart';
 import '../../data/stroke_queries.dart';
 import '../lab/perf_probe.dart';
@@ -26,23 +27,39 @@ import 'ink_clustering.dart';
 /// pen-up —, scrolling, zooming) and for [idleDelay] after the last one, so
 /// no recognition work starts while the user interacts. Lines whose strokes did not
 /// change keep their earlier result, so adding a word re-recognises just
-/// that line.
+/// that line; lines another device recognised (synced, see
+/// [RecognisedTextRepository]) are not recognised again. Without a
+/// recogniser (Linux, Windows, web) it indexes only text synced from
+/// devices with one.
 class HandwritingIndexer extends ChangeNotifier {
   HandwritingIndexer(
     this.database, {
     required this.recognizer,
+    required this.shared,
     required this.language,
+    int Function()? languageChangedAt,
     this.idleDelay = const Duration(seconds: 3),
     this.pauseBetweenLines = const Duration(milliseconds: 15),
     this.activity,
     Stream<void>? commits,
-  }) : _commitSource = commits;
+  }) : _commitSource = commits,
+       languageChangedAt = languageChangedAt ?? (() => 0);
 
   final AppDatabase database;
+
+  /// Recognises lines; an unsupported one ([HandwritingRecognizer.isSupported]
+  /// false) makes this an indexer of text recognised elsewhere ([shared]).
   final HandwritingRecognizer recognizer;
+
+  /// Recognised text synced between devices.
+  final RecognisedTextRepository shared;
 
   /// The language to recognise in (read at the start of each surface).
   final String Function() language;
+
+  /// When the user last chose [language] (ms; see
+  /// [RecognisedTextRepository.publish]).
+  final int Function() languageChangedAt;
 
   /// How long the database must be quiet before (and while) indexing.
   final Duration idleDelay;
@@ -93,9 +110,22 @@ class HandwritingIndexer extends ChangeNotifier {
     _active = true;
     _ownCommits = 0;
     _commits = (_commitSource ?? _db.commits).listen((_) => _onCommit());
-    schedule();
+    if (_hasWork) schedule();
     notifyListeners();
   }
+
+  /// Whether a queued surface may need work. Without a recogniser only
+  /// surfaces with synced text do (the others are dropped from the queue
+  /// whenever a run happens), so a device that never received any does not
+  /// even wake up.
+  bool get _hasWork => _db
+      .select(
+        recognizer.isSupported
+            ? 'SELECT 1 FROM ink_text_queue LIMIT 1'
+            : 'SELECT 1 FROM ink_text_queue q JOIN recognised_text r ON r.id = q.surface_id '
+                  'LIMIT 1',
+      )
+      .isNotEmpty;
 
   /// Stops watching; a surface being recognised finishes its current line.
   void stop() {
@@ -149,49 +179,66 @@ class HandwritingIndexer extends ChangeNotifier {
     }
   }
 
-  /// Recognises the lines of [surfaceId] that changed and stores the
-  /// result; removes the surface from the queue if it is still at
-  /// [version] (a change made meanwhile keeps it queued).
+  /// Brings the recognised text of [surfaceId] up to date and removes the
+  /// surface from the queue if it is still at [version] (a change made
+  /// meanwhile keeps it queued).
+  ///
+  /// Each line keeps its earlier text while its strokes are unchanged, else
+  /// takes the text another device synced for the same strokes, else (with
+  /// a recogniser) is recognised. With a recogniser, the result is synced
+  /// ([RecognisedTextRepository.publish]); without one, only synced lines
+  /// get text.
   Future<void> indexSurface(String surfaceId, {int? version}) async {
     final lang = language();
-    developer.Timeline.startSync('len.handwritingCluster');
-    final strokes = _db
-        .select('SELECT * FROM strokes WHERE surface_id = ? AND deleted = 0', [surfaceId])
-        .map(StrokeQueries.rowToStroke)
-        .nonNulls;
-    final watch = Stopwatch()..start();
-    final lines = InkClustering.lines(strokes);
-    PerfProbe.count('handwritingClusterMs', watch.elapsedMilliseconds);
-    developer.Timeline.finishSync();
-    final existing = <String, ({int id, String text})>{
+    final recognise = recognizer.isSupported;
+    final synced = shared.read(surfaceId);
+    // Without a recogniser and nothing synced, no line can have text.
+    final lines = recognise || synced != null ? _cluster(surfaceId) : const <InkLine>[];
+    final existing = <String, ({int id, String text, String language})>{
       for (final r in _db.select(
-        'SELECT id, stroke_key, text FROM ink_text WHERE surface_id = ? AND language = ?',
-        [surfaceId, lang],
+        'SELECT id, stroke_key, text, language FROM ink_text WHERE surface_id = ?',
+        [surfaceId],
       ))
-        r['stroke_key'] as String: (id: r['id'] as int, text: r['text'] as String),
+        r['stroke_key'] as String: (
+          id: r['id'] as int,
+          text: r['text'] as String,
+          language: r['language'] as String,
+        ),
     };
     final keep = <int>{};
-    final fresh = <({InkLine line, String text, List<Rect>? words})>[];
+    final fresh = <({InkLine line, String text, String language})>[];
+    final read = <String, String>{};
     var before = '';
     for (final line in lines) {
       if (_disposed) return;
-      final known = existing[line.key];
-      if (known != null) {
-        keep.add(known.id);
-        before = known.text;
-        continue;
+      final local = existing[line.key];
+      final elsewhere = synced?.lines[line.key];
+      final String text, textLanguage;
+      if (!recognise) {
+        if (elsewhere == null) continue;
+        (text, textLanguage) = (elsewhere, synced!.language);
+      } else if (local != null && local.language == lang) {
+        (text, textLanguage) = (local.text, lang);
+      } else if (elsewhere != null && synced!.language == lang) {
+        (text, textLanguage) = (elsewhere, lang);
+      } else {
+        await _untilQuiet();
+        if (_disposed) return;
+        final candidates = await recognizer.recognize(
+          line.strokes,
+          language: lang,
+          writingArea: Size(line.bounds.width + line.letterHeight, line.letterHeight * 2.5),
+          preContext: _tail(before),
+        );
+        (text, textLanguage) = ((candidates.firstOrNull?.text ?? '').trim(), lang);
       }
-      await _untilQuiet();
-      if (_disposed) return;
-      final candidates = await recognizer.recognize(
-        line.strokes,
-        language: lang,
-        writingArea: Size(line.bounds.width + line.letterHeight, line.letterHeight * 2.5),
-        preContext: _tail(before),
-      );
-      final text = (candidates.firstOrNull?.text ?? '').trim();
+      if (local != null && local.text == text && local.language == textLanguage) {
+        keep.add(local.id);
+      } else {
+        fresh.add((line: line, text: text, language: textLanguage));
+      }
+      read[line.key] = text;
       before = text;
-      fresh.add((line: line, text: text, words: wordBoxes(line, text)));
     }
     if (_disposed) return;
     var changed = fresh.isNotEmpty;
@@ -212,16 +259,17 @@ class HandwritingIndexer extends ChangeNotifier {
           [
             surfaceId,
             f.line.key,
-            lang,
+            f.language,
             f.text,
             b.left,
             b.top,
             b.width,
             b.height,
-            InkTextBoxes.encode(f.words),
+            InkTextBoxes.encode(wordBoxes(f.line, f.text)),
           ],
         );
       }
+      if (recognise) shared.publish(surfaceId, lang, read, languageChangedAt: languageChangedAt());
       _db.execute(
         'DELETE FROM ink_text_queue WHERE surface_id = ? ${version == null ? '' : 'AND version = ?'}',
         [surfaceId, ?version],
@@ -229,6 +277,20 @@ class HandwritingIndexer extends ChangeNotifier {
     });
     notifyListeners();
     if (changed) onIndexed?.call();
+  }
+
+  /// The lines of the live strokes on [surfaceId].
+  List<InkLine> _cluster(String surfaceId) {
+    developer.Timeline.startSync('len.handwritingCluster');
+    final strokes = _db
+        .select('SELECT * FROM strokes WHERE surface_id = ? AND deleted = 0', [surfaceId])
+        .map(StrokeQueries.rowToStroke)
+        .nonNulls;
+    final watch = Stopwatch()..start();
+    final lines = InkClustering.lines(strokes);
+    PerfProbe.count('handwritingClusterMs', watch.elapsedMilliseconds);
+    developer.Timeline.finishSync();
+    return lines;
   }
 
   /// Boxes for the words of [text] if the line has as many word clusters
@@ -280,8 +342,7 @@ class HandwritingIndexer extends ChangeNotifier {
       return;
     }
     _lastActivity = DateTime.now();
-    // A cheap check: most commits do not touch ink.
-    if (!_running) schedule();
+    if (!_running && (_timer?.isActive == true || _hasWork)) schedule();
   }
 
   /// Forgets all recognised text (indexing switched off).

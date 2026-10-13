@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'color_picker/color_names.dart';
 import 'design_tokens.dart';
 
 /// A round colour swatch with a selection ring (colour pickers, cover,
@@ -35,7 +36,8 @@ class ColorDot extends StatelessWidget {
   /// override it: then the whole cell takes taps.
   final double? target;
 
-  /// Optional tooltip; also the accessibility label (else the hex code).
+  /// Optional tooltip; also the accessibility label (else the colour's
+  /// name, [colorName]).
   final String? tooltip;
 
   @override
@@ -44,7 +46,7 @@ class ColorDot extends StatelessWidget {
     final dot = Semantics(
       button: true,
       selected: selected,
-      label: tooltip ?? '#${(color & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
+      label: tooltip ?? colorName(color),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(

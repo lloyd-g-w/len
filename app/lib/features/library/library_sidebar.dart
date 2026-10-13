@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/folder.dart';
@@ -97,7 +98,10 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                         IconButton(
                           tooltip: 'New folder',
                           iconSize: Glyphs.menu,
-                          visualDensity: VisualDensity.compact,
+                          constraints: BoxConstraints.tightFor(
+                            width: Targets.menuRowHeight(context),
+                            height: Targets.menuRowHeight(context),
+                          ),
                           color: scheme.onSurfaceVariant,
                           icon: const Icon(Symbols.create_new_folder_rounded),
                           onPressed: () {
@@ -124,27 +128,42 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
             Divider(height: 1, color: scheme.outlineVariant),
             Padding(
               padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.md, Gaps.md),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SidebarItem(
-                      icon: Symbols.settings_rounded,
-                      label: 'Settings',
-                      onTap: widget.onOpenSettings,
-                    ),
-                  ),
-                  SyncStatusButton(
-                    sync: c.services.sync,
-                    onOpenSettings: widget.onOpenSyncSettings ?? widget.onOpenSettings,
-                    // Large text: Settings keeps its name; sync its icon.
-                    caption: MediaQuery.textScalerOf(context).scale(1) < 1.15,
-                  ),
-                ],
-              ),
+              child: _footer(context),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Settings and the sync status side by side; stacked at large text, so
+  /// both keep their words.
+  Widget _footer(BuildContext context) {
+    final settings = SidebarItem(
+      icon: Symbols.settings_rounded,
+      label: 'Settings',
+      onTap: widget.onOpenSettings,
+    );
+    final large = MediaQuery.textScalerOf(context).scale(1) >= 1.15;
+    final sync = SyncStatusButton(
+      sync: _controller.services.sync,
+      onOpenSettings: widget.onOpenSyncSettings ?? widget.onOpenSettings,
+      caption: true,
+    );
+    if (large) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          settings,
+          Align(alignment: Alignment.centerLeft, child: sync),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: settings),
+        sync,
+      ],
     );
   }
 
@@ -193,44 +212,54 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     final hasChildren = c.childrenOf(folder.id).isNotEmpty;
     final expanded = _expanded.contains(folder.id);
     final scheme = Theme.of(context).colorScheme;
+    void toggle() =>
+        setState(() => expanded ? _expanded.remove(folder.id) : _expanded.add(folder.id));
     return LibraryDropTarget(
       key: ValueKey('tree-${folder.id}'),
       canAccept: (item) => widget.actions.canDrop(item, folder.id),
       onAccept: (item) => widget.actions.drop(context, item, folder.id),
-      builder: (context, active) => SidebarItem(
-        indent: depth * 16.0,
-        leading: SizedBox(
-          width: 22,
-          child: hasChildren
-              ? InkResponse(
-                  radius: 14,
-                  onTap: () => setState(
-                    () => expanded ? _expanded.remove(folder.id) : _expanded.add(folder.id),
-                  ),
-                  child: AnimatedRotation(
-                    turns: expanded ? 0.25 : 0,
-                    duration: Motion.fast,
-                    child: Icon(
-                      Symbols.chevron_right_rounded,
-                      size: 18,
-                      color: scheme.onSurfaceVariant,
+      // Screen readers expand the row with an action rather than the small
+      // chevron.
+      builder: (context, active) => Semantics(
+        expanded: hasChildren ? expanded : null,
+        customSemanticsActions: hasChildren
+            ? {CustomSemanticsAction(label: expanded ? 'Collapse' : 'Expand'): toggle}
+            : null,
+        child: SidebarItem(
+          indent: depth * 16.0,
+          leading: SizedBox(
+            width: 22,
+            child: hasChildren
+                ? ExcludeSemantics(
+                    child: InkResponse(
+                      radius: 14,
+                      onTap: toggle,
+                      child: AnimatedRotation(
+                        turns: expanded ? 0.25 : 0,
+                        duration: Motion.fast,
+                        child: Icon(
+                          Symbols.chevron_right_rounded,
+                          size: 18,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
-                  ),
-                )
-              : null,
+                  )
+                : null,
+          ),
+          icon: Symbols.folder_rounded,
+          filled: true,
+          iconColor: Color(folder.color),
+          label: folder.name,
+          selected: c.section == LibrarySection.library && c.folderId == folder.id,
+          dropActive: active,
+          onTap: () {
+            c.openFolder(folder.id);
+            widget.onNavigate?.call();
+          },
+          onSecondaryTapUp: (d) => unawaited(_folderMenu(context, folder, d.globalPosition)),
+          onLongPress: () => unawaited(_folderMenu(context, folder, null)),
         ),
-        icon: Symbols.folder_rounded,
-        filled: true,
-        iconColor: Color(folder.color),
-        label: folder.name,
-        selected: c.section == LibrarySection.library && c.folderId == folder.id,
-        dropActive: active,
-        onTap: () {
-          c.openFolder(folder.id);
-          widget.onNavigate?.call();
-        },
-        onSecondaryTapUp: (d) => unawaited(_folderMenu(context, folder, d.globalPosition)),
-        onLongPress: () => unawaited(_folderMenu(context, folder, null)),
       ),
     );
   }

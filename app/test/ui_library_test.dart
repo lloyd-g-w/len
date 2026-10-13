@@ -103,7 +103,7 @@ void main() {
     await createNotebook(tester, 'Physics');
     expect(find.byType(EditorScreen), findsOneWidget);
     expect(find.text('Physics'), findsOneWidget);
-    expect(find.text('1 / 1'), findsOneWidget);
+    expect(find.text('1 / 1'), findsNothing); // One page: no indicator pill.
 
     await drawStroke(tester);
     await addPageAfter(tester);
@@ -117,11 +117,16 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the new sheet sets the first page template and offers PDF import', (tester) async {
+  testWidgets('the new sheet sets the first page template (PDF import lives in ⊕▾)', (
+    tester,
+  ) async {
     final services = await pumpLibrary(tester);
     await tester.tap(find.text('New notebook'));
     await tester.pumpAndSettle();
-    expect(find.text('Import PDF…'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(NewNotebookSheet), matching: find.text('Import PDF…')),
+      findsNothing,
+    );
 
     final swatch = find.text('Small grid');
     await tester.ensureVisible(swatch);
@@ -150,7 +155,10 @@ void main() {
     await tester.tap(find.text('New notebook'));
     await tester.pumpAndSettle();
     // The paper row doesn't need to scroll.
-    final row = find.ancestor(of: find.text('All templates…'), matching: find.byType(Scrollable));
+    final row = find.ancestor(
+      of: find.byKey(const ValueKey('all-templates')),
+      matching: find.byType(Scrollable),
+    );
     final position = tester.state<ScrollableState>(row.first).position;
     expect(position.maxScrollExtent, lessThan(0.5));
     await tester.tap(find.byTooltip('Close'));
@@ -162,7 +170,7 @@ void main() {
     await tester.tap(find.text('New notebook'));
     await tester.pumpAndSettle();
     // Planners come from the full chooser.
-    await tester.tap(find.text('All templates…'));
+    await tester.tap(find.byKey(const ValueKey('all-templates')));
     await tester.pumpAndSettle();
     final daily = find.text('Daily planner');
     await tester.ensureVisible(daily);

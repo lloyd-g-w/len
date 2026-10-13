@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:sqlite3/common.dart';
 
+import '../domain/chunk_digest.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
 import '../domain/stroke_chunks.dart';
@@ -44,6 +45,10 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
   @override
   ChunkLoad read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) =>
       _queries.read(surfaceId, range, skip: skip);
+
+  @override
+  Map<ChunkKey, ChunkDigest> chunkDigests(String surfaceId, ChunkRange range) =>
+      _queries.chunkDigests(surfaceId, range);
 
   @override
   Map<ChunkKey, int> chunkDensity(String surfaceId) => _queries.chunkDensity(surfaceId);
@@ -211,12 +216,13 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
   void _reindex(Stroke s) {
     db.execute('DELETE FROM stroke_chunks WHERE stroke_id = ?', [s.id]);
     final insert = db.prepare(
-      'INSERT OR IGNORE INTO stroke_chunks (surface_id, cx, cy, stroke_id) '
-      'VALUES (?, ?, ?, ?)',
+      'INSERT OR IGNORE INTO stroke_chunks (surface_id, cx, cy, stroke_id, digest) '
+      'VALUES (?, ?, ?, ?, ?)',
     );
+    final digest = ChunkDigest.ofStroke(s.id);
     try {
       for (final key in StrokeChunks.of(s)) {
-        insert.execute([s.surfaceId, key.x, key.y, s.id]);
+        insert.execute([s.surfaceId, key.x, key.y, s.id, digest]);
       }
     } finally {
       insert.close();

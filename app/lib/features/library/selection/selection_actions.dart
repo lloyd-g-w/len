@@ -36,10 +36,8 @@ extension SelectionActions on LibraryActions {
       title: 'Move ${_count(ids.length)}',
       currentFolderId: controller.section == LibrarySection.library ? controller.folderId : null,
     );
-    if (target == null) return;
-    for (final id in ids) {
-      controller.moveNotebook(id, target.folderId);
-    }
+    if (target == null || !context.mounted) return;
+    move(context, ids, target.folderId);
     selection.clear();
   }
 
@@ -64,10 +62,8 @@ extension SelectionActions on LibraryActions {
     );
   }
 
-  void restoreSelected(LibrarySelection selection) {
-    for (final id in _ids(selection)) {
-      controller.restoreNotebook(id);
-    }
+  void restoreSelected(BuildContext context, LibrarySelection selection) {
+    restore(context, _ids(selection));
     selection.clear();
   }
 

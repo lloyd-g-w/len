@@ -56,8 +56,8 @@ The same grid drives three things:
    empty space costs nothing. A stroke is indexed only in the chunks its ink
    passes through (`domain/stroke_chunks.dart`: each segment, cut into short
    pieces, widened by the stroke's padding plus how far neighbouring samples
-   stray — the outline smooths over them), never more than its bounding box;
-   rows written before this used the whole box and stay valid. An element is
+   stray — the outline smooths over them), never more than its bounding box
+   (each row also carries the item's hash, see *Stored rasters*). An element is
    indexed in every chunk its (rotated) bounds overlap (`ElementChunks`). The
    in-memory `ContentIndex` (one per kind, over a `SpatialIndex`) uses the
    same functions, so memory and storage agree.
@@ -84,8 +84,10 @@ The same grid drives three things:
    `paintLod` (`render/lod_painting.dart`; canvases and, per page, paged
    documents) draws it from a `ChunkRasterCache` image (32/64/128/256
    px, always at least screen resolution) instead of replaying its vectors.
-   Rasters are made off the critical path (time-boxed batches, newest request
-   first, `Picture.toImage`), invalidated by the same chunk stream, and kept in
+   Rasters are made off the critical path (`ChunkRasteriser`: time-boxed
+   batches, newest request first, `Picture.toImage`), invalidated by the same
+   chunk stream (`ChunkVersions` keeps content versions and strokes to draw
+   over stale images), and kept in
    an LRU bounded by bytes. A chunk without a raster yet shows what the tile
    cache still holds of it (the closer zoom's images, scaled) or nothing for
    the frame or two until it is made; only chunks edited since their rasters
@@ -93,6 +95,41 @@ The same grid drives three things:
    are drawn from vectors, a few recorded per frame at most. Measured (test
    `lod_render_test.dart`, 50 000 strokes, 1 632 visible chunks at 5 %): frame
    rasterisation 205 ms → 17 ms, cold first frame 700 ms → 2 ms.
+5. **Stored rasters** (canvases, natively): rasters of levels ≤ 128 are also
+   kept across restarts (`StoredRasters`, a `RasterStore`: PNG files in the
+   app's cache directory, `lod-<format>/`, LRU by file time within 96 MB;
+   none on the web). They are named by content: each `stroke_chunks` /
+   `element_chunks` row carries its item's hash (`ChunkDigest`: a stroke's
+   id, an element's whole value), so storage sums a chunk's digest in one
+   aggregate query (`StrokeReader.chunkDigests`) without loading it, and
+   memory computes the same from the items (`SurfaceModel.digestOf`). Same
+   digest, same content — so a raster found is right whatever was edited,
+   undone, synced or emptied since, by any device, and nothing is ever
+   invalidated: changed chunks get new names, old files age out. Zoomed out
+   until a chunk covers ≤ 128 device pixels, `InkSurface` calls
+   `SurfaceModel.showStored` instead of `ensureLoaded`: nothing is read;
+   `ChunkRasterCache` lists the populated chunks from storage, reads their
+   rasters and asks the model (`requestChunks`) only for chunks with none
+   stored, rasterising and storing those once loaded (complete chunks only;
+   none with hidden items; chunks with images only once their pictures were
+   recorded with every bitmap decoded sharp enough, `ChunkPictureCache.isSettled`
+   — an image's value names its blob by content hash, so the digest covers it).
+   Files go through `StoredRasterIo`: reads queue and run 16 at a time,
+   nearest the middle of the view first (sorted once a frame has asked for
+   all it shows), and those panned out of view are dropped; writes (a GPU
+   read-back on the raster thread, then PNG encoding on the engine's IO
+   thread) wait until the view has been idle for 300 ms — no LOD paint, no
+   new raster — and go one at a time (at most 32 MB of images wait; all go
+   when the view closes).
+   A pen, eraser or lasso touching down loads what the view shows
+   (`loadVisible`), and zooming in past 128 px loads as before while the
+   stored rasters stand in. Views of one surface (split view) register
+   separately (`SurfaceViews`), so an overview pane never loads for a
+   close-up pane or the other way round. *Select all* loads its area through a
+   one-off view, forgotten once loaded (the selection keeps what it holds). Reopening a 40 000-stroke canvas at
+   10 %: 442 chunks drawn from 442 stored rasters, no stroke loaded, versus
+   9 373 strokes loaded and 442 chunks rasterised (see INK_LAB). Changing
+   how content is drawn means bumping `StoredRasters.format`.
 
 Rendering is split into three layers, each behind a `RepaintBoundary`:
 paper (repaints on pan/zoom), committed ink (repaints on pan/zoom or edits),
@@ -1348,7 +1385,7 @@ defaults as a whole.
 The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, hold to
 snap) and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
-lines, hold to snap); Reset restores the feel settings, not the slots. The
+lines, hold to snap); on their own, their Reset restores the feel settings. The
 tool options popover hosts them unchanged under *Feel* (`InkOptions`,
 `pen/ink_options.dart`), inside an `EmbeddedOptions` scope that makes
 their title row (`FeelHeader`) and `PreviewCard` step aside, since the
@@ -1395,8 +1432,10 @@ Page with template…).
   `showToolOptions`): `showAdaptivePopover`, anchored and 320 dp wide, a
   sheet on phones (the sheet covers the toolbar, so only it repeats the
   quick slots); the body scrolls with a fading edge (`ScrollFade`); edits
-  apply live. Every section starts with its title and Reset (`OptionHeader`;
-  none where there is nothing to reset) and picks colours with one block,
+  apply live. Every section starts with its title and Reset (`OptionHeader`,
+  `ResetButton`: every setting the section shows back to its defaults, then
+  Undo until something else changes; none where there is nothing to reset)
+  and picks colours with one block,
   `ColorChoices` (`ui/color_picker/color_choices.dart`: "Colour" with Custom,
   which opens the HSV picker in place, a palette, recent colours). Sections:
   inks (`InkOptions`: live preview, the selected slot's colour — the pen
@@ -1565,6 +1604,14 @@ easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 `AppDatabase._createSchema` creates the whole schema (`PRAGMA user_version`
 1). Later schema changes append a migration to `AppDatabase._migrations`;
 once released, never edit one.
+After migrating, `SchemaCheck` (`data/schema_reset.dart`) compares the
+database's shape (tables with their columns, index and trigger names; the
+optional FTS index aside) with that of a freshly migrated in-memory
+database. A newer `user_version`, a failing migration or a different shape
+(pre-release migrations were rewritten) resets the database: the file is
+copied to `<path>.schema-<version>-<time>.bak` (native only), everything is
+dropped and recreated, the sync login is carried over (so synced notebooks
+come back), and the library says so once (`AppDatabase.schemaReset`).
 All writes go straight to SQLite; in-memory state is a cache.
 
 ## Platforms (`platform/`)
@@ -1580,12 +1627,14 @@ the web:
 
 | Concern            | Android / Linux / Windows                     | Web                                              |
 |--------------------|-----------------------------------------------|--------------------------------------------------|
-| SQLite (`sqlite_connection`) | FFI, bundled SQLite, WAL, `<app support>/len.db` | `sqlite3.wasm` + IndexedDB VFS (`len`), no WAL |
-| Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs`; if it can't open, memory (`VolatileBlobBackend`), which the library, Settings and a first-write snack say |
+| SQLite (`sqlite_connection`) | FFI, bundled SQLite, WAL, `<app support>/len.db` | `sqlite3.wasm` + our write-back VFS over IndexedDB (`len`), no WAL; see *Writes on the web* |
+| Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs` behind `WriteBackBlobBackend` (blobs it can't store wait in memory); if it can't open, memory (`VolatileBlobBackend`), which the library, Settings and a first-write snack say |
 | App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread, time-budgeted slices (`SlicedStrokeReader`) |
+| LOD raster cache (`raster_store`) | PNG files in the cache directory (`lod-<format>/`, 96 MB LRU) | none: rasterised again each time |
 | Export (`file_export`) | save dialog + Show in folder / share sheet or Save to device | browser download                                 |
-| Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock: a second tab waits ("open in another tab") |
+| Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock + BroadcastChannel: a second tab waits ("open in another tab") or takes over (*Use here*, `TabHandover`) |
+| Page lifecycle (`page_lifecycle`) | nothing (writes are synchronous) | flush on hide / `pagehide`, `beforeunload` guard while a write is pending |
 | Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux / Windows: command line + forwarding from a second instance | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`, `low_latency_ink`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
@@ -1606,9 +1655,44 @@ yield to the event loop after each 6 ms, and their result arrives
 asynchronously through `SurfaceLoader`, like a native background read.
 
 `app/web/sqlite3.wasm` must match the `sqlite3` package version
-(`app/tool/fetch_sqlite_wasm.sh` refreshes it). The IndexedDB VFS keeps the
+(`app/tool/fetch_sqlite_wasm.sh` refreshes it). The VFS keeps the
 database in memory and writes changes back asynchronously, hence the
-one-tab lock. The sync server must allow the app's origin (CORS,
+one-tab lock.
+
+**Writes on the web** (`data/write_back.dart`, `platform/write_back_vfs.dart`,
+`platform/idb_block_store_web.dart`). `WriteBackFileSystem` replaces
+package:sqlite3's `IndexedDbFileSystem` (same IndexedDB layout: `files` +
+4 KiB `blocks`), because that one drops a failed write from its queue and
+later writes only the blocks they touch, leaving a torn database behind a
+full storage. Ours keeps a set of dirty blocks per file and stores them in one
+IndexedDB transaction per flush (a microtask after the change, so a whole
+SQLite transaction at once; never while a rollback journal exists, i.e.
+never mid-transaction; the journal itself stays in memory). A failed flush
+puts its blocks back into the dirty set, so the next one rewrites them from
+memory: nothing is dropped and the stored database is always a committed
+state. Failures are classified (`QuotaExceededError` → `WriteFailure.full`)
+and retried after 2, 5, 15, then every 30 s, and when the tab is shown again.
+Blobs go through `WriteBackBlobBackend`: one the storage refuses stays in
+memory (readable) and is retried. `StorageWrites` (in `AppServices.writes`;
+empty natively) sums both up: `pending`, `failure`, `flush()`, `close()`.
+While it fails, `StorageAttention` says so once in a snack bar (Try again;
+"Your changes are saved" once it works) and the library shows a notice.
+`platform/page_lifecycle` flushes when the tab is hidden or on `pagehide`, and
+registers a `beforeunload` guard (the browser's "Leave site?") only while a
+write is pending, so idle pages stay eligible for the back/forward cache.
+
+**Tab handover** (`platform/tab_handover.dart`, browser APIs behind
+`TabLock` / `TabChannel`, unit-tested with fakes). The tab holding the Web
+Lock `len-database` owns the data; other tabs queue for it and show "Len is
+open in another tab" (`ui/open_elsewhere.dart`). *Use here* posts `take:<id>`
+on the BroadcastChannel; the holder flushes (if storage is failing it posts
+`refused` and keeps running, with its changes), then closes its stores
+(later writes fail) and only after everything is stored releases the lock,
+posts `released` and reloads, so it waits in turn. The lock is granted in
+request order, so a different waiting tab that gets it first gives it back
+before opening anything (it saw the other tab's `take`). The new holder posts
+`holding`. A holder still starting answers once it is ready; no answer in
+5 s shows "isn't answering" (a frozen background tab). The sync server must allow the app's origin (CORS,
 `LEN_CORS_ORIGINS`, default `*`).
 
 **Offline (installed PWA).** `web/flutter_bootstrap.js` (our own; it loads
@@ -1795,6 +1879,8 @@ boxes, the text of imported PDF pages and recognised handwriting (see
 ## Handwriting recognition (`ink/recognition/`, `platform/handwriting_recognizer*`)
 
 GoodNotes-style handwriting search and lasso "Convert to text", on-device.
+Android recognises; the text syncs (`recognised_text`), so every device
+searches it.
 
 - **Recogniser.** `HandwritingRecognizer` (strokes in writing order →
   candidates, best first; per-language model download) behind a
@@ -1809,7 +1895,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   `google_mlkit_digital_ink_recognition` (already on AGP 9 / built-in
   Kotlin); **Linux, Windows and web** get
   `UnavailableRecognizer` (WinRT ink analysis on Windows is a possible later
-  implementation). Models are BCP 47 tags (`RecognitionLanguages`); the
+  implementation) and search what Android devices recognised (synced). Models are BCP 47 tags (`RecognitionLanguages`); the
   language follows the device locale unless chosen in the settings.
 - **`RecognitionService`** (in `AppServices`) holds the language, the
   model's state (checks it at start; with indexing on, a missing model is
@@ -1817,7 +1903,9 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   demand with a progress bar — ML Kit reports no byte progress) and the
   `HandwritingIndexer`. Settings: language, "Search handwriting" (off
   forgets recognised text, on re-recognises everything) and model download
-  (Android manages removing models).
+  (Android manages removing models). Without a recogniser the section
+  explains that Android devices recognise and lists how many lines arrived
+  (no toggles); the indexer always runs there.
 - **Clustering** (`InkClustering`): a surface's strokes (highlighter
   excluded) become lines and words. The unit is the median stroke height;
   a stroke joins a line whose letter band it overlaps vertically (small
@@ -1826,17 +1914,30 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   within 1.5 s; lines on the same band are merged; words split at gaps wider
   than 0.6 × the line's letter height. A line's key is a hash of its stroke
   ids.
-- **Index.** Local, derived and **not synced** (results depend on the
-  device's model; strokes already sync, so every device can derive them —
-  syncing `ink_text` would let devices without a recogniser search, see
-  limitations): `ink_text(surface_id, stroke_key, language, text, rect,
-  words)` — one row per line, `words` = per-word boxes when the recognised
-  words match the word clusters — and `ink_text_queue(surface_id, version)`,
-  filled by **triggers on `strokes`** (insert, delete, and updates of
-  `deleted` / `points` / `surface_id`), so local edits, undo, duplicates and
-  sync all queue their surface without any call. Triggers mirror `ink_text`
-  into `search_docs` as kind `handwriting` (ref = row id), searched and
-  ranked like text boxes, with page numbers.
+- **Index.** Local and derived: `ink_text(surface_id, stroke_key,
+  language, text, rect, words)` — one row per line this device can show,
+  `words` = per-word boxes when the recognised words match the word
+  clusters — and `ink_text_queue(surface_id, version)`, filled by
+  **triggers on `strokes`** (insert, delete, and updates of `deleted` /
+  `points` / `surface_id`), so local edits, undo, duplicates and sync all
+  queue their surface without any call, and on `recognised_text` (remote
+  writes only: clean rows). Triggers mirror `ink_text` into `search_docs`
+  as kind `handwriting` (ref = row id), searched and ranked like text
+  boxes, with page numbers.
+- **Sync** (`RecognisedTextRepository`, collection `recognised_text`, one
+  record per surface: language + `[[line key, text], …]`, see
+  SYNC_PROTOCOL *Recognised handwriting*). Every device clusters its own
+  strokes and takes a line's text from the record only while a line with
+  that key exists, so edited or erased ink loses its text on every device
+  at once; boxes come from the local clustering, so records carry no
+  geometry. Per line, the indexer keeps its own row (same strokes and
+  language), else takes the synced text, else recognises (with a
+  recogniser) or leaves the line without text (without). Only recognising
+  devices write the record (`publish`: missing, other lines, or a language
+  the user chose here later — never for mere differences in reading, so
+  two phones can't ping-pong) and tombstone it when the ink is gone.
+  Without a recogniser the indexer only wakes for queued surfaces that
+  have a record and skips clustering for the others.
 - **Background work.** `HandwritingIndexer` listens to the database's commit
   stream (only on platforms with a recogniser and the model present), waits
   until no commit came for 3 s (the user stopped writing), then drains the
@@ -1896,7 +1997,10 @@ dialog on tablets / desktops, bottom sheet on phones; `sheet_parts.dart`: `Sheet
 left-aligned Heading and ✕, `SheetActions` with Cancel and one filled primary, stacked on
 phones), confirms (`app_dialogs.dart`: `confirmAction`, `AppDialog` with a left-aligned title
 and a tinted `DialogIcon` only when destructive or in progress, `DialogBody` width) and
-messages (`messages.dart`: `showMessage`). Floating chrome: `floating_panel.dart`
+messages (`messages.dart`: `showMessage`; `MessageQueue` counts the snack bars up per messenger
+and `MessageQueue.stepAside` fades standing notices such as the missing-PDF card while one shows,
+so one message shows at a time), segmented buttons that stack rather than shrink when they
+don't fit (`fit_segments.dart`: `FitSegments`). Floating chrome: `floating_panel.dart`
 (`FloatingPanel`, the `raised` surface; `radius: Radii.pill` for pills) and `chrome_fade.dart`
 (`ChromeFade`: fade plus an 8-px slide toward the edge). Also `text_prompt.dart`,
 `sidebar_item.dart` (library sidebar; the selected row carries the accent). Menus opened from a
@@ -1921,6 +2025,16 @@ Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActi
 actions, floating bar). `flows_screenshot_test.dart` and `overview_screenshot_test.dart` cover
 sheets, dialogs, empty states, selection, the page overview and 1.3× text; findings are tracked
 in `docs/UX_AUDIT.md`.
+
+Accessibility: `test/accessibility_test.dart` checks Flutter's guidelines (tap targets,
+labelled tap targets, WCAG text contrast measured in the test font) on the main screens,
+popovers and dialogs at phone and tablet sizes, light and dark, and at 2× text; known
+exceptions are listed there with their `UX_AUDIT` item. Icon-only controls need a tooltip or
+`semanticLabel`; colours are announced by name (`color_picker/color_names.dart`,
+`colorName`, also `ColorDot`'s default label); selected and expanded states go into
+`Semantics`. `FocusRing` (`focus_ring.dart`, in `MaterialApp.builder`) paints an accent ring
+around the focused control while the keyboard drives focus (not for text fields, scopes or
+areas over half the window), so no control needs a focus style of its own.
 
 Visual checks: `test/screenshots/` renders the library, settings and the editor (paged and
 canvas, tabs, focus mode, toolbar positions, menus, 320 dp phone; the toolbar at every dock, its
@@ -1980,9 +2094,14 @@ Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
 
 - Canvas chunk reads run in a background isolate, but writes, page surfaces,
   thumbnails and other queries still run on the UI isolate (small and indexed).
-- Far zoom-out of a huge canvas still loads every visible stroke into memory
-  (LOD caps rendering cost, not memory); LOD rasters are not persisted, so they
-  are rebuilt after reopening.
+- Far zoom-out of a huge canvas loads only chunks without a stored raster
+  natively; the web (no raster store) still loads every visible stroke and
+  rasterises again after reopening. Paged documents do not store their LOD
+  rasters. Chunks with images not on this device yet are not stored (loaded
+  when shown far out) until the blob arrives and decodes.
+- Stored-raster writes wait for the LOD view to be idle, not for every frame:
+  zooming in past the LOD range right away lets them run during tile frames
+  (each a small GPU read-back).
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
 - Text boxes: list items have no hanging indent (wrapped lines start at the
@@ -2027,9 +2146,12 @@ Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
 - Image bitmaps are whole-image decodes per mip level (no tiling); a 4096 px
   image is the sharpest it gets. Crop mode shows the image on its own (ink
   over it is hidden while cropping).
-- Handwriting: recognised only on Android (Linux, Windows and web find no
-  handwriting; recognised text is not synced, so they cannot borrow it
-  either); a changed surface is re-clustered from all its strokes (cheap per
+- Handwriting: recognised only on Android (Linux, Windows and web search
+  what Android devices recognised and synced; text of ink written there
+  appears once an Android device has synced and read it; a record of a
+  deleted page stays live until an Android device re-reads it, harmless as
+  it matches no ink; two Android devices online at once may both read new
+  ink before either's record arrives); a changed surface is re-clustered from all its strokes (cheap per
   page, heavier on huge canvases); a phrase is found only within one line;
   shapes drawn with the pen are recognised like writing (usually as
   nonsense); no pause while on battery.
@@ -2044,8 +2166,14 @@ Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
   browsers may evict IndexedDB under storage pressure unless persistent
   storage is granted (requested at start, except in Firefox, where it
   waits for Settings → Storage, as it prompts) and quotas vary. Writes reach
-  IndexedDB asynchronously, so closing the tab within milliseconds of an edit
-  can lose it. Canvas chunk reads run on the UI thread (in time-budgeted
+  IndexedDB a few milliseconds after an edit; closing the tab in that window
+  asks first (`beforeunload`), but a crash or a killed browser can still lose
+  it, and while storage is full the latest changes live only in the tab (said
+  in a snack bar and the library). Reloading the active tab while another tab
+  waits hands Len to the waiting tab (lock requests are granted in order). A
+  holder whose final store fails after it stopped writing (storage filling up
+  within milliseconds) keeps the lock and retries, but stays stopped until
+  reloaded. Canvas chunk reads run on the UI thread (in time-budgeted
   slices; a single large chunk still decodes in one go).
 - Open with: Android shares mixing PDFs and images arrive as `*/*`, which
   Len does not register for; PDFs dropped onto an open editor are ignored (only

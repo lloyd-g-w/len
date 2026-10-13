@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/templates/paper_look.dart';
 import '../../../ink/tool_settings.dart';
-import '../../../ui/color_picker/color_hex.dart';
+import '../../../ui/color_picker/color_names.dart';
 import '../toolbar/toolbar_metrics.dart';
 import 'slot_button.dart';
 
@@ -36,7 +36,7 @@ class ColorSlots extends StatelessWidget {
             key: ValueKey('color-$i'),
             selected: active && i == config.colorIndex,
             tooltip: i < 9 ? 'Colour ${i + 1} (${i + 1})' : 'Colour ${i + 1}',
-            semanticLabel: 'Colour ${i + 1}, ${ColorHex.rgb(config.colors[i])}',
+            semanticLabel: 'Colour ${i + 1}, ${colorName(config.colors[i])}',
             onSelect: () => _select(i),
             onEdit: edit == null
                 ? null

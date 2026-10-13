@@ -158,7 +158,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   VoidCallback? export,
   VoidCallback? goToPage,
   VoidCallback? shortcutsHelp,
-}) => {
+}) => _alongside({
   ...editorShortcuts(
     session,
     toggleFocus: toggleFocus,
@@ -183,5 +183,24 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
     const SingleActivator(LogicalKeyboardKey.space, shift: true): unlessTyping(() => turnPage(-1)),
   },
   ...EditorSearchLayer.shortcuts(search),
-  ...?session.pdf == null ? null : pdfShortcuts(session.pdf!),
-};
+}, session.pdf == null ? const {} : pdfShortcuts(session.pdf!));
+
+/// [base] with [extra] added; a key both bind runs both (in a map literal
+/// the later binding would replace the earlier: the PDF's Escape used to
+/// replace the lasso's, so Escape never dropped a selection in notebooks).
+Map<ShortcutActivator, VoidCallback> _alongside(
+  Map<ShortcutActivator, VoidCallback> base,
+  Map<ShortcutActivator, VoidCallback> extra,
+) {
+  final out = {...base};
+  extra.forEach((key, action) {
+    final first = out[key];
+    out[key] = first == null
+        ? action
+        : () {
+            first();
+            action();
+          };
+  });
+  return out;
+}

@@ -106,9 +106,12 @@ class CommittedInkPainter extends CustomPainter {
 
   void _paintInk(Canvas canvas, Size size) {
     final visible = viewport.visibleWorldFor(size);
-    final chunks = model.chunksIn(ChunkGrid.rangeFor(visible));
-    if (chunks.isEmpty) return;
     final k = viewport.scale * devicePixelRatio;
+    // Far out, LOD chunk rasters (one image per chunk) are cheaper; they
+    // may show chunks not in memory (see `SurfaceModel.showStored`).
+    final level = rasters == null ? null : ChunkRasterCache.levelFor(ChunkGrid.size * k);
+    final chunks = level != null ? null : model.chunksIn(ChunkGrid.rangeFor(visible));
+    if (chunks != null && chunks.isEmpty) return;
     cache.setScale(viewport.scale); // Image resolution.
     final view = TileView(
       k: k,
@@ -116,8 +119,6 @@ class CommittedInkPainter extends CustomPainter {
       visible: visible,
       clip: clip,
     );
-    // Far out, LOD chunk rasters (one image per chunk) are cheaper.
-    final level = rasters == null ? null : ChunkRasterCache.levelFor(ChunkGrid.size * k);
     if (level != null) {
       paintLod(
         canvas,
@@ -135,7 +136,7 @@ class CommittedInkPainter extends CustomPainter {
         ..translate(viewport.offset.dx, viewport.offset.dy)
         ..scale(viewport.scale);
       if (clip != null) canvas.clipRect(clip!);
-      for (final key in chunks) {
+      for (final key in chunks!) {
         canvas.drawPicture(cache.pictureFor(key));
       }
       PerfProbe.count('chunkDraws', chunks.length);

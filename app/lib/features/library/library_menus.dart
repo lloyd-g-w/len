@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
+import '../../ui/app_theme.dart';
 import '../../ui/menus.dart';
+import '../../ui/section_label.dart';
 
 export '../../ui/menus.dart';
 
@@ -64,7 +66,7 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
     const MenuRow(
       value: NotebookAction.select,
       icon: Symbols.check_circle_rounded,
-      label: 'Select…',
+      label: 'Select',
     ),
     const PopupMenuDivider(),
     const MenuRow(
@@ -92,3 +94,28 @@ const List<PopupMenuEntry<FolderAction>> folderMenuItems = [
     destructive: true,
   ),
 ];
+
+/// A group heading in a popup menu ("Sort by"): a [SectionLabel] lined up
+/// with the rows' icons.
+class MenuHeading<T> extends PopupMenuEntry<T> {
+  const MenuHeading(this.text, {super.key});
+
+  final String text;
+
+  @override
+  double get height => 32;
+
+  @override
+  bool represents(T? value) => false;
+
+  @override
+  State<MenuHeading<T>> createState() => _MenuHeadingState<T>();
+}
+
+class _MenuHeadingState<T> extends State<MenuHeading<T>> {
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.md, Gaps.xxs),
+    child: SectionLabel(widget.text),
+  );
+}

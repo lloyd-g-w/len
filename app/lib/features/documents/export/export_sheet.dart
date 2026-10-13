@@ -79,6 +79,16 @@ class _ExportSheetState extends State<ExportSheet> {
   bool _templates = true;
   bool _backgrounds = true;
 
+  /// The options are scrolled under the header: a hairline divides them.
+  bool _scrolled = false;
+
+  bool _onScroll(ScrollNotification n) {
+    if (n.depth != 0) return false;
+    final scrolled = n.metrics.pixels > 0;
+    if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
+    return false;
+  }
+
   @override
   void dispose() {
     _rangeText.dispose();
@@ -158,17 +168,27 @@ class _ExportSheetState extends State<ExportSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(Gaps.xl, widget.wide ? Gaps.xl : 0, Gaps.xl, Gaps.md),
-          child: SheetHeader(
-            title: 'Export',
-            subtitle: widget.title,
-            onClose: () => Navigator.of(context).pop(),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            border: _scrolled
+                ? Border(bottom: Surfaces.chromeEdge(Theme.of(context).colorScheme))
+                : null,
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(Gaps.xl, widget.wide ? Gaps.xl : 0, Gaps.xl, Gaps.md),
+            child: SheetHeader(
+              title: 'Export',
+              subtitle: widget.title,
+              onClose: () => Navigator.of(context).pop(),
+            ),
           ),
         ),
-        Flexible(child: body),
+        Flexible(
+          child: NotificationListener<ScrollNotification>(onNotification: _onScroll, child: body),
+        ),
         ExportSheetFooter(
-          summary: options?.summary ?? 'Check the page range',
+          // A bad range says so in its field only.
+          summary: options?.summary ?? '',
           onExport: options == null ? null : () => Navigator.of(context).pop(options),
           onSaveToDevice: !widget.offerSaveToDevice || options == null
               ? null

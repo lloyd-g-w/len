@@ -112,7 +112,7 @@ class PdfTemplateWriter {
     };
     // Baseline: the cap height centred in the box.
     final y = map(box.centerLeft).dy - size * 0.35;
-    final c = label.muted ? color.text.withValues(alpha: 0.62) : color.text;
+    final c = label.muted ? color.text.withValues(alpha: PatternLabel.mutedOpacity) : color.text;
     g
       ..saveContext()
       ..setGraphicState(PdfGraphicState(fillOpacity: c.a))

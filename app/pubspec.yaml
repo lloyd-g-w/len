@@ -39,7 +39,10 @@ dependencies:
   material_symbols_icons: ^4.2960.0
 
 dev_dependencies:
+  file_selector_platform_interface: ^2.7.0
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 

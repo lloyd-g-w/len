@@ -70,6 +70,13 @@ class LibraryActions {
     return false;
   }
 
+  /// Enters selection mode (with [id] selected). A message still showing
+  /// goes: the selection bar takes its place.
+  void startSelection(BuildContext context, [String? id]) {
+    ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+    selection.start(id);
+  }
+
   /// Opens the new-notebook sheet (starting as a [kind]) and then the new
   /// notebook.
   Future<void> createNotebook(
@@ -78,7 +85,6 @@ class LibraryActions {
   }) async {
     final request = await NewNotebookSheet.show(context, kind: kind);
     if (request == null || !context.mounted) return;
-    if (request.importPdf) return importPdf(context);
     final style = request.template.style;
     if (style != PaperStyle.image) controller.services.preferences.notePaperUsed(style.name);
     final notebook = controller.createNotebook(
@@ -174,13 +180,13 @@ class LibraryActions {
           title: 'Move “${notebook.title}”',
           currentFolderId: notebook.folderId,
         );
-        if (target != null) controller.moveNotebook(notebook.id, target.folderId);
+        if (target != null && context.mounted) move(context, [notebook.id], target.folderId);
       case NotebookAction.select:
-        selection.start(notebook.id);
+        startSelection(context, notebook.id);
       case NotebookAction.trash:
         await trash(context, notebook);
       case NotebookAction.restore:
-        controller.restoreNotebook(notebook.id);
+        restore(context, [notebook.id]);
       case NotebookAction.deleteForever:
         final ok = await confirmAction(
           context,
@@ -220,16 +226,78 @@ class LibraryActions {
           drop(context, LibraryDragItem.folder(folder.id), target.folderId);
         }
       case FolderAction.delete:
-        final ok = await confirmAction(
-          context,
-          title: 'Delete “${folder.name}”?',
-          message: 'Its subfolders are deleted too; notebooks inside move to the trash.',
-          confirmLabel: 'Delete',
-          destructive: true,
-        );
-        if (ok) controller.deleteFolder(folder.id);
+        await deleteFolder(context, folder);
     }
   }
+
+  /// Confirms with what goes ("2 subfolders and 14 notebooks go to the
+  /// trash"), deletes, and offers Undo.
+  Future<void> deleteFolder(BuildContext context, Folder folder) async {
+    final (:folders, :notebooks) = controller.contentsOf(folder.id);
+    final parts = [
+      if (folders > 0) countLabel(folders, 'subfolder'),
+      if (notebooks > 0) countLabel(notebooks, 'notebook'),
+    ];
+    final ok = await confirmAction(
+      context,
+      title: 'Delete “${folder.name}”?',
+      message: switch ((folders, notebooks)) {
+        (0, 0) => 'The folder is empty.',
+        (_, 0) => '${parts.join()} ${folders == 1 ? 'goes' : 'go'} too.',
+        (0, _) => '${parts.join()} ${notebooks == 1 ? 'goes' : 'go'} to the trash.',
+        _ => '${parts.join(' and ')} go to the trash.',
+      },
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+    if (!ok || !context.mounted) return;
+    final deletion = controller.deleteFolder(folder.id);
+    showMessage(
+      context,
+      '“${folder.name}” deleted',
+      action: SnackBarAction(label: 'Undo', onPressed: () => controller.undoDeleteFolder(deletion)),
+    );
+  }
+
+  /// Takes notebooks [ids] out of the trash and says where they went.
+  void restore(BuildContext context, List<String> ids) {
+    for (final id in ids) {
+      controller.restoreNotebook(id);
+    }
+    final restored = [for (final id in ids) ?controller.services.notebooks.get(id)];
+    if (restored.isEmpty) return;
+    final folders = {for (final n in restored) n.folderId};
+    final where = folders.length == 1 ? '“${_folderName(folders.single)}”' : 'their folders';
+    final what = restored.length == 1
+        ? '“${restored.single.title}”'
+        : countLabel(ids.length, 'notebook');
+    showMessage(context, 'Restored $what to $where');
+  }
+
+  /// Moves notebooks [ids] into [folderId] (null = the library root), says
+  /// so and offers Undo.
+  void move(BuildContext context, List<String> ids, String? folderId) {
+    final from = {for (final id in ids) id: controller.services.notebooks.get(id)?.folderId};
+    for (final id in ids) {
+      controller.moveNotebook(id, folderId);
+    }
+    final notebook = ids.length == 1 ? controller.services.notebooks.get(ids.single) : null;
+    final what = notebook != null ? '“${notebook.title}”' : countLabel(ids.length, 'notebook');
+    showMessage(
+      context,
+      'Moved $what to “${_folderName(folderId)}”',
+      action: SnackBarAction(
+        label: 'Undo',
+        onPressed: () {
+          for (final MapEntry(key: id, value: folder) in from.entries) {
+            controller.moveNotebook(id, folder);
+          }
+        },
+      ),
+    );
+  }
+
+  String _folderName(String? id) => controller.folderById(id)?.name ?? 'Library';
 
   Future<void> emptyTrash(BuildContext context) async {
     final count = controller.trash.length;
@@ -245,6 +313,9 @@ class LibraryActions {
     );
     if (ok) controller.emptyTrash();
   }
+
+  /// `1 notebook`, `3 subfolders`.
+  static String countLabel(int n, String one) => '$n ${n == 1 ? one : '${one}s'}';
 
   void _toast(BuildContext context, String message) {
     showMessage(context, message);

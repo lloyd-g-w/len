@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../ink/tool_settings.dart';
-import '../../../ui/color_picker/color_hex.dart';
+import '../../../ui/color_picker/color_names.dart';
 import '../pen/ink_slots.dart';
 import '../pen/slot_button.dart';
 import '../toolbar/toolbar_metrics.dart';
@@ -35,7 +35,7 @@ class LaserStrip extends StatelessWidget {
             key: ValueKey('laser-slot-$i'),
             selected: laser.color == c,
             tooltip: 'Laser colour ${i + 1}',
-            semanticLabel: 'Laser colour ${i + 1}, ${ColorHex.rgb(c)}',
+            semanticLabel: 'Laser colour ${i + 1}, ${colorName(c)}',
             onSelect: () => tools.laser = laser.copyWith(color: c),
             onEdit: (anchor) {
               tools.laser = tools.laser.copyWith(color: c);

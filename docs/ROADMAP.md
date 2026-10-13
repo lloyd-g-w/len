@@ -144,7 +144,11 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Single-page flow: the page follows a sideways finger, glides back or carries on into the
   next page (`SinglePageTurns.follow`)
 - ✅ LOD for paged documents (per-page chunk rasters when zoomed out far)
-- ⬜ Persistent LOD tiles
+- ✅ Persistent LOD rasters: canvases reopened far out (chunks ≤ 128 px) draw stored rasters,
+  named by chunk content digests, and load only chunks without one (native; not the web, not
+  paged documents)
+- ✅ Stored LOD rasters: reads capped and nearest-first (dropped when panned away), writes
+  deferred until the view is idle, chunks with images stored once decoded
 
 ## Library
 - ✅ Folders (nested, synced), move to folder (menu + drag and drop), breadcrumbs, folder tree
@@ -159,7 +163,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   current through undo and sync; results in the library and the editor with word highlights
 - ✅ Lasso "Convert to text": recognised text with alternatives, editable; replace the ink with a
   text box (same place, colour, size; one undo) or copy
-- ⬜ Handwriting recognition on Windows (WinRT ink analysis) / Linux / web; sync recognised text
+- ✅ Recognised handwriting syncs (`recognised_text`): Linux, Windows and web search handwriting
+  Android devices read (word highlights too); edited or erased ink loses its text everywhere at
+  once; Android devices reuse each other's readings
+- ⬜ Handwriting recognition on Windows (WinRT ink analysis) / Linux / web
 - ✅ Live cover thumbnails, ten cover colours
 - ✅ Trash with restore / delete forever / empty, duplicate notebook
 - ✅ Create sheet with a live cover + first-page preview, Paper gallery and Cover colours, size and paper

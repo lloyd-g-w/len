@@ -25,9 +25,10 @@ class EraserOptionsPanel extends StatelessWidget {
           children: [
             OptionHeader(
               'Eraser',
-              trailing: TextButton(
-                onPressed: () => update(const EraserConfig()),
-                child: const Text('Reset'),
+              trailing: ResetButton<EraserConfig>(
+                value: eraser,
+                defaults: const EraserConfig(),
+                onChanged: update,
               ),
             ),
             const SizedBox(height: Gaps.md),

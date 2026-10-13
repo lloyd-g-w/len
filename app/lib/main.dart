@@ -6,37 +6,50 @@ import 'app.dart';
 import 'app_services.dart';
 import 'core/font_licenses.dart';
 import 'data/app_database.dart';
+import 'data/write_back.dart';
 import 'ink/lab/perf_probe.dart';
+import 'ink/render/stored_rasters.dart';
 import 'platform/app_directory.dart';
 import 'platform/blob_backend.dart';
 import 'platform/browser_storage.dart';
 import 'platform/incoming_files.dart';
 import 'platform/outline_preparer.dart';
+import 'platform/page_lifecycle.dart';
+import 'platform/raster_store.dart';
 import 'platform/single_instance.dart';
-import 'ui/app_theme.dart';
+import 'ui/open_elsewhere.dart';
 import 'ui/startup_error.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   registerFontLicenses();
-  // Web: one tab at a time owns the database.
-  await claimSingleInstance(onWaiting: () => runApp(const _OpenElsewhere()));
+  // Web: one tab at a time owns the database; another can take it over.
+  final tabs = openTabHandover();
+  if (tabs != null) {
+    await tabs.claim(onWaiting: () => runApp(OpenElsewhereApp(handover: tabs)));
+    // Handed over: start afresh, waiting for a turn again.
+    tabs.onHandedOver = reloadTab;
+  }
   // Web: ask the browser not to evict the IndexedDB data (where silent).
   unawaited(requestPersistentStorageOnStartup());
-  await _start(args);
+  await _start(args, tabs);
 }
 
 /// Opens the storage and runs the app; if the storage can't be opened, runs
 /// [StartupErrorApp] instead (whose Try again calls this again).
-Future<void> _start(List<String> args) async {
+Future<void> _start(List<String> args, TabHandover? tabs) async {
   String? dir;
   AppDatabase? database;
   final AppServices services;
+  // Web: writes reach IndexedDB asynchronously.
+  final writes = StorageWrites();
+  tabs?.onHandOver = () => _handOver(writes);
+  watchPageLifecycle(writes);
   try {
     // Natively: files in the app-support directory. Web: IndexedDB.
     dir = await appDataDirectory();
-    database = await AppDatabase.openDefault(dir);
-    final blobs = await openBlobBackend(dir);
+    database = await AppDatabase.openDefault(dir, writes: writes);
+    final blobs = await openBlobBackend(dir, writes: writes);
     services = AppServices.create(
       database,
       blobBackend: blobs,
@@ -44,6 +57,9 @@ Future<void> _start(List<String> args) async {
       incomingFiles: openIncomingFiles(args),
       // Outlines of loaded ink are built on worker isolates.
       outlines: createOutlinePreparer(),
+      writes: writes,
+      // Canvases far zoomed out reopen from stored rasters.
+      rasterStore: await openRasterStore(format: StoredRasters.format),
     );
   } on Object catch (error, stack) {
     debugPrint('Cannot open storage: $error\n$stack');
@@ -51,7 +67,12 @@ Future<void> _start(List<String> args) async {
       database?.close();
     } on Object catch (_) {}
     runApp(
-      StartupErrorApp(error: error, stack: stack, dataFolder: dir, onRetry: () => _start(args)),
+      StartupErrorApp(
+        error: error,
+        stack: stack,
+        dataFolder: dir,
+        onRetry: () => _start(args, tabs),
+      ),
     );
     return;
   }
@@ -62,26 +83,10 @@ Future<void> _start(List<String> args) async {
   unawaited(services.blobGc.runIfDue());
 }
 
-/// Shown in a browser tab while Len is open in another tab.
-class _OpenElsewhere extends StatelessWidget {
-  const _OpenElsewhere();
-
-  @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Len',
-    theme: AppTheme.light(),
-    darkTheme: AppTheme.dark(),
-    debugShowCheckedModeBanner: false,
-    home: const Scaffold(
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.all(Gaps.lg),
-          child: Text(
-            'Len is open in another tab.\nClose it to continue here.',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    ),
-  );
+/// Another tab asked for the data: stores everything and stops writing.
+/// Completes with whether all of it is stored (then the other tab may take
+/// over); if storage is failing, this tab keeps running and its changes.
+Future<bool> _handOver(StorageWrites writes) async {
+  if (!await writes.flush()) return false;
+  return writes.close();
 }

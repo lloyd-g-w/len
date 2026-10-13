@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import '../../core/clock.dart';
@@ -111,10 +112,24 @@ class ContentTools {
 
   /// Selects everything in [area] (world) on the current surface with the
   /// lasso tool, e.g. "select all on this page".
+  ///
+  /// The area is loaded for the moment only (a view of its own, forgotten
+  /// once it is in memory): what is selected stays while selected, the
+  /// rest may be evicted again. With a background reader the selection
+  /// follows once the area is read (unless the surface changed meanwhile).
   void selectAllIn(Rect area) {
     tools.tool = EditorTool.lasso;
-    model.ensureLoaded(area);
-    selection.select(model.strokesNear(area), model.elementsNear(area));
+    final model = this.model;
+    final view = Object();
+    model.ensureLoaded(area, view: view);
+    void select() {
+      model.forgetView(view);
+      if (!identical(model, this.model)) return;
+      selection.select(model.strokesNear(area), model.elementsNear(area));
+    }
+
+    if (!model.isLoading) return select();
+    unawaited(model.loaded.then((_) => select()));
   }
 
   /// Whether a press at [screen] belongs to what the tools are working on

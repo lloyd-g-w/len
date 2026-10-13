@@ -8,6 +8,7 @@ import '../../../domain/paper.dart';
 import '../../../domain/templates/user_template.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/chip_surface.dart';
+import '../../../ui/scroll_fade.dart';
 import 'template_catalog.dart';
 import 'template_gallery.dart';
 import 'template_options.dart';
@@ -169,8 +170,10 @@ class _TemplateChooserState extends State<TemplateChooser> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Both columns fade where they run on (under the footer).
         Expanded(
-          child: SingleChildScrollView(
+          child: ScrollFade(
+            axis: Axis.vertical,
             padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.lg, Gaps.lg, Gaps.lg),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: gallery),
           ),
@@ -178,7 +181,8 @@ class _TemplateChooserState extends State<TemplateChooser> {
         VerticalDivider(width: 1, color: theme.colorScheme.outlineVariant),
         SizedBox(
           width: TemplateChooser.optionsWidth,
-          child: SingleChildScrollView(
+          child: ScrollFade(
+            axis: Axis.vertical,
             padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.lg, Gaps.xl, Gaps.lg),
             child: options,
           ),

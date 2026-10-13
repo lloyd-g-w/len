@@ -6,6 +6,8 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/search/search_index.dart';
 import 'package:len/data/search/search_query.dart';
 import 'package:len/data/search/search_schema.dart';
+import 'package:len/domain/chunk_digest.dart';
+import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
@@ -71,8 +73,8 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 8);
-    expect(AppDatabase.latestVersion, 8);
+    expect(schema['version'], 10);
+    expect(AppDatabase.latestVersion, 10);
     // Version 7: a notebook's paper look.
     expect(schema['notebooks'], contains("paper_data TEXT 1 '{}' 0"));
     // Version 3: recording waveforms, stroke times per surface.
@@ -103,6 +105,7 @@ void main() {
         'pdf_text_blobs',
         'ink_text',
         'ink_text_queue',
+        'recognised_text',
       ]),
     );
     final indexes = (schema['indexes']! as List<String>).join('\n');
@@ -172,6 +175,8 @@ void main() {
     db.db.execute('ALTER TABLE recordings DROP COLUMN trim_start_ms');
     db.db.execute('ALTER TABLE recordings DROP COLUMN trim_end_ms');
     db.db.execute('ALTER TABLE notebooks DROP COLUMN paper_data');
+    db.db.execute('DROP TABLE recognised_text');
+    _dropChunkDigests(db.db);
     db.db.execute('''
       INSERT INTO recordings (id, notebook_id, blob, duration_ms, started_at, title, mime,
                               updated_at, device_id)
@@ -256,6 +261,8 @@ void main() {
       "UPDATE strokes SET style = '{\"o\":1,\"th\":0.5,\"sl\":0}', "
       "updated_at = 100, dirty = 0 WHERE id = 'before-ends'",
     );
+    old.db.execute('DROP TABLE recognised_text');
+    _dropChunkDigests(old.db);
     old.db.execute('PRAGMA user_version = 7');
     services.dispose();
 
@@ -271,6 +278,33 @@ void main() {
       StrokeEnds.round,
     );
     expect(restored.strokes.dirtyRecords(10).single.id, 'before-ends');
+  });
+
+  test('version 10 rebuilds the chunk indexes with digests', () {
+    final path = p.join(dir.path, 'len.db');
+    final services = AppServices.create(AppDatabase.open(path));
+    final stroke = Stroke(
+      id: 'long',
+      surfaceId: 's',
+      tool: InkTool.ballpoint,
+      color: 0,
+      width: 2,
+      points: const [StrokePoint(10, 10, 0.5), StrokePoint(1000, 10, 0.5)],
+      createdAt: 1,
+    );
+    services.strokes.save([stroke]);
+    final db = services.database.db;
+    _dropChunkDigests(db);
+    // An index row from before, over the whole bounding box.
+    db.execute("INSERT INTO stroke_chunks VALUES ('s', 1, 1, 'long')");
+    db.execute('PRAGMA user_version = 9');
+    services.dispose();
+
+    final upgraded = AppServices.create(AppDatabase.open(path));
+    addTearDown(upgraded.dispose);
+    final digests = upgraded.strokes.chunkDigests('s', const ChunkRange(-4, -4, 4, 4));
+    expect(digests.keys.toSet(), {(x: 0, y: 0), (x: 1, y: 0)});
+    expect(digests[(x: 0, y: 0)], ChunkDigest.of([stroke], const []));
   });
 
   test('a database with an unknown (pre-squash or newer) schema is backed up and reset', () {
@@ -300,4 +334,10 @@ void main() {
     final backups = dir.listSync().where((f) => f.path.contains('.schema-11-')).toList();
     expect(backups, hasLength(1), reason: 'the old file is kept aside');
   });
+}
+
+/// Back to the chunk indexes before version 10.
+void _dropChunkDigests(CommonDatabase db) {
+  db.execute('ALTER TABLE stroke_chunks DROP COLUMN digest');
+  db.execute('ALTER TABLE element_chunks DROP COLUMN digest');
 }

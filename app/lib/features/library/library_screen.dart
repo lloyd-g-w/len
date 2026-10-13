@@ -301,7 +301,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               triggerMode: TooltipTriggerMode.manual,
               child: FloatingActionButton(
                 onPressed: () => unawaited(_actions.createNotebook(context)),
-                child: const Icon(Symbols.add_rounded),
+                child: const Icon(Symbols.add_rounded, semanticLabel: 'New notebook'),
               ),
             ),
           ),
@@ -320,7 +320,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             // The selection bar floats over the content, not the sidebar.
             child: Stack(
               children: [
-                Positioned.fill(child: _content()),
+                Positioned.fill(child: MessagePane(child: _content())),
                 if (_selectionBar() case final bar?)
                   Positioned(left: 0, right: 0, bottom: 0, child: bar),
               ],

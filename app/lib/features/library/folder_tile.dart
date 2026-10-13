@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -78,7 +79,8 @@ class _FolderTileState extends State<FolderTile> {
       duration: Motion.fast,
       child: AnimatedContainer(
         duration: Motion.fast,
-        height: 56,
+        // Grows with large text: the name and caption, plus padding.
+        height: math.max(56, MediaQuery.textScalerOf(context).scale(20 + 16) + Gaps.lg),
         decoration: BoxDecoration(
           color: active
               ? scheme.primary.withValues(alpha: 0.12)
@@ -134,9 +136,12 @@ class _FolderTileState extends State<FolderTile> {
                       duration: Motion.fast,
                       child: Builder(
                         builder: (anchor) => IconButton(
-                          tooltip: 'Folder options',
+                          tooltip: 'More',
                           iconSize: Glyphs.bar,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 48),
+                          constraints: BoxConstraints(
+                            minWidth: Targets.of(context, 32),
+                            minHeight: Targets.touch,
+                          ),
                           padding: EdgeInsets.zero,
                           color: scheme.onSurfaceVariant,
                           icon: const Icon(Symbols.more_horiz_rounded),

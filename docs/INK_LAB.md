@@ -711,7 +711,7 @@ the tablet.)
 `test/perf/ink_render_perf_test.dart` (`tool/light.sh flutter test
 test/perf/ink_render_perf_test.dart`, ≈ 1.5 min) replays the scenarios on a
 1280 × 800 view at 2× (9 000 scribbles; 8 pages of 1 200; a 40 000-stroke
-canvas at 6 %) and counts the work: *vector screens* (screens' worth of
+canvas at 6 % and reopened at 10 %) and counts the work: *vector screens* (screens' worth of
 area drawn from chunk pictures instead of tiles), frames with vectors, tile
 renders, frames showing stale images. Frames are 16 ms apart and tile
 renders started in one frame finish before the next, as on a GPU (they
@@ -747,6 +747,40 @@ Further zooming within overview zooms re-renders nothing for pages (rasters
 are per level, not per zoom). Frame raster times on the CPU are noisy on a
 shared machine and draw more, smaller images at overview (6 per page):
 compare on the tablet. Not yet measured there.
+
+Round 5 (perf/persistent-lod): *reopen a big canvas at 10 %* (40 000
+strokes over 30 000 × 20 000, chunks 102 device px: level 128, synchronous
+reads on the test isolate) counts frames until every visible chunk shows its
+own raster. With a raster store (native) the view draws stored rasters and
+loads only chunks without one:
+
+| Run | frames | wall | strokes loaded | chunks rasterised | store reads / hits / writes |
+| --- | --- | --- | --- | --- | --- |
+| no store (web, and before) | 339 | 14.9 s | 9 373 | 442 | — |
+| first open, storing | 234 | 8.6 s | 7 807 | 442 | 442 / 0 / 442 |
+| reopened | 6 | 0.2 s | 0 | 0 | 442 / 442 / 0 |
+
+(Times are CPU rasterisation in a test; the frame counts and work are what
+compare. The first open loads fewer strokes than before: only visible
+chunks, not the ring around them.) Correctness — rasters never stale after
+an edit, undo, sync or emptied chunk — is `test/persistent_lod_test.dart`.
+
+Round 6 (perf/lod-followups): `test/perf/lod_store_perf_test.dart`, a
+16 000-stroke canvas at 5 % (1 631 chunks of 51 device px: level 64),
+stored rasters read with a 2 ms delay each. *Stall* is the event loop's
+longest turn between frames (frames are 16 ms apart). Before: every read
+started at once, PNGs written as soon as made. After: 16 reads at a time,
+middle first, dropped when panned away; writes wait until idle.
+
+| Run | before | after |
+| --- | --- | --- |
+| first open, storing | 347 frames, 1 630 writes while painting, stall 568 ms | 292 frames, 0 while painting (1 630 after), stall 97 ms |
+| reopened | middle at frame 2, all at frame 8 (809 ms), 1 630 reads at once, stall 319 ms | middle at 2, all at 33 (638 ms), ≤ 16 at once, stall 3 ms |
+| reopened, panned away at frame 3 | 1 805 reads, 1 435 of chunks out of view, stall 152 ms | 457 reads, 87 out of view, stall 13 ms |
+
+(Shared machine, CPU rasterisation: stalls and times vary by ± 30 %.
+Reopening at 10 % now completes in 11 frames instead of 6, the same
+≈ 200 ms.) Images: `test/persistent_lod_images_test.dart`.
 
 ## Low-latency ink
 

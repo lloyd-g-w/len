@@ -17,6 +17,7 @@ import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ink/ink_surface.dart';
 import 'package:len/ink/viewport.dart';
+import 'package:len/platform/system_settings.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'content_golden_test.dart' show loadFonts;
@@ -476,9 +477,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    debugCanOpenMicrophoneSettings = true;
+    addTearDown(() => debugCanOpenMicrophoneSettings = null);
     await tester.tap(find.byTooltip('Record audio'));
     await _settleAsync(tester);
     expect(find.text(RecordingController.microphoneDenied), findsOneWidget);
+    // Where the system has a page for it, the message leads there.
+    expect(find.widgetWithText(SnackBarAction, 'Settings'), findsOneWidget);
     expect(find.byKey(const ValueKey('recording-pill')), findsNothing);
     await _close(tester);
   });
