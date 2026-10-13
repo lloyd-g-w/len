@@ -168,8 +168,9 @@ Reviewed from `split_same_tablet_*`, `split_parked_portrait_*` and
 - ✅ Renames and new paper show in both panes; PDF caches are shared.
 - ✅ A second pane whose notebook was deleted elsewhere says so in the first pane and
   leaves the first pane's dialogs open.
-- ⬜ A parked pane gives no hint in portrait (e.g. its recording runs unseen; the first
-  pane only learns of it when it tries to record).
+- ✅ A parked pane gives no hint in portrait (e.g. its recording runs unseen; the first
+  pane only learns of it when it tries to record). → While the parked pane records,
+  the pane on screen says "Recording in “…”" with Show (swaps the panes) and Stop.
 - ⬜ A selection or a text box being edited in one pane hides those items in the other
   view of the same notebook until it ends.
 
