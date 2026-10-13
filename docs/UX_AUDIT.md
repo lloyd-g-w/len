@@ -564,6 +564,9 @@ template typography.**
   - the accent is used for state only;
   - there are no `·` chains.
 - *Fix:* use `Gaps.xs` and `Gaps.xxs`, and true greys.
+- *Partly done (PDF, `fix/r8-pen`):* the missing-PDF page uses true greys
+  (`#F3F3F3`, `#E4E4E4`, Graphite `#5A5A5A`); `pdf_missing.png` refreshed.
+  The off-grid paddings are left to the library branch.
 
 ### Simplify
 

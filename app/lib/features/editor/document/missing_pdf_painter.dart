@@ -16,13 +16,13 @@ void paintMissingPdf(Canvas canvas, Size page) {
   canvas
     ..save()
     ..clipRect(rect)
-    ..drawRect(rect, Paint()..color = const Color(0xFFF3F3F0));
+    ..drawRect(rect, Paint()..color = const Color(0xFFF3F3F3));
 
   // Diagonal hatching, spaced by the page's size so it reads the same on a
   // thumbnail and on screen.
   final step = page.shortestSide / 18;
   final hatch = Paint()
-    ..color = const Color(0xFFE4E4DF)
+    ..color = const Color(0xFFE4E4E4)
     ..strokeWidth = step / 6;
   for (var x = -page.height; x < page.width; x += step) {
     canvas.drawLine(Offset(x, page.height), Offset(x + page.height, 0), hatch);
@@ -38,7 +38,7 @@ void paintMissingPdf(Canvas canvas, Size page) {
         fontFamily: AppTheme.fontFamily,
         fontSize: size,
         height: 1.35,
-        color: const Color(0xFF5F5F5A),
+        color: const Color(0xFF5A5A5A),
         fontWeight: FontWeight.w600,
       ),
       children: [
@@ -57,7 +57,7 @@ void paintMissingPdf(Canvas canvas, Size page) {
   );
   canvas.drawRRect(
     RRect.fromRectAndRadius(plate, Radius.circular(size * 0.6)),
-    Paint()..color = const Color(0xFFF3F3F0),
+    Paint()..color = const Color(0xFFF3F3F3),
   );
   text
     ..paint(canvas, rect.center - Offset(text.width / 2, text.height / 2))
