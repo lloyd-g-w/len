@@ -8,6 +8,7 @@ import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../../ui/menus.dart';
+import '../../../ui/scroll_fade.dart';
 import 'colour_sheet.dart';
 import 'text/rich_text_controller.dart';
 import 'text/text_style_menus.dart';
@@ -68,8 +69,7 @@ class TextFormatBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Flexible(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+            child: ScrollFade(
               child: ListenableBuilder(
                 listenable: controller,
                 builder: (context, _) => _row(context),

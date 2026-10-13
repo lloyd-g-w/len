@@ -74,6 +74,8 @@ void main() {
       find.byType(Directionality).first,
       matchesGoldenFile('goldens/text_phone_bar.png'),
     );
+    // The cut-off controls fade out at the edge: there is more to scroll to.
+    expect(find.byKey(const ValueKey('scroll-fade')), findsOneWidget);
   });
 
   testWidgets('text: font picker shows every bundled font in itself', (tester) async {
