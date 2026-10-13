@@ -1565,6 +1565,14 @@ easing (`StrokeHitTest.inkRadius`), not just the nominal width.
 `AppDatabase._createSchema` creates the whole schema (`PRAGMA user_version`
 1). Later schema changes append a migration to `AppDatabase._migrations`;
 once released, never edit one.
+After migrating, `SchemaCheck` (`data/schema_reset.dart`) compares the
+database's shape (tables with their columns, index and trigger names; the
+optional FTS index aside) with that of a freshly migrated in-memory
+database. A newer `user_version`, a failing migration or a different shape
+(pre-release migrations were rewritten) resets the database: the file is
+copied to `<path>.schema-<version>-<time>.bak` (native only), everything is
+dropped and recreated, the sync login is carried over (so synced notebooks
+come back), and the library says so once (`AppDatabase.schemaReset`).
 All writes go straight to SQLite; in-memory state is a cache.
 
 ## Platforms (`platform/`)

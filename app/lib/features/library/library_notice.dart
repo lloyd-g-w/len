@@ -4,13 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
+import '../../data/schema_reset.dart';
 import '../../platform/browser_storage.dart';
 import '../../ui/app_theme.dart';
 
 /// Puts a notice above the library's [child] while something needs the
 /// user's attention: files that won't be kept (a browser that refused
-/// storage, UX_AUDIT P0-1); else, once, a browser that may clear Len's
-/// data while sync is off (P2-30).
+/// storage, UX_AUDIT P0-1); else, once, storage from another Len version
+/// that was started afresh (`AppDatabase.schemaReset`); else, once, a
+/// browser that may clear Len's data while sync is off (P2-30).
 class LibraryNotices extends StatefulWidget {
   const LibraryNotices({super.key, required this.child, this.storage});
 
@@ -69,6 +71,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
             'window, allow site data, or turn on sync.',
       );
     }
+    if (_services.database.schemaReset case final reset?) return _resetNotice(reset);
     if (_evictable != true || _services.sync.isConfigured) return null;
     return LibraryNotice(
       icon: Symbols.storage_rounded,
@@ -79,6 +82,25 @@ class _LibraryNoticesState extends State<LibraryNotices> {
       tone: NoticeTone.info,
       action: TextButton(onPressed: () => unawaited(_keepData()), child: const Text('Keep data')),
       onDismiss: _dismiss,
+    );
+  }
+
+  LibraryNotice _resetNotice(SchemaReset reset) {
+    final version = reset.fromNewer ? 'a newer' : 'an older';
+    final sync = reset.keptSync
+        ? 'Notebooks you synced come back from your server.'
+        : 'Notebooks you synced come back from your server when you turn on sync again.';
+    final backup = reset.backupPath;
+    final kept = backup == null
+        ? 'The old data couldn\'t be kept in this browser.'
+        : 'The old data was kept in';
+    return LibraryNotice(
+      icon: Symbols.restart_alt_rounded,
+      title: 'Len started fresh',
+      body: 'Len\'s storage was from $version version, so it started fresh. $sync $kept',
+      detail: backup,
+      tone: NoticeTone.info,
+      onDismiss: () => setState(_services.database.acknowledgeSchemaReset),
     );
   }
 
@@ -117,6 +139,7 @@ class LibraryNotice extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    this.detail,
     this.action,
     this.onDismiss,
     this.tone = NoticeTone.warning,
@@ -125,6 +148,9 @@ class LibraryNotice extends StatelessWidget {
   final IconData icon;
   final String title;
   final String body;
+
+  /// Shown selectable under [body] (e.g. a file path to copy).
+  final String? detail;
 
   /// A button at the end (e.g. "Keep data").
   final Widget? action;
@@ -166,6 +192,10 @@ class LibraryNotice extends StatelessWidget {
                   Text(title, style: theme.textTheme.labelLarge),
                   const SizedBox(height: Gaps.xxs),
                   Text(body, style: theme.textTheme.bodySmall),
+                  if (detail case final detail?) ...[
+                    const SizedBox(height: Gaps.xxs),
+                    SelectableText(detail, style: theme.textTheme.bodySmall),
+                  ],
                   if (action case final action?)
                     Align(alignment: AlignmentDirectional.centerEnd, child: action),
                 ],
