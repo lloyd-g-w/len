@@ -111,8 +111,8 @@ class PageTransfer {
         services.elements.save(_links);
       }
       if (made) {
-        if (services.notebooks.get(to) case final n? when !n.isTrashed)
-          services.notebooks.trash(to);
+        final notebook = services.notebooks.get(to);
+        if (notebook != null && !notebook.isTrashed) services.notebooks.trash(to);
         return changed ? TransferKept.trashed : null;
       }
       if (changed) return TransferKept.copies;
