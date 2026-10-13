@@ -1,2 +1,7 @@
-/// One app process per user already; nothing to wait for.
-Future<void> claimSingleInstance({required void Function() onWaiting}) async {}
+import 'tab_handover.dart';
+
+/// One app process per user already: no tabs to coordinate.
+TabHandover? openTabHandover() => null;
+
+/// Not used natively.
+void reloadTab() {}
