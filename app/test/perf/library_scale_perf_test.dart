@@ -21,6 +21,26 @@ void main() {
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final clock = BenchClock();
+    // A 20-notebook library first: the baseline (and the first library of
+    // a run compiles much).
+    final small = AppServices.create(AppDatabase.inMemory(), clock: clock);
+    addTearDown(small.dispose);
+    BigLibrary.build(small, clock, folderCount: 5, notebookCount: 20, trashCount: 2);
+    final baseline = <int>[];
+    for (var i = 0; i < 2; i++) {
+      final w = Stopwatch()..start();
+      await tester.pumpWidget(
+        AppScope(
+          key: UniqueKey(),
+          services: small,
+          child: MaterialApp(theme: AppTheme.light(), home: const LibraryScreen()),
+        ),
+      );
+      baseline.add(w.elapsedMilliseconds);
+      await tester.pumpAndSettle();
+    }
+    await tester.pumpWidget(const SizedBox());
+
     final s = AppServices.create(AppDatabase.inMemory(), clock: clock);
     addTearDown(s.dispose);
     BigLibrary.build(s, clock);
@@ -97,6 +117,22 @@ void main() {
     await tester.pump();
     switches['reload'] = watch.elapsedMilliseconds;
     await tester.pumpAndSettle();
+
+    // The folder tree: open the deepest folders (the sidebar reveals each
+    // one's ancestors and subfolders), then back to the root.
+    final opened = <int>[];
+    for (final folder in controller.allFolders.reversed.take(10)) {
+      watch.reset();
+      controller.openFolder(folder.id);
+      await tester.pump();
+      opened.add(watch.elapsedMilliseconds);
+      await tester.pumpAndSettle();
+    }
+    watch.reset();
+    controller.openFolder(null);
+    await tester.pump();
+    switches['folders: open ${opened.join('/')}, root'] = watch.elapsedMilliseconds;
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
     // The content search itself (titles, text boxes, PDF text), per query.
@@ -106,7 +142,8 @@ void main() {
     final inNotebook = bestMs(() => s.search.search('m', notebookId: s.notebooks.list().first.id));
     report('search: $queries ms; in one notebook ${inNotebook}ms');
     report(
-      'library, 1,000 notebooks: first frame ${firstFrame}ms, settled ${settled}ms; '
+      'library, 20 notebooks: first frame ${baseline.join('/')}ms (cold/warm); '
+      '1,000 notebooks: first frame ${firstFrame}ms, settled ${settled}ms; '
       'scroll frames median ${frames[frames.length ~/ 2]}ms, max ${frames.last}ms, '
       '${rebuilt['NotebookCard'] ?? 0} card builds in 40 frames; search keys '
       '${keys.join('/')}ms, results ${results}ms; $switches (debug, renders included)',
