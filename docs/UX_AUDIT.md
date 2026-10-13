@@ -241,7 +241,7 @@ text" in notebooks with PDF pages). The tip's ✕ is a full touch target now.
 
 ### Pages, templates
 
-⬜ **R6-17 P2 · The overview's selection can't export or retemplate.**
+✅ **R6-17 P2 · The overview's selection can't export or retemplate.**
 `SelectionAction` is bookmark, duplicate, delete
 (`features/documents/overview/overview_parts.dart:9`). To send three pages
 to a classmate, a user notes their numbers, leaves the overview and types a
@@ -250,6 +250,11 @@ range into Export. The export sheet already takes custom pages
 and Change template already has "All pages". *Fix:* add Export… (opens the
 export sheet with the selection as the custom range) and Change template…
 (applied to the selection) to the bar, or behind a ⋯ in it.
+*Done:* the bar is Bookmark, Duplicate, Template…, Export…, Delete.
+Export… opens the export sheet at Page range with the selection filled in
+("1-3, 5"; `initialPages`); Template… is Change template on the selected
+pages (one undoable step, "All pages" still widens it). Bar labels scale
+down rather than cut off on phones.
 
 ✅ **R6-18 P2 · The primary button names the same act two ways.** The template
 picker says "Apply" in Change template and "Use template" in Canvas

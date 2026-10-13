@@ -32,8 +32,9 @@ class LabelledAction extends StatelessWidget {
     return TextButton(
       style: TextButton.styleFrom(
         foregroundColor: color ?? Theme.of(context).colorScheme.onSurface,
-        minimumSize: const Size(64, 56),
-        padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
+        minimumSize: const Size(56, 56),
+        // Five share a phone's width: the label needs the room.
+        padding: const EdgeInsets.symmetric(horizontal: Gaps.xxs),
       ),
       onPressed: onPressed,
       child: Column(
@@ -41,7 +42,9 @@ class LabelledAction extends StatelessWidget {
         children: [
           Icon(icon, size: Glyphs.bar, fill: filled ? 1 : 0),
           const SizedBox(height: Gaps.xxs),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          // One line always: a tight bar (five on a phone, large text)
+          // scales the name down rather than cutting it.
+          FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1, softWrap: false)),
         ],
       ),
     );

@@ -95,7 +95,11 @@ void main() {
   });
   tearDown(() => services.dispose());
 
-  Future<void> open(WidgetTester tester, {Size size = const Size(1280, 800)}) async {
+  Future<void> open(
+    WidgetTester tester, {
+    Size size = const Size(1280, 800),
+    List<int>? initialPages,
+  }) async {
     tester.view
       ..physicalSize = size
       ..devicePixelRatio = 1;
@@ -112,6 +116,7 @@ void main() {
                   notebook: notebook,
                   pages: pages,
                   currentPage: 1,
+                  initialPages: initialPages,
                   exporter: exporter,
                   save: (files, {required mime, toDevice = false}) async {
                     saved.add(([for (final f in files) f.name], mime));
@@ -156,6 +161,17 @@ void main() {
     expect(saved.single.$1, ['Lab p1-2,4.pdf']);
     expect(saved.single.$2, 'application/pdf');
     expect(find.text('Saved “Lab p1-2,4.pdf”'), findsOneWidget);
+  });
+
+  testWidgets('pages selected in the overview start as the page range', (tester) async {
+    await open(tester, initialPages: [0, 1, 2, 4]);
+    expect(find.text('4 pages, PDF'), findsOneWidget);
+    expect(find.text('1-3, 5'), findsOneWidget);
+    await tester.tap(_exportButton);
+    await tester.pumpAndSettle();
+    expect(exporter.pdfCalls.single.map((p) => p.id), [
+      for (final i in [0, 1, 2, 4]) pages[i].id,
+    ]);
   });
 
   testWidgets('an export can be cancelled: nothing is saved', (tester) async {

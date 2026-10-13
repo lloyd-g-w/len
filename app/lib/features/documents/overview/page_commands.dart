@@ -28,6 +28,8 @@ class OverviewHandlers {
     this.bookmarkMany,
     this.deleteMany,
     this.duplicateMany,
+    this.exportMany,
+    this.templateMany,
   });
 
   /// Current pages in order.
@@ -51,6 +53,14 @@ class OverviewHandlers {
   /// undoable step. Without it, the overview runs [PageCommand.duplicate]
   /// on each page.
   final Future<void> Function(BuildContext context, List<NotebookPage> pages)? duplicateMany;
+
+  /// Opens the export sheet with [pages] as its page range. Without it,
+  /// the selection offers no Export.
+  final Future<void> Function(BuildContext context, List<NotebookPage> pages)? exportMany;
+
+  /// Asks for a template and applies it to [pages] as one undoable step.
+  /// Without it, the selection offers no Template.
+  final Future<void> Function(BuildContext context, List<NotebookPage> pages)? templateMany;
 }
 
 /// The options menu of [page].
