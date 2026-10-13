@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/chunk_grid.dart';
 import '../../domain/stroke.dart';
+import '../lab/perf_probe.dart';
 import '../surface_model.dart';
 import 'chunk_picture_cache.dart';
 
@@ -94,6 +95,16 @@ class ChunkRasterCache extends ChangeNotifier {
   /// Content version each cached image was made from.
   final Map<_Key, int> _imageVersions = {};
 
+  /// Chunks edited (not just loaded) while they had no image: until one is
+  /// made, only their vectors show them as they are ([needsVectors]).
+  final Set<ChunkKey> _edited = {};
+
+  /// Whether [chunk], having no image at any level, must be drawn from its
+  /// vectors: it was edited since (an erased stroke must not linger, a new
+  /// one must show at once). Others may wait for their raster, drawn from
+  /// a stand-in or not at all for a frame or two.
+  bool needsVectors(ChunkKey chunk) => _edited.contains(chunk);
+
   /// Strokes to draw over [image] (as returned by [imageFor] for [chunk]):
   /// those appended after it was made.
   List<Stroke> overlayOf(ChunkKey chunk, ui.Image image) {
@@ -179,6 +190,7 @@ class ChunkRasterCache extends ChangeNotifier {
       ..translate(-rect.left, -rect.top)
       ..drawPicture(pictures.pictureFor(key.chunk));
     final picture = recorder.endRecording();
+    PerfProbe.count('lodRasters');
     _inFlight++;
     _pending[key] = version;
     unawaited(
@@ -212,6 +224,7 @@ class ChunkRasterCache extends ChangeNotifier {
     _images[key] = image;
     _imageVersions[key] = version;
     _bytes += _sizeOf(key);
+    _edited.remove(key.chunk);
     _trimOverlay(key.chunk);
     while (_bytes > maxBytes && _images.length > 1) {
       final oldest = _images.keys.first;
@@ -268,6 +281,8 @@ class ChunkRasterCache extends ChangeNotifier {
       ];
       if (levels.any((l) => _images.containsKey((chunk: chunk, level: l)))) {
         (_overlays[chunk] ??= []).addAll([for (final s in strokes) (version, s)]);
+      } else {
+        _edited.add(chunk);
       }
     }
   }
@@ -276,6 +291,8 @@ class ChunkRasterCache extends ChangeNotifier {
     if (chunks == null) {
       _overlays.clear();
       _versions.clear();
+      // What was on screen may have changed anywhere.
+      _edited.addAll([for (final key in _images.keys) key.chunk]);
       _epoch = ++_counter;
       _clear();
       return;
@@ -283,6 +300,7 @@ class ChunkRasterCache extends ChangeNotifier {
     for (final chunk in chunks) {
       _versions[chunk] = ++_counter;
       _overlays.remove(chunk);
+      _edited.add(chunk);
       for (final level in levels) {
         _imageVersions.remove((chunk: chunk, level: level));
         final image = _images.remove((chunk: chunk, level: level));

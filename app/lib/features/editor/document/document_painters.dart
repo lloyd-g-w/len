@@ -5,7 +5,9 @@ import 'package:flutter/rendering.dart';
 
 import '../../../domain/chunk_grid.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../ink/render/chunk_raster_cache.dart';
 import '../../../ink/render/ink_painters.dart';
+import '../../../ink/render/lod_painting.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/tiles/tile_space.dart';
 import '../../../ink/surface_model.dart';
@@ -113,7 +115,8 @@ class DocumentPaperPainter extends CustomPainter {
 }
 
 /// Paints the committed ink of the visible pages from their tile caches
-/// (chunk pictures where no tile is rendered yet).
+/// (chunk pictures where no tile is rendered yet), or zoomed out far from
+/// their level-of-detail rasters.
 class DocumentInkPainter extends CustomPainter {
   DocumentInkPainter({
     required this.layout,
@@ -152,13 +155,26 @@ class DocumentInkPainter extends CustomPainter {
       visible: world.shift(-frame.topLeft),
       clip: Offset.zero & frame.size,
     );
+    // Zoomed out far (many pages on screen): level-of-detail rasters, one
+    // image per chunk, instead of tiles replaying every page's ink.
+    final level = ChunkRasterCache.levelFor(ChunkGrid.size * scale * devicePixelRatio);
     final shown = layout.visiblePages(visible).toSet();
-    // Pages about to scroll into view: their tiles are rendered ahead.
+    // Pages about to scroll into view: their tiles (or rasters) are
+    // rendered ahead.
     final ahead = DocumentLayout.lookahead(visible);
     for (final index in layout.visiblePages(ahead)) {
       if (shown.contains(index)) continue;
       final surface = surfaces.peek(pages[index].id);
-      if (surface != null) surface.tiles.prefetch(viewOf(layout.frameOf(index)!, ahead));
+      if (surface == null) continue;
+      final view = viewOf(layout.frameOf(index)!, ahead);
+      if (level == null) {
+        surface.tiles.prefetch(view);
+      } else if (!surface.model.isLoading) {
+        final area = view.visible.intersect(view.clip!);
+        for (final key in surface.model.chunksIn(ChunkGrid.rangeFor(area))) {
+          surface.rasters.imageFor(key, level);
+        }
+      }
     }
     for (final index in shown) {
       final surface = surfaces.peek(pages[index].id);
@@ -167,7 +183,18 @@ class DocumentInkPainter extends CustomPainter {
       final view = viewOf(frame, visible);
       if (surface.model.chunksIn(ChunkGrid.rangeFor(view.visible)).isNotEmpty) {
         surface.cache.setScale(scale); // Image resolution.
-        paintTiled(canvas, surface.tiles, view, devicePixelRatio);
+        if (level == null) {
+          paintTiled(canvas, surface.tiles, view, devicePixelRatio);
+        } else {
+          paintLod(
+            canvas,
+            rasters: surface.rasters,
+            view: view,
+            level: level,
+            devicePixelRatio: devicePixelRatio,
+            tiles: surface.tiles,
+          );
+        }
       }
       // Over the ink, as the owner's own view shows it.
       if (surface.model.hasLiftedExcept(self)) {

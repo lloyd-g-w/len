@@ -9,6 +9,7 @@ import '../viewport.dart';
 import 'chunk_picture_cache.dart';
 import 'chunk_raster_cache.dart';
 import 'live_stroke.dart';
+import 'lod_painting.dart';
 import 'stroke_renderer.dart';
 import 'tiles/ink_tile_cache.dart';
 import 'tiles/tile_space.dart';
@@ -87,15 +88,8 @@ class CommittedInkPainter extends CustomPainter {
   /// Device pixels per logical pixel (picks the raster resolution).
   final double devicePixelRatio;
 
-  /// Chunks without a raster or cached picture that one frame may record
-  /// as vectors (so a fresh edit shows at once while zoomed out, but a
-  /// whole screen of uncached chunks never stalls a frame).
-  static const int freshRecordingsPerFrame = 8;
-
-  static final Paint _imagePaint = Paint()
-    ..filterQuality = FilterQuality.medium
-    // Unsmoothed edges: neighbouring chunks tile without seams.
-    ..isAntiAlias = false;
+  /// Chunks without a raster that one frame may record as vectors.
+  static const int freshRecordingsPerFrame = lodFreshRecordingsPerFrame;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -115,58 +109,38 @@ class CommittedInkPainter extends CustomPainter {
     final chunks = model.chunksIn(ChunkGrid.rangeFor(visible));
     if (chunks.isEmpty) return;
     final k = viewport.scale * devicePixelRatio;
-    final tiles = this.tiles;
-    // Far out, LOD chunk rasters (one image per chunk) are cheaper.
-    if (tiles != null &&
-        (rasters == null || ChunkRasterCache.levelFor(ChunkGrid.size * k) == null)) {
-      cache.setScale(viewport.scale); // Image resolution.
-      paintTiled(
-        canvas,
-        tiles,
-        TileView(k: k, origin: viewport.offset * devicePixelRatio, visible: visible, clip: clip),
-        devicePixelRatio,
-      );
-      return;
-    }
-
-    canvas
-      ..save()
-      ..translate(viewport.offset.dx, viewport.offset.dy)
-      ..scale(viewport.scale);
-    if (clip != null) canvas.clipRect(clip!);
     cache.setScale(viewport.scale); // Image resolution.
-    final level = rasters == null
-        ? null
-        : ChunkRasterCache.levelFor(ChunkGrid.size * viewport.scale * devicePixelRatio);
-    var fresh = freshRecordingsPerFrame;
-    for (final key in chunks) {
-      final image = level == null ? null : rasters!.imageFor(key, level);
-      if (image != null) {
-        final source = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
-        final rect = ChunkGrid.rectOf(key);
-        canvas.drawImageRect(image, source, rect, _imagePaint);
-        final overlay = rasters!.overlayOf(key, image);
-        if (overlay.isNotEmpty) {
-          // Strokes committed since the raster was made, until it is redone.
-          canvas
-            ..save()
-            ..clipRect(rect);
-          for (final stroke in overlay) {
-            StrokeRenderer.draw(canvas, stroke);
-          }
-          canvas.restore();
-        }
-        continue;
+    final view = TileView(
+      k: k,
+      origin: viewport.offset * devicePixelRatio,
+      visible: visible,
+      clip: clip,
+    );
+    // Far out, LOD chunk rasters (one image per chunk) are cheaper.
+    final level = rasters == null ? null : ChunkRasterCache.levelFor(ChunkGrid.size * k);
+    if (level != null) {
+      paintLod(
+        canvas,
+        rasters: rasters!,
+        view: view,
+        level: level,
+        devicePixelRatio: devicePixelRatio,
+        tiles: tiles,
+      );
+    } else if (tiles != null) {
+      paintTiled(canvas, tiles!, view, devicePixelRatio);
+    } else {
+      canvas
+        ..save()
+        ..translate(viewport.offset.dx, viewport.offset.dy)
+        ..scale(viewport.scale);
+      if (clip != null) canvas.clipRect(clip!);
+      for (final key in chunks) {
+        canvas.drawPicture(cache.pictureFor(key));
       }
-      final picture = level == null
-          ? cache.pictureFor(key)
-          : cache.peek(key) ?? (fresh-- > 0 ? cache.pictureFor(key) : null);
-      if (picture != null) {
-        canvas.drawPicture(picture);
-        PerfProbe.count('chunkDraws');
-      }
+      PerfProbe.count('chunkDraws', chunks.length);
+      canvas.restore();
     }
-    canvas.restore();
   }
 
   @override
