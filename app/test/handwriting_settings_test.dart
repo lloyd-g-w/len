@@ -55,7 +55,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(recognition.indexingEnabled, isFalse);
     expect(recognition.indexer.isActive, isFalse);
-    expect(find.textContaining('Off: search finds'), findsOneWidget);
+    expect(find.textContaining('Off · search finds'), findsOneWidget);
 
     // Missing (e.g. removed by Android): offered for download.
     recognizer.downloaded = false;
@@ -92,8 +92,8 @@ void main() {
 
   testWidgets('unsupported platforms explain that Android devices recognise', (tester) async {
     final services = await pumpSettings(tester, FakeRecognizer(supported: false));
-    expect(find.textContaining('recognised on Android devices'), findsOneWidget);
-    expect(find.textContaining('Nothing recognised yet'), findsOneWidget);
+    expect(find.textContaining('written on Android is recognised there'), findsOneWidget);
+    expect(find.text('Search handwriting'), findsNothing, reason: 'no row that isn\'t a control');
     expect(find.byType(Switch), findsNothing, reason: 'no dead toggles');
     expect(find.text('Language'), findsNothing);
 
@@ -103,6 +103,6 @@ void main() {
     );
     await tester.runAsync(services.recognition.indexer.run); // Notifies when done.
     await tester.pump();
-    expect(find.textContaining('1 line from your Android devices'), findsOneWidget);
+    expect(find.textContaining('finds it here · 1 line'), findsOneWidget);
   });
 }

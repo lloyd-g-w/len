@@ -93,7 +93,7 @@ void main() {
         await scrollTo(tester, 'Handwriting');
         expect(find.text('Search handwriting'), findsOneWidget);
         // Nothing written yet: said so, not "0 lines recognised".
-        expect(find.textContaining('Up to date: no handwriting yet.'), findsOneWidget);
+        expect(find.text('Up to date'), findsOneWidget);
         await shoot(tester, 's_settings_handwriting_on_${name}_${mode.name}');
 
         await tester.tap(find.text('Language'));

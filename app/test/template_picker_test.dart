@@ -86,7 +86,7 @@ void main() {
       expect(templateSections(query: 'zzz'), isEmpty);
       expect(
         templateSections(only: TemplateCategory.paper).single.$2.map((e) => e.name),
-        containsAll(['Graph paper', 'Engineering', 'Storyboard', 'Music staff']),
+        containsAll(['Blank', 'Dotted', 'Graph paper', 'Engineering', 'Storyboard', 'Music staff']),
       );
       final canvas = templateSections(canvas: true).expand((s) => s.$2).toList();
       expect(canvas.map((e) => e.category), isNot(contains(TemplateCategory.planners)));
@@ -180,10 +180,10 @@ void main() {
     expect(find.text('Engineering'), findsOneWidget);
     expect(chip('category-all').selected, isTrue);
     expect(chip('category-planners').selected, isFalse);
-    await _tapKey(tester, 'category-basic');
-    expect(chip('category-basic').selected, isTrue);
+    await _tapKey(tester, 'category-writing');
+    expect(chip('category-writing').selected, isTrue);
     expect(find.text('Engineering'), findsNothing);
-    expect(find.text('Dotted'), findsOneWidget);
+    expect(find.text('Cornell notes'), findsOneWidget);
   });
 
   testWidgets('choosing a template returns it', (tester) async {
