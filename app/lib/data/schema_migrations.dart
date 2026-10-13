@@ -21,7 +21,23 @@ abstract final class SchemaMigrations {
     _strokeEndStyles,
     _recognisedText,
     ChunkDigestMigration.migrate,
+    _tombstonePayloadIndexes,
   ];
+
+  /// Version 11: tombstones that still keep their payload, by version, so
+  /// dropping the old payloads (`TombstonePayloads.purge`, at the daily
+  /// blob garbage collection) is an index range instead of a scan of every
+  /// stroke. Rows leave these indexes once purged.
+  static void _tombstonePayloadIndexes(CommonDatabase db) {
+    db.execute(
+      'CREATE INDEX strokes_tombstone_payloads ON strokes(updated_at) '
+      'WHERE deleted = 1 AND length(points) > 0',
+    );
+    db.execute(
+      'CREATE INDEX elements_tombstone_payloads ON elements(updated_at) '
+      "WHERE deleted = 1 AND data <> '{}'",
+    );
+  }
 
   /// Version 9: recognised handwriting, synced (collection
   /// `recognised_text`, see `RecognisedTextRepository`); remote records

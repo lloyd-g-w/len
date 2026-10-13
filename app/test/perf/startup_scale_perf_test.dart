@@ -67,8 +67,18 @@ void main() {
     time('library reload', controller.reload);
     final gc = Stopwatch()..start();
     await s.blobGc.run();
-    timings['blob GC'] = gc.elapsedMilliseconds;
+    timings['blob GC (purges 30k old tombstones)'] = gc.elapsedMilliseconds;
+    gc.reset();
+    await s.blobGc.run();
+    timings['blob GC (next day)'] = gc.elapsedMilliseconds;
     time('blob references', () => BlobReferences(s.database).all(tombstonesSince: 0));
+    // Old tombstones' payloads are found through an index, not a scan.
+    final plan = s.database.db.select(
+      'EXPLAIN QUERY PLAN UPDATE strokes SET points = x\'\' '
+      'WHERE deleted = 1 AND updated_at < ? AND length(points) > 0',
+      [0],
+    );
+    expect(plan.map((r) => r['detail']).join(), contains('strokes_tombstone_payloads'));
     time('handwriting queue check', () => s.recognition.indexer.pendingCount);
 
     report('startup, $strokes strokes, ${files.dbBytes >> 20} MB: $timings');

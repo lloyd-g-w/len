@@ -24,6 +24,9 @@ class LocalBlobGc {
   /// Payloads of old tombstones are dropped first when set.
   final TombstonePayloads? tombstones;
 
+  /// How long after launch the app first calls [runIfDue].
+  static const startDelay = Duration(seconds: 20);
+
   /// Minimum time between two runs of [runIfDue].
   static const interval = Duration(days: 1);
 

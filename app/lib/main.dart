@@ -6,6 +6,7 @@ import 'app.dart';
 import 'app_services.dart';
 import 'core/font_licenses.dart';
 import 'data/app_database.dart';
+import 'data/blob_gc.dart';
 import 'data/write_back.dart';
 import 'ink/lab/perf_probe.dart';
 import 'ink/render/stored_rasters.dart';
@@ -86,8 +87,9 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
   unawaited(services.sync.tokens.load().whenComplete(services.sync.start));
   if (PerfProbe.requested) PerfProbe.start();
   runApp(LenApp(services: services));
-  // Throttled to once a day; deletes blobs unreferenced for a week.
-  unawaited(services.blobGc.runIfDue());
+  // Throttled to once a day; deletes blobs unreferenced for a week. Its
+  // scans run on this thread: later, not while the first frames build.
+  unawaited(Future<void>.delayed(LocalBlobGc.startDelay, services.blobGc.runIfDue));
 }
 
 /// Another tab asked for the data: stores everything and stops writing.
