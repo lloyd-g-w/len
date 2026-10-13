@@ -32,15 +32,39 @@ class SelectionController extends _SelectionCore {
     clear();
   }
 
-  /// Moves the selection by [delta] (world units, e.g. points on a page)
-  /// as one undoable edit: arrow-key nudges.
+  /// Moves the selection by [delta] (world units, e.g. points on a page):
+  /// arrow-key nudges. A burst of nudges is one undo step: a nudge within
+  /// [nudgeBurst] of the previous one joins its step, unless anything else
+  /// was edited or undone in between (or the move spans pages).
   void nudge(Offset delta) {
     final frame = this.frame;
     if (isEmpty || frame == null || delta == Offset.zero) return;
+    final now = clock.nowMs();
+    final last = _lastNudge;
+    final history = last?.model.history;
+    final joins =
+        last != null &&
+        now - last.at <= nudgeBurst.inMilliseconds &&
+        history!.recorded == last.recorded &&
+        !history.canRedo;
     final moved = frame.moved(delta);
     setPreview(moved.transform, moved.frame);
-    commitPreview();
+    _mergeInto = joins ? last.model : null;
+    _committedTo = null;
+    try {
+      commitPreview();
+    } finally {
+      _mergeInto = null;
+    }
+    final model = _committedTo;
+    _lastNudge = model == null ? null : (model: model, recorded: model.history.recorded, at: now);
   }
+
+  /// How long after a nudge the next one still joins its undo step.
+  static const nudgeBurst = Duration(seconds: 1);
+
+  /// The surface the last nudge committed to, its undo count then and when.
+  ({SurfaceModel model, int recorded, int at})? _lastNudge;
 
   void copy() {
     if (isEmpty) return;

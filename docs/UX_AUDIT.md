@@ -586,7 +586,8 @@ password-protected") from damaged files, in import and relink.
   F2 rename; arrow keys between cards rely on Flutter's default directional
   focus (not checked with a real grid).
 *Done:* Ctrl/⌘+A selects all on the page (or in view); arrows nudge a
-selection 1 pt (Shift 10 pt), one undo step each, and only turn pages without
+selection 1 pt (Shift 10 pt), a burst of nudges (≤ 1 s apart, nothing else
+edited between) one undo step, and only turn pages without
 one; +/−, Ctrl/⌘+= / − and Ctrl/⌘+0 zoom paged notebooks; F2 renames and ⌘⌫
 trashes the focused notebook; all in the shortcuts sheet. Arrow keys between
 library cards still use Flutter's directional focus.

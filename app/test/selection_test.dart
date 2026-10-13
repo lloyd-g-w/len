@@ -230,10 +230,11 @@ void main() {
     late SurfaceModel model;
     late SelectionController selection;
     late InkClipboard clipboard;
+    late FakeClock clock;
 
     setUp(() {
       db = AppDatabase.inMemory();
-      final clock = FakeClock();
+      clock = FakeClock();
       model = SurfaceModel(
         surfaceId: 's',
         repository: StrokeRepository(db, deviceId: 'd', clock: clock),
@@ -285,6 +286,41 @@ void main() {
       expect(model.isHidden('a'), isFalse);
       model.redo();
       expect(model.elementById('t')!.rect.left, 110);
+    });
+
+    test('a burst of nudges is one undo step; a pause or another edit starts a new one', () {
+      selectAll();
+      double left() => model.elementById('t')!.rect.left;
+      selection
+        ..nudge(const Offset(1, 0))
+        ..nudge(const Offset(1, 0));
+      clock.now += 900;
+      selection.nudge(const Offset(1, 0));
+      expect(left(), 13);
+      clock.now += 1100; // a pause
+      selection.nudge(const Offset(10, 0));
+      selection.recolor(0xFFFF0000); // another edit
+      selection.nudge(const Offset(1, 0));
+      expect(left(), 24);
+
+      model.undo();
+      expect(left(), 23);
+      model.undo(); // the recolour
+      model.undo();
+      expect(left(), 13);
+      model.undo();
+      expect(left(), 10);
+    });
+
+    test('a nudge after an undo does not join the undone step', () {
+      selectAll();
+      selection.nudge(const Offset(1, 0));
+      model.undo();
+      selectAll();
+      selection.nudge(const Offset(5, 0));
+      model.undo();
+      expect(model.elementById('t')!.rect.left, 10);
+      expect(model.history.canUndo, isTrue, reason: 'the initial content');
     });
 
     test('delete, copy and paste (also onto another surface)', () {

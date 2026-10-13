@@ -286,12 +286,16 @@ abstract class _SelectionCore extends ChangeNotifier {
     select(plan.strokes, plan.elements, frame: frame, sources: plan.sources);
   }
 
+  /// The surface edited by the last commit when it was the only one, and a
+  /// surface whose previous undo step the next commit joins (see `nudge`).
+  SurfaceModel? _committedTo, _mergeInto;
+
   /// Commits [plan] (one undo step) without the change listener dropping
   /// the selection.
   void _commit(SelectionPlan plan) {
     _editing = true;
     try {
-      plan.commit(surfaces?.batch ?? (edits) => edits());
+      _committedTo = plan.commit(surfaces?.batch ?? (edits) => edits(), mergeInto: _mergeInto);
     } finally {
       _editing = false;
     }
