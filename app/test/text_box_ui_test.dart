@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/ui/color_dot.dart';
+import 'package:len/ui/menus.dart';
 
 import 'content_tools_ui_test.dart';
 
@@ -138,7 +139,7 @@ void main() {
     await ctrl(tester, LogicalKeyboardKey.keyA);
     await tester.tap(find.byKey(const ValueKey('font-menu')));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(CheckedPopupMenuItem<TextFont>, 'Serif'));
+    await tester.tap(find.widgetWithText(MenuRow<TextFont>, 'Serif'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Larger'));
     await tester.pump();

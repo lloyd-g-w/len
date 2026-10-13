@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../domain/text/text_data.dart';
 import '../../../../ui/app_theme.dart';
+import '../../../../ui/menus.dart';
 
 /// Picks one of the bundled fonts; each entry is shown in its own font.
 class FontMenuButton extends StatelessWidget {
@@ -17,17 +18,14 @@ class FontMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = font;
-    return PopupMenuButton<TextFont>(
+    return MenuButton<TextFont>(
       key: const ValueKey('font-menu'),
       tooltip: 'Font',
       onSelected: onSelected,
-      itemBuilder: (_) => [
+      // Each font in itself.
+      items: () => [
         for (final f in TextFont.values)
-          CheckedPopupMenuItem(
-            value: f,
-            checked: f == current,
-            child: Text(f.label, style: sample(f)),
-          ),
+          MenuRow(value: f, label: f.label, labelStyle: sample(f), checked: f == current),
       ],
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.sm + 2),
@@ -81,21 +79,17 @@ class HighlightMenuButton extends StatelessWidget {
       ),
       child: c == null ? Icon(Symbols.block_rounded, size: 16, color: scheme.outline) : null,
     );
-    return PopupMenuButton<int>(
+    return MenuIconButton<int>(
       tooltip: 'Highlight',
-      // -1 = none (PopupMenuButton ignores null values).
+      // -1 = none (menus return null for "dismissed").
       onSelected: (v) => onSelected(v == -1 ? null : v),
-      itemBuilder: (_) => [
+      items: () => [
         for (final c in [...textHighlights, -1])
-          PopupMenuItem(
+          MenuRow(
             value: c,
-            child: Row(
-              children: [
-                swatch(c == -1 ? null : c),
-                const SizedBox(width: 12),
-                Text(c == -1 ? 'No highlight' : _names[textHighlights.indexOf(c)]),
-              ],
-            ),
+            leading: swatch(c == -1 ? null : c),
+            label: c == -1 ? 'No highlight' : _names[textHighlights.indexOf(c)],
+            checked: c == (highlight ?? -1),
           ),
       ],
       icon: Stack(
@@ -126,21 +120,13 @@ class HeadingMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return PopupMenuButton<int>(
+    return MenuIconButton<int>(
       tooltip: 'Paragraph style',
       onSelected: onSelected,
-      itemBuilder: (_) => [
-        CheckedPopupMenuItem(value: 0, checked: heading == 0, child: const Text('Body text')),
-        CheckedPopupMenuItem(
-          value: 1,
-          checked: heading == 1,
-          child: Text('Heading 1', style: text.titleLarge),
-        ),
-        CheckedPopupMenuItem(
-          value: 2,
-          checked: heading == 2,
-          child: Text('Heading 2', style: text.titleMedium),
-        ),
+      items: () => [
+        MenuRow(value: 0, label: 'Body text', checked: heading == 0),
+        MenuRow(value: 1, label: 'Heading 1', labelStyle: text.titleLarge, checked: heading == 1),
+        MenuRow(value: 2, label: 'Heading 2', labelStyle: text.titleMedium, checked: heading == 2),
       ],
       icon: Icon(switch (heading) {
         1 => Symbols.title_rounded,

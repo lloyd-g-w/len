@@ -5,6 +5,7 @@ import '../../app_services.dart';
 import '../../domain/paper.dart';
 import '../../ink/ink_surface.dart';
 import '../../ink/lab/input_recording.dart';
+import '../../ui/menus.dart';
 import '../../ui/messages.dart';
 import 'inklab_files.dart';
 import 'inklab_pen_menu.dart';
@@ -151,13 +152,18 @@ class _InkLabScreenState extends State<InkLabScreen> with TickerProviderStateMix
       icon: const Icon(Symbols.ios_share_rounded),
       onPressed: _replaying ? null : _save,
     ),
-    PopupMenuButton<bool>(
+    MenuIconButton<bool>(
       tooltip: 'Perf test notebooks',
       icon: const Icon(Symbols.speed_rounded),
       onSelected: _perfNotebooks,
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: true, child: Text('Create perf test notebooks')),
-        PopupMenuItem(value: false, child: Text('Delete perf test notebooks')),
+      items: () => const [
+        MenuRow(value: true, icon: Symbols.add_rounded, label: 'Create perf test notebooks'),
+        MenuRow(
+          value: false,
+          icon: Symbols.delete_rounded,
+          label: 'Delete perf test notebooks',
+          destructive: true,
+        ),
       ],
     ),
   ];

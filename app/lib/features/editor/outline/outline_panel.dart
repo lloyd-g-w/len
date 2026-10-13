@@ -190,7 +190,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          PopupMenuButton<_EntryAction>(
+          MenuIconButton<_EntryAction>(
             tooltip: 'Entry options',
             icon: const Icon(Symbols.more_vert_rounded, size: Glyphs.bar),
             onSelected: (a) => switch (a) {
@@ -200,7 +200,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
               _EntryAction.repoint => _outline.moveToCurrentPage(entry),
               _EntryAction.delete => _outline.delete(context, entry),
             },
-            itemBuilder: (_) => [
+            items: () => [
               const MenuRow(
                 value: _EntryAction.rename,
                 icon: Symbols.edit_rounded,

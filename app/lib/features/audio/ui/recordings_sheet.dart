@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/format.dart';
 import '../../../domain/recording.dart';
+import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
@@ -18,12 +19,13 @@ import 'trim_panel.dart';
 /// Lists the notebook's recordings: tap to play, ⋯ to rename, trim (or
 /// reset the trim), export or delete, long press (or "Select") to export or delete several, and a
 /// button to record a new one.
+///
+/// A popover (REDESIGN §5): a sheet on phones, anchored to the button that
+/// opened it ([context]'s widget) elsewhere.
 Future<void> showRecordingsSheet(BuildContext context, NotebookAudio audio) {
-  return showModalBottomSheet<void>(
+  return showAdaptivePopover<void>(
     context: context,
-    useSafeArea: true,
-    isScrollControlled: true,
-    constraints: const BoxConstraints(maxWidth: 560),
+    width: 400,
     builder: (_) => RecordingsList(audio: audio),
   );
 }
@@ -255,11 +257,11 @@ class _RecordingTile extends StatelessWidget {
       onLongPress: selecting ? null : onSelect,
       trailing: selecting
           ? null
-          : PopupMenuButton<String>(
+          : MenuIconButton<String>(
               tooltip: 'More',
               icon: const Icon(Symbols.more_vert_rounded),
               onSelected: (action) => unawaited(_run(context, action)),
-              itemBuilder: (_) => [
+              items: () => [
                 const MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),
                 const MenuRow(value: 'trim', icon: Symbols.content_cut_rounded, label: 'Trim…'),
                 if (recording.trimmed)
