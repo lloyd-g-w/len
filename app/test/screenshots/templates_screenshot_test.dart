@@ -233,7 +233,9 @@ void main() {
         await settle(tester);
         expect(tester.takeException(), isNull);
         await shoot(tester, 'templates_${mode.name}_$name');
-        await tester.tap(find.text('Cancel'));
+        // Phones close the sheet with ✕, wider screens with Cancel.
+        final cancel = find.text('Cancel');
+        await tester.tap(cancel.evaluate().isEmpty ? find.byTooltip('Close').last : cancel);
         await settle(tester);
       }
     });

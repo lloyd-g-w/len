@@ -60,7 +60,7 @@ void main() {
         '0, 0, ?)',
         [id, tool, points, style],
       );
-      db.db.execute("INSERT INTO stroke_chunks VALUES ('s', 0, 0, ?)", [id]);
+      db.db.execute("INSERT INTO stroke_chunks (surface_id, cx, cy, stroke_id) VALUES ('s', 0, 0, ?)", [id]);
     }
     expect(strokes.loadChunks('s', [(x: 0, y: 0)]), isEmpty);
 
