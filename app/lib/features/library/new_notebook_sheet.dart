@@ -8,6 +8,7 @@ import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
+import '../../ui/scroll_fade.dart';
 import '../../ui/segment_label.dart';
 import '../../ui/sheet_parts.dart';
 import '../documents/template_picker.dart';
@@ -255,7 +256,9 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
                 child: _header(context),
               ),
               Expanded(
-                child: SingleChildScrollView(
+                // Fades where the form runs on under the footer (large text).
+                child: ScrollFade(
+                  axis: Axis.vertical,
                   padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.sm, Gaps.xl, Gaps.xl),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,

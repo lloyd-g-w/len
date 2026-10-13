@@ -6,10 +6,10 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
-import '../../ui/menus.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_drag.dart';
+import 'library_menus.dart';
 
 /// Title (or breadcrumbs) with a caption, and the tools beside it: search
 /// (a 280-dp field when wide, a 🔍 that opens a field over the title when
@@ -110,6 +110,13 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       _ => [
         if (folders > 0) plural(folders, 'folder'),
         if (count > 0 || folders == 0) plural(count, 'notebook'),
+        // The order, when it isn't the usual one.
+        if (count > 1)
+          ?switch (_c.sort) {
+            LibrarySort.edited => null,
+            LibrarySort.created => 'by date created',
+            LibrarySort.name => 'by name',
+          },
       ].join(' · '),
     };
   }
@@ -380,7 +387,7 @@ class _Select extends _ViewChoice {
   const _Select();
 }
 
-/// ⇅ View: sort (not in the trash), grid or list, and Select….
+/// ⇅ View: sort (not in the trash), grid or list, and Select.
 class _ViewMenu extends StatelessWidget {
   const _ViewMenu({required this.actions});
 
@@ -405,10 +412,12 @@ class _ViewMenu extends StatelessWidget {
       },
       items: () => [
         if (c.section != LibrarySection.trash) ...[
+          const MenuHeading('Sort by'),
           for (final s in LibrarySort.values)
             MenuRow(value: _Sort(s), label: _label(s), checked: s == c.sort),
           const PopupMenuDivider(),
         ],
+        const MenuHeading('Show as'),
         MenuRow(
           value: const _Layout(LibraryLayout.grid),
           icon: Symbols.grid_view_rounded,
@@ -423,7 +432,7 @@ class _ViewMenu extends StatelessWidget {
         ),
         if (c.visibleNotebooks.isNotEmpty && !actions.selection.active) ...[
           const PopupMenuDivider(),
-          const MenuRow(value: _Select(), icon: Symbols.check_circle_rounded, label: 'Select…'),
+          const MenuRow(value: _Select(), icon: Symbols.check_circle_rounded, label: 'Select'),
         ],
       ],
     );

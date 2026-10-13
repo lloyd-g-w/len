@@ -9,6 +9,7 @@ import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/section_label.dart';
 import '../search/library_search_results.dart';
 import '../settings/settings_screen.dart';
 import 'folder_tile.dart';
@@ -161,9 +162,15 @@ class LibraryContent extends StatelessWidget {
             ),
           if (notebooks.isNotEmpty || newTile) ...[
             SliverToBoxAdapter(child: SizedBox(height: folders.isEmpty ? Gaps.lg : Gaps.xl)),
+            // A search lists titles and pages alike, as rows.
+            if (fullText)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(gutter + Gaps.xxs, 0, gutter, Gaps.sm),
+                sliver: const SliverToBoxAdapter(child: SectionLabel('Notebooks')),
+              ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(gutter, 0, gutter, fullText ? 0 : endRoom),
-              sliver: _c.layout == LibraryLayout.grid
+              sliver: _c.layout == LibraryLayout.grid && !fullText
                   ? _grid(context, notebooks, compact, newTile: newTile)
                   : _list(notebooks),
             ),
@@ -247,7 +254,14 @@ class LibraryContent extends StatelessWidget {
     );
   }
 
+  /// The list view's widest rows: the star and ⋯ stay near the titles.
+  static const double listMaxWidth = 960;
+
   Widget _list(List<Notebook> notebooks) {
+    return SliverConstrainedCrossAxis(maxExtent: listMaxWidth, sliver: _listRows(notebooks));
+  }
+
+  Widget _listRows(List<Notebook> notebooks) {
     return SliverList.separated(
       itemCount: notebooks.length,
       separatorBuilder: (_, _) => const SizedBox(height: Gaps.xxs),

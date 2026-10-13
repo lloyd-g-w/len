@@ -131,7 +131,7 @@ void main() {
       await pumpApp(tester, services, const LibraryScreen());
       await tester.tap(find.byTooltip('View'));
       await settle(tester);
-      await tester.tap(find.text('Select…').last);
+      await tester.tap(find.text('Select').last);
       await settle(tester);
       await tester.tap(find.text('Travel plans'));
       await tester.tap(find.text('Spanish vocabulary'));

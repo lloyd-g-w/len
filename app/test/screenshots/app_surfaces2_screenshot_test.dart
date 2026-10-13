@@ -192,7 +192,7 @@ void main() {
 
         await openLibrarySection(tester, 'Library');
         await tap(tester, find.byTooltip('View'));
-        await tap(tester, find.text('Select…').last);
+        await tap(tester, find.text('Select').last);
         for (final title in ['Ideas', 'Recipes', 'Travel plans']) {
           await reveal(tester, find.text(title));
           await tap(tester, find.text(title));
@@ -225,7 +225,7 @@ void main() {
     await pumpApp(tester, services, const LibraryScreen(), mode: ThemeMode.dark);
     await openLibrarySection(tester, 'Trash');
     await tap(tester, find.byTooltip('View'));
-    await tap(tester, find.text('Select…').last);
+    await tap(tester, find.text('Select').last);
     await tap(tester, find.text('Recipes'));
     expect(find.text('1 selected'), findsOneWidget);
     expect(tester.takeException(), isNull);

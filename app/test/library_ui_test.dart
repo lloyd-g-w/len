@@ -122,7 +122,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'chem');
     await tester.pumpAndSettle();
-    expect(find.byType(NotebookCard), findsNWidgets(2));
+    // Search results are rows.
+    expect(find.byType(NotebookListTile), findsNWidgets(2));
     expect(find.text('School'), findsWidgets); // Location subtitle.
   });
 
@@ -206,7 +207,7 @@ void main() {
     expect(tile, findsOneWidget);
     await tester.tap(find.byTooltip('View'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Select…').last);
+    await tester.tap(find.text('Select').last);
     await tester.pumpAndSettle();
     expect(tile, findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);

@@ -9,6 +9,7 @@ import '../../data/search/search_query.dart';
 import '../../data/search/search_service.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/section_label.dart';
 import '../library/notebook_cover.dart';
 import 'highlighted_text.dart';
 import 'search_groups.dart';
@@ -126,10 +127,8 @@ class _LibrarySearchResultsState extends State<LibrarySearchResults> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(Gaps.xxs, Gaps.xl, 0, Gaps.md),
               child: Text(
-                'In notebooks · ${count == 1 ? '1 match' : '$count matches'}',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                'Pages · ${count == 1 ? '1 match' : '$count matches'}',
+                style: SectionLabel.style(context),
               ),
             ),
           ),
@@ -217,10 +216,9 @@ class _NotebookResultsState extends State<_NotebookResults> {
                       style: theme.textTheme.labelLarge,
                     ),
                   ),
-                  Text(
-                    group.content.length == 1 ? '1 match' : '${group.content.length} matches',
-                    style: theme.textTheme.bodySmall,
-                  ),
+                  // Rows below show a single match.
+                  if (group.content.length > 1)
+                    Text('${group.content.length} matches', style: theme.textTheme.bodySmall),
                 ],
               ),
             ),
