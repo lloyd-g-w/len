@@ -70,8 +70,9 @@ Reviewed from the `library_`, `flows_`, `organise_` and `app_surfaces*` suites
   covers requested last render first. `test/perf/library_perf_test.dart` pins it.
 - ⬜ Phones create folders only from the drawer (no ⊕▾ there, by the spec); a
   long-press on the FAB could offer New folder.
-- ⬜ The sidebar shows sync as an icon beside Settings, not yet the "Synced 2m"
-  caption of the spec's sketch.
+- ✅ The sidebar shows sync as an icon beside Settings, not yet the "Synced 2m"
+  caption of the spec's sketch. → It reads "Synced 2m" / "Syncing…" / "Sync
+  failed" / "Sync off" beside the icon (`syncCaption`, refreshed every 30 s).
 
 ## Toolbar redesign (`feat/toolbar`, REDESIGN phases 3–4)
 
