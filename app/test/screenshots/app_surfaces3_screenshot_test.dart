@@ -174,7 +174,7 @@ void main() {
         // A file Len can't open, handed over by the system.
         services.incomingFiles.add([XFile('/storage/Download/Budget 2026.xlsx')]);
         await settle(tester);
-        expect(find.textContaining('can’t'), findsOneWidget);
+        expect(find.textContaining('Len opens PDFs and images'), findsOneWidget);
         await shoot(tester, 's_import_unsupported_${name}_$m');
 
         // A PDF that fails to import (the message importPdfFlow shows).
