@@ -30,6 +30,9 @@ class NotebookCard extends StatefulWidget {
   final String subtitle;
   final LibraryActions actions;
 
+  /// Width of the ⋯ beside the title.
+  static double get _moreWidth => Targets.touchFirst ? 40 : 32;
+
   /// Height of everything below the cover: gap, two title lines, caption.
   static double captionHeight(TextScaler scaler) => Gaps.sm + scaler.scale(20 * 2 + 16) + Gaps.xs;
 
@@ -147,11 +150,12 @@ class _NotebookCardState extends State<NotebookCard> {
               height: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
               child: Padding(
                 padding: const EdgeInsets.only(top: Gaps.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                // The ⋯ sits beside the title only; the caption below takes
+                // the full width (it would truncate early at large text).
+                child: Stack(
                   children: [
-                    Expanded(
-                      // The title is part of the target too.
+                    // The title is part of the target too.
+                    Positioned.fill(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: _tap,
@@ -161,11 +165,16 @@ class _NotebookCardState extends State<NotebookCard> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                _notebook.title,
-                                style: theme.textTheme.labelLarge,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  right: _selecting ? 0 : NotebookCard._moreWidth,
+                                ),
+                                child: Text(
+                                  _notebook.title,
+                                  style: theme.textTheme.labelLarge,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               Text(
                                 widget.subtitle,
@@ -179,22 +188,26 @@ class _NotebookCardState extends State<NotebookCard> {
                       ),
                     ),
                     if (!_selecting)
-                      AnimatedOpacity(
-                        opacity: showMore ? 1 : 0,
-                        duration: Motion.fast,
-                        child: SizedBox(
-                          width: Targets.touchFirst ? 40 : 32,
-                          height: Targets.touchFirst ? 36 : 28,
-                          child: Builder(
-                            builder: (anchor) => IconButton(
-                              tooltip: 'More',
-                              padding: EdgeInsets.zero,
-                              iconSize: Glyphs.bar,
-                              color: scheme.onSurfaceVariant,
-                              // Reachable by keyboard and screen readers even
-                              // while hidden.
-                              icon: const Icon(Symbols.more_horiz_rounded),
-                              onPressed: () => unawaited(_showMenu(anchor: anchor)),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: AnimatedOpacity(
+                          opacity: showMore ? 1 : 0,
+                          duration: Motion.fast,
+                          child: SizedBox(
+                            width: NotebookCard._moreWidth,
+                            height: Targets.touchFirst ? 36 : 28,
+                            child: Builder(
+                              builder: (anchor) => IconButton(
+                                tooltip: 'More',
+                                padding: EdgeInsets.zero,
+                                iconSize: Glyphs.bar,
+                                color: scheme.onSurfaceVariant,
+                                // Reachable by keyboard and screen readers even
+                                // while hidden.
+                                icon: const Icon(Symbols.more_horiz_rounded),
+                                onPressed: () => unawaited(_showMenu(anchor: anchor)),
+                              ),
                             ),
                           ),
                         ),
