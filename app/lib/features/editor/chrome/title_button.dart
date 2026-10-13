@@ -23,7 +23,11 @@ class TitleButton extends StatelessWidget {
         onTap: onRename,
         borderRadius: BorderRadius.circular(Radii.sm),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360, minHeight: 40),
+          // 48 dp tall where fingers are the pointer (Android's minimum).
+          constraints: BoxConstraints(
+            maxWidth: 360,
+            minHeight: Targets.touchFirst ? Targets.touch : Targets.bar,
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xxs),
             child: Column(
