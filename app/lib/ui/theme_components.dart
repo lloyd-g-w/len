@@ -88,7 +88,11 @@ extension ThemeComponents on ThemeData {
         style: SegmentedButton.styleFrom(
           shape: control,
           side: BorderSide(color: scheme.outlineVariant),
-          selectedBackgroundColor: Surfaces.pressed(scheme),
+          // A firmer plate than a pressed row's, so the choice reads at a
+          // glance in both themes.
+          selectedBackgroundColor: scheme.onSurface.withValues(
+            alpha: scheme.brightness == Brightness.dark ? 0.2 : 0.12,
+          ),
           selectedForegroundColor: scheme.onSurface,
           foregroundColor: scheme.onSurfaceVariant,
           disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.38),

@@ -56,6 +56,19 @@ void main() {
       expect(r.left, moreOrLessEquals(primary.left));
       expect(r.height, greaterThanOrEqualTo(Targets.touch));
     }
+    // The buttons under the primary are outlined; in a row they are not.
+    final actions = find.byType(DialogActions);
+    expect(
+      actions,
+      paints
+        ..rrect()
+        ..rrect(),
+    );
+  });
+
+  testWidgets('a row of actions has no outlines', (tester) async {
+    await _show(tester, 1000, _three());
+    expect(find.byType(DialogActions), isNot(paints..rrect()));
   });
 
   testWidgets('at 1.3× text, content and actions share the same edge', (tester) async {
