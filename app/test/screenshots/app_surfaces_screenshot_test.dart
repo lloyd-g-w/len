@@ -92,6 +92,8 @@ void main() {
         await pumpApp(tester, services(handwriting: true), const SettingsScreen(), mode: mode);
         await scrollTo(tester, 'Handwriting');
         expect(find.text('Search handwriting'), findsOneWidget);
+        // Nothing written yet: said so, not "0 lines recognised".
+        expect(find.textContaining('Up to date: no handwriting yet.'), findsOneWidget);
         await shoot(tester, 's_settings_handwriting_on_${name}_${mode.name}');
 
         await tester.tap(find.text('Language'));

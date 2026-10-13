@@ -87,7 +87,9 @@ class HandwritingSettings extends StatelessWidget {
           : '$pending page${pending == 1 ? '' : 's'} waiting for a quiet moment.';
     } else {
       final lines = indexer.lineCount;
-      status = 'Up to date: $lines line${lines == 1 ? '' : 's'} recognised.';
+      status = lines == 0
+          ? 'Up to date: no handwriting yet.'
+          : 'Up to date: $lines line${lines == 1 ? '' : 's'} recognised.';
     }
     return SettingsTile(
       icon: Symbols.manage_search_rounded,
