@@ -9,6 +9,7 @@ import 'chrome/editor_tips.dart';
 import 'chrome/editor_top_bar.dart';
 import 'chrome/gesture_hud.dart';
 import 'chrome/missing_pdf_notice.dart';
+import 'chrome/tool_puck.dart';
 import 'document/document_layout.dart';
 import 'editor_actions.dart';
 import 'editor_session.dart';
@@ -193,6 +194,9 @@ class EditorChromeHost extends StatelessWidget {
         onExitFocus: commands.toggleFocus,
         floatAt: prefs.toolbarFloat,
         onFloatMoved: (at) => prefs.toolbarFloat = at,
+        puck: ToolPuck(tools: session.tools, undo: session.undo, insert: _insert(context)),
+        puckAt: prefs.puckFloat,
+        onPuckMoved: (at) => prefs.puckFloat = at,
         toolbar: toolbar,
         topBar: EditorTopBar(
           title: title,

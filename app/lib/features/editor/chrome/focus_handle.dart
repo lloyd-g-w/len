@@ -7,30 +7,64 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 
-/// The only chrome left in focus mode: a small, translucent button that
-/// brings the toolbar and top bar back.
-class FocusHandle extends StatelessWidget {
+/// Focus mode's way out (REDESIGN §2.7): a small 32-dp button in the
+/// corner, at 40 % opacity until hovered or touched, that brings the
+/// toolbar and top bar back. (The tools stay at hand in the `ToolPuck`.)
+class FocusHandle extends StatefulWidget {
   const FocusHandle({super.key, required this.onExit});
 
   final VoidCallback onExit;
 
   @override
+  State<FocusHandle> createState() => _FocusHandleState();
+}
+
+class _FocusHandleState extends State<FocusHandle> {
+  bool _near = false;
+
+  void _set(bool near) {
+    if (near != _near) setState(() => _near = near);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: 'Show toolbars (F11)',
-      child: FloatingPanel(
-        radius: Radii.pill,
-        padding: EdgeInsets.zero,
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onExit,
-          child: Padding(
-            padding: const EdgeInsets.all(Gaps.sm + 2),
-            child: Icon(
-              Symbols.fullscreen_exit_rounded,
-              size: Glyphs.bar,
-              color: scheme.onSurfaceVariant,
+    return MouseRegion(
+      onEnter: (_) => _set(true),
+      onExit: (_) => _set(false),
+      child: Listener(
+        onPointerDown: (_) => _set(true),
+        onPointerUp: (_) => _set(false),
+        onPointerCancel: (_) => _set(false),
+        child: AnimatedOpacity(
+          opacity: _near ? 1 : 0.4,
+          duration: Motion.fast,
+          child: Tooltip(
+            message: 'Show toolbars (F11)',
+            // 32 dp to see, but a full 40-dp target around it.
+            child: Semantics(
+              button: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onExit,
+                child: SizedBox.square(
+                  dimension: Targets.bar,
+                  child: Center(
+                    child: FloatingPanel(
+                      radius: Radii.pill,
+                      padding: EdgeInsets.zero,
+                      child: SizedBox.square(
+                        dimension: 32,
+                        child: Icon(
+                          Symbols.fullscreen_exit_rounded,
+                          size: 18,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

@@ -88,6 +88,9 @@ class EditorChrome extends StatelessWidget {
     this.navigatorActivity,
     this.floatAt,
     this.onFloatMoved,
+    this.puck,
+    this.puckAt,
+    this.onPuckMoved,
   });
 
   final ChromeLayout layout;
@@ -113,6 +116,12 @@ class EditorChrome extends StatelessWidget {
   final VoidCallback onExitFocus;
   final (double, double)? floatAt;
   final ValueChanged<(double, double)>? onFloatMoved;
+
+  /// Focus mode's tool puck (`ToolPuck`), where it was left ([puckAt],
+  /// bottom centre by default).
+  final Widget? puck;
+  final (double, double)? puckAt;
+  final ValueChanged<(double, double)>? onPuckMoved;
 
   @override
   Widget build(BuildContext context) {
@@ -211,6 +220,18 @@ class EditorChrome extends StatelessWidget {
             ],
           ),
         ),
+        // Only in focus mode: otherwise its controls would sit (hidden) in
+        // the tree beside the toolbar's own.
+        if (puck case final puck? when focus)
+          Positioned.fill(
+            child: ToolbarSlot(
+              toolbar: puck,
+              insets: safe,
+              floatAt: puckAt ?? const (0.5, 1.0),
+              onFloatMoved: onPuckMoved,
+              visible: focus,
+            ),
+          ),
         Positioned(
           top: safe.top + Gaps.sm,
           right: safe.right + Gaps.sm,

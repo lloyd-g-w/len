@@ -96,9 +96,10 @@ void main() {
 
   testWidgets('focus mode hides the chrome and comes back', (tester) async {
     await pumpEditor(tester);
+    // The top bar's Undo (focus mode's puck has its own, later in the tree).
+    final undo = find.byTooltip('Undo (Ctrl+Z)').first;
     bool barVisible() =>
-        tester.getTopLeft(find.byTooltip('Undo (Ctrl+Z)')).dy >= 0 &&
-        find.byTooltip('Undo (Ctrl+Z)').hitTestable().evaluate().isNotEmpty;
+        tester.getTopLeft(undo).dy >= 0 && undo.hitTestable().evaluate().isNotEmpty;
     expect(barVisible(), isTrue);
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();

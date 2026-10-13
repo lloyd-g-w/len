@@ -461,5 +461,7 @@ Phase 1 comes first because every later phase then gets smaller.
   a thumbnail strip, the overview's All / Bookmarked / Outline filter.
 - Phase 6 in progress: the floating palette snaps to edges and runs down
   the sides (`ToolbarSlot.snap`, `ToolbarAxis`); the snapped edge is
-  implied by `toolbarFloat` (x of 0 or 1 is a side). Not yet: the puck,
-  immersive focus page keys, split focus dimming.
+  implied by `toolbarFloat` (x of 0 or 1 is a side). Focus mode shows the
+  `ToolPuck` (active tool ▾ and undo; dragged and snapped like the palette,
+  remembered in `puckFloat`) and a 32-dp exit button at 40 % until hovered
+  or touched. Not yet: the puck's two-finger hide, split focus dimming.

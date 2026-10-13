@@ -108,6 +108,18 @@ class SettingsRepository {
   set toolbarFloat((double, double)? value) =>
       value == null ? _remove('toolbar_float') : _set('toolbar_float', '${value.$1},${value.$2}');
 
+  /// Where the focus-mode tool puck sits, like [toolbarFloat]; null = not
+  /// placed yet (bottom centre).
+  (double, double)? get puckFloat {
+    final parts = _get('puck_float')?.split(',');
+    if (parts == null || parts.length != 2) return null;
+    final x = double.tryParse(parts[0]), y = double.tryParse(parts[1]);
+    return x == null || y == null ? null : (x, y);
+  }
+
+  set puckFloat((double, double)? value) =>
+      value == null ? _remove('puck_float') : _set('puck_float', '${value.$1},${value.$2}');
+
   /// Paper styles (by name) of the latest new notebooks, most recent first.
   List<String> get recentPapers => [
     for (final part in (_get('recent_papers') ?? '').split(','))
