@@ -350,6 +350,13 @@ everywhere.**
   disk) and, above 500 MB of files, ask first with the size, pointing to
   per-folder export or sync. Import still reads the file into memory on the
   web.
+  *Then (`fix/r8-followups`):* imports and restores in a browser read the
+  picked file in slices (`Blob.slice`): `RangedZip` loads the zip's
+  structure (directory, headers), then each entry as it is read, blobs 1 MB
+  at a time (`data/archive/ranged_input.dart`), so a big backup is never in
+  memory whole. On the way: reading a backup's contents (for the restore
+  question) closed its record parts, so a restore from a file on disk then
+  imported no records; parts are now read without being kept or closed.
 
 ✅ **R8-18 P2 · Desktop writes the backup, then asks where to save it.**
 - *What:* `createLenFileOutput` writes to a temporary folder

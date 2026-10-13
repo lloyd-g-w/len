@@ -1791,7 +1791,10 @@ save first and write there (a `.part` file until done), phones write a
 temporary file to share or save, browsers write through the save picker
 (`showSaveFilePicker`, streamed via `ChunkedOutput`) where there is one,
 else into a blob of 4 MB chunks to download, and warn before backing up
-more than 500 MB of files. An import opens the file (`LenSource`: the
+more than 500 MB of files. Browsers read a picked file in slices
+(`RangedInput` over `Blob.slice`; `RangedZip` loads the zip's structure
+first, then each entry as it is read), natively it is read in place. An
+import opens the file (`LenSource`: the
 manifest and, for a backup, the folders and notebooks it holds), stages
 everything, remaps ids (`LenRemap`), checks each blob's hash and commits in
 one transaction (`LenImportCommit`). Damage (a blob, a line, a part) is

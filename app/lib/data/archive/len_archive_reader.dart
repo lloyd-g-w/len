@@ -148,6 +148,7 @@ class LenArchiveReader {
     final archive = source.archive;
     final parts = source.parts;
     final problems = <String>[];
+    if (archive.find(LenFormat.blobIndexName) case final entry?) await LenSource.load(entry);
     final index = _blobIndex(archive, problems);
     final steps = math.max(1, index.length + parts.length);
     var done = 0;
@@ -177,13 +178,12 @@ class LenArchiveReader {
         cancel?.check();
         final List<SyncRecord?> records;
         try {
+          await LenSource.load(part);
           records = LenSource.readRecords(part);
         } on LenArchiveException catch (e) {
           problems.add('${e.details}');
           lost++;
           continue;
-        } finally {
-          part.closeSync();
         }
         final before = skipped;
         stores.any.database.transaction(() {
@@ -256,7 +256,7 @@ class LenArchiveReader {
   /// null if it is damaged (left out).
   Future<bool?> _putBlob(ArchiveFile entry, String sha, String mime) async {
     try {
-      return await blobs.putVerified(sha, () => _chunks(entry), mime: mime);
+      return await blobs.putVerified(sha, () => LenSource.chunks(entry), mime: mime);
     } on FormatException catch (e) {
       debugPrint('Damaged blob: ${e.message}');
       return null;
@@ -265,20 +265,6 @@ class LenArchiveReader {
       return null;
     } finally {
       entry.closeSync();
-    }
-  }
-
-  static Stream<List<int>> _chunks(ArchiveFile entry) async* {
-    final InputStream? content;
-    try {
-      content = entry.getContent();
-    } on Object catch (e) {
-      throw FormatException('Unreadable entry ${entry.name}: $e');
-    }
-    if (content == null) return;
-    content.reset();
-    while (!content.isEOS) {
-      yield content.readBytes(math.min(1 << 16, content.length)).toUint8List();
     }
   }
 }
