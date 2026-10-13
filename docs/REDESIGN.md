@@ -1,6 +1,6 @@
 # Len: UI overhaul spec
 
-Status: phases 1–4 implemented (see §6 *Progress*); the rest is the plan.
+Status: phases 1–5 implemented (see §6 *Progress*); phases 6–8 are the plan.
 The cuts this spec assumes are in [`SIMPLIFY.md`](SIMPLIFY.md); where it conflicts with `UX_AUDIT.md`, this spec wins.
 
 **Goal.** Paper first, with chrome that recedes (GoodNotes 6, Notewise, Apple Notes): one
@@ -457,5 +457,7 @@ Phase 1 comes first because every later phase then gets smaller.
   a nested menu. Audio's ▾ shows once the notebook has recordings (as before).
 - The phone bar's tab switcher button went with this phase (no room in
   `← title ↶ ↷ ⋯`); *Open notebooks (n)* is in ⋯.
-- Not yet: the page indicator (phase 5) and floating snapping / vertical axis
-  (phase 6); floating keeps today's free placement.
+- Phase 5 (navigation) is done: the peeking page indicator, Go to page with
+  a thumbnail strip, the overview's All / Bookmarked / Outline filter.
+- Not yet: floating snapping / vertical axis (phase 6); floating keeps
+  today's free placement.
