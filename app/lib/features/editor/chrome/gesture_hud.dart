@@ -80,6 +80,9 @@ class GestureHud extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: scheme.inverseSurface,
                     borderRadius: BorderRadius.circular(Radii.md),
+                    // Dark mode's slab is light, like the paper under it:
+                    // the hairline keeps its edge.
+                    border: Border.fromBorderSide(Surfaces.border(scheme)!),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
