@@ -16,6 +16,7 @@ import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
 import 'data/outline_repository.dart';
 import 'data/page_repository.dart';
+import 'data/raster_store.dart';
 import 'data/recording_repository.dart';
 import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
@@ -63,6 +64,7 @@ class AppServices {
     required this.templates,
     required this.outlines,
     required this.outline,
+    required this.rasterStore,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -79,6 +81,7 @@ class AppServices {
     HandwritingRecognizer? recognizer,
     Stream<List<XFile>>? incomingFiles,
     OutlinePreparer outlines = const InlineOutlinePreparer(),
+    RasterStore? rasterStore,
   }) {
     final settings = SettingsRepository(database);
     final deviceId = settings.deviceId(clock);
@@ -146,6 +149,7 @@ class AppServices {
       templates: templates,
       outlines: outlines,
       outline: outline,
+      rasterStore: rasterStore,
     );
   }
 
@@ -194,6 +198,10 @@ class AppServices {
 
   /// Notebooks' own outlines (tables of contents).
   final OutlineRepository outline;
+
+  /// Level-of-detail rasters of canvas chunks kept across restarts (none
+  /// on the web or in tests).
+  final RasterStore? rasterStore;
 
   /// Makes recorders and players (created only when used).
   final AudioBackends audio;

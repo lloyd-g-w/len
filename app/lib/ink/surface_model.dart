@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -7,8 +8,10 @@ import 'package:flutter/scheduler.dart';
 
 import '../core/clock.dart';
 import '../data/element_repository.dart';
+import '../data/raster_store.dart';
 import '../data/stroke_reader.dart';
 import '../data/stroke_repository.dart';
+import '../domain/chunk_digest.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
 import '../domain/stroke_chunks.dart';
@@ -71,6 +74,7 @@ class SurfaceModel extends ChangeNotifier {
     this.clock = const Clock(),
     this.writeBehind = false,
     this.outlines,
+    this.rasterStore,
   }) {
     _loading = SurfaceLoader(
       reader: reader ?? _repository,
@@ -91,6 +95,11 @@ class SurfaceModel extends ChangeNotifier {
 
   /// Decoded bitmaps for image elements (null: images show placeholders).
   final ElementImages? images;
+
+  /// Where level-of-detail rasters of this surface's chunks persist, if
+  /// anywhere (canvases, natively): a view zoomed far out draws them
+  /// without loading the chunks (see [showStored]).
+  final RasterStore? rasterStore;
 
   /// Soft cap on loaded chunks before far-away ones are evicted.
   final int maxLoadedChunks;
@@ -135,6 +144,13 @@ class SurfaceModel extends ChangeNotifier {
   ChunkRange? _lastRange;
   Rect? _lastVisible;
 
+  /// Loaded chunks outside this range may be evicted.
+  ChunkRange? _keep;
+
+  /// Set by [showStored]: only [_wanted] chunks are read.
+  bool _stored = false;
+  final Set<ChunkKey> _wanted = {};
+
   /// Emits chunks whose rendering is stale; `null` means "everything".
   Stream<Set<ChunkKey>?> get invalidations => _changes.stream.map((c) => c.chunks);
 
@@ -155,6 +171,32 @@ class SurfaceModel extends ChangeNotifier {
     final elements = _elements.populatedIn(range);
     if (elements.isEmpty) return strokes;
     return {...strokes, ...elements}.toList();
+  }
+
+  /// Whether everything stored in [key] is in memory.
+  bool isComplete(ChunkKey key) => _loaded.contains(key) && !_arriving.contains(key);
+
+  /// The digest of [key]'s content when it is all in memory and drawn as
+  /// stored: none hidden (selected, being edited) and no images (their
+  /// look depends on decoding). Null otherwise.
+  ChunkDigest? digestOf(ChunkKey key) {
+    if (!isComplete(key)) return null;
+    final strokes = _strokes.inChunk(key);
+    final elements = _elements.inChunk(key);
+    if (_hidden.isNotEmpty &&
+        (strokes.any((s) => _hidden.contains(s.id)) ||
+            elements.any((e) => _hidden.contains(e.id)))) {
+      return null;
+    }
+    if (elements.any((e) => e.knownType == ElementType.image)) return null;
+    return ChunkDigest.of(strokes, elements);
+  }
+
+  /// The digests of the populated chunks within [range] as stored (after
+  /// writing pending edits).
+  FutureOr<Map<ChunkKey, ChunkDigest>> storedDigests(ChunkRange range) {
+    flush();
+    return _loading.reader.chunkDigests(surfaceId, range);
   }
 
   /// Strokes overlapping [key], in paint order.
@@ -308,9 +350,63 @@ class SurfaceModel extends ChangeNotifier {
     if (visibleWorld.isEmpty || !visibleWorld.isFinite) return;
     _lastVisible = visibleWorld;
     final range = ChunkGrid.rangeFor(visibleWorld.inflate(ChunkGrid.size));
-    if (range == _lastRange) return;
+    _keep = range;
+    if (_stored) {
+      _stored = false;
+      _wanted.clear();
+    } else if (range == _lastRange) {
+      return;
+    }
     _lastRange = range;
     flush(); // Reads must see every edit.
+    _loading.request(range);
+  }
+
+  /// Like [ensureLoaded], for a view zoomed out so far that it draws
+  /// stored rasters of the chunks ([rasterStore]): nothing is read, except
+  /// chunks asked for with [requestChunks] (those without a raster) or,
+  /// once something needs the content (a pen touching down), everything
+  /// visible ([loadVisible]).
+  void showStored(Rect visibleWorld) {
+    if (visibleWorld.isEmpty || !visibleWorld.isFinite) return;
+    _lastVisible = visibleWorld;
+    final keep = _keep = ChunkGrid.rangeFor(visibleWorld.inflate(ChunkGrid.size));
+    _wanted.removeWhere((key) => !keep.contains(key));
+    _stored = true;
+    _lastRange = null;
+  }
+
+  /// Whether the view shows stored rasters (see [showStored]).
+  bool get showsStored => _stored;
+
+  /// Loads what the view shows, after [showStored] read only part of it:
+  /// editing (erasing, selecting, writing) needs the content.
+  void loadVisible() {
+    final visible = _lastVisible;
+    if (_stored && visible != null) ensureLoaded(visible);
+  }
+
+  /// Reads [keys] (chunks a [showStored] view has no raster of), if not in
+  /// memory yet.
+  void requestChunks(Iterable<ChunkKey> keys) {
+    if (_disposed || !_stored) return;
+    var added = false;
+    for (final key in keys) {
+      if (!_loaded.contains(key) && !_arriving.contains(key) && _wanted.add(key)) added = true;
+    }
+    if (!added) return;
+    // All wanted at once: a newer request replaces one still queued.
+    final first = _wanted.first;
+    var range = ChunkRange(first.x, first.y, first.x, first.y);
+    for (final k in _wanted) {
+      range = ChunkRange(
+        math.min(range.minX, k.x),
+        math.min(range.minY, k.y),
+        math.max(range.maxX, k.x),
+        math.max(range.maxY, k.y),
+      );
+    }
+    flush();
     _loading.request(range);
   }
 
@@ -340,6 +436,10 @@ class SurfaceModel extends ChangeNotifier {
       if (range.contains(key)) key,
     for (final key in _arriving)
       if (range.contains(key)) key,
+    // Showing stored rasters: only the chunks asked for.
+    if (_stored)
+      for (final key in range.keys)
+        if (!_wanted.contains(key)) key,
   };
 
   void _onLoad(ChunkLoad load) {
@@ -456,7 +556,8 @@ class SurfaceModel extends ChangeNotifier {
       _loaded.addAll(load.chunks);
       if (changed.isNotEmpty) _changed(changed, loaded: true);
     }
-    final keep = _lastRange;
+    _wanted.removeAll(load.chunks);
+    final keep = _keep;
     if (keep != null && _loaded.length > maxLoadedChunks) _evictOutside(keep);
   }
 
@@ -469,11 +570,12 @@ class SurfaceModel extends ChangeNotifier {
     _elements.clear();
     _loaded.clear();
     _arriving.clear();
+    _wanted.clear();
     _lastRange = null;
     _loading.reset();
     _changes.add(const SurfaceChange(null));
     final visible = _lastVisible;
-    if (visible != null) ensureLoaded(visible);
+    if (visible != null && !_stored) ensureLoaded(visible);
     notifyListeners();
   }
 

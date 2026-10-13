@@ -3,6 +3,7 @@ import 'package:sqlite3/common.dart';
 
 import '../platform/sqlite_connection.dart';
 
+import 'chunk_digest_migration.dart';
 import 'search/ink_text_schema.dart';
 import 'search/search_schema.dart';
 
@@ -132,6 +133,7 @@ class AppDatabase {
     _recordingTrim,
     _notebookPaperData,
     _strokeEndStyles,
+    ChunkDigestMigration.migrate,
   ];
 
   /// Version 8: make the pen's end shape explicit on stored strokes. Upgrade

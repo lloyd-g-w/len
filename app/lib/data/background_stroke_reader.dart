@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:sqlite3/sqlite3.dart';
 
+import '../domain/chunk_digest.dart';
 import '../domain/chunk_grid.dart';
 import 'stroke_queries.dart';
 import 'stroke_reader.dart';
@@ -31,6 +32,10 @@ class BackgroundStrokeReader implements StrokeReader {
   @override
   Future<ChunkLoad> read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) =>
       _call(_Read(surfaceId, range, skip), () => fallback.read(surfaceId, range, skip: skip));
+
+  @override
+  Future<Map<ChunkKey, ChunkDigest>> chunkDigests(String surfaceId, ChunkRange range) =>
+      _call(_Digests(surfaceId, range), () => fallback.chunkDigests(surfaceId, range));
 
   @override
   Future<Map<ChunkKey, int>> chunkDensity(String surfaceId) =>
@@ -92,6 +97,7 @@ class BackgroundStrokeReader implements StrokeReader {
             range,
             skip: skip,
           ),
+          _Digests(:final surfaceId, :final range) => queries.chunkDigests(surfaceId, range),
           _Density(:final surfaceId) => queries.chunkDensity(surfaceId),
           _Bounds(:final surfaceId) => queries.contentBounds(surfaceId),
         });
@@ -111,6 +117,11 @@ final class _Read extends _Request {
   const _Read(super.surfaceId, this.range, this.skip);
   final ChunkRange range;
   final Set<ChunkKey> skip;
+}
+
+final class _Digests extends _Request {
+  const _Digests(super.surfaceId, this.range);
+  final ChunkRange range;
 }
 
 final class _Density extends _Request {

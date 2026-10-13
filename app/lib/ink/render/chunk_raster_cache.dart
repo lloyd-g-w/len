@@ -4,11 +4,13 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
+import '../../domain/chunk_digest.dart';
 import '../../domain/chunk_grid.dart';
 import '../../domain/stroke.dart';
 import '../lab/perf_probe.dart';
 import '../surface_model.dart';
 import 'chunk_picture_cache.dart';
+import 'stored_rasters.dart';
 
 /// Level-of-detail rasters of chunks, for zoomed-out views.
 ///
@@ -33,9 +35,18 @@ class ChunkRasterCache extends ChangeNotifier {
     this.maxInFlight = 8,
   }) {
     _subscription = pictures.model.changes.listen(_onChange);
+    final store = pictures.model.rasterStore;
+    if (store != null) {
+      _stored = StoredRasters(pictures.model, store, onChanged: _scheduleNotify);
+    }
   }
 
   final ChunkPictureCache pictures;
+
+  SurfaceModel get _model => pictures.model;
+
+  /// Rasters kept across restarts, if the surface has a store.
+  StoredRasters? _stored;
 
   /// Upper bound on the memory held by cached images.
   final int maxBytes;
@@ -89,8 +100,36 @@ class ChunkRasterCache extends ChangeNotifier {
   /// Bytes held by cached images.
   int get bytes => _bytes;
 
-  /// Whether rasters are queued or being made.
-  bool get isBusy => _queue.isNotEmpty || _inFlight > 0;
+  /// Whether rasters are queued, being made, read or written.
+  bool get isBusy =>
+      _queue.isNotEmpty || _inFlight > 0 || _reads.isNotEmpty || (_stored?.writing ?? 0) > 0;
+
+  /// Stored rasters being read, by name.
+  final Set<String> _reads = {};
+
+  /// Stored rasters found missing this session.
+  final Set<String> _misses = {};
+
+  /// Chunks to read from storage (no raster stored), asked for together.
+  final Set<ChunkKey> _toLoad = {};
+
+  /// Content digest each cached image shows, when known: a stale image
+  /// whose chunk turns out to hold the same content again (it finished
+  /// loading, an edit was undone) is current without rasterising.
+  final Map<_Key, ChunkDigest> _imageDigests = {};
+
+  /// The content version a stale image's digest was last compared at.
+  final Map<_Key, int> _digestChecked = {};
+
+  /// The populated chunks within [range]: those in memory and, while the
+  /// model shows stored rasters ([SurfaceModel.showStored]), those in
+  /// storage.
+  List<ChunkKey> chunksIn(ChunkRange range) {
+    final inMemory = _model.chunksIn(range);
+    final stored = _stored;
+    if (stored == null || !_model.showsStored) return inMemory;
+    return {...inMemory, ...stored.chunksIn(range)}.toList();
+  }
 
   /// Content version each cached image was made from.
   final Map<_Key, int> _imageVersions = {};
@@ -135,10 +174,12 @@ class ChunkRasterCache extends ChangeNotifier {
     final exact = _images.remove(key);
     if (exact != null) {
       _images[key] = exact; // Most recently used.
-      if ((_imageVersions[key] ?? 0) != _versionOf(chunk)) _enqueue(key); // Stale.
+      if ((_imageVersions[key] ?? 0) != _versionOf(chunk) && !_sameContent(key)) {
+        _request(key); // Stale.
+      }
       return exact;
     }
-    _enqueue(key);
+    _request(key);
     ui.Image? best;
     var bestDistance = 1 << 30;
     for (final other in levels) {
@@ -149,6 +190,73 @@ class ChunkRasterCache extends ChangeNotifier {
       }
     }
     return best;
+  }
+
+  /// Whether the stale image of [key] shows what its chunk holds now,
+  /// by digest; it is then marked current.
+  bool _sameContent(_Key key) {
+    final shown = _imageDigests[key];
+    final version = _versionOf(key.chunk);
+    if (shown == null || _digestChecked[key] == version) return false;
+    _digestChecked[key] = version;
+    if (_model.digestOf(key.chunk) != shown) return false;
+    _imageVersions[key] = version;
+    _trimOverlay(key.chunk);
+    return true;
+  }
+
+  /// Gets a raster of [key] made. A chunk storage holds more of than
+  /// memory does is read from the store if a raster of its stored content
+  /// is there, else loaded (its stale image standing in meanwhile, or a
+  /// partial one made if it has none); others are rasterised.
+  void _request(_Key key) {
+    final stored = _stored;
+    final chunk = key.chunk;
+    if (stored == null || !stored.isStored(chunk) || _model.isComplete(chunk)) {
+      return _enqueue(key);
+    }
+    final digest = stored.digestOf(chunk);
+    if (digest != null && key.level <= StoredRasters.maxLevel) {
+      final name = stored.nameOf(chunk, key.level, digest);
+      if (_reads.contains(name)) return;
+      if (!_misses.contains(name)) return _read(key, name, digest);
+    }
+    _notStored(key);
+  }
+
+  void _read(_Key key, String name, ChunkDigest digest) {
+    _reads.add(name);
+    final version = _versionOf(key.chunk);
+    unawaited(
+      _stored!.read(name).then((image) {
+        _reads.remove(name);
+        if (image != null) {
+          // Still right if the chunk's stored content is: loads around it
+          // (strokes reaching into it) change nothing stored.
+          final same = _stored?.digestOf(key.chunk) == digest;
+          return _store(key, same ? _versionOf(key.chunk) : version, image, digest: digest);
+        }
+        _misses.add(name);
+        if (!_disposed) _notStored(key);
+      }),
+    );
+  }
+
+  /// [key] has no stored raster: its chunk is read from storage to make
+  /// one, and rasterised as far as it is in memory if nothing stands in.
+  void _notStored(_Key key) {
+    if (_disposed) return;
+    final chunk = key.chunk;
+    if (_toLoad.isEmpty) {
+      scheduleMicrotask(() {
+        if (!_disposed) _model.requestChunks(_toLoad);
+        _toLoad.clear();
+      });
+    }
+    _toLoad.add(chunk);
+    final hasImage = levels.any((l) => _images.containsKey((chunk: chunk, level: l)));
+    final inMemory = _model.chunksIn(ChunkRange(chunk.x, chunk.y, chunk.x, chunk.y)).isNotEmpty;
+    if (!hasImage && inMemory) _enqueue(key);
   }
 
   void _enqueue(_Key key) {
@@ -183,6 +291,10 @@ class ChunkRasterCache extends ChangeNotifier {
 
   void _rasterise(_Key key, int version) {
     final level = key.level;
+    // What the raster will show, if it may be stored.
+    final digest = _stored != null && level <= StoredRasters.maxLevel
+        ? _model.digestOf(key.chunk)
+        : null;
     final recorder = ui.PictureRecorder();
     final rect = ChunkGrid.rectOf(key.chunk);
     ui.Canvas(recorder)
@@ -197,7 +309,7 @@ class ChunkRasterCache extends ChangeNotifier {
       picture
           .toImage(level, level)
           .then(
-            (image) => _store(key, version, image),
+            (image) => _store(key, version, image, digest: digest, keep: true),
             onError: (Object error, StackTrace stack) => FlutterError.reportError(
               FlutterErrorDetails(exception: error, stack: stack, library: 'len rendering'),
             ),
@@ -211,7 +323,13 @@ class ChunkRasterCache extends ChangeNotifier {
     );
   }
 
-  void _store(_Key key, int version, ui.Image image) {
+  /// Caches [image] as [key]'s raster of content [version] (showing
+  /// content [digest], if known); with [keep], a copy goes to storage.
+  void _store(_Key key, int version, ui.Image image, {ChunkDigest? digest, bool keep = false}) {
+    if (keep && digest != null && !_disposed) {
+      // Stored even if the chunk changed meanwhile: it shows [digest].
+      _stored!.write(_stored!.nameOf(key.chunk, key.level, digest), image.clone());
+    }
     if (_disposed || version != _versionOf(key.chunk)) {
       image.dispose(); // The chunk changed while it was being rasterised.
       return;
@@ -223,6 +341,8 @@ class ChunkRasterCache extends ChangeNotifier {
     }
     _images[key] = image;
     _imageVersions[key] = version;
+    _forgetDigest(key);
+    if (digest != null) _imageDigests[key] = digest;
     _bytes += _sizeOf(key);
     _edited.remove(key.chunk);
     _trimOverlay(key.chunk);
@@ -231,12 +351,18 @@ class ChunkRasterCache extends ChangeNotifier {
       _bytes -= _sizeOf(oldest);
       _images.remove(oldest)!.dispose();
       _imageVersions.remove(oldest);
+      _forgetDigest(oldest);
       _trimOverlay(oldest.chunk);
     }
     _scheduleNotify();
   }
 
   static int _sizeOf(_Key key) => key.level * key.level * 4;
+
+  void _forgetDigest(_Key key) {
+    _imageDigests.remove(key);
+    _digestChecked.remove(key);
+  }
 
   void _scheduleNotify() {
     if (_notifyScheduled) return;
@@ -263,6 +389,7 @@ class ChunkRasterCache extends ChangeNotifier {
   void _onChange(SurfaceChange change) {
     final appended = change.appended;
     final chunks = change.chunks;
+    if (!change.loaded) _stored?.forget(chunks);
     if (change.loaded && chunks != null) {
       // Stored content arrived: the images (and their overlays) stand in,
       // stale, until new ones are made — no vector frames while a canvas
@@ -303,6 +430,7 @@ class ChunkRasterCache extends ChangeNotifier {
       _edited.add(chunk);
       for (final level in levels) {
         _imageVersions.remove((chunk: chunk, level: level));
+        _forgetDigest((chunk: chunk, level: level));
         final image = _images.remove((chunk: chunk, level: level));
         if (image == null) continue;
         _bytes -= level * level * 4;
@@ -313,6 +441,8 @@ class ChunkRasterCache extends ChangeNotifier {
 
   void _clear() {
     _imageVersions.clear();
+    _imageDigests.clear();
+    _digestChecked.clear();
     for (final image in _images.values) {
       image.dispose();
     }
@@ -324,6 +454,7 @@ class ChunkRasterCache extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _stored?.dispose();
     _timer?.cancel();
     unawaited(_subscription.cancel());
     _clear();

@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../domain/chunk_grid.dart';
 import '../domain/paper.dart';
 import 'input/ink_input_controller.dart';
 import 'input/live_ink.dart';
@@ -8,6 +9,7 @@ import 'render/chunk_picture_cache.dart';
 import 'render/chunk_raster_cache.dart';
 import 'render/ink_painters.dart';
 import 'render/paper_painter.dart';
+import 'render/stored_rasters.dart';
 import 'render/tiles/ink_tile_cache.dart';
 import 'surface_model.dart';
 import 'viewport.dart';
@@ -83,7 +85,20 @@ class _InkSurfaceState extends State<InkSurface> {
     super.dispose();
   }
 
-  void _loadVisible() => widget.model.ensureLoaded(widget.viewport.visibleWorld);
+  /// Device pixels per logical pixel, as last built.
+  double _devicePixelRatio = 1;
+
+  /// Loads what is visible — or, zoomed out so far that chunks are drawn
+  /// from rasters a store keeps, only what has no stored raster.
+  void _loadVisible() {
+    final model = widget.model, viewport = widget.viewport;
+    if (model.rasterStore != null &&
+        ChunkGrid.size * viewport.scale * _devicePixelRatio <= StoredRasters.maxLevel) {
+      model.showStored(viewport.visibleWorld);
+    } else {
+      model.ensureLoaded(viewport.visibleWorld);
+    }
+  }
 
   /// Loading notifies model listeners, which must not happen during build.
   void _loadVisibleAfterFrame() {
@@ -102,6 +117,7 @@ class _InkSurfaceState extends State<InkSurface> {
 
   @override
   Widget build(BuildContext context) {
+    _devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     final input = widget.input;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -155,7 +171,7 @@ class _InkSurfaceState extends State<InkSurface> {
                       clip: widget.page,
                       rasters: _rasters,
                       tiles: _tiles,
-                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                      devicePixelRatio: _devicePixelRatio,
                       self: {input.content?.selection, input.content?.text},
                     ),
                   ),

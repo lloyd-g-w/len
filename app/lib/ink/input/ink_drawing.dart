@@ -96,6 +96,9 @@ class InkDrawing {
   /// Starts a contact; [eraserTool] (default: [erase]) says whether the
   /// eraser tool rather than a stylus button or end erases.
   void start(PointerDownEvent e, {required bool erase, bool? eraserTool, bool lasso = false}) {
+    // Zoomed far out the view may show stored rasters only: what is
+    // erased, selected or written over must be in memory.
+    model.loadVisible();
     _drawPointer = e.pointer;
     _drawKind = e.kind;
     _drawStartTime = e.timeStamp;

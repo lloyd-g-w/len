@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:sqlite3/common.dart';
 
+import '../domain/chunk_digest.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
 import '../domain/surface_element.dart';
@@ -116,6 +117,33 @@ class StrokeQueries implements StrokeReader {
       strokes: loadChunks(surfaceId, missing),
       elements: loadElementChunks(surfaceId, missing),
     );
+  }
+
+  @override
+  Map<ChunkKey, ChunkDigest> chunkDigests(String surfaceId, ChunkRange range) {
+    List<Row> sums(String table) => _db.select(
+      'SELECT cx, cy, COUNT(*) AS n, SUM(digest) AS sum FROM $table '
+      'WHERE surface_id = ? AND cx BETWEEN ? AND ? AND cy BETWEEN ? AND ? GROUP BY cx, cy',
+      [surfaceId, range.minX, range.maxX, range.minY, range.maxY],
+    );
+    final digests = <ChunkKey, ChunkDigest>{
+      for (final r in sums('stroke_chunks'))
+        (x: r['cx'] as int, y: r['cy'] as int): ChunkDigest(
+          strokes: r['n'] as int,
+          strokeSum: r['sum'] as int,
+        ),
+    };
+    for (final r in sums('element_chunks')) {
+      final key = (x: r['cx'] as int, y: r['cy'] as int);
+      final strokes = digests[key] ?? const ChunkDigest();
+      digests[key] = ChunkDigest(
+        strokes: strokes.strokes,
+        strokeSum: strokes.strokeSum,
+        elements: r['n'] as int,
+        elementSum: r['sum'] as int,
+      );
+    }
+    return digests;
   }
 
   /// Strokes plus elements indexed in each populated chunk.
