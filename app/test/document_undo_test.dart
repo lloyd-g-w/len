@@ -79,6 +79,42 @@ void main() {
     expect(ids('A'), isEmpty);
   });
 
+  test('a page with history scrolled away goes from the view; undo still reaches it', () {
+    final db = AppDatabase.inMemory();
+    addTearDown(db.close);
+    final view = DocumentSurfaces(StrokeRepository(db, deviceId: 'd'), keepIdle: 0);
+    addTearDown(view.dispose);
+    view.showPages({'A': const Rect.fromLTWH(0, 0, 100, 100)});
+    final a = view.surfaceOf('A').model;
+    a.addStroke(_stroke('a1', 'A'));
+    view.showPages({'B': const Rect.fromLTWH(0, 0, 100, 100)});
+    expect(view.peek('A'), isNull, reason: 'its render caches are released');
+    expect(view.models.peek('A'), same(a), reason: 'undo keeps the model');
+    view.undo();
+    expect(a.strokesNear(const Rect.fromLTWH(0, 0, 100, 100)), isEmpty);
+  });
+
+  test('undo reaches back at most maxPages pages; older pages are let go', () {
+    final db = AppDatabase.inMemory();
+    addTearDown(db.close);
+    final view = DocumentSurfaces(StrokeRepository(db, deviceId: 'd'), keepIdle: 0);
+    addTearDown(view.dispose);
+    final pages = [for (var i = 0; i <= PageModels.maxPages; i++) 'p$i'];
+    for (final p in pages) {
+      view.showPages({p: const Rect.fromLTWH(0, 0, 100, 100)});
+      view.surfaceOf(p).model.addStroke(_stroke('$p-1', p));
+    }
+    view.showPages({'elsewhere': Rect.zero});
+    expect(view.models.peek(pages.first), isNull, reason: 'its steps were dropped');
+    expect(view.models.peek(pages.last), isNotNull);
+    var steps = 0;
+    while (view.canUndo) {
+      view.undo();
+      steps++;
+    }
+    expect(steps, PageModels.maxPages);
+  });
+
   test('two views share page models and one notebook-wide undo', () {
     final db = AppDatabase.inMemory();
     addTearDown(db.close);

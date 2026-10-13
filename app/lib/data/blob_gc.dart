@@ -24,6 +24,9 @@ class LocalBlobGc {
   /// Payloads of old tombstones are dropped first when set.
   final TombstonePayloads? tombstones;
 
+  /// How long after launch the app first calls [runIfDue].
+  static const startDelay = Duration(seconds: 20);
+
   /// Minimum time between two runs of [runIfDue].
   static const interval = Duration(days: 1);
 
@@ -43,9 +46,9 @@ class LocalBlobGc {
 
   /// Marks newly unreferenced blobs and deletes those past the grace period;
   /// returns the deleted ids.
-  Future<List<String>> run() {
+  Future<List<String>> run() async {
     final now = blobs.clock.nowMs();
-    tombstones?.purge(now);
+    await tombstones?.purge(now);
     return blobs.collectGarbage(
       () => references.all(tombstonesSince: TombstonePayloads.keptSince(now)),
     );

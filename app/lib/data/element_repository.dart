@@ -56,19 +56,8 @@ class ElementRepository extends SyncableTable {
 
   /// Tombstones every element on the given surfaces (e.g. a deleted notebook),
   /// all at [version] if given.
-  void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) {
-    database.transaction(() {
-      for (final surfaceId in surfaceIds) {
-        delete(
-          db
-              .select('SELECT id FROM elements WHERE surface_id = ? AND deleted = 0', [surfaceId])
-              .map((r) => r['id'] as String)
-              .toList(),
-          version: version,
-        );
-      }
-    });
-  }
+  void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) =>
+      tombstoneSurfaces(surfaceIds, chunkTable: 'element_chunks', version: version);
 
   /// Brings back tombstoned elements whose data is still kept.
   @override
@@ -86,15 +75,20 @@ class ElementRepository extends SyncableTable {
   }
 
   /// Drops the data of elements tombstoned before [before] (ms): they can
-  /// no longer be revived (see `TombstonePayloads`).
-  void purgeTombstones(int before) => db.execute(
-    "UPDATE elements SET data = '{}' WHERE deleted = 1 AND updated_at < ? AND data <> '{}'",
-    [before],
-  );
+  /// no longer be revived (see `TombstonePayloads`), at most [limit] (-1:
+  /// all); returns how many.
+  int purgeTombstones(int before, {int limit = -1}) {
+    db.execute(
+      "UPDATE elements SET data = '{}' WHERE rowid IN (SELECT rowid FROM elements "
+      "WHERE deleted = 1 AND updated_at < ? AND data <> '{}' LIMIT ?)",
+      [before, limit],
+    );
+    return db.updatedRows;
+  }
 
   /// Surface id of a stored element (live or tombstoned), if known.
   String? surfaceOf(String elementId) {
-    final rows = db.select('SELECT surface_id FROM elements WHERE id = ?', [elementId]);
+    final rows = database.select('SELECT surface_id FROM elements WHERE id = ?', [elementId]);
     return rows.isEmpty ? null : rows.first['surface_id'] as String;
   }
 
@@ -175,7 +169,7 @@ class ElementRepository extends SyncableTable {
     required String deviceId,
     required bool dirty,
   }) {
-    db.execute(
+    database.execute(
       '''
       INSERT INTO elements (id, surface_id, type, x, y, w, h, rotation, z, data,
                             created_at, updated_at, device_id, deleted, dirty)
@@ -214,7 +208,7 @@ class ElementRepository extends SyncableTable {
   }) {
     // A bare tombstone for never-seen rows stops older versions reviving them.
     // A known element keeps its data for a while (see `DeletionConflicts`).
-    db.execute(
+    database.execute(
       '''
       INSERT INTO elements (id, surface_id, type, x, y, w, h, data,
                             created_at, updated_at, device_id, deleted, dirty)
@@ -223,22 +217,18 @@ class ElementRepository extends SyncableTable {
         device_id = excluded.device_id, deleted = 1, dirty = excluded.dirty''',
       [id, updatedAt, deviceId, dirty ? 1 : 0],
     );
-    db.execute('DELETE FROM element_chunks WHERE element_id = ?', [id]);
+    database.execute('DELETE FROM element_chunks WHERE element_id = ?', [id]);
   }
 
   void _reindex(SurfaceElement e) {
-    db.execute('DELETE FROM element_chunks WHERE element_id = ?', [e.id]);
-    final insert = db.prepare(
-      'INSERT OR IGNORE INTO element_chunks (surface_id, cx, cy, element_id, digest) '
-      'VALUES (?, ?, ?, ?, ?)',
-    );
+    database.execute('DELETE FROM element_chunks WHERE element_id = ?', [e.id]);
     final digest = ChunkDigest.ofElement(e);
-    try {
-      for (final key in ElementChunks.of(e)) {
-        insert.execute([e.surfaceId, key.x, key.y, e.id, digest]);
-      }
-    } finally {
-      insert.close();
+    for (final key in ElementChunks.of(e)) {
+      database.execute(
+        'INSERT OR IGNORE INTO element_chunks (surface_id, cx, cy, element_id, digest) '
+        'VALUES (?, ?, ?, ?, ?)',
+        [e.surfaceId, key.x, key.y, e.id, digest],
+      );
     }
   }
 }

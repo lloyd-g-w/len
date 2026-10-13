@@ -23,12 +23,18 @@ class TombstonePayloads {
   /// The oldest tombstone version (ms) that still keeps its payload at [nowMs].
   static int keptSince(int nowMs) => nowMs - retention.inMilliseconds;
 
-  /// Drops the payloads of tombstones older than [retention].
-  void purge(int nowMs) {
+  /// Drops the payloads of tombstones older than [retention], [batch] rows
+  /// per transaction with a turn of the event loop between them (a deleted
+  /// notebook's month-old tombstones can be 100,000 strokes).
+  Future<void> purge(int nowMs) async {
     final before = keptSince(nowMs);
-    database.transaction(() {
-      strokes.purgeTombstones(before);
-      elements.purgeTombstones(before);
-    });
+    for (final table in [strokes.purgeTombstones, elements.purgeTombstones]) {
+      while (database.transaction(() => table(before, limit: batch)) == batch) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
   }
+
+  /// Rows purged per transaction (≈ 10 ms).
+  static const batch = 2000;
 }

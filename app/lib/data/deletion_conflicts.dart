@@ -52,7 +52,7 @@ class DeletionConflicts {
       _ => null,
     };
     if (known == null) return null;
-    final rows = _db.select(
+    final rows = notebooks.database.select(
       'SELECT device_id, updated_at FROM $collection WHERE id = ? AND deleted = 1 AND $known',
       [id],
     );

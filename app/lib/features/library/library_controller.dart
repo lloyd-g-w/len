@@ -26,9 +26,32 @@ enum LibrarySection { library, favorites, trash }
 /// happen in memory.
 class LibraryController extends ChangeNotifier with _LibraryOperations {
   LibraryController(this.services) {
-    // Notebooks trashed more than 30 days ago go for good.
-    if (services.notebooks.purgeTrash() > 0) unawaited(services.sync.syncNow());
     reload();
+    unawaited(_purgeTrash());
+  }
+
+  /// Deletes for good the notebooks trashed more than 30 days ago: after
+  /// the first frame, one notebook per event-loop turn (one may hold
+  /// thousands of strokes).
+  Future<void> _purgeTrash() async {
+    final expired = services.notebooks.expiredTrash();
+    if (expired.isEmpty) return;
+    for (final id in expired) {
+      await Future<void>.delayed(Duration.zero);
+      if (_disposed) return;
+      // Unless restored meanwhile.
+      services.notebooks.purgeIfExpired(id);
+    }
+    reload();
+    unawaited(services.sync.syncNow());
+  }
+
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   @override

@@ -14,7 +14,7 @@ class SurfaceStats {
   /// version. Any stroke or text box added, changed, erased or restored
   /// changes the result.
   SurfaceFingerprint fingerprint(String surfaceId) {
-    final row = _database.db.select(
+    final row = _database.select(
       'SELECT SUM(c) AS c, MAX(v) AS v FROM ('
       '  SELECT COUNT(*) AS c, COALESCE(MAX(updated_at), 0) AS v FROM strokes '
       '  WHERE surface_id = ? AND deleted = 0 '

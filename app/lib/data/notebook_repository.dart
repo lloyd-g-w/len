@@ -160,22 +160,32 @@ class NotebookRepository extends SyncableTable {
   /// forever (as long as sync keeps tombstones).
   static const trashKeptFor = Duration(days: 30);
 
+  /// Ids of the notebooks trashed more than [trashKeptFor] ago, the
+  /// oldest first.
+  List<String> expiredTrash() => [
+    for (final r in db.select(
+      'SELECT id FROM notebooks WHERE deleted = 0 AND trashed_at < ? ORDER BY trashed_at, id',
+      [_trashExpiry],
+    ))
+      r['id'] as String,
+  ];
+
+  int get _trashExpiry => clock.nowMs() - trashKeptFor.inMilliseconds;
+
+  /// Deletes notebook [id] forever if it is still in the trash and was
+  /// trashed more than [trashKeptFor] ago; returns whether it did.
+  bool purgeIfExpired(String id) {
+    final expired = db.select(
+      'SELECT 1 FROM notebooks WHERE id = ? AND deleted = 0 AND trashed_at < ?',
+      [id, _trashExpiry],
+    ).isNotEmpty;
+    if (expired) delete(id);
+    return expired;
+  }
+
   /// Deletes forever the notebooks trashed more than [trashKeptFor] ago;
   /// returns how many.
-  int purgeTrash() {
-    final before = clock.nowMs() - trashKeptFor.inMilliseconds;
-    final expired = [
-      for (final n in trashed())
-        if (n.trashedAt! < before) n.id,
-    ];
-    if (expired.isEmpty) return 0;
-    database.transaction(() {
-      for (final id in expired) {
-        delete(id);
-      }
-    });
-    return expired.length;
-  }
+  int purgeTrash() => database.transaction(() => expiredTrash().where(purgeIfExpired).length);
 
   /// Permanently deletes every notebook in the trash.
   void emptyTrash() {

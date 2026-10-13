@@ -78,25 +78,8 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
 
   /// Tombstones every stroke on the given surfaces (e.g. a deleted notebook),
   /// all at [version] if given (one deletion, see `NotebookRepository.delete`).
-  void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) {
-    final now = clock.nowMs();
-    database.transaction(() {
-      for (final surfaceId in surfaceIds) {
-        final ids = db
-            .select('SELECT id FROM strokes WHERE surface_id = ? AND deleted = 0', [surfaceId])
-            .map((r) => r['id'] as String)
-            .toList();
-        for (final id in ids) {
-          _tombstone(
-            id,
-            updatedAt: version ?? nextVersion(id, now),
-            deviceId: deviceId,
-            dirty: true,
-          );
-        }
-      }
-    });
-  }
+  void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) =>
+      tombstoneSurfaces(surfaceIds, chunkTable: 'stroke_chunks', version: version);
 
   /// Brings back tombstoned strokes whose points are still kept.
   @override
@@ -111,11 +94,16 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
   }
 
   /// Drops the points of strokes tombstoned before [before] (ms): they can
-  /// no longer be revived (see `TombstonePayloads`).
-  void purgeTombstones(int before) => db.execute(
-    "UPDATE strokes SET points = x'' WHERE deleted = 1 AND updated_at < ? AND length(points) > 0",
-    [before],
-  );
+  /// no longer be revived (see `TombstonePayloads`), at most [limit] (-1:
+  /// all); returns how many.
+  int purgeTombstones(int before, {int limit = -1}) {
+    db.execute(
+      'UPDATE strokes SET points = zeroblob(0) WHERE rowid IN (SELECT rowid FROM strokes '
+      'WHERE deleted = 1 AND updated_at < ? AND length(points) > 0 LIMIT ?)',
+      [before, limit],
+    );
+    return db.updatedRows;
+  }
 
   // ---------------------------------------------------------------------------
   // Sync
@@ -155,7 +143,7 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
 
   /// Surface id of a stored stroke (live or tombstoned), if known.
   String? surfaceOf(String strokeId) {
-    final rows = db.select('SELECT surface_id FROM strokes WHERE id = ?', [strokeId]);
+    final rows = database.select('SELECT surface_id FROM strokes WHERE id = ?', [strokeId]);
     return rows.isEmpty ? null : rows.first['surface_id'] as String;
   }
 
@@ -163,7 +151,7 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
   // Internals
 
   void _upsert(Stroke s, {required int updatedAt, required String deviceId, required bool dirty}) {
-    db.execute(
+    database.execute(
       '''
       INSERT INTO strokes (id, surface_id, tool, color, width, points,
                            created_at, updated_at, device_id, deleted, dirty, style)
@@ -201,7 +189,7 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
     // older live version arriving later cannot resurrect it. A known stroke
     // keeps its points for a while, so a deletion that raced an edit on
     // another device can be undone (`DeletionConflicts`).
-    db.execute(
+    database.execute(
       '''
       INSERT INTO strokes (id, surface_id, tool, color, width, points,
                            created_at, updated_at, device_id, deleted, dirty)
@@ -210,22 +198,18 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
         device_id = excluded.device_id, deleted = 1, dirty = excluded.dirty''',
       [id, updatedAt, deviceId, dirty ? 1 : 0],
     );
-    db.execute('DELETE FROM stroke_chunks WHERE stroke_id = ?', [id]);
+    database.execute('DELETE FROM stroke_chunks WHERE stroke_id = ?', [id]);
   }
 
   void _reindex(Stroke s) {
-    db.execute('DELETE FROM stroke_chunks WHERE stroke_id = ?', [s.id]);
-    final insert = db.prepare(
-      'INSERT OR IGNORE INTO stroke_chunks (surface_id, cx, cy, stroke_id, digest) '
-      'VALUES (?, ?, ?, ?, ?)',
-    );
+    database.execute('DELETE FROM stroke_chunks WHERE stroke_id = ?', [s.id]);
     final digest = ChunkDigest.ofStroke(s.id);
-    try {
-      for (final key in StrokeChunks.of(s)) {
-        insert.execute([s.surfaceId, key.x, key.y, s.id, digest]);
-      }
-    } finally {
-      insert.close();
+    for (final key in StrokeChunks.of(s)) {
+      database.execute(
+        'INSERT OR IGNORE INTO stroke_chunks (surface_id, cx, cy, stroke_id, digest) '
+        'VALUES (?, ?, ?, ?, ?)',
+        [s.surfaceId, key.x, key.y, s.id, digest],
+      );
     }
   }
 

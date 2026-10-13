@@ -197,6 +197,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   headless Chromium), canvas reads in time-budgeted slices (a Web Worker cannot share the
   IndexedDB-backed database; see ARCHITECTURE)
 - ⬜ Web: database in a worker (OPFS VFS, asynchronous data layer) to take all reads off the UI thread
+- ✅ Scale: 1,000-notebook libraries, 500-page notebooks, a first sync of a large library and a
+  years-old database stay responsive (no library-sized work before the first frame or in one
+  event-loop turn; bounded memory in long sessions); benchmarks and numbers in `PERFORMANCE.md`
+- ⬜ Scale: decode first-sync pages off the UI thread; lighter page-overview tiles
 - ✅ Theme mode (system/light/dark)
 - ✅ App shell: sidebar (tablet/desktop), drawer (phone), context menus,
   keyboard shortcuts (a grouped reference: Ctrl/⌘+/ or Settings → General), redesigned settings

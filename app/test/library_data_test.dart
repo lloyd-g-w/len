@@ -143,6 +143,16 @@ void main() {
       expect(notebooks.trashed().single.id, recent.id);
     });
 
+    test('an expired notebook restored before its purge is kept', () {
+      final old = notebook('Old');
+      notebooks.trash(old.id);
+      clock.now += const Duration(days: 31).inMilliseconds;
+      expect(notebooks.expiredTrash(), [old.id]);
+      notebooks.restore(old.id);
+      expect(notebooks.purgeIfExpired(old.id), isFalse);
+      expect(notebooks.get(old.id), isNotNull);
+    });
+
     test('favourite and move do not change the last-edited time', () {
       final a = notebook('A');
       final folder = folders.create(name: 'F', color: 1);

@@ -58,6 +58,18 @@ void main() {
 
   tearDown(() => db.close());
 
+  test('cached statements run with their arguments, also past the cache size', () {
+    db.execute('CREATE TABLE t (k INTEGER, v TEXT)');
+    for (var i = 0; i < 100; i++) {
+      // A different statement each time: older ones are closed and dropped.
+      db.execute('INSERT INTO t (k, v) VALUES (?, ?) -- $i', [i, 'v$i']);
+    }
+    for (var round = 0; round < 2; round++) {
+      expect(db.select('SELECT v FROM t WHERE k = ?', [42]).single['v'], 'v42');
+    }
+    expect(db.select('SELECT COUNT(*) AS n FROM t').single['n'], 100);
+  });
+
   group('StrokeRepository', () {
     test('loads only strokes in the requested chunks', () {
       strokes.save([stroke('near', const Offset(10, 10)), stroke('far', const Offset(5e5, 5e5))]);
@@ -76,6 +88,23 @@ void main() {
       final dirty = strokes.dirtyRecords(10);
       expect(dirty.single.deleted, isTrue);
       expect(dirty.single.data, isNull);
+    });
+
+    test('deleting a surface tombstones its live strokes, each at a newer version', () {
+      strokes.save([stroke('a', Offset.zero), stroke('b', const Offset(5e5, 5e5))]);
+      strokes.markClean([(id: 'a', updatedAt: clock.now), (id: 'b', updatedAt: clock.now)]);
+      final saved = clock.now;
+      clock.now -= 50; // A clock that went back: still later than each version.
+      strokes.deleteSurfaces(['s']);
+      final dirty = strokes.dirtyRecords(10);
+      expect(dirty.map((r) => (r.id, r.deleted, r.updatedAt)), [
+        ('a', true, saved + 1),
+        ('b', true, saved + 1),
+      ]);
+      expect(strokes.populatedChunks('s', ChunkGrid.rangeFor(Rect.largest)), isEmpty);
+      // A tombstone keeps its points (a deletion conflict may revive it).
+      strokes.revive(['a']);
+      expect(strokes.loadChunks('s', [(x: 0, y: 0)]).single.points, isNotEmpty);
     });
 
     test('markClean keeps rows that changed after being read', () {

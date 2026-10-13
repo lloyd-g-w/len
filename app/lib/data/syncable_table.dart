@@ -40,7 +40,7 @@ abstract class SyncableTable implements SyncableStore {
   /// `markClean` wrongly clears it.
   int nextVersion(String id, [int? now]) {
     final time = now ?? clock.nowMs();
-    final rows = db.select('SELECT updated_at FROM $table WHERE id = ?', [id]);
+    final rows = database.select('SELECT updated_at FROM $table WHERE id = ?', [id]);
     if (rows.isEmpty) return time;
     final previous = rows.first['updated_at'] as int;
     return time > previous ? time : previous + 1;
@@ -51,6 +51,28 @@ abstract class SyncableTable implements SyncableStore {
   int latestVersion(String where, List<Object?> args) =>
       db.select('SELECT MAX(updated_at) AS v FROM $table WHERE $where', args).first['v'] as int? ??
       0;
+
+  /// Tombstones every live row on the surfaces [surfaceIds] (a table with
+  /// `surface_id` and a chunk index [chunkTable]), stamped like
+  /// [nextVersion] would stamp each, or all with [version]. One statement
+  /// per surface rather than per row: a deleted notebook may hold hundreds
+  /// of thousands of strokes. Tombstones keep their payload (see
+  /// `DeletionConflicts`).
+  void tombstoneSurfaces(Iterable<String> surfaceIds, {required String chunkTable, int? version}) {
+    final now = clock.nowMs();
+    database.transaction(() {
+      for (final surfaceId in surfaceIds) {
+        db.execute(
+          'UPDATE $table SET deleted = 1, dirty = 1, device_id = ?, '
+          'updated_at = ${version == null ? 'MAX(?, updated_at + 1)' : '?'} '
+          'WHERE surface_id = ? AND deleted = 0',
+          [deviceId, version ?? now, surfaceId],
+        );
+        // Only live rows are in the chunk index.
+        db.execute('DELETE FROM $chunkTable WHERE surface_id = ?', [surfaceId]);
+      }
+    });
+  }
 
   /// Brings tombstoned rows [ids] back as local edits (a deletion that
   /// raced an edit, see `DeletionConflicts`). Tables whose tombstones keep
@@ -100,7 +122,9 @@ abstract class SyncableTable implements SyncableStore {
     if (!record.deleted && record.data == null) {
       throw FormatException('Live ${record.collection}/${record.id} has no data');
     }
-    final local = db.select('SELECT updated_at, device_id FROM $table WHERE id = ?', [record.id]);
+    final local = database.select('SELECT updated_at, device_id FROM $table WHERE id = ?', [
+      record.id,
+    ]);
     if (local.isNotEmpty &&
         !record.supersedes(
           updatedAt: local.first['updated_at'] as int,
