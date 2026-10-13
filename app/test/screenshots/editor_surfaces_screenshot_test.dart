@@ -259,7 +259,7 @@ void main() {
         await settle(tester);
         await tester.tap(find.byTooltip('More options'));
         await settle(tester);
-        await tester.tap(find.text('Recordings…'));
+        await tester.tap(find.text('Recordings'));
         await settle(tester);
         await shoot(tester, 'e_audio_sheet_phone_$m');
         await tester.tap(find.text('Lecture 4 — Kinematics'));
@@ -292,7 +292,7 @@ void main() {
       await settle(tester);
       await tester.tap(find.byTooltip('More options'));
       await settle(tester);
-      await tester.tap(find.text('Recordings…'));
+      await tester.tap(find.text('Recordings'));
       await settle(tester);
       await shoot(tester, 'e_audio_sheet_phone_large_text');
       await tester.tap(find.text('Lecture 4 — Kinematics'));

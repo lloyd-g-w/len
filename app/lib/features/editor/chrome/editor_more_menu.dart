@@ -106,7 +106,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
                   onPressed: () => a.onStylusOnly(!stylusOnly),
                   child: const Text('Draw with finger'),
                 ),
-              _item(Symbols.settings_rounded, 'Settings…', a.onSettings),
+              _item(Symbols.settings_rounded, 'Settings', a.onSettings),
             ],
       builder: (context, menu, _) => BarButton(
         tooltip: 'More options',
@@ -163,8 +163,8 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           ),
           const Divider(),
           for (final (fit, keys) in const [
-            (PageFit.width, SingleActivator(LogicalKeyboardKey.digit2, shift: true)),
             (PageFit.page, SingleActivator(LogicalKeyboardKey.digit1, shift: true)),
+            (PageFit.width, SingleActivator(LogicalKeyboardKey.digit2, shift: true)),
             (PageFit.auto, SingleActivator(LogicalKeyboardKey.digit0)),
           ])
             _radio(a.fit == fit, fit.label, () => a.onFit?.call(fit), shortcut: keys),

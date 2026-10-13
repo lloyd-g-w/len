@@ -283,7 +283,7 @@ void main() {
 
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Recordings…'));
+    await tester.tap(find.text('Recordings'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Seminar'));
     await _settleAsync(tester);

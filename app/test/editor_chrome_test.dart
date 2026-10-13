@@ -256,6 +256,10 @@ void main() {
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
     expect(find.text('Search in notebook'), findsOneWidget);
+    // Recordings only once there are any; no ellipsis on what asks nothing.
+    expect(find.text('Record audio'), findsOneWidget);
+    expect(find.text('Recordings'), findsNothing);
+    expect(find.text('Settings'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     await closeEditor(tester);

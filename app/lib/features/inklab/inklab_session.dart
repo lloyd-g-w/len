@@ -45,11 +45,10 @@ class InkLabSession extends ChangeNotifier {
   }
 
   /// Opens a session on a fresh in-memory database.
-  static Future<InkLabSession> open({bool stylusOnly = false}) async =>
-      InkLabSession._(
-        AppDatabase.fromConnection(await openSqliteScratch()),
-        stylusOnly: stylusOnly,
-      );
+  static Future<InkLabSession> open({bool stylusOnly = false}) async => InkLabSession._(
+    AppDatabase.fromConnection(await openSqliteScratch()),
+    stylusOnly: stylusOnly,
+  );
 
   final AppDatabase _db;
   final StrokeRepository _strokes;
