@@ -259,7 +259,7 @@ class _RecordingTile extends StatelessWidget {
           ? null
           : MenuIconButton<String>(
               tooltip: 'More',
-              icon: const Icon(Symbols.more_vert_rounded),
+              icon: const Icon(Symbols.more_horiz_rounded),
               onSelected: (action) => unawaited(_run(context, action)),
               items: () => [
                 const MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),

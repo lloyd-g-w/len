@@ -97,7 +97,10 @@ class _PdfOutlineSectionState extends State<PdfOutlineSection> {
                     if (k.startsWith('$i:')) k.substring('$i:'.length),
                 },
               ))
-                _row(context, row, i),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
+                  child: _row(context, row, i),
+                ),
             ]);
           }
         }
@@ -126,7 +129,8 @@ class _PdfOutlineSectionState extends State<PdfOutlineSection> {
     return ListTile(
       key: ValueKey('outline-$key'),
       enabled: page != null,
-      contentPadding: EdgeInsetsDirectional.only(start: Gaps.sm + row.depth * 24.0, end: Gaps.lg),
+      // Inset by Gaps.sm (below) so the highlight doesn't meet the edge.
+      contentPadding: EdgeInsetsDirectional.only(start: row.depth * 24.0, end: Gaps.lg - Gaps.sm),
       minLeadingWidth: 48,
       horizontalTitleGap: Gaps.xs,
       leading: hasChildren

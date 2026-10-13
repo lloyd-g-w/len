@@ -133,7 +133,11 @@ class _OutlinePanelState extends State<OutlinePanel> {
                   ),
                 ),
               ),
-            for (final row in _outline.tree.rows(collapsed: _collapsed)) _row(row, current),
+            for (final row in _outline.tree.rows(collapsed: _collapsed))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
+                child: _row(row, current),
+              ),
             if (hasPdf) ...[
               _label('PDF'),
               PdfOutlineSection(interaction: pdf!, onPage: widget.onPage),
@@ -159,7 +163,8 @@ class _OutlinePanelState extends State<OutlinePanel> {
       key: ValueKey('user-outline-${entry.id}'),
       selected: page == current,
       selectedTileColor: Surfaces.pressed(theme.colorScheme),
-      contentPadding: EdgeInsetsDirectional.only(start: Gaps.sm + row.depth * 24.0, end: Gaps.xs),
+      // Inset by Gaps.sm (below) so the highlight doesn't meet the edge.
+      contentPadding: EdgeInsetsDirectional.only(start: row.depth * 24.0, end: 0),
       minLeadingWidth: 48,
       horizontalTitleGap: Gaps.xs,
       leading: row.hasChildren
@@ -192,7 +197,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
           ),
           MenuIconButton<_EntryAction>(
             tooltip: 'Entry options',
-            icon: const Icon(Symbols.more_vert_rounded, size: Glyphs.bar),
+            icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
             onSelected: (a) => switch (a) {
               _EntryAction.rename => _outline.rename(context, entry),
               _EntryAction.indent => _outline.indent(entry),
