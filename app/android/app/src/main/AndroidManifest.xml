@@ -17,9 +17,15 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <!-- usesCleartextTraffic: self-hosted sync servers often run over plain
          http on a home LAN (e.g. http://192.168.1.10:8080). Use https for
-         anything reachable from the internet. -->
+         anything reachable from the internet.
+         Auto Backup keeps only the database (res/xml/backup_rules.xml, and
+         data_extraction_rules.xml on Android 12+); a restored database gets a
+         new device id at its first start (data/install_identity.dart). -->
     <application
         android:label="Len"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
@@ -66,6 +72,27 @@
                 <data android:mimeType="application/pdf"/>
                 <data android:mimeType="image/*"/>
             </intent-filter>
+            <!-- Len files (.len: a notebook, folder or backup). Few apps know
+                 their type, so files named *.len sent as generic binaries or
+                 zips are taken too (the path pattern needs a host). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:mimeType="application/x-len"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:scheme="file"/>
+                <data android:host="*"/>
+                <data android:mimeType="application/octet-stream"/>
+                <data android:mimeType="application/zip"/>
+                <data android:pathPattern=".*\\.len"/>
+                <data android:pathPattern=".*\\..*\\.len"/>
+                <data android:pathPattern=".*\\..*\\..*\\.len"/>
+            </intent-filter>
             <!-- Sync setup links (len://sync?url=…&token=…) from another
                  device's QR code or a message fill Settings → Sync. -->
             <intent-filter>
@@ -80,6 +107,7 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="application/pdf"/>
                 <data android:mimeType="image/*"/>
+                <data android:mimeType="application/x-len"/>
             </intent-filter>
         </activity>
         <service

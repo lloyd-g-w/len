@@ -89,19 +89,30 @@ Future<ExportedFiles?> _mobileExport(
     await file.writeAsBytes(f.bytes, flush: true);
     paths.add(file.path);
   }
-  final single = files.length == 1 ? files.single.name : null;
+  return _mobileShare(paths, [for (final f in files) f.name], mime, toDevice: toDevice);
+}
+
+/// Opens the share sheet for the files at [paths] (named [names]), or with
+/// [toDevice] the system's save dialog.
+Future<ExportedFiles?> _mobileShare(
+  List<String> paths,
+  List<String> names,
+  String mime, {
+  required bool toDevice,
+}) async {
+  final single = names.length == 1 ? names.single : null;
   if (toDevice && canSaveToDevice) {
     // The name of the file (one) or folder (several) chosen; null if
     // cancelled.
     final saved = await _saveChannel.invokeMethod<String>('save', {
       'paths': paths,
-      'names': [for (final f in files) f.name],
+      'names': names,
       'mime': mime,
     });
     if (saved == null) return null;
     return ExportedFiles(
       single == null ? ExportedTo.folder : ExportedTo.device,
-      count: files.length,
+      count: names.length,
       name: saved,
     );
   }
@@ -109,7 +120,35 @@ Future<ExportedFiles?> _mobileExport(
     ShareParams(files: [for (final path in paths) XFile(path, mimeType: mime)]),
   );
   if (result.status == ShareResultStatus.dismissed) return null;
-  return ExportedFiles(ExportedTo.shared, count: files.length, name: single);
+  return ExportedFiles(ExportedTo.shared, count: names.length, name: single);
+}
+
+/// Like [saveOrShare] for a file already written at [path] (too large to
+/// hold in memory, e.g. a library backup): desktop: copied where the user
+/// chooses; mobile: shared, or saved through the system's save dialog.
+/// Null if cancelled.
+Future<ExportedFiles?> saveOrShareFile(
+  String path, {
+  required String name,
+  required String mime,
+  bool toDevice = false,
+}) async {
+  if (_mobile) return _mobileShare([path], [name], mime, toDevice: toDevice);
+  final extension = p.extension(name).replaceFirst('.', '');
+  final location = await getSaveLocation(
+    suggestedName: name,
+    acceptedTypeGroups: [
+      XTypeGroup(label: extension.toUpperCase(), extensions: [extension], mimeTypes: [mime]),
+    ],
+  );
+  if (location == null) return null;
+  await File(path).copy(location.path);
+  return ExportedFiles(
+    ExportedTo.file,
+    count: 1,
+    name: p.basename(location.path),
+    path: location.path,
+  );
 }
 
 /// Opens the file manager at [path] (a file: selected where the file

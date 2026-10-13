@@ -100,6 +100,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
     services.incomingFiles.handler = (files) => unawaited(_imports.enqueue(context, files));
     services.incomingFiles.syncSetup.addListener(_onSyncSetup);
+    // Len files imported anywhere (Settings → Restore, "Open with").
+    services.lenFiles.addListener(_onLenImport);
     // A recording cut off by the app being killed: offer to recover it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(offerRecordingRecovery(context, services));
@@ -137,9 +139,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (mounted && _services?.incomingFiles.syncSetup.value != null) _openSettings(sync: true);
   });
 
+  void _onLenImport() => _controller.reload();
+
   void _disposeServices() {
     _services?.incomingFiles.syncSetup.removeListener(_onSyncSetup);
     _services?.incomingFiles.handler = null;
+    _services?.lenFiles.removeListener(_onLenImport);
     unawaited(_remoteChanges?.cancel());
     unawaited(_syncNotices?.cancel());
     _actions.selection.dispose();

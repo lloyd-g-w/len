@@ -7,6 +7,7 @@ import '../../app_services.dart';
 import '../../data/schema_reset.dart';
 import '../../platform/browser_storage.dart';
 import '../../ui/app_theme.dart';
+import '../backup/len_file_flows.dart';
 import '../storage/storage_attention.dart';
 
 /// Puts a notice above the library's [child] while something needs the
@@ -14,7 +15,9 @@ import '../storage/storage_attention.dart';
 /// storage); files that won't be kept (a browser that refused storage,
 /// UX_AUDIT P0-1); else, once, storage from another Len version that was
 /// started afresh (`AppDatabase.schemaReset`); else, once, a browser that
-/// may clear Len's data while sync is off (P2-30).
+/// may clear Len's data while sync is off (P2-30); else, once, that notes
+/// kept a day or more are only on this device while sync is off and no
+/// backup was made (R7-12).
 class LibraryNotices extends StatefulWidget {
   const LibraryNotices({super.key, required this.child, this.storage});
 
@@ -25,6 +28,9 @@ class LibraryNotices extends StatefulWidget {
 
   /// The one-time tip id of the "may clear your data" notice.
   static const evictionTip = 'storage_not_persisted';
+
+  /// The one-time tip id of the "only on this device" notice.
+  static const deviceOnlyTip = 'notes_device_only';
 
   @override
   State<LibraryNotices> createState() => _LibraryNoticesState();
@@ -38,10 +44,28 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   /// Whether the browser may evict Len's data (null until known).
   bool? _evictable;
 
+  /// Whether to say (once) that notes are only on this device: there are
+  /// notebooks a day old or more (not on the first day, which the empty
+  /// library's "Set up sync…" covers).
+  late bool _deviceOnly =
+      !_services.settings.seenTips.contains(LibraryNotices.deviceOnlyTip) &&
+      _services.notebooks.list().any(
+        (n) => DateTime.now().millisecondsSinceEpoch - n.createdAt > Duration.millisecondsPerDay,
+      );
+
   @override
   void initState() {
     super.initState();
     unawaited(_check());
+  }
+
+  void _dismissDeviceOnly() {
+    _services.settings.markTipSeen(LibraryNotices.deviceOnlyTip);
+    setState(() => _deviceOnly = false);
+  }
+
+  Future<void> _backUp() async {
+    if (await backupLibraryFlow(context) && mounted) _dismissDeviceOnly();
   }
 
   Future<void> _check() async {
@@ -86,7 +110,8 @@ class _LibraryNoticesState extends State<LibraryNotices> {
       );
     }
     if (_services.database.schemaReset case final reset?) return _resetNotice(reset);
-    if (_evictable != true || _services.sync.isConfigured) return null;
+    if (_services.sync.isConfigured) return null;
+    if (_evictable != true) return _deviceOnlyNotice();
     return LibraryNotice(
       icon: Symbols.storage_sharp,
       title: 'This browser may clear your notebooks',
@@ -96,6 +121,20 @@ class _LibraryNoticesState extends State<LibraryNotices> {
       tone: NoticeTone.info,
       action: TextButton(onPressed: () => unawaited(_keepData()), child: const Text('Keep data')),
       onDismiss: _dismiss,
+    );
+  }
+
+  LibraryNotice? _deviceOnlyNotice() {
+    if (!_deviceOnly || _services.settings.lastBackupAt != null) return null;
+    return LibraryNotice(
+      icon: Symbols.devices_sharp,
+      title: 'Your notes are only on this device',
+      body:
+          'Back up your library now and then, or set up sync to keep a copy on your server '
+          '(Settings).',
+      tone: NoticeTone.info,
+      action: TextButton(onPressed: () => unawaited(_backUp()), child: const Text('Back up…')),
+      onDismiss: _dismissDeviceOnly,
     );
   }
 

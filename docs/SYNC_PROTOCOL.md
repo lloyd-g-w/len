@@ -281,6 +281,24 @@ URL leading to another server, or a server that lost its history, see
 (tombstones included) dirty, so the server receives a complete copy. A new URL leading to the same
 server (another host name or address) changes nothing.
 
+## Len files
+
+A Len file (`.len`, MIME type `application/x-len`; `app/lib/data/archive/len_format.dart`) is a
+notebook, a folder or the whole library (a backup) packed for people rather than servers: a zip
+with `manifest.json` (`{"format": "len", "version": 1, "kind": "notebook"|"folder"|"library",
+"title", "createdAt"}`), the records as sync records (the format above; one JSON record per line
+in `records/000001.jsonl`, … parts of about 4 MB, parents before children in the order
+`folders, templates, notebooks, pages, outline, recordings, strokes, elements`), `blobs.json`
+(`{"<sha256>": {"mime", "size"}}`) and the blobs themselves under `blobs/<sha256>` (stored, not
+compressed). Tombstones and `recognised_text` are left out (its keys hash stroke ids).
+
+Importing never replaces anything: every record gets a new id (references follow, links to pages
+of the same file included), is stamped with the importing device's id and a fresh `updatedAt`,
+and is synced like any local write. Templates already present (same image blob) are not
+added twice. A blob whose bytes don't match its `<sha256>`, records that are not JSON, a
+truncated zip or a newer `version` refuse the whole file and leave nothing behind; single
+malformed records are skipped and counted.
+
 ## App collections (informational)
 
 | collection  | data                                                                                   |

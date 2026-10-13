@@ -39,9 +39,9 @@ server that their notes exist on one device only.
 | Page management | On par, one gap | Overview, reorder, multi-select. **Missing:** move / copy pages to another notebook (R7-9) |
 | PDF study | On par | Text select, highlight, copy, links, outline, vector export. Pen-only selection missing (R7-1) |
 | Audio | **Better** | Ink replay, trims, markers per burst of writing, crash recovery, background recording |
-| Export / share | On par, one gap | PDF / PNG with ranges; not from the library (R7-8); no editable Len file |
+| Export / share | On par, one gap | PDF / PNG with ranges, editable Len files (✅); not from the library (R7-8) |
 | Sync | Different | Self-hosted only: great for the few with a server, absent for everyone else |
-| Backup / data safety | **Missing** | No library backup; Android Auto Backup unconfigured (R7-12, R7-13) |
+| Backup / data safety | On par (✅) | Settings → Backup: one Len file of everything, restore as copies; Android backup keeps the database (R7-12, R7-13) |
 | Offline | **Better** | Local-first on every platform, including the web PWA |
 | First run, empty states, feedback | On par | Calm empty states, stylus-detected snack, one-time tips |
 
@@ -62,8 +62,8 @@ counts are approximate):
 ### Top 10 (fix first)
 
 1. R7-1 A pen can't select PDF text; only a finger long-press can.
-2. R7-12 Without sync, nothing says notes live on this device only, and there is no way to back them up.
-3. R7-13 Android Auto Backup is on but unconfigured: it silently stops past 25 MB and would clone the sync identity.
+2. ✅ R7-12 Without sync, nothing says notes live on this device only, and there is no way to back them up.
+3. ✅ R7-13 Android Auto Backup is on but unconfigured: it silently stops past 25 MB and would clone the sync identity.
 4. R7-6 No recent notebooks: notebooks in folders are always 1–3 taps away.
 5. R7-7 Nothing reopens where you were writing after the app is killed or restarted.
 6. R7-9 Pages can't be moved or copied to another notebook.
@@ -197,7 +197,7 @@ sheet. Phones keep it in ⋯.
 
 ### Delight and trust
 
-**R7-12 P1 · Without sync, nothing says notes exist only on this device,
+✅ **R7-12 P1 · Without sync, nothing says notes exist only on this device,
 and there is no way to back them up.** With sync off, Settings says "Sync
 is off" (`features/settings/sync_status_line.dart:29`) and the sidebar
 "Sync off" (`ui/sync_status_button.dart:14`). The empty library offers
@@ -208,8 +208,12 @@ lost or reset tablet loses a semester. *Fix now (copy only):* the
 sidebar's sync-off caption reads "On this device only" and Settings → Sync
 off says "Your notes are kept only on this device. Set up sync to keep a
 copy on your server." *Then:* library backup (Missing features #1).
+*Done:* the sidebar reads "On this device only", Settings → Sync "Sync is
+off: your notes are only on this device", Settings → Backup explains how to
+keep them (back up, or sync), and the library says so once when notebooks
+are a day old and nothing was backed up (dismissable, with "Back up…").
 
-**R7-13 P1 · Android Auto Backup is on but unconfigured.**
+✅ **R7-13 P1 · Android Auto Backup is on but unconfigured.**
 `android/app/src/main/AndroidManifest.xml` sets neither `allowBackup` nor
 `dataExtractionRules` / `fullBackupContent`, so Android backs up the whole
 files directory. That holds `len.db`, `blobs/` (PDFs, images, audio) and
@@ -226,7 +230,8 @@ unavailable". On the first start after a restore (detect: the database
 exists but a no-backup marker file doesn't), give the device a new id and
 resync from scratch. Say so in Settings → Storage on Android: "Handwriting
 and text are included in your Android backup; PDFs, images and audio are
-not."
+not." *Done* as proposed (the line is in Settings → Backup); the marker
+holds the device id (`data/install_identity.dart`).
 
 **R7-14 P2 · Phones show sync status only inside the drawer; the editor
 never shows a failing sync.** `SyncStatusButton` is built only in the
@@ -245,12 +250,15 @@ this branch:* the lines now describe the fixed toolbar.
 
 ### Missing features worth adding (value vs complexity; keep Len simple)
 
-1. **Library backup and restore** (high value · M). Settings → Storage →
+1. ✅ **Library backup and restore** (high value · M). Settings → Storage →
    "Back up…" writes one file (database + blobs, zipped) through the
    save / share path; "Restore from backup…" replaces the library after a
    confirmation, with a new device id. The same format exported per
    notebook ("Len notebook", from R7-8's Export) lets people hand editable
    notebooks to each other. Pairs with R7-13 for Android.
+   *Done* as Len files (`.len`) in Settings → Backup, with one change:
+   restoring adds copies into a folder named after the backup's date
+   instead of replacing the library (nothing can be lost by a restore).
 2. **Recent strip** (high · S): R7-6.
 3. **Reopen where you left off** (high · S): R7-7.
 4. **Move / copy pages to another notebook** (high · M): R7-9.

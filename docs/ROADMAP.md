@@ -230,6 +230,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Sync
 - ✅ Self-hosted LWW record sync
+- ✅ Len files (`.len`): export / import a notebook, folder or the whole library as editable
+  copies; Settings → Backup (back up library, restore into a dated folder, last backup shown);
+  "Open with" on Android, Linux, Windows and the PWA; Android Auto Backup keeps the database
+  only and a restored database takes a new device id
 - ✅ Blob sync (content-addressed PDFs, images and audio)
 - ✅ Blob garbage collection (unreferenced blobs on device and server); oversized blobs no longer block sync
 - ✅ Recovery from servers that lost history (restored backup, replaced server: `serverId`, 409,

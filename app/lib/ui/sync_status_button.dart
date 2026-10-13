@@ -7,11 +7,12 @@ import '../sync/sync_controller.dart';
 import 'app_theme.dart';
 
 /// The short sync status the sidebar shows (REDESIGN §3): "Synced 2m",
-/// "Synced just now", "Syncing…", "Sync failed", "Sync off".
+/// "Synced just now", "Syncing…", "Sync failed", and without sync "On this
+/// device only" (where the notes are, UX_AUDIT R7-12).
 String syncCaption(SyncState state, DateTime? lastSuccess, DateTime now) {
   switch (state) {
     case SyncState.disabled:
-      return 'Sync off';
+      return 'On this device only';
     case SyncState.syncing:
       return 'Syncing…';
     case SyncState.error:

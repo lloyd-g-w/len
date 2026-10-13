@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ (android:dataExtractionRules); see backup_rules.xml.
+     Cloud backups hold only the database (the 25 MB quota). A device-to-device
+     transfer has no quota, so it also brings the blobs (PDFs, images, audio).
+     Never the install marker (a restored copy gets a new device id) nor
+     recordings in progress. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="len.db"/>
+        <include domain="file" path="len.db-wal"/>
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="len.db"/>
+        <include domain="file" path="len.db-wal"/>
+        <include domain="file" path="blobs"/>
+    </device-transfer>
+</data-extraction-rules>

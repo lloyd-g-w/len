@@ -1,9 +1,11 @@
 import 'package:cross_file/cross_file.dart';
 
+import '../../../data/archive/len_format.dart';
+
 import '../../editor/images/image_import.dart';
 
 /// What Len can make of a file handed to it ("Open with", share, drop).
-enum IncomingKind { pdf, image, unsupported }
+enum IncomingKind { pdf, image, len, unsupported }
 
 /// An open editor that files could be inserted into.
 class ImportDestination {
@@ -24,6 +26,12 @@ sealed class ImportStep {
 /// Import [file] as a new notebook (one page per PDF page).
 final class NewPdfNotebook extends ImportStep {
   const NewPdfNotebook(this.file);
+  final XFile file;
+}
+
+/// Import Len file [file] as a copy (a notebook, folder or backup).
+final class ImportLenFile extends ImportStep {
+  const ImportLenFile(this.file);
   final XFile file;
 }
 
@@ -89,6 +97,7 @@ abstract final class ImportRouter {
     final dot = name.lastIndexOf('.');
     final ext = dot == -1 ? '' : name.substring(dot + 1).toLowerCase();
     if (mime == 'application/pdf' || ext == 'pdf') return IncomingKind.pdf;
+    if (mime == LenFormat.mime || ext == LenFormat.extension) return IncomingKind.len;
     if (ImageImport.extensions.contains(ext)) return IncomingKind.image;
     if (mime != null && mime.startsWith('image/') && !_undecodableImages.contains(mime)) {
       return IncomingKind.image;
@@ -110,13 +119,15 @@ abstract final class ImportRouter {
   /// the user chose that) or as new notebooks. PDFs that [into] can't take
   /// still become notebooks.
   static ImportPlan plan(List<XFile> files, {ImportDestination? into}) {
-    final pdfs = <XFile>[], images = <XFile>[], unsupported = <String>[];
+    final pdfs = <XFile>[], images = <XFile>[], lens = <XFile>[], unsupported = <String>[];
     for (final file in files) {
       switch (kindOf(file)) {
         case IncomingKind.pdf:
           pdfs.add(file);
         case IncomingKind.image:
           images.add(file);
+        case IncomingKind.len:
+          lens.add(file);
         case IncomingKind.unsupported:
           unsupported.add(nameOf(file));
       }
@@ -128,6 +139,7 @@ abstract final class ImportRouter {
       if (into != null && images.isNotEmpty) InsertImages(images),
       if (!insertPdfs)
         for (final f in pdfs) NewPdfNotebook(f),
+      for (final f in lens) ImportLenFile(f),
       if (into == null && images.isNotEmpty) NewImageCanvas(images, title: canvasTitleFor(images)),
     ];
     return ImportPlan(steps, unsupported: unsupported);

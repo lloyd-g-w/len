@@ -1690,6 +1690,41 @@ synced notebooks come back), and the library says so once
 (`AppDatabase.schemaReset`).
 All writes go straight to SQLite; in-memory state is a cache.
 
+### Len files and backups (`data/archive/`, `features/backup/`)
+
+A notebook, a folder or the whole library can be written as a Len file
+(`.len`, a zip of sync records and blobs; format in SYNC_PROTOCOL.md, "Len
+files"). `LenArchives` (`AppServices.lenFiles`) writes a `LenScope` through
+`LenArchiveWriter` and imports through `LenArchiveReader`: records go out in
+~4 MB parts and blobs one at a time, read natively straight from their files
+(`platform/len_file_io_native.dart` opens them as `InputFileStream`s); the
+file itself is written to a temporary file and copied / shared from there,
+so a backup is never held in memory (in browsers it is: blobs live in
+IndexedDB and downloads are built in memory). An import stages everything,
+remaps every id (`LenRemap`), checks each blob's hash and commits in one
+transaction (`LenImportCommit`); any damage or Cancel leaves nothing behind.
+Imports are copies: a notebook lands in the open folder and opens, a folder
+keeps its tree, a backup goes into a new folder "Backup 13 Oct 2026".
+Entry points: the export sheet's Len format (a notebook or canvas, always
+whole), a folder's "Export as Len file…", ⊕▾ "Import Len file…", "Open
+with" / share / drop (`ImportRouter`, `IncomingKind.len`) and Settings →
+Backup ("Back up library…", which records `last_backup_at`, and "Restore
+from backup…"). With sync off, Settings → Backup and the sidebar ("On this
+device only") say the notes are only here; the library says so once
+(`LibraryNotices`, tip `notes_device_only`) when notebooks are a day old and
+nothing was backed up.
+The type is registered on Android (intent filters for `application/x-len`
+and `*.len`), Linux (`linux/packaging/dev.len.len.mime.xml`, desktop entry),
+Windows (installer: `.len` → `Len.File`) and the PWA (`file_handlers`).
+
+Android Auto Backup (`res/xml/backup_rules.xml`, `data_extraction_rules.xml`)
+keeps only `len.db` and its WAL; blobs come back through sync (device
+transfers also copy them). `InstallIdentity` gives a database restored there
+(or copied from another computer) a new device id: the install marker next
+to the database, which is never backed up, holds the id; a database without
+a matching marker takes a new one and forgets its sync position, so it never
+writes as the device it came from.
+
 ## Platforms (`platform/`)
 
 Startup (`main.dart`) opens the database and blob store in a try: if either

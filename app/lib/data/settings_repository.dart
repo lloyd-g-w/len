@@ -23,6 +23,13 @@ class SettingsRepository {
     return id;
   }
 
+  /// The device id, or null before [deviceId] first made one.
+  String? get storedDeviceId => _get(_deviceId);
+
+  /// Gives this installation a new device id (a database restored from a
+  /// backup, see `InstallIdentity`); only before any repository uses it.
+  void replaceDeviceId(String id) => _set(_deviceId, id);
+
   String get syncUrl => _get(_syncUrl) ?? '';
   set syncUrl(String value) => _set(_syncUrl, value);
 
@@ -62,6 +69,12 @@ class SettingsRepository {
   /// changes, the server deleted blobs and uploads are re-checked.
   int get syncBlobsCollectedAt => int.tryParse(_get('sync_blobs_collected_at') ?? '') ?? 0;
   set syncBlobsCollectedAt(int value) => _set('sync_blobs_collected_at', '$value');
+
+  /// When (ms since epoch) the library was last backed up into a Len file;
+  /// null if never.
+  int? get lastBackupAt => int.tryParse(_get('last_backup_at') ?? '');
+  set lastBackupAt(int? value) =>
+      value == null ? _remove('last_backup_at') : _set('last_backup_at', '$value');
 
   /// When (ms since epoch) local blob garbage collection last ran; 0 = never.
   int get blobGcLastRun => int.tryParse(_get('blob_gc_last_run') ?? '') ?? 0;

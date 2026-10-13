@@ -23,7 +23,7 @@ enum NotebookAction {
 }
 
 /// Actions offered on a folder.
-enum FolderAction { open, edit, move, delete }
+enum FolderAction { open, edit, move, export, delete }
 
 /// Menu items for [notebook]; trashed notebooks only restore or delete.
 List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
@@ -74,6 +74,7 @@ const List<PopupMenuEntry<FolderAction>> folderMenuItems = [
   MenuRow(value: FolderAction.open, icon: Symbols.folder_open_sharp, label: 'Open'),
   MenuRow(value: FolderAction.edit, icon: Symbols.edit_sharp, label: 'Edit folder…'),
   MenuRow(value: FolderAction.move, icon: Symbols.drive_file_move_sharp, label: 'Move to folder…'),
+  MenuRow(value: FolderAction.export, icon: Symbols.ios_share_sharp, label: 'Export as Len file…'),
   PopupMenuDivider(),
   MenuRow(
     value: FolderAction.delete,

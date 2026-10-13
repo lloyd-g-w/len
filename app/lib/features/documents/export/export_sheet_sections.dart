@@ -49,7 +49,7 @@ class ExportRule extends StatelessWidget {
   );
 }
 
-/// PDF / PNG choice with a line on what each produces.
+/// PDF / PNG / Len choice with a line on what each produces.
 class ExportFormatPicker extends StatelessWidget {
   const ExportFormatPicker({super.key, required this.format, required this.onChanged});
 
@@ -75,17 +75,21 @@ class ExportFormatPicker extends StatelessWidget {
               icon: Icon(Symbols.image_sharp),
               label: Text('PNG'),
             ),
+            ButtonSegment(
+              value: ExportFormat.len,
+              icon: Icon(Symbols.stylus_note_sharp),
+              label: Text('Len'),
+            ),
           ],
           selected: {format},
           onSelectionChanged: (s) => onChanged(s.single),
         ),
         const SizedBox(height: Gaps.sm),
-        Text(
-          format == ExportFormat.pdf
-              ? 'One document with sharp, zoomable ink'
-              : 'One image per page, for slides and messages',
-          style: theme.textTheme.bodySmall,
-        ),
+        Text(switch (format) {
+          ExportFormat.pdf => 'One document with sharp, zoomable ink',
+          ExportFormat.png => 'One image per page, for slides and messages',
+          ExportFormat.len => 'An editable copy to open in Len: ink, text, PDFs, images and audio',
+        }, style: theme.textTheme.bodySmall),
       ],
     );
   }

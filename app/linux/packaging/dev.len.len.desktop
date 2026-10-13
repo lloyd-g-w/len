@@ -9,6 +9,6 @@ Icon=dev.len.len
 Terminal=false
 Categories=Office;
 Keywords=notes;handwriting;notebook;pen;stylus;drawing;canvas;pdf;
-MimeType=application/pdf;image/png;image/jpeg;image/webp;x-scheme-handler/len;
+MimeType=application/pdf;image/png;image/jpeg;image/webp;application/x-len;x-scheme-handler/len;
 StartupNotify=true
 StartupWMClass=dev.len.len

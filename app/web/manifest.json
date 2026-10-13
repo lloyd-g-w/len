@@ -18,7 +18,8 @@
         "application/pdf": [".pdf"],
         "image/png": [".png"],
         "image/jpeg": [".jpg", ".jpeg"],
-        "image/webp": [".webp"]
+        "image/webp": [".webp"],
+        "application/x-len": [".len"]
       }
     }
   ],
