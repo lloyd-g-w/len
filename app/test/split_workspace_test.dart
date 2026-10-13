@@ -338,4 +338,25 @@ void main() {
     expect(s.openNotebooks.activeId, physics.id);
     await closeEditor(tester);
   });
+
+  testWidgets('a parked pane is named in a chip; Show swaps it in', (tester) async {
+    final (s, physics, chemistry) = await pumpWorkspace(tester);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('parked-pane')), findsNothing, reason: 'both shown');
+
+    tester.view.physicalSize = const Size(800, 1280);
+    await tester.pumpAndSettle();
+    expect(find.text('“Chemistry” in split view'), findsOneWidget);
+    await tester.tap(find.text('Show'));
+    await tester.pumpAndSettle();
+    expect(s.openNotebooks.activeId, chemistry.id);
+    expect(find.text('“Physics” in split view'), findsOneWidget);
+
+    tester.view.physicalSize = const Size(1280, 800);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('parked-pane')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await closeEditor(tester);
+  });
 }

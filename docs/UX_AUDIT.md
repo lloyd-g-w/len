@@ -597,7 +597,7 @@ selection exists) and list them in the shortcuts sheet. *Files:*
 `features/editor/editor_shortcuts.dart`, `tools/content_shortcuts.dart`,
 `features/library/library_screen.dart`, `features/settings/keyboard_shortcuts.dart`.
 
-**P1-25 A parked pane and the second pane's header are unclear.** `split_parked_portrait_*`:
+◐ **P1-25 A parked pane and the second pane's header are unclear.** `split_parked_portrait_*`:
 the parked pane is an unlabelled pill cut at the bottom edge; `split_*`: the
 two panes' headers differ (the second has ✕ and a title, the first no title
 while tabs show), and the tab strip shows the right-hand notebook as an
@@ -605,15 +605,20 @@ inactive tab. *Fix:* a labelled chip "Biology · in split view" with Show;
 show the title in both panes; mark both split notebooks in the strip.
 *Files:* `features/editor/split/*`, `chrome/parked_pane_notice.dart`,
 `tabs/notebook_tab_strip.dart`.
-*Left open by fix/robust-feedback:* split-view chrome is being reworked
-on the editor branches.
+*Done (fix/followups-1):* the pane on screen shows a chip "“Biology” in split
+view · Show" while the other is parked (with Stop while it records;
+`split/parked_pane_notice.dart`). *Left open:* the title in the first pane's
+bar and marking both split notebooks in the tab strip (the strip and bar
+were being reworked on fix/editor-chrome-r4 at the same time).
 
-**P2-32 Dragging a selection across panes.** `split_drag_*`: the dragged ink is
+✅ **P2-32 Dragging a selection across panes.** `split_drag_*`: the dragged ink is
 a full-size, full-opacity copy over the target, and the target goes flat grey
 in dark. *Fix:* 60 % opacity preview, a tinted (not grey) drop target.
 *Files:* `features/editor/split/*`.
-*Left open by fix/robust-feedback:* split-view chrome is being reworked
-on the editor branches.
+*Done (fix/followups-1):* the preview is drawn at 60 %; the drop target is
+tinted with the accent and its chrome is no longer dimmed while a drop
+would land there (a dimmed bar over a light canvas read as flat grey in
+dark); the "Drop to copy here" pill uses the text roles and `Shadows.low`.
 
 ### Accessibility and simplification notes
 
