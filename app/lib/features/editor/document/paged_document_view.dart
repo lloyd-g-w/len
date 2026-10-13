@@ -192,7 +192,9 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with TickerProvid
   @override
   Widget build(BuildContext context) {
     final input = widget.input;
-    final desk = Surfaces.canvasBackdrop(Theme.of(context).brightness);
+    final brightness = Theme.of(context).brightness;
+    final desk = Surfaces.canvasBackdrop(brightness);
+    final shadows = Shadows.low(brightness);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -244,6 +246,7 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with TickerProvid
                           pages: _doc.pages,
                           viewport: _doc.viewport,
                           desk: desk,
+                          shadows: shadows,
                           devicePixelRatio: dpr,
                           backgrounds: widget.backgrounds,
                           paperImages: _paperImages,

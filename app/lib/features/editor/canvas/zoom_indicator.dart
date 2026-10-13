@@ -127,7 +127,7 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
                 MenuItemButton(
                   leadingIcon: (_scale - preset).abs() < 0.005
                       ? const Icon(Symbols.check_sharp)
-                      : const SizedBox(width: 24),
+                      : const SizedBox(width: Glyphs.menu),
                   onPressed: () => widget.onZoomTo(preset),
                   child: Text(_label(preset)),
                 ),
