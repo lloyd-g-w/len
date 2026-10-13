@@ -28,8 +28,9 @@ class WorkspaceMemory {
   /// written then.
   final bool Function() isClosed;
 
-  /// How many notebooks [recent] keeps.
-  static const int recentCount = 8;
+  /// How many notebooks [recent] keeps: twice what the Recent row shows,
+  /// so notebooks trashed since leave no gaps there (R8-10).
+  static const int recentCount = 16;
 
   bool _shown = false;
   bool _listening = false;

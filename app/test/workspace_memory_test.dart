@@ -64,7 +64,7 @@ void main() {
       expect(memory.restore(s.notebooks.get), isNull);
     });
 
-    test('going back to the library forgets the workspace; recents keep 8', () {
+    test('going back to the library forgets the workspace; recents keep 16', () {
       final tabs = OpenNotebooks();
       addTearDown(tabs.dispose);
       final memory = WorkspaceMemory(settings: s.settings, tabs: tabs, isClosed: () => false);
@@ -77,6 +77,9 @@ void main() {
       tabs.activate(notebooks[3].id);
       expect(s.settings.workspace, isNotNull);
       expect(memory.recent.first, notebooks[3].id);
+      for (var i = 0; i < 20; i++) {
+        memory.noteOpened('id$i');
+      }
       expect(memory.recent, hasLength(WorkspaceMemory.recentCount));
       memory.shown = false;
       expect(s.settings.workspace, isNull);
@@ -112,6 +115,8 @@ void main() {
     final tiles = find.byType(RecentTile);
     expect(tiles, findsNWidgets(2));
     expect(find.descendant(of: tiles.first, matching: find.text('School')), findsOneWidget);
+    // No caption at the top level (R8-10).
+    expect(find.descendant(of: tiles.last, matching: find.text('Library')), findsNothing);
     // Above the folders.
     expect(
       tester.getTopLeft(find.text('Recent')).dy,
@@ -154,7 +159,8 @@ void main() {
     });
     expect(find.byType(RecentRow), findsNothing);
     final tile = find.byType(RecentStripTile);
-    expect(find.descendant(of: tile, matching: find.text('2 notebooks')), findsOneWidget);
+    // Captioned with the latest one (R8-10).
+    expect(find.descendant(of: tile, matching: find.text('Algebra')), findsOneWidget);
     // In the one row of chrome, before the folders.
     expect(tester.getRect(tile).bottom, lessThan(80));
     expect(tester.getTopLeft(tile).dx, lessThan(tester.getTopLeft(find.text('School')).dx));
@@ -162,9 +168,26 @@ void main() {
 
     await tester.tap(tile);
     await tester.pumpAndSettle();
+    // The menu says where each lives.
+    expect(find.text('School'), findsNWidgets(2));
     await tester.tap(find.text('Algebra').last);
     await tester.pumpAndSettle();
     expect(find.byType(EditorScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('trashed notebooks leave no gap in Recent (R8-10)', (tester) async {
+    await pumpSeeded(tester, (s) {
+      final school = s.folders.create(name: 'School', color: 0xFF0CA678);
+      final notebooks = [for (var i = 0; i < 12; i++) addNotebook(s, 'N$i', folderId: school.id)];
+      for (final n in notebooks.take(3)) {
+        s.notebooks.trash(n.id);
+      }
+      s.settings.recentNotebooks = [for (final n in notebooks) n.id];
+    });
+    final titles = [
+      for (final t in tester.widgetList<RecentTile>(find.byType(RecentTile))) t.notebook.title,
+    ];
+    expect(titles, [for (var i = 3; i < 11; i++) 'N$i']);
   });
 }

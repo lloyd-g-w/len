@@ -187,7 +187,7 @@ it never comes back.**
 
 *Done (`fix/r8-library`):* one phrase, `deviceOnlyCaption` "Only on this device" (sidebar caption, one-line notice; sentences say "only on this device"). The sidebar stacks the caption under Settings while sync is off, so it is never cut. Backup's description starts with "Back up your library now and then…" with sync off. The sync tooltip lost its dash ("Synced: tap to sync now").
 
-**R8-10 P2 · Recent: noise and lost slots.**
+**✅ R8-10 P2 · Recent: noise and lost slots.**
 - *What:* notebooks at the root are captioned "Library"
   (`library_controller.dart:288`), which says nothing when you are standing
   in the Library. Trashed and deleted notebooks keep their slots, since
@@ -201,6 +201,8 @@ it never comes back.**
   - Keep 16 ids and show the first 8 that are live.
   - The strip item's caption names the latest notebook, and its menu
     entries carry the location the row shows.
+
+*Done (`fix/r8-library`):* Recent tiles at the top level have no caption (`LibraryController.folderPathOf`); the workspace remembers 16 notebooks and the row shows the first 8 live ones; the sideways strip item is captioned with the latest notebook, and its menu rows carry the folder (`MenuRow.caption`).
 
 **R8-11 P2 · A recording match doesn't say why it matched.**
 - *What:* recording titles match in the library's title filter

@@ -88,7 +88,7 @@ class RecentRow extends StatelessWidget {
                       child: RecentTile(
                         key: ValueKey('recent-${n.id}'),
                         notebook: n,
-                        caption: actions.controller.locationOf(n),
+                        caption: actions.controller.folderPathOf(n),
                         onOpen: () => unawaited(actions.openNotebook(context, n)),
                       ),
                     ),
@@ -106,7 +106,8 @@ class RecentRow extends StatelessWidget {
 }
 
 /// A notebook in the Recent row: a small cover in its colour (with the
-/// darker spine), its title and where it lives; opens on tap.
+/// darker spine), its title and the folder it lives in (none at the top
+/// level); opens on tap.
 class RecentTile extends StatefulWidget {
   const RecentTile({
     super.key,
@@ -116,7 +117,7 @@ class RecentTile extends StatefulWidget {
   });
 
   final Notebook notebook;
-  final String caption;
+  final String? caption;
   final VoidCallback onOpen;
 
   @override
@@ -161,12 +162,13 @@ class _RecentTileState extends State<RecentTile> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
-                        widget.caption,
-                        style: theme.textTheme.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      if (widget.caption case final caption?)
+                        Text(
+                          caption,
+                          style: theme.textTheme.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                     ],
                   ),
                 ),
@@ -198,6 +200,7 @@ class RecentStripTile extends StatelessWidget {
             value: n,
             leading: MiniCover(color: Color(n.coverColor)),
             label: n.title,
+            caption: actions.controller.folderPathOf(n),
           ),
       ],
     );
@@ -207,7 +210,6 @@ class RecentStripTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final count = notebooks.length;
     return Semantics(
       button: true,
       child: SizedBox(
@@ -228,10 +230,12 @@ class RecentStripTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Recent', style: theme.textTheme.labelLarge, maxLines: 1),
+                        // The latest one, as the Recent row would show it first.
                         Text(
-                          count == 1 ? '1 notebook' : '$count notebooks',
+                          notebooks.first.title,
                           style: theme.textTheme.bodySmall,
                           maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
