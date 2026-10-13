@@ -17,6 +17,8 @@ class OptionSlider extends StatelessWidget {
 
   final String label;
 
+  static const double _overlay = 14;
+
   /// A one-line explanation under the slider.
   final String? hint;
   final double value;
@@ -49,8 +51,11 @@ class OptionSlider extends StatelessWidget {
             ],
           ),
           SliderTheme(
-            data: SliderTheme.of(context)
-                .copyWith(overlayShape: const RoundSliderOverlayShape(overlayRadius: 14)),
+            data: SliderTheme.of(context).copyWith(
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: _overlay),
+              // The track lines up with the label above it.
+              padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.md),
+            ),
             child: Slider(
               value: value.clamp(min, max),
               min: min,

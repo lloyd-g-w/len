@@ -9,8 +9,9 @@ import '../../../ui/adaptive_popover.dart';
 /// 320 dp wide on tablets and desktops, a sheet on phones. Edits apply
 /// live; an outside tap or Esc closes it.
 ///
-/// Colours newly put into the ink's quick slots become recent colours when
-/// it closes (not while the custom picker is dragged).
+/// Colours newly put into the ink's quick slots, or newly given to text or
+/// the laser, become recent colours when it closes (not while the custom
+/// picker is dragged).
 Future<void> showToolOptions(
   BuildContext anchor, {
   required ToolSettings tools,
@@ -18,13 +19,18 @@ Future<void> showToolOptions(
   required WidgetBuilder body,
 }) async {
   final ink = tool == EditorTool.highlighter ? InkTool.highlighter : InkTool.ballpoint;
-  final before = tools.configOf(ink).colors;
+  List<int> colours() => switch (tool) {
+    EditorTool.text => [tools.textStyle.color],
+    EditorTool.laser => [tools.laser.color],
+    _ when tool.usesInk => tools.configOf(ink).colors,
+    _ => const [],
+  };
+  final before = colours();
   await showAdaptivePopover<void>(
     context: anchor,
     builder: (context) => ToolOptionsPopover(tool: tool, body: body),
   );
-  if (!tool.usesInk) return;
-  for (final c in tools.configOf(ink).colors.reversed) {
+  for (final c in colours().reversed) {
     if (!before.contains(c)) tools.addRecentColor(c);
   }
 }

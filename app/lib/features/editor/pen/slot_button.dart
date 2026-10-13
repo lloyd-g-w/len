@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../../ui/design_tokens.dart';
+import '../../../ui/app_theme.dart';
 import '../toolbar/toolbar_metrics.dart';
 
 /// One quick slot in the toolbar (a colour, a width or an eraser size):
 /// tap to select it; tap it again when selected, long-press or right-click
 /// to open the tool's options on it ([onEdit]).
 ///
-/// The selected slot gets a 2-px `onSurface` ring with a 2-px gap around
-/// its content, so it reads on any swatch colour (white and black
-/// included) in light and dark themes and never looks like another colour.
+/// A selected colour slot gets a 2-px `onSurface` ring with a 2-px gap
+/// around its swatch, so it reads on any colour (white and black included)
+/// in light and dark themes. Size slots ([plate]) get the neutral pressed
+/// plate instead, so a selected size never looks like a selected dark
+/// colour beside it.
 class SlotButton extends StatelessWidget {
   const SlotButton({
     super.key,
@@ -19,6 +21,7 @@ class SlotButton extends StatelessWidget {
     required this.onSelect,
     required this.child,
     this.onEdit,
+    this.plate = false,
   });
 
   /// Outer diameter of the selection ring.
@@ -34,6 +37,10 @@ class SlotButton extends StatelessWidget {
   final void Function(BuildContext anchor)? onEdit;
 
   final Widget child;
+
+  /// Shows the selection as a [Surfaces.pressed] plate (sizes) rather
+  /// than a ring (colours).
+  final bool plate;
 
   @override
   Widget build(BuildContext context) {
@@ -61,13 +68,22 @@ class SlotButton extends StatelessWidget {
                   duration: Motion.fast,
                   width: ring,
                   height: ring,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: selected ? scheme.onSurface : scheme.onSurface.withValues(alpha: 0),
-                      width: 2,
-                    ),
-                  ),
+                  decoration: plate
+                      ? BoxDecoration(
+                          color: selected
+                              ? Surfaces.pressed(scheme)
+                              : Surfaces.pressed(scheme).withValues(alpha: 0),
+                          borderRadius: BorderRadius.circular(Radii.xs),
+                        )
+                      : BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: selected
+                                ? scheme.onSurface
+                                : scheme.onSurface.withValues(alpha: 0),
+                            width: 2,
+                          ),
+                        ),
                   alignment: Alignment.center,
                   child: child,
                 ),

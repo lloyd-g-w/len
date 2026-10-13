@@ -66,7 +66,7 @@ class HoldToSnapSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) => OptionSwitch(
     label: 'Hold to snap shapes',
-    subtitle: 'Pause at the end of a stroke to make it a straight line or a clean shape',
+    subtitle: 'Hold still at the end of a stroke for a clean line or shape',
     value: tools.holdToStraighten,
     onChanged: enabled ? (v) => tools.holdToStraighten = v : null,
   );

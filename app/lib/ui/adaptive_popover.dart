@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'scroll_fade.dart';
 
 /// The popover primitive (REDESIGN §5), for live settings: shows
 /// [builder]'s content as a bottom sheet with a handle on phones and as an
@@ -17,8 +18,7 @@ Future<T?> showAdaptivePopover<T>({
   double width = popoverWidth,
   bool sheetOnPhones = true,
 }) {
-  final media = MediaQuery.of(context);
-  if (sheetOnPhones && media.size.shortestSide < 600) {
+  if (sheetOnPhones && popoverIsSheet(context)) {
     return showModalBottomSheet<T>(
       context: context,
       isScrollControlled: true,
@@ -46,6 +46,11 @@ Future<T?> showAdaptivePopover<T>({
     ),
   );
 }
+
+/// Whether [showAdaptivePopover] shows a bottom sheet here (phones) rather
+/// than an anchored popover; content can use it to repeat what the sheet
+/// covers (e.g. the toolbar's quick slots).
+bool popoverIsSheet(BuildContext context) => MediaQuery.sizeOf(context).shortestSide < 600;
 
 /// The width of an anchored popover.
 const double popoverWidth = 320;
@@ -98,7 +103,10 @@ class _PopoverRoute<T> extends PopupRoute<T> {
             color: Surfaces.overlay(scheme.brightness),
             shape: Surfaces.shape(scheme, Radii.md),
             clipBehavior: Clip.antiAlias,
-            child: SingleChildScrollView(
+            // A cut-off end fades, so a tall popover shows it scrolls.
+            child: ScrollFade(
+              axis: Axis.vertical,
+              extent: Gaps.xl,
               padding: const EdgeInsets.all(Gaps.lg),
               child: Builder(builder: builder),
             ),

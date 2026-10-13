@@ -7,26 +7,45 @@ import '../../../ui/color_picker/color_picker.dart';
 import '../pen/option_controls.dart';
 
 /// Asks for a colour (opaque ARGB) with the full picker and the recent
-/// colours; null if dismissed. [live] previews every change as it is
-/// made (for edits that are only committed later, like text formatting).
+/// colours, in a popover (a sheet on phones). Like every popover it has no
+/// buttons: [live] sees each change as it is made (previews), and closing
+/// it returns the last colour picked; null if none was.
 Future<int?> pickColour(
   BuildContext context, {
   required String title,
   required int initial,
   required ToolSettings tools,
   ValueChanged<int>? live,
-}) => showAdaptivePopover<int>(
-  context: context,
-  builder: (_) => _ColourSheet(title: title, initial: initial, tools: tools, live: live),
-);
+}) async {
+  int? picked;
+  await showAdaptivePopover<void>(
+    context: context,
+    builder: (_) => _ColourSheet(
+      title: title,
+      initial: initial,
+      tools: tools,
+      onChanged: (c) {
+        picked = c;
+        live?.call(c);
+      },
+    ),
+  );
+  if (picked case final colour?) tools.addRecentColor(colour);
+  return picked;
+}
 
 class _ColourSheet extends StatefulWidget {
-  const _ColourSheet({required this.title, required this.initial, required this.tools, this.live});
+  const _ColourSheet({
+    required this.title,
+    required this.initial,
+    required this.tools,
+    required this.onChanged,
+  });
 
   final String title;
   final int initial;
   final ToolSettings tools;
-  final ValueChanged<int>? live;
+  final ValueChanged<int> onChanged;
 
   @override
   State<_ColourSheet> createState() => _ColourSheetState();
@@ -43,21 +62,15 @@ class _ColourSheetState extends State<_ColourSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          OptionHeader(
-            widget.title,
-            trailing: FilledButton(
-              onPressed: () => Navigator.of(context).pop(_colour),
-              child: const Text('Apply'),
-            ),
-          ),
-          const SizedBox(height: Gaps.sm),
+          OptionHeader(widget.title),
+          const SizedBox(height: Gaps.md),
           ColorPicker(
             color: _colour,
             showOpacity: false,
             recent: widget.tools.recentColors,
             onChanged: (c) {
               setState(() => _colour = c | 0xFF000000);
-              widget.live?.call(_colour);
+              widget.onChanged(_colour);
             },
           ),
         ],

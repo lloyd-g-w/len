@@ -1,16 +1,27 @@
 import 'package:flutter/material.dart';
 
-/// A one-line horizontal scroller whose cut-off ends fade out, so a row of
-/// controls that runs past the edge (the phone's text format bar) shows
-/// there is more to scroll to. An end fades only while content lies beyond
-/// it.
+/// A scroller whose cut-off ends fade out, so content that runs past the
+/// edge (the phone's text format bar, a tall popover) shows there is more
+/// to scroll to. An end fades only while content lies beyond it.
 class ScrollFade extends StatefulWidget {
-  const ScrollFade({super.key, required this.child, this.extent = 24});
+  const ScrollFade({
+    super.key,
+    required this.child,
+    this.extent = 24,
+    this.axis = Axis.horizontal,
+    this.padding,
+  });
 
   final Widget child;
 
-  /// Width of each fade.
+  /// Length of each fade.
   final double extent;
+
+  /// The scroll direction (a one-line row by default).
+  final Axis axis;
+
+  /// Padding inside the scroller.
+  final EdgeInsetsGeometry? padding;
 
   @override
   State<ScrollFade> createState() => _ScrollFadeState();
@@ -18,6 +29,10 @@ class ScrollFade extends StatefulWidget {
 
 class _ScrollFadeState extends State<ScrollFade> {
   final ScrollController _controller = ScrollController();
+
+  /// Keeps the content's state when the fade comes and goes (it moves
+  /// under the mask and back).
+  final GlobalKey _scroller = GlobalKey();
   bool _start = false;
   bool _end = false;
 
@@ -40,6 +55,7 @@ class _ScrollFadeState extends State<ScrollFade> {
   @override
   Widget build(BuildContext context) {
     final scroller = NotificationListener<ScrollMetricsNotification>(
+      key: _scroller,
       onNotification: (n) {
         _update(n.metrics);
         return false;
@@ -51,7 +67,8 @@ class _ScrollFadeState extends State<ScrollFade> {
         },
         child: SingleChildScrollView(
           controller: _controller,
-          scrollDirection: Axis.horizontal,
+          scrollDirection: widget.axis,
+          padding: widget.padding,
           child: widget.child,
         ),
       ),
@@ -61,8 +78,12 @@ class _ScrollFadeState extends State<ScrollFade> {
       key: const ValueKey('scroll-fade'),
       blendMode: BlendMode.dstIn,
       shaderCallback: (bounds) {
-        final f = (widget.extent / bounds.width).clamp(0.0, 0.5);
+        final vertical = widget.axis == Axis.vertical;
+        final length = vertical ? bounds.height : bounds.width;
+        final f = (widget.extent / length).clamp(0.0, 0.5);
         return LinearGradient(
+          begin: vertical ? Alignment.topCenter : Alignment.centerLeft,
+          end: vertical ? Alignment.bottomCenter : Alignment.centerRight,
           colors: [
             if (_start) Colors.transparent else Colors.black,
             Colors.black,

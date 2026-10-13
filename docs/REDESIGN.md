@@ -174,7 +174,7 @@ button in `images/image_entry_points.dart`. Drop the `selectText` descriptor fro
 | Highlighter | as Pen | colour, width, slots, opacity |
 | Eraser | three size slots (· • ●) | Whole stroke / Partial, size, erase highlighter only |
 | Lasso | none (the tools stay centred, so nothing jumps) | none |
-| Shapes | a kind button showing the current glyph (tap: kinds), then the pen's slots | kinds, "Pause to snap shapes" (moved from the pen) |
+| Shapes | the pen's slots (the Shapes button shows the kind; its popover picks it) | kinds, "Pause to snap shapes" (moved from the pen) |
 | Text | none | font, size, colour for new boxes |
 | Laser | three colour slots (red, green, blue) | colours, Trail / Dot, trail Short 0.6 s / Long 1.5 s |
 

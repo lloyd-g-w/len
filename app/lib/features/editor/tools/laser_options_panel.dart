@@ -8,10 +8,8 @@ import '../../../ink/render/laser_painter.dart';
 import '../../../ink/render/laser_ribbon.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
-import '../../../ui/color_dot.dart';
-import '../../../ui/color_picker/custom_color_swatch.dart';
+import '../../../ui/color_picker/color_choices.dart';
 import '../pen/option_controls.dart';
-import 'colour_sheet.dart';
 
 /// The laser pointer's settings: dot or trail, colour, size and how long
 /// the trail lasts, with a live preview.
@@ -27,12 +25,17 @@ class LaserOptionsPanel extends StatelessWidget {
       builder: (context, _) {
         final laser = tools.laser;
         void update(LaserConfig config) => tools.laser = config;
-        final custom = !LaserConfig.presets.contains(laser.color);
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const OptionHeader('Laser pointer'),
+            OptionHeader(
+              'Laser pointer',
+              trailing: TextButton(
+                onPressed: () => update(const LaserConfig()),
+                child: const Text('Reset'),
+              ),
+            ),
             const SizedBox(height: Gaps.sm),
             LaserPreview(config: laser),
             const SizedBox(height: Gaps.sm),
@@ -53,32 +56,12 @@ class LaserOptionsPanel extends StatelessWidget {
               selected: {laser.mode},
               onSelectionChanged: (s) => update(laser.copyWith(mode: s.single)),
             ),
-            const SizedBox(height: Gaps.sm),
-            Wrap(
-              spacing: Gaps.xs,
-              runSpacing: Gaps.xs,
-              children: [
-                for (final c in LaserConfig.presets)
-                  ColorDot(
-                    key: ValueKey('laser-colour-$c'),
-                    color: c,
-                    size: 28,
-                    selected: laser.color == c,
-                    onTap: () => update(laser.copyWith(color: c)),
-                  ),
-                CustomColorSwatch(
-                  color: custom ? laser.color : null,
-                  onTap: (context) async {
-                    final colour = await pickColour(
-                      context,
-                      title: 'Laser colour',
-                      initial: laser.color,
-                      tools: tools,
-                    );
-                    if (colour != null) update(tools.laser.copyWith(color: colour | 0xFF000000));
-                  },
-                ),
-              ],
+            const SizedBox(height: Gaps.md),
+            ColorChoices(
+              color: laser.color,
+              palette: LaserConfig.presets,
+              recent: tools.recentColors,
+              onChanged: (c) => update(laser.copyWith(color: c)),
             ),
             const SizedBox(height: Gaps.sm),
             OptionSlider(
@@ -86,7 +69,7 @@ class LaserOptionsPanel extends StatelessWidget {
               value: laser.size,
               min: LaserConfig.minSize,
               max: LaserConfig.maxSize,
-              display: (v) => v.round().toString(),
+              display: (v) => '${v.round()} px',
               onChanged: (v) => update(laser.copyWith(size: v.roundToDouble())),
             ),
             if (laser.mode == LaserMode.trail)

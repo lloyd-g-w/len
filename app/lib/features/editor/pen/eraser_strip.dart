@@ -36,6 +36,7 @@ class EraserStrip extends StatelessWidget {
               tools.eraser = tools.eraser.copyWith(radius: size);
               onEdit(anchor);
             },
+            plate: true,
             child: SlotDot(
               diameter: (4 + size * 0.5).clamp(6.0, 20.0),
               selected: eraser.radius == size,

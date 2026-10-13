@@ -10,6 +10,7 @@ import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
 import '../../../ui/even_grid.dart';
+import '../pen/ink_slots.dart';
 import '../pen/option_controls.dart';
 import 'colour_sheet.dart';
 import 'text/text_style_menus.dart';
@@ -196,8 +197,8 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
       const SizedBox(height: Gaps.sm),
       Row(
         children: [
-          Expanded(child: Text('Width', style: Theme.of(context).textTheme.labelLarge)),
-          Text(width.toStringAsFixed(1), style: Theme.of(context).textTheme.bodySmall),
+          Expanded(child: Text('Size', style: Theme.of(context).textTheme.labelLarge)),
+          Text(formatWidth(width), style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
       Slider(

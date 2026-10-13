@@ -172,8 +172,9 @@ void main() {
     await openEditor(tester, tablet, 2, ThemeMode.light);
     await tester.tap(find.byTooltip('Pen (P)'));
     await settle(tester);
+    await tester.ensureVisible(find.byTooltip('More quick colours'));
     await tester.tap(find.byTooltip('More quick colours'));
-    await tester.tap(find.byTooltip('More quick widths'));
+    await tester.tap(find.byTooltip('More quick sizes'));
     await settle(tester);
     await tester.tap(find.text('Custom'));
     await settle(tester);
@@ -216,6 +217,18 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('color-0')));
     await settle(tester);
     await shoot(tester, 'phone_pen_sheet');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('toolbar phone: highlighter sheet at 1.3x text, dark', (tester) async {
+    await openEditor(tester, phone, 2, ThemeMode.dark, textScale: 1.3);
+    await tester.tap(find.byType(ToolSwitcherButton));
+    await settle(tester);
+    await tester.tap(find.text('Highlighter'));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('color-0')));
+    await settle(tester);
+    await shoot(tester, 'phone_highlighter_sheet_text13');
     expect(tester.takeException(), isNull);
   });
 

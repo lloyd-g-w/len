@@ -143,7 +143,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       shortcut: 'S',
       // Shapes are drawn with the pen's quick colour and width.
       inkColor: () => tools.configOf(InkTool.ballpoint).color,
-      strip: (_, open) => ShapeStrip(tools: tools, onEdit: open, onEditInk: pen.openOptions),
+      strip: (_, _) => ShapeStrip(tools: tools, onEditInk: pen.openOptions),
       stripWidth: (slot) => ShapeStrip.widthFor(tools, slot),
       options: (_) => ListenableBuilder(
         listenable: tools,
