@@ -25,6 +25,9 @@ class LibraryEmptyState extends StatelessWidget {
   /// Offered when a search found nothing.
   final VoidCallback? onClearSearch;
 
+  /// Windows shorter than this leave the picture out.
+  static const double artFrom = 520;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -58,9 +61,12 @@ class LibraryEmptyState extends StatelessWidget {
       ),
     };
     final showCreate = onCreate != null && !searching && section == LibrarySection.library;
+    // Short windows (a phone held sideways): no picture, so the button
+    // shows without scrolling.
+    final short = MediaQuery.sizeOf(context).height < artFrom;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(Gaps.xxl),
+        padding: EdgeInsets.all(short ? Gaps.lg : Gaps.xxl),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 360),
           child: TweenAnimationBuilder<double>(
@@ -74,8 +80,7 @@ class LibraryEmptyState extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                art,
-                const SizedBox(height: Gaps.xl),
+                if (!short) ...[art, const SizedBox(height: Gaps.xl)],
                 Text(title, style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
                 const SizedBox(height: Gaps.sm),
                 Text(

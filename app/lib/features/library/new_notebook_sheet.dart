@@ -288,8 +288,9 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   Widget _phoneLayout(BuildContext context) {
     final media = MediaQuery.of(context);
     final scheme = Theme.of(context).colorScheme;
-    // With the keyboard up, the preview yields its space to the form.
-    final keyboard = media.viewInsets.bottom > 0;
+    // With the keyboard up, or in a short window (a phone held sideways),
+    // the preview yields its space to the form.
+    final keyboard = media.viewInsets.bottom > 0 || media.size.height < 520;
     return Padding(
       padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
       child: Column(
