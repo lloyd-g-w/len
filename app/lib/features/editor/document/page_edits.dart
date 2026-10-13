@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
-
+import '../../../data/notebook_duplicator.dart';
 import '../../../data/page_repository.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
+import '../../../domain/surface_element.dart';
 import 'page_actions.dart';
 import 'page_models.dart';
 
@@ -77,33 +77,51 @@ class PageEdits {
     );
   }
 
-  /// Copies [pages] to the end of notebook [to] and, unless [copy], deletes
-  /// them here (a move), as one step (UX_AUDIT R7-9); undo takes the copies
-  /// back and restores the pages. [changed] runs after each change to [to]
-  /// (its open views reload).
+  /// Copies [pages] to the end of the notebook [open] returns and, unless
+  /// [copy], deletes them here (a move), as one step (UX_AUDIT R7-9). A
+  /// move takes the links to the pages along (links from anywhere lead to
+  /// the moved pages). Undo takes the copies back, restores the pages and
+  /// their links, and [discard]s the notebook (one [open] made: redo makes
+  /// it again). [changed] runs after each change with the notebook and the
+  /// surfaces whose links changed (their open views reload).
   PageEdit sendTo(
-    List<NotebookPage> pages,
-    String to, {
+    List<NotebookPage> pages, {
+    required String Function() open,
+    void Function(String notebookId)? discard,
     required bool copy,
-    required VoidCallback changed,
+    required void Function(String notebookId, List<SurfaceElement> links) changed,
   }) {
-    final notebooks = actions.services.notebooks;
+    final services = actions.services;
     final ids = [for (final p in pages) p.id];
-    var copied = notebooks.copyPages(actions.notebookId, ids, to);
-    var deleted = copy ? const <DeletedPage>[] : actions.deleteAll(pages);
-    notebooks.touch(to);
-    changed();
+    late String to;
+    late CopiedPages copied;
+    var deleted = const <DeletedPage>[];
+    var links = const <SurfaceElement>[];
+    void send() {
+      to = open();
+      copied = services.notebooks.copyPages(actions.notebookId, ids, to);
+      if (!copy) {
+        deleted = actions.deleteAll(pages);
+        links = services.elements.retargetLinks(copied.copies, to);
+      }
+      services.notebooks.touch(to);
+      changed(to, links);
+    }
+
+    send();
     return _record(
       () {
-        notebooks.removeCopies(copied);
-        if (!copy) actions.restoreAll(deleted);
-        changed();
+        services.database.transaction(() {
+          services.notebooks.removeCopies(copied);
+          if (!copy) {
+            actions.restoreAll(deleted);
+            services.elements.save(links);
+          }
+          discard?.call(to);
+        });
+        changed(to, links);
       },
-      () {
-        copied = notebooks.copyPages(actions.notebookId, ids, to);
-        if (!copy) deleted = actions.deleteAll(pages);
-        changed();
-      },
+      send,
       keepOnUndo: copy ? null : pages.first.id,
     );
   }

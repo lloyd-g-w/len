@@ -7,6 +7,7 @@ import 'package:len/domain/link_target.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
+import 'package:len/domain/surface_element.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -172,6 +173,90 @@ void main() {
     await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
     await tester.pumpAndSettle();
     expect(s.pages.pagesOf(target.id), hasLength(1));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
+  testWidgets('pages move to a new notebook, links follow them, one Undo', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1280, 900)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final folder = s.folders.create(name: 'School', color: 0);
+    final source = s.notebooks.create(
+      title: 'Physics',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.dotted,
+      paperColor: PaperColor.cream,
+      coverColor: 0xFF336699,
+      folderId: folder.id,
+    );
+    final p1 = s.pages.pagesOf(source.id).single;
+    final p2 = s.pages.addPage(source.id, paper: const Paper(PaperStyle.gridLarge));
+    // A link left behind to the page that moves, and one from another notebook.
+    final elsewhere = paged('Notes');
+    final there = s.pages.pagesOf(elsewhere.id).single;
+    SurfaceElement link(String id, String surface) => LinkElements.create(
+      id: id,
+      surfaceId: surface,
+      rect: const Rect.fromLTWH(10, 10, 50, 20),
+      target: PageLinkTarget(notebookId: source.id, pageId: p2.id),
+      createdAt: 1,
+      z: -1,
+    );
+    s.elements.save([link('here', p1.id), link('there', there.id)]);
+    final content = SurfaceCopier(s.strokes, elements: s.elements);
+    LinkTarget? targetOf(String surface) =>
+        LinkElements.targetOf(content.loadAllElements(surface).single);
+
+    await tester.pumpWidget(
+      AppScope(
+        services: s,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: EditorScreen(notebook: source),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('All pages'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('page-tile-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Move to…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New notebook…'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Forces');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'OK'));
+    await tester.pumpAndSettle();
+    expect(find.text('Forces'), findsOneWidget); // The row, now chosen.
+    await tester.tap(find.widgetWithText(FilledButton, 'Move'));
+    await tester.pumpAndSettle();
+    expect(find.text('Moved 1 page to “Forces”'), findsOneWidget);
+
+    final made = s.notebooks.list().singleWhere((n) => n.title == 'Forces');
+    expect(made.folderId, folder.id);
+    expect(made.coverColor, source.coverColor);
+    expect(made.paper.style, PaperStyle.dotted);
+    expect(made.paperColor, PaperColor.cream);
+    final moved = s.pages.pagesOf(made.id).single; // Only the moved page.
+    expect(moved.paper.style, PaperStyle.gridLarge);
+    final follows = PageLinkTarget(notebookId: made.id, pageId: moved.id);
+    expect(targetOf(p1.id), follows);
+    expect(targetOf(there.id), follows);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(s.notebooks.get(made.id), isNull);
+    expect(s.pages.pagesOf(source.id).map((p) => p.id), [p1.id, p2.id]);
+    final back = PageLinkTarget(notebookId: source.id, pageId: p2.id);
+    expect(targetOf(p1.id), back);
+    expect(targetOf(there.id), back);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.pump();

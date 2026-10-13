@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../domain/surface_element.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ui/messages.dart';
 import '../../documents/overview/notebook_picker.dart';
@@ -21,6 +22,7 @@ extension PageTransferFlow on DocumentCommands {
       title: 'Move or copy $what',
       notebooks: _destinations(here),
       caption: _locations(),
+      cover: Color(here.coverColor),
     );
     if (destination == null || !context.mounted) return;
     // As stored: a sync may have changed the pages meanwhile.
@@ -39,17 +41,42 @@ extension PageTransferFlow on DocumentCommands {
     SurfaceModel.flushAll(); // Ink drawn a moment ago goes too.
     final edit = edits.sendTo(
       sent,
-      to.id,
+      open: () => to?.id ?? _create(here, destination.title).id,
+      discard: to == null ? services.notebooks.delete : null,
       copy: copy,
-      changed: () => services.sharedNotebooks.peek(to.id)?.reloadViews(),
+      changed: _changed,
     );
     if (!context.mounted) return;
     final count = sent.length == 1 ? '1 page' : '${sent.length} pages';
     showMessage(
       context,
-      '${copy ? 'Copied' : 'Moved'} $count to “${to.title}”',
+      '${copy ? 'Copied' : 'Moved'} $count to “${destination.title}”',
       action: SnackBarAction(label: 'Undo', onPressed: () => edits.models.undoEdit(edit)),
     );
+  }
+
+  /// A new notebook named [title] beside [source], with its paper and
+  /// cover, for pages about to be sent there.
+  Notebook _create(Notebook source, String title) => services.notebooks.create(
+    title: title,
+    kind: NotebookKind.paged,
+    paper: source.paper.style,
+    look: source.paper.look,
+    paperColor: source.paperColor,
+    coverColor: source.coverColor,
+    folderId: source.folderId,
+    empty: true,
+  );
+
+  /// Pages were sent to (or taken back from) [notebookId] and [links]
+  /// changed: their open views reload.
+  void _changed(String notebookId, List<SurfaceElement> links) {
+    final shared = services.sharedNotebooks;
+    shared.peek(notebookId)?.reloadViews();
+    for (final surface in {for (final l in links) l.surfaceId}) {
+      final owner = services.pages.get(surface)?.notebookId ?? surface; // A canvas is its own.
+      shared.peek(owner)?.reloadSurface(surface);
+    }
   }
 
   /// The other paged notebooks, those opened lately first, then the most

@@ -120,6 +120,13 @@ class SharedNotebook extends ChangeNotifier {
   /// Reloads every view's page list (after a change none of them made).
   void reloadViews() => _reloadPages();
 
+  /// Reloads surface [surfaceId] (a page or the canvas) after a change
+  /// made beneath its views.
+  void reloadSurface(String surfaceId) {
+    if (surfaceId == _canvas?.surfaceId) _canvas!.reload();
+    _pages?.reload(surfaceId);
+  }
+
   void _reloadPages({DocumentController? except}) {
     _reloading = true;
     try {
@@ -157,10 +164,7 @@ class SharedNotebook extends ChangeNotifier {
       _backgrounds?.retryMissing(); // New pages may bring new PDFs.
       _pdfInfo?.retry();
     }
-    for (final surfaceId in changes.strokeSurfaces) {
-      if (surfaceId == _canvas?.surfaceId) _canvas!.reload();
-      _pages?.reload(surfaceId);
-    }
+    changes.strokeSurfaces.forEach(reloadSurface);
   }
 
   /// Called by `SharedNotebooks` when the last editor let go: saves a
