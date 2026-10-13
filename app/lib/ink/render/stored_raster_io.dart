@@ -55,6 +55,7 @@ class StoredRasterIo {
   Timer? _idle;
   final Stopwatch _clock = Stopwatch()..start();
   Duration _lastActivity = Duration.zero;
+  bool _pumpScheduled = false;
   bool _disposed = false;
 
   /// Whether raster [name] is queued or being read.
@@ -82,7 +83,13 @@ class StoredRasterIo {
     if (_disposed || isReading(name)) return;
     _waiting[name] = _Read(chunk, done);
     _order = null;
-    _pump();
+    // Once the frame has asked for all it shows: then sorted.
+    if (_pumpScheduled) return;
+    _pumpScheduled = true;
+    scheduleMicrotask(() {
+      _pumpScheduled = false;
+      _pump();
+    });
   }
 
   /// Something was painted or rasterised: writes wait.
