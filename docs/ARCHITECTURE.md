@@ -1245,14 +1245,18 @@ false positives on the Ink Lab's real S Pen recordings and simulated
 writing at 1–4× (`test/scribble_detector_test.dart`).
 
 **Text-aware highlighter** (`input/highlight_snap.dart`, set by paged
-editors to `features/editor/pdf/PdfHighlightSnap`): with hold to snap on,
-a highlighter stroke of which ≥ 70 % runs along lines of PDF text (within
-0.35 × a line's height across it, ≥ 1.5 line heights along each line it
-counts) is committed as the clean highlights a selection's Highlight makes
+editors to `features/editor/pdf/PdfHighlightSnap`): always (it needs no
+hold, whatever hold to snap is set to), a highlighter stroke of which
+≥ 70 % runs along lines of PDF text (within 0.85 × a line's height of its
+middle, ≥ 1.5 line heights along each line it counts, its middle on
+average within 0.35 × the line's height of the line's middle or within
+half the stroke's width, so an underline stays ink) is committed as the
+clean highlights a selection's Highlight makes
 (`PdfHighlights.stroke`, one per line) over the characters it covers,
 widened to words it covers half of and trimmed off words it covers less of;
 one undo step. Anything else (circles, margin notes, strokes across lines,
-non-PDF pages) stays as drawn, hold to snap included.
+underlines, non-PDF pages) stays as drawn. Lines run any way a turned page
+shows them (tested at 0°, 90°, 180° and 270°).
 
 The lasso, shape, text and laser tools are `PointerTool`s
 (`ink/tools/`): `InkInputController` hands them the drawing pointer
