@@ -1,10 +1,10 @@
-import '../../../data/notebook_duplicator.dart';
 import '../../../data/page_repository.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/surface_element.dart';
 import 'page_actions.dart';
 import 'page_models.dart';
+import 'page_transfer.dart';
 
 /// Page-level changes made as steps of the notebook's undo history
 /// ([PageModels]): templates, page order, bookmarks, pages added and
@@ -77,49 +77,37 @@ class PageEdits {
     );
   }
 
-  /// Copies [pages] to the end of the notebook [open] returns and, unless
-  /// [copy], deletes them here (a move), as one step (UX_AUDIT R7-9). A
-  /// move takes the links to the pages along (links from anywhere lead to
-  /// the moved pages). Undo takes the copies back, restores the pages and
-  /// their links, and [discard]s the notebook (one [open] made: redo makes
-  /// it again). [changed] runs after each change with the notebook and the
-  /// surfaces whose links changed (their open views reload).
+  /// Moves or copies [pages] to the notebook [open] returns (one [made]
+  /// for them, if so), as one step: see [PageTransfer] (UX_AUDIT R7-9,
+  /// R8-1). [changed] runs after each change with the notebook and the
+  /// surfaces whose links changed (their open views reload); [kept] after
+  /// an undo that kept work done there since.
   PageEdit sendTo(
     List<NotebookPage> pages, {
     required String Function() open,
-    void Function(String notebookId)? discard,
+    bool made = false,
     required bool copy,
     required void Function(String notebookId, List<SurfaceElement> links) changed,
+    void Function(String notebookId, TransferKept kept)? kept,
   }) {
-    final services = actions.services;
-    final ids = [for (final p in pages) p.id];
-    late String to;
-    late CopiedPages copied;
-    var deleted = const <DeletedPage>[];
-    var links = const <SurfaceElement>[];
+    final transfer = PageTransfer(
+      actions: actions,
+      pages: pages,
+      open: open,
+      made: made,
+      copy: copy,
+    );
     void send() {
-      to = open();
-      copied = services.notebooks.copyPages(actions.notebookId, ids, to);
-      if (!copy) {
-        deleted = actions.deleteAll(pages);
-        links = services.elements.retargetLinks(copied.copies, to);
-      }
-      services.notebooks.touch(to);
-      changed(to, links);
+      transfer.send();
+      changed(transfer.to, transfer.links);
     }
 
     send();
     return _record(
       () {
-        services.database.transaction(() {
-          services.notebooks.removeCopies(copied);
-          if (!copy) {
-            actions.restoreAll(deleted);
-            services.elements.save(links);
-          }
-          discard?.call(to);
-        });
-        changed(to, links);
+        final what = transfer.undo();
+        changed(transfer.to, transfer.links);
+        if (what != null) kept?.call(transfer.to, what);
       },
       send,
       keepOnUndo: copy ? null : pages.first.id,

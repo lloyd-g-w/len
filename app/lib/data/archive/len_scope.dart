@@ -5,7 +5,7 @@ import 'len_format.dart';
 import 'len_stores.dart';
 
 /// What to write into a Len file: one notebook, a folder (with everything
-/// inside it, the trash aside) or the whole library.
+/// inside it) or the whole library, the Trash aside.
 class LenScope {
   const LenScope.notebook(String this.id) : kind = LenArchiveKind.notebook;
   const LenScope.folder(String this.id) : kind = LenArchiveKind.folder;
@@ -53,7 +53,8 @@ class ResolvedScope {
         return ResolvedScope._(
           'Library',
           ids('SELECT id FROM folders WHERE deleted = 0').toSet(),
-          ids('SELECT id FROM notebooks WHERE deleted = 0 ORDER BY id'),
+          // The Trash stays out (UX_AUDIT R8-23): a restore could purge it at once.
+          ids('SELECT id FROM notebooks WHERE deleted = 0 AND trashed_at IS NULL ORDER BY id'),
           db,
           templates: true,
         );
@@ -134,22 +135,34 @@ class ResolvedScope {
     );
   }
 
+  /// A few aggregate queries (per 500 notebooks), not one per page: a
+  /// big library would freeze the UI before the first step (R8-19).
   int _estimate() {
     var n = folders.length + notebooks.length;
-    for (final id in notebooks) {
+    for (var i = 0; i < notebooks.length; i += 500) {
+      final ids = notebooks.sublist(i, (i + 500).clamp(0, notebooks.length));
+      final marks = List.filled(ids.length, '?').join(', ');
       for (final table in ['pages', 'outline', 'recordings']) {
-        n += _count('SELECT COUNT(*) FROM $table WHERE notebook_id = ? AND deleted = 0', id);
+        n += _count(
+          'SELECT COUNT(*) FROM $table WHERE deleted = 0 AND notebook_id IN ($marks)',
+          ids,
+        );
       }
-    }
-    for (final surface in _surfaces) {
+      // Pages and canvases (their own surface).
+      final surfaces =
+          'surface_id IN (SELECT id FROM pages WHERE deleted = 0 AND notebook_id IN ($marks)) '
+          'OR surface_id IN ($marks)';
       for (final table in ['strokes', 'elements']) {
-        n += _count('SELECT COUNT(*) FROM $table WHERE surface_id = ? AND deleted = 0', surface);
+        n += _count('SELECT COUNT(*) FROM $table WHERE deleted = 0 AND ($surfaces)', [
+          ...ids,
+          ...ids,
+        ]);
       }
     }
     return n;
   }
 
-  int _count(String sql, String id) => _db.select(sql, [id]).first.columnAt(0) as int;
+  int _count(String sql, List<Object?> args) => _db.select(sql, args).first.columnAt(0) as int;
 
   /// [root] and the live folders nested in it.
   static Set<String> _subtree(String root, CommonDatabase db) {

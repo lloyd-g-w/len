@@ -294,10 +294,15 @@ compressed). Tombstones and `recognised_text` are left out (its keys hash stroke
 
 Importing never replaces anything: every record gets a new id (references follow, links to pages
 of the same file included), is stamped with the importing device's id and a fresh `updatedAt`,
-and is synced like any local write. Templates already present (same image blob) are not
-added twice. A blob whose bytes don't match its `<sha256>`, records that are not JSON, a
-truncated zip or a newer `version` refuse the whole file and leave nothing behind; single
-malformed records are skipped and counted.
+and is synced like any local write. Restoring a library backup keeps the ids of the folders and
+notebooks (with their pages, outline, recordings, strokes and elements) that aren't here, so a
+second restore can tell what is here already; the user chooses to skip those or copy them again
+(new ids). A backup holds no trashed notebooks. Templates already present (same image blob) are
+not added twice. A file that isn't a zip, has no readable manifest or a newer `version` is
+refused and leaves nothing behind; otherwise damage is left out and reported, the rest imported:
+a blob whose bytes don't match its `<sha256>` counts as missing, a line that is not a record is
+skipped, a records part that can't be read is skipped whole, and a damaged `blobs.json` falls
+back to the blobs the zip holds.
 
 ## App collections (informational)
 

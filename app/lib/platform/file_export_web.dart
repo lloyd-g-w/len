@@ -21,6 +21,11 @@ Future<ExportedFiles?> saveOrShare(
   bool toDevice = false,
 }) async {
   final blob = web.Blob([bytes.toJS].toJS, web.BlobPropertyBag(type: mime));
+  return downloadBlob(blob, name: name);
+}
+
+/// Downloads [blob] as [name] (the browser decides where it goes).
+ExportedFiles downloadBlob(web.Blob blob, {required String name}) {
   final url = web.URL.createObjectURL(blob);
   final anchor = web.HTMLAnchorElement()
     ..href = url

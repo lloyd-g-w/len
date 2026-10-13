@@ -60,7 +60,7 @@ enum LenArchiveKind {
   /// A folder with its subfolders and their notebooks.
   folder,
 
-  /// The whole library: every folder and notebook (the trash too) and the
+  /// The whole library: every folder and notebook (not the Trash) and the
   /// user's templates.
   library,
 }
@@ -94,7 +94,7 @@ class LenManifest {
     final version = json['version'];
     if (version is! int) throw const LenArchiveException.notLen();
     if (version > LenFormat.version) {
-      throw const LenArchiveException('This file was made by a newer version of Len');
+      throw const LenArchiveException('it was made by a newer Len. Update Len and try again');
     }
     final kind = LenArchiveKind.values.asNameMap()[json['kind']];
     final title = json['title'], createdAt = json['createdAt'];
@@ -105,16 +105,18 @@ class LenManifest {
   }
 }
 
-/// A Len file that can't be read; [message] is plain words for the user.
+/// A Len file that can't be read; [message] is why, in plain words for the
+/// user, to follow "Couldn’t import “x.len”: " (UX_AUDIT R8-21).
 class LenArchiveException implements Exception {
   const LenArchiveException(this.message, [this.details]);
 
   /// Not a Len file, or one too damaged to read.
   const LenArchiveException.notLen([this.details])
-    : message = 'This file isn’t a Len file, or it is damaged';
+    : message = 'it isn’t a Len file, or it is damaged. Try the original file';
 
   /// Part of the file is damaged.
-  const LenArchiveException.damaged([this.details]) : message = 'This Len file is damaged';
+  const LenArchiveException.damaged([this.details])
+    : message = 'it is damaged. Try the original file';
 
   final String message;
 

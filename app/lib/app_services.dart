@@ -273,6 +273,7 @@ class AppServices {
     blobs: blobs,
     deviceId: strokes.deviceId,
     openBlobFile: openFileInput,
+    fetchBlob: sync.fetchBlob,
   );
 
   /// Decoded bitmaps of image elements, shared by editors and previews.

@@ -88,7 +88,7 @@ class ExportFormatPicker extends StatelessWidget {
               const ButtonSegment(
                 value: ExportFormat.len,
                 icon: Icon(Symbols.stylus_note_sharp),
-                label: Text('Len'),
+                label: Text('Len file'),
               ),
           ],
           selected: {format},

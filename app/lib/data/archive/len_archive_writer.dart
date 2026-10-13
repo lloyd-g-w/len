@@ -17,6 +17,9 @@ import 'len_stores.dart';
 /// not files (browsers): they are then read into memory one at a time.
 typedef BlobFileOpener = InputStream? Function(String path);
 
+/// Downloads blob [sha] if it isn't here yet; whether it is now.
+typedef BlobFetcher = Future<bool> Function(String sha);
+
 /// What a written Len file left out.
 class LenWriteReport {
   LenWriteReport({required this.records, required this.blobs, required this.missingBlobs});
@@ -40,11 +43,21 @@ class LenWriteReport {
 /// notebook with a million strokes nor a library of textbooks is ever
 /// held in memory at once.
 class LenArchiveWriter {
-  LenArchiveWriter(this.stores, this.blobs, {this.openBlobFile, this.clock = const Clock()});
+  LenArchiveWriter(
+    this.stores,
+    this.blobs, {
+    this.openBlobFile,
+    this.fetchBlob,
+    this.clock = const Clock(),
+  });
 
   final LenStores stores;
   final BlobStore blobs;
   final BlobFileOpener? openBlobFile;
+
+  /// Downloads blobs not here yet (from the sync server), so a backup
+  /// holds them too (UX_AUDIT R8-22).
+  final BlobFetcher? fetchBlob;
   final Clock clock;
 
   /// Rows read from the database at a time.
@@ -52,12 +65,14 @@ class LenArchiveWriter {
 
   /// Writes [scope] into [output] (left open). [onProgress] gets the
   /// fraction done; a [cancel]led token stops with [Cancelled] between
-  /// steps (the caller discards the output).
+  /// steps (the caller discards the output). [drain], if given, is awaited
+  /// between steps (an output that writes asynchronously catches up).
   Future<LenWriteReport> write(
     LenScope scope,
     OutputStream output, {
     CancellationToken? cancel,
     void Function(double done)? onProgress,
+    Future<void> Function()? drain,
   }) async {
     final resolved = ResolvedScope.of(scope, stores);
     final zip = ZipEncoder()..startEncode(output);
@@ -88,7 +103,7 @@ class LenArchiveWriter {
         }
         onProgress?.call(0.5 * records / total);
         // Lets the UI breathe between pages (progress, Cancel).
-        await Future<void>.delayed(Duration.zero);
+        await (drain?.call() ?? Future<void>.delayed(Duration.zero));
         if (rows.length < _pageSize) break;
       }
     }
@@ -97,7 +112,13 @@ class LenArchiveWriter {
     final included = <String, Map<String, Object?>>{};
     var missing = 0;
     final sorted = referenced.toList()..sort();
+    // One failed download (offline) stops the others.
+    var fetching = fetchBlob != null;
     for (final sha in sorted) {
+      if (fetching && !await blobs.has(sha)) {
+        cancel?.check();
+        fetching = await fetchBlob!(sha);
+      }
       final size = blobs.sizeOf(sha);
       if (size == null || !await blobs.has(sha)) {
         missing++;
@@ -110,6 +131,7 @@ class LenArchiveWriter {
     for (final sha in included.keys) {
       cancel?.check();
       await _addBlob(zip, sha);
+      await drain?.call();
       done++;
       onProgress?.call(0.5 + 0.5 * done / included.length);
     }

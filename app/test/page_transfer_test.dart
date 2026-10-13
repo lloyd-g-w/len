@@ -252,7 +252,7 @@ void main() {
 
     await tester.tap(find.text('Undo'));
     await tester.pumpAndSettle();
-    expect(s.notebooks.get(made.id), isNull);
+    expect(s.notebooks.get(made.id)!.isTrashed, isTrue); // Never deleted (R8-1).
     expect(s.pages.pagesOf(source.id).map((p) => p.id), [p1.id, p2.id]);
     final back = PageLinkTarget(notebookId: source.id, pageId: p2.id);
     expect(targetOf(p1.id), back);

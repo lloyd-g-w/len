@@ -101,6 +101,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
     services.incomingFiles.syncSetup.addListener(_onSyncSetup);
     // Len files imported anywhere (Settings → Restore, "Open with").
     services.lenFiles.addListener(_onLenImport);
+    // Len files of notebooks and folders go into the open folder, wherever
+    // the import started (UX_AUDIT R8-15).
+    services.lenFiles.openFolder = () =>
+        _controller.section == LibrarySection.library ? _controller.folderId : null;
     // A recording cut off by the app being killed: offer to recover it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -154,6 +158,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _services?.incomingFiles.syncSetup.removeListener(_onSyncSetup);
     _services?.incomingFiles.handler = null;
     _services?.lenFiles.removeListener(_onLenImport);
+    _services?.lenFiles.openFolder = () => null;
     unawaited(_remoteChanges?.cancel());
     unawaited(_syncNotices?.cancel());
     _actions.selection.dispose();
