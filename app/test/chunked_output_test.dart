@@ -69,4 +69,14 @@ void main() {
     expect(target.notebooks.get(result.notebooks.single)!.title, 'Big');
     expect(target.database.db.select('SELECT 1 FROM blobs'), hasLength(3));
   });
+
+  test('stays little-endian when an encoder sets it big-endian (archive on the web)', () {
+    final chunks = <Uint8List>[];
+    final out = ChunkedOutput(chunks.add)..byteOrder = ByteOrder.bigEndian;
+    out
+      ..writeUint32(0x04034b50)
+      ..writeUint16(0x0201)
+      ..flush();
+    expect(chunks.single, [0x50, 0x4b, 0x03, 0x04, 0x01, 0x02]);
+  });
 }
