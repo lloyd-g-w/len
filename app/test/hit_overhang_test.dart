@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/ui/hit_overhang.dart';
@@ -22,7 +24,7 @@ void main() {
                     overhang: const EdgeInsets.all(4),
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                    onTap: () => taps.add('overhang'),
+                      onTap: () => taps.add('overhang'),
                       child: const SizedBox.square(dimension: 48),
                     ),
                   ),
@@ -58,7 +60,7 @@ void main() {
   testWidgets('does not reach through a route over it', (tester) async {
     final taps = await pump(tester);
     final context = tester.element(find.byType(Column));
-    showDialog<void>(context: context, builder: (_) => const SizedBox.shrink());
+    unawaited(showDialog<void>(context: context, builder: (_) => const SizedBox.shrink()));
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(17, 17));
     expect(taps, isEmpty);

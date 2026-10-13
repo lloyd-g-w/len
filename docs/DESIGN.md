@@ -480,7 +480,6 @@ thumb. Next, by area:
   without a caption centres its title on the ☰.
 
 Known, left as is: dark-mode screenshots render light-on-dark text a little
-heavier than on devices (rasteriser gamma); the inactive split pane fades
-its whole tool row including ink swatches (`Receding`); planner page
+heavier than on devices (rasteriser gamma); planner page
 weekday headers are capitals (printed content); the menu switch overhangs
 the submenu chevrons' glyph column by a few dp.

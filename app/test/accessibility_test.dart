@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:len/app_services.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -9,6 +8,7 @@ import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:len/ui/group_header.dart';
 import 'package:len/ui/hit_overhang.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'screenshots/screenshot_harness.dart';
 

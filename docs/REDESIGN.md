@@ -477,8 +477,9 @@ Phase 1 comes first because every later phase then gets smaller.
   remembered in `puckFloat`) and a 32-dp exit button at 40 % until hovered
   or touched. In split view the pane used last (first pointer contact or
   keyboard focus) has full chrome; what is on the other's bar and toolbar
-  recedes to 60 % (`Receding`; the bars keep their surfaces, which faded
-  read as grey over a light page in dark mode) (deviation: they don't
+  recedes to 60 % (`Receding`: chrome glyphs and text fade toward the bar;
+  ink swatches and colour underlines keep their true colour; the bars keep
+  their surfaces, which faded read as grey over a light page in dark mode) (deviation: they don't
   collapse to the puck, which would re-lay out the page each time focus
   moves). Both bars show their notebook's title, and the tab strip marks
   both split notebooks with a split glyph (the second on a quiet plate). A two-finger long press in focus mode hides the puck and the exit button
