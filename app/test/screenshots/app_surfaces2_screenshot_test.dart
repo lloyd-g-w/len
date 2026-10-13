@@ -4,6 +4,7 @@ import 'package:len/app_services.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/surface_element.dart';
+import 'package:len/features/library/folder_tile.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/features/library/library_sidebar.dart';
 import 'package:len/features/library/notebook_card.dart';
@@ -143,7 +144,10 @@ void main() {
         await shoot(tester, 's_library_sorted_by_name_${name}_$m');
 
         if (wide) {
-          await tap(tester, find.byTooltip('Folder options').first);
+          await tap(
+            tester,
+            find.descendant(of: find.byType(FolderTile), matching: find.byTooltip('More')).first,
+          );
         } else {
           await tester.longPress(find.text('Work').last);
           await settle(tester);
@@ -189,7 +193,7 @@ void main() {
 
         await openLibrarySection(tester, 'Library');
         await tap(tester, find.byTooltip('View'));
-        await tap(tester, find.text('Select…').last);
+        await tap(tester, find.text('Select').last);
         for (final title in ['Ideas', 'Recipes', 'Travel plans']) {
           await reveal(tester, find.text(title));
           await tap(tester, find.text(title));
@@ -222,7 +226,7 @@ void main() {
     await pumpApp(tester, services, const LibraryScreen(), mode: ThemeMode.dark);
     await openLibrarySection(tester, 'Trash');
     await tap(tester, find.byTooltip('View'));
-    await tap(tester, find.text('Select…').last);
+    await tap(tester, find.text('Select').last);
     await tap(tester, find.text('Recipes'));
     expect(find.text('1 selected'), findsOneWidget);
     expect(tester.takeException(), isNull);

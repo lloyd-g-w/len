@@ -20,24 +20,21 @@ enum PlannerPeriod { day, week, month, year }
 /// range (millimetres) the Paper options offer for it.
 enum PitchKind {
   /// Writing lines (ruled paper, Cornell notes, lists).
-  lines(4, 15, [('Narrow', 6.4), ('College', 7.1), ('Wide', 8.5)]),
+  lines(4, 15),
 
   /// Grid cells (also isometric triangles).
-  grid(3, 20, [('5 mm', 5), ('¼ in', 6.35), ('1 cm', 10)]),
+  grid(3, 20),
 
   /// Dot spacing.
-  dots(3, 20, [('5 mm', 5), ('¼ in', 6.35), ('1 cm', 10)]),
+  dots(3, 20),
 
   /// Distance between staff lines.
-  staff(1.5, 4, [('Small', 2), ('Medium', 2.4), ('Large', 3)]);
+  staff(1.5, 4);
 
-  const PitchKind(this.min, this.max, this.presets);
+  const PitchKind(this.min, this.max);
 
   /// Slider range (mm).
   final double min, max;
-
-  /// Named spacings (mm).
-  final List<(String, double)> presets;
 }
 
 /// A built-in background pattern ("template") drawn behind ink, or

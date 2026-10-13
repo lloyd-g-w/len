@@ -159,13 +159,13 @@ void main() {
   EditorSession session(WidgetTester tester) =>
       tester.widget<EditorCanvas>(find.byType(EditorCanvas)).session;
 
-  testWidgets('pages of a missing PDF say so, and the editor offers Retry and Relink', (
+  testWidgets('pages of a missing PDF say so, and the editor offers Try again and Locate file', (
     tester,
   ) async {
     await pumpMissing(tester, 'e' * 64);
-    expect(find.text('A PDF these pages are drawn on isn’t on this device'), findsOneWidget);
-    expect(find.text('Retry'), findsOneWidget);
-    expect(find.text('Relink…'), findsOneWidget);
+    expect(find.text('The PDF for these pages isn’t on this device'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.text('Locate file…'), findsOneWidget);
     await tester.pump(const Duration(seconds: 1)); // The notice fades in.
     await expectLater(find.byType(EditorScreen), matchesGoldenFile('goldens/pdf_missing.png'));
 
@@ -173,7 +173,7 @@ void main() {
     await tester.tap(find.byTooltip('Dismiss'));
     await tester.pumpAndSettle();
     expect(find.byType(MissingPdfNotice), findsOneWidget);
-    expect(find.text('Retry'), findsNothing);
+    expect(find.text('Try again'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -181,7 +181,7 @@ void main() {
     final bytes = await samplePdf();
     final file = File('${dir.path}/handout.pdf')..writeAsBytesSync(bytes);
     await pumpMissing(tester, shaOf(bytes));
-    expect(find.text('Relink…'), findsOneWidget);
+    expect(find.text('Locate file…'), findsOneWidget);
     final s = session(tester);
     await tester.runAsync(() async {
       await s.commands!.relinkPdf(
@@ -196,7 +196,7 @@ void main() {
       await tester.pump();
     }
     expect(s.backgrounds!.missingBlobs, isEmpty);
-    expect(find.text('Relink…'), findsNothing);
+    expect(find.text('Locate file…'), findsNothing);
     expect(find.text('PDF found'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });

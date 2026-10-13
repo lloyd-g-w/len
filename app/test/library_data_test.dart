@@ -128,6 +128,21 @@ void main() {
       expect(pages.pagesOf(a.id), isEmpty);
     });
 
+    test('the trash deletes notebooks forever after 30 days', () {
+      final old = notebook('Old');
+      final recent = notebook('Recent');
+      notebooks.trash(old.id);
+      clock.now += const Duration(days: 20).inMilliseconds;
+      notebooks.trash(recent.id);
+      clock.now += const Duration(days: 10).inMilliseconds;
+      expect(notebooks.purgeTrash(), 0); // Exactly 30 days: kept.
+      clock.now += 1;
+      expect(notebooks.purgeTrash(), 1);
+      expect(notebooks.get(old.id), isNull);
+      expect(pages.pagesOf(old.id), isEmpty);
+      expect(notebooks.trashed().single.id, recent.id);
+    });
+
     test('favourite and move do not change the last-edited time', () {
       final a = notebook('A');
       final folder = folders.create(name: 'F', color: 1);

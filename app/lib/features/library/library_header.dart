@@ -6,10 +6,10 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
-import '../../ui/menus.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
 import 'library_drag.dart';
+import 'library_menus.dart';
 
 /// Title (or breadcrumbs) with a caption, and the tools beside it: search
 /// (a 280-dp field when wide, a 🔍 that opens a field over the title when
@@ -101,14 +101,22 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       // The library also lists matches inside notebooks (features/search).
       LibrarySection.library when _c.isSearching => 'Titles and contents, across all folders',
       _ when _c.isSearching => '${plural(count, 'notebook')} across all folders',
-      // Phones have no room for the note (Empty trash… says it again).
-      LibrarySection.trash when count > 0 && !widget.compact =>
-        '${plural(count, 'notebook')} · deleted forever '
-            'when you empty the trash',
-      _ when count == 0 && folders == 0 => 'Empty',
+      // Phones have room for the note only.
+      LibrarySection.trash when count > 0 && widget.compact => 'Kept for 30 days',
+      LibrarySection.trash when count > 0 =>
+        '${plural(count, 'notebook')} · deleted forever after 30 days',
+      // The empty state says it.
+      _ when count == 0 && folders == 0 => '',
       _ => [
         if (folders > 0) plural(folders, 'folder'),
         if (count > 0 || folders == 0) plural(count, 'notebook'),
+        // The order, when it isn't the usual one.
+        if (count > 1)
+          ?switch (_c.sort) {
+            LibrarySort.edited => null,
+            LibrarySort.created => 'by date created',
+            LibrarySort.name => 'by name',
+          },
       ].join(' · '),
     };
   }
@@ -116,6 +124,19 @@ class _LibraryHeaderState extends State<LibraryHeader> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final caption = _caption;
+    // Nothing to search or sort while a view is empty (a search that found
+    // nothing keeps its field).
+    final empty = caption.isEmpty && !_c.isSearching;
+    final inFolder = _c.section == LibrarySection.library && _c.folderId != null;
+    // Phones: ← up a level inside folders (☰ reads as "at the top").
+    final leading = inFolder && widget.compact
+        ? IconButton(
+            tooltip: 'Up to ${_c.folderById(_c.parentOf(_c.folder!))?.name ?? 'Library'}',
+            icon: const Icon(Symbols.arrow_back_rounded),
+            onPressed: _c.goUp,
+          )
+        : widget.leading;
     final titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -137,7 +158,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
         ),
         const SizedBox(height: Gaps.xxs),
         Text(
-          _caption,
+          caption,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall,
@@ -156,7 +177,9 @@ class _LibraryHeaderState extends State<LibraryHeader> {
         );
         final searchOpen = !wideSearch && (_searchOpen || _c.isSearching);
         final tools = <Widget>[
-          if (wideSearch) ...[
+          if (empty)
+            const SizedBox.shrink()
+          else if (wideSearch) ...[
             SizedBox(width: 280, child: search),
             const SizedBox(width: Gaps.sm),
           ] else if (!searchOpen)
@@ -166,14 +189,15 @@ class _LibraryHeaderState extends State<LibraryHeader> {
               onPressed: _openSearch,
             ),
           if (!widget.compact && _c.section == LibrarySection.library) _NewMenu(actions: _actions),
-          _ViewMenu(actions: _actions),
+          if (!empty) _ViewMenu(actions: _actions),
           if (_c.section == LibrarySection.trash && _c.trash.isNotEmpty)
             _emptyTrash(theme, wideSearch),
         ];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_c.section == LibrarySection.library && _c.folderId != null && !searchOpen) ...[
+            // Phones go up with ← instead.
+            if (inFolder && !widget.compact && !searchOpen) ...[
               _Breadcrumbs(actions: _actions),
               const SizedBox(height: Gaps.xxs),
             ],
@@ -181,7 +205,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
               constraints: const BoxConstraints(minHeight: 52),
               child: Row(
                 children: [
-                  if (widget.leading case final leading? when !searchOpen) ...[
+                  if (leading case final leading? when !searchOpen) ...[
                     leading,
                     const SizedBox(width: Gaps.xs),
                   ],
@@ -363,7 +387,7 @@ class _Select extends _ViewChoice {
   const _Select();
 }
 
-/// ⇅ View: sort (not in the trash), grid or list, and Select….
+/// ⇅ View: sort (not in the trash), grid or list, and Select.
 class _ViewMenu extends StatelessWidget {
   const _ViewMenu({required this.actions});
 
@@ -384,14 +408,16 @@ class _ViewMenu extends StatelessWidget {
       onSelected: (choice) => switch (choice) {
         _Sort(:final sort) => c.sort = sort,
         _Layout(:final layout) => c.layout = layout,
-        _Select() => actions.selection.start(),
+        _Select() => actions.startSelection(context),
       },
       items: () => [
         if (c.section != LibrarySection.trash) ...[
+          const MenuHeading('Sort by'),
           for (final s in LibrarySort.values)
             MenuRow(value: _Sort(s), label: _label(s), checked: s == c.sort),
           const PopupMenuDivider(),
         ],
+        const MenuHeading('Show as'),
         MenuRow(
           value: const _Layout(LibraryLayout.grid),
           icon: Symbols.grid_view_rounded,
@@ -406,7 +432,7 @@ class _ViewMenu extends StatelessWidget {
         ),
         if (c.visibleNotebooks.isNotEmpty && !actions.selection.active) ...[
           const PopupMenuDivider(),
-          const MenuRow(value: _Select(), icon: Symbols.check_circle_rounded, label: 'Select…'),
+          const MenuRow(value: _Select(), icon: Symbols.check_circle_rounded, label: 'Select'),
         ],
       ],
     );

@@ -90,7 +90,12 @@ class TemplateOptions extends StatelessWidget {
                 )
               : SizedBox(width: double.infinity, height: preview ? 0 : Gaps.lg),
         ),
-        PaperOptions(template: s.template, onChanged: setTemplate, canvas: canvas),
+        PaperOptions(
+          template: s.template,
+          onChanged: setTemplate,
+          canvas: canvas,
+          swatch: !preview,
+        ),
         if (sizeEditable && !canvas) ...[
           const SizedBox(height: Gaps.lg),
           PickerLabel('Page size', trailing: custom ? 'Set by the template' : null),

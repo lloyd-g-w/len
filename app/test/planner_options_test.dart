@@ -113,7 +113,7 @@ void main() {
     final weekStart = find.byKey(const ValueKey('planner-week-start'));
     await _tap(tester, find.descendant(of: weekStart, matching: find.text('Monday')));
     expect(find.text('Week 41 · October 5 – 11, 2026'), findsOneWidget);
-    await tester.tap(find.text('Apply to this page'));
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(
       choice()!.template.paper,

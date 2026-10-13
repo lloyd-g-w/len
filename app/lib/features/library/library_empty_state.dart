@@ -15,6 +15,8 @@ class LibraryEmptyState extends StatelessWidget {
     required this.query,
     this.onCreate,
     this.onClearSearch,
+    this.onImportPdf,
+    this.onSetUpSync,
   });
 
   final LibrarySection section;
@@ -24,6 +26,10 @@ class LibraryEmptyState extends StatelessWidget {
 
   /// Offered when a search found nothing.
   final VoidCallback? onClearSearch;
+
+  /// First launch: the other ways to start, under New notebook.
+  final VoidCallback? onImportPdf;
+  final VoidCallback? onSetUpSync;
 
   /// Windows shorter than this leave the picture out.
   static const double artFrom = 520;
@@ -42,7 +48,9 @@ class LibraryEmptyState extends StatelessWidget {
       LibrarySection.library when inFolder => (
         const _IconArt(Symbols.folder_open_rounded),
         'This folder is empty',
-        'Create a notebook here, or drag notebooks onto this folder.',
+        Targets.touchFirst
+            ? 'Create a notebook here, or move notebooks into it with Move to folder.'
+            : 'Create a notebook here, or drag notebooks onto this folder.',
       ),
       LibrarySection.library => (
         const _CoverFan(),
@@ -57,10 +65,25 @@ class LibraryEmptyState extends StatelessWidget {
       LibrarySection.trash => (
         const _IconArt(Symbols.delete_rounded),
         'Trash is empty',
-        'Deleted notebooks stay here until you delete them forever.',
+        'Deleted notebooks stay here for 30 days, then they’re deleted forever.',
       ),
     };
     final showCreate = onCreate != null && !searching && section == LibrarySection.library;
+    final firstLaunch = showCreate && !inFolder;
+    final secondary = [
+      if (firstLaunch && onImportPdf != null)
+        TextButton.icon(
+          onPressed: onImportPdf,
+          icon: const Icon(Symbols.picture_as_pdf_rounded, size: Glyphs.menu),
+          label: const Text('Import PDF…'),
+        ),
+      if (firstLaunch && onSetUpSync != null)
+        TextButton.icon(
+          onPressed: onSetUpSync,
+          icon: const Icon(Symbols.sync_rounded, size: Glyphs.menu),
+          label: const Text('Set up sync…'),
+        ),
+    ];
     // Short windows (a phone held sideways): no picture, so the button
     // shows without scrolling.
     final short = MediaQuery.sizeOf(context).height < artFrom;
@@ -96,12 +119,16 @@ class LibraryEmptyState extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: onCreate,
                     icon: const Icon(Symbols.add_rounded),
-                    label: Text(inFolder ? 'New notebook here' : 'New notebook'),
+                    label: const Text('New notebook'),
                   ),
+                  if (secondary.isNotEmpty) ...[
+                    const SizedBox(height: Gaps.sm),
+                    Wrap(alignment: WrapAlignment.center, spacing: Gaps.sm, children: secondary),
+                  ],
                 ],
                 if (searching && onClearSearch != null) ...[
                   const SizedBox(height: Gaps.xl),
-                  OutlinedButton.icon(
+                  FilledButton.icon(
                     onPressed: onClearSearch,
                     icon: const Icon(Symbols.close_rounded),
                     label: const Text('Clear search'),

@@ -76,10 +76,11 @@ class SheetActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cancel = onCancel == null
-        ? null
-        : TextButton(onPressed: onCancel, child: Text(cancelLabel));
     if (stacked) {
+      // Full width, Cancel outlined: a bare label would read as text.
+      final cancel = onCancel == null
+          ? null
+          : OutlinedButton(onPressed: onCancel, child: Text(cancelLabel));
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -92,6 +93,9 @@ class SheetActions extends StatelessWidget {
         ],
       );
     }
+    final cancel = onCancel == null
+        ? null
+        : TextButton(onPressed: onCancel, child: Text(cancelLabel));
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [

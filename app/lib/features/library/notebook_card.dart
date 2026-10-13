@@ -33,6 +33,9 @@ class NotebookCard extends StatefulWidget {
   /// Width of the ⋯ beside the title.
   static double get _moreWidth => Targets.touchFirst ? 40 : 32;
 
+  /// Height of the band the ⋯ glyph is centred in (the title's first line).
+  static double get _moreHeight => Targets.touchFirst ? 36 : 28;
+
   /// Height of everything below the cover: gap, two title lines, caption.
   static double captionHeight(TextScaler scaler) => Gaps.sm + scaler.scale(20 * 2 + 16) + Gaps.xs;
 
@@ -198,13 +201,19 @@ class _NotebookCardState extends State<NotebookCard> {
                         child: AnimatedOpacity(
                           opacity: showMore ? 1 : 0,
                           duration: Motion.fast,
+                          // A 48-dp target on touch; the glyph keeps its
+                          // place beside the title's first line.
                           child: SizedBox(
-                            width: NotebookCard._moreWidth,
-                            height: Targets.touchFirst ? 36 : 28,
+                            width: Targets.of(context, NotebookCard._moreWidth),
+                            height: Targets.of(context, NotebookCard._moreHeight),
                             child: Builder(
                               builder: (anchor) => IconButton(
                                 tooltip: 'More',
-                                padding: EdgeInsets.zero,
+                                alignment: Alignment.topRight,
+                                padding: EdgeInsets.only(
+                                  right: (NotebookCard._moreWidth - Glyphs.bar) / 2,
+                                  top: (NotebookCard._moreHeight - Glyphs.bar) / 2,
+                                ),
                                 iconSize: Glyphs.bar,
                                 color: scheme.onSurfaceVariant,
                                 // Reachable by keyboard and screen readers even

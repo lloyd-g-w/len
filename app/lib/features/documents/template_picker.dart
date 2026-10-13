@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
+import '../../ui/segment_label.dart';
 import '../../ui/sheet_parts.dart';
 import 'templates/page_setup.dart';
 import 'templates/planner_options.dart';
@@ -119,8 +120,11 @@ class _TemplatePickerState extends State<TemplatePicker> {
 
   void _set(TemplateSelection s) => setState(() => _s = s);
 
-  void _done({bool allPages = false}) => Navigator.of(context)
-      .pop(TemplateChoice(_t, allPages: allPages, papers: _generates ? _s.pagesToCreate() : null));
+  /// Change mode: the template goes to every page, not only this one.
+  bool _allPages = false;
+
+  void _done() => Navigator.of(context)
+      .pop(TemplateChoice(_t, allPages: _allPages, papers: _generates ? _s.pagesToCreate() : null));
 
   /// The narrowest dialog that gets the side-by-side layout.
   static const double _splitWidth = 680;
@@ -210,50 +214,60 @@ class _TemplatePickerState extends State<TemplatePicker> {
     TemplatePickerMode.change => 'Change template',
   };
 
-  /// Cancel, then the choices with the primary (filled) last; stacked,
-  /// primary on top, when they don't fit in a row (large text) — full
-  /// width on phones.
+  /// Cancel and the primary (filled) last; stacked, primary on top, when
+  /// they don't fit in a row (large text). Changing a template leads with
+  /// "This page · All pages" and one Apply; on phones that is full width,
+  /// and the header's ✕ cancels.
   Widget _actions() {
     final cancel = TextButton(
       onPressed: () => Navigator.of(context).pop(),
       child: const Text('Cancel'),
     );
-    final List<Widget> choices;
-    if (widget.mode == TemplatePickerMode.change) {
-      choices = [
-        OutlinedButton(
-          onPressed: () => _done(allPages: true),
-          child: const Text('Apply to all pages'),
-        ),
-        FilledButton(onPressed: _done, child: const Text('Apply to this page')),
-      ];
-    } else {
-      final count = _generates ? _s.pagesToCreate().length : 1;
-      choices = [
-        FilledButton(
-          onPressed: _done,
-          child: Text(switch (widget.mode) {
-            TemplatePickerMode.addPage => count == 1 ? 'Add page' : 'Add $count pages',
-            _ => 'Use template',
-          }),
-        ),
-      ];
-    }
-    if (choices.length > 1 && MediaQuery.sizeOf(context).width < Breakpoints.medium) {
-      // Phones: full-width buttons, primary on top, so they line up.
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Gaps.xs,
-        children: [...choices.reversed, cancel],
-      );
-    }
-    return OverflowBar(
+    final count = _generates ? _s.pagesToCreate().length : 1;
+    final primary = FilledButton(
+      key: const ValueKey('template-apply'),
+      onPressed: _done,
+      child: Text(switch (widget.mode) {
+        TemplatePickerMode.addPage => count == 1 ? 'Add page' : 'Add $count pages',
+        TemplatePickerMode.change => 'Apply',
+        _ => 'Use template',
+      }),
+    );
+    final buttons = OverflowBar(
       alignment: MainAxisAlignment.end,
       spacing: Gaps.sm,
       overflowSpacing: Gaps.xs,
       overflowAlignment: OverflowBarAlignment.end,
       overflowDirection: VerticalDirection.up,
-      children: [cancel, ...choices],
+      children: [cancel, primary],
+    );
+    if (widget.mode != TemplatePickerMode.change) return buttons;
+    final scope = SegmentedButton<bool>(
+      key: const ValueKey('template-scope'),
+      showSelectedIcon: false,
+      segments: const [
+        ButtonSegment(value: false, label: SegmentLabel('This page')),
+        ButtonSegment(value: true, label: SegmentLabel('All pages')),
+      ],
+      selected: {_allPages},
+      onSelectionChanged: (s) => setState(() => _allPages = s.single),
+    );
+    if (!widget.wide) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: Gaps.sm,
+        children: [
+          scope,
+          SizedBox(height: Targets.touch, child: primary),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        scope,
+        const SizedBox(width: Gaps.md),
+        Expanded(child: buttons),
+      ],
     );
   }
 }
