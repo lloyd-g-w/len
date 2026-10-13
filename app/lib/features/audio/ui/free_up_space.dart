@@ -17,9 +17,10 @@ String? freeUpSpaceLabel(NotebookAudio audio, Recording recording) {
 }
 
 /// Asks, then drops [recording]'s parts lying wholly outside its trim on
-/// every device (trimming stays adjustable until then). The message offers
-/// Undo: the dropped blobs are kept until garbage collection's grace period
-/// has passed.
+/// every device (trimming stays adjustable until then). [context] is in
+/// the recordings list, which closes so that the message's Undo can be
+/// reached: the dropped blobs are kept until garbage collection's grace
+/// period has passed.
 Future<void> freeUpSpace(BuildContext context, NotebookAudio audio, Recording recording) async {
   final bytes = audio.releasableSize(recording);
   if (bytes == null) return;
@@ -28,19 +29,22 @@ Future<void> freeUpSpace(BuildContext context, NotebookAudio audio, Recording re
     context,
     title: bytes > 0 ? 'Free up ${formatBytes(bytes)}?' : 'Free up space?',
     message:
-        'The audio trimmed away from “${recording.title}” is deleted on all your devices, '
-        'in whole parts of $partMinutes minutes (some next to the trim stays). '
-        'The trim can’t be widened past what is left.',
+        'Deletes the audio trimmed away from “${recording.title}” on all your devices, '
+        'in whole $partMinutes-minute parts (a little next to the trim stays). '
+        'The trim can’t be widened past what’s left, and the space is released after a week.',
     confirmLabel: 'Free up',
     destructive: true,
   );
   if (!confirmed || !context.mounted) return;
+  final navigator = Navigator.of(context);
+  final host = navigator.context;
+  navigator.pop();
   final before = await audio.freeUpSpace(recording.id);
-  if (before == null || !context.mounted) return;
+  if (before == null || !host.mounted) return;
   showMessage(
-    context,
+    host,
     bytes > 0
-        ? 'Freed ${formatBytes(bytes)} from “${recording.title}”'
+        ? 'Deleted ${formatBytes(bytes)} of audio from “${recording.title}”'
         : 'Deleted the audio trimmed away from “${recording.title}”',
     action: SnackBarAction(label: 'Undo', onPressed: () => audio.restore(before)),
   );

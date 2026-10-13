@@ -74,8 +74,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   trim"): non-destructive, synced (`trimStartMs` / `trimEndMs`); playback, list durations, ink
   replay, markers and export (raw AAC cut at frame boundaries) keep to the kept audio
 - ⬜ Playback in the background (media notification)
-- ⬜ Trimming that frees storage (drop parts wholly outside the trim) and trimmed export of
-  browser recordings (MP4 / WebM would need decoding; exported untrimmed)
+- ✅ Trimming that frees storage: "Free up 12 MB…" in a recording's menu drops the 5-minute
+  parts wholly outside the trim on every device (confirmed, Undo in the message; blob GC frees
+  them after its grace). Trimmed browser recordings export only the parts the trim touches
+  (the message says they may start earlier or end later)
+- ⬜ Exact trimmed export of browser recordings (cut WebM clusters / fragmented-MP4 fragments
+  in Dart instead of whole parts)
 
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,
