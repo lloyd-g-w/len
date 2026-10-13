@@ -43,6 +43,9 @@ extension ThemeComponents on ThemeData {
         focusedErrorBorder: field(BorderSide(color: scheme.error, width: 1.5)),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
+        // The primary button's colours (dark mode lifts the accent).
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg)),
         elevation: 0,
         focusElevation: 0,

@@ -47,15 +47,13 @@ class _SettingsColumnState extends State<_SettingsColumn> {
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < Breakpoints.medium;
     final gutter = compact ? Gaps.lg : Gaps.xl;
-    // Wide: the title lines up with the centred column below it.
+    // The title lines up with the (centred) column below it.
     final columnStart = (width - SettingsScreen.maxWidth).clamp(0.0, double.infinity) / 2 + gutter;
     final hasBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
-    final titleSpacing = compact
-        ? NavigationToolbar.kMiddleSpacing
-        : (columnStart - (hasBack ? kToolbarHeight : 0)).clamp(
-            NavigationToolbar.kMiddleSpacing,
-            double.infinity,
-          );
+    final titleSpacing = (columnStart - (hasBack ? kToolbarHeight : 0)).clamp(
+      NavigationToolbar.kMiddleSpacing,
+      double.infinity,
+    );
     final content = Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(

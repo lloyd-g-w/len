@@ -188,7 +188,8 @@ class ProgressDialog extends StatelessWidget {
       icon: Symbols.hourglass_top_rounded,
       title: title,
       content: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 280, maxWidth: 360),
+        // As wide as the other dialogs (on phones, the screen allows less).
+        constraints: const BoxConstraints.tightFor(width: dialogFormWidth),
         child: ListenableBuilder(
           listenable: progress,
           builder: (context, _) {
