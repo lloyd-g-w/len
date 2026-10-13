@@ -1,9 +1,6 @@
-import 'dart:async';
 import 'dart:developer' as developer;
-import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/services.dart';
 
 import '../../core/clock.dart';
 import '../../domain/stroke.dart';
@@ -22,7 +19,7 @@ import 'hold_to_straighten.dart';
 import 'lift_speed.dart';
 import 'live_ink.dart';
 import 'sample_source.dart';
-import 'scribble_detector.dart';
+import 'scribble_erase.dart';
 import 'stroke_sampler.dart';
 import 'stylus_buttons.dart';
 
@@ -32,7 +29,7 @@ import 'stylus_buttons.dart';
 /// Ink goes pen-down → points ([StrokeSampler]: thinned, pressure
 /// normalised and smoothed, end settled) → commit at pen-up, with stylus
 /// bounces dropped, [HoldToStraighten] snapping a resting pen, a pen
-/// scribble over ink erasing it ([ScribbleDetector]) and highlights over
+/// scribble over ink erasing it ([ScribbleErase]) and highlights over
 /// PDF text snapping to it ([highlightSnap]).
 class InkDrawing {
   InkDrawing({
@@ -69,8 +66,8 @@ class InkDrawing {
   /// Thins and pressure-filters the ink's samples.
   late final StrokeSampler _sampler = StrokeSampler(viewport, _keep);
 
-  /// Recognises a pen stroke that is a scribble to erase.
-  final ScribbleDetector _scribble = ScribbleDetector();
+  /// Erases what a pen scribble crosses.
+  late final ScribbleErase _scribble = ScribbleErase(viewport: viewport, tools: tools, live: live);
 
   /// The pen's speed at the lift, for an end taper that follows it.
   final LiftSpeed _liftSpeed = LiftSpeed();
@@ -220,26 +217,12 @@ class InkDrawing {
       final points = StrokeSampler.settleEnd(live.finish());
       // A bounce was shown while it touched (under the nib, where the pen
       // just lifted, for less than `BounceFilter.maxContact`) and goes now.
-      if (points.isNotEmpty && !_isBounce(liftTime) && !_erasedByScribble(points)) {
+      if (points.isNotEmpty && !_isBounce(liftTime) && !_scribble.erase(model, points)) {
         _commit(points, liftTime);
       }
       _recordLift(liftTime);
     }
     _reset();
-  }
-
-  /// Scribble to erase: a pen stroke that is a scribble over ink erases
-  /// the strokes under it (one undo step) instead of becoming ink. Over
-  /// nothing, it is ink (shading, say).
-  bool _erasedByScribble(List<StrokePoint> points) {
-    if (!tools.scribbleToErase || live.tool != InkTool.ballpoint || live.straightened) {
-      return false;
-    }
-    if (!_scribble.isScribble) return false;
-    final reach = math.max(live.width / 2, ScribbleDetector.reach / viewport.scale);
-    if (model.eraseScribbled([for (final p in points) p.offset], reach) == 0) return false;
-    unawaited(HapticFeedback.selectionClick());
-    return true;
   }
 
   void _commit(List<StrokePoint> points, Duration? liftTime) {
