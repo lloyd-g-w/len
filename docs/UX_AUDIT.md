@@ -293,8 +293,10 @@ Status: ✅ fixed in `feat/ux3` · 🟡 partly fixed · ⬜ open · ➡️ route
 25. ✅ Canvases can't be exported (no entry point). → ⋯ → Export… and
     Ctrl/⌘+E export the whole drawing as one PDF page or PNG, sized to it
     with a margin, the background grid aligned as on screen.
-26. ⬜ Desktop: folder cards and the notebook grid end at different right
-    edges, and titles are limited to one line.
+26. ✅ Desktop: folder cards and the notebook grid end at different right
+    edges, and titles are limited to one line. → Checked in
+    `library_desktop_light`: both stretch to the same gutters (equal-width
+    tiles filling each row), and notebook titles wrap to two lines.
 27. ✅ Bookmark colour differs between the editor (orange), the overview
     (brown or peach) and the app bar (primary). → One colour,
     `Palette.bookmark`: the page ribbon, overview tiles, Go to page strip,
