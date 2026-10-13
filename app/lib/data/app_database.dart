@@ -3,18 +3,13 @@ import 'package:sqlite3/common.dart';
 
 import '../platform/sqlite_connection.dart';
 
+import 'schema_migrations.dart';
 import 'schema_reset.dart';
-import 'search/ink_text_schema.dart';
-import 'search/search_schema.dart';
 import 'write_back.dart';
 
-/// Owns the SQLite connection and creates and migrates the schema.
-///
-/// Every syncable table carries the same bookkeeping columns:
-///   * `updated_at` / `device_id` — last-write-wins version (see
-///     docs/SYNC_PROTOCOL.md),
-///   * `deleted` — tombstone flag, so deletions can be synced,
-///   * `dirty` — 1 when the row has local changes not yet pushed.
+/// Owns the SQLite connection and creates and migrates the schema (see
+/// [SchemaMigrations]; `InitialSchema` lists the bookkeeping columns every
+/// syncable table carries).
 class AppDatabase {
   AppDatabase._(this.db, {this.path});
 
@@ -85,7 +80,7 @@ class AppDatabase {
   void _migrate() {
     final version = _version;
     var kept = const <String, String>{};
-    if (version > _migrations.length || (version == 0 && !SchemaCheck.isEmpty(db))) {
+    if (version > SchemaMigrations.all.length || (version == 0 && !SchemaCheck.isEmpty(db))) {
       kept = _reset(version);
     } else if (version > 0) {
       try {
@@ -107,9 +102,9 @@ class AppDatabase {
   int get _version => db.select('PRAGMA user_version').first.columnAt(0) as int;
 
   void _upgrade(int from) {
-    for (var v = from; v < _migrations.length; v++) {
+    for (var v = from; v < SchemaMigrations.all.length; v++) {
       transaction(() {
-        _migrations[v](db);
+        SchemaMigrations.all[v](db);
         db.execute('PRAGMA user_version = ${v + 1}');
       });
     }
@@ -134,7 +129,7 @@ class AppDatabase {
     _schemaReset = SchemaReset(
       backupPath: backup,
       keptSync: kept.length == SchemaCheck.keptSettings.length,
-      fromNewer: version > _migrations.length,
+      fromNewer: version > SchemaMigrations.all.length,
     );
     debugPrint('Database schema (version $version) not usable; started fresh (backup: $backup)');
     return kept;
@@ -157,275 +152,5 @@ class AppDatabase {
 
   /// The schema version of a fully migrated database.
   @visibleForTesting
-  static int get latestVersion => _migrations.length;
-
-  /// Ordered list of schema migrations; index i migrates from version i to
-  /// i + 1 (`PRAGMA user_version`). Version 1 creates the whole schema.
-  /// Future schema changes **append** a migration; never edit one that has
-  /// shipped.
-  static final List<void Function(CommonDatabase)> _migrations = [
-    _createSchema,
-    _templates,
-    _recordingWaveforms,
-    _organise,
-    _recordingParts,
-    _recordingTrim,
-    _notebookPaperData,
-    _strokeEndStyles,
-  ];
-
-  /// Version 8: make the pen's end shape explicit on stored strokes. Upgrade
-  /// the on-disk JSON once rather than keeping a legacy read path in the
-  /// renderer; bump the record version so already-synced strokes are sent
-  /// again with the now-complete style.
-  static void _strokeEndStyles(CommonDatabase db) {
-    db.execute('''
-      UPDATE strokes
-      SET style = json_set(style, '\$.e', 'round'),
-          updated_at = updated_at + 1,
-          dirty = 1
-      WHERE style IS NOT NULL AND json_valid(style) AND json_type(style) = 'object'
-        AND json_extract(style, '\$.e') IS NULL
-    ''');
-  }
-
-  /// Version 7: a notebook's paper look (`paper_data`, JSON, `Paper.toData`
-  /// of its default paper: the canvas background and new pages).
-  static void _notebookPaperData(CommonDatabase db) {
-    db.execute("ALTER TABLE notebooks ADD COLUMN paper_data TEXT NOT NULL DEFAULT '{}'");
-  }
-
-  /// Version 6: a recording's kept range (`trim_start_ms`, `trim_end_ms`;
-  /// untrimmed = `0` and `duration_ms`).
-  static void _recordingTrim(CommonDatabase db) {
-    db.execute('ALTER TABLE recordings ADD COLUMN trim_start_ms INTEGER NOT NULL DEFAULT 0');
-    db.execute('ALTER TABLE recordings ADD COLUMN trim_end_ms INTEGER NOT NULL DEFAULT 0');
-    db.execute('UPDATE recordings SET trim_end_ms = duration_ms');
-  }
-
-  /// Version 5: a recording's audio is a list of parts (`audio`, JSON
-  /// `[[blob, durationMs], …]`) instead of one `blob`.
-  static void _recordingParts(CommonDatabase db) {
-    db.execute("ALTER TABLE recordings ADD COLUMN audio TEXT NOT NULL DEFAULT '[]'");
-    db.execute('UPDATE recordings SET audio = json_array(json_array(blob, duration_ms))');
-    db.execute('ALTER TABLE recordings DROP COLUMN blob');
-  }
-
-  /// Version 4: notebooks' own outlines.
-  static void _organise(CommonDatabase db) {
-    // A notebook's own table of contents; siblings follow page order.
-    db.execute('''
-      CREATE TABLE outline (
-        id          TEXT PRIMARY KEY NOT NULL,
-        notebook_id TEXT NOT NULL,
-        page_id     TEXT NOT NULL,
-        parent_id   TEXT,
-        title       TEXT NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-    db.execute('CREATE INDEX outline_by_notebook ON outline(notebook_id)');
-  }
-
-  /// Version 3: a recording's waveform blob (`''` = none), and stroke
-  /// times indexed per surface (ink density of a recording, see
-  /// `RecordingRepository.contentTimes`).
-  static void _recordingWaveforms(CommonDatabase db) {
-    db.execute("ALTER TABLE recordings ADD COLUMN waveform TEXT NOT NULL DEFAULT ''");
-    db.execute('DROP INDEX strokes_by_surface');
-    db.execute('CREATE INDEX strokes_by_surface ON strokes(surface_id, created_at)');
-  }
-
-  /// Version 2: template parameters on pages (`paper_data`, JSON, see
-  /// `Paper.toData`), and the user's own templates.
-  static void _templates(CommonDatabase db) {
-    db.execute("ALTER TABLE pages ADD COLUMN paper_data TEXT NOT NULL DEFAULT '{}'");
-    // A user's template: an image blob and the page size it suggests.
-    db.execute('''
-      CREATE TABLE templates (
-        id          TEXT PRIMARY KEY NOT NULL,
-        name        TEXT NOT NULL,
-        blob        TEXT NOT NULL,
-        width       REAL NOT NULL,
-        height      REAL NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-  }
-
-  /// Creates the complete schema of a new database.
-  static void _createSchema(CommonDatabase db) {
-    db.execute('''
-      CREATE TABLE settings (
-        key   TEXT PRIMARY KEY NOT NULL,
-        value TEXT NOT NULL
-      )''');
-
-    db.execute('''
-      CREATE TABLE folders (
-        id          TEXT PRIMARY KEY NOT NULL,
-        name        TEXT NOT NULL,
-        parent_id   TEXT,
-        color       INTEGER NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-    db.execute('CREATE INDEX folders_by_parent ON folders(parent_id)');
-
-    db.execute('''
-      CREATE TABLE notebooks (
-        id          TEXT PRIMARY KEY NOT NULL,
-        title       TEXT NOT NULL,
-        kind        TEXT NOT NULL,
-        paper       TEXT NOT NULL,
-        paper_color TEXT NOT NULL DEFAULT 'white',
-        cover_color INTEGER NOT NULL,
-        folder_id   TEXT,
-        favorite    INTEGER NOT NULL DEFAULT 0,
-        trashed_at  INTEGER,
-        created_at  INTEGER NOT NULL,
-        edited_at   INTEGER NOT NULL DEFAULT 0,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-    db.execute('CREATE INDEX notebooks_by_folder ON notebooks(folder_id)');
-
-    // `background`: JSON object (see `PageBackground`) or NULL.
-    db.execute('''
-      CREATE TABLE pages (
-        id          TEXT PRIMARY KEY NOT NULL,
-        notebook_id TEXT NOT NULL,
-        sort_key    REAL NOT NULL,
-        width       REAL NOT NULL,
-        height      REAL NOT NULL,
-        paper       TEXT NOT NULL,
-        paper_color TEXT NOT NULL DEFAULT 'white',
-        bookmarked  INTEGER NOT NULL DEFAULT 0,
-        background  TEXT,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-    db.execute('CREATE INDEX pages_by_notebook ON pages(notebook_id, sort_key)');
-
-    // `style`: JSON (see `StrokeStyle`).
-    db.execute('''
-      CREATE TABLE strokes (
-        id          TEXT PRIMARY KEY NOT NULL,
-        surface_id  TEXT NOT NULL,
-        tool        TEXT NOT NULL,
-        color       INTEGER NOT NULL,
-        width       REAL NOT NULL,
-        style       TEXT,
-        points      BLOB NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-    db.execute('CREATE INDEX strokes_by_surface ON strokes(surface_id)');
-
-    // Sparse spatial index: which chunks of a surface each live stroke
-    // touches. Only populated chunks have rows, so an infinite canvas costs
-    // nothing where it is empty. Derived data — never synced.
-    db.execute('''
-      CREATE TABLE stroke_chunks (
-        surface_id TEXT NOT NULL,
-        cx         INTEGER NOT NULL,
-        cy         INTEGER NOT NULL,
-        stroke_id  TEXT NOT NULL,
-        PRIMARY KEY (surface_id, cx, cy, stroke_id)
-      ) WITHOUT ROWID''');
-    db.execute('CREATE INDEX stroke_chunks_by_stroke ON stroke_chunks(stroke_id)');
-
-    // Non-ink objects on a surface (text boxes, images) and their sparse
-    // chunk index, mirroring `strokes` / `stroke_chunks`.
-    db.execute('''
-      CREATE TABLE elements (
-        id          TEXT PRIMARY KEY NOT NULL,
-        surface_id  TEXT NOT NULL,
-        type        TEXT NOT NULL,
-        x           REAL NOT NULL,
-        y           REAL NOT NULL,
-        w           REAL NOT NULL,
-        h           REAL NOT NULL,
-        rotation    REAL NOT NULL DEFAULT 0,
-        z           REAL NOT NULL DEFAULT 0,
-        data        TEXT NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-    db.execute('CREATE INDEX elements_by_surface ON elements(surface_id)');
-    db.execute('''
-      CREATE TABLE element_chunks (
-        surface_id TEXT NOT NULL,
-        cx         INTEGER NOT NULL,
-        cy         INTEGER NOT NULL,
-        element_id TEXT NOT NULL,
-        PRIMARY KEY (surface_id, cx, cy, element_id)
-      ) WITHOUT ROWID''');
-    db.execute('CREATE INDEX element_chunks_by_element ON element_chunks(element_id)');
-
-    // Audio recordings of notebooks (the audio itself is a blob).
-    db.execute('''
-      CREATE TABLE recordings (
-        id          TEXT PRIMARY KEY NOT NULL,
-        notebook_id TEXT NOT NULL,
-        blob        TEXT NOT NULL,
-        duration_ms INTEGER NOT NULL,
-        started_at  INTEGER NOT NULL,
-        title       TEXT NOT NULL,
-        mime        TEXT NOT NULL,
-        segments    TEXT NOT NULL DEFAULT '[]',
-        updated_at  INTEGER NOT NULL,
-        device_id   TEXT NOT NULL,
-        deleted     INTEGER NOT NULL DEFAULT 0,
-        dirty       INTEGER NOT NULL DEFAULT 1
-      )''');
-    db.execute('CREATE INDEX recordings_by_notebook ON recordings(notebook_id, started_at)');
-
-    // Sync pushes dirty rows in id order (keyset pagination); index exactly
-    // that for the big tables, so a sync with nothing to push scans nothing.
-    for (final table in ['strokes', 'elements', 'recordings']) {
-      db.execute('CREATE INDEX ${table}_dirty ON $table(id) WHERE dirty = 1');
-    }
-
-    // Blob files live in the app support directory; this table records
-    // which ones are present and their sync / garbage collection state:
-    // `uploaded` to the current server, `rejected_limit` when the server
-    // refused the blob as too large (its limit at the time, 0 if unknown),
-    // `unreferenced_since` (ms) when no live row was last found
-    // referencing it.
-    db.execute('''
-      CREATE TABLE blobs (
-        sha256             TEXT PRIMARY KEY NOT NULL,
-        size               INTEGER NOT NULL,
-        mime               TEXT NOT NULL,
-        created_at         INTEGER NOT NULL,
-        uploaded           INTEGER NOT NULL DEFAULT 0,
-        rejected_limit     INTEGER,
-        unreferenced_since INTEGER
-      )''');
-
-    // Derived and local only (never synced): the full-text search index and
-    // recognised handwriting.
-    SearchSchema.create(db);
-    InkTextSchema.create(db);
-  }
+  static int get latestVersion => SchemaMigrations.all.length;
 }
