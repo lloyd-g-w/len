@@ -12,7 +12,9 @@ class MenuRow<T> extends PopupMenuItem<T> {
     super.key,
     required T super.value,
     this.icon,
+    this.leading,
     required this.label,
+    this.labelStyle,
     this.destructive = false,
     this.checked = false,
     this.filledIcon = false,
@@ -21,7 +23,14 @@ class MenuRow<T> extends PopupMenuItem<T> {
   }) : super(child: null, height: Targets.menuRow);
 
   final IconData? icon;
+
+  /// A small widget in the leading slot instead of [icon] (e.g. a colour
+  /// swatch).
+  final Widget? leading;
   final String label;
+
+  /// The label's style over the menu's (e.g. a font shown in itself).
+  final TextStyle? labelStyle;
   final bool destructive;
 
   /// Marks the current choice with a check after the label.
@@ -49,21 +58,27 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
       child: Row(
         children: [
           SizedBox(
-            width: Glyphs.menu,
-            child: widget.icon == null
-                ? null
-                : Icon(
-                    widget.icon,
-                    size: Glyphs.menu,
-                    fill: widget.filledIcon ? 1 : 0,
-                    color: widget.destructive || !widget.enabled ? color : scheme.onSurfaceVariant,
-                  ),
+            width: widget.leading == null ? Glyphs.menu : null,
+            child:
+                widget.leading ??
+                (widget.icon == null
+                    ? null
+                    : Icon(
+                        widget.icon,
+                        size: Glyphs.menu,
+                        fill: widget.filledIcon ? 1 : 0,
+                        color: widget.destructive || !widget.enabled
+                            ? color
+                            : scheme.onSurfaceVariant,
+                      )),
           ),
           const SizedBox(width: Gaps.md),
           Expanded(
             child: Text(
               widget.label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(color: color),
+              style: Theme.of(context).textTheme.labelLarge
+                  ?.merge(widget.labelStyle)
+                  .copyWith(color: color),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -144,6 +159,38 @@ class MenuIconButton<T> extends StatelessWidget {
       final value = await showMenuBelow<T>(context, items: items());
       if (value != null) onSelected(value);
     },
+  );
+}
+
+/// Any [child] (a label with a ▾, a value) that opens a menu of [items]
+/// below itself ([showMenuBelow]); [MenuIconButton] for an icon.
+class MenuButton<T> extends StatelessWidget {
+  const MenuButton({
+    super.key,
+    required this.child,
+    required this.tooltip,
+    required this.items,
+    required this.onSelected,
+  });
+
+  final Widget child;
+  final String tooltip;
+
+  /// Built when the menu opens, so it reflects the current state.
+  final List<PopupMenuEntry<T>> Function() items;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(Radii.xs),
+      onTap: () async {
+        final value = await showMenuBelow<T>(context, items: items());
+        if (value != null) onSelected(value);
+      },
+      child: child,
+    ),
   );
 }
 

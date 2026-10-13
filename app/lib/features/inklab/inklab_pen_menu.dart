@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../ink/lab/input_recording.dart';
+import '../../ui/menus.dart';
 
 /// The Ink Lab's pen choices: stabiliser (streamline) and width.
 class InkLabPenMenu extends StatelessWidget {
@@ -18,25 +19,25 @@ class InkLabPenMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<PenSettings>(
+    return MenuIconButton<PenSettings>(
       tooltip: 'Pen',
       icon: const Icon(Symbols.edit_rounded),
       onSelected: onChanged,
-      itemBuilder: (context) => [
-        const PopupMenuItem(enabled: false, height: 32, child: Text('Stabiliser')),
+      items: () => [
+        MenuRow(value: pen, label: 'Stabiliser', enabled: false),
         for (final s in streamlines)
-          CheckedPopupMenuItem(
+          MenuRow(
             value: pen.copyWith(streamline: s),
+            label: s.toString(),
             checked: pen.streamline == s,
-            child: Text(s.toString()),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(enabled: false, height: 32, child: Text('Width')),
+        MenuRow(value: pen, label: 'Width', enabled: false),
         for (final w in widths)
-          CheckedPopupMenuItem(
+          MenuRow(
             value: pen.copyWith(width: w),
+            label: w.toString(),
             checked: pen.width == w,
-            child: Text(w.toString()),
           ),
       ],
     );

@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/menus.dart';
 import '../../editor/document/page_backgrounds.dart';
 import '../../editor/document/page_thumbnail.dart';
 import 'page_commands.dart';
@@ -237,12 +238,15 @@ class _Footer extends StatelessWidget {
           if (!tile.selecting)
             Positioned(
               right: 0,
-              child: PopupMenuButton<PageCommand>(
+              child: MenuIconButton<PageCommand>(
                 tooltip: 'Page ${tile.index + 1} options',
-                icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
-                iconColor: scheme.onSurfaceVariant,
+                icon: Icon(
+                  Symbols.more_horiz_rounded,
+                  size: Glyphs.bar,
+                  color: scheme.onSurfaceVariant,
+                ),
                 onSelected: tile.onCommand,
-                itemBuilder: (context) => pageMenuItems(tile.page),
+                items: () => pageMenuItems(tile.page),
               ),
             ),
         ],

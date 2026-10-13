@@ -157,10 +157,10 @@ class SpeedButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return PopupMenuButton<double>(
+    return MenuButton<double>(
       tooltip: 'Playback speed',
       onSelected: (rate) => unawaited(playback.setRate(rate)),
-      itemBuilder: (_) => [
+      items: () => [
         for (final rate in PlaybackController.rates)
           MenuRow(value: rate, label: formatRate(rate), checked: rate == playback.rate),
       ],

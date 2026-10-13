@@ -410,7 +410,10 @@ Every surface uses exactly one of five primitives. `features/` may not use
 - **Menus:** rows 44 dp (48 on phones), 18-dp icons with the leading slot always
   reserved, shortcut hints only where a keyboard is likely, submenus that drill in on
   phones, 8 dp from the screen edges.
-- **Moving onto the system:** the recordings list (`audio/ui/recordings_sheet.dart`)
+- **Moving onto the system:** done — `features/` has no `PopupMenuButton`,
+  raw `showModalBottomSheet`, `AlertDialog` or `SimpleDialog` left (menus use
+  `MenuIconButton` / `MenuButton` with `MenuRow`s, which can lead with a
+  swatch and show a label in its own style). The recordings list (`audio/ui/recordings_sheet.dart`)
   becomes a popover; the PDF outline sheet (`pdf/pdf_outline_sheet.dart`) goes (it
   becomes the overview's Outline filter); convert to text becomes a task sheet with Try
   again on error.

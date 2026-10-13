@@ -170,11 +170,11 @@ class _MenuBar extends StatelessWidget {
               for (final a in shown) a.button(),
               if (more.isNotEmpty)
                 Builder(
-                  builder: (anchor) => PopupMenuButton<_Action>(
+                  builder: (anchor) => MenuIconButton<_Action>(
                     tooltip: 'More',
                     icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
                     onSelected: (a) => a.run(anchor),
-                    itemBuilder: (_) => [
+                    items: () => [
                       for (final a in more)
                         MenuRow<_Action>(
                           value: a,

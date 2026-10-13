@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook.dart';
+import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
 import 'open_notebooks.dart';
 
-/// Lists the open notebooks in a bottom sheet.
+/// Lists the open notebooks: a popover (REDESIGN §5; a sheet on phones,
+/// where it is offered).
 Future<void> showTabSwitcher(BuildContext context, OpenNotebooks tabs) {
-  return showModalBottomSheet<void>(
+  return showAdaptivePopover<void>(
     context: context,
-    useSafeArea: true,
     builder: (context) => ListenableBuilder(
       listenable: tabs,
       builder: (context, _) => ListView(
