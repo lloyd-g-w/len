@@ -1806,7 +1806,7 @@ button use `MenuIconButton` / `showMenuBelow` (`menus.dart`; `MenuRow.shortcut` 
 where a keyboard is likely), never `PopupMenuButton`. The chrome's `MenuAnchor`s (⋯, Insert,
 zoom) sit in `MenuEdgeMargin`, which adds 8-dp side strips as display features (the anchor's
 `MediaQuery` padding never reaches its overlay; display features do). Rows of controls that
-scroll sideways (the text format bar, the toolbar's quick slots in a narrow bar) use
+scroll sideways (the text format bar's rows, the toolbar's quick slots in a narrow bar) use
 `ScrollFade` (`scroll_fade.dart`): an end fades out while content lies beyond it. The
 keyboard shortcut reference (`settings/keyboard_shortcuts.dart`, Ctrl/⌘+/) is a list of
 `ShortcutGroup`s kept honest by `keyboard_shortcuts_test.dart` (each entry must be bound
