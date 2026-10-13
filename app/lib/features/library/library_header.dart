@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
-import '../settings/keyboard_shortcuts.dart' show modifierLabel;
 import 'library_actions.dart';
+import 'library_breadcrumbs.dart';
 import 'library_controller.dart';
-import 'library_drag.dart';
-import 'library_menus.dart';
+import 'library_new_menu.dart';
+import 'library_search_field.dart';
+import 'library_view_menu.dart';
 
 /// Title (or breadcrumbs) with a caption, and the tools beside it: search
 /// (a 280-dp field when wide, a 🔍 that opens a field over the title when
@@ -171,7 +171,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       builder: (context, constraints) {
         final wideSearch =
             !widget.compact && constraints.maxWidth >= LibraryHeader.searchFieldMinWidth;
-        final search = _SearchField(
+        final search = LibrarySearchField(
           controller: widget.searchController,
           focus: widget.searchFocus,
           actions: _actions,
@@ -190,8 +190,9 @@ class _LibraryHeaderState extends State<LibraryHeader> {
               icon: const Icon(Symbols.search_sharp),
               onPressed: _openSearch,
             ),
-          if (!widget.compact && _c.section == LibrarySection.library) _NewMenu(actions: _actions),
-          if (!empty) _ViewMenu(actions: _actions),
+          if (!widget.compact && _c.section == LibrarySection.library)
+            LibraryNewMenu(actions: _actions),
+          if (!empty) LibraryViewMenu(actions: _actions),
           if (_c.section == LibrarySection.trash && _c.trash.isNotEmpty)
             _emptyTrash(theme, wideSearch),
         ];
@@ -200,7 +201,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
           children: [
             // Phones go up with ← instead.
             if (inFolder && !widget.compact && !searchOpen) ...[
-              _Breadcrumbs(actions: _actions),
+              LibraryBreadcrumbs(actions: _actions),
               const SizedBox(height: Gaps.xxs),
             ],
             ConstrainedBox(
@@ -251,242 +252,6 @@ class _LibraryHeaderState extends State<LibraryHeader> {
         onPressed: empty,
         icon: const Icon(Symbols.delete_sweep_sharp, size: Glyphs.menu),
         label: const Text('Empty trash…'),
-      ),
-    );
-  }
-}
-
-class _SearchField extends StatelessWidget {
-  const _SearchField({
-    required this.controller,
-    required this.focus,
-    required this.actions,
-    this.onClose,
-  });
-
-  final TextEditingController controller;
-  final FocusNode focus;
-  final LibraryActions actions;
-
-  /// Narrow layouts: ✕ closes the field (else it only clears it).
-  final VoidCallback? onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: Targets.menuRowHeight(context),
-      child: ListenableBuilder(
-        listenable: controller,
-        builder: (context, _) => TextField(
-          controller: controller,
-          focusNode: focus,
-          onChanged: (q) => actions.controller.query = q,
-          textInputAction: TextInputAction.search,
-          textAlignVertical: TextAlignVertical.center,
-          decoration: InputDecoration(
-            hintText: 'Search',
-            contentPadding: EdgeInsets.zero,
-            prefixIcon: Icon(
-              Symbols.search_sharp,
-              color: scheme.onSurfaceVariant,
-              size: Glyphs.bar,
-            ),
-            suffixIcon: controller.text.isEmpty && onClose == null
-                ? null
-                : IconButton(
-                    tooltip: onClose == null || controller.text.isNotEmpty
-                        ? 'Clear search'
-                        : 'Close search',
-                    iconSize: Glyphs.menu,
-                    icon: const Icon(Symbols.close_sharp),
-                    onPressed: () {
-                      if (controller.text.isEmpty) {
-                        onClose?.call();
-                        return;
-                      }
-                      controller.clear();
-                      actions.controller.query = '';
-                    },
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// What ⊕▾ (and a long press on the phone's ⊕) creates.
-enum NewChoice { notebook, canvas, pdf, folder }
-
-/// The rows of ⊕▾: New notebook, New canvas, Import PDF…, New folder.
-List<PopupMenuEntry<NewChoice>> newMenuItems() => [
-  MenuRow(
-    value: NewChoice.notebook,
-    icon: Symbols.menu_book_sharp,
-    label: 'New notebook',
-    shortcut: '${modifierLabel()}+N',
-  ),
-  const MenuRow(value: NewChoice.canvas, icon: Symbols.all_inclusive_sharp, label: 'New canvas'),
-  const MenuRow(value: NewChoice.pdf, icon: Symbols.picture_as_pdf_sharp, label: 'Import PDF…'),
-  const PopupMenuDivider(),
-  MenuRow(
-    value: NewChoice.folder,
-    icon: Symbols.create_new_folder_sharp,
-    label: 'New folder…',
-    shortcut: '${modifierLabel()}+Shift+N',
-  ),
-];
-
-/// Creates what [choice] says.
-Future<void> runNewChoice(BuildContext context, LibraryActions actions, NewChoice choice) =>
-    switch (choice) {
-      NewChoice.notebook => actions.createNotebook(context),
-      NewChoice.canvas => actions.createNotebook(context, kind: NotebookKind.canvas),
-      NewChoice.pdf => actions.importPdf(context),
-      NewChoice.folder => actions.createFolder(context),
-    };
-
-/// ⊕▾ (wide screens).
-class _NewMenu extends StatelessWidget {
-  const _NewMenu({required this.actions});
-
-  final LibraryActions actions;
-
-  @override
-  Widget build(BuildContext context) {
-    return MenuIconButton<NewChoice>(
-      tooltip: 'New',
-      icon: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Symbols.add_circle_sharp),
-          Icon(Symbols.arrow_drop_down_sharp, size: Glyphs.menu),
-        ],
-      ),
-      items: newMenuItems,
-      onSelected: (choice) => unawaited(runNewChoice(context, actions, choice)),
-    );
-  }
-}
-
-/// What the ⇅ View menu changes.
-sealed class _ViewChoice {
-  const _ViewChoice();
-}
-
-class _Sort extends _ViewChoice {
-  const _Sort(this.sort);
-  final LibrarySort sort;
-}
-
-class _Layout extends _ViewChoice {
-  const _Layout(this.layout);
-  final LibraryLayout layout;
-}
-
-class _Select extends _ViewChoice {
-  const _Select();
-}
-
-/// ⇅ View: sort (not in the trash), grid or list, and Select.
-class _ViewMenu extends StatelessWidget {
-  const _ViewMenu({required this.actions});
-
-  final LibraryActions actions;
-
-  static String _label(LibrarySort s) => switch (s) {
-    LibrarySort.edited => 'Last edited',
-    LibrarySort.created => 'Created',
-    LibrarySort.name => 'Name',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final c = actions.controller;
-    return MenuIconButton<_ViewChoice>(
-      tooltip: 'View',
-      // Sort, layout and Select: a neutral glyph, not a sorting one.
-      icon: const Icon(Symbols.tune_sharp),
-      onSelected: (choice) => switch (choice) {
-        _Sort(:final sort) => c.sort = sort,
-        _Layout(:final layout) => c.layout = layout,
-        _Select() => actions.startSelection(context),
-      },
-      items: () => [
-        if (c.section != LibrarySection.trash) ...[
-          const MenuHeading('Sort by'),
-          for (final s in LibrarySort.values)
-            MenuRow(value: _Sort(s), label: _label(s), checked: s == c.sort),
-          const PopupMenuDivider(),
-        ],
-        const MenuHeading('Show as'),
-        MenuRow(
-          value: const _Layout(LibraryLayout.grid),
-          icon: Symbols.grid_view_sharp,
-          label: 'Grid',
-          checked: c.layout == LibraryLayout.grid,
-        ),
-        MenuRow(
-          value: const _Layout(LibraryLayout.list),
-          icon: Symbols.view_agenda_sharp,
-          label: 'List',
-          checked: c.layout == LibraryLayout.list,
-        ),
-        if (c.visibleNotebooks.isNotEmpty && !actions.selection.active) ...[
-          const PopupMenuDivider(),
-          const MenuRow(value: _Select(), icon: Symbols.check_circle_sharp, label: 'Select'),
-        ],
-      ],
-    );
-  }
-}
-
-/// "Library › School › Maths": every segment but the last navigates, and
-/// accepts dropped items.
-class _Breadcrumbs extends StatelessWidget {
-  const _Breadcrumbs({required this.actions});
-
-  final LibraryActions actions;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final path = actions.controller.breadcrumbs;
-    final segments = <({String? id, String name})>[
-      (id: null, name: 'Library'),
-      for (final f in path.take(path.length - 1)) (id: f.id, name: f.name),
-    ];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final s in segments) ...[
-            LibraryDropTarget(
-              canAccept: (item) => actions.canDrop(item, s.id),
-              onAccept: (item) => actions.drop(context, item, s.id),
-              builder: (context, active) => AnimatedContainer(
-                duration: Motion.fast,
-                decoration: BoxDecoration(
-                  color: active ? scheme.primary.withValues(alpha: 0.12) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(Radii.xs),
-                ),
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 32),
-                    padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
-                    foregroundColor: scheme.onSurfaceVariant,
-                    textStyle: theme.textTheme.labelLarge,
-                  ),
-                  onPressed: () => actions.controller.openFolder(s.id),
-                  child: Text(s.name),
-                ),
-              ),
-            ),
-            Icon(Symbols.chevron_right_sharp, size: Glyphs.menu, color: scheme.outline),
-          ],
-        ],
       ),
     );
   }
