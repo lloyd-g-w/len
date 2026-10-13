@@ -65,7 +65,8 @@ EditorMenuActions editorMenuActions(
 Widget? editorPageNavigator(BuildContext context, EditorSession session) {
   final doc = session.doc;
   final commands = session.commands;
-  if (doc == null || commands == null) return null;
+  // A single page has nowhere to go: no "1 / 1" pill.
+  if (doc == null || commands == null || doc.pages.length < 2) return null;
   return PageNavigator(
     index: doc.currentPage,
     count: doc.pages.length,

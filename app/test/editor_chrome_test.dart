@@ -281,6 +281,23 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('a single page shows no "1 / 1" indicator', (tester) async {
+    final (s, nb) = await pumpEditor(tester, size: const Size(390, 844));
+    final indicator = find.byKey(const ValueKey('page-indicator'));
+    expect(indicator, findsOneWidget);
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Page'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete page'));
+      await tester.pumpAndSettle();
+    }
+    expect(s.pages.pagesOf(nb.id), hasLength(1));
+    expect(indicator, findsNothing);
+    await closeEditor(tester);
+  });
+
   testWidgets('quick controls cut off by a narrow bar fade at the edge', (tester) async {
     await pumpEditor(tester, size: const Size(390, 844));
     expect(find.byKey(const ValueKey('scroll-fade')), findsNothing); // Everything fits.
