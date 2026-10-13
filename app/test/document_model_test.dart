@@ -8,7 +8,10 @@ import 'package:len/domain/link_target.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 
-import 'data_test.dart' show FakeClock;
+import 'package:len/features/editor/document/page_actions.dart';
+
+import 'data_test.dart' show FakeClock, stroke;
+import 'elements_test.dart' show textBox;
 
 /// Adversarial tests of the document model: pages, duplication, links.
 void main() {
@@ -50,6 +53,58 @@ void main() {
       s.pages.move(a, 1); // b, a, c — the editor still holds a's old key.
       final added = s.pages.addPage(nb.id, after: a);
       expect(s.pages.pagesOf(nb.id).map((p) => p.id), [b.id, a.id, added.id, c.id]);
+    });
+  });
+
+  group('page actions', () {
+    test('toggling a stale page copy toggles what is stored', () {
+      final nb = paged();
+      final page = s.pages.pagesOf(nb.id).single;
+      final actions = PageActions(s, nb.id);
+      actions.toggleBookmark(page); // Bookmarked (in another view, say).
+      actions.toggleBookmark(page); // This view still holds the unbookmarked page.
+      expect(s.pages.get(page.id)!.bookmarked, isFalse);
+    });
+
+    test('delete then restore brings back the page in place with ink and text', () {
+      final nb = paged();
+      final actions = PageActions(s, nb.id);
+      final first = s.pages.pagesOf(nb.id).single;
+      final middle = actions.add(PageActions.blankAfter(first), after: first);
+      actions.add(PageActions.blankAfter(middle), after: middle);
+      s.strokes.save([stroke('ink', const Offset(10, 10), surface: middle.id)]);
+      s.elements.save([textBox('box', const Offset(20, 20), surface: middle.id)]);
+      final order = actions.pages.map((p) => p.id).toList();
+
+      final deleted = actions.delete(middle);
+      expect(actions.pages, hasLength(2));
+      final content = SurfaceCopier(s.strokes, elements: s.elements);
+      expect(content.loadAll(middle.id), isEmpty);
+      expect(content.loadAllElements(middle.id), isEmpty);
+
+      actions.restore(deleted);
+      expect(actions.pages.map((p) => p.id), order);
+      expect(content.loadAll(middle.id).single.id, 'ink');
+      expect(content.loadAllElements(middle.id).single.id, 'box');
+      // Every restored row goes out to other devices again.
+      final dirty = {for (final r in s.strokes.dirtyRecords(100)) r.id: r.deleted};
+      expect(dirty['ink'], isFalse);
+    });
+
+    test('a duplicated page copies ink and text under new ids, right after it', () {
+      final nb = paged();
+      final actions = PageActions(s, nb.id);
+      final first = s.pages.pagesOf(nb.id).single;
+      final last = actions.add(PageActions.blankAfter(first));
+      s.strokes.save([stroke('ink', const Offset(10, 10), surface: first.id)]);
+      s.elements.save([textBox('box', const Offset(20, 20), surface: first.id)]);
+      final copy = actions.duplicate(first);
+      expect(actions.pages.map((p) => p.id), [first.id, copy.id, last.id]);
+      final content = SurfaceCopier(s.strokes, elements: s.elements);
+      final ink = content.loadAll(copy.id).single;
+      expect(ink.id, isNot('ink'));
+      expect(ink.points, content.loadAll(first.id).single.points);
+      expect(content.loadAllElements(copy.id).single.id, isNot('box'));
     });
   });
 

@@ -103,5 +103,10 @@ class PageActions {
     });
   }
 
-  void toggleBookmark(NotebookPage page) => services.pages.setBookmarked(page.id, !page.bookmarked);
+  /// Bookmarks [page] or removes its bookmark, as stored now ([page] may
+  /// be a stale copy, e.g. toggled in another view meanwhile).
+  void toggleBookmark(NotebookPage page) {
+    final stored = services.pages.get(page.id);
+    if (stored != null) services.pages.setBookmarked(page.id, !stored.bookmarked);
+  }
 }
