@@ -110,4 +110,42 @@ void main() {
     expect(models.peek('A'), isNull);
     expect(models.peek('B'), isNull);
   });
+
+  test('a deleted page drops out of undo; the other pages undo and redo in order', () {
+    final a = surfaces.surfaceOf('A').model;
+    final b = surfaces.surfaceOf('B').model;
+    final c = surfaces.surfaceOf('C').model;
+    a.addStroke(_stroke('a1', 'A'));
+    b.addStroke(_stroke('b1', 'B'));
+    c.addStroke(_stroke('c1', 'C'));
+    b.addStroke(_stroke('b2', 'B'));
+    surfaces.retain({'A', 'C'}); // B deleted.
+    expect(surfaces.models.peek('B'), isNull); // Released.
+
+    surfaces.undo();
+    expect(ids('C'), isEmpty);
+    surfaces.undo();
+    expect(ids('A'), isEmpty);
+    expect(surfaces.canUndo, isFalse);
+    surfaces.redo();
+    surfaces.redo();
+    expect(ids('A'), {'a1'});
+    expect(ids('C'), {'c1'});
+    expect(surfaces.canRedo, isFalse);
+  });
+
+  test('a step spanning a deleted page still undoes the remaining pages\' part', () {
+    final a = surfaces.surfaceOf('A').model;
+    final b = surfaces.surfaceOf('B').model;
+    a.addStroke(_stroke('a1', 'A'));
+    surfaces.models.group(() {
+      a.commit(InkEdit(removed: [a.strokeById('a1')!]));
+      b.addStroke(_stroke('moved', 'B'));
+    });
+    surfaces.retain({'A'});
+    surfaces.undo();
+    expect(ids('A'), {'a1'});
+    surfaces.redo();
+    expect(ids('A'), isEmpty);
+  });
 }
