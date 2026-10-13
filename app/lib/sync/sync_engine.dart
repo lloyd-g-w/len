@@ -282,20 +282,38 @@ class SyncEngine {
         debugPrint('Skipped ${page.malformed} malformed records after seq $since');
       }
       final revival = Revival();
-      database.transaction(() {
-        for (final record in page.records) {
-          _apply(record, changes, revival);
-        }
-        // Once everything is in: deletions that raced edits come back.
-        if (!page.hasMore && !changes.isEmpty) _conflicts.resolve(revival);
-        settings.syncLastSeq = page.nextSince;
-      });
+      final records = page.records;
+      var applied = 0;
+      while (true) {
+        // A slice per transaction, with a turn of the event loop between
+        // them: applying a whole page at once held the UI thread for a
+        // frame or more. Only the last slice moves the feed position, so a
+        // page cut short is pulled again (applying a record twice is a
+        // no-op under last-write-wins).
+        final end = applied + applySlice < records.length ? applied + applySlice : records.length;
+        database.transaction(() {
+          for (; applied < end; applied++) {
+            _apply(records[applied], changes, revival);
+          }
+          if (applied < records.length) return;
+          // Once everything is in: deletions that raced edits come back.
+          if (!page.hasMore && !changes.isEmpty) _conflicts.resolve(revival);
+          settings.syncLastSeq = page.nextSince;
+        });
+        if (applied == records.length) break;
+        await Future<void>.delayed(Duration.zero);
+        if (cancelled()) break;
+      }
       changes.addRevival(revival);
+      if (applied < records.length) break;
       since = page.nextSince;
       if (!page.hasMore) break;
     }
     return changes;
   }
+
+  /// Pulled records applied per transaction (see [_pull]).
+  static const applySlice = 64;
 
   void _apply(SyncRecord record, RemoteChanges changes, Revival revival) {
     final store = _stores[record.collection];

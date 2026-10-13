@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/sync/sync_api.dart';
+import 'package:len/sync/sync_engine.dart';
 
 import 'support/fake_server.dart';
 import 'support/two_devices.dart';
@@ -156,6 +158,24 @@ void main() {
       await b.sync();
       expect(a.server.pulls - before, 1, reason: 'resumes, not from the start');
       expect(b.db.select('SELECT COUNT(*) AS n FROM strokes').single['n'], 700);
+    });
+
+    test('a page is applied in slices; one cut short is pulled again', () async {
+      final (a, b) = twoDevices();
+      a.s.strokes.save([for (var i = 0; i < 300; i++) bigStroke('s$i', 'canvas', 4)]);
+      await a.sync();
+      // Cancelled at the first turn of the event loop: after one slice
+      // (the fake server answers without one).
+      var cancelled = false;
+      Timer.run(() => cancelled = true);
+      await b.s.sync.engine.sync(apiFor(a.server), isCancelled: () => cancelled);
+      final applied = b.db.select('SELECT COUNT(*) AS n FROM strokes').single['n'];
+      expect(applied, SyncEngine.applySlice);
+      expect(b.s.settings.syncLastSeq, 0, reason: 'the feed position waits for the page');
+
+      await b.sync();
+      expect(b.db.select('SELECT COUNT(*) AS n FROM strokes').single['n'], 300);
+      expect(b.dirty, isEmpty, reason: 'records applied twice change nothing');
     });
   });
 

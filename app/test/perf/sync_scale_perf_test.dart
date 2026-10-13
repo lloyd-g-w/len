@@ -17,11 +17,8 @@ class _Feed {
 
   final List<Map<String, Object?>> records;
 
-  /// Time between pull requests: decoding and applying the previous page
-  /// on the UI isolate, all synchronous (so a frame cannot interleave).
-  final gaps = <int>[];
+  /// Resident memory at each pull request.
   final rss = <int>[];
-  final _gap = Stopwatch();
   int pulls = 0;
 
   late final client = MockClient((request) async {
@@ -40,7 +37,6 @@ class _Feed {
       case '/v1/push':
         return http.Response(jsonEncode({'applied': 0, 'ignored': 0, 'serverSeq': 0}), 200);
       case '/v1/pull':
-        if (_gap.isRunning) gaps.add(_gap.elapsedMilliseconds);
         rss.add(ProcessInfo.currentRss);
         pulls++;
         final since = int.parse(request.url.queryParameters['since']!);
@@ -51,9 +47,6 @@ class _Feed {
           'nextSince': since + page.length,
           'hasMore': since + page.length < records.length,
         });
-        _gap
-          ..reset()
-          ..start();
         return http.Response.bytes(
           utf8.encode(body),
           200,
@@ -110,16 +103,19 @@ void main() {
     final feed = _Feed(records);
     final rssBefore = ProcessInfo.currentRss;
     final watch = Stopwatch()..start();
-    final changes = await device.sync.engine.sync(feed.api);
+    var done = false;
+    final syncing = device.sync.engine.sync(feed.api).whenComplete(() => done = true);
+    final turns = (await turnsUntil(() => done))..sort();
+    final changes = await syncing;
     final full = watch.elapsedMilliseconds;
     expect(changes.notebooks, isTrue);
     expect(device.database.db.select('SELECT COUNT(*) AS n FROM strokes').first['n'], strokes);
-    final gaps = [...feed.gaps]..sort();
     final peak = feed.rss.fold(0, math.max);
     report(
       'first pull: ${records.length} records ($strokes strokes) in ${feed.pulls} pages, '
-      '${full}ms (${(full * 1000 / records.length).round()}µs a record); UI blocked per page: '
-      'median ${gaps[gaps.length ~/ 2]}ms, max ${gaps.last}ms; RSS +${(peak - rssBefore) >> 20} MB; '
+      '${full}ms (${(full * 1000 / records.length).round()}µs a record); UI thread blocked: '
+      'p50 ${turns[turns.length ~/ 2]}ms, p99 ${turns[turns.length * 99 ~/ 100]}ms, '
+      'max ${turns.last}ms; RSS +${(peak - rssBefore) >> 20} MB; '
       'db ${files.dbBytes >> 20} MB',
     );
 
@@ -132,7 +128,6 @@ void main() {
       for (var i = 0; i < 3; i++)
         {...stroke, 'id': 'new-stroke-$i', 'updatedAt': (stroke['updatedAt']! as int) + 1},
     ]);
-    feed.gaps.clear();
     watch.reset();
     await device.sync.engine.sync(feed.api);
     final incrementalMs = watch.elapsedMilliseconds;
