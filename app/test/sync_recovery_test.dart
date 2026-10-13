@@ -110,6 +110,35 @@ void main() {
       }
     });
 
+    test('a record the server rejects is skipped, the rest is pushed', () async {
+      final (a, b) = twoDevices();
+      a.s.strokes.save([for (var i = 0; i < 5; i++) bigStroke('s$i', 'canvas', 4)]);
+      a.server.invalidRecords.addAll(['s1', 's3']);
+      await a.sync();
+      expect(a.dirty.map((r) => r.id), ['s1', 's3'], reason: 'kept to retry');
+      for (final id in ['s0', 's2', 's4']) {
+        expect(a.server.stored('strokes', id), isNotNull);
+      }
+      await b.sync();
+      expect(b.db.select('SELECT COUNT(*) AS n FROM strokes').single['n'], 3);
+
+      // Accepted once the server takes it (e.g. after an update).
+      a.server.invalidRecords.clear();
+      await a.sync();
+      expect(a.dirty, isEmpty);
+    });
+
+    test('a 400 without an index still fails the sync', () async {
+      final (a, _) = twoDevices();
+      a.s.strokes.save([bigStroke('s', 'canvas', 4)]);
+      final api = _hookedApi(a.server, (r) async {
+        if (r.url.path != '/v1/push') return null;
+        return http.Response('{"error":"body must be a JSON object"}', 400);
+      });
+      await expectLater(a.s.sync.engine.sync(api), throwsA(isA<SyncException>()));
+      expect(a.dirty, hasLength(1));
+    });
+
     test('a pull failing half way resumes after the last applied page', () async {
       final (a, b) = twoDevices();
       a.s.strokes.save([for (var i = 0; i < 700; i++) bigStroke('s$i', 'canvas', 4)]);

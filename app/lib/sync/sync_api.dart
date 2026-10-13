@@ -136,19 +136,36 @@ class SyncApi {
   /// ([SyncFailure.historyLost]).
   ///
   /// Returns the records that were not sent because a single one exceeds
-  /// [maxRecordBytes] or cannot be encoded as JSON; everything else was
-  /// accepted by the server.
+  /// [maxRecordBytes] or cannot be encoded as JSON, or that the server
+  /// rejected as invalid (`400` naming its `index`; the rest of its request
+  /// is sent again without it); everything else was accepted by the server.
   Future<List<SyncRecord>> push(List<SyncRecord> records, {required int since}) async {
     final unsent = <SyncRecord>[];
-    var batch = <String>[];
+    var batch = <({SyncRecord record, String json})>[];
     var batchBytes = 0;
 
     Future<void> flush() async {
-      if (batch.isEmpty) return;
-      final body = '{"since":$since,"records":[${batch.join(',')}]}';
+      final sending = batch;
       batch = [];
       batchBytes = 0;
-      await _send(() => _client.post(_uri('v1/push'), headers: _headers, body: body));
+      while (sending.isNotEmpty) {
+        final body = '{"since":$since,"records":[${sending.map((r) => r.json).join(',')}]}';
+        final response = await _request(
+          () => _client.post(_uri('v1/push'), headers: _headers, body: body),
+        );
+        final rejected = _rejectedIndex(response, sending.length);
+        if (rejected == null) {
+          _expectOk(response);
+          if (decodeObject(response.body) == null) throw SyncException.unexpected;
+          return;
+        }
+        final record = sending.removeAt(rejected).record;
+        debugPrint(
+          'The sync server rejected ${record.collection}/${record.id}: '
+          '${decodeObject(response.body)?['error']}',
+        );
+        unsent.add(record);
+      }
     }
 
     for (final record in records) {
@@ -172,7 +189,7 @@ class SyncApi {
       if (batch.length >= maxPushRecords || batchBytes + bytes > pushBytesTarget) {
         await flush();
       }
-      batch.add(encoded);
+      batch.add((record: record, json: encoded));
       batchBytes += bytes + 1; // + separator
     }
     await flush();
@@ -256,6 +273,14 @@ class SyncApi {
     } on Exception catch (e) {
       throw SyncException.unreachable(e);
     }
+  }
+
+  /// The position of the record a `400` answer to a push rejects, if it
+  /// names one of the [count] records sent.
+  static int? _rejectedIndex(http.Response response, int count) {
+    if (response.statusCode != 400) return null;
+    final index = decodeObject(response.body)?['index'];
+    return index is int && index >= 0 && index < count ? index : null;
   }
 
   static void _expectOk(http.Response response) {

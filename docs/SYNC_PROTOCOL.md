@@ -64,7 +64,9 @@ Body: `{"since": <int>, "records": [Record, …]}` — at most 1000 records, bod
 server's newest seq, the server lost changes the client has seen: it applies nothing and answers
 `409` (see [Server identity](#server-identity)).
 
-Applied atomically in one transaction. Response `200`:
+Applied atomically in one transaction. If a record is invalid, nothing is applied and the answer
+is `400 {"error": "records[3]: …", "index": 3}`: `index` is the position of the (first) invalid
+record in `records`, so the client can send the others again without it. Response `200`:
 ```json
 {"applied": 12, "ignored": 3, "serverSeq": 4711}
 ```
@@ -84,7 +86,8 @@ up to 8 MiB (always returning at least one), so responses stay bounded when reco
 `hasMore` is true; a page with `hasMore: true` always advances `nextSince`.
 
 ### Errors
-`401` missing/bad token, `400` malformed request (body `{"error": "…"}`), `409` the client is
+`401` missing/bad token, `400` malformed request (body `{"error": "…"}`, plus `index` for an
+invalid pushed record), `409` the client is
 ahead of the server (lost history), `413` too large, `404` unknown route.
 
 ### Server identity
@@ -218,7 +221,9 @@ record referencing it arrives later.
    below (parents first), then tombstones in the reverse order (children first, so a server never
    holds a deleted page or notebook whose content is still live because a push stopped half way) —
    and send them in requests of at most 1000 records and ~4 MiB of
-   JSON. A single record too large for the server's body limit is skipped (it stays dirty). After
+   JSON. A single record too large for the server's body limit is skipped (it stays dirty), and so
+   is a record the server rejects with `400` and its `index` (logged; the rest of that request is
+   sent again; a `400` without an index fails the cycle). After
    success, clear the dirty flag of each row whose `updatedAt` has not changed since it was read.
    Every push carries `since` = `lastPulledSeq`; on `409` the client resets (as for a new
    `serverId`) and starts the cycle over once.
