@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/paper_pattern.dart';
+import 'package:len/domain/templates/planner_words.dart';
 import 'package:pdf/pdf.dart';
 
 DateTime d(int y, int m, int day) => DateTime.utc(y, m, day);
@@ -166,13 +167,47 @@ void main() {
       expect(PlannerLabels.of(PlannerLanguage.ptPT).weekdayShort(DateTime.sunday), 'DOM');
     });
 
+    test('every language has its headings; a week across months names both', () {
+      expect(plannerWords.keys.toSet(), PlannerLanguage.values.toSet());
+      for (final words in plannerWords.values) {
+        expect(words.week, contains('#'));
+      }
+      final en = PlannerLabels.of(PlannerLanguage.enGB);
+      expect(en.week(41), 'Week 41');
+      expect(en.weekMonths(d(2026, 10, 5)), 'October');
+      expect(en.weekMonths(d(2026, 12, 28)), 'Dec – Jan');
+      expect(PlannerLabels.of(PlannerLanguage.de).weekMonths(d(2026, 9, 28)), 'Sep – Okt');
+      final week = Paper.planner(PaperStyle.weeklyPlanner, d(2026, 12, 28));
+      expect(texts(week), contains('Dec – Jan'));
+    });
+
     test('pages print in their language', () {
       final month = Paper.planner(PaperStyle.monthlyCalendar, d(2026, 10, 1), calendar: german);
       expect(texts(month), containsAll(['Oktober', '2026', 'MO', 'SO']));
       final day = Paper.planner(PaperStyle.dailyPlanner, d(2026, 10, 5), calendar: german);
-      expect(texts(day), containsAll(['Montag', 'Oktober 2026', 'Week 41']));
+      expect(
+        texts(day),
+        containsAll(['Montag', 'Oktober 2026', 'Woche 41', 'ZEITPLAN', 'PRIORITÄTEN', 'AUFGABEN']),
+      );
+      expect(texts(day), isNot(contains('Week 41')));
       final week = Paper.planner(PaperStyle.weeklyPlanner, d(2026, 10, 5), calendar: german);
-      expect(texts(week), containsAll(['MONTAG', 'SONNTAG', '5. – 11. Oktober 2026', 'Oktober']));
+      expect(
+        texts(week),
+        containsAll([
+          'Woche 41',
+          'MONTAG',
+          'SONNTAG',
+          '5. – 11. Oktober 2026',
+          'Oktober',
+          'NOTIZEN',
+        ]),
+      );
+      const turkish = PlannerCalendar(language: PlannerLanguage.tr);
+      final gun = Paper.planner(PaperStyle.dailyPlanner, d(2026, 10, 5), calendar: turkish);
+      expect(texts(gun), containsAll(['41. Hafta', 'PROGRAM', 'ÖNCELİKLER', 'YAPILACAKLAR']));
+      const russian = PlannerCalendar(weekStart: WeekStart.sunday, language: PlannerLanguage.ru);
+      final ned = Paper.planner(PaperStyle.weeklyPlanner, d(2026, 10, 4), calendar: russian);
+      expect(texts(ned), containsAll(['Неделя 41', 'ЗАМЕТКИ']));
       expect(month.label, 'Monthly calendar · Oktober 2026');
     });
 
