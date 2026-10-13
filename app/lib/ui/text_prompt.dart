@@ -3,14 +3,13 @@ import 'package:flutter/material.dart';
 import 'app_dialogs.dart';
 
 /// Asks for a single line of text. Returns the trimmed text, or null if
-/// cancelled. [label] names the field (e.g. "Title"); [icon] leads it.
+/// cancelled. [label] names the field (e.g. "Title").
 Future<String?> showTextPrompt(
   BuildContext context, {
   required String title,
   String initialValue = '',
   String confirmLabel = 'OK',
   String? label,
-  IconData? icon,
   TextInputType? keyboardType,
 }) {
   return showDialog<String>(
@@ -20,7 +19,6 @@ Future<String?> showTextPrompt(
       initialValue: initialValue,
       confirmLabel: confirmLabel,
       label: label,
-      icon: icon,
       keyboardType: keyboardType,
     ),
   );
@@ -32,7 +30,6 @@ class _TextPromptDialog extends StatefulWidget {
     required this.initialValue,
     required this.confirmLabel,
     this.label,
-    this.icon,
     this.keyboardType,
   });
 
@@ -40,7 +37,6 @@ class _TextPromptDialog extends StatefulWidget {
   final String initialValue;
   final String confirmLabel;
   final String? label;
-  final IconData? icon;
   final TextInputType? keyboardType;
 
   @override
@@ -70,10 +66,7 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
           keyboardType: widget.keyboardType,
           textCapitalization: TextCapitalization.sentences,
           onSubmitted: (_) => _submit(),
-          decoration: InputDecoration(
-            labelText: widget.label,
-            prefixIcon: widget.icon == null ? null : Icon(widget.icon),
-          ),
+          decoration: InputDecoration(labelText: widget.label),
         ),
       ),
       actions: [

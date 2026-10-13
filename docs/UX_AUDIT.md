@@ -228,7 +228,7 @@ footer): a dialog with Cancel has no ✕ (folder, new notebook, template
 picker, Export without Save to device); dialogs without Cancel (Move,
 Cover, shortcuts, languages) and every phone sheet keep it.
 
-⬜ **R6-20 P2 · Some fields carry a leading icon, most don't.** "Save as
+✅ **R6-20 P2 · Some fields carry a leading icon, most don't.** "Save as
 template" puts `dashboard_customize` inside its field
 (`ui/text_prompt.dart:75`, passed from
 `features/documents/templates/user_templates.dart:148`), and the export page
@@ -285,14 +285,14 @@ same.
 | # | Proposal | Why | Files |
 |---|---|---|---|
 | S1 | Settings "Draw with" becomes the "Draw with finger" switch (R6-9) | Automatic is a first-run state, not a choice; one control shape in both homes | `features/settings/writing_settings.dart`, `chrome/editor_more_menu.dart` |
-| S2 | No ✕ on wide dialogs that have Cancel (R6-8) | Two exits on one form; DESIGN §6.3 | `ui/sheet_parts.dart` (`SheetHeader`) |
+| S2 ✅ | No ✕ on wide dialogs that have Cancel (R6-8) | Two exits on one form; DESIGN §6.3 | `ui/sheet_parts.dart` (`SheetHeader`) |
 | S3 | Template chooser: drop the category chips (R6-19) | Search plus headings already filter; the chips repeat the headings and cut off on phones | `features/documents/templates/template_chooser.dart` |
 | S4 | Folder delete: no confirm (or none for empty folders); the snack's Undo restores it | Trashing a notebook has no confirm and relies on Undo; deleting an empty folder asks "The folder is empty." (`library_actions.dart:241-252`) | `features/library/library_actions.dart` |
 | S5 | Lasso: no hint popover (R6-16) | A popover with nothing to set | `features/editor/tools/lasso_options_panel.dart`, `editor_tools.dart` |
 | S6 | "Hold to snap shapes" in one place (R6-15) | One global switch, three homes | `pen/pen_options_panel.dart`, `pen/highlighter_options_panel.dart`, `editor_tools.dart` |
 | S7 ✅ | Cover: the colour applies on tap, Undo in a snack; no Apply/Cancel | The preview is the result; four taps for one colour | `features/library/dialogs/cover_sheet.dart`, `library_actions.dart:168-172` |
-| S8 | `showTextPrompt` loses its `icon` parameter (R6-20) | One field style | `ui/text_prompt.dart` |
-| S9 | One colour picker (R6-6): `pickColor` built on `ColorChoices` | Two pickers with different layouts, sizes and order | `ui/color_picker/` |
+| S8 ✅ | `showTextPrompt` loses its `icon` parameter (R6-20) | One field style | `ui/text_prompt.dart` |
+| S9 ✅ | One colour picker (R6-6): `pickColor` built on `ColorChoices` | Two pickers with different layouts, sizes and order | `ui/color_picker/` |
 
 Kept on purpose: the long press on the FAB (it stays as a shortcut once
 R6-5 lands), the toolbar pair in View ▸ and Settings (REDESIGN §2.1), and
