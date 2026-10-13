@@ -77,12 +77,12 @@ void main() {
         setWindow(tester, size, dpr: dpr);
         await pumpApp(tester, services(), const SettingsScreen(), mode: mode);
         await scrollTo(tester, 'Sync');
-        await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'len.example');
+        await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'ftp://len.example');
         await tester.enterText(find.widgetWithText(TextField, 'Access token'), 'secret-token');
         await tester.tap(find.byTooltip('Show'));
         await tester.tap(find.text('Connect & save'));
         await settle(tester);
-        expect(find.textContaining('Enter a full URL'), findsOneWidget);
+        expect(find.textContaining('Enter a web address'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await shoot(tester, 's_settings_sync_error_${name}_${mode.name}');
       });

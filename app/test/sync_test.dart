@@ -285,7 +285,8 @@ void main() {
       controller.configure(url: 'http://sync.test', token: FakeServer.token);
       await controller.syncNow();
       expect(controller.state, SyncState.error);
-      expect(controller.lastError, contains('boom'));
+      expect(controller.lastError, isNot(contains('boom')));
+      expect(controller.lastErrorDetails, contains('boom'));
       controller.dispose();
     });
   });

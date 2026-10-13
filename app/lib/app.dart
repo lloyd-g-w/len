@@ -6,6 +6,7 @@ import 'app_services.dart';
 import 'data/blob_backend.dart';
 import 'domain/preferences.dart';
 import 'features/library/library_screen.dart';
+import 'features/settings/sync_attention.dart';
 import 'ui/app_theme.dart';
 import 'ui/messages.dart';
 import 'ui/phone_menus.dart';
@@ -32,12 +33,19 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     widget.services.pointerActivity.attach();
+    _syncAttention;
     if (widget.services.blobs.backend case final VolatileBlobBackend volatile) {
       volatile.onWrite = _warnFilesNotKept;
     }
   }
 
   final _messenger = GlobalKey<ScaffoldMessengerState>();
+  final _navigator = GlobalKey<NavigatorState>();
+  late final _syncAttention = SyncAttention(
+    sync: widget.services.sync,
+    messenger: _messenger,
+    navigator: _navigator,
+  );
 
   /// The first file stored in a browser that refused storage: say right
   /// away that it won't be kept (the library shows a banner too).
@@ -58,6 +66,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     widget.services.pointerActivity.detach();
+    _syncAttention.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -66,7 +75,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Sync when leaving the app (to upload) and when returning (to fetch).
     if (state == AppLifecycleState.resumed || state == AppLifecycleState.paused) {
-      unawaited(widget.services.sync.syncNow());
+      unawaited(widget.services.sync.syncInBackground());
     }
   }
 
@@ -88,6 +97,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
             themeAnimationDuration: Motion.medium,
             builder: (context, child) => SystemBars(child: PhoneMenus(child: child!)),
             scaffoldMessengerKey: _messenger,
+            navigatorKey: _navigator,
             navigatorObservers: [widget.services.routeOwners],
             home: const LibraryScreen(),
           );

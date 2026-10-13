@@ -159,7 +159,7 @@ void main() {
       expect(server.stored('notebooks', failing.recording.notebookId), isNotNull);
       expect(a.sync.state, SyncState.error);
       expect(a.sync.lastError, contains('1 file could not be uploaded'));
-      expect(a.sync.lastError, contains('disk full'));
+      expect(a.sync.lastErrorDetails, contains('disk full'));
       expect(a.sync.tooLargeFiles, isEmpty);
 
       server.failingPuts.clear();
@@ -342,6 +342,10 @@ void main() {
 
     testWidgets('Connect & save says what is wrong with the address or token', (tester) async {
       await pump(tester, const SyncSettings());
+      // Connected: the form is behind Change….
+      expect(find.text('Server URL'), findsNothing);
+      await tester.tap(find.text('Change…'));
+      await tester.pump();
       Future<void> connect(String url, String token) async {
         await tester.enterText(find.widgetWithText(TextField, 'Server URL'), url);
         await tester.enterText(find.widgetWithText(TextField, 'Access token'), token);
@@ -372,7 +376,7 @@ void main() {
         Column(
           children: [
             const SyncSettings(),
-            SyncStatusButton(sync: a.sync, onConfigure: () {}),
+            SyncStatusButton(sync: a.sync, onOpenSettings: () {}),
           ],
         ),
       );

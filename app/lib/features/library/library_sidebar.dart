@@ -20,6 +20,7 @@ class LibrarySidebar extends StatefulWidget {
     super.key,
     required this.actions,
     required this.onOpenSettings,
+    this.onOpenSyncSettings,
     this.onNavigate,
     this.width = LibrarySidebar.defaultWidth,
   });
@@ -29,6 +30,10 @@ class LibrarySidebar extends StatefulWidget {
 
   final LibraryActions actions;
   final VoidCallback onOpenSettings;
+
+  /// Opens Settings at Sync (from the sync status); [onOpenSettings] if
+  /// null.
+  final VoidCallback? onOpenSyncSettings;
 
   /// Called after a section or folder is opened from here (the drawer
   /// closes).
@@ -126,7 +131,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                   ),
                   SyncStatusButton(
                     sync: c.services.sync,
-                    onConfigure: widget.onOpenSettings,
+                    onOpenSettings: widget.onOpenSyncSettings ?? widget.onOpenSettings,
                     caption: true,
                   ),
                 ],

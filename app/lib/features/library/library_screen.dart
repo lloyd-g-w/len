@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../app_services.dart';
 import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
+import '../../sync/sync_controller.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/menus.dart';
 import '../audio/ui/recover_recording_dialog.dart';
@@ -133,8 +134,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.dispose();
   }
 
-  void _openSettings() => unawaited(
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+  void _openSettings({bool sync = false}) => unawaited(
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => SettingsScreen(showSync: sync))),
   );
 
   void _focusSearch() {
@@ -285,7 +287,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return Scaffold(
       body: Row(
         children: [
-          LibrarySidebar(actions: _actions, onOpenSettings: _openSettings),
+          LibrarySidebar(
+            actions: _actions,
+            onOpenSettings: _openSettings,
+            onOpenSyncSettings: () => _openSettings(sync: true),
+          ),
           Expanded(
             // The selection bar floats over the content, not the sidebar.
             child: Stack(
@@ -319,15 +325,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
               Navigator.of(context).pop();
               _openSettings();
             },
+            onOpenSyncSettings: () {
+              Navigator.of(context).pop();
+              _openSettings(sync: true);
+            },
           ),
         ),
       ),
       body: _content(
         headerLeading: Builder(
-          builder: (context) => IconButton(
-            tooltip: 'Menu',
-            icon: const Icon(Symbols.menu_rounded),
-            onPressed: Scaffold.of(context).openDrawer,
+          builder: (context) => ListenableBuilder(
+            listenable: _services!.sync,
+            // A dot while sync fails: the status is in the drawer.
+            builder: (context, _) {
+              final failing = _services!.sync.state == SyncState.error;
+              return IconButton(
+                tooltip: failing ? 'Menu (sync failed)' : 'Menu',
+                icon: Badge(
+                  isLabelVisible: failing,
+                  smallSize: 8,
+                  child: const Icon(Symbols.menu_rounded),
+                ),
+                onPressed: Scaffold.of(context).openDrawer,
+              );
+            },
           ),
         ),
       ),

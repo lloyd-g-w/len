@@ -43,10 +43,27 @@ class SyncController extends ChangeNotifier {
 
   late SyncState _state;
   String? _lastError;
+  String? _lastErrorDetails;
+  SyncFailure? _lastFailure;
   DateTime? _lastSuccess;
 
   SyncState get state => _state;
+
+  /// What went wrong in the last sync, in plain words (null after a
+  /// successful one).
   String? get lastError => _lastError;
+
+  /// Technical detail behind [lastError], for "Details" (the exception's
+  /// text), when there is more to say than the message.
+  String? get lastErrorDetails => _lastErrorDetails;
+
+  /// The kind of the last failure, if the last sync failed.
+  SyncFailure? get lastFailure => _state == SyncState.error ? _lastFailure : null;
+
+  /// Whether automatic syncs wait for the user: the server refused the
+  /// access token, which retrying cannot fix. Saving settings (or "Sync
+  /// now") tries again.
+  bool get waitsForSettings => lastFailure == SyncFailure.auth;
   DateTime? get lastSuccess => _lastSuccess;
 
   List<({String sha, int size})> _tooLarge = const [];
@@ -86,9 +103,13 @@ class SyncController extends ChangeNotifier {
   void start() {
     if (_disposed) return;
     _timer?.cancel();
-    _timer = Timer.periodic(interval, (_) => unawaited(syncNow()));
+    _timer = Timer.periodic(interval, (_) => unawaited(syncInBackground()));
     unawaited(syncNow());
   }
+
+  /// A sync nobody asked for (the timer, leaving or returning to the app):
+  /// skipped while [waitsForSettings].
+  Future<void> syncInBackground() => waitsForSettings ? Future.value() : syncNow();
 
   /// Stores a new server configuration. A sync already running is
   /// abandoned at its next checkpoint; call [syncNow] to sync with the new
@@ -101,6 +122,7 @@ class SyncController extends ChangeNotifier {
       ..syncUrl = _normalizeUrl(url)
       ..syncToken = token.trim();
     _configGeneration++;
+    _lastError = _lastErrorDetails = _lastFailure = null;
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
   }
 
@@ -167,24 +189,28 @@ class SyncController extends ChangeNotifier {
       _lastSuccess = DateTime.now();
       final failed = engine.failedBlobUploads;
       if (failed == 0) {
-        _lastError = null;
+        _lastError = _lastErrorDetails = _lastFailure = null;
         _setState(SyncState.idle);
       } else {
         // Everything else synced; the files are retried next time.
         _fail(
-          '${_files(failed)} could not be uploaded and will be retried'
-          '${engine.blobUploadError == null ? '' : ' (${engine.blobUploadError})'}',
+          '${_files(failed)} could not be uploaded and will be retried',
           false,
+          details: engine.blobUploadError,
         );
       }
       if (!changes.isEmpty) _remoteChanges.add(changes);
     } on SyncException catch (e) {
-      _fail(e.message, cancelled());
+      _fail(e.message, cancelled(), kind: e.kind);
     } catch (e, stack) {
       // Unexpected (e.g. a database error): report it instead of leaving
       // the state stuck on "syncing" or crashing the periodic timer.
       debugPrint('Sync failed: $e\n$stack');
-      _fail('Sync failed: $e', cancelled());
+      _fail(
+        'Something went wrong on this device while syncing; it will try again',
+        cancelled(),
+        details: '$e',
+      );
     } finally {
       api?.close();
     }
@@ -192,10 +218,17 @@ class SyncController extends ChangeNotifier {
 
   static String _files(int n) => n == 1 ? '1 file' : '$n files';
 
-  void _fail(String message, bool cancelled) {
+  void _fail(
+    String message,
+    bool cancelled, {
+    SyncFailure kind = SyncFailure.server,
+    String? details,
+  }) {
     if (cancelled) return;
     _refreshTooLarge();
     _lastError = message;
+    _lastErrorDetails = details;
+    _lastFailure = kind;
     _setState(SyncState.error);
   }
 

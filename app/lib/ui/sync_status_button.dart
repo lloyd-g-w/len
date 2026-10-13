@@ -25,19 +25,20 @@ String syncCaption(SyncState state, DateTime? lastSuccess, DateTime now) {
   }
 }
 
-/// Toolbar button showing sync status; tapping syncs now (or calls
-/// [onConfigure] when sync is not set up yet). With [caption], the status
+/// Toolbar button showing sync status; tapping syncs now, or calls
+/// [onOpenSettings] when sync is not set up yet or failed (Settings → Sync
+/// says what went wrong and what to do). With [caption], the status
 /// is also written beside the icon ([syncCaption]), kept current.
 class SyncStatusButton extends StatefulWidget {
   const SyncStatusButton({
     super.key,
     required this.sync,
-    required this.onConfigure,
+    required this.onOpenSettings,
     this.caption = false,
   });
 
   final SyncController sync;
-  final VoidCallback onConfigure;
+  final VoidCallback onOpenSettings;
   final bool caption;
 
   @override
@@ -65,7 +66,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   }
 
   SyncController get sync => widget.sync;
-  VoidCallback get onConfigure => widget.onConfigure;
+  VoidCallback get onOpenSettings => widget.onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +78,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
           SyncState.disabled => (Symbols.cloud_off_rounded, 'Set up sync'),
           SyncState.idle => (Symbols.cloud_done_rounded, 'Synced — tap to sync now'),
           SyncState.syncing => (Symbols.cloud_sync_rounded, 'Syncing…'),
-          SyncState.error => (Symbols.cloud_off_rounded, 'Sync failed: ${sync.lastError}'),
+          SyncState.error => (Symbols.cloud_off_rounded, '${sync.lastError}\nTap for details'),
         };
         final scheme = Theme.of(context).colorScheme;
         final color = sync.state == SyncState.error ? scheme.error : null;
@@ -89,9 +90,9 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
           child: Icon(icon, color: color, size: widget.caption ? 18 : null),
         );
         final onPressed = switch (sync.state) {
-          SyncState.disabled => onConfigure,
+          SyncState.disabled || SyncState.error => onOpenSettings,
           SyncState.syncing => null,
-          _ => () => unawaited(sync.syncNow()),
+          SyncState.idle => () => unawaited(sync.syncNow()),
         };
         final tooltip = tooLarge == null ? status : '$status\n$tooLarge';
         if (!widget.caption) {

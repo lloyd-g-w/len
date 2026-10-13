@@ -122,6 +122,6 @@ class EditorLifecycle {
     // Deferred: syncing notifies listeners (e.g. the library's sync button),
     // which must not happen while the tree is locked during dispose.
     final sync = services.sync;
-    scheduleMicrotask(() => unawaited(sync.syncNow()));
+    scheduleMicrotask(() => unawaited(sync.syncInBackground()));
   }
 }
