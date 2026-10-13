@@ -7,6 +7,7 @@ import '../../app_services.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
+import '../../ui/app_theme.dart';
 import '../../ui/messages.dart';
 import '../../ui/text_prompt.dart';
 import '../documents/pdf/pdf_import_flow.dart';
@@ -78,13 +79,23 @@ class LibraryActions {
   }
 
   /// Opens the new-notebook sheet (starting as a [kind]) and then the new
-  /// notebook.
+  /// notebook. Where the library has no ⊕▾ (phones), the sheet offers
+  /// Import PDF… too.
   Future<void> createNotebook(
     BuildContext context, {
     NotebookKind kind = NotebookKind.paged,
   }) async {
-    final request = await NewNotebookSheet.show(context, kind: kind);
-    if (request == null || !context.mounted) return;
+    var import = false;
+    final request = await NewNotebookSheet.show(
+      context,
+      kind: kind,
+      onImportPdf: Breakpoints.libraryCompact(MediaQuery.sizeOf(context))
+          ? () => import = true
+          : null,
+    );
+    if (!context.mounted) return;
+    if (import) return importPdf(context);
+    if (request == null) return;
     final style = request.template.style;
     if (style != PaperStyle.image) controller.services.preferences.notePaperUsed(style.name);
     final notebook = controller.createNotebook(

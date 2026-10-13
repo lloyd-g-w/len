@@ -66,7 +66,7 @@ columns. Sideways: seven covers about 100 dp wide, titles in view. Card
 titles break only between words; a word too long for the line ends in
 "…" on one line.
 
-⬜ **R6-5 P1 · Phones: Import PDF hides behind a long press on the FAB.**
+✅ **R6-5 P1 · Phones: Import PDF hides behind a long press on the FAB.**
 After the first notebook, phones offer importing a PDF only through a long
 press on the FAB (`features/library/library_screen.dart:281-305`,
 `onLongPressHint: 'More: canvas, PDF, folder'`). The empty state shows
@@ -76,6 +76,12 @@ inside the app. *Fix:* put the source into the New notebook sheet, the one
 place phones go to create: Notebook | Canvas | PDF… as the segmented control
 (`new_notebook_sheet.dart`), with PDF… opening the file picker. Keep the
 long press as a shortcut.
+*Done:* where the library is compact (no ⊕▾), the New notebook sheet has a
+quiet "Import PDF…" under Notebook / Canvas; it closes the sheet and opens
+the file picker. Chosen over a third segment (a segment that opens a
+picker isn't a choice of kind) and over a menu on ⊕ (an extra tap on the
+most frequent command). One home per width: ⊕▾ when wide, the sheet when
+compact; the empty state's button and the long press stay as shortcuts.
 
 ✅ **R6-7 P2 · Library edits without Undo.** Rename, cover, favourite and
 folder edits write straight away (`library_actions.dart:154-172, 204-214`).

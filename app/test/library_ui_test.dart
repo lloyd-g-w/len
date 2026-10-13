@@ -228,6 +228,7 @@ void main() {
     await tester.tap(tile);
     await tester.pumpAndSettle();
     expect(find.byType(NewNotebookSheet), findsOneWidget);
+    expect(find.text('Import PDF…'), findsNothing); // Wide screens: in ⊕▾.
     Navigator.of(tester.element(find.byType(NewNotebookSheet))).pop();
     await tester.pumpAndSettle();
 
@@ -551,6 +552,16 @@ void main() {
     await tester.tap(find.byType(NotebookCard), buttons: kSecondaryMouseButton);
     await tester.pumpAndSettle();
     expect(find.text('Duplicate'), findsOneWidget);
+  });
+
+  testWidgets('phones: the new-notebook sheet offers Import PDF…; wide screens use ⊕▾', (
+    tester,
+  ) async {
+    await pumpSeeded(tester, (s) => addNotebook(s, 'Algebra'), size: const Size(390, 844));
+    await tester.tap(find.byTooltip('New notebook'));
+    await tester.pumpAndSettle();
+    expect(find.byType(NewNotebookSheet), findsOneWidget);
+    expect(find.text('Import PDF…'), findsOneWidget);
   });
 
   testWidgets('phones: a long press on ⊕ offers a folder, a canvas or a PDF', (tester) async {

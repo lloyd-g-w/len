@@ -35,7 +35,12 @@ class NewNotebookSheet extends StatefulWidget {
     this.wide = false,
     this.today,
     this.kind = NotebookKind.paged,
+    this.onImportPdf,
   });
+
+  /// Offers "Import PDF…" under Notebook / Canvas, which closes the sheet
+  /// and calls this: where phones, which have no ⊕▾, find importing.
+  final VoidCallback? onImportPdf;
 
   /// Dialog layout, the preview beside the form.
   final bool wide;
@@ -49,13 +54,14 @@ class NewNotebookSheet extends StatefulWidget {
   static Future<NewNotebookRequest?> show(
     BuildContext context, {
     NotebookKind kind = NotebookKind.paged,
+    VoidCallback? onImportPdf,
   }) {
     return showDialogOrSheet<NewNotebookRequest>(
       context: context,
       maxWidth: 840,
       maxHeight: 720,
       minHeight: 560,
-      builder: (_, wide) => NewNotebookSheet(wide: wide, kind: kind),
+      builder: (_, wide) => NewNotebookSheet(wide: wide, kind: kind, onImportPdf: onImportPdf),
     );
   }
 
@@ -215,6 +221,20 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         selected: {_kind},
         onSelectionChanged: (s) => _setKind(s.single),
       ),
+      if (widget.onImportPdf case final onImportPdf?)
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            // On the form's edge, like the fields and labels.
+            style: TextButton.styleFrom(padding: const EdgeInsetsDirectional.only(end: Gaps.md)),
+            onPressed: () {
+              Navigator.of(context).pop();
+              onImportPdf();
+            },
+            icon: const Icon(Symbols.picture_as_pdf_sharp, size: Glyphs.menu),
+            label: const Text('Import PDF…'),
+          ),
+        ),
       const SizedBox(height: Gaps.xl),
       PickerLabel('Paper', key: const ValueKey('template-summary'), trailing: _summary),
       PaperRow(
