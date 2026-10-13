@@ -147,6 +147,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Persistent LOD rasters: canvases reopened far out (chunks ≤ 128 px) draw stored rasters,
   named by chunk content digests, and load only chunks without one (native; not the web, not
   paged documents)
+- ✅ Stored LOD rasters: reads capped and nearest-first (dropped when panned away), writes
+  deferred until the view is idle, chunks with images stored once decoded
 
 ## Library
 - ✅ Folders (nested, synced), move to folder (menu + drag and drop), breadcrumbs, folder tree

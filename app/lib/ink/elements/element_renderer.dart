@@ -54,12 +54,23 @@ abstract final class ElementRenderer {
     ..filterQuality = FilterQuality.medium
     ..isAntiAlias = true;
 
+  /// Whether [draw] draws [element] at [pixelScale] the same every time:
+  /// not an image whose bitmap is still decoding (or missing), drawn from a
+  /// stand-in.
+  static bool isSettled(SurfaceElement element, ElementImages? images, double pixelScale) {
+    if (element.knownType != ElementType.image) return true;
+    final data = ImageData.fromJson(element.data);
+    return images?.isSharp(data, _pixelWidth(element, data, pixelScale)) ?? false;
+  }
+
+  /// Width of the whole (uncropped) image of [e] as drawn, in device pixels.
+  static double _pixelWidth(SurfaceElement e, ImageData data, double scale) =>
+      e.rect.width * scale / data.crop.width;
+
   static void _drawImage(Canvas canvas, SurfaceElement e, ElementImages? images, double scale) {
     final data = ImageData.fromJson(e.data);
     final crop = data.crop;
-    // Width of the whole (uncropped) image as drawn, in device pixels.
-    final pixelWidth = e.rect.width * scale / crop.width;
-    final image = images?.imageFor(data, pixelWidth);
+    final image = images?.imageFor(data, _pixelWidth(e, data, scale));
     if (image == null) {
       paintImagePlaceholder(canvas, e.rect, missing: images?.isMissing(data.blob) ?? true);
       return;

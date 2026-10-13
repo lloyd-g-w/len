@@ -84,8 +84,10 @@ The same grid drives three things:
    `paintLod` (`render/lod_painting.dart`; canvases and, per page, paged
    documents) draws it from a `ChunkRasterCache` image (32/64/128/256
    px, always at least screen resolution) instead of replaying its vectors.
-   Rasters are made off the critical path (time-boxed batches, newest request
-   first, `Picture.toImage`), invalidated by the same chunk stream, and kept in
+   Rasters are made off the critical path (`ChunkRasteriser`: time-boxed
+   batches, newest request first, `Picture.toImage`), invalidated by the same
+   chunk stream (`ChunkVersions` keeps content versions and strokes to draw
+   over stale images), and kept in
    an LRU bounded by bytes. A chunk without a raster yet shows what the tile
    cache still holds of it (the closer zoom's images, scaled) or nothing for
    the frame or two until it is made; only chunks edited since their rasters
@@ -109,12 +111,22 @@ The same grid drives three things:
    `ChunkRasterCache` lists the populated chunks from storage, reads their
    rasters and asks the model (`requestChunks`) only for chunks with none
    stored, rasterising and storing those once loaded (complete chunks only;
-   none with images, whose look depends on decoding, or with hidden items).
+   none with hidden items; chunks with images only once their pictures were
+   recorded with every bitmap decoded sharp enough, `ChunkPictureCache.isSettled`
+   — an image's value names its blob by content hash, so the digest covers it).
+   Files go through `StoredRasterIo`: reads queue and run 16 at a time,
+   nearest the middle of the view first (sorted once a frame has asked for
+   all it shows), and those panned out of view are dropped; writes (a GPU
+   read-back on the raster thread, then PNG encoding on the engine's IO
+   thread) wait until the view has been idle for 300 ms — no LOD paint, no
+   new raster — and go one at a time (at most 32 MB of images wait; all go
+   when the view closes).
    A pen, eraser or lasso touching down loads what the view shows
    (`loadVisible`), and zooming in past 128 px loads as before while the
    stored rasters stand in. Views of one surface (split view) register
    separately (`SurfaceViews`), so an overview pane never loads for a
-   close-up pane or the other way round. Reopening a 40 000-stroke canvas at
+   close-up pane or the other way round. *Select all* loads its area through a
+   one-off view, forgotten once loaded (the selection keeps what it holds). Reopening a 40 000-stroke canvas at
    10 %: 442 chunks drawn from 442 stored rasters, no stroke loaded, versus
    9 373 strokes loaded and 442 chunks rasterised (see INK_LAB). Changing
    how content is drawn means bumping `StoredRasters.format`.
@@ -2085,7 +2097,11 @@ Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
 - Far zoom-out of a huge canvas loads only chunks without a stored raster
   natively; the web (no raster store) still loads every visible stroke and
   rasterises again after reopening. Paged documents do not store their LOD
-  rasters. Chunks holding images are never stored (loaded when shown far out).
+  rasters. Chunks with images not on this device yet are not stored (loaded
+  when shown far out) until the blob arrives and decodes.
+- Stored-raster writes wait for the LOD view to be idle, not for every frame:
+  zooming in past the LOD range right away lets them run during tile frames
+  (each a small GPU read-back).
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
 - Text boxes: list items have no hanging indent (wrapped lines start at the
