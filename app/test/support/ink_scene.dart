@@ -47,6 +47,7 @@ class InkScene {
     TilePool? pool,
     bool lod = false,
     Duration settleDelay = const Duration(milliseconds: 20),
+    Duration batchBudget = const Duration(milliseconds: 4),
   }) {
     model = SurfaceModel(
       surfaceId: 's',
@@ -59,7 +60,12 @@ class InkScene {
       ..zoomAt(Offset.zero, scale)
       ..panBy(pan);
     model.ensureLoaded(viewport.visibleWorld);
-    tiles = InkTileCache(pictures, pool: pool ?? TilePool(), settleDelay: settleDelay);
+    tiles = InkTileCache(
+      pictures,
+      pool: pool ?? TilePool(),
+      settleDelay: settleDelay,
+      batchBudget: batchBudget,
+    );
     rasters = lod ? ChunkRasterCache(pictures, maxBytes: 256 << 20) : null;
   }
 

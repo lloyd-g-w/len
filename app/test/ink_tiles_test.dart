@@ -76,6 +76,21 @@ void main() {
     });
   });
 
+  testWidgets('renders finish when a batch overruns its budget (a busy machine)', (tester) async {
+    await tester.runAsync(() async {
+      // A zero budget is spent before the first render, as when the thread
+      // is descheduled right after a batch starts: renders must still go on.
+      final strokes = scribbles(300, const Rect.fromLTWH(0, 0, 1200, 900), seed: 13);
+      final scene = InkScene(strokes, size: const Size(1200, 900), batchBudget: Duration.zero);
+      scene.painter().paint(CountingCanvas(), scene.size);
+      await settle(() => !scene.busy, limit: const Duration(seconds: 20));
+      scene.painter().paint(CountingCanvas(), scene.size);
+      expect(scene.tiles.lastPaint.vectorTiles, 0);
+      expect(scene.tiles.lastPaint.images, greaterThan(0));
+      scene.dispose();
+    });
+  });
+
   testWidgets('pen-up: the committed stroke is drawn in the very next frame, then baked in', (
     tester,
   ) async {

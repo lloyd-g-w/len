@@ -500,9 +500,19 @@ class InkTileCache extends ChangeNotifier {
     _pumpTimer = null;
     if (_disposed || _space == null) return;
     final watch = Stopwatch()..start();
-    while (_requests.isNotEmpty && watch.elapsed < batchBudget) {
+    var first = true;
+    while (_requests.isNotEmpty) {
+      // Over budget: the rest in the next batch. At least one request is
+      // handled per batch, however late it started (a busy machine), and
+      // the next one is always scheduled: [_request] relies on it.
+      if (!first && watch.elapsed >= batchBudget) {
+        _schedulePump();
+        break;
+      }
+      first = false;
       final index = _next();
-      // Urgent renders (edits on screen) all start at once.
+      // Urgent renders (edits on screen) all start at once. The others
+      // wait for a running render, which pumps again when it completes.
       if (_inFlight >= maxInFlight && _requests[index]! > 0) break;
       _requests.remove(index);
       final tile = _tiles[index] ??= InkTile(pool, _space!, index);
