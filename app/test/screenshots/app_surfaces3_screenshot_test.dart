@@ -81,7 +81,10 @@ void main() {
       });
       await back(tester); // Closes the drawer.
       await capture('edit_folder', () => folderMenu('Edit folder…'));
-      await capture('delete_folder', () => folderMenu('Delete folder…'));
+      // Deleting a folder asks nothing: its message offers Undo.
+      await folderMenu('Delete folder');
+      await shoot(tester, 's_snackbar_delete_folder_phone_$suffix');
+      await tap(tester, find.text('Undo'));
       await capture('new_notebook', () => tap(tester, newButton()));
       await capture('template_picker', () async {
         unawaited(

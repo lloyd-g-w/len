@@ -269,36 +269,30 @@ class LibraryActions {
           drop(context, LibraryDragItem.folder(folder.id), target.folderId);
         }
       case FolderAction.delete:
-        await deleteFolder(context, folder);
+        deleteFolder(context, folder);
     }
   }
 
-  /// Confirms with what goes ("2 subfolders and 14 notebooks go to the
-  /// trash"), deletes, and offers Undo.
-  Future<void> deleteFolder(BuildContext context, Folder folder) async {
+  /// Deletes [folder] with its subfolders (their notebooks go to the
+  /// trash) without asking, says what went and offers Undo, as trashing a
+  /// notebook does.
+  void deleteFolder(BuildContext context, Folder folder) {
     final (:folders, :notebooks) = controller.contentsOf(folder.id);
+    final deletion = controller.deleteFolder(folder.id);
     final parts = [
       if (folders > 0) countLabel(folders, 'subfolder'),
       if (notebooks > 0) countLabel(notebooks, 'notebook'),
     ];
-    final ok = await confirmAction(
+    final what = switch ((folders, notebooks)) {
+      (0, 0) => '',
+      (_, 0) => ' with ${parts.single}',
+      (0, _) => ', ${parts.single} to the trash',
+      _ => ', ${parts.join(' and ')} to the trash',
+    };
+    _undoable(
       context,
-      title: 'Delete “${folder.name}”?',
-      message: switch ((folders, notebooks)) {
-        (0, 0) => 'The folder is empty.',
-        (_, 0) => '${parts.join()} ${folders == 1 ? 'goes' : 'go'} too.',
-        (0, _) => '${parts.join()} ${notebooks == 1 ? 'goes' : 'go'} to the trash.',
-        _ => '${parts.join(' and ')} go to the trash.',
-      },
-      confirmLabel: 'Delete',
-      destructive: true,
-    );
-    if (!ok || !context.mounted) return;
-    final deletion = controller.deleteFolder(folder.id);
-    showMessage(
-      context,
-      '“${folder.name}” deleted',
-      action: SnackBarAction(label: 'Undo', onPressed: () => controller.undoDeleteFolder(deletion)),
+      '“${folder.name}” deleted$what',
+      () => controller.undoDeleteFolder(deletion),
     );
   }
 

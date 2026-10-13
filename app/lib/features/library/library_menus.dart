@@ -78,7 +78,7 @@ const List<PopupMenuEntry<FolderAction>> folderMenuItems = [
   MenuRow(
     value: FolderAction.delete,
     icon: Symbols.delete_sharp,
-    label: 'Delete folder…',
+    label: 'Delete folder',
     destructive: true,
   ),
 ];

@@ -326,7 +326,7 @@ void main() {
     expect(find.text('“Keys” moved to the trash'), findsOneWidget);
   });
 
-  testWidgets('deleting a folder says what goes, trashes its notebooks, and Undo restores all', (
+  testWidgets('deleting a folder says what went, trashes its notebooks, and Undo restores all', (
     tester,
   ) async {
     final services = await pumpSeeded(tester, (s) {
@@ -339,11 +339,10 @@ void main() {
       find.descendant(of: find.byType(FolderTile), matching: find.byTooltip('More')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete folder…'));
+    await tester.tap(find.text('Delete folder'));
     await tester.pumpAndSettle();
-    expect(find.text('1 subfolder and 2 notebooks go to the trash.'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-    await tester.pumpAndSettle();
+    // No confirmation: the message says what went and offers Undo.
+    expect(find.text('“Old” deleted, 1 subfolder and 2 notebooks to the trash'), findsOneWidget);
     expect(services.folders.list(), isEmpty);
     expect(services.notebooks.trashed().map((n) => n.title), unorderedEquals(['Inside', 'Deeper']));
     expect(find.text('2'), findsWidgets); // Trash count in the sidebar.
