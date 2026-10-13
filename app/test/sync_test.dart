@@ -180,6 +180,16 @@ void main() {
     }
   });
 
+  test('a token that cannot travel in a header is explained', () {
+    for (final token in ['tökén', 'two words', 'line\nbreak']) {
+      expect(
+        () => SyncApi(baseUrl: 'http://sync.test', token: token),
+        throwsA(isA<SyncException>().having((e) => e.kind, 'kind', SyncFailure.auth)),
+        reason: token,
+      );
+    }
+  });
+
   test('server errors show the error field, not the raw body', () async {
     final api = SyncApi(
       baseUrl: 'http://sync.test/',

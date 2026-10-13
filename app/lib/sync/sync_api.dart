@@ -65,14 +65,26 @@ class ServerInfo {
 
 /// Thin HTTP client for the Len sync server (docs/SYNC_PROTOCOL.md).
 class SyncApi {
-  /// Throws [SyncException] if [baseUrl] is not an http(s) URL.
+  /// Throws [SyncException] if [baseUrl] is not an http(s) URL or [token]
+  /// cannot be sent in an HTTP header.
   SyncApi({
     required String baseUrl,
     required this.token,
     http.Client? client,
     this.timeout = const Duration(seconds: 30),
   }) : baseUri = _parseBaseUrl(baseUrl),
-       _client = client ?? http.Client();
+       _client = client ?? http.Client() {
+    if (!_tokenChars.hasMatch(token)) {
+      throw const SyncException(
+        'The access token can only contain letters, digits and punctuation — paste it again',
+        kind: SyncFailure.auth,
+      );
+    }
+  }
+
+  /// Printable ASCII without spaces: what an HTTP header can carry (server
+  /// tokens are e.g. hex from `openssl rand -hex 32`).
+  static final _tokenChars = RegExp(r'^[!-~]*$');
 
   /// Server limit on records per push.
   static const maxPushRecords = 1000;
