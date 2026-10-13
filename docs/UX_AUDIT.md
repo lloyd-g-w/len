@@ -1,5 +1,302 @@
 # Len — UX/UI audit
 
+## Round 7 audit (`review/round7`)
+
+Scope: what makes people stay with a handwriting app or leave it, measured
+against GoodNotes 6 and Notewise (from working knowledge of both; exact
+competitor behaviour may differ by version). Method: all 706 renders from
+`test/screenshots/` (all suites passed), viewed as contact sheets and crops,
+plus a walk through the code of the 100-times-a-day paths (tools, colours,
+lasso, PDF text, pages, library, sync, data safety). Every item was checked
+in the code; paths are under `app/lib/` unless noted. Round 6 items are
+all fixed and not repeated.
+
+Summary: the pen, lasso, text, planners, PDF and audio are at or above
+the reference apps. Len loses users in other places. Getting back to
+a notebook takes too many taps, nothing reopens what you were writing in,
+pages can't leave their notebook, and nothing tells someone without a sync
+server that their notes exist on one device only.
+
+### Where Len stands vs GoodNotes 6 / Notewise
+
+| Area | Len | Notes |
+|---|---|---|
+| Ink feel, pressure, latency path, palm rejection | **Better / on par** | Fitted pressure curve, wet ink, palm quiet window, automatic stylus mode with an "undo" snack |
+| Tool switching on tablets | On par | One tap per tool, one tap per colour / width slot; S Pen button erases |
+| Tool switching on phones | Slightly behind | Switcher plus one "previous" slot; see R7-2 |
+| Colours and sizes | On par | 1–6 independent colour and width slots per ink; presets + HSV + saved colours |
+| Eraser | On par, one gap | Whole stroke / partial / highlighter only / switch back; hover outline. **Missing:** scribble to erase |
+| Lasso | **Better** | Tap or loop, move / resize / rotate, Style, convert to text, cut / copy across notebooks and pages, split-view drag |
+| Shapes | On par, one gap | Hold to snap plus a Shape tool. **Missing:** fill |
+| Text boxes | **Better** | Rich text, lists, checklists, rich paste from browsers / Word |
+| Highlighter | On par | Behind ink, straight-line option. PDF text needs a finger (R7-1) |
+| Undo / redo | On par | Buttons, two- / three-finger taps, keyboard |
+| Library, folders, favourites, trash | On par | Nested folders, drag and drop, Undo everywhere |
+| Recent notebooks / reopen last | **Missing** | R7-6, R7-7 |
+| Tags | Removed: fine | Folders, favourites and full-text search cover it (SIMPLIFY #45). Don't bring tags back unless users ask |
+| Search | On par | Titles, text, PDF text, handwriting (recognised on Android, synced to the rest) |
+| Templates and planners | **Better** | Date-aware linked planners in 19 languages, custom templates |
+| Page management | On par, one gap | Overview, reorder, multi-select. **Missing:** move / copy pages to another notebook (R7-9) |
+| PDF study | On par | Text select, highlight, copy, links, outline, vector export. Pen-only selection missing (R7-1) |
+| Audio | **Better** | Ink replay, trims, markers per burst of writing, crash recovery, background recording |
+| Export / share | On par, one gap | PDF / PNG with ranges; not from the library (R7-8); no editable Len file |
+| Sync | Different | Self-hosted only: great for the few with a server, absent for everyone else |
+| Backup / data safety | **Missing** | No library backup; Android Auto Backup unconfigured (R7-12, R7-13) |
+| Offline | **Better** | Local-first on every platform, including the web PWA |
+| First run, empty states, feedback | On par | Calm empty states, stylus-detected snack, one-time tips |
+
+What a heavy note-taker does 100 times a day, in taps (competitor
+counts are approximate):
+
+| Action | Len tablet | Len phone | GoodNotes 6 / Notewise |
+|---|---|---|---|
+| Change pen colour or width | 1 | 1 | 1 |
+| Pen ↔ eraser | 0 (side button) or 1 | 0 or 1 (previous) | 0–1 |
+| Pen → highlighter → pen | 2 | 3 (switcher, pick, previous) | 2 |
+| Lasso, move, back to pen | 1 + loop + 1 | 2 + loop + 1 | 1 + loop + 1 |
+| Recolour a selection | 2 (Style, swatch) | 2 | 2 |
+| Highlight a line of PDF text with the pen | 1 + freehand stroke, or put the pen down: long-press, drag, Highlight | same | 1 + stroke |
+| Add a page at the end | 1 | 1 | 1 |
+| Get back to yesterday's lecture notebook | 1–3 (open its folder) | 2–4 (☰ or folder) | 1–2 (recents / reopens) |
+
+### Top 10 (fix first)
+
+1. R7-1 A pen can't select PDF text; only a finger long-press can.
+2. R7-12 Without sync, nothing says notes live on this device only, and there is no way to back them up.
+3. R7-13 Android Auto Backup is on but unconfigured: it silently stops past 25 MB and would clone the sync identity.
+4. R7-6 No recent notebooks: notebooks in folders are always 1–3 taps away.
+5. R7-7 Nothing reopens where you were writing after the app is killed or restarted.
+6. R7-9 Pages can't be moved or copied to another notebook.
+7. R7-8 Export / share only exists inside the editor.
+8. R7-2 On phones the one "previous tool" slot goes to the eraser that the S Pen button already gives.
+9. R7-3 "Hold to snap" changes every pen stroke but lives in the Shapes options.
+10. R7-14 Phones show no sync status anywhere outside the drawer; the editor never shows a failing sync.
+
+### Writing
+
+**R7-1 P1 · A pen can't select PDF text.** The text selection that Copy,
+Highlight and link creation need starts only from the canvas long-press
+menu (`features/editor/editor_gestures.dart:24`, `selectWordAt`). Long
+presses are recognised only for a navigating finger with no pen nearby
+(`ink/input/canvas_gestures.dart:50-53`, `eligible: navigates &&
+!taps.isStylusNear`) or a right click. The lasso tip even says "long-press
+PDF text" (`features/editor/chrome/editor_tips.dart:107-112`). A student
+annotating slides with the S Pen has to put the pen down and use a finger,
+then drag handles, then tap Highlight. *Fix:* with the lasso, a pen tap on
+PDF text where no ink or element is hit selects the word, and a pen
+press-and-drag that starts on text extends the selection (in
+`LassoTool._tap`, `ink/tools/lasso_tool.dart:184-208`, fall back to
+`PdfInteraction.selectWordAt` when `contentAt` finds nothing). Update the
+tip to "Circle ink to select it; tap PDF text to select text". The bigger
+win is the text-aware highlighter under Missing features.
+
+**R7-2 P1 · Phones: the only quick tool slot goes to the eraser the S Pen
+button already gives.** The phone bar is `[tool▾][previous]` plus the
+strip (`features/editor/toolbar/tool_switcher.dart:97-150`).
+`ToolSettings._previous` starts as the eraser and follows the last tool
+(`ink/tool_settings.dart:47,60-63`). For an S Pen writer who erases with
+the button, the slot shows the eraser, so pen → highlighter → pen costs
+three taps (switcher, Highlighter, then previous) instead of two.
+*Fix:* when a stylus is in use (`stylusOnly == true`) and the side button
+erases (`penButtonAction == eraser`), skip the eraser when choosing
+`previousTool`, and start it at the highlighter. Pen ↔ highlighter is
+then one tap each way. No setting needed.
+
+**R7-3 P2 · "Hold to snap shapes" changes every pen stroke but lives in the
+Shapes options.** `ShapeOptionsPanel` holds the only switch for
+`tools.holdToStraighten` (`features/editor/tools/shape_options_panel.dart:62-67`).
+It applies to pen and highlighter strokes held for 600 ms
+(`ink/input/hold_to_straighten.dart:29`). People who pause at the end of
+a word get a straight line. They look for the cause in the pen's options
+and never find it, because pen users don't open Shapes. *Fix:* move the
+switch to the Pen's Feel section (`pen/pen_options_panel.dart`) and the
+Highlighter's. Keep one caption line in Shapes ("Or hold the pen still at
+the end of a stroke").
+
+**R7-4 P2 · PDF "Highlight" uses whatever colour the highlighter last
+had.** `PdfInteraction.highlightSelection` takes
+`tools.configOf(InkTool.highlighter).color`
+(`features/editor/pdf/pdf_interaction.dart:238-254`). The selection pill
+has a single Highlight button (`features/editor/pdf/pdf_layer.dart:244-246`).
+Students colour-code (definitions yellow, examples green), and changing
+the colour means switching to the highlighter, changing its slot, and
+selecting again. *Fix:* replace the button with the highlighter's quick
+colours as swatches in the pill (2–3 dots, the current one first). A tap
+highlights in that colour. One undo, as now.
+
+**R7-5 P2 · The lasso's first-use tip covers the selection for 10 s.** The
+tip stays for `visibleFor` (`features/editor/chrome/editor_tips.dart:45,
+119`) even after the user has done what it says. In every
+`e_convert_*`, `e_image_selected_*` and `e_shape_selected_*` render it sits
+under the selection menu, above the bottom bar. *Fix:* dismiss
+`EditorTip.lasso` when the first selection is made (listen to the
+selection in `TipsController.followTools`) or the tool changes.
+
+### Organising and finding
+
+**R7-6 P1 · No recent notebooks.** The library shows the current folder
+only (`features/library/library_controller.dart:206-219`,
+`folderOf(n) == _folderId`). A student with a folder per course opens the
+drawer or folder, then the notebook, several times a day. On phones that
+is 2–4 taps from launch. Sorting by "Last edited" helps only inside one
+folder. *Fix:* at the Library root (not in folders, not while searching),
+add a "Recent" strip above the folders: the last 6 notebooks opened or
+edited across all folders, as covers in one sideways-scrolling row (the
+`FolderRow.strip` pattern), hidden while fewer than 2 notebooks live in
+folders. No setting, no new section in the sidebar.
+
+**R7-7 P1 · Nothing reopens where you were writing.** `OpenNotebooks`
+keeps tabs in memory only (`features/editor/tabs/open_notebooks.dart`, no
+persistence). `EditorLifecycle` saves the page and zoom per notebook
+(`features/editor/editor_lifecycle.dart:47-67`), not which notebooks were
+open. Android kills a backgrounded app freely: after checking a message
+mid-lecture, the student is back in the library, with tabs gone. *Fix:*
+store the open tab ids, the active one and whether the editor was showing
+(settings, on `OpenNotebooks` change and `onHide`). On a cold start where
+the app was last left in the editor, open that workspace again (the
+library stays underneath for Back). A user who backed out to the library
+gets the library.
+
+**R7-8 P1 · Export / share only exists inside the editor.** The notebook
+menu offers Open, Rename, Favourite, Duplicate, Move, Cover, Select, Trash
+(`features/library/library_menus.dart:12-23`). The editor's top bar has no
+export either; it is in ⋯ (`chrome/editor_more_menu.dart:92`). "Send
+yesterday's notes to a classmate" means opening the notebook, ⋯, Export.
+*Fix:* add "Export…" to the notebook menu and the selection bar, running
+`exportFlow` with all pages (the same sheet; several notebooks give one
+PDF each through the share path).
+
+**R7-9 P1 · Pages can't be moved or copied to another notebook.** The
+overview's selection bar has Bookmark, Duplicate, Template, Export, Delete
+(`features/documents/overview/page_commands.dart:8-33`). Nothing moves
+pages between notebooks; lasso copy carries ink and elements but not the
+page, its template or its PDF background. Splitting a term's notebook or
+filing a page into the right course is impossible. *Fix:* "Move to…" and
+"Copy to…" in the overview selection bar and the page menu, with the
+notebook picker the link pickers already have (`editor/links/link_pickers.dart`)
+plus "New notebook". Pages are appended; their backgrounds keep their blob
+references. Moves are one Undo ("Moved 3 pages to “Physics” · Undo").
+
+### Studying and PDFs
+
+**R7-10 P2 · Lecture recordings are invisible outside the notebook.** Cards
+and list rows show no sign of recordings (`features/library/notebook_card.dart`,
+`notebook_list_tile.dart`). Recording titles aren't in the search index
+(`data/search/*` indexes titles, folders, text boxes, PDF text,
+handwriting). "Which lecture did I record?" means opening notebooks one by
+one. *Fix:* a small mic glyph beside the page count on cards with
+recordings ("12 pages · 2 recordings" in the list), and index recording
+titles so a search for "Lecture 4" finds the notebook.
+
+**R7-11 P2 · Export is two taps deep on every size.** Tablet and desktop
+top bars have ← ⊞ title | tools | 🎤 ↶ ↷ ⋯ (`editor_tablet_light.png`;
+nothing export-related in `chrome/editor_top_bar*.dart`). Sharing a page is
+something students do daily. *Fix:* on wide bars (`ToolbarDock.inline`) add
+a Share glyph (`Symbols.ios_share_sharp`) before ⋯ that opens the export
+sheet. Phones keep it in ⋯.
+
+### Delight and trust
+
+**R7-12 P1 · Without sync, nothing says notes exist only on this device,
+and there is no way to back them up.** With sync off, Settings says "Sync
+is off" (`features/settings/sync_status_line.dart:29`) and the sidebar
+"Sync off" (`ui/sync_status_button.dart:14`). The empty library offers
+"Set up sync…" on first launch only (`library_empty_state.dart:80`). Only
+the web's storage section mentions backups (`storage_settings.dart:89`).
+Export makes PDFs, which can't be brought back as editable notebooks. A
+lost or reset tablet loses a semester. *Fix now (copy only):* the
+sidebar's sync-off caption reads "On this device only" and Settings → Sync
+off says "Your notes are kept only on this device. Set up sync to keep a
+copy on your server." *Then:* library backup (Missing features #1).
+
+**R7-13 P1 · Android Auto Backup is on but unconfigured.**
+`android/app/src/main/AndroidManifest.xml` sets neither `allowBackup` nor
+`dataExtractionRules` / `fullBackupContent`, so Android backs up the whole
+files directory. That holds `len.db`, `blobs/` (PDFs, images, audio) and
+`recording/` (`platform/app_directory_native.dart`,
+`blob_backend_native.dart:12`, `spool_storage_native.dart:12`). Past the
+25 MB quota Android skips the backup entirely, without telling anyone; one
+imported textbook is enough. When it does work, a restore brings back
+`device_id` (stored in settings in the database,
+`data/settings_repository.dart:11`), so a new phone would write as the old
+one. *Fix:* backup rules that include only `len.db` (with its `-wal`) and
+exclude `blobs/` and `recording/`. All ink and text then fit and come back
+on a new phone, and PDFs come back through sync or show "PDF page
+unavailable". On the first start after a restore (detect: the database
+exists but a no-backup marker file doesn't), give the device a new id and
+resync from scratch. Say so in Settings → Storage on Android: "Handwriting
+and text are included in your Android backup; PDFs, images and audio are
+not."
+
+**R7-14 P2 · Phones show sync status only inside the drawer; the editor
+never shows a failing sync.** `SyncStatusButton` is built only in the
+sidebar (`features/library/library_sidebar.dart:145`). On phones the
+sidebar is the drawer. `SyncAttention` speaks up only for a refused token
+(`features/settings/sync_attention.dart:23-31`). A server that has been
+unreachable for days goes unnoticed. *Fix:* on phones, show the cloud-alert
+glyph in the library header while sync has failed for more than 15
+minutes (tap: Settings → Sync). After 24 h of failures, show the
+`SyncAttention` snack once ("Not synced since Monday · Settings").
+
+**R7-15 P2 · ROADMAP still lists removed features.** "Customisable
+toolbar … favourite pens … edit mode" and "synced favourite pens"
+(`docs/ROADMAP.md:207-208,216`) were removed (SIMPLIFY #9, #10). *Done in
+this branch:* the lines now describe the fixed toolbar.
+
+### Missing features worth adding (value vs complexity; keep Len simple)
+
+1. **Library backup and restore** (high value · M). Settings → Storage →
+   "Back up…" writes one file (database + blobs, zipped) through the
+   save / share path; "Restore from backup…" replaces the library after a
+   confirmation, with a new device id. The same format exported per
+   notebook ("Len notebook", from R7-8's Export) lets people hand editable
+   notebooks to each other. Pairs with R7-13 for Android.
+2. **Recent strip** (high · S): R7-6.
+3. **Reopen where you left off** (high · S): R7-7.
+4. **Move / copy pages to another notebook** (high · M): R7-9.
+5. **Scribble to erase** (high · M; GoodNotes 6 has it). With the pen, a
+   quick zigzag (≥ 3 sharp reversals within ~600 ms, small extent) over
+   ink erases the strokes it crosses instead of drawing; one undo. It sits
+   beside `HoldToStraighten` in `ink/input/`, with one switch in Pen →
+   Feel next to hold to snap (R7-3). This is the biggest daily tap saving
+   for writers without a side button (Windows pens, other styluses,
+   fingers).
+6. **Text-aware highlighter on PDFs** (high for students · M). A
+   highlighter stroke whose length lies mostly over one or more lines of
+   PDF text becomes the same snapped strokes `highlightSelection` makes
+   (crisp, line-high, multi-line). With hold to snap off, nothing snaps.
+   This removes R7-1's detour for the most common PDF action.
+7. **Shape fill** (medium · M). A fill colour for closed shapes (none /
+   the stroke colour at 25 % / solid), in the Shape strip and lasso Style.
+   It needs a synced stroke field.
+8. **Background audio playback** (medium · M; ROADMAP ⬜). Review a
+   lecture with the screen off.
+9. **Document scan** (medium · M–L). Camera → edge-detected,
+   perspective-corrected page for handouts and whiteboards. Insert → Take
+   photo exists; this is the version students want.
+10. **Zoom window** (medium on phones · L). Writing at phone scale is
+    cramped. Only worth it after the above; not for tablets.
+
+Not worth it for Len: AI summaries and chat, flashcards / study sets,
+stickers and marketplace (removed), tags (removed), real-time
+collaboration.
+
+### Simplify
+
+- **Toolbar docked / floating has two homes:** Settings → Writing
+  (`features/settings/writing_settings.dart:87-98`) and ⋯ → View
+  (`chrome/editor_more_menu.dart:176-181`). Keep it in View, where its
+  effect is visible, and drop the Settings row.
+- **"Switch back after erasing"** (`pen/eraser_options_panel.dart`) is
+  covered by the side button (temporary eraser), the phone's previous-tool
+  slot and the one-tap tablet bar. Candidate for removal, with the
+  `autoDeselect` field.
+- **Hold to snap** gets one home in the pen's Feel (R7-3), not a second
+  switch.
+- **Don't add new settings for R7-2, R7-6, R7-7 or R7-12:** each is a
+  better default.
+
+
 ## Round 6 audit (`review/round6`)
 
 Scope: the app after the Swiss-minimal redesign (DESIGN.md) and rounds 4–5.
