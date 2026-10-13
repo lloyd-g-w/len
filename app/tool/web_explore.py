@@ -139,9 +139,9 @@ def big_backup(src, dst):
         data = png(1200, 1000, noise=True)
         sha = hashlib.sha256(data).hexdigest()
         blobs[sha], files[f'blobs/{sha}'] = {'mime': 'image/png', 'size': len(data)}, data
-        elements.append(record('elements', type='image', surfaceId=pages[i * BIG_PAGES // BIG_IMAGES]['id'], x=100,
-                               y=600, w=480, h=400, createdAt=now, data={'blob': sha, 'width': 1200,
-                                                                          'height': 1000}))
+        elements.append(record('elements', type='image', z=-(1 << 20), rotation=0, x=100, y=600,
+                               w=480, h=400, surfaceId=pages[i * BIG_PAGES // BIG_IMAGES]['id'],
+                               createdAt=now, data={'blob': sha, 'width': 1200, 'height': 1000}))
     order = ['folders', 'templates', 'notebooks', 'pages', 'outline', 'recordings', 'strokes', 'elements']
     added = [notebook] + pages + strokes + elements
     lines = [json.dumps(r, separators=(',', ':')) for r in
@@ -171,7 +171,7 @@ def big_backup(src, dst):
 # write into window.lenSaved (the picker itself is a native dialog).
 INIT = '''(() => {
   window.lenLongTasks = [];
-  try {
+  if ((PerformanceObserver.supportedEntryTypes || []).includes('longtask')) try {
     new PerformanceObserver((list) => { for (const e of list.getEntries())
       window.lenLongTasks.push([Math.round(e.startTime), Math.round(e.duration)]); })
       .observe({ type: 'longtask', buffered: true });
@@ -423,6 +423,13 @@ class Walk:
         if self.cdp:
             await pen_stroke(self.page, self.cdp, x - 250, y + 120)
             await expect_text(self.page, 'Stylus detected')
+            await wait_query(self.page, STROKES, lambda r: r[0][0] == 2, 'two strokes stored')
+            # The pen's pressure arrived: it rises along the stroke.
+            (points,), = await query(self.page, STROKES.replace('COUNT(*)', 's.points', 1)
+                                     + ' ORDER BY s.created_at DESC LIMIT 1')
+            pressures = [p for (_, _, p) in struct.iter_unpack('<fff', points)]
+            w.expect(len(pressures) > 10 and pressures[-2] - pressures[1] > 0.3,
+                     f'pressure rises: {[round(p, 2) for p in pressures[::8]]}')
         else:  # No pen events without CDP: another mouse stroke.
             await w.draw(self.page, dy=120)
         await wait_query(self.page, STROKES, lambda r: r[0][0] == 2, 'two strokes stored')
@@ -583,7 +590,7 @@ class Walk:
         await tap(page, 'Back')
         await page.set_viewport_size({'width': 1200, 'height': 800})
         heaps = []
-        for i in range(5):
+        for i in range(int(os.environ.get('LEN_EXPLORE_CYCLES', 5))):
             await tap(page, 'Explore', exact=False)
             await page.get_by_role('button', name='Back', exact=True).wait_for(timeout=30000)
             await wheel(page, 300, times=3)
@@ -628,7 +635,8 @@ class Walk:
         for number in (last_image, BIG_PAGES):
             await go_to_page(page, number)
             await expect_text(page, f'Page {number} of {BIG_PAGES}')
-            await page.wait_for_timeout(1500)  # Painted, for the screenshot.
+            await wheel(page, 200, times=2)  # The image in view.
+            await page.wait_for_timeout(4000)  # Painted, for the screenshot.
             await page.screenshot(path=os.path.join(OUT, f'{self.name}-big-page-{number}.png'))
         await tap(page, 'Back')
         await expect_text(page, 'Explore')
