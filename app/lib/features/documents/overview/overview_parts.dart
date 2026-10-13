@@ -324,7 +324,7 @@ class NoBookmarks extends StatelessWidget {
             Text('No bookmarked pages yet', style: theme.textTheme.titleMedium),
             const SizedBox(height: Gaps.xs),
             Text(
-              'Bookmark pages from their ··· menu to find them here.',
+              'Bookmark pages from their ··· menu to find them here',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,

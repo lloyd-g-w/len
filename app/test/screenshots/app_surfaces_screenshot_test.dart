@@ -80,7 +80,7 @@ void main() {
         await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'ftp://len.example');
         await tester.enterText(find.widgetWithText(TextField, 'Access token'), 'secret-token');
         await tester.tap(find.byTooltip('Show'));
-        await tester.tap(find.text('Connect & save'));
+        await tester.tap(find.text('Connect'));
         await settle(tester);
         expect(find.textContaining('Enter a web address'), findsOneWidget);
         expect(tester.takeException(), isNull);

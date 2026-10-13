@@ -140,9 +140,7 @@ class _SyncSettingsState extends State<SyncSettings> {
   Widget build(BuildContext context) {
     return SettingsSection(
       title: 'Sync',
-      description:
-          'Keep your notebooks in sync across devices through your own Len server '
-          '(self-hosted; it runs with Docker in a couple of minutes).',
+      description: 'Sync across your devices through your own Len server',
       children: [
         ListenableBuilder(
           listenable: _sync,
@@ -261,7 +259,7 @@ class _SyncSettingsState extends State<SyncSettings> {
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Connect & save'),
+                  : const Text('Connect'),
             ),
             if (_editing) TextButton(onPressed: _cancelEditing, child: const Text('Cancel')),
           ],

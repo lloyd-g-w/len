@@ -57,7 +57,7 @@ class TextOptionsPanel extends StatelessWidget {
             ),
             const SizedBox(height: Gaps.sm),
             Text(
-              'Tap the page to add a text box; tap a text box to edit it.',
+              'Tap the page to add a text box; tap a text box to edit it',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

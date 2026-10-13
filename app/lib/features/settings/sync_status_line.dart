@@ -29,8 +29,8 @@ class SyncStatusLine extends StatelessWidget {
             Symbols.error_rounded,
             scheme.error,
             sync.waitsForSettings
-                ? '${sync.lastError}. Sync is paused until you fix the token.'
-                : '${sync.lastError}.',
+                ? '${sync.lastError}. Sync is paused'
+                : sync.lastError ?? 'Sync failed',
           ),
           SyncState.idle => (
             Symbols.cloud_done_rounded,

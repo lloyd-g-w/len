@@ -340,7 +340,7 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('Connect & save says what is wrong with the address or token', (tester) async {
+    testWidgets('Connect says what is wrong with the address or token', (tester) async {
       await pump(tester, const SyncSettings());
       // Connected: the form is behind Change….
       expect(find.text('Server URL'), findsNothing);
@@ -350,7 +350,7 @@ void main() {
         await tester.enterText(find.widgetWithText(TextField, 'Server URL'), url);
         await tester.enterText(find.widgetWithText(TextField, 'Access token'), token);
         await tester.runAsync(() async {
-          await tester.tap(find.text('Connect & save'));
+          await tester.tap(find.text('Connect'));
           await Future<void>.delayed(const Duration(milliseconds: 50));
         });
         await tester.pump(Motion.medium);

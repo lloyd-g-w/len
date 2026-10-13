@@ -79,8 +79,8 @@ class ExportFormatPicker extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
           child: Text(
             format == ExportFormat.pdf
-                ? 'One document with sharp, zoomable ink.'
-                : 'One image per page, for slides and messages.',
+                ? 'One document with sharp, zoomable ink'
+                : 'One image per page, for slides and messages',
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ),

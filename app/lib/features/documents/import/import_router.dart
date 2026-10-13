@@ -61,8 +61,8 @@ class ImportPlan {
   /// A friendly explanation of [unsupported], or null if there are none.
   String? get unsupportedMessage => switch (unsupported) {
     [] => null,
-    [final name] => '“$name” can’t be opened: Len opens PDFs and images.',
-    _ => '${unsupported.length} files can’t be opened: Len opens PDFs and images.',
+    [final name] => 'Couldn’t open “$name”: Len opens PDFs and images',
+    _ => 'Couldn’t open ${unsupported.length} files: Len opens PDFs and images',
   };
 }
 

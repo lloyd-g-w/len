@@ -58,7 +58,7 @@ void main() {
     services.incomingFiles.add([XFile.fromData(Uint8List(3), path: '/tmp/notes.docx')]);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('“notes.docx” can’t be opened: Len opens PDFs and images.'), findsOneWidget);
+    expect(find.text('Couldn’t open “notes.docx”: Len opens PDFs and images'), findsOneWidget);
     expect(notebooks(services), isEmpty);
   });
 
