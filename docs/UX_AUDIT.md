@@ -583,9 +583,10 @@ Status of these in `feat/editorux2` (✅ done there):
 - ✅ **Discoverability**: empty-canvas hint, a one-time pen side-button
   tip, repeated undos counted in the HUD, Escape closes
   chrome menus.
-- 🟡 Keyboard: chrome buttons are reachable with Tab but there is no
+- ✅ Keyboard: chrome buttons are reachable with Tab but there is no
   "skip to canvas" or toolbar arrow-key navigation yet. → Arrow keys move
-  along the toolbar; "skip to canvas" is still open.
+  along the toolbar, and Escape from any chrome control goes back to the
+  page.
 - ✅ **Motion**: opening a notebook animates from its cover (container
   transform in `NotebookOpenRoute`, see 15); reduced motion → plain fade.
 - ➡️ **Export**: entry points should offer options (see 18); progress is

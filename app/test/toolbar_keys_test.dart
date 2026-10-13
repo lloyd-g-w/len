@@ -53,6 +53,14 @@ void main() {
       names[1],
     );
 
+
+    // Escape goes back to the page, where → turns pages again.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(focusedTooltip(), isNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(currentPage(tester), 1);
     await closeEditor(tester);
   });
 }
