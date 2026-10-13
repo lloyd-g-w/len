@@ -18,65 +18,87 @@ class SettingsScreen extends StatelessWidget {
   /// The column's widest.
   static const double maxWidth = 640;
 
-  /// The sections, in order.
-  List<Widget> _sections(BuildContext context) {
-    final services = AppScope.of(context);
-    final preferences = services.preferences;
-    return [
-      GeneralSettings(preferences: preferences),
-      WritingSettings(preferences: preferences),
-      HandwritingSettings(recognition: services.recognition),
-      const SyncSettings(),
-      if (browserStorage case final storage?) StorageSettings(storage: storage),
-      const AboutSettings(),
-    ];
+  @override
+  Widget build(BuildContext context) => const Scaffold(body: _SettingsColumn());
+}
+
+/// The sections under a pinned bar titled "Settings"; the bar gets its
+/// hairline once the column scrolls under it.
+class _SettingsColumn extends StatefulWidget {
+  const _SettingsColumn();
+
+  @override
+  State<_SettingsColumn> createState() => _SettingsColumnState();
+}
+
+class _SettingsColumnState extends State<_SettingsColumn> {
+  bool _scrolled = false;
+
+  bool _onScroll(ScrollNotification n) {
+    if (n.depth != 0) return false;
+    final scrolled = n.metrics.pixels > 0;
+    if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < Breakpoints.medium;
-    // Phones: the title lives in a pinned bar, so the bar is never empty.
-    return Scaffold(
-      appBar: compact ? null : AppBar(scrolledUnderElevation: 0.5),
-      body: _column(context, _sections(context), compact: compact),
-    );
-  }
-
-  Widget _heading(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Gaps.xs, 0, 0, Gaps.xl),
-    child: Text('Settings', style: Theme.of(context).textTheme.titleLarge),
-  );
-
-  /// Every section as a card, in a column of readable width.
-  Widget _column(BuildContext context, List<Widget> sections, {required bool compact}) {
+    final scheme = Theme.of(context).colorScheme;
+    final width = MediaQuery.sizeOf(context).width;
+    final compact = width < Breakpoints.medium;
+    final gutter = compact ? Gaps.lg : Gaps.xl;
+    // Wide: the title lines up with the centred column below it.
+    final columnStart = (width - SettingsScreen.maxWidth).clamp(0.0, double.infinity) / 2 + gutter;
+    final hasBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
+    final titleSpacing = compact
+        ? NavigationToolbar.kMiddleSpacing
+        : (columnStart - (hasBack ? kToolbarHeight : 0)).clamp(
+            NavigationToolbar.kMiddleSpacing,
+            double.infinity,
+          );
     final content = Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: maxWidth),
+        constraints: const BoxConstraints(maxWidth: SettingsScreen.maxWidth),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: compact ? Gaps.lg : Gaps.xl),
+          padding: EdgeInsets.symmetric(horizontal: gutter),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [if (!compact) _heading(context), ...sections],
+            children: _sections(context),
           ),
         ),
       ),
     );
-    final bottom = Gaps.xxl + MediaQuery.paddingOf(context).bottom;
-    if (!compact) {
-      return ListView(
-        padding: EdgeInsets.only(bottom: bottom),
-        children: [content],
-      );
-    }
-    return CustomScrollView(
-      slivers: [
-        const SliverAppBar(pinned: true, title: Text('Settings'), scrolledUnderElevation: 0.5),
-        SliverPadding(
-          padding: EdgeInsets.only(bottom: bottom),
-          sliver: SliverToBoxAdapter(child: content),
-        ),
-      ],
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            title: const Text('Settings'),
+            titleSpacing: titleSpacing,
+            shape: _scrolled ? Border(bottom: Surfaces.chromeEdge(scheme)) : null,
+          ),
+          SliverPadding(
+            padding: EdgeInsets.only(bottom: Gaps.xxl + MediaQuery.paddingOf(context).bottom),
+            sliver: SliverToBoxAdapter(child: content),
+          ),
+        ],
+      ),
     );
   }
+}
+
+/// The settings sections, in order.
+List<Widget> _sections(BuildContext context) {
+  final services = AppScope.of(context);
+  final preferences = services.preferences;
+  return [
+    GeneralSettings(preferences: preferences),
+    WritingSettings(preferences: preferences),
+    HandwritingSettings(recognition: services.recognition),
+    const SyncSettings(),
+    if (browserStorage case final storage?) StorageSettings(storage: storage),
+    const AboutSettings(),
+  ];
 }

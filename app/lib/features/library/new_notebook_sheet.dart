@@ -51,10 +51,9 @@ class NewNotebookSheet extends StatefulWidget {
     return showDialogOrSheet<NewNotebookRequest>(
       context: context,
       maxWidth: 840,
-      maxHeight: 660,
+      maxHeight: 720,
       minHeight: 560,
       sheetDragHandle: false,
-      sheetHeightFactor: 0.94,
       builder: (_, wide) => NewNotebookSheet(wide: wide, kind: kind),
     );
   }
@@ -159,11 +158,18 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // The sheet paints its own rounded surface; the dialog needs one.
     return Material(
-      color: Surfaces.overlay(theme.brightness),
+      type: widget.wide ? MaterialType.canvas : MaterialType.transparency,
+      color: widget.wide ? Surfaces.overlay(theme.brightness) : null,
       child: widget.wide ? _wideLayout(context) : _phoneLayout(context),
     );
   }
+
+  /// The footer's hairline: the form scrolls under it.
+  static BoxDecoration _footerEdge(BuildContext context) => BoxDecoration(
+    border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+  );
 
   Widget _header(BuildContext context, {Widget? trailing}) => SheetHeader(
     title: _canvas ? 'New canvas' : 'New notebook',
@@ -261,7 +267,8 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
                   ),
                 ),
               ),
-              Padding(
+              Container(
+                decoration: _footerEdge(context),
                 padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.md, Gaps.xl, Gaps.lg),
                 child: Row(
                   children: [
@@ -293,64 +300,70 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
     final keyboard = media.viewInsets.bottom > 0 || media.size.height < 520;
     // Large text needs the room more than the preview does.
     final previewHeight = media.textScaler.scale(10) > 11.5 ? 88.0 : 120.0;
-    return Padding(
-      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.sm, Gaps.sm, Gaps.sm),
-            child: _header(
-              context,
-              trailing: TextButton(onPressed: _importPdf, child: const Text('Import PDF…')),
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: Gaps.xl),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // The preview scrolls away with the form, so the form
-                  // keeps the screen when it is long (large text).
-                  AnimatedSize(
-                    duration: Motion.medium,
-                    curve: Motion.standard,
-                    child: keyboard
-                        ? const SizedBox(width: double.infinity)
-                        : ClipRect(
-                            child: Container(
-                              height: previewHeight + Gaps.lg * 2,
-                              color: scheme.surfaceContainerLow,
-                              padding: const EdgeInsets.symmetric(vertical: Gaps.lg),
-                              child: _preview(previewHeight),
-                            ),
-                          ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.xl, Gaps.xl, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: _form(context, wide: false),
-                    ),
-                  ),
-                ],
+    // As tall as the form (tablets in portrait), at most nearly the screen.
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: media.size.height * 0.94),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.sm, Gaps.sm, Gaps.sm),
+              child: _header(
+                context,
+                trailing: TextButton(onPressed: _importPdf, child: const Text('Import PDF…')),
               ),
             ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              Gaps.xl,
-              Gaps.sm,
-              Gaps.xl,
-              Gaps.md + (keyboard ? 0 : media.padding.bottom),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: Gaps.xl),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // The preview scrolls away with the form, so the form
+                    // keeps the screen when it is long (large text).
+                    AnimatedSize(
+                      duration: Motion.medium,
+                      curve: Motion.standard,
+                      child: keyboard
+                          ? const SizedBox(width: double.infinity)
+                          : ClipRect(
+                              child: Container(
+                                height: previewHeight + Gaps.lg * 2,
+                                color: scheme.surfaceContainerLow,
+                                padding: const EdgeInsets.symmetric(vertical: Gaps.lg),
+                                child: _preview(previewHeight),
+                              ),
+                            ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.xl, Gaps.xl, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: _form(context, wide: false),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            child: SheetActions(
-              stacked: true,
-              primary: FilledButton(onPressed: _submit, child: const Text('Create')),
+            Container(
+              decoration: _footerEdge(context),
+              padding: EdgeInsets.fromLTRB(
+                Gaps.xl,
+                Gaps.md,
+                Gaps.xl,
+                Gaps.md + (keyboard ? 0 : media.padding.bottom),
+              ),
+              child: SheetActions(
+                stacked: true,
+                primary: FilledButton(onPressed: _submit, child: const Text('Create')),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

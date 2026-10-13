@@ -98,7 +98,7 @@ class _SyncSettingsState extends State<SyncSettings> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _SyncStatusLine(sync: _services.sync),
-              const SizedBox(height: Gaps.lg),
+              const SizedBox(height: Gaps.md),
               TextField(
                 controller: _url,
                 keyboardType: TextInputType.url,
@@ -209,17 +209,16 @@ class _SyncStatusLine extends StatelessWidget {
             last == null ? 'Ready' : 'Last synced ${formatEdited(last.millisecondsSinceEpoch)}',
           ),
         };
-        final status = Container(
-          padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.sm + 2),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            // A status chip, not a field.
-            borderRadius: BorderRadius.circular(Radii.pill),
-          ),
+        // A plain status line, its icon in the fields' icon column (not a
+        // filled chip, which read as one more field).
+        final status = Semantics(
+          liveRegion: true,
           child: Row(
             children: [
-              Icon(icon, size: Glyphs.menu, color: color),
-              const SizedBox(width: Gaps.sm),
+              SizedBox(
+                width: Targets.touch,
+                child: Icon(icon, size: Glyphs.bar, color: color),
+              ),
               Expanded(child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
             ],
           ),

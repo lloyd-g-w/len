@@ -92,11 +92,12 @@ class EvenGridSpec {
     return (columns: columns, extent: extent, spacing: spacing);
   }
 
-  /// The largest divisor of [count] that keeps rows at least two-thirds
-  /// full, else [fit].
+  /// The largest divisor of [count] that keeps rows at least half as wide
+  /// as they could be (10 colours where 9 fit: 5 + 5, not 9 + 1), else
+  /// [fit].
   static int _columnsFor(int count, int fit) {
     if (count <= fit) return count;
-    for (var c = fit; c * 3 >= fit * 2; c--) {
+    for (var c = fit; c * 2 >= fit && c > 1; c--) {
       if (count % c == 0) return c;
     }
     return fit;

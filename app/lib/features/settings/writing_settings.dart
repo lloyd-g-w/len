@@ -29,14 +29,14 @@ class WritingSettings extends StatelessWidget {
               true => 'Fingers pan and zoom, so a resting palm leaves no marks',
               false => 'Both draw; two fingers pan and zoom',
             },
-            // Three long choices: always below the text.
-            below: ShrinkToFit(
+            // "Draw with: Automatic / Stylus / Both", short enough to trail.
+            control: ShrinkToFit(
               child: SegmentedButton<bool?>(
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: null, label: SegmentLabel('Automatic')),
-                  ButtonSegment(value: true, label: SegmentLabel('Stylus only')),
-                  ButtonSegment(value: false, label: SegmentLabel('Stylus & finger')),
+                  ButtonSegment(value: true, label: SegmentLabel('Stylus')),
+                  ButtonSegment(value: false, label: SegmentLabel('Both')),
                 ],
                 selected: {preferences.stylusOnly},
                 onSelectionChanged: (s) => preferences.stylusOnly = s.single,

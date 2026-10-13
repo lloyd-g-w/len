@@ -310,6 +310,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Trash is empty'), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsNothing);
+    // New folder from the drawer closes the drawer under its sheet.
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('New folder'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LibrarySidebar), findsNothing);
+    expect(find.text('New folder'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

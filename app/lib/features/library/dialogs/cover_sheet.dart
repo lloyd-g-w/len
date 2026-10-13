@@ -4,11 +4,12 @@ import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_or_sheet.dart';
 import '../../../ui/sheet_parts.dart';
-import '../cover_picker.dart';
+import '../../documents/templates/page_setup.dart' show PickerLabel;
+import '../new_notebook/cover_row.dart';
 import '../notebook_cover.dart';
 
 /// Recolours a notebook's cover: live preview, colours,
-/// Cancel / Apply. A dialog on wide screens, a bottom sheet on phones.
+/// Apply (and Cancel in the dialog; ✕ on phones). A dialog on wide screens, a bottom sheet on phones.
 /// Returns the chosen ARGB colour.
 Future<int?> showCoverSheet(BuildContext context, Notebook notebook) {
   return showDialogOrSheet<int>(
@@ -46,7 +47,13 @@ class _CoverSheetState extends State<_CoverSheet> {
       ),
       child: NotebookCover(color: _color, kind: widget.notebook.kind),
     );
-    final picker = CoverPicker(color: _color, onColor: (c) => setState(() => _color = c));
+    final picker = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PickerLabel('Colour', trailing: Palette.coverName(_color)),
+        CoverRow(color: _color, onColor: (c) => setState(() => _color = c)),
+      ],
+    );
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         Gaps.xl,
@@ -78,16 +85,14 @@ class _CoverSheetState extends State<_CoverSheet> {
               ],
             ),
           const SizedBox(height: Gaps.xl),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-              const SizedBox(width: Gaps.sm),
-              FilledButton(
-                onPressed: () => Navigator.pop<int>(context, _color),
-                child: const Text('Apply'),
-              ),
-            ],
+          // Like the folder sheet: ✕ cancels on phones.
+          SheetActions(
+            stacked: !widget.wide,
+            onCancel: widget.wide ? () => Navigator.pop(context) : null,
+            primary: FilledButton(
+              onPressed: () => Navigator.pop<int>(context, _color),
+              child: const Text('Apply'),
+            ),
           ),
         ],
       ),

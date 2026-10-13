@@ -95,7 +95,11 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                           visualDensity: VisualDensity.compact,
                           color: scheme.onSurfaceVariant,
                           icon: const Icon(Symbols.create_new_folder_rounded),
-                          onPressed: () => unawaited(widget.actions.createFolder(context)),
+                          onPressed: () {
+                            // The drawer closes first: one overlay at a time.
+                            widget.onNavigate?.call();
+                            unawaited(widget.actions.createFolder(context));
+                          },
                         ),
                       ],
                     ),

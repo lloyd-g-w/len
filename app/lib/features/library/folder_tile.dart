@@ -88,13 +88,17 @@ class _FolderTileState extends State<FolderTile> {
               ? scheme.surfaceContainer
               : scheme.surfaceContainerLow,
           borderRadius: radius,
-          // No outlines in light mode (REDESIGN §1.1).
+          boxShadow: feedback ? Shadows.high(theme.brightness) : null,
+        ),
+        // Painted over the tile rather than inset, so the outline never
+        // narrows the name (no outlines in light mode, REDESIGN §1.1).
+        foregroundDecoration: BoxDecoration(
+          borderRadius: radius,
           border: active
               ? Border.all(color: scheme.primary, width: 1.5)
               : dark
               ? Border.all(color: scheme.outlineVariant)
               : null,
-          boxShadow: feedback ? Shadows.high(theme.brightness) : null,
         ),
         child: Material(
           type: MaterialType.transparency,
@@ -108,7 +112,7 @@ class _FolderTileState extends State<FolderTile> {
               child: Row(
                 children: [
                   Icon(Symbols.folder_rounded, fill: 1, color: Color(_folder.color), size: 36),
-                  const SizedBox(width: Gaps.sm + Gaps.xxs),
+                  const SizedBox(width: Gaps.sm),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
