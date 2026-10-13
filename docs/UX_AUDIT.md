@@ -689,10 +689,15 @@ are `fix/r8-data`'s; the scribble preview `fix/r8-pen`'s.
 - ✅ **One import destination.** What the file is decides where it goes: a
   notebook or folder goes into the open folder, a backup goes to the top
   level (R8-15). Settings → Restore stays a shortcut to the same flow.
-- **Len export for several notebooks.** The export sheet hides the Len
+- ✅ **Len export for several notebooks.** The export sheet hides the Len
   format when several notebooks are selected (`export_sheet_sections.dart:64-66`).
   Offering it removes the folder menu's separate "Export as Len file…"
   (R8-20).
+  *Done (`fix/r8-followups`):* the sheet always offers "Len file": several
+  notebooks give one Len file of kind `notebooks` ("2 notebooks.len",
+  imported into the open folder without their folders); a folder's
+  "Export…" opens the same sheet (one PDF per notebook, PNGs, or the folder's
+  Len file, "Whole folder, Len file").
 - **One selection bar** for the library and the overview (R8-13).
 - ✅ **Disable "Back up library…" in an empty library**, and make no empty
   "Backup …" folder when an import brings nothing.

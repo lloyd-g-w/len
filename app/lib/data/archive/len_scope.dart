@@ -5,16 +5,20 @@ import 'len_format.dart';
 import 'len_stores.dart';
 
 /// What to write into a Len file: one notebook, a folder (with everything
-/// inside it) or the whole library, the Trash aside.
+/// inside it), several notebooks or the whole library, the Trash aside.
 class LenScope {
-  const LenScope.notebook(String this.id) : kind = LenArchiveKind.notebook;
-  const LenScope.folder(String this.id) : kind = LenArchiveKind.folder;
-  const LenScope.library() : kind = LenArchiveKind.library, id = null;
+  const LenScope.notebook(String this.id) : kind = LenArchiveKind.notebook, ids = const [];
+  const LenScope.folder(String this.id) : kind = LenArchiveKind.folder, ids = const [];
+  const LenScope.notebooks(this.ids) : kind = LenArchiveKind.notebooks, id = null;
+  const LenScope.library() : kind = LenArchiveKind.library, id = null, ids = const [];
 
   final LenArchiveKind kind;
 
-  /// The notebook or folder; null for the library.
+  /// The notebook or folder; null for several notebooks and the library.
   final String? id;
+
+  /// The notebooks of [LenScope.notebooks].
+  final List<String> ids;
 }
 
 /// A [LenScope] resolved against the database: the folders and notebooks
@@ -49,6 +53,26 @@ class ResolvedScope {
             if (folders.contains(r['folder_id'])) r['id'] as String,
         ];
         return ResolvedScope._(row['name'] as String, folders, notebooks, db, templates: false);
+      case LenArchiveKind.notebooks:
+        final live = {
+          for (final r in db.select(
+            'SELECT id FROM notebooks WHERE deleted = 0 AND trashed_at IS NULL',
+          ))
+            r['id'] as String,
+        };
+        final notebooks = [
+          for (final id in {...scope.ids})
+            if (live.contains(id)) id,
+        ];
+        if (notebooks.isEmpty) throw StateError('The notebooks no longer exist');
+        final title = notebooks.length == 1 ? 'notebook' : 'notebooks';
+        return ResolvedScope._(
+          '${notebooks.length} $title',
+          const {},
+          notebooks,
+          db,
+          templates: false,
+        );
       case LenArchiveKind.library:
         return ResolvedScope._(
           'Library',
@@ -61,7 +85,8 @@ class ResolvedScope {
     }
   }
 
-  /// The notebook's or folder's title, "Library" for the library.
+  /// The notebook's or folder's title, "3 notebooks" for several,
+  /// "Library" for the library.
   final String title;
 
   /// Folders written (their records keep their parents when in here).

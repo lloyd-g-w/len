@@ -51,19 +51,10 @@ class ExportRule extends StatelessWidget {
 
 /// PDF / PNG / Len choice with a line on what each produces.
 class ExportFormatPicker extends StatelessWidget {
-  const ExportFormatPicker({
-    super.key,
-    required this.format,
-    required this.onChanged,
-    this.len = true,
-  });
+  const ExportFormatPicker({super.key, required this.format, required this.onChanged});
 
   final ExportFormat format;
   final ValueChanged<ExportFormat> onChanged;
-
-  /// Whether a Len file is offered (one notebook; several notebooks would
-  /// need one save each: a folder's Export covers that).
-  final bool len;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +69,7 @@ class ExportFormatPicker extends StatelessWidget {
             for (final (value, icon) in [
               (ExportFormat.pdf, Symbols.picture_as_pdf_sharp),
               (ExportFormat.png, Symbols.image_sharp),
-              if (len) (ExportFormat.len, Symbols.stylus_note_sharp),
+              (ExportFormat.len, Symbols.stylus_note_sharp),
             ])
               ButtonSegment(
                 value: value,

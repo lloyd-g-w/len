@@ -1807,7 +1807,8 @@ library, else into a folder "Backup 13 Oct 2026" (with the time when that
 name is taken). A restore keeps the ids of what isn't here, and its Undo
 (`undoRestore`) puts its notebooks in the Trash and its folders away.
 Entry points: the export sheet's Len format (a notebook or canvas, always
-whole), a folder's "Export…", ⊕▾ "Import Len file…", "Open
+whole; several selected notebooks as one file, `LenScope.notebooks`; a
+folder, from its "Export…", which opens the same sheet), ⊕▾ "Import Len file…", "Open
 with" / share / drop (`ImportRouter`, `IncomingKind.len`) and Settings →
 Backup ("Back up library…", which records `last_backup_at` when nothing was
 left out, and "Restore

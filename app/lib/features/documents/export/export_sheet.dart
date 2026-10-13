@@ -21,6 +21,7 @@ Future<ExportOptions?> showExportSheet(
   List<int>? initialPages,
   bool canvas = false,
   bool choosePages = true,
+  String? whole,
 }) {
   ExportSheet sheet({required bool wide}) => ExportSheet(
     title: title,
@@ -31,6 +32,7 @@ Future<ExportOptions?> showExportSheet(
     wide: wide,
     canvas: canvas,
     choosePages: choosePages,
+    whole: whole,
     offerSaveToDevice: platform.canSaveToDevice,
   );
   return showDialogOrSheet<ExportOptions>(
@@ -53,8 +55,13 @@ class ExportSheet extends StatefulWidget {
     this.wide = false,
     this.canvas = false,
     this.choosePages = true,
+    this.whole,
     this.offerSaveToDevice = false,
   });
+
+  /// What is exported whole when it isn't one notebook ("3 notebooks",
+  /// "Whole folder"), for the summary.
+  final String? whole;
 
   /// Offers a page range; off when whole notebooks are exported (several
   /// from the library's selection: [pages] are all of theirs).
@@ -140,6 +147,7 @@ class _ExportSheetState extends State<ExportSheet> {
       includeTemplates: _templates,
       includeBackgrounds: _backgrounds,
       canvas: widget.canvas,
+      whole: widget.whole,
       toDevice: toDevice,
     );
   }
@@ -166,11 +174,7 @@ class _ExportSheetState extends State<ExportSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ExportFormatPicker(
-            format: _format,
-            len: widget.choosePages,
-            onChanged: (f) => setState(() => _format = f),
-          ),
+          ExportFormatPicker(format: _format, onChanged: (f) => setState(() => _format = f)),
           // A Len file is the whole notebook, as it is.
           if (_count > 1 && widget.choosePages && _format != ExportFormat.len) ...[
             const SizedBox(height: Gaps.xl),

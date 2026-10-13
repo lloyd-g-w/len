@@ -60,6 +60,9 @@ enum LenArchiveKind {
   /// A folder with its subfolders and their notebooks.
   folder,
 
+  /// Several notebooks (a selection in the library), without their folders.
+  notebooks,
+
   /// The whole library: every folder and notebook (not the Trash) and the
   /// user's templates.
   library,
@@ -71,7 +74,8 @@ class LenManifest {
 
   final LenArchiveKind kind;
 
-  /// The notebook's or folder's title; "Library" for a backup.
+  /// The notebook's or folder's title; "3 notebooks" for several;
+  /// "Library" for a backup.
   final String title;
 
   /// When the file was written (ms since epoch).
