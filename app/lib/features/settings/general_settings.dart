@@ -3,10 +3,13 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../data/app_preferences.dart';
 import '../../domain/preferences.dart';
+import '../../ui/app_theme.dart';
 import '../../ui/segment_label.dart';
+import 'keyboard_shortcuts.dart';
 import 'settings_section.dart';
 
-/// General: the theme (System · Light · Dark).
+/// General: the theme (System · Light · Dark) and, where a keyboard is
+/// likely (not a touch-first phone), the keyboard shortcuts.
 class GeneralSettings extends StatelessWidget {
   const GeneralSettings({super.key, required this.preferences});
 
@@ -36,6 +39,18 @@ class GeneralSettings extends StatelessWidget {
               ),
             ),
           ),
+          if (!Targets.touchFirst || MediaQuery.sizeOf(context).width >= Breakpoints.medium)
+            SettingsTile(
+              icon: Symbols.keyboard_rounded,
+              title: 'Keyboard shortcuts',
+              subtitle: 'Also ${modifierLabel()}+/ anywhere',
+              trailing: Icon(
+                Symbols.chevron_right_rounded,
+                size: Glyphs.bar,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              onTap: () => showKeyboardShortcuts(context),
+            ),
         ],
       ),
     );
