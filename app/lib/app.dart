@@ -6,6 +6,7 @@ import 'app_services.dart';
 import 'domain/preferences.dart';
 import 'features/library/library_screen.dart';
 import 'ui/app_theme.dart';
+import 'ui/focus_ring.dart';
 import 'ui/phone_menus.dart';
 import 'ui/system_bars.dart';
 
@@ -63,7 +64,9 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
             darkTheme: _dark,
             themeMode: themeModeOf(preferences.themeMode),
             themeAnimationDuration: Motion.medium,
-            builder: (context, child) => SystemBars(child: PhoneMenus(child: child!)),
+            builder: (context, child) => FocusRing(
+              child: SystemBars(child: PhoneMenus(child: child!)),
+            ),
             navigatorObservers: [widget.services.routeOwners],
             home: const LibraryScreen(),
           );

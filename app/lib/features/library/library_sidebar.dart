@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/folder.dart';
@@ -183,44 +184,54 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
     final hasChildren = c.childrenOf(folder.id).isNotEmpty;
     final expanded = _expanded.contains(folder.id);
     final scheme = Theme.of(context).colorScheme;
+    void toggle() =>
+        setState(() => expanded ? _expanded.remove(folder.id) : _expanded.add(folder.id));
     return LibraryDropTarget(
       key: ValueKey('tree-${folder.id}'),
       canAccept: (item) => widget.actions.canDrop(item, folder.id),
       onAccept: (item) => widget.actions.drop(context, item, folder.id),
-      builder: (context, active) => SidebarItem(
-        indent: depth * 16.0,
-        leading: SizedBox(
-          width: 22,
-          child: hasChildren
-              ? InkResponse(
-                  radius: 14,
-                  onTap: () => setState(
-                    () => expanded ? _expanded.remove(folder.id) : _expanded.add(folder.id),
-                  ),
-                  child: AnimatedRotation(
-                    turns: expanded ? 0.25 : 0,
-                    duration: Motion.fast,
-                    child: Icon(
-                      Symbols.chevron_right_rounded,
-                      size: 18,
-                      color: scheme.onSurfaceVariant,
+      // Screen readers expand the row with an action rather than the small
+      // chevron.
+      builder: (context, active) => Semantics(
+        expanded: hasChildren ? expanded : null,
+        customSemanticsActions: hasChildren
+            ? {CustomSemanticsAction(label: expanded ? 'Collapse' : 'Expand'): toggle}
+            : null,
+        child: SidebarItem(
+          indent: depth * 16.0,
+          leading: SizedBox(
+            width: 22,
+            child: hasChildren
+                ? ExcludeSemantics(
+                    child: InkResponse(
+                      radius: 14,
+                      onTap: toggle,
+                      child: AnimatedRotation(
+                        turns: expanded ? 0.25 : 0,
+                        duration: Motion.fast,
+                        child: Icon(
+                          Symbols.chevron_right_rounded,
+                          size: 18,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
-                  ),
-                )
-              : null,
+                  )
+                : null,
+          ),
+          icon: Symbols.folder_rounded,
+          filled: true,
+          iconColor: Color(folder.color),
+          label: folder.name,
+          selected: c.section == LibrarySection.library && c.folderId == folder.id,
+          dropActive: active,
+          onTap: () {
+            c.openFolder(folder.id);
+            widget.onNavigate?.call();
+          },
+          onSecondaryTapUp: (d) => unawaited(_folderMenu(context, folder, d.globalPosition)),
+          onLongPress: () => unawaited(_folderMenu(context, folder, null)),
         ),
-        icon: Symbols.folder_rounded,
-        filled: true,
-        iconColor: Color(folder.color),
-        label: folder.name,
-        selected: c.section == LibrarySection.library && c.folderId == folder.id,
-        dropActive: active,
-        onTap: () {
-          c.openFolder(folder.id);
-          widget.onNavigate?.call();
-        },
-        onSecondaryTapUp: (d) => unawaited(_folderMenu(context, folder, d.globalPosition)),
-        onLongPress: () => unawaited(_folderMenu(context, folder, null)),
       ),
     );
   }

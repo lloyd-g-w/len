@@ -272,7 +272,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               triggerMode: TooltipTriggerMode.manual,
               child: FloatingActionButton(
                 onPressed: () => unawaited(_actions.createNotebook(context)),
-                child: const Icon(Symbols.add_rounded),
+                child: const Icon(Symbols.add_rounded, semanticLabel: 'New notebook'),
               ),
             ),
           ),

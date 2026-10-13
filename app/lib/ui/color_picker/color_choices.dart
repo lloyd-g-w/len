@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../app_theme.dart';
 import '../color_dot.dart';
+import '../even_grid.dart';
 import '../section_label.dart';
 import 'color_picker.dart';
 import 'color_swatches.dart';
@@ -50,8 +51,19 @@ class _ColorChoicesState extends State<ColorChoices> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = ((constraints.maxWidth - _gap * (_columns - 1)) / _columns).clamp(20.0, 32.0);
-        Widget dot(int c) =>
-            ColorDot(color: c, size: size, selected: c == selected, onTap: () => _pick(c));
+        // On touch the swatches get 48-dp cells (fewer per row, EvenGrid).
+        final visual = Targets.touchFirst ? 32.0 : size;
+        Widget grid(List<int> colours) => EvenGrid(
+          itemExtent: size,
+          minSpacing: _gap,
+          runSpacing: _gap,
+          maxSpacing: _gap,
+          touchTargets: true,
+          children: [
+            for (final c in colours)
+              ColorDot(color: c, size: visual, selected: c == selected, onTap: () => _pick(c)),
+          ],
+        );
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -61,7 +73,10 @@ class _ColorChoicesState extends State<ColorChoices> {
                 const Expanded(child: SectionLabel('Colour')),
                 TextButton.icon(
                   onPressed: () => setState(() => _customOpen = !_customOpen),
-                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                  // Compact with a pointer; a full 48-dp target on touch.
+                  style: TextButton.styleFrom(
+                    visualDensity: Targets.touchFirst ? null : VisualDensity.compact,
+                  ),
                   icon: Icon(
                     _customOpen ? Symbols.expand_less_rounded : Symbols.palette_rounded,
                     size: Glyphs.menu,
@@ -70,22 +85,12 @@ class _ColorChoicesState extends State<ColorChoices> {
                 ),
               ],
             ),
-            Wrap(
-              spacing: _gap,
-              runSpacing: _gap,
-              children: [for (final c in widget.palette) dot(c)],
-            ),
+            grid(widget.palette),
             if (recent.isNotEmpty) ...[
               const SizedBox(height: Gaps.sm),
-              Row(
-                children: [
-                  const SectionLabel('Recent'),
-                  const SizedBox(width: Gaps.sm),
-                  Expanded(
-                    child: Wrap(spacing: _gap, children: [for (final c in recent) dot(c)]),
-                  ),
-                ],
-              ),
+              const SectionLabel('Recent'),
+              const SizedBox(height: Gaps.xs),
+              grid(recent),
             ],
             AnimatedSize(
               duration: Motion.fast,

@@ -73,7 +73,10 @@ class InsertButton extends StatelessWidget {
             padding: EdgeInsets.zero,
             style: IconButton.styleFrom(
               foregroundColor: scheme.onSurfaceVariant,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              // A 48-dp hit area on touch around the 40-dp visual.
+              tapTargetSize: Targets.touchFirst
+                  ? MaterialTapTargetSize.padded
+                  : MaterialTapTargetSize.shrinkWrap,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
             ),
             icon: const Icon(Symbols.add_circle_rounded),
