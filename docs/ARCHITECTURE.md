@@ -1422,9 +1422,11 @@ Parsing is strict (`PenConfigJson`,
 defaults as a whole.
 
 The ink panels (`features/editor/pen/`) are self-contained:
-`PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, hold to
-snap) and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
-lines, hold to snap); on their own, their Reset restores the feel settings.
+`PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
+and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
+lines); on their own, their Reset restores the feel settings. The pen's
+global gestures (`PenGestures`: hold to snap) follow "Reset feel" at the
+end of the pen's Feel, under a rule; it is their only home.
 The preview (`StrokePreview` / `PreviewCard`, `pen/stroke_preview.dart`)
 draws with the real renderer at the real size and colour on the paper the
 user writes on (`InkPaper`, provided by the editor chrome from the current
@@ -1500,13 +1502,15 @@ Page with template…).
   inks (`InkOptions`: live preview, the selected slot's colour — the pen
   palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
   logarithmic slider in mm, then *Feel* collapsed (ending in "Reset feel",
-  which keeps the quick colours and sizes; inks have no whole-tool Reset),
+  which keeps the quick colours and sizes; inks have no whole-tool Reset;
+  the pen's then has `PenGestures`),
   then *Toolbar* collapsed ("3 colours · 3 sizes": "Quick colours / Quick
   sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
   none for the lasso (`ToolDescriptor.options` null: tapping it again does
   nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: seven
-  kinds in one row, and "Hold to snap shapes"); `TextOptionsPanel`;
+  kinds in one row, and a caption pointing to hold to snap in Pen › Feel);
+  `TextOptionsPanel`;
   `LaserOptionsPanel` (`ToolSettings.laser`: dot / trail, colours, size,
   trail length). `pickColour` (`tools/colour_sheet.dart`; text and
   selection colours) is a popover too: no Apply, it previews live and

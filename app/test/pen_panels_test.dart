@@ -74,16 +74,36 @@ void main() {
     final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
     expect(sliders.last.onChanged, isNull);
     expect(tools.configOf(InkTool.ballpoint).straight, isFalse);
-    // Hold to snap has one home, the Shapes popover.
-    expect(find.text('Hold to snap shapes'), findsNothing);
+    // Hold to snap has one home, the pen's Feel.
+    expect(find.text('Hold to snap'), findsNothing);
   });
 
-  testWidgets('shapes: hold to snap lives here', (tester) async {
+  testWidgets('shapes: one line points to hold to snap in the pen', (tester) async {
     await pump(tester, ShapeOptionsPanel(tools: tools));
-    final before = tools.holdToStraighten;
-    await tester.tap(find.text('Hold to snap shapes'));
+    expect(find.text('Hold the pen still to snap a shape — Pen › Feel'), findsOneWidget);
+    expect(find.byType(Switch), findsNothing);
+  });
+
+  testWidgets('pen: hold to snap lives at the end of Feel, after Reset feel (R7-3)', (
+    tester,
+  ) async {
+    final pen = editorTools(tools).first;
+    await pump(tester, SingleChildScrollView(child: Builder(builder: pen.options!)));
+    await tester.tap(find.text('Feel'));
+    await tester.pumpAndSettle();
+    final reset = tester.getTopLeft(find.text('Reset feel')).dy;
+    expect(tester.getTopLeft(find.text('Hold to snap')).dy, greaterThan(reset));
+    tools.updateConfig(InkTool.ballpoint, (c) => c.copyWith(thinning: 0));
     await tester.pump();
-    expect(tools.holdToStraighten, !before);
+    await tester.ensureVisible(find.text('Hold to snap'));
+    await tester.tap(find.text('Hold to snap'));
+    await tester.pump();
+    expect(tools.holdToStraighten, isFalse);
+    await tester.ensureVisible(find.text('Reset feel'));
+    await tester.tap(find.text('Reset feel'));
+    await tester.pump();
+    expect(tools.configOf(InkTool.ballpoint).thinning, isNot(0));
+    expect(tools.holdToStraighten, isFalse, reason: 'Reset feel covers what is above it');
   });
 
   testWidgets('a picked slot colour becomes recent; a recent colour applies', (tester) async {

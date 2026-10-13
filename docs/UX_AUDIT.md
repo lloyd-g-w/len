@@ -114,6 +114,9 @@ and never find it, because pen users don't open Shapes. *Fix:* move the
 switch to the Pen's Feel section (`pen/pen_options_panel.dart`) and the
 Highlighter's. Keep one caption line in Shapes ("Or hold the pen still at
 the end of a stroke").
+*Done (`fix/r7-pen`), lead decision:* one home, the pen's Feel only
+(`pen/pen_gestures.dart`, after "Reset feel", which doesn't touch it). Shapes
+says "Hold the pen still to snap a shape — Pen › Feel".
 
 **R7-4 P2 · PDF "Highlight" uses whatever colour the highlighter last
 had.** `PdfInteraction.highlightSelection` takes
@@ -535,7 +538,9 @@ disclosure into its own row under Size, so Reset feel covers exactly what's
 above it.
 *Done (`fix/r6-editor`):* one home, the Shapes popover (`ShapeOptionsPanel`,
 under a rule); gone from the pen's and the highlighter's Feel, so Reset feel
-covers only per-pen settings.
+covers only per-pen settings. *Superseded by R7-3 (`fix/r7-pen`):* the one
+home is now the end of the pen's Feel, after "Reset feel" (`PenGestures`);
+Shapes shows one caption pointing there.
 
 ✅ **R6-16 P2 · The lasso popover is three lines of hints.** Tapping the
 active lasso opens a popover with no controls

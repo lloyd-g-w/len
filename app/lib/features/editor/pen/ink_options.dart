@@ -16,7 +16,7 @@ import 'stroke_preview.dart';
 /// The pen's or highlighter's section of the tool options popover: a live
 /// preview, the colour and size of the selected quick slots, the ink's own
 /// panel ([feel]: pressure, stabiliser… ) collapsed under [feelLabel] with
-/// "Reset feel" at its end, and, collapsed under Toolbar, how many quick
+/// "Reset feel" at its end (then any [gestures]), and, collapsed under Toolbar, how many quick
 /// colours and sizes the toolbar shows. Edits apply live. Nothing resets
 /// the quick colours and sizes: they are the user's choices.
 ///
@@ -30,6 +30,7 @@ class InkOptions extends StatefulWidget {
     required this.title,
     required this.feelLabel,
     required this.feel,
+    this.gestures,
   });
 
   final ToolSettings tools;
@@ -40,6 +41,10 @@ class InkOptions extends StatefulWidget {
   /// The ink's options panel, hosted as is (its title and preview step
   /// aside, see [EmbeddedOptions]).
   final Widget feel;
+
+  /// Global switches shown at the end of the Feel section, after "Reset
+  /// feel" (which doesn't touch them): the pen's [PenGestures].
+  final Widget? gestures;
 
   @override
   State<InkOptions> createState() => _InkOptionsState();
@@ -111,6 +116,7 @@ class _InkOptionsState extends State<InkOptions> {
                     alignment: AlignmentDirectional.centerEnd,
                     child: _ResetFeel(config: config, ink: ink, onReset: (c) => _update((_) => c)),
                   ),
+                  ?widget.gestures,
                 ],
               ),
             ),
