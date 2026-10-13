@@ -733,7 +733,8 @@ search highlights use the same boxes.
   up to 3, the current one first and ringed; one tap highlights in that
   colour, the highlighter keeps its own), select all on the page.
 - **Highlight** turns each selected line (`PdfGlyphs.rectsFor`) into one
-  highlighter stroke along its middle, 1.1 × the line's height, with the
+  highlighter stroke along its middle (`PdfHighlights`, shared with the
+  text-aware highlighter, see Input), 1.1 × the line's height, with the
   colour picked (by default the highlighter's) and the highlighter's opacity
   (no pressure thinning or stabiliser),
   committed to the page's `SurfaceModel` as one `InkEdit` — so it
@@ -1219,6 +1220,28 @@ strokes become a line (whose end then follows the pen) or an arrow, closed
 ones a rectangle (axis-aligned or rotated), ellipse/circle, triangle or
 polygon; scribbles stay freehand. Only the clean shape is committed.
 
+**Scribble to erase** (`input/scribble_detector.dart`, on by default, a
+switch in Pen › Feel): a pen (ballpoint) stroke holding a fast
+back-and-forth scribble — `ScribbleDetector`: ≥ 6 passes within 1.2 s, each
+nearly reversing the last, ≥ 14 screen px and fairly straight, all in a
+band at most half their length wide (cursive m / n / u / w reverses as
+sharply but moves on) — erases instead of becoming ink when it crosses
+ink: `SurfaceModel.eraseScribbled` removes the strokes it touches that lie
+mostly inside its bounds (a long line under a scribbled word stays), as
+one `InkEdit`. Over blank paper it stays ink (shading). It is held to zero
+false positives on the Ink Lab's real S Pen recordings and simulated
+writing at 1–4× (`test/scribble_detector_test.dart`).
+
+**Text-aware highlighter** (`input/highlight_snap.dart`, set by paged
+editors to `features/editor/pdf/PdfHighlightSnap`): with hold to snap on,
+a highlighter stroke of which ≥ 70 % runs along lines of PDF text (within
+0.35 × a line's height across it, ≥ 1.5 line heights along each line it
+counts) is committed as the clean highlights a selection's Highlight makes
+(`PdfHighlights.stroke`, one per line) over the characters it covers,
+widened to words it covers half of and trimmed off words it covers less of;
+one undo step. Anything else (circles, margin notes, strokes across lines,
+non-PDF pages) stays as drawn, hold to snap included.
+
 The lasso, shape, text and laser tools are `PointerTool`s
 (`ink/tools/`): `InkInputController` hands them the drawing pointer
 (after palm rejection / navigation / stylus-eraser routing) instead of
@@ -1435,7 +1458,7 @@ The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
 and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
 lines); on their own, their Reset restores the feel settings. The pen's
-global gestures (`PenGestures`: hold to snap) follow "Reset feel" at the
+global gestures (`PenGestures`: hold to snap, scribble to erase) follow "Reset feel" at the
 end of the pen's Feel, under a rule; it is their only home.
 The preview (`StrokePreview` / `PreviewCard`, `pen/stroke_preview.dart`)
 draws with the real renderer at the real size and colour on the paper the

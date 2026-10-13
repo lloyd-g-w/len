@@ -25,11 +25,11 @@ server that their notes exist on one device only.
 | Tool switching on tablets | On par | One tap per tool, one tap per colour / width slot; S Pen button erases |
 | Tool switching on phones | Slightly behind | Switcher plus one "previous" slot; see R7-2 |
 | Colours and sizes | On par | 1–6 independent colour and width slots per ink; presets + HSV + saved colours |
-| Eraser | On par, one gap | Whole stroke / partial / highlighter only / switch back; hover outline. **Missing:** scribble to erase |
+| Eraser | On par | Whole stroke / partial / highlighter only; hover outline; scribble to erase (✅) |
 | Lasso | **Better** | Tap or loop, move / resize / rotate, Style, convert to text, cut / copy across notebooks and pages, split-view drag |
 | Shapes | On par, one gap | Hold to snap plus a Shape tool. **Missing:** fill |
 | Text boxes | **Better** | Rich text, lists, checklists, rich paste from browsers / Word |
-| Highlighter | On par | Behind ink, straight-line option. PDF text needs a finger (R7-1) |
+| Highlighter | On par | Behind ink, straight-line option; snaps to PDF text (✅) |
 | Undo / redo | On par | Buttons, two- / three-finger taps, keyboard |
 | Library, folders, favourites, trash | On par | Nested folders, drag and drop, Undo everywhere |
 | Recent notebooks / reopen last | **Missing** | R7-6, R7-7 |
@@ -269,18 +269,27 @@ this branch:* the lines now describe the fixed toolbar.
 2. **Recent strip** (high · S): R7-6.
 3. **Reopen where you left off** (high · S): R7-7.
 4. **Move / copy pages to another notebook** (high · M): R7-9.
-5. **Scribble to erase** (high · M; GoodNotes 6 has it). With the pen, a
+5. ✅ **Scribble to erase** (high · M; GoodNotes 6 has it). With the pen, a
    quick zigzag (≥ 3 sharp reversals within ~600 ms, small extent) over
    ink erases the strokes it crosses instead of drawing; one undo. It sits
    beside `HoldToStraighten` in `ink/input/`, with one switch in Pen →
    Feel next to hold to snap (R7-3). This is the biggest daily tap saving
    for writers without a side button (Windows pens, other styluses,
    fingers).
-6. **Text-aware highlighter on PDFs** (high for students · M). A
+   *Done (`fix/r7-pen`):* stricter than proposed so writing never trips it:
+   ≥ 6 passes (5 reversals) within 1.2 s, in a narrow band
+   (`ink/input/scribble_detector.dart`); zero hits on the Ink Lab's real and
+   simulated writing. Erases strokes mostly inside the scribble; over blank
+   paper it stays ink. Pen only (not the highlighter); "Scribble to erase"
+   in Pen › Feel, on by default.
+6. ✅ **Text-aware highlighter on PDFs** (high for students · M). A
    highlighter stroke whose length lies mostly over one or more lines of
    PDF text becomes the same snapped strokes `highlightSelection` makes
    (crisp, line-high, multi-line). With hold to snap off, nothing snaps.
    This removes R7-1's detour for the most common PDF action.
+   *Done (`fix/r7-pen`):* `PdfHighlightSnap` (≥ 70 % of the stroke along
+   text lines), whole words when more than half covered; one undo step; no
+   new setting (hold to snap's caption mentions it).
 7. **Shape fill** (medium · M). A fill colour for closed shapes (none /
    the stroke colour at 25 % / solid), in the Shape strip and lasso Style.
    It needs a synced stroke field.
