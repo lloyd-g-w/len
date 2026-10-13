@@ -1,5 +1,29 @@
 # Len — UX/UI audit
 
+## Web walk-through (`test/web-explore`)
+
+`app/tool/web_explore.py` walked the release web build (JS and `--wasm`) in
+Chromium and Firefox. Found and fixed (✅):
+- ✅ Inserting an image did nothing in browsers (`ImageDescriptor.width`
+  throws there).
+- ✅ Len files and backups written in browsers didn't open (zip headers
+  big-endian after `archive`'s web deflater).
+- ✅ Selection pill buttons had no names for screen readers; F11 wasn't
+  named in the View menu on the web.
+- ✅ The sync status and the New notebook button named the whole library
+  for screen readers (their tooltips); on phones the New button and its
+  long press were separate nodes.
+- ✅ Ctrl+/ didn't open the shortcuts from Settings, as its row promises.
+- ✅ A library card stopped being a button (an unnamed group) for screen
+  readers once its ⋯ showed (hover, focus, always on touch); the hidden ⋯
+  was out of their reach.
+- ✅ `--wasm`: every database page read copied the rest of the database
+  (dart2wasm's `setRange` into wasm memory): restoring a 20 MB backup took
+  2 minutes and froze the tab for up to 50 s; now 4 s.
+- Open: opening a 40-page notebook of 4 000 strokes has 0.5–1.8 s long
+  tasks in both builds (reported by the walk, not failed); a folder tile
+  and a list row are still groups for screen readers while their ⋯ shows.
+
 ## Round 8 audit (`review/round8`)
 
 Scope: everything that landed after round 7: Len files and library backup
