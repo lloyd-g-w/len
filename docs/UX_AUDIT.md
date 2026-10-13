@@ -68,8 +68,9 @@ Reviewed from the `library_`, `flows_`, `organise_` and `app_surfaces*` suites
   (`CoverGridDelegate`) instead of a `SliverLayoutBuilder`, which rebuilt every
   card on every scroll frame (75 → 4 card builds a frame with 200 notebooks);
   covers requested last render first. `test/perf/library_perf_test.dart` pins it.
-- ⬜ Phones create folders only from the drawer (no ⊕▾ there, by the spec); a
-  long-press on the FAB could offer New folder.
+- ✅ Phones create folders only from the drawer (no ⊕▾ there, by the spec); a
+  long-press on the FAB could offer New folder. → A long press on ⊕ offers
+  what ⊕▾ does on wide screens: notebook, canvas, PDF, folder.
 - ✅ The sidebar shows sync as an icon beside Settings, not yet the "Synced 2m"
   caption of the spec's sketch. → It reads "Synced 2m" / "Syncing…" / "Sync
   failed" / "Sync off" beside the icon (`syncCaption`, refreshed every 30 s).

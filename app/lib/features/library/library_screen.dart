@@ -8,6 +8,7 @@ import '../../app_services.dart';
 import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/menus.dart';
 import '../audio/ui/recover_recording_dialog.dart';
 import '../documents/import/import_flow.dart';
 import '../settings/settings_screen.dart';
@@ -15,6 +16,7 @@ import 'library_actions.dart';
 import 'library_content.dart';
 import 'library_controller.dart';
 import 'library_file_drop.dart';
+import 'library_header.dart';
 import 'library_sidebar.dart';
 import 'selection/selection_actions.dart';
 import 'selection/selection_bar.dart';
@@ -243,10 +245,27 @@ class _LibraryScreenState extends State<LibraryScreen> {
               _controller.visibleFolders.isEmpty &&
               _controller.visibleNotebooks.isEmpty)
       ? null
-      : FloatingActionButton(
-          onPressed: () => unawaited(_actions.createNotebook(context)),
-          tooltip: 'New notebook',
-          child: const Icon(Symbols.add_rounded),
+      // Tap: a new notebook. Long press: everything ⊕▾ offers on wide
+      // screens (a canvas, a PDF, a folder), which phones have no room for.
+      : Semantics(
+          onLongPressHint: 'More: canvas, PDF, folder',
+          child: GestureDetector(
+            onLongPress: () async {
+              final choice = await showContextMenuAt<NewChoice>(context, items: newMenuItems());
+              if (choice != null && context.mounted) {
+                unawaited(runNewChoice(context, _actions, choice));
+              }
+            },
+            child: Tooltip(
+              message: 'New notebook',
+              // A touch long press opens the menu, not the tooltip.
+              triggerMode: TooltipTriggerMode.manual,
+              child: FloatingActionButton(
+                onPressed: () => unawaited(_actions.createNotebook(context)),
+                child: const Icon(Symbols.add_rounded),
+              ),
+            ),
+          ),
         );
 
   Widget _wide(BuildContext context) {
