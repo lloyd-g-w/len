@@ -41,11 +41,15 @@
             android:launchMode="singleTask"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|navigation|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode|colorMode"
+            android:configChanges="orientation|keyboardHidden|keyboard|navigation|touchscreen|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|fontWeightAdjustment|grammaticalGender|screenLayout|density|uiMode|colorMode|mcc|mnc"
             android:hardwareAccelerated="true"
             android:resizeableActivity="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Free orientation (no screenOrientation) and free resizing:
+            <!-- configChanges: every change Flutter follows by itself. Any
+                 other recreates the activity, and with it the engine: the
+                 app restarts, losing the open notebook and a recording
+                 (bold text, a SIM's network, a DeX touchscreen included).
+                 Free orientation (no screenOrientation) and free resizing:
                  split screen, pop-up windows and Samsung DeX / desktop
                  windows. Smallest sensible freeform window: -->
             <layout
