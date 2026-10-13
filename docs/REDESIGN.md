@@ -462,7 +462,8 @@ Phase 1 comes first because every later phase then gets smaller.
   `← title ↶ ↷ ⋯`); *Open notebooks (n)* is in ⋯.
 - Phase 5 (navigation) is done: the peeking page indicator, Go to page with
   a thumbnail strip, the overview's All / Bookmarked / Outline filter.
-- Phase 6 in progress: the floating palette snaps to edges and runs down
+- Phase 6 is done (goldens `toolbar_floating_h`, `toolbar_floating_v`,
+  `focus_puck`): the floating palette snaps to edges and runs down
   the sides (`ToolbarSlot.snap`, `ToolbarAxis`); the snapped edge is
   implied by `toolbarFloat` (x of 0 or 1 is a side). Focus mode shows the
   `ToolPuck` (active tool ▾ and undo; dragged and snapped like the palette,
