@@ -5,13 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/stroke_repository.dart';
+import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/document/document_layout.dart';
 import 'package:len/features/editor/document/document_painters.dart';
 import 'package:len/features/editor/document/document_surfaces.dart';
+import 'package:len/features/editor/document/page_thumbnail_cache.dart';
 import 'package:len/ink/lab/perf_probe.dart';
+import 'package:len/ink/render/content_painter.dart';
 import 'package:len/ink/render/tiles/ink_tile_cache.dart';
 import 'package:len/ink/undo_history.dart';
 import 'package:len/ink/viewport.dart';
@@ -169,6 +172,99 @@ void main() {
       await run.rest();
       await run.report('notebook scroll, rest');
       surfaces.dispose();
+      db.close();
+    });
+  }, timeout: const Timeout(Duration(minutes: 3)));
+
+  testWidgets('page overview: recording and drawing 16 thumbnails', (tester) async {
+    await tester.runAsync(() async {
+      final db = AppDatabase.inMemory();
+      final repository = StrokeRepository(db, deviceId: 'd');
+      const page = Size(794, 1123);
+      for (var i = 0; i < 16; i++) {
+        repository.save([
+          for (final s in scribbles(1500, const Rect.fromLTWH(40, 40, 700, 1040), seed: i))
+            _onPage(s, 'p$i'),
+        ]);
+      }
+      final copier = SurfaceCopier(repository);
+      // Recording a page (fresh strokes, as loaded): outlines vs hairlines.
+      Duration record({required bool sketch}) {
+        final watch = Stopwatch()..start();
+        for (var i = 0; i < 16; i++) {
+          final recorder = ui.PictureRecorder();
+          ContentPainter.paint(
+            Canvas(recorder),
+            copier.loadAll('p$i'),
+            const [],
+            pixelScale: ThumbnailCache.imageScale,
+            sketchThin: sketch,
+            sketchBelow: ThumbnailCache.sketchBelow,
+          );
+          recorder.endRecording().dispose();
+        }
+        return watch.elapsed;
+      }
+
+      final load = Stopwatch()..start();
+      for (var i = 0; i < 16; i++) {
+        copier.loadAll('p$i');
+      }
+      final loading = load.elapsed;
+      record(sketch: true); // Warm up.
+      final outlines = record(sketch: false);
+      final hairlines = record(sketch: true);
+      final cache = ThumbnailCache(copier);
+      for (var i = 0; i < 16; i++) {
+        cache.inkOf('p$i');
+      }
+      await settle(() => [for (var i = 0; i < 16; i++) cache.inkOf('p$i')].every((p) => p != null));
+      // A frame of the overview: 4 × 4 thumbnails 200 × 283 at 2×.
+      Future<Duration> frame({required bool rasters}) async {
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        for (var i = 0; i < 16; i++) {
+          canvas
+            ..save()
+            ..translate(i % 4 * 400.0, i ~/ 4 * 566.0)
+            ..scale(400 / page.width);
+          final raster = rasters ? cache.rasterOf('p$i', page, 400, 566) : null;
+          if (raster != null) {
+            canvas.drawImageRect(
+              raster,
+              Rect.fromLTWH(0, 0, raster.width.toDouble(), raster.height.toDouble()),
+              Offset.zero & page,
+              Paint()..filterQuality = FilterQuality.medium,
+            );
+          } else {
+            canvas.drawPicture(cache.inkOf('p$i')!);
+          }
+          canvas.restore();
+        }
+        final picture = recorder.endRecording();
+        final watch = Stopwatch()..start();
+        (await picture.toImage(1600, 2264)).dispose();
+        picture.dispose();
+        return watch.elapsed;
+      }
+
+      final vector = await frame(rasters: false);
+      await frame(rasters: true);
+      await settle(
+        () =>
+            [for (var i = 0; i < 16; i++) cache.rasterOf('p$i', page, 400, 566)]
+                .every((r) => r != null),
+      );
+      final images = await frame(rasters: true);
+      // ignore: avoid_print
+      print(
+        'INKPERF overview: 16 pages of 1 500 strokes, loading ${loading.inMilliseconds} ms, '
+        'loading and recording them '
+        '${outlines.inMilliseconds} ms with outlines, ${hairlines.inMilliseconds} ms with '
+        'hairlines; frame raster ${vector.inMilliseconds} ms from pictures, '
+        '${images.inMilliseconds} ms from rasters',
+      );
+      cache.dispose();
       db.close();
     });
   }, timeout: const Timeout(Duration(minutes: 3)));
