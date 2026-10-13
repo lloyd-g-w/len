@@ -106,7 +106,13 @@ nix develop ..# -c bash -c 'flutter test test/inklab/stabiliser_test.dart \
 # and recording, then the Kotlin unit tests (shared golden; prediction replay)
 tool/wet_ink_check/check.sh
 tool/wet_ink_check/unit_test.sh
+# the pixel eraser (F12): does the rest of a stroke move when a hole is cut?
+nix develop ..# -c bash -c 'flutter test test/inklab/tools/erase_stability_test.dart \
+  --dart-define=INKLAB_TABLE=true --dart-define=INKLAB_REAL=true'
 ```
+
+`pressure_response_test.dart` (part of the suite, ≈ 10 s) checks the pen's
+answer to real S Pen pressure (F11).
 
 The report has, per entry:
 - the metrics table: ok / known / FAIL, and where (logical px) the worst value
@@ -142,6 +148,9 @@ letters, loops, zigzags, a pressure swell, taps, lines, a spiral and an 8 s
 stroke. `digitiser.dart` models the device:
 - 240 Hz samples on a 120 Hz display at device pixel ratio 2;
 - Gaussian jitter of 0.08 px and pressure noise of 0.01, 4096 pressure levels;
+- pressure as a hand presses an S Pen: a case gives the pressure the ink
+  should show (0.5: the pen's width), the digitiser reports the device
+  pressure that gives it through the `PressureCurve` (0.2 for 0.5, F11);
 - 4 ms latency;
 - Android batching: one `MotionEvent` per frame, the rest as historical
   samples on the stylus channel;
@@ -164,7 +173,7 @@ are for stabiliser 0 / 0.4 / 1, linear in between (`byStabiliser`).
 | `smooth.edgeBump16x` | Edge bumps as seen at 16x: residual of a local parabola fit (±1.5 px) of each edge, × 16. Cusps, ends and too-tight bends are skipped | 1 px |
 | `smooth.widthBump16x` | The same for the width | 1 px |
 | `smooth.facet` | Kinks: residual of the turn per centre-line sample against its neighbours | 5° |
-| `ends.blob` | End radius ÷ median body radius | 1.1× |
+| `ends.blob` | End radius ÷ the larger of the median body radius and the radius the true pressure gives there (F11) | 1.1× |
 | `ends.nub` | Ink beyond the true path within 3 widths of an end (pen-down/up hooks) | 0.6 / 1.2 / 2.2 px (+0.3) |
 | `ends.stray` | Committed strokes minus intended ones (bounces) | 0 |
 | `ends.dotSize` | Size error of a tap's dot against the true peak pressure | 30 % |
@@ -699,9 +708,14 @@ the real path) the prediction stays within 0.25 W, in steady motion
 | Real: all events (23 290) | 0.70 / 4.03 / 55.5 | 0.03 / 0.31 / 3.76 |
 | Real: events off by > 0.5 W | 14 087 | 337 |
 | Real: steady lead (mean) | 10.0 ms, 24.1 px | 3.9 ms, 7.9 px |
-| Sim: pen-up (16) | 0.58 / 1.13 / 1.13 | 0.00 / 0.00 / 0.00 |
+| Sim: pen-up (16) | 0.58 / 1.13 / 1.13 | 0.00 / 0.23 / 0.23 \* |
 | Sim: all events (750) | 0.11 / 0.41 / 1.13 | 0.04 / 0.19 / 0.46 |
-| Sim: steady lead (mean) | 16.2 ms, 6.5 px | 8.0 ms, 3.6 px |
+| Sim: steady lead (mean) | 16.2 ms, 6.5 px | 8.0 ms, 3.5 px \* |
+
+\* Since F11 the simulated pen presses as lightly as a hand does (device
+pressure ≈ 0.2 instead of 0.5), so its pressure falls less steeply at the
+lift and the pressure gates open a little later: 0.00 / 0.00 / 0.00 W and
+3.6 px before. The real recordings are unchanged.
 
 - **Why it overshot.** The Kalman filter extrapolates velocity, acceleration
   and jerk; when the pen brakes, turns or lifts (the S Pen often jumps a
