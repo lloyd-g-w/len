@@ -103,7 +103,7 @@ void main() {
     await createNotebook(tester, 'Physics');
     expect(find.byType(EditorScreen), findsOneWidget);
     expect(find.text('Physics'), findsOneWidget);
-    expect(find.text('1 / 1'), findsOneWidget);
+    expect(find.text('1 / 1'), findsNothing); // One page: no page pill (UX_AUDIT P2-5).
 
     await drawStroke(tester);
     await addPageAfter(tester);
