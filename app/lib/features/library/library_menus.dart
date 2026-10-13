@@ -16,6 +16,7 @@ enum NotebookAction {
   duplicate,
   move,
   cover,
+  export,
   select,
   trash,
   restore,
@@ -59,6 +60,7 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
       icon: Symbols.drive_file_move_sharp,
       label: 'Move to folder…',
     ),
+    const MenuRow(value: NotebookAction.export, icon: Symbols.ios_share_sharp, label: 'Export…'),
     const MenuRow(value: NotebookAction.select, icon: Symbols.check_circle_sharp, label: 'Select'),
     const PopupMenuDivider(),
     const MenuRow(

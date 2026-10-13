@@ -20,6 +20,7 @@ Future<ExportOptions?> showExportSheet(
   ExportRange initialRange = ExportRange.all,
   List<int>? initialPages,
   bool canvas = false,
+  bool choosePages = true,
 }) {
   ExportSheet sheet({required bool wide}) => ExportSheet(
     title: title,
@@ -29,6 +30,7 @@ Future<ExportOptions?> showExportSheet(
     initialPages: initialPages,
     wide: wide,
     canvas: canvas,
+    choosePages: choosePages,
     offerSaveToDevice: platform.canSaveToDevice,
   );
   return showDialogOrSheet<ExportOptions>(
@@ -50,8 +52,13 @@ class ExportSheet extends StatefulWidget {
     this.initialPages,
     this.wide = false,
     this.canvas = false,
+    this.choosePages = true,
     this.offerSaveToDevice = false,
   });
+
+  /// Offers a page range; off when whole notebooks are exported (several
+  /// from the library's selection: [pages] are all of theirs).
+  final bool choosePages;
 
   /// Offers "Save to device" beside "Share" (Android).
   final bool offerSaveToDevice;
@@ -81,7 +88,7 @@ class ExportSheet extends StatefulWidget {
 
 class _ExportSheetState extends State<ExportSheet> {
   ExportFormat _format = ExportFormat.pdf;
-  late ExportRange _range = widget.pages.length == 1
+  late ExportRange _range = widget.pages.length == 1 || !widget.choosePages
       ? ExportRange.all
       : widget.initialPages != null
       ? ExportRange.custom
@@ -158,7 +165,7 @@ class _ExportSheetState extends State<ExportSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ExportFormatPicker(format: _format, onChanged: (f) => setState(() => _format = f)),
-          if (_count > 1) ...[
+          if (_count > 1 && widget.choosePages) ...[
             const SizedBox(height: Gaps.xl),
             ExportSection(
               title: 'Pages',
