@@ -6,50 +6,16 @@ import 'package:flutter/painting.dart' show EdgeInsets;
 import 'package:flutter/scheduler.dart';
 
 import '../../../app_services.dart';
-import '../../../data/search/search_index.dart';
 import '../../../data/search/search_query.dart';
 import '../../../data/search/search_service.dart';
-import '../../../domain/notebook_page.dart';
 import '../../../ink/viewport.dart';
 import '../../editor/document/document_controller.dart';
 import '../../editor/editor_session.dart';
 import 'editor_search_host.dart';
-import 'ink_match_rects.dart';
+import 'editor_search_matches.dart';
 import 'pdf_glyph_cache.dart';
 
-/// One match in the open notebook: a text box, or one occurrence in a
-/// PDF page's text or a recognised line of handwriting.
-class EditorSearchMatch {
-  EditorSearchMatch({
-    required this.hit,
-    required this.range,
-    this.box,
-    this.pdf,
-    this.pageSize,
-    this.inkRects,
-  });
-
-  final SearchHit hit;
-
-  /// Where the match is in [SearchHit.body].
-  final ({int start, int end}) range;
-
-  /// The text box (page coordinates; rotation about its centre).
-  final ({Rect rect, double rotation})? box;
-
-  /// The PDF page the text is on.
-  final PageBackground? pdf;
-
-  /// Size of the page (for PDF glyph boxes, which are normalised).
-  final Size? pageSize;
-
-  /// The ink to highlight for a handwriting match: the matched words, or
-  /// the whole line (page coordinates). [box] is their union.
-  final List<Rect>? inkRects;
-
-  String get surfaceId => hit.surfaceId!;
-  int? get pageIndex => hit.pageIndex;
-}
+export 'editor_search_matches.dart' show EditorSearchMatch;
 
 /// State of the in-notebook search (Ctrl+F): the query, its matches in
 /// page order, the current match, and moving between them — revealing
@@ -230,46 +196,14 @@ class EditorSearchController extends ChangeNotifier {
   void _run() {
     _parsed = SearchQuery(_query);
     final previous = currentMatch;
-    final hits = search.search(_query, notebookId: notebookId);
-    final matches = <EditorSearchMatch>[];
-    for (final hit in hits) {
-      if (!hit.isContent || hit.surfaceId == null) continue;
-      final page = host.pageOf(hit.surfaceId!);
-      if (hit.kind == SearchHitKind.text) {
-        final ranges = _parsed.ranges(hit.body);
-        final box = search.index.elementBox(hit.refId);
-        if (box == null) continue;
-        matches.add(
-          EditorSearchMatch(
-            hit: hit,
-            range: ranges.isEmpty ? (start: 0, end: 0) : ranges.first,
-            box: box,
-          ),
-        );
-      } else if (hit.kind == SearchHitKind.handwriting) {
-        final boxes = search.index.inkTextBoxes(hit.refId);
-        if (boxes == null) continue;
-        for (final range in _parsed.ranges(hit.body)) {
-          final rects = InkMatchRects.of(hit.body, range, boxes.line, boxes.words);
-          matches.add(
-            EditorSearchMatch(
-              hit: hit,
-              range: range,
-              box: (rect: rects.reduce((a, b) => a.expandToInclude(b)), rotation: 0.0),
-              inkRects: rects,
-            ),
-          );
-        }
-      } else {
-        for (final range in _parsed.ranges(hit.body)) {
-          matches.add(
-            EditorSearchMatch(hit: hit, range: range, pdf: page?.background, pageSize: page?.size),
-          );
-        }
-      }
-      if (matches.length >= maxMatches) break;
-    }
-    matches.sort(_inReadingOrder);
+    final matches = findEditorSearchMatches(
+      search,
+      host,
+      _parsed,
+      query: _query,
+      notebookId: notebookId,
+      limit: maxMatches,
+    );
     _matches = matches;
     // Stay on the same match when results are refreshed.
     _current = previous == null
@@ -277,21 +211,6 @@ class EditorSearchController extends ChangeNotifier {
         : matches.indexWhere(
             (m) => m.hit.refId == previous.hit.refId && m.range.start == previous.range.start,
           );
-  }
-
-  /// Page order; on a page, PDF text first (in text order), then text
-  /// boxes from top to bottom.
-  static int _inReadingOrder(EditorSearchMatch a, EditorSearchMatch b) {
-    final page = (a.pageIndex ?? 0).compareTo(b.pageIndex ?? 0);
-    if (page != 0) return page;
-    final ab = a.box, bb = b.box;
-    if (ab == null || bb == null) {
-      if (ab != null) return 1;
-      if (bb != null) return -1;
-      return a.range.start.compareTo(b.range.start);
-    }
-    final y = ab.rect.top.compareTo(bb.rect.top);
-    return y != 0 ? y : ab.rect.left.compareTo(bb.rect.left);
   }
 
   void _reveal(EditorSearchMatch match) {
