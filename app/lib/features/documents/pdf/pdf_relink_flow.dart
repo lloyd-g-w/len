@@ -56,14 +56,14 @@ Future<RelinkResult> relinkPdfFlow(
       },
     );
     if (sha == missing) return RelinkResult.restored;
-    if (!context.mounted || pageCount == null) return await _discard(importer, sha);
+    if (!context.mounted || pageCount == null) return await _discard(importer, renderer, sha);
 
     // The pages that used the missing PDF, and the furthest page they use.
     final used = [
       for (final page in services.pages.pagesOf(notebookId))
         if (page.background case final bg? when bg.blob == missing) bg.pageIndex,
     ];
-    if (used.isEmpty) return await _discard(importer, sha);
+    if (used.isEmpty) return await _discard(importer, renderer, sha);
     final needed = used.reduce((a, b) => a > b ? a : b) + 1;
     if (pageCount < needed) {
       showMessage(
@@ -71,7 +71,7 @@ Future<RelinkResult> relinkPdfFlow(
         '“${picked.name}” has ${_pages(pageCount)}; these notes use page $needed of the '
         'missing PDF.',
       );
-      return await _discard(importer, sha);
+      return await _discard(importer, renderer, sha);
     }
     final agreed = await confirmAction(
       context,
@@ -82,12 +82,12 @@ Future<RelinkResult> relinkPdfFlow(
           'they are.',
       confirmLabel: 'Use this PDF',
     );
-    if (!agreed) return await _discard(importer, sha);
+    if (!agreed) return await _discard(importer, renderer, sha);
     services.pages.relinkBackground(notebookId, from: missing, to: sha!);
     unawaited(services.search.indexPdfs()); // Its text, for search.
     return RelinkResult.replaced;
   } on Cancelled {
-    return await _discard(importer, sha);
+    return await _discard(importer, renderer, sha);
   } on Object catch (e, stack) {
     debugPrint('Relinking ${picked.name} failed: $e\n$stack');
     if (context.mounted) {
@@ -96,15 +96,17 @@ Future<RelinkResult> relinkPdfFlow(
         'Couldn’t open “${picked.name}”. It may be damaged or password-protected.',
       );
     }
-    return await _discard(importer, sha);
+    return await _discard(importer, renderer, sha);
   } finally {
     await renderer.dispose();
     await importer.dispose();
   }
 }
 
-/// Deletes the copied file again unless it is the missing one or used.
-Future<RelinkResult> _discard(PdfImporter importer, String? sha) async {
+/// Deletes the copied file again unless it is the missing one or used
+/// (closed first: Windows can't delete open files).
+Future<RelinkResult> _discard(PdfImporter importer, PdfRenderer renderer, String? sha) async {
+  await renderer.dispose();
   if (sha != null) await importer.discard(sha);
   return RelinkResult.none;
 }
