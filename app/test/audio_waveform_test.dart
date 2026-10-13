@@ -141,6 +141,12 @@ void main() {
 
   test('formats: speed, recording time, export names', () {
     expect(PlaybackController.rates.map(formatRate), ['0.75×', '1×', '1.25×', '1.5×', '2×']);
+    expect([45000, 750000, 4614000, 7200000].map(formatDuration), [
+      '45 s',
+      '13 min',
+      '1 h 17 min',
+      '2 h',
+    ]);
     final now = DateTime(2026, 10, 11, 18);
     int at(DateTime t) => t.millisecondsSinceEpoch;
     expect(formatRecordedAt(at(DateTime(2026, 10, 11, 9, 5)), now: now), 'Today, 09:05');

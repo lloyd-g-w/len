@@ -98,6 +98,15 @@ Future<void> stopRecording(BuildContext context, RecordingController recorder) a
   }
 }
 
+/// Pauses or resumes, explaining a failure in a snack bar (the pill keeps
+/// showing the real state).
+Future<void> togglePause(BuildContext context, RecordingController recorder) async {
+  final paused = recorder.state == RecorderState.paused;
+  final done = await (paused ? recorder.resume() : recorder.pause());
+  final error = recorder.lastError;
+  if (!done && error != null && context.mounted) showMessage(context, error);
+}
+
 /// Red dot, elapsed time, level meter (or "Paused"), pause / resume and stop.
 class RecordingPill extends StatelessWidget {
   const RecordingPill({super.key, required this.recorder});
@@ -143,7 +152,7 @@ class RecordingPill extends StatelessWidget {
           _PillButton(
             tooltip: paused ? 'Resume recording' : 'Pause recording',
             icon: paused ? Symbols.play_arrow_rounded : Symbols.pause_rounded,
-            onPressed: () => unawaited(paused ? recorder.resume() : recorder.pause()),
+            onPressed: () => unawaited(togglePause(context, recorder)),
           ),
           _PillButton(
             tooltip: 'Stop recording',

@@ -150,7 +150,8 @@ class PlaybackController extends ChangeNotifier {
     try {
       await player.open(recording, blobs, fetch);
     } on Object catch (e) {
-      lastError = e is AudioUnavailable ? e.message : 'This recording cannot be played ($e).';
+      if (e is! AudioUnavailable) debugPrint('Playback failed to open: $e');
+      lastError = e is AudioUnavailable ? e.message : 'This recording cannot be played';
       _loading = false;
       if (_recording == recording) close();
       return false;

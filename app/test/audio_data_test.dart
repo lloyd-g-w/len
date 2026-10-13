@@ -294,6 +294,29 @@ void main() {
       c.dispose();
     });
 
+    test('a failed pause or resume keeps the real state and explains', () async {
+      final nb = _notebook(s);
+      final c = recorder(nb.id);
+      expect(await c.start(), isTrue);
+      clock.now += 3000;
+      audio.capture.failSwitch = true;
+      expect(await c.pause(), isFalse);
+      expect(c.state, RecorderState.recording); // The microphone still records.
+      expect(c.lastError, 'Could not pause the recording');
+      clock.now += 1000;
+      expect(c.elapsedMs, 4000);
+      audio.capture.failSwitch = false;
+      expect(await c.pause(), isTrue);
+      expect(c.state, RecorderState.paused);
+      expect(c.lastError, isNull);
+      audio.capture.failSwitch = true;
+      expect(await c.resume(), isFalse);
+      expect(c.state, RecorderState.paused);
+      expect(c.lastError, 'Could not resume the recording');
+      await c.stop();
+      c.dispose();
+    });
+
     test('shut down while asking for permission: the microphone never starts', () async {
       final nb = _notebook(s);
       final c = recorder(nb.id);
@@ -317,7 +340,7 @@ void main() {
         repository: s.recordings,
       );
       expect(await c1.start(), isFalse);
-      expect(c1.lastError, contains('Microphone'));
+      expect(c1.lastError, RecordingController.microphoneDenied);
       expect(c1.state, RecorderState.idle);
 
       final missing = FakeAudio(unavailable: 'Recording needs ffmpeg.');

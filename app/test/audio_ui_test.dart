@@ -10,6 +10,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/audio/recording_controller.dart';
 import 'package:len/features/editor/chrome/editor_top_bar.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -143,6 +144,15 @@ void main() {
       matchesGoldenFile('goldens/audio_recording_bar.png'),
     );
 
+    // A pause the recorder refuses: still recording, and it says so.
+    e.audio.capture.failSwitch = true;
+    await tester.tap(find.byTooltip('Pause recording'));
+    await _settleAsync(tester);
+    expect(find.text('Paused'), findsNothing);
+    expect(find.byTooltip('Pause recording'), findsOneWidget);
+    expect(find.text('Could not pause the recording'), findsOneWidget);
+    e.audio.capture.failSwitch = false;
+
     await tester.tap(find.byTooltip('Pause recording'));
     await _settleAsync(tester);
     expect(find.text('Paused'), findsOneWidget);
@@ -171,11 +181,8 @@ void main() {
     await tester.tap(find.byTooltip('Recordings'));
     await tester.pumpAndSettle();
     expect(find.text(saved.title), findsOneWidget);
-    expect(find.text('1 recording · 1:10 · 64 bytes'), findsOneWidget);
-    expect(
-      find.textContaining(RegExp(r'^\d+ Jan 1970, \d\d:\d\d · 1:10 · 64 bytes$')),
-      findsOneWidget,
-    );
+    expect(find.text('1 recording · 1 min'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^\d+ Jan 1970, \d\d:\d\d · 1:10$')), findsOneWidget);
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Rename…'));
@@ -403,7 +410,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Record audio'));
     await _settleAsync(tester);
-    expect(find.text('Microphone access was not allowed.'), findsOneWidget);
+    expect(find.text(RecordingController.microphoneDenied), findsOneWidget);
     expect(find.byKey(const ValueKey('recording-pill')), findsNothing);
     await _close(tester);
   });

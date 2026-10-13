@@ -80,7 +80,8 @@ class RecordCapture implements AudioCapture {
         await _recorder.start(config, path: target);
       }
     } on Object catch (e) {
-      throw AudioUnavailable('Could not start recording ($e).');
+      debugPrint('Recorder failed to start: $e');
+      throw const AudioUnavailable('Could not start recording');
     }
     _amplitude ??= _recorder
         .onAmplitudeChanged(const Duration(milliseconds: 100))

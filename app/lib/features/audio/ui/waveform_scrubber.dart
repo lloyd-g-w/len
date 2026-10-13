@@ -2,13 +2,16 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../ui/app_theme.dart';
+
 import '../playback_controller.dart';
 import '../recording_overview.dart';
 import '../trim_range.dart';
 import 'audio_format.dart';
 
-/// The player's position control: the recording's waveform (the part
-/// already heard in the accent colour) above a strip showing where ink was
+/// The player's position control: the recording's waveform on a solid
+/// track (the part already heard in the accent colour) with a round thumb
+/// at the position, above a strip showing where ink was
 /// written, with a dot at the start of each burst of writing.
 ///
 /// Tap or drag to seek; a tap on (or near) an ink dot plays from just
@@ -42,6 +45,9 @@ class WaveformScrubber extends StatefulWidget {
 
   /// Bars are this wide with this gap.
   static const double barWidth = 2.5, barGap = 1.5;
+
+  /// Radius of the round thumb at the position.
+  static const double thumbRadius = 6;
 
   /// A tap this close (logical px) to an ink dot snaps to it.
   static const double snapDistance = 14;
@@ -122,6 +128,7 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
                 unplayed: scheme.onSurfaceVariant.withValues(alpha: 0.32),
                 ink: scheme.primary,
                 head: scheme.primary,
+                halo: Surfaces.raised(scheme.brightness),
               ),
             ),
           );
@@ -143,6 +150,7 @@ class WaveformPainter extends CustomPainter {
     required this.unplayed,
     required this.ink,
     required this.head,
+    required this.halo,
   });
 
   final RecordingOverview overview;
@@ -150,6 +158,9 @@ class WaveformPainter extends CustomPainter {
   final TrimRange? kept;
   final int positionMs;
   final Color played, unplayed, ink, head;
+
+  /// The panel behind the thumb: a ring of it sets the thumb off the bars.
+  final Color halo;
 
   int get _span => math.max(1, toMs - fromMs);
 
@@ -175,11 +186,13 @@ class WaveformPainter extends CustomPainter {
     final unplayedPaint = Paint()..color = unplayed;
     final cutPaint = Paint()..color = unplayed.withValues(alpha: unplayed.a * 0.4);
     final kept = this.kept;
+    _paintTrack(canvas, size, headX, playedPaint, unplayedPaint, cutPaint);
     for (var i = 0; i < count; i++) {
       final x = i * pitch;
       final at = fromMs + (x + WaveformScrubber.barWidth / 2) / size.width * _span;
-      // Silence still shows as a thin line, so the track is visible.
-      final h = math.max(2.0, bars[i] * (WaveformScrubber.waveHeight - 2));
+      // Silence is the track itself.
+      final h = bars[i] * (WaveformScrubber.waveHeight - 2);
+      if (h <= _track) continue;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(x, mid - h / 2, WaveformScrubber.barWidth, h),
@@ -193,13 +206,45 @@ class WaveformPainter extends CustomPainter {
       );
     }
     _paintInk(canvas, size);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(headX - 1, 0, 2, WaveformScrubber.waveHeight),
-        const Radius.circular(1),
-      ),
-      Paint()..color = head,
-    );
+    const r = WaveformScrubber.thumbRadius;
+    canvas
+      ..drawCircle(Offset(headX, mid), r + 2, Paint()..color = halo)
+      ..drawCircle(Offset(headX, mid), r, Paint()..color = head);
+  }
+
+  /// Thickness of the track line.
+  static const double _track = 2;
+
+  /// The solid track along the middle: heard, still to hear, and (while
+  /// trimming) cut away.
+  void _paintTrack(
+    Canvas canvas,
+    Size size,
+    double headX,
+    Paint played,
+    Paint unplayed,
+    Paint cut,
+  ) {
+    const mid = WaveformScrubber.waveHeight / 2;
+    void line(double from, double to, Paint paint) {
+      if (to <= from) return;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(from, mid - _track / 2, to, mid + _track / 2),
+          const Radius.circular(_track / 2),
+        ),
+        paint,
+      );
+    }
+
+    final kept = this.kept;
+    double xOf(int ms) => ((ms - fromMs) / _span).clamp(0.0, 1.0) * size.width;
+    final start = kept == null ? 0.0 : xOf(kept.start);
+    final end = kept == null ? size.width : xOf(kept.end);
+    line(0, start, cut);
+    line(start, math.min(headX, end), played);
+    line(math.max(headX, start), end, unplayed);
+    line(end, size.width, cut);
   }
 
   void _paintInk(Canvas canvas, Size size) {
@@ -234,5 +279,6 @@ class WaveformPainter extends CustomPainter {
       old.played != played ||
       old.unplayed != unplayed ||
       old.ink != ink ||
-      old.head != head;
+      old.head != head ||
+      old.halo != halo;
 }

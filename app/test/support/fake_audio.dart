@@ -65,11 +65,20 @@ class FakeCapture implements AudioCapture {
     paths.add(path);
   }
 
-  @override
-  Future<void> pause() async => log.add('pause');
+  /// Makes [pause] and [resume] throw (the recorder refused).
+  bool failSwitch = false;
 
   @override
-  Future<void> resume() async => log.add('resume');
+  Future<void> pause() async {
+    if (failSwitch) throw StateError('pause refused');
+    log.add('pause');
+  }
+
+  @override
+  Future<void> resume() async {
+    if (failSwitch) throw StateError('resume refused');
+    log.add('resume');
+  }
 
   @override
   Future<CapturedAudio?> split(String? nextPath) async {

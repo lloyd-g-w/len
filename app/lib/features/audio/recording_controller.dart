@@ -124,6 +124,12 @@ class RecordingController extends ChangeNotifier {
   /// Input level, 0…1.
   double get level => _level;
 
+  /// Why recording can't start when the microphone permission is refused:
+  /// the way to allow it (no settings shortcut without a new package).
+  static const String microphoneDenied = kIsWeb
+      ? 'Allow microphone access for Len in the browser’s site settings'
+      : 'Allow microphone access for Len in system settings';
+
   /// The last problem (permission refused, recorder failed), for a message.
   String? lastError;
 
@@ -146,9 +152,7 @@ class RecordingController extends ChangeNotifier {
       if (inUse != null) throw AudioUnavailable(inUse);
       final reason = await backends.unavailable?.call();
       if (reason != null) throw AudioUnavailable(reason);
-      if (!await capture.requestPermission()) {
-        throw const AudioUnavailable('Microphone access was not allowed.');
-      }
+      if (!await capture.requestPermission()) throw const AudioUnavailable(microphoneDenied);
       await _keepAlive.prepare();
       final format = await capture.format();
       final spool = format.recoverable ? await backends.spool?.call() : null;
@@ -176,8 +180,11 @@ class RecordingController extends ChangeNotifier {
         throw const _ShutDown();
       }
     } on Object catch (e) {
-      if (e is! _ShutDown) {
-        lastError = e is AudioUnavailable ? e.message : 'Could not start recording ($e).';
+      if (e is AudioUnavailable) {
+        lastError = e.message;
+      } else if (e is! _ShutDown) {
+        debugPrint('Recording failed to start: $e');
+        lastError = 'Could not start recording';
       }
       await _closeParts();
       _set(RecorderState.idle);
@@ -210,36 +217,57 @@ class RecordingController extends ChangeNotifier {
     );
   }
 
-  Future<void> pause() async {
-    if (_state != RecorderState.recording) return;
-    _closeSegment();
-    _level = 0;
-    _set(RecorderState.paused);
-    unawaited(_journalTimeline());
+  /// Whether a pause or resume is under way (further taps are ignored).
+  bool _switching = false;
+
+  /// Pauses the capture, then shows *paused*. Returns false (with
+  /// [lastError], still recording) if the capture could not pause.
+  Future<bool> pause() async {
+    if (_state != RecorderState.recording || _switching) return false;
+    lastError = null;
+    _switching = true;
     try {
       await _capture?.pause();
     } on Object catch (e) {
       // (Called from the notification too: never an unhandled error.)
-      lastError = 'Could not pause recording ($e).';
+      debugPrint('Recording failed to pause: $e');
+      lastError = 'Could not pause the recording';
       notifyListeners();
+      return false;
+    } finally {
+      _switching = false;
     }
+    if (_state != RecorderState.recording) return false; // Stopped meanwhile.
+    _closeSegment();
+    _level = 0;
+    _set(RecorderState.paused);
+    unawaited(_journalTimeline());
     await _showKeepAlive();
+    return true;
   }
 
-  Future<void> resume() async {
-    if (_state != RecorderState.paused) return;
+  /// Resumes the capture, then shows *recording*. Returns false (with
+  /// [lastError], still paused) if the capture could not resume.
+  Future<bool> resume() async {
+    if (_state != RecorderState.paused || _switching) return false;
+    lastError = null;
+    _switching = true;
     try {
       await _capture?.resume();
     } on Object catch (e) {
-      lastError = 'Could not resume recording ($e).';
+      debugPrint('Recording failed to resume: $e');
+      lastError = 'Could not resume the recording';
       notifyListeners();
-      return;
+      return false;
+    } finally {
+      _switching = false;
     }
-    if (_state != RecorderState.paused) return; // Stopped meanwhile.
+    if (_state != RecorderState.paused) return false; // Stopped meanwhile.
     _segmentStart = clock.nowMs();
     _set(RecorderState.recording);
     unawaited(_journalTimeline());
     await _showKeepAlive();
+    return true;
   }
 
   /// Stops and stores the recording. Returns it, or null if nothing was
@@ -272,7 +300,8 @@ class RecordingController extends ChangeNotifier {
       if (recording != null) onSaved?.call(recording);
       return recording;
     } on Object catch (e) {
-      lastError = 'The recording could not be saved ($e).';
+      debugPrint('Recording failed to save: $e');
+      lastError = 'The recording could not be saved';
       failed = true;
       return null;
     } finally {
@@ -329,7 +358,8 @@ class RecordingController extends ChangeNotifier {
       await parts.store(audio, measured, waveform: _waveform.build, capture: capture);
     } on Object catch (e) {
       // The audio stays in its file; stop stores what it can.
-      lastError = 'Part of the recording could not be stored ($e).';
+      debugPrint('Recording part failed to store: $e');
+      lastError = 'Part of the recording could not be stored';
     }
   }
 

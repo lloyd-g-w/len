@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../data/blob_store.dart';
 import '../../../domain/recording.dart';
@@ -37,6 +38,10 @@ class AudioplayersPlayback implements AudioPlayback {
   Duration _startOf(int index) =>
       Duration(milliseconds: _sources.length == 1 ? 0 : _parts.startOf(index));
 
+  /// Why a recording can't play yet: its audio hasn't synced down.
+  static const String notDownloaded =
+      'The audio is not on this device yet. It downloads when you’re online.';
+
   @override
   Future<void> open(
     Recording recording,
@@ -45,7 +50,7 @@ class AudioplayersPlayback implements AudioPlayback {
   ) async {
     for (final sha in recording.blobs) {
       if (!await blobs.has(sha) && !await fetch(sha)) {
-        throw const AudioUnavailable('The audio is not on this device yet. Sync and try again.');
+        throw const AudioUnavailable(notDownloaded);
       }
     }
     final groups = recording.joinable
@@ -61,7 +66,7 @@ class AudioplayersPlayback implements AudioPlayback {
         for (final s in sources) {
           releaseAudioUri(s.uri);
         }
-        throw const AudioUnavailable('The audio is not on this device yet. Sync and try again.');
+        throw const AudioUnavailable(notDownloaded);
       }
       sources.add(source);
     }
@@ -73,7 +78,8 @@ class AudioplayersPlayback implements AudioPlayback {
       await _player.setReleaseMode(ReleaseMode.stop);
       await _load(0);
     } on Object catch (e) {
-      throw AudioUnavailable('This recording cannot be played here ($e).');
+      debugPrint('Playback failed to load: $e');
+      throw const AudioUnavailable('This recording cannot be played here');
     }
   }
 
