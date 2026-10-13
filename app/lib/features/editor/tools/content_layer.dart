@@ -84,7 +84,7 @@ class _ContentLayerState extends State<ContentLayer> {
 
   @override
   void dispose() {
-    _endCrop(commit: true);
+    _endCrop(commit: true, disposing: true);
     _detach(_content);
     super.dispose();
   }
@@ -108,14 +108,14 @@ class _ContentLayerState extends State<ContentLayer> {
   }
 
   /// Leaves crop mode, storing the crop when [commit] is set, and selects
-  /// the image again.
-  void _endCrop({required bool commit}) {
+  /// the image again (not while [disposing]: the editor is closing).
+  void _endCrop({required bool commit, bool disposing = false}) {
     final session = _crop;
     if (session == null) return;
     _crop = null;
     final element = commit ? session.commit() : session.element;
     session.dispose();
-    if (!mounted) return;
+    if (disposing || !mounted) return;
     setState(() {});
     if (identical(_content.model, session.model) &&
         _content.model.elementById(element.id) != null) {
