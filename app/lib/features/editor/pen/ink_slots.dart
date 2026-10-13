@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/color_picker/color_hex.dart';
+import '../toolbar/toolbar_metrics.dart';
 import 'slot_button.dart';
 
 /// Opens the tool's options anchored to a slot (see [SlotButton.onEdit]).
@@ -25,7 +26,8 @@ class ColorSlots extends StatelessWidget {
     final config = tools.configOf(ink);
     final active = onEdit == null || tools.tool.usesInk;
     final edit = onEdit;
-    return Row(
+    return Flex(
+      direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < config.colors.length; i++)
@@ -75,7 +77,8 @@ class WidthSlots extends StatelessWidget {
     final config = tools.configOf(ink);
     final active = onEdit == null || tools.tool.usesInk;
     final edit = onEdit;
-    return Row(
+    return Flex(
+      direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < config.widths.length; i++)

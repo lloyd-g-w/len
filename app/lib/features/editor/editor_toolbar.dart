@@ -158,10 +158,29 @@ class EditorToolbar extends StatelessWidget {
   );
 
   /// The raised palette: the full group when it fits, else the switcher
-  /// and the quick controls.
+  /// and the quick controls. Snapped to a side edge it runs down: the tools,
+  /// then the quick slots under them (scrolling if the pane is too short).
   Widget _floating(BuildContext context, BoxConstraints constraints) {
     const padding = 2 * (Gaps.xs + 2);
     final reserve = ToolbarMetrics.strip(tools);
+    if (ToolbarAxis.of(context) == Axis.vertical) {
+      return FloatingPanel(
+        padding: const EdgeInsets.symmetric(horizontal: Gaps.xs, vertical: Gaps.xs + 2),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: constraints.maxHeight - padding),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _cluster(),
+                const ToolbarDivider(),
+                ToolStrip(tools: tools, reserve: reserve),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     if (ToolbarMetrics.group(tools) + padding <= constraints.maxWidth) {
       return FloatingPanel(child: _group(reserve: reserve));
     }

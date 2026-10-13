@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../ink/tool_settings.dart';
+import '../toolbar/toolbar_metrics.dart';
 import 'ink_slots.dart';
 import 'slot_button.dart';
 
@@ -20,7 +21,8 @@ class EraserStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final eraser = tools.eraser;
-    return Row(
+    return Flex(
+      direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final (i, size) in EraserConfig.quickSizes.indexed)

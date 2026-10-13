@@ -459,5 +459,7 @@ Phase 1 comes first because every later phase then gets smaller.
   `← title ↶ ↷ ⋯`); *Open notebooks (n)* is in ⋯.
 - Phase 5 (navigation) is done: the peeking page indicator, Go to page with
   a thumbnail strip, the overview's All / Bookmarked / Outline filter.
-- Not yet: floating snapping / vertical axis (phase 6); floating keeps
-  today's free placement.
+- Phase 6 in progress: the floating palette snaps to edges and runs down
+  the sides (`ToolbarSlot.snap`, `ToolbarAxis`); the snapped edge is
+  implied by `toolbarFloat` (x of 0 or 1 is a side). Not yet: the puck,
+  immersive focus page keys, split focus dimming.

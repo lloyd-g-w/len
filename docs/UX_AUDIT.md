@@ -98,7 +98,9 @@ tool's options popover; Insert and ⋯ menus; floating; 1.3× text) and the
   slot, slot counts (1–6 each), feel collapsed.
 - ✅ **Fast:** switching tools, picking slots and opening the popover rebuild
   only the toolbar's parts (checked by a rebuild-count test).
-- ⬜ The floating palette doesn't snap to edges or go vertical yet (phase 6).
+- ✅ The floating palette doesn't snap to edges or go vertical yet (phase 6).
+  → Released within 48 dp of an edge it snaps to that edge's middle; at the
+  left or right it runs down (tools, then slots; scrolls in short panes).
 - ✅ The page navigator is still the old pill (phase 5: peeking indicator).
   → Replaced by the peeking `3 / 12` indicator (see the top of this file).
 - ✅ Keyboard: no arrow-key navigation inside the tool cluster. → ← / →

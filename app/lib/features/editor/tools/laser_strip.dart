@@ -4,6 +4,7 @@ import '../../../ink/tool_settings.dart';
 import '../../../ui/color_picker/color_hex.dart';
 import '../pen/ink_slots.dart';
 import '../pen/slot_button.dart';
+import '../toolbar/toolbar_metrics.dart';
 
 /// The laser pointer's quick controls: three colour slots (red, green,
 /// blue). More colours, Dot / Trail and the trail's length are in its
@@ -25,7 +26,8 @@ class LaserStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final laser = tools.laser;
-    return Row(
+    return Flex(
+      direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final (i, c) in colors.indexed)

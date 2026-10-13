@@ -31,7 +31,8 @@ class ShapeStrip extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final ink = InkStrip(tools: tools, ink: InkTool.ballpoint, onEdit: onEditInk);
     if (ToolbarDensity.minimalOf(context)) return ink;
-    return Row(
+    return Flex(
+      direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
       children: [
         Builder(
@@ -49,7 +50,7 @@ class ShapeStrip extends StatelessWidget {
             icon: ShapeGlyph(tools.shape, size: Glyphs.bar),
           ),
         ),
-        const SizedBox(width: ToolbarMetrics.groupGap),
+        ToolbarAxis.gap(context, ToolbarMetrics.groupGap),
         ink,
       ],
     );

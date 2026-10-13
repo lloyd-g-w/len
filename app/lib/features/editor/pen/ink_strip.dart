@@ -23,11 +23,12 @@ class InkStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Flex(
+      direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
       children: [
         ColorSlots(tools: tools, ink: ink, onEdit: onEdit),
-        const SizedBox(width: ToolbarMetrics.groupGap),
+        ToolbarAxis.gap(context, ToolbarMetrics.groupGap),
         WidthSlots(tools: tools, ink: ink, onEdit: onEdit),
       ],
     );

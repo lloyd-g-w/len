@@ -127,3 +127,23 @@ class ToolbarDensity extends InheritedWidget {
   bool updateShouldNotify(ToolbarDensity oldWidget) =>
       oldWidget.compact != compact || oldWidget.minimal != minimal;
 }
+
+/// The direction a toolbar runs: across (docked, floating) or down (a
+/// floating palette snapped to the left or right edge). Its cluster,
+/// strips and slots lay out along it.
+class ToolbarAxis extends InheritedWidget {
+  const ToolbarAxis({super.key, required this.axis, required super.child});
+
+  final Axis axis;
+
+  /// The axis of the toolbar at [context] (horizontal outside one).
+  static Axis of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ToolbarAxis>()?.axis ?? Axis.horizontal;
+
+  /// A [gap] along the toolbar at [context].
+  static Widget gap(BuildContext context, double gap) =>
+      of(context) == Axis.horizontal ? SizedBox(width: gap) : SizedBox(height: gap);
+
+  @override
+  bool updateShouldNotify(ToolbarAxis oldWidget) => oldWidget.axis != axis;
+}
