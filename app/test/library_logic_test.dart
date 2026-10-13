@@ -10,6 +10,7 @@ import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/library/library_controller.dart';
 import 'package:len/features/library/library_query.dart';
+import 'package:len/features/library/new_notebook/default_title.dart';
 import 'package:len/features/library/thumbnails/thumbnail_cache.dart';
 import 'package:len/features/library/thumbnails/thumbnail_renderer.dart';
 import 'package:len/ink/render/content_painter.dart';
@@ -28,6 +29,15 @@ Notebook nb(String title, {int created = 0, int edited = 0}) => Notebook(
 );
 
 void main() {
+  test('a notebook without a title is named after the day, numbered when taken', () {
+    final day = DateTime(2026, 10, 13);
+    expect(defaultNotebookTitle(day, const []), '13 October');
+    expect(defaultNotebookTitle(day, const [], language: PlannerLanguage.enUS), 'October 13');
+    expect(defaultNotebookTitle(day, const [], language: PlannerLanguage.de), '13. Oktober');
+    expect(defaultNotebookTitle(day, const ['13 October']), '13 October (2)');
+    expect(defaultNotebookTitle(day, const ['13 October', '13 October (2)']), '13 October (3)');
+  });
+
   group('LibraryQuery', () {
     test('matches every term case-insensitively', () {
       expect(LibraryQuery.matches('Physics — Mechanics', 'mech phys'), isTrue);

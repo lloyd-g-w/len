@@ -64,6 +64,9 @@ class PlannerLabels {
   /// `5 October 2026`, `October 5, 2026`, `5. Oktober 2026`.
   String longDate(DateTime d) => _long.format(d);
 
+  /// `13 October`, `October 13`, `13. Oktober`: a day without the year.
+  String monthDay(DateTime d) => _monthDay.format(d);
+
   /// `October 2026`, `Oktober 2026`, `Октябрь 2026 г.`.
   String monthYear(DateTime d) => capitalise(_monthYear.format(d));
 

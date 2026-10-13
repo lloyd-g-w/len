@@ -85,13 +85,18 @@ field that changed); Duplicate's Undo trashes the copy. Favouriting a
 selection ends it, like move and trash, so the message takes the bar's
 place.
 
-⬜ **R6-10 P2 · Every quick notebook is "Untitled notebook".** An empty title
+✅ **R6-10 P2 · Every quick notebook is "Untitled notebook".** An empty title
 becomes `'Untitled notebook'` or `'Untitled canvas'`
 (`features/library/new_notebook_sheet.dart:101,113`). A week of quick lecture
 notes then fills the grid with identical names, and library search can't
 tell them apart. *Fix:* default to the date, as a planner does ("Notes 13
 October", or "13 October" for a canvas), and number repeats on the same
 day ("13 October 2").
+*Done:* an empty title becomes the day in the device's date format
+("13 October", "October 13", "13. Oktober"; `intl` via the planner
+languages), for notebooks and canvases alike (the cover shows the kind),
+with no English word in front; a taken title is numbered "13 October (2)"
+(a bare "2" read like part of the date). The field's hint shows it.
 
 ⬜ **R6-11 P2 · The favourite star is amber chrome on a white plate.**
 `_FavoriteBadge` (`features/library/notebook_cover.dart:163-178`) draws a

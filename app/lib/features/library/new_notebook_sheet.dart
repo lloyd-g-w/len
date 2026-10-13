@@ -16,6 +16,7 @@ import '../documents/templates/page_setup.dart';
 import '../documents/templates/planner_options.dart';
 import '../documents/templates/template_catalog.dart';
 import 'new_notebook/cover_row.dart';
+import 'new_notebook/default_title.dart';
 import 'new_notebook/new_notebook_request.dart';
 import 'new_notebook/notebook_preview.dart';
 import 'new_notebook/paper_row.dart';
@@ -78,6 +79,9 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   int _cover = Palette.covers.first;
   List<String> _recent = const [];
 
+  /// The title when none is typed: today's date (numbered if taken).
+  String _defaultTitle = '';
+
   PageTemplate get _template => _selection.template;
   PaperStyle get _paper => _template.style;
   bool get _canvas => _kind == NotebookKind.canvas;
@@ -85,7 +89,11 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _recent = AppScope.maybeRead(context)?.preferences.recentPapers ?? const [];
+    final services = AppScope.maybeRead(context);
+    _recent = services?.preferences.recentPapers ?? const [];
+    _defaultTitle = defaultNotebookTitle(_today, [
+      for (final n in services?.notebooks.list() ?? const <Notebook>[]) n.title,
+    ], language: defaultPlannerCalendar().language);
   }
 
   @override
@@ -109,8 +117,6 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
       ),
     );
   }
-
-  String get _defaultTitle => _canvas ? 'Untitled canvas' : 'Untitled notebook';
 
   void _setKind(NotebookKind kind) => setState(() {
     _kind = kind;
