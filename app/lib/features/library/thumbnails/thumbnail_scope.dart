@@ -14,6 +14,12 @@ class ThumbnailScope extends InheritedNotifier<ThumbnailCache> {
   /// rendered yet).
   static ui.Image? previewOf(BuildContext context, Notebook notebook) =>
       context.dependOnInheritedWidgetOfExactType<ThumbnailScope>()?.notifier?.imageFor(notebook);
+
+  /// Whether [notebook]'s preview is still to be rendered (false without
+  /// a scope). Call after [previewOf], which schedules the render.
+  static bool pendingOf(BuildContext context, Notebook notebook) =>
+      context.dependOnInheritedWidgetOfExactType<ThumbnailScope>()?.notifier?.isPending(notebook) ??
+      false;
 }
 
 /// Shows a [ui.Image] owned elsewhere, holding its own clone so the owner

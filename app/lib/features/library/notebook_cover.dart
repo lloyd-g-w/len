@@ -19,6 +19,7 @@ class NotebookCover extends StatelessWidget {
     required this.kind,
     this.preview,
     this.favorite = false,
+    this.pending = false,
   });
 
   /// Cover for [notebook] with its live preview from the [ThumbnailScope];
@@ -31,6 +32,7 @@ class NotebookCover extends StatelessWidget {
       kind: notebook.kind,
       favorite: showFavorite && notebook.favorite,
       preview: ThumbnailScope.previewOf(context, notebook),
+      pending: ThumbnailScope.pendingOf(context, notebook),
     ),
   );
 
@@ -38,6 +40,11 @@ class NotebookCover extends StatelessWidget {
   final NotebookKind kind;
   final ui.Image? preview;
   final bool favorite;
+
+  /// The preview isn't rendered yet: a neutral placeholder cross-fades to
+  /// the preview or the plain cover, rather than the cover colour flashing
+  /// before a thumbnail.
+  final bool pending;
 
   bool get _paged => kind == NotebookKind.paged;
 
@@ -58,7 +65,12 @@ class NotebookCover extends StatelessWidget {
             duration: Motion.medium,
             layoutBuilder: (current, previous) =>
                 Stack(fit: StackFit.expand, children: [...previous, ?current]),
-            child: preview == null
+            child: pending
+                ? ColoredBox(
+                    key: const ValueKey('pending'),
+                    color: Surfaces.pressed(Theme.of(context).colorScheme),
+                  )
+                : preview == null
                 ? _PlainCover(key: const ValueKey('plain'), color: base)
                 : ColoredBox(
                     key: const ValueKey('preview'),
@@ -66,10 +78,10 @@ class NotebookCover extends StatelessWidget {
                     child: PreviewImage(image: preview),
                   ),
           ),
-          if (_paged) _Spine(color: base, onPreview: preview != null),
+          if (_paged && !pending) _Spine(color: base, onPreview: preview != null),
           if (!_paged && preview != null)
             Positioned(left: 8, bottom: 8, child: _CanvasTag(color: base)),
-          if (!_paged && preview == null)
+          if (!_paged && preview == null && !pending)
             Positioned(
               right: 10,
               bottom: 10,
