@@ -57,11 +57,19 @@ mixin _SurfaceEditing on _SurfaceState {
   }
 
   /// Scribble to erase: removes the strokes the scribble [path] (world)
-  /// crosses, within [radius], that lie mostly inside its bounds (so a long
-  /// line under a scribbled word stays), as one undoable edit. Returns how
-  /// many strokes went.
+  /// crosses ([scribbled]), as one undoable edit. Returns how many went.
   int eraseScribbled(List<Offset> path, double radius) {
-    if (path.length < 2) return 0;
+    final removed = scribbled(path, radius);
+    commit(InkEdit(removed: removed));
+    return removed.length;
+  }
+
+  /// The strokes the scribble [path] (world) crosses, within [radius],
+  /// that lie mostly inside its bounds (so a long line under a scribbled
+  /// word stays). Hidden strokes don't count, except those in [preview]
+  /// (hidden to show them about to go).
+  List<Stroke> scribbled(List<Offset> path, double radius, {Set<String> preview = const {}}) {
+    if (path.length < 2) return const [];
     var area = Rect.fromPoints(path.first, path.first);
     for (final p in path) {
       area = area.expandToInclude(Rect.fromPoints(p, p));
@@ -75,15 +83,13 @@ mixin _SurfaceEditing on _SurfaceState {
       return false;
     }
 
-    final removed = [
+    return [
       for (final stroke in _strokes.query(area))
-        if (!_hidden.contains(stroke.id) &&
+        if ((!_hidden.contains(stroke.id) || preview.contains(stroke.id)) &&
             box.insideShare(stroke) >= Lasso.strokeShare &&
             crossed(stroke))
           stroke,
     ];
-    commit(InkEdit(removed: removed));
-    return removed.length;
   }
 
   void undo() {

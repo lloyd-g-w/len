@@ -138,7 +138,7 @@ class InkDrawing {
       _endFollowsSpeed = config.ends.endFollowsSpeed && !ink.isHighlighter;
       live.add(_sampler.first(e));
       _liftSpeed.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
-      _scribble.begin(e.localPosition, StrokeSampler.msOf(e.timeStamp));
+      _scribble.begin(model, e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _straighten.begin(
         e.localPosition,
         enabled: tools.holdToStraighten,
@@ -290,6 +290,7 @@ class InkDrawing {
 
   void _reset() {
     _straighten.end();
+    _scribble.end();
     samples?.end(taperEnd: _committedTaper);
     _committedTaper = 0;
     _drawPointer = null;

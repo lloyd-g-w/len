@@ -37,8 +37,9 @@ void main() {
 
   var clockMs = 0;
 
-  /// Draws a pen stroke through [points], [stepMs] apart, then lifts.
-  void draw(List<Offset> points, {int stepMs = 8}) {
+  /// Draws a pen stroke through [points], [stepMs] apart, then lifts
+  /// (unless [lift] is false).
+  void draw(List<Offset> points, {int stepMs = 8, bool lift = true}) {
     Duration t() => Duration(milliseconds: clockMs += stepMs);
     const kind = PointerDeviceKind.stylus;
     input.handleDown(
@@ -55,6 +56,7 @@ void main() {
         PointerMoveEvent(pointer: 1, kind: kind, position: p, pressure: .5, timeStamp: t()),
       );
     }
+    if (!lift) return;
     input.handleUp(PointerUpEvent(pointer: 1, kind: kind, position: points.last, timeStamp: t()));
     clockMs += 500;
   }
@@ -103,5 +105,28 @@ void main() {
     draw(line(const Offset(100, 105), const Offset(160, 110)));
     draw(scribble(90, 170, 100), stepMs: 40);
     expect(model.loadedStrokeCount, 2);
+  });
+
+  testWidgets('while scribbling, what will go dims; cancelled, it comes back', (tester) async {
+    draw(line(const Offset(100, 105), const Offset(160, 110)));
+    draw(line(const Offset(300, 105), const Offset(360, 110)));
+    final word = model.strokesNear(Rect.largest).singleWhere((s) => s.bounds.left < 200);
+    final other = model.strokesNear(Rect.largest).singleWhere((s) => s.bounds.left > 200);
+    draw(scribble(90, 170, 100), stepMs: 4, lift: false);
+    expect(model.isHidden(word.id), isTrue, reason: 'drawn dimmed instead');
+    expect(model.isHidden(other.id), isFalse);
+    expect(model.hasLiftedExcept(const {}), isTrue);
+    input.handleCancel(const PointerCancelEvent(pointer: 1, kind: PointerDeviceKind.stylus));
+    expect(model.isHidden(word.id), isFalse);
+    expect(model.hasLiftedExcept(const {}), isFalse);
+    expect(model.loadedStrokeCount, 2);
+
+    // Finished, it erases the word: one undo step brings it back.
+    draw(scribble(90, 170, 100), stepMs: 4);
+    expect(model.strokeById(word.id), isNull);
+    expect(model.hasLiftedExcept(const {}), isFalse);
+    model.undo();
+    expect(model.strokeById(word.id), isNotNull);
+    expect(model.isHidden(word.id), isFalse);
   });
 }
