@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/blob_backend.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/surface_element.dart';
@@ -78,6 +79,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(notebooks(services), hasLength(1)); // No new notebook.
     expect(services.openNotebooks.activeId, board.id);
+  });
+
+  testWidgets('an image that can\'t be stored (disk full) is reported, not a crash', (
+    tester,
+  ) async {
+    final services = await pumpLibrary(
+      tester,
+      services: AppServices.create(AppDatabase.inMemory(), blobBackend: _FullDisk()),
+    );
+    final board = services.notebooks.create(
+      title: 'Board',
+      kind: NotebookKind.canvas,
+      paper: PaperStyle.blank,
+      coverColor: 0xFF3B5BDB,
+    );
+    await openFromLibrary(tester, board);
+    services.incomingFiles.add([png('a.png')]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add to this canvas'));
+    await settleReal(tester, () => find.text('Couldn’t add the image').evaluate().isNotEmpty);
+    expect(liveElements(services, board.id), isEmpty);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('with a notebook open, "New canvas" opens the images in a new tab', (tester) async {
@@ -184,4 +207,11 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
   });
+}
+
+/// A blob backend whose writes fail, as on a full disk.
+class _FullDisk extends MemoryBlobBackend {
+  @override
+  Future<void> write(String sha, Stream<List<int>> data) async =>
+      throw const FileSystemException('No space left on device');
 }
