@@ -459,6 +459,12 @@ purge at once.**
   drag on highlighted PDF text selects the text; ink written with the pen
   over it still wins. A highlight is selected with a lasso loop
   (`fix/r8-pen`).
+  *Then (`fix/r8-followups`):* the text menu offers "Remove highlight" when
+  the selection is (partly) highlighted: the highlighter strokes whose path
+  crosses the selected lines go, as one undo step across pages
+  (`pdf/pdf_highlight_removal.dart`); on a phone the menu shows two colour
+  dots then, so it still fits. Highlight over several pages is one undo step
+  too.
 
 ✅ **R8-25 P1 · A scribble erases along the whole stroke.**
 - *What:* `ScribbleDetector` answers yes or no for the whole stroke

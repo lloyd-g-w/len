@@ -10,6 +10,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import '../../documents/progress_dialog.dart' show showMessage;
 import '../links/link_menu.dart';
+import 'pdf_highlight_removal.dart';
 import 'pdf_highlight_swatches.dart';
 import 'pdf_interaction.dart';
 import 'pdf_page_info.dart';
@@ -37,7 +38,8 @@ typedef UrlOpener = Future<bool> Function(Uri url);
 Future<bool> _launch(Uri url) => launchUrl(url, mode: LaunchMode.externalApplication);
 
 /// Shows the PDF text selection (with handles and its menu: copy,
-/// highlight in one of the highlighter's quick colours, select all) over the document, follows links tapped with a
+/// highlight in one of the highlighter's quick colours, remove a highlight
+/// over it, select all) over the document, follows links tapped with a
 /// navigating finger, and keeps the visible pages' text and links loaded.
 ///
 /// Pointer events pass through to the canvas beneath, except on the
@@ -246,6 +248,7 @@ class _PdfLayerState extends State<PdfLayer> {
             icon: const Icon(Symbols.content_copy_sharp, size: Glyphs.menu),
             label: const Text('Copy'),
           );
+    final highlighted = _pdf.selectionHighlighted;
     return Positioned.fill(
       child: CustomSingleChildLayout(
         delegate: PdfMenuPlacement(selected, roomAbove: roomAbove),
@@ -262,7 +265,18 @@ class _PdfLayerState extends State<PdfLayer> {
                   tools: _pdf.tools,
                   onHighlight: _highlight,
                   labelled: labelled,
+                  // Room for Remove highlight on a phone.
+                  count: highlighted && !labelled
+                      ? PdfHighlightSwatches.max - 1
+                      : PdfHighlightSwatches.max,
                 ),
+                if (highlighted)
+                  IconButton(
+                    key: const ValueKey('pdf-remove-highlight'),
+                    tooltip: 'Remove highlight',
+                    icon: const Icon(Symbols.format_color_reset_sharp, size: Glyphs.bar),
+                    onPressed: _pdf.removeSelectedHighlights,
+                  ),
                 if (_pdf.selectedLink != null)
                   IconButton(
                     key: const ValueKey('pdf-open-link'),
