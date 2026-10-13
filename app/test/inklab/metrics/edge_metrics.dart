@@ -80,7 +80,8 @@ List<double> _smoothCurvature(List<Offset> c, int m) {
   ];
 }
 
-/// (f) Ends: no blob (an end wider than the body), no nub (ink beyond the
+/// (f) Ends: no blob (an end wider than the body and than the true
+/// pressure there asks for), no nub (ink beyond the
 /// true path near an end: pen-down/up hooks), no stray strokes (bounces),
 /// and dots (taps) of the right size.
 List<Metric> ends(
@@ -106,7 +107,10 @@ List<Metric> ends(
     for (var i = 0; i < line.c.length; i++) {
       final s = i * line.step;
       if (s > reach && line.length - s > reach) continue;
-      blob.add(line.r[i] / median, line.c[i]);
+      // A blob is wider than both the body and what the hand pressed there
+      // (a real pen lands harder than it writes on, often).
+      final pressed = p.radiusFor(p.truthPressureAt(line.c[i]));
+      blob.add(line.r[i] / math.max(median, pressed), line.c[i]);
       nub.add(p.truthIndex.distance(line.c[i]), line.c[i]);
     }
   }

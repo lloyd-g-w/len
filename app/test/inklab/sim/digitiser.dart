@@ -162,7 +162,9 @@ class Digitiser {
     final n = (m.duration / dt).floor();
     for (var i = 0; i <= n; i++) {
       final t = math.min(m.duration, i * dt);
-      out.add(_Sample(startUs + ((t0 + t) * 1e6).round(), _noisy(m.at(t)), _report(m.pressure(t))));
+      out.add(
+        _Sample(startUs + ((t0 + t) * 1e6).round(), _noisy(m.at(t)), _report(m.devicePressure(t))),
+      );
     }
     if (c.upHook) {
       final end = m.at(m.duration);
