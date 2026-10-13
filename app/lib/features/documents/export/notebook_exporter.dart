@@ -1,10 +1,14 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import '../../../app_services.dart';
 import '../../../data/surface_copier.dart';
 import '../../../domain/image_data.dart';
+import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../domain/paper.dart';
+import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
 import '../../../ink/surface_model.dart';
 import '../../editor/document/page_painting.dart';
@@ -102,6 +106,78 @@ class NotebookExporter {
       images: services.images,
     );
     background?.dispose();
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      return data!.buffer.asUint8List();
+    } finally {
+      image.dispose();
+    }
+  }
+
+  /// Room left around a canvas's drawing when it is exported (world units:
+  /// half an inch).
+  static const double canvasMargin = 48;
+
+  /// Longest side, in pixels, of an exported canvas PNG: a large drawing
+  /// is exported at a lower resolution rather than as an unopenable file.
+  static const int maxCanvasPixels = 8192;
+
+  /// Infinite canvas [notebook]'s drawing as one page: everything on it
+  /// plus [canvasMargin], on its paper (or white paper without
+  /// [template]), with the pattern aligned as on screen. Null if the
+  /// canvas is empty.
+  ExportPage? canvasPage(Notebook notebook, {bool template = true}) {
+    SurfaceModel.flushAll(); // Ink drawn a moment ago.
+    final bounds = services.strokes.contentBounds(notebook.id);
+    if (bounds == null || bounds.isEmpty) return null;
+    final area = bounds.inflate(canvasMargin);
+    final origin = area.topLeft;
+    final page = NotebookPage(
+      id: notebook.id,
+      notebookId: notebook.id,
+      sortKey: 0,
+      width: area.width,
+      height: area.height,
+      paper: template ? notebook.paper : Paper.blank,
+      paperColor: template ? notebook.paperColor : PaperColor.white,
+    );
+    return ExportPage(
+      page,
+      [
+        for (final s in _copier.loadAll(notebook.id))
+          s.withPoints([
+            for (final p in s.points) StrokePoint(p.x - origin.dx, p.y - origin.dy, p.pressure),
+          ]),
+      ],
+      elements: [
+        for (final e in _copier.loadAllElements(notebook.id))
+          e.copyWith(rect: e.rect.shift(-origin)),
+      ],
+      worldOrigin: origin,
+    );
+  }
+
+  /// A one-page PDF of a canvas's drawing ([canvasPage]).
+  Future<Uint8List> canvasPdf(ExportPage canvas, {String? title}) =>
+      PdfExporter.build([canvas], title: title, readBlob: _readBlob);
+
+  /// A PNG of a canvas's drawing ([canvasPage]) at [scale] pixels per
+  /// world unit, or less for a drawing too large for [maxCanvasPixels].
+  Future<Uint8List> canvasPng(ExportPage canvas, {double scale = 2}) async {
+    final page = canvas.page;
+    final fitted = math.min(scale, maxCanvasPixels / math.max(page.width, page.height));
+    for (final e in canvas.elements.where((e) => e.knownType == ElementType.image)) {
+      final data = ImageData.fromJson(e.data);
+      await services.images.load(data, e.rect.width * fitted / data.crop.width);
+    }
+    final image = await renderPageImage(
+      page,
+      strokes: canvas.strokes,
+      elements: canvas.elements,
+      scale: fitted,
+      images: services.images,
+      worldOrigin: canvas.worldOrigin,
+    );
     try {
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       return data!.buffer.asUint8List();

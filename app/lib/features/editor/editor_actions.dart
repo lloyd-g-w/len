@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../documents/export/export_flow.dart';
 import 'chrome/editor_menu_actions.dart';
 import 'document/document_layout.dart';
 import 'document/page_overview.dart';
@@ -45,7 +46,11 @@ EditorMenuActions editorMenuActions(
         : null,
     onPageCommand: paged ? (c) => commands.run(context, c, page) : null,
     onAddWithTemplate: paged ? () => commands.addPageWithTemplate(context) : null,
-    onExport: paged ? () => commands.export(context) : null,
+    onExport: paged
+        ? () => commands.export(context)
+        : nav != null
+        ? () => exportCanvasFlow(context, notebook: session.notebook)
+        : null,
     onOutline: paged ? () => showOutline(context, session) : null,
     onAddToOutline: paged ? () => addPageToOutline(context, session) : null,
     flow: doc?.flow,

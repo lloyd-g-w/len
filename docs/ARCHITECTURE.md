@@ -376,7 +376,7 @@ the list is renumbered only when a gap is exhausted), bookmarks, templates.
   flow fits the whole page and slides it in.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
   P / H / E / L / S / T / K; 1–6 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
-  Ctrl/⌘+E export (paged), Ctrl+F search;
+  Ctrl/⌘+E export, Ctrl/⌘+G go to page (paged), Ctrl+F search;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases: `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks: ← / → and
   Page Up / Down turn pages, **Home first page**, End last page. Single keys are ignored
@@ -571,6 +571,13 @@ one after the link's page) and are dropped if it is not exported.
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
 indices from a range like "1-3, 5", templates and PDF backgrounds on or off;
 PNGs are always 288 dpi, `pngScale`); without templates pages are exported as blank white paper.
+**Canvases** export their whole drawing as one page (`exportCanvasFlow`, the
+same sheet with `canvas: true`: no page choice, "Background" instead of
+templates): `NotebookExporter.canvasPage` takes the content bounds plus a
+48-unit margin, moves the ink and elements onto that page and records its
+`worldOrigin`, so `paintWholePage` and `PdfExporter` lay the pattern from
+the world's origin as the canvas does (grids line up with the screen).
+Canvas PNGs shrink to at most 8192 px on the long side.
 Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once

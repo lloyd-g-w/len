@@ -119,3 +119,56 @@ Future<Uint8List> _png(
   started();
   return exporter.png(page, scale: pngScale, backgrounds: options.includeBackgrounds);
 }
+
+/// Exports infinite canvas [notebook]: its whole drawing as one PDF page or
+/// PNG, sized to fit it (UX_AUDIT #25). Asks for the format and whether to
+/// draw the canvas's background, then saves or shares like [exportFlow].
+/// An empty canvas says so instead.
+Future<void> exportCanvasFlow(
+  BuildContext context, {
+  required Notebook notebook,
+  NotebookExporter? exporter,
+  ExportSaver save = platform.saveOrShareAll,
+}) async {
+  final worker = exporter ?? NotebookExporter(AppScope.read(context));
+  try {
+    final preview = worker.canvasPage(notebook);
+    if (preview == null) {
+      showMessage(context, 'Nothing to export yet: the canvas is empty');
+      return;
+    }
+    final options = await showExportSheet(
+      context,
+      title: notebook.title,
+      pages: [preview.page],
+      currentPage: 0,
+      canvas: true,
+    );
+    if (options == null || !context.mounted) return;
+    final name = '${safeFileName(notebook.title)}.${options.format.extension}';
+    final files = await runWithSteps(context, 'Exporting', subject: name, cancellable: true, (
+      progress,
+    ) async {
+      progress.stageStarted('Rendering…');
+      // Again: the sheet may have been open a while (sync, another pane).
+      final canvas = worker.canvasPage(notebook, template: options.includeTemplates);
+      if (canvas == null) return const <ExportFile>[];
+      final bytes = options.format == ExportFormat.pdf
+          ? await worker.canvasPdf(canvas, title: notebook.title)
+          : await worker.canvasPng(canvas, scale: pngScale);
+      progress.check(); // Cancelled meanwhile.
+      return [(bytes: bytes, name: name)];
+    });
+    if (files.isEmpty || !context.mounted) return;
+    final saved = await save(files, mime: options.format.mime);
+    if (saved == null || !context.mounted) return;
+    showMessage(context, 'Saved $saved');
+  } on Cancelled {
+    return;
+  } on Object catch (e, stack) {
+    debugPrint('Canvas export failed: $e\n$stack');
+    if (context.mounted) showMessage(context, 'Export failed: $e');
+  } finally {
+    if (exporter == null) await worker.dispose();
+  }
+}
