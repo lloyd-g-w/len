@@ -316,7 +316,11 @@ Sections are open ruled lists on Board, not cards: a hairline opens each
 section; its Small label heading (Graphite) hangs in a 160-dp margin column
 on wide screens (≥ 600 dp of column, text under 1.5×) and sits above the
 rows on narrow ones; rows are separated by hairlines that start at the text;
-controls right-aligned on wide rows, below on narrow ones. A row's press
+controls right-aligned on wide rows, below on narrow ones. A section's
+description says what it is for before its rows (the explanation before
+the form), in Caption, level with a hanging heading; a section never ends
+up as a lone sentence (where nothing can be set, a status row says what
+there is). A row's press
 plate overhangs its icon by 8 dp, so icons, headings and rules keep to the
 margin column.
 

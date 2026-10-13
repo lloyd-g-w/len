@@ -93,8 +93,10 @@ void main() {
 
   testWidgets('unsupported platforms explain that Android devices recognise', (tester) async {
     final services = await pumpSettings(tester, FakeRecognizer(supported: false));
-    expect(find.textContaining('written on Android is recognised there'), findsOneWidget);
-    expect(find.text('Search handwriting'), findsNothing, reason: 'no row that isn\'t a control');
+    expect(find.textContaining('recognised on Android'), findsOneWidget);
+    // A status row, not a toggle's name without its toggle.
+    expect(find.text('Search handwriting'), findsNothing);
+    expect(find.text('None yet'), findsOneWidget);
     expect(find.byType(AppSwitch), findsNothing, reason: 'no dead toggles');
     expect(find.text('Language'), findsNothing);
 
@@ -104,6 +106,6 @@ void main() {
     );
     await tester.runAsync(services.recognition.indexer.run); // Notifies when done.
     await tester.pump();
-    expect(find.textContaining('finds it here. 1 line so far'), findsOneWidget);
+    expect(find.text('1 line, searchable here'), findsOneWidget);
   });
 }

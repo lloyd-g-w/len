@@ -39,19 +39,31 @@ class HandwritingSettings extends StatelessWidget {
                 if (recognition.modelStatus != ModelStatus.downloaded) _model(context),
               ],
             )
-          // Nothing recognises here: a caption, no row (nothing to do).
-          : SettingsSection(title: 'Handwriting', description: _synced(), children: const []),
+          // Nothing recognises here: what search has from devices that do
+          // (a status, nothing to set).
+          : SettingsSection(
+              title: 'Handwriting',
+              description:
+                  'Handwriting is recognised on Android and syncs with your notes, so search '
+                  'finds it here too',
+              children: [_synced()],
+            ),
     );
   }
 
-  /// Where nothing recognises: what came from devices that do.
-  String _synced() {
+  /// Where nothing recognises: the handwriting synced from devices that do.
+  Widget _synced() {
     final indexer = recognition.indexer;
     final lines = indexer.lineCount;
-    const base =
-        'Handwriting written on Android is recognised there and synced, so search finds it here';
-    if (indexer.isIndexing) return '$base. Adding handwriting from your other devices…';
-    return lines == 0 ? base : '$base. $lines line${lines == 1 ? '' : 's'} so far';
+    return SettingsTile(
+      icon: Symbols.manage_search_sharp,
+      title: 'Handwriting from Android',
+      subtitle: indexer.isIndexing
+          ? 'Adding handwriting from your other devices…'
+          : lines == 0
+          ? 'None yet'
+          : '$lines line${lines == 1 ? '' : 's'}, searchable here',
+    );
   }
 
   Widget _language(BuildContext context) => SettingsTile(
