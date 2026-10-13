@@ -88,7 +88,7 @@ class HandwritingSettings extends StatelessWidget {
     if (!recognition.indexingEnabled) {
       status = 'Off: search finds typed text and PDFs only';
     } else if (recognition.modelStatus != ModelStatus.downloaded) {
-      status = 'Waits for the language model';
+      status = 'Waits for the handwriting model';
     } else if (pending > 0) {
       status = indexer.isIndexing
           ? 'Recognising… $pending page${pending == 1 ? '' : 's'} to go'
@@ -121,7 +121,7 @@ class HandwritingSettings extends StatelessWidget {
       icon: status == ModelStatus.downloaded
           ? Symbols.offline_pin_sharp
           : Symbols.download_for_offline_sharp,
-      title: 'Language model',
+      title: 'Handwriting model',
       subtitle: switch (status) {
         ModelStatus.downloaded => '$name is on this device',
         ModelStatus.downloading => 'Downloading $name…',

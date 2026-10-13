@@ -17,7 +17,8 @@ higher ones. `domain/` is plain Dart models (may use `dart:ui` geometry types).
 - **ui/** shared widgets and design tokens (`app_theme.dart`, which exports
   `design_tokens.dart` and `surfaces.dart`). Use the shared components instead
   of local styling: `AppDialog` / `confirmAction` for dialogs (their buttons lay out through
-  `DialogActions`), `showMessage`
+  `DialogActions`), `AppSwitch` / `AppSwitchTile` for switches (never
+  Material's `Switch`), `showMessage`
   for snack bars, `MenuRow` for popup menus, `showAdaptivePopover` for live
   settings, `showDialogOrSheet` + `SheetHeader` / `SheetActions` for task
   sheets, `FloatingPanel` for anything floating over the canvas,
