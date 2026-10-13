@@ -236,43 +236,40 @@ class _PdfLayerState extends State<PdfLayer> {
         delegate: PdfMenuPlacement(selected, roomAbove: roomAbove),
         child: Listener(
           onPointerDown: (_) => _onSelection = true,
+          // A floating panel like the ink selection menu (the pill is the
+          // page indicator's only).
           child: FloatingPanel(
-            radius: Radii.pill,
-            padding: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Gaps.xs),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  button('Copy', Symbols.content_copy_sharp, _copy, 'pdf-copy'),
-                  button('Highlight', Symbols.border_color_sharp, _highlight, 'pdf-highlight'),
-                  if (_pdf.selectedLink != null)
-                    IconButton(
-                      key: const ValueKey('pdf-open-link'),
-                      tooltip: 'Open link',
-                      icon: const Icon(Symbols.open_in_new_sharp, size: Glyphs.bar),
-                      onPressed: _pdf.openSelectedLink,
-                    ),
-                  if (_pdf.onLinkSelection case final link?)
-                    Builder(
-                      builder: (anchor) => IconButton(
-                        key: const ValueKey('pdf-link'),
-                        tooltip: 'Link…',
-                        icon: const Icon(Symbols.link_sharp, size: Glyphs.bar),
-                        onPressed: () async {
-                          final choice = await showLinkMenu(anchor);
-                          if (choice != null) link(url: choice == LinkChoice.url);
-                        },
-                      ),
-                    ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                button('Copy', Symbols.content_copy_sharp, _copy, 'pdf-copy'),
+                button('Highlight', Symbols.border_color_sharp, _highlight, 'pdf-highlight'),
+                if (_pdf.selectedLink != null)
                   IconButton(
-                    key: const ValueKey('pdf-select-all'),
-                    tooltip: 'Select all on page',
-                    icon: const Icon(Symbols.select_all_sharp, size: Glyphs.bar),
-                    onPressed: _pdf.selectAll,
+                    key: const ValueKey('pdf-open-link'),
+                    tooltip: 'Open link',
+                    icon: const Icon(Symbols.open_in_new_sharp, size: Glyphs.bar),
+                    onPressed: _pdf.openSelectedLink,
                   ),
-                ],
-              ),
+                if (_pdf.onLinkSelection case final link?)
+                  Builder(
+                    builder: (anchor) => IconButton(
+                      key: const ValueKey('pdf-link'),
+                      tooltip: 'Link…',
+                      icon: const Icon(Symbols.link_sharp, size: Glyphs.bar),
+                      onPressed: () async {
+                        final choice = await showLinkMenu(anchor);
+                        if (choice != null) link(url: choice == LinkChoice.url);
+                      },
+                    ),
+                  ),
+                IconButton(
+                  key: const ValueKey('pdf-select-all'),
+                  tooltip: 'Select all on page',
+                  icon: const Icon(Symbols.select_all_sharp, size: Glyphs.bar),
+                  onPressed: _pdf.selectAll,
+                ),
+              ],
             ),
           ),
         ),

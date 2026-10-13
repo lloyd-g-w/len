@@ -8,6 +8,7 @@ import 'package:len/features/settings/settings_screen.dart';
 import 'screenshot_harness.dart';
 
 const phone = Size(390, 844);
+const phoneSideways = Size(844, 390);
 const tabletPortrait = Size(800, 1280);
 const tablet = Size(1280, 800);
 const desktop = Size(1440, 900);
@@ -17,6 +18,7 @@ void main() {
 
   for (final (name, size, dpr) in [
     ('phone', phone, 2.0),
+    ('phone_sideways', phoneSideways, 2.0),
     ('tablet_portrait', tabletPortrait, 1.0),
     ('tablet', tablet, 1.0),
     ('desktop', desktop, 1.0),

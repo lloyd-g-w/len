@@ -10,6 +10,7 @@ import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
 import '../../../ui/even_grid.dart';
+import '../../../ui/group_header.dart';
 import '../pen/ink_slots.dart';
 import '../pen/option_controls.dart';
 import '../pen/size_scale.dart';
@@ -136,12 +137,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
         _sel.restyleText((t) => t.withFontSize(TextFormatBar.step(t.fontSize, direction)));
     return [
       OptionHeader(texts.length == 1 ? 'Text box' : '${texts.length} text boxes'),
-      Row(
-        children: [
-          Expanded(child: Text('Font', style: label)),
-          FontMenuButton(font: font, onSelected: (f) => _sel.restyleText((t) => t.withFont(f))),
-        ],
-      ),
+      FontMenuRow(font: font, onSelected: (f) => _sel.restyleText((t) => t.withFont(f))),
       Row(
         children: [
           Expanded(child: Text('Size', style: label)),
@@ -196,12 +192,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
         },
       ),
       const SizedBox(height: Gaps.sm),
-      Row(
-        children: [
-          Expanded(child: Text('Size', style: Theme.of(context).textTheme.labelLarge)),
-          Text(formatWidth(width), style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
+      GroupHeader('Size', value: formatWidth(width)),
       // The pen popover's log scale: fine pens get as much travel as broad.
       Slider(
         value: scale.toSlider(width),

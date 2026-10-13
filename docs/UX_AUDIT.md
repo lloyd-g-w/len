@@ -1,5 +1,37 @@
 # Len — UX/UI audit
 
+## Design review (`design/polish`, the Swiss-minimal redesign as a whole)
+
+A design lead's last critique before showing the client: all 687 renders
+from `test/screenshots/` (phone, phone sideways, tablet portrait and
+landscape, desktop; light, dark, 1.3× and 2× text) checked against
+`docs/DESIGN.md`. The areas had landed separately, so the review looked for
+seams between them: radii, hairlines, type roles, accent misuse, grey
+plates, Material leftovers and old tints. Fixed (details in DESIGN §9,
+"Final polish"):
+
+- Seams: three chip styles (Pencil edges, check glyph, borderless plate)
+  became one; popover headings mixed Small label and Ink label, readouts and
+  quiet buttons missed the right edge; sheets put their ✕ in three places;
+  the current row was a grey plate in the outline and link picker but the
+  margin rule elsewhere; radios were Graphite in menus and blue in export.
+- Leftovers: grey plates (All templates, Add page, the new-notebook preview
+  strip, the play button), a pill PDF selection bar, a blue wash on split
+  drop targets, a blue-tinted desk and laser slab, an orange current search
+  match, a round blue playhead, a circular spinner, rounded page miniatures,
+  a monospace hex field, `·` in planner labels.
+- Large text: template names broke mid-word; the editor search field shrank
+  to four letters; durations split from their units.
+- Layout: a phone held sideways got the desktop sidebar with one folder
+  visible; stacked folders had no rules; Music staff previews were blank on
+  phones; planner options previewed a crop of the month name.
+
+Left (ranked): the inactive split pane fades ink swatches with its chrome;
+settings' Handwriting section is a lone sentence without a row; the sync
+explanation sits under Connect; import dialogs on phones stack an outlined
+Cancel where other dialogs use a quiet one; the canvas ∞ badge is a
+saturated plate on covers.
+
 ## Round 5 audit (`review/ux-round5`)
 
 Scope: the app after the round 4 merges (navigation feel, editor chrome,

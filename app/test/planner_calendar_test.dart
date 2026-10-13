@@ -208,7 +208,7 @@ void main() {
       const russian = PlannerCalendar(weekStart: WeekStart.sunday, language: PlannerLanguage.ru);
       final ned = Paper.planner(PaperStyle.weeklyPlanner, d(2026, 10, 4), calendar: russian);
       expect(texts(ned), containsAll(['Неделя 41', 'ЗАМЕТКИ']));
-      expect(month.label, 'Monthly calendar · Oktober 2026');
+      expect(month.label, 'Monthly calendar, Oktober 2026');
     });
 
     test('the bundled Inter covers every label of every language', () {

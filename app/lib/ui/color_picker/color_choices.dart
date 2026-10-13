@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../app_theme.dart';
 import '../color_dot.dart';
 import '../even_grid.dart';
+import '../group_header.dart';
 import '../section_label.dart';
 import 'color_picker.dart';
 import 'color_swatches.dart';
@@ -81,22 +82,13 @@ class _ColorChoicesState extends State<ColorChoices> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                const Expanded(child: SectionLabel('Colour')),
-                TextButton.icon(
-                  onPressed: () => setState(() => _customOpen = !_customOpen),
-                  // Compact with a pointer; a full 48-dp target on touch.
-                  style: TextButton.styleFrom(
-                    visualDensity: Targets.touchFirst ? null : VisualDensity.compact,
-                  ),
-                  icon: Icon(
-                    _customOpen ? Symbols.expand_less_sharp : Symbols.palette_sharp,
-                    size: Glyphs.menu,
-                  ),
-                  label: const Text('Custom'),
-                ),
-              ],
+            GroupHeader(
+              'Colour',
+              trailing: EndTextButton(
+                onPressed: () => setState(() => _customOpen = !_customOpen),
+                icon: _customOpen ? Symbols.expand_less_sharp : Symbols.palette_sharp,
+                label: 'Custom',
+              ),
             ),
             grid(widget.palette, maxSpacing: touch ? double.infinity : _gap),
             if (recent.isNotEmpty) ...[

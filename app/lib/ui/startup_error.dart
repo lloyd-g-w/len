@@ -126,7 +126,10 @@ class _StartupErrorScreenState extends State<StartupErrorScreen> {
                   Text(
                     'The place where Len keeps them couldn\'t be opened, so nothing was '
                     'loaded or changed. $_advice',
-                    style: theme.textTheme.bodyMedium,
+                    // Body in Graphite under the title, like dialogs.
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   if (_folder case final folder?) ...[
                     const SizedBox(height: Gaps.md),

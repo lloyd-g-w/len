@@ -47,15 +47,22 @@ extension ThemeControls on ThemeData {
       ),
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
+        // A Rule edge; selected, an Ink plate without an edge or a check
+        // glyph (DESIGN §6), like a segmented control's selected segment.
         side: WidgetStateBorderSide.resolveWith(
-          (s) => BorderSide(color: on(s) ? scheme.onSurface : scheme.outline),
+          (s) => BorderSide(color: on(s) ? Colors.transparent : scheme.outlineVariant),
         ),
         // Unselected chips are outlined only, so they never read as holes
         // in a lighter dialog or sheet.
         backgroundColor: Colors.transparent,
         selectedColor: Surfaces.selected(scheme),
+        showCheckmark: false,
         checkmarkColor: scheme.onSurface,
-        labelStyle: textTheme.labelLarge,
+        labelStyle: textTheme.labelLarge?.copyWith(color: scheme.onSurface),
+        secondaryLabelStyle: textTheme.labelLarge?.copyWith(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
         elevation: 0,
         pressElevation: 0,
         iconTheme: const IconThemeData(size: Glyphs.menu),

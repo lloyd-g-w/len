@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/search/search_query.dart';
+import '../../ui/app_theme.dart';
 
 /// A search snippet with its matches emphasised (bold on a tinted
 /// background).
@@ -51,13 +52,16 @@ class HighlightedText extends StatelessWidget {
   }
 }
 
-/// Colours of search highlights.
+/// Colours of search highlights (DESIGN §1): every match is marked like a
+/// highlighter on paper, in marker yellow (content, a warmer amber in dark
+/// lists); the current match is a state, so it takes the accent: a ruling
+/// blue ring around its marker.
 abstract final class SearchColors {
   /// Marker yellow for matches (a warmer amber in dark mode).
   static Color match(ColorScheme scheme) =>
       scheme.brightness == Brightness.light ? const Color(0xFFFFD43B) : const Color(0xFFFFB020);
 
-  /// The current match on the page: orange (pages are light even in
-  /// dark mode, so this does not follow the theme).
-  static Color current(ColorScheme scheme) => const Color(0xFFF76707);
+  /// The ring around the current match on the page: the light theme's
+  /// ruling blue, since pages are light even in dark mode.
+  static Color current(ColorScheme scheme) => Tones.light.accent;
 }

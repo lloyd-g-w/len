@@ -10,8 +10,8 @@ import '../trim_range.dart';
 import 'audio_format.dart';
 
 /// The player's position control: the recording's waveform on a solid
-/// track (the part already heard in the accent colour) with a round thumb
-/// at the position, above a strip showing where ink was
+/// track (the part already heard in the accent colour) with an Ink tick
+/// at the position (the slider's thumb, DESIGN §6), above a strip showing where ink was
 /// written, with a dot at the start of each burst of writing.
 ///
 /// Tap or drag to seek; a tap on (or near) an ink dot plays from just
@@ -46,8 +46,8 @@ class WaveformScrubber extends StatefulWidget {
   /// Bars are this wide with this gap.
   static const double barWidth = 2.5, barGap = 1.5;
 
-  /// Radius of the round thumb at the position.
-  static const double thumbRadius = 6;
+  /// Size of the Ink tick at the position (the slider's thumb).
+  static const Size thumb = Size(4, 20);
 
   /// A tap this close (logical px) to an ink dot snaps to it.
   static const double snapDistance = 14;
@@ -127,8 +127,9 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
                 played: scheme.primary,
                 unplayed: scheme.onSurfaceVariant.withValues(alpha: 0.32),
                 ink: scheme.primary,
-                head: scheme.primary,
-                halo: Surfaces.raised(scheme.brightness),
+                head: scheme.onSurface,
+                // The docked audio strip's Board.
+                halo: Surfaces.chrome(scheme),
               ),
             ),
           );
@@ -206,10 +207,14 @@ class WaveformPainter extends CustomPainter {
       );
     }
     _paintInk(canvas, size);
-    const r = WaveformScrubber.thumbRadius;
+    final tick = Rect.fromCenter(
+      center: Offset(headX, mid),
+      width: WaveformScrubber.thumb.width,
+      height: WaveformScrubber.thumb.height,
+    );
     canvas
-      ..drawCircle(Offset(headX, mid), r + 2, Paint()..color = halo)
-      ..drawCircle(Offset(headX, mid), r, Paint()..color = head);
+      ..drawRect(tick.inflate(1.5), Paint()..color = halo)
+      ..drawRect(tick, Paint()..color = head);
   }
 
   /// Thickness of the track line.

@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../domain/text/text_data.dart';
 import '../../../../ui/app_theme.dart';
+import '../../../../ui/group_header.dart';
 import '../../../../ui/menus.dart';
 import '../../../settings/keyboard_shortcuts.dart' show modifierLabel;
 
@@ -58,6 +59,56 @@ class FontMenuButton extends StatelessWidget {
                 ),
               ),
             const Icon(Symbols.expand_more_sharp, size: Glyphs.bar),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Font … Sans ⌄" as a row of an options popover, like its other rows:
+/// the label, then the font's name (in itself) and a chevron flush with
+/// the end edge; the whole row opens the font menu.
+class FontMenuRow extends StatelessWidget {
+  const FontMenuRow({super.key, required this.font, required this.onSelected});
+
+  final TextFont? font;
+  final ValueChanged<TextFont> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final current = font;
+    return MenuButton<TextFont>(
+      key: const ValueKey('font-menu'),
+      tooltip: 'Font',
+      onSelected: onSelected,
+      items: () => [
+        for (final f in TextFont.values)
+          MenuRow(
+            value: f,
+            label: f.label,
+            labelStyle: FontMenuButton.sample(f),
+            checked: f == current,
+          ),
+      ],
+      child: SizedBox(
+        height: Targets.menuRowHeight(context),
+        child: Row(
+          children: [
+            Expanded(child: Text('Font', style: theme.textTheme.labelLarge)),
+            Text(
+              current?.label ?? 'Mixed',
+              style: current == null ? theme.textTheme.bodySmall : FontMenuButton.sample(current),
+            ),
+            const SizedBox(width: Gaps.xs),
+            EndChevron(
+              child: Icon(
+                Symbols.expand_more_sharp,
+                size: Glyphs.bar,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),

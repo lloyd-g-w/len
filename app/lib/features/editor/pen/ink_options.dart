@@ -6,6 +6,7 @@ import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_picker/color_choices.dart';
 import '../../../ui/color_picker/color_swatches.dart';
+import '../../../ui/group_header.dart';
 import 'ink_slots.dart';
 import 'option_controls.dart';
 import 'option_sections.dart';
@@ -81,7 +82,7 @@ class _InkOptionsState extends State<InkOptions> {
                 ],
               ),
             ],
-            const SizedBox(height: Gaps.md),
+            const SizedBox(height: Gaps.sm),
             ColorChoices(
               color: config.color,
               palette: _palette,
@@ -177,9 +178,9 @@ class _ResetFeel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final defaults = config.withFeelDefaults(ink);
-    return TextButton(
+    return EndTextButton(
       onPressed: config == defaults ? null : () => onReset(defaults),
-      child: const Text('Reset feel'),
+      label: 'Reset feel',
     );
   }
 }

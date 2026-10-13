@@ -218,15 +218,19 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
     },
   );
 
+  /// A choice in a group: checked in the accent, like a checked menu row.
   Widget _radio(bool selected, String label, VoidCallback onPressed, {SingleActivator? shortcut}) =>
-      MenuItemButton(
-        leadingIcon: Icon(
-          selected ? Symbols.radio_button_checked_sharp : Symbols.radio_button_unchecked_sharp,
-          fill: selected ? 1 : 0,
+      Builder(
+        builder: (context) => MenuItemButton(
+          leadingIcon: Icon(
+            selected ? Symbols.radio_button_checked_sharp : Symbols.radio_button_unchecked_sharp,
+            fill: selected ? 1 : 0,
+            color: selected ? Theme.of(context).colorScheme.primary : null,
+          ),
+          shortcut: Targets.touchFirst ? null : shortcut,
+          onPressed: onPressed,
+          child: Text(label),
         ),
-        shortcut: Targets.touchFirst ? null : shortcut,
-        onPressed: onPressed,
-        child: Text(label),
       );
 
   /// A submenu: beside the menu where there is room, in its place on

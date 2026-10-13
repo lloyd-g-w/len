@@ -65,7 +65,9 @@ class _RecordingsListState extends State<RecordingsList> {
           constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
           child: ListView(
             shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(Gaps.sm, 0, Gaps.sm, Gaps.lg),
+            // The popover (or sheet) pads 16; rows add Gaps.sm, so their
+            // plates overhang the text and titles start 24 in.
+            padding: const EdgeInsets.only(bottom: Gaps.lg),
             children: [
               _selected == null ? _header(context, recordings) : _selectionHeader(recordings),
               if (recordings.isEmpty) _empty(context),
@@ -86,7 +88,7 @@ class _RecordingsListState extends State<RecordingsList> {
   Widget _header(BuildContext context, List<Recording> recordings) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Gaps.lg, 0, Gaps.sm, Gaps.sm),
+      padding: const EdgeInsets.fromLTRB(Gaps.sm, 0, 0, Gaps.sm),
       child: Row(
         children: [
           Expanded(
@@ -140,7 +142,7 @@ class _RecordingsListState extends State<RecordingsList> {
     ];
     final all = selected.length == recordings.length;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Gaps.xs, 0, Gaps.sm, Gaps.sm),
+      padding: const EdgeInsets.only(bottom: Gaps.sm),
       child: Row(
         children: [
           IconButton(
@@ -237,6 +239,7 @@ class _RecordingTile extends StatelessWidget {
     return ListTile(
       key: ValueKey('recording-${recording.id}'),
       selected: open && !selecting,
+      contentPadding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
       leading: selecting
           ? Checkbox(value: selected, onChanged: (_) => onSelect())
           : Icon(

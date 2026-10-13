@@ -129,6 +129,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
 
   Widget _fieldRow(BuildContext context, {required bool showList, required bool compact}) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final count = _c.matches.length;
     final hasMatches = count > 0;
     // Nothing while the list below says "No matches"; one format everywhere.
@@ -137,66 +138,129 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
         : _c.current >= 0
         ? '${_c.current + 1} of $count'
         : (count == 1 ? '1 match' : '$count matches');
+    final counterStyle = theme.textTheme.bodySmall?.copyWith(fontFeatures: AppTheme.tabularFigures);
     // Compact buttons save room on narrow windows, but not under fingers
     // (they would drop below 48 dp).
     final density = compact && !Targets.touchFirst ? VisualDensity.compact : null;
-    return Row(
-      children: [
-        const SizedBox(width: Gaps.sm),
-        Icon(Symbols.search_sharp, size: Glyphs.bar, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: Gaps.sm),
-        Expanded(
-          child: TextField(
-            controller: _text,
-            focusNode: _focus,
-            onChanged: _c.setQuery,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) {
-              _next();
-              _focus.requestFocus(); // Keep typing / pressing Enter.
-            },
-            decoration: const InputDecoration(
-              hintText: 'Search this notebook',
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              filled: false,
-              isDense: true,
-            ),
+    final field = TextField(
+      controller: _text,
+      focusNode: _focus,
+      onChanged: _c.setQuery,
+      textInputAction: TextInputAction.search,
+      onSubmitted: (_) {
+        _next();
+        _focus.requestFocus(); // Keep typing / pressing Enter.
+      },
+      decoration: const InputDecoration(
+        hintText: 'Search this notebook',
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        filled: false,
+        isDense: true,
+      ),
+    );
+    final steps = [
+      IconButton(
+        tooltip: 'Previous (Shift+Enter)',
+        visualDensity: density,
+        onPressed: hasMatches ? _previous : null,
+        icon: const Icon(Symbols.keyboard_arrow_up_sharp),
+      ),
+      IconButton(
+        tooltip: 'Next (Enter)',
+        visualDensity: density,
+        onPressed: hasMatches ? _next : null,
+        icon: const Icon(Symbols.keyboard_arrow_down_sharp),
+      ),
+      // On: the ink plate and the filled glyph, like a selected tool.
+      IconButton(
+        tooltip: showList ? 'Hide results' : 'Show results',
+        visualDensity: density,
+        isSelected: showList,
+        onPressed: () => setState(() => _showList = !showList),
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected) ? Surfaces.selected(scheme) : null,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? null
+                : states.contains(WidgetState.selected)
+                ? scheme.onSurface
+                : null,
+          ),
+          shape: const WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(Radii.xs))),
           ),
         ),
-        Text(
-          counter,
-          style: theme.textTheme.bodySmall?.copyWith(fontFeatures: AppTheme.tabularFigures),
-        ),
-        IconButton(
-          tooltip: 'Previous (Shift+Enter)',
-          visualDensity: density,
-          onPressed: hasMatches ? _previous : null,
-          icon: const Icon(Symbols.keyboard_arrow_up_sharp),
-        ),
-        IconButton(
-          tooltip: 'Next (Enter)',
-          visualDensity: density,
-          onPressed: hasMatches ? _next : null,
-          icon: const Icon(Symbols.keyboard_arrow_down_sharp),
-        ),
-        IconButton(
-          tooltip: showList ? 'Hide results' : 'Show results',
-          visualDensity: density,
-          isSelected: showList,
-          onPressed: () => setState(() => _showList = !showList),
-          icon: const Icon(Symbols.list_sharp),
-        ),
-        IconButton(
-          tooltip: 'Close (Esc)',
-          visualDensity: density,
-          onPressed: _close,
-          icon: const Icon(Symbols.close_sharp),
-        ),
-      ],
+        icon: const Icon(Symbols.list_sharp),
+        selectedIcon: const Icon(Symbols.list_sharp, fill: 1),
+      ),
+    ];
+    final close = IconButton(
+      tooltip: 'Close (Esc)',
+      visualDensity: density,
+      onPressed: _close,
+      icon: const Icon(Symbols.close_sharp),
+    );
+    final leading = [
+      const SizedBox(width: Gaps.sm),
+      Icon(Symbols.search_sharp, size: Glyphs.bar, color: scheme.onSurfaceVariant),
+      const SizedBox(width: Gaps.sm),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The field comes first: when the counter and the buttons would
+        // squeeze it (large text on a phone), they move to a second line.
+        final scaler = MediaQuery.textScalerOf(context);
+        final painter = TextPainter(
+          text: TextSpan(text: counter, style: counterStyle),
+          textDirection: TextDirection.ltr,
+          textScaler: scaler,
+          maxLines: 1,
+        )..layout();
+        final counterWidth = painter.width;
+        painter.dispose();
+        const buttons = 4 * Targets.touch, lead = Gaps.sm * 2 + Glyphs.bar;
+        final room = constraints.maxWidth - lead - buttons - counterWidth;
+        if (room >= scaler.scale(_minField)) {
+          return Row(
+            children: [
+              ...leading,
+              Expanded(child: field),
+              Text(counter, style: counterStyle),
+              ...steps,
+              close,
+            ],
+          );
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                ...leading,
+                Expanded(child: field),
+                close,
+              ],
+            ),
+            Row(
+              children: [
+                const SizedBox(width: Gaps.sm),
+                Expanded(child: Text(counter, style: counterStyle)),
+                ...steps,
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
+
+  /// The field's least width (at 1× text) before the bar takes two lines.
+  static const double _minField = 80;
 
   Widget _results(BuildContext context, {required bool compact}) {
     final theme = Theme.of(context);

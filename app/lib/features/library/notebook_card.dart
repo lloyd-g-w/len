@@ -117,7 +117,12 @@ class _NotebookCardState extends State<NotebookCard> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                NotebookCover.of(_notebook),
+                // Trashed notebooks look faded but recognisable; the
+                // selection mark and ring keep their colours.
+                if (_notebook.isTrashed)
+                  fadedCover(NotebookCover.of(_notebook))
+                else
+                  NotebookCover.of(_notebook),
                 if (_selecting) SelectionMark(selected: _selected),
               ],
             ),
@@ -146,8 +151,7 @@ class _NotebookCardState extends State<NotebookCard> {
                   child: NotebookCover.of(_notebook),
                 ),
                 onLongPressMenu: () => unawaited(_showMenu()),
-                // Trashed notebooks look faded but recognisable.
-                child: _notebook.isTrashed ? fadedCover(cover) : cover,
+                child: cover,
               ),
             ),
             // A fixed caption area, so every cover in a row is as tall.

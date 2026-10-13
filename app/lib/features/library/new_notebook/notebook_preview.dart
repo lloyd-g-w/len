@@ -72,14 +72,13 @@ class NotebookPreview extends StatelessWidget {
           SizedBox(width: height * 0.08),
           _Lifted(
             brightness: brightness,
-            radius: 3,
+            radius: 0, // A page corner is square (DESIGN §3).
             child: AnimatedContainer(
               duration: Motion.medium,
               curve: Motion.standard,
               width: pageWidth,
               height: height,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(3),
+              child: ClipRect(
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -94,7 +93,7 @@ class NotebookPreview extends StatelessWidget {
                         bottom: 8,
                         child: Icon(
                           Symbols.all_inclusive_sharp,
-                          size: 18,
+                          size: Glyphs.menu,
                           color: Color(coverColor).withValues(alpha: 0.85),
                         ),
                       ),
@@ -109,6 +108,8 @@ class NotebookPreview extends StatelessWidget {
   }
 }
 
+/// Paper at rest: the contact shadow, like covers in the library (a
+/// lifted shadow would be clipped by the sheet's preview strip).
 class _Lifted extends StatelessWidget {
   const _Lifted({required this.brightness, required this.radius, required this.child});
 
@@ -120,7 +121,7 @@ class _Lifted extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(radius),
-      boxShadow: Shadows.high(brightness),
+      boxShadow: Shadows.low(brightness),
     ),
     child: child,
   );

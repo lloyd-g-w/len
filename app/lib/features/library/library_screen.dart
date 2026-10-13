@@ -30,8 +30,8 @@ import 'thumbnails/thumbnail_scope.dart';
 
 /// Home screen: the notebook library with folders, favourites and trash.
 ///
-/// From [Breakpoints.medium] a sidebar; below it the same content in a
-/// drawer (☰). Shortcuts: Ctrl+N new notebook, Ctrl+Shift+N new folder,
+/// From [Breakpoints.medium] a sidebar (unless the window is short, a
+/// phone held sideways); below it the same content in a drawer (☰). Shortcuts: Ctrl+N new notebook, Ctrl+Shift+N new folder,
 /// Ctrl+F search, Ctrl+A select all, Delete (⌘⌫ on Macs) moves the focused
 /// (or selected) notebooks to the trash, F2 renames the focused notebook,
 /// Esc ends selection or clears the search. Ctrl- and Shift-click select
@@ -246,8 +246,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
               child: LibraryFileDrop(
                 onFiles: (files) => unawaited(_imports.enqueue(context, files, offerInsert: false)),
                 child: LayoutBuilder(
-                  builder: (context, constraints) =>
-                      constraints.maxWidth < Breakpoints.medium ? _phone(context) : _wide(context),
+                  builder: (context, constraints) => Breakpoints.libraryCompact(constraints.biggest)
+                      ? _phone(context)
+                      : _wide(context),
                 ),
               ),
             ),

@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
-/// A horizontal 0..1 slider drawn as a rounded gradient track (hue or
-/// opacity), optionally over a checkerboard for transparency.
+import '../app_theme.dart';
+
+/// A horizontal 0..1 slider drawn as a gradient band (hue or opacity),
+/// optionally over a checkerboard for transparency, with the sliders' ink
+/// tick for a thumb (DESIGN §6): square-ish ([Radii.xs]), like a ruler.
 class GradientSlider extends StatelessWidget {
   const GradientSlider({
     super.key,
     required this.value,
     required this.colors,
-    required this.thumbColor,
     required this.onChanged,
     required this.label,
     this.checkerboard = false,
@@ -19,9 +21,6 @@ class GradientSlider extends StatelessWidget {
   /// Track gradient, left to right.
   final List<Color> colors;
 
-  /// Fill of the thumb (usually the colour at [value]).
-  final Color thumbColor;
-
   /// Called with the new 0..1 value while tapping or dragging.
   final ValueChanged<double> onChanged;
 
@@ -31,8 +30,14 @@ class GradientSlider extends StatelessWidget {
   /// Draws a checkerboard under the track, to show transparency.
   final bool checkerboard;
 
-  /// Height of the slider (and diameter of its thumb).
+  /// Height of the slider (its hit area, and its thumb's length).
   static const double height = 28;
+
+  /// Height of the gradient band.
+  static const double band = 16;
+
+  /// Width of the thumb's tick.
+  static const double tick = 4;
 
   /// The hue spectrum, for a hue slider.
   static const List<Color> hues = [
@@ -46,7 +51,7 @@ class GradientSlider extends StatelessWidget {
   ];
 
   void _update(double dx, double width) {
-    const inset = height / 2;
+    const inset = tick / 2;
     final track = width - 2 * inset;
     if (track <= 0) return; // Too narrow to have a track.
     onChanged(((dx - inset) / track).clamp(0.0, 1.0));
@@ -63,6 +68,7 @@ class GradientSlider extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
+            final scheme = Theme.of(context).colorScheme;
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
               onHorizontalDragDown: (d) => _update(d.localPosition.dx, width),
@@ -73,7 +79,9 @@ class GradientSlider extends StatelessWidget {
                 painter: _TrackPainter(
                   value: value,
                   colors: colors,
-                  thumbColor: thumbColor,
+                  ink: scheme.onSurface,
+                  surface: Surfaces.overlay(scheme.brightness),
+                  edge: scheme.outlineVariant,
                   checkerboard: checkerboard,
                 ),
               ),
@@ -89,41 +97,62 @@ class _TrackPainter extends CustomPainter {
   _TrackPainter({
     required this.value,
     required this.colors,
-    required this.thumbColor,
+    required this.ink,
+    required this.surface,
+    required this.edge,
     required this.checkerboard,
   });
 
   final double value;
   final List<Color> colors;
-  final Color thumbColor;
+
+  /// The tick's colour, the hairline of [surface] around it (so it reads
+  /// over any hue) and the band's Rule edge.
+  final Color ink;
+  final Color surface;
+  final Color edge;
   final bool checkerboard;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final r = size.height / 2;
-    final track = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(r));
+    const t = GradientSlider.tick;
+    final band = Rect.fromLTWH(
+      0,
+      (size.height - GradientSlider.band) / 2,
+      size.width,
+      GradientSlider.band,
+    );
+    final track = RRect.fromRectAndRadius(band, const Radius.circular(Radii.xs));
     canvas
       ..save()
       ..clipRRect(track);
     if (checkerboard) _paintChecker(canvas, size);
     canvas
-      ..drawRect(
-        Offset.zero & size,
-        Paint()..shader = LinearGradient(colors: colors).createShader(Offset.zero & size),
-      )
+      ..drawRect(band, Paint()..shader = LinearGradient(colors: colors).createShader(band))
       ..restore()
       ..drawRRect(
-        track,
+        track.deflate(Hairline.width / 2),
         Paint()
           ..style = PaintingStyle.stroke
-          ..color = const Color(0x22000000),
+          ..strokeWidth = Hairline.width
+          ..color = edge,
       );
 
-    final center = Offset(r + value * (size.width - 2 * r), r);
+    final x = t / 2 + value * (size.width - t);
+    final thumb = Rect.fromCenter(
+      center: Offset(x, size.height / 2),
+      width: t,
+      height: size.height,
+    );
     canvas
-      ..drawCircle(center, r - 1, Paint()..color = const Color(0x33000000))
-      ..drawCircle(center, r - 2, Paint()..color = Colors.white)
-      ..drawCircle(center, r - 6, Paint()..color = thumbColor);
+      ..drawRRect(
+        RRect.fromRectAndRadius(thumb.inflate(Hairline.width), const Radius.circular(Radii.xs)),
+        Paint()..color = surface,
+      )
+      ..drawRRect(
+        RRect.fromRectAndRadius(thumb, const Radius.circular(Radii.xs / 2)),
+        Paint()..color = ink,
+      );
   }
 
   static void _paintChecker(Canvas canvas, Size size) {
@@ -141,7 +170,9 @@ class _TrackPainter extends CustomPainter {
   @override
   bool shouldRepaint(_TrackPainter old) =>
       old.value != value ||
-      old.thumbColor != thumbColor ||
+      old.ink != ink ||
+      old.surface != surface ||
+      old.edge != edge ||
       old.checkerboard != checkerboard ||
       !_sameColors(old.colors, colors);
 

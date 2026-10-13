@@ -195,12 +195,16 @@ class _PageOverviewState extends State<PageOverview> {
               )
             : null,
         body: _filter == OverviewFilter.outline
-            // A readable column under the filter, not the full width.
+            // A readable column under the filter, its text on the filter's
+            // margin (the outline's own margin is Gaps.lg).
             ? Align(
-                alignment: Alignment.topCenter,
+                alignment: AlignmentDirectional.topStart,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 640),
-                  child: widget.outline!(context, (page) => Navigator.of(context).pop(page)),
+                  child: Padding(
+                    padding: EdgeInsetsDirectional.only(start: compact ? 0 : Gaps.xxl - Gaps.lg),
+                    child: widget.outline!(context, (page) => Navigator.of(context).pop(page)),
+                  ),
                 ),
               )
             : shown.isEmpty

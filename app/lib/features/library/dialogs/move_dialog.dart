@@ -51,7 +51,7 @@ Future<MoveTarget?> showMoveDialog(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(Gaps.xl, wide ? Gaps.lg : 0, Gaps.md, Gaps.sm),
+          padding: EdgeInsets.fromLTRB(Gaps.xl, wide ? Gaps.lg : 0, Gaps.xl, Gaps.sm),
           child: SheetHeader(title: title, onClose: () => Navigator.pop(context)),
         ),
         // Choosing a folder moves there at once: no footer.

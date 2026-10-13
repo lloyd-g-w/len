@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/group_header.dart';
 
 /// A collapsible section: its label, an optional [summary] and a chevron,
 /// then [child] when open.
@@ -49,13 +50,15 @@ class OptionDisclosure extends StatelessWidget {
                     Text(summary, style: theme.textTheme.bodySmall),
                     const SizedBox(width: Gaps.xs),
                   ],
-                  AnimatedRotation(
-                    turns: open ? 0.5 : 0,
-                    duration: Motion.fast,
-                    child: Icon(
-                      Symbols.expand_more_sharp,
-                      size: Glyphs.bar,
-                      color: theme.colorScheme.onSurfaceVariant,
+                  EndChevron(
+                    child: AnimatedRotation(
+                      turns: open ? 0.5 : 0,
+                      duration: Motion.fast,
+                      child: Icon(
+                        Symbols.expand_more_sharp,
+                        size: Glyphs.bar,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],

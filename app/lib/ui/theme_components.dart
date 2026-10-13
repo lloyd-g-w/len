@@ -180,7 +180,14 @@ extension ThemeComponents on ThemeData {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
+        // In dark mode the slab is light, like the paper it often floats
+        // over: a Pencil edge keeps it apart.
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Radii.md),
+          side: scheme.brightness == Brightness.dark
+              ? BorderSide(color: scheme.outline)
+              : BorderSide.none,
+        ),
         backgroundColor: scheme.inverseSurface,
         contentTextStyle: textTheme.bodyMedium?.copyWith(color: scheme.onInverseSurface),
         actionTextColor: scheme.inversePrimary,
@@ -264,6 +271,15 @@ extension ThemeComponents on ThemeData {
         if (states.contains(WidgetState.hovered)) return Surfaces.hovered(scheme);
         return null;
       });
+
+  /// An Ink-filled icon button, the one primary control of a strip (the
+  /// audio player's play button): `IconButton.filled(style: inkIconButton(scheme))`.
+  static ButtonStyle inkIconButton(ColorScheme scheme) => IconButton.styleFrom(
+    backgroundColor: scheme.onSurface,
+    foregroundColor: scheme.surface,
+    disabledBackgroundColor: scheme.outlineVariant,
+    disabledForegroundColor: scheme.onSurfaceVariant,
+  ).copyWith(overlayColor: _inverseOverlay(scheme));
 
   /// The overlay of Ink-filled controls: the Board colour over the ink.
   static WidgetStateProperty<Color?> _inverseOverlay(ColorScheme scheme) =>

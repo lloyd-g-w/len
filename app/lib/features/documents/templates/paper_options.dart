@@ -5,6 +5,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
 import '../../../ui/color_picker/custom_color_swatch.dart';
 import '../../../ui/color_picker/pick_color.dart';
+import '../template_preview.dart';
 import 'page_setup.dart';
 import 'paper_option_rows.dart';
 import 'paper_swatch.dart';
@@ -86,7 +87,12 @@ class PaperOptions extends StatelessWidget {
               ),
           ],
         ),
-        if (!image && swatch) ...[
+        // Planners are page layouts: a corner at actual size would show
+        // just a crop of the heading, so they get the whole page.
+        if (!image && swatch && style.isPlanner) ...[
+          PagePreview(template: template),
+          const SizedBox(height: Gaps.md),
+        ] else if (!image && swatch) ...[
           PaperSwatch(template: template, canvas: canvas),
           const SizedBox(height: Gaps.sm),
         ],

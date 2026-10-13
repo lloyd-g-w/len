@@ -7,7 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 
-/// Focus mode's way out (REDESIGN §2.7): a small 32-dp button in the
+/// Focus mode's way out (REDESIGN §2.7): a bar-sized button in the
 /// corner that brings the toolbar and top bar back. (The tools stay at hand
 /// in the `ToolPuck`.) It shows in full for [announce] after focus mode
 /// starts, then rests at [restingOpacity] until hovered or touched; touch
@@ -77,7 +77,7 @@ class _FocusHandleState extends State<FocusHandle> {
           duration: Motion.fast,
           child: Tooltip(
             message: 'Show toolbars (F11)',
-            // 32 dp to see, but a full bar target around it.
+            // A bar button on a floating panel, a full bar target around it.
             child: Semantics(
               button: true,
               child: GestureDetector(
@@ -89,10 +89,10 @@ class _FocusHandleState extends State<FocusHandle> {
                     child: FloatingPanel(
                       padding: EdgeInsets.zero,
                       child: SizedBox.square(
-                        dimension: 32,
+                        dimension: Targets.bar,
                         child: Icon(
                           Symbols.fullscreen_exit_sharp,
-                          size: Glyphs.menu,
+                          size: Glyphs.bar,
                           color: scheme.onSurface,
                         ),
                       ),

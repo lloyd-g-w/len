@@ -8,17 +8,20 @@ import 'color_picker.dart';
 /// anchored at [context] (a sheet on phones), with [recent] colours.
 /// Like every popover it has no buttons: [live] sees each change as it is
 /// made (previews), and closing it returns the last colour picked; null if
-/// none was.
+/// none was. [anchor] overrides where the popover anchors (see
+/// [showAdaptivePopover]).
 Future<int?> pickColor(
   BuildContext context, {
   required String title,
   required int initial,
   List<int> recent = const [],
   ValueChanged<int>? live,
+  Rect? anchor,
 }) async {
   int? picked;
   await showAdaptivePopover<void>(
     context: context,
+    anchor: anchor,
     builder: (_) => _PickColor(
       title: title,
       initial: initial,

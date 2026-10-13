@@ -232,15 +232,15 @@ class _StripPage extends StatelessWidget {
                 duration: Motion.fast,
                 width: width,
                 height: GoToPageDialog.thumbHeight,
+                // Page miniatures are square; the chosen one gets the 2-dp
+                // accent ring (DESIGN §7).
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(Radii.sm),
                   border: Border.all(
                     color: target ? scheme.primary : scheme.outlineVariant,
-                    width: target ? 2.5 : 1,
+                    width: target ? Hairline.rule : Hairline.width,
                   ),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(Radii.sm - 1),
+                child: ClipRect(
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -270,8 +270,8 @@ class _StripPage extends StatelessWidget {
               Text(
                 '$number',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: target ? scheme.primary : null,
-                  fontWeight: target ? FontWeight.w600 : null,
+                  color: target ? scheme.onSurface : null,
+                  fontWeight: target ? FontWeight.w700 : null,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),

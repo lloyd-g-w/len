@@ -6,6 +6,7 @@ import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/sidebar_item.dart' show MarginRule;
 import '../editor_session.dart';
 
 /// Asks for a web address; null if cancelled.
@@ -154,28 +155,37 @@ class _PagePickerState extends State<_PagePicker> {
                       itemBuilder: (context, i) {
                         final page = pages[i];
                         final names = titles[page.id];
-                        return ListTile(
-                          key: ValueKey('link-page-$i'),
-                          dense: true,
-                          selected: i == current,
-                          leading: Icon(
-                            page.bookmarked ? Symbols.bookmark_sharp : Symbols.description_sharp,
-                            fill: page.bookmarked ? 1 : 0,
-                            size: 20,
-                            color: page.bookmarked ? Palette.bookmark : null,
-                          ),
-                          title: Text(i == current ? 'Page ${i + 1} (this page)' : 'Page ${i + 1}'),
-                          subtitle: names == null
-                              ? null
-                              : Text(
-                                  names.join(', '),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                          onTap: () => Navigator.pop(
-                            context,
-                            PageLinkTarget(notebookId: _notebookId!, pageId: page.id),
+                        // This page carries the margin rule and a bold
+                        // label, no plate (DESIGN §6).
+                        return MarginRule(
+                          current: i == current,
+                          child: ListTile(
+                            key: ValueKey('link-page-$i'),
+                            dense: true,
+                            leading: Icon(
+                              page.bookmarked ? Symbols.bookmark_sharp : Symbols.description_sharp,
+                              fill: page.bookmarked ? 1 : 0,
+                              size: 20,
+                              color: page.bookmarked ? Palette.bookmark : null,
+                            ),
+                            title: Text(
+                              i == current ? 'Page ${i + 1} (this page)' : 'Page ${i + 1}',
+                              style: i == current
+                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  : null,
+                            ),
+                            subtitle: names == null
+                                ? null
+                                : Text(
+                                    names.join(', '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                            onTap: () => Navigator.pop(
+                              context,
+                              PageLinkTarget(notebookId: _notebookId!, pageId: page.id),
+                            ),
                           ),
                         );
                       },

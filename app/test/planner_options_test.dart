@@ -108,11 +108,11 @@ void main() {
         paper: Paper.planner(PaperStyle.weeklyPlanner, _today, calendar: sunday),
       ),
     );
-    expect(find.text('Week 42 · October 11 – 17, 2026'), findsOneWidget);
+    expect(find.text('Week 42, October 11 – 17, 2026'), findsOneWidget);
     await _tap(tester, find.text('More options'));
     final weekStart = find.byKey(const ValueKey('planner-week-start'));
     await _tap(tester, find.descendant(of: weekStart, matching: find.text('Monday')));
-    expect(find.text('Week 41 · October 5 – 11, 2026'), findsOneWidget);
+    expect(find.text('Week 41, October 5 – 11, 2026'), findsOneWidget);
     await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(

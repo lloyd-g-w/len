@@ -9,6 +9,7 @@ import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/paper_pattern.dart';
 import 'package:len/features/documents/templates/user_templates.dart';
+import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
@@ -98,7 +99,9 @@ void main() {
           await settle(tester);
 
           // Save page as template: the name prompt, then the snack bar.
-          final editor = tester.element(find.byType(EditorScreen));
+          // From inside the editor (as its menu does), under its
+          // MessageInsets: the snack bar clears the bottom chrome.
+          final editor = tester.element(find.byType(EditorChrome).first);
           unawaited(
             UserTemplates.savePng(
               editor,

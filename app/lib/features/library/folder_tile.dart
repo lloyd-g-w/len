@@ -31,6 +31,9 @@ class FolderTile extends StatefulWidget {
   /// The narrowest a tile gets at 1× text (scaled with the text).
   static const double minWidth = 150;
 
+  /// Where the name starts: past the padding, the glyph and its gap.
+  static const double textInset = Gaps.xxs + Glyphs.bar + Gaps.md;
+
   @override
   State<FolderTile> createState() => _FolderTileState();
 }
@@ -100,7 +103,7 @@ class _FolderTileState extends State<FolderTile> {
             child: Row(
               children: [
                 Icon(Symbols.folder_sharp, fill: 1, color: Color(_folder.color), size: Glyphs.bar),
-                const SizedBox(width: Gaps.md),
+                const SizedBox(width: Gaps.md), // FolderTile.textInset
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,

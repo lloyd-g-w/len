@@ -182,7 +182,7 @@ class LibraryNotice extends StatelessWidget {
     final scheme = theme.colorScheme;
     final tint = tone == NoticeTone.warning ? scheme.error : scheme.primary;
     // The screen's margin column (DESIGN §3).
-    final margin = MediaQuery.sizeOf(context).width < Breakpoints.medium ? Gaps.lg : Gaps.xl;
+    final margin = Breakpoints.libraryCompact(MediaQuery.sizeOf(context)) ? Gaps.lg : Gaps.xl;
     return Semantics(
       container: true,
       liveRegion: true,

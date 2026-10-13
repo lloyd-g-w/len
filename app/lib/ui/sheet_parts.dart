@@ -45,9 +45,25 @@ class SheetHeader extends StatelessWidget {
           ),
         ),
         ?trailing,
-        if (onClose != null)
-          IconButton(tooltip: 'Close', icon: const Icon(Symbols.close_sharp), onPressed: onClose),
+        if (onClose != null) _close(context, onClose!),
       ],
+    );
+  }
+
+  /// The ✕, its glyph on the content's right edge (the button's padding
+  /// hangs into the sheet's margin), wherever the header sits.
+  static Widget _close(BuildContext context, VoidCallback onClose) {
+    final hit = Targets.barHit(context);
+    return Transform.translate(
+      offset: Offset((hit - Glyphs.bar) / 2, 0),
+      child: SizedBox.square(
+        dimension: hit,
+        child: IconButton(
+          tooltip: 'Close',
+          icon: const Icon(Symbols.close_sharp),
+          onPressed: onClose,
+        ),
+      ),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../domain/recording.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/messages.dart';
+import '../../../ui/theme_components.dart';
 import '../notebook_audio.dart';
 import '../trim_range.dart';
 import 'audio_format.dart';
@@ -93,10 +94,14 @@ class TrimPanel extends StatelessWidget {
           padding: const EdgeInsets.only(top: Gaps.xxs, right: Gaps.sm, bottom: Gaps.xs),
           child: Row(
             children: [
-              IconButton.filledTonal(
+              IconButton.filled(
+                style: ThemeComponents.inkIconButton(Theme.of(context).colorScheme),
                 tooltip: playback.playing ? 'Pause (Space)' : 'Play the kept audio (Space)',
                 onPressed: playback.loading ? null : () => unawaited(playback.toggle()),
-                icon: Icon(playback.playing ? Symbols.pause_sharp : Symbols.play_arrow_sharp),
+                icon: Icon(
+                  playback.playing ? Symbols.pause_sharp : Symbols.play_arrow_sharp,
+                  fill: 1,
+                ),
               ),
               const SizedBox(width: Gaps.xs),
               TextButton(

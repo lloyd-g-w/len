@@ -157,13 +157,16 @@ class _LibraryHeaderState extends State<LibraryHeader> {
             ),
           ),
         ),
-        const SizedBox(height: Gaps.xxs),
-        Text(
-          caption,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodySmall,
-        ),
+        // No empty caption line: the title then centres on the ☰ and tools.
+        if (caption.isNotEmpty) ...[
+          const SizedBox(height: Gaps.xxs),
+          Text(
+            caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
       ],
     );
     return LayoutBuilder(

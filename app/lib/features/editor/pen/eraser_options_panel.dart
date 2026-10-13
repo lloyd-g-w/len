@@ -32,7 +32,7 @@ class EraserOptionsPanel extends StatelessWidget {
                 onChanged: update,
               ),
             ),
-            const SizedBox(height: Gaps.md),
+            const SizedBox(height: Gaps.sm),
             SegmentedButton<EraserMode>(
               showSelectedIcon: false,
               segments: const [

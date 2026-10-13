@@ -54,6 +54,14 @@ abstract final class Breakpoints {
 
   /// From here: full sidebar with labels.
   static const double expanded = 1040;
+
+  /// Below this window height the library keeps its phone layout even
+  /// when wide: a phone held sideways is still a phone, and a sidebar
+  /// would leave its folders a sliver.
+  static const double shortHeight = 480;
+
+  /// Whether a window of [size] gets the library's phone layout.
+  static bool libraryCompact(Size size) => size.width < medium || size.height < shortHeight;
 }
 
 /// Touch target sizes, decided by input rather than width: touch-first

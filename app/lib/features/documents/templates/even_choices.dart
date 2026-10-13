@@ -75,7 +75,7 @@ class EvenChoices extends StatelessWidget {
 }
 
 /// A full-width choice chip, content centred; styled like the theme's
-/// `ChoiceChip`s (outlined, selected in the secondary container).
+/// `ChoiceChip`s (a Rule edge; selected, an Ink plate).
 class _Chip extends StatelessWidget {
   const _Chip(this.choice);
 
