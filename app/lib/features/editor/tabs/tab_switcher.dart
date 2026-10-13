@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/sidebar_item.dart';
 import 'open_notebooks.dart';
 
 /// Lists the open notebooks: a popover (REDESIGN §5; a sheet on phones,
@@ -21,26 +22,52 @@ Future<void> showTabSwitcher(BuildContext context, OpenNotebooks tabs) {
             padding: const EdgeInsets.fromLTRB(Gaps.lg, 0, Gaps.lg, Gaps.sm),
             child: Text('Open notebooks', style: Theme.of(context).textTheme.titleMedium),
           ),
-          for (final tab in tabs.tabs)
-            ListTile(
-              key: ValueKey('switcher-${tab.id}'),
-              selected: tab.id == tabs.activeId,
-              leading: Icon(
-                tab.kind == NotebookKind.canvas ? Symbols.gesture_sharp : Symbols.menu_book_sharp,
-              ),
-              title: Text(tab.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-              trailing: IconButton(
-                tooltip: 'Close tab',
-                onPressed: () => tabs.close(tab.id),
-                icon: const Icon(Symbols.close_sharp),
-              ),
-              onTap: () {
-                Navigator.of(context).pop();
-                tabs.activate(tab.id);
-              },
-            ),
+          for (final tab in tabs.tabs) _TabRow(tabs: tabs, tab: tab),
         ],
       ),
     ),
   );
+}
+
+/// An open notebook's row: the current one carries the margin rule and a
+/// bold label (DESIGN §6), no plate.
+class _TabRow extends StatelessWidget {
+  const _TabRow({required this.tabs, required this.tab});
+
+  final OpenNotebooks tabs;
+  final OpenTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final current = tab.id == tabs.activeId;
+    return CustomPaint(
+      foregroundPainter: current ? MarginRulePainter(scheme.primary) : null,
+      child: ListTile(
+        key: ValueKey('switcher-${tab.id}'),
+        selected: current,
+        selectedColor: scheme.onSurface,
+        selectedTileColor: Colors.transparent,
+        leading: Icon(
+          tab.kind == NotebookKind.canvas ? Symbols.gesture_sharp : Symbols.menu_book_sharp,
+          fill: current ? 1 : 0,
+        ),
+        title: Text(
+          tab.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: current ? const TextStyle(fontWeight: FontWeight.w600) : null,
+        ),
+        trailing: IconButton(
+          tooltip: 'Close tab',
+          onPressed: () => tabs.close(tab.id),
+          icon: const Icon(Symbols.close_sharp),
+        ),
+        onTap: () {
+          Navigator.of(context).pop();
+          tabs.activate(tab.id);
+        },
+      ),
+    );
+  }
 }

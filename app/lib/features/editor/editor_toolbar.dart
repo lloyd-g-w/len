@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../../ink/tool_settings.dart';
 import '../../ui/app_theme.dart';
-import '../../ui/floating_panel.dart';
 import '../../ui/scroll_fade.dart';
 import 'chrome/receding.dart';
 import 'toolbar/insert_menu.dart';
@@ -176,49 +175,39 @@ class EditorToolbar extends StatelessWidget {
     return null;
   }
 
-  /// The raised palette: the full group when it fits, else the switcher
-  /// and the quick controls. Snapped to a side edge it runs down: the tools,
-  /// then the quick slots under them (scrolling if the pane is too short).
+  /// The palette's content (its `ToolbarSlot` draws the raised panel and
+  /// the grip): the full group when it fits, else the switcher and the
+  /// quick controls. Snapped to a side edge it runs down: the tools, then
+  /// the quick slots under them (scrolling if the pane is too short).
   Widget _floating(BuildContext context, BoxConstraints constraints) {
-    const padding = 2 * (Gaps.xs + 2);
     final reserve = ToolbarMetrics.strip(tools);
     if (ToolbarAxis.of(context) == Axis.vertical) {
-      return FloatingPanel(
-        padding: const EdgeInsets.symmetric(horizontal: Gaps.xs, vertical: Gaps.xs + 2),
-        child: Receding(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: constraints.maxHeight - padding),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _cluster(),
-                  StripDivider(tools: tools),
-                  ToolStrip(tools: tools, reserve: reserve),
-                ],
-              ),
-            ),
+      return Receding(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _cluster(),
+              StripDivider(tools: tools),
+              ToolStrip(tools: tools, reserve: reserve),
+            ],
           ),
         ),
       );
     }
-    if (ToolbarMetrics.group(tools) + padding <= constraints.maxWidth) {
-      return FloatingPanel(
-        child: Receding(child: _group(reserve: reserve)),
-      );
+    if (ToolbarMetrics.group(tools) <= constraints.maxWidth) {
+      return Receding(child: _group(reserve: reserve));
     }
-    return FloatingPanel(
-      child: Receding(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ToolSwitcherButton(tools: tools, insert: insert),
-            StripDivider(tools: tools),
-            Flexible(
-              child: ScrollFade(child: ToolStrip(tools: tools)),
-            ),
-          ],
-        ),
+    return Receding(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ToolSwitcherButton(tools: tools, insert: insert),
+          StripDivider(tools: tools),
+          Flexible(
+            child: ScrollFade(child: ToolStrip(tools: tools)),
+          ),
+        ],
       ),
     );
   }

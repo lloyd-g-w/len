@@ -257,7 +257,6 @@ class EditorChrome extends StatelessWidget {
             Positioned.fill(
               child: ToolbarSlot(
                 toolbar: puck,
-                joined: true,
                 insets: safe,
                 floatAt: puckAt ?? const (0.5, 1.0),
                 onFloatMoved: onPuckMoved,

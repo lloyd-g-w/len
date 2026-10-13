@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 import '../../../ui/chrome_fade.dart';
@@ -23,7 +22,6 @@ class ToolbarSlot extends StatefulWidget {
     this.floatAt,
     this.onFloatMoved,
     this.visible = true,
-    this.joined = false,
     this.blocked,
   });
 
@@ -34,10 +32,6 @@ class ToolbarSlot extends StatefulWidget {
   /// it, the palette moves to the nearest clear spot along the edges
   /// ([PuckClearance]): focus mode's puck stays clear of the writing.
   final bool Function(Rect rect)? blocked;
-
-  /// Whether [toolbar] is bare and shares one capsule with the grip (focus
-  /// mode's puck), instead of a panel of its own beside the grip's.
-  final bool joined;
 
   /// Space taken by other chrome (top bar, safe areas) that the toolbar
   /// must stay clear of.
@@ -170,62 +164,48 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
     );
   }
 
-  /// The grip and the toolbar: side by side, or in one capsule if [joined].
+  /// The palette: one raised panel (DESIGN §6.2) with the grip leading
+  /// the bare [ToolbarSlot.toolbar].
   Widget _capsule(Axis axis, Size area) {
-    final grip = _Grip(
-      axis: axis,
-      framed: !widget.joined,
-      onDrag: (d) => _drag(d, area),
-      onEnd: _endDrag,
+    final horizontal = axis == Axis.horizontal;
+    return FloatingPanel(
+      // The grip is the leading edge's padding.
+      padding: horizontal
+          ? const EdgeInsets.fromLTRB(0, Gaps.xs, Gaps.xs + Gaps.xxs, Gaps.xs)
+          : const EdgeInsets.fromLTRB(Gaps.xs, 0, Gaps.xs, Gaps.xs + Gaps.xxs),
+      child: Flex(
+        direction: axis,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _Grip(axis: axis, onDrag: (d) => _drag(d, area), onEnd: _endDrag),
+          Flexible(child: widget.toolbar),
+        ],
+      ),
     );
-    final row = Flex(
-      direction: axis,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        grip,
-        SizedBox(
-          width: axis == Axis.horizontal && !widget.joined ? Gaps.xs : 0,
-          height: axis == Axis.vertical && !widget.joined ? Gaps.xs : 0,
-        ),
-        Flexible(child: widget.toolbar),
-      ],
-    );
-    if (!widget.joined) return row;
-    return FloatingPanel(radius: Radii.pill, padding: const EdgeInsets.all(Gaps.xs), child: row);
   }
 }
 
-/// The handle by which the floating toolbar is dragged.
+/// The handle by which the floating palette is dragged: two Graphite ticks
+/// across its leading edge, like the marks on a ruler.
 class _Grip extends StatelessWidget {
-  const _Grip({
-    required this.axis,
-    required this.framed,
-    required this.onDrag,
-    required this.onEnd,
-  });
-
-  /// Whether the grip is a capsule of its own (else it sits in the
-  /// toolbar's).
-  final bool framed;
+  const _Grip({required this.axis, required this.onDrag, required this.onEnd});
 
   /// The palette's axis: the grip leads it.
   final Axis axis;
   final GestureDragUpdateCallback onDrag;
   final VoidCallback onEnd;
 
+  /// The grip's extent along the palette.
+  static const double extent = 24;
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // Framed it stands 48 high on its own; inside a capsule it takes the
-    // capsule's height.
-    final handle = SizedBox(
-      width: axis == Axis.horizontal ? 28 : (framed ? 48 : null),
-      height: axis == Axis.horizontal ? (framed ? 48 : null) : 28,
-      child: Icon(
-        axis == Axis.horizontal ? Symbols.drag_indicator_sharp : Symbols.drag_handle_sharp,
-        size: Glyphs.bar,
-        color: scheme.onSurfaceVariant,
-      ),
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    final horizontal = axis == Axis.horizontal;
+    Widget tick() => Container(
+      width: horizontal ? Hairline.width : Gaps.md,
+      height: horizontal ? Gaps.md : Hairline.width,
+      color: color,
     );
     return Tooltip(
       message: 'Drag to move the toolbar',
@@ -236,9 +216,21 @@ class _Grip extends StatelessWidget {
           onPanUpdate: onDrag,
           onPanEnd: (_) => onEnd(),
           onPanCancel: onEnd,
-          child: framed
-              ? FloatingPanel(radius: Radii.pill, padding: EdgeInsets.zero, child: handle)
-              : handle,
+          child: SizedBox(
+            // Across, as deep as the tools beside it: the whole edge takes
+            // the drag.
+            width: horizontal ? extent : Targets.barHit(context),
+            height: horizontal ? Targets.barHit(context) : extent,
+            child: Flex(
+              direction: axis,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                tick(),
+                SizedBox.square(dimension: Gaps.xs - Hairline.width),
+                tick(),
+              ],
+            ),
+          ),
         ),
       ),
     );

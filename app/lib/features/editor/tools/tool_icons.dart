@@ -45,10 +45,11 @@ class _ShapeGlyphPainter extends CustomPainter {
       Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        // 1.5 px, matching the Symbols at weight 300.
+        // 1.5 px with square ends and mitred corners, like the Sharp
+        // symbols at weight 300.
         ..strokeWidth = 1.5
-        ..strokeJoin = StrokeJoin.round
-        ..strokeCap = StrokeCap.round,
+        ..strokeJoin = StrokeJoin.miter
+        ..strokeCap = StrokeCap.square,
     );
   }
 

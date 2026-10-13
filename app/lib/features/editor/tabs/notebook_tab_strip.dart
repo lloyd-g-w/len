@@ -7,12 +7,15 @@ import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
 import '../../../ui/scroll_fade.dart';
+import '../../../ui/sidebar_item.dart';
 import 'open_notebooks.dart';
 
 /// GoodNotes-style strip of open notebooks (tablets and desktops): tap a
 /// tab to switch, × (or a middle click) to close it; right click or long
-/// press for its menu (open in split view, close). The two notebooks of a
-/// split view carry a split glyph, the second on a quiet plate.
+/// press for its menu (open in split view, close). Flat on the bar's Board
+/// like sidebar rows (DESIGN §6): the current tab carries the margin rule
+/// and a bold Ink label, no plate. The two notebooks of a split view carry
+/// a split glyph, the second a bold label without the rule.
 class NotebookTabStrip extends StatelessWidget {
   const NotebookTabStrip({
     super.key,
@@ -48,8 +51,7 @@ class NotebookTabStrip extends StatelessWidget {
         child: ScrollFade(
           extent: Gaps.xxxl,
           child: Padding(
-            // Tabs sit on the bar below them, like browser tabs.
-            padding: const EdgeInsets.only(left: Gaps.sm, right: Gaps.sm, top: Gaps.xs + 2),
+            padding: const EdgeInsets.symmetric(horizontal: Gaps.xs, vertical: Gaps.xs),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -133,14 +135,12 @@ class _Tab extends StatefulWidget {
   /// Opens the tab's menu at a global position (or under the tab).
   final void Function(BuildContext context, Offset? at) onMenu;
 
-  static const BorderRadius _shape = BorderRadius.vertical(top: Radius.circular(Radii.sm));
-
   @override
   State<_Tab> createState() => _TabState();
 }
 
 class _TabState extends State<_Tab> {
-  static const BorderRadius _shape = _Tab._shape;
+  static final BorderRadius _shape = BorderRadius.circular(Radii.xs);
 
   @override
   void initState() {
@@ -181,13 +181,8 @@ class _TabState extends State<_Tab> {
         onPointerDown: (e) {
           if (e.buttons == 4) widget.onClose();
         },
-        child: Material(
-          color: widget.active
-              ? Surfaces.chrome(scheme)
-              : split == _Split.second
-              ? Surfaces.hovered(scheme)
-              : Colors.transparent,
-          borderRadius: _shape,
+        child: CustomPaint(
+          foregroundPainter: widget.active ? MarginRulePainter(scheme.primary) : null,
           child: InkWell(
             onTap: widget.onTap,
             onDoubleTap: widget.onRename,
@@ -212,8 +207,9 @@ class _TabState extends State<_Tab> {
                           : widget.tab.kind == NotebookKind.canvas
                           ? Symbols.gesture_sharp
                           : Symbols.menu_book_sharp,
-                      size: 16,
-                      color: widget.active ? scheme.primary : fg,
+                      size: Glyphs.menu,
+                      color: fg,
+                      fill: shown ? 1 : 0,
                     ),
                     const SizedBox(width: Gaps.sm),
                     Flexible(

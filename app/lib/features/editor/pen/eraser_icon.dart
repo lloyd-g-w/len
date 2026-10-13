@@ -2,8 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// An eraser glyph (a tilted block with a band at its tip), drawn to match
-/// the rounded Material icons; sized and coloured by [IconTheme].
+/// An eraser glyph (a tilted block with a band at its tip), drawn like the
+/// Sharp symbols beside it: 1.5-px strokes, square corners, mitred joins.
+/// Sized and coloured by [IconTheme]; its `fill` (the active tool) fills
+/// the block.
 class EraserIcon extends StatelessWidget {
   const EraserIcon({super.key});
 
@@ -13,15 +15,18 @@ class EraserIcon extends StatelessWidget {
     final size = theme.size ?? 24;
     return SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: _EraserPainter(theme.color ?? Colors.black)),
+      child: CustomPaint(
+        painter: _EraserPainter(theme.color ?? Colors.black, filled: (theme.fill ?? 0) >= 0.5),
+      ),
     );
   }
 }
 
 class _EraserPainter extends CustomPainter {
-  _EraserPainter(this.color);
+  _EraserPainter(this.color, {required this.filled});
 
   final Color color;
+  final bool filled;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -30,22 +35,20 @@ class _EraserPainter extends CustomPainter {
       ..translate(size.width / 2, size.height / 2)
       ..rotate(-math.pi / 4)
       ..scale(s);
-    final body = RRect.fromRectAndRadius(
-      const Rect.fromLTWH(-10, -5, 20, 10),
-      const Radius.circular(2.5),
-    );
-    final stroke = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5 / s; // 1.5 px on screen, like the symbols
+    const body = Rect.fromLTWH(-9.5, -4.75, 19, 9.5);
+    final fill = Paint()..color = color;
     canvas
-      ..drawRRect(body, stroke)
-      ..save()
-      ..clipRRect(body)
-      ..drawRect(const Rect.fromLTWH(-10, -5, 7, 10), Paint()..color = color)
-      ..restore();
+      ..drawRect(
+        body,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeJoin = StrokeJoin.miter
+          ..strokeWidth = 1.5 / s, // 1.5 px on screen, like the symbols
+      )
+      ..drawRect(filled ? body : Rect.fromLTRB(body.left, body.top, -3, body.bottom), fill);
   }
 
   @override
-  bool shouldRepaint(_EraserPainter old) => old.color != color;
+  bool shouldRepaint(_EraserPainter old) => old.color != color || old.filled != filled;
 }
