@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
@@ -13,11 +15,17 @@ import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/stroke_chunks.dart';
 import 'package:len/domain/surface_element.dart';
+import 'package:len/domain/templates/paper.dart';
+import 'package:len/domain/templates/paper_style.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/ink/ink_surface.dart';
+import 'package:len/ink/input/ink_input_controller.dart';
+import 'package:len/ink/input/live_ink.dart';
 import 'package:len/ink/render/chunk_picture_cache.dart';
 import 'package:len/ink/render/chunk_raster_cache.dart';
 import 'package:len/ink/render/ink_painters.dart';
 import 'package:len/ink/surface_model.dart';
+import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/viewport.dart';
 
 import 'support/canvas_fixtures.dart';
@@ -301,6 +309,8 @@ void main() {
     db.close();
   });
 
+  inkSurfaceTests(ink);
+
   test('digests are 48-bit sums that change with content', () {
     final a = ChunkDigest.of([ink[0], ink[1]], const []);
     final b = ChunkDigest.of([ink[1], ink[0]], const []);
@@ -309,4 +319,72 @@ void main() {
     expect(a == c, isFalse);
     expect(ChunkDigest.ofStroke('x'), lessThan(1 << 48));
   });
+}
+
+/// The editor's canvas widget picks stored rasters far out, loads closer in
+/// and when a pen touches down.
+void inkSurfaceTests(List<Stroke> ink) {
+  testWidgets('a canvas far out loads nothing until zoomed in or touched', (tester) async {
+    final db = AppDatabase.inMemory();
+    addTearDown(db.close);
+    final strokes = StrokeRepository(db, deviceId: 'd')..save(ink);
+    final model = SurfaceModel(
+      surfaceId: 's',
+      repository: strokes,
+      reader: strokes,
+      rasterStore: _PendingStore(),
+    );
+    addTearDown(model.dispose);
+    final viewport = ViewportController(minScale: 0.01)..setView(scale: 0.1, offset: Offset.zero);
+    final live = LiveInk();
+    final input = InkInputController(
+      model: model,
+      viewport: viewport,
+      tools: ToolSettings(),
+      live: live,
+    );
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(size: _size),
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: InkSurface(
+            model: model,
+            viewport: viewport,
+            input: input,
+            live: live,
+            paper: Paper(PaperStyle.blank),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(model.showsStored, isTrue);
+    expect(model.loadedStrokeCount, 0);
+    viewport.setView(scale: 1, offset: Offset.zero);
+    await tester.pump();
+    expect(model.showsStored, isFalse);
+    final near = model.loadedStrokeCount;
+    expect(near, inInclusiveRange(1, ink.length ~/ 2));
+    viewport.setView(scale: 0.1, offset: Offset.zero);
+    await tester.pump();
+    expect(model.showsStored, isTrue);
+    expect(model.loadedStrokeCount, near);
+    // A pen touching down loads all the view shows.
+    final pen = TestPointer(1, PointerDeviceKind.stylus);
+    await tester.sendEventToBinding(pen.down(const Offset(200, 150)));
+    await tester.sendEventToBinding(pen.up());
+    expect(model.showsStored, isFalse);
+    expect(model.loadedStrokeCount, greaterThan(near));
+    await tester.pumpWidget(const SizedBox());
+  });
+}
+
+/// A store whose rasters are always still being read.
+class _PendingStore implements RasterStore {
+  @override
+  Future<Uint8List?> read(String name) => Completer<Uint8List?>().future;
+
+  @override
+  Future<void> write(String name, Uint8List bytes) async {}
 }
