@@ -101,7 +101,8 @@ tool's options popover; Insert and ⋯ menus; floating; 1.3× text) and the
 - ⬜ The floating palette doesn't snap to edges or go vertical yet (phase 6).
 - ✅ The page navigator is still the old pill (phase 5: peeking indicator).
   → Replaced by the peeking `3 / 12` indicator (see the top of this file).
-- ⬜ Keyboard: no arrow-key navigation inside the tool cluster.
+- ✅ Keyboard: no arrow-key navigation inside the tool cluster. → ← / →
+  move between toolbar controls while one has focus (Space picks).
 
 ## Paper and laser pointer (`feat/paper`)
 
@@ -576,8 +577,9 @@ Status of these in `feat/editorux2` (✅ done there):
 - ✅ **Discoverability**: empty-canvas hint, a one-time pen side-button
   tip, repeated undos counted in the HUD, Escape closes
   chrome menus.
-- ⬜ Keyboard: chrome buttons are reachable with Tab but there is no
-  "skip to canvas" or toolbar arrow-key navigation yet.
+- 🟡 Keyboard: chrome buttons are reachable with Tab but there is no
+  "skip to canvas" or toolbar arrow-key navigation yet. → Arrow keys move
+  along the toolbar; "skip to canvas" is still open.
 - ✅ **Motion**: opening a notebook animates from its cover (container
   transform in `NotebookOpenRoute`, see 15); reduced motion → plain fade.
 - ➡️ **Export**: entry points should offer options (see 18); progress is
