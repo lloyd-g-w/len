@@ -7,7 +7,7 @@ import 'option_controls.dart';
 import 'slot_button.dart';
 
 /// Eraser options: whole-stroke vs. partial erasing, size and "highlighter
-/// only".
+/// only"; with scribble to erase on, a caption mentions it.
 class EraserOptionsPanel extends StatelessWidget {
   const EraserOptionsPanel({super.key, required this.tools});
 
@@ -79,6 +79,14 @@ class EraserOptionsPanel extends StatelessWidget {
               value: eraser.highlighterOnly,
               onChanged: (v) => update(eraser.copyWith(highlighterOnly: v)),
             ),
+            // The gesture that saves picking the eraser (Settings → Writing).
+            if (tools.scribbleToErase) ...[
+              const OptionRule(),
+              Text(
+                'Or scribble over ink with the pen',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
           ],
         );
       },

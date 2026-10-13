@@ -14,7 +14,8 @@ import 'pdf_text_selection.dart';
 /// The text-aware highlighter: a highlighter stroke drawn along one or
 /// more lines of a PDF page's text becomes the clean, line-high highlights
 /// a selection's Highlight makes, over the words it covers. Anything else
-/// (a circle, a margin note, a stroke between lines) stays as drawn.
+/// (a circle, a margin note, a stroke between lines, an underline) stays
+/// as drawn. Always on: it needs no hold.
 class PdfHighlightSnap implements HighlightSnap {
   PdfHighlightSnap({required this.doc, required this.info, this.clock = const Clock()});
 
@@ -31,6 +32,12 @@ class PdfHighlightSnap implements HighlightSnap {
 
   /// A line counts when the stroke runs along it this far (its height ×).
   static const double minRun = 1.5;
+
+  /// How far (its height ×) the stroke's middle may lie from a line's
+  /// middle, on average, for it to count: an underline just below the
+  /// letters doesn't. A stroke wider than twice that may stray by half its
+  /// width (it still covers the line's middle).
+  static const double centred = 0.35;
 
   @override
   List<Stroke>? snap(Stroke stroke) {
@@ -68,12 +75,15 @@ class PdfHighlightSnap implements HighlightSnap {
       if (best == null) continue;
       final run = runs.putIfAbsent(best, _Run.new);
       run.length += step;
+      run.across += step * bestAcross;
       run.add(best.along(a));
       run.add(best.along(b));
     }
     final kept = [
       for (final MapEntry(key: line, value: run) in runs.entries)
-        if (run.to - run.from >= minRun * line.thickness) (line, run),
+        if (run.to - run.from >= minRun * line.thickness &&
+            run.across <= run.length * math.max(centred * line.thickness, stroke.width / 2))
+          (line, run),
     ];
     final covered = kept.fold(0.0, (sum, e) => sum + e.$2.length);
     if (total == 0 || covered < minCover * total) return null;
@@ -160,6 +170,9 @@ class _Line {
 /// How far a stroke runs along one line.
 class _Run {
   double length = 0;
+
+  /// The sum of each step's distance from the line's middle × its length.
+  double across = 0;
   double from = double.infinity, to = double.negativeInfinity;
 
   void add(double along) {

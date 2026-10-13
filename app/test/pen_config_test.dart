@@ -71,8 +71,7 @@ void main() {
         ..updateConfig(InkTool.highlighter, (c) => c.copyWith(opacity: 0.5))
         ..updateConfig(InkTool.highlighter, (c) => c.copyWith(streamline: 0.8, straight: true))
         ..eraser = const EraserConfig(mode: EraserMode.pixel, radius: 20, highlighterOnly: true)
-        ..addRecentColor(0xFF00AA00)
-        ..holdToStraighten = false;
+        ..addRecentColor(0xFF00AA00);
       a.dispose(); // flushes the debounced save
 
       final b = ToolSettings(store: store);
@@ -87,7 +86,6 @@ void main() {
       expect(b.eraser.mode, EraserMode.pixel);
       expect(b.eraser.highlighterOnly, isTrue);
       expect(b.recentColors, [0xFF00AA00]);
-      expect(b.holdToStraighten, isFalse);
       b.dispose();
     });
 

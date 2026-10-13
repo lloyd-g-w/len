@@ -46,6 +46,8 @@ class EditorSession {
   }) : tools = ToolSettings(
          stylusOnly: services.settings.stylusOnly,
          penButtonErases: services.preferences.penButtonAction == PenButtonAction.eraser,
+         holdToStraighten: services.preferences.holdToSnap,
+         scribbleToErase: services.preferences.scribbleToErase,
          store: services.settings,
        ) {
     final current = shared.notebook;

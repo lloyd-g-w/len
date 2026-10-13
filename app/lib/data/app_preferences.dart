@@ -25,6 +25,15 @@ class AppPreferences extends ChangeNotifier {
   bool get fingerTapUndo => _settings.fingerTapUndo;
   set fingerTapUndo(bool value) => _update(() => _settings.fingerTapUndo = value);
 
+  /// Holding the pen still at the end of a stroke snaps it to a clean line
+  /// or shape.
+  bool get holdToSnap => _settings.holdToSnap;
+  set holdToSnap(bool value) => _update(() => _settings.holdToSnap = value);
+
+  /// A quick back-and-forth scribble with the pen over ink erases it.
+  bool get scribbleToErase => _settings.scribbleToErase;
+  set scribbleToErase(bool value) => _update(() => _settings.scribbleToErase = value);
+
   /// What holding the stylus side button does.
   PenButtonAction get penButtonAction => _settings.penButtonAction;
   set penButtonAction(PenButtonAction value) => _update(() => _settings.penButtonAction = value);

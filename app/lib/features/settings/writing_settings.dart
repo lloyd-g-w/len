@@ -10,9 +10,10 @@ import '../../ui/fit_segments.dart';
 import '../../ui/segment_label.dart';
 import 'settings_section.dart';
 
-/// Writing: whether a finger draws, the side button and finger taps to
-/// undo and redo. Where the toolbar sits is set in the editor (⋯ → View),
-/// where its effect shows.
+/// Writing: whether a finger draws, the side button, and the writing
+/// gestures (finger taps to undo and redo, hold to snap, scribble to
+/// erase): this is their one home. Where the toolbar sits is set in the
+/// editor (⋯ → View), where its effect shows.
 class WritingSettings extends StatelessWidget {
   const WritingSettings({super.key, required this.preferences});
 
@@ -68,22 +69,58 @@ class WritingSettings extends StatelessWidget {
                 ),
               ),
             ),
-          SettingsTile(
+          _GestureTile(
             icon: Symbols.undo_sharp,
             title: 'Tap to undo and redo',
             subtitle: 'Two fingers undo, three redo',
-            onTap: () => preferences.fingerTapUndo = !preferences.fingerTapUndo,
-            trailing: ExcludeFocus(
-              // The row is the target and the focus stop.
-              child: AppSwitch(
-                padded: false,
-                value: preferences.fingerTapUndo,
-                onChanged: (v) => preferences.fingerTapUndo = v,
-              ),
-            ),
+            value: preferences.fingerTapUndo,
+            onChanged: (v) => preferences.fingerTapUndo = v,
+          ),
+          _GestureTile(
+            icon: Symbols.shape_line_sharp,
+            title: 'Hold to snap',
+            subtitle: 'Hold the pen still at the end of a stroke for a clean line or shape',
+            value: preferences.holdToSnap,
+            onChanged: (v) => preferences.holdToSnap = v,
+          ),
+          _GestureTile(
+            icon: Symbols.ink_eraser_sharp,
+            title: 'Scribble to erase',
+            subtitle: 'Scribble quickly back and forth over ink to erase it',
+            value: preferences.scribbleToErase,
+            onChanged: (v) => preferences.scribbleToErase = v,
           ),
         ],
       ),
     );
   }
+}
+
+/// A writing gesture's switch row.
+class _GestureTile extends StatelessWidget {
+  const _GestureTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => SettingsTile(
+    icon: icon,
+    title: title,
+    subtitle: subtitle,
+    onTap: () => onChanged(!value),
+    trailing: ExcludeFocus(
+      // The row is the target and the focus stop.
+      child: AppSwitch(padded: false, value: value, onChanged: onChanged),
+    ),
+  );
 }

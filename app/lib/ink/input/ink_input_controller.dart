@@ -11,6 +11,7 @@ import 'canvas_gestures.dart';
 import 'highlight_snap.dart';
 import 'hold_to_straighten.dart';
 import 'ink_drawing.dart';
+import 'ink_events.dart';
 import 'live_ink.dart';
 import 'pointer_navigation.dart';
 import 'sample_source.dart';
@@ -78,6 +79,9 @@ class InkInputController {
 
   /// Snaps highlighter strokes over PDF text to it (paged editors).
   set highlightSnap(HighlightSnap? value) => _draw.highlightSnap = value;
+
+  /// Moments of ink input the editor may react to (tips, notices).
+  InkEvents get events => _draw.events;
 
   final ViewportController viewport;
   final ToolSettings tools;

@@ -47,13 +47,13 @@ grew apart.
    duplicates the library on every synced device.
 4. ✅ R8-15 (P1) Restoring on a new or empty device buries the whole library
    in a "Backup 13 Oct 2026" folder.
-5. R8-24 (P1) Highlighted PDF text can't be selected with the pen any more.
-6. R8-25 (P1) A scribble erases along the whole stroke, not just where it
+5. ✅ R8-24 (P1) Highlighted PDF text can't be selected with the pen any more.
+6. ✅ R8-25 (P1) A scribble erases along the whole stroke, not just where it
    zigzagged, and can wipe an outline it filled in.
 7. ✅ R8-7 (P1) Phones: the notice, Recent and folders push the first cover
    below the middle of the screen. Held sideways, the notice takes 27 % of
    the height.
-8. R8-26 (P1) Scribble to erase and hold to snap are never taught. They sit
+8. ✅ R8-26 (P1) Scribble to erase and hold to snap are never taught. They sit
    under "Reset feel" in the collapsed Feel section, below the fold.
 9. ✅ R8-2 (P1) Move or copy pages isn't in the editor's page menu, only in
    the page overview.
@@ -441,7 +441,7 @@ purge at once.**
 
 ### Pen and PDF
 
-**R8-24 P1 · Highlighted PDF text can't be selected with the pen.**
+✅ **R8-24 P1 · Highlighted PDF text can't be selected with the pen.**
 - *What:* the lasso treats a press as on text only when
   `!_hitsContent` (`ink/tools/lasso_tool.dart:123`). `_hitsContent`
   (`:223-226`) uses `ContentHitTest.strokeAt`, which counts highlighter
@@ -454,8 +454,13 @@ purge at once.**
 - *Fix:* ignore highlighter strokes in `_hitsContent` for the hold and
   drag paths. A plain tap may still pick the highlight, so recolour and
   delete keep working.
+- *Done:* the lasso's "on text" test ignores highlighter strokes
+  (`ContentHitTest.strokeAt(highlighter: false)`), so a tap, a hold or a
+  drag on highlighted PDF text selects the text; ink written with the pen
+  over it still wins. A highlight is selected with a lasso loop
+  (`fix/r8-pen`).
 
-**R8-25 P1 · A scribble erases along the whole stroke.**
+✅ **R8-25 P1 · A scribble erases along the whole stroke.**
 - *What:* `ScribbleDetector` answers yes or no for the whole stroke
   (`ink/input/scribble_detector.dart:63-72`). At pen-up
   `ScribbleErase.erase` hands every point to `eraseScribbled`
@@ -466,8 +471,17 @@ purge at once.**
   that contains the outline, so the outline is erased.
 - *Fix:* `detect` returns the matched window (first and last index), and
   only that sub-path erases. Skip strokes whose bounds enclose the window.
+- *Done:* `ScribbleDetector.windows` gives the runs of passes that make
+  a scribble, their outer passes cut to the span of the inner ones (and
+  inner passes may be at most twice the median, so two scribbles joined by
+  a line are two). Only those zigzags erase and preview
+  (`ScribbleHits`). A stroke whose bounds hold a zigzag's (give or take
+  20 %) with no ink in its middle is an outline being filled in, and
+  stays. Tests: a lead-in, a run-on, a filled checkbox and a boxed word
+  (`scribble_to_erase_test.dart`); the Ink Lab recordings still never
+  scribble (`fix/r8-pen`).
 
-**R8-26 P1 · Gestures that change every stroke are hidden and never
+✅ **R8-26 P1 · Gestures that change every stroke are hidden and never
 taught.**
 - *What:* "Hold to snap" and "Scribble to erase" live after "Reset feel",
   at the end of the Feel section, which starts collapsed
@@ -484,8 +498,16 @@ taught.**
     someone without a side button picks the eraser.
   - One caption in the eraser panel: "Or scribble over ink with the pen".
   - See Simplify for their home.
+- *Done (lead decision: one home):* "Hold to snap" and "Scribble to
+  erase" are writing gestures in Settings → Writing, beside "Tap to undo
+  and redo" (`AppPreferences`, mirrored into `ToolSettings`); the pen's
+  Feel no longer has them. Each is taught once with a tip: hold to snap
+  after a pen line or shape drawn by hand that it would have cleaned up,
+  once the pen has rested 2 s (writing on puts it off); scribble to erase
+  the second time the eraser is picked. The eraser panel says "Or
+  scribble over ink with the pen" while it is on (`fix/r8-pen`).
 
-**R8-27 P2 · Text snapping hangs on "Hold to snap".**
+✅ **R8-27 P2 · Text snapping hangs on "Hold to snap".**
 - *What:* highlights snap to PDF text only while `holdToStraighten` is on
   (`ink/input/ink_drawing.dart:242`). Text snapping needs no hold.
 - The highlighter's panel says nothing about it.
@@ -495,8 +517,11 @@ taught.**
 - *Fix:* make text snapping unconditional (see Simplify), and shorten the
   caption to "Hold the pen still at the end of a stroke for a clean line
   or shape".
+- *Done:* text snapping needs no hold (see R8-30 and Simplify); the
+  Settings caption reads "Hold the pen still at the end of a stroke for a
+  clean line or shape"; ROADMAP updated (`fix/r8-pen`).
 
-**R8-28 P2 · A snapped line can be erased as a scribble.**
+✅ **R8-28 P2 · A snapped line can be erased as a scribble.**
 - *What:* `_enabled` checks `!live.straightened`
   (`ink/input/scribble_erase.dart:142-143`). But `finish()` calls
   `live.finish()` first, which resets the flag (`ink/input/live_ink.dart:76`,
@@ -504,16 +529,23 @@ taught.**
   snap.
 - *Fix:* latch "not a scribble" in `ScribbleErase.add` once `straightened`
   is seen.
+- *Done:* `ScribbleErase` latches "snapped" while the stroke goes on,
+  and `InkDrawing` reads `straightened` before `LiveInk.finish` clears it
+  (`fix/r8-pen`).
 
-**R8-29 P2 · Scribbling over a text box or image leaves a zigzag.**
+✅ **R8-29 P2 · Scribbling over a text box or image leaves a zigzag.**
 - *What:* `scribbled` only looks at strokes
   (`ink/surface_model_editing.dart:86-91`). When it erases nothing, the
   scribble is committed as ink. Nothing dims, so there is no warning.
 - *Fix:* when a recognised scribble lies mostly over an element and hits
   no ink, drop it and say "Scribble erases ink only". Over blank paper it
   stays ink, as now.
+- *Done:* a recognised scribble that erases nothing and lies mostly
+  (70 %) over text boxes or images is dropped, and the editor says
+  "Scribble erases ink only" (`InkEvents.scribbleMissed`). Over blank
+  paper it stays ink (`fix/r8-pen`).
 
-**R8-30 P2 · Underlines become highlights; turned pages are untested.**
+✅ **R8-30 P2 · Underlines become highlights; turned pages are untested.**
 - *What:* `_Line.holds` accepts points up to 0.85 line heights from the
   line's middle (`features/editor/pdf/pdf_highlight_snap.dart:30,154`).
   A highlighter underline drawn just below the letters snaps into a full
@@ -524,8 +556,13 @@ taught.**
 - *Fix:* snap only when the stroke's middle is within about 0.35 line
   heights of the line's middle (or the stroke is at least half a line
   thick). Add the `rotatedPdf` cases to the snap test.
+- *Done:* a line counts only when the stroke's middle lies within 0.35
+  line heights of the line's middle on average, or within half the
+  stroke's width (a wide stroke still covers it): an underline stays ink.
+  `pdf_highlight_snap_test.dart` snaps along a real line on pages turned
+  0°, 90°, 180° and 270° (`fix/r8-pen`).
 
-**R8-31 P2 · The highlight swatches announce "selected" and hide the
+✅ **R8-31 P2 · The highlight swatches announce "selected" and hide the
 word.**
 - *What:* `pdf_highlight_swatches.dart:51` passes `selected: i == 0`. In
   `ui/color_dot.dart:46-48` that becomes `Semantics(selected: true)`, so
@@ -536,8 +573,13 @@ word.**
   (`pdf_layer.dart:227`, `pdf_selection_*.png`).
 - *Fix:* no selected semantics (and no ring: order shows the current
   colour). On wide windows the label "Highlight" replaces the glyph.
+- *Done:* no ring and no selected state on the swatches (the order shows
+  the current colour); windows wide enough for Copy's label say
+  "Highlight" before the dots instead of the glyph, which screen readers
+  skip (each dot says "Highlight in …"). `pdf_select_90.png` refreshed
+  (`fix/r8-pen`).
 
-**R8-32 P2 · The scribble detector's per-move cost grows with the stroke.**
+✅ **R8-32 P2 · The scribble detector's per-move cost grows with the stroke.**
 - *What:* every 4th kept point, `detect` re-scans the whole stroke
   (`ink/input/scribble_erase.dart:69,104`, `scribble_detector.dart:68`).
   Once a scribble is recognised, `_follow` copies all live points and
@@ -546,8 +588,11 @@ word.**
 - *Fix:* only the last 1.2 s can be a scribble (`maxDuration`), so keep a
   window of that and test only the segments added since the last
   `_follow` (the set only grows).
+- *Done:* the detector looks every 4 points at the last 1.2 s only and
+  keeps the zigzags it found; the preview asks the model again only when
+  they grew, and only along them (`fix/r8-pen`).
 
-**R8-33 P2 · The Shapes caption points to a switch that may be off, in
+✅ **R8-33 P2 · The Shapes caption points to a switch that may be off, in
 template typography.**
 - *What:* "Hold the pen still to snap a shape — Pen › Feel"
   (`features/editor/tools/shape_options_panel.dart:63`) shows even when
@@ -555,6 +600,8 @@ template typography.**
   calls a tell.
 - *Fix:* "Hold the pen still to snap a shape (in the pen's options)".
   When the switch is off, say "Hold to snap is off in the pen's options".
+- *Done:* "Hold the pen still to snap a shape (Settings → Writing)", or
+  "Hold to snap is off in Settings → Writing" while it is (`fix/r8-pen`).
 
 ### Whole app
 
@@ -570,6 +617,12 @@ template typography.**
   will drift unseen.
 - *Fix:* add them to `organise_screenshot_test.dart`,
   `app_surfaces3_screenshot_test.dart` and `toolbar_screenshot_test.dart`.
+- *Partly done (pen, `fix/r8-pen`):* `toolbar_screenshot_test.dart`
+  renders the scribble preview mid-stroke and the scribble tip
+  (`scribble_preview_*`, `tip_scribble_*`); `pdf_screenshot_test.dart`
+  a highlighter stroke snapped to PDF text on a tablet and a phone
+  (`pdf_highlight_snapped_*`). The other surfaces belong to other
+  branches.
 
 *Partly done (`fix/r8-library`):* `organise_screenshot_test.dart` renders
 Recent at its edges (`o_recent_*`: an empty library, all at the top level,
@@ -593,22 +646,26 @@ are `fix/r8-data`'s; the scribble preview `fix/r8-pen`'s.
   - the accent is used for state only;
   - there are no `·` chains.
 - *Fix:* use `Gaps.xs` and `Gaps.xxs`, and true greys.
+- *Partly done (PDF, `fix/r8-pen`):* the missing-PDF page uses true greys
+  (`#F3F3F3`, `#E4E4E4`, Graphite `#5A5A5A`); `pdf_missing.png` refreshed.
+  The off-grid paddings are left to the library branch.
 
 *Done (`fix/r8-library`):* the template tiles, the gallery's Import tile and the paper row share `TemplateTile.ruleRoom` (`Gaps.xs`) and `pageRoom` (`Gaps.xxs`) instead of 5 and 3; the missing-PDF page paints with the light `Tones` (Board, Desk hatching, Graphite). Goldens `pdf_missing`, `template_picker*` refreshed.
 
 ### Simplify
 
-- **Text snapping always on.** A highlight that runs ≥ 70 % along text
+- ✅ **Text snapping always on.** A highlight that runs ≥ 70 % along text
   lines (`pdf_highlight_snap.dart:26`) wants to be clean. Drop the
   `holdToStraighten` gate (`ink_drawing.dart:242`), and with it the
   coupling in R8-27.
-- **One home for writing gestures.** Settings → Writing already holds
+- ✅ **One home for writing gestures.** Settings → Writing already holds
   "Draw with finger", "Side button" and "Tap to undo and redo"
   (`settings/writing_settings.dart`). "Hold to snap" and "Scribble to
   erase" are just as global, but sit in Pen › Feel after a per-pen reset.
   Lead decision to revisit R7-3: either move both to Settings → Writing
   (the pen panel keeps one caption), or lift them out of the collapsed
   Feel to the end of the pen popover. Both on by default, as now.
+  *Done:* both in Settings → Writing (lead decision).
 - ✅ **One import destination.** What the file is decides where it goes: a
   notebook or folder goes into the open folder, a backup goes to the top
   level (R8-15). Settings → Restore stays a shortcut to the same flow.
@@ -619,7 +676,7 @@ are `fix/r8-data`'s; the scribble preview `fix/r8-pen`'s.
 - **One selection bar** for the library and the overview (R8-13).
 - ✅ **Disable "Back up library…" in an empty library**, and make no empty
   "Backup …" folder when an import brings nothing.
-- **Drop the ring on the first PDF highlight swatch** (R8-31).
+- ✅ **Drop the ring on the first PDF highlight swatch** (R8-31).
 - **Reuse `locationOf`** in the move or copy picker (R8-6) instead of
   `_locations`.
 - Keep as is: no new settings are needed for any item above. Every fix is

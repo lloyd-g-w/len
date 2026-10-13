@@ -18,10 +18,17 @@ abstract final class ContentHitTest {
     return hits.last;
   }
 
-  /// The topmost stroke within [tolerance] (world units) of [world].
-  static Stroke? strokeAt(SurfaceModel model, Offset world, double tolerance) {
+  /// The topmost stroke within [tolerance] (world units) of [world];
+  /// without [highlighter], highlighter strokes don't count.
+  static Stroke? strokeAt(
+    SurfaceModel model,
+    Offset world,
+    double tolerance, {
+    bool highlighter = true,
+  }) {
     final hits = model
         .strokesNear(Rect.fromCircle(center: world, radius: tolerance))
+        .where((s) => highlighter || !s.tool.isHighlighter)
         .where((s) => StrokeHitTest.sweepHits(s, world, world, tolerance))
         .toList();
     if (hits.isEmpty) return null;

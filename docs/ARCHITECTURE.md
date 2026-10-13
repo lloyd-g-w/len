@@ -362,8 +362,12 @@ or deleted pages in order with ink. Snack bars' Undo calls
   to undo / redo (the third ↶ tap in an editor on touch with finger-tap undo on); what
   the lasso does (the first time it is picked; it waits while something is selected
   and goes with the first selection, ink or PDF text, or another tool, so it never
-  covers a selection or its menu). The gesture HUD names multi-finger taps
-  when they happen.
+  covers a selection or its menu); hold to snap (after a pen line or shape drawn by hand
+  that it would have cleaned up, `HoldToStraighten.wouldSnap` via `InkEvents.shapeDrawn`,
+  once the pen has rested 2 s: a new stroke puts it off to the next shape, so never
+  while writing); scribble to erase (the second time the eraser is picked). Both only
+  while their switch in Settings → Writing is on. The gesture HUD names multi-finger
+  taps when they happen.
 - **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
   the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
@@ -1236,31 +1240,47 @@ ones a rectangle (axis-aligned or rotated), ellipse/circle, triangle or
 polygon; scribbles stay freehand. Only the clean shape is committed.
 
 **Scribble to erase** (`input/scribble_detector.dart`, on by default, a
-switch in Pen › Feel): a pen (ballpoint) stroke holding a fast
+switch in Settings → Writing): a pen (ballpoint) stroke holding a fast
 back-and-forth scribble — `ScribbleDetector`: ≥ 6 passes within 1.2 s, each
-nearly reversing the last, ≥ 14 screen px and fairly straight, all in a
-band at most half their length wide (cursive m / n / u / w reverses as
-sharply but moves on) — erases instead of becoming ink when it crosses
-ink: `SurfaceModel.eraseScribbled` removes the strokes it touches that lie
-mostly inside its bounds (a long line under a scribbled word stays), as
-one `InkEdit`. Over blank paper it stays ink (shading). `ScribbleErase`
-(`input/scribble_erase.dart`) runs it for `InkDrawing`: once the stroke so
-far is a scribble it previews what will go (`SurfaceModel.scribbled`),
-hiding those strokes as an owner (`setHidden`) and drawing them at 30 % as
-its lifted content (fading in over 100 ms, frame callbacks only while
-fading); the stroke ending any way un-hides them before the erase. It is held to zero
-false positives on the Ink Lab's real S Pen recordings and simulated
-writing at 1–4× (`test/scribble_detector_test.dart`).
+nearly reversing the last, ≥ 14 screen px, the inner ones at most twice the
+median, fairly straight, all in a band at most half their length wide
+(cursive m / n / u / w reverses as sharply but moves on) — erases instead
+of becoming ink when it crosses ink. Only the part that zigzags counts
+(`ScribbleDetector.windows`: each run of passes that makes a scribble, its
+outer passes cut to the span of the inner ones, overlapping runs joined),
+so a lead-in or a run-on erases nothing. The detector looks every 4
+points at the stroke's last 1.2 s only, so its cost doesn't grow with the
+stroke. `SurfaceModel.eraseScribbled` (`ink/scribble_hits.dart`) removes
+the strokes a zigzag touches that lie mostly inside its bounds (a long
+line under a scribbled word stays) and are not an outline around it (a
+stroke whose bounds hold the zigzag's, give or take 20 %, with no ink in
+the zigzag's middle half: a checkbox being filled in), as one `InkEdit`.
+Over blank paper it stays ink (shading); over text boxes or images only,
+it is dropped and the editor says "Scribble erases ink only"
+(`InkEvents.scribbleMissed`). A stroke hold to snap made a line or shape
+is never a scribble (latched, as the pen-up clears `LiveInk.straightened`).
+`ScribbleErase` (`input/scribble_erase.dart`) runs it for `InkDrawing`:
+once the stroke so far holds a scribble it previews what will go
+(`SurfaceModel.scribbled`, again only when the zigzags grew), hiding
+those strokes as an owner (`setHidden`) and drawing them at 30 % as its
+lifted content (fading in over 100 ms, frame callbacks only while
+fading); the stroke ending any way un-hides them before the erase. It is
+held to zero false positives on the Ink Lab's real S Pen recordings and
+simulated writing at 1–4× (`test/scribble_detector_test.dart`).
 
 **Text-aware highlighter** (`input/highlight_snap.dart`, set by paged
-editors to `features/editor/pdf/PdfHighlightSnap`): with hold to snap on,
-a highlighter stroke of which ≥ 70 % runs along lines of PDF text (within
-0.35 × a line's height across it, ≥ 1.5 line heights along each line it
-counts) is committed as the clean highlights a selection's Highlight makes
+editors to `features/editor/pdf/PdfHighlightSnap`): always (it needs no
+hold, whatever hold to snap is set to), a highlighter stroke of which
+≥ 70 % runs along lines of PDF text (within 0.85 × a line's height of its
+middle, ≥ 1.5 line heights along each line it counts, its middle on
+average within 0.35 × the line's height of the line's middle or within
+half the stroke's width, so an underline stays ink) is committed as the
+clean highlights a selection's Highlight makes
 (`PdfHighlights.stroke`, one per line) over the characters it covers,
 widened to words it covers half of and trimmed off words it covers less of;
 one undo step. Anything else (circles, margin notes, strokes across lines,
-non-PDF pages) stays as drawn, hold to snap included.
+underlines, non-PDF pages) stays as drawn. Lines run any way a turned page
+shows them (tested at 0°, 90°, 180° and 270°).
 
 The lasso, shape, text and laser tools are `PointerTool`s
 (`ink/tools/`): `InkInputController` hands them the drawing pointer
@@ -1477,9 +1497,12 @@ defaults as a whole.
 The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
 and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
-lines); on their own, their Reset restores the feel settings. The pen's
-global gestures (`PenGestures`: hold to snap, scribble to erase) follow "Reset feel" at the
-end of the pen's Feel, under a rule; it is their only home.
+lines); on their own, their Reset restores the feel settings. The writing
+gestures hold to snap and scribble to erase are app preferences
+(`AppPreferences.holdToSnap` / `scribbleToErase`), whose one home is
+Settings → Writing beside "Tap to undo and redo"; the editor mirrors them
+into `ToolSettings` (not saved with the tools). The Shapes popover points
+there, and the eraser panel mentions scribbling while it is on.
 The preview (`StrokePreview` / `PreviewCard`, `pen/stroke_preview.dart`)
 draws with the real renderer at the real size and colour on the paper the
 user writes on (`InkPaper`, provided by the editor chrome from the current
@@ -1555,14 +1578,14 @@ Page with template…).
   inks (`InkOptions`: live preview, the selected slot's colour — the pen
   palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
   logarithmic slider in mm, then *Feel* collapsed (ending in "Reset feel",
-  which keeps the quick colours and sizes; inks have no whole-tool Reset;
-  the pen's then has `PenGestures`),
+  which keeps the quick colours and sizes; inks have no whole-tool Reset),
   then *Toolbar* collapsed ("3 colours · 3 sizes": "Quick colours / Quick
   sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
   none for the lasso (`ToolDescriptor.options` null: tapping it again does
   nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: seven
-  kinds in one row, and a caption pointing to hold to snap in Pen › Feel);
+  kinds in one row, and a caption pointing to hold to snap in Settings →
+  Writing, or saying it is off there);
   `TextOptionsPanel`;
   `LaserOptionsPanel` (`ToolSettings.laser`: dot / trail, colours, size,
   trail length). `pickColour` (`tools/colour_sheet.dart`; text and

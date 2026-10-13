@@ -25,7 +25,13 @@ export 'tools/laser_config.dart';
 /// With a [store], customisation is restored on creation and saved
 /// (debounced) whenever it changes.
 class ToolSettings extends ChangeNotifier {
-  ToolSettings({this._stylusOnly, this._penButtonErases = false, this._store}) {
+  ToolSettings({
+    this._stylusOnly,
+    this._penButtonErases = false,
+    this._holdToStraighten = true,
+    this._scribbleToErase = true,
+    this._store,
+  }) {
     final store = _store;
     if (store == null) return;
     final json = store.toolPrefs;
@@ -41,8 +47,8 @@ class ToolSettings extends ChangeNotifier {
   ShapeKind _shape = ShapeKind.rectangle;
   LaserConfig _laser = const LaserConfig();
   TextData _text = const TextData();
-  bool _holdToStraighten = true;
-  bool _scribbleToErase = true;
+  bool _holdToStraighten;
+  bool _scribbleToErase;
   List<int> _recent = const [];
 
   /// The tools used, most recent first: [tool], then the ones before it.
@@ -169,18 +175,23 @@ class ToolSettings extends ChangeNotifier {
   /// Eraser radius in screen pixels (independent of zoom).
   double get eraserRadius => _eraser.radius;
 
-  /// Holding the pen still at the end of a stroke straightens it.
+  /// Holding the pen still at the end of a stroke straightens it. A
+  /// writing gesture of the app's preferences (Settings → Writing), which
+  /// the editor mirrors here; not saved with the tools.
   bool get holdToStraighten => _holdToStraighten;
   set holdToStraighten(bool value) {
+    if (value == _holdToStraighten) return;
     _holdToStraighten = value;
-    _changed();
+    notifyListeners();
   }
 
-  /// A quick back-and-forth scribble with the pen over ink erases it.
+  /// A quick back-and-forth scribble with the pen over ink erases it. Like
+  /// [holdToStraighten], mirrored from the preferences.
   bool get scribbleToErase => _scribbleToErase;
   set scribbleToErase(bool value) {
+    if (value == _scribbleToErase) return;
     _scribbleToErase = value;
-    _changed();
+    notifyListeners();
   }
 
   /// Colours recently picked for quick colour slots (opaque ARGB), most
@@ -215,8 +226,6 @@ class ToolSettings extends ChangeNotifier {
         _shape == other._shape &&
         _laser == other._laser &&
         identical(_text, other._text) &&
-        _holdToStraighten == other._holdToStraighten &&
-        _scribbleToErase == other._scribbleToErase &&
         identical(_recent, other._recent) &&
         inks.every((t) => identical(_configs[t], other._configs[t]));
     if (same) return;
@@ -227,8 +236,6 @@ class ToolSettings extends ChangeNotifier {
     _shape = other._shape;
     _laser = other._laser;
     _text = other._text;
-    _holdToStraighten = other._holdToStraighten;
-    _scribbleToErase = other._scribbleToErase;
     _recent = other._recent;
     notifyListeners();
   }
@@ -240,8 +247,6 @@ class ToolSettings extends ChangeNotifier {
   Map<String, Object?> toJson() => {
     'pens': {for (final e in _configs.entries) e.key.name: e.value.toJson()},
     'eraser': _eraser.toJson(),
-    'straighten': _holdToStraighten,
-    'scribble': _scribbleToErase,
     'recent': _recent,
     'shape': _shape.name,
     'laser': _laser.toJson(),
@@ -265,8 +270,6 @@ class ToolSettings extends ChangeNotifier {
       }
     }
     if (EraserConfig.fromJson(data['eraser']) case final eraser?) _eraser = eraser;
-    if (data['straighten'] case final bool straighten) _holdToStraighten = straighten;
-    if (data['scribble'] case final bool scribble) _scribbleToErase = scribble;
     if (RecentColors.parse(data['recent']) case final recent?) _recent = recent;
     _shape = ShapeKind.parse(data['shape']);
     _laser = LaserConfig.fromJson(data['laser']);
