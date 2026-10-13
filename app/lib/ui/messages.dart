@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'chrome_fade.dart';
 
 /// Widest a snack bar gets: on tablets and desktops it is centred rather
 /// than spanning the window.
@@ -101,7 +104,47 @@ void showMessage(
   SnackBarAction? action,
   Duration? duration,
 }) {
-  ScaffoldMessenger.maybeOf(context)
-    ?..removeCurrentSnackBar()
-    ..showSnackBar(appSnackBar(context, message, action: action, duration: duration));
+  final messenger = ScaffoldMessenger.maybeOf(context)?..removeCurrentSnackBar();
+  if (messenger == null) return;
+  MessageQueue.show(messenger, appSnackBar(context, message, action: action, duration: duration));
+}
+
+/// The snack bars up (shown or waiting) on each messenger, so standing
+/// notices step aside while one shows ([MessageQueue.stepAside]): one
+/// message at a time. Show snack bars through [show] (or [showMessage]).
+abstract final class MessageQueue {
+  static final _counts = Expando<int>();
+  static final _changes = ValueNotifier(0);
+
+  /// Shows [bar] on [messenger], counting it until it closes.
+  static ScaffoldFeatureController<SnackBar, SnackBarClosedReason> show(
+    ScaffoldMessengerState messenger,
+    SnackBar bar,
+  ) {
+    final shown = messenger.showSnackBar(bar);
+    _counts[messenger] = (_counts[messenger] ?? 0) + 1;
+    _changes.value++;
+    unawaited(
+      shown.closed.whenComplete(() {
+        _counts[messenger] = (_counts[messenger] ?? 1) - 1;
+        _changes.value++;
+      }),
+    );
+    return shown;
+  }
+
+  /// Whether a snack bar is up on [context]'s messenger.
+  static bool showingIn(BuildContext context) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    return messenger != null && (_counts[messenger] ?? 0) > 0;
+  }
+
+  /// [child] (a standing notice) fades away while a snack bar is up on its
+  /// messenger and comes back once it has gone.
+  static Widget stepAside({required Widget child}) => ListenableBuilder(
+    listenable: _changes,
+    builder: (context, child) =>
+        ChromeFade(visible: !showingIn(context), edge: const Offset(0, -1), child: child!),
+    child: child,
+  );
 }
