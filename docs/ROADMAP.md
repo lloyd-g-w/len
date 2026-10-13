@@ -167,7 +167,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ⬜ Web: database in a worker (OPFS VFS, asynchronous data layer) to take all reads off the UI thread
 - ✅ Theme mode (system/light/dark)
 - ✅ App shell: sidebar (tablet/desktop), drawer (phone), context menus,
-  keyboard shortcuts, redesigned settings
+  keyboard shortcuts (a grouped reference: Ctrl/⌘+/ or Settings → General), redesigned settings
 - ✅ Settings: theme previews, a Writing section (stylus, gestures, toolbar position) with
   descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,

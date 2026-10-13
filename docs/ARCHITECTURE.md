@@ -1807,7 +1807,10 @@ where a keyboard is likely), never `PopupMenuButton`. The chrome's `MenuAnchor`s
 zoom) sit in `MenuEdgeMargin`, which adds 8-dp side strips as display features (the anchor's
 `MediaQuery` padding never reaches its overlay; display features do). Rows of controls that
 scroll sideways (the text format bar, the toolbar's quick slots in a narrow bar) use
-`ScrollFade` (`scroll_fade.dart`): an end fades out while content lies beyond it. Settings (`features/settings/`): General,
+`ScrollFade` (`scroll_fade.dart`): an end fades out while content lies beyond it. The
+keyboard shortcut reference (`settings/keyboard_shortcuts.dart`, Ctrl/⌘+/) is a list of
+`ShortcutGroup`s kept honest by `keyboard_shortcuts_test.dart` (each entry must be bound
+in the screen it describes); add a binding there when adding one. Settings (`features/settings/`): General,
 Writing, Handwriting, Sync, Storage (web) and About in one centred 640-dp column;
 `SettingsSection` is a quiet `SectionLabel` heading over a rounded plate of `SettingsTile`s
 (18-dp icon, Body title, Caption subtitle; a `control` trails on wide rows and goes below the
