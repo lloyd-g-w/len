@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android Auto Backup up to Android 11 (android:fullBackupContent).
+     Only the database (handwriting, text, the library; with its write-ahead
+     log, which holds the latest committed writes until checkpointed) goes
+     into the backup: it stays far below Android's 25 MB quota, past which
+     Android silently skips the whole backup. Blobs (PDFs, images, audio:
+     files/blobs), recordings in progress (files/recording), caches and the
+     install marker (files/install-marker, so a restore is recognised and gets
+     a new device id) stay out. Keep in step with data_extraction_rules.xml. -->
+<full-backup-content>
+    <include domain="file" path="len.db"/>
+    <include domain="file" path="len.db-wal"/>
+</full-backup-content>

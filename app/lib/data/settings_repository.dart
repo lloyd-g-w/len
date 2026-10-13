@@ -23,6 +23,13 @@ class SettingsRepository {
     return id;
   }
 
+  /// The device id, or null before [deviceId] first made one.
+  String? get storedDeviceId => _get(_deviceId);
+
+  /// Gives this installation a new device id (a database restored from a
+  /// backup, see `InstallIdentity`); only before any repository uses it.
+  void replaceDeviceId(String id) => _set(_deviceId, id);
+
   String get syncUrl => _get(_syncUrl) ?? '';
   set syncUrl(String value) => _set(_syncUrl, value);
 

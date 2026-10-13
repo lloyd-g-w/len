@@ -72,7 +72,12 @@ class AppDatabase {
   }
 
   void _configure() {
-    if (sqliteSupportsWal) db.execute('PRAGMA journal_mode = WAL');
+    if (sqliteSupportsWal) {
+      db.execute('PRAGMA journal_mode = WAL');
+      // Shrinks the log back after large writes (an import), so it never
+      // lingers at hundreds of MB (or fills Android's backup quota).
+      db.execute('PRAGMA journal_size_limit = 4194304');
+    }
     db.execute('PRAGMA foreign_keys = OFF');
     db.execute('PRAGMA synchronous = NORMAL');
   }

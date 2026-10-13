@@ -6,6 +6,8 @@ import 'app.dart';
 import 'app_services.dart';
 import 'core/font_licenses.dart';
 import 'data/app_database.dart';
+import 'data/install_identity.dart';
+import 'data/settings_repository.dart';
 import 'data/write_back.dart';
 import 'ink/lab/perf_probe.dart';
 import 'ink/render/stored_rasters.dart';
@@ -13,6 +15,7 @@ import 'platform/app_directory.dart';
 import 'platform/blob_backend.dart';
 import 'platform/browser_storage.dart';
 import 'platform/incoming_files.dart';
+import 'platform/install_marker.dart';
 import 'platform/outline_preparer.dart';
 import 'platform/page_lifecycle.dart';
 import 'platform/raster_store.dart';
@@ -50,6 +53,7 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
     // Natively: files in the app-support directory. Web: IndexedDB.
     dir = await appDataDirectory();
     database = await AppDatabase.openDefault(dir, writes: writes);
+    _checkInstallation(dir, database);
     final blobs = await openBlobBackend(dir, writes: writes);
     services = AppServices.create(
       database,
@@ -88,6 +92,16 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
   runApp(LenApp(services: services));
   // Throttled to once a day; deletes blobs unreferenced for a week.
   unawaited(services.blobGc.runIfDue());
+}
+
+/// A database restored from a backup (or copied from another computer)
+/// takes a new device id before anything writes with the old one.
+void _checkInstallation(String dir, AppDatabase database) {
+  if (!hasInstallMarker) return;
+  final marker = readInstallMarker(dir);
+  final identity = InstallIdentity.check(SettingsRepository(database), marker: marker);
+  if (identity.adopted) debugPrint('Restored data: this device takes a new id');
+  if (identity.deviceId != marker) writeInstallMarker(dir, identity.deviceId);
 }
 
 /// Another tab asked for the data: stores everything and stops writing.
