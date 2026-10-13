@@ -148,4 +148,30 @@ void main() {
     surfaces.redo();
     expect(ids('A'), isEmpty);
   });
+
+  test('page edits are steps among the ink; an older one can be taken back alone', () {
+    final log = <String>[];
+    PageEdit edit(String name) =>
+        PageEdit(undo: () => log.add('-$name'), redo: () => log.add('+$name'));
+    final template = edit('template');
+    surfaces.models.record(template);
+    surfaces.surfaceOf('A').model.addStroke(_stroke('a1', 'A'));
+    final bookmark = edit('bookmark');
+    surfaces.models.record(bookmark);
+
+    surfaces.undo();
+    expect(log, ['-bookmark']);
+    surfaces.redo();
+    expect(log, ['-bookmark', '+bookmark']);
+
+    // A snack bar's Undo for the template, pressed after later edits.
+    expect(surfaces.models.undoEdit(template), isTrue);
+    expect(log.last, '-template');
+    expect(surfaces.models.undoEdit(template), isFalse, reason: 'only once');
+    surfaces.undo();
+    surfaces.undo();
+    expect(log.last, '-bookmark');
+    expect(state(), '|');
+    expect(surfaces.canUndo, isFalse);
+  });
 }

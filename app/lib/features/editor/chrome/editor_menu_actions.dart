@@ -24,7 +24,6 @@ class EditorMenuActions {
     this.onPageCommand,
     this.onAddWithTemplate,
     this.onExport,
-    this.onOutline,
     this.onAddToOutline,
     this.flow,
     this.onFlow,
@@ -39,8 +38,9 @@ class EditorMenuActions {
   final VoidCallback onRename;
   final VoidCallback onFocusMode;
 
-  /// Palm rejection; null until a stylus has been seen (then the menu
-  /// offers "Draw with finger").
+  /// Palm rejection; null (Automatic) until a stylus has been seen: fingers
+  /// draw until then. The menu's "Draw with finger" shows it on touch
+  /// screens, and with a mouse once a stylus was seen.
   final bool? stylusOnly;
   final ValueChanged<bool> onStylusOnly;
   final ToolbarPlacement placement;
@@ -61,9 +61,6 @@ class EditorMenuActions {
 
   /// Opens the export sheet (Ctrl+E).
   final VoidCallback? onExport;
-
-  /// Opens the outline: the notebook's own and its PDFs'.
-  final VoidCallback? onOutline;
 
   /// Adds the current page to the notebook's outline.
   final VoidCallback? onAddToOutline;

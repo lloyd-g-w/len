@@ -346,7 +346,7 @@ void main() {
       tester,
     ) async {
       final pdf = await open(tester);
-      await tester.tap(find.byTooltip('More options'));
+      await tester.tap(find.byTooltip('All pages'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Outline'));
       for (var i = 0; i < 10; i++) {

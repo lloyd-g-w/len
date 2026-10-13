@@ -200,14 +200,15 @@ lasso: two short lines plus the PDF hint.
 
 ### Writing, selection, text, images
 
-**P1-26 Convert to text → Replace makes a one-line box that runs off the screen.**
+✅ **P1-26 Convert to text → Replace makes a one-line box that runs off the screen.**
 `e_convert_phone_light_replaced.png` / `_dark`: "Newton's second law: F = m…"
 runs past the right edge, handles included. *Fix:* give the new box the
 recognised ink's width (wrapping) and keep it in the viewport.
 *Files:* `features/editor/recognition/convert_to_text_dialog.dart` (replace
 path), `ink/elements/text_*`.
+→ ✅ The box wraps at the ink's width (never narrower than its longest word) and stays inside the visible page or canvas (`ConvertToText.textBox(area:)`).
 
-**P1-7 Changing the template is not undoable.** `document/document_commands.dart:150-162`
+✅ **P1-7 Changing the template is not undoable.** `document/document_commands.dart:150-162`
 → `PageActions.setTemplate` writes `services.pages.setPaper` directly; no
 history entry, no Undo snack (delete page has one). "Apply to all pages" on a
 100-page notebook can't be taken back. Page reorder
@@ -216,16 +217,18 @@ history entry, no Undo snack (delete page has one). "Apply to all pages" on a
 does), or better push page-level commands into the editor history so Ctrl+Z
 works. *Files:* `document/document_commands.dart`, `document/page_actions.dart`,
 `features/documents/overview/page_commands.dart`.
+→ ✅ Templates, moves, bookmarks (many as one step), added, duplicated and deleted pages are steps of the notebook-wide undo history (`PageEdits` → `PageModels.record`), so Ctrl+Z and ↶ take them back in order with ink. "Template changed on N pages · Undo"; snack-bar Undo goes through the same history (`PageModels.undoEdit`). PDF page inserts are not undoable yet.
 
-**P1-8 Phones: the selection bar and handles get clipped at the edge.**
+✅ **P1-8 Phones: the selection bar and handles get clipped at the edge.**
 `e_shape_selected_phone_*` (handles cut at the screen edge),
 `o_selection_menu_phone_*` (bar 8 dp from the edge, opens below and covers
 the next lines), `pdf_selection_phone_*` (Copy / Highlight bar below the
 selection, covering the next line; above on tablets). *Fix:* clamp handles
 12 dp inside the viewport (pan if needed); bars prefer above, like tablets.
 *Files:* `tools/selection_menu.dart`, `features/editor/pdf/*` (text selection bar).
+→ ✅ Handles stay 12 dp inside the view (`SelectionChrome.edgeInset`); resizing follows the true corner, so a clamped or off-centre grab never jumps. The selection bar keeps 12 dp from the sides. Both bars already prefer above; they go below only when there's no room above (left as is).
 
-**P1-9 Microphone denied is a dead end; pause failures are silent.**
+✅ **P1-9 Microphone denied is a dead end; pause failures are silent.**
 `audio/recording_controller.dart:149-150` throws "Microphone access was not
 allowed." shown as a plain snack; after a permanent denial there is no path
 to fix it. `audio_bar_button.dart:146` fires pause/resume unawaited and
@@ -236,18 +239,21 @@ the denial snack (open app settings); await pause/resume, revert state and
 `showMessage` on failure; drop `($e)` from copy (log it). *Files:*
 `features/audio/recording_controller.dart`, `features/audio/ui/audio_bar_button.dart`,
 `features/audio/playback_controller.dart`.
+→ ✅ Denial says "Allow microphone access for Len in system settings" (browser: site settings); a Settings button would need `permission_handler` (not added). Pause/resume wait for the recorder, ignore double taps, keep the real state and show a message on failure. No raw exceptions in copy (logged).
 
-**P2-9 Paste with nothing to paste does nothing.** `ink/tools/content_tools.dart:136`
+✅ **P2-9 Paste with nothing to paste does nothing.** `ink/tools/content_tools.dart:136`
 returns silently; Ctrl+V and the canvas menu's Paste give no feedback. *Fix:*
 "Nothing to paste". *Files:* `ink/tools/content_tools.dart`,
 `features/editor/images/editor_images.dart`.
+→ ✅ "Nothing to paste" (Ctrl+V; the menus only offer Paste when there is something).
 
-**P2-10 Image insert: storage errors escape.** `images/editor_images.dart`
+✅ **P2-10 Image insert: storage errors escape.** `images/editor_images.dart`
 (`_prepare`) only catches `ImageImportException`; a write failure in
 `ImageImport.store` (disk full, quota on web) is unhandled. *Fix:* catch
 `Object` → "Couldn't add the image". *Files:* `images/editor_images.dart`.
+→ ✅ Any storage failure says "Couldn't add the image".
 
-**P2-11 Audio: player icons and recordings sheet.** `e_audio_playback_*` mixes
+✅ **P2-11 Audio: player icons and recordings sheet.** `e_audio_playback_*` mixes
 filled and outline glyphs, the seek track is dotted with a bare bar for a
 thumb, and trim floats alone; `e_audio_sheet_*` subtitle "4 recordings ·
 1:16:54 · 64 bytes on this device" wraps over 2–3 lines and shows sizes per
@@ -259,8 +265,9 @@ again" (`audio/backends/audioplayers_playback.dart:48,64`,
 `audio/recording_export.dart:81`) offers no Sync: add "Sync now", or say "It
 downloads when you're online". *Files:* `features/audio/ui/*`,
 `features/audio/backends/audioplayers_playback.dart`, `features/audio/recording_export.dart`.
+→ ✅ Solid seek track with a round thumb; Recordings uses an outline glyph; subtitle "4 recordings · 1 h 17 min", sizes moved into a row's menu; "…It downloads when you're online". Not done: lifting the recorder pill above Add page, trim into the overflow.
 
-**P2-12 "Draw with finger" is hidden in Automatic and named differently.**
+✅ **P2-12 "Draw with finger" is hidden in Automatic and named differently.**
 `chrome/editor_more_menu.dart:82` shows the switch only once a stylus was seen
 (`stylusOnly != null`); Settings calls it "Draw with: Automatic / Stylus only /
 Stylus & finger". The stylus-detected snack's action "Undo"
@@ -269,10 +276,11 @@ document undo. *Fix:* label the snack action "Keep finger drawing"; in ⋯ use
 the Settings wording ("Draw with finger" stays but shows in Automatic too,
 on = until a stylus is seen). *Files:* `chrome/editor_more_menu.dart`,
 `editor_screen.dart`.
+→ ✅ The switch shows in Automatic on touch screens (on until a stylus is seen; with a mouse, once a stylus was seen); the snack action reads "Keep finger drawing".
 
 ### Pages and navigation
 
-**P1-10 Phones have no visible route to the page overview.** The phone bar is
+✅ **P1-10 Phones have no visible route to the page overview.** The phone bar is
 `← title ↶ ↷ ⋯` (`chrome/editor_top_bar.dart:230-238`, no ▦), and ⋯ offers
 "Outline", which opens the overview *filtered to the outline*
 (`editor_actions.dart:52`). The other route is a long press on the page pill,
@@ -281,14 +289,16 @@ thumbnails button. *Fix:* put ▦ in the phone bar (there's room, P2-1), and
 drop "Outline" from ⋯ (the overview's filter is its home); on wide screens ⋯ →
 Outline duplicates ▦ too. *Files:* `chrome/editor_top_bar.dart`,
 `chrome/editor_more_menu.dart`, `editor_actions.dart`.
+→ ✅ ▦ in the phone bar; Outline dropped from ⋯ (all widths) — it is the overview's filter.
 
-**P1-11 "Add page 1" in the outline reads as "insert a page".** `o_outline_panel_*`,
+✅ **P1-11 "Add page 1" in the outline reads as "insert a page".** `o_outline_panel_*`,
 `pdf_outline_*`: the button `Text('Add page ${current + 1}')`
 (`outline/outline_panel.dart:120`) sits above the "This notebook" heading it
 belongs to. *Fix:* "Add this page to the outline" (or "Add page 1 to outline")
 under the heading. *Files:* `features/editor/outline/outline_panel.dart`.
+→ ✅ "Add page N to outline" under the heading (a text button); one row marks the page on screen (the deepest entry); "PDF outline".
 
-**P2-13 Overview: the selection bar and the current-page badge.**
+✅ **P2-13 Overview: the selection bar and the current-page badge.**
 `overview_select_*`: bottom-bar icons are about 12 px over 14 px labels and
 read as bullets; the current-page badge uses the selection blue, so page 2
 looks selected; "Bookmark" on a mixed selection doesn't say whether it adds or
@@ -297,19 +307,22 @@ and grid start at three different x positions. *Fix:* 20-dp `Glyphs.bar`
 icons; a neutral badge (or none) in selection mode; "Bookmark" / "Remove
 bookmark" by state; one horizontal inset. *Files:*
 `features/documents/overview/overview_parts.dart`, `page_tile.dart`.
+→ ✅ 20-dp icons; the current-page badge is the neutral plate; "Remove bookmark" when all selected pages are bookmarked (mixed adds), one undo step; the title lines up with the filter when there's no back button.
 
-**P2-14 The outline view on tablets is a full screen with an empty half.**
+✅ **P2-14 The outline view on tablets is a full screen with an empty half.**
 `o_outline_panel_tablet_*`, `pdf_outline_tablet*`: rows run 720 px wide with
 page numbers far from short titles, and that screen has ← but no Select while
 the All filter has Select but no ←. *Fix:* cap the list at 640 dp, centred; one
 app bar for all filters. *Files:* `features/documents/overview/page_overview.dart`.
+→ ✅ The outline is a centred 640-dp column. The app bar is already one for all filters (Select is hidden on Outline only).
 
-**P2-15 Planner pages mix languages and fade their labels.** `paper_daily_tr*`,
+🟡 **P2-15 Planner pages mix languages and fade their labels.** `paper_daily_tr*`,
 `paper_weekly_sunday_ru*`: weekdays and months are localised but "Week 41",
 "SCHEDULE", "PRIORITIES", "TO DO", "NOTES" stay English; labels are tiny
 light-grey caps (worst on A5); a week across two months shows only one month.
 *Fix:* add those labels to the planner label tables; darker labels; "Dec –
 Jan". *Files:* `domain/templates/patterns_planner.dart`, planner label tables.
+→ 🟡 Week, Schedule, Priorities, To do and Notes come in all 19 planner languages; a week across two months reads "Dec – Jan"; headings slightly bigger. Not done: darker labels (muted alpha 0.62 in `ink/render/paper_painter.dart` and `export/pdf_template.dart`).
 
 ### Library
 

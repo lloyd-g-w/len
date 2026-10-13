@@ -217,13 +217,14 @@ class _Footer extends StatelessWidget {
     final number = Container(
       padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xxs),
       decoration: BoxDecoration(
-        color: tile.current ? scheme.primary : Colors.transparent,
+        // The neutral plate: blue marks the selection, not the page on screen.
+        color: tile.current ? Surfaces.pressed(scheme) : Colors.transparent,
         borderRadius: BorderRadius.circular(Radii.pill),
       ),
       child: Text(
         '${tile.index + 1}',
         style: theme.textTheme.labelLarge?.copyWith(
-          color: tile.current ? scheme.onPrimary : scheme.onSurfaceVariant,
+          color: tile.current ? scheme.onSurface : scheme.onSurfaceVariant,
           fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),

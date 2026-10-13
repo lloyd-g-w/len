@@ -136,6 +136,8 @@ class EditorImages {
       if (!context.mounted) return;
       final rich = html == null ? null : textFromHtml(html, tools.textStyle);
       content.pasteText(rich ?? RichTextController.pasted(text, tools.textStyle));
+    } else if (content.selection.clipboard.isEmpty) {
+      if (context.mounted) showMessage(context, 'Nothing to paste');
     } else {
       content.pasteAtCentre();
     }

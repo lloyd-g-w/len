@@ -124,16 +124,11 @@ class _RecordingsListState extends State<RecordingsList> {
     );
   }
 
-  /// "3 recordings · 1:02:03 · 28 MB".
+  /// "3 recordings · 1 h 17 min" (sizes are in each row's menu).
   String _summary(List<Recording> recordings) {
     final duration = recordings.fold(0, (sum, r) => sum + r.lengthMs);
-    final sizes = [for (final r in recordings) audio.sizeOf(r)];
-    final known = sizes.nonNulls.fold(0, (sum, s) => sum + s);
     final count = recordings.length == 1 ? '1 recording' : '${recordings.length} recordings';
-    final size = sizes.every((s) => s == null)
-        ? ''
-        : ' · ${formatBytes(known)}${sizes.contains(null) ? ' on this device' : ''}';
-    return '$count · ${formatClock(duration)}$size';
+    return '$count · ${formatDuration(duration)}';
   }
 
   Widget _selectionHeader(List<Recording> recordings) {
@@ -230,11 +225,7 @@ class _RecordingTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final open = audio.playback.recording?.id == recording.id;
     final size = audio.sizeOf(recording);
-    final details = [
-      formatRecordedAt(recording.startedAt),
-      formatClock(recording.lengthMs),
-      if (size != null) formatBytes(size),
-    ].join(' · ');
+    final details = '${formatRecordedAt(recording.startedAt)} · ${formatClock(recording.lengthMs)}';
     final selecting = selected != null;
     return ListTile(
       key: ValueKey('recording-${recording.id}'),
@@ -262,6 +253,13 @@ class _RecordingTile extends StatelessWidget {
               icon: const Icon(Symbols.more_horiz_rounded),
               onSelected: (action) => unawaited(_run(context, action)),
               items: () => [
+                if (size != null)
+                  MenuRow(
+                    value: 'size',
+                    icon: Symbols.storage_rounded,
+                    label: '${formatBytes(size)} on this device',
+                    enabled: false,
+                  ),
                 const MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),
                 const MenuRow(value: 'trim', icon: Symbols.content_cut_rounded, label: 'Trim…'),
                 if (recording.trimmed)

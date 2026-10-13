@@ -134,7 +134,7 @@ class PlaybackBar extends StatelessWidget {
               IconButton(
                 tooltip: 'Recordings',
                 onPressed: () => unawaited(showRecordingsSheet(context, audio)),
-                icon: const Icon(Symbols.queue_music_rounded),
+                icon: const Icon(Symbols.graphic_eq_rounded),
               ),
               IconButton(
                 tooltip: 'Close player',

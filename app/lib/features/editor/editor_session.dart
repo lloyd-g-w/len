@@ -78,6 +78,7 @@ class EditorSession {
         services: services,
         notebook: () => shared.notebook,
         doc: doc,
+        reloadViews: shared.reloadViews,
       );
       shared.attachDocument(doc, commands.reload);
       backgrounds = shared.backgrounds;

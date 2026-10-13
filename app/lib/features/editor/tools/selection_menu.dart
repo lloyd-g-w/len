@@ -208,20 +208,22 @@ class _MenuLayout extends SingleChildLayoutDelegate {
 
   final Rect target;
   final EdgeInsets chrome;
-  static const double gap = 10, margin = 8;
+
+  /// [side] keeps the bar clear of the screen's left and right edges.
+  static const double gap = 10, margin = 8, side = 12;
 
   double get topInset => chrome.top + margin;
   double get bottomInset => chrome.bottom + margin;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      constraints.loosen().deflate(const EdgeInsets.all(margin));
+      constraints.loosen().deflate(const EdgeInsets.symmetric(horizontal: side, vertical: margin));
 
   @override
   Offset getPositionForChild(Size size, Size child) {
     final double x = (target.center.dx - child.width / 2).clamp(
-      margin,
-      math.max(margin, size.width - child.width - margin),
+      side,
+      math.max(side, size.width - child.width - side),
     );
     var y = target.top - gap - child.height;
     if (y < topInset) y = target.bottom + gap;

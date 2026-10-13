@@ -8,8 +8,10 @@ import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ink/recognition/convert_to_text.dart';
 import 'package:len/ink/recognition/handwriting_recognizer.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
@@ -76,6 +78,30 @@ void main() {
     expect(data.fontSize, closeTo(42 * ConvertToText.fontPerLetterHeight, 1e-6));
     expect(data.text, 'hello world');
     expect(box.z, 3);
+  });
+
+  test("a long reading wraps at the ink's width and stays inside the visible area", () {
+    const long = "Newton's second law: F = m a, the net force equals mass times acceleration";
+    SurfaceElement box({Rect? area}) => ConvertToText.textBox(
+      helloWorld('s'),
+      long,
+      id: 't',
+      surfaceId: 's',
+      z: 1,
+      createdAt: 1,
+      area: area,
+    );
+    final free = box();
+    final oneLine = TextLayout.naturalWidth(TextData.fromJson(free.data));
+    expect(free.rect.width, lessThan(oneLine), reason: 'wraps, no one-line box');
+    expect(free.rect.width, lessThan(400));
+    expect(free.rect.height, greaterThan(2 * TextData.fromJson(free.data).fontSize));
+
+    // A phone-wide view whose right edge cuts through the ink's width.
+    const phone = Rect.fromLTWH(0, 0, 300, 800);
+    final fitted = box(area: phone);
+    expect(fitted.rect.left, greaterThanOrEqualTo(phone.left));
+    expect(fitted.rect.right, lessThanOrEqualTo(phone.right));
   });
 
   test('replacing the selected strokes is one undoable edit', () {

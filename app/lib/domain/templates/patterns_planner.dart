@@ -17,10 +17,10 @@ extension PlannerPatterns on PatternBuilder {
   /// A day: date header, hourly schedule, priorities, to-dos and notes.
   void daily(Rect page, Paper paper) {
     final date = paper.date;
+    final labels = paper.labels, words = labels.words;
     final c = content(page);
     final header = c.top + 3.2 * s;
     if (date != null) {
-      final labels = paper.labels;
       final weekStart = _weekStart(paper);
       label('${date.day}', Rect.fromLTWH(c.left, c.top, 80, 64), size: 46, bold: true);
       final x = c.left + (date.day >= 10 ? 74.0 : 44.0);
@@ -36,7 +36,7 @@ extension PlannerPatterns on PatternBuilder {
       link(month, paper.sibling(PaperStyle.monthlyCalendar, date));
       final week = Rect.fromLTWH(c.right - 120, c.top + 8, 120, 24);
       label(
-        'Week ${PlannerDates.weekNumber(date, weekStart)}',
+        labels.week(PlannerDates.weekNumber(date, weekStart)),
         week,
         size: 13,
         align: LabelAlign.end,
@@ -46,10 +46,12 @@ extension PlannerPatterns on PatternBuilder {
     }
     h(header, c.left, c.right, PatternWeight.heavy);
 
+    void title(String text, double x, double y, {double width = 300}) =>
+        _heading(labels.upper(text), x, y, width);
     final top = header + 1.6 * s;
     final split = c.left + c.width * 0.42;
     // Schedule: one line per hour, 7:00 to 21:00.
-    heading('Schedule', c.left, top - 0.4 * s);
+    title(words.schedule, c.left, top - 0.4 * s);
     const first = 7, hours = 15;
     final pitch = math.max(s, (c.bottom - top - 0.4 * s) / hours);
     for (var i = 0; i < hours; i++) {
@@ -63,15 +65,15 @@ extension PlannerPatterns on PatternBuilder {
     // Priorities, to-dos and notes.
     final x0 = split + 32;
     var y = top - 0.4 * s;
-    for (final (name, count) in const [('Priorities', 3), ('To do', 7)]) {
-      heading(name, x0, y, width: c.right - x0);
+    for (final (name, count) in [(words.priorities, 3), (words.toDo, 7)]) {
+      title(name, x0, y, width: c.right - x0);
       final box = s * 0.45;
       for (final ly in rules(y + s * 0.9, y + (count - 0.1) * s, x0 + box + s * 0.4, c.right)) {
         checkbox(x0, ly, box);
       }
       y += (count + 1.6) * s;
     }
-    heading('Notes', x0, y, width: c.right - x0);
+    title(words.notes, x0, y, width: c.right - x0);
     rules(y + s * 0.9, c.bottom, x0, c.right);
   }
 
@@ -85,7 +87,7 @@ extension PlannerPatterns on PatternBuilder {
     final header = c.top + 2.8 * s;
     if (first != null) {
       final title = Rect.fromLTWH(c.left, c.top, 220, 34);
-      label('Week ${PlannerDates.weekNumber(first, weekStart)}', title, size: 24, bold: true);
+      label(labels.week(PlannerDates.weekNumber(first, weekStart)), title, size: 24, bold: true);
       label(
         labels.weekRange(first),
         Rect.fromLTWH(c.left, c.top + 36, c.width * 0.75, 20),
@@ -93,9 +95,10 @@ extension PlannerPatterns on PatternBuilder {
         muted: true,
       );
       final month = Rect.fromLTWH(c.right - 160, c.top + 6, 160, 24);
-      // The month most of the week is in (that of its middle day).
+      // Its month or months ("Dec – Jan"); links to the month most of the
+      // week is in (that of its middle day).
       final middle = PlannerDates.addDays(first, 3);
-      label(labels.monthName(middle.month), month, size: 13, align: LabelAlign.end, muted: true);
+      label(labels.weekMonths(first), month, size: 13, align: LabelAlign.end, muted: true);
       link(month, paper.sibling(PaperStyle.monthlyCalendar, middle));
     }
     h(header, c.left, c.right, PatternWeight.heavy);
@@ -121,14 +124,14 @@ extension PlannerPatterns on PatternBuilder {
       if (i < 7) {
         final weekday = weekdays[i];
         if (weekday >= DateTime.saturday) fill(strip, 0.35); // The weekend.
-        label(labels.upper(labels.weekdayName(weekday)), inner, size: 10.5, bold: true);
+        label(labels.upper(labels.weekdayName(weekday)), inner, size: _headingSize, bold: true);
         if (first != null) {
           final day = PlannerDates.addDays(first, i);
           label('${day.day}', inner, size: 15, bold: true, align: LabelAlign.end);
           link(strip, paper.sibling(PaperStyle.dailyPlanner, day));
         }
       } else {
-        label('NOTES', inner, size: 10.5, bold: true);
+        label(labels.upper(labels.words.notes), inner, size: _headingSize, bold: true);
       }
       rules(strip.bottom + s, cell.bottom - s * 0.3, cell.left + 8, cell.right - 8);
     }
@@ -207,6 +210,14 @@ extension PlannerPatterns on PatternBuilder {
       }
     }
   }
+
+  /// Planner headings are a touch larger than other templates' (they
+  /// print in the paper's text colour; small caps read faint otherwise).
+  static const double _headingSize = 11.5;
+
+  /// A capitalised heading ([text] already in capitals) ending at [y].
+  void _heading(String text, double x, double y, double width) =>
+      label(text, Rect.fromLTWH(x, y - 19, width, 17), size: _headingSize, bold: true);
 
   static WeekStart _weekStart(Paper paper) =>
       (paper.calendar ?? PlannerCalendar.standard).weekStart;

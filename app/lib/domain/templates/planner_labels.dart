@@ -4,10 +4,11 @@ import 'package:intl/intl.dart';
 import 'paper_style.dart';
 import 'planner_calendar.dart';
 import 'planner_dates.dart';
+import 'planner_words.dart';
 
-/// Month and day names and date formats printed on planner pages, in a
-/// [PlannerLanguage] (from `intl`'s CLDR data). Fixed headings ("Week",
-/// "Notes" …) stay English.
+/// Month and day names, date formats and the fixed headings printed on
+/// planner pages, in a [PlannerLanguage] (names and formats from `intl`'s
+/// CLDR data, headings from [plannerWords]).
 class PlannerLabels {
   PlannerLabels._(this.language) : _locale = language.intlLocale {
     ensureDateSymbols();
@@ -25,6 +26,7 @@ class PlannerLabels {
   static final Map<PlannerLanguage, PlannerLabels> _cache = {};
 
   final PlannerLanguage language;
+  late final PlannerWords words = plannerWords[language]!;
   final String _locale;
   late final DateSymbols _symbols;
   late final DateFormat _long, _monthDay, _monthYear, _dayShort;
@@ -46,6 +48,18 @@ class PlannerLabels {
 
   /// `M`, `П`: a one-letter heading for mini calendars.
   String weekdayNarrow(int weekday) => upper(_symbols.STANDALONENARROWWEEKDAYS[weekday % 7]);
+
+  /// `Week 41`, `Woche 41`, `41. Hafta`.
+  String week(int number) => words.week.replaceFirst('#', '$number');
+
+  /// The month of the week from [start] (`October`), or of both months it
+  /// spans (`Dec – Jan`, short names).
+  String weekMonths(DateTime start) {
+    final end = PlannerDates.addDays(start, 6);
+    if (start.month == end.month) return monthName(start.month);
+    String short(int month) => capitalise(_symbols.STANDALONESHORTMONTHS[month - 1]);
+    return '${short(start.month)} – ${short(end.month)}';
+  }
 
   /// `5 October 2026`, `October 5, 2026`, `5. Oktober 2026`.
   String longDate(DateTime d) => _long.format(d);
@@ -79,7 +93,8 @@ class PlannerLabels {
   /// 2026`, `Week 41 · 5 – 11 October 2026`, `October 2026`, `2026`.
   String describe(PlannerPeriod period, DateTime start, WeekStart weekStart) => switch (period) {
     PlannerPeriod.day => _dayShort.format(start),
-    PlannerPeriod.week => 'Week ${PlannerDates.weekNumber(start, weekStart)} · ${weekRange(start)}',
+    PlannerPeriod.week =>
+      '${week(PlannerDates.weekNumber(start, weekStart))} · ${weekRange(start)}',
     PlannerPeriod.month => monthYear(start),
     PlannerPeriod.year => '${start.year}',
   };

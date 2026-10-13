@@ -11,6 +11,7 @@ import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/toolbar/tool_options_popover.dart';
 import 'package:len/features/editor/tools/laser_strip.dart';
 import 'package:len/ink/tool_settings.dart';
+import 'package:len/ui/app_theme.dart';
 
 import 'content_tools_ui_test.dart' show openCanvas;
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
@@ -107,8 +108,8 @@ void main() {
     expect(find.text('Page with template…'), findsNothing);
   });
 
-  testWidgets('the ⋯ menu: search, export, page, view, settings; draw with finger once a '
-      'stylus was seen; Ctrl+E exports', (tester) async {
+  testWidgets('the ⋯ menu: search, export, page, view, settings; draw with finger on touch '
+      'screens (with a mouse once a stylus was seen); Ctrl+E exports', (tester) async {
     final (s, _) = await pumpEditor(tester, size: const Size(1280, 900));
     Future<void> openMenu() async {
       await tester.tap(find.byTooltip('More options'));
@@ -116,23 +117,37 @@ void main() {
     }
 
     await openMenu();
-    for (final item in ['Search in notebook', 'Export…', 'Page', 'Outline', 'View', 'Settings…']) {
+    for (final item in ['Search in notebook', 'Export…', 'Page', 'View', 'Settings…']) {
       expect(find.text(item), findsOneWidget, reason: item);
     }
     for (final gone in ['Rename notebook…', 'Show tool names', 'Customise toolbar…', 'Present']) {
       expect(find.text(gone), findsNothing, reason: gone);
     }
-    expect(find.text('Draw with finger'), findsNothing, reason: 'no stylus seen yet');
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    // Automatic on a touch screen: fingers draw until a stylus is seen;
+    // the switch is on and turns palm rejection on.
+    await tester.tap(find.text('Draw with finger'));
     await tester.pumpAndSettle();
-
-    // A stylus was seen: palm rejection is on, and fingers can be let draw.
-    s.preferences.stylusOnly = true;
-    await tester.pumpAndSettle();
+    expect(toolsOf(tester).stylusOnly, isTrue);
     await openMenu();
     await tester.tap(find.text('Draw with finger'));
     await tester.pumpAndSettle();
     expect(toolsOf(tester).stylusOnly, isFalse);
+
+    // With a mouse it shows only once a stylus was seen.
+    Targets.debugTouchFirst = false;
+    addTearDown(() => Targets.debugTouchFirst = null);
+    s.preferences.stylusOnly = null;
+    await tester.pumpAndSettle();
+    await openMenu();
+    expect(find.text('Draw with finger'), findsNothing, reason: 'no stylus seen yet');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    s.preferences.stylusOnly = true;
+    await tester.pumpAndSettle();
+    await openMenu();
+    expect(find.text('Draw with finger'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyE);

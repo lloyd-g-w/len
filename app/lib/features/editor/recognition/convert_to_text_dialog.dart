@@ -31,10 +31,12 @@ class _Copy extends _Choice {
 /// model is on the device (offering to download it), recognises the
 /// selected strokes and shows the reading — editable, with alternatives —
 /// to replace the ink with a text box (one undoable edit) or to copy.
+/// The box wraps to stay inside [area] (the visible part of the surface).
 Future<void> convertSelectionToText(
   BuildContext context, {
   required RecognitionService recognition,
   required SelectionController selection,
+  Rect Function()? area,
 }) async {
   final strokes = selection.strokes;
   if (strokes.isEmpty || !recognition.isSupported) return;
@@ -66,6 +68,7 @@ Future<void> convertSelectionToText(
         surfaceId: model.surfaceId,
         z: model.topZ + 1,
         createdAt: selection.clock.nowMs(),
+        area: area?.call(),
       );
       selection.replaceStrokesWith([box]);
   }

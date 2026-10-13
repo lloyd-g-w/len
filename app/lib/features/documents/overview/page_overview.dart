@@ -116,8 +116,13 @@ class _PageOverviewState extends State<PageOverview> {
       case SelectionAction.bookmark:
         // Bookmark all, or clear them if all are bookmarked already.
         final clear = pages.every((p) => p.bookmarked);
-        for (final p in pages.where((p) => p.bookmarked == clear)) {
-          await widget.handlers.command(context, PageCommand.bookmark, p);
+        final many = widget.handlers.bookmarkMany;
+        if (many != null) {
+          many(pages, on: !clear);
+        } else {
+          for (final p in pages.where((p) => p.bookmarked == clear)) {
+            await widget.handlers.command(context, PageCommand.bookmark, p);
+          }
         }
       case SelectionAction.duplicate:
         for (final p in pages.reversed) {
@@ -179,18 +184,19 @@ class _PageOverviewState extends State<PageOverview> {
                     : () => setState(() => _selection = {}),
               ),
         bottomNavigationBar: _selecting
-            ? SelectionBar(count: _selection!.length, onAction: _runOnSelection)
+            ? SelectionBar(
+                count: _selection!.length,
+                allBookmarked: _selected.isNotEmpty && _selected.every((p) => p.bookmarked),
+                onAction: _runOnSelection,
+              )
             : null,
         body: _filter == OverviewFilter.outline
             // A readable column under the filter, not the full width.
             ? Align(
-                alignment: AlignmentDirectional.topStart,
+                alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Padding(
-                    padding: EdgeInsetsDirectional.only(start: compact ? 0 : Gaps.sm),
-                    child: widget.outline!(context, (page) => Navigator.of(context).pop(page)),
-                  ),
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: widget.outline!(context, (page) => Navigator.of(context).pop(page)),
                 ),
               )
             : shown.isEmpty

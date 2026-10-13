@@ -78,7 +78,10 @@ Future<void> exportRecordings(
         if (bytes == null && await fetch(sha)) bytes = await blobs.read(sha);
         if (bytes == null) {
           if (context.mounted) {
-            showMessage(context, '“${r.title}” is not on this device yet. Sync and try again.');
+            showMessage(
+              context,
+              '“${r.title}” is not on this device yet. It downloads when you’re online.',
+            );
           }
           return;
         }
@@ -101,6 +104,7 @@ Future<void> exportRecordings(
       recordings.length == 1 ? 'Saved $saved' : 'Saved ${recordings.length} recordings',
     );
   } on Exception catch (e) {
-    if (context.mounted) showMessage(context, 'Export failed: $e');
+    debugPrint('Recording export failed: $e');
+    if (context.mounted) showMessage(context, 'Could not export the recording');
   }
 }

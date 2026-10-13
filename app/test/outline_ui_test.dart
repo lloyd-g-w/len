@@ -20,6 +20,14 @@ Future<void> _menu(WidgetTester tester, String item, {bool page = true}) async {
   await tester.pumpAndSettle();
 }
 
+/// The outline lives in the page overview's Outline filter.
+Future<void> _outline(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('All pages'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Outline'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('add pages to the outline, nest, jump, rename and delete', (tester) async {
     final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
@@ -35,10 +43,10 @@ void main() {
     // Page 3 → "Details", nested under Intro from the panel.
     _doc(tester).scrollToPage(2);
     await tester.pumpAndSettle();
-    await _menu(tester, 'Outline', page: false);
+    await _outline(tester);
     expect(find.byType(OutlinePanel), findsOneWidget);
     expect(find.text('Intro'), findsOneWidget);
-    await tester.tap(find.text('Add page 3'));
+    await tester.tap(find.text('Add page 3 to outline'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('outline-title-field')), 'Details');
     await tester.tap(find.byKey(const ValueKey('outline-parent-field')));
@@ -64,7 +72,7 @@ void main() {
     expect(_doc(tester).currentPage, 0);
 
     // Rename and delete from an entry's menu; Undo brings it back.
-    await _menu(tester, 'Outline', page: false);
+    await _outline(tester);
     await tester.tap(find.byTooltip('Entry options').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Move out a level'));

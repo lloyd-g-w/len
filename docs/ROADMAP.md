@@ -138,7 +138,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   never drift in zoom), rubber-band zoom limits with spring back, pinches snap to the page fit /
   100 %, palms between pen strokes ignored; single-page flow turns by flick, long drag, trackpad
   swipe or wheel notch and settles back otherwise; arrow keys scroll / move, `+` `-` zoom pages
-- ⬜ Single-page flow: the page could follow the finger during a swipe (today it slides in after)
+- ✅ Single-page flow: the page follows a sideways finger, glides back or carries on into the
+  next page (`SinglePageTurns.follow`)
 - ⬜ Persistent LOD tiles; LOD for paged documents
 
 ## Library

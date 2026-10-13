@@ -61,15 +61,6 @@ void main() {
   });
 
   group('page actions', () {
-    test('toggling a stale page copy toggles what is stored', () {
-      final nb = paged();
-      final page = s.pages.pagesOf(nb.id).single;
-      final actions = PageActions(s, nb.id);
-      actions.toggleBookmark(page); // Bookmarked (in another view, say).
-      actions.toggleBookmark(page); // This view still holds the unbookmarked page.
-      expect(s.pages.get(page.id)!.bookmarked, isFalse);
-    });
-
     test('delete then restore brings back the page in place with ink and text', () {
       final nb = paged();
       final actions = PageActions(s, nb.id);

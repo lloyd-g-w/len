@@ -16,9 +16,23 @@ abstract final class SelectionChrome {
   /// screen, so they neither crowd the corners nor cover its inside.
   static const double minEdgeHandleSpan = 56;
 
-  /// Screen positions of the handles shown for [frame].
+  /// Handles stay this far inside the view, so a frame reaching past the
+  /// screen's edge (a full-width shape on a phone) can still be resized.
+  static const double edgeInset = 12;
+
+  /// Screen positions of the handles shown for [frame] (kept [edgeInset]
+  /// inside the view).
   static Map<SelectionHandle, Offset> handles(SelectionFrame frame, ViewportController viewport) {
-    Offset at(Offset fraction) => viewport.toScreen(frame.at(fraction));
+    final size = viewport.size;
+    final inside = size.width > 4 * edgeInset && size.height > 4 * edgeInset
+        ? (Offset.zero & size).deflate(edgeInset)
+        : null;
+    Offset at(Offset fraction) {
+      final p = viewport.toScreen(frame.at(fraction));
+      if (inside == null) return p;
+      return Offset(p.dx.clamp(inside.left, inside.right), p.dy.clamp(inside.top, inside.bottom));
+    }
+
     final width = frame.rect.width * viewport.scale;
     final height = frame.rect.height * viewport.scale;
     final result = <SelectionHandle, Offset>{};
@@ -28,7 +42,13 @@ abstract final class SelectionChrome {
       if (!h.isCorner && small) continue;
       result[h] = at(h.fraction);
     }
-    result[SelectionHandle.rotate] = at(const Offset(0.5, 0)) + frame.up * rotateOffset;
+    final rotate = viewport.toScreen(frame.at(const Offset(0.5, 0))) + frame.up * rotateOffset;
+    result[SelectionHandle.rotate] = inside == null
+        ? rotate
+        : Offset(
+            rotate.dx.clamp(inside.left, inside.right),
+            rotate.dy.clamp(inside.top, inside.bottom),
+          );
     return result;
   }
 

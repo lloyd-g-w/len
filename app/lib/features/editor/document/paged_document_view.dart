@@ -38,7 +38,7 @@ class PagedDocumentView extends StatefulWidget {
   State<PagedDocumentView> createState() => _PagedDocumentViewState();
 }
 
-class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTickerProviderStateMixin {
+class _PagedDocumentViewState extends State<PagedDocumentView> with TickerProviderStateMixin {
   final Set<int> _pointers = {};
 
   /// Slides the new page in when turning pages in single-page flow.
@@ -49,6 +49,16 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
   );
   late int _shownPage = _doc.currentPage;
   double _turnDirection = 1;
+
+  /// How far the new page slides in from (a page turned by a swipe comes
+  /// from further, carrying on the finger's motion).
+  double _turnFrom = _slide;
+  static const double _slide = 48;
+
+  /// Glides a page that followed a finger back when the swipe didn't turn.
+  late final AnimationController _settle = AnimationController(vsync: this, duration: Motion.medium)
+    ..addListener(_settling);
+  double _settleFrom = 0;
 
   /// Repaints the paper once an image template of a page is decoded.
   final _paperImagesChanged = ValueNotifier(0);
@@ -80,6 +90,8 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
     unawaited(_imageChanges?.cancel());
     _paperImagesChanged.dispose();
     _turn.dispose();
+    _settle.dispose();
+    _turns.dispose();
     super.dispose();
   }
 
@@ -93,9 +105,28 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
     if (page == _shownPage) return;
     if (_doc.flow == PageFlow.single) {
       _turnDirection = page > _shownPage ? 1 : -1;
+      final swiped = _turns.follow.value != 0;
+      final width = _doc.viewport.size.width;
+      _turnFrom = swiped ? (width / 3).clamp(_slide, 160).toDouble() : _slide;
+      _stopFollowing();
       _turn.forward(from: 0);
     }
     _shownPage = page;
+  }
+
+  void _settling() =>
+      _turns.follow.value = _settleFrom * (1 - Motion.standard.transform(_settle.value));
+
+  /// The page that followed a finger glides back into place.
+  void _settleBack() {
+    _settleFrom = _turns.follow.value;
+    if (_settleFrom == 0) return;
+    Motion.reduced(context) ? _stopFollowing() : _settle.forward(from: 0);
+  }
+
+  void _stopFollowing() {
+    _settle.stop();
+    _turns.follow.value = 0;
   }
 
   /// Swipes, trackpad swipes and the wheel turn pages in single-page flow.
@@ -112,6 +143,7 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
 
   void _down(PointerDownEvent e) {
     _doc.scroller.stop(); // Touching the page catches a running scroll.
+    _stopFollowing(); // Input maps to the page where it really is.
     // The first pointer of a gesture picks the page; a stylus always does
     // (it cancels whatever a resting palm started anyway).
     final stylus = e.kind == PointerDeviceKind.stylus || e.kind == PointerDeviceKind.invertedStylus;
@@ -133,16 +165,23 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
     widget.input.handleUp(e);
     _pointers.remove(e.pointer);
     if (navigating && _pointers.isEmpty) {
-      _turns.fingerUp(e);
+      if (_turns.fingerUp(e) == 0) _settleBack();
     } else {
       _turns.cancelSwipe();
+      _settleBack();
     }
+  }
+
+  void _move(PointerMoveEvent e) {
+    widget.input.handleMove(e);
+    _turns.fingerMove(e);
   }
 
   void _cancel(PointerCancelEvent e) {
     widget.input.handleCancel(e);
     _pointers.remove(e.pointer);
     _turns.cancelSwipe();
+    _settleBack();
   }
 
   void _signal(PointerSignalEvent e) {
@@ -164,7 +203,7 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
           child: Listener(
             behavior: HitTestBehavior.opaque,
             onPointerDown: _down,
-            onPointerMove: input.handleMove,
+            onPointerMove: _move,
             onPointerUp: _up,
             onPointerCancel: _cancel,
             onPointerHover: input.handleHover,
@@ -184,15 +223,13 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with SingleTicker
               _turns.trackpadEnd(e);
             },
             child: AnimatedBuilder(
-              animation: _turn,
+              animation: Listenable.merge([_turn, _turns.follow]),
               builder: (context, child) {
                 final t = Motion.standard.transform(_turn.value);
+                final dx = _turnDirection * (1 - t) * _turnFrom + _turns.follow.value;
                 return Opacity(
                   opacity: 0.4 + 0.6 * t,
-                  child: Transform.translate(
-                    offset: Offset(_turnDirection * (1 - t) * 48, 0),
-                    child: child,
-                  ),
+                  child: Transform.translate(offset: Offset(dx, 0), child: child),
                 );
               },
               child: ListenableBuilder(
