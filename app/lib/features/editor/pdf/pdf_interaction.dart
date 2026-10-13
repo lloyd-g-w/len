@@ -15,6 +15,9 @@ import 'pdf_text_selection.dart';
 /// A point on a PDF page of the document.
 typedef PdfPagePoint = ({int index, NotebookPage page, PageBackground pdf, Offset normalized});
 
+/// A character of the PDF text of the document's page [index].
+typedef PdfTextPoint = ({int index, NotebookPage page, PdfGlyphs glyphs, int glyph});
+
 /// The interactive side of imported PDF pages in one paged editor: text
 /// selection (a long press or right click, then the handles), copying, highlighting
 /// the selection with highlighter strokes, links and the outline.
@@ -73,8 +76,8 @@ class PdfInteraction extends ChangeNotifier {
   void _onDocument() {
     if (identical(doc.pages, _pages)) return;
     _pages = doc.pages;
-    final page = selection.page;
-    if (page != null && !doc.pages.any((p) => p.id == page.id)) selection.clear();
+    final ids = {for (final p in doc.pages) p.id};
+    if (selection.spans.any((s) => !ids.contains(s.page.id))) selection.clear();
   }
 
   /// The PDF page under [screen] and the normalised position on it.
@@ -118,17 +121,61 @@ class PdfInteraction extends ChangeNotifier {
   /// first line starts (at the top of its letters: the top-left for
   /// upright text, the top-right on a page turned clockwise, …) and where
   /// its last line ends.
+  /// The start is on the selection's first page, the end on its last.
   (Offset, Offset)? get handleEnds {
-    final page = selection.page;
-    if (page == null || selection.isEmpty) return null;
-    final lines = selection.lines;
-    if (lines.isEmpty) return null;
+    final spans = selection.spans.where((s) => !s.isEmpty).toList();
+    if (spans.isEmpty) return null;
+    final first = spans.first.lines, last = spans.last.lines;
+    if (first.isEmpty || last.isEmpty) return null;
+    final a = toScreen(spans.first.page, first.first.startCorner);
+    final b = toScreen(spans.last.page, last.last.endCorner);
+    return a == null || b == null ? null : (a, b);
+  }
+
+  /// Where normalised point [n] of [page] is on screen; null if the page
+  /// is not laid out.
+  Offset? toScreen(NotebookPage page, Offset n) {
     final index = doc.pages.indexWhere((p) => p.id == page.id);
     final frame = index < 0 ? null : doc.layout.frameOf(index);
     if (frame == null) return null;
-    Offset screen(Offset n) =>
-        doc.viewport.toScreen(frame.topLeft + Offset(n.dx * frame.width, n.dy * frame.height));
-    return (screen(lines.first.startCorner), screen(lines.last.endCorner));
+    return doc.viewport.toScreen(frame.topLeft + Offset(n.dx * frame.width, n.dy * frame.height));
+  }
+
+  /// The character nearest to [screen] on the PDF page under it (or the
+  /// nearest page's, between pages); null off PDF text.
+  PdfTextPoint? textPointAt(Offset screen) {
+    final world = doc.viewport.toWorld(screen);
+    final index = doc.layout.pageAt(world) ?? doc.layout.nearestPage(world);
+    if (index == null) return null;
+    final page = doc.pages[index];
+    final bg = page.background;
+    final frame = doc.layout.frameOf(index);
+    final glyphs = bg == null ? null : info.glyphs(bg.blob, bg.pageIndex);
+    if (frame == null || glyphs == null) return null;
+    final local = world - frame.topLeft;
+    final glyph = glyphs.nearestIndex(Offset(local.dx / frame.width, local.dy / frame.height));
+    return glyph == null ? null : (index: index, page: page, glyphs: glyphs, glyph: glyph);
+  }
+
+  /// Selects from character [a] to character [b] (in either order, on
+  /// the same page or not; both included); PDF pages between them are
+  /// selected whole (as far as their text has loaded).
+  void selectRange(PdfTextPoint a, PdfTextPoint b, {bool menu = false}) {
+    final before = a.index < b.index || (a.index == b.index && a.glyph <= b.glyph);
+    final (from, to) = before ? (a, b) : (b, a);
+    if (from.index == to.index) {
+      selection.select(from.page, from.glyphs, from.glyph, to.glyph + 1, menu: menu);
+      return;
+    }
+    final spans = [
+      PdfSpan(from.page, from.glyphs, from.glyph, from.glyphs.text.length),
+      for (var i = from.index + 1; i < to.index; i++)
+        if (doc.pages[i].background case final bg?)
+          if (info.glyphs(bg.blob, bg.pageIndex) case final glyphs?)
+            PdfSpan(doc.pages[i], glyphs, 0, glyphs.text.length),
+      PdfSpan(to.page, to.glyphs, 0, to.glyph + 1),
+    ];
+    selection.selectSpans(spans, menu: menu);
   }
 
   /// The link under the start of the selection, if any (its menu offers to
@@ -189,33 +236,38 @@ class PdfInteraction extends ChangeNotifier {
   /// current colour and opacity), as one undoable edit; clears the
   /// selection. Returns how many strokes were added.
   int highlightSelection() {
-    final page = selection.page;
-    if (page == null || selection.isEmpty) return 0;
+    if (selection.isEmpty) return 0;
     final config = tools.configOf(InkTool.highlighter);
     final style = tools.styleFor(InkTool.highlighter).copyWith(thinning: 0, streamline: 0);
     final now = clock.nowMs();
-    final strokes = [
-      for (final line in selection.lines)
-        if (highlightPoints(line.rect, page.size, direction: line.direction) case final points?)
-          Stroke(
-            id: clock.newId(),
-            surfaceId: page.id,
-            tool: InkTool.highlighter,
-            color: config.color,
-            width:
-                (line.thickness *
-                        (line.direction.vertical ? page.width : page.height) *
-                        highlightHeight)
-                    .clamp(2.0, 200.0),
-            style: style,
-            points: points,
-            createdAt: now,
-          ),
-    ];
-    if (strokes.isEmpty) return 0;
-    doc.surfaces.surfaceOf(page.id).model.commit(InkEdit(added: strokes));
+    var added = 0;
+    // Each page gets its own strokes (on a selection over several pages).
+    for (final span in selection.spans) {
+      final page = span.page;
+      final strokes = [
+        for (final line in span.lines)
+          if (highlightPoints(line.rect, page.size, direction: line.direction) case final points?)
+            Stroke(
+              id: clock.newId(),
+              surfaceId: page.id,
+              tool: InkTool.highlighter,
+              color: config.color,
+              width:
+                  (line.thickness *
+                          (line.direction.vertical ? page.width : page.height) *
+                          highlightHeight)
+                      .clamp(2.0, 200.0),
+              style: style,
+              points: points,
+              createdAt: now,
+            ),
+      ];
+      if (strokes.isEmpty) continue;
+      doc.surfaces.surfaceOf(page.id).model.commit(InkEdit(added: strokes));
+      added += strokes.length;
+    }
     selection.clear();
-    return strokes.length;
+    return added;
   }
 
   /// A highlight's height relative to its line of text.

@@ -623,7 +623,10 @@ search highlights use the same boxes.
   click on PDF text with any tool selects the word instead of opening the
   canvas menu, and dragging the selection's handles (`PdfSelectionHandles`,
   touch targets over the painted knobs that keep the press from the canvas)
-  extends it. `PdfLayer` paints the selection (one box per line, with
+  extends it — also onto other PDF pages: `PdfSelection` is a list of
+  per-page `PdfSpan`s (`PdfInteraction.selectRange`: the anchor's page from
+  the anchor on, pages between whole, the focus's page up to the focus),
+  copied with a blank line between pages and highlighted page by page. `PdfLayer` paints the selection (one box per line, with
   handles) and a menu: **Copy** (also Ctrl/⌘+C), **Highlight**, select all
   on the page.
 - **Highlight** turns each selected line (`PdfGlyphs.rectsFor`) into one

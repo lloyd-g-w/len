@@ -73,44 +73,86 @@ extension PdfGlyphHits on PdfGlyphs {
   static final _wordChar = RegExp(r"[\p{L}\p{N}\p{M}_'’-]", unicode: true);
 }
 
-/// The PDF text selected on one page: `text[start, end)` of [glyphs].
+/// One page's part of a PDF text selection: `text[start, end)` of [glyphs].
+@immutable
+class PdfSpan {
+  const PdfSpan(this.page, this.glyphs, this.start, this.end);
+
+  final NotebookPage page;
+  final PdfGlyphs glyphs;
+  final int start, end;
+
+  bool get isEmpty => end <= start;
+
+  /// The selected text, with surrounding whitespace removed.
+  String get text => isEmpty ? '' : glyphs.text.substring(start, end).trim();
+
+  /// The selected part of each line (with its direction).
+  List<PdfTextLine> get lines => isEmpty ? const [] : glyphs.linesFor(start, end);
+}
+
+/// The PDF text selected: one span per page, in page order — a selection
+/// can run from a line on one page to a line on a later one, the pages in
+/// between taken whole.
 class PdfSelection extends ChangeNotifier {
-  NotebookPage? _page;
-  PdfGlyphs? _glyphs;
-  int _start = 0, _end = 0;
+  List<PdfSpan> _spans = const [];
   bool _menu = false;
 
-  /// The page the selection is on; null when nothing is selected.
-  NotebookPage? get page => _page;
-  PdfGlyphs? get glyphs => _glyphs;
-  int get start => _start;
-  int get end => _end;
-  bool get isEmpty => _page == null || _end <= _start;
+  /// The selected parts of each page, in page order.
+  List<PdfSpan> get spans => _spans;
+
+  /// The page the selection starts on; null when nothing is selected.
+  NotebookPage? get page => _spans.isEmpty ? null : _spans.first.page;
+  PdfGlyphs? get glyphs => _spans.isEmpty ? null : _spans.first.glyphs;
+
+  /// Where the selection starts (on [page]) and ends (on the last span's
+  /// page).
+  int get start => _spans.isEmpty ? 0 : _spans.first.start;
+  int get end => _spans.isEmpty ? 0 : _spans.last.end;
+  bool get isEmpty => _spans.every((s) => s.isEmpty);
+
+  /// Whether the selection runs over more than one page.
+  bool get spansPages => _spans.length > 1;
 
   /// Whether the selection's menu (copy, highlight) is offered: after the
   /// pointer lifted.
   bool get showsMenu => _menu && !isEmpty;
 
-  /// The selected text, with surrounding whitespace removed.
-  String get text => isEmpty ? '' : _glyphs!.text.substring(_start, _end).trim();
+  /// The selected text, pages joined by a blank line, with surrounding
+  /// whitespace removed.
+  String get text => [
+    for (final s in _spans)
+      if (s.text.isNotEmpty) s.text,
+  ].join('\n\n');
 
-  /// One box per selected line, normalised to the page.
+  /// One box per selected line of the first page, normalised to it.
   List<Rect> get rects => [for (final l in lines) l.rect];
 
-  /// The selected part of each line (with its direction).
-  List<PdfTextLine> get lines => isEmpty ? const [] : _glyphs!.linesFor(_start, _end);
+  /// The selected part of each line of the first page (with its direction).
+  List<PdfTextLine> get lines => _spans.isEmpty ? const [] : _spans.first.lines;
 
   /// Selects `[start, end)` (in either order) of [glyphs] on [page].
   void select(NotebookPage page, PdfGlyphs glyphs, int start, int end, {bool menu = false}) {
     final a = math.min(start, end).clamp(0, glyphs.text.length);
     final b = math.max(start, end).clamp(0, glyphs.text.length);
-    if (identical(page, _page) && a == _start && b == _end && menu == _menu) return;
-    _page = page;
-    _glyphs = glyphs;
-    _start = a;
-    _end = b;
+    selectSpans([PdfSpan(page, glyphs, a, b)], menu: menu);
+  }
+
+  /// Selects [spans] (one per page, in page order).
+  void selectSpans(List<PdfSpan> spans, {bool menu = false}) {
+    if (_same(spans) && menu == _menu) return;
+    _spans = List.unmodifiable(spans);
     _menu = menu;
     notifyListeners();
+  }
+
+  bool _same(List<PdfSpan> spans) {
+    if (spans.length != _spans.length) return false;
+    for (var i = 0; i < spans.length; i++) {
+      final a = spans[i], b = _spans[i];
+      if (!identical(a.page, b.page) || a.start != b.start || a.end != b.end) return false;
+    }
+    return true;
   }
 
   /// Offers (or hides) the menu for the current selection.
@@ -121,10 +163,8 @@ class PdfSelection extends ChangeNotifier {
   }
 
   void clear() {
-    if (_page == null) return;
-    _page = null;
-    _glyphs = null;
-    _start = _end = 0;
+    if (_spans.isEmpty) return;
+    _spans = const [];
     _menu = false;
     notifyListeners();
   }

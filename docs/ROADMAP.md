@@ -121,7 +121,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   the line's direction, copy, highlights, search highlights and links
 - ✅ Exported PDFs keep links: link elements, planner links, and the links of imported PDF pages
   (web links as is, page links remapped to the exported page or dropped)
-- ⬜ PDF text selection across pages
+- ✅ PDF text selection across pages (drag a handle onto another page; copy joins pages
+  with a blank line; highlight marks every page)
 
 ## Infinite canvas & navigation
 - ✅ Level-of-detail chunk rasters when zoomed out (cost bounded by visible chunks)
