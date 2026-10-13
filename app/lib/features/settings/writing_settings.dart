@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../data/app_preferences.dart';
 import '../../domain/preferences.dart';
+import '../../ui/fit_segments.dart';
 import '../../ui/segment_label.dart';
 import 'settings_section.dart';
 
@@ -30,8 +32,9 @@ class WritingSettings extends StatelessWidget {
               false => 'Both draw; two fingers pan and zoom',
             },
             // "Draw with: Automatic / Stylus / Both", short enough to trail.
-            control: ShrinkToFit(
-              child: SegmentedButton<bool?>(
+            control: FitSegments(
+              builder: (direction) => SegmentedButton<bool?>(
+                direction: direction,
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: null, label: SegmentLabel('Automatic')),
@@ -43,23 +46,27 @@ class WritingSettings extends StatelessWidget {
               ),
             ),
           ),
-          SettingsTile(
-            icon: Symbols.ads_click_rounded,
-            title: 'Side button',
-            subtitle: 'While you hold the S Pen (or stylus) button',
-            control: ShrinkToFit(
-              child: SegmentedButton<PenButtonAction>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: PenButtonAction.eraser, label: SegmentLabel('Erases')),
-                  ButtonSegment(value: PenButtonAction.lasso, label: SegmentLabel('Selects')),
-                  ButtonSegment(value: PenButtonAction.none, label: SegmentLabel('Nothing')),
-                ],
-                selected: {preferences.penButtonAction},
-                onSelectionChanged: (s) => preferences.penButtonAction = s.single,
+          // Only where a stylus with a button is likely: Android (S Pen), or
+          // where the user said they draw with one.
+          if (defaultTargetPlatform == TargetPlatform.android || preferences.stylusOnly == true)
+            SettingsTile(
+              icon: Symbols.ads_click_rounded,
+              title: 'Side button',
+              subtitle: 'While you hold the S Pen (or stylus) button',
+              control: FitSegments(
+                builder: (direction) => SegmentedButton<PenButtonAction>(
+                  direction: direction,
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: PenButtonAction.eraser, label: SegmentLabel('Erases')),
+                    ButtonSegment(value: PenButtonAction.lasso, label: SegmentLabel('Selects')),
+                    ButtonSegment(value: PenButtonAction.none, label: SegmentLabel('Nothing')),
+                  ],
+                  selected: {preferences.penButtonAction},
+                  onSelectionChanged: (s) => preferences.penButtonAction = s.single,
+                ),
               ),
             ),
-          ),
           SettingsTile(
             icon: Symbols.undo_rounded,
             title: 'Tap to undo and redo',
@@ -77,8 +84,9 @@ class WritingSettings extends StatelessWidget {
               ToolbarPlacement.docked => 'Along the top; at the bottom on phones',
               ToolbarPlacement.floating => 'Floating; drag it anywhere by its grip',
             },
-            control: ShrinkToFit(
-              child: SegmentedButton<ToolbarPlacement>(
+            control: FitSegments(
+              builder: (direction) => SegmentedButton<ToolbarPlacement>(
+                direction: direction,
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: ToolbarPlacement.docked, label: SegmentLabel('Docked')),

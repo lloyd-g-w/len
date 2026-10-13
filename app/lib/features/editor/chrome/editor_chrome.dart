@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
 import '../../../ui/chrome_fade.dart';
+import '../../../ui/messages.dart';
 import '../editor_toolbar.dart';
 import '../toolbar/toolbar_metrics.dart';
 import 'chrome_metrics.dart';
@@ -231,7 +232,8 @@ class EditorChrome extends StatelessWidget {
               if (notice case final notice?)
                 Padding(
                   padding: const EdgeInsets.only(top: Gaps.sm, left: Gaps.md, right: Gaps.md),
-                  child: notice,
+                  // One message at a time: it waits while a snack bar shows.
+                  child: MessageQueue.stepAside(child: notice),
                 ),
             ],
           ),

@@ -85,6 +85,19 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('the side-button tip waits for the stylus-detected message', (tester) async {
+    final (s, _) = await pumpEditor(tester);
+    await penStroke(tester, const Offset(300, 400));
+    await tester.pumpAndSettle();
+    expect(find.text('Stylus detected: fingers now pan and zoom'), findsOneWidget);
+    expect(find.text('Hold the pen’s side button to erase'), findsNothing);
+    ScaffoldMessenger.of(tester.element(find.byType(SnackBar))).hideCurrentSnackBar();
+    await tester.pumpAndSettle();
+    expect(find.text('Hold the pen’s side button to erase'), findsOneWidget);
+    expect(s.settings.seenTips, contains(EditorTip.penButton.name));
+    await closeEditor(tester);
+  });
+
   testWidgets('tips follow the settings and go away by themselves', (tester) async {
     final (s, _) = await pumpEditor(tester);
     s.preferences.penButtonAction = PenButtonAction.none;

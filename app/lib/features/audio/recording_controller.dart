@@ -113,7 +113,8 @@ class RecordingController extends ChangeNotifier {
   double get level => _level;
 
   /// Why recording can't start when the microphone permission is refused:
-  /// the way to allow it (no settings shortcut without a new package).
+  /// the way to allow it (with a Settings button where the system has a
+  /// page for it, see `platform/system_settings`).
   static const String microphoneDenied = kIsWeb
       ? 'Allow microphone access for Len in the browser’s site settings'
       : 'Allow microphone access for Len in system settings';

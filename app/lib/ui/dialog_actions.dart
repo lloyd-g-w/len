@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
 
 import 'app_theme.dart';
 
@@ -10,8 +10,10 @@ import 'app_theme.dart';
 /// the end when they fit, otherwise a stack of full-width buttons with the
 /// primary on top and Cancel at the bottom (each at least [Targets.touch]
 /// tall). Unlike an [OverflowBar] it never leaves stacked buttons at their
-/// own, ragged widths. It reports intrinsic sizes, so it works inside
-/// dialogs that size to their content.
+/// own, ragged widths. Stacked, the buttons under the primary get an
+/// outline (a lone text label in a full-width slot reads as plain text).
+/// It reports intrinsic sizes, so it works inside dialogs that size to
+/// their content.
 class DialogActions extends MultiChildRenderObjectWidget {
   const DialogActions({super.key, required super.children});
 
@@ -23,11 +25,15 @@ class DialogActions extends MultiChildRenderObjectWidget {
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      RenderDialogActions(textDirection: Directionality.of(context));
+      RenderDialogActions(textDirection: Directionality.of(context), outline: _outline(context));
 
   @override
-  void updateRenderObject(BuildContext context, RenderDialogActions renderObject) =>
-      renderObject.textDirection = Directionality.of(context);
+  void updateRenderObject(BuildContext context, RenderDialogActions renderObject) => renderObject
+    ..textDirection = Directionality.of(context)
+    ..outline = _outline(context);
+
+  /// The outlined buttons' border colour.
+  static Color _outline(BuildContext context) => Theme.of(context).colorScheme.outlineVariant;
 }
 
 class _ActionsParentData extends ContainerBoxParentData<RenderBox> {}
@@ -37,8 +43,16 @@ class RenderDialogActions extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _ActionsParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _ActionsParentData> {
-  RenderDialogActions({required TextDirection textDirection})
-    : _textDirection = textDirection; // ignore: prefer_initializing_formals
+  RenderDialogActions({required TextDirection textDirection, required Color outline})
+    : _textDirection = textDirection, // ignore: prefer_initializing_formals
+      _outline = outline; // ignore: prefer_initializing_formals
+
+  Color _outline;
+  set outline(Color value) {
+    if (_outline == value) return;
+    _outline = value;
+    markNeedsPaint();
+  }
 
   TextDirection _textDirection;
   set textDirection(TextDirection value) {
@@ -143,7 +157,25 @@ class RenderDialogActions extends RenderBox
   }
 
   @override
-  void paint(PaintingContext context, Offset offset) => defaultPaint(context, offset);
+  void paint(PaintingContext context, Offset offset) {
+    if (_stacked) {
+      // Outline the buttons under the primary (the last child, on top).
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = _outline;
+      final kids = _children;
+      for (final child in kids.take(kids.length - 1)) {
+        final at = offset + (child.parentData! as _ActionsParentData).offset;
+        final rect = (at & child.size).deflate(0.5);
+        context.canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, const Radius.circular(Radii.sm)),
+          paint,
+        );
+      }
+    }
+    defaultPaint(context, offset);
+  }
 
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>

@@ -36,6 +36,7 @@ void main() {
       HandwritingIndexer(
         services.database,
         recognizer: recognizer,
+        shared: services.recognition.indexer.shared,
         language: () => 'en-US',
         idleDelay: Duration.zero,
         pauseBetweenLines: Duration.zero,
@@ -134,6 +135,7 @@ void main() {
     final gated = HandwritingIndexer(
       s.database,
       recognizer: fake,
+      shared: s.recognition.indexer.shared,
       language: () => 'en-US',
       idleDelay: const Duration(milliseconds: 60),
       pauseBetweenLines: Duration.zero,
@@ -232,6 +234,7 @@ void main() {
         recognizer: recognizer,
         settings: SettingsRepository(s.database),
         database: s.database,
+        shared: s.recognition.indexer.shared,
         deviceLocales: () => locales,
         idleDelay: Duration.zero,
       );
@@ -283,10 +286,14 @@ void main() {
       expect(r.indexer.isActive, isTrue);
     });
 
-    test('unsupported platforms never index', () async {
+    test('unsupported platforms index only text synced from elsewhere', () async {
       final r = service(FakeRecognizer(supported: false));
+      s.strokes.save(twoLines(page));
       await r.start();
-      expect(r.indexer.isActive, isFalse);
+      expect(r.indexer.isActive, isTrue);
+      await r.indexer.run();
+      expect(lines(), isEmpty);
+      expect(queued(), 0, reason: 'nothing synced for the surface: dropped');
       expect(() => r.recognize(twoLines(page)), throwsUnsupportedError);
     });
   });

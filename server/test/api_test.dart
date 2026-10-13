@@ -115,6 +115,65 @@ void main() {
     expect(page['hasMore'], false);
   });
 
+  test('recognised handwriting (recognised_text) is stored, replaced and tombstoned', () async {
+    Map<String, Object?> text(int updatedAt, String device, Object? data) => {
+      'collection': 'recognised_text',
+      'id': 'page-1',
+      'updatedAt': updatedAt,
+      'deviceId': device,
+      'deleted': data == null,
+      'data': data,
+    };
+    final first = text(1000, 'phone', {
+      'language': 'en-US',
+      'lines': [
+        ['0123456789abcdef0123', 'alpha beta'],
+      ],
+    });
+    // Two phones recognised the same page: last write wins.
+    final second = text(1000, 'tablet', {
+      'language': 'en-US',
+      'lines': [
+        ['0123456789abcdef0123', 'alpha beta'],
+        ['89abcdef012345670123', 'gamma'],
+      ],
+    });
+    var r = await send(
+      'POST',
+      '/v1/push',
+      body: {
+        'records': [first, second],
+      },
+    );
+    expect(await jsonOf(r), {'applied': 2, 'ignored': 0, 'serverSeq': 2});
+    r = await send(
+      'POST',
+      '/v1/push',
+      body: {
+        'records': [first],
+      },
+    );
+    expect((await jsonOf(r))['ignored'], 1);
+    var page = await jsonOf(await send('GET', '/v1/pull'));
+    expect(page['records'], [
+      {...second, 'seq': 2},
+    ]);
+
+    final gone = text(2000, 'phone', null);
+    r = await send(
+      'POST',
+      '/v1/push',
+      body: {
+        'records': [gone],
+      },
+    );
+    expect((await jsonOf(r))['applied'], 1);
+    page = await jsonOf(await send('GET', '/v1/pull?since=2'));
+    expect(page['records'], [
+      {...gone, 'seq': 3},
+    ]);
+  });
+
   group('a client ahead of the server (restored backup, replaced server)', () {
     test('pull is 409 and the server takes a new id', () async {
       await send(

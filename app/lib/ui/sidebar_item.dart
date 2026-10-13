@@ -70,7 +70,8 @@ class _SidebarItemState extends State<SidebarItem> {
         padding: const EdgeInsets.symmetric(vertical: 1),
         child: AnimatedContainer(
           duration: Motion.fast,
-          height: 40,
+          // With the 1-dp gaps, a row is 48 dp on touch, 44 with a pointer.
+          height: Targets.menuRowHeight(context) - 2,
           decoration: BoxDecoration(
             color: background,
             borderRadius: BorderRadius.circular(Radii.sm),

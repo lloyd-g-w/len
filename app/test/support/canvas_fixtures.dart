@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:len/data/stroke_reader.dart';
+import 'package:len/domain/chunk_digest.dart';
 import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/stroke_chunks.dart';
@@ -30,6 +31,12 @@ class MemoryStrokeReader implements StrokeReader {
     ];
     return ChunkLoad(chunks: keys, strokes: {for (final k in keys) ..._chunks[k]!}.toList());
   }
+
+  @override
+  Map<ChunkKey, ChunkDigest> chunkDigests(String surfaceId, ChunkRange range) => {
+    for (final e in _chunks.entries)
+      if (range.contains(e.key)) e.key: ChunkDigest.of(e.value, const []),
+  };
 
   @override
   Map<ChunkKey, int> chunkDensity(String surfaceId) => {

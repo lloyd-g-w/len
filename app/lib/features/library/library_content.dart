@@ -4,11 +4,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../data/notebook_repository.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/section_label.dart';
 import '../search/library_search_results.dart';
+import '../settings/settings_screen.dart';
 import 'folder_tile.dart';
 import 'library_actions.dart';
 import 'library_controller.dart';
@@ -102,6 +105,9 @@ class LibraryContent extends StatelessWidget {
     // Searching the library also lists matches inside notebooks.
     final fullText = _c.isSearching && _c.section == LibrarySection.library;
     final newTile = showsNewTile(actions, compact: compact);
+    // Room after the last row: clear of the phone's ⊕ and of a snack bar
+    // above it (an Undo after trashing the last card), or of a snack bar.
+    final endRoom = compact ? 160.0 : 120.0;
     return CustomScrollView(
       key: PageStorageKey('library-${_c.section.name}-${_c.folderId}'),
       // Builds half a screen ahead, so covers render before they scroll in.
@@ -139,6 +145,13 @@ class LibraryContent extends StatelessWidget {
                 searchController.clear();
                 _c.query = '';
               },
+              onImportPdf: () => unawaited(actions.importPdf(context)),
+              onSetUpSync: _c.services.sync.isConfigured
+                  ? null
+                  : () => unawaited(
+                      Navigator.of(context)
+                          .push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+                    ),
             ),
           )
         else ...[
@@ -149,15 +162,20 @@ class LibraryContent extends StatelessWidget {
             ),
           if (notebooks.isNotEmpty || newTile) ...[
             SliverToBoxAdapter(child: SizedBox(height: folders.isEmpty ? Gaps.lg : Gaps.xl)),
+            // A search lists titles and pages alike, as rows.
+            if (fullText)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(gutter + Gaps.xxs, 0, gutter, Gaps.sm),
+                sliver: const SliverToBoxAdapter(child: SectionLabel('Notebooks')),
+              ),
             SliverPadding(
-              // Bottom padding keeps the last row clear of the FAB.
-              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, fullText ? 0 : 120),
-              sliver: _c.layout == LibraryLayout.grid
+              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, fullText ? 0 : endRoom),
+              sliver: _c.layout == LibraryLayout.grid && !fullText
                   ? _grid(context, notebooks, compact, newTile: newTile)
                   : _list(notebooks),
             ),
           ] else if (!fullText)
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            SliverToBoxAdapter(child: SizedBox(height: endRoom)),
           // Full-text matches in text boxes and PDF pages.
           if (fullText)
             LibrarySearchResults(
@@ -186,14 +204,14 @@ class LibraryContent extends StatelessWidget {
                   : null,
             ),
           // Keeps the last result clear of the FAB.
-          if (fullText) const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          if (fullText) SliverToBoxAdapter(child: SizedBox(height: endRoom)),
         ],
       ],
     );
   }
 
   String _subtitle(Notebook n) {
-    if (n.isTrashed) return libraryDateAfter('Deleted', n.trashedAt!);
+    if (n.isTrashed) return trashLeftLabel(n.trashedAt!, NotebookRepository.trashKeptFor);
     if (_c.isSearching) return _c.locationOf(n);
     final kind = n.kind == NotebookKind.canvas ? 'Canvas' : pageCountLabel(_c.pageCountOf(n.id));
     final date = _c.sort == LibrarySort.created
@@ -236,7 +254,14 @@ class LibraryContent extends StatelessWidget {
     );
   }
 
+  /// The list view's widest rows: the star and ⋯ stay near the titles.
+  static const double listMaxWidth = 960;
+
   Widget _list(List<Notebook> notebooks) {
+    return SliverConstrainedCrossAxis(maxExtent: listMaxWidth, sliver: _listRows(notebooks));
+  }
+
+  Widget _listRows(List<Notebook> notebooks) {
     return SliverList.separated(
       itemCount: notebooks.length,
       separatorBuilder: (_, _) => const SizedBox(height: Gaps.xxs),

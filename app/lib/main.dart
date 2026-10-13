@@ -8,12 +8,14 @@ import 'core/font_licenses.dart';
 import 'data/app_database.dart';
 import 'data/write_back.dart';
 import 'ink/lab/perf_probe.dart';
+import 'ink/render/stored_rasters.dart';
 import 'platform/app_directory.dart';
 import 'platform/blob_backend.dart';
 import 'platform/browser_storage.dart';
 import 'platform/incoming_files.dart';
 import 'platform/outline_preparer.dart';
 import 'platform/page_lifecycle.dart';
+import 'platform/raster_store.dart';
 import 'platform/single_instance.dart';
 import 'ui/open_elsewhere.dart';
 import 'ui/startup_error.dart';
@@ -56,6 +58,8 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
       // Outlines of loaded ink are built on worker isolates.
       outlines: createOutlinePreparer(),
       writes: writes,
+      // Canvases far zoomed out reopen from stored rasters.
+      rasterStore: await openRasterStore(format: StoredRasters.format),
     );
   } on Object catch (error, stack) {
     debugPrint('Cannot open storage: $error\n$stack');

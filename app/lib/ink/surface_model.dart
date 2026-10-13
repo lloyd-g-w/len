@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -7,8 +8,10 @@ import 'package:flutter/scheduler.dart';
 
 import '../core/clock.dart';
 import '../data/element_repository.dart';
+import '../data/raster_store.dart';
 import '../data/stroke_reader.dart';
 import '../data/stroke_repository.dart';
+import '../domain/chunk_digest.dart';
 import '../domain/chunk_grid.dart';
 import '../domain/stroke.dart';
 import '../domain/stroke_chunks.dart';
@@ -22,6 +25,7 @@ import 'render/outline_preparer.dart';
 import 'stroke_hit_test.dart';
 import 'surface_change.dart';
 import 'surface_loader.dart';
+import 'surface_views.dart';
 import 'undo_history.dart';
 
 export 'lifted_content.dart';
@@ -55,6 +59,7 @@ class SurfaceModel extends _SurfaceState with _SurfaceHiding, _SurfaceLoading, _
     super.clock,
     super.writeBehind,
     super.outlines,
+    super.rasterStore,
   });
 
   /// Populated chunks within [range] (in memory).
@@ -63,6 +68,33 @@ class SurfaceModel extends _SurfaceState with _SurfaceHiding, _SurfaceLoading, _
     final elements = _elements.populatedIn(range);
     if (elements.isEmpty) return strokes;
     return {...strokes, ...elements}.toList();
+  }
+
+  /// Whether everything stored in [key] is in memory.
+  bool isComplete(ChunkKey key) => _loaded.contains(key) && !_arriving.contains(key);
+
+  /// The digest of [key]'s content when it is all in memory, not empty
+  /// and drawn as stored: none hidden (selected, being edited) and no
+  /// images (their look depends on decoding). Null otherwise.
+  ChunkDigest? digestOf(ChunkKey key) {
+    if (!isComplete(key)) return null;
+    final strokes = _strokes.inChunk(key);
+    final elements = _elements.inChunk(key);
+    if (_hidden.isNotEmpty &&
+        (strokes.any((s) => _hidden.contains(s.id)) ||
+            elements.any((e) => _hidden.contains(e.id)))) {
+      return null;
+    }
+    if (elements.any((e) => e.knownType == ElementType.image)) return null;
+    final digest = ChunkDigest.of(strokes, elements);
+    return digest.strokes + digest.elements == 0 ? null : digest; // Emptied.
+  }
+
+  /// The digests of the populated chunks within [range] as stored (after
+  /// writing pending edits).
+  FutureOr<Map<ChunkKey, ChunkDigest>> storedDigests(ChunkRange range) {
+    flush();
+    return _loading.reader.chunkDigests(surfaceId, range);
   }
 
   /// Strokes overlapping [key], in paint order.

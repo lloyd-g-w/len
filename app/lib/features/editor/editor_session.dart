@@ -53,6 +53,7 @@ class EditorSession {
           reader: services.strokeReader,
           writeBehind: true,
           outlines: services.outlines,
+          rasterStore: services.rasterStore,
         ),
       );
       final viewport = canvasViewport = ViewportController();

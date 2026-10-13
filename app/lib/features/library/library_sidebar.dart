@@ -98,7 +98,10 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                         IconButton(
                           tooltip: 'New folder',
                           iconSize: Glyphs.menu,
-                          visualDensity: VisualDensity.compact,
+                          constraints: BoxConstraints.tightFor(
+                            width: Targets.menuRowHeight(context),
+                            height: Targets.menuRowHeight(context),
+                          ),
                           color: scheme.onSurfaceVariant,
                           icon: const Icon(Symbols.create_new_folder_rounded),
                           onPressed: () {
@@ -125,27 +128,42 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
             Divider(height: 1, color: scheme.outlineVariant),
             Padding(
               padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.sm, Gaps.md, Gaps.md),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SidebarItem(
-                      icon: Symbols.settings_rounded,
-                      label: 'Settings',
-                      onTap: widget.onOpenSettings,
-                    ),
-                  ),
-                  SyncStatusButton(
-                    sync: c.services.sync,
-                    onOpenSettings: widget.onOpenSyncSettings ?? widget.onOpenSettings,
-                    // Large text: Settings keeps its name; sync its icon.
-                    caption: MediaQuery.textScalerOf(context).scale(1) < 1.15,
-                  ),
-                ],
-              ),
+              child: _footer(context),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Settings and the sync status side by side; stacked at large text, so
+  /// both keep their words.
+  Widget _footer(BuildContext context) {
+    final settings = SidebarItem(
+      icon: Symbols.settings_rounded,
+      label: 'Settings',
+      onTap: widget.onOpenSettings,
+    );
+    final large = MediaQuery.textScalerOf(context).scale(1) >= 1.15;
+    final sync = SyncStatusButton(
+      sync: _controller.services.sync,
+      onOpenSettings: widget.onOpenSyncSettings ?? widget.onOpenSettings,
+      caption: true,
+    );
+    if (large) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          settings,
+          Align(alignment: Alignment.centerLeft, child: sync),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: settings),
+        sync,
+      ],
     );
   }
 

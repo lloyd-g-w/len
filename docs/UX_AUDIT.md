@@ -1,5 +1,407 @@
 # Len — UX/UI audit
 
+## Round 5 audit (`review/ux-round5`)
+
+Scope: the app after the round 4 merges (navigation feel, editor chrome,
+pen popovers with mm sizes, the highlighter palette and Reset with Undo,
+library and dialogs, accessibility with 48-dp touch swatches, undo for page
+edits, keyboard, export and sync feedback, web storage, the schema reset
+notice and synced handwriting). Method: all 676 renders from
+`test/screenshots/` (phone 390×844 @2x, tablet portrait and landscape,
+desktop; light, dark, 1.3× text), each one opened, plus a code walk of the
+main flows. Every item below was checked in the code. Compared against
+GoodNotes 6, Notewise and Apple Notes.
+
+Not repeated (other branches are working on them): the open library and
+dialog items from round 4 (P1-13…P1-21, P2-16…P2-28, A11Y-1/2) on
+`fix/library-r4`, and split-view titles and dimming, the focus puck and
+desktop pointer mode on `fix/editor-followups`. Harness artefacts aren't
+reported either: desktop renders run as Android (touch copy and sizes), and
+screens pumped as the first route have no back button.
+
+No P0s: nothing is broken or loses data. Paths are under `app/lib/`.
+
+Status: ⬜ open (all items).
+
+### Top 10 (fix first)
+
+1. R5-1 The pen palette never shows the current colour (the defaults aren't in it).
+2. R5-2 The phone pen sheet covers most of the screen; use a 14-colour, 7-column palette.
+3. R5-4 Phones: pen ↔ eraser takes two taps each way.
+4. R5-5 Reset in ink popovers wipes your quick colours, and its Undo vanishes with the popover.
+5. R5-12 Shortcut hints show on touch tablets (menus gate them by width, not input).
+6. R5-18 Convert to text: a duplicated reading, a bare spinner, and modal dead ends.
+7. R5-19 Replaced text can grow over the next line of handwriting.
+8. R5-26 Settings → Sync doesn't line up with the other cards.
+9. R5-27 Handwriting settings without a recogniser: a row that isn't a control, and "Android" twice.
+10. R5-30 The accent marks plain states (palette ring, active tab, template label, audio toggles).
+
+### Pen and tools
+
+**R5-1 P1 · The pen palette never shows the current colour.** `phone_pen_sheet`,
+`popover_pen_*`, `popover_from_slot_*`: no swatch has a ring, while the
+highlighter, text and laser palettes do. The pen defaults
+(`ink/pen/pen_defaults.dart:52`: `0xFF1A2233`, `0xFF1C4ED8`, `0xFFDC2626`)
+aren't in `ColorSwatches.palette` (`0xFF1F2937`, `0xFF1C7ED6`, `0xFFE03131`).
+So a new user sees no current colour, and picking the "same" black, blue or
+red from the palette quietly swaps it for a near-twin. *Fix:* build the
+palette around the defaults (put the three defaults in the palette, dropping
+their near-twins) and add a test that every tool's default slot colours are
+in its palette. *Files:* `ui/color_picker/color_swatches.dart`,
+`ink/pen/pen_defaults.dart`.
+
+**R5-2 P1 · The 4×5 touch palette makes the phone pen sheet cover most of the screen.**
+`phone_pen_sheet`, `phone_highlighter_sheet_text13`: on touch the 20 pen
+colours are now 4 rows of 48-dp cells (192 dp tall, against about 70 for the
+old 2×10). The sheet starts 130 dp below the top of an 844-dp phone, so you
+can't see the page you're tuning the pen for. The grid also sits to the left:
+`maxSpacing: Gaps.lg` caps the gaps at 16, which leaves a 54-dp ragged gap
+on the right that lines up with neither the slots, Custom nor the slider.
+*Verdict:* 48-dp cells are right; four rows aren't. Twenty presets are too
+many anyway: there are near-twins (black / `1F2937`, two greens, two light
+blues), and Recent plus Custom cover the rest. *Fix:* a 14-colour palette in
+7 columns, two rows of 48-dp cells on touch (96 dp, which fits the 358-dp
+phone sheet: 7 × 48 = 336), and the same 2 × 7 at 32 dp with a pointer. Give
+the tablet tool popover 7 cells' room on touch (`popoverWidth` 320 → 384, or
+16-dp side padding). Spread the cells to the full width (no `maxSpacing` cap
+on touch). The highlighter keeps its ten colours (2 × 5). Alternatives
+considered: 2 × 10 small cells (fails the 48-dp rule); one row of family
+heads that expands to shades (one more tap for every colour change); a
+horizontally scrolling row (hides half the colours with no cue). *Files:*
+`ui/color_picker/color_swatches.dart`, `ui/color_picker/color_choices.dart`,
+`ui/adaptive_popover.dart`.
+
+**R5-3 P2 · One sheet, two selection rings.** `phone_highlighter_sheet_text13`,
+`popover_highlighter_*`: the quick slots ring the current colour in
+`onSurface` (`pen/slot_button.dart:82`), but the palette below rings the
+same colour in the accent (`ui/color_dot.dart:76`). The accent is for focus
+and handles, and selected states are neutral (CONVENTIONS). *Fix:* use the
+`onSurface` ring in `ColorDot` (covers palettes, covers and folder colours).
+*Files:* `ui/color_dot.dart`.
+
+**R5-4 P1 · Phones: switching pen ↔ eraser takes two taps each way.** The
+phone bar is `[✎▾] | colours | sizes`, and every tool change goes through
+the 4 × 2 switcher grid (`toolbar/tool_switcher.dart:43`). The pen's options
+hide behind a long press on the switcher, or a tap on the active slot.
+GoodNotes and Notewise phones switch tools in one tap. Finger users (no side
+button) feel this on every correction. *Fix:* next to the switcher, a
+48-dp button for the previous tool (`[✎▾][⌫]`): one tap swaps the two, so
+pen ↔ eraser and pen ↔ highlighter become one tap. The bar has about 40 dp
+spare with 3 + 3 slots; take the rest from the gap between the colour and
+size groups. Hide the button when the slots need the room (5 + 5).
+*Files:* `toolbar/tool_switcher.dart`, `editor_toolbar.dart`,
+`ink/tool_settings.dart` (previous tool).
+
+**R5-5 P1 · Reset in ink popovers is a big hammer with a short-lived Undo.**
+`ResetButton` (`pen/option_controls.dart:186-237`) restores
+`PenConfig.defaultsFor(ink)`: the quick colours you chose, their sizes, the
+slot counts and Feel. Undo lives only in the button's `State`: closing the
+popover (a tap on the page, which is the usual next move) loses it, and ↶
+doesn't know about it. In the sheet, "Reset" sits where a title-bar Done
+would. *Fix:* scope Reset to what you can't see at a glance: a "Reset feel"
+inside Feel (pressure, stabiliser, ends). Quick colours and sizes are your
+choices, not settings to reset. If the whole-tool Reset stays, keep the
+pre-reset config on `ToolSettings` for the session so Undo survives closing.
+*Files:* `pen/option_controls.dart`, `pen/ink_options.dart`,
+`pen/pen_options_panel.dart`.
+
+**R5-6 P2 · Tool sizes use three units.** Pen and highlighter show mm
+("0.66 mm"), the eraser and laser px (`pen/eraser_options_panel.dart:61`,
+`tools/laser_options_panel.dart:73`, also the eraser slot tooltip), and text
+a bare "24" (`tools/text_options_panel.dart:40`). Below 1 mm the pen shows
+two decimals ("0.66 mm"), which reads as false precision next to GoodNotes'
+steps. *Fix:* text "24 pt"; the eraser and laser sizes in mm too if they're
+on the page, else no unit (a dot preview is enough); round sub-millimetre
+sizes to 0.05 mm ("0.65 mm"). *Files:* the three panels, `pen/ink_slots.dart`
+(`formatWidth`).
+
+**R5-7 P2 · The text popover differs from the ink popovers.** `popover_text_*`:
+Size → Font → Colour, while pen and highlighter go Colour → Size. Font is a
+row with a Material filled triangle (`tools/text/text_style_menus.dart:59`,
+`arrow_drop_down_rounded`), which round 4 replaced with rounded chevrons
+everywhere else; the audio split button (`audio/ui/audio_bar_button.dart:60`)
+still has one too. *Fix:* Colour, then Size, then Font, as in the ink
+popovers; `expand_more_rounded` for every drop-down affordance. *Files:*
+`tools/text_options_panel.dart`, `tools/text/text_style_menus.dart`,
+`features/audio/ui/audio_bar_button.dart`.
+
+**R5-8 P2 · Hints in tool popovers break the copy rule.** Single sentences
+ending in a full stop: "Drag to draw, in the pen’s colour and size."
+(`tools/shape_options_panel.dart:55`), "Tap the page to add a text box; tap a
+text box to edit it." (`tools/text_options_panel.dart:60`), "To select PDF
+text, long-press it." (`tools/lasso_options_panel.dart:23`). The stabiliser
+hint already has none. *Fix:* drop the stops (see also R5-33).
+
+### Editor chrome and navigation
+
+**R5-9 P2 · The phone title gets about 120 dp.** `editor_phone_*`,
+`e_bookmarked_phone_*`, `toolbar_text13_phone`: "Physics — Me…", and
+"Lecture n…" at 1.3×. The bar is ← ▦ title ↶ ↷ ⋯ (five 48-dp targets), and
+↷ is disabled nearly all the time. *Fix:* on phones show ↷ only while
+there's something to redo (it appears after an undo, where the user is
+looking anyway), and give the title the 48 dp. The full title stays in the
+rename target's tooltip. *Files:* `chrome/editor_top_bar.dart`,
+`chrome/undo_redo_buttons.dart`.
+
+**R5-10 P2 · "Add page after" has two glyphs.** In ⋯ → Page it uses
+`vertical_align_bottom_rounded` (`documents/overview/page_commands.dart:9`),
+which reads as "download" (`e_page_menu_*`). The canvas long-press menu uses
+`add_rounded` (`editor_gestures.dart:75`). *Fix:* one glyph for the command
+(`add_rounded`, or `note_add_rounded` as for "with template") from
+`PageCommand.icon`, used by both menus. *Files:* `page_commands.dart`,
+`editor_gestures.dart`.
+
+**R5-11 P2 · Zoom menu labels are 6 dp out of line.** `e_zoom_menu_*`: the
+50 / 100 / 200 % rows reserve `SizedBox(width: 24)` for the check
+(`canvas/zoom_indicator.dart:127`), but the icons are 18 dp, so "Fit content"
+and "Back to start" start 6 dp further left. *Fix:* reserve `Glyphs.menu`
+(or the menu theme's icon size). *Files:* `canvas/zoom_indicator.dart`.
+
+**R5-12 P1 · Shortcut hints show on touch tablets.** `e_page_menu_tablet_*`
+("Ctrl+F", "Ctrl+E", "Shift+1", "F11"), `e_zoom_menu_tablet_*`
+("Shift+1", "Home"). The ⋯ menu gates them on `compact` (phone width,
+`chrome/editor_more_menu.dart:213,226`) and the zoom menu on
+`width >= compactWidth` (`canvas/zoom_indicator.dart:111`). CONVENTIONS says
+targets go by input, not width, and `MenuRow` already hides hints when
+`Targets.touchFirst`. An S Pen tablet without a keyboard shows four
+meaningless key names. *Fix:* gate on `!Targets.touchFirst` in both places.
+*Files:* `chrome/editor_more_menu.dart`, `canvas/zoom_indicator.dart`.
+
+**R5-13 P2 · "Ctrl" is hard-coded where `modifierLabel()` exists.** The
+selection ⋯ (`tools/selection_menu.dart:136-142`), the list styles
+(`tools/text/text_style_menus.dart:193-195`) and the tab shortcut in the
+shortcuts sheet (`settings/keyboard_shortcuts.dart:65`) say "Ctrl+…" to a
+Mac using the web app, while Settings says "⌘/". *Fix:* build the strings
+with `modifierLabel()`. *Files:* as listed.
+
+**R5-14 P2 · One-time tips sit on the first lines of writing.**
+`e_tip_pen_button_phone_*`: "Hold the pen’s side button to erase" is placed
+under the HUD at the top of the canvas (`chrome/editor_chrome.dart:226`),
+over the first written line, just when the user starts writing there.
+*Fix:* show tips at the bottom, above the toolbar, through `MessageInsets`
+(where snacks go), and queue them behind a showing snack (round 4 P2-26).
+*Files:* `chrome/editor_tips.dart`, `chrome/editor_chrome.dart`.
+
+**R5-15 P2 · The in-notebook search bar covers the match on phones.**
+`e_search_phone_light_folded`: the bar sits over the top of page 1, and the
+first match ("Forces…") is under it. `e_search_phone_light_none`: "No
+matches" cuts through a line of ink. The tablet pushes the page down only
+after Next. *Fix:* inset the viewport by the bar's height while search is
+open (or reveal the current match below it). *Files:*
+`features/search/editor/editor_search_host.dart`,
+`features/search/editor/editor_search_layer.dart`.
+
+**R5-16 P2 · Search result rows are 36 dp tall on touch.** `_MatchTile`
+(`features/search/editor/editor_search_bar.dart:259`): one line plus 8 dp
+padding top and bottom. The "Page 3" label is `labelSmall` (bold overline)
+pinned to the top, so it outweighs the snippet. *Fix:* rows at least
+`Targets.menuRowHeight`; the location as `bodySmall`, aligned with the first
+line's baseline. Add the search panel to `accessibility_test.dart`. *Files:*
+`editor_search_bar.dart`.
+
+**R5-17 P2 · Recording: paused looks like recording, and dark mode shouts.**
+`e_audio_paused_tablet_*`: the pill stays red-tinted with a dimmed red dot,
+and only the word "Paused" changes. `e_audio_recording_*_dark`: the deep red
+fill is the loudest thing on screen, and the level meter is dark red on dark
+red. *Fix:* paused → the neutral pill (`Surfaces.pressed`) with a pause
+glyph; recording in dark → `errorContainer` at a lower tint, with meter
+bars in `onErrorContainer` (now `scheme.error`, `audio_bar_button.dart:157`).
+*Files:* `features/audio/ui/audio_bar_button.dart` (`RecordingPill`).
+
+### Writing, selection, text, convert
+
+**R5-18 P1 · Convert to text shows the reading twice, has a bare spinner, and ends in modal dead ends.**
+`e_convert_tablet_*`, `e_convert_phone_*`: the "Recognised text" field and
+the first, ticked "Alternatives" chip say the same thing. The chips stack one
+per line on a wide dialog. `e_convert_loading_*`: title, a small spinner and
+Cancel, with no words. `e_convert_empty_*` / `e_convert_error_*`: a modal
+whose only button is Close, for "No text was found in the selection." (full
+stop). Each state also moves the dialog's top edge (578…670 px on phones),
+and the selection pill peeks out above it. *Fix:* the field holds the best
+reading, and the chips list only other readings (tap = put it in the field),
+wrapped. Loading: a "Recognising…" row under the title. No text or a
+failure: close the dialog and show a snack ("No handwriting found in the
+selection", "Couldn’t read this handwriting · Try again"). Keep the dialog's
+height across states, and hide the selection pill while a dialog is up.
+*Files:* `editor/recognition/convert_to_text_dialog.dart`.
+
+**R5-19 P1 · Replaced text can grow over the next line.** `e_convert_*_replaced`:
+one line of ink becomes a box two lines tall ("Newton’s second law: / F =
+ma"). The font comes from the letter height and the box wraps at the ink's
+width, so its bottom cuts through the next handwritten line. *Fix:* when
+the text needs more lines than the ink had, shrink the font (down to a floor,
+for example 70 %) until it fits the ink's height, and only then wrap.
+*Files:* `ink/recognition/convert_to_text.dart` (`textBox`).
+
+**R5-20 P2 · Text boxes have no inner padding.** `e_text_editing_*`,
+`e_text_colour_*`: "Exam on Friday!" touches the selection frame, and the
+caret sits on the right edge. *Fix:* draw the editing frame outset by
+`Gaps.xs` (chrome only, so the text's layout and position don't change).
+*Files:* `tools/text_box_editor.dart`.
+
+**R5-21 P2 · Split view: dragging to copy makes the original slide away.**
+`split_drag_*`: "Drop to copy here" shows on the target, but the source page
+looks emptied: the selection moved with the pointer out of its pane, and a
+zero-width frame with handles is stuck at the pane edge. *Fix:* once the
+pointer leaves the source pane, snap the source preview back in place (or
+ghost it at 40 %) and draw the moving copy only in the target. *Files:*
+`ink/tools/lasso_tool.dart` (`dragOut`), `editor/split/split_drop_highlight.dart`.
+
+### Pages, templates and overview
+
+**R5-22 P2 · The outline's header and list don't share an edge on tablets.**
+`o_outline_panel_tablet_*`, `pdf_outline_tablet_*`: round 4 centred the
+outline list in a 640-dp column (P2-14), but the title and the All /
+Bookmarked / Outline control stay at the left edge, so nothing lines up and
+a 300-px gutter opens on the left. *Fix:* put the header and the filter in
+the same centred column on the Outline filter (or use one 960-dp column
+for the whole screen). *Files:* `features/documents/overview/page_overview.dart`.
+
+**R5-23 P2 · Thumbnails of faint papers look blank.** `paper_dotted`,
+`paper_gridSmall`, `paper_music` (the left thumbnail): the dots and fine
+lines drop out at thumbnail size. College and narrow ruled keep only the
+margin line. In the overview and the library, a dotted or small-grid page
+looks like Blank. *Fix:* a minimum stroke width and alpha for pattern lines
+when rendering below a scale (thumbnail pass). *Files:*
+`domain/templates/*` (pattern painting), `features/editor/document/page_thumbnail.dart`.
+
+**R5-24 P2 · Template categories: "Basic" and "Paper" overlap.**
+`templates_picker_tablet_all`: Basic holds Blank and Dotted, and Paper holds
+the grids, isometric, music and storyboard. Dotted is a grid's sibling, and
+two one-word categories for "plain papers" make you guess. The selected
+tile's label turns blue and bold (`template_gallery.dart:245`), so "College
+ruled" wraps while "Narrow ruled" doesn't. *Fix:* one "Paper" category
+(blank, dotted, grids, music, storyboard; Writing and Planners stay). The
+selected label stays `onSurface` (the ring and check carry the selection).
+*Files:* `domain/templates/paper_style.dart`,
+`features/documents/templates/template_gallery.dart`.
+
+**R5-25 P2 · The planner's "More options" is a Material `ExpansionTile`.**
+`templates_*_planner`: its chevron, padding and type differ from Feel's
+`OptionDisclosure` and the settings rows next to it. *Fix:* use
+`OptionDisclosure` (moved to `ui/`) for both. *Files:*
+`documents/templates/planner_options.dart:76`, `editor/pen/option_sections.dart`.
+
+### Settings, sync, handwriting
+
+**R5-26 P1 · Settings → Sync doesn't line up with the other cards.**
+`s_settings_sync_*`, `settings2_*`, `settings_tall_*`: the "Sync is off" icon
+and text sit about 15 dp right of every other row's icon and title columns.
+The Server URL and Access token fields bring a third column (icons inside
+filled fields), and the icons there are 24 dp against the rows' 20. "Connect
+& save" uses an ampersand, and the footnote talks Docker. *Fix:* the status
+as a standard settings row; fields without leading icons, inset to the title
+column; "Connect"; footnote "Sync across your devices through your own Len
+server", with the setup link in About or the README. *Files:*
+`features/settings/sync_settings.dart`, `sync_status_line.dart`,
+`settings_section.dart`.
+
+**R5-27 P1 · Handwriting where nothing recognises (new): a row that isn't a control, and "Android" twice.**
+`s_settings_handwriting_phone_*` / `_tablet_*` (Linux, Windows, web): a
+"Search handwriting" row with a search glyph says "Nothing recognised yet."
+(with a full stop) and reads like a disabled switch. The footnote says
+"recognised on Android devices running Len … Converting handwriting to text
+works on Android." *Fix:* no row. One caption: "Handwriting written on
+Android is recognised there and synced, so search finds it here", plus
+"· 312 lines" once there are any. *Files:*
+`features/settings/handwriting_settings.dart:41-61`.
+
+**R5-28 P2 · "Search handwriting" (Android) mixes a description with a status.**
+`s_settings_handwriting_on_*`: "Recognises handwriting in the background
+while you are not writing. Up to date: no handwriting yet." wraps to four
+lines beside the switch at 1.3×. *Fix:* the subtitle is the status only ("Up
+to date · 312 lines", "Recognising… 3 pages to go"), and the description
+moves into the section's footnote, which already explains search.
+*Files:* `handwriting_settings.dart:95-113`.
+
+**R5-29 P2 · The sync error is technical.** `f_sync_rejected_*`: "…check that
+it matches LEN_SYNC_TOKEN. Sync is paused until you fix the token."
+Users who set up a server know the variable, but the sentence is three
+clauses long. On phones "Turn off sync…" wraps to its own line, indented
+differently from "Sync now". *Fix:* "The server didn’t accept the access
+token. Sync is paused" with Change…; the variable name goes under Details.
+Lay the actions out in a `Wrap` with one start edge. *Files:*
+`sync/sync_errors.dart`, `features/settings/sync_settings.dart`.
+
+### Consistency and copy
+
+**R5-30 P2 · The accent marks plain states.** Accent is for primary buttons,
+focus, handles, links, switches, progress and the selected sidebar row.
+It also shows on:
+- the palette's selection ring (R5-3);
+- the active tab's notebook glyph (`tabs/notebook_tab_strip.dart:196`);
+- the selected template's label (`documents/templates/template_gallery.dart:245`);
+- the audio "tap ink to play" toggle and a non-1× speed
+  (`features/audio/ui/playback_bar.dart:129,187`);
+- `AppDialog`'s icon disc, which defaults to the accent
+  (`ui/app_dialogs.dart:92`): the progress dialog's decorative hourglass
+  (`s_import_progress_*`, `features/documents/progress_dialog.dart:188`).
+
+*Fix:* `onSurface` with `fill: 1` or the pressed plate, as for tools.
+
+**R5-31 P2 · "Could not" and raw reasons in user templates.** `documents/templates/user_templates.dart:65`:
+"Could not import x: <FormatException message>" (everywhere else says
+"Couldn’t", and raw messages moved under Details in round 4). *Fix:*
+"Couldn’t import “x”" with the reason under Details (`ui/error_details.dart`).
+*Files:* `features/documents/templates/user_templates.dart`.
+
+**R5-32 P2 · Import messages disagree.** `s_import_failed_*` says "Couldn’t
+open “scan.pdf”: it may be damaged, or not a PDF". `s_import_unsupported_*`
+says "“Budget 2026.xlsx” can’t be opened: Len opens PDFs and images." (with a
+full stop). *Fix:* one pattern, "Couldn’t open “Budget 2026.xlsx”: Len opens
+PDFs and images". *Files:* `features/documents/import/import_router.dart:64-65`.
+
+**R5-33 P2 · Full-stop sweep.** Besides R5-8, R5-18 and R5-27, single
+sentences that end in a stop: "One document with sharp, zoomable ink."
+(`documents/export/export_sheet_sections.dart:82`), "No text was found in the selection." and "The
+handwriting could not be recognised." (`convert_to_text_dialog.dart:216,223`),
+and "Nothing recognised yet." (`handwriting_settings.dart:60`). In the
+library (not in `fix/library-r4`'s list): "Select…" opens no question
+(`library/library_header.dart:409`), so it gets no ellipsis. *Fix:* a test
+that greps `Text('…')` literals for a single sentence ending in "." would
+keep this from creeping back.
+
+**R5-34 P2 · Dark mode: the HUD pill is light lavender.** `e_hud_phone_dark`,
+`e_hud_tablet_dark`: "Nothing to undo" is a pale pill, while the tip banner
+and snacks are dark. Over cream paper it barely separates. *Fix:* the HUD on
+`Surfaces.overlay` (dark in dark mode), like the other floating messages.
+*Files:* `chrome/gesture_hud.dart`.
+
+### Simplify (one home per command; defaults over settings)
+
+| # | Proposal | Why | Files |
+|---|---|---|---|
+| S1 | ⋯ → Page drops "Add page after" and "Add page with template…" | Adding a page already has five homes: the Add page footer, Insert ⊕ → "Page with template…", the canvas long-press, the overview's Add page tile and its ⋯. Page ▸ goes from 8 rows to 6 and reads as "this page" | `chrome/editor_more_menu.dart` |
+| S2 | ⋯ → Page drops "Add page to outline…" | The outline panel has "Add page N to outline", and the dialog names it differently ("…to the outline") | `editor_more_menu.dart`, `outline/outline_panel.dart` |
+| S3 | One name per command: "Page with template…" (Insert) vs "Add page with template…" (Page ▸); "Add page N to outline" vs the dialog's "Add page N to the outline" | Two names for one thing | `toolbar/insert_menu.dart`, `outline/outline_entry_dialog.dart` |
+| S4 | Ink popovers: Reset becomes "Reset feel" inside Feel (R5-5) | Quick colours are choices, not settings; one reset scope | `pen/ink_options.dart` |
+| S5 | Quick colour and size counts fold under a collapsed "Toolbar" disclosure ("3 colours · 3 sizes"); the max goes 6 → 5, as SIMPLIFY #13 decided (`PenConfig.maxSlots` is 6) | Two always-open stepper rows for a one-time choice; the popover's default view becomes Colour · Size · Feel | `pen/ink_options.dart`, `ink/pen/pen_config.dart` |
+| S6 | Pen palette: 20 → 14 presets (R5-2) | Near-twins; Recent and Custom cover the rest; halves the touch height | `ui/color_picker/color_swatches.dart` |
+| S7 | Templates: merge "Basic" into "Paper" (R5-24) | Two categories for plain papers | `domain/templates/paper_style.dart` |
+| S8 | Handwriting settings without a recogniser: a caption, no row (R5-27) | A status row with nothing to do | `settings/handwriting_settings.dart` |
+| S9 | Convert to text: no first "alternative" equal to the field; empty and failed results as snacks (R5-18) | One reading shown once; no modal for "nothing" | `recognition/convert_to_text_dialog.dart` |
+| S10 | In-notebook search: one counter format ("3 matches", "1 of 3"), not "3 found" / "1/3" on phones | One string set; at 390 dp the long form fits once R5-15 frees the field | `features/search/editor/editor_search_bar.dart:135-140` |
+| S11 | Phones: ↷ only while there's something to redo (R5-9) | A permanently disabled button in the tightest bar | `chrome/editor_top_bar.dart` |
+| S12 | Selection ⋯: "Bring to front" and "Send to back" become one "Arrange ▸" row (or go when only one element is selected and nothing overlaps) | Rare commands take two of the ⋯ menu's ~8 rows | `tools/selection_menu.dart` |
+
+Kept on purpose (not proposed): the toolbar pair in View ▸ (REDESIGN §2.1),
+"Draw with finger" in ⋯ and in Settings (it's situational), canvas
+long-press page commands (context shortcuts like GoodNotes'), and the laser
+in the tool row (SIMPLIFY #5).
+
+### What's good now
+
+The new pieces hold up. Reset/Undo reads clearly and is disabled at the
+defaults. Size in mm with a log slider feels right. The highlighter palette
+works. Undo for page edits ("Template changed on 9 pages · Undo") behaves
+like ink undo. The startup error, schema-reset and storage-full notices are
+calm and specific. The phone ⋯ menu drills in instead of cascading. The tab
+switcher sheet, destructive confirms and the new export Save to device /
+Share footer are consistent in both themes.
+
+---
+
+
 ## Round 4 audit (`review/ux-round4`)
 
 Scope: the whole app after the redesign phases and round 3. Method: all
@@ -280,7 +682,7 @@ the denial snack (open app settings); await pause/resume, revert state and
 `showMessage` on failure; drop `($e)` from copy (log it). *Files:*
 `features/audio/recording_controller.dart`, `features/audio/ui/audio_bar_button.dart`,
 `features/audio/playback_controller.dart`.
-→ ✅ Denial says "Allow microphone access for Len in system settings" (browser: site settings); a Settings button would need `permission_handler` (not added). Pause/resume wait for the recorder, ignore double taps, keep the real state and show a message on failure. No raw exceptions in copy (logged).
+→ ✅ Denial says "Allow microphone access for Len in system settings" (browser: site settings). The message's Settings button opens Len's app settings on Android and the microphone privacy page on Windows. Pause/resume wait for the recorder, ignore double taps, keep the real state and show a message on failure. No raw exceptions in copy (logged).
 
 ✅ **P2-9 Paste with nothing to paste does nothing.** `ink/tools/content_tools.dart:136`
 returns silently; Ctrl+V and the canvas menu's Paste give no feedback. *Fix:*
@@ -369,17 +771,19 @@ Jan". *Files:* `domain/templates/patterns_planner.dart`, planner label tables.
 
 ### Library
 
-**P1-13 The floating selection bar covers cards.** `select_tablet*` (over card
+✅ **P1-13 The floating selection bar covers cards.** `select_tablet*` (over card
 titles), `select_phone*` (over the bottom row): the grid has no bottom padding
 for it. *Fix:* pad the grid by the bar's height while selecting (as results
 are padded for the FAB). *Files:* `features/library/selection/*`,
 `library_content.dart`.
+→ ✅ The grid and list end with 120 dp of room (160 on phones), so the selection bar, ⊕ and a snack bar above it clear the last row.
 
-**P1-14 Phone FAB covers the last card's ⋯.** `library_phone_*`: the + sits on
+✅ **P1-14 Phone FAB covers the last card's ⋯.** `library_phone_*`: the + sits on
 the last card's caption and menu button. *Fix:* bottom padding = FAB + 16 dp in
 grid and list (search already does). *Files:* `library_content.dart`.
+→ ✅ Same end room in grid, list and search (`library_content.dart`).
 
-**P1-15 Trash never empties itself, and restore loses the folder.**
+✅ **P1-15 Trash never empties itself, and restore loses the folder.**
 `library_empty_state.dart:60` "stay here until you delete them forever"; no
 purge anywhere. Restoring a notebook whose folder was deleted puts it at the
 root (`data/notebook_repository.dart:141-147`) silently; Restore and Move show
@@ -388,15 +792,17 @@ no message (`library_actions.dart:182`, `selection/selection_actions.dart:41`).
 School" / "Moved 3 notebooks to Work · Undo". *Files:*
 `features/library/library_actions.dart`, `library_controller.dart`,
 `data/notebook_repository.dart`.
+→ ✅ The trash deletes notebooks forever after 30 days (cards count down, header and empty state say so); Restore says where notebooks went, Move says so with Undo.
 
-**P1-16 Deleting a folder doesn't say how much goes, and can't be undone.**
+✅ **P1-16 Deleting a folder doesn't say how much goes, and can't be undone.**
 `library_actions.dart:225-231`: "Its subfolders are deleted too; notebooks
 inside move to the trash." No counts and no Undo; restored notebooks lose
 their folders. *Fix:* "Delete “School”? 2 subfolders and 14 notebooks go to
 the trash." plus an Undo snack (folders are soft-deleted already). *Files:*
 `features/library/library_actions.dart`, `library_controller.dart`.
+→ ✅ "Delete “School”? 2 subfolders and 14 notebooks go to the trash." and an Undo snack that brings the folders back with their notebooks.
 
-**P2-16 Empty states disagree.** `empty_phone_light`, `empty_folder_phone`,
+✅ **P2-16 Empty states disagree.** `empty_phone_light`, `empty_folder_phone`,
 `empty_search_phone`, `s_library_favourites_empty*`, `s_library_trash_empty*`:
 illustration vs grey disc; "New notebook" vs "New notebook here" (filled) vs
 "Clear search" (outlined); the header caption says "Empty" above "This folder
@@ -406,55 +812,64 @@ copy "drag notebooks onto this folder" can't be done on a phone. *Fix:* one
 and no search/⇅ while empty; touch copy "Move notebooks here from their ⋯
 menu". *Files:* `features/library/library_empty_state.dart`,
 `library_header.dart`.
+→ ✅ One empty-state style (disc icon, title, line, one filled action; New notebook everywhere); no caption, search or ⇅ while a view is empty; touch copy for folders.
 
-**P2-17 First launch offers only "New notebook".** `library_empty_state.dart:92-97`:
+✅ **P2-17 First launch offers only "New notebook".** `library_empty_state.dart:92-97`:
 no Import PDF, no hint that sync exists (a user with a server sees an empty
 library). *Fix:* secondary actions "Import PDF…" and "Set up sync…" under the
 primary. *Files:* `features/library/library_empty_state.dart`.
+→ ✅ First launch offers Import PDF… and Set up sync… under New notebook.
 
-**P2-18 The phone folder header stacks breadcrumbs over ☰.** `empty_folder_phone.png`:
+✅ **P2-18 The phone folder header stacks breadcrumbs over ☰.** `empty_folder_phone.png`:
 "Library ›" above "☰ Sketches"; ☰ inside a folder reads as "you're at the top".
 *Fix:* in folders on phones, ← (up one level) replaces ☰; no breadcrumb row.
 *Files:* `features/library/library_header.dart`.
+→ ✅ Phones go up from folders with ← (no breadcrumb row).
 
-**P2-19 Three ways to start a notebook on wide screens.** `desktop_folder`,
+✅ **P2-19 Three ways to start a notebook on wide screens.** `desktop_folder`,
 `large_library_tablet`: the "New…" tile, ⊕▾ and, in the sheet, "Import PDF…".
 The tile's label "New…" is vague and low-contrast in dark. *Fix:* label the
 tile "New notebook"; keep ⊕▾ for the other kinds. *Files:*
 `features/library/new_notebook_tile.dart`.
+→ ✅ The tile says New notebook; Import PDF… only in ⊕▾ and the empty state.
 *Done (fix/a11y-tools):* contrast: in dark mode the tile has the firmer
 `outline` edge (its face is close to the background).
 
-**P2-20 The ⇅ View menu has no group labels.** `s_library_view_menu*`: sort,
+✅ **P2-20 The ⇅ View menu has no group labels.** `s_library_view_menu*`: sort,
 layout and Select… run together with a ragged icon column; the current sort
 isn't shown in the header. *Fix:* "Sort by" / "Show as" `SectionLabel`s, the
 leading slot always reserved; caption "7 notebooks · by name" when not the
 default. *Files:* `features/library/library_header.dart`, `library_menus.dart`.
+→ ✅ Sort by / Show as headings; the caption names a non-default order; Select without an ellipsis.
 
-**P2-21 List view.** `desktop_list.png`, `s_library_list*`: an outline star on
+✅ **P2-21 List view.** `desktop_list.png`, `s_library_list*`: an outline star on
 every row (the grid only marks favourites) and the star and ⋯ sit 1300 px from
 the title on desktop. *Fix:* stars only on favourites (hover shows the toggle);
 cap the list at 960 dp or add a "Edited" column. *Files:*
 `features/library/notebook_list_tile.dart`.
+→ ✅ Rows star only favourites (the toggle on hover); the list stops at 960 dp.
 
-**P2-22 Search results mix two layouts.** `s_library_search*`, `desktop_search.png`:
+✅ **P2-22 Search results mix two layouts.** `s_library_search*`, `desktop_search.png`:
 title matches are big grid cards, content matches list rows, and every row
 says "1 match". *Fix:* sections "Notebooks" and "Pages" as rows; omit "1
 match". *Files:* `features/search/library_search_results.dart`.
+→ ✅ Titles as rows under Notebooks, matches under Pages; no "1 match".
 
-**P2-23 Small touch targets on cards and folders.** `notebook_card.dart:199`
+✅ **P2-23 Small touch targets on cards and folders.** `notebook_card.dart:199`
 (`height: Targets.touchFirst ? 36 : 28`) and the folder ⋯
 (`folder_tile.dart:133`, about 32 dp wide). *Fix:* 48-dp hit area with the same
 visual; tooltip "More" on both (not "Folder options"). *Files:*
 `features/library/notebook_card.dart`, `folder_tile.dart`.
+→ ✅ 48-dp ⋯ targets on touch; folder ⋯ is "More".
 
-**P2-24 Covers flash flat colours, then thumbnails.** On loading, notebooks
+✅ **P2-24 Covers flash flat colours, then thumbnails.** On loading, notebooks
 show their cover colour before their thumbnail. *Fix:* neutral placeholder and
 a `Motion.fast` cross-fade. *Files:* `features/library/thumbnails/*`.
+→ ✅ A neutral placeholder until the preview is checked (`ThumbnailCache.isPending`), cross-fading (`Motion.medium`) to the thumbnail or the plain cover.
 
 ### Dialogs, sheets and settings
 
-**P1-17 Sheets and dialogs still disagree on their footer and close controls.**
+✅ **P1-17 Sheets and dialogs still disagree on their footer and close controls.**
 `folder_dialog_phone` (full-width Save, no Cancel) vs `s_dialog_cover*` (✕ +
 Cancel + Apply) vs `export_phone_*` (Cancel + Export) vs rename (no ✕) vs move
 (✕, no footer) vs the new-notebook sheet (no drag handle, unlike the others).
@@ -463,14 +878,16 @@ primary; Confirms have no ✕. *Fix:* apply that in `SheetActions` /
 `SheetHeader` everywhere; pickers that commit on tap (move) keep only ✕.
 *Files:* `ui/sheet_parts.dart`, `ui/dialog_or_sheet.dart`,
 `features/library/dialogs/*`, `features/library/new_notebook_sheet.dart`.
+→ ✅ One rule: task sheets have ✕; wide ones add Cancel + one filled primary, on phones ✕ is Cancel and the primary is full width (folder, cover, change template, export on Android); pickers that commit on tap (move) keep only ✕; Confirms (rename) have no ✕; the new-notebook sheet has the drag handle. Stacked secondary buttons are outlined.
 
-**P1-18 Ten cover colours wrap 9 + 1.** `desktop_cover_sheet.png`,
+✅ **P1-18 Ten cover colours wrap 9 + 1.** `desktop_cover_sheet.png`,
 `dialog_cover_light/dark.png`: Sand alone on a second row with empty space
 below, while the new-notebook form fits all ten in one row. *Fix:* the same
 `EvenGrid` row as the new-notebook form (10 × 1 wide, 5 × 2 on phones).
 *Files:* `features/library/dialogs/cover_sheet.dart`, `cover_picker.dart`.
+→ ✅ One `CoverRow` for the cover sheet and the new-notebook form: ten in a row, two rows of five spread across the width on touch where one row would shrink targets under 48 dp.
 
-**P1-19 The wide new-notebook dialog clips Portrait / Landscape.**
+✅ **P1-19 The wide new-notebook dialog clips Portrait / Landscape.**
 `desktop_new_sheet.png`, `new_desktop_*`, `large_new_tablet*`: the form scrolls
 inside a short dialog and the orientation control is cut in half above the
 footer, with no fade; at 1.3× "All templates…" breaks mid-word ("All tem /
@@ -478,8 +895,9 @@ plates…"). *Fix:* let the dialog grow to the window (max 720 dp tall) and add
 `ScrollFade` above the footer; never break the tile label mid-word (wrap on
 spaces, or "More…"). *Files:* `features/library/new_notebook_sheet.dart`,
 `features/library/new_notebook/*`.
+→ ✅ The form fades where it runs under the footer; the tile says More… (never breaks mid-word).
 
-**P1-20 Template side panels clip and wrap.** `e_dialog_add_page_template_desktop_*`,
+✅ **P1-20 Template side panels clip and wrap.** `e_dialog_add_page_template_desktop_*`,
 `e_dialog_canvas_background_desktop_dark`, `templates_*`: chips half cut at
 the panel bottom with no scroll cue; the custom-colour button wraps alone
 (6 + 1); two previews; spacing presets repeat the ruled templates. Searching
@@ -489,36 +907,45 @@ preview; drop the presets (the slider plus the templates cover them); clear
 the category on search; selected chips use `Surfaces.pressed` + a check.
 *Files:* `features/documents/templates/paper_options.dart`,
 `paper_option_rows.dart`, `template_chooser.dart`, `template_gallery.dart`.
+→ ✅ Both chooser columns fade under the footer (`ScrollFade`); swatch rows stay on one line with the custom colour; one preview (the page preview when shown, else the actual-size swatch); no spacing presets. A search already selects All; selected chips use `Surfaces.pressed` (no check: it would shift the row).
 
-**P1-21 Change template on phones: three stacked buttons eat a third of the sheet.**
+✅ **P1-21 Change template on phones: three stacked buttons eat a third of the sheet.**
 `e_dialog_change_template_phone_*`: Apply to this page, Apply to all pages and
 Cancel (plus ✕) leave 1.5 rows of templates. *Fix:* a "This page · All pages"
 segmented control and one Apply; ✕ is Cancel. *Files:*
 `features/documents/template_picker.dart`.
+→ ✅ "This page · All pages" segments and one Apply (phones: full width, ✕ cancels; wide: Cancel + Apply).
 
-**P2-25 Settings copy and controls.** `settings_*`, `s_settings_*`:
+✅ **P2-25 Settings copy and controls.** `settings_*`, `s_settings_*`:
 - "Draw with" segments are shrunk to a smaller size than the others (`ShrinkToFit`).
 - "Side button: While you hold the S Pen (or stylus) button" shows on desktops and the web.
 - "Toolbar: Along the top; at the bottom on phones" describes Docked even when Floating is chosen.
 - Handwriting "Not available here" is followed by a paragraph on how to use it.
 - "Sync is off" is a grey pill that looks like a disabled field.
 - On wide screens the "Settings" title scrolls away under an empty app bar.
+→ ✅ Segments sit under their text at full size; side button only on Android or for stylus users; the toolbar subtitle follows the choice; no how-to where recognition is unavailable; sync status is a plain row with an icon; the title is in the pinned app bar.
 
 *Fix:* two-row segments rather than shrunk text; the side-button row only
 where a stylus can be (Android, or once seen); the toolbar subtitle follows the
 choice; hide the how-to where recognition is unavailable; status as a plain row
 with an icon; the title in the app bar on wide screens. *Files:*
 `features/settings/*`.
+*Update (synced handwriting):* where nothing recognises, Handwriting now
+says Android devices recognise and their text is found here after sync, with
+a "Search handwriting" row counting the lines that arrived — no "Not
+available here", no toggles.
 
-**P2-26 Snack bars still collide.** `e_snack_saved_template_phone_*` (two lines
+✅ **P2-26 Snack bars still collide.** `e_snack_saved_template_phone_*` (two lines
 grow down over the bottom toolbar), `e_snack_stylus_detected_phone_*` (snack
 and the side-button tip at once), `e_missing_planner_page_phone` (PDF notice
 and snack at once). *Fix:* `MessageInsets` anchors the snack's bottom edge,
 so it grows upward; queue tips behind snacks; shorten "Saved “Physics —
 Mechanics, page 1” to My templates" → "Page saved as a template". *Files:*
 `ui/messages.dart`, `chrome/editor_tips.dart`, `document/document_commands.dart`.
+→ ✅ Snack bars are anchored by their bottom margin and grow upward; the side-button tip waits for the stylus-detected snack bar; "Saved to My templates".
+✅ *Rest (fix/a11y-library):* standing notices (the missing-PDF card) fade away while a snack bar shows (e.g. "no page for Wed, 14 Oct") and come back after it (`MessageQueue`), so one message shows at a time.
 
-**P2-27 Export sheet polish.** `export_*_range`, `export_narrow_large_text_scrolled`,
+✅ **P2-27 Export sheet polish.** `export_*_range`, `export_narrow_large_text_scrolled`,
 `export_tablet_portrait_*`: the range error shows in the field and again in
 the footer ("Check the page range", wraps on phones); disabled Export is grey
 on grey in dark; content scrolls under the header with no divider; 800-dp
@@ -526,14 +953,17 @@ tablets get a bottom sheet while 1280 gets a dialog. *Fix:* error in the field
 only, helper "e.g. 1–3, 5"; theme disabled colours; header divider when
 scrolled; `showDialogOrSheet` threshold at 600 dp. *Files:*
 `features/documents/export/export_sheet*.dart`, `ui/dialog_or_sheet.dart`.
+→ 🟡 The range error shows in its field only (helper "Pages 1–N, separated by commas", hint "e.g. 1-3, 5").
 *Done (fix/a11y-tools):* disabled filled buttons keep a readable label
 (`onSurfaceVariant` on a 12 % plate, theme-wide) instead of 38 % grey.
+✅ *Done (fix/a11y-library):* a hairline under the header once the options scroll (as Settings' pinned bar). The 600-dp `showDialogOrSheet` threshold stays at 840 (lead decision: it would move every task sheet on 800-dp tablets).
 
-**P2-28 Missing-PDF notice copy.** `e_missing_pdf_background_*`: "A PDF these
+✅ **P2-28 Missing-PDF notice copy.** `e_missing_pdf_background_*`: "A PDF these
 pages are drawn on isn't on this device" / "Relink…" is awkward and repeats
 the hatched placeholder. *Fix:* "The PDF for these pages isn't on this
 device." with "Locate file…" and "Try again". *Files:*
 `chrome/missing_pdf_notice.dart`.
+→ ✅ "The PDF for these pages isn’t on this device" with Try again and Locate file….
 
 ### Sync, storage and files
 
@@ -685,18 +1115,25 @@ dark); the "Drop to copy here" pill uses the text roles and `Shadows.low`.
   is a full target on touch; folder tiles grow with large text (they
   overflowed at 2×). A focus ring (`ui/focus_ring.dart`, accent, 2 dp) follows
   keyboard focus everywhere; touch and mouse never show it.
-- **A11Y-1 Small targets in the tablet library sidebar.** Sidebar rows are
+- ✅ **A11Y-1 Small targets in the tablet library sidebar.** Sidebar rows are
   40 dp (42 with spacing), New folder 40, the footer's Settings and Sync
   40, the search field 40: under 44 on touch tablets. At 2× text the footer
   squeezes the Settings label away. *Fix:* rows and footer buttons
   `Targets.of(context, 40)` on touch; the footer stacks at large text.
   *Files:* `ui/sidebar_item.dart`, `features/library/library_sidebar.dart`,
-  `library_header.dart`. (Allowed in `accessibility_test.dart` until fixed.)
-- **A11Y-2 Settings segmented buttons shrink on phones.** `ShrinkToFit`
+  `library_header.dart`.
+  → ✅ Rows, New folder, the footer's Settings and sync status, and the search field are
+  `Targets.menuRowHeight` (48 on touch, 44 with a pointer); at large text the footer stacks
+  (Settings, then the sync status with its caption). Allowlist entries removed.
+- ✅ **A11Y-2 Settings segmented buttons shrink on phones.** `ShrinkToFit`
   scales "Draw with" and "Side button" down to fit 390 dp (to about 38 dp
   high, smaller text), more at large text. *Fix:* below a width, a menu or
   radio rows instead of a segmented button. *Files:* `ui/segment_label.dart`,
   `features/settings/writing_settings.dart`.
+  → ✅ `FitSegments` (`ui/fit_segments.dart`): a segmented button that doesn't fit its room
+  stacks its segments (vertical `SegmentedButton`) at full text size and 48-dp height (Theme,
+  Draw with, Side button, Toolbar). Allowlist entry removed; so is the card ⋯ one (48 dp on
+  touch since fix/library-r4).
 - Targets: library ⋯ buttons (P2-23); the phone cover row of ten swatches is
   34 dp each (5 × 2 on phones, P1-18).
 - Simplify without losing parity: drop the spacing presets in paper options

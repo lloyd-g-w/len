@@ -1,6 +1,8 @@
 import 'package:sqlite3/common.dart';
 
+import 'chunk_digest_migration.dart';
 import 'initial_schema.dart';
+import 'search/ink_text_schema.dart';
 
 /// The ordered schema migrations `AppDatabase` applies (`PRAGMA
 /// user_version` counts those applied). Version 1 creates the whole schema
@@ -17,7 +19,26 @@ abstract final class SchemaMigrations {
     _recordingTrim,
     _notebookPaperData,
     _strokeEndStyles,
+    _recognisedText,
+    ChunkDigestMigration.migrate,
   ];
+
+  /// Version 9: recognised handwriting, synced (collection
+  /// `recognised_text`, see `RecognisedTextRepository`); remote records
+  /// queue their surface for indexing.
+  static void _recognisedText(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE recognised_text (
+        id          TEXT PRIMARY KEY NOT NULL,
+        language    TEXT NOT NULL,
+        lines       TEXT NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    InkTextSchema.createSyncedTriggers(db);
+  }
 
   /// Version 8: make the pen's end shape explicit on stored strokes. Upgrade
   /// the on-disk JSON once rather than keeping a legacy read path in the

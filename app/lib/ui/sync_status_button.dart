@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../sync/sync_controller.dart';
+import 'app_theme.dart';
 
 /// The short sync status the sidebar shows (REDESIGN §3): "Synced 2m",
 /// "Synced just now", "Syncing…", "Sync failed", "Sync off".
@@ -108,10 +109,15 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
               foregroundColor: color ?? scheme.onSurfaceVariant,
               disabledForegroundColor: scheme.onSurfaceVariant,
               textStyle: theme.textTheme.bodySmall,
-              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsetsDirectional.only(start: Gaps.sm, end: Gaps.md),
+              minimumSize: Size.square(Targets.menuRowHeight(context)),
             ),
             icon: glyph,
-            label: Text(syncCaption(sync.state, sync.lastSuccess, DateTime.now())),
+            label: Text(
+              syncCaption(sync.state, sync.lastSuccess, DateTime.now()),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         );
       },

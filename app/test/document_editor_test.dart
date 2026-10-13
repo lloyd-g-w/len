@@ -201,7 +201,9 @@ void main() {
     await tester.ensureVisible(find.text('Music staff'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Music staff'));
-    await tester.tap(find.text('Apply to all pages'));
+    await tester.tap(find.text('All pages'));
+    await tester.pump();
+    await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(pages().every((p) => p.paper.style == PaperStyle.music), isTrue);
     // Undo puts every page's own template back.

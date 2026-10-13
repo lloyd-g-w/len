@@ -115,7 +115,7 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Search'), 'light');
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
-    expect(find.text('In notebooks · 3 matches'), findsOneWidget);
+    expect(find.text('Pages · 3 matches'), findsOneWidget);
     expect(find.text('Page 3'), findsOneWidget);
     expect(find.text('Canvas'), findsOneWidget);
     await expectLater(find.byType(LibraryScreen), matchesGoldenFile('goldens/search_library.png'));
@@ -204,12 +204,19 @@ void main() {
     addTearDown(other.dispose);
     final services = AppServices.create(AppDatabase.inMemory(), syncApiFactory: api);
     services.sync.configure(url: 'http://sync.test', token: FakeServer.token);
+    // Something to search (an empty library has no search field).
+    services.notebooks.create(
+      title: 'Other',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
     await pumpLibrary(tester, services: services);
 
     await tester.enterText(find.widgetWithText(TextField, 'Search'), 'quantum');
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
-    expect(find.textContaining('In notebooks'), findsNothing);
+    expect(find.textContaining('Pages ·'), findsNothing);
 
     final nb = other.notebooks.create(
       title: 'Lab',
@@ -226,7 +233,7 @@ void main() {
     });
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
-    expect(find.text('In notebooks · 1 match'), findsOneWidget);
+    expect(find.text('Pages · 1 match'), findsOneWidget);
     expect(find.textContaining('tunnelling', findRichText: true), findsOneWidget);
   });
 

@@ -91,6 +91,19 @@ class _AllTemplatesTile extends StatelessWidget {
   final double height;
   final VoidCallback onTap;
 
+  /// Whether [word] fits on one line [width] wide in the label's style.
+  static bool _fits(BuildContext context, String word, double width) {
+    final painter = TextPainter(
+      text: TextSpan(text: word, style: Theme.of(context).textTheme.bodySmall),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final fits = painter.width <= width;
+    painter.dispose();
+    return fits;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -128,7 +141,9 @@ class _AllTemplatesTile extends StatelessWidget {
               SizedBox(
                 width: width + 10,
                 child: Text(
-                  'All templates…',
+                  // Never broken mid-word: "More…" where "templates…"
+                  // doesn't fit on a line (large text on a narrow tile).
+                  _fits(context, 'templates…', width + 10) ? 'All templates…' : 'More…',
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   style: theme.textTheme.bodySmall,

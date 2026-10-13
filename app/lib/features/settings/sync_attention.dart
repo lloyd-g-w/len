@@ -28,7 +28,10 @@ class SyncAttention {
     final context = messenger.currentContext;
     if (_told || context == null) return;
     _told = true;
-    messenger.currentState?.showSnackBar(
+    final state = messenger.currentState;
+    if (state == null) return;
+    MessageQueue.show(
+      state,
       appSnackBar(
         context,
         'Sync stopped: the server refused the access token',

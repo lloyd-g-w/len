@@ -56,8 +56,8 @@ The same grid drives three things:
    empty space costs nothing. A stroke is indexed only in the chunks its ink
    passes through (`domain/stroke_chunks.dart`: each segment, cut into short
    pieces, widened by the stroke's padding plus how far neighbouring samples
-   stray — the outline smooths over them), never more than its bounding box;
-   rows written before this used the whole box and stay valid. An element is
+   stray — the outline smooths over them), never more than its bounding box
+   (each row also carries the item's hash, see *Stored rasters*). An element is
    indexed in every chunk its (rotated) bounds overlap (`ElementChunks`). The
    in-memory `ContentIndex` (one per kind, over a `SpatialIndex`) uses the
    same functions, so memory and storage agree.
@@ -93,6 +93,31 @@ The same grid drives three things:
    are drawn from vectors, a few recorded per frame at most. Measured (test
    `lod_render_test.dart`, 50 000 strokes, 1 632 visible chunks at 5 %): frame
    rasterisation 205 ms → 17 ms, cold first frame 700 ms → 2 ms.
+5. **Stored rasters** (canvases, natively): rasters of levels ≤ 128 are also
+   kept across restarts (`StoredRasters`, a `RasterStore`: PNG files in the
+   app's cache directory, `lod-<format>/`, LRU by file time within 96 MB;
+   none on the web). They are named by content: each `stroke_chunks` /
+   `element_chunks` row carries its item's hash (`ChunkDigest`: a stroke's
+   id, an element's whole value), so storage sums a chunk's digest in one
+   aggregate query (`StrokeReader.chunkDigests`) without loading it, and
+   memory computes the same from the items (`SurfaceModel.digestOf`). Same
+   digest, same content — so a raster found is right whatever was edited,
+   undone, synced or emptied since, by any device, and nothing is ever
+   invalidated: changed chunks get new names, old files age out. Zoomed out
+   until a chunk covers ≤ 128 device pixels, `InkSurface` calls
+   `SurfaceModel.showStored` instead of `ensureLoaded`: nothing is read;
+   `ChunkRasterCache` lists the populated chunks from storage, reads their
+   rasters and asks the model (`requestChunks`) only for chunks with none
+   stored, rasterising and storing those once loaded (complete chunks only;
+   none with images, whose look depends on decoding, or with hidden items).
+   A pen, eraser or lasso touching down loads what the view shows
+   (`loadVisible`), and zooming in past 128 px loads as before while the
+   stored rasters stand in. Views of one surface (split view) register
+   separately (`SurfaceViews`), so an overview pane never loads for a
+   close-up pane or the other way round. Reopening a 40 000-stroke canvas at
+   10 %: 442 chunks drawn from 442 stored rasters, no stroke loaded, versus
+   9 373 strokes loaded and 442 chunks rasterised (see INK_LAB). Changing
+   how content is drawn means bumping `StoredRasters.format`.
 
 Rendering is split into three layers, each behind a `RepaintBoundary`:
 paper (repaints on pan/zoom), committed ink (repaints on pan/zoom or edits),
@@ -1594,6 +1619,7 @@ the web:
 | Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs` behind `WriteBackBlobBackend` (blobs it can't store wait in memory); if it can't open, memory (`VolatileBlobBackend`), which the library, Settings and a first-write snack say |
 | App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread, time-budgeted slices (`SlicedStrokeReader`) |
+| LOD raster cache (`raster_store`) | PNG files in the cache directory (`lod-<format>/`, 96 MB LRU) | none: rasterised again each time |
 | Export (`file_export`) | save dialog + Show in folder / share sheet or Save to device | browser download                                 |
 | Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock + BroadcastChannel: a second tab waits ("open in another tab") or takes over (*Use here*, `TabHandover`) |
 | Page lifecycle (`page_lifecycle`) | nothing (writes are synchronous) | flush on hide / `pagehide`, `beforeunload` guard while a write is pending |
@@ -1841,6 +1867,8 @@ boxes, the text of imported PDF pages and recognised handwriting (see
 ## Handwriting recognition (`ink/recognition/`, `platform/handwriting_recognizer*`)
 
 GoodNotes-style handwriting search and lasso "Convert to text", on-device.
+Android recognises; the text syncs (`recognised_text`), so every device
+searches it.
 
 - **Recogniser.** `HandwritingRecognizer` (strokes in writing order →
   candidates, best first; per-language model download) behind a
@@ -1855,7 +1883,7 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   `google_mlkit_digital_ink_recognition` (already on AGP 9 / built-in
   Kotlin); **Linux, Windows and web** get
   `UnavailableRecognizer` (WinRT ink analysis on Windows is a possible later
-  implementation). Models are BCP 47 tags (`RecognitionLanguages`); the
+  implementation) and search what Android devices recognised (synced). Models are BCP 47 tags (`RecognitionLanguages`); the
   language follows the device locale unless chosen in the settings.
 - **`RecognitionService`** (in `AppServices`) holds the language, the
   model's state (checks it at start; with indexing on, a missing model is
@@ -1863,7 +1891,9 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   demand with a progress bar — ML Kit reports no byte progress) and the
   `HandwritingIndexer`. Settings: language, "Search handwriting" (off
   forgets recognised text, on re-recognises everything) and model download
-  (Android manages removing models).
+  (Android manages removing models). Without a recogniser the section
+  explains that Android devices recognise and lists how many lines arrived
+  (no toggles); the indexer always runs there.
 - **Clustering** (`InkClustering`): a surface's strokes (highlighter
   excluded) become lines and words. The unit is the median stroke height;
   a stroke joins a line whose letter band it overlaps vertically (small
@@ -1872,17 +1902,30 @@ GoodNotes-style handwriting search and lasso "Convert to text", on-device.
   within 1.5 s; lines on the same band are merged; words split at gaps wider
   than 0.6 × the line's letter height. A line's key is a hash of its stroke
   ids.
-- **Index.** Local, derived and **not synced** (results depend on the
-  device's model; strokes already sync, so every device can derive them —
-  syncing `ink_text` would let devices without a recogniser search, see
-  limitations): `ink_text(surface_id, stroke_key, language, text, rect,
-  words)` — one row per line, `words` = per-word boxes when the recognised
-  words match the word clusters — and `ink_text_queue(surface_id, version)`,
-  filled by **triggers on `strokes`** (insert, delete, and updates of
-  `deleted` / `points` / `surface_id`), so local edits, undo, duplicates and
-  sync all queue their surface without any call. Triggers mirror `ink_text`
-  into `search_docs` as kind `handwriting` (ref = row id), searched and
-  ranked like text boxes, with page numbers.
+- **Index.** Local and derived: `ink_text(surface_id, stroke_key,
+  language, text, rect, words)` — one row per line this device can show,
+  `words` = per-word boxes when the recognised words match the word
+  clusters — and `ink_text_queue(surface_id, version)`, filled by
+  **triggers on `strokes`** (insert, delete, and updates of `deleted` /
+  `points` / `surface_id`), so local edits, undo, duplicates and sync all
+  queue their surface without any call, and on `recognised_text` (remote
+  writes only: clean rows). Triggers mirror `ink_text` into `search_docs`
+  as kind `handwriting` (ref = row id), searched and ranked like text
+  boxes, with page numbers.
+- **Sync** (`RecognisedTextRepository`, collection `recognised_text`, one
+  record per surface: language + `[[line key, text], …]`, see
+  SYNC_PROTOCOL *Recognised handwriting*). Every device clusters its own
+  strokes and takes a line's text from the record only while a line with
+  that key exists, so edited or erased ink loses its text on every device
+  at once; boxes come from the local clustering, so records carry no
+  geometry. Per line, the indexer keeps its own row (same strokes and
+  language), else takes the synced text, else recognises (with a
+  recogniser) or leaves the line without text (without). Only recognising
+  devices write the record (`publish`: missing, other lines, or a language
+  the user chose here later — never for mere differences in reading, so
+  two phones can't ping-pong) and tombstone it when the ink is gone.
+  Without a recogniser the indexer only wakes for queued surfaces that
+  have a record and skips clustering for the others.
 - **Background work.** `HandwritingIndexer` listens to the database's commit
   stream (only on platforms with a recogniser and the model present), waits
   until no commit came for 3 s (the user stopped writing), then drains the
@@ -1942,7 +1985,10 @@ dialog on tablets / desktops, bottom sheet on phones; `sheet_parts.dart`: `Sheet
 left-aligned Heading and ✕, `SheetActions` with Cancel and one filled primary, stacked on
 phones), confirms (`app_dialogs.dart`: `confirmAction`, `AppDialog` with a left-aligned title
 and a tinted `DialogIcon` only when destructive or in progress, `DialogBody` width) and
-messages (`messages.dart`: `showMessage`). Floating chrome: `floating_panel.dart`
+messages (`messages.dart`: `showMessage`; `MessageQueue` counts the snack bars up per messenger
+and `MessageQueue.stepAside` fades standing notices such as the missing-PDF card while one shows,
+so one message shows at a time), segmented buttons that stack rather than shrink when they
+don't fit (`fit_segments.dart`: `FitSegments`). Floating chrome: `floating_panel.dart`
 (`FloatingPanel`, the `raised` surface; `radius: Radii.pill` for pills) and `chrome_fade.dart`
 (`ChromeFade`: fade plus an 8-px slide toward the edge). Also `text_prompt.dart`,
 `sidebar_item.dart` (library sidebar; the selected row carries the accent). Menus opened from a
@@ -2036,9 +2082,10 @@ Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
 
 - Canvas chunk reads run in a background isolate, but writes, page surfaces,
   thumbnails and other queries still run on the UI isolate (small and indexed).
-- Far zoom-out of a huge canvas still loads every visible stroke into memory
-  (LOD caps rendering cost, not memory); LOD rasters are not persisted, so they
-  are rebuilt after reopening.
+- Far zoom-out of a huge canvas loads only chunks without a stored raster
+  natively; the web (no raster store) still loads every visible stroke and
+  rasterises again after reopening. Paged documents do not store their LOD
+  rasters. Chunks holding images are never stored (loaded when shown far out).
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
 - Text boxes: list items have no hanging indent (wrapped lines start at the
@@ -2083,9 +2130,12 @@ Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
 - Image bitmaps are whole-image decodes per mip level (no tiling); a 4096 px
   image is the sharpest it gets. Crop mode shows the image on its own (ink
   over it is hidden while cropping).
-- Handwriting: recognised only on Android (Linux, Windows and web find no
-  handwriting; recognised text is not synced, so they cannot borrow it
-  either); a changed surface is re-clustered from all its strokes (cheap per
+- Handwriting: recognised only on Android (Linux, Windows and web search
+  what Android devices recognised and synced; text of ink written there
+  appears once an Android device has synced and read it; a record of a
+  deleted page stays live until an Android device re-reads it, harmless as
+  it matches no ink; two Android devices online at once may both read new
+  ink before either's record arrives); a changed surface is re-clustered from all its strokes (cheap per
   page, heavier on huge canvases); a phrase is found only within one line;
   shapes drawn with the pen are recognised like writing (usually as
   nonsense); no pause while on battery.

@@ -48,7 +48,7 @@ void paintLod(
 
   final missing = <ChunkKey>[];
   toWorld();
-  for (final key in pictures.model.chunksIn(ChunkGrid.rangeFor(area))) {
+  for (final key in rasters.chunksIn(ChunkGrid.rangeFor(area))) {
     final image = rasters.imageFor(key, level);
     if (image == null) {
       missing.add(key);

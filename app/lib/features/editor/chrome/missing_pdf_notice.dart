@@ -7,7 +7,7 @@ import '../../documents/pdf/pdf_background_cache.dart';
 import '../document/document_controller.dart';
 
 /// Says when a PDF the notebook's pages are drawn on can't be had (UX_AUDIT
-/// #24), with Retry (it may arrive by sync) and Relink… (pick the file).
+/// #24), with Try again (it may arrive by sync) and Locate file… (pick it).
 /// The pages themselves show a placeholder ([paintMissingPdf]). Dismissed,
 /// it stays away for that PDF while the editor is open.
 class MissingPdfNotice extends StatefulWidget {
@@ -109,8 +109,8 @@ class _Card extends StatelessWidget {
                   Expanded(
                     child: Text(
                       count == 1
-                          ? 'A PDF these pages are drawn on isn’t on this device'
-                          : '$count PDFs these pages are drawn on aren’t on this device',
+                          ? 'The PDF for these pages isn’t on this device'
+                          : 'The $count PDFs for these pages aren’t on this device',
                       style: theme.textTheme.bodyMedium,
                     ),
                   ),
@@ -127,8 +127,8 @@ class _Card extends StatelessWidget {
                 alignment: WrapAlignment.end,
                 spacing: Gaps.xs,
                 children: [
-                  TextButton(onPressed: onRetry, child: const Text('Retry')),
-                  TextButton(onPressed: onRelink, child: const Text('Relink…')),
+                  TextButton(onPressed: onRetry, child: const Text('Try again')),
+                  TextButton(onPressed: onRelink, child: const Text('Locate file…')),
                 ],
               ),
             ],

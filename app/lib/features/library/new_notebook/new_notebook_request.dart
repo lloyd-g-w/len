@@ -10,19 +10,7 @@ class NewNotebookRequest {
     required this.coverColor,
     this.template = const PageTemplate(),
     this.papers = const [],
-    this.importPdf = false,
   });
-
-  /// The user chose to create the notebook from a PDF instead (see
-  /// `importPdfFlow`); the other fields are then irrelevant.
-  const NewNotebookRequest.importPdf()
-    : this(
-        title: '',
-        kind: NotebookKind.paged,
-        paper: PaperStyle.blank,
-        coverColor: 0,
-        importPdf: true,
-      );
 
   final String title;
   final NotebookKind kind;
@@ -36,5 +24,4 @@ class NewNotebookRequest {
   /// The pages of a paged notebook when there are several (a generated
   /// planner), each made like [template]; empty for one page.
   final List<Paper> papers;
-  final bool importPdf;
 }

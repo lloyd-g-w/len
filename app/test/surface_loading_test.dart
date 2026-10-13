@@ -8,6 +8,7 @@ import 'package:len/data/background_stroke_reader.dart';
 import 'package:len/data/element_repository.dart';
 import 'package:len/data/stroke_reader.dart';
 import 'package:len/data/stroke_repository.dart';
+import 'package:len/domain/chunk_digest.dart';
 import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/ink/surface_model.dart';
@@ -45,6 +46,10 @@ class _ManualReader implements StrokeReader {
     call.done.complete(await inner.read('s', call.range, skip: call.skip));
     await Future<void>.delayed(Duration.zero);
   }
+
+  @override
+  FutureOr<Map<ChunkKey, ChunkDigest>> chunkDigests(String surfaceId, ChunkRange range) =>
+      inner.chunkDigests(surfaceId, range);
 
   @override
   FutureOr<Map<ChunkKey, int>> chunkDensity(String surfaceId) => inner.chunkDensity(surfaceId);

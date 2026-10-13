@@ -138,7 +138,7 @@ abstract final class UserTemplates {
     if (chosen == null || chosen.isEmpty || !context.mounted) return null;
     final blob = await services.blobs.putBytes(png, mime: 'image/png');
     final template = services.templates.create(name: chosen, blob: blob, size: size);
-    if (context.mounted) showMessage(context, 'Saved “$chosen” to My templates');
+    if (context.mounted) showMessage(context, 'Saved to My templates');
     return template;
   }
 

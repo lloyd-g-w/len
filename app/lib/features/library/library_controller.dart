@@ -11,6 +11,10 @@ import '../../domain/paper.dart';
 import '../../domain/preferences.dart';
 import 'library_query.dart';
 
+/// Folders removed by [LibraryController.deleteFolder] and the notebooks it
+/// moved to the trash.
+typedef FolderDeletion = ({List<Folder> folders, List<String> notebookIds});
+
 /// Top-level places in the library navigation.
 enum LibrarySection { library, favorites, trash }
 
@@ -20,6 +24,8 @@ enum LibrarySection { library, favorites, trash }
 /// happen in memory.
 class LibraryController extends ChangeNotifier {
   LibraryController(this.services) {
+    // Notebooks trashed more than 30 days ago go for good.
+    if (services.notebooks.purgeTrash() > 0) unawaited(services.sync.syncNow());
     reload();
   }
 
@@ -290,10 +296,49 @@ class LibraryController extends ChangeNotifier {
     return moved;
   }
 
+  /// What deleting folder [id] takes with it: its subfolders (at any
+  /// depth) and the notebooks in it and them.
+  ({int folders, int notebooks}) contentsOf(String id) {
+    final subtree = services.folders.subtreeOf(id);
+    return (
+      folders: subtree.length - 1,
+      notebooks: _notebooks.where((n) => subtree.contains(n.folderId)).length,
+    );
+  }
+
   /// Deletes a folder with its subfolders; their notebooks go to the trash.
-  void deleteFolder(String id) => _run(
+  /// Returns what [undoDeleteFolder] needs to put it all back.
+  FolderDeletion deleteFolder(String id) {
+    late final FolderDeletion deletion;
+    _run(
+      () => services.database.transaction(() {
+        final subtree = services.folders.subtreeOf(id);
+        deletion = (
+          folders: [
+            for (final f in _folders)
+              if (subtree.contains(f.id)) f,
+          ],
+          notebookIds: [
+            for (final n in _notebooks)
+              if (subtree.contains(n.folderId)) n.id,
+          ],
+        );
+        services.notebooks.trashAllIn(services.folders.delete(id));
+      }),
+    );
+    return deletion;
+  }
+
+  /// Brings back the folders of [deletion] and the notebooks it trashed
+  /// (those still in the trash), each in its own folder again.
+  void undoDeleteFolder(FolderDeletion deletion) => _run(
     () => services.database.transaction(() {
-      services.notebooks.trashAllIn(services.folders.delete(id));
+      for (final f in deletion.folders) {
+        services.folders.update(f);
+      }
+      for (final id in deletion.notebookIds) {
+        if (services.notebooks.get(id)?.isTrashed ?? false) services.notebooks.restore(id);
+      }
     }),
   );
 

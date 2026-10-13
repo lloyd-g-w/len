@@ -17,6 +17,7 @@ abstract class _SurfaceState extends ChangeNotifier {
     this.clock = const Clock(),
     this.writeBehind = false,
     this.outlines,
+    this.rasterStore,
   }) {
     _loading = SurfaceLoader(
       reader: reader ?? _repository,
@@ -37,6 +38,11 @@ abstract class _SurfaceState extends ChangeNotifier {
 
   /// Decoded bitmaps for image elements (null: images show placeholders).
   final ElementImages? images;
+
+  /// Where level-of-detail rasters of this surface's chunks persist, if
+  /// anywhere (canvases, natively): a view zoomed far out draws them
+  /// without loading the chunks (see [SurfaceModel.showStored]).
+  final RasterStore? rasterStore;
 
   /// Soft cap on loaded chunks before far-away ones are evicted.
   final int maxLoadedChunks;
@@ -79,8 +85,8 @@ abstract class _SurfaceState extends ChangeNotifier {
   late final SurfaceLoader _loading;
   bool _disposed = false;
 
-  ChunkRange? _lastRange;
-  Rect? _lastVisible;
+  /// What each view needs loaded.
+  final SurfaceViews _views = SurfaceViews();
 
   /// Emits chunks whose rendering is stale; `null` means "everything".
   Stream<Set<ChunkKey>?> get invalidations => _changes.stream.map((c) => c.chunks);

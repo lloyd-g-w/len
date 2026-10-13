@@ -138,6 +138,13 @@ class SettingsRepository {
   set handwritingLanguage(String? value) =>
       value == null ? _remove('handwriting_language') : _set('handwriting_language', value);
 
+  /// When (ms) the user last changed [handwritingLanguage] (0 = never):
+  /// this device's readings then replace older synced ones in another
+  /// language.
+  int get handwritingLanguageChangedAt =>
+      int.tryParse(_get('handwriting_language_changed_at') ?? '') ?? 0;
+  set handwritingLanguageChangedAt(int value) => _set('handwriting_language_changed_at', '$value');
+
   /// Whether handwriting is recognised in the background for search.
   bool get handwritingIndexing => _get('handwriting_indexing') != 'false';
   set handwritingIndexing(bool value) => _set('handwriting_indexing', '$value');
