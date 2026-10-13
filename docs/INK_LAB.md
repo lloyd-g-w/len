@@ -765,6 +765,23 @@ compare. The first open loads fewer strokes than before: only visible
 chunks, not the ring around them.) Correctness — rasters never stale after
 an edit, undo, sync or emptied chunk — is `test/persistent_lod_test.dart`.
 
+Round 6 (perf/lod-followups): `test/perf/lod_store_perf_test.dart`, a
+16 000-stroke canvas at 5 % (1 631 chunks of 51 device px: level 64),
+stored rasters read with a 2 ms delay each. *Stall* is the event loop's
+longest turn between frames (frames are 16 ms apart). Before: every read
+started at once, PNGs written as soon as made. After: 16 reads at a time,
+middle first, dropped when panned away; writes wait until idle.
+
+| Run | before | after |
+| --- | --- | --- |
+| first open, storing | 347 frames, 1 630 writes while painting, stall 568 ms | 292 frames, 0 while painting (1 630 after), stall 97 ms |
+| reopened | middle at frame 2, all at frame 8 (809 ms), 1 630 reads at once, stall 319 ms | middle at 2, all at 33 (638 ms), ≤ 16 at once, stall 3 ms |
+| reopened, panned away at frame 3 | 1 805 reads, 1 435 of chunks out of view, stall 152 ms | 457 reads, 87 out of view, stall 13 ms |
+
+(Shared machine, CPU rasterisation: stalls and times vary by ± 30 %.
+Reopening at 10 % now completes in 11 frames instead of 6, the same
+≈ 200 ms.) Images: `test/persistent_lod_images_test.dart`.
+
 ## Low-latency ink
 
 The overlay (ARCHITECTURE, *Low-latency ink*) is always on for opaque pen

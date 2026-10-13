@@ -72,6 +72,14 @@ class ElementImages {
     return best;
   }
 
+  /// Whether [imageFor] has a bitmap of [image] sharp enough for drawing
+  /// it [pixelWidth] device pixels wide (it then draws the same pixels
+  /// every time).
+  bool isSharp(ImageData image, double pixelWidth) {
+    final width = bucketFor(pixelWidth, image.width);
+    return _images.keys.any((k) => k.blob == image.blob && k.width >= width);
+  }
+
   /// Decodes [image] for drawing [pixelWidth] pixels wide (fetching the
   /// blob if needed), e.g. before exporting. Null if it is unavailable.
   Future<ui.Image?> load(ImageData image, double pixelWidth) async {

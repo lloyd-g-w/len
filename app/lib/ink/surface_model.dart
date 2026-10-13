@@ -171,8 +171,10 @@ class SurfaceModel extends ChangeNotifier {
   bool isComplete(ChunkKey key) => _loaded.contains(key) && !_arriving.contains(key);
 
   /// The digest of [key]'s content when it is all in memory, not empty
-  /// and drawn as stored: none hidden (selected, being edited) and no
-  /// images (their look depends on decoding). Null otherwise.
+  /// and drawn as stored: none hidden (selected, being edited). Null
+  /// otherwise. (Images are content-addressed: an element's value names
+  /// its blob by hash. Whether they are decoded yet is the renderer's
+  /// business, see `ChunkPictureCache.isSettled`.)
   ChunkDigest? digestOf(ChunkKey key) {
     if (!isComplete(key)) return null;
     final strokes = _strokes.inChunk(key);
@@ -182,7 +184,6 @@ class SurfaceModel extends ChangeNotifier {
             elements.any((e) => _hidden.contains(e.id)))) {
       return null;
     }
-    if (elements.any((e) => e.knownType == ElementType.image)) return null;
     final digest = ChunkDigest.of(strokes, elements);
     return digest.strokes + digest.elements == 0 ? null : digest; // Emptied.
   }

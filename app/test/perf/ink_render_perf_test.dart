@@ -362,7 +362,7 @@ class _Reopened {
       final chunks = rasters.chunksIn(ChunkGrid.rangeFor(viewport.visibleWorld));
       final complete =
           chunks.isNotEmpty &&
-          !rasters.isBusy &&
+          !rasters.isMaking &&
           !model.isLoading &&
           chunks.every((k) {
             final image = rasters.imageFor(k, level);

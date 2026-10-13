@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import '../../domain/chunk_grid.dart';
 import '../../domain/surface_element.dart';
+import '../elements/element_renderer.dart';
 import '../lab/perf_probe.dart';
 import '../surface_model.dart';
 import 'content_painter.dart';
@@ -45,10 +46,18 @@ class ChunkPictureCache {
   /// Image blobs drawn into each cached picture.
   final Map<ChunkKey, Set<String>> _blobs = {};
 
+  /// Cached pictures drawn with an image still decoding (a stand-in).
+  final Set<ChunkKey> _unsettled = {};
+
   /// log2 of the device pixels per world unit images are recorded at.
   int _level = 0;
 
   ui.Picture pictureFor(ChunkKey key) => _pictures[key] ??= _record(key);
+
+  /// Whether [key]'s cached picture shows its images as decoded for its
+  /// scale, so it looks the same however often it is recorded (no
+  /// stand-ins). True for chunks without images.
+  bool isSettled(ChunkKey key) => !_unsettled.contains(key);
 
   /// The cached picture of [key], without recording one.
   ui.Picture? peek(ChunkKey key) => _pictures[key];
@@ -90,6 +99,10 @@ class ChunkPictureCache {
         if (e.knownType == ElementType.image && e.data['blob'] is String) e.data['blob']! as String,
     };
     if (blobs.isNotEmpty) _blobs[key] = blobs;
+    final scale = math.pow(2, _level).toDouble();
+    if (!elements.every((e) => ElementRenderer.isSettled(e, model.images, scale))) {
+      _unsettled.add(key);
+    }
     final picture = recorder.endRecording();
     developer.Timeline.finishSync();
     return picture;
@@ -103,6 +116,7 @@ class ChunkPictureCache {
   void _drop(ChunkKey key) {
     _pictures.remove(key)?.dispose();
     _blobs.remove(key);
+    _unsettled.remove(key);
   }
 
   void _invalidate(Set<ChunkKey>? keys) {
@@ -112,6 +126,7 @@ class ChunkPictureCache {
       }
       _pictures.clear();
       _blobs.clear();
+      _unsettled.clear();
       return;
     }
     keys.forEach(_drop);
