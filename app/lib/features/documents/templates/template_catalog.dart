@@ -35,8 +35,7 @@ class MyTemplate extends TemplateEntry {
   TemplateCategory get category => TemplateCategory.mine;
 }
 
-/// The gallery's sections: templates matching [query] (and [only] a
-/// category, if given), grouped by category in a fixed order. A canvas
+/// The gallery's sections: templates matching [query], grouped by category in a fixed order. A canvas
 /// offers only tiling templates; planners only where [planners] is true.
 /// "My templates" is listed (possibly empty, for its Import tile) when it
 /// is not filtered out.
@@ -44,14 +43,11 @@ List<(TemplateCategory, List<TemplateEntry>)> templateSections({
   bool canvas = false,
   bool planners = true,
   String query = '',
-  TemplateCategory? only,
   List<UserTemplate> mine = const [],
 }) {
-  bool wanted(TemplateCategory c) => only == null || only == c;
   final q = query.trim().toLowerCase();
   final sections = <(TemplateCategory, List<TemplateEntry>)>[];
   for (final category in TemplateCategory.values) {
-    if (!wanted(category)) continue;
     if (category == TemplateCategory.mine) {
       if (canvas) continue;
       final entries = [

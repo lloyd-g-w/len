@@ -222,7 +222,7 @@ chooses for something not created yet (the new notebook's More…).
 *Done (`fix/r6-editor`):* "Apply" for Change template and Canvas
 background; "Use template" only when creating.
 
-⬜ **R6-19 P2 · Template filter chips repeat the gallery's headings and cut
+✅ **R6-19 P2 · Template filter chips repeat the gallery's headings and cut
 mid-word on phones.** The chooser has search, a chip row (All, Paper,
 Writing, Planners, My templates; `features/documents/templates/template_chooser.dart:213-245`)
 and a gallery grouped under the same headings. On a 390-dp sheet the row
@@ -230,6 +230,8 @@ scrolls off as "My t" (`e_dialog_add_page_template_phone_*`,
 `templates_picker_*`). *Fix:* see S3. Drop the chips, keep search, and let
 the headings be the categories (jump links in the wide dialog's left column
 if anything).
+*Done (`fix/r6-editor`):* the chips are gone (and `templateSections`'
+`only` filter); search plus the gallery's headings remain. No jump links.
 
 ### Dialogs, fields and copy
 
