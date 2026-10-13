@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/preferences.dart';
@@ -86,5 +87,37 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pumpAndSettle();
     expect(find.text('4 selected'), findsOneWidget);
+  });
+
+  testWidgets('searching keeps selection mode and the selected notebooks that match', (
+    tester,
+  ) async {
+    await pumpSeeded(tester, (s) {
+      for (final t in ['Algebra', 'Biology', 'Biochemistry', 'Chemistry']) {
+        addNotebook(s, t);
+      }
+    });
+    Future<void> ctrlClick(String title) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.tap(find.text(title));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+    }
+
+    await ctrlClick('Algebra');
+    await ctrlClick('Biology');
+    expect(find.text('2 selected'), findsOneWidget);
+
+    // Narrowing the search keeps selecting; what no longer matches drops out.
+    await tester.enterText(find.byType(TextField), 'bio');
+    await tester.pumpAndSettle();
+    expect(find.text('1 selected'), findsOneWidget);
+    await ctrlClick('Biochemistry');
+    expect(find.text('2 selected'), findsOneWidget);
+
+    // Clearing the search still selects (both are in the library).
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
+    expect(find.text('2 selected'), findsOneWidget);
   });
 }
