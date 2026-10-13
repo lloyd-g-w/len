@@ -146,24 +146,28 @@ class DocumentInkPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final visible = viewport.visibleWorldFor(size);
     final scale = viewport.scale;
-    for (final index in layout.visiblePages(visible)) {
+    TileView viewOf(Rect frame, Rect world) => TileView(
+      k: scale * devicePixelRatio,
+      origin: (viewport.offset + frame.topLeft * scale) * devicePixelRatio,
+      visible: world.shift(-frame.topLeft),
+      clip: Offset.zero & frame.size,
+    );
+    final shown = layout.visiblePages(visible).toSet();
+    // Pages about to scroll into view: their tiles are rendered ahead.
+    final ahead = DocumentLayout.lookahead(visible);
+    for (final index in layout.visiblePages(ahead)) {
+      if (shown.contains(index)) continue;
+      final surface = surfaces.peek(pages[index].id);
+      if (surface != null) surface.tiles.prefetch(viewOf(layout.frameOf(index)!, ahead));
+    }
+    for (final index in shown) {
       final surface = surfaces.peek(pages[index].id);
       if (surface == null) continue;
       final frame = layout.frameOf(index)!;
-      final local = visible.shift(-frame.topLeft);
-      if (surface.model.chunksIn(ChunkGrid.rangeFor(local)).isNotEmpty) {
+      final view = viewOf(frame, visible);
+      if (surface.model.chunksIn(ChunkGrid.rangeFor(view.visible)).isNotEmpty) {
         surface.cache.setScale(scale); // Image resolution.
-        paintTiled(
-          canvas,
-          surface.tiles,
-          TileView(
-            k: scale * devicePixelRatio,
-            origin: (viewport.offset + frame.topLeft * scale) * devicePixelRatio,
-            visible: local,
-            clip: Offset.zero & frame.size,
-          ),
-          devicePixelRatio,
-        );
+        paintTiled(canvas, surface.tiles, view, devicePixelRatio);
       }
       // Over the ink, as the owner's own view shows it.
       if (surface.model.hasLiftedExcept(self)) {

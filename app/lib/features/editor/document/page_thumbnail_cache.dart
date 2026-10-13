@@ -1,0 +1,236 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+
+import '../../../data/surface_copier.dart';
+import '../../../domain/image_data.dart';
+import '../../../domain/surface_element.dart';
+import '../../../ink/images/element_images.dart';
+import '../../../ink/render/content_painter.dart';
+
+/// Recorded ink, text and images of pages for thumbnails, loaded on first
+/// use, and rasterised at the size they are shown ([rasterOf]): a frame of
+/// the page overview draws images, not every outline of every page.
+/// Notifies when a page's picture was dropped because one of its images
+/// finished decoding (it is then recorded again, sharper) and when a
+/// raster is ready.
+class ThumbnailCache extends ChangeNotifier {
+  ThumbnailCache(this.copier, {this.images}) {
+    _imageChanges = images?.changes.listen(_onImage);
+  }
+
+  final SurfaceCopier copier;
+
+  /// Decoded bitmaps for image elements.
+  final ElementImages? images;
+
+  /// Device pixels per page unit images are decoded for (thumbnails are a
+  /// few hundred pixels wide).
+  static const double imageScale = 0.75;
+
+  /// Recorded pages, least recently used first (at most [maxPages]).
+  final Map<String, ui.Picture> _ink = {};
+
+  /// Pages to record (again), in the order they were asked for.
+  final Set<String> _queue = {};
+  Timer? _loading;
+  bool _disposed = false;
+
+  /// Ink narrower than this many pixels at [imageScale] (the regular pens,
+  /// under 3.3 units) is drawn as plain lines: thumbnails show it at most
+  /// that wide.
+  static const double sketchBelow = 2.5;
+
+  /// How many pages' pictures are kept.
+  static const int maxPages = 160;
+
+  /// Time spent recording pages between frames.
+  static const Duration frameBudget = Duration(milliseconds: 6);
+
+  /// Image blobs drawn into each page's picture.
+  final Map<String, Set<String>> _blobs = {};
+  StreamSubscription<String>? _imageChanges;
+
+  /// The page's content as a picture in page units; null until it is
+  /// recorded. Pages are read from the database between frames, a few at
+  /// a time (listeners hear when more are ready), so scrolling through a
+  /// long notebook never stalls on the queries.
+  ui.Picture? inkOf(String pageId) {
+    final picture = _ink.remove(pageId);
+    if (picture != null) _ink[pageId] = picture; // Most recently used.
+    if (picture == null) _enqueue(pageId);
+    return picture;
+  }
+
+  /// Records a page's picture again after it changed (the old one shows
+  /// meanwhile).
+  void invalidate(String pageId) {
+    _blobs.remove(pageId);
+    if (_ink.containsKey(pageId)) _enqueue(pageId);
+  }
+
+  void _enqueue(String pageId) {
+    _queue.add(pageId);
+    _loading ??= Timer(Duration.zero, _loadSome);
+  }
+
+  void _loadSome() {
+    _loading = null;
+    if (_disposed) return;
+    final watch = Stopwatch()..start();
+    while (_queue.isNotEmpty && watch.elapsed < frameBudget) {
+      final pageId = _queue.first;
+      _queue.remove(pageId);
+      _ink.remove(pageId)?.dispose();
+      _ink[pageId] = _record(pageId);
+    }
+    while (_ink.length > maxPages) {
+      final oldest = _ink.keys.first;
+      _ink.remove(oldest)?.dispose();
+      _blobs.remove(oldest);
+      _dropRaster(oldest);
+    }
+    if (_queue.isNotEmpty) _loading = Timer(Duration.zero, _loadSome);
+    notifyListeners();
+  }
+
+  ui.Picture _record(String pageId) {
+    final strokes = copier.loadAll(pageId);
+    final elements = copier.loadAllElements(pageId);
+    final blobs = {
+      for (final e in elements)
+        if (e.knownType == ElementType.image && e.data['blob'] is String) e.data['blob']! as String,
+    };
+    if (blobs.isNotEmpty) _blobs[pageId] = blobs;
+    final recorder = ui.PictureRecorder();
+    // Thin ink needs no outlines at this size (they take ~0.3 ms per stroke
+    // to build, on this thread).
+    ContentPainter.paint(
+      Canvas(recorder),
+      strokes,
+      elements,
+      images: images,
+      pixelScale: imageScale,
+      sketchThin: true,
+      sketchBelow: sketchBelow,
+    );
+    return recorder.endRecording();
+  }
+
+  /// Rasters of the recorded pages, least recently used first.
+  final Map<String, _Raster> _rasters = {};
+  int _rasterBytes = 0;
+  int _rastering = 0;
+
+  /// Memory the rasters may take.
+  static const int maxRasterBytes = 48 << 20;
+
+  /// The page's content as an image [width] × [height] pixels, once
+  /// rasterised from its picture ([inkOf]), which stands in meanwhile (an
+  /// older image stands in after the page changed). Safe while painting:
+  /// listeners hear when the raster is ready.
+  ui.Image? rasterOf(String pageId, Size page, int width, int height) {
+    final picture = _ink[pageId];
+    final raster = _rasters.remove(pageId);
+    if (raster != null) _rasters[pageId] = raster; // Most recently used.
+    if (picture == null || width <= 0 || height <= 0) return raster?.image;
+    final current =
+        raster != null &&
+        identical(raster.picture, picture) &&
+        raster.image.width >= width - 1 &&
+        raster.image.width <= width * 2;
+    if (!current && _rastering < 2 && !_pendingRasters.contains(pageId)) {
+      _rasterise(pageId, picture, page, width, height);
+    }
+    return raster?.image;
+  }
+
+  final Set<String> _pendingRasters = {};
+
+  void _rasterise(String pageId, ui.Picture picture, Size page, int width, int height) {
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder)
+      ..scale(width / page.width, height / page.height)
+      ..clipRect(Offset.zero & page)
+      ..drawPicture(picture);
+    final scaled = recorder.endRecording();
+    _rastering++;
+    _pendingRasters.add(pageId);
+    unawaited(
+      scaled
+          .toImage(width, height)
+          .then((image) {
+            if (_disposed || !identical(_ink[pageId], picture)) {
+              image.dispose(); // Changed or dropped meanwhile: asked again.
+              return;
+            }
+            _dropRaster(pageId);
+            _rasters[pageId] = _Raster(picture, image);
+            _rasterBytes += width * height * 4;
+            while (_rasterBytes > maxRasterBytes && _rasters.length > 1) {
+              _dropRaster(_rasters.keys.first);
+            }
+          })
+          .whenComplete(() {
+            scaled.dispose();
+            _rastering--;
+            _pendingRasters.remove(pageId);
+            if (!_disposed) notifyListeners(); // Repaint (and ask for the next).
+          }),
+    );
+  }
+
+  void _dropRaster(String pageId) {
+    final raster = _rasters.remove(pageId);
+    if (raster == null) return;
+    _rasterBytes -= raster.image.width * raster.image.height * 4;
+    raster.image.dispose();
+  }
+
+  /// Image templates drawn by thumbnails (redrawn once decoded).
+  final Set<String> _paperBlobs = {};
+
+  /// An image template's bitmap for a thumbnail [pixelWidth] wide.
+  ui.Image? paperImage(String blob, double pixelWidth) {
+    _paperBlobs.add(blob);
+    return images?.imageFor(ImageData(blob: blob, width: 0, height: 0), pixelWidth);
+  }
+
+  void _onImage(String blob) {
+    if (_paperBlobs.contains(blob)) {
+      notifyListeners();
+      return;
+    }
+    final pages = [
+      for (final entry in _blobs.entries)
+        if (entry.value.contains(blob)) entry.key,
+    ];
+    if (pages.isEmpty) return;
+    pages.forEach(invalidate);
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _loading?.cancel();
+    unawaited(_imageChanges?.cancel());
+    for (final p in _ink.values) {
+      p.dispose();
+    }
+    _ink.clear();
+    for (final id in [..._rasters.keys]) {
+      _dropRaster(id);
+    }
+    super.dispose();
+  }
+}
+
+/// A page's raster and the picture it was made from.
+class _Raster {
+  _Raster(this.picture, this.image);
+
+  final ui.Picture picture;
+  final ui.Image image;
+}

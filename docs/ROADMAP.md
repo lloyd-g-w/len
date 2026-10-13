@@ -12,8 +12,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Full colour picker (HSV + hex), saved favourite colours
 - ✅ Highlighter renders behind ink; hold to straighten
 - 🚧 Committed ink from a tile raster cache (frame cost independent of the ink on screen, pen-up
-  drawn over tiles, writes after the frame, outlines of loaded strokes on worker isolates);
-  tablet before/after numbers in docs/INK_LAB.md (after: still to measure)
+  drawn over tiles, writes after the frame, outlines of loaded strokes on worker isolates; pans and
+  scrolls keep tiles, large edits swap in together, pages render ahead, rasterised page
+  thumbnails); tablet numbers in docs/INK_LAB.md (the last round measured headless only)
 - ✅ Pixel (partial) eraser, eraser size, "erase highlighter only"
 
 ## Editing tools
