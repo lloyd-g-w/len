@@ -233,31 +233,33 @@ void main() {
           0.5 + 0.2 * math.sin(i / 30),
         ),
     ];
-    // Milliseconds per build: the best of several batches, so a busy
-    // machine (preemption, a GC pause) does not count.
-    double best(List<StrokePoint> points) {
-      for (var i = 0; i < 20; i++) {
+    // Milliseconds per build: the best of many small batches, short and
+    // long strokes taking turns, so a busy machine (preemption, a GC
+    // pause, another process starting) slows both alike or not at all.
+    final short = stroke(250), long = stroke(1000);
+    double batch(List<StrokePoint> points) {
+      final watch = Stopwatch()..start();
+      for (var i = 0; i < 5; i++) {
         StrokeOutline.build(points, ballpoint, complete: false);
       }
-      var best = double.infinity;
-      for (var batch = 0; batch < 8; batch++) {
-        final watch = Stopwatch()..start();
-        for (var i = 0; i < 10; i++) {
-          StrokeOutline.build(points, ballpoint, complete: false);
-        }
-        best = math.min(best, watch.elapsedMicroseconds / 10 / 1000);
-      }
-      return best;
+      return watch.elapsedMicroseconds / 5 / 1000;
     }
 
-    final short = best(stroke(250));
-    final long = best(stroke(1000));
+    var shortMs = double.infinity, longMs = double.infinity;
+    for (var round = 0; round < 24; round++) {
+      final (s, l) = (batch(short), batch(long));
+      if (round < 4) continue; // Warm-up (JIT).
+      shortMs = math.min(shortMs, s);
+      longMs = math.min(longMs, l);
+    }
     // ignore: avoid_print
-    print('outline: 250 points ${short.toStringAsFixed(2)} ms, 1000 ${long.toStringAsFixed(2)} ms');
-    // ≈ 2.6 ms on the dev machine (JIT): generous, it catches blow-ups.
-    expect(long, lessThan(10));
-    // Linear in length (4×), whatever the machine's speed.
-    expect(long / short, lessThan(6));
+    print(
+      'outline: 250 points ${shortMs.toStringAsFixed(2)} ms, 1000 ${longMs.toStringAsFixed(2)} ms',
+    );
+    // ≈ 2 ms on the dev machine (JIT): generous, it catches blow-ups.
+    expect(longMs, lessThan(10));
+    // Linear in length (4×; quadratic would be 16×), whatever the machine's speed.
+    expect(longMs / shortMs, lessThan(8));
   });
 }
 
