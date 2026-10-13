@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/labelled_action.dart';
 import '../../../ui/messages.dart';
 
 /// What can be done to the pages selected in the overview.
@@ -195,20 +196,11 @@ class SelectionBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final enabled = count > 0;
     Widget action(IconData icon, String label, VoidCallback onTap, {Color? color}) => Expanded(
-      child: TextButton(
-        style: TextButton.styleFrom(
-          foregroundColor: color ?? scheme.onSurface,
-          minimumSize: const Size(64, 56),
-        ),
+      child: LabelledAction(
+        icon: icon,
+        label: label,
+        color: color,
         onPressed: enabled ? onTap : null,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: Glyphs.bar),
-            const SizedBox(height: Gaps.xxs),
-            Text(label),
-          ],
-        ),
       ),
     );
     return Material(

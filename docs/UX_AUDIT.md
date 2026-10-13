@@ -122,7 +122,7 @@ label), and use `onSurface` in the list.
 light-Ink star); the list's star is `onSurface`; `Palette.favourite` is
 gone.
 
-⬜ **R6-12 P2 · Library selection bar: bare icons; the overview's has labels.**
+✅ **R6-12 P2 · Library selection bar: bare icons; the overview's has labels.**
 `LibrarySelectionBar` is icon-only (select all, ☆, folder, 🗑, with tooltips;
 `features/library/selection/selection_bar.dart:35-44`).
 The overview's `SelectionBar` puts a label under each icon (Bookmark,
@@ -131,6 +131,11 @@ On touch, tooltips need a long press, so "☆" (favourite or unfavourite?) and
 the folder glyph (move? new folder?) are guesses. *Fix:* one selection bar
 pattern: labelled actions on touch (Favourite, Move, Trash; Restore and
 Delete in the trash), icons only with a pointer.
+*Done:* one pattern, `ui/labelled_action.dart` (`LabelledAction`), in both
+bars: every command named under its glyph (Favourite / Unfavourite, Move,
+Trash; Restore, Delete), with pointer and touch alike; the long names stay
+as tooltips. Select all is a quiet text button by the count, as in the
+overview. Narrower than 520 dp (phones) the commands take a second row.
 
 ⬜ **R6-13 P2 · The library's "View" button looks like Sort and holds
 Select.** The header's menu uses `Symbols.swap_vert_sharp` with the tooltip
