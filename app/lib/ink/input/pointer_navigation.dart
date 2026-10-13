@@ -70,13 +70,6 @@ class PointerNavigation {
     _anchorSpread();
   }
 
-  /// Stops tracking [pointer] (no inertia).
-  void remove(int pointer) {
-    _pointers.remove(pointer);
-    _starts.remove(pointer);
-    _anchorSpread();
-  }
-
   /// Forgets all navigating pointers (e.g. a stylus landed: they are a palm).
   void clear() {
     _pointers.clear();
@@ -136,12 +129,18 @@ class PointerNavigation {
 
   void _startZoom() {
     _zooming = true;
-    _wanted = viewport.scale;
+    _wanted = viewport.inelastic(viewport.scale);
   }
 
   /// Lifts [e]'s pointer; the gesture ends (settling, inertia) when it was
   /// the last one.
-  void up(PointerUpEvent e) {
+  void up(PointerUpEvent e) => _lift(e);
+
+  /// The platform cancelled [e]'s pointer: like lifting it (a stretched
+  /// zoom still springs back).
+  void cancel(PointerCancelEvent e) => _lift(e);
+
+  void _lift(PointerEvent e) {
     if (_pointers.remove(e.pointer) == null) return;
     _starts.remove(e.pointer);
     _anchorSpread();
@@ -188,7 +187,7 @@ class PointerNavigation {
   }
 
   void panZoomStart(PointerPanZoomStartEvent e) {
-    _panZoomStartScale = viewport.scale;
+    _panZoomStartScale = viewport.inelastic(viewport.scale);
     _panZoomZoomed = false;
     kinetic?.begin();
   }

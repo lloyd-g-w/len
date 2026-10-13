@@ -160,7 +160,7 @@ class InkInputController {
   void handleCancel(PointerCancelEvent e) {
     _stylus.note(e);
     if (e.pointer == _draw.pointer) _draw.cancel();
-    _nav.remove(e.pointer);
+    _nav.cancel(e);
     gestures?.cancel(e);
   }
 

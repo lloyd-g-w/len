@@ -102,9 +102,29 @@ class ViewportController extends ChangeNotifier {
     return scale;
   }
 
+  /// The scale a gesture must ask for to show [shown] (the inverse of
+  /// [elastic]), e.g. to resume from a zoom caught mid spring back.
+  double inelastic(double shown) {
+    final limit = math.log(stretch) * 0.999999;
+    if (shown > maxScale) {
+      return maxScale * math.exp(_take(math.min(limit, math.log(shown / maxScale))));
+    }
+    if (shown < minScale) {
+      return minScale / math.exp(_take(math.min(limit, math.log(minScale / shown))));
+    }
+    return shown;
+  }
+
+  /// How far past a limit the zoom shows for [over] asked (log scale):
+  /// half as fast at first, never beyond [stretch].
   static double _give(double over) {
     final limit = math.log(stretch);
     return limit * over / (over + 2 * limit);
+  }
+
+  static double _take(double given) {
+    final limit = math.log(stretch);
+    return 2 * limit * given / (limit - given);
   }
 
   /// Jumps to [scale] (clamped) and [offset] in one notification. With

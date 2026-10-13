@@ -203,6 +203,52 @@ void main() {
       expect(viewport.scale, 4);
       expect((viewport.toScreen(focal) - const Offset(400, 300)).distance, lessThan(0.5));
     });
+
+    testWidgets('a spring back caught by a finger resumes without a jump', (tester) async {
+      viewport.setView(scale: 3, offset: Offset.zero);
+      final end = twoFingers(
+        const Offset(380, 300),
+        const Offset(420, 300),
+        const Offset(80, 300),
+        const Offset(720, 300),
+      );
+      input
+        ..handleUp(up(1, const Offset(80, 300), t: end + 5))
+        ..handleUp(up(2, const Offset(720, 300), t: end + 6));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      final caught = viewport.scale;
+      expect(caught, inExclusiveRange(4, 4 * ViewportController.stretch));
+      // Two fingers land and pinch on: the zoom continues from where it was.
+      input
+        ..handleDown(down(3, const Offset(300, 300), t: 1000))
+        ..handleDown(down(4, const Offset(500, 300), t: 1000));
+      expect(viewport.scale, caught);
+      for (var i = 1; i <= 6; i++) {
+        input.handleMove(move(4, Offset(500 + 4.0 * i, 300), t: 1000 + 8 * i));
+      }
+      expect((viewport.scale - caught).abs() / caught, lessThan(0.02));
+      input
+        ..handleUp(up(3, const Offset(300, 300), t: 1100))
+        ..handleUp(up(4, const Offset(524, 300), t: 1100));
+      await tester.pumpAndSettle();
+      expect(viewport.scale, 4);
+      // A tap catching a spring back lets it finish too.
+      viewport.stretchAt(const Offset(400, 300), 8);
+      input
+        ..handleDown(down(5, const Offset(400, 300), t: 2000))
+        ..handleUp(up(5, const Offset(400, 300), t: 2050));
+      await tester.pumpAndSettle();
+      expect(viewport.scale, 4);
+    });
+
+    test('elastic and inelastic undo each other', () {
+      for (final s in [0.1, 0.2, 0.25, 1.0, 4.0, 5.0, 9.0]) {
+        final shown = viewport.elastic(s);
+        expect(shown, inInclusiveRange(0.25 / ViewportController.stretch, 4 * 1.25));
+        expect(viewport.inelastic(shown), closeTo(s, s * 1e-9));
+      }
+    });
   });
 
   group('taps', () {

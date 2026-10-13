@@ -61,9 +61,10 @@ class KineticPan {
     final moved = _moved;
     _tracker = null;
     _moved = false;
-    if (!moved) return; // A tap: nothing to finish.
     final at = focal ?? _viewport.size.center(Offset.zero);
-    if (settle?.call(at, zoomed: zoomed) ?? false) return;
+    // A tap has nothing to finish, unless it caught a spring back.
+    if (!moved && !_viewport.overZoomed) return;
+    if (moved && (settle?.call(at, zoomed: zoomed) ?? false)) return;
     if (_viewport.overZoomed) {
       final limit = math.min(_viewport.maxScale, math.max(_viewport.minScale, _viewport.scale));
       animator.zoomTo(limit, focal: at);
