@@ -51,6 +51,9 @@ class GoToPageDialog extends StatefulWidget {
   /// Height of a thumbnail in the strip; widths follow each page's shape.
   static const double thumbHeight = 96;
 
+  /// Windows shorter than this show the field only.
+  static const double stripFrom = 480;
+
   /// Space between thumbnails.
   static const double gap = Gaps.sm;
 
@@ -152,27 +155,31 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
                 errorText: _target == null && _field.text.isNotEmpty ? 'Pages 1–$_count' : null,
               ),
             ),
-            const SizedBox(height: Gaps.lg),
-            SizedBox(
-              height: GoToPageDialog.thumbHeight + 36,
-              child: ListView.builder(
-                key: const ValueKey('go-to-page-strip'),
-                controller: _strip,
-                scrollDirection: Axis.horizontal,
-                itemCount: _count,
-                itemBuilder: (context, i) => Padding(
-                  padding: EdgeInsets.only(right: i == _count - 1 ? 0 : GoToPageDialog.gap),
-                  child: _StripPage(
-                    page: widget.pages[i],
-                    number: i + 1,
-                    target: i == _target,
-                    cache: _cache,
-                    backgrounds: widget.backgrounds,
-                    onTap: () => _go(i),
+            // A short window (a phone held sideways) has no room for the
+            // strip; the number is enough.
+            if (MediaQuery.sizeOf(context).height >= GoToPageDialog.stripFrom) ...[
+              const SizedBox(height: Gaps.lg),
+              SizedBox(
+                height: GoToPageDialog.thumbHeight + 36,
+                child: ListView.builder(
+                  key: const ValueKey('go-to-page-strip'),
+                  controller: _strip,
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _count,
+                  itemBuilder: (context, i) => Padding(
+                    padding: EdgeInsets.only(right: i == _count - 1 ? 0 : GoToPageDialog.gap),
+                    child: _StripPage(
+                      page: widget.pages[i],
+                      number: i + 1,
+                      target: i == _target,
+                      cache: _cache,
+                      backgrounds: widget.backgrounds,
+                      onTap: () => _go(i),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
