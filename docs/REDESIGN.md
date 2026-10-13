@@ -454,10 +454,11 @@ Phase 1 comes first because every later phase then gets smaller.
   (two rows of ten), then up to six recent colours and Custom.
 - The pen and highlighter panels are hosted unchanged under *Feel* (so the
   pen's end style from feat/pen5 merges in); "Hold to snap shapes" lives
-  only in the Shapes popover (R6-15), and the eraser keeps *Auto-deselect*. The laser's trail length is a slider (0.3–3 s), not
-  Short / Long; `ToolSettings.laser` already existed.
-- The lasso's popover explains the tool instead of being empty, so tapping
-  any active tool behaves the same.
+  only in the Shapes popover (R6-15), and the eraser keeps *Auto-deselect*.
+  The laser's trail length is a slider (0.3–3 s), not Short / Long;
+  `ToolSettings.laser` already existed.
+- The lasso has no popover (R6-16): tapping it while active does nothing,
+  and picking it the first time shows a one-time tip saying what it does.
 - Outline: now the overview's All / Bookmarked / Outline filter (phase 5);
   the user outline is kept (SIMPLIFY lead decision) inside it, with the
   PDFs' outlines. ⋯ → *Outline* stays as a route that opens the overview on

@@ -15,7 +15,6 @@ import 'pen/pen_options_panel.dart';
 import 'toolbar/tool_options_popover.dart';
 import 'tools/laser_options_panel.dart';
 import 'tools/laser_strip.dart';
-import 'tools/lasso_options_panel.dart';
 import 'tools/shape_options_panel.dart';
 import 'tools/shape_strip.dart';
 import 'tools/text_options_panel.dart';
@@ -41,7 +40,7 @@ class ToolDescriptor {
     this.inkColor,
     this.strip,
     this.stripWidth,
-    required this.options,
+    this.options,
   }) : shortLabel = shortLabel ?? label;
 
   /// The tool settings the descriptor reads and edits.
@@ -69,14 +68,19 @@ class ToolDescriptor {
   /// The [strip]'s width for a given slot cell, which the toolbar reserves.
   final double Function(double slot)? stripWidth;
 
-  /// The tool's section of the options popover (tap the active tool).
-  final WidgetBuilder options;
+  /// The tool's section of the options popover (tap the active tool);
+  /// null for a tool with nothing to set (the lasso), whose taps then do
+  /// nothing.
+  final WidgetBuilder? options;
 
   String get tooltip => shortcut == null ? label : '$label ($shortcut)';
 
   /// Opens the tool options popover, anchored to [anchor].
-  Future<void> openOptions(BuildContext anchor) =>
-      showToolOptions(anchor, tools: settings, tool: tool, body: options);
+  Future<void> openOptions(BuildContext anchor) async {
+    final options = this.options;
+    if (options == null) return;
+    await showToolOptions(anchor, tools: settings, tool: tool, body: options);
+  }
 }
 
 /// The toolbar's tools, in display order.
@@ -133,7 +137,6 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       icon: const Icon(lassoIcon),
       label: 'Lasso',
       shortcut: 'L',
-      options: (_) => const LassoOptionsPanel(),
     ),
     ToolDescriptor(
       settings: tools,

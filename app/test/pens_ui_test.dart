@@ -283,12 +283,12 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('tapping the active tool opens its options, for every tool', (tester) async {
+    testWidgets('tapping the active tool opens its options; the lasso has none', (tester) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
       for (final (tooltip, title) in [
         ('Highlighter (H)', 'Highlighter'),
         ('Eraser (E)', 'Eraser'),
-        ('Lasso (L)', 'Lasso'),
+        ('Lasso (L)', null),
         ('Shapes (S)', 'Shapes'),
         ('Text (T)', 'Text'),
         ('Laser pointer (K)', 'Laser pointer'),
@@ -299,6 +299,10 @@ void main() {
         expect(find.byType(ToolOptionsPopover), findsNothing, reason: '$title: first selects');
         await tester.tap(find.byTooltip(tooltip));
         await tester.pumpAndSettle();
+        if (title == null) {
+          expect(find.byType(ToolOptionsPopover), findsNothing, reason: 'nothing to set');
+          continue;
+        }
         expect(inPopover(find.text(title)), findsOneWidget, reason: title);
         await tester.tapAt(const Offset(1200, 700));
         await tester.pumpAndSettle();

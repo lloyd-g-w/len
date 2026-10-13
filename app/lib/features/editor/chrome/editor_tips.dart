@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../data/app_preferences.dart';
 import '../../../domain/preferences.dart';
+import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 
@@ -16,6 +17,9 @@ enum EditorTip {
   /// Tapping with two fingers to undo, three to redo (after a few taps on
   /// ↶ on a touch device).
   gestureUndo,
+
+  /// What the lasso does (the first time it is picked; it has no options).
+  lasso,
 }
 
 /// What a shown tip says.
@@ -42,6 +46,24 @@ class TipsController extends ValueNotifier<TipMessage?> {
 
   Timer? _timer;
   int _undoTaps = 0;
+  ToolSettings? _tools;
+  EditorTool? _tool;
+  bool Function()? _hasPdf;
+
+  /// Offers [EditorTip.lasso] the first time [tools] switch to the lasso
+  /// (mentioning PDF text where the notebook [hasPdf]).
+  void followTools(ToolSettings tools, {bool Function()? hasPdf}) {
+    _tools = tools..addListener(_onTools);
+    _tool = tools.tool;
+    _hasPdf = hasPdf;
+  }
+
+  void _onTools() {
+    final tool = _tools!.tool;
+    if (tool == _tool) return;
+    _tool = tool;
+    if (tool == EditorTool.lasso) offer(EditorTip.lasso, pdf: _hasPdf?.call() ?? false);
+  }
 
   /// The ↶ button was tapped. On a touch device with finger-tap undo on,
   /// the third tap in this editor offers [EditorTip.gestureUndo]: the
@@ -55,8 +77,13 @@ class TipsController extends ValueNotifier<TipMessage?> {
   void offerFor(EditorTip tip, AppPreferences preferences) =>
       offer(tip, penButton: preferences.penButtonAction);
 
-  /// Offers [tip], phrased for the current settings ([penButton]).
-  void offer(EditorTip tip, {PenButtonAction penButton = PenButtonAction.eraser}) {
+  /// Offers [tip], phrased for the current settings ([penButton]) and
+  /// notebook ([pdf]: it has PDF pages).
+  void offer(
+    EditorTip tip, {
+    PenButtonAction penButton = PenButtonAction.eraser,
+    bool pdf = false,
+  }) {
     if (seen(tip.name) || value?.tip == tip) return;
     final message = switch (tip) {
       EditorTip.penButton => switch (penButton) {
@@ -77,6 +104,13 @@ class TipsController extends ValueNotifier<TipMessage?> {
         Symbols.touch_app_sharp,
         'Tap with two fingers to undo, three to redo',
       ),
+      EditorTip.lasso => TipMessage(
+        tip,
+        Symbols.highlight_alt_sharp,
+        pdf
+            ? 'Circle ink, text or images to select them; long-press PDF text'
+            : 'Circle ink, text or images to select them',
+      ),
     };
     if (message == null) return;
     markSeen(message.tip.name);
@@ -93,6 +127,7 @@ class TipsController extends ValueNotifier<TipMessage?> {
 
   @override
   void dispose() {
+    _tools?.removeListener(_onTools);
     _timer?.cancel();
     super.dispose();
   }
@@ -140,7 +175,8 @@ class TipBanner extends StatelessWidget {
                           IconButton(
                             tooltip: 'Dismiss tip',
                             iconSize: Glyphs.menu,
-                            visualDensity: VisualDensity.compact,
+                            // A full touch target on touch, compact with a pointer.
+                            visualDensity: Targets.touchFirst ? null : VisualDensity.compact,
                             onPressed: controller.dismiss,
                             icon: const Icon(Symbols.close_sharp),
                           ),

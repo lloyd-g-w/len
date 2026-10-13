@@ -188,7 +188,7 @@ above it.
 under a rule); gone from the pen's and the highlighter's Feel, so Reset feel
 covers only per-pen settings.
 
-⬜ **R6-16 P2 · The lasso popover is three lines of hints.** Tapping the
+✅ **R6-16 P2 · The lasso popover is three lines of hints.** Tapping the
 active lasso opens a popover with no controls
 (`features/editor/tools/lasso_options_panel.dart`): "Circle ink, text or
 images…", "Drag to move them…", "To select PDF text, long-press it". Every
@@ -196,6 +196,10 @@ other popover is a place to change something, and you open this one again
 and again by habit. *Fix:* show the hints once as a tip the first time the
 lasso is picked, and either give the lasso a real option (GoodNotes-style:
 what it selects: ink, images, text; or freeform/rectangle) or open nothing.
+*Done (`fix/r6-editor`):* no popover; tapping the active lasso does nothing
+(its tooltip still names it). The first time it is picked, a one-time tip
+says "Circle ink, text or images to select them" (with "; long-press PDF
+text" in notebooks with PDF pages). The tip's ✕ is a full touch target now.
 
 ### Pages, templates
 

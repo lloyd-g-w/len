@@ -348,8 +348,10 @@ or deleted pages in order with ink. Snack bars' Undo calls
   the first edit). `TipsController` (`chrome/editor_tips.dart`) shows a one-time tip under
   the top bar, for 10 s or until dismissed, remembered per device
   (`SettingsRepository.seenTips`): the stylus side button (after the first pen contact,
-  phrased for `PenButtonAction`; none if it does nothing). Multi-finger taps get no
-  tip: the gesture HUD names them when they happen.
+  phrased for `PenButtonAction`; none if it does nothing); tap with two / three fingers
+  to undo / redo (the third ↶ tap in an editor on touch with finger-tap undo on); what
+  the lasso does (the first time it is picked). The gesture HUD names multi-finger taps
+  when they happen.
 - **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
   the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
@@ -1488,7 +1490,8 @@ Page with template…).
   then *Toolbar* collapsed ("3 colours · 3 sizes": "Quick colours / Quick
   sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
-  `LassoOptionsPanel` (what it does); Shapes (`ShapeOptionsPanel`: seven
+  none for the lasso (`ToolDescriptor.options` null: tapping it again does
+  nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: seven
   kinds in one row, and "Hold to snap shapes"); `TextOptionsPanel`;
   `LaserOptionsPanel` (`ToolSettings.laser`: dot / trail, colours, size,
   trail length). `pickColour` (`tools/colour_sheet.dart`; text and

@@ -237,6 +237,21 @@ void main() {
     await check(touch: false);
     await check(gesture: false);
   });
+  testWidgets('the lasso explains itself once, in a tip', (tester) async {
+    final (s, _) = await pumpEditor(tester, size: const Size(1280, 900));
+    const tip = 'Circle ink, text or images to select them';
+    await tester.tap(find.byTooltip('Lasso (L)'));
+    await tester.pumpAndSettle();
+    expect(find.text(tip), findsOneWidget);
+    expect(s.settings.seenTips, contains(EditorTip.lasso.name));
+    await tester.tap(find.byTooltip('Dismiss tip'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Pen (P)'));
+    await tester.tap(find.byTooltip('Lasso (L)'));
+    await tester.pumpAndSettle();
+    expect(find.text(tip), findsNothing);
+    await closeEditor(tester);
+  });
 }
 
 EditorTool? _activeTool(WidgetTester tester) {
