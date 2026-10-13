@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../domain/preferences.dart';
 import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/group_header.dart';
 import '../document/document_layout.dart';
 import '../document/page_fit.dart';
 import '../document/page_overview.dart';
@@ -238,7 +239,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
   Widget _submenu(_Drill d) => compact
       ? MenuItemButton(
           leadingIcon: Icon(d.icon),
-          trailingIcon: const Icon(Symbols.chevron_right_sharp),
+          trailingIcon: const MenuChevron(),
           closeOnActivate: false,
           onPressed: () => setState(() => _drilled = d.label),
           child: Text(d.label),

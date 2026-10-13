@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
 import 'hit_overhang.dart';
@@ -116,5 +117,27 @@ class EndChevron extends StatelessWidget {
   Widget build(BuildContext context) {
     final rtl = Directionality.of(context) == TextDirection.rtl;
     return Transform.translate(offset: Offset(rtl ? -Gaps.xs : Gaps.xs, 0), child: child);
+  }
+}
+
+/// A menu row's trailing chevron (a submenu): its glyph's tip, not the
+/// glyph's empty margin, on the row's end edge, where a switch, a shortcut
+/// or a check mark ends too.
+class MenuChevron extends StatelessWidget {
+  const MenuChevron({super.key});
+
+  /// The empty margin each side of the chevron glyph, as a share of its
+  /// size (Material Symbols Sharp `chevron_right`).
+  static const double _margin = 0.37;
+
+  @override
+  Widget build(BuildContext context) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    const nudge = Glyphs.menu * _margin;
+    // Painted past its box: the row, not the glyph, takes the taps.
+    return Transform.translate(
+      offset: Offset(rtl ? -nudge : nudge, 0),
+      child: const Icon(Symbols.chevron_right_sharp, size: Glyphs.menu),
+    );
   }
 }
