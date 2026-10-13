@@ -230,6 +230,11 @@ re-saves the page's strokes; the overview's selection goes through
 `DocumentCommands.deleteMany` → `PageActions.deleteAll`, one step with one Undo
 that restores every page in place — at least one page always remains), reorder (fractional sort keys, `PageOrder`;
 the list is renumbered only when a gap is exhausted), bookmarks, templates.
+Every page change goes through `PageEdits` (`document/page_edits.dart`), which
+records a `PageEdit` (undo / redo callbacks) as a step of the notebook-wide
+history in `PageModels`: Ctrl+Z takes back a template, a move, bookmarks, added
+or deleted pages in order with ink. Snack bars' Undo calls
+`PageModels.undoEdit`, which also takes back an older step on its own.
 
 ## Editor screen (`features/editor/`)
 
