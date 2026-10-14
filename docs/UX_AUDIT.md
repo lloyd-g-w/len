@@ -153,11 +153,15 @@ nothing behind takes a second tap; Cancel abandons it and closes the file);
 the Settings tile waits while a restore runs.
 
 **R10-18 P2 · A huge PDF can't be cancelled while its pages are measured;
-a batch of PDFs can't be cancelled as a whole.** ⬜ `pageSizes` and the
+a batch of PDFs can't be cancelled as a whole.** ✅ `pageSizes` and the
 blob write take no cancel token; the batch loop opens the next dialog
 straight after a Cancel. *Fix:* pass the token through; a Cancel stops the
 batch. Paths: `documents/pdf/pdf_import.dart:46-70`,
 `documents/import/import_flow.dart:63-72`. Effort M.
+*Done:* measuring waits behind the dialog's Cancel (`CancellationToken.race`),
+the copy checks it while hashing and while storing, and a Cancel in any
+file's dialog (PDF, inserted PDF, Len file) stops the rest of the batch;
+the files done before it stay.
 
 **R10-19 P2 · New folder lands out of view with no feedback** (while
 searching inside a folder, or from Favourites / Trash via Ctrl+Shift+N). ✅

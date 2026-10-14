@@ -1,6 +1,7 @@
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../domain/cancellation.dart';
 import '../documents/import/import_router.dart';
 import '../documents/import/import_targets.dart';
 import 'editor_session.dart';
@@ -31,10 +32,10 @@ class EditorImportTarget implements ImportTarget {
       ImportDestination(title: title(), acceptsPdf: session.commands != null);
 
   @override
-  Future<void> insertPdf(XFile file) async {
+  Future<void> insertPdf(XFile file, {CancellationToken? batch}) async {
     final commands = session.commands;
     if (commands == null || !context.mounted) return;
-    await commands.insertPdf(context, file: file);
+    await commands.insertPdf(context, file: file, batch: batch);
   }
 
   @override

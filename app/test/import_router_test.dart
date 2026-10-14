@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/domain/cancellation.dart';
 import 'package:len/features/documents/import/import_router.dart';
 import 'package:len/features/documents/import/import_targets.dart';
 import 'package:len/features/documents/import/incoming_files.dart';
@@ -26,7 +27,7 @@ class _Target implements ImportTarget {
   Future<void> insertImages(List<XFile> files) async {}
 
   @override
-  Future<void> insertPdf(XFile file) async {}
+  Future<void> insertPdf(XFile file, {CancellationToken? batch}) async {}
 }
 
 void main() {

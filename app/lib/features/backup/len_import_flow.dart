@@ -23,11 +23,13 @@ import 'restore_dialogs.dart';
 /// a restore offers Undo (R8-16). Returns what was imported, or null if
 /// cancelled or failed (the user has then been told why). [restore]: the
 /// user asked for a restore, so a file that can't be read says "Couldn’t
-/// restore" (what the file is only shows once it has been read).
+/// restore" (what the file is only shows once it has been read). A Cancel
+/// in a progress dialog also cancels [batch] (the files dropped with it).
 Future<LenImportResult?> importLenFlow(
   BuildContext context, {
   XFile? file,
   bool restore = false,
+  CancellationToken? batch,
 }) async {
   final services = AppScope.read(context);
   final picked = file ?? await openFile(acceptedTypeGroups: lenFileTypes);
@@ -79,6 +81,7 @@ Future<LenImportResult?> importLenFlow(
     }
     return result;
   } on Cancelled {
+    batch?.cancel();
     return null;
   } on LenArchiveException catch (e) {
     unawaited(source?.close());

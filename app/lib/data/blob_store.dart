@@ -66,19 +66,15 @@ class BlobStore {
 
   /// Stores a copy of [source] (e.g. a picked file; streamed where the
   /// platform allows) and returns its id. A [cancel]led token stops it
-  /// (with [Cancelled]) before anything is stored.
+  /// (with [Cancelled]) while reading or storing; nothing is stored then
+  /// (writes are atomic).
   Future<String> putFile(XFile source, {required String mime, CancellationToken? cancel}) async {
-    final sha = await hashStream(
-      cancel == null
-          ? source.openRead()
-          : source.openRead().map((chunk) {
-              cancel.check();
-              return chunk;
-            }),
-    );
+    Stream<List<int>> read() => cancel?.guard(source.openRead()) ?? source.openRead();
+    final sha = await hashStream(read());
     cancel?.check();
     return _exclusive(() async {
-      if (!await has(sha)) await backend.write(sha, source.openRead());
+      cancel?.check();
+      if (!await has(sha)) await backend.write(sha, read());
       _record(sha, await source.length(), mime, uploaded: false);
       return sha;
     });

@@ -7,7 +7,7 @@ import '../../domain/cancellation.dart';
 import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 
-export '../../domain/cancellation.dart' show Cancelled;
+export '../../domain/cancellation.dart' show CancellationToken, Cancelled;
 export '../../ui/messages.dart' show showMessage;
 
 /// Progress of a long task, reported by the task and shown by
