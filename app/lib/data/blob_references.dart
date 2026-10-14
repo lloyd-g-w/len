@@ -18,6 +18,12 @@ class BlobReferences {
 
   final AppDatabase database;
 
+  /// Ids of the blobs this device must keep at [nowMs] (ms): those live
+  /// rows and recent tombstones reference ([all] with the tombstones kept
+  /// by [TombstonePayloads.retention]). What garbage collection and the
+  /// discarding of a cancelled import go by.
+  Set<String> kept(int nowMs) => all(tombstonesSince: TombstonePayloads.keptSince(nowMs));
+
   /// Ids of all blobs live rows reference, and with [tombstonesSince] (ms)
   /// also those of pages, elements and recordings tombstoned since then:
   /// sync may still bring them back ([TombstonePayloads.retention]).
