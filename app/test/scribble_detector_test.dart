@@ -253,6 +253,35 @@ void main() {
       }
     });
 
+    test('zigzag hatching: shading spaced a tenth of its length or more', () {
+      // Shading a shape or a letter with one back-and-forth stroke: lines
+      // 12 to 120 px long, at least a tenth of that apart (from 3 px),
+      // at any angle and pace. Denser hatching over ink is a scribble
+      // (the strokes about to go dim first; the setting turns it off).
+      for (final length in [12.0, 20.0, 30.0, 45.0, 60.0, 80.0, 120.0]) {
+        for (final spacing in {math.max(3.0, length / 10), length / 6, length / 3}) {
+          for (final passes in [6, 10, 16]) {
+            for (final ms in [50.0, 90.0, 150.0]) {
+              for (final angle in [0.0, 0.8, math.pi / 2, 2.3]) {
+                final hatch = scribble(
+                  passes: passes,
+                  width: length,
+                  drift: spacing,
+                  passMs: ms,
+                  angle: angle,
+                );
+                expect(
+                  motionScribbles(hatch),
+                  isFalse,
+                  reason: '$passes lines $length px long, $spacing px apart, $ms ms, $angle',
+                );
+              }
+            }
+          }
+        }
+      }
+    });
+
     test('cursive zigzags: m, w and z joined up, at many sizes and speeds', () {
       const arch = (height: 1.0, loop: 0.0), tall = (height: 1.4, loop: 0.3);
       for (final letters in [

@@ -1348,8 +1348,11 @@ those strokes as an owner (`setHidden`) and drawing them at 30 % as its
 lifted content (fading in over 100 ms, frame callbacks only while
 fading); the stroke ending any way un-hides them before the erase. It is
 held to zero false positives on the Ink Lab's real S Pen recordings,
-simulated writing at 1–4× and printed zigzag letters and words at many
-sizes and speeds (`test/scribble_detector_test.dart`).
+simulated writing at 1–4×, cursive and printed zigzag letters and words at
+many sizes and speeds, and zigzag hatching spaced a tenth of its length or
+more (`test/scribble_detector_test.dart`); denser hatching over ink is a
+scribble (the dimming shows it before anything goes; Settings turns
+scribble to erase off).
 
 **Text-aware highlighter** (`input/highlight_snap.dart`, set by paged
 editors to `features/editor/pdf/PdfHighlightSnap`): always (it needs no
