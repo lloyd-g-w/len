@@ -410,6 +410,23 @@ void main() {
       p.dispose();
     });
 
+    test('playback: disposed while a recording downloads', () async {
+      final nb = _notebook(s);
+      final a = _record(s, nb.id, title: 'A');
+      final p = PlaybackController(
+        backends: audio.backends,
+        blobs: s.blobs,
+        fetch: (_) async => true,
+      );
+      final download = Completer<void>();
+      audio.holds['A'] = download.future;
+      final open = p.open(a);
+      p.dispose(); // The notebook closed.
+      download.complete();
+      expect(await open, isFalse); // Without notifying a disposed controller.
+      expect(audio.log, isNot(contains('play')));
+    });
+
     test('playback: wall time follows the position; seeking to ink', () async {
       final nb = _notebook(s);
       final r = _record(s, nb.id);

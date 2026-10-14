@@ -282,6 +282,7 @@ class PlaybackController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _opens++; // An open under way gives up.
     unawaited(_positions?.cancel());
     unawaited(_completed?.cancel());
     final player = _player;
