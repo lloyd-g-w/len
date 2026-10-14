@@ -149,8 +149,9 @@ class _PdfLayerState extends State<PdfLayer> {
   Future<void> _copy() async {
     final text = _pdf.selection.text;
     await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return; // The editor closed meanwhile (its selection is gone).
     _pdf.selection.clear();
-    if (mounted) showMessage(context, 'Copied');
+    showMessage(context, 'Copied');
   }
 
   void _highlight(int color) {

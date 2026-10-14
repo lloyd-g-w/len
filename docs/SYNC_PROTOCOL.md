@@ -249,9 +249,9 @@ lost**. Content edited elsewhere while its page or notebook was deleted brings t
 notebook back, with everything the deletion removed; a notebook comes back **into the trash** (or
 stays there), where the user can restore it or delete it forever again.
 
-- **One version per deletion.** Deleting a page tombstones it with its strokes and elements, and
-  deleting a notebook forever tombstones it with its pages, strokes, elements, recordings and
-  outline entries, each with one `updatedAt` (later than every row it replaces) and the deleting
+- **One version per deletion.** Deleting a page tombstones it with its strokes, elements and
+  `recognised_text`, and deleting a notebook forever tombstones it with its pages, strokes,
+  elements, recordings, outline entries and `recognised_text`, each with one `updatedAt` (later than every row it replaces) and the deleting
   device's `deviceId`. That pair marks the tombstones of one deletion.
 - **Detection.** After a complete pull, a client looks for tombstoned pages holding live strokes
   or elements, and for tombstoned notebooks holding live pages, recordings, outline entries or

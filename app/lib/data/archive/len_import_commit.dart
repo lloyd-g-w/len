@@ -135,14 +135,43 @@ class LenImportCommit {
   void discard() {
     stores.any.database.transaction(() {
       _withIds(() {
-        for (final table in ['strokes', 'stroke_chunks', 'elements', 'element_chunks']) {
+        _retombstone();
+        for (final table in ['stroke_chunks', 'element_chunks']) {
           _db.execute('DELETE FROM $table WHERE surface_id IN $_surfaces');
         }
+        for (final table in ['strokes', 'elements']) {
+          _db.execute('DELETE FROM $table WHERE surface_id IN $_surfaces AND deleted = 0');
+        }
         for (final table in ['pages', 'outline', 'recordings']) {
-          _db.execute('DELETE FROM $table WHERE notebook_id IN $_owners');
+          _db.execute('DELETE FROM $table WHERE notebook_id IN $_owners AND deleted = 0');
         }
       });
     });
+  }
+
+  /// A restore keeping the ids of notebooks deleted here wrote over their
+  /// tombstones, whose deletion may not have synced yet: they become
+  /// tombstones again, as the deletion left them (its device and version,
+  /// see `DeletionConflicts`), rather than being removed.
+  void _retombstone() {
+    final deleted = _db.select(
+      'SELECT id, device_id, updated_at FROM notebooks '
+      'WHERE deleted = 1 AND (id IN $_owners OR id IN $_surfaces)',
+    );
+    for (final row in deleted) {
+      final mark = [row['device_id'], row['updated_at'], row['id']];
+      const set = 'SET deleted = 1, dirty = 1, device_id = ?1, updated_at = ?2';
+      for (final table in ['pages', 'outline', 'recordings']) {
+        _db.execute('UPDATE $table $set WHERE notebook_id = ?3 AND deleted = 0', mark);
+      }
+      for (final table in ['strokes', 'elements']) {
+        _db.execute(
+          'UPDATE $table $set WHERE deleted = 0 AND '
+          '(surface_id = ?3 OR surface_id IN (SELECT id FROM pages WHERE notebook_id = ?3))',
+          mark,
+        );
+      }
+    }
   }
 
   void _markDirty() => _withIds(() {

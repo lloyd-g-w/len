@@ -213,8 +213,9 @@ class EditorSearchController extends ChangeNotifier {
 
   void _onSearchChanged() {
     if (_takeJump()) return;
-    // PDF text was indexed: refresh the matches.
-    if (_open && _query.isNotEmpty) {
+    // PDF text was indexed: refresh the matches (unless a search typed is
+    // due, which shows its first match too).
+    if (_open && _query.isNotEmpty && !(_timer?.isActive ?? false)) {
       _timer?.cancel();
       _timer = Timer(_debounce, () {
         if (_disposed) return;

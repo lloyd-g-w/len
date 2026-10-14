@@ -90,6 +90,9 @@ List<Widget> audioMenuItems(BuildContext context, NotebookAudio audio) => [
 Future<void> startRecording(BuildContext context, NotebookAudio audio) async {
   // A recording plays back over the microphone otherwise.
   if (audio.playback.playing) await audio.playback.pause();
+  // Already recording (Record in another pane, a shortcut): nothing to say,
+  // and [RecordingController.lastError] is about something earlier.
+  if (audio.recorder.state != RecorderState.idle) return;
   if (await audio.recorder.start()) return;
   final error = audio.recorder.lastError;
   if (error == null || !context.mounted) return;

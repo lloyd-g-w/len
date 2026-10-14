@@ -93,9 +93,13 @@ class FakeCapture implements AudioCapture {
     return finished;
   }
 
+  /// A stop waits for this (saving a recording takes a while).
+  Future<void>? holdStop;
+
   @override
   Future<CapturedAudio?> stop() async {
     log.add('stop');
+    await holdStop;
     return _finish();
   }
 
