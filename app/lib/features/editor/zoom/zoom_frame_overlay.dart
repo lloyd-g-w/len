@@ -5,17 +5,24 @@ import 'package:flutter/material.dart';
 import '../../../ui/app_theme.dart';
 import 'zoom_window.dart';
 
-/// The zoom window's frame on the page view: a 2-dp rule in the accent
-/// (it marks where you are), the start of the advance zone, and a handle
-/// at its corner. Drag the frame to move it (lines then start there),
-/// drag the handle to size it (a smaller frame magnifies more).
+/// The zoom window's frame on the page view: a hairline in the accent
+/// over a faint wash (it marks where you are), the advance zone washed a
+/// little deeper, a tab on its top edge and a square at its corner. Drag
+/// the tab to move the frame (lines then start there), the square to size
+/// it (a smaller frame magnifies more). Only these take pointers: the pen
+/// writes inside the frame on the page as anywhere else.
 class ZoomFrameOverlay extends StatefulWidget {
   const ZoomFrameOverlay({super.key, required this.zoom});
 
   final ZoomWindow zoom;
 
-  /// The handle's visible square (it is grabbed over a full touch target).
+  /// The size handle's visible square, and the move tab's size (each
+  /// grabbed over a full touch target, mostly outside the frame).
   static const double handle = 10;
+  static const Size tab = Size(Gaps.xl, Gaps.sm);
+
+  /// How far a handle's target reaches into the frame.
+  static const double into = Gaps.sm;
 
   @override
   State<ZoomFrameOverlay> createState() => _ZoomFrameOverlayState();
@@ -39,23 +46,22 @@ class _ZoomFrameOverlayState extends State<ZoomFrameOverlay> {
       final zone = screen.left + (_zoom.zoneStart! - rect.left) * screen.width / rect.width;
       final accent = Theme.of(context).colorScheme.primary;
       final hit = Targets.barHit(context);
-      // Tiny frames (zoomed far out) can still be grabbed.
-      final grab = Rect.fromCenter(
-        center: screen.center,
-        width: math.max(screen.width, hit),
-        height: math.max(screen.height, hit),
-      );
+      const into = ZoomFrameOverlay.into;
+      // The tab sits on the top edge at the left, the target above it.
+      final tab = _tabRect(screen);
+      final move = Rect.fromLTWH(tab.center.dx - hit / 2, screen.top + into - hit, hit, hit);
+      final size = Rect.fromLTWH(screen.right - into, screen.bottom - into, hit, hit);
       return Stack(
         children: [
           Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(
-                painter: _FramePainter(frame: screen, zoneX: zone, color: accent),
+                painter: _FramePainter(frame: screen, zoneX: zone, tab: tab, color: accent),
               ),
             ),
           ),
           Positioned.fromRect(
-            rect: grab,
+            rect: move,
             child: Semantics(
               label: 'Zoom window frame',
               hint: 'Drag to move where the zoom window writes',
@@ -64,11 +70,12 @@ class _ZoomFrameOverlayState extends State<ZoomFrameOverlay> {
                 onPanUpdate: (d) => _zoom.dragBy(d.delta),
                 onPanEnd: (_) => _zoom.dragEnd(),
                 onPanCancel: _zoom.dragEnd,
+                child: const MouseRegion(cursor: SystemMouseCursors.move),
               ),
             ),
           ),
           Positioned.fromRect(
-            rect: Rect.fromCenter(center: screen.bottomRight, width: hit, height: hit),
+            rect: size,
             child: Semantics(
               label: 'Zoom window size',
               hint: 'Drag to make the frame larger or smaller',
@@ -86,6 +93,15 @@ class _ZoomFrameOverlayState extends State<ZoomFrameOverlay> {
     },
   );
 
+  /// The move tab on [frame]'s top edge, at its left (the start of the
+  /// line), kept within a narrow frame.
+  static Rect _tabRect(Rect frame) {
+    const tab = ZoomFrameOverlay.tab;
+    final width = math.min(tab.width, frame.width);
+    final left = frame.left + math.min(Gaps.md, math.max(0.0, frame.width - width));
+    return Rect.fromLTWH(left, frame.top - tab.height, width, tab.height);
+  }
+
   /// Grows the frame by [delta] along its diagonal (its shape is the box's).
   void _resize(Offset delta, Size screen) {
     final width = _width;
@@ -98,29 +114,39 @@ class _ZoomFrameOverlayState extends State<ZoomFrameOverlay> {
 }
 
 class _FramePainter extends CustomPainter {
-  _FramePainter({required this.frame, required this.zoneX, required this.color});
+  _FramePainter({required this.frame, required this.zoneX, required this.tab, required this.color});
 
-  final Rect frame;
+  final Rect frame, tab;
   final double? zoneX;
   final Color color;
 
+  /// The washes over the frame and over its advance zone.
+  static const double wash = 0.05, zoneWash = 0.1;
+
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.drawRect(frame, Paint()..color = color.withValues(alpha: wash));
+    final x = zoneX;
+    if (x != null && x > frame.left && x < frame.right) {
+      canvas.drawRect(
+        Rect.fromLTRB(x, frame.top, frame.right, frame.bottom),
+        Paint()..color = color.withValues(alpha: zoneWash),
+      );
+    }
     final rule = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = Hairline.rule;
-    canvas.drawRect(frame.deflate(Hairline.rule / 2), rule);
-    final x = zoneX;
-    if (x != null && x > frame.left && x < frame.right) {
-      canvas.drawLine(
-        Offset(x, frame.top),
-        Offset(x, frame.bottom),
-        Paint()
-          ..color = color
-          ..strokeWidth = Hairline.width,
+      ..strokeWidth = Hairline.width;
+    canvas
+      ..drawRect(frame.deflate(Hairline.width / 2), rule)
+      ..drawRRect(
+        RRect.fromRectAndCorners(
+          tab,
+          topLeft: const Radius.circular(Radii.xs),
+          topRight: const Radius.circular(Radii.xs),
+        ),
+        Paint()..color = color,
       );
-    }
     const h = ZoomFrameOverlay.handle;
     canvas.drawRect(
       Rect.fromCenter(center: frame.bottomRight, width: h, height: h),
@@ -130,5 +156,5 @@ class _FramePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_FramePainter old) =>
-      old.frame != frame || old.zoneX != zoneX || old.color != color;
+      old.frame != frame || old.zoneX != zoneX || old.tab != tab || old.color != color;
 }

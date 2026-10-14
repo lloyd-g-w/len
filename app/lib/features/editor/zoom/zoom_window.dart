@@ -109,7 +109,7 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
   /// Closes the window; the ink written stays.
   void close() {
     if (!isOpen) return;
-    _pending?.cancel();
+    _disarm();
     _stopGlide();
     _input?.cancelDraw();
     host.changes.removeListener(_onHost);
@@ -150,7 +150,7 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
   /// A contact began in the box: the frame stops moving, its page takes
   /// the editor's input (live ink shows on it) and the page view follows.
   void penDown() {
-    _pending?.cancel();
+    _disarm();
     _finishGlide();
     _contact(true);
     final frame = _frame;
@@ -170,7 +170,7 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
     final rules = _rules;
     if (!rules.inZone(frame, ink.right)) return;
     if (rules.advancesNow(frame, ink.right)) return _advance(ink.right);
-    _pending = Timer(pause, () => _advance(ink.right));
+    _arm(ink.right, pause);
   }
 
   void _contact(bool down) {
@@ -215,7 +215,7 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
   void _onHost() {
     final frame = _frame;
     if (frame == null || host.has(frame.surfaceId)) return;
-    _pending?.cancel();
+    _disarm();
     _stopGlide();
     _detach();
     _frame = frame.copyWith(surfaceId: host.current);
@@ -243,6 +243,7 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
     _unblock?.cancel();
     blocksPage.dispose();
     opened.dispose();
+    armed.dispose();
     boxHeight.dispose();
     view.dispose();
     super.dispose();

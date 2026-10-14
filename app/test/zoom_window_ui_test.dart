@@ -141,26 +141,24 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('the frame moves by dragging and sizes with its handle', (tester) async {
+  testWidgets('while an advance waits, the zone is armed', (tester) async {
     await pumpEditor(tester);
     final zoom = await openZoom(tester);
-    final id = zoom.frame!.surfaceId;
-    var screen = zoom.host.onScreen(id, zoom.frameRect!)!;
-    final mainScale = zoom.host.main.scale;
-    final before = zoom.frame!.origin;
-    await tester.dragFrom(screen.center, const Offset(-30, -40));
+    await writeInBox(tester, const Offset(0.72, 0.5), length: 20);
+    expect(zoom.armed.value, isTrue);
+    await tester.pump(ZoomWindow.pause ~/ 2);
+    // The pen comes back: disarmed.
+    final paper = boxPaper(tester);
+    final pen = await tester.startGesture(paper.center, kind: PointerDeviceKind.stylus);
+    await tester.pump();
+    expect(zoom.armed.value, isFalse);
+    await pen.up();
+    await tester.pump(ZoomWindow.pause);
+    await writeInBox(tester, const Offset(0.72, 0.5), length: 20);
+    expect(zoom.armed.value, isTrue);
+    await tester.pump(ZoomWindow.pause);
+    expect(zoom.armed.value, isFalse, reason: 'it moved on');
     await tester.pumpAndSettle();
-    final moved = zoom.frame!.origin;
-    // The drag starts past the touch slop; most of it moves the frame.
-    expect(moved.dy, lessThan(before.dy - 20 / mainScale));
-    expect(moved.dx, lessThan(before.dx - 10 / mainScale));
-
-    screen = zoom.host.onScreen(id, zoom.frameRect!)!;
-    final width = zoom.frameRect!.width;
-    await tester.dragFrom(screen.bottomRight, Offset(screen.width * 0.5, screen.height * 0.5));
-    await tester.pumpAndSettle();
-    expect(zoom.frameRect!.width, greaterThan(width * 1.2));
-    expect(zoom.frame!.origin, moved, reason: 'sizing keeps the top-left corner');
     await closeEditor(tester);
   });
 

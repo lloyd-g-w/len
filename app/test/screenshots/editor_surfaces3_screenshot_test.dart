@@ -153,6 +153,13 @@ void main() {
           }
           await settle(tester);
           await shoot(tester, 'e_zoom_window_$shot');
+          // Left-handed, from the box's own menu: the box docks at the top.
+          await tester.tap(find.byTooltip('Zoom window options'));
+          await settle(tester);
+          await shoot(tester, 'e_zoom_window_menu_$shot');
+          await tester.tap(find.text('Left-handed'));
+          await settle(tester);
+          await shoot(tester, 'e_zoom_window_left_$shot');
         });
       });
     }

@@ -3,18 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import '../../../domain/paper.dart';
 import '../../../ink/input/stylus_buttons.dart';
-import '../../../ink/render/chunk_picture_cache.dart';
-import '../../../ink/render/ink_painters.dart';
-import '../../../ink/render/tiles/ink_tile_cache.dart';
-import '../../../ink/surface_model.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../editor_session.dart';
 import 'zoom_box_grip.dart';
 import 'zoom_box_menu.dart';
-import 'zoom_box_painters.dart';
+import 'zoom_box_paper.dart';
 import 'zoom_box_rail.dart';
 import 'zoom_window.dart';
 
@@ -60,11 +55,6 @@ class _ZoomBoxState extends State<ZoomBox> {
   ZoomWindow get _zoom => widget.session.zoomWindow;
   ToolSettings get _tools => widget.session.tools;
 
-  /// This view's render caches of the frame's surface.
-  SurfaceModel? _cached;
-  ChunkPictureCache? _cache;
-  InkTileCache? _tiles;
-
   /// The contact writing in the box, and the ink it made (surface units).
   int? _pointer;
   bool _inking = false;
@@ -73,28 +63,6 @@ class _ZoomBoxState extends State<ZoomBox> {
 
   /// A finger or the mouse dragging the top edge.
   final BoxHeightDrag _sizing = BoxHeightDrag();
-
-  @override
-  void dispose() {
-    _dropCaches();
-    super.dispose();
-  }
-
-  void _dropCaches() {
-    _tiles?.dispose();
-    _cache?.dispose();
-    _tiles = null;
-    _cache = null;
-    _cached = null;
-  }
-
-  void _cachesFor(SurfaceModel model) {
-    if (identical(model, _cached)) return;
-    _dropCaches();
-    _cached = model;
-    _cache = ChunkPictureCache(model);
-    _tiles = InkTileCache(_cache!);
-  }
 
   void _onLayout(Size size) {
     if (size == _zoom.box) return;
@@ -254,8 +222,6 @@ class _ZoomBoxState extends State<ZoomBox> {
   }
 
   Widget _paper(BuildContext context) {
-    final session = widget.session;
-    final host = _zoom.host;
     return MouseRegion(
       cursor: SystemMouseCursors.precise,
       onExit: (_) => _zoom.input?.handleExit(),
@@ -277,85 +243,8 @@ class _ZoomBoxState extends State<ZoomBox> {
         onPointerPanZoomStart: (e) => _zoom.input?.handlePanZoomStart(e),
         onPointerPanZoomUpdate: (e) => _zoom.input?.handlePanZoomUpdate(e),
         onPointerPanZoomEnd: (e) => _zoom.input?.handlePanZoomEnd(e),
-        child: ListenableBuilder(
-          listenable: Listenable.merge([_zoom, host.changes]),
-          builder: (context, _) {
-            final frame = _zoom.frame;
-            final model = _zoom.model;
-            if (frame == null || model == null) return const SizedBox.expand();
-            _cachesFor(model);
-            final page = host.boundsOf(frame.surfaceId);
-            final live = host.isActive(frame.surfaceId);
-            final view = _zoom.view;
-            final zone = _zoom.zoneStart;
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                RepaintBoundary(
-                  child: CustomPaint(
-                    painter: zoomPaperPainter(context, session, frame.surfaceId, view),
-                  ),
-                ),
-                if (zone != null)
-                  CustomPaint(
-                    painter: ZoneBandPainter(
-                      start: view.toScreen(Offset(zone, 0)).dx,
-                      paper: _paperColour(frame.surfaceId),
-                    ),
-                  ),
-                if (live)
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: LiveInkPainter(
-                        live: session.live,
-                        viewport: view,
-                        clip: page,
-                        belowInk: true,
-                      ),
-                    ),
-                  ),
-                RepaintBoundary(
-                  child: CustomPaint(
-                    painter: CommittedInkPainter(
-                      model: model,
-                      cache: _cache!,
-                      viewport: view,
-                      clip: page,
-                      tiles: _tiles,
-                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-                      self: {session.content.selection, session.content.text},
-                    ),
-                  ),
-                ),
-                if (live)
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: LiveInkPainter(live: session.live, viewport: view, clip: page),
-                    ),
-                  ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: widget.atTop ? null : 0,
-                  bottom: widget.atTop ? 0 : null,
-                  child: ZoomBoxGrip(
-                    atBottom: widget.atTop,
-                    color: _paperColour(frame.surfaceId).pattern,
-                    onStep: _step,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+        child: ZoomBoxPaper(session: widget.session, gripAtBottom: widget.atTop, onStep: _step),
       ),
     );
-  }
-
-  PaperColor _paperColour(String surfaceId) {
-    final doc = widget.session.doc;
-    if (doc == null) return widget.session.notebook.paperColor;
-    final page = doc.pages.where((p) => p.id == surfaceId).firstOrNull;
-    return page?.paperColor ?? widget.session.notebook.paperColor;
   }
 }

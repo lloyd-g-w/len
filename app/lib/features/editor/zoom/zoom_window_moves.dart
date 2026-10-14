@@ -34,6 +34,27 @@ mixin _ZoomMoves {
   /// An advance waiting for the pen to rest.
   Timer? _pending;
 
+  /// Whether an advance waits for the pen to rest (the box's zone fills
+  /// meanwhile, so the move doesn't come as a surprise).
+  final ValueNotifier<bool> armed = ValueNotifier(false);
+
+  /// Moves the frame on from ink lifted at [inkRight] once the pen rested
+  /// for [after].
+  void _arm(double inkRight, Duration after) {
+    _pending?.cancel();
+    armed.value = true;
+    _pending = Timer(after, () {
+      armed.value = false;
+      _advance(inkRight);
+    });
+  }
+
+  /// Drops a waiting advance.
+  void _disarm() {
+    _pending?.cancel();
+    armed.value = false;
+  }
+
   Ticker? _glide;
   Offset _glideFrom = Offset.zero, _glideEnd = Offset.zero;
 
@@ -173,7 +194,7 @@ mixin _ZoomMoves {
   void newLine() {
     final frame = _frame;
     if (frame == null || _box.isEmpty) return;
-    _pending?.cancel();
+    _disarm();
     _finishGlide();
     _apply(_rules.newLine(frame, lineStep: _lineStep()));
   }
@@ -237,7 +258,7 @@ mixin _ZoomMoves {
   void dragBy(Offset screenDelta) {
     final frame = _frame;
     if (frame == null || _box.isEmpty) return;
-    _pending?.cancel();
+    _disarm();
     _finishGlide();
     final origin = host.originOf(frame.surfaceId);
     if (origin == null) return;
@@ -275,7 +296,7 @@ mixin _ZoomMoves {
   void _panBox(Offset screenDelta) {
     final frame = _frame;
     if (frame == null) return;
-    _pending?.cancel();
+    _disarm();
     _finishGlide();
     final origin = _rules.clamp(frame, frame.origin - screenDelta / frame.scale);
     _set(frame.copyWith(origin: origin));

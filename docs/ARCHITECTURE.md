@@ -479,8 +479,13 @@ or deleted pages in order with ink. Snack bars' Undo calls
   is what the window needs of the editor: bounds, paper and margin, models (held with
   `DocumentSurfaces.acquireModel`), activating the frame's page (its live ink shows there),
   and `reveal` so the main view follows the frame. `ZoomFrameOverlay` draws the frame on the
-  page (a 2-dp accent rule, the zone's hairline, a corner handle): drag it to move (lines then
-  start there), drag the handle to size it. The box's top edge (`ZoomBoxGrip`, two ticks in the
+  page (an accent hairline over a 5 % wash, the zone washed deeper, a tab on the top edge at
+  the left, a square at the corner): drag the tab to move it (lines then start there), the
+  square to size it. Only the two handles take pointers (their targets mostly outside the
+  frame), so the pen writes inside the frame on the page as anywhere. While an advance waits
+  for the pen to rest, `ZoomWindow.armed` is set and the box's zone band (`ZoneBand`,
+  `ZoneBandPainter`: 10 % of the paper's pattern colour at rest) deepens over the pause, so the
+  glide that follows is expected; the pen coming back disarms it. The box's top edge (`ZoomBoxGrip`, two ticks in the
   paper's pattern colour; `BoxHeightDrag`) sizes the box with a finger or the mouse (a stylus
   writes up to the edge): `ZoomWindow.boxHeight`, kept by `ZoomBox.heightFor` to at least
   `least` and clear of `pageRoom` of the page. The rail (`ZoomBoxRail`: ✕ and ⋯ at the top, ↵ at
