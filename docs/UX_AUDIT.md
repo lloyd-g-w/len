@@ -144,10 +144,13 @@ Settings tile passes the intent, so failures say "Couldn’t restore".
 Paths: `backup/len_import_flow.dart:190-250`. Effort S.
 
 **R10-17 P2 · Opening a big backup shows nothing, and the tile can be
-tapped again.** ⬜ (half done: the Settings tile waits while a restore runs; the progress dialog still opens only after the file is read) `lenFiles.open` (which reads the contents) runs before
+tapped again.** ✅ `lenFiles.open` (which reads the contents) runs before
 the progress dialog. *Fix:* open inside the progress dialog; guard the
 flow against running twice. Paths: `backup/len_import_flow.dart:190-208`.
 Effort M.
+*Done:* the file is read behind an "Opening" progress dialog (modal, so
+nothing behind takes a second tap; Cancel abandons it and closes the file);
+the Settings tile waits while a restore runs.
 
 **R10-18 P2 · A huge PDF can't be cancelled while its pages are measured;
 a batch of PDFs can't be cancelled as a whole.** ⬜ `pageSizes` and the

@@ -36,7 +36,7 @@ Future<LenImportResult?> importLenFlow(
   LenSource? source;
   var restoring = restore;
   try {
-    source = await services.lenFiles.open(await openPickedInput(picked));
+    source = await _open(context, services, picked);
     final manifest = source.manifest;
     restoring = manifest.kind == LenArchiveKind.library;
     if (!context.mounted) return null;
@@ -91,6 +91,25 @@ Future<LenImportResult?> importLenFlow(
     unawaited(source?.close());
     if (context.mounted) _failed(context, '${_couldnt(restoring)} $name', '$e', restoring);
     return null;
+  }
+}
+
+/// Opens [picked] behind a progress dialog, so a big backup shows at once
+/// (and the screen behind takes no second tap) while it is read. Cancel
+/// abandons it; the file is closed once open.
+Future<LenSource> _open(BuildContext context, AppServices services, XFile picked) async {
+  final opening = openPickedInput(picked).then(services.lenFiles.open);
+  try {
+    return await runWithProgress(
+      context,
+      'Opening',
+      () => opening,
+      subject: picked.name.isEmpty ? null : picked.name,
+      stage: 'Reading…',
+    );
+  } on Cancelled {
+    unawaited(opening.then((s) => s.close(), onError: (Object _) {}));
+    rethrow;
   }
 }
 

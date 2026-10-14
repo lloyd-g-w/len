@@ -101,8 +101,24 @@ class TaskProgress extends ChangeNotifier {
 /// finishes unseen and its result (or error) is dropped. Use it only for
 /// tasks without lasting effects; tasks that store something take a
 /// [TaskProgress] from [runWithSteps] and [TaskProgress.check] before they do.
-Future<T> runWithProgress<T>(BuildContext context, String label, Future<T> Function() task) =>
-    _run(context, label, (_) => task(), cancellable: true, abandonOnCancel: true);
+/// [subject] and [stage] are shown as in [runWithSteps].
+Future<T> runWithProgress<T>(
+  BuildContext context,
+  String label,
+  Future<T> Function() task, {
+  String? subject,
+  String stage = _working,
+}) => _run(
+  context,
+  label,
+  (_) => task(),
+  subject: subject,
+  stage: stage,
+  cancellable: true,
+  abandonOnCancel: true,
+);
+
+const _working = 'Working…';
 
 /// Runs [task] behind a modal dialog titled [title] that shows the stage
 /// and progress the task reports through its [TaskProgress]. Errors are
@@ -126,10 +142,11 @@ Future<T> _run<T>(
   Future<T> Function(TaskProgress progress) task, {
   String? subject,
   bool cancellable = false,
+  String stage = _working,
   bool abandonOnCancel = false,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
-  final progress = TaskProgress('Working…');
+  final progress = TaskProgress(stage);
   final route = DialogRoute<void>(
     context: context,
     barrierDismissible: false,
