@@ -65,6 +65,11 @@ final List<ShortcutGroup> shortcutGroups = [
       SingleActivator(LogicalKeyboardKey.tab, control: true, shift: true),
     ], shown: 'Ctrl+Tab / Ctrl+Shift+Tab'),
     ShortcutHelp('Close notebook tab', [_ctrl(LogicalKeyboardKey.keyW)]),
+    // ContextMenuKeys: whatever has focus (a card, a tab, the page).
+    const ShortcutHelp('Context menu', [
+      SingleActivator(LogicalKeyboardKey.contextMenu),
+      SingleActivator(LogicalKeyboardKey.f10, shift: true),
+    ], shown: 'Menu key or Shift+F10'),
     ShortcutHelp('Keyboard shortcuts', [_ctrl(LogicalKeyboardKey.slash)]),
   ]),
   const ShortcutGroup('Tools', [

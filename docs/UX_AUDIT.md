@@ -90,7 +90,7 @@ rectangles.** ✅
 - Effort S.
 
 **R12-3 P3 · The Menu key and Shift+F10 are missing from the shortcut
-sheet.** ⬜ They work on cards, folders, tabs, overview pages, styles and
+sheet.** ✅ They work on cards, folders, tabs, overview pages, styles and
 the page (`ui/context_menu_keys.dart`), but Ctrl+/ doesn't say so. *Fix:*
 "Context menu: Menu key or Shift+F10" in General
 (`settings/keyboard_shortcuts.dart`). Effort S.
