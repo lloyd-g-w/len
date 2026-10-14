@@ -254,12 +254,7 @@ class LiveStrokeBuilder {
   static LiveOutline livePath(LiveInk live) {
     final previous = _builderOf(live);
     _generations[live] = live.generation;
-    final built = build(
-      previous,
-      live.points,
-      width: live.width,
-      style: live.style,
-    );
+    final built = build(previous, live.points, width: live.width, style: live.style);
     _builders[live] = built.builder;
     return built.path;
   }
