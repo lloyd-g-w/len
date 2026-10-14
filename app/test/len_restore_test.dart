@@ -7,6 +7,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/archive/len_archives.dart';
 import 'package:len/data/blob_backend.dart';
 import 'package:len/data/surface_copier.dart';
+import 'package:len/domain/cancellation.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
@@ -148,6 +149,39 @@ void main() {
     expect(source.folders.list().map((f) => f.name).toSet(), {'School', 'Backup 13 Oct 2026'});
     expect(source.notebooks.list(), hasLength(2));
   });
+
+  test(
+    'a cancelled restore leaves a notebook deleted here deleted, its deletion still to sync',
+    () async {
+      final bytes = await backup();
+      final diary = source.notebooks.list().singleWhere((n) => n.title == 'Diary');
+      final page = source.pages.pagesOf(diary.id).single.id;
+      source.notebooks.delete(diary.id); // Not synced yet.
+      final db = source.pages.db;
+      List<Object?> row(String table, String id) => [
+        ...db.select('SELECT deleted, dirty, updated_at, device_id FROM $table WHERE id = ?', [id]),
+      ].map((r) => r.values).toList();
+      final before = [row('pages', page), row('strokes', 'ink-Diary')];
+      expect(before.first, isNotEmpty);
+
+      final from = await open(source, bytes);
+      final cancel = CancellationToken();
+      await expectLater(
+        source.lenFiles.import(
+          from,
+          keepIds: true,
+          skip: source.lenFiles.present(await open(source, bytes)).keys.toSet(),
+          cancel: cancel,
+          onProgress: (done) {
+            if (done == 1) cancel.cancel(); // Everything written, not yet added.
+          },
+        ),
+        throwsA(isA<Cancelled>()),
+      );
+      expect([row('pages', page), row('strokes', 'ink-Diary')], before);
+      expect(source.notebooks.get(diary.id), isNull);
+    },
+  );
 
   test('undo puts a restore in the Trash, its folders away', () async {
     final bytes = await backup();
