@@ -185,6 +185,8 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
   void _onHost() {
     final frame = _frame;
     if (frame == null || host.has(frame.surfaceId)) return;
+    _pending?.cancel();
+    _stopGlide();
     _detach();
     _frame = frame.copyWith(surfaceId: host.current);
     _attach(host.current);

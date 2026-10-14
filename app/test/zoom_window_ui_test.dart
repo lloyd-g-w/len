@@ -262,4 +262,37 @@ void main() {
     expect(zoom.frameRect!.left, frame.left);
     await closeEditor(tester);
   });
+
+  testWidgets('a palm on the page while the pen writes in the box neither draws nor scrolls', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    final zoom = await _open(tester);
+    final session = _session(tester);
+    final page = s.pages.pagesOf(nb.id).first;
+    final view = session.doc!.viewport;
+    final offset = view.offset;
+    // The palm lands first (a finger draws until the pen shows up)…
+    final palm = await tester.startGesture(const Offset(400, 700));
+    await palm.moveBy(const Offset(20, 10));
+    await tester.pump();
+    // …then the pen writes in the box while the palm slides.
+    final box = tester.getRect(find.byType(ZoomBox));
+    final pen = await tester.startGesture(
+      box.topLeft + Offset(60, box.height / 2),
+      kind: PointerDeviceKind.stylus,
+    );
+    for (var i = 1; i <= 6; i++) {
+      await pen.moveBy(const Offset(8, 3));
+      await palm.moveBy(const Offset(0, -30));
+    }
+    await pen.up();
+    await palm.up();
+    await tester.pumpAndSettle();
+    final ink = inkOf(s, page).where((st) => st.id != 'w1').toList();
+    expect(ink, hasLength(1), reason: 'only the pen wrote');
+    expect(zoom.frameRect!.contains(ink.single.bounds.center), isTrue);
+    expect(view.offset, offset);
+    await closeEditor(tester);
+  });
 }

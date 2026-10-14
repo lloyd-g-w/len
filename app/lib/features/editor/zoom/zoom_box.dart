@@ -1,6 +1,5 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ink/input/stylus_buttons.dart';
@@ -10,9 +9,9 @@ import '../../../ink/render/tiles/ink_tile_cache.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
-import '../chrome/bar_button.dart';
 import '../editor_session.dart';
 import 'zoom_box_painters.dart';
+import 'zoom_box_rail.dart';
 import 'zoom_window.dart';
 
 /// The zoom window's box, docked at the bottom of the editor: the frame's
@@ -101,7 +100,14 @@ class _ZoomBoxState extends State<ZoomBox> {
       _tools.tool != EditorTool.eraser &&
       routeStylus(e.kind, e.buttons, _zoom.input!.penButtonAction) == StylusRoute.tool;
 
+  /// Tells the page view where the pen is: a hand writing in the box rests
+  /// on the page.
+  void _stylus(PointerEvent e) {
+    if (isStylusKind(e.kind)) widget.session.input.stylusElsewhere(e);
+  }
+
   void _down(PointerDownEvent e) {
+    _stylus(e);
     if (!_accepts(e)) {
       _ignored.add(e.pointer);
       return;
@@ -121,6 +127,7 @@ class _ZoomBoxState extends State<ZoomBox> {
   }
 
   void _move(PointerMoveEvent e) {
+    _stylus(e);
     if (_ignored.contains(e.pointer)) return;
     _zoom.input?.handleMove(e);
     _note(e);
@@ -134,6 +141,7 @@ class _ZoomBoxState extends State<ZoomBox> {
   }
 
   void _up(PointerUpEvent e) {
+    _stylus(e);
     if (_ignored.remove(e.pointer)) return;
     final input = _zoom.input;
     if (input == null) return;
@@ -146,6 +154,7 @@ class _ZoomBoxState extends State<ZoomBox> {
   }
 
   void _cancel(PointerCancelEvent e) {
+    _stylus(e);
     if (_ignored.remove(e.pointer)) return;
     _zoom.input?.handleCancel(e);
     if (e.pointer != _pointer) return;
@@ -175,7 +184,7 @@ class _ZoomBoxState extends State<ZoomBox> {
                 },
               ),
             ),
-            _rail(scheme),
+            ZoomBoxRail(onClose: _zoom.close, onNewLine: _zoom.newLine),
           ],
         ),
       ),
@@ -194,7 +203,10 @@ class _ZoomBoxState extends State<ZoomBox> {
         onPointerMove: _move,
         onPointerUp: _up,
         onPointerCancel: _cancel,
-        onPointerHover: (e) => _zoom.input?.handleHover(e),
+        onPointerHover: (e) {
+          _stylus(e);
+          _zoom.input?.handleHover(e);
+        },
         onPointerSignal: (e) {
           final input = _zoom.input;
           if (input == null) return;
@@ -273,26 +285,4 @@ class _ZoomBoxState extends State<ZoomBox> {
     final page = doc.pages.where((p) => p.id == surfaceId).firstOrNull;
     return page?.paperColor ?? widget.session.notebook.paperColor;
   }
-
-  Widget _rail(ColorScheme scheme) => DecoratedBox(
-    decoration: BoxDecoration(border: Border(left: Surfaces.chromeEdge(scheme))),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Gaps.xs, vertical: Gaps.xs),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          BarButton(
-            icon: Symbols.close_sharp,
-            tooltip: 'Close zoom window',
-            onPressed: _zoom.close,
-          ),
-          BarButton(
-            icon: Symbols.keyboard_return_sharp,
-            tooltip: 'Next line',
-            onPressed: _zoom.newLine,
-          ),
-        ],
-      ),
-    ),
-  );
 }
