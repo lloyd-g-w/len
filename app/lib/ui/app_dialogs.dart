@@ -71,7 +71,8 @@ class AppDialog extends StatelessWidget {
   /// Symbol shown in a [DialogIcon] above the title.
   final IconData? icon;
 
-  /// Tint of [icon] (default: the primary colour).
+  /// Tint of [icon] (default: Graphite, like idle icons; the accent marks
+  /// state only).
   final Color? iconColor;
 
   /// A custom header widget instead of [icon] (e.g. a live preview).
@@ -89,7 +90,10 @@ class AppDialog extends StatelessWidget {
         leading ??
         (icon == null
             ? null
-            : DialogIcon(icon!, color: iconColor ?? Theme.of(context).colorScheme.primary));
+            : DialogIcon(
+                icon!,
+                color: iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
+              ));
     // AlertDialog narrows its side padding as text grows, but not the
     // actions': undo that so fields, text and buttons share one edge.
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;

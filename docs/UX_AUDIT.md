@@ -2527,7 +2527,7 @@ Lay the actions out in a `Wrap` with one start edge. *Files:*
 
 ### Consistency and copy
 
-**R5-30 P2 · The accent marks plain states.** Accent is for primary buttons,
+**R5-30 P2 · The accent marks plain states.** ✅ Accent is for primary buttons,
 focus, handles, links, switches, progress and the selected sidebar row.
 It also shows on:
 - ✅ the palette's selection ring (R5-3);
@@ -2540,6 +2540,10 @@ It also shows on:
   (`s_import_progress_*`, `features/documents/progress_dialog.dart:188`).
 
 *Fix:* `onSurface` with `fill: 1` or the pressed plate, as for tools.
+*Done (`fix/r10-open`):* tap-to-play on is the ink plate, a changed speed
+reads in Ink, and `AppDialog`'s icon is Graphite. The active tab and the
+selected template keep their 2-dp accent rule: that is the margin rule
+(DESIGN §1.2), not a plain state.
 
  **R5-31 P2 · "Could not" and raw reasons in user templates.** `documents/templates/user_templates.dart:65`:
 "Could not import x: <FormatException message>" (everywhere else says
