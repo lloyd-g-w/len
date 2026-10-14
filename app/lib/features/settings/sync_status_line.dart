@@ -36,7 +36,7 @@ class SyncStatusLine extends StatelessWidget {
             Symbols.error_sharp,
             scheme.error,
             sync.waitsForSettings
-                ? '${sync.lastError}. Sync is paused'
+                ? '${sync.lastError}: sync is paused'
                 : sync.lastError ?? 'Sync failed',
           ),
           SyncState.idle => (

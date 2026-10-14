@@ -185,7 +185,7 @@ class EditorImages {
     try {
       // Big files may need re-encoding, which takes a moment.
       return bytes.length > (2 << 20)
-          ? await runWithProgress(context, 'Adding image…', run)
+          ? await runWithProgress(context, 'Adding image', run)
           : await run();
     } on Cancelled {
       return null;

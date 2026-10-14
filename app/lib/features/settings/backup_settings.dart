@@ -34,7 +34,7 @@ class BackupSettings extends StatefulWidget {
   /// never): "Last backup today at 14:05", "Last backup 3 Oct".
   static String lastBackup(int? at, {DateTime? now}) {
     if (at == null) {
-      return 'One Len file with every notebook, folder and template. Not backed up yet';
+      return 'One Len file with every notebook, folder and template; not backed up yet';
     }
     final label = formatEdited(at, now: now);
     if (label == 'Just now') return 'Backed up just now';

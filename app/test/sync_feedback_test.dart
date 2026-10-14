@@ -88,7 +88,7 @@ void main() {
       await tester.tap(find.widgetWithText(SnackBarAction, 'Settings'));
       await tester.pumpAndSettle();
       expect(find.byType(SettingsScreen), findsOneWidget);
-      expect(find.textContaining('access token. Sync is paused'), findsOneWidget);
+      expect(find.textContaining('access token: sync is paused'), findsOneWidget);
       // Trying again by hand and failing again isn't announced twice.
       await tester.pump(const Duration(seconds: 10));
       await tester.pumpAndSettle();
@@ -175,7 +175,7 @@ void main() {
           ),
         ),
       );
-      final note = find.textContaining('secure storage isn\'t available');
+      final note = find.textContaining('secure storage isn’t available');
       await show();
       expect(note, findsOneWidget);
       expect(s.sync.isConfigured, isTrue, reason: 'sync goes on');

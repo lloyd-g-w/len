@@ -22,8 +22,8 @@ extension _SyncSettingsViews on _SyncSettingsState {
               if (_tokenNote) ...[
                 const SizedBox(height: Gaps.sm),
                 Text(
-                  'This device\'s secure storage isn\'t available right now, so the access '
-                  'token is kept with Len\'s data. Len moves it there once it can.',
+                  'This device’s secure storage isn’t available right now, so the access '
+                  'token is kept with Len’s data. Len moves it there once it can.',
                   style: theme.textTheme.bodySmall,
                 ),
               ],

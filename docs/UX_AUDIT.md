@@ -170,7 +170,7 @@ Effort S.
 `mounted` check.** ✅ Paths: `documents/overview/page_overview.dart:157`.
 Effort S.
 
-**R10-22 P2 · Copy.** ⬜
+**R10-22 P2 · Copy.** ✅ (`copy_rules_test` now bans straight apostrophes; progress titles have no ellipsis: "Adding image")
 - Two-sentence messages whose last sentence has no full stop:
   `settings/sync_status_line.dart:39` ("…. Sync is paused"),
   `data/archive/len_format.dart:119,123` (embedded in "Couldn’t import

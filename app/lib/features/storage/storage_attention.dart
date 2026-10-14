@@ -20,13 +20,13 @@ class StorageAttention {
   bool _told = false;
 
   /// The title of the lasting notices (library, Settings → Storage).
-  static const unsavedTitle = 'Your latest changes aren\'t saved yet';
+  static const unsavedTitle = 'Your latest changes aren’t saved yet';
 
   /// The explanation under [unsavedTitle].
   static String unsavedBody(WriteFailure failure) => switch (failure) {
     WriteFailure.full =>
       'Browser storage is full. Len keeps the changes in this tab and saves them '
-          'once there\'s room: free up space, and keep this tab open until then.',
+          'once there’s room: free up space, and keep this tab open until then.',
     WriteFailure.failed =>
       'Len keeps the changes in this tab and keeps trying to save them. Keep this '
           'tab open until then.',
@@ -35,8 +35,8 @@ class StorageAttention {
   /// What to say while [failure] lasts.
   static String messageFor(WriteFailure failure) => switch (failure) {
     WriteFailure.full =>
-      'Browser storage is full: your latest changes are kept in this tab until there\'s room',
-    WriteFailure.failed => 'Your latest changes couldn\'t be saved yet: Len keeps trying',
+      'Browser storage is full: your latest changes are kept in this tab until there’s room',
+    WriteFailure.failed => 'Your latest changes couldn’t be saved yet: Len keeps trying',
   };
 
   void _changed() {

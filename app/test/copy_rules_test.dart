@@ -127,6 +127,21 @@ void main() {
     expect(offenders, isEmpty);
   });
 
+  // UX_AUDIT R10-22: one apostrophe, the typographic one.
+  test('UI strings use ’, not a straight apostrophe', () {
+    final straight = RegExp(r"[A-Za-z]\\'[A-Za-z]");
+    final offenders = <String>[];
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      for (final line in file.readAsLinesSync()) {
+        final code = line.trimLeft();
+        if (code.startsWith('//') || code.contains('debugPrint(')) continue;
+        if (straight.hasMatch(line)) offenders.add('${file.path}: ${line.trim()}');
+      }
+    }
+    expect(offenders, isEmpty);
+  });
+
   // UX_AUDIT R9 glossary: one name per thing, in every string the app shows.
   test('UI strings use the glossary', () {
     const banned = {

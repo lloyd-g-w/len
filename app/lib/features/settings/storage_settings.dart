@@ -101,9 +101,9 @@ class _StorageSettingsState extends State<StorageSettings> {
         if (!widget.filesKept)
           SettingsTile(
             icon: Symbols.error_sharp,
-            title: 'Files aren\'t kept in this window',
+            title: 'Files aren’t kept in this window',
             subtitle:
-                'This browser doesn\'t let Len store files, so PDFs, images and recordings '
+                'This browser doesn’t let Len store files, so PDFs, images and recordings '
                 'are lost when the tab closes. Use a normal (not private) window, allow site '
                 'data for Len, or turn on sync.',
           ),
@@ -112,8 +112,8 @@ class _StorageSettingsState extends State<StorageSettings> {
           title: 'Keep data on this device',
           subtitle: switch (persisted) {
             null => 'Checking…',
-            true => 'On: the browser keeps Len\'s data until you clear it.',
-            false => 'Off: the browser may clear Len\'s data when storage runs low.',
+            true => 'On: the browser keeps Len’s data until you clear it.',
+            false => 'Off: the browser may clear Len’s data when storage runs low.',
           },
           trailing: persisted == false
               ? OutlinedButton(onPressed: _asking ? null : _request, child: const Text('Turn on'))

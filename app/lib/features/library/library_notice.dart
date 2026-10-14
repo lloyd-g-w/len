@@ -143,9 +143,9 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     if (!_services.blobsArePersistent) {
       return const LibraryNotice(
         icon: Symbols.cloud_off_sharp,
-        title: 'Files you add won\'t be kept in this browser window',
+        title: 'Files you add won’t be kept in this browser window',
         body:
-            'This browser doesn\'t let Len store files, so PDFs, images and recordings '
+            'This browser doesn’t let Len store files, so PDFs, images and recordings '
             'are lost when the tab closes (your handwriting is kept). Use a normal '
             'window, allow site data, or turn on sync.',
       );
@@ -200,12 +200,12 @@ class _LibraryNoticesState extends State<LibraryNotices> {
         : 'Notebooks you synced come back from your server when you turn on sync again.';
     final backup = reset.backupPath;
     final kept = backup == null
-        ? 'The old data couldn\'t be kept in this browser.'
+        ? 'The old data couldn’t be kept in this browser.'
         : 'The old data was kept in';
     return LibraryNotice(
       icon: Symbols.restart_alt_sharp,
       title: 'Len started fresh',
-      body: 'Len\'s storage was from $version version, so it started fresh. $sync $kept',
+      body: 'Len’s storage was from $version version, so it started fresh. $sync $kept',
       detail: backup,
       tone: NoticeTone.info,
       onDismiss: () => setState(_services.database.acknowledgeSchemaReset),
