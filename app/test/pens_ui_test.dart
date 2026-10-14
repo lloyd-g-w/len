@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,8 +60,10 @@ void main() {
           pressure: 0.5,
         ),
       );
+      // A hand's wobble around the line from (10, 10) to (210, 16).
       for (var i = 1; i <= 20; i++) {
-        input.handleMove(move(Offset(10 + i * 10.0, 10 + (i.isEven ? 6 : -6))));
+        final wobble = i < 20 ? 2 * math.sin(i * 1.3) : 0.0;
+        input.handleMove(move(Offset(10 + i * 10.0, 10 + 6 * i / 20 + wobble)));
       }
       await tester.pump(HoldToStraighten.holdDuration + const Duration(milliseconds: 50));
       input.handleUp(const PointerUpEvent(pointer: 1, kind: PointerDeviceKind.stylus));
