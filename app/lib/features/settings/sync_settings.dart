@@ -56,6 +56,10 @@ class _SyncSettingsState extends State<SyncSettings> {
   bool _obscureToken = true;
   bool _busy = false;
 
+  /// Bumped by each connection test and by Cancel: a test whose answer
+  /// arrives after either is ignored.
+  int _attempt = 0;
+
   /// The form is shown although sync is set up (Change…).
   bool _editing = false;
 
@@ -136,22 +140,28 @@ class _SyncSettingsState extends State<SyncSettings> {
       });
       return;
     }
+    // What was tested is what gets saved: the fields may change (or Cancel
+    // may restore them) while the server answers.
+    final token = _token.text.trim();
+    if (token.isEmpty) return setState(() => _testError = 'Enter the access token');
+    final attempt = ++_attempt;
     setState(() {
       _busy = true;
       _testError = null;
     });
     try {
-      await _sync.test(url: url, token: _token.text);
-      _sync.configure(url: url, token: _token.text);
+      await _sync.test(url: url, token: token);
+      if (attempt != _attempt || !mounted) return;
+      _sync.configure(url: url, token: token);
       _editing = _fromLink = false;
       unawaited(_sync.syncNow());
     } on SyncException catch (e) {
-      _testError = e.message;
+      if (attempt == _attempt) _testError = e.message;
     } on ArgumentError {
       // e.g. the http client rejecting a malformed URI.
-      _urlError = 'This address isn\'t valid';
+      if (attempt == _attempt) _urlError = 'This address isn’t valid';
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted && attempt == _attempt) setState(() => _busy = false);
     }
   }
 
@@ -174,7 +184,10 @@ class _SyncSettingsState extends State<SyncSettings> {
     });
   }
 
+  /// Cancel (also while a test runs: its answer is then ignored).
   void _cancelEditing() => setState(() {
+    _attempt++;
+    _busy = false;
     _url.text = _services.settings.syncUrl;
     _token.text = _sync.tokens.token;
     _editing = _fromLink = false;

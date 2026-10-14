@@ -39,24 +39,31 @@ extension _SyncSettingsViews on _SyncSettingsState {
   Widget _actions(BuildContext context) => Wrap(
     spacing: Gaps.sm,
     runSpacing: Gaps.sm,
-    children: [
-      OutlinedButton.icon(
-        onPressed: _sync.state == SyncState.syncing ? null : () => unawaited(_sync.syncNow()),
-        icon: const Icon(Symbols.sync_sharp, size: Glyphs.menu),
-        label: const Text('Sync now'),
-      ),
-      TextButton(onPressed: _startEditing, child: const Text('Change…')),
-      TextButton(
-        onPressed: () => unawaited(
-          showSyncSetupDialog(
-            context,
-            SyncSetupLink(url: _services.settings.syncUrl, token: _sync.tokens.token),
-          ),
-        ),
-        child: const Text('Set up another device…'),
-      ),
-      TextButton(onPressed: () => unawaited(_turnOff()), child: const Text('Turn off sync…')),
-    ],
+    // The server turned the token away: syncing again or sharing the token
+    // can't help, changing it can.
+    children: _sync.waitsForSettings
+        ? [
+            OutlinedButton(onPressed: _startEditing, child: const Text('Change…')),
+            TextButton(onPressed: () => unawaited(_turnOff()), child: const Text('Turn off sync…')),
+          ]
+        : [
+            OutlinedButton.icon(
+              onPressed: _sync.state == SyncState.syncing ? null : () => unawaited(_sync.syncNow()),
+              icon: const Icon(Symbols.sync_sharp, size: Glyphs.menu),
+              label: const Text('Sync now'),
+            ),
+            TextButton(onPressed: _startEditing, child: const Text('Change…')),
+            TextButton(
+              onPressed: () => unawaited(
+                showSyncSetupDialog(
+                  context,
+                  SyncSetupLink(url: _services.settings.syncUrl, token: _sync.tokens.token),
+                ),
+              ),
+              child: const Text('Set up another device…'),
+            ),
+            TextButton(onPressed: () => unawaited(_turnOff()), child: const Text('Turn off sync…')),
+          ],
   );
 
   Widget _form(BuildContext context) {

@@ -36,7 +36,7 @@ field; Ctrl+Z there undoes ink.** ✅
 - Paths: `search/editor/editor_search_bar.dart`. Effort S.
 
 **R10-2 P1 · Cancelling sync setup during the connection test still saves
-it, with the old token.** ⬜
+it, with the old token.** ✅
 - *What:* `_testAndSave` reads `_token.text` again after `await test(…)`;
   Cancel stays enabled during the test (up to 30 s on an unreachable host)
   and puts the old token back, so a successful test then saves the new URL
@@ -76,7 +76,7 @@ top.** ⬜ A first-time user lands on Theme and must scroll four sections.
 Pass `showSync: true`. Paths: `library/library_content.dart:159`. Effort S.
 
 **R10-7 P1 · With the token rejected, Settings → Sync leads with "Sync
-now".** ⬜
+now".** ✅
 - *What:* the paused-for-auth state (screenshot `f_sync_rejected_*`)
   offers Sync now (fails again), Change…, Set up another device… (shares
   the rejected token) and Turn off sync…. The one useful action is Change….
@@ -133,7 +133,7 @@ refuses.** ⬜ `if (granted) _dismiss();` has no else and no `mounted`
 check. *Fix:* say so and point at installing Len or sync. Paths:
 `library/library_notice.dart:175`. Effort S.
 
-**R10-15 P2 · Sync form: an empty token goes to the server.** ⬜ It comes
+**R10-15 P2 · Sync form: an empty token goes to the server.** ✅ It comes
 back as "The server didn’t accept the access token". *Fix:* "Enter the
 access token" locally. Paths: `settings/sync_settings.dart:127-149`. Effort S.
 
