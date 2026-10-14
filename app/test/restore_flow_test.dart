@@ -14,6 +14,8 @@ import 'package:len/domain/paper.dart';
 import 'package:len/features/backup/len_import_flow.dart';
 import 'package:len/ui/app_theme.dart';
 
+import 'support/real_async.dart';
+
 AppServices _services() =>
     AppServices.create(AppDatabase.inMemory(), blobBackend: MemoryBlobBackend());
 
@@ -96,10 +98,11 @@ void main() {
   testWidgets('a damaged file picked to restore says “Couldn’t restore”', (tester) async {
     final file = XFile.fromData(Uint8List.fromList([1, 2, 3]), path: '/tmp/old.len');
     await start(tester, file, restore: true);
-    for (var i = 0; i < 20 && find.byType(SnackBar).evaluate().isEmpty; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
-      await tester.pump();
-    }
+    await pumpUntil(
+      tester,
+      () => find.byType(SnackBar).evaluate().isNotEmpty,
+      reason: 'the snack bar',
+    );
     expect(find.textContaining('Couldn’t restore “old.len”'), findsOneWidget);
   });
 
