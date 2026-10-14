@@ -95,7 +95,7 @@ the page (`ui/context_menu_keys.dart`), but Ctrl+/ doesn't say so. *Fix:*
 "Context menu: Menu key or Shift+F10" in General
 (`settings/keyboard_shortcuts.dart`). Effort S.
 
-**R12-4 P3 · The lasso popover's "Shape" heading.** ⬜ It reads as the
+**R12-4 P3 · The lasso popover's "Shape" heading.** ✅ It reads as the
 Shapes tool (the next tool in the bar), and the laser's Dot / Trail, the
 same kind of mode switch with glyphs, has no heading. *Fix:* drop it
 (`editor/tools/lasso_options_panel.dart`; golden `lasso_options.png`).
