@@ -23,8 +23,10 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 - ⬜ **Highlighter flickers on pen-up**: fix.
 
 ## Eraser
-- ⬜ **Scribble to erase takes too many scribbles**: trigger after fewer zig-zags (1–2
-  back-and-forths), without false positives in normal writing.
+- ✅ **Scribble to erase takes too many scribbles**: trigger after fewer zig-zags (1–2
+  back-and-forths), without false positives in normal writing. Two quick back-and-forths
+  (4 passes in 0.8 s) now erase; the passes must keep to a narrower band, and printed
+  zigzag letters (z, N, M, w, vvv) joined the no-false-positive corpus.
 
 ## Notebooks
 - ⬜ **Default notebook style**: set the default template, paper, size and cover for new

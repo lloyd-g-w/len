@@ -1311,15 +1311,16 @@ polygon; scribbles stay freehand. Only the clean shape is committed.
 
 **Scribble to erase** (`input/scribble_detector.dart`, on by default, a
 switch in Settings → Writing): a pen (ballpoint) stroke holding a fast
-back-and-forth scribble — `ScribbleDetector`: ≥ 6 passes within 1.2 s, each
-nearly reversing the last, ≥ 14 screen px, the inner ones at most twice the
-median, fairly straight, all in a band at most half their length wide
-(cursive m / n / u / w reverses as sharply but moves on) — erases instead
+back-and-forth scribble — `ScribbleDetector`: two quick back-and-forths
+(≥ 4 passes within 0.8 s), each nearly reversing the last, ≥ 14 screen
+px, the inner ones at most twice the median, fairly straight, all in a
+band at most 0.3 of their length wide (letters — cursive m / n / u / w,
+printed z / N / M / w — reverse as sharply but move on) — erases instead
 of becoming ink when it crosses ink. Only the part that zigzags counts
 (`ScribbleDetector.windows`: each run of passes that makes a scribble, its
 outer passes cut to the span of the inner ones, overlapping runs joined),
 so a lead-in or a run-on erases nothing. The detector looks every 4
-points at the stroke's last 1.2 s only, so its cost doesn't grow with the
+points at the stroke's last 0.8 s only, so its cost doesn't grow with the
 stroke. `SurfaceModel.eraseScribbled` (`ink/scribble_hits.dart`) removes
 the strokes a zigzag touches that lie mostly inside its bounds (a long
 line under a scribbled word stays) and are not an outline around it (a
@@ -1335,8 +1336,9 @@ once the stroke so far holds a scribble it previews what will go
 those strokes as an owner (`setHidden`) and drawing them at 30 % as its
 lifted content (fading in over 100 ms, frame callbacks only while
 fading); the stroke ending any way un-hides them before the erase. It is
-held to zero false positives on the Ink Lab's real S Pen recordings and
-simulated writing at 1–4× (`test/scribble_detector_test.dart`).
+held to zero false positives on the Ink Lab's real S Pen recordings,
+simulated writing at 1–4× and printed zigzag letters and words at many
+sizes and speeds (`test/scribble_detector_test.dart`).
 
 **Text-aware highlighter** (`input/highlight_snap.dart`, set by paged
 editors to `features/editor/pdf/PdfHighlightSnap`): always (it needs no
