@@ -52,7 +52,7 @@ void main() {
         expect(tester.takeException(), isNull);
         await shoot(tester, 's_notebook_styles_${device}_${mode.name}');
 
-        // Another choice: "Save as style…" joins the row.
+        // Another choice: "Save as style…" shows under the form.
         await tester.ensureVisible(find.text('Blank'));
         await settle(tester);
         await tester.tap(find.text('Blank'));

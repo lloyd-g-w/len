@@ -102,7 +102,7 @@ same kind of mode switch with glyphs, has no heading. *Fix:* drop it
 Effort S.
 
 **R12-5 P2 · The new-notebook sheet opens with "Styles" for a user who
-has none.** ⬜
+has none.** ✅
 - *What:* `_styleSection` (`library/new_notebook_sheet.dart`) shows the
   heading and a lone "+ Save as style…" chip whenever the form can be
   saved, i.e. always for a new user, between Title and Notebook / Canvas.

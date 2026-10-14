@@ -300,32 +300,49 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
           onChanged: (t) => setState(() => _selection = _selection.copyWith(template: t)),
         ),
       ],
+      ..._saveStyleLink(),
     ];
   }
 }
 
-/// The Styles section of the form.
+/// The form's notebook styles: pick one at the top (the Styles row, once
+/// there are any), save the form as one at the end ("Save as style…"), so
+/// a first notebook's form starts with what it makes (UX_AUDIT R12-5).
 extension _NewNotebookStyles on _NewNotebookSheetState {
-  /// "Styles" and its row; nothing when there are no styles and the form
-  /// can't be saved as one (a user's image template).
-  List<Widget> _styleSection() {
+  /// The style the form matches, if any.
+  String? get _matchingStyle {
     final choice = _choice;
-    String? selected;
     for (final style in _styles) {
-      if (style.choice == choice) selected ??= style.id;
+      if (style.choice == choice) return style.id;
     }
-    final canSave = choice != null && selected == null && AppScope.maybeRead(context) != null;
-    if (_styles.isEmpty && !canSave) return const [];
+    return null;
+  }
+
+  /// "Styles" and its row; nothing before the first style.
+  List<Widget> _styleSection() {
+    if (_styles.isEmpty) return const [];
     return [
       const SizedBox(height: Gaps.xl),
       const PickerLabel('Styles'),
       StyleRow(
         styles: _styles,
-        selected: selected,
+        selected: _matchingStyle,
         onApply: _applyStyle,
         onMenu: (style, at) => unawaited(_styleMenu(style, at)),
-        onSave: canSave ? () => unawaited(_saveStyle(choice)) : null,
       ),
+    ];
+  }
+
+  /// "Save as style…" under the form; nothing when the form is a style
+  /// already or can't be one (a user's image template).
+  List<Widget> _saveStyleLink() {
+    final choice = _choice;
+    if (choice == null || _matchingStyle != null || AppScope.maybeRead(context) == null) {
+      return const [];
+    }
+    return [
+      const SizedBox(height: Gaps.lg),
+      SaveStyleButton(onPressed: () => unawaited(_saveStyle(choice))),
     ];
   }
 }
