@@ -85,17 +85,27 @@ abstract final class TransformItems {
     return a.abs() < 1e-9 ? 0 : a;
   }
 
-  /// [stroke] recoloured (new id), keeping everything else.
-  static Stroke recolorStroke(Stroke stroke, int argb, {required String id}) => Stroke(
-    id: id,
-    surfaceId: stroke.surfaceId,
-    tool: stroke.tool,
-    color: argb,
-    width: stroke.width,
-    points: stroke.points,
-    createdAt: stroke.createdAt,
-    style: stroke.style,
-  );
+  /// [stroke] recoloured (new id), keeping everything else. A fill tinted
+  /// with the ink's colour (same colour, translucent) takes the new one.
+  static Stroke recolorStroke(Stroke stroke, int argb, {required String id}) {
+    final fill = stroke.style.fill;
+    final tinted = fill != null && fill & 0xFFFFFF == stroke.color & 0xFFFFFF;
+    return Stroke(
+      id: id,
+      surfaceId: stroke.surfaceId,
+      tool: stroke.tool,
+      color: argb,
+      width: stroke.width,
+      points: stroke.points,
+      createdAt: stroke.createdAt,
+      style: tinted ? stroke.style.withFill(fill & 0xFF000000 | argb & 0xFFFFFF) : stroke.style,
+    );
+  }
+
+  /// Closed [stroke] with fill colour [argb] (null: none), as a new stroke
+  /// with id [id].
+  static Stroke refillStroke(Stroke stroke, int? argb, {required String id}) =>
+      stroke.withPoints(stroke.points, id: id, style: stroke.style.withFill(argb));
 
   /// [element] recoloured (all its text); types without a colour are
   /// returned unchanged.
@@ -134,6 +144,7 @@ abstract final class TransformItems {
     width: (width ?? stroke.width).clamp(_minWidth, _maxWidth),
     points: stroke.points,
     createdAt: stroke.createdAt,
-    style: style ?? stroke.style,
+    // A new tool's style keeps the shape's fill.
+    style: style?.withFill(stroke.style.fill) ?? stroke.style,
   );
 }

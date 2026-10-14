@@ -10,6 +10,7 @@ import 'editor_tool.dart';
 import 'pen/eraser_config.dart';
 import 'pen/pen_config.dart';
 import 'pen/recent_colors.dart';
+import 'shapes/shape_fill.dart';
 import 'shapes/shape_kind.dart';
 import 'tools/laser_config.dart';
 
@@ -17,6 +18,7 @@ export 'editor_tool.dart';
 export 'pen/eraser_config.dart';
 export 'pen/pen_config.dart';
 export 'pen/pen_defaults.dart';
+export 'shapes/shape_fill.dart';
 export 'shapes/shape_kind.dart';
 export 'tools/laser_config.dart';
 
@@ -45,6 +47,7 @@ class ToolSettings extends ChangeNotifier {
   final Map<InkTool, PenConfig> _configs = {for (final t in inks) t: PenConfig.defaultsFor(t)};
   EraserConfig _eraser = const EraserConfig();
   ShapeKind _shape = ShapeKind.rectangle;
+  ShapeFill _shapeFill = ShapeFill.none;
   LaserConfig _laser = const LaserConfig();
   TextData _text = const TextData();
   bool _holdToStraighten;
@@ -151,6 +154,14 @@ class ToolSettings extends ChangeNotifier {
     _changed();
   }
 
+  /// How the Shape tool fills the closed shapes it draws.
+  ShapeFill get shapeFill => _shapeFill;
+  set shapeFill(ShapeFill value) {
+    if (value == _shapeFill) return;
+    _shapeFill = value;
+    _changed();
+  }
+
   /// How the laser pointer looks.
   LaserConfig get laser => _laser;
   set laser(LaserConfig value) {
@@ -224,6 +235,7 @@ class ToolSettings extends ChangeNotifier {
         identical(_used, other._used) &&
         _eraser == other._eraser &&
         _shape == other._shape &&
+        _shapeFill == other._shapeFill &&
         _laser == other._laser &&
         identical(_text, other._text) &&
         identical(_recent, other._recent) &&
@@ -234,6 +246,7 @@ class ToolSettings extends ChangeNotifier {
     _configs.addAll(other._configs);
     _eraser = other._eraser;
     _shape = other._shape;
+    _shapeFill = other._shapeFill;
     _laser = other._laser;
     _text = other._text;
     _recent = other._recent;
@@ -249,6 +262,7 @@ class ToolSettings extends ChangeNotifier {
     'eraser': _eraser.toJson(),
     'recent': _recent,
     'shape': _shape.name,
+    'shapeFill': _shapeFill.toJson(),
     'laser': _laser.toJson(),
     'text': _text.toJson(),
   };
@@ -272,6 +286,7 @@ class ToolSettings extends ChangeNotifier {
     if (EraserConfig.fromJson(data['eraser']) case final eraser?) _eraser = eraser;
     if (RecentColors.parse(data['recent']) case final recent?) _recent = recent;
     _shape = ShapeKind.parse(data['shape']);
+    _shapeFill = ShapeFill.parse(data['shapeFill']);
     _laser = LaserConfig.fromJson(data['laser']);
     if (data['text'] case final Map<String, Object?> text) _text = TextData.fromJson(text);
   }
