@@ -35,7 +35,9 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
   /// that formatting, so it wins over the clipboard's HTML).
   static bool isOwnClip(String text) => _richClip?.text == _clean(text);
 
-  static String _clean(String text) => text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n');
+  /// [text] without marker placeholders, its line breaks all \n.
+  static String _clean(String text) =>
+      text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 
   /// [text] from the clipboard as a new box formatted like [box]; text
   /// last copied from a box here keeps its formatting.
@@ -100,7 +102,7 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
       s = o.length - was.end;
     }
     final removedEnd = o.length - s;
-    var inserted = n.substring(p, n.length - s).replaceAll('\uFFFC', '');
+    var inserted = _clean(n.substring(p, n.length - s));
     var start = _offsets.toModel(p), end = _offsets.toModel(removedEnd);
     final composing = _composing(next.composing, p, n.length - s, start);
     final line = _buffer.lineOf(start);

@@ -360,6 +360,14 @@ void main() {
       expect(c.data.text, '\nx');
     });
 
+    test('Windows and old Mac line breaks pasted by the field become line breaks', () {
+      final c = RichTextController(const TextData());
+      type(c, 'a\r\nb\rc');
+      expect(c.data.text, 'a\nb\nc');
+      expect(c.data.paras, hasLength(3));
+      expect(c.selection, TextSelection.collapsed(offset: c.text.length));
+    });
+
     test('copied text pasted over a selection sharing its first letter keeps formatting', () async {
       final c = RichTextController(
         TextData.rich(text: 'Hello', spans: const [StyledRange(0, 5, SpanStyle(bold: true))]),
