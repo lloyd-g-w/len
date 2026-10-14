@@ -1,6 +1,7 @@
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
@@ -24,12 +25,23 @@ class MenuRow<T> extends PopupMenuItem<T> {
     this.filledIcon = false,
     this.shortcut,
     this.alternate,
+    this.alternateAction,
+    this.alternateHint,
     super.enabled,
-  }) : super(child: null, height: Targets.menuRow);
+  }) : assert((alternate == null) == (alternateAction == null)),
+       super(child: null, height: Targets.menuRow);
 
   /// Chosen instead of [value] by a long press or a secondary click
   /// ("Add page after" held: with a template).
   final T? alternate;
+
+  /// The name of the screen-reader action that chooses [alternate] (the
+  /// gestures are pointer-only), e.g. "Add page with template".
+  final String? alternateAction;
+
+  /// A tooltip shown on hover saying how to reach [alternate] ("Hold or
+  /// right-click for a template").
+  final String? alternateHint;
 
   final IconData? icon;
 
@@ -69,13 +81,17 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
     final alternate = widget.alternate;
     if (alternate == null || !widget.enabled) return row;
     void choose() => Navigator.pop<T>(context, alternate);
-    // Pointer gestures only: the row stays one button for screen readers.
-    return GestureDetector(
-      excludeFromSemantics: true,
-      behavior: HitTestBehavior.opaque,
-      onLongPress: choose,
-      onSecondaryTap: choose,
-      child: row,
+    // Pointer gestures only: the row stays one button for screen readers,
+    // which offer the alternate as a custom action (merged into the row).
+    return Semantics(
+      customSemanticsActions: {CustomSemanticsAction(label: widget.alternateAction!): choose},
+      child: GestureDetector(
+        excludeFromSemantics: true,
+        behavior: HitTestBehavior.opaque,
+        onLongPress: choose,
+        onSecondaryTap: choose,
+        child: alternateHintTooltip(widget.alternateHint, row),
+      ),
     );
   }
 
@@ -136,6 +152,18 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
     );
   }
 }
+
+/// Wraps a menu row in a tooltip [hint] on how to reach its alternate (a
+/// long press, a secondary click): on hover only (a long press chooses the
+/// alternate), and not for screen readers (they get a custom action).
+Widget alternateHintTooltip(String? hint, Widget row) => hint == null
+    ? row
+    : Tooltip(
+        message: hint,
+        triggerMode: TooltipTriggerMode.manual,
+        excludeFromSemantics: true,
+        child: row,
+      );
 
 /// Shows a context menu at the global position [at] (or centred on the
 /// widget of [context]) and returns the chosen value.

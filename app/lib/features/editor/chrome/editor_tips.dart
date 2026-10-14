@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/clock.dart';
 import '../../../domain/preferences.dart';
 import '../../../ink/input/live_ink.dart';
+import '../../../ink/selection/lasso_path.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/messages.dart';
 import 'tip_message.dart';
@@ -14,9 +15,10 @@ export 'tip_message.dart';
 /// Shows each [EditorTip] once per device, on a calm budget (R9-1):
 /// - at most one tip per editor (each opening of a notebook), at least
 ///   [between] apart (across openings), none within [afterMessage] of a
-///   snack bar;
+///   snack bar anywhere in the app ([MessageQueue.activity]);
 /// - only once the pen has rested for [calmFor]; the tip fades while the
-///   pen is down ([writing]), and its time stops meanwhile;
+///   pen is down ([writing]), and its time stops meanwhile. Drawing a lasso
+///   loop or a shape counts as the pen being down;
 /// - a tip never replaces another: a trigger while one shows is dropped,
 ///   and waits for its next trigger;
 /// - a tip counts as seen after [seenAfter] on screen; one that goes
@@ -32,14 +34,11 @@ class TipsController extends ValueNotifier<TipMessage?> {
     int? Function()? lastShownAt,
     void Function(int ms)? shownAt,
     this.clock = const Clock(),
-    ValueListenable<bool>? messages,
+    MessageActivity? messages,
   }) : _lastShownAt = lastShownAt ?? _never,
        _shownAt = shownAt ?? _ignore,
-       _messages = messages ?? MessageQueue.anyShowing,
-       super(null) {
-    _messageUp = _messages.value;
-    _messages.addListener(_onMessages);
-  }
+       _messages = messages ?? MessageQueue.activity,
+       super(null);
 
   /// Whether a tip was already seen on this device, and recording that.
   final bool Function(String id) seen;
@@ -51,8 +50,9 @@ class TipsController extends ValueNotifier<TipMessage?> {
   final void Function(int ms) _shownAt;
   final Clock clock;
 
-  /// Whether a snack bar is up.
-  final ValueListenable<bool> _messages;
+  /// Whether a snack bar is up, and when one last was (app-wide, so a
+  /// snack bar in another notebook counts too).
+  final MessageActivity _messages;
 
   static int? _never() => null;
   static void _ignore(int _) {}
@@ -72,7 +72,7 @@ class TipsController extends ValueNotifier<TipMessage?> {
   /// The least time between two tips.
   static const Duration between = Duration(minutes: 10);
 
-  /// No tip this soon after a snack bar.
+  /// No tip this soon after a snack bar (anywhere in the app).
   static const Duration afterMessage = Duration(seconds: 60);
 
   static const Duration _tick = Duration(milliseconds: 250);
@@ -86,15 +86,14 @@ class TipsController extends ValueNotifier<TipMessage?> {
   bool _spent = false;
   bool _disposed = false;
   bool _rested = true;
-  late bool _messageUp;
   Timer? _rest;
-  Timer? _quiet;
   Timer? _ticker;
   Duration _shownFor = Duration.zero;
   int _eraserPicks = 0;
   ToolSettings? _tools;
   EditorTool? _tool;
   LiveInk? _pen;
+  LassoPath? _lasso;
   bool Function()? _hasPdf;
   Listenable? _selection;
   bool Function() _selected = _nothing;
@@ -104,13 +103,15 @@ class TipsController extends ValueNotifier<TipMessage?> {
   /// PDF text where the notebook [hasPdf]) unless something is [selected];
   /// a selection ([selection] notifies) is the tip done. Picking the eraser
   /// a second time offers [EditorTip.scribble]. Any change of [pen] (the
-  /// live ink) is pen activity. [penButton] is what the side button does.
+  /// live ink: pens, the highlighter, shapes) or of [lasso] (the loop being
+  /// drawn) is pen activity. [penButton] is what the side button does.
   void followTools(
     ToolSettings tools, {
     bool Function()? hasPdf,
     Listenable? selection,
     bool Function()? selected,
     LiveInk? pen,
+    LassoPath? lasso,
     PenButtonAction Function()? penButton,
   }) {
     _tools = tools..addListener(_onTools);
@@ -119,6 +120,7 @@ class TipsController extends ValueNotifier<TipMessage?> {
     _selection = selection?..addListener(_onSelection);
     _selected = selected ?? _nothing;
     _pen = pen?..addListener(_onPen);
+    _lasso = lasso?..addListener(_onPen);
     _penButton = penButton ?? _eraser;
   }
 
@@ -137,7 +139,7 @@ class TipsController extends ValueNotifier<TipMessage?> {
   }
 
   void _onPen() {
-    final down = _pen!.isDrawing;
+    final down = (_pen?.isDrawing ?? false) || !(_lasso?.isEmpty ?? true);
     // Writing on puts hold to snap off to the next shape.
     if (down && !_writing.value) _due.remove(EditorTip.holdToSnap);
     _writing.value = down;
@@ -149,10 +151,12 @@ class TipsController extends ValueNotifier<TipMessage?> {
     });
   }
 
-  void _onMessages() {
-    _messageUp = _messages.value;
-    _quiet?.cancel();
-    _quiet = _messageUp ? null : Timer(afterMessage, () => _quiet = null);
+  bool get _messageUp => _messages.value;
+
+  /// Whether a snack bar is up, or was less than [afterMessage] ago.
+  bool _nearMessage(int now) {
+    final last = _messages.lastUpAt;
+    return last != null && now - last < afterMessage.inMilliseconds;
   }
 
   /// Whether [EditorTip.holdToSnap] is still to be shown (the editor then
@@ -192,7 +196,7 @@ class TipsController extends ValueNotifier<TipMessage?> {
     final due = [..._due]..sort((a, b) => a.index - b.index);
     _due.clear();
     final now = clock.nowMs(), last = _lastShownAt();
-    if (_spent || value != null || _messageUp || _quiet != null) return;
+    if (_spent || value != null || _nearMessage(now)) return;
     if (last != null && now - last < between.inMilliseconds) return;
     for (final tip in due) {
       if (seen(tip.name) || !_applies(tip)) continue;
@@ -228,9 +232,8 @@ class TipsController extends ValueNotifier<TipMessage?> {
     _tools?.removeListener(_onTools);
     _selection?.removeListener(_onSelection);
     _pen?.removeListener(_onPen);
-    _messages.removeListener(_onMessages);
+    _lasso?.removeListener(_onPen);
     _rest?.cancel();
-    _quiet?.cancel();
     _ticker?.cancel();
     _writing.dispose();
     super.dispose();

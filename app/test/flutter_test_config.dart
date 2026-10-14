@@ -4,11 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_font.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:len/ui/messages.dart';
 
 /// Runs before every test file: plugins without a platform side in tests
 /// and the platform channel answer like an empty system clipboard, and the bundled fonts
 /// (Inter, the text-box fonts, Material Symbols) are loaded (tests otherwise only have the
-/// Ahem-like test font), so the UI and text boxes measure and render as in the app.
+/// Ahem-like test font), so the UI and text boxes measure and render as in the app. Each
+/// test starts with no snack bar left from the one before.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -16,6 +18,9 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
     (call) async => call.method == 'files' ? const <Object>[] : null,
   );
   mockEmptyClipboard();
+  // Each test starts with no snack bar behind it (the editor's tips keep a
+  // minute away from one, app-wide).
+  setUp(MessageQueue.debugReset);
   await loadTextFonts();
   await testMain();
 }

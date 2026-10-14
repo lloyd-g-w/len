@@ -8,6 +8,8 @@ import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/document/page_overview.dart';
 import 'package:len/ui/app_theme.dart';
 
+import 'support/semantics_actions.dart';
+
 void main() {
   testWidgets('selection mode: select, bookmark, delete many; add page tile', (tester) async {
     tester.view
@@ -71,6 +73,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Duplicate page'), findsNothing);
     expect(commands.last, (PageCommand.insertWithTemplate, pages.first.id));
+    // Screen readers offer it as an action on the row.
+    final semantics = tester.ensureSemantics();
+    await tester.tap(find.byTooltip('Page 2 options'));
+    await tester.pumpAndSettle();
+    await performCustomAction(tester, 'Add page after', 'Add page with template');
+    expect(find.text('Duplicate page'), findsNothing);
+    expect(commands.last, (PageCommand.insertWithTemplate, pages[1].id));
+    semantics.dispose();
     commands.clear();
 
     await tester.tap(find.text('Select'));

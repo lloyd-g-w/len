@@ -362,8 +362,10 @@ or deleted pages in order with ink. Snack bars' Undo calls
   the first edit). `TipsController` (`chrome/editor_tips.dart`) teaches each input
   without an affordance once per device, on a budget (R9-1): at most one tip per editor
   (notebook opening), ≥ 10 min apart (`SettingsRepository.lastTipAt`), none within 60 s
-  of a snack bar (`MessageQueue.anyShowing`), and only once the pen (`LiveInk`) has rested
-  2 s. A tip never replaces another (a later trigger is dropped and waits for its next
+  of a snack bar anywhere in the app (`MessageQueue.activity`: a `MessageActivity` keeps
+  when one was last up, so a notebook opened after a snack bar elsewhere waits too), and
+  only once the pen has rested 2 s (`LiveInk`: pens and shapes; `LassoPath`: a lasso loop
+  being drawn). A tip never replaces another (a later trigger is dropped and waits for its next
   one); several due at once go by priority (`EditorTip` order): the side button (a stylus
   contact, from the second opening on: the first has the "Stylus detected" message;
   phrased for `PenButtonAction`), hold to snap (a hand-drawn line or shape,
@@ -2347,8 +2349,8 @@ dialog on tablets / desktops, bottom sheet on phones; `sheet_parts.dart`: `Sheet
 left-aligned Heading and ✕, `SheetActions` with Cancel and one filled primary, stacked on
 phones), confirms (`app_dialogs.dart`: `confirmAction`, `AppDialog` with a left-aligned title
 and a tinted `DialogIcon` only when destructive or in progress, `DialogBody` width) and
-messages (`messages.dart`: `showMessage`; `MessageQueue` counts the snack bars up per messenger
-and `MessageQueue.stepAside` fades standing notices such as the missing-PDF card while one shows,
+messages (`messages.dart`: `showMessage`; `MessageQueue` counts the snack bars up per messenger,
+keeps app-wide whether one is up and when one last was (`MessageQueue.activity`) and `MessageQueue.stepAside` fades standing notices such as the missing-PDF card while one shows,
 so one message shows at a time), segmented buttons that stack rather than shrink when they
 don't fit (`fit_segments.dart`: `FitSegments`). Floating chrome: `floating_panel.dart`
 (`FloatingPanel`, the `raised` surface; `radius: Radii.pill` for pills) and `chrome_fade.dart`

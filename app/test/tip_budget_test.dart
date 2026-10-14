@@ -8,8 +8,13 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/chrome/editor_tips.dart';
 import 'package:len/features/editor/chrome/tip_banner.dart';
 import 'package:len/ink/input/live_ink.dart';
+import 'package:len/ink/selection/lasso_path.dart';
 import 'package:len/ink/tool_settings.dart';
+import 'package:len/ink/tools/pointer_tool.dart';
+import 'package:len/ink/tools/shape_tool.dart';
+import 'package:len/ink/viewport.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:len/ui/messages.dart';
 
 /// Time from fake_async, so the budget's minutes pass in the test.
 class _FakeClock extends Clock {
@@ -29,9 +34,12 @@ class _Device {
   final FakeAsync async;
   final seen = <String>{};
   int? lastShownAt;
-  final messages = ValueNotifier(false);
+
+  /// The app's snack bars (app-wide: every notebook's editor sees them).
+  late final messages = MessageActivity(nowMs: _FakeClock(async).nowMs);
   final tools = ToolSettings();
   final pen = LiveInk();
+  final lasso = LassoPath();
   final selected = ValueNotifier(false);
   PenButtonAction penButton = PenButtonAction.eraser;
 
@@ -49,6 +57,7 @@ class _Device {
         selection: selected,
         selected: () => selected.value,
         pen: pen,
+        lasso: lasso,
         penButton: () => penButton,
       );
 
@@ -194,12 +203,12 @@ void main() {
       fakeAsync((async) {
         final d = _Device(async);
         final tips = d.open();
-        d.messages.value = true;
+        d.messages.up = true;
         tips.offer(EditorTip.penButton);
         async.flushMicrotasks();
         expect(tips.value, isNull, reason: 'a snack bar is up');
         async.elapse(const Duration(seconds: 4));
-        d.messages.value = false;
+        d.messages.up = false;
         async.elapse(TipsController.afterMessage - const Duration(seconds: 1));
         tips.offer(EditorTip.penButton);
         async.flushMicrotasks();
@@ -209,14 +218,73 @@ void main() {
         async.flushMicrotasks();
         expect(tips.value?.tip, EditorTip.penButton);
 
-        d.messages.value = true; // Hides the tip: its time stops.
+        d.messages.up = true; // Hides the tip: its time stops.
         async.elapse(const Duration(seconds: 30));
         expect(d.seen, isEmpty);
         async.flushMicrotasks();
         expect(tips.value, isNotNull);
-        d.messages.value = false;
+        d.messages.up = false;
         async.elapse(TipsController.seenAfter);
         expect(d.seen, {EditorTip.penButton.name});
+        tips.dispose();
+      });
+    });
+
+    test('a snack bar in another notebook keeps tips away for its minute too', () {
+      fakeAsync((async) {
+        final d = _Device(async);
+        final first = d.open();
+        d.messages.up = true;
+        async.elapse(const Duration(seconds: 4));
+        d.messages.up = false;
+        first.dispose();
+        async.elapse(const Duration(seconds: 30));
+        final second = d.open(); // Another notebook, opened after the snack bar went.
+        second.offer(EditorTip.penButton);
+        async.flushMicrotasks();
+        expect(second.value, isNull, reason: 'within the minute');
+        async.elapse(const Duration(seconds: 30));
+        second.offer(EditorTip.penButton);
+        async.flushMicrotasks();
+        expect(second.value?.tip, EditorTip.penButton);
+        second.dispose();
+      });
+    });
+
+    test('drawing a lasso loop or a shape is pen activity', () {
+      fakeAsync((async) {
+        final d = _Device(async);
+        final tips = d.open();
+        d.lasso.begin(Offset.zero);
+        tips.offer(EditorTip.penButton);
+        for (var i = 1; i < 20; i++) {
+          d.lasso.add(Offset(i * 10, i * 5));
+          async.elapse(const Duration(milliseconds: 250));
+        }
+        expect(tips.value, isNull, reason: 'never while a loop is drawn');
+        d.lasso.clear();
+        async.elapse(rest - const Duration(milliseconds: 250));
+        expect(tips.value, isNull, reason: 'the pen rests 2 s first');
+        async.elapse(const Duration(milliseconds: 250));
+        expect(tips.value?.tip, EditorTip.penButton);
+        expect(tips.writing.value, isFalse);
+        d.lasso.begin(Offset.zero);
+        expect(tips.writing.value, isTrue, reason: 'the tip fades under a loop');
+        d.lasso.clear();
+        expect(tips.writing.value, isFalse);
+
+        // Shapes draw through the live ink.
+        final shapes = ShapeTool(
+          model: () => throw StateError('not committed'),
+          live: d.pen,
+          tools: d.tools,
+          viewport: ViewportController(),
+        );
+        shapes.down(const ToolPointer(screen: Offset.zero, world: Offset.zero));
+        shapes.move(const ToolPointer(screen: Offset(40, 40), world: Offset(40, 40)));
+        expect(tips.writing.value, isTrue, reason: 'the tip fades under a shape');
+        shapes.cancel();
+        expect(tips.writing.value, isFalse);
         tips.dispose();
       });
     });
