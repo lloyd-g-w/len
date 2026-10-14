@@ -127,8 +127,21 @@ class RecordingController extends ChangeNotifier {
 
   /// Starts a new recording. Returns false (with [lastError]) if it could
   /// not start.
-  Future<bool> start() async {
-    if (_state != RecorderState.idle) return false;
+  Future<bool> start() {
+    if (_state != RecorderState.idle) return Future.value(false);
+    final starting = _starting = _start();
+    unawaited(
+      starting.whenComplete(() {
+        if (identical(_starting, starting)) _starting = null;
+      }),
+    );
+    return starting;
+  }
+
+  /// The start under way, if any ([shutdown] lets it settle first).
+  Future<bool>? _starting;
+
+  Future<bool> _start() async {
     _set(RecorderState.starting);
     lastError = null;
     final capture = _capture ??= backends.capture();
@@ -309,6 +322,9 @@ class RecordingController extends ChangeNotifier {
   Future<void> shutdown() async {
     _disposed = true;
     _ticker?.cancel();
+    // A start under way gives up (or, past the point of no return, its
+    // recording is stopped and saved here) before the recorder goes.
+    await _starting;
     if (_state.isActive) await stop();
     unawaited(_levels?.cancel());
     await _capture?.dispose();
