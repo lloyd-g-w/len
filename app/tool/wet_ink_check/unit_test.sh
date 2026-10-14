@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs the Kotlin wet-ink unit tests: the model's (android/app/src/test/.../
 # WetInkModelTest.kt, against the shared golden in src/test/resources), the
-# flat ends', the prediction's and the incoming files' names, on a plain JVM, without Gradle. Run from
+# flat ends', the prediction's, the incoming files' names and the playback
+# service's events, on a plain JVM, without Gradle. Run from
 # app/:  tool/wet_ink_check/unit_test.sh   (LEN_NO_NIX=1: kotlinc, java from PATH)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -20,10 +21,13 @@ trap 'rm -rf "$out"' EXIT
     android/app/src/main/kotlin/dev/len/len/WetInkEnds.kt \
     android/app/src/main/kotlin/dev/len/len/WetInkPrediction.kt \
     android/app/src/main/kotlin/dev/len/len/IncomingNames.kt \
+    android/app/src/main/kotlin/dev/len/len/PlaybackEvents.kt \
     android/app/src/test/kotlin/dev/len/len/WetInkModelTest.kt \
     android/app/src/test/kotlin/dev/len/len/WetInkEndsTest.kt \
     android/app/src/test/kotlin/dev/len/len/WetInkPredictionTest.kt \
-    android/app/src/test/kotlin/dev/len/len/IncomingNamesTest.kt -d '$out' &&
+    android/app/src/test/kotlin/dev/len/len/IncomingNamesTest.kt \
+    android/app/src/test/kotlin/dev/len/len/PlaybackEventsTest.kt -d '$out' &&
   java -cp \"$out:$cp:android/app/src/test/resources:\$stdlib\" \
     org.junit.runner.JUnitCore dev.len.len.WetInkModelTest dev.len.len.WetInkEndsTest \
-    dev.len.len.WetInkPredictionTest dev.len.len.IncomingNamesTest"
+    dev.len.len.WetInkPredictionTest dev.len.len.IncomingNamesTest \
+    dev.len.len.PlaybackEventsTest"
