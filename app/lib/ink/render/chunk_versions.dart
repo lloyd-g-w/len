@@ -2,9 +2,9 @@ import '../../domain/chunk_grid.dart';
 import '../../domain/stroke.dart';
 
 /// What a raster cache (`ChunkRasterCache`) knows about each chunk's
-/// content: a version number that changes with every change, the pen
-/// strokes appended since its images were made (drawn over them until
-/// fresh ones arrive) and whether it was edited while it had no image.
+/// content: a version number that changes with every change, the strokes
+/// added since its images were made (pen strokes drawn over them,
+/// highlights beneath them, until fresh ones arrive) and whether it was edited while it had no image.
 class ChunkVersions {
   /// Content version per chunk; any change gets a fresh number from
   /// [_counter], and chunks without an entry are at [_epoch].
@@ -12,7 +12,7 @@ class ChunkVersions {
   int _counter = 0;
   int _epoch = 0;
 
-  /// Pen strokes appended to a chunk, with the version that added them.
+  /// Strokes added to a chunk (appended pen strokes, or highlights), with the version that added them.
   final Map<ChunkKey, List<(int, Stroke)>> _overlays = {};
 
   /// Chunks edited (not just loaded) while they had no image: until one is

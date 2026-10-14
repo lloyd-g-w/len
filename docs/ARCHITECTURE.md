@@ -171,9 +171,12 @@ draws a few dozen images, however much ink is on screen.
   keep their images, stale, and draw it as a vector *beneath* them — as
   the live highlighter was drawn, beneath the committed ink — until they
   are re-rendered (urgently, from the chunk pictures). Before, a highlight
-  over more than two tiles vanished for the frame or two until they were
-  (`test/pen_up_frames_test.dart` checks every frame around pen-up, pen
-  and highlighter, at 1× and 2×).
+  over more than two tiles vanished for the frame or two until they were.
+  Zoomed out far, the level-of-detail rasters likewise keep their images
+  and draw new highlights beneath them (new pen strokes over them) instead
+  of a frame of vectors (`test/pen_up_frames_test.dart` checks every frame
+  around pen-up, pen and highlighter, on a canvas at 50–200 % and 1×/2×,
+  and on a continuous notebook's page from tiles and from rasters).
 - **Loads** (`SurfaceChange.loaded`: stored content arriving) keep the
   images of the tiles they touch as stale stand-ins until re-rendered (that
   content was not on screen yet), so a loading canvas never drops to

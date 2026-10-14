@@ -134,8 +134,9 @@ class ChunkRasterCache extends ChangeNotifier {
   /// a stand-in or not at all for a frame or two.
   bool needsVectors(ChunkKey chunk) => _versions.edited.contains(chunk);
 
-  /// Strokes to draw over [image] (as returned by [imageFor] for [chunk]):
-  /// those appended after it was made.
+  /// Strokes added to [chunk] after [image] (as returned by [imageFor])
+  /// was made, to draw with it: pen strokes over it, highlighter strokes
+  /// beneath it (as the pen ink covers them).
   List<Stroke> overlayOf(ChunkKey chunk, ui.Image image) {
     for (final level in levels) {
       final key = (chunk: chunk, level: level);
@@ -233,7 +234,8 @@ class ChunkRasterCache extends ChangeNotifier {
   }
 
   void _onChange(SurfaceChange change) {
-    final appended = change.appended;
+    // New pen strokes go over the images, new highlights beneath them.
+    final appended = change.appended ?? change.underlaid;
     final chunks = change.chunks;
     if (!change.loaded) _stored?.forget(chunks);
     if (change.loaded && chunks != null) {

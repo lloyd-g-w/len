@@ -56,17 +56,22 @@ void paintLod(
     }
     final source = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
     final rect = ChunkGrid.rectOf(key);
-    canvas.drawImageRect(image, source, rect, _imagePaint);
-    final overlay = rasters.overlayOf(key, image);
-    if (overlay.isEmpty) continue;
-    // Strokes committed since the raster was made, until it is redone.
-    canvas
-      ..save()
-      ..clipRect(rect);
-    for (final stroke in overlay) {
-      StrokeRenderer.draw(canvas, stroke);
+    // Strokes committed since the raster was made, until it is redone:
+    // highlights beneath it (the pen ink covers them), pen ink over it.
+    final added = rasters.overlayOf(key, image);
+    void draw(bool highlights) {
+      canvas
+        ..save()
+        ..clipRect(rect);
+      for (final stroke in added) {
+        if (stroke.tool.isHighlighter == highlights) StrokeRenderer.draw(canvas, stroke);
+      }
+      canvas.restore();
     }
-    canvas.restore();
+
+    if (added.any((s) => s.tool.isHighlighter)) draw(true);
+    canvas.drawImageRect(image, source, rect, _imagePaint);
+    if (added.any((s) => !s.tool.isHighlighter)) draw(false);
   }
   canvas.restore();
   if (missing.isEmpty) return;
