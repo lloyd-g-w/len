@@ -352,7 +352,7 @@ Tablet / desktop (≥ 840)                                       Phone (< 840)
   goes from 720 to 840.
 - **Header** (`library_header.dart`): the title (folder or breadcrumbs) with a caption
   ("12 notebooks"). On the right: search (a 280-dp field when wide; on phones a 🔍 that
-  expands over the title); ⊕▾ (wide only: New notebook, New canvas, Import PDF…, New
+  expands over the title); ⊕▾ (wide only: New notebook, Import PDF…, Import Len file…, New
   folder); ⇅ View (Sort: Last edited / Created / Name; Grid / List; Select…). The
   separate select, sort and layout buttons go; Select… is also in each card's menu.
 - **Grid** (`library_content.dart`, `notebook_card.dart`): covers at 0.72 aspect, radius

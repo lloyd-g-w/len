@@ -35,13 +35,7 @@ enum SheetImport { pdf, len }
 /// the form on wide screens; a full-height sheet on phones, its preview
 /// strip scrolling away with the form.
 class NewNotebookSheet extends StatefulWidget {
-  const NewNotebookSheet({
-    super.key,
-    this.wide = false,
-    this.today,
-    this.kind = NotebookKind.paged,
-    this.onImport,
-  });
+  const NewNotebookSheet({super.key, this.wide = false, this.today, this.onImport});
 
   /// Offers "Import PDF…" and "Import Len file…" under Notebook / Canvas,
   /// which close the sheet and call this: where phones, which have no ⊕▾,
@@ -54,12 +48,8 @@ class NewNotebookSheet extends StatefulWidget {
   /// Today's date, the default start of planners (tests fix it).
   final DateTime? today;
 
-  /// What it starts as (⊕▾ New canvas starts as a canvas).
-  final NotebookKind kind;
-
   static Future<NewNotebookRequest?> show(
     BuildContext context, {
-    NotebookKind kind = NotebookKind.paged,
     ValueChanged<SheetImport>? onImport,
   }) {
     return showDialogOrSheet<NewNotebookRequest>(
@@ -67,7 +57,7 @@ class NewNotebookSheet extends StatefulWidget {
       maxWidth: 840,
       maxHeight: 720,
       minHeight: 560,
-      builder: (_, wide) => NewNotebookSheet(wide: wide, kind: kind, onImport: onImport),
+      builder: (_, wide) => NewNotebookSheet(wide: wide, onImport: onImport),
     );
   }
 
@@ -77,7 +67,7 @@ class NewNotebookSheet extends StatefulWidget {
 
 class _NewNotebookSheetState extends State<NewNotebookSheet> {
   final _title = TextEditingController();
-  late NotebookKind _kind = widget.kind;
+  NotebookKind _kind = NotebookKind.paged;
   late final DateTime _today = widget.today ?? DateTime.now();
   late TemplateSelection _selection = initialSelection(
     PageTemplate.of(_canvas ? PaperStyle.dotted : PaperStyle.collegeRuled),

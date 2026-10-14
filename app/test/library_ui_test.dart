@@ -597,7 +597,7 @@ void main() {
     expect(find.byType(NewNotebookSheet), findsNothing);
   });
 
-  testWidgets('phones: a long press on ⊕ offers a folder, a canvas or a PDF', (tester) async {
+  testWidgets('phones: a long press on ⊕ offers a folder or a PDF', (tester) async {
     final s = await pumpSeeded(
       tester,
       (s) => addNotebook(s, 'Algebra'),
@@ -605,9 +605,10 @@ void main() {
     );
     await tester.longPress(find.byTooltip('New notebook'));
     await tester.pumpAndSettle();
-    for (final item in ['New notebook', 'New canvas', 'Import PDF…', 'New folder…']) {
+    for (final item in ['New notebook', 'Import PDF…', 'New folder…']) {
       expect(find.text(item), findsOneWidget);
     }
+    expect(find.text('New canvas'), findsNothing);
     await tester.tap(find.text('New folder…'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'School');
