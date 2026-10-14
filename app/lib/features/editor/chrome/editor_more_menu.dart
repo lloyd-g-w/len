@@ -188,10 +188,11 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           Symbols.fullscreen_sharp,
           'Focus mode',
           a.onFocusMode,
-          // By name: Flutter labels F-keys as characters when compiled to
+          // As text: Flutter labels F-keys as characters when compiled to
           // JavaScript (their 64-bit key ids lose the plane bits in 32-bit
-          // bitwise operations), so F11 showed as a missing glyph on the web.
-          shortcut: const CharacterActivator('F11'),
+          // bitwise operations), so F11 showed as a missing glyph on the web;
+          // a CharacterActivator only takes one character.
+          shortcutLabel: 'F11',
         ),
       ],
     );
@@ -208,16 +209,27 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
     String label,
     VoidCallback? onPressed, {
     MenuSerializableShortcut? shortcut,
+    String? shortcutLabel,
     bool destructive = false,
   }) => Builder(
     builder: (context) {
-      final error = Theme.of(context).colorScheme.error;
+      final theme = Theme.of(context);
+      final error = theme.colorScheme.error;
+      final hints = !Targets.touchFirst;
       return MenuItemButton(
         style: destructive
             ? MenuItemButton.styleFrom(foregroundColor: error, iconColor: error)
             : null,
         leadingIcon: Icon(icon),
-        shortcut: Targets.touchFirst ? null : shortcut,
+        shortcut: hints ? shortcut : null,
+        trailingIcon: hints && shortcutLabel != null
+            ? Text(
+                shortcutLabel,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              )
+            : null,
         onPressed: onPressed,
         child: Text(label),
       );
