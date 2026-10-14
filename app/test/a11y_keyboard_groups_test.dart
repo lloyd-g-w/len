@@ -71,8 +71,10 @@ void main() {
   keyboardTest('the shape options: one stop at the chosen shape, arrows move', (tester) async {
     await pumpEditor(tester);
     await tapAll(tester, toolOptions('Shapes (S)'));
-    final stops = await tabs(tester, 3);
-    expect(stops.toSet().length, 1, reason: 'Tab cycles in the popover, one stop: $stops');
+    // Two groups, one stop each: the shapes and their fill.
+    final stops = await tabs(tester, 4);
+    expect(stops.toSet().length, 2, reason: 'Tab cycles in the popover: $stops');
+    expect(stops[0], stops[2]);
     expect(focusedSelected(tester), isTrue);
     final chosen = focused(tester);
     await press(tester, LogicalKeyboardKey.arrowRight);
