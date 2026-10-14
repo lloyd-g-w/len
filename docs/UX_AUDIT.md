@@ -298,6 +298,11 @@ canvas long press offers content only. Insert ⊕ lost "Page with
 template…": holding (or right-clicking) "Add page after", the Add page
 footer or the overview's add tile asks for a template
 (`PageCommand.insertWithTemplate`, `MenuRow.alternate`).
+*Follow-up (`fix/r9-followups`):* screen readers get it as a custom action
+"Add page with template" on the "Add page after" row (`MenuRow.alternateAction`,
+`PageCommand.alternateAction`); hovering the row shows "Hold or right-click for a
+template"; the Add page footer has the caption "Hold for a template" under it until
+it has been held once (one-time notice `add-page-hold`, not a tip).
 
 **✅ R9-4 P2 · Vocabulary drift.** Apply the glossary's "Found instead"
 column (11 strings). Effort S.
