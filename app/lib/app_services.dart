@@ -105,6 +105,7 @@ class AppServices {
     final recordings = RecordingRepository(database, deviceId: deviceId, clock: clock);
     final pages = PageRepository(database, deviceId: deviceId, clock: clock);
     final outline = OutlineRepository(database, deviceId: deviceId, clock: clock);
+    final recognisedText = RecognisedTextRepository(database, deviceId: deviceId, clock: clock);
     final notebooks = NotebookRepository(
       database,
       deviceId: deviceId,
@@ -113,11 +114,11 @@ class AppServices {
       elements: elements,
       recordings: recordings,
       outline: outline,
+      recognisedText: recognisedText,
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
     final templates = TemplateRepository(database, deviceId: deviceId, clock: clock);
-    final recognisedText = RecognisedTextRepository(database, deviceId: deviceId, clock: clock);
     final blobs = BlobStore(database, blobBackend ?? MemoryBlobBackend(), clock: clock);
     final engine = SyncEngine(
       database: database,
