@@ -131,6 +131,20 @@ class ScanSession extends ChangeNotifier {
     _showCurrent();
   }
 
+  /// Moves page [from] to position [to] (both 0-based, [to] counted after
+  /// taking it out); the current page stays current.
+  void move(int from, int to) {
+    final n = _pages.length;
+    if (from < 0 || from >= n || to < 0 || to >= n || from == to) return;
+    final current = this.current;
+    _pages.insert(to, _pages.removeAt(from));
+    _index = _pages.indexOf(current!);
+    notifyListeners();
+  }
+
+  /// Moves the current page [delta] places (−1: earlier), as far as it goes.
+  void moveCurrent(int delta) => move(_index, (_index + delta).clamp(0, _pages.length - 1));
+
   /// Removes the current page.
   void removeCurrent() {
     final page = current;

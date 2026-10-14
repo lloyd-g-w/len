@@ -1,4 +1,5 @@
 import 'package:cross_file/cross_file.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -217,6 +218,56 @@ void main() {
     await tester.pump();
     expect(session.showsResult, isTrue);
     await pumpUntil(tester, () => session.result != null);
+    await s.tap(find.byTooltip('Close'));
+    await s.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+  }, variant: noCamera);
+
+  testWidgets('pages reorder by dragging them in the strip and with Ctrl+arrows', (tester) async {
+    await pumpLibrary(tester);
+    ScanSources.debugSources = fakeSources(
+      picks: [
+        [photoFile('a.png'), photoFile('b.png'), photoFile('c.png')],
+      ],
+    );
+    await scanFromLibrary(tester);
+    final s = scan(tester);
+    await s.untilPages(3);
+    final session = tester.widget<ScanScreen>(find.byType(ScanScreen)).session;
+    final [a, b, c] = session.pages;
+    expect(session.current, c);
+
+    // Drag page 1 past page 3 (with a mouse, at once).
+    final from = tester.getCenter(find.bySemanticsLabel('Page 1'));
+    final to = tester.getCenter(find.bySemanticsLabel('Page 3'));
+    final drag = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
+    for (var i = 1; i <= 10; i++) {
+      await drag.moveTo(Offset.lerp(from, to + const Offset(40, 0), i / 10)!);
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(session.pages, [b, c, a]);
+    expect(session.current, c, reason: 'the current page stays current');
+
+    // ← / → pick the page before / after; Ctrl moves the current one.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(session.current, a);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft); // Already first.
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(session.pages, [a, b, c]);
+    expect(session.index, 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    expect(session.index, 0);
+
+    // A tap still selects.
+    await s.tap(find.bySemanticsLabel('Page 2'));
+    expect(session.current, b);
     await s.tap(find.byTooltip('Close'));
     await s.tap(find.text('Discard'));
     await tester.pumpAndSettle();

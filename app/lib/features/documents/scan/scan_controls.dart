@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/labelled_action.dart';
 import '../../../ui/segment_label.dart';
+import 'scan_page_strip.dart';
 import 'scan_session.dart';
 
 /// The scan screen's foot: the pages (flattened previews, the current one
@@ -29,9 +30,6 @@ class ScanControls extends StatelessWidget {
   /// Adds pages; gets the + tile's context to anchor a menu on.
   final void Function(BuildContext anchor) onAdd;
 
-  /// The height of the page strip's thumbnails.
-  static const double thumbHeight = 72;
-
   /// Narrower than this, the look goes on its own row.
   static const double _oneRow = 720;
 
@@ -56,7 +54,7 @@ class ScanControls extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _PageStrip(session: session, busy: busy, onAdd: onAdd),
+                  ScanPageStrip(session: session, busy: busy, onAdd: onAdd),
                   const SizedBox(height: Gaps.sm),
                   if (oneRow)
                     Row(children: [commands, const Spacer(), look])
@@ -123,136 +121,6 @@ class ScanControls extends StatelessWidget {
     ],
     selected: {session.filter},
     onSelectionChanged: (s) => session.filter = s.single,
-  );
-}
-
-/// The pages as their flattened previews in a row that scrolls, the
-/// current one ringed; + at the end adds more.
-class _PageStrip extends StatelessWidget {
-  const _PageStrip({required this.session, required this.busy, required this.onAdd});
-
-  final ScanSession session;
-  final bool busy;
-  final void Function(BuildContext anchor) onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final pages = session.pages;
-    return SizedBox(
-      height: ScanControls.thumbHeight + 2 * (Hairline.rule + Gaps.xxs),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: pages.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: Gaps.sm),
-        itemBuilder: (context, i) => i == pages.length
-            ? _AddTile(enabled: !busy, onAdd: onAdd)
-            : _Thumb(
-                key: ObjectKey(pages[i]),
-                page: pages[i],
-                number: i + 1,
-                current: i == session.index,
-                hint: i != session.index
-                    ? null
-                    : session.showsResult
-                    ? 'Show the corners'
-                    : 'Show the cleaned-up page',
-                onTap: () => i == session.index ? session.toggleResult() : session.select(i),
-              ),
-      ),
-    );
-  }
-}
-
-class _Thumb extends StatelessWidget {
-  const _Thumb({
-    super.key,
-    required this.page,
-    required this.number,
-    required this.current,
-    required this.hint,
-    required this.onTap,
-  });
-
-  final ScanPageDraft page;
-  final int number;
-  final bool current;
-
-  /// What tapping it does (the current page's: switch views), if not
-  /// just selecting it.
-  final String? hint;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final preview = page.preview;
-    // Until the preview is in, a page of the outline's turned shape.
-    final aspect = preview == null ? page.aspect : preview.width / preview.height;
-    return Semantics(
-      button: true,
-      selected: current,
-      label: 'Page $number',
-      hint: hint,
-      child: GestureDetector(
-        onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: _tooltip(
-            AnimatedContainer(
-              duration: Motion.fast,
-              padding: const EdgeInsets.all(Hairline.rule + Gaps.xxs),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(Radii.xs),
-                border: Border.all(
-                  color: current ? theme.colorScheme.primary : Colors.transparent,
-                  width: Hairline.rule,
-                ),
-              ),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Palette.paper,
-                  boxShadow: Shadows.low(theme.brightness),
-                ),
-                child: SizedBox(
-                  height: ScanControls.thumbHeight,
-                  width: ScanControls.thumbHeight * aspect.clamp(0.4, 2.5),
-                  child: preview == null ? null : RawImage(image: preview, fit: BoxFit.fill),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// [child] with [hint] on hover (not on a long press: that drags).
-  Widget _tooltip(Widget child) => hint == null
-      ? child
-      : Tooltip(
-          message: hint,
-          triggerMode: TooltipTriggerMode.manual,
-          excludeFromSemantics: true,
-          child: child,
-        );
-}
-
-class _AddTile extends StatelessWidget {
-  const _AddTile({required this.enabled, required this.onAdd});
-
-  final bool enabled;
-  final void Function(BuildContext anchor) onAdd;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Builder(
-      builder: (context) => IconButton(
-        tooltip: 'Add page',
-        icon: const Icon(Symbols.add_sharp),
-        iconSize: Glyphs.bar,
-        onPressed: enabled ? () => onAdd(context) : null,
-      ),
-    ),
   );
 }
 

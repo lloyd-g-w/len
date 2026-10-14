@@ -159,6 +159,14 @@ class _ScanScreenState extends State<ScanScreen> {
           bindings: {
             const SingleActivator(LogicalKeyboardKey.escape): () => unawaited(_close()),
             const SingleActivator(LogicalKeyboardKey.space): _session.toggleResult,
+            const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+                _session.select(_session.index - 1),
+            const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+                _session.select(_session.index + 1),
+            const SingleActivator(LogicalKeyboardKey.arrowLeft, control: true): () =>
+                _session.moveCurrent(-1),
+            const SingleActivator(LogicalKeyboardKey.arrowRight, control: true): () =>
+                _session.moveCurrent(1),
             const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
               if (count > 0 && !busy) _done();
             },
