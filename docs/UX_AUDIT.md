@@ -1,5 +1,201 @@
 # Len — UX/UI audit
 
+## Round 10 audit — a real week of notes (`review/round10`)
+
+Lens: a first-time stylus user on an Android tablet and on a phone, and a
+keyboard + mouse user on desktop, doing a real week of notes. Walked: the
+first five minutes (first launch, empty library, New notebook, first
+strokes, tools), daily flows (find a notebook, continue writing, add pages,
+lasso, text, images, PDF annotation, export, sync setup) and failure paths
+(offline, bad server, wrong token, cancel mid-import, damaged files). The
+library, flows and editor screenshot suites were rendered (all passed) and
+a sample of ~40 images was viewed; every flow's code was read.
+
+Summary: the screens are calm and consistent; the round found almost no
+visual problems. The bugs are in **keyboard routing** (the editor's
+shortcuts eat editing keys in the in-notebook search field, and Ctrl+Z
+there undoes ink), **state that goes stale** (library search text after
+opening a folder, the device-only notice after a backup, the Back up tile
+after a restore), **races in sync setup** (Cancel during a test still saves)
+and **failure copy** (every PDF failure blamed on the file). Paths are under
+`app/lib/` unless noted. ⬜ open, ✅ fixed on this branch.
+
+### Prioritised items
+
+**R10-1 P0 (desktop) · Editing keys don't work in the editor's search
+field; Ctrl+Z there undoes ink.** ⬜
+- *What:* the editor's `CallbackShortcuts` sit above the search bar
+  (`editor_layers.dart`). A matching binding consumes the key even when
+  `unlessTyping` skips the action, so Backspace, Delete, arrows, Home / End
+  and Ctrl+A / C / X / V never reach the field; Ctrl+Z / Ctrl+Y aren't
+  wrapped at all and undo page ink out of sight. Text boxes escape it with
+  `DefaultTextEditingShortcuts` (`tools/text_box_editor.dart:153`); the
+  search field doesn't.
+- *Fix:* wrap the search slip in `DefaultTextEditingShortcuts`; widget test
+  sending real key events (Backspace, ←, Ctrl+Z).
+- Paths: `search/editor/editor_search_bar.dart`. Effort S.
+
+**R10-2 P1 · Cancelling sync setup during the connection test still saves
+it, with the old token.** ⬜
+- *What:* `_testAndSave` reads `_token.text` again after `await test(…)`;
+  Cancel stays enabled during the test (up to 30 s on an unreachable host)
+  and puts the old token back, so a successful test then saves the new URL
+  with the old token. Typing during the test saves an untested token.
+- *Fix:* read URL and token into locals before the await; Cancel during
+  the test abandons it (no save).
+- Paths: `settings/sync_settings.dart:144-182`. Effort S.
+
+**R10-3 P1 · Opening a folder clears the search but leaves the old text in
+the field.** ⬜
+- *What:* `LibraryController.openFolder` sets the query to '' but the
+  screen's search controller keeps "maths"; the next letter searches
+  "mathsx".
+- *Fix:* the screen clears its field when the controller's query empties.
+- Paths: `library/library_controller.dart:186`, `library/library_screen.dart`.
+  Effort S.
+
+**R10-4 P1 · Ctrl+F does nothing in the library when the search field
+isn't on screen** (desktop windows under ~900 px, empty views). ⬜
+- *Fix:* Ctrl+F opens the search (`_openSearch`) and then focuses it.
+- Paths: `library/library_screen_keys.dart`, `library/library_header.dart`.
+  Effort S.
+
+**R10-5 P1 · New notebook raises the soft keyboard on an Android tablet,
+and the default title shows on tablets only.** ⬜
+- *What:* `autofocus: wide` focuses the title in the dialog form (landscape
+  tablets included): the keyboard covers half the dialog for a stylus user
+  who wants to pick paper and write. The field's hint (the default title,
+  "October 14") only shows while focused, so phones never see which title
+  an empty field gives, and on desktop it reads like typed text.
+- *Fix:* autofocus only with a keyboard (`!Targets.touchFirst`); always
+  float the label so the hint (default title) shows on every form factor.
+- Paths: `library/new_notebook_sheet.dart:178-184`. Effort S.
+
+**R10-6 P1 · "Set up sync…" in the empty library opens Settings at the
+top.** ⬜ A first-time user lands on Theme and must scroll four sections.
+Pass `showSync: true`. Paths: `library/library_content.dart:159`. Effort S.
+
+**R10-7 P1 · With the token rejected, Settings → Sync leads with "Sync
+now".** ⬜
+- *What:* the paused-for-auth state (screenshot `f_sync_rejected_*`)
+  offers Sync now (fails again), Change…, Set up another device… (shares
+  the rejected token) and Turn off sync…. The one useful action is Change….
+- *Fix:* while `waitsForSettings`, Change… becomes the outlined lead
+  action and Sync now / Set up another device… are hidden.
+- Paths: `settings/sync_settings_views.dart:39-58`. Effort S.
+
+**R10-8 P1 · Every PDF import failure says the file "may be damaged, or
+not a PDF".** ⬜
+- *What:* errors from storing the file (disk full, lost content-URI
+  permission, browser quota) go through `pdfOpenFailure` too; the user
+  retries a good file. No Details action, unlike Len import.
+- *Fix:* tell storage failures apart ("Couldn’t copy “x”: …") and offer
+  Details.
+- Paths: `documents/pdf/pdf_import_flow.dart:42-97`,
+  `documents/pdf/pdf_open_failure.dart`. Effort S.
+
+**R10-9 P1 · Overview "Select all" under the Bookmarked filter selects
+hidden pages.** ⬜ Duplicate / Delete / Export then act on pages the user
+can't see. *Fix:* select the shown pages; trim the selection when the
+filter changes. Paths: `documents/overview/page_overview.dart:107,184-197`.
+Effort S.
+
+**R10-10 P1 · "Edit text" from the lasso menu leaves the Text tool on.** ⬜
+- *What:* `_editText` switches to `EditorTool.text` and never back; the
+  next stylus stroke does nothing (a drag is ignored by the text tool),
+  which reads as a dead pen.
+- *Fix:* restore the previous tool when that edit session ends (unless the
+  user picked another tool meanwhile).
+- Paths: `editor/tools/content_layer.dart:136` (tools/* is busy on other
+  branches: left open). Effort S.
+
+**R10-11 P2 · Android back during a library search leaves the app.** ⬜
+`canPop` ignores `isSearching`. *Fix:* back clears the search first.
+Paths: `library/library_screen.dart:190`. Effort S.
+
+**R10-12 P2 · Undo of Duplicate puts the copy in the trash.** ⬜ The trash
+count grows and the copy resurfaces on restore. *Fix:* Undo deletes the
+fresh copy for good. Paths: `library/library_notebook_actions.dart:59-66`.
+Effort S.
+
+**R10-13 P2 · Stale state after Settings actions.** ⬜
+- The "Your notes are only on this device" notice is computed once per
+  library state, so it stays after Settings → Back up library…
+  (`library/library_notice.dart:144`).
+- After Restore from backup… into an empty library, "Back up library…"
+  stays disabled ("Nothing to back up yet") until Settings is reopened
+  (`settings/backup_settings.dart:59-79`).
+- *Fix:* recompute the notice in `build`; rebuild the backup tiles after
+  a restore. Effort S.
+
+**R10-14 P2 · "Keep data" (web) does nothing visible when the browser
+refuses.** ⬜ `if (granted) _dismiss();` has no else and no `mounted`
+check. *Fix:* say so and point at installing Len or sync. Paths:
+`library/library_notice.dart:175`. Effort S.
+
+**R10-15 P2 · Sync form: an empty token goes to the server.** ⬜ It comes
+back as "The server didn’t accept the access token". *Fix:* "Enter the
+access token" locally. Paths: `settings/sync_settings.dart:127-149`. Effort S.
+
+**R10-16 P2 · Restore from a damaged file says "Couldn’t import".** ⬜
+The restore intent is only known after the manifest is read. *Fix:* the
+Settings tile passes the intent, so failures say "Couldn’t restore".
+Paths: `backup/len_import_flow.dart:190-250`. Effort S.
+
+**R10-17 P2 · Opening a big backup shows nothing, and the tile can be
+tapped again.** ⬜ `lenFiles.open` (which reads the contents) runs before
+the progress dialog. *Fix:* open inside the progress dialog; guard the
+flow against running twice. Paths: `backup/len_import_flow.dart:190-208`.
+Effort M.
+
+**R10-18 P2 · A huge PDF can't be cancelled while its pages are measured;
+a batch of PDFs can't be cancelled as a whole.** ⬜ `pageSizes` and the
+blob write take no cancel token; the batch loop opens the next dialog
+straight after a Cancel. *Fix:* pass the token through; a Cancel stops the
+batch. Paths: `documents/pdf/pdf_import.dart:46-70`,
+`documents/import/import_flow.dart:63-72`. Effort M.
+
+**R10-19 P2 · New folder lands out of view with no feedback** (while
+searching inside a folder, or from Favourites / Trash via Ctrl+Shift+N). ⬜
+*Fix:* create it in the open folder even while searching; elsewhere create
+it in Library and go there. Paths: `library/library_operations.dart:55`.
+Effort S.
+
+**R10-20 P2 · PDF text Ctrl+C is silent and steals Ctrl+C from text
+fields.** ⬜ The Copy button says "Copied"; the shortcut doesn't, and it
+isn't wrapped in `unlessTyping`. Paths: `editor/pdf/pdf_layer.dart:23-32`.
+Effort S.
+
+**R10-21 P2 · Overview delete calls `setState` after an await without a
+`mounted` check.** ⬜ Paths: `documents/overview/page_overview.dart:157`.
+Effort S.
+
+**R10-22 P2 · Copy.** ⬜
+- Two-sentence messages whose last sentence has no full stop:
+  `settings/sync_status_line.dart:39` ("…. Sync is paused"),
+  `data/archive/len_format.dart:119,123` (embedded in "Couldn’t import
+  “x”: …"), `settings/backup_settings.dart:37`.
+- Commands that ask first without "…": trash selection "Delete" (asks,
+  `library/selection/selection_bar.dart:46`).
+- Straight apostrophes in UI strings beside the ’ used elsewhere
+  (`settings/sync_settings*.dart`, `storage/storage_attention.dart`,
+  `library/library_notice.dart`).
+- "Rendering page" (`editor/document/document_commands.dart:155`) vs
+  "Adding image…" for progress titles.
+- Effort S.
+
+**R10-23 P2 · Cancelling "Adding image…" still stores the image blob.** ⬜
+`runWithProgress` abandons the task, which writes anyway (its contract
+says tasks must not). Paths: `editor/images/editor_images.dart:183`.
+Effort S.
+
+Checked and sound: a notebook reopens at its last page and zoom; empty
+text boxes are cleaned up and edits are one undo step; lasso selections
+drop with their page; Len and PDF import cancel leave nothing behind;
+export cancel discards; sync auth / network errors pause and say so; the
+library's Esc order (selection, then search) and Enter in dialogs.
+
+
 ## Round 9 audit — simplicity (`review/round9`)
 
 Lens: after eight feature rounds, is Len still *elegantly simple*? Every
