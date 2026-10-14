@@ -346,6 +346,22 @@ void main() {
       expect(model.loadedStrokeCount, 2);
     });
 
+    test('a cancelled stylus contact does not block finger taps for good', () {
+      const k = PointerDeviceKind.stylus;
+      input
+        ..handleDown(down(1, const Offset(10, 10), kind: k, t: 1000))
+        ..handleCancel(
+          const PointerCancelEvent(pointer: 1, kind: k, timeStamp: Duration(milliseconds: 1050)),
+        );
+      // Long after the pen went away, a two-finger tap undoes again.
+      input
+        ..handleDown(down(5, const Offset(300, 300), t: 5000))
+        ..handleDown(down(6, const Offset(400, 300), t: 5010))
+        ..handleUp(up(5, const Offset(300, 300), t: 5100))
+        ..handleUp(up(6, const Offset(400, 300), t: 5110));
+      expect(taps, [2]);
+    });
+
     test('side button set to none just draws', () {
       action = PenButtonAction.none;
       stroke(1, const Offset(100, 100), const Offset(200, 100), buttons: kPrimaryStylusButton);

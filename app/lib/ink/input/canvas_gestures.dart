@@ -86,6 +86,11 @@ class CanvasGestures {
   }
 
   void cancel(PointerCancelEvent e) {
+    // Like a lift: a pen still taken for touching would block taps for good.
+    if (e.kind == PointerDeviceKind.stylus || e.kind == PointerDeviceKind.invertedStylus) {
+      taps.noteStylusUp(e.timeStamp);
+      return;
+    }
     taps.cancel(e.pointer);
     if (e.kind == PointerDeviceKind.touch) _twoFingerHold.up(e.pointer);
     if (e.kind == PointerDeviceKind.touch) doubleTap.cancel(e.pointer);
