@@ -14,6 +14,10 @@ import 'media_controls_api.dart';
 /// hiding releases it (the controls disappear). Without a session bus
 /// (e.g. a bare X session) it quietly does nothing.
 class MprisControls implements MediaControls {
+  /// Connects to the session bus (tests use a private one).
+  @visibleForTesting
+  static DBusClient Function() connect = DBusClient.session;
+
   static MprisControls? _current;
   static Future<_Bus?>? _bus;
 
@@ -60,7 +64,7 @@ class _Bus {
   static const String name = 'org.mpris.MediaPlayer2.len';
 
   static Future<_Bus?> connect(void Function(MediaCommand) send) async {
-    final client = DBusClient.session();
+    final client = MprisControls.connect();
     try {
       final player = _Player(send);
       await client.registerObject(player);
