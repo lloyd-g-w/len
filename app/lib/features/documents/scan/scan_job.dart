@@ -7,6 +7,7 @@ import 'scan_enhance.dart';
 import 'scan_geometry.dart';
 import 'scan_warp.dart';
 
+export 'scan_enhance.dart' show ScanFilter;
 export 'scan_geometry.dart';
 export 'scan_image.dart';
 
@@ -29,11 +30,12 @@ class ScanOutput {
 /// render it. Holds only sendable data, so it can run on a worker isolate.
 class ScanJob {
   /// A job flattening [quad] of [source] to a page whose long side is at
-  /// most [maxEdge] pixels, in the document look if [enhance].
+  /// most [maxEdge] pixels, cleaned up by [filter] (as photographed if
+  /// null).
   ScanJob({
     required this.source,
     required this.quad,
-    this.enhance = false,
+    this.filter,
     this.maxEdge = 2500,
     this.jpegQuality = 85,
   });
@@ -44,8 +46,8 @@ class ScanJob {
   /// The document's corners in [source] pixels.
   final Quad quad;
 
-  /// Whether to apply the document look (grey, white paper, crisp ink).
-  final bool enhance;
+  /// The document look (white paper, crisp ink), if any.
+  final ScanFilter? filter;
 
   /// The page's longest side in pixels, at most.
   final int maxEdge;
@@ -71,7 +73,7 @@ class ScanJob {
       r.warp(y, math.min(h, y + rowsPerSlice));
       await yieldNow();
     }
-    if (!enhance) return r.page;
+    if (filter == null) return r.page;
     r.startEnhance();
     await yieldNow();
     for (var y = 0; y < h; y += rowsPerSlice) {
@@ -121,11 +123,11 @@ class _Render {
   void warp(int y0, int y1) => warpRows(job.source, pageToSrc, page, y0, y1);
 
   void startEnhance() {
-    if (job.enhance) _map = EnhanceMap.of(page);
+    if (job.filter != null) _map = EnhanceMap.of(page);
   }
 
   void enhance(int y0, int y1) {
     final map = _map;
-    if (map != null) enhanceRows(page, map, y0, y1);
+    if (map != null) enhanceRows(page, map, y0, y1, filter: job.filter!);
   }
 }

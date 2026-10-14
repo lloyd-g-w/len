@@ -84,6 +84,15 @@ class Quad {
     return Quad.fromCorners(c);
   }
 
+  /// The same outline with its corners renamed so the flattened page comes
+  /// out turned [quarterTurns] × 90° clockwise (what was its bottom left
+  /// becomes its top left).
+  Quad rotated(int quarterTurns) {
+    final c = corners;
+    final k = quarterTurns % 4;
+    return Quad.fromCorners([for (var i = 0; i < 4; i++) c[(i - k + 4) % 4]]);
+  }
+
   /// This quad with every coordinate multiplied by [s].
   Quad scaled(double s) => Quad(topLeft * s, topRight * s, bottomRight * s, bottomLeft * s);
 

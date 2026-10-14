@@ -8,7 +8,7 @@ import 'scan_image.dart';
 /// flatten out) and the tone curve. Build it once with [EnhanceMap.of],
 /// then run [enhanceRows] over the page in as many bands as convenient.
 class EnhanceMap {
-  EnhanceMap._(this._block, this._gw, this._gh, this._paper, this._cx0, this._cfx);
+  EnhanceMap._(this._block, this._gw, this._gh, this._paper, this._cx0, this._cfx, this._balance);
 
   /// Estimates the paper brightness of [image] on a coarse grid: a bright
   /// percentile per block (paper, not ink), spread over neighbouring blocks
@@ -49,7 +49,7 @@ class EnhanceMap {
       cx0[x] = i;
       cfx[x] = f;
     }
-    return EnhanceMap._(block, gw, gh, paper, cx0, cfx);
+    return EnhanceMap._(block, gw, gh, paper, cx0, cfx, _whiteBalance(image, paper, gw, block));
   }
 
   final int _block, _gw, _gh;
@@ -57,26 +57,83 @@ class EnhanceMap {
   final Int32List _cx0;
   final Float32List _cfx;
 
-  /// Output grey by the pixel's brightness relative to the paper's
-  /// (0..255 for 0..1): levels (black at 30 %, white at 88 %), then a
-  /// gamma that keeps faint strokes visible but dark.
-  static final Uint8List _curve = () {
-    const black = 0.3, white = 0.88, gamma = 1.3;
+  /// Per channel (R, G, B): the factor that turns the paper's tint grey.
+  final Float64List _balance;
+
+  /// Gains making the average colour of paper pixels (those nearly as
+  /// bright as the paper around them) grey; at most ×1.5 each.
+  static Float64List _whiteBalance(RgbaImage image, Float64List paper, int gw, int block) {
+    final px = image.pixels, w = image.width;
+    var r = 0.0, g = 0.0, b = 0.0, n = 0;
+    for (var y = 0; y < image.height; y += 4) {
+      for (var x = 0; x < w; x += 4) {
+        final o = (y * w + x) * 4;
+        final lum = (px[o] * 77 + px[o + 1] * 150 + px[o + 2] * 29) >> 8;
+        if (lum < 0.9 * paper[(y ~/ block) * gw + x ~/ block]) continue;
+        r += px[o];
+        g += px[o + 1];
+        b += px[o + 2];
+        n++;
+      }
+    }
+    if (n == 0 || r == 0 || g == 0 || b == 0) return Float64List.fromList([1, 1, 1]);
+    final grey = (r * 77 + g * 150 + b * 29) / 256;
+    double gain(double c) => (grey / c).clamp(1 / 1.5, 1.5);
+    return Float64List.fromList([gain(r), gain(g), gain(b)]);
+  }
+
+  /// Tone curves (0..255 for a brightness 0..1 relative to the paper's).
+  /// Greyscale: levels (black at 30 %, white at 88 %), then a gamma that
+  /// keeps faint strokes visible but dark.
+  static final Uint8List _grey = _levels(black: 0.3, white: 0.88, gamma: 1.3);
+
+  /// Colour, per channel: gentler, so colours keep their tone.
+  static final Uint8List _colour = _levels(black: 0.12, white: 0.9, gamma: 1.15);
+
+  /// Black and white: a steep ramp (a few grey levels keep edges smooth).
+  static final Uint8List _blackWhite = _levels(black: 0.62, white: 0.74, gamma: 1);
+
+  static Uint8List _levels({required double black, required double white, required double gamma}) {
     final lut = Uint8List(256);
     for (var i = 0; i < 256; i++) {
       final t = ((i / 255 - black) / (white - black)).clamp(0.0, 1.0);
       lut[i] = (math.pow(t, gamma) * 255).round();
     }
     return lut;
-  }();
+  }
 }
 
-/// Turns rows [y0, y1) of [img] into the document look, in place: grey
-/// (R = G = B), paper white, ink dark. [map] comes from `EnhanceMap.of`
-/// on the same image.
-void enhanceRows(RgbaImage img, EnhanceMap map, int y0, int y1) {
+/// How a scanned page is cleaned up: in every mode the paper turns white
+/// (shading and uneven light flatten out) and the ink gets crisp.
+enum ScanFilter {
+  /// Colours kept.
+  colour,
+
+  /// Grey (R = G = B).
+  greyscale,
+
+  /// Black ink on white paper.
+  blackWhite,
+}
+
+/// Turns rows [y0, y1) of [img] into the document look of [filter], in
+/// place. [map] comes from `EnhanceMap.of` on the same image.
+void enhanceRows(
+  RgbaImage img,
+  EnhanceMap map,
+  int y0,
+  int y1, {
+  ScanFilter filter = ScanFilter.greyscale,
+}) {
   final w = img.width, px = img.pixels, gw = map._gw;
-  final paper = map._paper, cx0 = map._cx0, cfx = map._cfx, curve = EnhanceMap._curve;
+  final paper = map._paper, cx0 = map._cx0, cfx = map._cfx;
+  final curve = switch (filter) {
+    ScanFilter.colour => EnhanceMap._colour,
+    ScanFilter.greyscale => EnhanceMap._grey,
+    ScanFilter.blackWhite => EnhanceMap._blackWhite,
+  };
+  final colour = filter == ScanFilter.colour;
+  final balance = map._balance;
   final row = Float64List(gw);
   for (var y = y0; y < y1; y++) {
     final (gy, fy) = _cell((y + 0.5) / map._block - 0.5, map._gh);
@@ -90,13 +147,20 @@ void enhanceRows(RgbaImage img, EnhanceMap map, int y0, int y1) {
       final i = cx0[x];
       final a = row[i];
       final bg = i + 1 < gw ? a + (row[i + 1] - a) * cfx[x] : a;
-      final lum = (px[o] * 77 + px[o + 1] * 150 + px[o + 2] * 29) >> 8;
-      var t = (lum * 255 / bg).toInt();
-      if (t > 255) t = 255;
-      final v = curve[t];
-      px[o] = v;
-      px[o + 1] = v;
-      px[o + 2] = v;
+      final gain = 255 / bg;
+      if (colour) {
+        for (var c = 0; c < 3; c++) {
+          final t = (px[o + c] * gain * balance[c]).toInt();
+          px[o + c] = curve[t > 255 ? 255 : t];
+        }
+      } else {
+        final lum = (px[o] * 77 + px[o + 1] * 150 + px[o + 2] * 29) >> 8;
+        final t = (lum * gain).toInt();
+        final v = curve[t > 255 ? 255 : t];
+        px[o] = v;
+        px[o + 1] = v;
+        px[o + 2] = v;
+      }
       o += 4;
     }
   }

@@ -103,6 +103,11 @@ void main() {
       expect(Quad.bounds(4000, 3000).outputSize(maxEdge: 2500), const Size(2500, 1875));
       expect(Quad.bounds(300, 400).outputSize(maxEdge: 2500), const Size(300, 400));
       expect(Quad.bounds(300, 400).scaled(2), Quad.bounds(600, 800));
+      expect(q.rotated(1).corners, [q.bottomLeft, q.topLeft, q.topRight, q.bottomRight]);
+      expect(q.rotated(4), q);
+      expect(q.rotated(-1), q.rotated(3));
+      expect(q.rotated(1).isConvex, isTrue);
+      expect(Quad.bounds(300, 400).rotated(1).outputSize(maxEdge: 2500), const Size(400, 300));
     });
   });
 
@@ -186,27 +191,70 @@ void main() {
     });
   });
 
-  test('enhance whitens shaded paper and darkens ink', () {
+  group('enhance', () {
     const w = 300, h = 400;
-    final page = RgbaImage.blank(w, h);
     bool ink(int x, int y) => y % 40 >= 19 && y % 40 <= 21 && x > 20 && x < 280;
-    for (var y = 0; y < h; y++) {
-      for (var x = 0; x < w; x++) {
-        final v = ink(x, y) ? 40 : 200 - 60 * x ~/ (w - 1);
-        page.pixels.setAll((y * w + x) * 4, [v, v + 3, v - 3, 255]);
+    bool paper(int x, int y) => y % 40 < 17 || y % 40 > 23;
+
+    /// Shaded, slightly yellow paper with dark lines; [colour] ink
+    /// (red) on every other line.
+    RgbaImage page() {
+      final page = RgbaImage.blank(w, h);
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          final v = 200 - 60 * x ~/ (w - 1);
+          final c = !ink(x, y)
+              ? [v + 6, v + 3, v - 12]
+              : (y ~/ 40).isEven
+              ? [40, 43, 37]
+              : [v, 40, 40];
+          page.pixels.setAll((y * w + x) * 4, [...c, 255]);
+        }
+      }
+      return page;
+    }
+
+    void check(ScanFilter filter, void Function(int x, int y, List<int> rgb) expectPixel) {
+      final p = page();
+      enhanceRows(p, EnhanceMap.of(p), 0, h, filter: filter);
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          final o = (y * w + x) * 4;
+          expectPixel(x, y, p.pixels.sublist(o, o + 3));
+        }
       }
     }
-    enhanceRows(page, EnhanceMap.of(page), 0, h);
-    for (var y = 0; y < h; y++) {
-      for (var x = 0; x < w; x++) {
-        final o = (y * w + x) * 4;
-        final v = page.pixels[o];
-        expect(page.pixels[o + 1], v);
-        expect(page.pixels[o + 2], v);
-        if (ink(x, y)) expect(v, lessThanOrEqualTo(80), reason: 'ink $x,$y');
-        if (y % 40 < 17 || y % 40 > 23) expect(v, greaterThanOrEqualTo(235), reason: '$x,$y');
-      }
-    }
+
+    test('greyscale whitens shaded paper and darkens ink', () {
+      check(ScanFilter.greyscale, (x, y, c) {
+        expect(c[1], c[0]);
+        expect(c[2], c[0]);
+        if (ink(x, y)) expect(c[0], lessThanOrEqualTo(110), reason: 'ink $x,$y');
+        if (paper(x, y)) expect(c[0], greaterThanOrEqualTo(235), reason: '$x,$y');
+      });
+    });
+
+    test('colour whitens tinted paper and keeps coloured ink', () {
+      check(ScanFilter.colour, (x, y, c) {
+        if (paper(x, y)) {
+          for (final v in c) {
+            expect(v, greaterThanOrEqualTo(235), reason: 'paper $x,$y: $c');
+          }
+        }
+        if (ink(x, y) && (y ~/ 40).isOdd) {
+          expect(c[0] - c[1], greaterThan(100), reason: 'red ink $x,$y: $c');
+        }
+        if (ink(x, y) && (y ~/ 40).isEven) expect(c[0], lessThan(100), reason: '$x,$y: $c');
+      });
+    });
+
+    test('black and white leaves only black ink on white paper', () {
+      check(ScanFilter.blackWhite, (x, y, c) {
+        expect(c[1], c[0]);
+        if (paper(x, y)) expect(c[0], 255, reason: '$x,$y');
+        if (ink(x, y) && (y ~/ 40).isEven) expect(c[0], 0, reason: '$x,$y');
+      });
+    });
   });
 
   group('job', () {
@@ -214,7 +262,7 @@ void main() {
     const quad = Quad(Offset(20, 30), Offset(280, 10), Offset(290, 390), Offset(10, 370));
 
     test('run returns a decodable JPEG of the page size', () {
-      final job = ScanJob(source: RgbaImage(rgba, 300, 400), quad: quad, enhance: true);
+      final job = ScanJob(source: RgbaImage(rgba, 300, 400), quad: quad, filter: ScanFilter.colour);
       final out = job.run();
       final size = quad.outputSize(maxEdge: 2500);
       expect((out.width, out.height), (size.width.toInt(), size.height.toInt()));
@@ -223,8 +271,8 @@ void main() {
     });
 
     test('sliced rendering matches render', () async {
-      for (final enhance in [false, true]) {
-        final job = ScanJob(source: RgbaImage(rgba, 300, 400), quad: quad, enhance: enhance);
+      for (final filter in [null, ...ScanFilter.values]) {
+        final job = ScanJob(source: RgbaImage(rgba, 300, 400), quad: quad, filter: filter);
         final whole = job.render();
         var yields = 0;
         final sliced = await job.renderSliced(() async => yields++, rowsPerSlice: 7);
