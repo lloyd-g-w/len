@@ -81,6 +81,16 @@ void main() {
     return db;
   }
 
+  test('reads copy just the range asked for, short at the end', () {
+    final file = Uint8List.fromList(List.generate(10000, (i) => i % 251));
+    final page = Uint8List(4096);
+    expect(readFileRange(file, page, 4096), 4096);
+    expect(page, file.sublist(4096, 8192));
+    expect(readFileRange(file, page, 8192), 10000 - 8192);
+    expect(page.sublist(0, 10000 - 8192), file.sublist(8192));
+    expect(readFileRange(file, page, 10000), 0);
+  });
+
   test('changes reach the store right after each transaction', () async {
     final db = await created();
     db.execute("INSERT INTO notes (body) VALUES ('a')");

@@ -43,6 +43,17 @@ from nixpkgs; on a shared machine wrap it in `tool/heavy.sh`). The flows are
 in `app/integration_test/`; pictures of each step and the logs go to
 `$LEN_E2E_OUT` (default under `/tmp`), and any logged error fails the run.
 
+**Web walk-through** (`tool/web_explore.sh`, from `app/`, after
+`tool/build_web.sh` or `tool/build_web.sh --wasm`; ~5 min): drives the web
+build like a user in Chromium (headed, under Xvfb) and headless Firefox,
+both from nixpkgs — notebook, mouse and pen ink, undo, pages, lasso, text,
+images, PDF import, search, PDF export, backup and a big restore, settings,
+offline reload, phone sizes, shortcuts — by label through the semantics
+tree. Any console error or warning, uncaught exception, failed request or
+failed check fails it; long tasks and the JS heap are reported. Screenshots
+of each step and `report.json` go to `$LEN_EXPLORE_OUT` (default
+`/tmp/len-web-explore`); options are at the top of `tool/web_explore.py`.
+
 > **NixOS note:** run the Linux build from inside `nix develop`. nixpkgs' Flutter
 > engine library carries its own RUNPATH, which hides the bundled
 > `libsqlite3.so`; the dev shell supplies SQLite via `LD_LIBRARY_PATH`.
