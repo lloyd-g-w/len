@@ -165,6 +165,24 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('new notebook: the default title shows unfocused; touch gets no keyboard', (
+    tester,
+  ) async {
+    Targets.debugTouchFirst = true;
+    addTearDown(() => Targets.debugTouchFirst = null);
+    await pumpLibrary(tester, size: const Size(1280, 800));
+    await tester.tap(find.text('New notebook').first);
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(find.widgetWithText(TextField, 'Title'));
+    final editable = find.descendant(
+      of: find.widgetWithText(TextField, 'Title'),
+      matching: find.byType(EditableText),
+    );
+    expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+    expect(field.decoration!.floatingLabelBehavior, FloatingLabelBehavior.always);
+    expect(find.text(field.decoration!.hintText!), findsOneWidget);
+  });
+
   testWidgets('a new notebook from a planner template gets one page per day', (tester) async {
     final services = await pumpLibrary(tester);
     await tester.tap(find.text('New notebook'));

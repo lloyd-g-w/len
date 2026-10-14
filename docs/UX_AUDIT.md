@@ -61,7 +61,7 @@ isn't on screen** (desktop windows under ~900 px, empty views). ✅
   Effort S.
 
 **R10-5 P1 · New notebook raises the soft keyboard on an Android tablet,
-and the default title shows on tablets only.** ⬜
+and the default title shows on tablets only.** ✅
 - *What:* `autofocus: wide` focuses the title in the dialog form (landscape
   tablets included): the keyboard covers half the dialog for a stylus user
   who wants to pick paper and write. The field's hint (the default title,

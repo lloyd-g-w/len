@@ -177,11 +177,19 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
     return [
       TextField(
         controller: _title,
-        autofocus: wide,
+        // Typing is for keyboards: on touch the soft keyboard would cover
+        // the form when most just pick paper and write.
+        autofocus: wide && !Targets.touchFirst,
         textCapitalization: TextCapitalization.sentences,
         textInputAction: TextInputAction.done,
         onSubmitted: (_) => _submit(),
-        decoration: InputDecoration(labelText: 'Title', hintText: _defaultTitle),
+        // The hint is the title an empty field gives: shown on every form
+        // factor, focused or not.
+        decoration: InputDecoration(
+          labelText: 'Title',
+          hintText: _defaultTitle,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+        ),
       ),
       const SizedBox(height: Gaps.lg),
       SegmentedButton<NotebookKind>(
