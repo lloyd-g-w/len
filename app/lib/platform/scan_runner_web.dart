@@ -1,0 +1,10 @@
+import '../features/documents/scan/scan_job.dart';
+
+/// Renders and encodes [job]'s page on the UI thread, yielding between bands.
+Future<ScanOutput> runScanJob(ScanJob job) => job.runSliced(_yield);
+
+/// Renders [job]'s page (no encoding) on the UI thread, yielding between
+/// bands, e.g. a thumbnail.
+Future<RgbaImage> renderScanPreview(ScanJob job) => job.renderSliced(_yield);
+
+Future<void> _yield() => Future<void>.delayed(Duration.zero);
