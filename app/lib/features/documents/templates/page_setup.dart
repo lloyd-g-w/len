@@ -3,7 +3,6 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
-import '../../../ui/roving_focus.dart';
 import '../../../ui/section_label.dart';
 import 'even_choices.dart';
 import 'template_catalog.dart';
@@ -44,7 +43,7 @@ class PickerLabel extends StatelessWidget {
   }
 }
 
-/// Page format chips (even rows) above a portrait / landscape toggle.
+/// Page format chips (even rows) above portrait / landscape chips.
 class PageSizeRow extends StatelessWidget {
   const PageSizeRow({super.key, required this.template, required this.onChanged});
 
@@ -53,6 +52,7 @@ class PageSizeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -69,26 +69,26 @@ class PageSizeRow extends StatelessWidget {
         ),
         if (template.format != PageFormat.square) ...[
           const SizedBox(height: Gaps.sm),
-          RovingSegments(
-            SegmentedButton<PageOrientation>(
-              showSelectedIcon: false,
-              expandedInsets: EdgeInsets.zero,
-              style: const ButtonStyle(visualDensity: VisualDensity.compact),
-              segments: const [
-                ButtonSegment(
-                  value: PageOrientation.portrait,
-                  icon: Icon(Symbols.crop_portrait_sharp),
-                  label: Text('Portrait'),
+          // Chips like the formats above, not a segmented control: one
+          // kind of control for the page's size.
+          EvenChoices(
+            choices: [
+              for (final (o, icon) in const [
+                (PageOrientation.portrait, Symbols.crop_portrait_sharp),
+                (PageOrientation.landscape, Symbols.crop_landscape_sharp),
+              ])
+                EvenChoice(
+                  key: ValueKey('orientation-${o.name}'),
+                  label: o == PageOrientation.portrait ? 'Portrait' : 'Landscape',
+                  leading: Icon(
+                    icon,
+                    size: EvenChoices.leadingSize,
+                    color: template.orientation == o ? scheme.onSurface : scheme.onSurfaceVariant,
+                  ),
+                  selected: template.orientation == o,
+                  onTap: () => onChanged(template.copyWith(orientation: o)),
                 ),
-                ButtonSegment(
-                  value: PageOrientation.landscape,
-                  icon: Icon(Symbols.crop_landscape_sharp),
-                  label: Text('Landscape'),
-                ),
-              ],
-              selected: {template.orientation},
-              onSelectionChanged: (s) => onChanged(template.copyWith(orientation: s.single)),
-            ),
+            ],
           ),
         ],
       ],
