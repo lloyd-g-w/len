@@ -854,11 +854,17 @@ SYNC_PROTOCOL). All pure Dart, so it works on every platform.
   The corner editor drags corners and side middles (folds refused, corners
   kept on the photo) and shows a 3× loupe in the top corner away from the
   finger while a corner moves; the outline's preview re-renders when the
-  drag ends. Commands: Rotate, Whole photo (toggles with the page found),
-  Retake (camera) / Replace… (files), Remove, + (camera or files), and the
-  look for all pages (remembered for the next scan: `SettingsRepository.scanFilter`). Without a camera the file picker opens at once
-  (nothing picked → the screen closes); with one (Android, `image_picker`)
-  the screen starts by offering both. Leaving with pages asks first.
+  drag ends. Tapping the current page in the strip (or Space) switches to
+  its result (`ScanResultView`, `ScanResultRenderer`): the page flattened
+  and cleaned up at 1600 px from the photo decoded at that size (kept only
+  while shown), re-rendered on every change; tapping it goes back.
+  Commands: Rotate, Whole photo (toggles with the page found), Retake
+  (camera) / Replace… (files), Remove, + (camera or files), and the look
+  for all pages (remembered for the next scan:
+  `SettingsRepository.scanFilter`). Without a camera the file picker opens
+  at once (nothing picked → the screen closes); with one (Android,
+  `image_picker`) the screen starts by offering both. Leaving with pages
+  asks first.
   `ScanSources` is the seam for tests (`ScanSources.debugSources`).
 - **Import** (`scan_flow`, `ScanImporter`): after Done, each page is
   flattened at full size and stored as a blob behind a cancellable progress

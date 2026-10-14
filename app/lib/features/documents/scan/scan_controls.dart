@@ -151,7 +151,12 @@ class _PageStrip extends StatelessWidget {
                 page: pages[i],
                 number: i + 1,
                 current: i == session.index,
-                onTap: () => session.select(i),
+                hint: i != session.index
+                    ? null
+                    : session.showsResult
+                    ? 'Show the corners'
+                    : 'Show the cleaned-up page',
+                onTap: () => i == session.index ? session.toggleResult() : session.select(i),
               ),
       ),
     );
@@ -164,12 +169,17 @@ class _Thumb extends StatelessWidget {
     required this.page,
     required this.number,
     required this.current,
+    required this.hint,
     required this.onTap,
   });
 
   final ScanPageDraft page;
   final int number;
   final bool current;
+
+  /// What tapping it does (the current page's: switch views), if not
+  /// just selecting it.
+  final String? hint;
   final VoidCallback onTap;
 
   @override
@@ -177,36 +187,37 @@ class _Thumb extends StatelessWidget {
     final theme = Theme.of(context);
     final preview = page.preview;
     // Until the preview is in, a page of the outline's turned shape.
-    final aspect = preview == null
-        ? (page.turns.isOdd ? 1 / _aspect(page) : _aspect(page))
-        : preview.width / preview.height;
+    final aspect = preview == null ? page.aspect : preview.width / preview.height;
     return Semantics(
       button: true,
       selected: current,
       label: 'Page $number',
+      hint: hint,
       child: GestureDetector(
         onTap: onTap,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
-          child: AnimatedContainer(
-            duration: Motion.fast,
-            padding: const EdgeInsets.all(Hairline.rule + Gaps.xxs),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(Radii.xs),
-              border: Border.all(
-                color: current ? theme.colorScheme.primary : Colors.transparent,
-                width: Hairline.rule,
-              ),
-            ),
-            child: DecoratedBox(
+          child: _tooltip(
+            AnimatedContainer(
+              duration: Motion.fast,
+              padding: const EdgeInsets.all(Hairline.rule + Gaps.xxs),
               decoration: BoxDecoration(
-                color: Palette.paper,
-                boxShadow: Shadows.low(theme.brightness),
+                borderRadius: BorderRadius.circular(Radii.xs),
+                border: Border.all(
+                  color: current ? theme.colorScheme.primary : Colors.transparent,
+                  width: Hairline.rule,
+                ),
               ),
-              child: SizedBox(
-                height: ScanControls.thumbHeight,
-                width: ScanControls.thumbHeight * aspect.clamp(0.4, 2.5),
-                child: preview == null ? null : RawImage(image: preview, fit: BoxFit.fill),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Palette.paper,
+                  boxShadow: Shadows.low(theme.brightness),
+                ),
+                child: SizedBox(
+                  height: ScanControls.thumbHeight,
+                  width: ScanControls.thumbHeight * aspect.clamp(0.4, 2.5),
+                  child: preview == null ? null : RawImage(image: preview, fit: BoxFit.fill),
+                ),
               ),
             ),
           ),
@@ -215,12 +226,15 @@ class _Thumb extends StatelessWidget {
     );
   }
 
-  /// Width over height of the outline (its top and left sides).
-  static double _aspect(ScanPageDraft page) {
-    final q = page.quad;
-    final w = (q.topRight - q.topLeft).distance, h = (q.bottomLeft - q.topLeft).distance;
-    return h <= 0 ? 1 : w / h;
-  }
+  /// [child] with [hint] on hover (not on a long press: that drags).
+  Widget _tooltip(Widget child) => hint == null
+      ? child
+      : Tooltip(
+          message: hint,
+          triggerMode: TooltipTriggerMode.manual,
+          excludeFromSemantics: true,
+          child: child,
+        );
 }
 
 class _AddTile extends StatelessWidget {

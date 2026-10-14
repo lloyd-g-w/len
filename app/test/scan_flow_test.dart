@@ -9,6 +9,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/features/documents/scan/scan_corner_editor.dart';
 import 'package:len/features/documents/scan/scan_import.dart';
 import 'package:len/features/documents/scan/scan_job.dart';
+import 'package:len/features/documents/scan/scan_result_view.dart';
 import 'package:len/features/documents/scan/scan_screen.dart';
 import 'package:len/features/documents/scan/scan_sources.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -171,6 +172,54 @@ void main() {
     await s.tap(find.text('Discard'));
     await tester.pumpAndSettle();
     expect(services.settings.scanFilter, ScanFilter.blackWhite.name);
+  }, variant: noCamera);
+
+  testWidgets('tapping the current page shows it cleaned up, large; tapping that, the corners', (
+    tester,
+  ) async {
+    await pumpLibrary(tester);
+    ScanSources.debugSources = fakeSources(
+      picks: [
+        [photoFile('a.png'), photoFile('b.png')],
+      ],
+    );
+    await scanFromLibrary(tester);
+    final s = scan(tester);
+    await s.untilPages(2);
+    final session = tester.widget<ScanScreen>(find.byType(ScanScreen)).session;
+    expect(session.index, 1);
+
+    await s.tap(find.bySemanticsLabel('Page 2'));
+    expect(session.showsResult, isTrue);
+    expect(find.byType(ScanResultView), findsOneWidget);
+    expect(find.byType(ScanCornerEditor), findsNothing);
+    await pumpUntil(tester, () => session.result != null, reason: 'the large result');
+    final small = session.current!.preview!, large = session.result!;
+    expect(large.width, greaterThan(small.width));
+    expect(large.width / large.height, closeTo(small.width / small.height, 0.02));
+
+    // It follows the look and turns.
+    await s.tap(find.text('Rotate'));
+    await pumpUntil(tester, () => session.result!.width > session.result!.height);
+
+    // Another page keeps the view; tapping the result goes back to the corners.
+    await s.tap(find.bySemanticsLabel('Page 1'));
+    expect(session.index, 0);
+    expect(session.showsResult, isTrue);
+    await pumpUntil(tester, () => session.result != null);
+    await s.tap(find.byType(ScanResultView));
+    expect(session.showsResult, isFalse);
+    expect(session.result, isNull);
+    expect(find.byType(ScanCornerEditor), findsOneWidget);
+
+    // Space switches too.
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(session.showsResult, isTrue);
+    await pumpUntil(tester, () => session.result != null);
+    await s.tap(find.byTooltip('Close'));
+    await s.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
   }, variant: noCamera);
 
   testWidgets('cancelling the first pick leaves without creating anything', (tester) async {

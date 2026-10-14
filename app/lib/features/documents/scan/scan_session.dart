@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../../platform/scan_runner.dart';
 import 'scan_job.dart';
 import 'scan_photo.dart';
+import 'scan_result.dart';
 
 export 'scan_job.dart' show Quad, ScanFilter;
 export 'scan_photo.dart';
@@ -25,6 +26,15 @@ class ScanPageDraft {
 
   /// The flattened page, small (for the page strip); null until rendered.
   ui.Image? preview;
+
+  /// Width over height of the flattened page as the outline suggests (its
+  /// top and left sides, turned): its shape until a preview is in.
+  double get aspect {
+    final w = (quad.topRight - quad.topLeft).distance,
+        h = (quad.bottomLeft - quad.topLeft).distance;
+    final a = h <= 0 || w <= 0 ? 1.0 : w / h;
+    return turns.isOdd ? 1 / a : a;
+  }
 
   /// Bumped on every change that the preview must follow.
   int _version = 0;
@@ -47,13 +57,27 @@ class ScanSession extends ChangeNotifier {
   final int previewEdge;
 
   /// The long side the current page's photo is decoded at for the corner
-  /// editor, in pixels.
+  /// editor (and its large result rendered at), in pixels.
   final int displayEdge;
 
   /// The current page's photo as shown in the corner editor (only that
   /// page's is kept: photos are big); null while it decodes.
   ui.Image? get display => _display?.photo == current?.photo ? _display?.image : null;
   ({ScanPhoto photo, ui.Image image})? _display;
+
+  /// Whether the current page is shown flattened and cleaned up (its
+  /// [result]) instead of its photo with the corners.
+  bool get showsResult => _showsResult;
+  bool _showsResult = false;
+
+  /// The current page flattened and cleaned up at [displayEdge] while
+  /// [showsResult] (perhaps still of its previous outline or look while
+  /// the new one renders); null until rendered.
+  ui.Image? get result => switch (current) {
+    final page? when _showsResult => _result.imageOf(page.photo),
+    _ => null,
+  };
+  late final _result = ScanResultRenderer(edge: displayEdge, onReady: _resultReady);
 
   final List<ScanPageDraft> _pages = [];
 
@@ -102,6 +126,7 @@ class ScanSession extends ChangeNotifier {
   void select(int i) {
     if (i == _index || i < 0 || i >= _pages.length) return;
     _index = i;
+    _renderResult();
     notifyListeners();
     _showCurrent();
   }
@@ -114,6 +139,8 @@ class ScanSession extends ChangeNotifier {
     page.preview?.dispose();
     page._version++; // A preview on its way is dropped.
     if (_index >= _pages.length) _index = _pages.length - 1;
+    if (_pages.isEmpty) _showsResult = false;
+    _renderResult();
     notifyListeners();
     _showCurrent();
   }
@@ -134,6 +161,15 @@ class ScanSession extends ChangeNotifier {
   /// Re-renders the current page's preview (after a drag).
   void updatePreview() {
     if (current case final page?) _refresh(page);
+  }
+
+  /// Switches between the current page's photo with its corners and its
+  /// [result].
+  void toggleResult() {
+    if (current == null) return;
+    _showsResult = !_showsResult;
+    _showsResult ? _renderResult() : _result.clear();
+    notifyListeners();
   }
 
   /// Whether the current page's outline is the whole photo.
@@ -196,8 +232,20 @@ class ScanSession extends ChangeNotifier {
   /// Renders [page]'s preview anew (the latest request wins).
   void _refresh(ScanPageDraft page) {
     final version = ++page._version;
+    if (page == current) _renderResult();
     notifyListeners();
     unawaited(_render(page, version));
+  }
+
+  /// Renders the current page's [result] anew while it is shown.
+  void _renderResult() {
+    final page = current;
+    if (!_showsResult || page == null) return;
+    _result.render((photo: page.photo, quad: page.quad, turns: page.turns, filter: _filter));
+  }
+
+  void _resultReady() {
+    if (!_disposed) notifyListeners();
   }
 
   Future<void> _render(ScanPageDraft page, int version) async {
@@ -209,7 +257,7 @@ class ScanSession extends ChangeNotifier {
     );
     final ui.Image image;
     try {
-      image = await _toImage(await renderScanPreview(job));
+      image = await rgbaToImage(await renderScanPreview(job));
     } on Object catch (e) {
       debugPrint('Scan preview failed: $e');
       return;
@@ -223,21 +271,10 @@ class ScanSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  static Future<ui.Image> _toImage(RgbaImage page) {
-    final done = Completer<ui.Image>();
-    ui.decodeImageFromPixels(
-      page.pixels,
-      page.width,
-      page.height,
-      ui.PixelFormat.rgba8888,
-      done.complete,
-    );
-    return done.future;
-  }
-
   @override
   void dispose() {
     _disposed = true;
+    _result.dispose();
     _display?.image.dispose();
     for (final page in _pages) {
       page.preview?.dispose();

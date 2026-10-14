@@ -109,9 +109,19 @@ class ScanPhoto {
     required int quarterTurns,
     required ScanFilter filter,
     required int maxEdge,
+  }) => jobOn(work, quad, quarterTurns: quarterTurns, filter: filter, maxEdge: maxEdge);
+
+  /// A job for a page [maxEdge] pixels on its long side, from [source]
+  /// (this photo decoded at any size).
+  ScanJob jobOn(
+    RgbaImage source,
+    Quad quad, {
+    required int quarterTurns,
+    required ScanFilter filter,
+    required int maxEdge,
   }) => ScanJob(
-    source: work,
-    quad: quad.scaled(work.width / width).rotated(quarterTurns),
+    source: source,
+    quad: quad.scaled(source.width / width).rotated(quarterTurns),
     filter: filter,
     maxEdge: maxEdge,
   );
