@@ -42,12 +42,10 @@ class SelectionCommand {
 }
 
 /// The selection bar of the library and the page overview (UX_AUDIT
-/// R8-13), one component with one layout: a floating panel at the bottom
-/// (thumb reach) with Done (✕), the count and Select all, and the
-/// [commands], each a glyph with its name under it.
-///
-/// Where everything doesn't fit one row (phones), the commands take a
-/// second row, each as wide as its name needs and the rest shared. Names
+/// R8-13, R9), one component with one shape everywhere: a floating panel
+/// at the bottom (thumb reach) with Done (✕), the count and Select all on
+/// top, and the [commands] in a row under them, each a glyph with its name
+/// under it, as wide as its name needs and the rest shared. Names
 /// keep one size: when they don't fit, commands go into a ⋯ menu in their
 /// [SelectionCommand.overflow] order, and if that isn't enough the bar
 /// shows glyphs alone, with tooltips.
@@ -116,19 +114,6 @@ class SelectionBar extends StatelessWidget {
   }
 
   Widget _layout(BuildContext context, List<Widget> head, double width) {
-    final widths = [for (final c in commands) _slotWidth(context, c.label) + Gaps.sm];
-    final row = widths.fold(0.0, (a, b) => a + b);
-    // The head keeps room for ✕, a short count and Select all.
-    if (width - row >= _headRoom(context)) {
-      return Row(
-        children: [
-          ...head,
-          const SizedBox(width: Gaps.sm),
-          for (final (i, c) in commands.indexed)
-            SizedBox(width: widths[i], child: _action(context, c, labels: true)),
-        ],
-      );
-    }
     final plan = _plan(context, width);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -197,10 +182,6 @@ class SelectionBar extends StatelessWidget {
     painter.dispose();
     return math.max(LabelledAction.minWidth, width + LabelledAction.labelPadding);
   }
-
-  /// ✕, a few words of count and Select all.
-  double _headRoom(BuildContext context) =>
-      Targets.touch + _slotWidth(context, 'Select none') + _slotWidth(context, '12 selected');
 
   Widget _action(BuildContext context, SelectionCommand c, {required bool labels}) {
     final scheme = Theme.of(context).colorScheme;
