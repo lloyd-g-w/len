@@ -1,0 +1,1 @@
+The first release: notebooks and canvases, PDFs, text, images and audio, search and export, Len files and self-hosted sync.

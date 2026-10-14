@@ -109,3 +109,110 @@ on the GNOME runtime (README *Release → Flatpak*; the release workflow's
   sources).
 - **Account:** a GitHub account owns the Flathub repo after acceptance;
   nothing else to sign.
+
+## Android: Google Play and F-Droid
+
+Store texts and images live in `fastlane/metadata/android/en-US/` (the
+layout both F-Droid and `fastlane supply` read): `title.txt`,
+`short_description.txt` (≤ 80 characters), `full_description.txt`
+(≤ 4000; `<b>` is the only markup), `changelogs/<versionCode>.txt` (one per
+release, ≤ 500 characters; `1.txt` is 0.1.0+1), and `images/`: `icon.png`
+(512²), `featureGraphic.png` (1024×500, the icon on the branding colour),
+`phoneScreenshots/` (780×1560, the phone shots cropped to Play's 2:1 limit),
+`sevenInchScreenshots/` (tablet portrait 800×1280) and `tenInchScreenshots/`
+(tablet landscape 1280×800), all from the screenshot suites (`library`,
+`editor`, `overview`, `pdf`; light theme). Play suggests ≥ 1080 px tablet
+screenshots for some placements: render the tablet scenarios at 2× when that
+matters.
+
+### Google Play — needs the owner
+
+- A Play developer account (one-time fee, identity verification) and the
+  app created as `dev.len.len`.
+- Signing: the release keystore (README *Android signing*) as the upload
+  key; enrol in Play App Signing. Play wants an **AAB**: `flutter build
+  appbundle --release` (not in the release workflow yet).
+- Store listing from `fastlane/metadata` (by hand, or `fastlane supply` with
+  a Play service-account JSON key — never commit it), data-safety form (no
+  data collected; sync only to the user's own server), content rating
+  questionnaire, privacy-policy URL (needed because of the microphone
+  permission: TODO write one).
+- ML Kit is fine on Play.
+
+### F-Droid — blockers and the proposed `foss` flavor
+
+F-Droid's main repository builds from source with only free dependencies.
+Today's Len does not qualify:
+
+1. ⚠️ **ML Kit (blocker).** `com.google.mlkit:digital-ink-recognition` and
+   the `google_mlkit_digital_ink_recognition` plugin are proprietary Google
+   libraries (they pull Play-services components). Lasso → *Convert to
+   text* uses them.
+2. ⚠️ **Licence (blocker):** none in the repository yet.
+3. **Prebuilt native libraries fetched at build time:** `pdfium_dart`'s build
+   hook downloads PDFium from `bblanchon/pdfium-binaries`, and `sqlite3`'s
+   hook downloads a precompiled SQLite from GitHub. F-Droid wants them built
+   from source: SQLite can be (`hooks: user_defines: sqlite3: source:
+   source` with the amalgamation as a srclib); PDFium needs a srclib build or
+   a reviewer's exception. Expect discussion here.
+
+**Proposal: a `foss` flavor without ML Kit** (not implemented yet; Play
+keeps the `play` flavor):
+
+- Dart: stop importing `google_mlkit_digital_ink_recognition`; model
+  checks and downloads go through Len's own `len/handwriting` channel like
+  recognition already does (the Kotlin side calls ML Kit's
+  `RemoteModelManager` directly). Then the pub dependency goes away and no
+  per-store pubspec edits are needed. When the channel is missing
+  (`MissingPluginException`), `createHandwritingRecognizer()` returns
+  `UnavailableRecognizer`, which hides *Convert to text* as on desktops.
+- Gradle: `productFlavors { play {}; foss {} }` in `android/app/build.gradle.kts`,
+  `"playImplementation"("com.google.mlkit:digital-ink-recognition:19.0.0")`,
+  `HandwritingRecognitionPlugin.kt` moved to `src/play/kotlin` and
+  registered from a flavor-specific helper (`src/foss/kotlin` registers
+  nothing).
+- Builds: `flutter build apk --flavor play` (releases, Play) and
+  `--flavor foss` (F-Droid, and a release asset for people avoiding Google
+  code). The release workflow builds both once the flavors exist.
+
+**F-Droid recipe** (for `fdroiddata`, `metadata/dev.len.len.yml`, once the
+above is done):
+
+```yaml
+Categories: [Writing]
+License: TODO            # SPDX id of the chosen licence
+SourceCode: https://github.com/lloyd-g-w/len
+IssueTracker: https://github.com/lloyd-g-w/len/issues
+AutoName: Len
+RepoType: git
+Repo: https://github.com/lloyd-g-w/len.git
+Builds:
+  - versionName: X.Y.Z
+    versionCode: N
+    commit: vX.Y.Z
+    subdir: app
+    sudo:
+      - apt-get update
+      - apt-get install -y openjdk-17-jdk-headless
+    output: build/app/outputs/flutter-apk/app-foss-release.apk
+    srclibs:
+      - flutter@3.47.4     # = FLUTTER_VERSION in the workflows / flake
+    prebuild:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release --flavor foss
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+```
+
+**Reproducible builds** let F-Droid ship the APK signed with Len's own key
+(`Binaries:` + `AllowedAPKSigningKeys:`), so users can move between GitHub,
+F-Droid and Play builds: pin Flutter (done: `FLUTTER_VERSION`), JDK 17 and
+the Gradle wrapper; keep R8 deterministic (no `-printmapping` timestamps);
+build from the tag with a clean `PUB_CACHE`; compare with `apksigcopier`
+(`fdroid build` does this). Untested so far — the first F-Droid build will
+show which inputs still differ (typical culprits: build paths in native
+libraries, `pubspec.lock` drift).
