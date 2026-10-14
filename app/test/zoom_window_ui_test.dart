@@ -1,47 +1,184 @@
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/features/editor/editor_canvas.dart';
 import 'package:len/features/editor/editor_session.dart';
 import 'package:len/features/editor/zoom/zoom_box.dart';
+import 'package:len/features/editor/zoom/zoom_frame.dart';
+import 'package:len/features/editor/zoom/zoom_window.dart';
 
 import 'document_editor_test.dart' show pumpEditor, inkOf, closeEditor;
 
 EditorSession _session(WidgetTester tester) =>
     tester.widget<EditorCanvas>(find.byType(EditorCanvas)).session;
 
+/// Opens the zoom window with its shortcut.
+Future<ZoomWindow> _open(WidgetTester tester) async {
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyM);
+  await tester.pumpAndSettle();
+  return _session(tester).zoomWindow;
+}
+
+/// A short stylus stroke in the box's paper, from [at] (a fraction of its
+/// size) [length] pixels to the right.
+Future<void> _write(WidgetTester tester, Offset at, {double length = 40}) async {
+  final box = tester.getRect(find.byType(ZoomBox));
+  // The rail (✕, ↵) sits at the box's right; the paper is left of it.
+  final paper = box.topLeft & _session(tester).zoomWindow.box;
+  final start = Offset(paper.left + paper.width * at.dx, paper.bottom - paper.height * at.dy);
+  final pen = await tester.startGesture(start, kind: PointerDeviceKind.stylus);
+  for (var i = 1; i <= 8; i++) {
+    await pen.moveTo(start + Offset(length * i / 8, i.isEven ? 6 : -6));
+  }
+  await pen.up();
+  await tester.pump();
+}
+
 void main() {
-  testWidgets('probe', (tester) async {
+  testWidgets('M opens the window below the ink on the page, and closes it', (tester) async {
     final (s, nb) = await pumpEditor(tester);
-    final session = _session(tester);
+    final zoom = await _open(tester);
+    expect(zoom.isOpen, isTrue);
+    expect(find.byType(ZoomBox), findsOneWidget);
+    final page = s.pages.pagesOf(nb.id).first;
+    final wave = inkOf(s, page).single.bounds;
+    final frame = zoom.frameRect!;
+    expect(zoom.frame!.surfaceId, page.id);
+    expect(frame.top, greaterThan(wave.bottom));
+    // Lines start where the ink does.
+    expect(frame.left, closeTo(wave.left, 1));
+    // The frame shows above the box.
+    final box = tester.getRect(find.byType(ZoomBox));
+    expect(zoom.host.onScreen(page.id, frame)!.bottom, lessThanOrEqualTo(box.top));
+
     await tester.sendKeyEvent(LogicalKeyboardKey.keyM);
     await tester.pumpAndSettle();
-    final zoom = session.zoomWindow;
-    print('open ${zoom.isOpen} box ${zoom.box} frame ${zoom.frame} rect ${zoom.frameRect}');
-    final box = tester.getRect(find.byType(ZoomBox));
-    print('box widget $box');
-    final start = box.topLeft + const Offset(60, 80);
-    final g = await tester.startGesture(start, kind: PointerDeviceKind.stylus);
-    for (var i = 1; i <= 10; i++) {
-      await g.moveTo(start + Offset(i * 8.0, (i.isEven ? 10 : -10)));
-    }
-    await g.up();
+    expect(zoom.isOpen, isFalse);
+    expect(find.byType(ZoomBox), findsNothing);
+    await closeEditor(tester);
+  });
+
+  testWidgets('the ⋯ menu toggles the window; ✕ closes it', (tester) async {
+    await pumpEditor(tester);
+    await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
-    final pages = s.pages.pagesOf(nb.id);
-    final ink = inkOf(s, pages[0]).where((st) => st.id != 'w1').toList();
-    print('strokes ${ink.length} ${ink.map((st) => st.bounds)} width ${ink.map((st) => st.width)}');
-    // Write at the right edge
-    final r = box.topRight + const Offset(-120, 80);
-    final g2 = await tester.startGesture(r, kind: PointerDeviceKind.stylus);
-    for (var i = 1; i <= 5; i++) {
-      await g2.moveTo(r + Offset(i * 8.0, 0));
-    }
-    await g2.up();
-    await tester.pump();
-    print('after right frame ${zoom.frame}');
-    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(find.text('View'));
     await tester.pumpAndSettle();
-    print('after pause frame ${zoom.frame}');
+    await tester.tap(find.text('Zoom window'));
+    await tester.pumpAndSettle();
+    final zoom = _session(tester).zoomWindow;
+    expect(zoom.isOpen, isTrue);
+    await tester.tap(find.byTooltip('Close zoom window'));
+    await tester.pumpAndSettle();
+    expect(zoom.isOpen, isFalse);
+    await closeEditor(tester);
+  });
+
+  testWidgets('writing in the box writes small into the frame, undoably', (tester) async {
+    final (s, nb) = await pumpEditor(tester);
+    final zoom = await _open(tester);
+    final page = s.pages.pagesOf(nb.id).first;
+    final frame = zoom.frameRect!;
+    final scale = zoom.frame!.scale;
+    await _write(tester, const Offset(0.1, 0.5), length: 80);
+    expect(zoom.blocksPage.value, isTrue, reason: 'the hand on the page is a palm');
+    await tester.pumpAndSettle();
+    expect(zoom.blocksPage.value, isFalse);
+    final ink = inkOf(s, page).where((st) => st.id != 'w1').toList();
+    expect(ink, hasLength(1));
+    final stroke = ink.single.bounds;
+    expect(frame.contains(stroke.center), isTrue);
+    // 80 px written in the box are 80 / scale units on the page (the pen
+    // keeps its width on the page: the box shows it magnified).
+    final xs = ink.single.points.map((p) => p.x);
+    expect(xs.reduce(math.max) - xs.reduce(math.min), closeTo(80 / scale, 2));
+    expect(zoom.frameRect, frame, reason: 'ink outside the advance zone leaves the frame be');
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(inkOf(s, page).where((st) => st.id != 'w1'), isEmpty);
+    await closeEditor(tester);
+  });
+
+  testWidgets('ink at the right edge advances the frame at once', (tester) async {
+    await pumpEditor(tester);
+    final zoom = await _open(tester);
+    final before = zoom.frame!.origin;
+    final scale = zoom.frame!.scale;
+    await _write(tester, const Offset(0.88, 0.5), length: 40);
+    await tester.pump(); // No pause.
+    await tester.pumpAndSettle();
+    final after = zoom.frame!.origin;
+    expect(after.dy, before.dy);
+    expect(after.dx, greaterThan(before.dx));
+    // The last ink now sits a quarter into the frame.
+    final rect = zoom.frameRect!;
+    final inkRight = before.dx + (0.88 * zoom.box.width + 40) / scale;
+    expect(inkRight - rect.left, closeTo(rect.width * ZoomRules.keep, rect.width * 0.05));
+    await closeEditor(tester);
+  });
+
+  testWidgets('ink in the zone advances after a pause, unless the pen comes back', (
+    tester,
+  ) async {
+    await pumpEditor(tester);
+    final zoom = await _open(tester);
+    final before = zoom.frame!.origin;
+    await _write(tester, const Offset(0.72, 0.5), length: 20);
+    await tester.pump(ZoomWindow.pause ~/ 2);
+    expect(zoom.frame!.origin, before);
+    // The pen comes back in time (outside the zone): no advance.
+    await _write(tester, const Offset(0.4, 0.5), length: 10);
+    await tester.pump(ZoomWindow.pause * 2);
+    await tester.pumpAndSettle();
+    expect(zoom.frame!.origin, before);
+    // Lifted in the zone and left: the frame moves on.
+    await _write(tester, const Offset(0.72, 0.5), length: 20);
+    await tester.pump(ZoomWindow.pause);
+    await tester.pumpAndSettle();
+    expect(zoom.frame!.origin.dx, greaterThan(before.dx));
+    await closeEditor(tester);
+  });
+
+  testWidgets('↵ goes to the start of the next ruled line', (tester) async {
+    await pumpEditor(tester);
+    final zoom = await _open(tester);
+    final before = zoom.frame!.origin;
+    final pitch = zoom.host.pitchOf(zoom.frame!.surfaceId)!;
+    await _write(tester, const Offset(0.88, 0.5), length: 40);
+    await tester.pumpAndSettle();
+    expect(zoom.frame!.origin.dx, greaterThan(before.dx));
+    await tester.tap(find.byTooltip('Next line'));
+    await tester.pumpAndSettle();
+    expect(zoom.frame!.origin.dx, closeTo(before.dx, 0.01));
+    expect(zoom.frame!.origin.dy, closeTo(before.dy + pitch, 0.01));
+    await closeEditor(tester);
+  });
+
+  testWidgets('the frame moves by dragging and sizes with its handle', (tester) async {
+    await pumpEditor(tester);
+    final zoom = await _open(tester);
+    final id = zoom.frame!.surfaceId;
+    var screen = zoom.host.onScreen(id, zoom.frameRect!)!;
+    final mainScale = zoom.host.main.scale;
+    final before = zoom.frame!.origin;
+    await tester.dragFrom(screen.center, const Offset(-30, -40));
+    await tester.pumpAndSettle();
+    final moved = zoom.frame!.origin;
+    // The drag starts past the touch slop; most of it moves the frame.
+    expect(moved.dy, lessThan(before.dy - 20 / mainScale));
+    expect(moved.dx, lessThan(before.dx - 10 / mainScale));
+
+    screen = zoom.host.onScreen(id, zoom.frameRect!)!;
+    final width = zoom.frameRect!.width;
+    await tester.dragFrom(screen.bottomRight, Offset(screen.width * 0.5, screen.height * 0.5));
+    await tester.pumpAndSettle();
+    expect(zoom.frameRect!.width, greaterThan(width * 1.2));
+    expect(zoom.frame!.origin, moved, reason: 'sizing keeps the top-left corner');
     await closeEditor(tester);
   });
 }
