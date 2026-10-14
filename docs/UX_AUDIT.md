@@ -353,11 +353,11 @@ the default for tapered ends (on) and drop the switch
 |---|---|---|
 | Finger-tap undo tip (`EditorTip.gestureUndo`) | Remove | S |
 | Side-button tip chained to the stylus snack | Default: next session | S |
-| Canvas long press: Add page after, Bookmark page, Change template… | Merge into ⋯ → Page | S |
-| Insert ⊕ "Page with template…" | Merge into "Add page after" (long press: choose template) | S |
-| ⊕▾ "New canvas" | Merge into the sheet's Notebook / Canvas | S |
-| Card and folder ⋯ "Open" | Remove | S |
-| Multi-page delete confirmation | Remove (Undo is there) | S |
+| Canvas long press: Add page after, Bookmark page, Change template… | ✅ Merge into ⋯ → Page | S |
+| Insert ⊕ "Page with template…" | ✅ Merge into "Add page after" (long press: choose template) | S |
+| ⊕▾ "New canvas" | ✅ Merge into the sheet's Notebook / Canvas | S |
+| Card and folder ⋯ "Open" | ✅ Remove | S |
+| Multi-page delete confirmation | ✅ Remove (Undo is there) | S |
 | "Follow pen speed" switch | Default on | S |
 | "Reset feel" at the end of Feel | Merge into a header "Reset" like the other tools | S |
 | Pen popover "Toolbar" disclosure | Rename "Quick colours and sizes" | S |
