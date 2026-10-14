@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
+import '../../domain/notebook_style.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
@@ -22,6 +23,8 @@ import 'new_notebook/new_notebook_request.dart';
 import 'new_notebook/notebook_preview.dart';
 import 'new_notebook/paper_row.dart';
 import 'new_notebook/recent_papers.dart';
+import 'new_notebook/style_actions.dart';
+import 'new_notebook/style_row.dart';
 
 export 'new_notebook/new_notebook_request.dart';
 
@@ -30,8 +33,9 @@ part 'new_notebook/new_notebook_layout.dart';
 /// What the phone's new-notebook sheet imports instead.
 enum SheetImport { pdf, len }
 
-/// Creates a notebook or an infinite canvas, in one column: title;
-/// Notebook / Canvas; paper (the recent ones, then "More…");
+/// Creates a notebook or an infinite canvas, in one column: title; the
+/// saved notebook styles (each fills in the rest at once; "Save as
+/// style…" names the current choice); Notebook / Canvas; paper (the recent ones, then "More…");
 /// cover colour; page size; Create. A dialog with a live preview beside
 /// the form on wide screens; a full-height sheet on phones, its preview
 /// strip scrolling away with the form.
@@ -56,7 +60,7 @@ class NewNotebookSheet extends StatefulWidget {
     return showDialogOrSheet<NewNotebookRequest>(
       context: context,
       maxWidth: 840,
-      maxHeight: 720,
+      maxHeight: 800,
       minHeight: 560,
       builder: (_, wide) => NewNotebookSheet(wide: wide, onImport: onImport),
     );
@@ -85,6 +89,13 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   /// The title when none is typed: today's date (numbered if taken).
   String _defaultTitle = '';
 
+  /// The user's notebook styles.
+  List<NotebookStyle> _styles = const [];
+
+  /// Whether the form has taken its start: the default style, else what
+  /// the last notebook was made as.
+  bool _started = false;
+
   PageTemplate get _template => _selection.template;
   PaperStyle get _paper => _template.style;
   bool get _canvas => _kind == NotebookKind.canvas;
@@ -94,6 +105,13 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
     super.didChangeDependencies();
     final services = AppScope.maybeRead(context);
     _recent = services?.preferences.recentPapers ?? const [];
+    _styles = services?.notebookStyles.list() ?? const [];
+    if (!_started && services != null) {
+      _started = true;
+      final start =
+          services.notebookStyles.defaultStyle()?.choice ?? services.preferences.lastNotebookChoice;
+      if (start != null) _apply(start);
+    }
     _defaultTitle = defaultNotebookTitle(_today, [
       for (final n in services?.notebooks.list() ?? const <Notebook>[]) n.title,
     ], language: defaultPlannerCalendar().language);
@@ -130,6 +148,47 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
       );
     }
   });
+
+  /// What the form shows, as a style; null with a user's image template.
+  NotebookChoice? get _choice =>
+      NotebookChoice.of(kind: _kind, template: _template, coverColor: _cover);
+
+  /// Fills in the form from [choice] (planners from today).
+  void _apply(NotebookChoice choice) {
+    final calendar = defaultPlannerCalendar();
+    final paper = Paper.defaultFor(choice.paper, today: _today, calendar: calendar)!;
+    _kind = choice.kind;
+    _cover = choice.coverColor;
+    _chosenPapers = null;
+    _selection = initialSelection(
+      PageTemplate(
+        paper: paper.withLook(choice.look),
+        color: choice.paperColor,
+        format: choice.format,
+        orientation: choice.orientation,
+      ),
+      _today,
+      calendar: calendar,
+    );
+  }
+
+  void _applyStyle(NotebookStyle style) => setState(() => _apply(style.choice));
+
+  void _reloadStyles() {
+    if (!mounted) return;
+    setState(() => _styles = AppScope.read(context).notebookStyles.list());
+  }
+
+  Future<void> _saveStyle(NotebookChoice choice) async {
+    final repo = AppScope.read(context).notebookStyles;
+    final saved = await saveNotebookStyle(context, repo, choice, suggested: _paper.label);
+    if (saved != null) _reloadStyles();
+  }
+
+  Future<void> _styleMenu(NotebookStyle style, Offset at) async {
+    final repo = AppScope.read(context).notebookStyles;
+    if (await showNotebookStyleMenu(context, repo, style, at: at)) _reloadStyles();
+  }
 
   void _select(TemplateEntry entry) => setState(() {
     _selection = _selection.select(entry);
@@ -192,6 +251,7 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
           floatingLabelBehavior: FloatingLabelBehavior.always,
         ),
       ),
+      ..._styleSection(),
       const SizedBox(height: Gaps.lg),
       RovingSegments(
         SegmentedButton<NotebookKind>(
@@ -240,6 +300,32 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
           onChanged: (t) => setState(() => _selection = _selection.copyWith(template: t)),
         ),
       ],
+    ];
+  }
+}
+
+/// The Styles section of the form.
+extension _NewNotebookStyles on _NewNotebookSheetState {
+  /// "Styles" and its row; nothing when there are no styles and the form
+  /// can't be saved as one (a user's image template).
+  List<Widget> _styleSection() {
+    final choice = _choice;
+    String? selected;
+    for (final style in _styles) {
+      if (style.choice == choice) selected ??= style.id;
+    }
+    final canSave = choice != null && selected == null && AppScope.maybeRead(context) != null;
+    if (_styles.isEmpty && !canSave) return const [];
+    return [
+      const SizedBox(height: Gaps.xl),
+      const PickerLabel('Styles'),
+      StyleRow(
+        styles: _styles,
+        selected: selected,
+        onApply: _applyStyle,
+        onMenu: (style, at) => unawaited(_styleMenu(style, at)),
+        onSave: canSave ? () => unawaited(_saveStyle(choice)) : null,
+      ),
     ];
   }
 }

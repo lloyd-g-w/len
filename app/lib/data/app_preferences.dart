@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
+import '../domain/notebook_style.dart';
 import '../domain/preferences.dart';
 import 'settings_repository.dart';
 
@@ -68,6 +71,23 @@ class AppPreferences extends ChangeNotifier {
   /// Puts [name] first in [recentPapers] (keeping a few).
   void notePaperUsed(String name) =>
       _settings.recentPapers = [name, ...recentPapers.where((n) => n != name)].take(12).toList();
+
+  /// What the last new notebook was made as: where the new-notebook sheet
+  /// starts when no notebook style is the default. Null before the first
+  /// (or when unreadable).
+  NotebookChoice? get lastNotebookChoice {
+    final json = _settings.lastNotebookChoice;
+    if (json == null) return null;
+    try {
+      final value = jsonDecode(json);
+      return value is Map<String, Object?> ? NotebookChoice.fromJson(value) : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  set lastNotebookChoice(NotebookChoice? value) =>
+      _settings.lastNotebookChoice = value == null ? null : jsonEncode(value.toJson());
 
   void _update(VoidCallback write) {
     write();

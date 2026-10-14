@@ -49,6 +49,7 @@ AppServices _services(Clock clock) {
 const _tables = [
   'folders',
   'templates',
+  'notebook_styles',
   'notebooks',
   'pages',
   'outline',

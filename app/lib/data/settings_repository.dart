@@ -189,6 +189,12 @@ class SettingsRepository {
   ];
   set recentPapers(List<String> names) => _set('recent_papers', names.join(','));
 
+  /// What the last new notebook was made as (`NotebookChoice.toJson`, JSON);
+  /// null before the first.
+  String? get lastNotebookChoice => _get('last_notebook_choice');
+  set lastNotebookChoice(String? value) =>
+      value == null ? _remove('last_notebook_choice') : _set('last_notebook_choice', value);
+
   /// Handwriting recognition language (BCP 47); null = from the device locale.
   String? get handwritingLanguage => _get('handwriting_language');
   set handwritingLanguage(String? value) =>

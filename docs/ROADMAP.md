@@ -133,6 +133,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   in PDF export)
 - ✅ Custom templates ("My templates", synced): import an image or a PDF page, "Save page as
   template"; rename / delete; usable for new notebooks and pages
+- ✅ Notebook styles (synced): save the new-notebook sheet's choice (notebook or canvas,
+  template and look, paper colour, size, orientation, cover) as a named style, apply it with one
+  tap, mark one the default for new notebooks, rename / delete; without a default the sheet
+  starts as the last notebook was made
 - ✅ Template picker: categories (Basic, Writing, Planners, Paper, My templates), search, live
   previews; a dialog with gallery and options side by side on tablets / desktops, a sheet with
   full-width columns on phones
