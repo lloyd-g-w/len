@@ -105,7 +105,8 @@ class LaserOptionsPanel extends StatelessWidget {
                   max: LaserConfig.maxDuration,
                   onChanged: (d) => update(tools.laser.copyWith(duration: d)),
                 )
-              else ...[
+              else
+                // "When I stop" says the rest: nothing fades while writing.
                 _Seconds(
                   label: 'Fades after',
                   value: laser.hold,
@@ -113,11 +114,6 @@ class LaserOptionsPanel extends StatelessWidget {
                   max: LaserConfig.maxHold,
                   onChanged: (d) => update(tools.laser.copyWith(hold: d)),
                 ),
-                Text(
-                  'Nothing fades while you keep writing',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
             ],
           ],
         );

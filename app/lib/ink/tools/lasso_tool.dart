@@ -44,9 +44,10 @@ abstract interface class LassoText {
 }
 
 /// The lasso: draw a loop (or drag a rectangle, [LassoShape.rectangle]) to
-/// select, tap to select one item, drag the selection to move it, drag its handles to resize or rotate it. A long
-/// press on empty space asks to paste ([onLongPress]); a double tap on a
-/// text box edits it ([onEditText]). What it selects follows the
+/// select, tap to select one item, drag the selection to move it, drag its
+/// handles to resize or rotate it. A long press on empty space asks to
+/// paste ([onLongPress]); a double tap on a text box edits it
+/// ([onEditText]). What it selects follows the
 /// [LassoConfig] read at each press: its shape, how much of an item it
 /// must cover, and which kinds of item (taps too).
 ///
