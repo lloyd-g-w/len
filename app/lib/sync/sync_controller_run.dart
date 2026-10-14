@@ -14,7 +14,7 @@ extension _SyncRun on SyncController {
     _setState(SyncState.syncing);
     SyncApi? api;
     try {
-      api = apiFactory(settings.syncUrl, tokens.token);
+      api = _api = apiFactory(settings.syncUrl, tokens.token);
       final changes = await engine.sync(api, isCancelled: cancelled);
       if (cancelled()) return;
       _refreshTooLarge();
@@ -49,6 +49,7 @@ extension _SyncRun on SyncController {
       );
     } finally {
       api?.close();
+      if (identical(_api, api)) _api = null;
     }
   }
 

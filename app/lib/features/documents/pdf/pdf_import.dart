@@ -36,7 +36,11 @@ class PdfImporter {
   Future<void> discard(String sha) async {
     await _renderer.dispose();
     try {
-      await services.blobs.discardIfUnreferenced(sha, BlobReferences(services.database).all);
+      final references = BlobReferences(services.database);
+      await services.blobs.discardIfUnreferenced(
+        sha,
+        () => references.kept(services.blobs.clock.nowMs()),
+      );
     } on Object catch (e) {
       debugPrint('Could not discard PDF blob $sha: $e');
     }

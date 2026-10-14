@@ -127,8 +127,21 @@ class RecordingController extends ChangeNotifier {
 
   /// Starts a new recording. Returns false (with [lastError]) if it could
   /// not start.
-  Future<bool> start() async {
-    if (_state != RecorderState.idle) return false;
+  Future<bool> start() {
+    if (_state != RecorderState.idle) return Future.value(false);
+    final starting = _starting = _start();
+    unawaited(
+      starting.whenComplete(() {
+        if (identical(_starting, starting)) _starting = null;
+      }),
+    );
+    return starting;
+  }
+
+  /// The start under way, if any ([shutdown] lets it settle first).
+  Future<bool>? _starting;
+
+  Future<bool> _start() async {
     _set(RecorderState.starting);
     lastError = null;
     final capture = _capture ??= backends.capture();
@@ -198,6 +211,10 @@ class RecordingController extends ChangeNotifier {
     lastError = null;
     _switching = true;
     try {
+      // A split restarts the recorder on some platforms (Linux, web): a
+      // pause sent meanwhile would be lost, the "paused" audio kept.
+      await _work;
+      if (_state != RecorderState.recording) return false; // Stopped meanwhile.
       await _capture?.pause();
     } on Object catch (e) {
       // (Called from the notification too: never an unhandled error.)
@@ -279,7 +296,10 @@ class RecordingController extends ChangeNotifier {
   /// Moves on to the next part once the current one holds [partMs] of
   /// audio (checked by the ticker; tests call it directly).
   Future<void> nextPartIfDue() async {
-    if (_state == RecorderState.recording && _work == null && elapsedMs - _fileStartMs >= partMs) {
+    if (_state == RecorderState.recording &&
+        !_switching &&
+        _work == null &&
+        elapsedMs - _fileStartMs >= partMs) {
       try {
         await (_work = _split());
       } finally {
@@ -309,6 +329,9 @@ class RecordingController extends ChangeNotifier {
   Future<void> shutdown() async {
     _disposed = true;
     _ticker?.cancel();
+    // A start under way gives up (or, past the point of no return, its
+    // recording is stopped and saved here) before the recorder goes.
+    await _starting;
     if (_state.isActive) await stop();
     unawaited(_levels?.cancel());
     await _capture?.dispose();

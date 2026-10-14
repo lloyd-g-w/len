@@ -67,6 +67,7 @@ class CanvasNavigation extends ChangeNotifier {
   /// Shows all the ink on the canvas, or the origin if there is none.
   Future<void> fitContent() async {
     final bounds = await reader.contentBounds(surfaceId);
+    if (_disposed) return; // The canvas closed meanwhile.
     if (bounds == null) return goToOrigin();
     final view = viewFitting(bounds, scaleCap: fitScaleCap);
     animator.animateTo(scale: view.scale, offset: view.offset);

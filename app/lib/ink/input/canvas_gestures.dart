@@ -48,8 +48,11 @@ class CanvasGestures {
       case PointerDeviceKind.touch:
         taps.down(e.pointer, e.localPosition, e.timeStamp);
         _twoFingerHold.down(e.pointer, e.localPosition);
-        // A still palm next to a (hovering) pen must not open a menu.
-        final eligible = navigates && !taps.isStylusNear(e.timeStamp);
+        // A still palm next to a (hovering) pen must not open a menu, nor
+        // (often landing as two contacts) be a two-finger hold.
+        final penNear = taps.isStylusNear(e.timeStamp);
+        if (penNear) _twoFingerHold.reset();
+        final eligible = navigates && !penNear;
         _longPress.down(e.pointer, e.localPosition, eligible: eligible);
         doubleTap.down(e.pointer, e.localPosition, e.timeStamp, eligible: eligible);
       case PointerDeviceKind.stylus || PointerDeviceKind.invertedStylus:
@@ -86,6 +89,11 @@ class CanvasGestures {
   }
 
   void cancel(PointerCancelEvent e) {
+    // Like a lift: a pen still taken for touching would block taps for good.
+    if (e.kind == PointerDeviceKind.stylus || e.kind == PointerDeviceKind.invertedStylus) {
+      taps.noteStylusUp(e.timeStamp);
+      return;
+    }
     taps.cancel(e.pointer);
     if (e.kind == PointerDeviceKind.touch) _twoFingerHold.up(e.pointer);
     if (e.kind == PointerDeviceKind.touch) doubleTap.cancel(e.pointer);
@@ -107,6 +115,7 @@ class CanvasGestures {
     if (e.kind == PointerDeviceKind.stylus || e.kind == PointerDeviceKind.invertedStylus) {
       taps.noteStylus(e.timeStamp);
       _longPress.reset();
+      _twoFingerHold.reset();
       doubleTap.reset();
     }
   }

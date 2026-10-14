@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/spool_storage.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/audio/backends/android_keep_alive.dart';
@@ -14,6 +17,21 @@ import 'package:len/ui/app_theme.dart';
 
 import 'data_test.dart' show FakeClock;
 import 'support/fake_audio.dart';
+
+/// A spool whose [holdWrite]th write waits for [release].
+class _HeldSpool extends MemorySpoolStorage {
+  int holdWrite = 0;
+  int _writes = 0;
+  final Completer<void> _held = Completer();
+
+  void release() => _held.complete();
+
+  @override
+  Future<void> write(String name, Uint8List bytes) async {
+    if (++_writes == holdWrite) await _held.future;
+    await super.write(name, bytes);
+  }
+}
 
 /// Background recording: the keep-alive (Android's foreground service and
 /// its notification) follows the recorder, its buttons drive it, and a
@@ -125,6 +143,40 @@ void main() {
       clock.now += 100;
       expect(await c.stop(), isNull);
       expect(audio.log.last, 'keepalive hide');
+      c.dispose();
+    });
+
+    test('shut down while starting: no keep-alive is made after it was released', () async {
+      final c = recorder();
+      final started = c.start();
+      await c.shutdown(); // The editor closed before the permission prompt.
+      expect(await started, isFalse);
+      // Whatever the start made is released too.
+      expect(audio.log.where((l) => l == 'keepalive dispose'), hasLength(audio.keepAlives.length));
+      // The capture isn't used once disposed.
+      expect(audio.log.last, 'keepalive dispose');
+      expect(audio.log.where((l) => l == 'dispose'), hasLength(1));
+      expect(audio.log.indexOf('dispose'), greaterThan(audio.log.indexOf('permission')));
+      c.dispose();
+    });
+
+    test('shut down just after the capture started: it is stopped and saved', () async {
+      final spool = _HeldSpool();
+      final adts = FakeAudio(background: true, adts: true, spool: spool);
+      final c = recorder(with_: adts);
+      spool.holdWrite = 2; // The timeline journalled once the capture runs.
+      final started = c.start();
+      await pumpEventQueue();
+      expect(adts.log, contains('start'));
+      final shutdown = c.shutdown(); // The editor closed meanwhile.
+      adts.capture.write(adtsFrames(16)); // ≈ 1 s.
+      spool.release();
+      await started;
+      await shutdown;
+      expect(adts.log, containsAllInOrder(['start', 'stop', 'keepalive hide', 'dispose']));
+      expect(c.state, RecorderState.idle);
+      expect(s.recordings.listOf(notebookId), hasLength(1));
+      expect(adts.keepAlives.every((k) => !k.shown), isTrue);
       c.dispose();
     });
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -283,6 +284,34 @@ void main() {
       expect(a.notebooks.dirtyRecords(10), hasLength(1)); // not marked clean
     });
 
+    test('switching servers aborts a request stuck on the old one', () async {
+      final stuck = _StuckClient();
+      final server = FakeServer();
+      final a = AppServices.create(AppDatabase.inMemory());
+      final controller = SyncController(
+        engine: a.sync.engine,
+        settings: a.settings,
+        tokens: a.sync.tokens,
+        apiFactory: (url, token) => SyncApi(
+          baseUrl: url,
+          token: token,
+          client: url == 'http://old.test' ? stuck : server.client,
+        ),
+      );
+      controller.configure(url: 'http://old.test', token: FakeServer.token);
+      final old = controller.syncNow();
+      await pumpEventQueue();
+      expect(stuck.waiting, isTrue, reason: 'e.g. a long upload or a dead connection');
+
+      controller.configure(url: 'http://new.test', token: FakeServer.token);
+      // Waited for the old request's timeout (30 s; 30 min for a blob).
+      await controller.syncNow().timeout(const Duration(seconds: 10));
+      await old;
+      expect(server.pulls, 1);
+      expect(controller.state, SyncState.idle);
+      controller.dispose();
+    });
+
     test('unexpected errors end in the error state', () async {
       final a = AppServices.create(AppDatabase.inMemory());
       final controller = SyncController(
@@ -299,4 +328,23 @@ void main() {
       controller.dispose();
     });
   });
+}
+
+/// An HTTP client whose requests hang until it is closed (as `IOClient`'s
+/// close aborts requests in flight).
+class _StuckClient extends http.BaseClient {
+  final _closed = Completer<void>();
+  bool waiting = false;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    waiting = true;
+    await _closed.future;
+    throw http.ClientException('Connection closed', request.url);
+  }
+
+  @override
+  void close() {
+    if (!_closed.isCompleted) _closed.complete();
+  }
 }

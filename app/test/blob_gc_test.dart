@@ -15,6 +15,7 @@ import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/surface_element.dart';
+import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/platform/blob_backend_native.dart';
 
 import 'support/fake_server.dart';
@@ -226,6 +227,17 @@ void main() {
       clock.advance(const Duration(days: 30));
       expect(await s.blobGc.run(), isEmpty);
       expect(await s.blobs.has(sha), isTrue);
+    });
+
+    test('a cancelled import keeps a blob a deleted page may still need', () async {
+      final sha = await blob('pdf');
+      final page = pdfPage(notebook(), sha);
+      s.notebooks.deletePage(page.id); // Undo or a deletion conflict may bring it back.
+      // The same PDF imported again, then cancelled.
+      expect(await blob('pdf'), sha);
+      await PdfImporter(s).discard(sha);
+      expect(await s.blobs.has(sha), isTrue);
+      expect(await s.blobGc.run(), isEmpty);
     });
 
     test('deleted forever: ink and blobs are kept while sync may undo it', () async {

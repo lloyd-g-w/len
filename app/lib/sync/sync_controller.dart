@@ -49,6 +49,11 @@ class SyncController extends ChangeNotifier {
   Future<void>? _queued;
   bool _disposed = false;
 
+  /// The client of the run under way: closed when the configuration
+  /// changes, so a request stuck on the old server (a long upload, a dead
+  /// connection) does not hold up the next run until it times out.
+  SyncApi? _api;
+
   /// Bumped whenever the configuration changes; a run started under an
   /// older configuration stops at its next checkpoint.
   int _configGeneration = 0;
@@ -157,6 +162,7 @@ class SyncController extends ChangeNotifier {
     settings.syncUrl = _normalizeUrl(url);
     unawaited(tokens.save(token.trim()));
     _configGeneration++;
+    _api?.close();
     _lastError = _lastErrorDetails = _lastFailure = null;
     _failingSince = null;
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
@@ -195,10 +201,19 @@ class SyncController extends ChangeNotifier {
     if (blobs == null) return false;
     if (await blobs.has(sha)) return true;
     if (!isConfigured || _disposed) return false;
+    // Switching servers (or one losing its history) resets the uploaded
+    // marks; a download still under way must not mark it on the new one.
+    final generation = _configGeneration;
+    final serverId = settings.syncServerId;
     SyncApi? api;
     try {
       api = apiFactory(settings.syncUrl, tokens.token);
-      return await BlobSync(blobs).download(api, sha);
+      return await BlobSync(blobs).download(
+        api,
+        sha,
+        fromCurrentServer: () =>
+            generation == _configGeneration && serverId == settings.syncServerId,
+      );
     } on SyncException catch (e) {
       debugPrint('Cannot fetch blob $sha: ${e.message}');
       return false;
@@ -240,6 +255,7 @@ class SyncController extends ChangeNotifier {
     _disposed = true;
     tokens.removeListener(_tokenChanged);
     _timer?.cancel();
+    _api?.close();
     unawaited(_remoteChanges.close());
     unawaited(_notices.close());
     super.dispose();

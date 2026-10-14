@@ -214,7 +214,8 @@ class LenArchiveReader {
       );
     } catch (_) {
       commit.discard();
-      final referenced = BlobReferences(stores.any.database).all;
+      final references = BlobReferences(stores.any.database);
+      Set<String> referenced() => references.kept(clock.nowMs());
       for (final sha in stored) {
         await blobs.discardIfUnreferenced(sha, referenced);
       }

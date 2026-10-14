@@ -223,7 +223,9 @@ record referencing it arrives later.
    below (parents first), then tombstones in the reverse order (children first, so a server never
    holds a deleted page or notebook whose content is still live because a push stopped half way) —
    and send them in requests of at most 1000 records and ~4 MiB of
-   JSON. A single record too large for the server's body limit is skipped (it stays dirty), and so
+   JSON. A request answered with `413` (a reverse proxy may allow smaller bodies than the server)
+   is sent again in halves, and later requests of that sync are kept below half its size. A single
+   record too large for the body limit is skipped (it stays dirty), and so
    is a record the server rejects with `400` and its `index` (logged; the rest of that request is
    sent again; a `400` without an index fails the cycle). After
    success, clear the dirty flag of each row whose `updatedAt` has not changed since it was read.
