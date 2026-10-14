@@ -213,7 +213,9 @@ class _CornerPainter extends CustomPainter {
     if (loupe && active != null) _loupe(canvas, size, quad[active!]);
   }
 
-  void _scene(Canvas canvas, {bool handles = true}) {
+  /// The photo, dimmed outside the outline, the outline [line] wide and
+  /// (with [handles]) the handles.
+  void _scene(Canvas canvas, {bool handles = true, double line = Hairline.rule}) {
     final image = photo;
     if (image != null) {
       final src = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
@@ -227,18 +229,18 @@ class _CornerPainter extends CustomPainter {
         ..addPath(outline, Offset.zero),
       Paint()..color = _dim,
     );
-    final line = Paint()
+    final stroke = Paint()
       ..color = _accent
       ..style = PaintingStyle.stroke
-      ..strokeWidth = Hairline.rule;
-    canvas.drawPath(outline, line);
+      ..strokeWidth = line;
+    canvas.drawPath(outline, stroke);
     if (!handles) return;
     final fill = Paint()..color = Palette.paper;
     for (final (i, p) in quad.indexed) {
       final r = i < 4 ? (i == active ? 9.0 : 7.0) : (i == active ? 7.0 : 5.5);
       canvas
         ..drawCircle(p, r, fill)
-        ..drawCircle(p, r, line);
+        ..drawCircle(p, r, stroke);
     }
   }
 
@@ -258,7 +260,8 @@ class _CornerPainter extends CustomPainter {
       ..translate(box.center.dx, box.center.dy)
       ..scale(ScanCornerEditor.loupeZoom)
       ..translate(-at.dx, -at.dy);
-    _scene(canvas, handles: false);
+    // A hairline outline however enlarged, so the paper's edge shows.
+    _scene(canvas, handles: false, line: Hairline.width / ScanCornerEditor.loupeZoom);
     canvas.restore();
     // Crosshair on the corner.
     final cross = Paint()

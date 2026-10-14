@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/labelled_action.dart';
 import '../../../ui/segment_label.dart';
 import 'scan_session.dart';
 
 /// The scan screen's foot: the pages (flattened previews, the current one
-/// ringed, then +), the current page's commands (rotate, whole photo,
-/// retake, remove) and the look of all pages (Colour / Greyscale / B&W).
+/// ringed, then +), the current page's commands (Rotate, Whole photo,
+/// Retake, Remove) and the look of all pages (Colour / Greyscale / B&W).
 class ScanControls extends StatelessWidget {
   const ScanControls({
     super.key,
@@ -32,7 +33,7 @@ class ScanControls extends StatelessWidget {
   static const double thumbHeight = 72;
 
   /// Narrower than this, the look goes on its own row.
-  static const double _oneRow = 560;
+  static const double _oneRow = 720;
 
   @override
   Widget build(BuildContext context) {
@@ -77,24 +78,39 @@ class ScanControls extends StatelessWidget {
     final page = session.current!;
     final whole = session.isWholePhoto;
     final found = page.photo.detected;
+    // Named commands: a bare glyph is a guess on touch, where tooltips
+    // need a long press.
     return Row(
       mainAxisSize: MainAxisSize.min,
+      spacing: Gaps.sm,
       children: [
-        _command(Symbols.rotate_right_sharp, 'Rotate', session.rotate),
-        _command(
-          whole ? Symbols.crop_sharp : Symbols.crop_free_sharp,
-          whole ? 'Use the page found' : 'Use the whole photo',
-          // Nothing to go back to when no page was found.
-          whole && (found == null || found == page.photo.bounds) ? null : session.toggleWholePhoto,
+        LabelledAction(
+          icon: Symbols.rotate_right_sharp,
+          label: 'Rotate',
+          onPressed: session.rotate,
         ),
-        _command(Symbols.replay_sharp, retakeLabel, busy ? null : onRetake),
-        _command(Symbols.delete_sharp, 'Remove page', session.removeCurrent),
+        LabelledAction(
+          icon: Symbols.crop_free_sharp,
+          label: 'Whole photo',
+          filled: whole,
+          // Nothing to go back to when no page was found.
+          onPressed: whole && (found == null || found == page.photo.bounds)
+              ? null
+              : session.toggleWholePhoto,
+        ),
+        LabelledAction(
+          icon: Symbols.replay_sharp,
+          label: retakeLabel,
+          onPressed: busy ? null : onRetake,
+        ),
+        LabelledAction(
+          icon: Symbols.delete_sharp,
+          label: 'Remove',
+          onPressed: session.removeCurrent,
+        ),
       ],
     );
   }
-
-  Widget _command(IconData icon, String tooltip, VoidCallback? onPressed) =>
-      IconButton(tooltip: tooltip, icon: Icon(icon), iconSize: Glyphs.bar, onPressed: onPressed);
 
   Widget _look() => SegmentedButton<ScanFilter>(
     key: const ValueKey('scan-filter'),

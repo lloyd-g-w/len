@@ -188,7 +188,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 ScanControls(
                   session: _session,
                   busy: busy,
-                  retakeLabel: widget.sources.hasCamera ? 'Retake' : 'Replace photo…',
+                  retakeLabel: widget.sources.hasCamera ? 'Retake' : 'Replace…',
                   onRetake: () =>
                       widget.sources.hasCamera ? _camera(replace: true) : _pick(replace: true),
                   onAdd: _add,

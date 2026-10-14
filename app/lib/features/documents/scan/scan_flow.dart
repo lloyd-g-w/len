@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../app_services.dart';
@@ -14,10 +16,7 @@ import 'scan_sources.dart';
 /// Scans pages (the scan screen) into a new notebook titled after today,
 /// e.g. "Scan Oct 14". Returns it, or null if the user left or it failed
 /// (they have then been told why).
-Future<Notebook?> scanToNewNotebookFlow(
-  BuildContext context, {
-  ScanSources sources = ScanSources.system,
-}) {
+Future<Notebook?> scanToNewNotebookFlow(BuildContext context, {ScanSources? sources}) {
   final title = 'Scan ${MaterialLocalizations.of(context).formatShortMonthDay(DateTime.now())}';
   return _scanFlow(
     context,
@@ -36,7 +35,7 @@ Future<List<NotebookPage>?> scanIntoNotebookFlow(
   BuildContext context, {
   required String notebookId,
   NotebookPage? after,
-  ScanSources sources = ScanSources.system,
+  ScanSources? sources,
 }) => _scanFlow(
   context,
   doneLabel: 'Insert',
@@ -49,17 +48,17 @@ Future<T?> _scanFlow<T>(
   BuildContext context, {
   required String doneLabel,
   required String progressTitle,
-  required ScanSources sources,
+  required ScanSources? sources,
   required T Function(ScanImporter importer, List<PageSpec> specs) store,
 }) async {
   final services = AppScope.read(context);
   final session = ScanSession();
+  final route = MaterialPageRoute<bool>(
+    builder: (_) =>
+        ScanScreen(session: session, doneLabel: doneLabel, sources: sources ?? ScanSources.current),
+  );
   try {
-    final done = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => ScanScreen(session: session, doneLabel: doneLabel, sources: sources),
-      ),
-    );
+    final done = await Navigator.of(context).push(route);
     if (done != true || session.pages.isEmpty || !context.mounted) return null;
     final importer = ScanImporter(services);
     try {
@@ -82,6 +81,7 @@ Future<T?> _scanFlow<T>(
       return null;
     }
   } finally {
-    session.dispose();
+    // The screen still paints the session's images while it slides away.
+    unawaited(route.completed.whenComplete(session.dispose));
   }
 }

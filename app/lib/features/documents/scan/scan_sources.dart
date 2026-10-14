@@ -18,6 +18,13 @@ class ScanSources {
   /// The platform's: the file picker, and the camera on Android.
   static const ScanSources system = ScanSources();
 
+  /// What the scan flows use when not told (tests set their own).
+  @visibleForTesting
+  static ScanSources? debugSources;
+
+  /// [debugSources], else [system].
+  static ScanSources get current => debugSources ?? system;
+
   /// Whether photos can be taken ([takePhoto]).
   bool get hasCamera =>
       camera != null || (!kIsWeb && defaultTargetPlatform == TargetPlatform.android);
