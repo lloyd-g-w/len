@@ -1,5 +1,147 @@
 # Len — UX/UI audit
 
+## Round 12 audit — after the owner's list (`review/round12`)
+
+Lens: round 9's question again, "is Len still minimal?", after a day that
+added shape fill, the zoom window, document scan, keyboard roving focus and
+context-menu keys, notebook styles, the canvas minimap, lasso options, the
+laser's "When I stop", the highlighter's Feel options, smoother mouse ink
+and scribble tuning (`git log 687a5097..main`). Every setting, menu row,
+popover row and shortcut those added was listed from the code and judged
+for need, discoverability, naming, one home and consistency (round 9's
+copy rules and glossary). The toolbar, editor surfaces 3 (zoom window,
+minimap), notebook styles, app surfaces 3 and flows screenshot suites were
+rendered and viewed. Paths are under `app/lib/` unless noted. ⬜ open,
+✅ fixed on this branch.
+
+Summary: the day added a lot of capability and almost no chrome. Settings
+gained **no** rows; the toolbar gained no buttons; every new option lives
+in the popover or menu of the thing it changes. The drift is small and in
+four places: a preference nobody will find (the minimap's "Keep in focus
+mode"), a tip that lies once the lasso is a rectangle, the new-notebook
+sheet greeting first-timers with "Styles" before anything else, and a few
+names that collide with older ones (the lasso's "Shape" heading, the
+style menu's bookmark glyph). ⋯ → View is now 9 rows in a paged notebook,
+past round 9's 8: kept, each row is a real view choice.
+
+### Inventory (added today)
+
+Counts for a tablet, paged notebook unless noted.
+
+| # | Item | Home(s) | Needed · discoverable · named · one home | Verdict | Effort |
+|---|---|---|---|---|---|
+| **Editor menus and shortcuts** | | | | | |
+| 1 | ⋯ → View → Zoom window (switch), M | View, keys | yes (GoodNotes parity) · yes · yes · yes | Keep | – |
+| 2 | ⋯ → View → Minimap (switch, canvases), Shift+M | View, keys | owner's ask · yes · yes · yes (not also in the zoom pill: View holds every overlay toggle) | Keep | – |
+| 3 | M and Shift+M: two overlays on one letter | keys, shortcut sheet | both listed in the sheet | Keep | – |
+| 4 | ⋯ → View length: 2 flows + 3 fits + 2 toolbar + zoom window + focus = 9 | View | each a real choice, radio groups read well | Keep (no more rows: the next toggle needs a merge) | – |
+| 5 | Menu key / Shift+F10 open the focused item's menu | everywhere a long press opens one | yes · **not in the shortcut sheet** | Keep; list it (R12-3) | S |
+| **Zoom window** | | | | | |
+| 6 | Box rail: ✕, ⋯, ↵ Next line; grip to resize; frame tab | the box | yes · yes · yes | Keep | – |
+| 7 | Box ⋯: Left-handed ("Box at the top"), Automatic height (once dragged) | the box | yes · yes · a check where ⋯'s on/off rows are switches; popup menus (`MenuRow`) mark with checks everywhere (library View, text menus) | Keep | – |
+| **Minimap** | | | | | |
+| 8 | Map: tap to glide, drag, pinch / scroll to zoom; fades while writing | canvas corner | yes · yes · – | Keep | – |
+| 9 | Map menu: **Keep in focus mode** (switch), Hide minimap | long press / right-click on the map | rarely · hidden in a long-press menu · a switch hand-built in a `MenuItemButton`; focus mode is "no chrome" and the map is chrome | Remove the pin (R12-1) | S |
+| **Tool popovers** | | | | | |
+| 10 | Lasso: **Shape** (Freehand / Rectangle) | lasso popover | owner's ask · yes · the heading reads as the Shapes tool; the laser's Dot / Trail has none | Rename: drop the heading (R12-4) | S |
+| 11 | Lasso: Select (Touching / Mostly / Whole) + caption | lasso popover | owner's ask · yes · yes ("Whole" as the eraser's "Whole stroke") | Keep | – |
+| 12 | Lasso: Items (Ink, Highlighter, Text, Images) | lasso popover | owner's ask · yes · yes (shapes are ink, links go with images: said in code, not needed in UI) | Keep | – |
+| 13 | Lasso tip "Circle ink, text or images…" | first lasso pick | **wrong with the Rectangle lasso** | Rename by shape (R12-2) | S |
+| 14 | Laser: Fade (Each stroke / When I stop), "Trail lasts" or "Fades after" | laser popover (Trail only) | owner's ask · yes · "When I stop" is first person, as "My templates" | Keep (two stored durations, one slider shown) | – |
+| 15 | Highlighter "Opacity and feel": + Pressure sensitivity (default Off), Ends (Flat / Round) | highlighter popover, collapsed | owner's ask (the pen's engine, explained by the same controls) · collapsed · yes | Keep | – |
+| 16 | Shape fill (None, three tints, solid), dimmed for lines / arrows | Shapes popover, lasso Style | yes · yes · yes | Keep; the Shapes popover's missing Reset is R12-9 (open) | – |
+| 17 | Smoother mouse ink, scribble tuning | – | no knobs: good | Keep | – |
+| 18 | Roving focus in every choice group | – | no visible cost | Keep | – |
+| **Insert and library** | | | | | |
+| 19 | Insert ⊕: Scan document… (paged) | Insert ⊕ | yes · yes · the same name as the library's; mirrors Import PDF… / Pages from PDF… | Keep | – |
+| 20 | Library ⊕▾ Scan document…; phone sheet link | library | yes · yes · yes | Keep | – |
+| 21 | Scan screen: Take photo / Choose photos…, Rotate, Whole photo, Retake (Replace… without a camera), Remove, Colour / Greyscale / B&W, Add page, Create notebook / Insert, Discard… | scan screen | yes · yes · yes | Keep | – |
+| **New-notebook sheet** | | | | | |
+| 22 | **Styles** row (chips) + "Save as style…" chip, right under Title | sheet | yes · yes · **shown to a first-timer with no styles: a "Styles" heading over a lone "Save as style…" before Notebook / Canvas** | Merge: Styles row only once a style exists; "Save as style…" under the form, its one home (R12-5) | S |
+| 23 | Style menu: Default for new notebooks (✓), Rename…, Delete… | chip: tap again, long press, right-click, Menu key | yes · yes · its glyph is the page **bookmark** | Rename the glyph (R12-6) | S |
+| 24 | The sheet starts from the default style, else the last notebook made | sheet | yes · invisible (good) · – | Keep | – |
+| 25 | Phone sheet foot: Import PDF…, Import Len file…, Scan document… (two lines) | phone sheet | yes on phones · yes · – | Keep (quiet links, below Create) | – |
+
+Remembered, not settings: zoom box at top, its height and frame per
+notebook, minimap on / off, lasso / laser / highlighter options, the last
+notebook choice. Settings itself: unchanged (8 preferences, as round 9).
+
+### Prioritised items
+
+**R12-1 P2 · The minimap's "Keep in focus mode" is a preference nobody
+will find.** ⬜
+- *What:* a switch inside the map's long-press menu
+  (`editor/canvas/minimap_menu.dart`), stored as `minimap_in_focus`.
+- *Why:* focus mode means "no chrome"; the map is chrome and already
+  fades while writing. One more remembered state, and the switch is a
+  hand-built `AppSwitch` in a `MenuItemButton` (CONVENTIONS: `MenuRow`).
+- *Fix:* remove it: the map hides in focus mode, its menu keeps "Hide
+  minimap". Paths: `editor/canvas/minimap_menu.dart`,
+  `canvas_minimap.dart`, `editor/editor_layers.dart`,
+  `data/app_preferences.dart`, `data/settings_repository.dart`.
+- Effort S.
+
+**R12-2 P2 · The lasso tip says "Circle…" when the lasso draws
+rectangles.** ⬜
+- *What:* `tipMessage` (`editor/chrome/tip_message.dart`) predates the
+  lasso's Shape option; its enum doc still says "it has no options".
+- *Fix:* phrase it by `LassoConfig.shape`: "Drag a box around ink, text
+  or images to select them" for the rectangle.
+- Effort S.
+
+**R12-3 P3 · The Menu key and Shift+F10 are missing from the shortcut
+sheet.** ⬜ They work on cards, folders, tabs, overview pages, styles and
+the page (`ui/context_menu_keys.dart`), but Ctrl+/ doesn't say so. *Fix:*
+"Context menu: Menu key or Shift+F10" in General
+(`settings/keyboard_shortcuts.dart`). Effort S.
+
+**R12-4 P3 · The lasso popover's "Shape" heading.** ⬜ It reads as the
+Shapes tool (the next tool in the bar), and the laser's Dot / Trail, the
+same kind of mode switch with glyphs, has no heading. *Fix:* drop it
+(`editor/tools/lasso_options_panel.dart`; golden `lasso_options.png`).
+Effort S.
+
+**R12-5 P2 · The new-notebook sheet opens with "Styles" for a user who
+has none.** ⬜
+- *What:* `_styleSection` (`library/new_notebook_sheet.dart`) shows the
+  heading and a lone "+ Save as style…" chip whenever the form can be
+  saved, i.e. always for a new user, between Title and Notebook / Canvas.
+- *Why:* the second thing a first-time user reads is about saving
+  presets, before choosing what to make. GoodNotes hides its templates'
+  "favourites" until there are some.
+- *Fix:* the Styles row shows only once a style exists and lists only
+  styles; "Save as style…" moves under the form (after Page size), a
+  quiet link as the sheet's import links, its one home: pick a style at
+  the top, save one at the end.
+- Effort S.
+
+**R12-6 P3 · The style menu's "Default for new notebooks" wears the
+page bookmark glyph.** ⬜ `Symbols.bookmark_sharp` means "Bookmark page"
+in the page menu. *Fix:* a push pin (`library/new_notebook/style_actions.dart`).
+Effort S.
+
+**R12-7 P3 · ⋯ → View is at 9 rows.** Keep; note for the next toggle:
+merge before adding (e.g. the two toolbar radios into one "Floating
+toolbar" switch). No change now.
+
+**R12-8 P3 · On/off rows in menus: switches in ⋯, checks in popup
+menus.** Keep: `MenuRow` marks state with a check everywhere (library
+View, text menus, playback speed, the zoom box's Left-handed); ⋯ uses
+`AppSwitch` rows. Consistent per menu kind.
+
+**R12-9 P2 · The Shapes popover has no Reset** (every other tool
+popover has one) **and its caption runs to two lines.** ⬜ Open: the
+Shape tool and hold-to-snap are being reworked on another branch
+(`feat/shapes-rework`); left to it. Paths:
+`editor/tools/shape_options_panel.dart`.
+
+Checked and sound: no new Settings rows; no new toolbar buttons; every
+new option sits in the popover or menu of the thing it changes; new
+strings follow the copy rules (`copy_rules_test`); "Scan document…" is
+one name in all three homes; the zoom window and minimap toggles share
+View with the other overlays.
+
+
 ## Round 10 audit — a real week of notes (`review/round10`)
 
 Lens: a first-time stylus user on an Android tablet and on a phone, and a
