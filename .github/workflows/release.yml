@@ -273,10 +273,18 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+      # winget manifests for this release's installer (submit them by hand or
+      # with wingetcreate: docs/PACKAGING.md "Windows").
+      - name: winget manifests
+        run: |
+          v=${{ needs.version.outputs.version }}
+          app/windows/winget/fill.sh "$v" "dist/len-$v-windows-x64-setup.exe" "$GITHUB_REPOSITORY" winget
+          (cd winget && zip -qr "../dist/len-$v-winget-manifests.zip" manifests)
       - run: ls -la dist && (cd dist && sha256sum -- * > SHA256SUMS)
       - uses: softprops/action-gh-release@v2
         with:

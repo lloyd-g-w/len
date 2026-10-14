@@ -216,3 +216,60 @@ build from the tag with a clean `PUB_CACHE`; compare with `apksigcopier`
 (`fdroid build` does this). Untested so far — the first F-Droid build will
 show which inputs still differ (typical culprits: build paths in native
 libraries, `pubspec.lock` drift).
+
+## Windows: installer, signing and winget
+
+### winget
+
+`app/windows/winget/` holds the manifest templates (schema 1.10.0: version,
+installer, default locale) for the Inno Setup installer: per-user install by
+default (`/CURRENTUSER`), all users with `/ALLUSERS` (elevates itself),
+`ProductCode` = the installer's `AppId` + `_is1`, upgrade in place, the file
+types and `len://` it registers. The release job fills them (`fill.sh`:
+version, the release asset's URL and SHA-256, date, release-notes URL) and
+attaches `len-X.Y.Z-winget-manifests.zip` in the `microsoft/winget-pkgs`
+layout (`manifests/l/Len/Len/X.Y.Z/`). Checked here: filled from a dummy
+setup, all three validate against Microsoft's 1.10.0 JSON schemas
+(`winget validate` itself needs Windows).
+
+Needs the owner:
+
+- ⚠️ `License:` is `TODO` (the job warns): winget-pkgs requires it.
+- Choose the identifier for good (`Len.Len` = Publisher.Name).
+- Submit: unzip and open a PR to `microsoft/winget-pkgs`, or
+  `wingetcreate submit --token <GitHub PAT> manifests/l/Len/Len/X.Y.Z` (on
+  Windows). Automating it needs a PAT secret (e.g. `WINGET_TOKEN`) and
+  `wingetcreate update Len.Len --urls … --version … --submit` in the release
+  job; not wired up (no secret exists).
+
+### Code signing (needs a certificate)
+
+Unsigned, SmartScreen warns on the setup until it earns reputation and some
+antivirus heuristics distrust it; winget accepts unsigned installers.
+Signing needs a code-signing certificate. Since 2023 private keys must live
+in hardware (HSM / token), so a plain `.pfx` in a CI secret is no longer an
+option. Choices, roughly by cost:
+
+1. **SignPath Foundation** — free signing for open-source projects (needs an
+   OSI licence first, then their application and review). Signs in their
+   HSM from a GitHub Actions step.
+2. **Azure Trusted Signing** — a small monthly fee, identity validation of
+   the publisher (individuals or organisations, availability by country);
+   `azure/trusted-signing-action` in the workflow with an Azure app
+   registration's client id / tenant / secret as secrets.
+3. **An OV / EV certificate from a CA** on a cloud HSM (DigiCert KeyLocker,
+   SSL.com eSigner, …), used through their `signtool` integration.
+
+Steps once there is one (all on the `windows` job, before zipping):
+
+1. Sign the app itself: `signtool sign /fd sha256 /tr <RFC 3161 timestamp
+   URL> /td sha256 <cert options> app\build\windows\x64\runner\Release\len.exe`
+   (the DLLs Len builds may be signed the same way; Flutter's own are
+   unsigned upstream).
+2. Build the installer signed: `iscc /DSign "/Slen=signtool sign /fd sha256
+   /tr … /td sha256 <cert options> $f" …` — `len.iss` then sets
+   `SignTool=len` and `SignedUninstaller=yes` (setup and uninstaller signed).
+3. Check: `signtool verify /pa /v len-X.Y.Z-windows-x64-setup.exe`.
+4. Keep the publisher name identical across releases (SmartScreen reputation
+   is per certificate / publisher). MSIX (README *Windows installer*) becomes
+   an option once signing works.

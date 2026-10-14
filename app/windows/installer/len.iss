@@ -49,6 +49,12 @@ SetupIconFile=..\runner\resources\app_icon.ico
 WizardStyle=modern
 Compression=lzma2/max
 SolidCompression=yes
+#ifdef Sign
+; Code signing (docs/PACKAGING.md "Windows"): iscc /DSign "/Slen=<signing command> $f"
+; signs the setup and the uninstaller with the sign tool named "len".
+SignTool=len
+SignedUninstaller=yes
+#endif
 OutputDir={#OutputDir}
 OutputBaseFilename=len-{#AppVersion}-windows-x64-setup
 

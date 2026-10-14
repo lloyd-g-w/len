@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+# The Inno Setup installer (windows/installer/len.iss): per user by default,
+# all users with /ALLUSERS (it elevates itself). ProductCode = AppId + "_is1".
+PackageIdentifier: Len.Len
+PackageVersion: "{{VERSION}}"
+InstallerLocale: en-US
+InstallerType: inno
+MinimumOSVersion: 10.0.17763.0
+UpgradeBehavior: install
+ReleaseDate: "{{DATE}}"
+FileExtensions:
+  - len
+  - pdf
+  - png
+  - jpg
+  - jpeg
+  - webp
+Protocols:
+  - len
+ProductCode: "{5C85836A-1E53-41A2-A65C-495925C9AFF6}_is1"
+AppsAndFeaturesEntries:
+  - DisplayName: Len
+    Publisher: Len
+    ProductCode: "{5C85836A-1E53-41A2-A65C-495925C9AFF6}_is1"
+Installers:
+  - Architecture: x64
+    Scope: user
+    InstallerUrl: "{{URL}}"
+    InstallerSha256: "{{SHA256}}"
+    InstallerSwitches:
+      Custom: /CURRENTUSER
+  - Architecture: x64
+    Scope: machine
+    InstallerUrl: "{{URL}}"
+    InstallerSha256: "{{SHA256}}"
+    ElevationRequirement: elevatesSelf
+    InstallerSwitches:
+      Custom: /ALLUSERS
+ManifestType: installer
+ManifestVersion: 1.10.0
