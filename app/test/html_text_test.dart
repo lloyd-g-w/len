@@ -197,6 +197,9 @@ void main() {
     expect(parseColor('rgb(255,255,255)'), isNull);
     expect(parseColor('transparent'), isNull);
     expect(parseColor('red'), 0xFFFF0000);
+    // Unclosed (cut-off markup) is read, not a RangeError.
+    expect(parseColor('rgb(26, 115, 232'), 0xFF1A73E8);
+    expect(parseColor('rgb(1,2'), isNull);
   });
 
   group('RichTextBuffer.insertRich', () {
