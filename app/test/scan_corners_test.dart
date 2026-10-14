@@ -96,10 +96,12 @@ void main() {
   const w = 800, h = 600;
   int desk(int x, int y) => 55 + x * 25 ~/ w;
 
-  /// Detects on [photo] and expects every corner within [bound] pixels.
+  /// Detects on [photo] and expects every corner within [bound] pixels of
+  /// [truth] moved inside by the detector's [QuadDetector.inset].
   void expectPrecise(RgbaImage photo, Quad truth, {double bound = 0.5}) {
     final found = QuadDetector.find(photo);
-    expect(_error(found, truth), lessThan(bound), reason: '$found vs $truth');
+    final expected = truth.inset(QuadDetector.inset);
+    expect(_error(found, expected), lessThan(bound), reason: '$found vs $expected');
   }
 
   test('a rotated page: corners to half a pixel', () {

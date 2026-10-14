@@ -835,8 +835,9 @@ SYNC_PROTOCOL). All pure Dart, so it works on every platform.
   the strongest step across it, the same way round, located to a fraction
   of a pixel along ~100 normals, a robust line (Theil–Sen, then least
   squares over the points within 1.5 px) and the corners where the lines
-  meet, so no sliver of desk is left (to ~0.1 px on synthetic photos;
-  implausible results keep the coarse quad).
+  meet (to ~0.1 px on synthetic photos; implausible results keep the
+  coarse quad), then moved 1 px inside (`QuadDetector.inset`): soft or
+  stepped paper edges leave no hairline of desk on the white page.
   `ScanPhoto.load` measures the photo (EXIF-upright through the engine),
   keeps it as a JPEG (quality 92) of at most 3200 px when it is larger or
   heavier than a byte a pixel (so a long scan holds no more than the pages

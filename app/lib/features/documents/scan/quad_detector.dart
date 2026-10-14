@@ -47,15 +47,24 @@ abstract final class QuadDetector {
     return locate(g.grey, g.width, g.height)?.scaled(g.scale);
   }
 
+  /// How far inside the edges found [locate] keeps the outline, in pixels
+  /// of its input: a paper edge is soft (and on cheap photos stepped), and
+  /// a hairline of desk on a white page shows far more than the same
+  /// hairline of paper cropped.
+  static const double inset = 1;
+
   /// [detect]'s outline with its sides fitted to the edges in [grey] at
-  /// its own resolution, to a fraction of a pixel (`QuadRefiner`).
+  /// its own resolution, to a fraction of a pixel (`QuadRefiner`), then
+  /// moved [inset] inward.
   static Quad? locate(Uint8List grey, int width, int height) {
     final coarse = detect(grey, width, height);
     if (coarse == null) return null;
     // Detection works f times smaller, and its corners may be cut.
     final f = math.max(1, (math.max(width, height) / workingEdge).ceil());
     final smooth = GreyOps.blur(grey, width, height);
-    return QuadRefiner.refine(smooth, width, height, coarse, radius: 3.0 * f + 3);
+    final refined = QuadRefiner.refine(smooth, width, height, coarse, radius: 3.0 * f + 3);
+    final inside = refined.inset(inset);
+    return inside.isConvex ? inside : refined;
   }
 
   /// The document's outline in [grey] (8-bit luminance, row major, [width]

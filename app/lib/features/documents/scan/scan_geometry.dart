@@ -93,6 +93,30 @@ class Quad {
     return Quad.fromCorners([for (var i = 0; i < 4; i++) c[(i - k + 4) % 4]]);
   }
 
+  /// This (convex) quad with every side moved [d] inward, parallel to
+  /// itself; the corners are where the moved sides meet.
+  Quad inset(double d) {
+    final c = corners;
+    final lines = [
+      for (var i = 0; i < 4; i++)
+        () {
+          final a = c[i], dir = c[(i + 1) % 4] - a;
+          // Inward normal: the corners run clockwise on screen.
+          final n = Offset(-dir.dy, dir.dx) / dir.distance;
+          return (a + n * d, dir);
+        }(),
+    ];
+    Offset meet((Offset, Offset) p, (Offset, Offset) q) {
+      final (p0, d1) = p;
+      final (q0, d2) = q;
+      final cross = d1.dx * d2.dy - d1.dy * d2.dx;
+      final e = q0 - p0;
+      return p0 + d1 * ((e.dx * d2.dy - e.dy * d2.dx) / cross);
+    }
+
+    return Quad.fromCorners([for (var i = 0; i < 4; i++) meet(lines[(i + 3) % 4], lines[i])]);
+  }
+
   /// This quad with every coordinate multiplied by [s].
   Quad scaled(double s) => Quad(topLeft * s, topRight * s, bottomRight * s, bottomLeft * s);
 

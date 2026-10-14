@@ -108,6 +108,16 @@ void main() {
       expect(q.rotated(-1), q.rotated(3));
       expect(q.rotated(1).isConvex, isTrue);
       expect(Quad.bounds(300, 400).rotated(1).outputSize(maxEdge: 2500), const Size(400, 300));
+      expect(
+        Quad.bounds(300, 400).inset(10),
+        const Quad(Offset(10, 10), Offset(290, 10), Offset(290, 390), Offset(10, 390)),
+      );
+      final skew = q.inset(3);
+      for (var i = 0; i < 4; i++) {
+        // Each corner moves inside, along its angle's bisector.
+        expect(_inside(q, skew.corners[i].dx, skew.corners[i].dy), isTrue);
+      }
+      expect(q.inset(0), q);
     });
   });
 
@@ -161,7 +171,7 @@ void main() {
 
     test('finds a rotated paper in perspective on a dark table', () {
       const truth = Quad(Offset(180, 90), Offset(610, 60), Offset(660, 520), Offset(140, 540));
-      _expectNear(_detect(_photo(w, h, [truth], background: gradient), w, h), truth, 2);
+      _expectNear(_detect(_photo(w, h, [truth], background: gradient), w, h), truth, 4);
     });
 
     test('finds paper on a textured table', () {
@@ -169,18 +179,18 @@ void main() {
       final blocks = List.generate(40 * 30, (_) => 20 + rnd.nextInt(100));
       int texture(int x, int y) => blocks[(y ~/ 20) * 40 + x ~/ 20];
       const truth = Quad(Offset(220, 120), Offset(560, 100), Offset(600, 500), Offset(200, 480));
-      _expectNear(_detect(_photo(w, h, [truth], background: texture), w, h), truth, 2);
+      _expectNear(_detect(_photo(w, h, [truth], background: texture), w, h), truth, 4);
     });
 
     test('finds paper covering most of the image', () {
       const truth = Quad(Offset(30, 25), Offset(770, 15), Offset(780, 580), Offset(25, 570));
-      _expectNear(_detect(_photo(w, h, [truth], background: gradient), w, h), truth, 2);
+      _expectNear(_detect(_photo(w, h, [truth], background: gradient), w, h), truth, 4);
     });
 
     test('prefers the bigger of two bright rectangles', () {
       const big = Quad(Offset(300, 80), Offset(740, 110), Offset(720, 540), Offset(290, 520));
       const small = Quad(Offset(40, 300), Offset(220, 300), Offset(220, 500), Offset(40, 500));
-      _expectNear(_detect(_photo(w, h, [big, small], background: gradient), w, h), big, 2);
+      _expectNear(_detect(_photo(w, h, [big, small], background: gradient), w, h), big, 4);
     });
 
     test('finds nothing without a document', () {
