@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/roving_focus.dart';
 import '../editor_tools.dart';
 import 'insert_menu.dart';
 import 'toolbar_metrics.dart';
@@ -69,10 +70,14 @@ class ToolCluster extends StatelessWidget {
                       width: vertical ? height : cell,
                       height: vertical ? cell : height,
                       child: Center(
-                        child: ToolButton(
-                          descriptor: d,
-                          selected: d.tool == tools.tool,
-                          onSelect: () => tools.tool = d.tool,
+                        // Tab stops at the chosen tool only.
+                        child: RovingItem(
+                          stop: index >= 0 ? d.tool == tools.tool : d == descriptors.first,
+                          child: ToolButton(
+                            descriptor: d,
+                            selected: d.tool == tools.tool,
+                            onSelect: () => tools.tool = d.tool,
+                          ),
                         ),
                       ),
                     ),
