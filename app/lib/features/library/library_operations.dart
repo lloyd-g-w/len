@@ -52,7 +52,9 @@ mixin _LibraryOperations {
   }
 
   Folder createFolder(String name, {required int color}) {
-    final parent = _section == LibrarySection.library && !isSearching ? _folderId : null;
+    // The open folder, also while searching in it (Favourites and Trash
+    // have no folders: the top level).
+    final parent = _section == LibrarySection.library ? _folderId : null;
     final folder = services.folders.create(name: name, parentId: parent, color: color);
     _changed();
     return folder;
