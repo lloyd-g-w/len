@@ -14,10 +14,12 @@ import 'stroke_repository.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
+part 'notebook_trash.dart';
+
 /// Persists notebooks and orchestrates notebook-level operations that span
 /// pages and strokes (creation with a first page, duplication, trash and
 /// cascading deletion).
-class NotebookRepository extends SyncableTable {
+class NotebookRepository extends SyncableTable with _NotebookTrash {
   NotebookRepository(
     super.database, {
     required super.deviceId,
@@ -48,6 +50,7 @@ class NotebookRepository extends SyncableTable {
   String get table => 'notebooks';
 
   /// Live notebooks that are not in the trash, most recently edited first.
+  @override
   List<Notebook> list() => db
       .select(
         'SELECT * FROM notebooks WHERE deleted = 0 AND trashed_at IS NULL '
@@ -57,6 +60,7 @@ class NotebookRepository extends SyncableTable {
       .toList();
 
   /// Notebooks in the trash, most recently trashed first.
+  @override
   List<Notebook> trashed() => db
       .select(
         'SELECT * FROM notebooks WHERE deleted = 0 AND trashed_at IS NOT NULL '
@@ -135,68 +139,9 @@ class NotebookRepository extends SyncableTable {
   /// Moves a notebook into [folderId] (null = library root).
   void moveTo(String id, String? folderId) => _change(id, (n) => n.copyWith(folderId: folderId));
 
-  /// Moves a notebook to the trash; it can be restored until deleted forever.
-  void trash(String id) => _change(id, (n) => n.copyWith(trashedAt: clock.nowMs()));
-
-  /// Takes a notebook out of the trash. If its folder no longer exists it
-  /// returns to the library root.
-  void restore(String id) => _change(id, (n) {
-    final folder = n.folderId;
-    final folderAlive =
-        folder != null &&
-        db.select('SELECT 1 FROM folders WHERE id = ? AND deleted = 0', [folder]).isNotEmpty;
-    return n.copyWith(trashedAt: null, folderId: folderAlive ? folder : null);
-  });
-
-  /// Moves every notebook inside [folderIds] to the trash (folder deletion).
-  void trashAllIn(Set<String> folderIds) {
-    if (folderIds.isEmpty) return;
-    database.transaction(() {
-      for (final n in list()) {
-        if (folderIds.contains(n.folderId)) trash(n.id);
-      }
-    });
-  }
-
   /// How long a notebook stays in the trash before [purgeTrash] deletes it
   /// forever (as long as sync keeps tombstones).
   static const trashKeptFor = Duration(days: 30);
-
-  /// Ids of the notebooks trashed more than [trashKeptFor] ago, the
-  /// oldest first.
-  List<String> expiredTrash() => [
-    for (final r in db.select(
-      'SELECT id FROM notebooks WHERE deleted = 0 AND trashed_at < ? ORDER BY trashed_at, id',
-      [_trashExpiry],
-    ))
-      r['id'] as String,
-  ];
-
-  int get _trashExpiry => clock.nowMs() - trashKeptFor.inMilliseconds;
-
-  /// Deletes notebook [id] forever if it is still in the trash and was
-  /// trashed more than [trashKeptFor] ago; returns whether it did.
-  bool purgeIfExpired(String id) {
-    final expired = db.select(
-      'SELECT 1 FROM notebooks WHERE id = ? AND deleted = 0 AND trashed_at < ?',
-      [id, _trashExpiry],
-    ).isNotEmpty;
-    if (expired) delete(id);
-    return expired;
-  }
-
-  /// Deletes forever the notebooks trashed more than [trashKeptFor] ago;
-  /// returns how many.
-  int purgeTrash() => database.transaction(() => expiredTrash().where(purgeIfExpired).length);
-
-  /// Permanently deletes every notebook in the trash.
-  void emptyTrash() {
-    database.transaction(() {
-      for (final n in trashed()) {
-        delete(n.id);
-      }
-    });
-  }
 
   /// Copies a notebook with all its pages and strokes under new ids.
   /// Returns the copy, or null if [id] is unknown.
@@ -215,6 +160,7 @@ class NotebookRepository extends SyncableTable {
   /// elements, recordings and outline, all at one version: every device can
   /// then tell this deletion's tombstones from earlier ones, and bring them
   /// back if the deletion raced an edit (`DeletionConflicts`).
+  @override
   void delete(String id) {
     database.transaction(() {
       final pageIds = [for (final p in pages.pagesOf(id)) p.id];
@@ -265,6 +211,7 @@ class NotebookRepository extends SyncableTable {
     return now > newest ? now : newest + 1;
   }
 
+  @override
   void _change(String id, Notebook Function(Notebook) change) {
     final notebook = get(id);
     if (notebook != null) update(change(notebook));
