@@ -788,17 +788,19 @@ class WetShaper(
         if (i == lo || i == hi || hi - lo < 2) return v[i]
         val w = p.kernel
         val k = p.kernelK
+        // A stretch shorter than the fit is held at its ends (StrokeShaper).
+        val fit = if (hi - lo >= p.fit) p.fit else 0
         var sum = 0.0
         for (m in max(lo, i - k)..min(hi, i + k)) sum += w[m - i + k] * v[m]
         if (i - k < lo) {
-            val (a, c) = endFit(v, lo, 1, min(p.fit, hi - lo))
+            val (a, c) = endFit(v, lo, 1, fit)
             for (m in i - k until lo) {
                 val j = (lo - m).toDouble()
                 sum += w[m - i + k] * (v[lo] + a * j + c * j * j)
             }
         }
         if (i + k > hi) {
-            val (a, c) = endFit(v, hi, -1, min(p.fit, hi - lo))
+            val (a, c) = endFit(v, hi, -1, fit)
             for (m in hi + 1..i + k) {
                 val j = (m - hi).toDouble()
                 sum += w[m - i + k] * (v[hi] + a * j + c * j * j)

@@ -13,8 +13,8 @@ import 'pointer_tool.dart';
 
 /// Draws the selected [ShapeKind] by dragging out its bounding box (or,
 /// for lines and arrows, from end to end), with the current pen's colour,
-/// width and opacity. Holding Shift keeps proportions (squares, circles)
-/// or snaps lines to 15° steps.
+/// width and opacity; closed shapes get [ToolSettings.shapeFill]. Holding
+/// Shift keeps proportions (squares, circles) or snaps lines to 15° steps.
 class ShapeTool implements PointerTool {
   ShapeTool({
     required this.model,
@@ -48,11 +48,13 @@ class ShapeTool implements PointerTool {
     _dragged = false;
     const ink = InkTool.ballpoint;
     final config = tools.configOf(ink);
+    final style = ShapeBuilder.styleFor(tools.styleFor(ink));
     live.begin(
       tool: ink,
       color: config.color,
       width: config.width,
-      style: ShapeBuilder.styleFor(tools.styleFor(ink)),
+      // Closed shapes take the tool's fill.
+      style: tools.shape.isClosed ? style.withFill(tools.shapeFill.colorFor(config.color)) : style,
     );
   }
 

@@ -13,15 +13,17 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/color_picker/color_choices.dart';
 import '../../../ui/color_picker/color_swatches.dart';
 import '../../../ui/group_header.dart';
+import '../../../ui/roving_focus.dart';
 import '../pen/ink_slots.dart';
 import '../pen/option_controls.dart';
 import '../pen/size_scale.dart';
+import 'selection_fill.dart';
 import 'text/text_style_menus.dart';
 import 'text_format_bar.dart';
 
 /// Opens the style panel of a lasso selection: the colour of its ink and
 /// text, then font and size of the selected text boxes, pen type and width
-/// of the selected ink.
+/// of the selected ink, and the fill of the selected closed shapes.
 Future<void> showSelectionStyle(
   BuildContext context, {
   required SelectionController selection,
@@ -76,6 +78,10 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
             if (texts.isNotEmpty) ..._textSection(context, texts),
             if (texts.isNotEmpty && strokes.isNotEmpty) const SizedBox(height: Gaps.md),
             if (strokes.isNotEmpty) ..._inkSection(context, strokes),
+            if (strokes.any((s) => s.isClosed)) ...[
+              const SizedBox(height: Gaps.md),
+              SelectionFill(selection: _sel, recent: widget.tools.recentColors),
+            ],
           ],
         );
       },
@@ -180,40 +186,45 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
     final tools = widget.tools;
     return [
       OptionHeader(strokes.length == 1 ? 'Ink' : '${strokes.length} strokes'),
-      SegmentedButton<bool>(
-        segments: const [
-          ButtonSegment(value: false, label: Text('Pen'), icon: Icon(Symbols.edit_sharp)),
-          ButtonSegment(
-            value: true,
-            label: Text('Highlighter'),
-            icon: Icon(Symbols.border_color_sharp),
-          ),
-        ],
-        selected: {?tool},
-        emptySelectionAllowed: true,
-        showSelectedIcon: false,
-        onSelectionChanged: (s) {
-          if (s.isEmpty) return;
-          final ink = s.single ? InkTool.highlighter : InkTool.ballpoint;
-          _sel.restyleInk(
-            tool: ink,
-            // Highlighters are much wider than pens: take the tool's width.
-            width: tools.configOf(ink).width,
-            styleFor: tools.styleFor,
-          );
-        },
+      RovingSegments(
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: false, label: Text('Pen'), icon: Icon(Symbols.edit_sharp)),
+            ButtonSegment(
+              value: true,
+              label: Text('Highlighter'),
+              icon: Icon(Symbols.border_color_sharp),
+            ),
+          ],
+          selected: {?tool},
+          emptySelectionAllowed: true,
+          showSelectedIcon: false,
+          onSelectionChanged: (s) {
+            if (s.isEmpty) return;
+            final ink = s.single ? InkTool.highlighter : InkTool.ballpoint;
+            _sel.restyleInk(
+              tool: ink,
+              // Highlighters are much wider than pens: take the tool's width.
+              width: tools.configOf(ink).width,
+              styleFor: tools.styleFor,
+            );
+          },
+        ),
       ),
       const SizedBox(height: Gaps.sm),
       GroupHeader('Size', value: formatWidth(width)),
       // The pen popover's log scale: fine pens get as much travel as broad.
-      Slider(
-        value: scale.toSlider(width),
-        semanticFormatterCallback: (t) => formatWidth(scale.toWidth(t)),
-        onChanged: (t) => setState(() => _dragWidth = scale.toWidth(t)),
-        onChangeEnd: (t) {
-          _sel.restyleInk(width: scale.toWidth(t));
-          setState(() => _dragWidth = null);
-        },
+      Semantics(
+        label: 'Size',
+        child: Slider(
+          value: scale.toSlider(width),
+          semanticFormatterCallback: (t) => formatWidth(scale.toWidth(t)),
+          onChanged: (t) => setState(() => _dragWidth = scale.toWidth(t)),
+          onChangeEnd: (t) {
+            _sel.restyleInk(width: scale.toWidth(t));
+            setState(() => _dragWidth = null);
+          },
+        ),
       ),
     ];
   }

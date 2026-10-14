@@ -463,6 +463,45 @@ or deleted pages in order with ink. Snack bars' Undo calls
   displays**: Android mirrors the screen by default; a separate audience window
   (Android `Presentation` API, desktop multi-window) is out of scope — Flutter's
   multi-window API is not stable yet.
+- **Zoom window** (`zoom/`; "⋯" → View → *Zoom window*, `M`): GoodNotes-style writing
+  through a magnifier. A `ZoomFrame` (surface id, origin, scale) marks a rectangle on a page
+  (or the canvas) with the box's aspect; `ZoomBox`, docked above the bottom chrome
+  (`ChromeLayout.zoomBox`, counted in `covered` so the page scrolls clear of it), shows it
+  magnified with the page's paper and ink. Pointers in the box go to the window's own
+  `InkInputController` over `ZoomBoxViewport` (a `ViewportController` the window sets; finger
+  pans and pinches move or size the frame instead), so ink is smoothed, pressure-shaped,
+  live and undoable exactly as on the page; the pen keeps its page width. `ZoomRules` is the
+  pure geometry: the start scale (three ruled lines fill the box), the advance zone (the
+  frame's right 30 %: ink lifted there moves the frame on after `ZoomWindow.pause`, at once
+  past 90 %, leaving the ink a quarter in), the wrap to the line start a whole ruled line
+  (or ink height) down, and past a page's bottom on to the next page (`DocumentCommands
+  .addPageAfter` adds one after the last). `ZoomHost` (`DocumentZoomHost`, `CanvasZoomHost`)
+  is what the window needs of the editor: bounds, paper and margin, models (held with
+  `DocumentSurfaces.acquireModel`), activating the frame's page (its live ink shows there),
+  and `reveal` so the main view follows the frame. `ZoomFrameOverlay` draws the frame on the
+  page (an accent hairline over a 5 % wash, the zone washed deeper, a tab on the top edge at
+  the left, a square at the corner): drag the tab to move it (lines then start there), the
+  square to size it. Only the two handles take pointers (their targets mostly outside the
+  frame), so the pen writes inside the frame on the page as anywhere. While an advance waits
+  for the pen to rest, `ZoomWindow.armed` is set and the box's zone band (`ZoneBand`,
+  `ZoneBandPainter`: 10 % of the paper's pattern colour at rest) deepens over the pause, so the
+  glide that follows is expected; the pen coming back disarms it. The box's top edge (`ZoomBoxGrip`, two ticks in the
+  paper's pattern colour; `BoxHeightDrag`) sizes the box with a finger or the mouse (a stylus
+  writes up to the edge): `ZoomWindow.boxHeight`, kept by `ZoomBox.heightFor` to at least
+  `least` and clear of `pageRoom` of the page. The rail (`ZoomBoxRail`: ✕ and ⋯ at the top, ↵ at
+  the bottom) opens the box's own menu (`zoom_box_menu.dart`): *Left-handed* docks the box
+  under the top chrome (`AppPreferences.zoomBoxAtTop`, `ChromeLayout.zoomBoxAtTop`, counted in
+  `covered.top`; the grip moves to its bottom edge) so a left arm writing in it hides none of
+  the page and the frame (GoodNotes' answer for left-handers; the advance stays at the right,
+  as writing runs left to right whichever hand holds the pen), and *Automatic height* undoes a
+  dragged one. Palm: a stylus in the box tells the page's input
+  (`InkInputController.stylusElsewhere`: a finger drawing or panning there stops, new ones
+  are ignored as between strokes) and `ZoomWindow.blocksPage` absorbs new page touches for
+  `palmQuiet` after the pen lifts. Each notebook keeps its window (`ZoomWindowState`: the frame
+  while open, the chosen box height) in the settings (`zoom_window.<id>`, written with
+  `editor_view.<id>`); it reopens there (`ZoomWindow.restore`: the frame kept on its page and
+  lines starting at it; a page since deleted opens afresh). The second pane neither keeps nor
+  restores it.
 - **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
   pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
   in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).
@@ -1203,9 +1242,9 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   with a second finger down — so two-finger taps stay undo) → **double-tap zoom**
   (`features/editor/double_tap_zoom.dart`: the page fit — 100 % on canvases — ⇄ 2× or
   the zoom last left this way, about the tap, animated). Fingers that draw (palm
-  rejection off) never zoom: their taps are dots. Palm safety: taps, double taps and
-  long presses are ignored while a stylus touches, or was seen touching or hovering
-  within 600 ms. The recognisers live in `CanvasGestures`, so
+  rejection off) never zoom: their taps are dots. Palm safety: taps, double taps,
+  two-finger holds and long presses are ignored while a stylus touches, or was seen
+  touching or hovering within 600 ms. The recognisers live in `CanvasGestures`, so
   `ink_input_controller.dart` is unchanged.
 
 Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
@@ -1404,6 +1443,15 @@ surface.
   constant pressure, with no stabiliser
   (`shapes/shape_builder.dart`), so they render, erase, select and sync
   like ink. The Shape tool drags out a box (Shift: square / 15° lines).
+  **Fill:** a closed stroke (`Stroke.isClosed`: last point = first, as
+  closed shapes are built) shows `StrokeStyle.fill` (ARGB, translucent for
+  tints) beneath its outline as the polygon of its points
+  (`StrokeRenderer.fillPathOf`; the PDF writes the same polygon). The
+  Shape tool takes `ToolSettings.shapeFill` (`ShapeFill`: none, three tints
+  of the ink, solid; `FillChoices`), the selection's Style sets it
+  (`SelectionController.refill`; a tint follows a recolour). A filled
+  stroke is indexed in every chunk its bounds cover; taps select it by its
+  fill, erasers only take the outline (cut pieces are open, so unfilled).
 - **Lasso** (`selection/`): a stroke is selected when at least half of its
   *length* is inside the lasso polygon (segments are subdivided and weighted
   by length, so sampling density does not matter); an element when its
@@ -1693,7 +1741,7 @@ with a template is "Add page after" held down in the page menu).
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
   none for the lasso (`ToolDescriptor.options` null: tapping it again does
   nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: seven
-  kinds in one row, and a caption pointing to hold to snap in Settings →
+  kinds in one row, the fill (`FillChoices`), and a caption pointing to hold to snap in Settings →
   Writing, or saying it is off there);
   `TextOptionsPanel`;
   `LaserOptionsPanel` (`ToolSettings.laser`: dot / trail, colours, size,
@@ -2282,12 +2330,26 @@ expect.
   in favourites, trash, search, selection or list layout); ⊕▾ creates everywhere else. Phones
   get the FAB instead, hidden while an empty state offers its own button.
 - **New notebook sheet** (`new_notebook_sheet.dart`, `new_notebook/`): one column (title,
-  Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
+  Styles, Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
   picker, `CoverRow`, page size) with `NotebookPreview` beside it in the dialog and as a strip
   on phones. The papers come from `recentPapers` (`AppPreferences.recentPapers`, filled up with
   defaults; canvases only tiling papers); creating a notebook records its paper. Where the
   library has no ⊕▾ (phones), "Import PDF…" and "Import Len file…" are quiet links at the
   sheet's foot, under Create.
+- **Notebook styles** (`notebook_styles` collection, `NotebookStyleRepository`,
+  `domain/notebook_style.dart`): a `NotebookChoice` (notebook or canvas, a built-in template
+  and its look, paper colour, page format and orientation, cover colour; never a user's image
+  template) under a name. The sheet's Styles row (`StyleRow`, `style_actions.dart`) shows them
+  as chips that fill in the whole form at once, the one matching the form selected; "Save as
+  style…" names the current choice (hidden when it matches a style). Tapping the selected chip
+  again, a long press, a right click or the Menu key opens its menu: "Default for new
+  notebooks" (checked; one default, `setDefault` clears the others; after concurrent marks the
+  latest wins), Rename…, Delete…. The sheet starts from the default style, else from
+  `AppPreferences.lastNotebookChoice` (what the last *notebook*, not canvas, was made as,
+  recorded by `LibraryActions.createNotebook`), else college ruled. Notebooks copy the values,
+  so later edits to a style change nothing made with it; new pages in a notebook keep following
+  the notebook's own paper. Library backups carry styles (not added twice; a restored default
+  only where none is set).
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
   `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint
@@ -2442,7 +2504,8 @@ searches it.
 `SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
 stylus-only, finger-tap undo and redo (one switch), stylus side-button action
 (`PenButtonAction.eraser|lasso|none`), editor toolbar placement (docked / floating, and the floating position),
-library layout and sort, and the papers of the latest new notebooks. Getters always read
+library layout and sort, the papers of the latest new notebooks and what the last new
+notebook was made as (`lastNotebookChoice`). Getters always read
 the store, so values written elsewhere are never stale.
 
 ## UI design system (`ui/`)

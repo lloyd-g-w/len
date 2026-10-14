@@ -24,6 +24,8 @@ import 'scribble_erase.dart';
 import 'stroke_sampler.dart';
 import 'stylus_buttons.dart';
 
+part 'ink_drawing_commit.dart';
+
 /// The drawing contact of `InkInputController`: one pointer at a time that
 /// inks, erases or drives a pointer tool from [content].
 ///
@@ -92,6 +94,11 @@ class InkDrawing {
   double _drawTravel = 0;
   bool _erasing = false;
   bool _eraseStarted = false;
+
+  /// Where a finger erasing has been while it may still turn out a resting
+  /// palm or the start of a pinch: erased once it moves past the touch slop
+  /// or lifts, dropped if the contact is cancelled.
+  List<Offset>? _heldErase;
   Offset? _lastScreen;
 
   /// The drawing pointer, if a contact is in progress.
@@ -128,7 +135,11 @@ class InkDrawing {
       _tool = tool..down(_toolPointer(e));
     } else if (erase) {
       showEraser(e.localPosition);
-      _eraseTo(e.localPosition);
+      if (e.kind == PointerDeviceKind.touch) {
+        _heldErase = [e.localPosition];
+      } else {
+        _eraseTo(e.localPosition);
+      }
     } else {
       final ink = tools.activeInk;
       final config = tools.configOf(ink);
@@ -164,7 +175,7 @@ class InkDrawing {
     }
     if (_erasing) {
       showEraser(e.localPosition);
-      _eraseTo(e.localPosition);
+      _eraseOrHold(e.localPosition);
       return;
     }
     _addSamplesBefore(e);
@@ -215,6 +226,7 @@ class InkDrawing {
       _tool = null;
       tool.up();
     } else if (_erasing) {
+      _releaseErase();
       showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
       // A snapped shape's end follows no speed (the pen rested to snap it),
@@ -230,68 +242,6 @@ class InkDrawing {
       _recordLift(liftTime);
     }
     _reset();
-  }
-
-  void _commit(List<StrokePoint> points, Duration? liftTime, {required bool snapped}) {
-    final stroke = Stroke(
-      id: clock.newId(),
-      surfaceId: model.surfaceId,
-      tool: live.tool,
-      color: live.color,
-      width: live.width,
-      style: _endFollowsSpeed
-          ? live.style.copyWith(taperEnd: live.style.taperEnd * _liftSpeed.scale)
-          : live.style,
-      points: points,
-      createdAt: _drawStartedAt,
-    );
-    // Over PDF text, a highlight snaps to the words it covers (always: no
-    // hold needed).
-    if (stroke.tool.isHighlighter) {
-      if (highlightSnap?.snap(stroke) case final snapped? when snapped.isNotEmpty) {
-        return model.commit(InkEdit(added: snapped));
-      }
-    }
-    if (!snapped) _hintShape(stroke);
-    // The live outline's builder completes it (cheaply) at pen-up.
-    final path = LiveStrokeBuilder.finishLive(
-      live,
-      points,
-      tool: stroke.tool,
-      width: stroke.width,
-      style: stroke.style,
-    );
-    if (path != null) StrokeRenderer.adopt(stroke, path);
-    _committedTaper = StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style).taperEnd;
-    PerfProbe.lift(liftTime);
-    developer.Timeline.timeSync('len.commitStroke', () => model.addStroke(stroke));
-  }
-
-  /// Tells [events] about a line or shape drawn without hold to snap (only
-  /// while someone listens: the recogniser isn't free).
-  void _hintShape(Stroke stroke) {
-    final hint = events.shapeDrawn;
-    if (hint == null || !tools.holdToStraighten || stroke.tool != InkTool.ballpoint) return;
-    if (HoldToStraighten.wouldSnap([for (final p in stroke.points) p.offset], viewport.scale)) {
-      hint();
-    }
-  }
-
-  /// Whether the contact that just ended was an accidental stylus bounce.
-  bool _isBounce(Duration? liftTime) =>
-      liftTime != null &&
-      byStylus &&
-      _bounces.isBounce(
-        down: _drawStartTime,
-        up: liftTime,
-        start: _drawStartScreen,
-        travel: _drawTravel,
-      );
-
-  void _recordLift(Duration? liftTime) {
-    if (liftTime != null && byStylus && _lastScreen != null) {
-      _bounces.recordLift(liftTime, _lastScreen!);
-    }
   }
 
   /// Abandons the current contact without committing it.
@@ -315,11 +265,30 @@ class InkDrawing {
     _drawPointer = null;
     _drawKind = null;
     _erasing = false;
+    _heldErase = null;
     _lastScreen = null;
   }
 
   // ---------------------------------------------------------------------------
   // Erasing
+
+  /// Erases to [screen], or holds it while a finger may not be erasing.
+  void _eraseOrHold(Offset screen) {
+    final held = _heldErase;
+    if (held == null) return _eraseTo(screen);
+    held.add(screen);
+    _lastScreen = screen;
+    if ((screen - _drawStartScreen).distance > kTouchSlop) _releaseErase();
+  }
+
+  /// Erases along the held finger path: it is erasing after all.
+  void _releaseErase() {
+    final held = _heldErase;
+    if (held == null) return;
+    _heldErase = null;
+    _lastScreen = held.first;
+    held.forEach(_eraseTo);
+  }
 
   void _eraseTo(Offset screen) {
     final from = viewport.toWorld(_lastScreen ?? screen);

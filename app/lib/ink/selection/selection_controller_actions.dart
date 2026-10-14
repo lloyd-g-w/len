@@ -119,6 +119,21 @@ class SelectionController extends _SelectionCore {
     );
   }
 
+  /// Gives every selected closed shape ([Stroke.isClosed]) the fill
+  /// [fillFor] makes from its ink colour (null: none), as one undoable
+  /// edit; other strokes and elements are kept.
+  void refill(int? Function(Stroke stroke) fillFor) {
+    if (!_strokes.any((s) => s.isClosed && s.style.fill != fillFor(s))) return;
+    _replace(
+      [
+        for (final s in _strokes)
+          TransformItems.refillStroke(s, s.isClosed ? fillFor(s) : null, id: clock.newId()),
+      ],
+      _elements,
+      frame: _frame,
+    );
+  }
+
   /// Changes every selected text box by [update] (font, size, …) as one
   /// undoable edit; strokes and other elements are kept.
   void restyleText(TextData Function(TextData) update) {

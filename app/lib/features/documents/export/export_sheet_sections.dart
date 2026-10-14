@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/roving_focus.dart';
 import '../../../ui/section_label.dart';
 import 'export_options.dart';
 
@@ -63,23 +64,25 @@ class ExportFormatPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SegmentedButton<ExportFormat>(
-          showSelectedIcon: false,
-          segments: [
-            for (final (value, icon) in [
-              (ExportFormat.pdf, Symbols.picture_as_pdf_sharp),
-              (ExportFormat.png, Symbols.image_sharp),
-              (ExportFormat.len, Symbols.stylus_note_sharp),
-            ])
-              ButtonSegment(
-                value: value,
-                // Large text: names only, on one line ("Len file").
-                icon: large ? null : Icon(icon),
-                label: Text(value == ExportFormat.len ? 'Len file' : value.label, maxLines: 1),
-              ),
-          ],
-          selected: {format},
-          onSelectionChanged: (s) => onChanged(s.single),
+        RovingSegments(
+          SegmentedButton<ExportFormat>(
+            showSelectedIcon: false,
+            segments: [
+              for (final (value, icon) in [
+                (ExportFormat.pdf, Symbols.picture_as_pdf_sharp),
+                (ExportFormat.png, Symbols.image_sharp),
+                (ExportFormat.len, Symbols.stylus_note_sharp),
+              ])
+                ButtonSegment(
+                  value: value,
+                  // Large text: names only, on one line ("Len file").
+                  icon: large ? null : Icon(icon),
+                  label: Text(value == ExportFormat.len ? 'Len file' : value.label, maxLines: 1),
+                ),
+            ],
+            selected: {format},
+            onSelectionChanged: (s) => onChanged(s.single),
+          ),
         ),
         const SizedBox(height: Gaps.sm),
         Text(switch (format) {

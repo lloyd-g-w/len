@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../../domain/chunk_grid.dart';
+import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
 import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/render/stroke_renderer.dart';
@@ -145,17 +146,23 @@ class ReplayVeils {
       // Ink already written over a later picture stays visible.
       final cut = Paint()..blendMode = BlendMode.dstOut;
       for (final s in strokes) {
-        if (!veiled(s.createdAt)) canvas.drawPath(StrokeRenderer.pathOf(s), cut);
+        if (!veiled(s.createdAt)) _silhouetteOf(canvas, s, cut);
       }
     }
     for (final s in strokes) {
-      if (veiled(s.createdAt)) canvas.drawPath(StrokeRenderer.pathOf(s), fill);
+      if (veiled(s.createdAt)) _silhouetteOf(canvas, s, fill);
     }
     for (final e in elements) {
       if (!e.belowInk) _silhouette(canvas, e, rect, paper);
     }
     canvas.restore();
     return recorder.endRecording();
+  }
+
+  /// Paints [s]'s ink, and the fill of a filled shape, with [paint].
+  static void _silhouetteOf(Canvas canvas, Stroke s, Paint paint) {
+    if (s.fill != null) canvas.drawPath(StrokeRenderer.fillPathOf(s), paint);
+    canvas.drawPath(StrokeRenderer.pathOf(s), paint);
   }
 
   /// Paints [e]'s shape in [paper]: the (rotated) box of an image, the

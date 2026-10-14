@@ -124,6 +124,7 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
     const SingleActivator(LogicalKeyboardKey.keyE): unlessTyping(
       () => tools.tool = EditorTool.eraser,
     ),
+    const SingleActivator(LogicalKeyboardKey.keyM): unlessTyping(session.toggleZoomWindow),
     // 1–5: quick colours of the pen / highlighter; [ and ]: thinner / thicker.
     // (Shift+1 and 0 belong to the canvas shortcuts.)
     for (final (i, key) in _digitKeys.indexed)
@@ -143,7 +144,8 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
 /// Everything the editor screen binds: [editorShortcuts] (with tab
 /// switching when it shows [tabs]), F5 [present] (focus mode with the
 /// laser), [turnPage] (Space and Shift+Space, in focus mode), Ctrl/⌘+E
-/// [export], Ctrl/⌘+G [goToPage], search and PDF text.
+/// [export], Ctrl/⌘+G [goToPage], search and PDF text (Ctrl/⌘+C then
+/// calls [pdfCopied], to say so as the menu's Copy does).
 Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   EditorSession session, {
   required VoidCallback present,
@@ -157,6 +159,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   VoidCallback? export,
   VoidCallback? goToPage,
   VoidCallback? shortcutsHelp,
+  VoidCallback? pdfCopied,
 }) => _alongside({
   ...editorShortcuts(
     session,
@@ -182,7 +185,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
     const SingleActivator(LogicalKeyboardKey.space, shift: true): unlessTyping(() => turnPage(-1)),
   },
   ...EditorSearchLayer.shortcuts(search),
-}, session.pdf == null ? const {} : pdfShortcuts(session.pdf!));
+}, session.pdf == null ? const {} : pdfShortcuts(session.pdf!, copied: pdfCopied));
 
 /// [base] with [extra] added; a key both bind runs both (in a map literal
 /// the later binding would replace the earlier: the PDF's Escape used to

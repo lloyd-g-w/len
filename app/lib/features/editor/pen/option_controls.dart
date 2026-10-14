@@ -58,12 +58,16 @@ class OptionSlider extends StatelessWidget {
               // The track lines up with the label above it.
               padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.md),
             ),
-            child: Slider(
-              value: value.clamp(min, max),
-              min: min,
-              max: max,
-              onChanged: onChanged,
-              semanticFormatterCallback: display,
+            // Named by its header, for screen readers.
+            child: Semantics(
+              label: label,
+              child: Slider(
+                value: value.clamp(min, max),
+                min: min,
+                max: max,
+                onChanged: onChanged,
+                semanticFormatterCallback: display,
+              ),
             ),
           ),
           // As far from the next group as the slider's own end is.

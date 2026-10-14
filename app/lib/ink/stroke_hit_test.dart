@@ -7,10 +7,14 @@ import 'render/stroke_renderer.dart';
 /// Geometry used by the erasers.
 abstract final class StrokeHitTest {
   /// Whether the eraser swept along segment [a]→[b] with [radius] touches
-  /// [stroke]'s ink (its pressure-dependent outline, see [inkRadius]).
-  static bool sweepHits(Stroke stroke, Offset a, Offset b, double radius) {
+  /// [stroke]'s ink (its pressure-dependent outline, see [inkRadius]) or,
+  /// unless [fill] is false, a filled shape's fill ([fillContains]).
+  static bool sweepHits(Stroke stroke, Offset a, Offset b, double radius, {bool fill = true}) {
     final sweep = Rect.fromPoints(a, b).inflate(radius);
     if (!sweep.overlaps(stroke.bounds)) return false;
+    // A sweep reaching into the fill either crosses the outline (below) or
+    // starts inside it.
+    if (fill && fillContains(stroke, a)) return true;
 
     final pts = stroke.points;
     if (pts.length == 1) {
@@ -28,6 +32,26 @@ abstract final class StrokeHitTest {
     }
     return false;
   }
+
+  /// Whether [p] lies in [stroke]'s fill (a filled shape, [Stroke.fill];
+  /// non-zero winding, as it is painted).
+  static bool fillContains(Stroke stroke, Offset p) {
+    if (stroke.fill == null || !stroke.bounds.contains(p)) return false;
+    final pts = stroke.points;
+    var winding = 0;
+    for (var i = 0; i < pts.length; i++) {
+      final s = pts[i], e = pts[(i + 1) % pts.length];
+      if (s.y <= p.dy) {
+        if (e.y > p.dy && _side(s, e, p) > 0) winding++;
+      } else if (e.y <= p.dy && _side(s, e, p) < 0) {
+        winding--;
+      }
+    }
+    return winding != 0;
+  }
+
+  static double _side(StrokePoint s, StrokePoint e, Offset p) =>
+      (e.x - s.x) * (p.dy - s.y) - (p.dx - s.x) * (e.y - s.y);
 
   /// Half the ink's thickness at [point] of [stroke], as rendered: the
   /// nominal width scaled by pressure and thinning.

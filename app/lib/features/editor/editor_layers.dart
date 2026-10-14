@@ -18,9 +18,12 @@ import 'links/link_actions.dart';
 import 'pdf/pdf_layer.dart';
 import 'split/split_controller.dart';
 import 'split/split_drop_highlight.dart';
+import 'zoom/zoom_box.dart';
+import 'zoom/zoom_frame_overlay.dart';
 
-/// The editor's layers, bottom to top: the surface, PDF text, the empty
-/// canvas hint, image drops, audio, the chrome and search, and on top the split view's drop
+/// The editor's layers, bottom to top: the surface, PDF text, the zoom
+/// window's frame, the empty canvas hint, image drops, audio, the zoom
+/// window's box, the chrome and search, and on top the split view's drop
 /// highlight and the canvas context menu.
 ///
 /// A feature that shows something over the surface adds its layer here.
@@ -76,6 +79,8 @@ class EditorLayers extends StatelessWidget {
           ),
         ),
         if (session.pdf case final pdf?) Positioned.fill(child: PdfLayer(interaction: pdf)),
+        if (session.zoomWindow.isOpen)
+          Positioned.fill(child: ZoomFrameOverlay(zoom: session.zoomWindow)),
         if (session.canvas != null)
           Positioned.fill(
             child: Padding(
@@ -98,6 +103,19 @@ class EditorLayers extends StatelessWidget {
             canvasPaper: notebook.paperColor,
           ),
         ),
+        if (session.zoomWindow.isOpen)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: layout.zoomBoxAtTop ? layout.zoomBoxTop : null,
+            bottom: layout.zoomBoxAtTop ? null : layout.zoomBoxBottom,
+            height: layout.zoomBox,
+            child: ZoomBox(
+              atTop: layout.zoomBoxAtTop,
+              session: session,
+              padding: EdgeInsets.only(left: layout.safe.left, right: layout.safe.right),
+            ),
+          ),
         Positioned.fill(child: chrome),
         Positioned.fill(
           child: EditorSearchLayer(

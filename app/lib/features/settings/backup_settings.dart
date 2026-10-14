@@ -34,7 +34,7 @@ class BackupSettings extends StatefulWidget {
   /// never): "Last backup today at 14:05", "Last backup 3 Oct".
   static String lastBackup(int? at, {DateTime? now}) {
     if (at == null) {
-      return 'One Len file with every notebook, folder and template. Not backed up yet';
+      return 'One Len file with every notebook, folder and template; not backed up yet';
     }
     final label = formatEdited(at, now: now);
     if (label == 'Just now') return 'Backed up just now';
@@ -48,6 +48,19 @@ class BackupSettings extends StatefulWidget {
 class _BackupSettingsState extends State<BackupSettings> {
   late final AppServices _services = AppScope.read(context);
 
+  /// A restore is running: its tile waits (opening a big file takes a
+  /// while, and a second tap would start a second restore).
+  bool _restoring = false;
+
+  Future<void> _restore() async {
+    setState(() => _restoring = true);
+    try {
+      await importLenFlow(context, restore: true);
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
+
   Future<void> _backUp() async {
     await backupLibraryFlow(context);
     if (mounted) setState(() {}); // The last backup changed.
@@ -55,31 +68,36 @@ class _BackupSettingsState extends State<BackupSettings> {
 
   @override
   Widget build(BuildContext context) {
+    // Len files: a restore fills an empty library.
+    return ListenableBuilder(
+      listenable: Listenable.merge([_services.sync, _services.lenFiles]),
+      builder: (context, _) => _section(context),
+    );
+  }
+
+  Widget _section(BuildContext context) {
     final last = _services.settings.lastBackupAt;
     final empty = _services.notebooks.list().isEmpty && _services.folders.list().isEmpty;
-    return ListenableBuilder(
-      listenable: _services.sync,
-      builder: (context, _) => SettingsSection(
-        title: 'Backup',
-        description: BackupSettings.describe(
-          syncing: _services.sync.state != SyncState.disabled,
-          android: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
-        ),
-        children: [
-          SettingsTile(
-            icon: Symbols.backup_sharp,
-            title: 'Back up library…',
-            subtitle: empty ? 'Nothing to back up yet' : BackupSettings.lastBackup(last),
-            onTap: empty ? null : () => unawaited(_backUp()),
-          ),
-          SettingsTile(
-            icon: Symbols.settings_backup_restore_sharp,
-            title: 'Restore from backup…',
-            subtitle: 'Brings back a Len backup; nothing here is replaced',
-            onTap: () => unawaited(importLenFlow(context)),
-          ),
-        ],
+    return SettingsSection(
+      title: 'Backup',
+      description: BackupSettings.describe(
+        syncing: _services.sync.state != SyncState.disabled,
+        android: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
       ),
+      children: [
+        SettingsTile(
+          icon: Symbols.backup_sharp,
+          title: 'Back up library…',
+          subtitle: empty ? 'Nothing to back up yet' : BackupSettings.lastBackup(last),
+          onTap: empty ? null : () => unawaited(_backUp()),
+        ),
+        SettingsTile(
+          icon: Symbols.settings_backup_restore_sharp,
+          title: 'Restore from backup…',
+          subtitle: 'Brings back a Len backup; nothing here is replaced',
+          onTap: _restoring ? null : () => unawaited(_restore()),
+        ),
+      ],
     );
   }
 }

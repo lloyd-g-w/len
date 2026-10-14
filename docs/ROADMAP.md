@@ -32,6 +32,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   so their centre lands on another page move to that page (ink re-added, elements re-parented) — one
   undo step. Single-page flow keeps per-page selections
 - ✅ Shapes: draw-and-hold to snap (line, arrow, rectangle, ellipse, triangle, polygon); Shape tool (line, arrow, rectangle, ellipse, triangle, diamond, star)
+- ✅ Shape fill: closed shapes (drawn or snapped) filled with none, a light / medium / strong tint
+  of their ink or a solid colour — picked in the Shapes options, changed on a selection's Style;
+  live, tiles, thumbnails, replay, PDF / PNG export, synced (`style.f`), undoable
 - ✅ Text boxes (synced `elements`): rich text within a box — bold, italic, underline,
   strikethrough, colour, highlight, size and font per character; headings; bulleted, numbered
   and checklist items (tap to tick, Tab to indent) with hanging indents when they wrap (canvas,
@@ -51,6 +54,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
   synced as blobs; in thumbnails and PNG/PDF export
 - ✅ Laser pointer
+- ✅ Zoom window (⋯ → View, `M`): a frame on the page magnified in a box docked above the bottom
+  toolbar; writing in the box writes small into the frame, which moves on along the line as you
+  reach the box's right end, wraps to the next ruled line (↵ too) and on to the next page (adding
+  one after the last); drag the frame to move it, its corner handle to size it, pinch or pan the
+  box; works on pages and the infinite canvas
+- ⬜ Zoom window: remember the frame and box height per notebook, an adjustable box height,
+  left-handed advance (right-to-left scripts)
 - ✅ Gestures: two-finger tap undo, three-finger tap redo (with a HUD; palm-safe), S Pen side
   button action (eraser / hold to lasso / none), finger long press or right click → canvas menu
   (paste here, select all on page, add text here, page commands)
@@ -129,6 +139,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   in PDF export)
 - ✅ Custom templates ("My templates", synced): import an image or a PDF page, "Save page as
   template"; rename / delete; usable for new notebooks and pages
+- ✅ Notebook styles (synced): save the new-notebook sheet's choice (notebook or canvas,
+  template and look, paper colour, size, orientation, cover) as a named style, apply it with one
+  tap, mark one the default for new notebooks, rename / delete; without a default the sheet
+  starts as the last notebook was made
 - ✅ Template picker: categories (Basic, Writing, Planners, Paper, My templates), search, live
   previews; a dialog with gallery and options side by side on tablets / desktops, a sheet with
   full-width columns on phones

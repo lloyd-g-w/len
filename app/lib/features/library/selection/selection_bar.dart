@@ -43,8 +43,8 @@ class LibrarySelectionBar extends StatelessWidget {
           ),
           SelectionCommand(
             icon: Symbols.delete_forever_sharp,
-            label: 'Delete',
-            tooltip: 'Delete forever',
+            label: 'Delete…',
+            tooltip: 'Delete forever…',
             destructive: true,
             onPressed: () => unawaited(actions.deleteSelectedForever(context, selection)),
           ),

@@ -164,6 +164,14 @@ void main() {
       expect(r.frame.rect.width, greaterThanOrEqualTo(SelectionFrame.minExtent - 1e-9));
     });
 
+    test('a frame without extent (one point) does not blow up on a corner drag', () {
+      // It used to scale by minExtent / 1e-9 (4e9) around the point.
+      const point = SelectionFrame(Rect.fromLTWH(480, 330, 0, 0), 1.2);
+      final r = point.resized(SelectionHandle.bottomRight, const Offset(10, 600));
+      expect(r.transform.meanScale, closeTo(1, 1e-9));
+      expectOffset(r.transform.apply(const Offset(500, 300)), const Offset(500, 300));
+    });
+
     test('a thin frame (a straight line) resizes from where it is grabbed', () {
       const thin = SelectionFrame(Rect.fromLTWH(0, 0, 200, 1));
       // Grabbed in place: no jump.

@@ -9,6 +9,8 @@ import '../library_search_results.dart' show SearchHitIcon;
 import '../search_groups.dart';
 import 'editor_search_controller.dart';
 
+part 'editor_search_results.dart';
+
 /// The in-notebook search bar: a field, the match count, previous / next,
 /// and a list of matches with page numbers and snippets.
 ///
@@ -104,22 +106,27 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
         const SingleActivator(LogicalKeyboardKey.keyF, control: true): _focusField,
         const SingleActivator(LogicalKeyboardKey.keyF, meta: true): _focusField,
       },
-      // A slip over the page (lifted, like a popover), not chrome.
-      child: OverlaySurface(
-        child: Padding(
-          padding: const EdgeInsets.all(Gaps.xs),
-          child: ListenableBuilder(
-            listenable: Listenable.merge([_c, _c.search]),
-            builder: (context, _) => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _fieldRow(context, showList: showList, compact: compact),
-                if (showList && _c.query.trim().isNotEmpty) ...[
-                  const Divider(height: Gaps.sm),
-                  _results(context, compact: compact),
+      // A slip over the page (lifted, like a popover), not chrome. The text
+      // editing shortcuts are restated here, below the editor's own: else
+      // the editor's Backspace, arrows, Ctrl+A and Ctrl+Z bindings would
+      // swallow those keys before they reach the field.
+      child: DefaultTextEditingShortcuts(
+        child: OverlaySurface(
+          child: Padding(
+            padding: const EdgeInsets.all(Gaps.xs),
+            child: ListenableBuilder(
+              listenable: Listenable.merge([_c, _c.search]),
+              builder: (context, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _fieldRow(context, showList: showList, compact: compact),
+                  if (showList && _c.query.trim().isNotEmpty) ...[
+                    const Divider(height: Gaps.sm),
+                    _results(context, compact: compact),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -261,87 +268,4 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
 
   /// The field's least width (at 1× text) before the bar takes two lines.
   static const double _minField = 80;
-
-  Widget _results(BuildContext context, {required bool compact}) {
-    final theme = Theme.of(context);
-    final matches = _c.matches;
-    final indexing = _c.search.pdfText.isIndexing;
-    if (matches.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(Gaps.md),
-        child: Text(
-          indexing ? 'Reading PDF text…' : 'No matches',
-          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      );
-    }
-    final height = MediaQuery.sizeOf(context).height;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: (height * 0.45).clamp(120, 360)),
-      child: ListView.builder(
-        shrinkWrap: true,
-        padding: EdgeInsets.zero,
-        itemCount: matches.length,
-        itemBuilder: (context, i) => _MatchTile(
-          match: matches[i],
-          query: _c.parsedQuery,
-          selected: i == _c.current,
-          onTap: () => _open(i, compact: compact),
-        ),
-      ),
-    );
-  }
-}
-
-class _MatchTile extends StatelessWidget {
-  const _MatchTile({
-    required this.match,
-    required this.query,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final EditorSearchMatch match;
-  final SearchQuery query;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Material(
-      color: selected ? Surfaces.pressed(scheme) : Colors.transparent,
-      borderRadius: BorderRadius.circular(Radii.xs),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(Radii.xs),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.sm),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SearchHitIcon(hit: match.hit),
-              const SizedBox(width: Gaps.sm),
-              Expanded(
-                child: HighlightedText(
-                  SearchSnippet.of(match.hit.body, query, around: match.range.start, length: 90),
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ),
-              const SizedBox(width: Gaps.sm),
-              if (match.pageIndex != null)
-                Text(
-                  hitLocation(match.hit),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontFeatures: AppTheme.tabularFigures,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

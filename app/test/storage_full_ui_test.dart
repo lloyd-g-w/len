@@ -56,7 +56,7 @@ void main() {
       await tester.pump();
       expect(find.text(message), findsOneWidget);
       // The library keeps a notice while it lasts.
-      expect(find.text('Your latest changes aren\'t saved yet'), findsOneWidget);
+      expect(find.text('Your latest changes aren’t saved yet'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 500)); // The snack bar is in.
       await tester.tap(find.widgetWithText(SnackBarAction, 'Try again'));
       await tester.pump();
@@ -72,7 +72,7 @@ void main() {
       store.set(pending: false);
       await tester.pump();
       expect(find.text('Your changes are saved'), findsOneWidget);
-      expect(find.text('Your latest changes aren\'t saved yet'), findsNothing);
+      expect(find.text('Your latest changes aren’t saved yet'), findsNothing);
     });
 
     testWidgets('nothing while writes just pend', (tester) async {

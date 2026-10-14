@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
+import '../../ink/surface_model.dart';
 import '../../ui/messages.dart';
 import 'editor_session.dart';
 
@@ -40,10 +41,10 @@ class EditorLifecycle {
   /// remotely: nothing more is written to it.
   bool closing = false;
 
-  /// Commits a text box being typed and saves where the editor looks when
-  /// the app goes to the background (it may be killed there without
-  /// [dispose]) and when a desktop window is closed (the app exits
-  /// without hiding or disposing anything).
+  /// Writes ink not written yet, commits a text box being typed and saves
+  /// where the editor looks when the app goes to the background (it may be
+  /// killed there without [dispose]) and when a desktop window is closed
+  /// (the app exits without hiding or disposing anything).
   late final AppLifecycleListener _app = AppLifecycleListener(
     onHide: _keep,
     onExitRequested: () async {
@@ -53,6 +54,9 @@ class EditorLifecycle {
   );
 
   void _keep() {
+    // Ink waiting for the next frame to be written: a hidden app draws no
+    // more frames, a closed window none at all.
+    if (!services.database.isClosed) SurfaceModel.flushAll();
     if (closing) return;
     session.content.text.end();
     saveView();
@@ -68,10 +72,14 @@ class EditorLifecycle {
     _app; // Starts listening.
   }
 
-  /// Remembers this notebook's page, zoom and pan for the next launch.
+  /// Remembers this notebook's page, zoom and pan, and its zoom window,
+  /// for the next launch.
   void saveView() {
     if (closing || secondPane || services.database.isClosed) return;
-    services.settings.setEditorView(_notebook.id, session.viewState.encode());
+    final settings = services.settings;
+    settings.setEditorView(_notebook.id, session.viewState.encode());
+    final zoom = session.zoomState;
+    if (zoom != null) settings.setZoomWindow(_notebook.id, zoom.isEmpty ? null : zoom.encode());
   }
 
   /// The notebook was deleted (or [trashed]) on another device: closes

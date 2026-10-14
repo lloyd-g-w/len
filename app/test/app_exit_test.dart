@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,5 +51,31 @@ void main() {
       "SELECT data FROM elements WHERE deleted = 0 AND type = 'text'",
     );
     expect(texts.single['data'], contains('Draft'));
+  });
+
+  // Strokes are written after the frame that shows them; a window closed
+  // (or an app hidden, which stops frames) before that frame lost them.
+  testWidgets('closing the window right after a stroke keeps the stroke', (tester) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    addTearDown(() => tester.pumpWidget(const SizedBox()));
+    final nb = services.notebooks.create(
+      title: 'Notes',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0xFF3B5BDB,
+    );
+    await pumpEditorFor(tester, services, nb);
+    int strokes() => services.database.db.select('SELECT id FROM strokes WHERE deleted = 0').length;
+    expect(strokes(), 0);
+
+    final pen = await tester.startGesture(const Offset(300, 400), kind: PointerDeviceKind.mouse);
+    for (var i = 1; i <= 8; i++) {
+      await pen.moveTo(Offset(300 + i * 8.0, 400 + i * 2.0));
+    }
+    await pen.up(); // No frame after it.
+    await tester.binding.handleRequestAppExit();
+
+    expect(strokes(), 1);
   });
 }

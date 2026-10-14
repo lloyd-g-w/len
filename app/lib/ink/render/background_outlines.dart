@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import '../../domain/stroke.dart';
 import 'outline_preparer.dart';
 import 'stroke_renderer.dart';
+import 'stroke_wire.dart';
 
 /// Builds outlines on worker isolates (spawned on first use) and on the UI
 /// isolate between frames, and memoises them on the UI isolate.
@@ -115,7 +116,7 @@ class BackgroundOutlines implements OutlinePreparer {
     while (batch.slices.isNotEmpty && !_closed) {
       final slice = batch.slices.removeFirst();
       final reply = ReceivePort();
-      worker.send((TransferableTypedData.fromList([_pack(slice)]), reply.sendPort));
+      worker.send((TransferableTypedData.fromList([StrokeWire.pack(slice)]), reply.sendPort));
       final answer = await reply.first;
       reply.close();
       if (answer is (TransferableTypedData, Int32List)) {
@@ -203,81 +204,6 @@ class BackgroundOutlines implements OutlinePreparer {
     return null;
   }
 
-  /// Per stroke: tool, width, the style's nine numbers, the point count,
-  /// then x, y, pressure of each point.
-  static const int _header = 12;
-
-  static Float64List _pack(List<Stroke> strokes) {
-    var length = 0;
-    for (final s in strokes) {
-      length += _header + 3 * s.points.length;
-    }
-    final data = Float64List(length);
-    var i = 0;
-    for (final s in strokes) {
-      final style = s.style;
-      data
-        ..[i++] = s.tool.index.toDouble()
-        ..[i++] = s.width
-        ..[i++] = style.opacity
-        ..[i++] = style.thinning
-        ..[i++] = style.streamline
-        ..[i++] = style.unit
-        ..[i++] = style.ends.index.toDouble()
-        ..[i++] = style.taperStart
-        ..[i++] = style.taperEnd
-        ..[i++] = style.startPhase
-        ..[i++] = style.cutEnd ? 1 : 0
-        ..[i++] = s.points.length.toDouble();
-      for (final p in s.points) {
-        data
-          ..[i++] = p.x
-          ..[i++] = p.y
-          ..[i++] = p.pressure;
-      }
-    }
-    return data;
-  }
-
-  static List<Stroke> _unpack(Float64List data) {
-    final strokes = <Stroke>[];
-    var i = 0;
-    while (i < data.length) {
-      final tool = InkTool.values[data[i].toInt()];
-      final width = data[i + 1];
-      final style = StrokeStyle(
-        opacity: data[i + 2],
-        thinning: data[i + 3],
-        streamline: data[i + 4],
-        unit: data[i + 5],
-        ends: StrokeEnds.values[data[i + 6].toInt()],
-        taperStart: data[i + 7],
-        taperEnd: data[i + 8],
-        startPhase: data[i + 9],
-        cutEnd: data[i + 10] != 0,
-      );
-      final n = data[i + 11].toInt();
-      i += _header;
-      strokes.add(
-        Stroke(
-          id: '',
-          surfaceId: '',
-          tool: tool,
-          color: 0,
-          width: width,
-          style: style,
-          createdAt: 0,
-          points: [
-            for (var k = 0; k < n; k++)
-              StrokePoint(data[i + 3 * k], data[i + 3 * k + 1], data[i + 3 * k + 2]),
-          ],
-        ),
-      );
-      i += 3 * n;
-    }
-    return strokes;
-  }
-
   Future<SendPort?> _spawn(int index) async {
     final ready = ReceivePort();
     try {
@@ -298,7 +224,9 @@ class BackgroundOutlines implements OutlinePreparer {
     requests.listen((message) {
       final (packed, reply) = message as (TransferableTypedData, SendPort);
       try {
-        final (all, ends) = OutlineCommands.ofAll(_unpack(packed.materialize().asFloat64List()));
+        final (all, ends) = OutlineCommands.ofAll(
+          StrokeWire.unpack(packed.materialize().asFloat64List()),
+        );
         reply.send((TransferableTypedData.fromList([all]), ends));
       } on Object catch (e) {
         reply.send('$e');

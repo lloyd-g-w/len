@@ -71,6 +71,9 @@ class SharedNotebook extends ChangeNotifier {
       _audio ??= NotebookAudio(services, notebookId: id, microphoneBusy: _microphoneBusy);
   NotebookAudio? _audio;
 
+  /// The audio if it was asked for (else nothing to reload or save).
+  NotebookAudio? get loadedAudio => _audio;
+
   /// Whether this notebook is recording (or about to, or saving).
   bool get recording => _audio != null && _audio!.recorder.state != RecorderState.idle;
 

@@ -107,6 +107,10 @@ void main() {
       expect(c.visibleNotebooks.map((n) => n.title), ['Algebra']);
       expect(c.breadcrumbs.map((f) => f.name), ['School']);
       expect(c.itemCountIn(school.id), 2);
+      // Searching in the folder keeps it the parent (R10-19).
+      c.query = 'zzz';
+      expect(c.createFolder('Physics', color: 3).parentId, school.id);
+      c.query = '';
 
       c.openFolder(maths.id);
       expect(c.breadcrumbs.map((f) => f.name), ['School', 'Maths']);

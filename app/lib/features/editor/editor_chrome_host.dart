@@ -25,6 +25,7 @@ import 'split/split_controller.dart';
 import 'tabs/open_notebooks.dart';
 import 'toolbar/insert_menu.dart';
 import 'toolbar/toolbar_metrics.dart';
+import 'zoom/zoom_box.dart';
 
 /// Decides where the toolbar goes in a pane of a given width — inside the
 /// top bar when the bar fits it on one row (measured from the tools and
@@ -36,6 +37,8 @@ class ToolbarMeasure extends ChangeNotifier {
   ToolbarMeasure(this.session) {
     _strip = ToolbarMetrics.strip(session.tools);
     session.tools.addListener(_onTools);
+    session.zoomWindow.opened.addListener(notifyListeners);
+    session.zoomWindow.boxHeight.addListener(notifyListeners);
   }
 
   final EditorSession session;
@@ -75,7 +78,7 @@ class ToolbarMeasure extends ChangeNotifier {
     bool split = false,
   }) {
     final dock = dockFor(size);
-    return ChromeLayout(
+    final layout = ChromeLayout(
       dock: dock,
       barHeight: EditorTopBar.heightFor(size, tabs, dock: dock, band: band, split: split),
       safe: safe,
@@ -84,11 +87,20 @@ class ToolbarMeasure extends ChangeNotifier {
       focus: focus,
       short: ChromeMetrics.short(size.height),
     );
+    if (!session.zoomWindow.isOpen) return layout;
+    final zoom = session.zoomWindow;
+    final free = size.height - layout.covered.vertical;
+    return layout.withZoomBox(
+      ZoomBox.heightFor(free, chosen: zoom.boxHeight.value),
+      atTop: session.services.preferences.zoomBoxAtTop,
+    );
   }
 
   @override
   void dispose() {
     session.tools.removeListener(_onTools);
+    session.zoomWindow.opened.removeListener(notifyListeners);
+    session.zoomWindow.boxHeight.removeListener(notifyListeners);
     super.dispose();
   }
 }

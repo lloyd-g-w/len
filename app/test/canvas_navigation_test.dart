@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
@@ -6,6 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/stroke_reader.dart';
+import 'package:len/domain/chunk_digest.dart';
+import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
@@ -19,6 +23,7 @@ import 'package:len/ink/viewport.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'content_tools_ui_test.dart' show pinCanvasView;
+import 'support/canvas_fixtures.dart';
 
 Stroke _wave(String id, String surface, Offset at, {int color = 0xFF1F2937}) => Stroke(
   id: id,
@@ -281,4 +286,43 @@ void main() {
       expect(steps[i], greaterThan(steps[i - 1]));
     }
   });
+
+  // Fit content reads the canvas's bounds in the background (an isolate
+  // natively): closing the tab meanwhile animated the disposed viewport.
+  testWidgets('fit content answered after the canvas closed does nothing', (tester) async {
+    final reader = _SlowBounds(MemoryStrokeReader([_wave('a', 'c', const Offset(500, 500))]));
+    final viewport = ViewportController()..setSize(const Size(800, 600));
+    final nav = CanvasNavigation(viewport: viewport, reader: reader, surfaceId: 'c');
+    final fit = nav.fitContent();
+    nav.dispose();
+    viewport.dispose();
+    reader.answer();
+    await fit;
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+  });
+}
+
+/// Answers [contentBounds] only when told to.
+class _SlowBounds implements StrokeReader {
+  _SlowBounds(this.inner);
+
+  final StrokeReader inner;
+  final _bounds = Completer<Rect?>();
+
+  void answer() => _bounds.complete(inner.contentBounds('c'));
+
+  @override
+  FutureOr<ChunkLoad> read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) =>
+      inner.read(surfaceId, range, skip: skip);
+
+  @override
+  FutureOr<Map<ChunkKey, ChunkDigest>> chunkDigests(String surfaceId, ChunkRange range) =>
+      inner.chunkDigests(surfaceId, range);
+
+  @override
+  FutureOr<Map<ChunkKey, int>> chunkDensity(String surfaceId) => inner.chunkDensity(surfaceId);
+
+  @override
+  Future<Rect?> contentBounds(String surfaceId) => _bounds.future;
 }

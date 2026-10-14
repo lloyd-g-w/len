@@ -30,8 +30,9 @@ extension _EditorActions on _EditorScreenState {
 
   void _onMultiFingerTap(int fingers) => runMultiFingerTap(_session, fingers, _hud);
 
+  /// Also from the stylus message's action, which outlives the editor.
   void _setStylusOnly(bool value) {
-    _session.tools.stylusOnly = value;
+    if (mounted) _session.tools.stylusOnly = value;
     _services.preferences.stylusOnly = value;
   }
 

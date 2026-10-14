@@ -21,6 +21,9 @@ mixin _SurfaceEditing on _SurfaceState {
   /// Erases along the eraser sweep from [a] to [b]: in [EraserMode.stroke]
   /// every touched stroke is removed; in [EraserMode.pixel] only the ink
   /// under the eraser is, and the surviving parts are added as new strokes.
+  /// Both erase outlines only, never a filled shape's fill, so writing on a
+  /// filled box can be erased without it (cutting an outline leaves open
+  /// pieces without a fill).
   /// With [highlighterOnly], pen ink is left alone.
   ///
   /// Consecutive calls with [continueEdit] merge into one undo step.
@@ -40,7 +43,7 @@ mixin _SurfaceEditing on _SurfaceState {
       if (highlighterOnly && !stroke.tool.isHighlighter) continue;
       if (_hidden.contains(stroke.id)) continue;
       if (mode == EraserMode.stroke) {
-        if (StrokeHitTest.sweepHits(stroke, a, b, radius)) removed.add(stroke);
+        if (StrokeHitTest.sweepHits(stroke, a, b, radius, fill: false)) removed.add(stroke);
         continue;
       }
       final fragments = StrokeSplitter.erase(stroke, a, b, radius, newId: clock.newId);

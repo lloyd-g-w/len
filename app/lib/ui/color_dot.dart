@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'color_picker/color_names.dart';
 import 'design_tokens.dart';
+import 'roving_focus.dart';
 
 /// A round colour swatch with a selection ring (colour pickers, cover,
 /// folder colours).
@@ -15,6 +16,7 @@ class ColorDot extends StatelessWidget {
     this.size = 32,
     this.target,
     this.tooltip,
+    this.child,
   });
 
   /// ARGB colour shown.
@@ -40,6 +42,9 @@ class ColorDot extends StatelessWidget {
   /// name, [colorName]).
   final String? tooltip;
 
+  /// Drawn centred on the swatch (a "none" glyph).
+  final Widget? child;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -47,8 +52,10 @@ class ColorDot extends StatelessWidget {
       button: true,
       selected: selected,
       label: tooltip ?? colorName(color),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
+      // A keyboard stop: Enter or Space picks it.
+      child: FocusableActionDetector(
+        mouseCursor: SystemMouseCursors.click,
+        actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => onTap())},
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
@@ -61,7 +68,11 @@ class ColorDot extends StatelessWidget {
         ),
       ),
     );
-    return tooltip == null ? dot : Tooltip(message: tooltip, child: dot);
+    // In a swatch group, Tab enters at the chosen colour.
+    return RovingItem(
+      stop: selected,
+      child: tooltip == null ? dot : Tooltip(message: tooltip, child: dot),
+    );
   }
 
   Widget _dot(ColorScheme scheme) => AnimatedContainer(
@@ -87,6 +98,7 @@ class ColorDot extends StatelessWidget {
           color: scheme.outline.withValues(alpha: _nearSurface(scheme) ? 0.9 : 0.35),
         ),
       ),
+      child: child == null ? null : Center(child: child),
     ),
   );
 

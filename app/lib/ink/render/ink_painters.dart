@@ -212,6 +212,11 @@ class LiveInkPainter extends CustomPainter {
     if (drawing) {
       if (clip != null) canvas.clipRect(clip!);
       final outline = _livePath();
+      // A filled shape: its fill beneath the outline, as once committed.
+      final fill = live.style.fill;
+      if (fill != null && live.points.length >= 4) {
+        canvas.drawPath(StrokeRenderer.fillPath(live.points), StrokeRenderer.fillPaint(fill));
+      }
       final paint = StrokeRenderer.paintFor(live.color, live.style);
       final frozen = outline.frozen;
       if (frozen != null && paint.color.a >= 1) {

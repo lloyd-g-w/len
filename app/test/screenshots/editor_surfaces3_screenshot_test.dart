@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
+import 'package:len/features/editor/zoom/zoom_box.dart';
 import 'package:len/features/inklab/inklab_screen.dart';
 import 'package:len/features/inklab/inklab_stats_bar.dart';
 
@@ -29,6 +30,17 @@ Future<void> _scribble(WidgetTester tester, Offset start) async {
     await pen.up();
   }
   await tester.pump(InkLabStatsBar.period);
+}
+
+/// A word written with a stylus from [start]: loops along the line.
+Future<void> _word(WidgetTester tester, Offset start) async {
+  final pen = await tester.startGesture(start, kind: PointerDeviceKind.stylus);
+  for (var i = 0; i < 28; i++) {
+    await pen.moveBy(Offset(2.6 + math.cos(i / 1.6) * 3, -math.sin(i / 1.6) * 7));
+    await tester.pump(const Duration(milliseconds: 8));
+  }
+  await pen.up();
+  await tester.pump();
 }
 
 void main() {
@@ -111,6 +123,43 @@ void main() {
           await shoot(tester, 'e_zoom_menu_$shot');
           await tester.tap(find.text('Fit content').last);
           await settle(tester);
+        });
+      });
+    }
+  }
+
+  // 6b. Zoom window: ⋯ → View → Zoom window, then words written in the box.
+  for (final screen in [phoneScreen, tabletScreen]) {
+    for (final mode in modes) {
+      final shot = '${screen.name}_${mode.name}';
+      testWidgets('e_zoom_window $shot', (tester) async {
+        await guardOverflows('e_zoom_window_$shot', () async {
+          await pumpEditor(
+            tester,
+            size: screen.size,
+            dpr: screen.dpr,
+            mode: mode,
+            phoneInsets: screen.insets,
+          );
+          await tester.tap(find.byTooltip('More options'));
+          await settle(tester);
+          await tester.tap(find.text('View'));
+          await settle(tester);
+          await tester.tap(find.text('Zoom window'));
+          await settle(tester);
+          final box = tester.getRect(find.byType(ZoomBox));
+          for (var word = 0; word < 3; word++) {
+            await _word(tester, box.topLeft + Offset(24 + word * 90.0, box.height * 0.55));
+          }
+          await settle(tester);
+          await shoot(tester, 'e_zoom_window_$shot');
+          // Left-handed, from the box's own menu: the box docks at the top.
+          await tester.tap(find.byTooltip('Zoom window options'));
+          await settle(tester);
+          await shoot(tester, 'e_zoom_window_menu_$shot');
+          await tester.tap(find.text('Left-handed'));
+          await settle(tester);
+          await shoot(tester, 'e_zoom_window_left_$shot');
         });
       });
     }

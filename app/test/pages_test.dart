@@ -11,6 +11,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/editor/document/page_actions.dart';
 
 Stroke _stroke(String id, String surface) => Stroke(
   id: id,
@@ -123,6 +124,21 @@ void main() {
       expect(pages.pagesOf(nb.id), isEmpty);
       pages.restore(page.id);
       expect(pages.pagesOf(nb.id).single.bookmarked, isTrue);
+    });
+
+    test('a restored page goes back where it was, though pages moved and back meanwhile', () {
+      // A B C; delete B; move C to the front and back (undo): C's new key
+      // is B's old one. Restoring B by its key would tie with C.
+      final a = pages.pagesOf(nb.id).single;
+      final b = pages.addPage(nb.id), c = pages.addPage(nb.id);
+      final actions = PageActions(s, nb.id);
+      final deleted = actions.deleteAll([b]);
+      actions.move(c, 0);
+      actions.move(pages.get(c.id)!, 1);
+      actions.restoreAll(deleted);
+      expect(ids(), [a.id, b.id, c.id]);
+      final keys = [for (final p in pages.pagesOf(nb.id)) p.sortKey];
+      expect(keys.toSet(), hasLength(3), reason: 'unique keys');
     });
 
     test('remote pages need every field and known values', () {

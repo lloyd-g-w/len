@@ -6,12 +6,15 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../app_services.dart';
 import '../../data/schema_reset.dart';
 import '../../platform/browser_storage.dart';
-import '../../ui/app_theme.dart';
+import '../../ui/messages.dart';
 import '../../ui/sync_status_button.dart';
 import '../backup/len_file_flows.dart';
 import '../settings/settings_screen.dart';
 import '../storage/storage_attention.dart';
 import 'library_format.dart';
+import 'library_notice_strip.dart';
+
+export 'library_notice_strip.dart';
 
 /// Puts a notice above the library's [child] while something needs the
 /// user's attention: changes that can't be saved yet (a full browser
@@ -46,7 +49,13 @@ class LibraryNotices extends StatefulWidget {
 class _LibraryNoticesState extends State<LibraryNotices> {
   late final AppServices _services = AppScope.read(context);
   late final BrowserStorage? _storage = widget.storage ?? browserStorage;
-  late final Listenable _changes = Listenable.merge([_services.sync, _services.writes]);
+  // Len files: a backup (from Settings too) or a restore changes what the
+  // device-only notice says.
+  late final Listenable _changes = Listenable.merge([
+    _services.sync,
+    _services.writes,
+    _services.lenFiles,
+  ]);
 
   /// Whether the browser may evict Len's data (null until known).
   bool? _evictable;
@@ -73,6 +82,9 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   }
 
   late String? _deviceOnly = _deviceOnlyTip();
+
+  /// The last backup [_deviceOnly] was worked out for.
+  late int? _deviceOnlyFor = _services.settings.lastBackupAt;
 
   @override
   void initState() {
@@ -105,12 +117,15 @@ class _LibraryNoticesState extends State<LibraryNotices> {
 
   Future<void> _keepData() async {
     final granted = await _storage!.requestPersistence().catchError((Object _) => false);
-    if (granted) _dismiss();
+    if (!mounted) return;
+    if (granted) return _dismiss();
+    // Browsers refuse silently (often until Len is installed or used more).
+    showMessage(context, 'This browser didn’t allow it: install Len as an app, or set up sync');
   }
 
   void _dismiss() {
     _services.settings.markTipSeen(LibraryNotices.evictionTip);
-    setState(() => _evictable = false);
+    if (mounted) setState(() => _evictable = false);
   }
 
   Widget? _notice() {
@@ -130,9 +145,9 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     if (!_services.blobsArePersistent) {
       return const LibraryNotice(
         icon: Symbols.cloud_off_sharp,
-        title: 'Files you add won\'t be kept in this browser window',
+        title: 'Files you add won’t be kept in this browser window',
         body:
-            'This browser doesn\'t let Len store files, so PDFs, images and recordings '
+            'This browser doesn’t let Len store files, so PDFs, images and recordings '
             'are lost when the tab closes (your handwriting is kept). Use a normal '
             'window, allow site data, or turn on sync.',
       );
@@ -155,8 +170,12 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   }
 
   LibraryNotice? _deviceOnlyNotice() {
-    if (_deviceOnly == null) return null;
     final last = _services.settings.lastBackupAt;
+    if (last != _deviceOnlyFor) {
+      _deviceOnlyFor = last;
+      _deviceOnly = _deviceOnlyTip();
+    }
+    if (_deviceOnly == null) return null;
     return LibraryNotice(
       icon: Symbols.devices_sharp,
       title: 'Your notes are only on this device',
@@ -183,12 +202,12 @@ class _LibraryNoticesState extends State<LibraryNotices> {
         : 'Notebooks you synced come back from your server when you turn on sync again.';
     final backup = reset.backupPath;
     final kept = backup == null
-        ? 'The old data couldn\'t be kept in this browser.'
+        ? 'The old data couldn’t be kept in this browser.'
         : 'The old data was kept in';
     return LibraryNotice(
       icon: Symbols.restart_alt_sharp,
       title: 'Len started fresh',
-      body: 'Len\'s storage was from $version version, so it started fresh. $sync $kept',
+      body: 'Len’s storage was from $version version, so it started fresh. $sync $kept',
       detail: backup,
       tone: NoticeTone.info,
       onDismiss: () => setState(_services.database.acknowledgeSchemaReset),
@@ -211,148 +230,4 @@ class _LibraryNoticesState extends State<LibraryNotices> {
       );
     },
   );
-}
-
-/// The colour of a [LibraryNotice]'s glyph.
-enum NoticeTone {
-  /// Something is being lost: a red glyph.
-  warning,
-
-  /// Worth knowing: an accent glyph.
-  info,
-}
-
-/// A calm strip docked above the library (DESIGN §0: chrome is ruled
-/// paper): flat on the Board with a hairline under it, a glyph in the
-/// tone's colour on the margin column, a title and a sentence or two, with
-/// optional [actions] and ✕. No tinted plate.
-///
-/// With a [shortTitle], phones and short windows get one line instead
-/// (R8-7): the glyph, the short title, the first action and ✕, so the
-/// notice doesn't push the notebooks off the screen.
-class LibraryNotice extends StatelessWidget {
-  const LibraryNotice({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.body,
-    this.shortTitle,
-    this.detail,
-    this.actions = const [],
-    this.onDismiss,
-    this.tone = NoticeTone.warning,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-
-  /// The one-line notice's title on phones and short windows (none: the
-  /// whole notice everywhere).
-  final String? shortTitle;
-
-  /// Shown selectable under [body] (e.g. a file path to copy).
-  final String? detail;
-
-  /// Buttons at the end (e.g. "Keep data"); the one-line notice keeps
-  /// the first.
-  final List<Widget> actions;
-
-  /// Shows ✕, which calls this.
-  final VoidCallback? onDismiss;
-
-  final NoticeTone tone;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final tint = tone == NoticeTone.warning ? scheme.error : scheme.primary;
-    final compact = Breakpoints.libraryCompact(MediaQuery.sizeOf(context));
-    // The screen's margin column (DESIGN §3).
-    final margin = compact ? Gaps.lg : Gaps.xl;
-    final oneLine = compact ? shortTitle : null;
-    final dismiss = onDismiss == null
-        ? null
-        : IconButton(
-            tooltip: 'Dismiss',
-            // 48 on touch, 40 with a pointer.
-            constraints: BoxConstraints.tightFor(
-              width: Targets.barHit(context),
-              height: Targets.barHit(context),
-            ),
-            icon: const Icon(Symbols.close_sharp, size: Glyphs.menu),
-            onPressed: onDismiss,
-          );
-    final glyph = Icon(icon, size: Glyphs.bar, color: tint);
-    return Semantics(
-      container: true,
-      liveRegion: true,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(
-          margin,
-          oneLine != null ? 0 : Gaps.md,
-          dismiss == null ? margin : Gaps.sm,
-          oneLine != null ? 0 : (actions.isEmpty ? Gaps.md : Gaps.xs),
-        ),
-        constraints: BoxConstraints(minHeight: Targets.barHit(context)),
-        decoration: BoxDecoration(
-          color: Surfaces.chrome(scheme),
-          border: Border(bottom: Surfaces.chromeEdge(scheme)),
-        ),
-        child: oneLine != null
-            ? Row(
-                children: [
-                  glyph,
-                  const SizedBox(width: Gaps.md),
-                  Expanded(
-                    child: Text(
-                      oneLine,
-                      style: theme.textTheme.labelLarge,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (actions.isNotEmpty) actions.first,
-                  ?dismiss,
-                ],
-              )
-            : Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: Gaps.xxs),
-                    child: glyph,
-                  ),
-                  const SizedBox(width: Gaps.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title, style: theme.textTheme.labelLarge),
-                        const SizedBox(height: Gaps.xxs),
-                        Text(
-                          body,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                        if (detail case final detail?) ...[
-                          const SizedBox(height: Gaps.xxs),
-                          SelectableText(detail, style: theme.textTheme.bodySmall),
-                        ],
-                        if (actions.isNotEmpty)
-                          Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: Wrap(spacing: Gaps.xs, children: actions),
-                          ),
-                      ],
-                    ),
-                  ),
-                  ?dismiss,
-                ],
-              ),
-      ),
-    );
-  }
 }

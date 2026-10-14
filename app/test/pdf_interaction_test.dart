@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cross_file/cross_file.dart';
@@ -207,6 +208,31 @@ void main() {
       expect(copied, ['Hello']);
       expect(pdf.selection.isEmpty, isTrue);
       await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('closing the editor while Copy waits for the clipboard', skip: pdfium == null, (
+      tester,
+    ) async {
+      final pdf = await open(tester);
+      pdf.selectRange(
+        pdf.textPointAt(at(pdf, 'Hello'))!,
+        pdf.textPointAt(at(pdf, 'Hello', right: true))!,
+        menu: true,
+      );
+      await tester.pumpAndSettle();
+      final written = Completer<void>();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+        call,
+      ) async {
+        if (call.method == 'Clipboard.setData') await written.future;
+        return null;
+      });
+      await tester.tap(find.byKey(const ValueKey('pdf-copy')));
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox()); // The editor closes.
+      written.complete();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('long press a word, drag its end handle, highlight', skip: pdfium == null, (

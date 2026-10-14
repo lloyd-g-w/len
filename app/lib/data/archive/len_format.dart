@@ -43,6 +43,7 @@ abstract final class LenFormat {
   static const collections = [
     'folders',
     'templates',
+    'notebook_styles',
     'notebooks',
     'pages',
     'outline',
@@ -64,7 +65,7 @@ enum LenArchiveKind {
   notebooks,
 
   /// The whole library: every folder and notebook (not the Trash) and the
-  /// user's templates.
+  /// user's templates and notebook styles.
   library,
 }
 
@@ -116,11 +117,11 @@ class LenArchiveException implements Exception {
 
   /// Not a Len file, or one too damaged to read.
   const LenArchiveException.notLen([this.details])
-    : message = 'it isn’t a Len file, or it is damaged. Try the original file';
+    : message = 'it isn’t a Len file, or it’s damaged; try the original file';
 
   /// Part of the file is damaged.
   const LenArchiveException.damaged([this.details])
-    : message = 'it is damaged. Try the original file';
+    : message = 'it’s damaged; try the original file';
 
   final String message;
 

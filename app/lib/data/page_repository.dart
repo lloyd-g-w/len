@@ -6,7 +6,7 @@ import 'package:sqlite3/common.dart';
 import '../domain/notebook_page.dart';
 import '../domain/paper.dart';
 import 'page_order.dart';
-import 'record_fields.dart';
+import 'page_rows.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
 
@@ -33,13 +33,13 @@ class PageRepository extends SyncableTable {
       .select('SELECT * FROM pages WHERE notebook_id = ? AND deleted = 0 ORDER BY sort_key, id', [
         notebookId,
       ])
-      .map(_rowToPage)
+      .map(PageRows.fromRow)
       .toList();
 
   /// A live page by id.
   NotebookPage? get(String id) {
     final rows = db.select('SELECT * FROM pages WHERE id = ? AND deleted = 0', [id]);
-    return rows.isEmpty ? null : _rowToPage(rows.first);
+    return rows.isEmpty ? null : PageRows.fromRow(rows.first);
   }
 
   /// Adds a blank page after [after] (at the end when null). Uses [template], or an A4 page of [paper] (blank for
@@ -152,8 +152,41 @@ class PageRepository extends SyncableTable {
   void delete(String pageId, {int? version}) =>
       _update(pageId, 'deleted = 1', const [], version: version);
 
-  /// Revives a page deleted with [delete] (undo).
-  void restore(String pageId) => _update(pageId, 'deleted = 0', const []);
+  /// Revives a page deleted with [delete] (undo): at [index] of its
+  /// notebook's live pages if given, else where its old key puts it.
+  /// (Pages moved meanwhile, and moved back by undo, get new keys, so the
+  /// old key may put it elsewhere or tie with another page's.)
+  void restore(String pageId, {int? index}) {
+    database.transaction(() {
+      final key = index == null ? null : _restoredKey(pageId, index);
+      if (key == null) return _update(pageId, 'deleted = 0', const []);
+      _update(pageId, 'deleted = 0, sort_key = ?', [key]);
+    });
+  }
+
+  /// A key putting the deleted page [pageId] at [index] of its notebook;
+  /// null when its old key does.
+  double? _restoredKey(String pageId, int index) {
+    final rows = db.select('SELECT notebook_id, sort_key FROM pages WHERE id = ?', [pageId]);
+    if (rows.isEmpty) return null;
+    final notebookId = rows.first['notebook_id'] as String;
+    final old = (rows.first['sort_key'] as num).toDouble();
+    ({double? before, double? after}) around() {
+      final keys = [
+        for (final p in pagesOf(notebookId))
+          if (p.id != pageId) p.sortKey,
+      ];
+      final i = index.clamp(0, keys.length);
+      return (before: i > 0 ? keys[i - 1] : null, after: i < keys.length ? keys[i] : null);
+    }
+
+    var (:before, :after) = around();
+    if ((before == null || old > before) && (after == null || old < after)) return null;
+    if (PageOrder.between(before, after) case final key?) return key;
+    _renumber(notebookId);
+    (:before, :after) = around();
+    return PageOrder.between(before, after)!;
+  }
 
   /// Tombstones all pages of [notebookId], at [version] if given; returns
   /// their ids.
@@ -178,7 +211,7 @@ class PageRepository extends SyncableTable {
     for (final row in db.select(
       'SELECT background FROM pages WHERE deleted = 0 AND background IS NOT NULL',
     ))
-      ?_decodeBackground(row['background'] as String?)?.blob,
+      ?PageRows.decodeBackground(row['background'] as String?)?.blob,
   };
 
   /// Gives every page of [notebookId] an integer key (1, 2, …).
@@ -203,26 +236,13 @@ class PageRepository extends SyncableTable {
   @override
   SyncRecord rowToRecord(Row row) {
     final deleted = row['deleted'] == 1;
-    final background = row['background'] as String?;
     return SyncRecord(
       collection: collection,
       id: row['id'] as String,
       updatedAt: row['updated_at'] as int,
       deviceId: row['device_id'] as String,
       deleted: deleted,
-      data: deleted
-          ? null
-          : {
-              'notebookId': row['notebook_id'],
-              'sortKey': row['sort_key'],
-              'width': row['width'],
-              'height': row['height'],
-              'paper': row['paper'],
-              'paperData': jsonDecode(row['paper_data'] as String),
-              'paperColor': row['paper_color'],
-              'bookmarked': row['bookmarked'] == 1,
-              'background': background == null ? null : jsonDecode(background),
-            },
+      data: deleted ? null : PageRows.recordData(row),
     );
   }
 
@@ -240,29 +260,8 @@ class PageRepository extends SyncableTable {
       );
       return;
     }
-    final f = RecordFields(record);
-    final width = f.number('width');
-    final height = f.number('height');
-    if (width <= 0) f.invalid('width');
-    if (height <= 0) f.invalid('height');
-    final rawBackground = f.objectOrNull('background');
-    final background = rawBackground == null ? null : PageBackground.fromJson(rawBackground);
-    if (rawBackground != null && background == null) f.invalid('background');
-    final paper =
-        Paper.fromData(f.choice('paper', PaperStyle.values), f.object('paperData')) ??
-        f.invalid('paperData');
     _insert(
-      NotebookPage(
-        id: record.id,
-        notebookId: f.string('notebookId'),
-        sortKey: f.number('sortKey'),
-        width: width,
-        height: height,
-        paper: paper,
-        paperColor: PaperColor.tryParse(f.string('paperColor')) ?? f.invalid('paperColor'),
-        bookmarked: f.boolean('bookmarked'),
-        background: background,
-      ),
+      PageRows.fromRecord(record),
       updatedAt: record.updatedAt,
       deviceId: record.deviceId,
       dirty: false,
@@ -299,37 +298,4 @@ class PageRepository extends SyncableTable {
       ],
     );
   }
-
-  static PageBackground? _decodeBackground(String? json) {
-    if (json == null) return null;
-    try {
-      return PageBackground.fromJson(jsonDecode(json));
-    } on FormatException {
-      return null;
-    }
-  }
-
-  static Paper _decodePaper(String style, String data) {
-    try {
-      final json = jsonDecode(data);
-      if (json is Map<String, Object?>) {
-        return Paper.fromData(PaperStyle.parse(style), json, requireLook: false) ?? Paper.blank;
-      }
-    } on FormatException {
-      // Corrupt local data reads as blank paper.
-    }
-    return Paper.blank;
-  }
-
-  static NotebookPage _rowToPage(Row row) => NotebookPage(
-    id: row['id'] as String,
-    notebookId: row['notebook_id'] as String,
-    sortKey: (row['sort_key'] as num).toDouble(),
-    width: (row['width'] as num).toDouble(),
-    height: (row['height'] as num).toDouble(),
-    paper: _decodePaper(row['paper'] as String, row['paper_data'] as String),
-    paperColor: PaperColor.parse(row['paper_color'] as String?),
-    bookmarked: row['bookmarked'] == 1,
-    background: _decodeBackground(row['background'] as String?),
-  );
 }

@@ -21,14 +21,20 @@ import 'restore_dialogs.dart';
 /// at the top level as it was into an empty library, else into a folder
 /// named after its date. Damaged parts are left out and reported (R8-14);
 /// a restore offers Undo (R8-16). Returns what was imported, or null if
-/// cancelled or failed (the user has then been told why).
-Future<LenImportResult?> importLenFlow(BuildContext context, {XFile? file}) async {
+/// cancelled or failed (the user has then been told why). [restore]: the
+/// user asked for a restore, so a file that can't be read says "Couldn’t
+/// restore" (what the file is only shows once it has been read).
+Future<LenImportResult?> importLenFlow(
+  BuildContext context, {
+  XFile? file,
+  bool restore = false,
+}) async {
   final services = AppScope.read(context);
   final picked = file ?? await openFile(acceptedTypeGroups: lenFileTypes);
   if (picked == null || !context.mounted) return null;
   final name = picked.name.isEmpty ? 'the file' : '“${picked.name}”';
   LenSource? source;
-  var restoring = false;
+  var restoring = restore;
   try {
     source = await services.lenFiles.open(await openPickedInput(picked));
     final manifest = source.manifest;

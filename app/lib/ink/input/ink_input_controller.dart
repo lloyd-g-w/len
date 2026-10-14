@@ -221,7 +221,7 @@ class InkInputController {
       }
     }
     // Fingers resting on the screen are the palm now; stop them panning.
-    _nav.clear();
+    _nav.clear(at: e.localPosition);
     final route = routeStylus(e.kind, e.buttons, penButtonAction);
     final eraserTool = route == StylusRoute.tool && tools.tool == EditorTool.eraser;
     _draw.start(
@@ -262,6 +262,18 @@ class InkInputController {
 
   /// Abandons the current stroke without committing it.
   void cancelDraw() => _draw.cancel();
+
+  /// The stylus [e] is on another view of the same editor (the zoom
+  /// window's box): fingers on this one are the writing hand's palm, so
+  /// they stop drawing and panning, and new ones are ignored as between
+  /// strokes.
+  void stylusElsewhere(PointerEvent e) {
+    _stylus.note(e);
+    if (e is! PointerDownEvent) return;
+    _noteStylus();
+    if (_draw.pointer != null && !_draw.byStylus) _draw.cancel();
+    _nav.clear();
+  }
 
   bool _wantsErase(PointerEvent e) =>
       tools.tool == EditorTool.eraser ||

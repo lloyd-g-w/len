@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -383,6 +384,47 @@ void main() {
       for (final c in [c1, c2, c3]) {
         c.dispose();
       }
+    });
+
+    test('playback: a recording opened while another loads ends up in the player', () async {
+      final nb = _notebook(s);
+      final a = _record(s, nb.id, title: 'A');
+      final b = _record(s, nb.id, title: 'B');
+      final p = PlaybackController(
+        backends: audio.backends,
+        blobs: s.blobs,
+        fetch: (_) async => true,
+      );
+      final download = Completer<void>();
+      audio.holds['A'] = download.future;
+      final openA = p.open(a); // Its audio downloads first.
+      final openB = p.open(b); // Tapped meanwhile.
+      await pumpEventQueue();
+      download.complete();
+      final results = [await openA, await openB];
+      expect(audio.player.opened, b); // Not A, whose download finished last.
+      expect(p.recording, b);
+      expect(p.loading, isFalse);
+      expect(p.playing, isTrue);
+      expect(results, [false, true]); // A was given up.
+      p.dispose();
+    });
+
+    test('playback: disposed while a recording downloads', () async {
+      final nb = _notebook(s);
+      final a = _record(s, nb.id, title: 'A');
+      final p = PlaybackController(
+        backends: audio.backends,
+        blobs: s.blobs,
+        fetch: (_) async => true,
+      );
+      final download = Completer<void>();
+      audio.holds['A'] = download.future;
+      final open = p.open(a);
+      p.dispose(); // The notebook closed.
+      download.complete();
+      expect(await open, isFalse); // Without notifying a disposed controller.
+      expect(audio.log, isNot(contains('play')));
     });
 
     test('playback: wall time follows the position; seeking to ink', () async {

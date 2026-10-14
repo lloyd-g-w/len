@@ -8,6 +8,8 @@ import 'blob_sync.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
 
+part 'sync_controller_run.dart';
+
 enum SyncState { disabled, idle, syncing, error }
 
 /// Schedules sync cycles and exposes their status to the UI.
@@ -46,6 +48,11 @@ class SyncController extends ChangeNotifier {
   Future<void>? _running;
   Future<void>? _queued;
   bool _disposed = false;
+
+  /// The client of the run under way: closed when the configuration
+  /// changes, so a request stuck on the old server (a long upload, a dead
+  /// connection) does not hold up the next run until it times out.
+  SyncApi? _api;
 
   /// Bumped whenever the configuration changes; a run started under an
   /// older configuration stops at its next checkpoint.
@@ -155,6 +162,7 @@ class SyncController extends ChangeNotifier {
     settings.syncUrl = _normalizeUrl(url);
     unawaited(tokens.save(token.trim()));
     _configGeneration++;
+    _api?.close();
     _lastError = _lastErrorDetails = _lastFailure = null;
     _failingSince = null;
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
@@ -179,7 +187,8 @@ class SyncController extends ChangeNotifier {
     if (running == null) {
       return _running = _run().whenComplete(() => _running = null);
     }
-    return _queued ??= running.then((_) {
+    // After the run however it ended: a follow-up is never lost.
+    return _queued ??= running.catchError((Object _) {}).then((_) {
       _queued = null;
       return syncNow();
     });
@@ -193,10 +202,19 @@ class SyncController extends ChangeNotifier {
     if (blobs == null) return false;
     if (await blobs.has(sha)) return true;
     if (!isConfigured || _disposed) return false;
+    // Switching servers (or one losing its history) resets the uploaded
+    // marks; a download still under way must not mark it on the new one.
+    final generation = _configGeneration;
+    final serverId = settings.syncServerId;
     SyncApi? api;
     try {
       api = apiFactory(settings.syncUrl, tokens.token);
-      return await BlobSync(blobs).download(api, sha);
+      return await BlobSync(blobs).download(
+        api,
+        sha,
+        fromCurrentServer: () =>
+            generation == _configGeneration && serverId == settings.syncServerId,
+      );
     } on SyncException catch (e) {
       debugPrint('Cannot fetch blob $sha: ${e.message}');
       return false;
@@ -205,74 +223,7 @@ class SyncController extends ChangeNotifier {
     }
   }
 
-  Future<void> _run() async {
-    await tokens.retryIfDue();
-    if (!isConfigured) {
-      _setState(SyncState.disabled);
-      return;
-    }
-    final generation = _configGeneration;
-    bool cancelled() => _disposed || generation != _configGeneration;
-
-    _setState(SyncState.syncing);
-    SyncApi? api;
-    try {
-      api = apiFactory(settings.syncUrl, tokens.token);
-      final changes = await engine.sync(api, isCancelled: cancelled);
-      if (cancelled()) return;
-      _refreshTooLarge();
-      _lastSuccess = DateTime.now();
-      settings.syncLastSuccess = _lastSuccess!.millisecondsSinceEpoch;
-      final failed = engine.failedBlobUploads;
-      if (failed == 0) {
-        _lastError = _lastErrorDetails = _lastFailure = null;
-        _failingSince = null;
-        _setState(SyncState.idle);
-      } else {
-        // Everything else synced; the files are retried next time.
-        _fail(
-          '${_files(failed)} could not be uploaded and will be retried',
-          false,
-          details: engine.blobUploadError,
-          files: failed,
-        );
-      }
-      if (!changes.isEmpty) _remoteChanges.add(changes);
-      if (engine.takeResync() case final notice?) _notices.add(notice);
-    } on SyncException catch (e) {
-      _fail(e.message, cancelled(), kind: e.kind, details: e.details);
-    } catch (e, stack) {
-      // Unexpected (e.g. a database error): report it instead of leaving
-      // the state stuck on "syncing" or crashing the periodic timer.
-      debugPrint('Sync failed: $e\n$stack');
-      _fail(
-        'Something went wrong on this device while syncing; it will try again',
-        cancelled(),
-        details: '$e',
-      );
-    } finally {
-      api?.close();
-    }
-  }
-
   static String _files(int n) => n == 1 ? '1 file' : '$n files';
-
-  void _fail(
-    String message,
-    bool cancelled, {
-    SyncFailure kind = SyncFailure.server,
-    String? details,
-    int files = 0,
-  }) {
-    if (cancelled) return;
-    _filesNotUploaded = files;
-    _refreshTooLarge();
-    _lastError = message;
-    _lastErrorDetails = details;
-    _lastFailure = kind;
-    _failingSince ??= DateTime.now();
-    _setState(SyncState.error);
-  }
 
   /// The token was read from the secure store (after start) or changed:
   /// sync may have become possible, or impossible.
@@ -305,6 +256,7 @@ class SyncController extends ChangeNotifier {
     _disposed = true;
     tokens.removeListener(_tokenChanged);
     _timer?.cancel();
+    _api?.close();
     unawaited(_remoteChanges.close());
     unawaited(_notices.close());
     super.dispose();

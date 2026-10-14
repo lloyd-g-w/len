@@ -102,7 +102,7 @@ void main() {
       );
       expect(BackupSettings.describe(syncing: true, android: true), contains('Android backup'));
       final now = DateTime(2026, 10, 13, 18);
-      expect(BackupSettings.lastBackup(null, now: now), endsWith('Not backed up yet'));
+      expect(BackupSettings.lastBackup(null, now: now), endsWith('not backed up yet'));
       int at(DateTime d) => d.millisecondsSinceEpoch;
       expect(BackupSettings.lastBackup(at(now), now: now), 'Backed up just now');
       expect(

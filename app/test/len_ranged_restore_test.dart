@@ -91,4 +91,39 @@ void main() {
     // the zip's structure.
     expect(peak, lessThan(2.5 * (1 << 20)), reason: 'of ${whole.length} bytes');
   });
+
+  test('a slice kept after one it overlaps still finds every kept byte', () async {
+    final whole = Uint8List.fromList([for (var i = 0; i < 1000; i++) i & 0xFF]);
+    final file = RangedFile(whole.length, (start, end) async => whole.sublist(start, end));
+    await file.load(0, 300, keep: true);
+    await file.load(100, 1000, keep: true);
+    expect(file.byteAt(50), 50); // Looked up last: the first slice.
+    // Inside the second slice, but not the one looked up last.
+    await file.load(200, 500, keep: true);
+    expect(file.byteAt(700), 700 & 0xFF);
+    expect(file.bytes(0, 1000), whole);
+  });
+
+  test('a small Len file restores from slices', () async {
+    final source = AppServices.create(AppDatabase.inMemory(), blobBackend: MemoryBlobBackend());
+    addTearDown(source.dispose);
+    source.notebooks.create(
+      title: 'N',
+      kind: NotebookKind.canvas,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final out = OutputMemoryStream();
+    await source.lenFiles.write(const LenScope.library(), out);
+    final whole = out.getBytes();
+    // Its last entry's header with room for its name reaches past the end,
+    // where a browser's slice ends early.
+    final file = RangedFile(whole.length, (start, end) async {
+      return whole.sublist(start, math.min(end, whole.length));
+    });
+    final target = AppServices.create(AppDatabase.inMemory(), blobBackend: MemoryBlobBackend());
+    addTearDown(target.dispose);
+    final result = await target.lenFiles.import(await target.lenFiles.open(RangedInput(file)));
+    expect(result.notebooks, hasLength(1));
+  });
 }

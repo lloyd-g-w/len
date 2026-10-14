@@ -81,17 +81,25 @@ class FakeCapture implements AudioCapture {
     log.add('resume');
   }
 
+  /// A split waits for this (a recorder restarting, as on Linux).
+  Future<void>? holdSplit;
+
   @override
   Future<CapturedAudio?> split(String? nextPath) async {
     log.add('split');
+    await holdSplit;
     final finished = _finish();
     paths.add(nextPath);
     return finished;
   }
 
+  /// A stop waits for this (saving a recording takes a while).
+  Future<void>? holdStop;
+
   @override
   Future<CapturedAudio?> stop() async {
     log.add('stop');
+    await holdStop;
     return _finish();
   }
 
@@ -120,13 +128,17 @@ class FakeCapture implements AudioCapture {
 
 /// Plays nothing; tests drive the position with [emit] / [finish].
 class FakePlayback implements AudioPlayback {
-  FakePlayback(this.log, {this.fail = false});
+  FakePlayback(this.log, {this.fail = false, this.holds = const {}});
 
   final List<String> log;
   final bool fail;
   final StreamController<Duration> _positions = StreamController.broadcast(sync: true);
   final StreamController<void> _completed = StreamController.broadcast(sync: true);
   Recording? opened;
+
+  /// Opening a recording titled as a key waits for its future (a slow
+  /// download).
+  final Map<String, Future<void>> holds;
 
   void emit(int ms) => _positions.add(Duration(milliseconds: ms));
   void finish() => _completed.add(null);
@@ -138,6 +150,7 @@ class FakePlayback implements AudioPlayback {
     Future<bool> Function(String) fetch,
   ) async {
     log.add('open ${recording.title}');
+    await holds[recording.title];
     if (fail) throw const AudioUnavailable('Cannot play');
     opened = recording;
   }
@@ -276,6 +289,10 @@ class FakeAudio {
   final List<FakeCapture> captures = [];
   final List<FakePlayback> players = [];
 
+  /// Players' opening of recordings by title waits for these (see
+  /// [FakePlayback.holds]).
+  final Map<String, Future<void>> holds = {};
+
   FakeCapture get capture => captures.last;
   FakePlayback get player => players.last;
 
@@ -286,7 +303,7 @@ class FakeAudio {
       return capture;
     },
     playback: () {
-      final player = FakePlayback(log);
+      final player = FakePlayback(log, holds: holds);
       players.add(player);
       return player;
     },
