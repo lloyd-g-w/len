@@ -1439,8 +1439,12 @@ surface.
   glow, a bright core whitened in the middle — lanes transparent at the edges, so no blur
   filter), narrowing and fading with age (smoothstep), plus a radial-gradient dot at the pointer.
   `LaserConfig` (in `ToolSettings`, persisted): dot or trail mode, colour (six presets or
-  custom), size and trail duration (0.3–3 s), set in the tool's options popup
-  (`LaserOptionsPanel`, with a live preview). The old painter drew two lines per sample, one
+  custom), size and when the trail fades (`LaserFade`): each point a set time after it was
+  drawn (0.3–3 s), or, *when I stop*, all of it together once `hold` (0.5–5 s, default 2 s)
+  has passed since the last lift (`LaserTrail.holding`: the trail and dot stay in full while
+  writing, a press within the hold keeps everything, then a 400-ms fade; frames during the hold
+  repaint nothing, and a hovering mouse doesn't stop the countdown). Set in the tool's options
+  popup (`LaserOptionsPanel`, with a live preview). The old painter drew two lines per sample, one
   with a blur mask filter — hundreds of blurs per frame; `test/perf/laser_perf_test.dart`
   measures a move (0 rebuilds, 1 paint) and a full trail against it.
 

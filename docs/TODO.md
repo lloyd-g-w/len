@@ -35,8 +35,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   cover), and pen presets.
 
 ## Laser pointer
-- ⬜ **Keep-while-writing option**: the trail stays until about 2 s after pen-up; writing
-  again within that time keeps everything showing (nothing fades between strokes).
+- ✅ **Keep-while-writing option**: the trail stays until about 2 s after pen-up; writing
+  again within that time keeps everything showing (nothing fades between strokes). Laser
+  popover: Fade (Each stroke / When I stop), "Fades after" 0.5–5 s (default 2 s).
 
 ## Infinite canvas
 - ⬜ **Minimap, polished**: shows roughly where content is, the current view, tap / drag to

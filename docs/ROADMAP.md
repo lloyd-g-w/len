@@ -56,6 +56,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
   synced as blobs; in thumbnails and PNG/PDF export
 - ✅ Laser pointer
+- ✅ Laser "Fade: When I stop": everything written stays until ~2 s (adjustable) after the last
+  pen-up; writing again within that time keeps it all
 - ✅ Zoom window (⋯ → View, `M`): a frame on the page magnified in a box docked above the bottom
   toolbar; writing in the box writes small into the frame, which moves on along the line as you
   reach the box's right end, wraps to the next ruled line (↵ too) and on to the next page (adding
