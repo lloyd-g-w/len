@@ -229,8 +229,12 @@ Two more things keep pen-up and first show off the frame:
   down or was lifted < 400 ms ago. The model adds them a chunk's worth at
   a time as they arrive, the chunks nearest the view first
   (`len.insertLoaded`); a page of 2 000 strokes no longer stalls the frame
-  that first shows it for 1–3 s. Tests and the web build them inline
-  (`InlineOutlinePreparer`).
+  that first shows it for 1–3 s. Tests build them inline
+  (`InlineOutlinePreparer`); the web, without isolates, on the UI thread
+  in slices of ≤ 8 ms with a turn of the event loop between them
+  (`SlicedOutlinePreparer`): opening a 4 000-stroke notebook no longer
+  blocks the tab for 0.4–0.6 s per page (`tool/web_explore.py` fails a
+  WebAssembly build whose big notebook has a task over 500 ms).
 - **Reads in blocks** (`SurfaceLoader`): a range of more than 36 chunks (a
   canvas seen from afar) is read in 4 × 4-chunk blocks, middle first, so
   the first ink shows within a second rather than after reading (and
