@@ -463,6 +463,27 @@ or deleted pages in order with ink. Snack bars' Undo calls
   displays**: Android mirrors the screen by default; a separate audience window
   (Android `Presentation` API, desktop multi-window) is out of scope — Flutter's
   multi-window API is not stable yet.
+- **Zoom window** (`zoom/`; "⋯" → View → *Zoom window*, `M`): GoodNotes-style writing
+  through a magnifier. A `ZoomFrame` (surface id, origin, scale) marks a rectangle on a page
+  (or the canvas) with the box's aspect; `ZoomBox`, docked above the bottom chrome
+  (`ChromeLayout.zoomBox`, counted in `covered` so the page scrolls clear of it), shows it
+  magnified with the page's paper and ink. Pointers in the box go to the window's own
+  `InkInputController` over `ZoomBoxViewport` (a `ViewportController` the window sets; finger
+  pans and pinches move or size the frame instead), so ink is smoothed, pressure-shaped,
+  live and undoable exactly as on the page; the pen keeps its page width. `ZoomRules` is the
+  pure geometry: the start scale (three ruled lines fill the box), the advance zone (the
+  frame's right 30 %: ink lifted there moves the frame on after `ZoomWindow.pause`, at once
+  past 90 %, leaving the ink a quarter in), the wrap to the line start a whole ruled line
+  (or ink height) down, and past a page's bottom on to the next page (`DocumentCommands
+  .addPageAfter` adds one after the last). `ZoomHost` (`DocumentZoomHost`, `CanvasZoomHost`)
+  is what the window needs of the editor: bounds, paper and margin, models (held with
+  `DocumentSurfaces.acquireModel`), activating the frame's page (its live ink shows there),
+  and `reveal` so the main view follows the frame. `ZoomFrameOverlay` draws the frame on the
+  page (a 2-dp accent rule, the zone's hairline, a corner handle): drag it to move (lines then
+  start there), drag the handle to size it. Palm: a stylus in the box tells the page's input
+  (`InkInputController.stylusElsewhere`: a finger drawing or panning there stops, new ones
+  are ignored as between strokes) and `ZoomWindow.blocksPage` absorbs new page touches for
+  `palmQuiet` after the pen lifts. The window is per session and not persisted.
 - **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
   pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
   in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).

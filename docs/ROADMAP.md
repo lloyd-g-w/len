@@ -51,6 +51,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
   synced as blobs; in thumbnails and PNG/PDF export
 - ✅ Laser pointer
+- ✅ Zoom window (⋯ → View, `M`): a frame on the page magnified in a box docked above the bottom
+  toolbar; writing in the box writes small into the frame, which moves on along the line as you
+  reach the box's right end, wraps to the next ruled line (↵ too) and on to the next page (adding
+  one after the last); drag the frame to move it, its corner handle to size it, pinch or pan the
+  box; works on pages and the infinite canvas
+- ⬜ Zoom window: remember the frame and box height per notebook, an adjustable box height,
+  left-handed advance (right-to-left scripts)
 - ✅ Gestures: two-finger tap undo, three-finger tap redo (with a HUD; palm-safe), S Pen side
   button action (eraser / hold to lasso / none), finger long press or right click → canvas menu
   (paste here, select all on page, add text here, page commands)
