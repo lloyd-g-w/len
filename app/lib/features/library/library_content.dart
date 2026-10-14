@@ -17,6 +17,7 @@ import 'library_controller.dart';
 import 'library_empty_state.dart';
 import 'library_format.dart';
 import 'library_header.dart';
+import 'library_search_field.dart';
 import 'new_notebook_tile.dart';
 import 'notebook_card.dart';
 import 'notebook_list_tile.dart';
@@ -34,7 +35,7 @@ class LibraryContent extends StatefulWidget {
 
   final LibraryActions actions;
   final TextEditingController searchController;
-  final FocusNode searchFocus;
+  final LibrarySearchFocus searchFocus;
 
   /// Before the title (phone: the drawer button).
   final Widget? headerLeading;
@@ -64,7 +65,7 @@ class LibraryContent extends StatefulWidget {
 class _LibraryContentState extends State<LibraryContent> {
   LibraryActions get actions => widget.actions;
   TextEditingController get searchController => widget.searchController;
-  FocusNode get searchFocus => widget.searchFocus;
+  LibrarySearchFocus get searchFocus => widget.searchFocus;
   Widget? get headerLeading => widget.headerLeading;
   LibraryController get _c => actions.controller;
 
@@ -159,8 +160,11 @@ class _LibraryContentState extends State<LibraryContent> {
               onSetUpSync: _c.services.sync.isConfigured
                   ? null
                   : () => unawaited(
-                      Navigator.of(context)
-                          .push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SettingsScreen(showSync: true),
+                        ),
+                      ),
                     ),
             ),
           )

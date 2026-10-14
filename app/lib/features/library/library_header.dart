@@ -32,7 +32,7 @@ class LibraryHeader extends StatefulWidget {
 
   final LibraryActions actions;
   final TextEditingController searchController;
-  final FocusNode searchFocus;
+  final LibrarySearchFocus searchFocus;
 
   /// Phone layout: no ⊕▾ (the FAB creates), search behind 🔍.
   final bool compact;
@@ -67,7 +67,9 @@ class _LibraryHeaderState extends State<LibraryHeader> {
   @override
   void initState() {
     super.initState();
-    widget.searchFocus.addListener(_onFocus);
+    widget.searchFocus
+      ..addListener(_onFocus)
+      ..onOpen = _openSearch;
   }
 
   @override
@@ -75,13 +77,17 @@ class _LibraryHeaderState extends State<LibraryHeader> {
     super.didUpdateWidget(old);
     if (old.searchFocus != widget.searchFocus) {
       old.searchFocus.removeListener(_onFocus);
-      widget.searchFocus.addListener(_onFocus);
+      if (old.searchFocus.onOpen == _openSearch) old.searchFocus.onOpen = null;
+      widget.searchFocus
+        ..addListener(_onFocus)
+        ..onOpen = _openSearch;
     }
   }
 
   @override
   void dispose() {
     widget.searchFocus.removeListener(_onFocus);
+    if (widget.searchFocus.onOpen == _openSearch) widget.searchFocus.onOpen = null;
     super.dispose();
   }
 

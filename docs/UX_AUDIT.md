@@ -46,7 +46,7 @@ it, with the old token.** ✅
 - Paths: `settings/sync_settings.dart:144-182`. Effort S.
 
 **R10-3 P1 · Opening a folder clears the search but leaves the old text in
-the field.** ⬜
+the field.** ✅
 - *What:* `LibraryController.openFolder` sets the query to '' but the
   screen's search controller keeps "maths"; the next letter searches
   "mathsx".
@@ -55,7 +55,7 @@ the field.** ⬜
   Effort S.
 
 **R10-4 P1 · Ctrl+F does nothing in the library when the search field
-isn't on screen** (desktop windows under ~900 px, empty views). ⬜
+isn't on screen** (desktop windows under ~900 px, empty views). ✅
 - *Fix:* Ctrl+F opens the search (`_openSearch`) and then focuses it.
 - Paths: `library/library_screen_keys.dart`, `library/library_header.dart`.
   Effort S.
@@ -72,7 +72,7 @@ and the default title shows on tablets only.** ⬜
 - Paths: `library/new_notebook_sheet.dart:178-184`. Effort S.
 
 **R10-6 P1 · "Set up sync…" in the empty library opens Settings at the
-top.** ⬜ A first-time user lands on Theme and must scroll four sections.
+top.** ✅ A first-time user lands on Theme and must scroll four sections.
 Pass `showSync: true`. Paths: `library/library_content.dart:159`. Effort S.
 
 **R10-7 P1 · With the token rejected, Settings → Sync leads with "Sync
@@ -109,11 +109,11 @@ Effort S.
 - Paths: `editor/tools/content_layer.dart:136` (tools/* is busy on other
   branches: left open). Effort S.
 
-**R10-11 P2 · Android back during a library search leaves the app.** ⬜
+**R10-11 P2 · Android back during a library search leaves the app.** ✅
 `canPop` ignores `isSearching`. *Fix:* back clears the search first.
 Paths: `library/library_screen.dart:190`. Effort S.
 
-**R10-12 P2 · Undo of Duplicate puts the copy in the trash.** ⬜ The trash
+**R10-12 P2 · Undo of Duplicate puts the copy in the trash.** ✅ The trash
 count grows and the copy resurfaces on restore. *Fix:* Undo deletes the
 fresh copy for good. Paths: `library/library_notebook_actions.dart:59-66`.
 Effort S.

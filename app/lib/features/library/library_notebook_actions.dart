@@ -62,7 +62,8 @@ mixin _NotebookActions {
         _undoable(
           context,
           'Duplicated as “${copy.title}”',
-          () => controller.trashNotebook(copy.id),
+          // A fresh copy holds nothing of the user's: no trip to the trash.
+          () => controller.deleteForever(copy.id),
         );
       case NotebookAction.move:
         final target = await showMoveDialog(
