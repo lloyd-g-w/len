@@ -8,7 +8,6 @@ import '../../core/clock.dart';
 import '../../domain/cancellation.dart';
 import '../blob_references.dart';
 import '../blob_store.dart';
-import '../syncable.dart';
 import 'len_format.dart';
 import 'len_import_commit.dart';
 import 'len_remap.dart';
@@ -63,13 +62,14 @@ class LenImportResult {
 /// isn't here, so restoring it again can tell (UX_AUDIT R8-16).
 ///
 /// Blobs go first (each checked against its hash), then the records part
-/// by part, each part in one transaction, with the event loop free in
-/// between. Pages and content stay invisible (their notebooks are written
-/// last) and unsynced (written clean) until everything is in; then one
-/// transaction adds the folders, templates and notebooks and marks it all
-/// for sync. Whatever is damaged (a blob, a line, a whole part) is left
-/// out and reported, and the rest imported (R8-14); an error that isn't
-/// about the file, or Cancel, removes whatever was written.
+/// by part, in time-budgeted slices of one transaction each, with the
+/// event loop free in between. Pages and content stay invisible (their
+/// notebooks are written last) and unsynced (written clean) until
+/// everything is in; then one transaction adds the folders, templates and
+/// notebooks and marks it all for sync. Whatever is damaged (a blob, a
+/// line, a whole part) is left out and reported, and the rest imported
+/// (R8-14); an error that isn't about the file, or Cancel, removes
+/// whatever was written.
 class LenArchiveReader {
   LenArchiveReader(this.stores, this.blobs, {required this.deviceId, this.clock = const Clock()});
 
@@ -77,6 +77,10 @@ class LenArchiveReader {
   final BlobStore blobs;
   final String deviceId;
   final Clock clock;
+
+  /// UI-thread time spent reading and writing records before the event
+  /// loop gets a turn.
+  static const sliceBudget = Duration(milliseconds: 8);
 
   /// The notebooks of [source] that are here already (id → title; in the
   /// Trash too): restoring a backup again, or on the device it came from.
@@ -206,24 +210,30 @@ class LenArchiveReader {
       var skipped = 0, lost = 0;
       for (final part in parts) {
         cancel?.check();
-        final List<SyncRecord?> records;
+        final List<String> lines;
         try {
-          await LenSource.load(part);
-          records = LenSource.readRecords(part);
+          lines = await LenSource.recordLines(part);
         } on LenArchiveException catch (e) {
           problems.add('${e.details}');
           lost++;
           continue;
         }
         final before = skipped;
-        stores.any.database.transaction(() {
-          for (final record in records) {
-            if (!commit.add(record)) skipped++;
-          }
-        });
+        // Parsed and written in slices of [sliceBudget], each in its own
+        // transaction, with the event loop free in between: a part is
+        // thousands of records (seconds of the UI thread in a browser).
+        for (var i = 0; i < lines.length;) {
+          final slice = Stopwatch()..start();
+          stores.any.database.transaction(() {
+            do {
+              if (!commit.add(LenSource.parseRecord(lines[i++]))) skipped++;
+            } while (i < lines.length && slice.elapsed < sliceBudget);
+          });
+          await Future<void>.delayed(Duration.zero);
+          cancel?.check();
+        }
         if (skipped > before) problems.add('${part.name}: ${skipped - before} unreadable');
         onProgress?.call(++done / steps);
-        await Future<void>.delayed(Duration.zero);
       }
       cancel?.check();
       final result = commit.finish(

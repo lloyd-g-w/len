@@ -1932,7 +1932,12 @@ temporary file to share or save, browsers write through the save picker
 else into a blob of 4 MB chunks to download, and warn before backing up
 more than 500 MB of files. Browsers read a picked file in slices
 (`RangedInput` over `Blob.slice`; `RangedZip` loads the zip's structure
-first, then each entry as it is read), natively it is read in place. An
+first, then each entry as it is read), natively it is read in place;
+browsers inflate a records part with their `DecompressionStream`
+(`platform/browser_inflate`, off the UI thread; the archive package's
+inflater in Dart took seconds of it), and records are parsed and written in
+8 ms slices, a transaction each, with a turn of the event loop between them
+(`LenArchiveReader.sliceBudget`). An
 import opens the file (`LenSource`: the
 manifest and, for a backup, the folders and notebooks it holds), stages
 everything, remaps ids (`LenRemap`), checks each blob's hash and commits in

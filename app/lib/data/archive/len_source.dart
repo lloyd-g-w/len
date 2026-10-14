@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../platform/browser_inflate.dart';
 import '../syncable.dart';
 import 'len_format.dart';
 import 'ranged_input.dart';
@@ -69,14 +70,15 @@ class LenSource {
   Future<LenContents> _readContents() async {
     final folders = <String>{}, notebooks = <String, String>{};
     for (final part in parts) {
-      final List<SyncRecord?> records;
+      final List<String> lines;
       try {
-        await load(part);
-        records = readRecords(part);
+        lines = await recordLines(part);
       } on LenArchiveException {
         continue;
       }
-      for (final r in records) {
+      // Parsed only up to the first content record (pages, strokes…).
+      for (final line in lines) {
+        final r = parseRecord(line);
         if (r == null || r.deleted) continue;
         switch (r.collection) {
           case 'folders':
@@ -129,28 +131,47 @@ class LenSource {
     }
   }
 
-  /// The records of [part], null for each line that is not one (not JSON,
-  /// or not a record); throws [LenArchiveException] if the part can't be
-  /// read at all.
-  static List<SyncRecord?> readRecords(ArchiveFile part) {
+  /// The lines of [part] that aren't empty, each a record ([parseRecord]);
+  /// throws [LenArchiveException] if the part can't be read at all. In a
+  /// browser it is inflated and decoded off the UI thread
+  /// ([inflateUtf8Text]); parsing is left to the caller, a line at a time,
+  /// so a big part needn't hold the UI thread.
+  static Future<List<String>> recordLines(ArchiveFile part) async {
     final String text;
     try {
-      text = utf8.decode(_bytesOf(part));
+      await load(part);
+      text = await _textOf(part);
+    } on LenArchiveException {
+      rethrow;
     } on Object catch (e) {
       throw LenArchiveException.damaged('${part.name}: $e');
     }
-    final records = <SyncRecord?>[];
-    for (final line in const LineSplitter().convert(text)) {
-      if (line.isEmpty) continue;
-      try {
-        records.add(SyncRecord.fromJson(jsonDecode(line)));
-      } on FormatException catch (e) {
-        // Not JSON, or not a record: skipped, the rest is read.
-        debugPrint('Skipping a malformed record: ${e.message}');
-        records.add(null);
-      }
+    return [
+      for (final line in const LineSplitter().convert(text))
+        if (line.isNotEmpty) line,
+    ];
+  }
+
+  /// The record [line] holds; null if it is not one (not JSON, or not a
+  /// record).
+  static SyncRecord? parseRecord(String line) {
+    try {
+      return SyncRecord.fromJson(jsonDecode(line));
+    } on FormatException catch (e) {
+      // Not JSON, or not a record: skipped, the rest is read.
+      debugPrint('Skipping a malformed record: ${e.message}');
+      return null;
     }
-    return records;
+  }
+
+  /// [entry]'s content as text: inflated by the browser where it can,
+  /// else decompressed here.
+  static Future<String> _textOf(ArchiveFile entry) async {
+    final raw = entry.rawContent;
+    if (raw is ZipFile && raw.compressionMethod == CompressionType.deflate) {
+      if (await inflateUtf8Text(raw.getRawContent()) case final text?) return text;
+    }
+    return utf8.decode(_bytesOf(entry));
   }
 
   /// [entry]'s content, decompressed afresh and not kept on the entry, so
