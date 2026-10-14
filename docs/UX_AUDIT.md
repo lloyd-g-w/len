@@ -156,7 +156,7 @@ batch. Paths: `documents/pdf/pdf_import.dart:46-70`,
 `documents/import/import_flow.dart:63-72`. Effort M.
 
 **R10-19 P2 · New folder lands out of view with no feedback** (while
-searching inside a folder, or from Favourites / Trash via Ctrl+Shift+N). ⬜
+searching inside a folder, or from Favourites / Trash via Ctrl+Shift+N). ✅
 *Fix:* create it in the open folder even while searching; elsewhere create
 it in Library and go there. Paths: `library/library_operations.dart:55`.
 Effort S.
@@ -184,7 +184,7 @@ Effort S.
   "Adding image…" for progress titles.
 - Effort S.
 
-**R10-23 P2 · Cancelling "Adding image…" still stores the image blob.** ⬜
+**R10-23 P2 · Cancelling "Adding image…" still stores the image blob.** ✅
 `runWithProgress` abandons the task, which writes anyway (its contract
 says tasks must not). Paths: `editor/images/editor_images.dart:183`.
 Effort S.
