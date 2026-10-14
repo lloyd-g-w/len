@@ -80,6 +80,13 @@ class DocumentCommands {
   /// next day, week or month) after it.
   void addPage() => edits.add([PageActions.blankAfter(_current)], after: _current);
 
+  /// Adds a page like page [index] after it (the zoom window writing on
+  /// past the last page), and shows it.
+  void addPageAfter(int index) {
+    final page = doc.pages[index];
+    edits.add([PageActions.blankAfter(page)], after: page);
+  }
+
   /// Lets the user choose a template, then adds pages with it after
   /// [after] (default: the current page).
   Future<void> addPageWithTemplate(BuildContext context, {NotebookPage? after}) async {

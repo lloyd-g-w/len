@@ -52,6 +52,7 @@ final List<ShortcutGroup> shortcutGroups = [
       const SingleActivator(LogicalKeyboardKey.f11),
       _ctrl(LogicalKeyboardKey.period),
     ]),
+    const ShortcutHelp('Zoom window', [SingleActivator(LogicalKeyboardKey.keyM)]),
     const ShortcutHelp('Present (focus mode with the laser)', [
       SingleActivator(LogicalKeyboardKey.f5),
     ]),

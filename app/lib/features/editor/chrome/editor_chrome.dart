@@ -27,7 +27,21 @@ class ChromeLayout {
     required this.width,
     required this.focus,
     this.short = false,
+    this.zoomBox = 0,
   });
+
+  /// The same layout with the zoom window's box, [height] tall, docked
+  /// above the bottom chrome.
+  ChromeLayout withZoomBox(double height) => ChromeLayout(
+    dock: dock,
+    barHeight: barHeight,
+    safe: safe,
+    hasNavigator: hasNavigator,
+    width: width,
+    focus: focus,
+    short: short,
+    zoomBox: height,
+  );
 
   /// Where the toolbar is.
   final ToolbarDock dock;
@@ -43,6 +57,13 @@ class ChromeLayout {
 
   /// A short window (a phone held sideways): the chrome is one row.
   final bool short;
+
+  /// Height of the zoom window's box (0 when it is closed).
+  final double zoomBox;
+
+  /// Where the zoom window's box sits: on the bottom tool row (in focus
+  /// mode, on the screen's safe edge).
+  double get zoomBoxBottom => safe.bottom + (focus ? 0 : bottomRowHeight);
 
   /// Whether the editor is laid out for a phone.
   bool get phone => width < ChromeMetrics.compactWidth;
@@ -64,13 +85,13 @@ class ChromeLayout {
   double get barBottom => safe.top + barHeight + toolRowHeight;
 
   /// Where the page navigator's bottom edge sits.
-  double get navigatorBottom => safe.bottom + bottomRowHeight + ChromeMetrics.edge;
+  double get navigatorBottom => safe.bottom + bottomRowHeight + zoomBox + ChromeMetrics.edge;
 
   /// Screen space covered by chrome along the top and bottom edges. A
   /// floating palette covers no edge.
   EdgeInsets get covered {
-    if (focus) return EdgeInsets.only(top: safe.top, bottom: safe.bottom);
-    return EdgeInsets.only(top: barBottom, bottom: safe.bottom + bottomRowHeight);
+    if (focus) return EdgeInsets.only(top: safe.top, bottom: safe.bottom + zoomBox);
+    return EdgeInsets.only(top: barBottom, bottom: safe.bottom + bottomRowHeight + zoomBox);
   }
 
   /// [covered], plus the spot a peeking navigator appears in: floating
@@ -179,7 +200,7 @@ class EditorChrome extends StatelessWidget {
                 toolbar: toolbar,
                 insets: EdgeInsets.only(
                   top: layout.barBottom,
-                  bottom: safe.bottom,
+                  bottom: safe.bottom + layout.zoomBox,
                   left: safe.left,
                   right: safe.right,
                 ),

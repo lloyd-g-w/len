@@ -124,6 +124,7 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
     const SingleActivator(LogicalKeyboardKey.keyE): unlessTyping(
       () => tools.tool = EditorTool.eraser,
     ),
+    const SingleActivator(LogicalKeyboardKey.keyM): unlessTyping(session.toggleZoomWindow),
     // 1–5: quick colours of the pen / highlighter; [ and ]: thinner / thicker.
     // (Shift+1 and 0 belong to the canvas shortcuts.)
     for (final (i, key) in _digitKeys.indexed)
