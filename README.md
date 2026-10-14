@@ -18,9 +18,14 @@ Download the latest build from
 |----------|------|-----|
 | Android 7+ | `len-X.Y.Z-android-arm64-v8a.apk` (most phones/tablets; `-universal` if unsure) | Open the APK and allow installing from your browser/file manager. |
 | Windows 10/11 (x64) | `len-X.Y.Z-windows-x64-setup.exe` | Run the installer (no administrator rights needed; it is not code-signed yet, so SmartScreen asks: *More info → Run anyway*). Adds Len to the Start menu and to "Open with" for PDFs and images; uninstall from *Settings → Apps*. Portable alternative: `len-X.Y.Z-windows-x64.zip`, unzip and run `len.exe` (no file associations). |
-| Linux (x64) | `len-X.Y.Z-linux-x64.flatpak` | `flatpak install --user len-X.Y.Z-linux-x64.flatpak` (fetches the GNOME runtime from Flathub). Audio recording does not work in the Flatpak yet. |
+| Linux (x64) | `len-X.Y.Z-linux-x64.flatpak` | `flatpak install --user len-X.Y.Z-linux-x64.flatpak` (fetches the GNOME runtime from Flathub, which brings everything Len needs, audio recording included). |
+| Linux (x64) | `len-X.Y.Z-linux-x64.AppImage` | `chmod +x` it and run it; `./len-X.Y.Z-linux-x64.AppImage --install-desktop-entry` adds it to the application menu and "Open with" (`--uninstall-desktop-entry` removes it). Needs the same system libraries as the tarball (below), and glibc 2.39+ (Ubuntu 24.04, Fedora 40, Debian 13 or newer) for both. AppImageUpdate / Gear Lever update it in place. |
 | Linux (x64) | `len-X.Y.Z-linux-x64.tar.gz` | Unpack, run `./len`; `./install-desktop-entry.sh` adds it to your application menu (`--uninstall` removes it). Needs GTK 3, libsecret (the sync token goes to the desktop's keyring) and GStreamer (with the -good and an AAC plugin, for audio playback); recording uses `parecord` and `ffmpeg`. |
 | Web | `len-X.Y.Z-web.zip` | Static site: unzip and serve it over HTTPS with any web server (headers: see *Develop*). Install it from the browser (PWA) to use it offline. |
+
+Store listings (Flathub, F-Droid, Google Play, winget) are prepared but not
+published yet: see [docs/PACKAGING.md](docs/PACKAGING.md) for what each
+package bundles and what is still missing.
 
 For sync, run the server: [server/README.md](server/README.md) (Docker image
 `ghcr.io/lloyd-g-w/len-sync`). `SHA256SUMS` lists the checksums of all files.
@@ -100,8 +105,9 @@ output.
 
 The [release workflow](.github/workflows/release.yml) checks that the tag
 matches the pubspec, builds the APKs (universal + per ABI), the Linux tarball
-and a Flatpak made from it, the Windows installer and zip, and the web zip,
-attaches them to a GitHub release, and
+and a Flatpak and an AppImage made from it, the Windows installer and zip, the
+web zip and winget manifests for the installer, attaches them to a GitHub
+release, and
 pushes the sync server image to `ghcr.io/<owner>/len-sync` (`X.Y.Z`, `X.Y`,
 `latest`; amd64 + arm64). CI ([ci.yml](.github/workflows/ci.yml)) runs on
 every push / PR: analyze + tests (app and server) and all builds. Both pin
@@ -126,8 +132,8 @@ over any default, and upgrades in place (keep `AppId`). Opening files while
 Len runs hands them to the running window (single instance; set
 `LEN_MULTI_INSTANCE=1` to run several, e.g. for testing). Why not MSIX: it
 only installs when signed with a certificate the PC trusts; if Len gets a
-code-signing certificate, sign the setup (`SignTool` in `[Setup]`) and
-consider MSIX / winget then.
+code-signing certificate, sign the setup (`iscc /DSign`, see
+[docs/PACKAGING.md](docs/PACKAGING.md)) and consider MSIX then.
 
 ### Flatpak
 
@@ -142,10 +148,22 @@ flatpak run dev.len.len
 ```
 
 The release workflow's `flatpak` job does this and attaches
-`len-X.Y.Z-linux-x64.flatpak`. For Flathub, point the archive source at the
-release tarball (`url` + `sha256`), add a licence and screenshots to
-`linux/packaging/dev.len.len.metainfo.xml`, and bump `runtime-version` (and
-the CI image `gnome-NN`) with new GNOME releases.
+`len-X.Y.Z-linux-x64.flatpak`. Bump `runtime-version` (and the CI image
+`gnome-NN`) with new GNOME releases and run
+`app/linux/packaging/flatpak/check-runtime-recording.sh` (recording uses the
+runtime's `parecord` + `ffmpeg`). For Flathub see
+[docs/PACKAGING.md](docs/PACKAGING.md).
+
+### AppImage
+
+```sh
+app/linux/packaging/appimage/build-appimage.sh app/build/linux/x64/release/bundle \
+  /tmp/len.AppImage                           # pinned appimagetool, no FUSE needed
+(cd app && tool/appimage_smoke.sh /tmp/len.AppImage some.len some.pdf)   # runs it under Xvfb
+```
+
+The release workflow's `appimage` job builds it from the tarball with
+AppImageUpdate information (`.zsync`).
 
 ### Android signing
 
