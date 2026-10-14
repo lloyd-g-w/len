@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:len/app.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
@@ -84,7 +88,7 @@ void main() {
       await tester.tap(find.widgetWithText(SnackBarAction, 'Settings'));
       await tester.pumpAndSettle();
       expect(find.byType(SettingsScreen), findsOneWidget);
-      expect(find.textContaining('access token. Sync is paused'), findsOneWidget);
+      expect(find.textContaining('access token: sync is paused'), findsOneWidget);
       // Trying again by hand and failing again isn't announced twice.
       await tester.pump(const Duration(seconds: 10));
       await tester.pumpAndSettle();
@@ -171,7 +175,7 @@ void main() {
           ),
         ),
       );
-      final note = find.textContaining('secure storage isn\'t available');
+      final note = find.textContaining('secure storage isn’t available');
       await show();
       expect(note, findsOneWidget);
       expect(s.sync.isConfigured, isTrue, reason: 'sync goes on');
@@ -244,6 +248,63 @@ void main() {
       await tester.tap(find.text('Change…'));
       await tester.pump();
       expect(find.textContaining('Filled from a setup link'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('a rejected token leads with Change…', (tester) async {
+      final s = _device(FakeServer(), token: 'wrong');
+      addTearDown(s.dispose);
+      await tester.runAsync(s.sync.syncNow);
+      await show(tester, s);
+      expect(find.text('Change…'), findsOneWidget);
+      expect(find.text('Sync now'), findsNothing);
+      expect(find.text('Set up another device…'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('an empty token is caught before asking the server', (tester) async {
+      final s = AppServices.create(AppDatabase.inMemory());
+      addTearDown(s.dispose);
+      await show(tester, s);
+      await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'len.example');
+      await tester.tap(find.text('Connect'));
+      await tester.pump();
+      expect(find.text('Enter the access token'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('Cancel while the server answers keeps the old settings', (tester) async {
+      final server = FakeServer();
+      final gate = Completer<void>();
+      final s = AppServices.create(
+        AppDatabase.inMemory(),
+        syncApiFactory: (url, t) => SyncApi(
+          baseUrl: url,
+          token: t,
+          client: MockClient((request) async {
+            await gate.future;
+            final copy = http.Request(request.method, request.url)
+              ..headers.addAll(request.headers)
+              ..bodyBytes = request.bodyBytes;
+            return http.Response.fromStream(await server.client.send(copy));
+          }),
+        ),
+      );
+      addTearDown(s.dispose);
+      s.sync.configure(url: 'http://sync.test', token: FakeServer.token);
+      await show(tester, s);
+      await tester.tap(find.text('Change…'));
+      await tester.pump();
+      await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'http://other.test');
+      await tester.tap(find.text('Connect'));
+      await tester.pump();
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+      gate.complete();
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+      expect(s.settings.syncUrl, 'http://sync.test');
+      expect(s.sync.tokens.token, FakeServer.token);
       await tester.pumpWidget(const SizedBox());
     });
 

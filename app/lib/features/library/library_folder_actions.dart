@@ -13,7 +13,12 @@ mixin _FolderActions {
   Future<void> createFolder(BuildContext context) async {
     final details = await showFolderDialog(context, title: 'New folder', confirmLabel: 'Create');
     if (details == null) return;
-    controller.createFolder(details.name, color: details.color);
+    // A search or another section hides it: say where it went.
+    final hidden = controller.isSearching || controller.section != LibrarySection.library;
+    final folder = controller.createFolder(details.name, color: details.color);
+    if (hidden && context.mounted) {
+      _toast(context, 'Created “${folder.name}” in “${_folderName(folder.parentId)}”');
+    }
   }
 
   /// Handles a dragged item dropped on folder [folderId] (null = root):

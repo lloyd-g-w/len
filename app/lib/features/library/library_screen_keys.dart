@@ -3,7 +3,7 @@ part of 'library_screen.dart';
 /// The library's keyboard shortcuts and what they do.
 extension _LibraryKeys on _LibraryScreenState {
   void _focusSearch() {
-    _searchFocus.requestFocus();
+    _searchFocus.open();
     _search.selection = TextSelection(baseOffset: 0, extentOffset: _search.text.length);
   }
 

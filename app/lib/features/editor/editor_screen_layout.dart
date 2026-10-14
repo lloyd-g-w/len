@@ -29,6 +29,7 @@ extension _EditorLayout on _EditorScreenState {
           ),
     paste: () => _session.images.paste(context),
     pastePlain: () => _session.images.paste(context, plain: true),
+    pdfCopied: () => showMessage(context, 'Copied'),
   );
 
   /// Escape first leaves focus mode, then closes a chrome menu opened

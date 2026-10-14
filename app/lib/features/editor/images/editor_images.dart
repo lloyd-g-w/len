@@ -180,13 +180,13 @@ class EditorImages {
   }
 
   Future<ImageData?> _prepare(BuildContext context, Uint8List bytes, String? name) async {
-    Future<ImageData> run() async =>
-        ImageImport.store(services.blobs, await ImageImport.prepare(bytes));
     try {
-      // Big files may need re-encoding, which takes a moment.
-      return bytes.length > (2 << 20)
-          ? await runWithProgress(context, 'Adding image…', run)
-          : await run();
+      // Big files may need re-encoding, which takes a moment. Only that
+      // runs behind Cancel: a cancelled task runs on, so it mustn't store.
+      final prepared = bytes.length > (2 << 20)
+          ? await runWithProgress(context, 'Adding image', () => ImageImport.prepare(bytes))
+          : await ImageImport.prepare(bytes);
+      return await ImageImport.store(services.blobs, prepared);
     } on Cancelled {
       return null;
     } on ImageImportException catch (e) {

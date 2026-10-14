@@ -35,10 +35,10 @@ class OpenElsewhereScreen extends StatelessWidget {
           'and steps aside.',
     WaitState.asking => 'Moving Len to this tab…',
     WaitState.refused =>
-      'The other tab can\'t save its latest changes because browser storage is full, '
+      'The other tab can’t save its latest changes because browser storage is full, '
           'so it keeps Len open. Free up space, then try again.',
     WaitState.noAnswer =>
-      'The other tab isn\'t answering. Switch to it, or close it to continue here.',
+      'The other tab isn’t answering. Switch to it, or close it to continue here.',
   };
 
   @override

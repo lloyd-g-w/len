@@ -180,6 +180,34 @@ void main() {
     expect(find.byType(EditorSearchBar), findsNothing);
   });
 
+  testWidgets('editor: editing keys reach the search field, not the page', (tester) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final nbs = seed(services);
+    await pumpEditorFor(tester, services, nbs.biology);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    await typeSearch(tester, 'cells');
+    TextEditingController field() =>
+        tester.widget<TextField>(find.byType(TextField).last).controller!;
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+    expect(field().text, 'cell');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await tester.pump();
+    expect(field().text, 'cel');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(field().selection, const TextSelection(baseOffset: 0, extentOffset: 3));
+    expect(find.byType(EditorSearchBar), findsOneWidget);
+  });
+
   testWidgets('canvas: the search button finds a far-away text box and pans to it', (tester) async {
     final services = AppServices.create(AppDatabase.inMemory());
     addTearDown(services.dispose);

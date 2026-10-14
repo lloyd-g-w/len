@@ -20,6 +20,7 @@ import 'library_file_drop.dart';
 import 'library_menus.dart';
 import 'library_new_menu.dart';
 import 'library_notice.dart';
+import 'library_search_field.dart';
 import 'library_sidebar.dart';
 import 'selection/selection_actions.dart';
 import 'selection/selection_bar.dart';
@@ -58,7 +59,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   /// Notices from sync (e.g. everything was synced again), shown once.
   StreamSubscription<Object?>? _syncNotices;
   final _search = TextEditingController();
-  final _searchFocus = FocusNode(debugLabel: 'Library search');
+  final _searchFocus = LibrarySearchFocus();
 
   @override
   void didChangeDependencies() {
@@ -91,6 +92,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
       } else {
         _actions.selection.retain(_controller.visibleNotebooks.map((n) => n.id));
       }
+      // Opening a folder ends the search: the field follows.
+      if (_controller.query.isEmpty && _search.text.isNotEmpty) _search.clear();
     });
     _imports = ImportFlow(
       services: services,
@@ -186,15 +189,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
       child: ListenableBuilder(
         listenable: Listenable.merge([_controller, _actions.selection]),
         builder: (context, _) => PopScope(
-          // Android back ends selection, then walks up folders, then leaves.
+          // Android back ends selection, then the search, then walks up
+          // folders, then leaves.
           canPop:
               !_actions.selection.active &&
+              _controller.query.isEmpty &&
               _controller.section == LibrarySection.library &&
               _controller.folderId == null,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
             if (_actions.selection.active) {
               _actions.selection.clear();
+            } else if (_controller.query.isNotEmpty) {
+              _clearSearch();
             } else {
               _controller.goUp();
             }

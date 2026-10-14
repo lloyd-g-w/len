@@ -68,7 +68,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
       state,
       appSnackBar(
         context,
-        'This browser won\'t keep this file once the tab is closed',
+        'This browser won’t keep this file once the tab is closed',
         duration: const Duration(seconds: 10),
       ),
     );

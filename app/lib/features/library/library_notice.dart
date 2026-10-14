@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../app_services.dart';
 import '../../data/schema_reset.dart';
 import '../../platform/browser_storage.dart';
+import '../../ui/messages.dart';
 import '../../ui/sync_status_button.dart';
 import '../backup/len_file_flows.dart';
 import '../settings/settings_screen.dart';
@@ -48,7 +49,13 @@ class LibraryNotices extends StatefulWidget {
 class _LibraryNoticesState extends State<LibraryNotices> {
   late final AppServices _services = AppScope.read(context);
   late final BrowserStorage? _storage = widget.storage ?? browserStorage;
-  late final Listenable _changes = Listenable.merge([_services.sync, _services.writes]);
+  // Len files: a backup (from Settings too) or a restore changes what the
+  // device-only notice says.
+  late final Listenable _changes = Listenable.merge([
+    _services.sync,
+    _services.writes,
+    _services.lenFiles,
+  ]);
 
   /// Whether the browser may evict Len's data (null until known).
   bool? _evictable;
@@ -75,6 +82,9 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   }
 
   late String? _deviceOnly = _deviceOnlyTip();
+
+  /// The last backup [_deviceOnly] was worked out for.
+  late int? _deviceOnlyFor = _services.settings.lastBackupAt;
 
   @override
   void initState() {
@@ -107,12 +117,15 @@ class _LibraryNoticesState extends State<LibraryNotices> {
 
   Future<void> _keepData() async {
     final granted = await _storage!.requestPersistence().catchError((Object _) => false);
-    if (granted) _dismiss();
+    if (!mounted) return;
+    if (granted) return _dismiss();
+    // Browsers refuse silently (often until Len is installed or used more).
+    showMessage(context, 'This browser didn’t allow it: install Len as an app, or set up sync');
   }
 
   void _dismiss() {
     _services.settings.markTipSeen(LibraryNotices.evictionTip);
-    setState(() => _evictable = false);
+    if (mounted) setState(() => _evictable = false);
   }
 
   Widget? _notice() {
@@ -132,9 +145,9 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     if (!_services.blobsArePersistent) {
       return const LibraryNotice(
         icon: Symbols.cloud_off_sharp,
-        title: 'Files you add won\'t be kept in this browser window',
+        title: 'Files you add won’t be kept in this browser window',
         body:
-            'This browser doesn\'t let Len store files, so PDFs, images and recordings '
+            'This browser doesn’t let Len store files, so PDFs, images and recordings '
             'are lost when the tab closes (your handwriting is kept). Use a normal '
             'window, allow site data, or turn on sync.',
       );
@@ -157,8 +170,12 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   }
 
   LibraryNotice? _deviceOnlyNotice() {
-    if (_deviceOnly == null) return null;
     final last = _services.settings.lastBackupAt;
+    if (last != _deviceOnlyFor) {
+      _deviceOnlyFor = last;
+      _deviceOnly = _deviceOnlyTip();
+    }
+    if (_deviceOnly == null) return null;
     return LibraryNotice(
       icon: Symbols.devices_sharp,
       title: 'Your notes are only on this device',
@@ -185,12 +202,12 @@ class _LibraryNoticesState extends State<LibraryNotices> {
         : 'Notebooks you synced come back from your server when you turn on sync again.';
     final backup = reset.backupPath;
     final kept = backup == null
-        ? 'The old data couldn\'t be kept in this browser.'
+        ? 'The old data couldn’t be kept in this browser.'
         : 'The old data was kept in';
     return LibraryNotice(
       icon: Symbols.restart_alt_sharp,
       title: 'Len started fresh',
-      body: 'Len\'s storage was from $version version, so it started fresh. $sync $kept',
+      body: 'Len’s storage was from $version version, so it started fresh. $sync $kept',
       detail: backup,
       tone: NoticeTone.info,
       onDismiss: () => setState(_services.database.acknowledgeSchemaReset),

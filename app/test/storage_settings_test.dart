@@ -92,17 +92,17 @@ void main() {
   testWidgets('says while changes can\'t be saved, like the library', (tester) async {
     final store = _Store();
     await _pump(tester, _FakeStorage(grant: true), writes: StorageWrites()..add(store));
-    expect(find.textContaining('aren\'t saved yet'), findsNothing);
+    expect(find.textContaining('aren’t saved yet'), findsNothing);
 
     store.set(WriteFailure.full);
     await tester.pump();
-    expect(find.text('Your latest changes aren\'t saved yet'), findsOneWidget);
+    expect(find.text('Your latest changes aren’t saved yet'), findsOneWidget);
     expect(find.textContaining('Browser storage is full'), findsOneWidget);
     await tester.tap(find.text('Try again'));
     expect(store.flushes, 1);
 
     store.set(null);
     await tester.pumpAndSettle();
-    expect(find.textContaining('aren\'t saved yet'), findsNothing);
+    expect(find.textContaining('aren’t saved yet'), findsNothing);
   });
 }

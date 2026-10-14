@@ -116,11 +116,11 @@ class LenArchiveException implements Exception {
 
   /// Not a Len file, or one too damaged to read.
   const LenArchiveException.notLen([this.details])
-    : message = 'it isn’t a Len file, or it is damaged. Try the original file';
+    : message = 'it isn’t a Len file, or it’s damaged; try the original file';
 
   /// Part of the file is damaged.
   const LenArchiveException.damaged([this.details])
-    : message = 'it is damaged. Try the original file';
+    : message = 'it’s damaged; try the original file';
 
   final String message;
 

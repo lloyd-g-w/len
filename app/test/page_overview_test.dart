@@ -99,6 +99,22 @@ void main() {
       pages[3].id,
     ]);
 
+    // The Bookmarked filter deselects what it hides; Select all picks
+    // the shown pages only.
+    await tester.tap(find.byKey(const ValueKey('page-tile-0')));
+    await tester.pumpAndSettle();
+    expect(find.text('3 selected'), findsOneWidget);
+    await tester.tap(find.text('Bookmarked'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 selected'), findsOneWidget);
+    await tester.tap(find.text('Select none'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select all'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 selected'), findsOneWidget);
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+
     // Export… hands the selection on (the sheet takes it as the range).
     await tester.tap(find.text('Export…'));
     await tester.pumpAndSettle();

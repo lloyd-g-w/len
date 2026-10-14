@@ -107,6 +107,20 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a PDF that can\'t be stored (disk full) isn\'t called damaged', (tester) async {
+    final services = await pumpLibrary(
+      tester,
+      services: AppServices.create(AppDatabase.inMemory(), blobBackend: _FullDisk()),
+    );
+    services.incomingFiles.add([
+      XFile.fromData(Uint8List.fromList('%PDF-1.7'.codeUnits), path: '/tmp/notes.pdf'),
+    ]);
+    final failure = find.text('Couldn’t copy “notes.pdf” into Len');
+    await settleReal(tester, () => failure.evaluate().isNotEmpty);
+    expect(find.text('Details'), findsOneWidget);
+    expect(notebooks(services), isEmpty);
+  });
+
   testWidgets('with a notebook open, "New canvas" opens the images in a new tab', (tester) async {
     final services = await pumpLibrary(tester);
     final lecture = services.notebooks.create(
