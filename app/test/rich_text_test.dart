@@ -359,6 +359,74 @@ void main() {
       await c.copySelection(cut: true);
       expect(c.data.text, '\nx');
     });
+
+    test('undo and redo restore formatting; a typed word is one step', () {
+      final c = RichTextController(const TextData());
+      for (final ch in 'hi you'.split('')) {
+        type(c, ch);
+      }
+      select(c, 0, 6);
+      c.toggleBold();
+      backspace(c);
+      expect(c.data.text, '');
+      expect(c.undo(), isTrue);
+      expect(c.data.text, 'hi you');
+      expect(c.data.spans, const [StyledRange(0, 6, SpanStyle(bold: true))]);
+      expect(c.modelSelection, const TextRange(start: 0, end: 6));
+      c.undo();
+      expect(c.data.spans, isEmpty);
+      c.undo();
+      expect(c.data.text, 'hi ');
+      c.undo();
+      expect(c.data.text, '');
+      expect(c.undo(), isFalse);
+      c
+        ..redo()
+        ..redo()
+        ..redo();
+      expect(c.data.spans, const [StyledRange(0, 6, SpanStyle(bold: true))]);
+      type(c, '!'); // A new edit ends redo.
+      expect(c.redo(), isFalse);
+    });
+
+    test('undo keeps list markers as lists', () {
+      final c = RichTextController(
+        TextData.rich(
+          text: 'a\nb',
+          paras: const [
+            ParaStyle(list: ListKind.bullet),
+            ParaStyle(list: ListKind.bullet),
+          ],
+        ),
+      );
+      c.selection = TextSelection(baseOffset: 0, extentOffset: c.text.length);
+      backspace(c);
+      c.undo();
+      expect(c.data.text, 'a\nb');
+      expect(c.data.paras.map((p) => p.list), [ListKind.bullet, ListKind.bullet]);
+    });
+
+    test('Windows and old Mac line breaks pasted by the field become line breaks', () {
+      final c = RichTextController(const TextData());
+      type(c, 'a\r\nb\rc');
+      expect(c.data.text, 'a\nb\nc');
+      expect(c.data.paras, hasLength(3));
+      expect(c.selection, TextSelection.collapsed(offset: c.text.length));
+    });
+
+    test('copied text pasted over a selection sharing its first letter keeps formatting', () async {
+      final c = RichTextController(
+        TextData.rich(text: 'Hello', spans: const [StyledRange(0, 5, SpanStyle(bold: true))]),
+      );
+      select(c, 0, 5);
+      await c.copySelection();
+      final other = RichTextController(const TextData());
+      type(other, 'Hi you');
+      select(other, 0, 2);
+      type(other, 'Hello'); // The field's paste over the selection.
+      expect(other.data.text, 'Hello you');
+      expect(other.data.spans, const [StyledRange(0, 5, SpanStyle(bold: true))]);
+    });
   });
 
   group('layout', () {

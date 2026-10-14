@@ -122,19 +122,22 @@ class EditorLinks {
     final index = services.pages.pagesOf(notebookId).indexWhere((p) => p.id == pageId);
     if (index < 0) return showMessage(context, 'The linked page was deleted');
     final tabs = services.openNotebooks;
-    // Opens at that page: a view that fits no screen size re-fits the page.
-    tabs.saveView(
-      notebookId,
-      EditorViewState(
+    // Opens at that page (also when not open in a tab yet): a view that
+    // fits no screen size re-fits the page.
+    tabs.open(
+      notebook,
+      view: EditorViewState(
         scale: 1,
         offset: Offset.zero,
         page: index,
         size: Size.zero,
-        fit: tabs.viewOf(notebookId)?.fit,
+        fit: (tabs.viewOf(notebookId) ?? _storedView(notebookId))?.fit,
       ),
     );
-    tabs.open(notebook);
   }
+
+  EditorViewState? _storedView(String notebookId) =>
+      EditorViewState.decode(session.services.settings.editorView(notebookId));
 
   // ---------------------------------------------------------------------------
   // Making links

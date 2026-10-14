@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/features/editor/tools/text/rich_text_controller.dart';
+import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ui/color_dot.dart';
 import 'package:len/ui/floating_panel.dart';
 import 'package:len/ui/menus.dart';
@@ -203,5 +205,46 @@ void main() {
     await tester.pumpAndSettle();
     final data = TextData.fromJson(liveElements(services, nb.id).single.data);
     expect(data.spans.single.style, const SpanStyle(size: 32, font: TextFont.lora));
+  });
+
+  testWidgets('text: the field ignores the system text size, so it wraps like the canvas', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await openCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(300, 400)]);
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('text-box-field'));
+    await tester.enterText(field, 'Hello');
+    await tester.pump();
+    final editable = tester.state<EditableTextState>(
+      find.descendant(of: field, matching: find.byType(EditableText)),
+    );
+    final data = (editable.widget.controller as RichTextController).data;
+    expect(
+      editable.renderEditable.size.height,
+      closeTo(TextLayout.heightOf(data, double.infinity), 1),
+    );
+  });
+
+  testWidgets('text: Ctrl+Z in a box undoes with formatting, Ctrl+Shift+Z redoes', (tester) async {
+    final (services, nb) = await openCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(300, 400)]);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('text-box-field')), 'milk');
+    await ctrl(tester, LogicalKeyboardKey.keyA);
+    await ctrl(tester, LogicalKeyboardKey.keyB);
+    await key(tester, LogicalKeyboardKey.backspace);
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await ctrl(tester, LogicalKeyboardKey.keyZ, shift: true);
+    await key(tester, LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    final data = TextData.fromJson(liveElements(services, nb.id).single.data);
+    expect(data.text, 'milk');
+    expect(data.spans, const [StyledRange(0, 4, SpanStyle(bold: true))]);
   });
 }

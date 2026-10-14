@@ -11,6 +11,7 @@ import '../../../../ink/elements/text_layout.dart';
 import '../../../../platform/clipboard_html.dart';
 
 part 'rich_text_formatting.dart';
+part 'rich_text_history.dart';
 part 'rich_text_state.dart';
 
 /// The text field controller of a text box being edited: keeps the
@@ -35,7 +36,9 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
   /// that formatting, so it wins over the clipboard's HTML).
   static bool isOwnClip(String text) => _richClip?.text == _clean(text);
 
-  static String _clean(String text) => text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n');
+  /// [text] without marker placeholders, its line breaks all \n.
+  static String _clean(String text) =>
+      text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 
   /// [text] from the clipboard as a new box formatted like [box]; text
   /// last copied from a box here keeps its formatting.
@@ -54,6 +57,7 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
       final sel = _normalize(next.selection, old.selection);
       if (sel != old.selection) _pending = null;
       super.value = next.copyWith(selection: sel);
+      if (sel.isValid) _history.select(_modelSelection(sel));
       return;
     }
     _applyEdit(old, next);
@@ -92,8 +96,15 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
         o.codeUnitAt(o.length - 1 - s) == n.codeUnitAt(n.length - 1 - s)) {
       s++;
     }
+    // Text typed or pasted over the selection replaces all of it, even where
+    // it starts or ends like the selection (a paste must match the clip).
+    final was = old.selection;
+    if (was.isValid && !was.isCollapsed && caret >= was.start && _replaces(o, n, was, caret)) {
+      p = was.start;
+      s = o.length - was.end;
+    }
     final removedEnd = o.length - s;
-    var inserted = n.substring(p, n.length - s).replaceAll('\uFFFC', '');
+    var inserted = _clean(n.substring(p, n.length - s));
     var start = _offsets.toModel(p), end = _offsets.toModel(removedEnd);
     final composing = _composing(next.composing, p, n.length - s, start);
     final line = _buffer.lineOf(start);
@@ -111,6 +122,9 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
         end++;
       }
     }
+    // A run of typed (or backspaced) characters is one undo step.
+    final typed = inserted.length == 1 && start == end && inserted != '\n';
+    final backspaced = inserted.isEmpty && end == start + 1;
     final para = _buffer.para(line);
     if (inserted == '\n' &&
         start == end &&
@@ -164,7 +178,42 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
               ),
       );
     }
+    _history.changed(
+      _snapshot,
+      runFrom: typed && rich == null ? start : (backspaced ? end : -1),
+      runTo: typed && rich == null && inserted.trim().isNotEmpty
+          ? start + 1
+          : (backspaced ? start : -1),
+      deletes: backspaced,
+    );
     onDataChanged?.call();
+  }
+
+  /// Undoes the last change in the box, formatting included; false when
+  /// there is none.
+  bool undo() => _restore(_history.undo(_snapshot));
+
+  /// Redoes the change undone last; false when there is none.
+  bool redo() => _restore(_history.redo(_snapshot));
+
+  bool _restore(_Snapshot? state) {
+    if (state == null) return false;
+    // Auto width is the session's (it ends when the box is resized).
+    _box = state.data.copyWith(autoWidth: _box.autoWidth);
+    _buffer = RichTextBuffer(state.data);
+    _pending = null;
+    _sync(state.selection);
+    onDataChanged?.call();
+    return true;
+  }
+
+  /// Whether [n] is [o] with its [selection] replaced by the text up to
+  /// [caret].
+  static bool _replaces(String o, String n, TextSelection selection, int caret) {
+    final tail = o.length - selection.end;
+    return n.length - caret == tail &&
+        n.startsWith(o.substring(0, selection.start)) &&
+        n.endsWith(o.substring(selection.end));
   }
 
   /// The IME composing range [c] of an edit (field text replaced in

@@ -223,5 +223,19 @@ void main() {
         ..insertRich(0, 4, _parse('<h1>T</h1><ol><li>x</li></ol>'), caret);
       expect(b.toData(_box).paras, const [ParaStyle(heading: 1), ParaStyle(list: ListKind.number)]);
     });
+
+    test('lines pasted at the start of a line go above it; the line keeps its style', () {
+      final title = TextData.rich(text: 'Title', paras: const [ParaStyle(heading: 1)]);
+      final b = RichTextBuffer(title)..insertRich(0, 0, _parse('<h2>A</h2><p>B</p>'), caret);
+      final d = b.toData(_box);
+      expect(d.text, 'A\nBTitle');
+      expect(d.paras, const [ParaStyle(heading: 2), ParaStyle(heading: 1)]);
+
+      final list = RichTextBuffer(item)..insertRich(0, 0, _parse('<p>A</p><p>B</p>'), caret);
+      expect(list.toData(_box).paras, const [
+        ParaStyle(list: ListKind.bullet),
+        ParaStyle(list: ListKind.bullet),
+      ]);
+    });
   });
 }

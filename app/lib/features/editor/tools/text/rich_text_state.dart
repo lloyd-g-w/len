@@ -7,7 +7,18 @@ abstract class _RichTextState extends TextEditingController {
   _RichTextState(TextData data) : _box = data, _buffer = RichTextBuffer(data) {
     watchClipboardPastes();
     _sync(const TextSelection.collapsed(offset: 0));
+    _history.reset(_snapshot);
   }
+
+  final _TextHistory _history = _TextHistory();
+
+  /// The text and selection now, for [_history].
+  _Snapshot get _snapshot => (
+    data: data,
+    selection: selection.isValid
+        ? _modelSelection(selection)
+        : TextSelection.collapsed(offset: _buffer.length),
+  );
 
   TextData _box;
   RichTextBuffer _buffer;
@@ -63,6 +74,7 @@ abstract class _RichTextState extends TextEditingController {
     _buffer = RichTextBuffer(data);
     _pending = null;
     _sync(TextSelection.collapsed(offset: data.text.length));
+    _history.reset(_snapshot);
   }
 
   /// The selection in box-text offsets.
@@ -83,7 +95,9 @@ abstract class _RichTextState extends TextEditingController {
         extentOffset: _offsets.toDisplay(model.extentOffset),
       ),
     );
-    if (changed) onDataChanged?.call();
+    if (!changed) return;
+    _history.changed(_snapshot);
+    onDataChanged?.call();
   }
 
   void _changedKeeping(TextRange model) =>
