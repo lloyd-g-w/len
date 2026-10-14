@@ -116,7 +116,7 @@ class _TooLargeNotice extends StatelessWidget {
                 'the server accepts ${limit == null ? 'less' : 'up to ${formatBytes(limit)}'}. '
                 'It stays on this device and other devices show it as missing. '
                 'Raise LEN_BLOB_MAX_BYTES on the server (and the upload limit of any proxy), '
-                'then retry.',
+                'then try again.',
                 style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
@@ -124,7 +124,7 @@ class _TooLargeNotice extends StatelessWidget {
         ),
         TextButton(
           onPressed: () => unawaited(sync.retryTooLargeFiles()),
-          child: const Text('Retry'),
+          child: const Text('Try again'),
         ),
       ],
     );

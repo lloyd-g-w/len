@@ -33,8 +33,6 @@ mixin _NotebookActions {
     NotebookAction action,
   ) async {
     switch (action) {
-      case NotebookAction.open:
-        await openNotebook(context, notebook, from: covers.originOf(context, notebook));
       case NotebookAction.rename:
         final title = await showTextPrompt(
           context,

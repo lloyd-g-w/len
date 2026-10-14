@@ -88,17 +88,12 @@ class LibraryActions with _NotebookActions, _FolderActions {
     selection.start(id);
   }
 
-  /// Opens the new-notebook sheet (starting as a [kind]) and then the new
-  /// notebook. Where the library has no ⊕▾ (phones), the sheet offers
+  /// Opens the new-notebook sheet and then the new notebook. Where the library has no ⊕▾ (phones), the sheet offers
   /// Import PDF… and Import Len file… too.
-  Future<void> createNotebook(
-    BuildContext context, {
-    NotebookKind kind = NotebookKind.paged,
-  }) async {
+  Future<void> createNotebook(BuildContext context) async {
     SheetImport? import;
     final request = await NewNotebookSheet.show(
       context,
-      kind: kind,
       onImport: Breakpoints.libraryCompact(MediaQuery.sizeOf(context))
           ? (kind) => import = kind
           : null,

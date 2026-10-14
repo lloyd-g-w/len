@@ -125,27 +125,14 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
     );
   }
 
-  _Drill _pageMenu() {
-    final a = actions;
-    return (
-      icon: Symbols.description_sharp,
-      label: 'Page',
-      children: [
-        _command(PageCommand.duplicate, 'Duplicate page'),
-        // To another notebook, the overview's picker (UX_AUDIT R8-2).
-        _command(PageCommand.moveTo, 'Move or copy page…'),
-        _item(
-          a.bookmarked ? Symbols.bookmark_remove_sharp : Symbols.bookmark_add_sharp,
-          a.bookmarked ? 'Remove bookmark' : 'Bookmark page',
-          a.onToggleBookmark,
-        ),
-        _command(PageCommand.template, 'Change template…'),
-        _command(PageCommand.saveAsTemplate, 'Save as template…'),
-        const Divider(),
-        _command(PageCommand.delete, 'Delete page', destructive: true),
-      ],
-    );
-  }
+  /// The page menu: the overview tile's too ([PageCommand.menu]).
+  _Drill _pageMenu() => (
+    icon: Symbols.description_sharp,
+    label: 'Page',
+    children: [
+      for (final c in PageCommand.menu) ...[if (c.destructive) const Divider(), _command(c)],
+    ],
+  );
 
   _Drill _viewMenu() {
     final a = actions;
@@ -198,9 +185,41 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
     );
   }
 
-  Widget _command(PageCommand c, String label, {bool destructive = false}) {
+  /// A page menu row; holding it down (or right-clicking it) runs its
+  /// [PageCommand.alternate] ("Add page after": with a template).
+  Widget _command(PageCommand c) {
     final run = actions.onPageCommand;
-    return _item(c.icon, label, run == null ? null : () => run(c), destructive: destructive);
+    final bookmarked = actions.bookmarked;
+    final row = _item(
+      c.iconFor(bookmarked: bookmarked),
+      c.labelFor(bookmarked: bookmarked),
+      run == null ? null : () => run(c),
+      destructive: c.destructive,
+    );
+    final alternate = c.alternate;
+    if (run == null || alternate == null) return row;
+    return Builder(
+      builder: (context) {
+        void choose() {
+          if (MenuController.maybeOf(context) case final menu?) {
+            DismissMenuAction(controller: menu).invoke(const DismissIntent());
+          }
+          // Once the menu has handed focus back, so that what opens (a
+          // dialog) keeps it.
+          WidgetsBinding.instance
+            ..addPostFrameCallback((_) => run(alternate))
+            ..scheduleFrame();
+        }
+
+        // Pointer gestures only: the row stays one button for screen readers.
+        return GestureDetector(
+          excludeFromSemantics: true,
+          onLongPress: choose,
+          onSecondaryTap: choose,
+          child: row,
+        );
+      },
+    );
   }
 
   /// A menu row; [shortcut] hints only where a keyboard is likely.

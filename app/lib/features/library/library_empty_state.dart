@@ -60,7 +60,7 @@ class LibraryEmptyState extends StatelessWidget {
       LibrarySection.favorites => (
         const _IconArt(Symbols.star_sharp),
         'No favourites yet',
-        'Star notebooks you use often to find them here',
+        'Add notebooks you use often to favourites, and find them here',
       ),
       LibrarySection.trash => (
         const _IconArt(Symbols.delete_sharp),

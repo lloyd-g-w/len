@@ -4,19 +4,50 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../ui/menus.dart';
 
-/// Something the user asked for on one page in the overview.
+/// A command on one page: the one page menu, shown whole in the editor's
+/// ⋯ → Page and in an overview tile's ⋯, in this order and with these
+/// names (UX_AUDIT R9-3). [menu] lists the rows; [insertWithTemplate] is
+/// "Add page after" held down (or right-clicked).
 enum PageCommand {
   insertAfter('Add page after', Symbols.add_sharp),
-  duplicate('Duplicate', Symbols.library_add_sharp),
+  duplicate('Duplicate page', Symbols.library_add_sharp),
+  moveTo('Move or copy page…', Symbols.move_group_sharp),
+  bookmark('Bookmark page', Symbols.bookmark_add_sharp),
   template('Change template…', Symbols.grid_on_sharp),
   saveAsTemplate('Save as template…', Symbols.dashboard_customize_sharp),
-  bookmark('Bookmark', Symbols.bookmark_sharp),
-  moveTo('Move or copy…', Symbols.move_group_sharp),
-  delete('Delete', Symbols.delete_sharp);
+  delete('Delete page', Symbols.delete_sharp),
 
-  const PageCommand(this.label, this.icon);
-  final String label;
-  final IconData icon;
+  /// Chooses a template, then adds a page with it after the page.
+  insertWithTemplate('Add page with template…', Symbols.note_add_sharp);
+
+  const PageCommand(this._label, this._icon);
+  final String _label;
+  final IconData _icon;
+
+  /// The page menu's rows, in order.
+  static const List<PageCommand> menu = [
+    insertAfter,
+    duplicate,
+    moveTo,
+    bookmark,
+    template,
+    saveAsTemplate,
+    delete,
+  ];
+
+  /// The row's name for a page that is [bookmarked] or not.
+  String labelFor({bool bookmarked = false}) =>
+      this == bookmark && bookmarked ? 'Remove bookmark' : _label;
+
+  /// The row's glyph for a page that is [bookmarked] or not.
+  IconData iconFor({bool bookmarked = false}) =>
+      this == bookmark && bookmarked ? Symbols.bookmark_remove_sharp : _icon;
+
+  /// Drawn in `error`, after a divider.
+  bool get destructive => this == delete;
+
+  /// What holding the row down (or right-clicking it) runs instead.
+  PageCommand? get alternate => this == insertAfter ? insertWithTemplate : null;
 }
 
 /// Callbacks through which the overview edits the notebook. Each returns
@@ -69,15 +100,16 @@ class OverviewHandlers {
   final Future<void> Function(BuildContext context, List<NotebookPage> pages)? sendMany;
 }
 
-/// The options menu of [page].
+/// The page menu of [page] (an overview tile's ⋯).
 List<PopupMenuEntry<PageCommand>> pageMenuItems(NotebookPage page) => [
-  for (final c in PageCommand.values) ...[
-    if (c == PageCommand.delete) const PopupMenuDivider(),
+  for (final c in PageCommand.menu) ...[
+    if (c.destructive) const PopupMenuDivider(),
     MenuRow(
       value: c,
-      icon: c == PageCommand.bookmark && page.bookmarked ? Symbols.bookmark_remove_sharp : c.icon,
-      label: c == PageCommand.bookmark && page.bookmarked ? 'Remove bookmark' : c.label,
-      destructive: c == PageCommand.delete,
+      alternate: c.alternate,
+      icon: c.iconFor(bookmarked: page.bookmarked),
+      label: c.labelFor(bookmarked: page.bookmarked),
+      destructive: c.destructive,
     ),
   ],
 ];

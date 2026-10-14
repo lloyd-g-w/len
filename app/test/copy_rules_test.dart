@@ -126,4 +126,36 @@ void main() {
     }
     expect(offenders, isEmpty);
   });
+
+  // UX_AUDIT R9 glossary: one name per thing, in every string the app shows.
+  test('UI strings use the glossary', () {
+    const banned = {
+      r'\bCould not\b': 'Couldn’t',
+      r'\bRetry\b': 'Try again',
+      r'\bthe Trash\b': 'the trash (Trash is only the section’s name)',
+      r'\bkeeps at least one page\b': 'needs at least one page',
+      r'^Star \w': 'Add to favourites',
+      r'^(Whole page|Page width|Fit the content|Back to the start)$': 'the menus’ zoom names',
+      r'^(Template…|Page templates|Edit folder…)$': 'Change template…, Templates, Rename…',
+    };
+    final literal = RegExp(
+      r"'([^'\n]*)'|"
+      r'"([^"\n]*)"',
+    );
+    final offenders = <String>[];
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      for (final line in file.readAsLinesSync()) {
+        final code = line.trimLeft();
+        if (code.startsWith('//') || code.contains('debugPrint(')) continue;
+        for (final m in literal.allMatches(line)) {
+          final text = m.group(1) ?? m.group(2)!;
+          for (final MapEntry(key: pattern, value: use) in banned.entries) {
+            if (RegExp(pattern).hasMatch(text)) offenders.add('${file.path}: "$text" (use $use)');
+          }
+        }
+      }
+    }
+    expect(offenders, isEmpty);
+  });
 }

@@ -19,7 +19,6 @@ class EditorMenuActions {
     required this.onSettings,
     required this.onSearch,
     this.bookmarked = false,
-    this.onToggleBookmark,
     this.onOverview,
     this.onPageCommand,
     this.onExport,
@@ -49,8 +48,9 @@ class EditorMenuActions {
   final VoidCallback onSearch;
 
   // Paged notebooks.
+  /// Whether the current page is bookmarked (the page menu's Bookmark
+  /// row removes it).
   final bool bookmarked;
-  final VoidCallback? onToggleBookmark;
 
   /// Opens the page overview (▦ in the bar).
   final VoidCallback? onOverview;

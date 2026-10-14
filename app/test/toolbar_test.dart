@@ -84,16 +84,14 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('Insert ⊕ offers images, PDF pages and template pages in notebooks', (tester) async {
+  testWidgets('Insert ⊕ offers images and PDF pages in notebooks (adding pages lives in the '
+      'page menu)', (tester) async {
     await pumpEditor(tester, size: const Size(1280, 900));
     await tester.tap(find.byTooltip('Insert'));
     await tester.pumpAndSettle();
     expect(find.text('Image…'), findsOneWidget);
     expect(find.text('Pages from PDF…'), findsOneWidget);
-    expect(find.text('Page with template…'), findsOneWidget);
-    await tester.tap(find.text('Page with template…'));
-    await tester.pumpAndSettle();
-    expect(find.text('Music staff'), findsWidgets, reason: 'the template chooser');
+    expect(find.textContaining('template'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     await closeEditor(tester);
@@ -105,7 +103,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Image…'), findsOneWidget);
     expect(find.text('Pages from PDF…'), findsNothing);
-    expect(find.text('Page with template…'), findsNothing);
   });
 
   testWidgets('the ⋯ menu: search, export, page, view, settings; draw with finger on touch '

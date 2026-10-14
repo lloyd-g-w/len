@@ -155,7 +155,7 @@ class RecordingController extends ChangeNotifier {
         lastError = e.message;
       } else if (e is! _ShutDown) {
         debugPrint('Recording failed to start: $e');
-        lastError = 'Could not start recording';
+        lastError = 'Couldn’t start recording';
       }
       await _closeParts();
       _set(RecorderState.idle);
@@ -202,7 +202,7 @@ class RecordingController extends ChangeNotifier {
     } on Object catch (e) {
       // (Called from the notification too: never an unhandled error.)
       debugPrint('Recording failed to pause: $e');
-      lastError = 'Could not pause the recording';
+      lastError = 'Couldn’t pause the recording';
       notifyListeners();
       return false;
     } finally {
@@ -227,7 +227,7 @@ class RecordingController extends ChangeNotifier {
       await _capture?.resume();
     } on Object catch (e) {
       debugPrint('Recording failed to resume: $e');
-      lastError = 'Could not resume the recording';
+      lastError = 'Couldn’t resume the recording';
       notifyListeners();
       return false;
     } finally {

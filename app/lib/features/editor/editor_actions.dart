@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../documents/export/export_flow.dart';
 import 'chrome/editor_menu_actions.dart';
 import 'document/document_layout.dart';
-import 'document/page_overview.dart';
 import 'editor_session.dart';
 import 'outline/outline_panel.dart';
 import 'page_navigator.dart';
@@ -40,7 +39,6 @@ EditorMenuActions editorMenuActions(
     onSettings: onSettings,
     onSearch: onSearch,
     bookmarked: page?.bookmarked ?? false,
-    onToggleBookmark: paged ? () => commands.run(context, PageCommand.bookmark, page) : null,
     onOverview: paged ? () => openPageOverview(context, session) : null,
     onPageCommand: paged ? (c) => commands.run(context, c, page) : null,
     onExport: paged

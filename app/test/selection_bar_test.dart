@@ -49,19 +49,24 @@ void main() {
     }
   }
 
-  testWidgets('wide: one row, every name', (tester) async {
+  testWidgets('wide: every name, in a row under the count', (tester) async {
     await pump(tester, 1000);
-    for (final name in ['Bookmark', 'Duplicate', 'Move or copy…', 'Template…', 'Export…']) {
+    for (final name in ['Duplicate', 'Move or copy…', 'Bookmark', 'Change template…', 'Export…']) {
       expect(find.text(name), findsOneWidget);
     }
     expect(find.byTooltip('More'), findsNothing);
     expectApart(labelRects(tester));
+    // One shape everywhere (the library's bar too): commands under the count.
+    expect(
+      tester.getTopLeft(find.text('Export…')).dy,
+      greaterThan(tester.getBottomLeft(find.text('2 selected')).dy),
+    );
   });
 
   testWidgets('phone: Bookmark and Template go into ⋯; names one size, apart', (tester) async {
     await pump(tester, 390);
     expect(find.text('Bookmark'), findsNothing);
-    expect(find.text('Template…'), findsNothing);
+    expect(find.text('Change template…'), findsNothing);
     final rects = labelRects(tester);
     expect(rects, isNotEmpty);
     expect(rects.map((r) => r.height).toSet(), hasLength(1), reason: 'one size');

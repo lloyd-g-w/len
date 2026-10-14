@@ -136,7 +136,7 @@ void main() {
       await revealSideways(tester, find.text('Work').last); // Phones: the folder strip.
       await tester.longPress(find.text('Work').last);
       await settle(tester);
-      await tester.tap(find.text('Edit folder…'));
+      await tester.tap(find.text('Rename…'));
       await settle(tester);
       await shoot(tester, 'folder_dialog_$name');
       expect(tester.takeException(), isNull);

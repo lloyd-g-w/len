@@ -80,17 +80,19 @@ class DocumentCommands {
   /// next day, week or month) after it.
   void addPage() => edits.add([PageActions.blankAfter(_current)], after: _current);
 
-  /// Lets the user choose a template, then adds a page after the current.
-  Future<void> addPageWithTemplate(BuildContext context) async {
+  /// Lets the user choose a template, then adds pages with it after
+  /// [after] (default: the current page).
+  Future<void> addPageWithTemplate(BuildContext context, {NotebookPage? after}) async {
+    final page = after ?? _current;
     final choice = await showTemplatePicker(
       context,
-      initial: _current.template,
+      initial: page.template,
       mode: TemplatePickerMode.addPage,
     );
     if (choice == null) return;
     edits.add([
       for (final paper in choice.papers) specOf(choice.template.copyWith(paper: paper)),
-    ], after: _current);
+    ], after: page);
   }
 
   /// Follows a planner link: shows the page with template [target], or
@@ -126,6 +128,8 @@ class DocumentCommands {
     switch (command) {
       case PageCommand.insertAfter:
         edits.add([PageActions.blankAfter(page)], after: page);
+      case PageCommand.insertWithTemplate:
+        await addPageWithTemplate(context, after: page);
       case PageCommand.duplicate:
         edits.duplicate(page);
       case PageCommand.template:

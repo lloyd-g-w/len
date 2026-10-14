@@ -186,7 +186,6 @@ class EditorChromeHost extends StatelessWidget {
       image: () => images.pickFiles(context),
       photo: EditorImages.canUseCamera ? () => images.takePhoto(context) : null,
       pdfPages: commands == null ? null : () => commands.insertPdf(context),
-      templatePage: commands == null ? null : () => commands.addPageWithTemplate(context),
     );
   }
 

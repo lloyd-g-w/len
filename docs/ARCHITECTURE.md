@@ -1547,8 +1547,8 @@ width) and its section of the options popover. More tools slot in by adding an
 `EditorTool` value and a descriptor. The tools are Pen (P), Highlighter (H),
 Eraser (E), Lasso (L), Shapes (S; its icon is the current shape), Text (T) and
 Laser pointer (K), then **Insert ⊕** (`toolbar/insert_menu.dart`; a button, not
-a tool: Image…, Take photo on Android, and in notebooks Pages from PDF… and
-Page with template…).
+a tool: Image…, Take photo on Android, and in notebooks Pages from PDF…; a page
+with a template is "Add page after" held down in the page menu).
 
 - **`ToolCluster`** (`toolbar/tool_cluster.dart`): the tool buttons in fixed
   cells (44 dp with a pointer, 48 on touch) over one neutral `xs` plate
@@ -2161,10 +2161,12 @@ expect.
   in favourites, trash, search, selection or list layout); ⊕▾ creates everywhere else. Phones
   get the FAB instead, hidden while an empty state offers its own button.
 - **New notebook sheet** (`new_notebook_sheet.dart`, `new_notebook/`): one column (title,
-  Notebook / Canvas (and "Import PDF…" where the library has no ⊕▾), `PaperRow` with the recent papers and "All templates…" → the template
+  Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
   picker, `CoverRow`, page size) with `NotebookPreview` beside it in the dialog and as a strip
   on phones. The papers come from `recentPapers` (`AppPreferences.recentPapers`, filled up with
-  defaults; canvases only tiling papers); creating a notebook records its paper.
+  defaults; canvases only tiling papers); creating a notebook records its paper. Where the
+  library has no ⊕▾ (phones), "Import PDF…" and "Import Len file…" are quiet links at the
+  sheet's foot, under Create.
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
   `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint

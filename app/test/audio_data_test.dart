@@ -324,7 +324,7 @@ void main() {
       audio.capture.failSwitch = true;
       expect(await c.pause(), isFalse);
       expect(c.state, RecorderState.recording); // The microphone still records.
-      expect(c.lastError, 'Could not pause the recording');
+      expect(c.lastError, 'Couldn’t pause the recording');
       clock.now += 1000;
       expect(c.elapsedMs, 4000);
       audio.capture.failSwitch = false;
@@ -334,7 +334,7 @@ void main() {
       audio.capture.failSwitch = true;
       expect(await c.resume(), isFalse);
       expect(c.state, RecorderState.paused);
-      expect(c.lastError, 'Could not resume the recording');
+      expect(c.lastError, 'Couldn’t resume the recording');
       await c.stop();
       c.dispose();
     });

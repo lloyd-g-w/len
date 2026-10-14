@@ -207,7 +207,7 @@ void main() {
     await tester.tap(find.text('PNG'));
     await tester.tap(find.text('Current page'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Page templates'));
+    await tester.tap(find.text('Templates'));
     await tester.pumpAndSettle();
     expect(find.text('1 page, PNG at 288 dpi'), findsOneWidget);
     expect(find.text('PDF backgrounds'), findsNothing); // No imported PDF pages.

@@ -35,17 +35,11 @@ enum SheetImport { pdf, len }
 /// the form on wide screens; a full-height sheet on phones, its preview
 /// strip scrolling away with the form.
 class NewNotebookSheet extends StatefulWidget {
-  const NewNotebookSheet({
-    super.key,
-    this.wide = false,
-    this.today,
-    this.kind = NotebookKind.paged,
-    this.onImport,
-  });
+  const NewNotebookSheet({super.key, this.wide = false, this.today, this.onImport});
 
-  /// Offers "Import PDF…" and "Import Len file…" under Notebook / Canvas,
-  /// which close the sheet and call this: where phones, which have no ⊕▾,
-  /// find importing.
+  /// Offers "Import PDF…" and "Import Len file…" as quiet links at the
+  /// sheet's foot, under Create, which close the sheet and call this: where
+  /// phones, which have no ⊕▾, find importing.
   final ValueChanged<SheetImport>? onImport;
 
   /// Dialog layout, the preview beside the form.
@@ -54,12 +48,8 @@ class NewNotebookSheet extends StatefulWidget {
   /// Today's date, the default start of planners (tests fix it).
   final DateTime? today;
 
-  /// What it starts as (⊕▾ New canvas starts as a canvas).
-  final NotebookKind kind;
-
   static Future<NewNotebookRequest?> show(
     BuildContext context, {
-    NotebookKind kind = NotebookKind.paged,
     ValueChanged<SheetImport>? onImport,
   }) {
     return showDialogOrSheet<NewNotebookRequest>(
@@ -67,7 +57,7 @@ class NewNotebookSheet extends StatefulWidget {
       maxWidth: 840,
       maxHeight: 720,
       minHeight: 560,
-      builder: (_, wide) => NewNotebookSheet(wide: wide, kind: kind, onImport: onImport),
+      builder: (_, wide) => NewNotebookSheet(wide: wide, onImport: onImport),
     );
   }
 
@@ -77,7 +67,7 @@ class NewNotebookSheet extends StatefulWidget {
 
 class _NewNotebookSheetState extends State<NewNotebookSheet> {
   final _title = TextEditingController();
-  late NotebookKind _kind = widget.kind;
+  NotebookKind _kind = NotebookKind.paged;
   late final DateTime _today = widget.today ?? DateTime.now();
   late TemplateSelection _selection = initialSelection(
     PageTemplate.of(_canvas ? PaperStyle.dotted : PaperStyle.collegeRuled),
@@ -212,30 +202,12 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         selected: {_kind},
         onSelectionChanged: (s) => _setKind(s.single),
       ),
-      if (widget.onImport case final onImport?)
-        // On the form's edge, like the fields and labels.
-        Wrap(
-          spacing: Gaps.md,
-          children: [
-            for (final (kind, icon, label) in [
-              (SheetImport.pdf, Symbols.picture_as_pdf_sharp, 'Import PDF…'),
-              (SheetImport.len, Symbols.file_open_sharp, 'Import Len file…'),
-            ])
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsetsDirectional.only(end: Gaps.md),
-                ),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  onImport(kind);
-                },
-                icon: Icon(icon, size: Glyphs.menu),
-                label: Text(label),
-              ),
-          ],
-        ),
       const SizedBox(height: Gaps.xl),
-      PickerLabel('Paper', key: const ValueKey('template-summary'), trailing: _summary),
+      PickerLabel(
+        _canvas ? 'Background' : 'Template',
+        key: const ValueKey('template-summary'),
+        trailing: _summary,
+      ),
       PaperRow(
         selection: _canvas
             ? _selection.copyWith(

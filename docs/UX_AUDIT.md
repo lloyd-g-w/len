@@ -84,7 +84,7 @@ Counts are for Android on a tablet, a paged notebook, sync off.
 | 40 | Folder ⋯: Open, Edit folder…, Move to folder…, Export…, Delete folder | folder | "Edit folder…" vs notebook's "Rename…" + "Change cover…" (glossary: edit an object) | Keep; rename | S |
 | 41 | Recent row | library root | yes · yes · only when one of them is in a folder (good) | Keep | – |
 | 42 | Sidebar: Library, Favourites, Trash, folder tree, Settings, sync status | wide; drawer on phones | yes · yes · yes | Keep | – |
-| 43 | Selection bar: Favourite, Move to folder…, Export…, Trash | library | yes · yes · differs in shape from the overview's (R8-13, open) | Keep; one bar (R8-13) | M |
+| 43 | Selection bar: Favourite, Move to folder…, Export…, Trash | library | yes · yes · differs in shape from the overview's (R8-13, open) | ✅ Keep; one bar (R8-13): one shape everywhere, the count on top and the commands under it | M |
 | **Pages** | | | | | |
 | 44 | Overview: All / Bookmarked / Outline, Select, Add page tile, tile ⋯ (7), selection (6) | ▦ | yes · yes · see R9-3 | Keep | – |
 | 45 | Outline panel and entries | overview → Outline | lead decision | Keep | – |
@@ -241,7 +241,8 @@ One interaction model per object:
 - **Pen popover:** four groups; Feel and Toolbar are collapsed. Fine. Its
   Reset differs from the eraser's and the laser's (row 29).
 - **Overview selection bar:** 6 actions on two rows. The library's bar
-  has 4 actions on one row. Same job, two shapes (R8-13).
+  has 4 actions on one row. Same job, two shapes (R8-13). ✅ One shape
+  now: both bars put the commands in a row under the count.
 
 ### Prioritised items
 
@@ -260,7 +261,7 @@ tip.** ✅ (the tip waits for the next opening)
 - *Fix:* the tip goes to the next editor session (R9-1, rule 7).
 - Effort S.
 
-**R9-3 P1 · Page commands live in five places with four label sets.**
+**✅ R9-3 P1 · Page commands live in five places with four label sets.**
 - *What:* the five places:
   - ⋯ → Page (6 rows, no "Add page after");
   - the overview tile ⋯ (7 rows);
@@ -287,17 +288,33 @@ tip.** ✅ (the tip waits for the next opening)
   `toolbar/insert_menu.dart`.
 - Effort S.
 
-**R9-4 P2 · Vocabulary drift.** Apply the glossary's "Found instead"
-column (11 strings). Effort S.
+*Done (`fix/r9-commands`):* `PageCommand.menu` is the one page menu, in
+⋯ → Page and the tile ⋯: Add page after, Duplicate page, Move or copy
+page…, Bookmark page (Remove bookmark), Change template…, Save as
+template…, Delete page. Lead decision: the names keep "page" (they read
+alone in the tile ⋯ too); the selection bar keeps bare verbs for several
+pages, in the same order ("Template…" became "Change template…"). The
+canvas long press offers content only. Insert ⊕ lost "Page with
+template…": holding (or right-clicking) "Add page after", the Add page
+footer or the overview's add tile asks for a template
+(`PageCommand.insertWithTemplate`, `MenuRow.alternate`).
 
-**R9-5 P2 · Two homes for "New canvas".**
+**✅ R9-4 P2 · Vocabulary drift.** Apply the glossary's "Found instead"
+column (11 strings). Effort S.
+*Done (`fix/r9-commands`):* all of them; the new-notebook sheet says
+"Template" ("Background" for a canvas), the folder row is "Rename…" (its
+dialog, "Rename folder", keeps the colour). `copy_rules_test` now bans the
+old names ("Could not", "Retry", "the Trash", "keeps at least one page",
+the old zoom names, "Template…", "Page templates", "Edit folder…").
+
+**✅ R9-5 P2 · Two homes for "New canvas".**
 - *What:* the ⊕▾ row (`library/library_new_menu.dart:24`) and the
   sheet's Notebook / Canvas switch.
 - *Fix:* drop the row. ⊕▾ becomes New notebook, Import PDF…, Import Len
   file…, New folder….
 - Effort S.
 
-**R9-6 P2 · Deleting several pages asks, then also offers Undo.**
+**✅ R9-6 P2 · Deleting several pages asks, then also offers Undo.**
 - *What:* `overview_selection.dart:43-55` asks, and
   `document_commands.dart:219-226` offers Undo.
 - *Why:* nothing else in Len both asks and offers Undo. Notebooks,
@@ -305,7 +322,7 @@ column (11 strings). Effort S.
 - *Fix:* drop the confirmation.
 - Effort S.
 
-**R9-7 P2 · Card and folder menus start with "Open".**
+**✅ R9-7 P2 · Card and folder menus start with "Open".**
 - *What:* `library/library_menus.dart:44,76`.
 - *Why:* tapping the card does the same. The menu gets shorter, and the
   first row becomes Rename….
@@ -324,9 +341,10 @@ column (11 strings). Effort S.
 - *Fix:* rename it "Quick colours and sizes" (summary "3 and 3").
 - Effort S.
 
-**R9-10 P2 · Phone new-notebook sheet: the import links break the
+**✅ R9-10 P2 · Phone new-notebook sheet: the import links break the
 form.** Move them under Create (or into the empty state and ⊕'s long
-press only). Effort S.
+press only). Effort S. *Done:* quiet links at the sheet's foot, under
+Create (hidden while the keyboard is up).
 
 **R9-11 P2 · "Follow pen speed" is a switch nobody will tune.** ✅ (always on;
 `PenEnds.followSpeed` is gone) Make it
@@ -339,11 +357,11 @@ the default for tapered ends (on) and drop the switch
 |---|---|---|
 | Finger-tap undo tip (`EditorTip.gestureUndo`) | Remove | S |
 | Side-button tip chained to the stylus snack | Default: next session | S |
-| Canvas long press: Add page after, Bookmark page, Change template… | Merge into ⋯ → Page | S |
-| Insert ⊕ "Page with template…" | Merge into "Add page after" (long press: choose template) | S |
-| ⊕▾ "New canvas" | Merge into the sheet's Notebook / Canvas | S |
-| Card and folder ⋯ "Open" | Remove | S |
-| Multi-page delete confirmation | Remove (Undo is there) | S |
+| Canvas long press: Add page after, Bookmark page, Change template… | ✅ Merge into ⋯ → Page | S |
+| Insert ⊕ "Page with template…" | ✅ Merge into "Add page after" (long press: choose template) | S |
+| ⊕▾ "New canvas" | ✅ Merge into the sheet's Notebook / Canvas | S |
+| Card and folder ⋯ "Open" | ✅ Remove | S |
+| Multi-page delete confirmation | ✅ Remove (Undo is there) | S |
 | "Follow pen speed" switch | Default on | S |
 | "Reset feel" at the end of Feel | Merge into a header "Reset" like the other tools | S |
 | Pen popover "Toolbar" disclosure | Rename "Quick colours and sizes" | S |

@@ -84,7 +84,7 @@ void main() {
     await pumpEditor(tester, source);
 
     await openFromMenu(tester);
-    expect(find.textContaining('A notebook keeps at least one page'), findsOneWidget);
+    expect(find.textContaining('A notebook needs at least one page'), findsOneWidget);
     await tester.tap(find.text('Notes'));
     await tester.pumpAndSettle();
     final move = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Move'));

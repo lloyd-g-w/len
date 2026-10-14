@@ -56,6 +56,22 @@ void main() {
     await tester.tap(find.text('Add page'));
     await tester.pumpAndSettle();
     expect(commands.single, (PageCommand.insertAfter, pages.last.id));
+    // Held down, it asks for a template.
+    await tester.longPress(find.text('Add page'));
+    await tester.pumpAndSettle();
+    expect(commands.last, (PageCommand.insertWithTemplate, pages.last.id));
+
+    // A tile's ⋯ is the one page menu (the editor's ⋯ → Page too).
+    await tester.tap(find.byTooltip('Page 1 options'));
+    await tester.pumpAndSettle();
+    for (final c in PageCommand.menu) {
+      expect(find.text(c.labelFor()), findsOneWidget, reason: c.name);
+    }
+    await tester.longPress(find.text('Add page after'));
+    await tester.pumpAndSettle();
+    expect(find.text('Duplicate page'), findsNothing);
+    expect(commands.last, (PageCommand.insertWithTemplate, pages.first.id));
+    commands.clear();
 
     await tester.tap(find.text('Select'));
     await tester.pumpAndSettle();
@@ -77,13 +93,12 @@ void main() {
     await tester.tap(find.text('Export…'));
     await tester.pumpAndSettle();
     expect(exported, [pages[1].id, pages[3].id]);
-    expect(find.text('Template…'), findsNothing); // No handler, no command.
+    expect(find.text('Change template…'), findsNothing); // No handler, no command.
 
+    // No question: the deletion offers Undo.
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
-    expect(find.text('Delete 2 pages?'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
     expect(deletedMany, [pages[1].id, pages[3].id]);
     expect(find.text('Select'), findsOneWidget); // Selection mode ended.
     expect(tester.takeException(), isNull);

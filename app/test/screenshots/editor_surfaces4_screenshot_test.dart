@@ -13,7 +13,6 @@ import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/chrome/editor_tips.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
-import 'package:len/features/editor/toolbar/tool_switcher.dart';
 
 import '../images_test.dart' show pngOf;
 import 'editor_screenshot_test.dart' show pumpEditor;
@@ -34,18 +33,10 @@ Future<void> _menu(WidgetTester tester, List<String> path) async {
   }
 }
 
-/// Insert ⊕ → "Page with template…" (on phones through the tool switcher).
+/// ⋯ → Page → "Add page after" held down: the template chooser.
 Future<void> _insertPageWithTemplate(WidgetTester tester) async {
-  final insert = find.byTooltip('Insert');
-  if (insert.evaluate().isNotEmpty) {
-    await tester.tap(insert);
-  } else {
-    await tester.tap(find.byType(ToolSwitcherButton));
-    await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('switch-insert')));
-  }
-  await settle(tester);
-  await tester.tap(find.text('Page with template…').last);
+  await _menu(tester, ['Page']);
+  await tester.longPress(find.text('Add page after').last);
   await settle(tester);
 }
 
