@@ -511,8 +511,11 @@ class Walk:
     async def draw_pen(self):
         x, y = await view_center(self.page)
         if self.cdp:
+            # The message shows at pen down for 4 s; on a loaded machine the
+            # stroke's events alone can take longer: watch from before it.
+            seen = asyncio.ensure_future(w.wait_text(self.page, 'Stylus detected'))
             await pen_stroke(self.page, self.cdp, x - 250, y + 120)
-            await expect_text(self.page, 'Stylus detected')
+            w.expect(await seen, 'shows "Stylus detected"')
             await wait_query(self.page, STROKES, lambda r: r[0][0] == 2, 'two strokes stored')
             # The pen's pressure arrived: it rises along the stroke.
             (points,), = await query(self.page, STROKES.replace('COUNT(*)', 's.points', 1)

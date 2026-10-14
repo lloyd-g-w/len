@@ -3,6 +3,9 @@
 # Chromium, Firefox and Xvfb from nixpkgs. Build first: tool/build_web.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# The dev shell's LD_LIBRARY_PATH (its SQLite, for the Linux app) would be
+# picked up by this nixpkgs' Python and fail on a glibc version mismatch.
+unset LD_LIBRARY_PATH
 # Playwright finds its Firefox in the environment's root (the browsers
 # package's directories are linked there).
 exec nix shell --impure --expr 'with import (builtins.getFlake "nixpkgs") {};
