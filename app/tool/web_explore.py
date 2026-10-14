@@ -29,7 +29,8 @@ at its last page.
 
 Collected per step: console errors and warnings, the app's own logs that
 say something failed, uncaught exceptions, failed or 4xx/5xx requests,
-long tasks (> 200 ms, PerformanceObserver; Chromium) and the JS heap after
+long tasks (> 200 ms, PerformanceObserver; Chromium; not those of the walk's
+own IndexedDB reads, `probe`) and the JS heap after
 a forced GC (Chromium). Any of the first four fails the run, as does a
 step whose check fails or a heap that keeps growing while a notebook is
 opened and closed again. Long tasks are reported, not failed: startup,
@@ -204,6 +205,7 @@ def big_backup(src, dst):
 # write into window.lenSaved (the picker itself is a native dialog).
 INIT = '''(() => {
   window.lenLongTasks = [];
+  window.lenProbes = [];
   if ((PerformanceObserver.supportedEntryTypes || []).includes('longtask')) try {
     new PerformanceObserver((list) => { for (const e of list.getEntries())
       window.lenLongTasks.push([Math.round(e.startTime), Math.round(e.duration)]); })
@@ -324,9 +326,18 @@ async def drag(page, points, steps=10):
     await page.mouse.up()
 
 
+async def probe(page, script, arg=None):
+    """Evaluates the walk's own [script] (an async function) in the page,
+    its span noted in window.lenProbes: long tasks starting there are the
+    walk's (reading IndexedDB, encoding a file), not the app's."""
+    return await page.evaluate('''async ([script, arg]) => { const start = performance.now();
+      try { return await (0, eval)(script)(arg); }
+      finally { window.lenProbes.push([start, performance.now()]); } }''', [script, arg])
+
+
 async def query(page, sql):
     """Rows of [sql] on the database as stored in IndexedDB."""
-    files = await page.evaluate(w._DUMP)
+    files = await probe(page, w._DUMP)
     data = files and files.get('/len.db')
     if not data:
         return []
@@ -365,7 +376,7 @@ async def saved_file(page, watch, name_part, timeout=60):
                 path = os.path.join(OUT, f'{watch.browser}-{d.suggested_filename}')
                 await d.save_as(path)
                 return path
-        data = await page.evaluate('''async (part) => { for (const [k, b] of Object.entries(window.lenSaved))
+        data = await probe(page, '''async (part) => { for (const [k, b] of Object.entries(window.lenSaved))
             if (k.includes(part)) { delete window.lenSaved[k]; const a = new Uint8Array(await b.arrayBuffer());
               let s = ''; for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode(...a.subarray(i, i + 0x8000));
               return [k, btoa(s)]; } return null; }''', name_part)
@@ -456,7 +467,9 @@ class Walk:
                 pass
         try:
             await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-{title}.png'))
-            tasks = await page.evaluate('window.lenLongTasks || []')
+            # The app's long tasks: not those of the walk's own probes.
+            tasks = await page.evaluate('''() => (window.lenLongTasks || []).map(([start, length]) =>
+              [start, length, (window.lenProbes || []).some(([a, b]) => start >= a - 1 && start <= b)])''')
         except Exception as e:  # The page is gone: the findings say why.
             self.watch.problem(f'page unusable: {e}')
             return False
@@ -465,7 +478,7 @@ class Walk:
             with open(os.path.join(OUT, f'{self.name}-{self.n:02}-{title}.cpuprofile'), 'w') as f:
                 json.dump(profile, f)
             print_hot(profile)
-        new = tasks[self.tasks_seen:]
+        new = [t for t in tasks[self.tasks_seen:] if not t[2]]
         long = [t for t in new if t[1] > LONG_TASK_MS]
         self.tasks_seen = len(tasks)
         if title in CEILING_STEPS and new:
