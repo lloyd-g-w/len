@@ -1,13 +1,21 @@
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/app_services.dart';
+import 'package:len/data/app_database.dart';
+import 'package:len/data/surface_copier.dart';
+import 'package:len/domain/notebook.dart';
+import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/editor_canvas.dart';
+import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_session.dart';
 import 'package:len/features/editor/zoom/zoom_box.dart';
 import 'package:len/features/editor/zoom/zoom_frame.dart';
 import 'package:len/features/editor/zoom/zoom_window.dart';
+import 'package:len/ui/app_theme.dart';
 
 import 'document_editor_test.dart' show pumpEditor, inkOf, closeEditor;
 
@@ -177,6 +185,81 @@ void main() {
     await tester.pumpAndSettle();
     expect(zoom.frameRect!.width, greaterThan(width * 1.2));
     expect(zoom.frame!.origin, moved, reason: 'sizing keeps the top-left corner');
+    await closeEditor(tester);
+  });
+
+  testWidgets('past the bottom of a page the frame goes on to the next, adding one at the end', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    final zoom = await _open(tester);
+    final session = _session(tester);
+    final pages = s.pages.pagesOf(nb.id);
+    // Down to the bottom of the first page: ↵ turns to the second.
+    final down = zoom.host.boundsOf(pages[0].id)!.bottom - zoom.frameRect!.bottom;
+    zoom.dragBy(Offset(0, down * zoom.host.main.scale));
+    zoom.dragEnd();
+    await tester.pumpAndSettle();
+    expect(zoom.frame!.surfaceId, pages[0].id);
+    await tester.tap(find.byTooltip('Next line'));
+    await tester.pumpAndSettle();
+    expect(zoom.frame!.surfaceId, pages[1].id);
+    expect(session.doc!.activePageData.id, pages[1].id);
+    expect(zoom.frameRect!.top, lessThan(zoom.host.boundsOf(pages[1].id)!.height * 0.1));
+    // Writing goes there.
+    await _write(tester, const Offset(0.1, 0.5));
+    await tester.pumpAndSettle();
+    expect(inkOf(s, pages[1]).where((st) => st.id != 'w2'), hasLength(1));
+
+    // The bottom of the last page: ↵ adds a page like it.
+    zoom.dragBy(const Offset(0, 1e5));
+    zoom.dragEnd();
+    await tester.pumpAndSettle();
+    expect(zoom.frame!.surfaceId, pages[2].id);
+    await tester.tap(find.byTooltip('Next line'));
+    await tester.pumpAndSettle();
+    final now = s.pages.pagesOf(nb.id);
+    expect(now, hasLength(4));
+    expect(zoom.frame!.surfaceId, now[3].id);
+    await closeEditor(tester);
+  });
+
+  testWidgets('on a canvas the box writes where the frame is', (tester) async {
+    tester.view
+      ..physicalSize = const Size(900, 1200)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final nb = services.notebooks.create(
+      title: 'Board',
+      kind: NotebookKind.canvas,
+      paper: PaperStyle.dotted,
+      coverColor: 0,
+    );
+    await tester.pumpWidget(
+      AppScope(
+        services: services,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: EditorScreen(notebook: nb),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final zoom = await _open(tester);
+    expect(zoom.frame!.surfaceId, nb.id);
+    final frame = zoom.frameRect!;
+    await _write(tester, const Offset(0.2, 0.5));
+    await tester.pumpAndSettle();
+    final ink = SurfaceCopier(services.strokes).loadAll(nb.id);
+    expect(ink, hasLength(1));
+    expect(frame.contains(ink.single.bounds.center), isTrue);
+    // ↵ goes down a line, back to where lines start.
+    await tester.tap(find.byTooltip('Next line'));
+    await tester.pumpAndSettle();
+    expect(zoom.frameRect!.top, greaterThan(frame.top));
+    expect(zoom.frameRect!.left, frame.left);
     await closeEditor(tester);
   });
 }
