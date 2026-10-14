@@ -68,7 +68,8 @@ class _ZoomBoxPaperState extends State<ZoomBoxPaper> {
     final session = widget.session;
     final host = _zoom.host;
     return ListenableBuilder(
-      listenable: Listenable.merge([_zoom, host.changes]),
+      // Not the main view: scrolling the page leaves the box as it is.
+      listenable: Listenable.merge([_zoom, host.surfaces]),
       builder: (context, _) {
         final frame = _zoom.frame;
         final model = _zoom.model;

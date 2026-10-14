@@ -121,7 +121,11 @@ class EditorLayers extends StatelessWidget {
         ),
         if (session.pdf case final pdf?) Positioned.fill(child: PdfLayer(interaction: pdf)),
         if (session.zoomWindow.isOpen)
-          Positioned.fill(child: ZoomFrameOverlay(zoom: session.zoomWindow)),
+          // It moves with every frame of a scroll: laid out and repainted
+          // alone, not with the editor.
+          Positioned.fill(
+            child: RepaintBoundary(child: ZoomFrameOverlay(zoom: session.zoomWindow)),
+          ),
         if (session.canvas != null)
           Positioned.fill(
             child: Padding(
@@ -152,10 +156,12 @@ class EditorLayers extends StatelessWidget {
             top: layout.zoomBoxAtTop ? layout.zoomBoxTop : null,
             bottom: layout.zoomBoxAtTop ? null : layout.zoomBoxBottom,
             height: layout.zoomBox,
-            child: ZoomBox(
-              atTop: layout.zoomBoxAtTop,
-              session: session,
-              padding: EdgeInsets.only(left: layout.safe.left, right: layout.safe.right),
+            child: RepaintBoundary(
+              child: ZoomBox(
+                atTop: layout.zoomBoxAtTop,
+                session: session,
+                padding: EdgeInsets.only(left: layout.safe.left, right: layout.safe.right),
+              ),
             ),
           ),
         Positioned.fill(child: chrome),
