@@ -1,5 +1,34 @@
 # Len — UX/UI audit
 
+## Keyboard accessibility (`a11y/keyboard`)
+
+Lens: Len with a keyboard alone (Tab, arrows, Enter / Space, Escape, the
+Menu key), the focus ring (DESIGN §6) the only cue. Tests:
+`a11y_keyboard_test`, `a11y_keyboard_groups_test`,
+`a11y_context_menu_keys_test`.
+
+- ✅ **Choice groups were one Tab stop per choice** (seven shapes, ten cover
+  colours, every segment, every template). → Roving focus
+  (`ui/roving_focus.dart`, the WAI-ARIA radio group / toolbar pattern):
+  the editor toolbar, segmented controls (`RovingSegments`), swatch grids
+  and the cover row, paper choices, the template gallery and the shape
+  row are one stop at the chosen choice; ← → (↑ ↓ in grids) move, Home /
+  End jump, Space / Enter pick, Tab leaves. Colour dots take focus.
+- ✅ **Context menus were pointer-only** (right-click, long press). → The
+  Menu key or Shift+F10 opens them on notebook cards and rows, folder
+  tiles and sidebar rows, tabs, templates, overview pages, the Add page
+  alternates and the page itself (`ContextMenuKeys`); the canvas menu takes
+  focus on its first entry, ↑ ↓ move, Escape returns to the page.
+- ✅ **Overview pages could not take focus** (only their ⋯). → Each page is a
+  stop: Enter opens it, the Menu key its options, its ⋯ next.
+- ✅ **Library Tab order zig-zagged** (a row of covers, then all their ⋯,
+  the sidebar's Settings mid-grid). → Sidebar, then content; each card's ⋯
+  right after it.
+- Escape from any chrome control returns to the page; menus and popovers
+  opened from the keyboard give focus back to their opener.
+- Open: reordering overview pages by keyboard (drag only; the page menu's
+  Move or copy page… covers it).
+
 ## Round 9 audit — simplicity (`review/round9`)
 
 Lens: after eight feature rounds, is Len still *elegantly simple*? Every

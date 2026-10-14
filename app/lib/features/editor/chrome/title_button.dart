@@ -17,38 +17,42 @@ class TitleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Tooltip(
-      message: 'Rename',
-      child: InkWell(
-        onTap: onRename,
-        borderRadius: BorderRadius.circular(Radii.sm),
-        child: ConstrainedBox(
-          // 48 dp tall where fingers are the pointer (Android's minimum).
-          constraints: BoxConstraints(
-            maxWidth: 360,
-            minHeight: Targets.touchFirst ? Targets.touch : Targets.bar,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xxs),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium,
-                ),
-                if (subtitle case final subtitle?)
+    // A button to screen readers: the title, then what it does.
+    return Semantics(
+      button: true,
+      child: Tooltip(
+        message: 'Rename',
+        child: InkWell(
+          onTap: onRename,
+          borderRadius: BorderRadius.circular(Radii.sm),
+          child: ConstrainedBox(
+            // 48 dp tall where fingers are the pointer (Android's minimum).
+            constraints: BoxConstraints(
+              maxWidth: 360,
+              minHeight: Targets.touchFirst ? Targets.touch : Targets.bar,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.xxs),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    subtitle,
+                    title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                    style: theme.textTheme.titleMedium,
                   ),
-              ],
+                  if (subtitle case final subtitle?)
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

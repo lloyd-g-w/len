@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
+import '../../../ui/roving_focus.dart';
 
 /// The ten cover colours in one row, the dots sized to the width; two rows
 /// of five on touch where one row would shrink the targets under
@@ -34,20 +35,23 @@ class CoverRow extends StatelessWidget {
           selected: colors[i] == color,
           onTap: () => onColor(colors[i]),
         );
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var start = 0; start < colors.length; start += perRow)
-              Row(
-                // Two rows spread across the width.
-                mainAxisAlignment: twoRows
-                    ? MainAxisAlignment.spaceBetween
-                    : MainAxisAlignment.start,
-                children: [
-                  for (var i = start; i < math.min(start + perRow, colors.length); i++) dot(i),
-                ],
-              ),
-          ],
+        // One Tab stop, at the chosen colour; the arrows move inside.
+        return RovingGroup.grid(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var start = 0; start < colors.length; start += perRow)
+                Row(
+                  // Two rows spread across the width.
+                  mainAxisAlignment: twoRows
+                      ? MainAxisAlignment.spaceBetween
+                      : MainAxisAlignment.start,
+                  children: [
+                    for (var i = start; i < math.min(start + perRow, colors.length); i++) dot(i),
+                  ],
+                ),
+            ],
+          ),
         );
       },
     );

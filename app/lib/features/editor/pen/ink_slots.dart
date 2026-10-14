@@ -36,6 +36,7 @@ class ColorSlots extends StatelessWidget {
           SlotButton(
             key: ValueKey('color-$i'),
             selected: active && i == config.colorIndex,
+            tabStop: i == (active ? config.colorIndex : 0),
             tooltip: i < 9 ? 'Colour ${i + 1} (${i + 1})' : 'Colour ${i + 1}',
             semanticLabel: 'Colour ${i + 1}, ${colorName(config.colors[i])}',
             editHint: 'Double tap to change this colour',
@@ -89,6 +90,7 @@ class WidthSlots extends StatelessWidget {
           SlotButton(
             key: ValueKey('width-$i'),
             selected: active && i == config.widthIndex,
+            tabStop: i == (active ? config.widthIndex : 0),
             tooltip: 'Size ${formatWidth(config.widths[i])}',
             semanticLabel: 'Size ${i + 1}, ${formatWidth(config.widths[i])}',
             editHint: 'Double tap to change this size',

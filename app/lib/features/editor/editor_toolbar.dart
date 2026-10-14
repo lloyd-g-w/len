@@ -1,10 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../ink/tool_settings.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/roving_focus.dart';
 import '../../ui/scroll_fade.dart';
 import 'chrome/receding.dart';
 import 'toolbar/insert_menu.dart';
@@ -45,19 +45,13 @@ class EditorToolbar extends StatelessWidget {
   /// What Insert ⊕ offers; null leaves it out.
   final InsertActions? insert;
 
-  /// While a toolbar control has keyboard focus, ← and → move to the
-  /// previous / next control (tools, Insert, then the quick slots), as in
-  /// any toolbar, instead of reaching the editor (where they turn pages).
-  static const Map<ShortcutActivator, Intent> arrowKeys = {
-    SingleActivator(LogicalKeyboardKey.arrowLeft): DirectionalFocusIntent(TraversalDirection.left),
-    SingleActivator(LogicalKeyboardKey.arrowRight): DirectionalFocusIntent(
-      TraversalDirection.right,
-    ),
-  };
-
+  /// Keyboard: Tab stops at the chosen tool, Insert and the selected quick
+  /// slots; while a toolbar control has focus, the arrows along the bar
+  /// move to the previous / next control, as in any toolbar, instead of
+  /// reaching the editor (where they turn pages). See [RovingGroup].
   @override
-  Widget build(BuildContext context) => Shortcuts(
-    shortcuts: arrowKeys,
+  Widget build(BuildContext context) => RovingGroup(
+    axis: ToolbarAxis.of(context),
     child: switch (dock) {
       ToolbarDock.inline => _group(reserve: ToolbarMetrics.strip(tools)),
       ToolbarDock.row => SizedBox(

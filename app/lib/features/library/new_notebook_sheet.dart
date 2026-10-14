@@ -8,6 +8,7 @@ import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
+import '../../ui/roving_focus.dart';
 import '../../ui/scroll_fade.dart';
 import '../../ui/segment_label.dart';
 import '../../ui/sheet_parts.dart';
@@ -184,23 +185,25 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
         decoration: InputDecoration(labelText: 'Title', hintText: _defaultTitle),
       ),
       const SizedBox(height: Gaps.lg),
-      SegmentedButton<NotebookKind>(
-        showSelectedIcon: false,
-        expandedInsets: EdgeInsets.zero,
-        segments: const [
-          ButtonSegment(
-            value: NotebookKind.paged,
-            icon: Icon(Symbols.menu_book_sharp),
-            label: SegmentLabel('Notebook'),
-          ),
-          ButtonSegment(
-            value: NotebookKind.canvas,
-            icon: Icon(Symbols.all_inclusive_sharp),
-            label: SegmentLabel('Canvas'),
-          ),
-        ],
-        selected: {_kind},
-        onSelectionChanged: (s) => _setKind(s.single),
+      RovingSegments(
+        SegmentedButton<NotebookKind>(
+          showSelectedIcon: false,
+          expandedInsets: EdgeInsets.zero,
+          segments: const [
+            ButtonSegment(
+              value: NotebookKind.paged,
+              icon: Icon(Symbols.menu_book_sharp),
+              label: SegmentLabel('Notebook'),
+            ),
+            ButtonSegment(
+              value: NotebookKind.canvas,
+              icon: Icon(Symbols.all_inclusive_sharp),
+              label: SegmentLabel('Canvas'),
+            ),
+          ],
+          selected: {_kind},
+          onSelectionChanged: (s) => _setKind(s.single),
+        ),
       ),
       const SizedBox(height: Gaps.xl),
       PickerLabel(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/roving_focus.dart';
 import '../toolbar/toolbar_metrics.dart';
 
 /// One quick slot in the toolbar (a colour, a width or an eraser size):
@@ -24,6 +25,7 @@ class SlotButton extends StatelessWidget {
     this.onEdit,
     this.editHint = 'Double tap for options',
     this.plate = false,
+    this.tabStop,
   });
 
   /// Outer diameter of the selection ring.
@@ -50,50 +52,61 @@ class SlotButton extends StatelessWidget {
   /// than a ring (colours).
   final bool plate;
 
+  /// Whether Tab stops here in a toolbar ([RovingItem]); null: when
+  /// [selected]. A row with nothing selected makes its first slot the stop.
+  final bool? tabStop;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final edit = onEdit;
-    return Tooltip(
-      message: tooltip,
-      waitDuration: const Duration(milliseconds: 500),
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: semanticLabel,
-        hint: selected && edit != null ? editHint : null,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => selected && edit != null ? edit(context) : onSelect(),
-            onLongPress: edit == null ? null : () => edit(context),
-            onSecondaryTap: edit == null ? null : () => edit(context),
-            child: SizedBox.square(
-              dimension: ToolbarMetrics.slotOf(context),
-              child: Center(
-                child: AnimatedContainer(
-                  duration: Motion.fast,
-                  width: ring,
-                  height: ring,
-                  decoration: plate
-                      ? BoxDecoration(
-                          color: selected
-                              ? Surfaces.pressed(scheme)
-                              : Surfaces.pressed(scheme).withValues(alpha: 0),
-                          borderRadius: BorderRadius.circular(Radii.xs),
-                        )
-                      : BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
+    void tap() => selected && edit != null ? edit(context) : onSelect();
+    return RovingItem(
+      stop: tabStop ?? selected,
+      child: Tooltip(
+        message: tooltip,
+        waitDuration: const Duration(milliseconds: 500),
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: semanticLabel,
+          hint: selected && edit != null ? editHint : null,
+          // A keyboard stop: Enter or Space acts as a tap (so on the
+          // selected slot it opens the editor).
+          child: FocusableActionDetector(
+            mouseCursor: SystemMouseCursors.click,
+            actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => tap())},
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: tap,
+              onLongPress: edit == null ? null : () => edit(context),
+              onSecondaryTap: edit == null ? null : () => edit(context),
+              child: SizedBox.square(
+                dimension: ToolbarMetrics.slotOf(context),
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: Motion.fast,
+                    width: ring,
+                    height: ring,
+                    decoration: plate
+                        ? BoxDecoration(
                             color: selected
-                                ? scheme.onSurface
-                                : scheme.onSurface.withValues(alpha: 0),
-                            width: ringWidth,
+                                ? Surfaces.pressed(scheme)
+                                : Surfaces.pressed(scheme).withValues(alpha: 0),
+                            borderRadius: BorderRadius.circular(Radii.xs),
+                          )
+                        : BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: selected
+                                  ? scheme.onSurface
+                                  : scheme.onSurface.withValues(alpha: 0),
+                              width: ringWidth,
+                            ),
                           ),
-                        ),
-                  alignment: Alignment.center,
-                  child: child,
+                    alignment: Alignment.center,
+                    child: child,
+                  ),
                 ),
               ),
             ),

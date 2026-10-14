@@ -7,6 +7,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/templates/user_template.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/context_menu_keys.dart';
+import '../../../ui/roving_focus.dart';
 import '../../../ui/section_label.dart';
 import '../template_preview.dart';
 import 'template_catalog.dart';
@@ -74,37 +76,41 @@ class TemplateGallery extends StatelessWidget {
         final available = constraints.maxWidth + 2 * TemplateTile.inset;
         final preferred = landscape ? tileWidth * 1.3 : tileWidth;
         final width = fillWidth(available, preferred, minLabel: minLabel);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final (i, (category, entries)) in sections.indexed)
-              Padding(
-                padding: EdgeInsets.only(top: i == 0 ? 0 : Gaps.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Gaps.xs),
-                      child: SectionLabel(category.label),
-                    ),
-                    OverflowBox(
-                      fit: OverflowBoxFit.deferToChild,
-                      minWidth: available,
-                      maxWidth: available,
-                      child: Wrap(
-                        spacing: _spacing,
-                        runSpacing: Gaps.xs,
-                        children: [
-                          for (final entry in entries) _tile(entry, width),
-                          if (category == TemplateCategory.mine && onImport != null)
-                            _ImportTile(width: width, height: width * 1.414, onTap: onImport!),
-                        ],
+        // One Tab stop, at the chosen template; the arrows move across
+        // the sections.
+        return RovingGroup.grid(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, (category, entries)) in sections.indexed)
+                Padding(
+                  padding: EdgeInsets.only(top: i == 0 ? 0 : Gaps.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: Gaps.xs),
+                        child: SectionLabel(category.label),
                       ),
-                    ),
-                  ],
+                      OverflowBox(
+                        fit: OverflowBoxFit.deferToChild,
+                        minWidth: available,
+                        maxWidth: available,
+                        child: Wrap(
+                          spacing: _spacing,
+                          runSpacing: Gaps.xs,
+                          children: [
+                            for (final entry in entries) _tile(entry, width),
+                            if (category == TemplateCategory.mine && onImport != null)
+                              _ImportTile(width: width, height: width * 1.414, onTap: onImport!),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -217,67 +223,80 @@ class TemplateTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: label,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onMenu == null ? null : () => onMenu!(_center(context)),
-        onSecondaryTapUp: onMenu == null ? null : (d) => onMenu!(d.globalPosition),
-        borderRadius: BorderRadius.circular(Radii.xs),
-        child: Padding(
-          padding: const EdgeInsets.all(Gaps.xs),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // The selected template carries the margin rule along its
-              // left edge and a bold Ink name (DESIGN §0, as the sidebar
-              // marks its current row); no ring, no badge.
-              Stack(
+    final menu = onMenu;
+    // In the gallery, Tab enters at the chosen template.
+    return RovingItem(
+      stop: selected,
+      child: ContextMenuKeys(
+        onMenu: menu == null ? null : () => menu(_center(context)),
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: label,
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onMenu == null ? null : () => onMenu!(_center(context)),
+            onSecondaryTapUp: onMenu == null ? null : (d) => onMenu!(d.globalPosition),
+            borderRadius: BorderRadius.circular(Radii.xs),
+            child: Padding(
+              padding: const EdgeInsets.all(Gaps.xs),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: ruleRoom, vertical: pageRoom),
-                    // A page: square corners, a hairline edge on the sheet
-                    // and the contact shadow.
-                    child: DecoratedBox(
-                      position: DecorationPosition.foreground,
-                      decoration: BoxDecoration(border: Border.all(color: scheme.outlineVariant)),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(boxShadow: Shadows.low(theme.brightness)),
-                        child: TemplatePreview(template: template, width: width),
+                  // The selected template carries the margin rule along its
+                  // left edge and a bold Ink name (DESIGN §0, as the sidebar
+                  // marks its current row); no ring, no badge.
+                  Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: ruleRoom,
+                          vertical: pageRoom,
+                        ),
+                        // A page: square corners, a hairline edge on the sheet
+                        // and the contact shadow.
+                        child: DecoratedBox(
+                          position: DecorationPosition.foreground,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: scheme.outlineVariant),
+                          ),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(boxShadow: Shadows.low(theme.brightness)),
+                            child: TemplatePreview(template: template, width: width),
+                          ),
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        left: 0,
+                        top: pageRoom,
+                        bottom: pageRoom,
+                        child: AnimatedContainer(
+                          duration: Motion.fast,
+                          width: Hairline.rule,
+                          color: selected ? scheme.primary : Colors.transparent,
+                        ),
+                      ),
+                    ],
                   ),
-                  Positioned(
-                    left: 0,
-                    top: pageRoom,
-                    bottom: pageRoom,
-                    child: AnimatedContainer(
-                      duration: Motion.fast,
-                      width: Hairline.rule,
-                      color: selected ? scheme.primary : Colors.transparent,
+                  const SizedBox(height: Gaps.xs),
+                  SizedBox(
+                    // The name may run into the gap after the miniature, and
+                    // the tile grows rather than break a word (large text).
+                    width: math.max(width + labelOverhang, wordWidth(context, label)) + ruleRoom,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: ruleRoom),
+                      child: Text(
+                        label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: _labelStyle(context, selected: selected),
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: Gaps.xs),
-              SizedBox(
-                // The name may run into the gap after the miniature, and
-                // the tile grows rather than break a word (large text).
-                width: math.max(width + labelOverhang, wordWidth(context, label)) + ruleRoom,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: ruleRoom),
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: _labelStyle(context, selected: selected),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
