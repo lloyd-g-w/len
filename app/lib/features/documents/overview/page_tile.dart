@@ -98,16 +98,19 @@ class _PageTileState extends State<PageTile> {
       label: label,
       button: true,
       selected: w.selecting && w.selected,
-      child: ContextMenuKeys(
-        onMenu: w.selecting ? null : () => unawaited(_menu()),
-        child: FocusableActionDetector(
-          actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => w.onTap())},
-          child: Column(
-            children: [
-              Expanded(child: body),
-              const SizedBox(height: Gaps.xs),
-              _Footer(tile: w),
-            ],
+      // Tab reaches the ⋯ right after its page.
+      child: FocusTraversalGroup(
+        child: ContextMenuKeys(
+          onMenu: w.selecting ? null : () => unawaited(_menu()),
+          child: FocusableActionDetector(
+            actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => w.onTap())},
+            child: Column(
+              children: [
+                Expanded(child: body),
+                const SizedBox(height: Gaps.xs),
+                _Footer(tile: w),
+              ],
+            ),
           ),
         ),
       ),

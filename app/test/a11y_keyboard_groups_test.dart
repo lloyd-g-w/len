@@ -7,7 +7,7 @@ import 'package:len/features/library/library_screen.dart';
 import 'package:len/features/settings/settings_screen.dart';
 
 import 'a11y_keyboard_test.dart';
-import 'accessibility_test.dart' show pumpScreen, tablet;
+import 'accessibility_test.dart' show pumpScreen, tablet, tapAll, toolOptions;
 
 // Choice groups with the keyboard (the radio group pattern): a segmented
 // control or a swatch grid is one Tab stop, at its chosen choice; the
@@ -66,5 +66,18 @@ void main() {
     expect(focused(tester), other, reason: 'focus stays on the picked colour');
     final after = await tabs(tester, 1);
     expect(after.single, isNot(chosen), reason: 'Tab leaves the row');
+  });
+
+  keyboardTest('the shape options: one stop at the chosen shape, arrows move', (tester) async {
+    await pumpEditor(tester);
+    await tapAll(tester, toolOptions('Shapes (S)'));
+    final stops = await tabs(tester, 3);
+    expect(stops.toSet().length, 1, reason: 'Tab cycles in the popover, one stop: $stops');
+    expect(focusedSelected(tester), isTrue);
+    final chosen = focused(tester);
+    await press(tester, LogicalKeyboardKey.arrowRight);
+    expect(focused(tester), isNot(chosen));
+    await press(tester, LogicalKeyboardKey.space);
+    expect(focusedSelected(tester), isTrue, reason: 'Space picked it');
   });
 }
