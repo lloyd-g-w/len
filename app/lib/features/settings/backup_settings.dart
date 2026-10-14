@@ -55,31 +55,36 @@ class _BackupSettingsState extends State<BackupSettings> {
 
   @override
   Widget build(BuildContext context) {
+    // Len files: a restore fills an empty library.
+    return ListenableBuilder(
+      listenable: Listenable.merge([_services.sync, _services.lenFiles]),
+      builder: (context, _) => _section(context),
+    );
+  }
+
+  Widget _section(BuildContext context) {
     final last = _services.settings.lastBackupAt;
     final empty = _services.notebooks.list().isEmpty && _services.folders.list().isEmpty;
-    return ListenableBuilder(
-      listenable: _services.sync,
-      builder: (context, _) => SettingsSection(
-        title: 'Backup',
-        description: BackupSettings.describe(
-          syncing: _services.sync.state != SyncState.disabled,
-          android: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
-        ),
-        children: [
-          SettingsTile(
-            icon: Symbols.backup_sharp,
-            title: 'Back up library…',
-            subtitle: empty ? 'Nothing to back up yet' : BackupSettings.lastBackup(last),
-            onTap: empty ? null : () => unawaited(_backUp()),
-          ),
-          SettingsTile(
-            icon: Symbols.settings_backup_restore_sharp,
-            title: 'Restore from backup…',
-            subtitle: 'Brings back a Len backup; nothing here is replaced',
-            onTap: () => unawaited(importLenFlow(context)),
-          ),
-        ],
+    return SettingsSection(
+      title: 'Backup',
+      description: BackupSettings.describe(
+        syncing: _services.sync.state != SyncState.disabled,
+        android: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
       ),
+      children: [
+        SettingsTile(
+          icon: Symbols.backup_sharp,
+          title: 'Back up library…',
+          subtitle: empty ? 'Nothing to back up yet' : BackupSettings.lastBackup(last),
+          onTap: empty ? null : () => unawaited(_backUp()),
+        ),
+        SettingsTile(
+          icon: Symbols.settings_backup_restore_sharp,
+          title: 'Restore from backup…',
+          subtitle: 'Brings back a Len backup; nothing here is replaced',
+          onTap: () => unawaited(importLenFlow(context)),
+        ),
+      ],
     );
   }
 }

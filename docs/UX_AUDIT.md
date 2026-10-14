@@ -118,7 +118,7 @@ count grows and the copy resurfaces on restore. *Fix:* Undo deletes the
 fresh copy for good. Paths: `library/library_notebook_actions.dart:59-66`.
 Effort S.
 
-**R10-13 P2 · Stale state after Settings actions.** ⬜
+**R10-13 P2 · Stale state after Settings actions.** ✅
 - The "Your notes are only on this device" notice is computed once per
   library state, so it stays after Settings → Back up library…
   (`library/library_notice.dart:144`).
@@ -129,7 +129,7 @@ Effort S.
   a restore. Effort S.
 
 **R10-14 P2 · "Keep data" (web) does nothing visible when the browser
-refuses.** ⬜ `if (granted) _dismiss();` has no else and no `mounted`
+refuses.** ✅ `if (granted) _dismiss();` has no else and no `mounted`
 check. *Fix:* say so and point at installing Len or sync. Paths:
 `library/library_notice.dart:175`. Effort S.
 

@@ -67,6 +67,15 @@ void main() {
     expect(services.settings.seenTips, contains(LibraryNotices.deviceOnlyTip));
   });
 
+  testWidgets('a backup made elsewhere (Settings) takes the notice down', (tester) async {
+    final services = await pump(tester, oldNotes: true);
+    expect(find.text(title), findsOneWidget);
+    services.settings.lastBackupAt = DateTime.now().millisecondsSinceEpoch;
+    services.lenFiles.changed();
+    await tester.pump();
+    expect(find.text(title), findsNothing);
+  });
+
   testWidgets('not on the first day', (tester) async {
     await pump(tester, oldNotes: false);
     expect(find.text(title), findsNothing);

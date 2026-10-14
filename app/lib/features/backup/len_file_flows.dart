@@ -158,6 +158,9 @@ Future<bool> backupLibraryFlow(
     toDevice: canSaveToDevice,
   );
   final complete = written != null && written.missingBlobs == 0;
-  if (complete) services.settings.lastBackupAt = now.millisecondsSinceEpoch;
+  if (complete) {
+    services.settings.lastBackupAt = now.millisecondsSinceEpoch;
+    services.lenFiles.changed(); // The library's "only on this device" notice.
+  }
   return complete;
 }

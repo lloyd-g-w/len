@@ -20,7 +20,8 @@ export 'len_scope.dart' show LenScope;
 export 'len_source.dart' show LenSource;
 
 /// Writes and reads Len files ([LenFormat]) of this library; notifies
-/// listeners (the library) after an import added something.
+/// listeners (the library, Settings → Backup) after an import added
+/// something or a library backup was made.
 class LenArchives extends ChangeNotifier {
   LenArchives({
     required Iterable<SyncableTable> tables,
@@ -74,8 +75,8 @@ class LenArchives extends ChangeNotifier {
   /// started from; null for the top level.
   String? Function() openFolder = () => null;
 
-  /// Tells listeners (the library) that imported things changed (e.g. an
-  /// import was undone).
+  /// Tells listeners that imported things changed (e.g. an import was
+  /// undone), or that the library was backed up.
   void changed() => notifyListeners();
 
   /// Opens a Len file to import (see [LenSource.open]).
