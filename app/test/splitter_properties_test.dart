@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
@@ -224,7 +223,7 @@ void main() {
             final a = c.path[i - 1], b = c.path[i];
             strokes = [
               for (final s in strokes)
-                ...?StrokeSplitter.erase(s, a, b, c.radius, newId: () => 'd${n++}') ?? [s],
+                ...StrokeSplitter.erase(s, a, b, c.radius, newId: () => 'd${n++}') ?? [s],
             ];
           }
           return strokes;
