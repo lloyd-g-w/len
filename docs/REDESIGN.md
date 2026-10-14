@@ -167,8 +167,8 @@ the `toolbarLabels` and `toolbarLayout` preferences.
 
 ### 2.2 Tools, quick slots, options popover
 
-**Insert ⊕** is a button, not a tool. Its menu: Image…, Take photo (Android), Pages from
-PDF… and Page with template… (the last two in paged notebooks). It replaces the top-bar
+**Insert ⊕** is a button, not a tool. Its menu: Image…, Take photo (Android) and Pages from
+PDF… (paged notebooks). It replaces the top-bar
 button in `images/image_entry_points.dart`. Drop the `selectText` descriptor from
 `editor_tools.dart`.
 
@@ -226,8 +226,9 @@ used. Laser options need `ToolSettings.laser` (`color`, `style`, `fade`), persis
 Search in notebook            Ctrl+F
 Export…                       Ctrl+E (new)
 ────────
-Page ▸      Duplicate page · Bookmark page ·
-            Change template… · Save as template… · ── Delete page (red)   [paged]
+Page ▸      Add page after (hold: with a template) · Duplicate page ·
+            Move or copy page… · Bookmark page · Change template… ·
+            Save as template… · ── Delete page (red)   [paged; = overview tile ⋯]
 Background…                                                          [canvas]
 View ▸      Scroll pages / One page at a time · Fit width / Fit page / Automatic ·
             Toolbar: Docked / Floating · Focus mode  F11
@@ -252,8 +253,8 @@ start / overview entries (they move to the zoom pill).
   field and thumbnail strip). Long press: the overview.
 - **Overview:** ▦ opens it (`documents/overview/`, tokens only). An All / Bookmarked /
   Outline filter (the PDF's outline) replaces the outline panel.
-- **Adding pages:** the "Add page" footer, Insert ⊕ → Page with template…, ⋯ → Page →
-  Add page after, and the overview's add tile. Single-page flow: swipe, ← / →, Page Up /
+- **Adding pages:** the "Add page" footer and the overview's add tile, and ⋯ → Page →
+  Add page after (UX_AUDIT R9-3). Held down (or right-clicked), each asks for a template. Single-page flow: swipe, ← / →, Page Up /
   Page Down.
 - **Canvases:** the zoom pill (`canvas/zoom_indicator.dart`) peeks the same way. Tap it
   for 50 %, 100 %, 200 %, Fit content or Back to start. Delete `canvas_minimap.dart`,
