@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../core/clock.dart';
 import 'app_theme.dart';
 import 'chrome_fade.dart';
 
@@ -116,27 +117,28 @@ void showMessage(
 /// last was ([lastUpAt]), so the editor's tips keep away from snack bars in
 /// every notebook, also one opened after the snack bar went.
 class MessageActivity extends ValueNotifier<bool> {
-  MessageActivity({int Function()? nowMs}) : _now = nowMs ?? _wallClock, super(false);
+  MessageActivity({this.clock = const Clock()}) : super(false);
 
-  final int Function() _now;
+  /// Keeps the time of [lastUpAt]: the app's clock (`AppServices.clock`
+  /// sets it on [MessageQueue.activity]).
+  Clock clock;
   int? _lastUpAt;
 
-  static int _wallClock() => DateTime.now().millisecondsSinceEpoch;
-
-  /// When (ms since the epoch, by the clock given) a snack bar was last up:
-  /// now while one is, else when the last one went; null if none yet.
-  int? get lastUpAt => value ? _now() : _lastUpAt;
+  /// When (ms since the epoch, by [clock]) a snack bar was last up: now
+  /// while one is, else when the last one went; null if none yet.
+  int? get lastUpAt => value ? clock.nowMs() : _lastUpAt;
 
   /// Whether a snack bar is up now.
   set up(bool up) {
     if (up == value) return;
-    _lastUpAt = _now();
+    _lastUpAt = clock.nowMs();
     value = up;
   }
 
   void _reset() {
     _lastUpAt = null;
     value = false;
+    clock = const Clock();
   }
 }
 

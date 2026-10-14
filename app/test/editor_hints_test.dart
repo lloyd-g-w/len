@@ -105,6 +105,34 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('no tip within a minute of a snack bar, by the app clock', (tester) async {
+    const tip = 'Hold the pen’s side button to erase';
+    Future<void> reopenAndWrite() async {
+      final (s, _) = await pumpEditor(tester);
+      s.preferences.stylusOnly = true;
+      await penStroke(tester, const Offset(300, 400));
+      await tester.pump(TipsController.calmFor);
+      await tester.pumpAndSettle();
+    }
+
+    await pumpEditor(tester);
+    await penStroke(tester, const Offset(300, 400)); // The stylus message.
+    await tester.pumpAndSettle();
+    ScaffoldMessenger.of(tester.element(find.byType(SnackBar))).hideCurrentSnackBar();
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+    await reopenAndWrite();
+    expect(find.text(tip), findsNothing, reason: 'the snack bar was just up');
+    await closeEditor(tester);
+    // The app's clock follows the test's fake time.
+    await tester.pump(TipsController.afterMessage);
+    await reopenAndWrite();
+    expect(find.text(tip), findsOneWidget);
+    await tester.pump(TipsController.visibleFor);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+  });
+
   testWidgets('tips follow the settings', (tester) async {
     final (s, _) = await pumpEditor(tester);
     s.preferences.penButtonAction = PenButtonAction.none;

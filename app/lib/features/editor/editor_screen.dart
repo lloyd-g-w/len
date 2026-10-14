@@ -164,6 +164,7 @@ class _EditorScreenState extends State<_EditorView> {
         markSeen: _services.settings.markTipSeen,
         lastShownAt: () => _services.settings.lastTipAt,
         shownAt: (ms) => _services.settings.lastTipAt = ms,
+        clock: _services.clock,
       )..followTools(
         _session.tools,
         hasPdf: () => _session.pdf?.hasPdf ?? false,
