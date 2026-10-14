@@ -200,7 +200,12 @@ class TipsController extends ValueNotifier<TipMessage?> {
     if (last != null && now - last < between.inMilliseconds) return;
     for (final tip in due) {
       if (seen(tip.name) || !_applies(tip)) continue;
-      final message = tipMessage(tip, penButton: _penButton(), pdf: _pdf);
+      final message = tipMessage(
+        tip,
+        penButton: _penButton(),
+        lasso: _tools?.lasso.shape ?? LassoShape.freehand,
+        pdf: _pdf,
+      );
       if (message == null) continue;
       _spent = true;
       _shownAt(now);

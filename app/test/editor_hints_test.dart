@@ -199,6 +199,21 @@ void main() {
     expect(_activeTool(tester), EditorTool.pen);
     await closeEditor(tester);
   });
+  test('the lasso tip follows the lasso\'s shape (R12-2)', () {
+    String text(LassoShape shape, {bool pdf = false}) => tipMessage(
+      EditorTip.lasso,
+      penButton: PenButtonAction.eraser,
+      lasso: shape,
+      pdf: pdf,
+    )!.text;
+    expect(text(LassoShape.freehand), 'Circle ink, text or images to select them');
+    expect(text(LassoShape.rectangle), 'Drag a box around ink, text or images to select them');
+    expect(
+      text(LassoShape.rectangle, pdf: true),
+      'Drag a box around ink, text or images to select them; tap PDF text to select it',
+    );
+  });
+
   testWidgets('the lasso explains itself once, in a tip', (tester) async {
     final (s, _) = await pumpEditor(tester, size: const Size(1280, 900));
     const tip = 'Circle ink, text or images to select them';

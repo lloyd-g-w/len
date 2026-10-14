@@ -82,7 +82,7 @@ will find.** ✅
 - Effort S.
 
 **R12-2 P2 · The lasso tip says "Circle…" when the lasso draws
-rectangles.** ⬜
+rectangles.** ✅
 - *What:* `tipMessage` (`editor/chrome/tip_message.dart`) predates the
   lasso's Shape option; its enum doc still says "it has no options".
 - *Fix:* phrase it by `LassoConfig.shape`: "Drag a box around ink, text
