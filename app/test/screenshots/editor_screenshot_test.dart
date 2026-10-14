@@ -8,6 +8,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/editor/chrome/editor_tips.dart';
 import 'package:len/features/editor/tabs/editor_workspace.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
 
@@ -221,6 +222,7 @@ void main() {
       await pen.moveTo(Offset(120 + i * 10.0, 520 + (i.isEven ? 6 : -6)));
     }
     await pen.up();
+    await tester.pump(TipsController.calmFor); // The tip waits for the pen to rest.
     await settle(tester);
     await shoot(tester, 'editor_phone_tip');
     await tester.pump(const Duration(seconds: 11));

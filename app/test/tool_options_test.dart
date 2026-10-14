@@ -15,7 +15,7 @@ import 'package:len/ui/color_picker/color_swatches.dart';
 import 'package:len/ui/focus_ring.dart';
 import 'package:len/ui/scroll_fade.dart';
 
-/// The tool options popovers' Reset (with Undo) and the pens' Reset feel, the shared size scale,
+/// The tool options popovers' Reset (with Undo; the pens' resets the feel), the shared size scale,
 /// live colour pickers, colour names, the phone sheet's scroll fade and
 /// the keyboard focus ring.
 void main() {
@@ -55,16 +55,17 @@ void main() {
   TextButton button(WidgetTester tester, String label) =>
       tester.widget<TextButton>(find.widgetWithText(TextButton, label));
 
-  testWidgets('pen "Reset feel" restores the feel only; quick colours and sizes stay', (
+  testWidgets('pen Reset (in the header) restores the feel only; quick colours and sizes stay', (
     tester,
   ) async {
     await open(tester, 0);
-    expect(find.text('Reset'), findsNothing, reason: 'no whole-tool reset');
     await tester.ensureVisible(find.text('Feel'));
     await tester.tap(find.text('Feel'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Reset feel'));
-    expect(button(tester, 'Reset feel').onPressed, isNull, reason: 'already the defaults');
+    expect(find.text('Reset'), findsOneWidget, reason: 'one Reset, in the header');
+    expect(find.text('Reset feel'), findsNothing);
+    await tester.ensureVisible(find.text('Reset'));
+    expect(button(tester, 'Reset').onPressed, isNull, reason: 'already the defaults');
 
     tools.updateConfig(
       InkTool.ballpoint,
@@ -75,7 +76,8 @@ void main() {
           .copyWith(streamline: 0.8, thinning: 0),
     );
     await tester.pump();
-    await tester.tap(find.text('Reset feel'));
+    final custom = tools.configOf(InkTool.ballpoint);
+    await tester.tap(find.text('Reset'));
     await tester.pump();
     final config = tools.configOf(InkTool.ballpoint);
     final defaults = PenConfig.defaultsFor(InkTool.ballpoint);
@@ -83,7 +85,9 @@ void main() {
     expect(config.thinning, defaults.thinning);
     expect(config.colors, [0xFF00AA00, ...defaults.colors.skip(1), 0xFFFF0000]);
     expect(config.widths[1], 9);
-    expect(button(tester, 'Reset feel').onPressed, isNull);
+    await tester.tap(find.text('Undo'));
+    await tester.pump();
+    expect(tools.configOf(InkTool.ballpoint), custom);
   });
 
   test('every default colour of a tool is in its palette, so it shows as picked', () {

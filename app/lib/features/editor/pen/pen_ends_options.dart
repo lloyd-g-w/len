@@ -54,13 +54,6 @@ class PenEndsOptions extends StatelessWidget {
               display: (value) => '${value.toStringAsFixed(1)}× width',
               onChanged: (value) => onChanged(ends.copyWith(taperLength: value)),
             ),
-            if (ends.taperAt.atEnd)
-              OptionSwitch(
-                label: 'Follow pen speed',
-                subtitle: 'Quick lifts make a longer tail; slow stops make a shorter one',
-                value: ends.followSpeed,
-                onChanged: (value) => onChanged(ends.copyWith(followSpeed: value)),
-              ),
           ],
         ],
       ),

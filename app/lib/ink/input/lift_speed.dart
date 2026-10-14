@@ -4,7 +4,7 @@ import '../render/taper.dart';
 
 /// The pen's speed as it lifts, from a stroke's kept points (screen px and
 /// whole-ms times, as the low-latency overlay's model keeps them): what a
-/// tapered end that follows the speed (`PenEnds.followSpeed`) is scaled by.
+/// tapered end that follows the speed (`PenEnds.endFollowsSpeed`) is scaled by.
 class LiftSpeed {
   final List<double> _x = [], _y = [];
   final List<int> _t = [];

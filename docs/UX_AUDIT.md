@@ -245,11 +245,14 @@ One interaction model per object:
 
 ### Prioritised items
 
-**R9-1 P1 · Tips have no budget, can be lost, and sit on the writing.**
+**R9-1 P1 · Tips have no budget, can be lost, and sit on the writing.** ✅
 See "Proposed calm budget" above. Effort S.
+- ✅ Done as proposed (`fix/r9-tips-pen`). The tip card has no ✕ any
+  more: it lets every pointer through, so it couldn't take a tap; it goes
+  after 10 s on screen.
 
 **R9-2 P1 · The first stroke gets the stylus snack, then the side-button
-tip.**
+tip.** ✅ (the tip waits for the next opening)
 - *What:* `_onStylusDetected` (`editor/editor_screen_actions.dart:8-31`)
   chains the side-button tip onto the snack's close.
 - *Why:* the first 14 s of a new user's first page have messages over
@@ -308,7 +311,7 @@ column (11 strings). Effort S.
   first row becomes Rename….
 - Effort S.
 
-**R9-8 P2 · Tool popovers reset in two ways.**
+**R9-8 P2 · Tool popovers reset in two ways.** ✅
 - *What:* "Reset feel" sits at the end of the collapsed Feel
   (`pen/ink_options.dart:183`), while "Reset" sits in the header of the
   eraser and laser popovers.
@@ -316,7 +319,7 @@ column (11 strings). Effort S.
   highlighters it resets the feel and keeps the quick slots, as now.
 - Effort S.
 
-**R9-9 P2 · The pen popover's "Toolbar" disclosure.**
+**R9-9 P2 · The pen popover's "Toolbar" disclosure.** ✅
 - *What:* the name collides with ⋯ → View "Toolbar docked / floating".
 - *Fix:* rename it "Quick colours and sizes" (summary "3 and 3").
 - Effort S.
@@ -325,7 +328,8 @@ column (11 strings). Effort S.
 form.** Move them under Create (or into the empty state and ⊕'s long
 press only). Effort S.
 
-**R9-11 P2 · "Follow pen speed" is a switch nobody will tune.** Make it
+**R9-11 P2 · "Follow pen speed" is a switch nobody will tune.** ✅ (always on;
+`PenEnds.followSpeed` is gone) Make it
 the default for tapered ends (on) and drop the switch
 (`pen/pen_ends_options.dart`). The pen's Feel loses a control. Effort S.
 

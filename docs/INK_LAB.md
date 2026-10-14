@@ -992,7 +992,7 @@ lift and the pressure gates open a little later: 0.00 / 0.00 / 0.00 W and
 
 The pen defaults to round ends. **Ends** in its options switches to flat
 (butt caps) or tapered. Tapered offers start, end or both, length in stroke
-widths and an optional end length that follows lift speed. The start is
+widths; the end's length always follows lift speed (no switch, R9-11). The start is
 causal and never changes behind the tip; the end is finalised at pen-up.
 Highlighter caps remain flat. The chosen lengths are saved with every
 stroke and synced, so changing the pen's options does not change old ink.

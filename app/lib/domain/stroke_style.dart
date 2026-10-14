@@ -64,7 +64,7 @@ class StrokeStyle {
   /// With [StrokeEnds.tapered]: the lengths over which the start and the
   /// end narrow to a point, in multiples of the stroke's width (0: that end
   /// is round). The end's is resolved when the stroke is finished (it may
-  /// follow the pen's speed at the lift, `PenEnds.followSpeed`).
+  /// follow the pen's speed at the lift, `PenEnds.endFollowsSpeed`).
   final double taperStart;
   final double taperEnd;
 

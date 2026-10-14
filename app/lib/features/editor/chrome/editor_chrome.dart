@@ -12,6 +12,7 @@ import 'focus_handle.dart';
 import 'gesture_hud.dart';
 import 'peeking.dart';
 import 'receding.dart';
+import 'tip_banner.dart';
 import 'toolbar_slot.dart';
 
 /// Where the chrome sits for a given pane, and how much of it the chrome

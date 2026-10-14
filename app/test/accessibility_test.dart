@@ -288,6 +288,7 @@ void main() {
       await tester.tapAt(const Offset(1, 1)); // Closes the popover.
       await settle(tester);
       await tapAll(tester, toolOptions('Pen (P)'));
+      expectTouchTarget(tester, find.widgetWithText(EndTextButton, 'Reset'));
       final custom = find.widgetWithText(EndTextButton, 'Custom');
       final plate = expectTouchTarget(tester, custom);
       // The header keeps the button's visual height.

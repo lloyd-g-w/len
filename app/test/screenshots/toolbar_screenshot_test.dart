@@ -168,10 +168,9 @@ void main() {
         await settle(tester);
         await shoot(tester, 'toolbar_${shot}_$m', crop: topRect(tester));
         if (shot == 'lasso') {
-          // Nothing to set: picking it shows a one-time tip instead.
+          // Nothing to set: picking it shows a one-time tip instead (it
+          // goes with the next tool).
           await shoot(tester, 'tip_lasso_$m');
-          await tester.tap(find.byTooltip('Dismiss tip'));
-          await settle(tester);
           continue;
         }
         await tester.tap(find.byTooltip(tooltip));
@@ -187,8 +186,8 @@ void main() {
     await openEditor(tester, tablet, 2, ThemeMode.light);
     await tester.tap(find.byTooltip('Pen (P)'));
     await settle(tester);
-    await tester.ensureVisible(find.text('Toolbar'));
-    await tester.tap(find.text('Toolbar'));
+    await tester.ensureVisible(find.text('Quick colours and sizes'));
+    await tester.tap(find.text('Quick colours and sizes'));
     await settle(tester);
     await tester.ensureVisible(find.byTooltip('More quick colours'));
     await tester.tap(find.byTooltip('More quick colours'));

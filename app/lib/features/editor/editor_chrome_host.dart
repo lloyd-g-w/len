@@ -265,7 +265,6 @@ class EditorChromeHost extends StatelessWidget {
               onSearch: commands.openSearch,
             ),
             undo: session.undo,
-            onUndoTapped: () => tips.undoTapped(prefs),
             tabs: tabs,
             audio: AudioBarButton(audio: audio),
             status: SyncAlertButton(

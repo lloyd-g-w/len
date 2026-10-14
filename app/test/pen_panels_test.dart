@@ -97,7 +97,7 @@ void main() {
     await pump(tester, SingleChildScrollView(child: Builder(builder: pen.options!)));
     await tester.tap(find.text('Feel'));
     await tester.pumpAndSettle();
-    expect(find.text('Reset feel'), findsOneWidget);
+    expect(find.text('Reset'), findsOneWidget, reason: 'in the header, for the feel');
     expect(find.text('Hold to snap'), findsNothing);
     expect(find.text('Scribble to erase'), findsNothing);
   });

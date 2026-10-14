@@ -180,9 +180,10 @@ void main() {
       expect(tools.activeConfig.widths, hasLength(3));
       await tester.tap(find.byTooltip('Pen (P)'));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('More quick colours'), findsNothing, reason: 'folded under Toolbar');
-      await tester.ensureVisible(find.text('Toolbar'));
-      await tester.tap(find.text('Toolbar'));
+      expect(find.byTooltip('More quick colours'), findsNothing, reason: 'folded away');
+      expect(find.text('3 and 3'), findsOneWidget);
+      await tester.ensureVisible(find.text('Quick colours and sizes'));
+      await tester.tap(find.text('Quick colours and sizes'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byTooltip('More quick colours'));
       for (var i = 0; i < 4; i++) {

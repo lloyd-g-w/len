@@ -359,19 +359,22 @@ or deleted pages in order with ink. Snack bars' Undo calls
   selection instead).
 - **Hints** (shown sparingly, never blocking): an empty infinite canvas shows a quiet
   "Draw anywhere" note with how to move around (`canvas/canvas_empty_hint.dart`; gone at
-  the first edit). `TipsController` (`chrome/editor_tips.dart`) shows a one-time tip at
-  the bottom, above the toolbar, for 10 s or until dismissed, remembered per device
-  (`SettingsRepository.seenTips`): the stylus side button (after the first pen contact,
-  phrased for `PenButtonAction`; none if it does nothing); tap with two / three fingers
-  to undo / redo (the third ↶ tap in an editor on touch with finger-tap undo on); what
-  the lasso does (the first time it is picked; it waits while something is selected
-  and goes with the first selection, ink or PDF text, or another tool, so it never
-  covers a selection or its menu); hold to snap (after a pen line or shape drawn by hand
-  that it would have cleaned up, `HoldToStraighten.wouldSnap` via `InkEvents.shapeDrawn`,
-  once the pen has rested 2 s: a new stroke puts it off to the next shape, so never
-  while writing); scribble to erase (the second time the eraser is picked). Both only
-  while their switch in Settings → Writing is on. The gesture HUD names multi-finger
-  taps when they happen.
+  the first edit). `TipsController` (`chrome/editor_tips.dart`) teaches each input
+  without an affordance once per device, on a budget (R9-1): at most one tip per editor
+  (notebook opening), ≥ 10 min apart (`SettingsRepository.lastTipAt`), none within 60 s
+  of a snack bar (`MessageQueue.anyShowing`), and only once the pen (`LiveInk`) has rested
+  2 s. A tip never replaces another (a later trigger is dropped and waits for its next
+  one); several due at once go by priority (`EditorTip` order): the side button (a stylus
+  contact, from the second opening on: the first has the "Stylus detected" message;
+  phrased for `PenButtonAction`), hold to snap (a hand-drawn line or shape,
+  `HoldToStraighten.wouldSnap` via `InkEvents.shapeDrawn`; writing on puts it off to the
+  next shape), the lasso (when picked; never over a selection, and a selection is the
+  tip done), scribble to erase (the eraser picked again). Each only while its setting
+  is on. `TipBanner` (`chrome/tip_banner.dart`) sits at the bottom above the toolbar,
+  ignores all pointers (strokes go to the page), fades while the pen is down and hides
+  behind snack bars; its 10 s stop meanwhile, and it counts as seen
+  (`SettingsRepository.seenTips`) only after 3 s on screen. The gesture HUD names
+  multi-finger taps when they happen (no tip for them).
 - **Tabs** (`tabs/`): `OpenNotebooks` (in `AppServices`) holds up to 8 open notebooks,
   the active one, and each tab's `EditorViewState` (page, zoom, pan). The library opens
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
@@ -1588,9 +1591,9 @@ Page with template…).
   which opens the HSV picker in place, a palette, recent colours). Sections:
   inks (`InkOptions`: live preview, the selected slot's colour — the pen
   palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
-  logarithmic slider in mm, then *Feel* collapsed (ending in "Reset feel",
-  which keeps the quick colours and sizes; inks have no whole-tool Reset),
-  then *Toolbar* collapsed ("3 colours · 3 sizes": "Quick colours / Quick
+  logarithmic slider in mm, then *Feel* collapsed (the header's Reset resets the feel only and
+  keeps the quick colours and sizes),
+  then *Quick colours and sizes* collapsed ("3 and 3": "Quick colours / Quick
   sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
   none for the lasso (`ToolDescriptor.options` null: tapping it again does
