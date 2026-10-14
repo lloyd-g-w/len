@@ -17,11 +17,12 @@ import 'minimap_painter.dart';
 part 'minimap_gestures.dart';
 
 /// The minimap's size for a canvas whose free area (beside the chrome) is
-/// [free]: shaped like it, within 3:4 and 16:10, smaller on phones.
+/// [free]: as wide as it within 1:1 and 16:10 (a tall map would leave
+/// writing, which runs across, small), smaller on phones.
 Size minimapSize(Size free, {bool phone = false}) {
   final long = phone ? CanvasMinimap.phoneSide : CanvasMinimap.side;
-  final aspect = free.isEmpty ? 1.5 : (free.width / free.height).clamp(0.75, 1.6);
-  return aspect >= 1 ? Size(long, long / aspect) : Size(long * aspect, long);
+  final aspect = free.isEmpty ? 1.5 : (free.width / free.height).clamp(1.0, 1.6);
+  return Size(long, long / aspect);
 }
 
 /// A small map of the whole canvas floating in a corner: soft blocks where
@@ -68,7 +69,7 @@ class CanvasMinimap extends StatefulWidget {
 
   /// Longer side of the map (on phones: [phoneSide]).
   static const double side = 176;
-  static const double phoneSide = 128;
+  static const double phoneSide = 120;
 
   /// Delay after an edit before the content is re-read.
   static const Duration refreshDelay = Duration(milliseconds: 500);
@@ -127,7 +128,11 @@ class _CanvasMinimapState extends State<CanvasMinimap> with SingleTickerProvider
       old.live.removeListener(_onLive);
       widget.live.addListener(_onLive);
     }
-    if (old.size != widget.size) _onView();
+    if (old.size != widget.size) {
+      // Another shape: refit from scratch.
+      _from = _to = null;
+      _onView();
+    }
   }
 
   @override
@@ -214,21 +219,19 @@ class _CanvasMinimapState extends State<CanvasMinimap> with SingleTickerProvider
     return ChromeFade(
       visible: shown,
       edge: const Offset(0, 1),
+      // A window onto the paper: the panel's hairline and shadow, no rim.
       child: FloatingPanel(
-        padding: const EdgeInsets.all(Gaps.xs),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(Radii.xs),
-          child: _MinimapGestures(
-            state: this,
-            child: CustomPaint(
-              size: widget.size,
-              painter: MinimapPainter(
-                content: _content,
-                frame: () => _projection().world,
-                view: () => _nav.visibleArea,
-                colors: _colors(Theme.of(context).colorScheme),
-                repaint: Listenable.merge([_nav.viewport, _glide]),
-              ),
+        padding: EdgeInsets.zero,
+        child: _MinimapGestures(
+          state: this,
+          child: CustomPaint(
+            size: widget.size,
+            painter: MinimapPainter(
+              content: _content,
+              frame: () => _projection().world,
+              view: () => _nav.visibleArea,
+              colors: _colors(Theme.of(context).colorScheme),
+              repaint: Listenable.merge([_nav.viewport, _glide]),
             ),
           ),
         ),

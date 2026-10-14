@@ -180,7 +180,7 @@ void main() {
 
   test('minimapSize follows the free area within limits', () {
     expect(minimapSize(const Size(1600, 1000)), const Size(176, 110));
-    expect(minimapSize(const Size(400, 800), phone: true), const Size(96, 128));
+    expect(minimapSize(const Size(400, 800), phone: true), const Size(120, 120));
     expect(minimapSize(const Size(3000, 1000)).aspectRatio, closeTo(1.6, 1e-9));
   });
 

@@ -4,6 +4,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
+import 'package:len/domain/notebook.dart';
+import 'package:len/domain/paper.dart';
+import 'package:len/features/editor/canvas/canvas_minimap.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
 import 'package:len/features/editor/zoom/zoom_box.dart';
 import 'package:len/features/inklab/inklab_screen.dart';
@@ -41,6 +44,25 @@ Future<void> _word(WidgetTester tester, Offset start) async {
   }
   await pen.up();
   await tester.pump();
+}
+
+/// A canvas with writing in four places far apart.
+Notebook _atlas(AppServices s, {PaperColor paper = PaperColor.white}) {
+  final n = s.notebooks.create(
+    title: 'Atlas',
+    kind: NotebookKind.canvas,
+    paper: PaperStyle.dotted,
+    paperColor: paper,
+    coverColor: 0xFF0B7285,
+  );
+  s.strokes.save([
+    ...inkLines(n.id, const Offset(-150, -90), lines: 1, color: 0xFF1C4ED8, prefix: 'h'),
+    ...inkLines(n.id, const Offset(-150, -10), seed: 3),
+    ...inkLines(n.id, const Offset(1800, 700), lines: 6, width: 900, seed: 5, prefix: 'a'),
+    ...inkLines(n.id, const Offset(-1600, 1900), lines: 4, width: 1400, seed: 7, prefix: 'b'),
+    ...inkLines(n.id, const Offset(3400, -1200), lines: 2, width: 500, seed: 9, prefix: 'c'),
+  ]);
+  return n;
 }
 
 void main() {
@@ -127,6 +149,48 @@ void main() {
       });
     }
   }
+
+  // 6a. Minimap (canvas): content far apart, the frame on the view; ⋯ → View;
+  // its own menu (long-press).
+  for (final screen in [phoneScreen, tabletScreen]) {
+    for (final mode in modes) {
+      final shot = '${screen.name}_${mode.name}';
+      testWidgets('e_minimap $shot', (tester) async {
+        await guardOverflows('e_minimap_$shot', () async {
+          final s = bareServices();
+          s.settings.canvasMinimap = true;
+          await pumpNotebook(tester, s, _atlas(s), screen: screen, mode: mode);
+          await settle(tester);
+          await shoot(tester, 'e_minimap_$shot');
+          final nav = tester.widget<CanvasView>(find.byType(CanvasView)).navigation;
+          nav.zoomTo(1);
+          await settle(tester);
+          nav.centreOn(const Offset(2250, 850));
+          await settle(tester);
+          await shoot(tester, 'e_minimap_zoomed_$shot');
+          await tester.longPress(find.byType(CanvasMinimap));
+          await settle(tester);
+          await shoot(tester, 'e_minimap_menu_$shot');
+          await dismiss(tester, screen.size.center(Offset.zero));
+          await tester.tap(find.byTooltip('More options'));
+          await settle(tester);
+          await tester.tap(find.text('View'));
+          await settle(tester);
+          await shoot(tester, 'e_minimap_view_menu_$shot');
+        });
+      });
+    }
+  }
+
+  testWidgets('e_minimap dark paper', (tester) async {
+    await guardOverflows('e_minimap_dark_paper', () async {
+      final s = bareServices();
+      s.settings.canvasMinimap = true;
+      await pumpNotebook(tester, s, _atlas(s, paper: PaperColor.dark), screen: tabletScreen);
+      await settle(tester);
+      await shoot(tester, 'e_minimap_dark_paper');
+    });
+  });
 
   // 6b. Zoom window: ⋯ → View → Zoom window, then words written in the box.
   for (final screen in [phoneScreen, tabletScreen]) {

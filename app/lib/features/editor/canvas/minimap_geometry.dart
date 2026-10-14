@@ -85,8 +85,9 @@ abstract final class MinimapFrame {
   /// Room around content and view, as a share of their larger side.
   static const double margin = 0.12;
 
-  /// A frame more than this many times as wide as needed is refitted.
-  static const double slack = 3;
+  /// A frame more than this many times as wide as needed (margin included)
+  /// is refitted: content stays large on the map after zooming in.
+  static const double slack = 1.8;
 
   /// The world rectangle (of [aspect] = width / height) to show for
   /// [content] and [view], keeping [previous] where it still works.
@@ -97,13 +98,12 @@ abstract final class MinimapFrame {
     double aspect = 1.5,
   }) {
     final needed = content == null ? view : content.expandToInclude(view);
-    if (previous != null &&
-        _contains(previous, needed) &&
-        previous.width <= _fitAspect(needed, aspect).width * slack) {
+    final room = math.max(needed.width, needed.height) * margin;
+    final fitted = _fitAspect(needed.inflate(room), aspect);
+    if (previous != null && _contains(previous, needed) && previous.width <= fitted.width * slack) {
       return previous;
     }
-    final room = math.max(needed.width, needed.height) * margin;
-    return _fitAspect(needed.inflate(room), aspect);
+    return fitted;
   }
 
   static bool _contains(Rect outer, Rect inner) =>
