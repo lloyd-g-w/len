@@ -39,6 +39,7 @@ import 'split/split_controller.dart';
 import 'split/split_view.dart';
 import 'split/split_view_menu.dart';
 import 'tabs/open_notebooks.dart';
+import 'zoom/zoom_window_state.dart';
 
 part 'editor_screen_actions.dart';
 part 'editor_screen_layout.dart';
@@ -122,6 +123,10 @@ class _EditorScreenState extends State<_EditorView> {
         ? _services.openNotebooks.splitView
         : _services.openNotebooks.viewOf(widget.notebook.id) ??
               EditorViewState.decode(_services.settings.editorView(widget.notebook.id)),
+    // The second pane leaves the zoom window to the first.
+    initialZoom: widget.secondPane
+        ? null
+        : ZoomWindowState.decode(_services.settings.zoomWindow(widget.notebook.id)),
   );
 
   /// App lifecycle, remote changes, remembering the view, closing.

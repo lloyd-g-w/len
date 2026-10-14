@@ -479,11 +479,29 @@ or deleted pages in order with ink. Snack bars' Undo calls
   is what the window needs of the editor: bounds, paper and margin, models (held with
   `DocumentSurfaces.acquireModel`), activating the frame's page (its live ink shows there),
   and `reveal` so the main view follows the frame. `ZoomFrameOverlay` draws the frame on the
-  page (a 2-dp accent rule, the zone's hairline, a corner handle): drag it to move (lines then
-  start there), drag the handle to size it. Palm: a stylus in the box tells the page's input
+  page (an accent hairline over a 5 % wash, the zone washed deeper, a tab on the top edge at
+  the left, a square at the corner): drag the tab to move it (lines then start there), the
+  square to size it. Only the two handles take pointers (their targets mostly outside the
+  frame), so the pen writes inside the frame on the page as anywhere. While an advance waits
+  for the pen to rest, `ZoomWindow.armed` is set and the box's zone band (`ZoneBand`,
+  `ZoneBandPainter`: 10 % of the paper's pattern colour at rest) deepens over the pause, so the
+  glide that follows is expected; the pen coming back disarms it. The box's top edge (`ZoomBoxGrip`, two ticks in the
+  paper's pattern colour; `BoxHeightDrag`) sizes the box with a finger or the mouse (a stylus
+  writes up to the edge): `ZoomWindow.boxHeight`, kept by `ZoomBox.heightFor` to at least
+  `least` and clear of `pageRoom` of the page. The rail (`ZoomBoxRail`: ✕ and ⋯ at the top, ↵ at
+  the bottom) opens the box's own menu (`zoom_box_menu.dart`): *Left-handed* docks the box
+  under the top chrome (`AppPreferences.zoomBoxAtTop`, `ChromeLayout.zoomBoxAtTop`, counted in
+  `covered.top`; the grip moves to its bottom edge) so a left arm writing in it hides none of
+  the page and the frame (GoodNotes' answer for left-handers; the advance stays at the right,
+  as writing runs left to right whichever hand holds the pen), and *Automatic height* undoes a
+  dragged one. Palm: a stylus in the box tells the page's input
   (`InkInputController.stylusElsewhere`: a finger drawing or panning there stops, new ones
   are ignored as between strokes) and `ZoomWindow.blocksPage` absorbs new page touches for
-  `palmQuiet` after the pen lifts. The window is per session and not persisted.
+  `palmQuiet` after the pen lifts. Each notebook keeps its window (`ZoomWindowState`: the frame
+  while open, the chosen box height) in the settings (`zoom_window.<id>`, written with
+  `editor_view.<id>`); it reopens there (`ZoomWindow.restore`: the frame kept on its page and
+  lines starting at it; a page since deleted opens afresh). The second pane neither keeps nor
+  restores it.
 - **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
   pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
   in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).

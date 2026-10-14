@@ -21,6 +21,10 @@ mixin _ZoomMoves {
   /// Whether the frame was placed (it waits for the box's size).
   bool _placed = false;
 
+  /// Whether the frame, once the box is laid out, stays where it was put
+  /// (kept from before) rather than being placed afresh.
+  bool _resume = false;
+
   /// Where lines begin and end (surface x).
   double _lineStart = 0, _lineEnd = 0;
 
@@ -29,6 +33,27 @@ mixin _ZoomMoves {
 
   /// An advance waiting for the pen to rest.
   Timer? _pending;
+
+  /// Whether an advance waits for the pen to rest (the box's zone fills
+  /// meanwhile, so the move doesn't come as a surprise).
+  final ValueNotifier<bool> armed = ValueNotifier(false);
+
+  /// Moves the frame on from ink lifted at [inkRight] once the pen rested
+  /// for [after].
+  void _arm(double inkRight, Duration after) {
+    _pending?.cancel();
+    armed.value = true;
+    _pending = Timer(after, () {
+      armed.value = false;
+      _advance(inkRight);
+    });
+  }
+
+  /// Drops a waiting advance.
+  void _disarm() {
+    _pending?.cancel();
+    armed.value = false;
+  }
 
   Ticker? _glide;
   Offset _glideFrom = Offset.zero, _glideEnd = Offset.zero;
@@ -64,6 +89,19 @@ mixin _ZoomMoves {
   void _reveal() {
     final rect = frameRect;
     if (rect != null) host.reveal(_frame!.surfaceId, rect);
+  }
+
+  /// Places the frame once the box is laid out: where it was kept, or
+  /// afresh.
+  void _layOut() {
+    if (!_resume) return _place();
+    _resume = false;
+    final frame = _frame!;
+    final sized = frame.copyWith(scale: _rules.scaleForWidth(_box.width / frame.scale));
+    _set(sized.copyWith(origin: _rules.clamp(sized, sized.origin)));
+    _placed = true;
+    _startLine();
+    _reveal();
   }
 
   /// Frames where writing goes on in view: below the ink that shows (its
@@ -156,7 +194,7 @@ mixin _ZoomMoves {
   void newLine() {
     final frame = _frame;
     if (frame == null || _box.isEmpty) return;
-    _pending?.cancel();
+    _disarm();
     _finishGlide();
     _apply(_rules.newLine(frame, lineStep: _lineStep()));
   }
@@ -220,7 +258,7 @@ mixin _ZoomMoves {
   void dragBy(Offset screenDelta) {
     final frame = _frame;
     if (frame == null || _box.isEmpty) return;
-    _pending?.cancel();
+    _disarm();
     _finishGlide();
     final origin = host.originOf(frame.surfaceId);
     if (origin == null) return;
@@ -258,7 +296,7 @@ mixin _ZoomMoves {
   void _panBox(Offset screenDelta) {
     final frame = _frame;
     if (frame == null) return;
-    _pending?.cancel();
+    _disarm();
     _finishGlide();
     final origin = _rules.clamp(frame, frame.origin - screenDelta / frame.scale);
     _set(frame.copyWith(origin: origin));

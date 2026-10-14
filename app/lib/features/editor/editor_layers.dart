@@ -107,9 +107,11 @@ class EditorLayers extends StatelessWidget {
           Positioned(
             left: 0,
             right: 0,
-            bottom: layout.zoomBoxBottom,
+            top: layout.zoomBoxAtTop ? layout.zoomBoxTop : null,
+            bottom: layout.zoomBoxAtTop ? null : layout.zoomBoxBottom,
             height: layout.zoomBox,
             child: ZoomBox(
+              atTop: layout.zoomBoxAtTop,
               session: session,
               padding: EdgeInsets.only(left: layout.safe.left, right: layout.safe.right),
             ),

@@ -28,11 +28,12 @@ class ChromeLayout {
     required this.focus,
     this.short = false,
     this.zoomBox = 0,
+    this.zoomBoxAtTop = false,
   });
 
   /// The same layout with the zoom window's box, [height] tall, docked
-  /// above the bottom chrome.
-  ChromeLayout withZoomBox(double height) => ChromeLayout(
+  /// above the bottom chrome (or, [atTop], under the top chrome).
+  ChromeLayout withZoomBox(double height, {bool atTop = false}) => ChromeLayout(
     dock: dock,
     barHeight: barHeight,
     safe: safe,
@@ -41,6 +42,7 @@ class ChromeLayout {
     focus: focus,
     short: short,
     zoomBox: height,
+    zoomBoxAtTop: atTop,
   );
 
   /// Where the toolbar is.
@@ -61,9 +63,20 @@ class ChromeLayout {
   /// Height of the zoom window's box (0 when it is closed).
   final double zoomBox;
 
+  /// Whether the zoom window's box docks under the top chrome.
+  final bool zoomBoxAtTop;
+
+  /// The box's height along the bottom and the top edge.
+  double get _boxBelow => zoomBoxAtTop ? 0 : zoomBox;
+  double get _boxAbove => zoomBoxAtTop ? zoomBox : 0;
+
   /// Where the zoom window's box sits: on the bottom tool row (in focus
   /// mode, on the screen's safe edge).
   double get zoomBoxBottom => safe.bottom + (focus ? 0 : bottomRowHeight);
+
+  /// Where the box's top lies when it docks at the top: under the top
+  /// chrome (in focus mode, the screen's safe edge).
+  double get zoomBoxTop => focus ? safe.top : barBottom;
 
   /// Whether the editor is laid out for a phone.
   bool get phone => width < ChromeMetrics.compactWidth;
@@ -85,13 +98,16 @@ class ChromeLayout {
   double get barBottom => safe.top + barHeight + toolRowHeight;
 
   /// Where the page navigator's bottom edge sits.
-  double get navigatorBottom => safe.bottom + bottomRowHeight + zoomBox + ChromeMetrics.edge;
+  double get navigatorBottom => safe.bottom + bottomRowHeight + _boxBelow + ChromeMetrics.edge;
 
   /// Screen space covered by chrome along the top and bottom edges. A
   /// floating palette covers no edge.
   EdgeInsets get covered {
-    if (focus) return EdgeInsets.only(top: safe.top, bottom: safe.bottom + zoomBox);
-    return EdgeInsets.only(top: barBottom, bottom: safe.bottom + bottomRowHeight + zoomBox);
+    if (focus) return EdgeInsets.only(top: safe.top + _boxAbove, bottom: safe.bottom + _boxBelow);
+    return EdgeInsets.only(
+      top: barBottom + _boxAbove,
+      bottom: safe.bottom + bottomRowHeight + _boxBelow,
+    );
   }
 
   /// [covered], plus the spot a peeking navigator appears in: floating
@@ -199,8 +215,8 @@ class EditorChrome extends StatelessWidget {
               child: ToolbarSlot(
                 toolbar: toolbar,
                 insets: EdgeInsets.only(
-                  top: layout.barBottom,
-                  bottom: safe.bottom + layout.zoomBox,
+                  top: layout.barBottom + layout._boxAbove,
+                  bottom: safe.bottom + layout._boxBelow,
                   left: safe.left,
                   right: safe.right,
                 ),

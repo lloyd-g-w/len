@@ -47,6 +47,7 @@ class EditorSession {
     required this.shared,
     required void Function() onStylusDetected,
     EditorViewState? initialView,
+    ZoomWindowState? initialZoom,
   }) : tools = ToolSettings(
          stylusOnly: services.settings.stylusOnly,
          penButtonErases: services.preferences.penButtonAction == PenButtonAction.eraser,
@@ -124,6 +125,7 @@ class EditorSession {
       );
     }
     gestures.onDoubleTap = zoom.toggle;
+    if (initialZoom != null) _restoreZoom(initialZoom);
   }
 
   final AppServices services;
@@ -163,12 +165,23 @@ class EditorSession {
   /// eraser is in hand: the box writes and erases), or closes it.
   void toggleZoomWindow() {
     final zoom = zoomWindow;
-    if (!zoom.isOpen) {
-      final tool = tools.tool;
-      if (tool != EditorTool.highlighter && tool != EditorTool.eraser) tools.tool = EditorTool.pen;
-    }
+    if (!zoom.isOpen) _toolForZoom();
     zoom.toggle();
   }
+
+  void _toolForZoom() {
+    final tool = tools.tool;
+    if (tool != EditorTool.highlighter && tool != EditorTool.eraser) tools.tool = EditorTool.pen;
+  }
+
+  /// The zoom window as the notebook left it (open where it was).
+  void _restoreZoom(ZoomWindowState state) {
+    if (state.open) _toolForZoom();
+    zoomWindow.restore(state);
+  }
+
+  /// What the notebook keeps of the zoom window; null if it was never used.
+  ZoomWindowState? get zoomState => _zoomCreated ? zoomWindow.state : null;
 
   /// Page and web links: finding, following and making them.
   late final EditorLinks links = EditorLinks(this);

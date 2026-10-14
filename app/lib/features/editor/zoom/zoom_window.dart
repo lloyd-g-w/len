@@ -11,6 +11,9 @@ import '../../../ui/design_tokens.dart';
 import 'zoom_box_viewport.dart';
 import 'zoom_frame.dart';
 import 'zoom_host.dart';
+import 'zoom_window_state.dart';
+
+export 'zoom_window_state.dart';
 
 part 'zoom_window_moves.dart';
 
@@ -68,24 +71,45 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
   /// (the editor's layout makes room for the box).
   final ValueNotifier<bool> opened = ValueNotifier(false);
 
+  /// The box's height as dragged by its top edge (logical pixels), or null
+  /// for the editor's choice; the editor keeps it within limits.
+  final ValueNotifier<double?> boxHeight = ValueNotifier(null);
+
   /// Opens the window on the page in view (or the canvas), framing the
-  /// start of the visible lines once the box is laid out.
-  void open() {
+  /// start of the visible lines once the box is laid out; or [at] a frame
+  /// kept from before (when its page is still there), kept on its page.
+  void open({ZoomFrame? at}) {
     if (isOpen) return;
-    final id = host.current;
-    _frame = ZoomFrame(surfaceId: id, origin: Offset.zero, scale: 1);
+    final resume = at != null && host.has(at.surfaceId);
+    final id = resume ? at.surfaceId : host.current;
+    _frame = resume ? at : ZoomFrame(surfaceId: id, origin: Offset.zero, scale: 1);
     _placed = false;
+    _resume = resume;
     _attach(id);
     host.changes.addListener(_onHost);
-    if (!_box.isEmpty) _place();
+    if (!_box.isEmpty) _layOut();
     opened.value = true;
     notifyListeners();
+  }
+
+  /// What a notebook keeps of the window for the next time it opens.
+  ZoomWindowState get state {
+    final frame = _frame;
+    final settled = frame == null || _glide == null ? frame : frame.copyWith(origin: _glideEnd);
+    return ZoomWindowState(frame: settled, boxHeight: boxHeight.value);
+  }
+
+  /// Takes up a [state] kept from before: the box's height, and the frame
+  /// if the window was open.
+  void restore(ZoomWindowState state) {
+    boxHeight.value = state.boxHeight;
+    if (state.frame case final frame?) open(at: frame);
   }
 
   /// Closes the window; the ink written stays.
   void close() {
     if (!isOpen) return;
-    _pending?.cancel();
+    _disarm();
     _stopGlide();
     _input?.cancelDraw();
     host.changes.removeListener(_onHost);
@@ -99,13 +123,19 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
 
   void toggle() => isOpen ? close() : open();
 
+  /// Scrolls the main view to show the frame clear of the chrome (after
+  /// the box moved to the other edge).
+  void showFrame() {
+    if (isOpen) _reveal();
+  }
+
   /// The box was laid out at [size] (rotation, resize): the frame keeps
   /// its place and magnification and takes the box's new shape.
   void setBox(Size size) {
     if (size == _box || size.isEmpty) return;
     _box = size;
     if (!isOpen) return;
-    if (!_placed) return _place();
+    if (!_placed) return _layOut();
     _set(_frame!.copyWith(origin: _rules.clamp(_frame!, _frame!.origin)));
     _reveal();
   }
@@ -120,7 +150,7 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
   /// A contact began in the box: the frame stops moving, its page takes
   /// the editor's input (live ink shows on it) and the page view follows.
   void penDown() {
-    _pending?.cancel();
+    _disarm();
     _finishGlide();
     _contact(true);
     final frame = _frame;
@@ -140,7 +170,7 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
     final rules = _rules;
     if (!rules.inZone(frame, ink.right)) return;
     if (rules.advancesNow(frame, ink.right)) return _advance(ink.right);
-    _pending = Timer(pause, () => _advance(ink.right));
+    _arm(ink.right, pause);
   }
 
   void _contact(bool down) {
@@ -185,11 +215,12 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
   void _onHost() {
     final frame = _frame;
     if (frame == null || host.has(frame.surfaceId)) return;
-    _pending?.cancel();
+    _disarm();
     _stopGlide();
     _detach();
     _frame = frame.copyWith(surfaceId: host.current);
     _attach(host.current);
+    _resume = false;
     _place();
   }
 
@@ -212,6 +243,8 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
     _unblock?.cancel();
     blocksPage.dispose();
     opened.dispose();
+    armed.dispose();
+    boxHeight.dispose();
     view.dispose();
     super.dispose();
   }
