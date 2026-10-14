@@ -18,8 +18,9 @@ import 'pointer_tool.dart';
 /// width and opacity; closed shapes get [ToolSettings.shapeFill]. The
 /// preview is always the shape from the press to the pointer, and the
 /// shape committed is the one last shown. Holding Shift (pressed or
-/// released at any time during the drag) keeps proportions (squares,
-/// circles) or snaps lines to 15° steps. A tap on a shape selects it, to
+/// released at any time during the drag) makes the shape regular
+/// (squares, circles, equilateral triangles, regular stars) or snaps lines
+/// to 15° steps. A tap on a shape selects it, to
 /// edit its points.
 class ShapeTool implements PointerTool {
   ShapeTool({
@@ -146,12 +147,15 @@ class ShapeTool implements PointerTool {
     if (hit?.shape != null) selection.select([hit!], const []);
   }
 
-  /// Square boxes for closed shapes; 15° angle steps for lines and arrows.
+  /// Boxes making closed shapes regular (squares, circles, equilateral
+  /// triangles, regular stars: [ShapeBuilder.regularAspect]) as large as
+  /// the drag; 15° angle steps for lines and arrows.
   static Offset constrain(ShapeKind kind, Offset start, Offset end) {
     final d = end - start;
     if (kind.isClosed) {
-      final side = math.max(d.dx.abs(), d.dy.abs());
-      return start + Offset(side * (d.dx < 0 ? -1 : 1), side * (d.dy < 0 ? -1 : 1));
+      final aspect = ShapeBuilder.regularAspect(kind);
+      final height = math.max(d.dx.abs() / aspect, d.dy.abs());
+      return start + Offset(height * aspect * (d.dx < 0 ? -1 : 1), height * (d.dy < 0 ? -1 : 1));
     }
     const step = math.pi / 12;
     final angle = (d.direction / step).round() * step;

@@ -14,6 +14,7 @@ import 'package:len/ink/selection/lasso_path.dart';
 import 'package:len/ink/selection/selection_chrome.dart';
 import 'package:len/ink/selection/selection_controller.dart';
 import 'package:len/ink/selection/selection_frame.dart';
+import 'package:len/ink/shapes/shape_builder.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/tools/laser.dart';
@@ -292,11 +293,28 @@ void main() {
     });
   });
 
-  test('ShapeTool.constrain makes squares and 15° lines', () {
+  test('ShapeTool.constrain makes regular shapes and 15° lines', () {
     expect(
       ShapeTool.constrain(ShapeKind.rectangle, Offset.zero, const Offset(30, -10)),
       const Offset(30, -30),
     );
+    // Equilateral triangles and regular stars: equal sides, points on a circle.
+    final tri = ShapeBuilder.dragged(
+      ShapeKind.triangle,
+      Offset.zero,
+      ShapeTool.constrain(ShapeKind.triangle, Offset.zero, const Offset(-50, 200)),
+    ).points;
+    for (var i = 0; i < 3; i++) {
+      expect((tri[(i + 1) % 3] - tri[i]).distance, closeTo((tri[1] - tri[0]).distance, 1e-9));
+    }
+    final star = ShapeBuilder.dragged(
+      ShapeKind.star,
+      Offset.zero,
+      ShapeTool.constrain(ShapeKind.star, Offset.zero, const Offset(300, 40)),
+    );
+    final u = star.points[1] - star.points[0], v = star.points[2] - star.points[0];
+    expect(u.distance, closeTo(v.distance, 1e-9));
+    expect(u.distance, greaterThan(150)); // as large as the drag
     final end = ShapeTool.constrain(ShapeKind.line, Offset.zero, const Offset(100, 4));
     expect(end.dy, closeTo(0, 1e-9));
     expect(end.dx, closeTo(const Offset(100, 4).distance, 1e-9));

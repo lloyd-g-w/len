@@ -99,6 +99,14 @@ abstract final class ShapeBuilder {
     ];
   }
 
+  /// Width over height of the box around [kind] when regular: a circle,
+  /// square, equilateral triangle or regular star (Shift while dragging).
+  static double regularAspect(ShapeKind kind) => switch (kind) {
+    ShapeKind.triangle => 2 / math.sqrt(3),
+    ShapeKind.star => 2 * math.sin(2 * math.pi / 5) / (1 + math.cos(math.pi / 5)),
+    _ => 1,
+  };
+
   /// A five-pointed star stretched to fill [r]: its frame maps the unit
   /// star's bounding box onto [r].
   static ShapeGeometry _starIn(Rect r) {
