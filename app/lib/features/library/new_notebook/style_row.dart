@@ -180,7 +180,11 @@ class SaveStyleButton extends StatelessWidget {
     alignment: AlignmentDirectional.centerStart,
     child: TextButton.icon(
       key: const ValueKey('save-style'),
-      style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
+      style: TextButton.styleFrom(
+        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        // The glyph near the form's edge, under the fields above it.
+        padding: const EdgeInsetsDirectional.only(start: Gaps.xs, end: Gaps.sm),
+      ),
       onPressed: onPressed,
       icon: const Icon(Symbols.add_sharp, size: Glyphs.menu),
       label: const Text('Save as style…'),
