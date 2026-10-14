@@ -118,6 +118,11 @@ void showMessage(
 abstract final class MessageQueue {
   static final _counts = Expando<int>();
   static final _changes = ValueNotifier(0);
+  static final _anyUp = ValueNotifier(false);
+  static int _up = 0;
+
+  /// Whether a snack bar is up anywhere (the editor's tips keep away).
+  static ValueListenable<bool> get anyShowing => _anyUp;
 
   /// Shows [bar] on [messenger], counting it until it closes.
   static ScaffoldFeatureController<SnackBar, SnackBarClosedReason> show(
@@ -126,10 +131,12 @@ abstract final class MessageQueue {
   ) {
     final shown = messenger.showSnackBar(bar);
     _counts[messenger] = (_counts[messenger] ?? 0) + 1;
+    _anyUp.value = ++_up > 0;
     _changes.value++;
     unawaited(
       shown.closed.whenComplete(() {
         _counts[messenger] = (_counts[messenger] ?? 1) - 1;
+        _anyUp.value = --_up > 0;
         _changes.value++;
       }),
     );

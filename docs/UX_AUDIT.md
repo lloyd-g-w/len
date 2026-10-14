@@ -245,11 +245,14 @@ One interaction model per object:
 
 ### Prioritised items
 
-**R9-1 P1 · Tips have no budget, can be lost, and sit on the writing.**
+**R9-1 P1 · Tips have no budget, can be lost, and sit on the writing.** ✅
 See "Proposed calm budget" above. Effort S.
+- ✅ Done as proposed (`fix/r9-tips-pen`). The tip card has no ✕ any
+  more: it lets every pointer through, so it couldn't take a tap; it goes
+  after 10 s on screen.
 
 **R9-2 P1 · The first stroke gets the stylus snack, then the side-button
-tip.**
+tip.** ✅ (the tip waits for the next opening)
 - *What:* `_onStylusDetected` (`editor/editor_screen_actions.dart:8-31`)
   chains the side-button tip onto the snack's close.
 - *Why:* the first 14 s of a new user's first page have messages over

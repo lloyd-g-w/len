@@ -27,7 +27,7 @@ extension _BarRows on EditorTopBar {
     children: [
       ?status,
       if (!compact) ?audio,
-      UndoRedoButtons(target: undo, redoOnlyWhenAvailable: compact, onUndoTapped: onUndoTapped),
+      UndoRedoButtons(target: undo, redoOnlyWhenAvailable: compact),
       EditorMoreMenu(
         actions: actions,
         compact: compact,

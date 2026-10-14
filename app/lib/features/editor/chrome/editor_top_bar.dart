@@ -45,7 +45,6 @@ class EditorTopBar extends StatelessWidget {
     this.split = false,
     this.band = false,
     this.short = false,
-    this.onUndoTapped,
     this.status,
   });
 
@@ -59,8 +58,6 @@ class EditorTopBar extends StatelessWidget {
   final EditorMenuActions actions;
   final UndoTarget undo;
 
-  /// Told after ↶ undid something ([UndoRedoButtons.onUndoTapped]).
-  final VoidCallback? onUndoTapped;
   final OpenNotebooks? tabs;
 
   /// The audio split button (features/audio), first of the actions; on

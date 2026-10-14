@@ -6,12 +6,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/features/editor/chrome/editor_tips.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/ink/input/hold_to_straighten.dart';
-import 'package:len/ink/tool_settings.dart';
 
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
 
 /// R8-26: hold to snap and scribble to erase live in Settings → Writing and
-/// are taught once each, at a calm moment.
+/// are taught once each, at a calm moment (the budget: tip_budget_test).
 void main() {
   group('what counts as a line or shape drawn by hand', () {
     List<Offset> line(Offset a, Offset b, {double wobble = 0}) {
@@ -62,67 +61,6 @@ void main() {
     });
   });
 
-  group('the tips', () {
-    late ToolSettings tools;
-    late Set<String> seen;
-    late TipsController tips;
-    var activity = 0;
-
-    setUp(() {
-      tools = ToolSettings();
-      seen = {};
-      activity = 0;
-      tips = TipsController(seen: seen.contains, markSeen: seen.add)
-        ..followTools(tools, activity: () => activity);
-    });
-    tearDown(() => tips.dispose());
-
-    testWidgets('hold to snap: after a shape, once the pen rests', (tester) async {
-      tips.shapeDrawn();
-      await tester.pump(const Duration(seconds: 1));
-      activity++; // Writing on.
-      await tester.pump(TipsController.calmFor);
-      expect(tips.value, isNull, reason: 'never while writing');
-      expect(tips.wantsShapes, isTrue);
-      tips.shapeDrawn();
-      await tester.pump(TipsController.calmFor);
-      expect(tips.value?.tip, EditorTip.holdToSnap);
-      expect(tips.wantsShapes, isFalse);
-      tips.dismiss();
-      tips.shapeDrawn();
-      await tester.pump(TipsController.calmFor);
-      expect(tips.value, isNull, reason: 'once');
-    });
-
-    testWidgets('hold to snap: not while it is off', (tester) async {
-      tools.holdToStraighten = false;
-      tips.shapeDrawn();
-      await tester.pump(TipsController.calmFor);
-      expect(tips.value, isNull);
-      expect(seen, isEmpty);
-    });
-
-    test('scribble to erase: the second time the eraser is picked, if on', () {
-      tools.tool = EditorTool.eraser;
-      expect(tips.value, isNull);
-      tools.tool = EditorTool.pen;
-      tools.tool = EditorTool.eraser;
-      expect(tips.value?.tip, EditorTip.scribble);
-      expect(tips.value?.text, 'Or scribble over ink with the pen to erase it');
-    });
-
-    test('scribble to erase: no tip while it is off', () {
-      tools.scribbleToErase = false;
-      for (var i = 0; i < 3; i++) {
-        tools
-          ..tool = EditorTool.eraser
-          ..tool = EditorTool.pen;
-      }
-      expect(tips.value, isNull);
-      expect(seen, isEmpty);
-    });
-  });
-
   testWidgets('in the editor: Settings → Writing drives the pen; a ruled line teaches the hold', (
     tester,
   ) async {
@@ -154,6 +92,8 @@ void main() {
     await tester.pump(TipsController.calmFor);
     await tester.pumpAndSettle();
     expect(find.text(tip), findsOneWidget);
+    await tester.pump(TipsController.visibleFor);
+    await tester.pumpAndSettle();
     await closeEditor(tester);
   });
 }

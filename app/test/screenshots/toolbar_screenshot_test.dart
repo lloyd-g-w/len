@@ -168,10 +168,9 @@ void main() {
         await settle(tester);
         await shoot(tester, 'toolbar_${shot}_$m', crop: topRect(tester));
         if (shot == 'lasso') {
-          // Nothing to set: picking it shows a one-time tip instead.
+          // Nothing to set: picking it shows a one-time tip instead (it
+          // goes with the next tool).
           await shoot(tester, 'tip_lasso_$m');
-          await tester.tap(find.byTooltip('Dismiss tip'));
-          await settle(tester);
           continue;
         }
         await tester.tap(find.byTooltip(tooltip));

@@ -10,6 +10,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/paper_pattern.dart';
 import 'package:len/features/documents/templates/user_templates.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
+import 'package:len/features/editor/chrome/editor_tips.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
@@ -137,7 +138,7 @@ void main() {
         await shoot(tester, 'e_snack_last_page_phone_${mode.name}');
         ScaffoldMessenger.of(tester.element(find.byType(EditorScreen))).removeCurrentSnackBar();
         await settle(tester);
-        // The first pen stroke: "Stylus detected" and the pen-button tip.
+        // The first pen stroke: "Stylus detected" (no tip after it).
         final pen = await tester.startGesture(
           const Offset(120, 420),
           kind: PointerDeviceKind.stylus,
@@ -185,6 +186,7 @@ void main() {
         await pen.moveTo(Offset(120 + i * 10.0, 520 + (i.isEven ? 6 : -6)));
       }
       await pen.up();
+      await tester.pump(TipsController.calmFor); // The tip waits for the pen to rest.
       await settle(tester);
       await shoot(tester, 'e_tip_pen_button_phone_dark');
       await tester.pump(const Duration(seconds: 11));

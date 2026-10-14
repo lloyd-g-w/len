@@ -148,6 +148,12 @@ class SettingsRepository {
   Set<String> get seenTips => {...?_get('tips_seen')?.split(',').where((id) => id.isNotEmpty)};
   void markTipSeen(String id) => _set('tips_seen', {...seenTips, id}.join(','));
 
+  /// When the editor last showed a tip (ms since the epoch), so tips keep
+  /// their distance across notebook openings; null = never.
+  int? get lastTipAt => int.tryParse(_get('last_tip_at') ?? '');
+  set lastTipAt(int? value) =>
+      value == null ? _remove('last_tip_at') : _set('last_tip_at', '$value');
+
   /// Centre of the floating toolbar as a fraction of the editor size
   /// (x, y in 0..1); null = not placed yet.
   (double, double)? get toolbarFloat {

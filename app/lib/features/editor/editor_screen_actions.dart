@@ -3,30 +3,16 @@ part of 'editor_screen.dart';
 /// Events and commands of the editor (those that call `setState` or are
 /// torn off as listeners stay in [_EditorScreenState]).
 extension _EditorActions on _EditorScreenState {
-  void _offerTip(EditorTip tip) => _tips.offerFor(tip, _services.preferences);
-
+  /// The first stylus contact in this editor. The first ever turns finger
+  /// drawing off, with a message; later ones offer the side-button tip (it
+  /// never follows the message: one teaching moment per opening).
   void _onStylusDetected() {
-    if (_session.tools.stylusOnly != null) return _offerTip(EditorTip.penButton);
+    if (_session.tools.stylusOnly != null) return _tips.offer(EditorTip.penButton);
     _setStylusOnly(true);
-    // The side-button tip waits for the message, rather than both at once.
-    final messenger = ScaffoldMessenger.maybeOf(context)?..removeCurrentSnackBar();
-    final shown = messenger == null
-        ? null
-        : MessageQueue.show(
-            messenger,
-            appSnackBar(
-              context,
-              'Stylus detected: fingers now pan and zoom',
-              action: SnackBarAction(
-                label: 'Keep finger drawing',
-                onPressed: () => _setStylusOnly(false),
-              ),
-            ),
-          );
-    unawaited(
-      (shown?.closed ?? Future<void>.value()).then((_) {
-        if (mounted && !_closing) _offerTip(EditorTip.penButton);
-      }),
+    showMessage(
+      context,
+      'Stylus detected: fingers now pan and zoom',
+      action: SnackBarAction(label: 'Keep finger drawing', onPressed: () => _setStylusOnly(false)),
     );
   }
 
