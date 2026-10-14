@@ -183,6 +183,31 @@ void main() {
     },
   );
 
+  test('restored under its own id, a notebook beats its deletion here, even one stamped later '
+      '(another device\'s clock ahead)', () async {
+    final bytes = await backup();
+    final diary = source.notebooks.list().singleWhere((n) => n.title == 'Diary');
+    final page = source.pages.pagesOf(diary.id).single.id;
+    source.notebooks.delete(diary.id);
+    final db = source.pages.db;
+    final ahead = DateTime.now().millisecondsSinceEpoch + 3600 * 1000;
+    for (final table in ['notebooks', 'pages', 'strokes']) {
+      db.execute('UPDATE $table SET updated_at = ? WHERE deleted = 1', [ahead]);
+    }
+
+    final from = await open(source, bytes);
+    await source.lenFiles.import(
+      from,
+      keepIds: true,
+      skip: source.lenFiles.present(await open(source, bytes)).keys.toSet(),
+    );
+    int version(String table, String id) =>
+        db.select('SELECT updated_at FROM $table WHERE id = ?', [id]).single['updated_at'] as int;
+    expect(version('notebooks', diary.id), greaterThan(ahead));
+    expect(version('pages', page), greaterThan(ahead));
+    expect(version('strokes', 'ink-Diary'), greaterThan(ahead));
+  });
+
   test('undo puts a restore in the Trash, its folders away', () async {
     final bytes = await backup();
     notebook(target, 'Mine');
