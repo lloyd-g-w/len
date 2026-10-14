@@ -140,6 +140,14 @@ class SettingsRepository {
   String? get pageFlow => _get('page_flow');
   set pageFlow(String? value) => value == null ? _remove('page_flow') : _set('page_flow', value);
 
+  /// Whether infinite canvases show the minimap (default: no).
+  bool get canvasMinimap => _get('canvas_minimap') == 'true';
+  set canvasMinimap(bool value) => _set('canvas_minimap', '$value');
+
+  /// Whether the minimap stays in focus mode (default: no).
+  bool get minimapInFocus => _get('minimap_in_focus') == 'true';
+  set minimapInFocus(bool value) => _set('minimap_in_focus', '$value');
+
   /// Where the editor toolbar sits (default: docked).
   /// The zoom window's box docks at the top (left-handed writing).
   bool get zoomBoxAtTop => _get('zoom_box_top') == 'true';

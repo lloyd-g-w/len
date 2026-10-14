@@ -8,6 +8,7 @@ import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/group_header.dart';
 import '../../../ui/menus.dart';
+import '../canvas/canvas_shortcuts.dart';
 import '../document/document_layout.dart';
 import '../document/page_fit.dart';
 import '../document/page_overview.dart';
@@ -180,6 +181,14 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           onPressed: a.onZoomWindow,
           child: const Text('Zoom window'),
         ),
+        if (a.minimap case final minimap?)
+          MenuItemButton(
+            leadingIcon: const Icon(Symbols.map_sharp),
+            trailingIcon: _MenuSwitch(value: minimap),
+            shortcut: Targets.touchFirst ? null : minimapShortcut,
+            onPressed: a.onMinimap,
+            child: const Text('Minimap'),
+          ),
         _item(
           Symbols.fullscreen_sharp,
           'Focus mode',

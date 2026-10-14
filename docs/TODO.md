@@ -38,8 +38,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   again within that time keeps everything showing (nothing fades between strokes).
 
 ## Infinite canvas
-- 🚧 (feat/minimap) **Minimap, polished**: shows roughly where content is, the current view, tap / drag to
-  move; minimal, toggleable.
+- ✅ **Minimap, polished** (feat/minimap): shows roughly where content is, the current view,
+  tap / drag to move, pinch / scroll to zoom; ⋯ → View → Minimap (Shift+M); steps aside while
+  writing and in focus mode unless kept there.
 
 ## Input
 - 🚧 (feat/ink-engine) **Mouse strokes zoomed out are squiggly (web and Linux)**: mouse ink at low zoom must be
