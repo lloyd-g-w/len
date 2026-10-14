@@ -209,7 +209,7 @@ class EditorChromeHost extends StatelessWidget {
   Widget? _missingPdfNotice() {
     final doc = session.doc;
     final commands = session.commands;
-    final backgrounds = session.backgrounds;
+    final backgrounds = session.pdfBackgrounds;
     if (doc == null || commands == null || backgrounds == null) return null;
     return Builder(
       builder: (context) => MissingPdfNotice(

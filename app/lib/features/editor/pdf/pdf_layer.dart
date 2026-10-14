@@ -204,7 +204,7 @@ class _PdfLayerState extends State<PdfLayer> {
   void _preload() {
     final doc = _pdf.doc;
     for (final i in doc.layout.visiblePages(doc.viewport.visibleWorld)) {
-      final bg = doc.pages[i].background;
+      final bg = doc.pages[i].pdf;
       if (bg != null) _pdf.info.isLoaded(bg.blob, bg.pageIndex);
     }
   }

@@ -168,7 +168,7 @@ class _ExportSheetState extends State<ExportSheet> {
     final selection = _selection;
     final options = _options();
     final selected = selection.pages ?? const <int>[];
-    final hasBackground = selected.any((i) => widget.pages[i].background != null);
+    final kinds = {for (final i in selected) ?widget.pages[i].background?.kind};
     final body = SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(Gaps.xl, Gaps.sm, Gaps.xl, Gaps.xl),
       child: Column(
@@ -196,7 +196,7 @@ class _ExportSheetState extends State<ExportSheet> {
           ],
           if (_format != ExportFormat.len) ...[
             const SizedBox(height: Gaps.xl),
-            ExportSection(title: 'Include', children: _includes(hasBackground)),
+            ExportSection(title: 'Include', children: _includes(kinds)),
           ],
         ],
       ),
@@ -250,17 +250,27 @@ class _ExportSheetState extends State<ExportSheet> {
     );
   }
 
-  List<Widget> _includes(bool hasBackground) => [
+  List<Widget> _includes(Set<PageBackgroundKind> kinds) => [
     _switch(
       widget.canvas ? 'Background' : 'Templates',
       _templates ? 'Lines, grid or dots and paper colour' : 'Plain white paper',
       _templates,
       (v) => _templates = v,
     ),
-    if (hasBackground)
+    if (kinds.isNotEmpty)
       _switch(
-        'PDF backgrounds',
-        _backgrounds ? 'Imported PDF pages under your notes' : 'Only your notes',
+        switch (kinds.length) {
+          2 => 'Backgrounds',
+          _ => kinds.single == PageBackgroundKind.pdf ? 'PDF backgrounds' : 'Scans',
+        },
+        !_backgrounds
+            ? 'Only your notes'
+            : switch (kinds.length) {
+                2 => 'PDF pages and scans under your notes',
+                _ when kinds.single == PageBackgroundKind.pdf =>
+                  'Imported PDF pages under your notes',
+                _ => 'Scanned pages under your notes',
+              },
         _backgrounds,
         (v) => _backgrounds = v,
       ),

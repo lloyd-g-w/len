@@ -62,6 +62,7 @@ class NotebookExporter {
           _copier.loadAll(page.id),
           elements: _copier.loadAllElements(page.id),
           background: backgrounds ? await _exportBackground(page, sources, report) : null,
+          image: backgrounds ? await _imageBackground(page, report) : null,
         ),
       );
     }
@@ -80,7 +81,7 @@ class NotebookExporter {
     PdfPageSources sources,
     ExportReport? report,
   ) async {
-    final bg = page.background;
+    final bg = page.pdf;
     if (bg == null) return null;
     if (!await services.sync.fetchBlob(bg.blob)) {
       report?.missingBackgrounds++;
@@ -94,8 +95,17 @@ class NotebookExporter {
     );
   }
 
+  /// The blob of [page]'s image background (a scan), if it can be had.
+  Future<String?> _imageBackground(NotebookPage page, ExportReport? report) async {
+    final bg = page.background;
+    if (bg == null || bg.isPdf) return null;
+    if (await services.sync.fetchBlob(bg.blob)) return bg.blob;
+    report?.missingBackgrounds++;
+    return null;
+  }
+
   /// A PNG of [page] at [scale] pixels per page unit (2 ≈ 192 dpi);
-  /// without [backgrounds], an imported PDF page is left out (an image
+  /// without [backgrounds], an imported PDF page or scan is left out (an image
   /// template stays: it is the page's paper). [report] collects what was
   /// left out.
   Future<Uint8List> png(
@@ -230,6 +240,10 @@ class NotebookExporter {
       return (await services.images.load(image, pixelWidth))?.clone();
     }
     if (bg == null || !await services.sync.fetchBlob(bg.blob)) return null;
+    if (!bg.isPdf) {
+      final image = ImageData(blob: bg.blob, width: 0, height: 0);
+      return (await services.images.load(image, pixelWidth))?.clone();
+    }
     return _renderer.render(bg.blob, bg.pageIndex, pixelWidth.round());
   }
 

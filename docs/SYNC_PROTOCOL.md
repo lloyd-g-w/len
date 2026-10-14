@@ -453,6 +453,8 @@ wrong type makes the record malformed. Example: `{"look": {"spacing": 5, "lineWe
 upper-case hex digits).
 
 - `bookmarked`: whether the page is bookmarked.
-- `background`: `null`, or `{"type": "pdf", "blob": "<sha256>", "page": <int ≥ 0>}`, which renders
-  page `page` (0-based) of the PDF stored as blob `<sha256>` behind the strokes. Any other value
-  makes the record malformed.
+- `background`: `null`, `{"type": "pdf", "blob": "<sha256>", "page": <int ≥ 0>}`, which renders
+  page `page` (0-based) of the PDF stored as blob `<sha256>` behind the strokes, or
+  `{"type": "image", "blob": "<sha256>"}`, which stretches the image (PNG, JPEG or WebP; a scanned
+  document) stored as blob `<sha256>` over the whole page. Any other value makes the record
+  malformed.

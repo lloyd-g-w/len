@@ -14,6 +14,7 @@ class ExportPage {
     this.strokes, {
     this.elements = const [],
     this.background,
+    this.image,
     this.worldOrigin,
   });
 
@@ -31,6 +32,9 @@ class ExportPage {
 
   /// The imported PDF page behind everything, if any.
   final ExportBackground? background;
+
+  /// The blob of the image behind everything (a scan), if any.
+  final String? image;
 }
 
 /// An imported PDF page to export behind a page's content: copied from
