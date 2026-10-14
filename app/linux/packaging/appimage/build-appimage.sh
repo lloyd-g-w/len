@@ -57,8 +57,14 @@ cp "$appdir/share/icons/hicolor/256x256/apps/dev.len.len.png" "$appdir/"
 ln -s dev.len.len.png "$appdir/.DirIcon"
 mkdir -p "$appdir/usr"
 ln -s ../share "$appdir/usr/share"
-# appimagetool validates AppStream metadata under this (older) name only.
+# AppImage tools look for AppStream metadata under this (older) name.
 ln -s dev.len.len.metainfo.xml "$appdir/share/metainfo/dev.len.len.appdata.xml"
 
+# appimagetool's own check fetches the screenshot URLs (flaky in CI, and they
+# exist only once on main): validate offline here, and skip its check.
+if command -v appstreamcli >/dev/null; then
+  appstreamcli validate --no-net "$appdir/share/metainfo/dev.len.len.metainfo.xml"
+fi
 # No FUSE needed: the tool AppImage runs extracted.
-ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$tool" --runtime-file "$runtime" "$@" "$appdir" "$out"
+ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$tool" --no-appstream --runtime-file "$runtime" \
+  "$@" "$appdir" "$out"
