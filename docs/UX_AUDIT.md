@@ -27,7 +27,7 @@ Menu key), the focus ring (DESIGN §6) the only cue. Tests:
 - Escape from any chrome control returns to the page; menus and popovers
   opened from the keyboard give focus back to their opener.
 - Open: reordering overview pages by keyboard (drag only; the page menu's
-  Move to… covers it).
+  Move or copy page… covers it).
 
 ## Round 9 audit — simplicity (`review/round9`)
 
