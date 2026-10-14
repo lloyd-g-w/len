@@ -137,13 +137,13 @@ check. *Fix:* say so and point at installing Len or sync. Paths:
 back as "The server didn’t accept the access token". *Fix:* "Enter the
 access token" locally. Paths: `settings/sync_settings.dart:127-149`. Effort S.
 
-**R10-16 P2 · Restore from a damaged file says "Couldn’t import".** ⬜
+**R10-16 P2 · Restore from a damaged file says "Couldn’t import".** ✅
 The restore intent is only known after the manifest is read. *Fix:* the
 Settings tile passes the intent, so failures say "Couldn’t restore".
 Paths: `backup/len_import_flow.dart:190-250`. Effort S.
 
 **R10-17 P2 · Opening a big backup shows nothing, and the tile can be
-tapped again.** ⬜ `lenFiles.open` (which reads the contents) runs before
+tapped again.** ⬜ (half done: the Settings tile waits while a restore runs; the progress dialog still opens only after the file is read) `lenFiles.open` (which reads the contents) runs before
 the progress dialog. *Fix:* open inside the progress dialog; guard the
 flow against running twice. Paths: `backup/len_import_flow.dart:190-208`.
 Effort M.

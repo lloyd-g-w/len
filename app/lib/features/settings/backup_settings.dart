@@ -48,6 +48,19 @@ class BackupSettings extends StatefulWidget {
 class _BackupSettingsState extends State<BackupSettings> {
   late final AppServices _services = AppScope.read(context);
 
+  /// A restore is running: its tile waits (opening a big file takes a
+  /// while, and a second tap would start a second restore).
+  bool _restoring = false;
+
+  Future<void> _restore() async {
+    setState(() => _restoring = true);
+    try {
+      await importLenFlow(context, restore: true);
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
+
   Future<void> _backUp() async {
     await backupLibraryFlow(context);
     if (mounted) setState(() {}); // The last backup changed.
@@ -82,7 +95,7 @@ class _BackupSettingsState extends State<BackupSettings> {
           icon: Symbols.settings_backup_restore_sharp,
           title: 'Restore from backup…',
           subtitle: 'Brings back a Len backup; nothing here is replaced',
-          onTap: () => unawaited(importLenFlow(context)),
+          onTap: _restoring ? null : () => unawaited(_restore()),
         ),
       ],
     );
