@@ -33,7 +33,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   undo step. Single-page flow keeps per-page selections
 - ✅ Shapes: draw-and-hold to snap, in place (line, arrow, rectangle, ellipse, triangle, diamond,
   polygon; handwriting and small letters never snap); Shape tool (line, arrow, rectangle, ellipse,
-  triangle, diamond, star) with a live preview from the press to the pointer (Shift: square / 15°)
+  triangle, diamond, star) with a live preview from the press to the pointer (Shift: regular shapes / 15° lines)
 - ✅ Editable shapes: a selected shape (drawn or snapped) shows its control points — ends, corners,
   vertices, ellipse bounds, star points and inner radius — to drag; one undo step, fill kept,
   synced (`style.sh`)
