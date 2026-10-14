@@ -41,6 +41,7 @@ class StrokeStyle {
     this.taperEnd = 0,
     this.startPhase = 0,
     this.cutEnd = false,
+    this.fill,
   });
 
   /// Overall ink opacity, 0..1 (the stroke colour itself is stored opaque).
@@ -80,6 +81,11 @@ class StrokeStyle {
   /// trimmed.
   final bool cutEnd;
 
+  /// The fill colour (ARGB, alpha included: tints are translucent) of a
+  /// closed shape ([Stroke.isClosed]), painted beneath its outline; null
+  /// for no fill (all other ink).
+  final int? fill;
+
   /// The longest taper ([taperStart], [taperEnd]), in widths.
   static const double maxTaper = 24;
 
@@ -110,6 +116,21 @@ class StrokeStyle {
     taperEnd: taperEnd ?? this.taperEnd,
     startPhase: startPhase ?? this.startPhase,
     cutEnd: cutEnd ?? this.cutEnd,
+    fill: fill,
+  );
+
+  /// This style with fill colour [argb] (null: no fill).
+  StrokeStyle withFill(int? argb) => StrokeStyle(
+    opacity: opacity,
+    thinning: thinning,
+    streamline: streamline,
+    unit: unit,
+    ends: ends,
+    taperStart: taperStart,
+    taperEnd: taperEnd,
+    startPhase: startPhase,
+    cutEnd: cutEnd,
+    fill: argb,
   );
 
   /// Compact JSON for storage and sync.
@@ -122,13 +143,14 @@ class StrokeStyle {
     if (ends == StrokeEnds.tapered) ...{'ts': taperStart, 'te': taperEnd},
     if (startPhase > 0) 'cs': startPhase,
     if (cutEnd) 'ce': true,
+    if (fill != null) 'f': fill,
   };
 
   /// Parses [json] strictly: `o`, `th` and `sl` are required, in 0..1;
   /// `u` is omitted when 0; `e` (ends) is required, and with `taper` so are
   /// `ts` and `te` (0..[maxTaper]), which are absent otherwise; `cs`
   /// ([startPhase], 0 < cs ≤ 1) and `ce` ([cutEnd], `true`) only for cut
-  /// ends. Throws
+  /// ends; `f` ([fill], an ARGB integer) only for filled shapes. Throws
   /// [FormatException] when malformed. Unknown fields are ignored.
   static StrokeStyle fromJson(Object? json) {
     if (json is! Map) throw const FormatException('Malformed stroke style');
@@ -150,6 +172,10 @@ class StrokeStyle {
     }
     final cutEnd = json['ce'];
     if (cutEnd != null && cutEnd != true) throw const FormatException('Malformed stroke style: ce');
+    final fill = json['f'];
+    if (fill != null && (fill is! int || fill < 0 || fill > 0xFFFFFFFF)) {
+      throw const FormatException('Malformed stroke style: f');
+    }
     return StrokeStyle(
       opacity: read('o', 1, required: true),
       thinning: read('th', 1, required: true),
@@ -160,6 +186,7 @@ class StrokeStyle {
       taperEnd: tapered ? read('te', maxTaper, required: true) : 0,
       startPhase: phase,
       cutEnd: cutEnd == true,
+      fill: fill as int?,
     );
   }
 
@@ -174,7 +201,8 @@ class StrokeStyle {
       other.taperStart == taperStart &&
       other.taperEnd == taperEnd &&
       other.startPhase == startPhase &&
-      other.cutEnd == cutEnd;
+      other.cutEnd == cutEnd &&
+      other.fill == fill;
 
   @override
   int get hashCode => Object.hash(
@@ -187,6 +215,7 @@ class StrokeStyle {
     taperEnd,
     startPhase,
     cutEnd,
+    fill,
   );
 
   @override
