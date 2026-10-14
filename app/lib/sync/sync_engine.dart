@@ -7,6 +7,7 @@ import '../data/deletion_conflicts.dart';
 import '../data/element_repository.dart';
 import '../data/folder_repository.dart';
 import '../data/notebook_repository.dart';
+import '../data/notebook_style_repository.dart';
 import '../data/outline_repository.dart';
 import '../data/page_repository.dart';
 import '../data/recognised_text_repository.dart';
@@ -43,6 +44,7 @@ class SyncEngine {
     required this.elements,
     required this.recordings,
     required this.templates,
+    required this.notebookStyles,
     required this.outline,
     required this.recognisedText,
   });
@@ -63,6 +65,9 @@ class SyncEngine {
 
   /// The user's own templates (their images travel as blobs).
   final TemplateRepository templates;
+
+  /// The user's notebook styles.
+  final NotebookStyleRepository notebookStyles;
 
   /// Notebooks' own outlines.
   final OutlineRepository outline;
@@ -119,6 +124,7 @@ class SyncEngine {
     for (final s in <SyncableStore>[
       folders,
       templates,
+      notebookStyles,
       notebooks,
       pages,
       outline,
